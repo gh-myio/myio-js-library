@@ -1766,15 +1766,14 @@ body.filter-modal-open { overflow: hidden !important; }
       }
 
       // Try to find by partial match on title/customerName
-      for (const [cid, c] of countsByCustomer.entries()) {
-        // Check if any device has customerName matching card title
-        const matchByName = [...countsByCustomer.keys()].find((key) => {
-          return card.title && key.toLowerCase().includes(card.title.toLowerCase());
-        });
-        if (matchByName) {
-          logDebug(`Matched ${card.title} to customer ${matchByName}`);
-          return { ...card, deviceCounts: countsByCustomer.get(matchByName), customerId: matchByName };
-        }
+      // RFC-0111 FIX: Ensure key is a string before calling toLowerCase
+      const matchByName = [...countsByCustomer.keys()].find((key) => {
+        if (!card.title || typeof key !== 'string') return false;
+        return key.toLowerCase().includes(card.title.toLowerCase());
+      });
+      if (matchByName) {
+        logDebug(`Matched ${card.title} to customer ${matchByName}`);
+        return { ...card, deviceCounts: countsByCustomer.get(matchByName), customerId: matchByName };
       }
 
       logDebug(`No counts found for ${card.title}`);
@@ -2880,6 +2879,293 @@ window.MyIOOrchestrator.getCache = function (cacheKey) {
 
   return cache;
 };
+
+// ===================================================================
+// RFC-0111: API Enrichment - Fetch consumption totals from ingestion API
+// ===================================================================
+
+/**
+ * Get default period for API calls (today by default)
+ * Returns ISO strings for startTime and endTime
+ */
+function getDefaultPeriod() {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  return {
+    startISO: startOfDay.toISOString(),
+    endISO: endOfDay.toISOString(),
+    granularity: 'day',
+  };
+}
+
+/**
+ * RFC-0111: Enrich devices with consumption data from ingestion API
+ * Calls /api/v1/telemetry/customers/{customerId}/{domain}/devices/totals
+ * and matches results by ingestionId
+ *
+ * @param {Object} classified - Classified devices object from classifyAllDevices
+ * @param {Function} logDebug - Debug logging function
+ * @returns {Promise<Object>} - Enriched classified devices
+ */
+async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
+  const utils = window.MyIOUtils;
+  const lib = window.MyIOLibrary;
+
+  if (!utils || !lib) {
+    console.warn('[MAIN_UNIQUE] MyIOUtils or MyIOLibrary not available for enrichment');
+    return classified;
+  }
+
+  // Get credentials
+  const creds = utils.getCredentials?.();
+  if (!creds || !creds.clientId || !creds.clientSecret || !creds.customerId) {
+    console.warn('[MAIN_UNIQUE] Missing credentials for API enrichment');
+    return classified;
+  }
+
+  const { clientId, clientSecret, customerId, dataApiHost } = creds;
+  logDebug('Starting API enrichment with customerId:', customerId);
+
+  // Create MyIOAuth instance
+  let myIOAuth;
+  try {
+    myIOAuth = lib.buildMyioIngestionAuth({
+      dataApiHost: dataApiHost || 'https://api.data.apps.myio-bas.com',
+      clientId: clientId,
+      clientSecret: clientSecret,
+    });
+  } catch (err) {
+    console.error('[MAIN_UNIQUE] Failed to create MyIOAuth:', err);
+    return classified;
+  }
+
+  // Get token
+  let token;
+  try {
+    token = await myIOAuth.getToken();
+    if (!token) {
+      console.warn('[MAIN_UNIQUE] Failed to get ingestion token');
+      return classified;
+    }
+  } catch (err) {
+    console.error('[MAIN_UNIQUE] Token fetch error:', err);
+    return classified;
+  }
+
+  const period = getDefaultPeriod();
+
+  // Build ingestionId maps for each domain (for quick lookup)
+  const energyIngestionMap = new Map();
+  const waterIngestionMap = new Map();
+
+  // Collect all energy devices
+  Object.values(classified.energy || {}).forEach((devices) => {
+    devices.forEach((device) => {
+      if (device.ingestionId) {
+        energyIngestionMap.set(device.ingestionId, device);
+      }
+    });
+  });
+
+  // Collect all water devices
+  Object.values(classified.water || {}).forEach((devices) => {
+    devices.forEach((device) => {
+      if (device.ingestionId) {
+        waterIngestionMap.set(device.ingestionId, device);
+      }
+    });
+  });
+
+  logDebug(`Energy devices with ingestionId: ${energyIngestionMap.size}`);
+  logDebug(`Water devices with ingestionId: ${waterIngestionMap.size}`);
+
+  // Fetch and enrich energy domain
+  if (energyIngestionMap.size > 0) {
+    try {
+      const energyUrl = new URL(
+        `${dataApiHost}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`
+      );
+      energyUrl.searchParams.set('startTime', period.startISO);
+      energyUrl.searchParams.set('endTime', period.endISO);
+      energyUrl.searchParams.set('deep', '1');
+
+      logDebug('Fetching energy totals from:', energyUrl.toString());
+
+      const res = await fetch(energyUrl.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const rows = Array.isArray(json) ? json : json?.data ?? [];
+
+        logDebug(`Energy API returned ${rows.length} rows`);
+
+        // Match by ingestionId and update consumption
+        let matchCount = 0;
+        for (const row of rows) {
+          const apiId = row.id; // ingestionId from API
+          const device = energyIngestionMap.get(apiId);
+          if (device) {
+            const consumptionValue = Number(row.total_value || 0);
+            device.consumption = consumptionValue;
+            device.val = consumptionValue;
+            device.apiEnriched = true;
+            matchCount++;
+          }
+        }
+
+        logDebug(`Energy enrichment: matched ${matchCount}/${rows.length} API rows`);
+      } else {
+        console.warn(`[MAIN_UNIQUE] Energy API error: ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[MAIN_UNIQUE] Energy enrichment failed:', err);
+    }
+  }
+
+  // Fetch and enrich water domain
+  if (waterIngestionMap.size > 0) {
+    try {
+      const waterUrl = new URL(
+        `${dataApiHost}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
+      );
+      waterUrl.searchParams.set('startTime', period.startISO);
+      waterUrl.searchParams.set('endTime', period.endISO);
+      waterUrl.searchParams.set('deep', '1');
+
+      logDebug('Fetching water totals from:', waterUrl.toString());
+
+      const res = await fetch(waterUrl.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const rows = Array.isArray(json) ? json : json?.data ?? [];
+
+        logDebug(`Water API returned ${rows.length} rows`);
+
+        // Match by ingestionId and update consumption
+        let matchCount = 0;
+        for (const row of rows) {
+          const apiId = row.id; // ingestionId from API
+          const device = waterIngestionMap.get(apiId);
+          if (device) {
+            const consumptionValue = Number(row.total_value || row.total_volume || row.total_pulses || 0);
+            device.consumption = consumptionValue;
+            device.val = consumptionValue;
+            device.pulses = consumptionValue; // For water, also set pulses
+            device.apiEnriched = true;
+            matchCount++;
+          }
+        }
+
+        logDebug(`Water enrichment: matched ${matchCount}/${rows.length} API rows`);
+      } else {
+        console.warn(`[MAIN_UNIQUE] Water API error: ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[MAIN_UNIQUE] Water enrichment failed:', err);
+    }
+  }
+
+  // Note: Temperature does not need API enrichment - it uses real-time ThingsBoard data
+
+  return classified;
+}
+
+// RFC-0111: Guard to prevent multiple API enrichment calls
+let _apiEnrichmentDone = false;
+let _apiEnrichmentInProgress = false;
+
+/**
+ * RFC-0111: Trigger API enrichment after initial classification
+ * This is called asynchronously so it doesn't block the initial render
+ */
+async function triggerApiEnrichment() {
+  const logDebug = self._logDebug || (() => {});
+
+  // Guard: Only run once
+  if (_apiEnrichmentDone || _apiEnrichmentInProgress) {
+    logDebug('API enrichment already done or in progress, skipping');
+    return;
+  }
+
+  // Wait for credentials to be set
+  const utils = window.MyIOUtils;
+  if (!utils?.getCredentials) {
+    logDebug('Waiting for credentials to be available...');
+    // Retry after 1 second
+    setTimeout(triggerApiEnrichment, 1000);
+    return;
+  }
+
+  const creds = utils.getCredentials();
+  if (!creds?.clientId || !creds?.clientSecret || !creds?.customerId) {
+    logDebug('Credentials not yet available, retrying...');
+    setTimeout(triggerApiEnrichment, 1000);
+    return;
+  }
+
+  // Set in-progress flag
+  _apiEnrichmentInProgress = true;
+  logDebug('Credentials available, starting API enrichment');
+
+  // Get current classified data
+  const classified = window.MyIOOrchestratorData?.classified;
+  if (!classified) {
+    logDebug('No classified data available for enrichment');
+    _apiEnrichmentInProgress = false;
+    return;
+  }
+
+  try {
+    // Enrich with API data
+    const enriched = await enrichDevicesWithConsumption(classified, logDebug);
+
+    // Update cache
+    window.MyIOOrchestratorData.classified = enriched;
+    window.MyIOOrchestratorData.apiEnrichedAt = Date.now();
+
+    logDebug('API enrichment complete, dispatching updated event');
+
+    // Dispatch enriched data event
+    window.dispatchEvent(
+      new CustomEvent('myio:data-enriched', {
+        detail: {
+          classified: enriched,
+          timestamp: Date.now(),
+        },
+      })
+    );
+
+    // Also recalculate device counts and update welcome modal
+    const deviceCounts = calculateDeviceCounts(enriched);
+    window.dispatchEvent(
+      new CustomEvent('myio:data-ready', {
+        detail: {
+          classified: enriched,
+          deviceCounts,
+          timestamp: Date.now(),
+          apiEnriched: true,
+        },
+      })
+    );
+
+    // Mark as done
+    _apiEnrichmentDone = true;
+  } catch (err) {
+    console.error('[MAIN_UNIQUE] API enrichment error:', err);
+  } finally {
+    _apiEnrichmentInProgress = false;
+  }
+}
+
+// Start API enrichment after a short delay (to allow credentials to load)
+setTimeout(triggerApiEnrichment, 2000);
 
 self.onDestroy = function () {
   // Cleanup
