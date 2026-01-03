@@ -260,6 +260,18 @@ export class WelcomeModalView {
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* CSS Reset to isolate modal from parent styles */
+.myio-welcome-modal,
+.myio-welcome-modal *,
+.myio-welcome-modal *::before,
+.myio-welcome-modal *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .myio-welcome-modal {
   --wm-primary: ${p.primary};
   --wm-secondary: ${p.secondary};
@@ -280,12 +292,18 @@ export class WelcomeModalView {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  font-weight: 400 !important;
   color: var(--wm-ink);
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Modal Container - 90% viewport */
@@ -370,15 +388,15 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-user-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 14px !important;
+  font-weight: 600 !important;
   color: var(--wm-ink);
   letter-spacing: -0.01em;
 }
 
 .myio-welcome-user-email {
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 12px !important;
+  font-weight: 400 !important;
   color: var(--wm-muted);
 }
 
@@ -392,8 +410,8 @@ export class WelcomeModalView {
   border-radius: 8px;
   color: var(--wm-ink);
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -421,21 +439,21 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-hero-title {
-  margin: 0 0 20px 0;
-  font-size: clamp(16px, 3vw, 28px);
-  font-weight: 800;
+  margin: 0 0 20px 0 !important;
+  font-size: clamp(16px, 3vw, 28px) !important;
+  font-weight: 800 !important;
   color: var(--wm-ink);
   letter-spacing: -0.03em;
-  line-height: 1.05;
+  line-height: 1.05 !important;
   text-shadow: 0 4px 30px rgba(0,0,0,0.4);
 }
 
 .myio-welcome-hero-description {
-  margin: 0 0 36px 0;
-  font-size: clamp(15px, 2.5vw, 20px);
-  font-weight: 400;
+  margin: 0 0 36px 0 !important;
+  font-size: clamp(15px, 2.5vw, 20px) !important;
+  font-weight: 400 !important;
   color: var(--wm-muted);
-  line-height: 1.7;
+  line-height: 1.7 !important;
   width: 100%;
   text-align: center;
 }
@@ -444,14 +462,14 @@ export class WelcomeModalView {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 40px;
+  padding: 16px 40px !important;
   background: linear-gradient(135deg, var(--wm-primary) 0%, var(--wm-secondary) 100%);
   border: none;
   border-radius: 12px;
-  color: white;
+  color: white !important;
   font-family: inherit;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 16px !important;
+  font-weight: 700 !important;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
@@ -484,9 +502,9 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-shortcuts-title {
-  margin: 0 0 20px 0;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0 0 20px 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
   color: var(--wm-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -503,14 +521,14 @@ export class WelcomeModalView {
 
 .myio-welcome-card {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 140px;
-  padding: 20px;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  min-height: 140px !important;
+  padding: 20px !important;
   background: var(--wm-card-bg);
   border: 1px solid var(--wm-card-border);
-  border-radius: 16px;
+  border-radius: 16px !important;
   cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   overflow: hidden;
@@ -557,48 +575,48 @@ export class WelcomeModalView {
 .myio-welcome-card-content {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
 }
 
 .myio-welcome-card-title {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  font-weight: 600;
+  margin: 0 0 8px 0 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 .myio-welcome-card-subtitle {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 400;
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
   color: var(--wm-muted);
 }
 
 /* Device Counts Display - Interactive */
 .myio-welcome-card-device-counts {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 4px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-top: 4px !important;
 }
 
 .myio-welcome-card-device-count {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 600;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
   color: var(--wm-muted);
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border-radius: 6px !important;
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
@@ -612,7 +630,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .icon {
-  font-size: 11px;
+  font-size: 11px !important;
 }
 
 .myio-welcome-card-device-count.energy:hover {
@@ -905,11 +923,11 @@ export class WelcomeModalView {
    Above card title - same style as device counts
    ========================================== */
 .myio-welcome-card-meta-counts {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
 }
 
 /* Extend device-count styles for meta types */
