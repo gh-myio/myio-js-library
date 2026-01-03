@@ -1721,59 +1721,70 @@ body.filter-modal-open { overflow: hidden !important; }
 
   /**
    * RFC-0111: Calculate device counts per shopping from classified data
-   * Uses deviceType classification (no name-based inference)
+   * Uses ownerName (shopping name) as the key for matching with shopping cards
    * @param {Object} classified - Classified device data from window.MyIOOrchestratorData
-   * @returns {Map} Map of customerId -> { energy, water, temperature }
+   * @returns {Map} Map of ownerName (normalized) -> { energy, water, temperature }
    */
   const calculateShoppingDeviceCounts = (classified) => {
-    const countsByCustomer = new Map();
+    const countsByOwnerName = new Map();
 
-    // Count devices per domain per customer
+    // Count devices per domain per ownerName (shopping name)
     ['energy', 'water', 'temperature'].forEach((domain) => {
       const domainDevices = classified[domain] || {};
       Object.values(domainDevices).forEach((devices) => {
         devices.forEach((device) => {
-          const customerId = device.customerId || device.ingestionId || 'unknown';
-          if (!countsByCustomer.has(customerId)) {
-            countsByCustomer.set(customerId, { energy: 0, water: 0, temperature: 0 });
+          // RFC-0111 FIX: Use ownerName for matching, normalize to lowercase
+          const ownerName = (device.ownerName || device.customerName || '').toLowerCase().trim();
+          if (!ownerName) return; // Skip devices without ownerName
+
+          if (!countsByOwnerName.has(ownerName)) {
+            countsByOwnerName.set(ownerName, { energy: 0, water: 0, temperature: 0 });
           }
-          countsByCustomer.get(customerId)[domain]++;
+          countsByOwnerName.get(ownerName)[domain]++;
         });
       });
     });
 
-    return countsByCustomer;
+    return countsByOwnerName;
   };
 
   /**
    * RFC-0111: Update DEFAULT_SHOPPING_CARDS with real counts from classified data
+   * Matches by shopping card title to device ownerName
    * @param {Object} classified - Classified device data
    * @returns {Array} Updated shopping cards with real device counts
    */
   const updateShoppingCardsWithRealCounts = (classified) => {
-    const countsByCustomer = calculateShoppingDeviceCounts(classified);
+    const countsByOwnerName = calculateShoppingDeviceCounts(classified);
 
-    logDebug('Device counts by customer:', Object.fromEntries(countsByCustomer));
+    logDebug('Device counts by ownerName:', Object.fromEntries(countsByOwnerName));
 
     return DEFAULT_SHOPPING_CARDS.map((card) => {
-      // Try to match by customerId, entityId, or title
-      const customerId = card.customerId || card.entityId;
-      const counts = countsByCustomer.get(customerId);
+      if (!card.title) {
+        logDebug('Card has no title, skipping');
+        return card;
+      }
 
-      if (counts) {
-        logDebug(`Matched counts for ${card.title}:`, counts);
+      const cardTitleNorm = card.title.toLowerCase().trim();
+
+      // 1. Try exact match on normalized title
+      if (countsByOwnerName.has(cardTitleNorm)) {
+        const counts = countsByOwnerName.get(cardTitleNorm);
+        logDebug(`Exact match for ${card.title}:`, counts);
         return { ...card, deviceCounts: counts };
       }
 
-      // Try to find by partial match on title/customerName
-      // RFC-0111 FIX: Ensure key is a string before calling toLowerCase
-      const matchByName = [...countsByCustomer.keys()].find((key) => {
-        if (!card.title || typeof key !== 'string') return false;
-        return key.toLowerCase().includes(card.title.toLowerCase());
+      // 2. Try partial match: ownerName contains card title OR card title contains ownerName
+      const matchByName = [...countsByOwnerName.keys()].find((ownerName) => {
+        if (typeof ownerName !== 'string') return false;
+        // Check both directions for partial match
+        return ownerName.includes(cardTitleNorm) || cardTitleNorm.includes(ownerName);
       });
+
       if (matchByName) {
-        logDebug(`Matched ${card.title} to customer ${matchByName}`);
-        return { ...card, deviceCounts: countsByCustomer.get(matchByName), customerId: matchByName };
+        const counts = countsByOwnerName.get(matchByName);
+        logDebug(`Partial match ${card.title} -> ${matchByName}:`, counts);
+        return { ...card, deviceCounts: counts };
       }
 
       logDebug(`No counts found for ${card.title}`);
@@ -2431,7 +2442,9 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     datasource.entity?.id?.id ||
     null;
 
+  // RFC-0111 FIX: Use entityLabel for label (like MAIN does)
   const deviceName = datasource.entityName || datasource.entity?.name || 'Unknown';
+  const entityLabel = datasource.entityLabel || datasource.entityName || deviceName;
 
   // Build a map of dataKey values AND timestamps from all rows
   const dataKeyValues = {};
@@ -2477,6 +2490,13 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
   // Get connection status
   const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'offline';
   const connectionStatus = window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus) || rawConnectionStatus;
+
+  // RFC-0111 FIX: Get label from dataKey (overrides entityLabel if present)
+  const labelFromDataKey = dataKeyValues['label'] || '';
+  const deviceLabel = labelFromDataKey || entityLabel;
+
+  // RFC-0111 FIX: Get deviceMapInstaneousPower for EQUIPMENTS
+  const deviceMapInstaneousPower = dataKeyValues['deviceMapInstaneousPower'] || dataKeyValues['deviceMapInstantaneousPower'] || '';
 
   // RFC-0110: Get domain-specific telemetry timestamps
   const consumptionTs = dataKeyTimestamps['consumption'] || null;
@@ -2546,9 +2566,11 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     id: entityId,
     entityId: entityId,
 
-    // Names - include both formats for compatibility
+    // RFC-0111 FIX: Names - use deviceLabel for display, keep name for compatibility
     name: deviceName,
-    labelOrName: deviceName, // RFC-0111: Card component expects labelOrName
+    label: deviceLabel, // RFC-0111 FIX: Use proper label (entityLabel or dataKey label)
+    labelOrName: deviceLabel, // RFC-0111 FIX: Card component expects labelOrName
+    entityLabel: entityLabel, // For compatibility
     aliasName: datasource.aliasName || '',
 
     // Device classification
@@ -2560,10 +2582,13 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     identifier: deviceIdentifier,
     deviceIdentifier: deviceIdentifier, // Alias for card component
     centralName: dataKeyValues['centralName'] || '',
+    slaveId: dataKeyValues['slaveId'] || '',
+    centralId: dataKeyValues['centralId'] || '',
 
     // Customer info
     customerId: dataKeyValues['customerId'] || datasource.entity?.customerId?.id || '',
     customerName: dataKeyValues['customerName'] || dataKeyValues['ownerName'] || '',
+    ownerName: dataKeyValues['ownerName'] || '', // RFC-0111 FIX: Expose ownerName separately
 
     // Timestamps
     lastActivityTime: dataKeyValues['lastActivityTime'],
@@ -2572,10 +2597,16 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
 
     // Telemetry values - include both formats for compatibility
     consumption: consumptionValue,
+    consumptionPower: consumptionValue, // RFC-0111 FIX: Alias for EQUIPMENTS
     val: consumptionValue, // RFC-0111: Card component expects val
+    value: consumptionValue, // RFC-0111 FIX: Another alias used by some components
     pulses: dataKeyValues['pulses'],
     temperature: dataKeyValues['temperature'],
     water_level: dataKeyValues['water_level'],
+
+    // RFC-0111 FIX: Power limits for EQUIPMENTS status calculation
+    deviceMapInstaneousPower: deviceMapInstaneousPower,
+    deviceMapInstantaneousPower: deviceMapInstaneousPower, // Alias with correct spelling
 
     // Status - RFC-0110
     connectionStatus: connectionStatus,
@@ -2583,6 +2614,7 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
 
     // RFC-0110: Telemetry timestamps for status calculation
     consumptionTs: consumptionTs,
+    consumptionTimestamp: consumptionTs, // Alias for EQUIPMENTS
     pulsesTs: pulsesTs,
     temperatureTs: temperatureTs,
     waterLevelTs: waterLevelTs,
