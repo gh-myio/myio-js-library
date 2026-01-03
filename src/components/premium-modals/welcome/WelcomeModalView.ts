@@ -326,12 +326,12 @@ export class WelcomeModalView {
 /* Hero Container */
 .myio-welcome-hero {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
-  padding: 30px 40px 16px 40px;
+  padding: 30px 40px 12px 40px;
   background:
     linear-gradient(180deg,
       rgba(122, 47, 247, 0.25) 0%,

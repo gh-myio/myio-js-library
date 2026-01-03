@@ -33,6 +33,7 @@ export class MenuView {
   // State
   private activeTabId: string;
   private contextsByTab: Map<string, string> = new Map();
+  private pendingTabId: string | null = null; // Tab being previewed in modal
 
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
@@ -320,6 +321,24 @@ export class MenuView {
 
 .myio-menu-root .tab.btn-goals:hover {
   opacity: 0.9;
+}
+
+/* Theme Toggle Button */
+.myio-menu-root .tab.btn-theme-toggle {
+  background: var(--menu-tab-inactive-bg);
+  color: var(--menu-tab-inactive-color);
+  border-color: var(--menu-filter-border);
+  padding: 10px 12px;
+  min-width: 44px;
+}
+
+.myio-menu-root .tab.btn-theme-toggle:hover {
+  background: var(--menu-filter-hover);
+}
+
+.myio-menu-root .tab.btn-theme-toggle .theme-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 /* Material Icons in buttons */
@@ -833,6 +852,7 @@ export class MenuView {
           ${this.buildDatePickerHTML()}
           ${showLoad ? this.buildLoadButtonHTML() : ''}
           ${showClear ? this.buildClearButtonHTML() : ''}
+          ${this.buildThemeToggleHTML()}
         </div>
 
         ${this.tabs.map(tab => this.buildContextModalHTML(tab)).join('')}
@@ -1030,6 +1050,18 @@ export class MenuView {
   }
 
   /**
+   * Build Theme Toggle button HTML
+   */
+  private buildThemeToggleHTML(): string {
+    const isDark = this.themeMode === 'dark';
+    return `
+      <button id="menuThemeToggleBtn" class="tab btn-theme-toggle ${isDark ? 'is-dark' : ''}" title="Alternar tema claro/escuro">
+        <span class="theme-icon">${isDark ? '🌙' : '☀️'}</span>
+      </button>
+    `;
+  }
+
+  /**
    * Build Filter Modal HTML
    */
   private buildFilterModalHTML(): string {
@@ -1129,6 +1161,15 @@ export class MenuView {
       clearBtn.addEventListener('click', () => this.emit('clear'));
     }
 
+    // Theme toggle button
+    const themeToggleBtn = this.root.querySelector('#menuThemeToggleBtn');
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        const newMode = this.themeMode === 'light' ? 'dark' : 'light';
+        this.setThemeMode(newMode);
+      });
+    }
+
     // Filter modal close buttons
     this.root.querySelectorAll('#menuFilterModal [data-close]').forEach(btn => {
       btn.addEventListener('click', () => this.closeFilterModal());
@@ -1167,19 +1208,10 @@ export class MenuView {
    * Handle tab click
    */
   private handleTabClick(tabId: string): void {
-    // Update active state for all tabs
-    this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
-      tab.classList.remove('is-active');
-    });
+    // Store the tab being clicked as pending (not yet confirmed)
+    this.pendingTabId = tabId;
 
-    const clickedTab = this.root.querySelector(`#menuTab_${tabId}`);
-    if (clickedTab) {
-      clickedTab.classList.add('is-active');
-    }
-
-    this.activeTabId = tabId;
-
-    // Open context modal for this tab
+    // Open context modal for this tab (don't change active tab yet)
     this.openContextModal(tabId);
   }
 
@@ -1204,11 +1236,17 @@ export class MenuView {
 
   /**
    * Close all context modals
+   * @param confirmed - If true, the user selected a context; if false, cancelled
    */
-  private closeAllContextModals(): void {
+  private closeAllContextModals(confirmed = false): void {
     this.root.querySelectorAll('.myio-menu-context-modal').forEach(modal => {
       modal.classList.remove('is-open');
     });
+
+    // If not confirmed (user closed without selecting), clear pending state
+    if (!confirmed) {
+      this.pendingTabId = null;
+    }
   }
 
   /**
@@ -1220,15 +1258,16 @@ export class MenuView {
 
     // Check if this is a new tab activation
     const isNewTab = this.activeTabId !== tabId;
-    if (isNewTab) {
-      this.activeTabId = tabId;
 
-      // Update tab active states
-      this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
-        const id = (tab as HTMLElement).dataset.tabId;
-        tab.classList.toggle('is-active', id === tabId);
-      });
-    }
+    // Update active tab to the selected one
+    this.activeTabId = tabId;
+    this.pendingTabId = null; // Clear pending state
+
+    // Update tab active states
+    this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
+      const id = (tab as HTMLElement).dataset.tabId;
+      tab.classList.toggle('is-active', id === tabId);
+    });
 
     // Update all tab labels (active shows context, others show only domain)
     this.updateAllTabLabels();
@@ -1242,8 +1281,8 @@ export class MenuView {
       });
     }
 
-    // Close modal
-    this.closeAllContextModals();
+    // Close modal (confirmed = true because user selected a context)
+    this.closeAllContextModals(true);
 
     // Emit events
     this.emit('context-change', { tabId, contextId, target });
@@ -1525,6 +1564,16 @@ export class MenuView {
 
     // Update CSS variables on root
     this.applyDynamicStyles();
+
+    // Update theme toggle button
+    const themeToggleBtn = this.root.querySelector('#menuThemeToggleBtn');
+    if (themeToggleBtn) {
+      const iconEl = themeToggleBtn.querySelector('.theme-icon');
+      if (iconEl) {
+        iconEl.textContent = mode === 'dark' ? '🌙' : '☀️';
+      }
+      themeToggleBtn.classList.toggle('is-dark', mode === 'dark');
+    }
 
     if (this.config.enableDebugMode) {
       console.log('[MenuView] Theme changed to:', mode);
