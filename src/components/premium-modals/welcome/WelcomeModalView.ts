@@ -421,7 +421,7 @@ export class WelcomeModalView {
 
 .myio-welcome-hero-title {
   margin: 0 0 20px 0;
-  font-size: clamp(32px, 6vw, 56px);
+  font-size: clamp(16px, 3vw, 28px);
   font-weight: 800;
   color: var(--wm-ink);
   letter-spacing: -0.03em;
@@ -435,7 +435,8 @@ export class WelcomeModalView {
   font-weight: 400;
   color: var(--wm-muted);
   line-height: 1.7;
-  max-width: 550px;
+  width: 80%;
+  max-width: 80%;
   text-align: center;
 }
 
@@ -721,7 +722,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-hero-title {
-    font-size: 24px;
+    font-size: 18px;
   }
 
   .myio-welcome-hero-description {
@@ -790,7 +791,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-hero-title {
-    font-size: 20px;
+    font-size: 16px;
     margin-bottom: 12px;
   }
 
@@ -1624,7 +1625,9 @@ export class WelcomeModalView {
    * Load user info from params or API
    */
   private async loadUserInfo(): Promise<void> {
-    if (!this.params.showUserMenu) return;
+    // Use same logic as render() to determine if user menu is shown
+    const showUserMenu = this.params.showUserMenu ?? this.config.showUserMenuByDefault ?? true;
+    if (!showUserMenu) return;
 
     const userNameEl = this.container.querySelector('#welcomeUserName');
     const userEmailEl = this.container.querySelector('#welcomeUserEmail');

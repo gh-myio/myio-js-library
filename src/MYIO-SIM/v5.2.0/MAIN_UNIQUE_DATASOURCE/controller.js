@@ -11,54 +11,55 @@ let _onDataUpdatedCallCount = 0;
 const MAX_DATA_UPDATED_CALLS = 4;
 
 // RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
+// Using deviceCounts to show energy/water/temperature icons instead of subtitle text
 const DEFAULT_SHOPPING_CARDS = [
   {
     title: 'Mestre Álvaro',
-    subtitle: 'Dashboard Principal',
     buttonId: 'ShoppingMestreAlvaro',
     dashboardId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
     entityId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
     entityType: 'ASSET',
+    deviceCounts: { energy: 45, water: 12, temperature: 8 },
   },
   {
     title: 'Mont Serrat',
-    subtitle: 'Dashboard Principal',
     buttonId: 'ShoppingMontSerrat',
     dashboardId: '39e4ca30-b503-11f0-be7f-e760d1498268',
     entityId: '39e4ca30-b503-11f0-be7f-e760d1498268',
     entityType: 'ASSET',
+    deviceCounts: { energy: 38, water: 10, temperature: 6 },
   },
   {
     title: 'Moxuara',
-    subtitle: 'Dashboard Principal',
     buttonId: 'ShoppingMoxuara',
     dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
     entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
     entityType: 'ASSET',
+    deviceCounts: { energy: 52, water: 15, temperature: 10 },
   },
   {
     title: 'Rio Poty',
-    subtitle: 'Dashboard Principal',
     buttonId: 'ShoppingRioPoty',
     dashboardId: 'd432db90-cee9-11f0-998e-25174baff087',
     entityId: 'd432db90-cee9-11f0-998e-25174baff087',
     entityType: 'ASSET',
+    deviceCounts: { energy: 33, water: 8, temperature: 5 },
   },
   {
     title: 'Shopping da Ilha',
-    subtitle: 'Dashboard Principal',
     buttonId: 'ShoppingDaIlha',
     dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268',
     entityId: 'd2754480-b668-11f0-be7f-e760d1498268',
     entityType: 'ASSET',
+    deviceCounts: { energy: 41, water: 11, temperature: 7 },
   },
   {
     title: 'Metrópole Ananindeua',
-    subtitle: 'Dashboard Principal',
     buttonId: 'ShoppingMetropoleAnanindeua',
     dashboardId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityType: 'ASSET',
+    deviceCounts: { energy: 29, water: 7, temperature: 4 },
   },
 ];
 
@@ -333,6 +334,7 @@ self.onInit = async function () {
     ctx: self.ctx,
     themeMode: currentThemeMode,
     showThemeToggle: true,
+    showUserMenu: true, // Explicitly enable user menu
     configTemplate: welcomeConfig,
     shoppingCards: DEFAULT_SHOPPING_CARDS, // Use hardcoded cards with correct dashboardIds
     userInfo: userInfo, // Pass user info for display
