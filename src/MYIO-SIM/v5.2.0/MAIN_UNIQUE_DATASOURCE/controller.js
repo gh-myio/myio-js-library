@@ -59,8 +59,8 @@ const DEFAULT_SHOPPING_CARDS = [
     deviceCounts: { energy: null, water: null, temperature: null },
   },
   {
-    title: 'Metrópole Ananindeua',
-    buttonId: 'ShoppingMetropoleAnanindeua',
+    title: 'Metrópole Pará',
+    buttonId: 'ShoppingMetropolePara',
     dashboardId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityType: 'ASSET',
@@ -2310,6 +2310,71 @@ self.onDataUpdated = function () {
       },
     })
   );
+
+  // RFC-0113: Dispatch initial summary events for header component
+  // Get items from MyIOOrchestratorData (set by classifyAllDevices)
+  const orch = window.MyIOOrchestratorData || {};
+  const energyItems = orch.energy?.items || [];
+  const waterItems = orch.water?.items || [];
+  const temperatureItems = orch.temperature?.items || [];
+
+  self._logDebug('Initial MyIOOrchestratorData.energy.items count:', energyItems.length);
+  self._logDebug('Initial MyIOOrchestratorData.water.items count:', waterItems.length);
+
+  // Calculate initial totals
+  const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+  const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+  const tempValues = temperatureItems.map(d => Number(d.temperature || 0)).filter(v => v > 0);
+  const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+
+  // Energy summary event
+  window.dispatchEvent(
+    new CustomEvent('myio:energy-summary-ready', {
+      detail: {
+        customerTotal: energyTotal,
+        unfilteredTotal: energyTotal,
+        isFiltered: false,
+        equipmentsTotal: classified.energy.equipments.reduce((sum, d) => sum + Number(d.value || 0), 0),
+        lojasTotal: classified.energy.stores.reduce((sum, d) => sum + Number(d.value || 0), 0),
+      },
+    })
+  );
+
+  // Water summary event
+  window.dispatchEvent(
+    new CustomEvent('myio:water-summary-ready', {
+      detail: {
+        filteredTotal: waterTotal,
+        unfilteredTotal: waterTotal,
+        isFiltered: false,
+      },
+    })
+  );
+
+  // Temperature summary event
+  window.dispatchEvent(
+    new CustomEvent('myio:temperature-data-ready', {
+      detail: {
+        globalAvg: tempAvg,
+        isFiltered: false,
+        shoppingsInRange: [],
+        shoppingsOutOfRange: [],
+      },
+    })
+  );
+
+  // Equipment count event
+  window.dispatchEvent(
+    new CustomEvent('myio:equipment-count-updated', {
+      detail: {
+        totalEquipments: classified.energy.equipments.length,
+        filteredEquipments: classified.energy.equipments.length,
+        allShoppingsSelected: true,
+      },
+    })
+  );
+
+  self._logDebug('Initial summary events dispatched');
 };
 
 // ===================================================================
@@ -2412,8 +2477,61 @@ function classifyAllDevices(data, logDebug) {
     logDebug('Sample energy/equipments devices (first ' + sampleSize + '):', samples);
   }
 
-  // Cache for getDevices
-  window.MyIOOrchestratorData = { classified, timestamp: Date.now() };
+  // RFC-0111: Build flat items arrays for each domain (for tooltip compatibility)
+  // Tooltip expects MyIOOrchestratorData[domain].items format
+  const energyItems = [
+    ...classified.energy.equipments,
+    ...classified.energy.stores,
+    ...classified.energy.entrada,
+  ];
+  const waterItems = [
+    ...classified.water.hidrometro_area_comum,
+    ...classified.water.hidrometro,
+    ...classified.water.entrada,
+  ];
+  const temperatureItems = [
+    ...classified.temperature.termostato,
+    ...classified.temperature.termostato_external,
+  ];
+
+  // RFC-0113: Debug logging for tooltip - verify labels and status
+  if (logDebug) {
+    logDebug(`Energy items total: ${energyItems.length} (equip: ${classified.energy.equipments.length}, stores: ${classified.energy.stores.length}, entrada: ${classified.energy.entrada.length})`);
+    logDebug(`Water items total: ${waterItems.length}`);
+    logDebug(`Temperature items total: ${temperatureItems.length}`);
+
+    // Sample 3 energy devices to verify label, deviceStatus, connectionStatus
+    const samples = energyItems.slice(0, 3).map((d, i) => ({
+      idx: i,
+      id: d.id,
+      name: d.name,
+      label: d.label,
+      entityLabel: d.entityLabel,
+      deviceStatus: d.deviceStatus,
+      connectionStatus: d.connectionStatus,
+      value: d.value,
+    }));
+    logDebug('Sample energy items (first 3):', samples);
+  }
+
+  // Cache for getDevices and tooltip
+  window.MyIOOrchestratorData = {
+    classified,
+    timestamp: Date.now(),
+    // RFC-0111 FIX: Add domain-specific items arrays for tooltip compatibility
+    energy: {
+      items: energyItems,
+      timestamp: Date.now(),
+    },
+    water: {
+      items: waterItems,
+      timestamp: Date.now(),
+    },
+    temperature: {
+      items: temperatureItems,
+      timestamp: Date.now(),
+    },
+  };
 
   return classified;
 }
@@ -3158,9 +3276,37 @@ async function triggerApiEnrichment() {
     // Enrich with API data
     const enriched = await enrichDevicesWithConsumption(classified, logDebug);
 
-    // Update cache
+    // RFC-0111 FIX: Rebuild flat items arrays for tooltip compatibility
+    const energyItems = [
+      ...enriched.energy.equipments,
+      ...enriched.energy.stores,
+      ...enriched.energy.entrada,
+    ];
+    const waterItems = [
+      ...enriched.water.hidrometro_area_comum,
+      ...enriched.water.hidrometro,
+      ...enriched.water.entrada,
+    ];
+    const temperatureItems = [
+      ...enriched.temperature.termostato,
+      ...enriched.temperature.termostato_external,
+    ];
+
+    // Update cache with enriched data and domain items
     window.MyIOOrchestratorData.classified = enriched;
     window.MyIOOrchestratorData.apiEnrichedAt = Date.now();
+    window.MyIOOrchestratorData.energy = {
+      items: energyItems,
+      timestamp: Date.now(),
+    };
+    window.MyIOOrchestratorData.water = {
+      items: waterItems,
+      timestamp: Date.now(),
+    };
+    window.MyIOOrchestratorData.temperature = {
+      items: temperatureItems,
+      timestamp: Date.now(),
+    };
 
     logDebug('API enrichment complete, dispatching updated event');
 
@@ -3186,6 +3332,80 @@ async function triggerApiEnrichment() {
         },
       })
     );
+
+    // RFC-0113: Debug logging - verify item counts for tooltip
+    logDebug('MyIOOrchestratorData.energy.items count:', energyItems.length);
+    logDebug('MyIOOrchestratorData.water.items count:', waterItems.length);
+    logDebug('MyIOOrchestratorData.temperature.items count:', temperatureItems.length);
+
+    // Sample device for debugging (check label and status)
+    if (energyItems.length > 0) {
+      const sample = energyItems[0];
+      logDebug('Sample energy item:', {
+        id: sample.id,
+        name: sample.name,
+        label: sample.label,
+        deviceStatus: sample.deviceStatus,
+        connectionStatus: sample.connectionStatus,
+        value: sample.value,
+      });
+    }
+
+    // RFC-0113: Dispatch summary events for header component
+    // Calculate totals from enriched data
+    const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+    const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+    const tempValues = temperatureItems.map(d => Number(d.temperature || 0)).filter(v => v > 0);
+    const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+
+    // Energy summary event
+    window.dispatchEvent(
+      new CustomEvent('myio:energy-summary-ready', {
+        detail: {
+          customerTotal: energyTotal,
+          unfilteredTotal: energyTotal,
+          isFiltered: false,
+          equipmentsTotal: enriched.energy.equipments.reduce((sum, d) => sum + Number(d.value || 0), 0),
+          lojasTotal: enriched.energy.stores.reduce((sum, d) => sum + Number(d.value || 0), 0),
+        },
+      })
+    );
+
+    // Water summary event
+    window.dispatchEvent(
+      new CustomEvent('myio:water-summary-ready', {
+        detail: {
+          filteredTotal: waterTotal,
+          unfilteredTotal: waterTotal,
+          isFiltered: false,
+        },
+      })
+    );
+
+    // Temperature summary event
+    window.dispatchEvent(
+      new CustomEvent('myio:temperature-data-ready', {
+        detail: {
+          globalAvg: tempAvg,
+          isFiltered: false,
+          shoppingsInRange: [],
+          shoppingsOutOfRange: [],
+        },
+      })
+    );
+
+    // Equipment count event
+    window.dispatchEvent(
+      new CustomEvent('myio:equipment-count-updated', {
+        detail: {
+          totalEquipments: enriched.energy.equipments.length,
+          filteredEquipments: enriched.energy.equipments.length,
+          allShoppingsSelected: true,
+        },
+      })
+    );
+
+    logDebug('Summary events dispatched');
 
     // Mark as done
     _apiEnrichmentDone = true;
