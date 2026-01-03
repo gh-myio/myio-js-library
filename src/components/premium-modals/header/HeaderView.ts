@@ -144,28 +144,29 @@ export class HeaderView {
 
 /* ============================================================================
    Light Theme (default)
+   Note: Cards have dark backgrounds (#1F3A35) so text colors are light/white
    ============================================================================ */
 .${HEADER_CSS_PREFIX}-root {
-  /* Card backgrounds - transparent by default, cards use white with shadow */
-  --hdr-card-bg: rgba(255, 255, 255, 0.95);
-  --hdr-card-bd: #e6eef5;
-  /* Text colors */
-  --hdr-ink-1: #1c2743;
-  --hdr-ink-2: #6b7a90;
-  --hdr-title-color: #4a5b6b;
-  --hdr-kpi-color: #1c2743;
-  /* Icon colors */
-  --hdr-icon-stroke: #9BB4C9;
-  --hdr-icon-border: #e3edf6;
-  /* Status colors */
-  --hdr-ok: #1f9d55;
-  --hdr-warn: #d97706;
-  --hdr-down: #099250;
-  --hdr-up: #c2410c;
+  /* Card backgrounds - transparent, cards use their own bg color */
+  --hdr-card-bg: transparent;
+  --hdr-card-bd: rgba(255, 255, 255, 0.15);
+  /* Text colors - light for dark card backgrounds */
+  --hdr-ink-1: #ffffff;
+  --hdr-ink-2: rgba(255, 255, 255, 0.75);
+  --hdr-title-color: rgba(255, 255, 255, 0.9);
+  --hdr-kpi-color: #ffffff;
+  /* Icon colors - visible on dark bg */
+  --hdr-icon-stroke: rgba(255, 255, 255, 0.7);
+  --hdr-icon-border: rgba(255, 255, 255, 0.2);
+  /* Status colors - bright for dark bg */
+  --hdr-ok: #4ade80;
+  --hdr-warn: #fbbf24;
+  --hdr-down: #34d399;
+  --hdr-up: #fb923c;
   --hdr-bar-ok: #9fc131;
   /* Shadows and radius */
-  --hdr-shadow: 0 1px 1px rgba(16, 24, 40, 0.04), 0 8px 22px rgba(31, 116, 164, 0.08);
-  --hdr-shadow-hover: 0 2px 2px rgba(16, 24, 40, 0.05), 0 10px 26px rgba(31, 116, 164, 0.12);
+  --hdr-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  --hdr-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.3);
   --hdr-radius: 14px;
   /* Logo card */
   --hdr-logo-bg: #1f3a35;

@@ -566,22 +566,23 @@ export interface HeaderThemeConfig {
 
 /**
  * Default theme configuration for light mode
+ * Note: Cards have dark backgrounds (#1F3A35) so text colors are light/white
  */
 export const DEFAULT_HEADER_LIGHT_THEME: HeaderThemeConfig = {
-  // Card Colors
-  cardBackgroundColor: 'rgba(255, 255, 255, 0.95)',
-  cardBorderColor: '#e6eef5',
-  kpiColor: '#1c2743',
-  titleColor: '#4a5b6b',
-  subtextColor: '#6b7a90',
-  iconStrokeColor: '#9BB4C9',
-  iconBorderColor: '#e3edf6',
+  // Card Colors - dark bg needs light text
+  cardBackgroundColor: 'transparent',
+  cardBorderColor: 'rgba(255, 255, 255, 0.15)',
+  kpiColor: '#ffffff',
+  titleColor: 'rgba(255, 255, 255, 0.9)',
+  subtextColor: 'rgba(255, 255, 255, 0.75)',
+  iconStrokeColor: 'rgba(255, 255, 255, 0.7)',
+  iconBorderColor: 'rgba(255, 255, 255, 0.2)',
 
-  // Status Colors
-  okColor: '#1f9d55',
-  warnColor: '#d97706',
-  downColor: '#099250',
-  upColor: '#c2410c',
+  // Status Colors - bright for dark bg
+  okColor: '#4ade80',
+  warnColor: '#fbbf24',
+  downColor: '#34d399',
+  upColor: '#fb923c',
 
   // Logo Card
   logoBackgroundColor: '#1f3a35',
@@ -591,8 +592,8 @@ export const DEFAULT_HEADER_LIGHT_THEME: HeaderThemeConfig = {
   backButtonHoverColor: 'rgba(255, 255, 255, 1)',
 
   // Shadows
-  cardShadow: '0 1px 1px rgba(16, 24, 40, 0.04), 0 8px 22px rgba(31, 116, 164, 0.08)',
-  cardShadowHover: '0 2px 2px rgba(16, 24, 40, 0.05), 0 10px 26px rgba(31, 116, 164, 0.12)',
+  cardShadow: '0 4px 14px rgba(0, 0, 0, 0.2)',
+  cardShadowHover: '0 6px 20px rgba(0, 0, 0, 0.3)',
 };
 
 /**

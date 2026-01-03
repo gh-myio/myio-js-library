@@ -1647,4 +1647,59 @@ export const CSS_STRING = `
   color: #6b7280;
   border: 1px solid #d1d5db;
 }
+
+/* ====== ANNOTATION BADGES ====== */
+.myio-ho-card .annotation-badges {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+
+.myio-ho-card .annotation-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  position: relative;
+}
+
+.myio-ho-card .annotation-badge:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.myio-ho-card .annotation-badge__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  background: #1a1a2e;
+  color: white;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Dark theme support for annotation badges */
+[data-theme="dark"] .myio-ho-card .annotation-badge__count {
+  background: #f1f5f9;
+  color: #1a1a2e;
+}
 `;

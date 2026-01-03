@@ -43,6 +43,157 @@ function ensureCss() {
   }
 }
 
+// ============================================
+// ANNOTATION BADGES SUPPORT
+// ============================================
+
+const ANNOTATION_TYPE_CONFIG = {
+  pending: { color: '#d63031', icon: '⚠️', label: 'Pendência' },
+  maintenance: { color: '#e17055', icon: '🔧', label: 'Manutenção' },
+  activity: { color: '#00b894', icon: '✓', label: 'Atividade' },
+  observation: { color: '#0984e3', icon: '📝', label: 'Observação' },
+};
+
+/**
+ * Build tooltip content for annotation type
+ */
+function buildAnnotationTooltipContent(type, typeAnnotations, config) {
+  const now = new Date();
+  const overdueCount = typeAnnotations.filter((a) => a.dueDate && new Date(a.dueDate) < now).length;
+
+  const overdueWarning =
+    overdueCount > 0
+      ? `<div style="color:#d63031;padding:8px 12px;background:#fff5f5;border-radius:6px;margin-bottom:12px;font-size:11px;font-weight:500;">
+         ⚠️ ${overdueCount} anotação(ões) vencida(s)
+       </div>`
+      : '';
+
+  const annotationsList = typeAnnotations
+    .slice(0, 5)
+    .map(
+      (a) => `
+      <div style="flex-direction:column;align-items:flex-start;gap:4px;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:500;color:#1a1a2e;font-size:12px;line-height:1.4;">"${a.text}"</div>
+        <div style="font-size:10px;color:#868e96;">
+          ${a.createdBy?.name || 'N/A'} • ${new Date(a.createdAt).toLocaleDateString('pt-BR')}
+          ${a.dueDate ? ` • Vence: ${new Date(a.dueDate).toLocaleDateString('pt-BR')}` : ''}
+        </div>
+      </div>
+    `
+    )
+    .join('');
+
+  const moreCount = typeAnnotations.length > 5 ? typeAnnotations.length - 5 : 0;
+  const moreSection =
+    moreCount > 0
+      ? `<div style="font-size:11px;color:#6c757d;margin-top:8px;text-align:center;">+ ${moreCount} mais...</div>`
+      : '';
+
+  return `
+    <div style="padding:8px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${config.color};"></span>
+        <span style="font-weight:600;">${config.label} (${typeAnnotations.length})</span>
+      </div>
+      ${overdueWarning}
+      ${annotationsList}
+      ${moreSection}
+    </div>
+  `;
+}
+
+/**
+ * Add annotation badges to a card element
+ */
+function addAnnotationBadges(cardElement, entityObject, LogHelper) {
+  if (!entityObject.log_annotations) return null;
+
+  // Parse log_annotations
+  let annotations = null;
+  try {
+    let logAnnotations = entityObject.log_annotations;
+
+    if (typeof logAnnotations === 'string') {
+      logAnnotations = JSON.parse(logAnnotations);
+    }
+
+    if (logAnnotations && Array.isArray(logAnnotations.annotations)) {
+      annotations = logAnnotations.annotations;
+    } else if (Array.isArray(logAnnotations)) {
+      annotations = logAnnotations;
+    }
+  } catch (err) {
+    LogHelper?.warn?.('[CardHeadOffice] Failed to parse log_annotations:', err.message);
+    return null;
+  }
+
+  if (!annotations || annotations.length === 0) return null;
+
+  // Filter active annotations
+  const activeAnnotations = annotations.filter((a) => a.status !== 'archived');
+  if (activeAnnotations.length === 0) return null;
+
+  // Group by type
+  const annotationsByType = { pending: [], maintenance: [], activity: [], observation: [] };
+  activeAnnotations.forEach((a) => {
+    if (annotationsByType[a.type] !== undefined) {
+      annotationsByType[a.type].push(a);
+    }
+  });
+
+  // Create badges container
+  const container = document.createElement('div');
+  container.className = 'annotation-badges';
+
+  // Get InfoTooltip from library
+  const win = typeof window !== 'undefined' ? window : {};
+  const InfoTooltip = win.MyIOLibrary?.InfoTooltip;
+
+  // Priority order
+  const typeOrder = ['pending', 'maintenance', 'activity', 'observation'];
+  const entityName = entityObject.labelOrName || entityObject.label || entityObject.name || 'Dispositivo';
+
+  typeOrder.forEach((type) => {
+    const typeAnnotations = annotationsByType[type];
+    if (typeAnnotations.length === 0) return;
+
+    const config = ANNOTATION_TYPE_CONFIG[type];
+    const badge = document.createElement('div');
+    badge.className = 'annotation-badge';
+    badge.style.background = config.color;
+    badge.innerHTML = `
+      <span>${config.icon}</span>
+      <span class="annotation-badge__count">${typeAnnotations.length}</span>
+    `;
+
+    // Add tooltip on hover
+    if (InfoTooltip) {
+      badge.addEventListener('mouseenter', () => {
+        const content = buildAnnotationTooltipContent(type, typeAnnotations, config);
+        InfoTooltip.show(badge, {
+          icon: config.icon,
+          title: `${config.label} - ${entityName}`,
+          content: content,
+        });
+      });
+
+      badge.addEventListener('mouseleave', () => {
+        InfoTooltip.startDelayedHide();
+      });
+    }
+
+    container.appendChild(badge);
+  });
+
+  // Append to card
+  if (container.children.length > 0) {
+    cardElement.appendChild(container);
+    return container;
+  }
+
+  return null;
+}
+
 const ModalIcons = {
   centralName: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M12 16a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/></svg>`,
   identifier: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
@@ -788,6 +939,11 @@ function buildDOM(state) {
   // footer.appendChild(telemetryMetric);
 
   root.appendChild(footer);
+
+  // Add annotation badges if present
+  if (entityObject.log_annotations) {
+    addAnnotationBadges(root, entityObject);
+  }
 
   return root;
 }
@@ -1543,6 +1699,14 @@ export function renderCardComponentHeadOffice(containerEl, params) {
       if (next) {
         Object.assign(state.entityObject, next);
         paint(root, state);
+
+        // Update annotation badges
+        const existingBadges = root.querySelector('.annotation-badges');
+        if (existingBadges) existingBadges.remove();
+
+        if (state.entityObject.log_annotations) {
+          addAnnotationBadges(root, state.entityObject);
+        }
       }
     },
 
