@@ -27,6 +27,8 @@
   overflow: hidden;
   margin: 0;
   padding: 0;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .myio-menu-section {
@@ -35,6 +37,8 @@
   margin: 0;
   padding: 0;
   margin-top: -4px; /* Reduce gap between header and menu */
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .myio-main-view-section {
@@ -97,6 +101,8 @@
 .myio-footer-section {
   flex-shrink: 0;
   overflow: hidden;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* Panel Modal Overlay */

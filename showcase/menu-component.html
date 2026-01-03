@@ -525,6 +525,64 @@
           },
           onGoals: () => {
             console.log('[Showcase] Goals clicked');
+            logEvent('Goals button clicked', {});
+
+            // Integração com openGoalsPanel (igual ao widget antigo)
+            // Em produção, esses valores vêm do ThingsBoard:
+            // - customerId: window.myioHoldingCustomerId
+            // - token: localStorage.getItem('jwt_token')
+            // - shoppingList: self.ctx.$scope.custumer
+
+            if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.openGoalsPanel) {
+              try {
+                // Mock data para demonstração no showcase
+                const mockCustomerId = 'demo-holding-customer-id';
+                const mockToken = 'demo-jwt-token';
+                const mockShoppingList = mockShoppings.map(s => ({
+                  value: s.customerId,
+                  name: s.name
+                }));
+
+                MyIOLibrary.openGoalsPanel({
+                  customerId: mockCustomerId,
+                  token: mockToken,
+                  api: { baseUrl: window.location.origin },
+                  shoppingList: mockShoppingList,
+                  locale: 'pt-BR',
+                  onSave: async (goalsData) => {
+                    console.log('[Showcase] Goals saved:', goalsData);
+                    logEvent('Goals saved', { version: goalsData.version });
+
+                    // Em produção, dispara evento para outros widgets
+                    window.dispatchEvent(new CustomEvent('myio:goals-updated', {
+                      detail: { goalsData, timestamp: Date.now() }
+                    }));
+                  },
+                  onClose: () => {
+                    console.log('[Showcase] Goals panel closed');
+                    logEvent('Goals panel closed', {});
+                  },
+                  styles: {
+                    primaryColor: '#6a1b9a',
+                    accentColor: '#FFC107',
+                    successColor: '#28a745',
+                    errorColor: '#dc3545',
+                    borderRadius: '8px',
+                    zIndex: 10000,
+                  },
+                });
+
+                logEvent('Goals panel opened', {});
+              } catch (error) {
+                console.error('[Showcase] Error opening Goals panel:', error);
+                logEvent('Goals panel error: ' + error.message, {}, true);
+                alert('Erro ao abrir painel de metas: ' + error.message);
+              }
+            } else {
+              console.warn('[Showcase] MyIOLibrary.openGoalsPanel não disponível');
+              logEvent('openGoalsPanel não disponível (biblioteca não tem esse recurso)', {}, true);
+              alert('Componente de Metas não está disponível nesta versão da biblioteca.');
+            }
           },
           onShoppingsReady: (shoppings) => {
             console.log('[Showcase] Shoppings ready:', shoppings.length);

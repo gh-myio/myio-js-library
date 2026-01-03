@@ -140,12 +140,39 @@ export class MenuView {
   padding: 8px;
 }
 
-/* Tabs Row */
+/* Tabs Row - CSS Grid for perfect divider centering */
 .myio-tabs-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto;
+  align-items: center;
+  width: 100%;
+}
+
+/* Menu Blocks */
+.myio-menu-block {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Block 2 (actions) - centered in its cell */
+.myio-menu-actions {
+  justify-self: center;
+  gap: 6px;
+}
+
+/* Block 3 (extras) - aligned to right */
+.myio-menu-extras {
+  justify-self: end;
+  gap: 6px;
+}
+
+/* Subtle Divider - centered in its 1fr cell */
+.myio-menu-divider {
+  justify-self: center;
+  width: 1px;
+  height: 28px;
+  background: var(--menu-tab-border, rgba(128, 128, 128, 0.3));
 }
 
 /* Tabs Navigation */
@@ -774,6 +801,7 @@ export class MenuView {
 
   /**
    * Build the HTML structure
+   * Layout: [Tabs] | [Filter, Calendar, Load, Clear] | [Goals, Theme]
    */
   private buildHTML(): string {
     const showGoals = this.params.showGoalsButton !== false;
@@ -784,16 +812,30 @@ export class MenuView {
     return `
       <section class="myio-toolbar-root">
         <div class="myio-tabs-row">
-          <nav class="myio-tabs" role="tablist" aria-label="Secoes">
+          <!-- Block 1: Domain Tabs (Energy, Water, Temperature) -->
+          <nav class="myio-tabs myio-menu-block" role="tablist" aria-label="Secoes">
             ${this.tabs.map(tab => this.buildTabHTML(tab)).join('')}
           </nav>
 
-          ${showGoals ? this.buildGoalsButtonHTML() : ''}
-          ${showFilter ? this.buildFilterButtonHTML() : ''}
-          ${this.buildDatePickerHTML()}
-          ${showLoad ? this.buildLoadButtonHTML() : ''}
-          ${showClear ? this.buildClearButtonHTML() : ''}
-          ${this.buildThemeToggleHTML()}
+          <!-- Divider 1 (centered in its grid cell) -->
+          <span class="myio-menu-divider"></span>
+
+          <!-- Block 2: Filter, Calendar, Load, Clear -->
+          <div class="myio-menu-block myio-menu-actions">
+            ${showFilter ? this.buildFilterButtonHTML() : ''}
+            ${this.buildDatePickerHTML()}
+            ${showLoad ? this.buildLoadButtonHTML() : ''}
+            ${showClear ? this.buildClearButtonHTML() : ''}
+          </div>
+
+          <!-- Divider 2 (centered in its grid cell) -->
+          <span class="myio-menu-divider"></span>
+
+          <!-- Block 3: Goals and Theme -->
+          <div class="myio-menu-block myio-menu-extras">
+            ${showGoals ? this.buildGoalsButtonHTML() : ''}
+            ${this.buildThemeToggleHTML()}
+          </div>
         </div>
 
         ${this.tabs.map(tab => this.buildContextModalHTML(tab)).join('')}
