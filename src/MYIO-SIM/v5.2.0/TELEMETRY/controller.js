@@ -283,6 +283,17 @@ function applyContextAttribute(context) {
   }
 }
 
+/**
+ * Apply light/dark theme mode to widget wrapper
+ */
+function applyThemeMode(themeMode) {
+  const wrapper = document.getElementById('telemetryWrap');
+  if (wrapper) {
+    wrapper.setAttribute('data-theme', themeMode);
+    LogHelper.log(`Applied ${themeMode} theme mode`);
+  }
+}
+
 // ============================================
 // WIDGET STATE
 // ============================================
@@ -1103,6 +1114,17 @@ self.onInit = async function () {
     window.addEventListener('myio:telemetry-config-change', self._onTelemetryConfigChange);
 
     LogHelper.log('RFC-0111: myio:telemetry-config-change listener registered');
+
+    // Listen for theme changes from MAIN (dark/light mode)
+    self._onThemeChange = (ev) => {
+      const themeMode = ev.detail?.themeMode;
+      if (themeMode) {
+        LogHelper.log('Received myio:theme-change:', themeMode);
+        applyThemeMode(themeMode);
+      }
+    };
+    window.addEventListener('myio:theme-change', self._onThemeChange);
+    LogHelper.log('myio:theme-change listener registered');
   }, 0);
 };
 
@@ -1141,5 +1163,9 @@ self.onDestroy = function () {
   // RFC-0111: Cleanup config change listener
   if (self._onTelemetryConfigChange) {
     window.removeEventListener('myio:telemetry-config-change', self._onTelemetryConfigChange);
+  }
+  // Cleanup theme change listener
+  if (self._onThemeChange) {
+    window.removeEventListener('myio:theme-change', self._onThemeChange);
   }
 };

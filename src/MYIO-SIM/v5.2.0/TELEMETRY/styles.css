@@ -72,6 +72,75 @@
   --telemetry-accent: #fb7185;
 }
 
+/* ====== LIGHT/DARK THEME MODE ====== */
+/* Light Theme (default) */
+.telemetry-wrap[data-theme="light"] {
+  --card-grad: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  --card-bd: #dde7f1;
+  --ink-1: #1c2743;
+  --ink-2: #6b7a90;
+  --shadow: 0 8px 24px rgba(31, 116, 164, 0.08);
+  --shadow-hover: 0 14px 36px rgba(31, 116, 164, 0.16);
+}
+
+/* Dark Theme */
+.telemetry-wrap[data-theme="dark"] {
+  --card-grad: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --card-bd: #334155;
+  --ink-1: #f1f5f9;
+  --ink-2: #94a3b8;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 14px 36px rgba(0, 0, 0, 0.4);
+}
+
+.telemetry-wrap[data-theme="dark"] .telemetry-card {
+  background-color: #1e293b;
+  border-color: var(--card-bd);
+}
+
+.telemetry-wrap[data-theme="dark"] .toolbar-zoom button {
+  background: #1e293b;
+  border-color: var(--card-bd);
+  color: var(--ink-1);
+}
+
+.telemetry-wrap[data-theme="dark"] .toolbar-zoom button:hover {
+  background: #334155;
+}
+
+.telemetry-wrap[data-theme="dark"] .realtime-toggle {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-color: var(--card-bd);
+  color: var(--ink-1);
+}
+
+.telemetry-wrap[data-theme="dark"] .realtime-toggle:hover {
+  background: #334155;
+}
+
+.telemetry-wrap[data-theme="dark"] .realtime-progress-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--card-bd);
+}
+
+.telemetry-wrap[data-theme="dark"] .realtime-progress-bar {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.telemetry-wrap[data-theme="dark"] .shopping-filter-chips .filter-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--card-bd);
+  color: var(--ink-1);
+}
+
+.telemetry-wrap[data-theme="dark"] .telemetry-loading-overlay {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.telemetry-wrap[data-theme="dark"] .loading-spinner p {
+  color: var(--ink-1);
+}
+
 /* ====== TOOLBAR ====== */
 .toolbar-zoom {
   position: sticky;
