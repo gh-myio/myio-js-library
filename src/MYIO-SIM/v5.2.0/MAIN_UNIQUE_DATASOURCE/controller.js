@@ -66,13 +66,6 @@ const DEFAULT_SHOPPING_CARDS = [
 self.onInit = async function () {
   'use strict';
 
-  // Prevent duplicate initialization
-  if (self._initialized) {
-    console.log('[MAIN_UNIQUE] onInit already initialized, skipping');
-    return;
-  }
-  self._initialized = true;
-
   console.log('[MAIN_UNIQUE] onInit called', self.ctx);
 
   // Debug helper function - stored on self for access from onDataUpdated
@@ -369,6 +362,14 @@ self.onInit = async function () {
   };
 
   // === 4. RFC-0112: FETCH USER INFO AND OPEN WELCOME MODAL ===
+  // Skip welcome modal if already opened (prevents duplicate modals)
+  const welcomeModalKey = '__MYIO_WELCOME_MODAL_OPENED__';
+  if (window[welcomeModalKey]) {
+    logDebug('Welcome modal already opened, skipping');
+    return; // Don't continue initialization for child widgets
+  }
+  window[welcomeModalKey] = true;
+
   // Fetch user info for display in the modal
   const userInfo = await fetchUserInfo();
   logDebug('User info fetched:', userInfo);
@@ -395,6 +396,8 @@ self.onInit = async function () {
     },
     onClose: () => {
       console.log('[MAIN_UNIQUE] Welcome modal closed');
+      // Clear flag to allow re-opening on next navigation
+      window['__MYIO_WELCOME_MODAL_OPENED__'] = false;
     },
     onCardClick: (card) => {
       console.log('[MAIN_UNIQUE] Shopping card clicked:', card.title);
