@@ -1026,6 +1026,10 @@ self.onInit = async function () {
         LogHelper.log(`Using pre-classified devices: ${devices.length} items for ${WIDGET_DOMAIN}/${mappedContext}`);
         STATE.allDevices = devices;
         initializeCards(devices);
+        // FIX: Update header stats on initial load
+        if (telemetryHeaderController) {
+          telemetryHeaderController.updateFromDevices(devices, {});
+        }
         showLoadingOverlay(false);
       } else {
         LogHelper.log(`No pre-classified devices found, waiting for ${domainConfig.eventReady} event...`);
@@ -1050,6 +1054,10 @@ self.onInit = async function () {
         if (dataDevices && dataDevices.length > 0) {
           STATE.allDevices = dataDevices;
           initializeCards(dataDevices);
+          // FIX: Update header stats on initial load
+          if (telemetryHeaderController) {
+            telemetryHeaderController.updateFromDevices(dataDevices, {});
+          }
         }
         showLoadingOverlay(false);
       }
