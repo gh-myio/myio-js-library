@@ -27,7 +27,7 @@ self.onInit = async function () {
 
   // === 2.1 EXPOSE MyIOUtils FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
-  const DATA_API_HOST = settings.dataApiHost || 'https://api.myio-bas.com';
+  const DATA_API_HOST = settings.dataApiHost || 'https://api.data.apps.myio-bas.com';
   const CLIENT_ID = settings.clientId || '';
   const CLIENT_SECRET = settings.clientSecret || '';
 
