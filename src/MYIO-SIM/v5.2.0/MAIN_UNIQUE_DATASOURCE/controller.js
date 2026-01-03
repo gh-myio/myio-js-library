@@ -66,6 +66,13 @@ const DEFAULT_SHOPPING_CARDS = [
 self.onInit = async function () {
   'use strict';
 
+  // Prevent duplicate initialization
+  if (self._initialized) {
+    console.log('[MAIN_UNIQUE] onInit already initialized, skipping');
+    return;
+  }
+  self._initialized = true;
+
   console.log('[MAIN_UNIQUE] onInit called', self.ctx);
 
   // Debug helper function - stored on self for access from onDataUpdated
@@ -181,16 +188,52 @@ self.onInit = async function () {
     }
   };
 
-  // Utility functions for device status calculation
-  const calculateDeviceStatusMasterRules = (device, options = {}) => {
-    const now = Date.now();
-    const lastActivity = device.lastActivityTime || device.lastConnectTime || 0;
-    const offlineThreshold = options.offlineThresholdMs || 30 * 60 * 1000; // 30 min default
+  // RFC-0110: Utility functions for device status calculation
+  // Uses domain-specific telemetry timestamps with dual thresholds
+  const calculateDeviceStatusMasterRules = (options = {}) => {
+    const {
+      connectionStatus = '',
+      telemetryTimestamp = null,
+      delayMins = 1440, // 24h for online status
+      domain = 'energy',
+    } = options;
 
-    if (!lastActivity) return 'no_info';
-    if (now - lastActivity > offlineThreshold) return 'offline';
-    if (device.consumption === 0 || device.pulses === 0) return 'no_consumption';
-    return 'normal';
+    const SHORT_DELAY_MINS = 60; // For offline/bad recovery
+    const now = Date.now();
+
+    const normalizedStatus = (connectionStatus || '').toLowerCase().trim();
+
+    // 1. WAITING → NOT_INSTALLED (absolute priority)
+    if (normalizedStatus === 'waiting' || normalizedStatus === 'connecting' || normalizedStatus === 'pending') {
+      return 'not_installed';
+    }
+
+    // 2. No domain-specific telemetry → OFFLINE
+    if (!telemetryTimestamp) {
+      return 'offline';
+    }
+
+    const telemetryAgeMs = now - telemetryTimestamp;
+    const shortThresholdMs = SHORT_DELAY_MINS * 60 * 1000;
+    const longThresholdMs = delayMins * 60 * 1000;
+
+    // 3. BAD status → check recent telemetry (60 mins)
+    if (normalizedStatus === 'bad') {
+      return telemetryAgeMs < shortThresholdMs ? 'power_on' : 'weak_connection';
+    }
+
+    // 4. OFFLINE status → check recent telemetry (60 mins)
+    if (normalizedStatus === 'offline') {
+      return telemetryAgeMs < shortThresholdMs ? 'power_on' : 'offline';
+    }
+
+    // 5. ONLINE status → check stale telemetry (24h)
+    if (normalizedStatus === 'online') {
+      return telemetryAgeMs > longThresholdMs ? 'offline' : 'power_on';
+    }
+
+    // 6. Default: treat as online if has recent telemetry
+    return telemetryAgeMs < longThresholdMs ? 'power_on' : 'offline';
   };
 
   const mapConnectionStatus = (status) => {
@@ -872,15 +915,18 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
 
   const deviceName = datasource.entityName || datasource.entity?.name || 'Unknown';
 
-  // Build a map of dataKey values from all rows
+  // Build a map of dataKey values AND timestamps from all rows
   const dataKeyValues = {};
+  const dataKeyTimestamps = {};
   for (const row of rows) {
     const keyName = row.dataKey?.name;
     if (keyName && row.data && row.data.length > 0) {
-      // Get the latest value (last element in data array, index [1] is the value)
+      // Get the latest value (last element in data array)
+      // row.data[i] = [timestamp, value]
       const latestData = row.data[row.data.length - 1];
       if (Array.isArray(latestData) && latestData.length >= 2) {
-        dataKeyValues[keyName] = latestData[1];
+        dataKeyTimestamps[keyName] = latestData[0]; // timestamp
+        dataKeyValues[keyName] = latestData[1]; // value
       }
     }
   }
@@ -958,6 +1004,69 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
   const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'offline';
   const connectionStatus = window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus) || rawConnectionStatus;
 
+  // RFC-0110: Get domain-specific telemetry timestamps
+  const consumptionTs = dataKeyTimestamps['consumption'] || null;
+  const pulsesTs = dataKeyTimestamps['pulses'] || null;
+  const temperatureTs = dataKeyTimestamps['temperature'] || null;
+  const waterLevelTs = dataKeyTimestamps['water_level'] || null;
+
+  // Determine domain for status calculation
+  const isWater = deviceType.includes('HIDROMETRO') || deviceType.includes('HIDRO');
+  const isTemperature = deviceType.includes('TERMOSTATO') || deviceType.includes('TEMP');
+  const domain = isWater ? 'water' : isTemperature ? 'temperature' : 'energy';
+
+  // RFC-0110: Get domain-specific telemetry timestamp
+  let telemetryTimestamp = null;
+  if (domain === 'energy') {
+    telemetryTimestamp = consumptionTs;
+  } else if (domain === 'water') {
+    telemetryTimestamp = pulsesTs || waterLevelTs;
+  } else if (domain === 'temperature') {
+    telemetryTimestamp = temperatureTs;
+  }
+
+  // RFC-0110: Calculate device status using master rules
+  const lib = window.MyIOLibrary;
+  let deviceStatus = 'offline';
+
+  // Use library function if available, otherwise basic logic
+  if (lib?.calculateDeviceStatusMasterRules) {
+    deviceStatus = lib.calculateDeviceStatusMasterRules({
+      connectionStatus: connectionStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440, // 24 hours
+      domain: domain,
+    });
+  } else {
+    // Fallback: basic status calculation
+    const SHORT_DELAY_MINS = 60;
+    const LONG_DELAY_MINS = 1440;
+    const now = Date.now();
+
+    const normalizedStatus = (connectionStatus || '').toLowerCase();
+
+    if (normalizedStatus === 'waiting') {
+      deviceStatus = 'not_installed';
+    } else if (!telemetryTimestamp) {
+      // No domain-specific telemetry → offline
+      deviceStatus = 'offline';
+    } else {
+      const telemetryAgeMs = now - telemetryTimestamp;
+      const shortThresholdMs = SHORT_DELAY_MINS * 60 * 1000;
+      const longThresholdMs = LONG_DELAY_MINS * 60 * 1000;
+
+      if (normalizedStatus === 'offline' || normalizedStatus === 'bad') {
+        // Check if has recent telemetry (60 mins)
+        deviceStatus = telemetryAgeMs < shortThresholdMs ? 'power_on' : 'offline';
+      } else if (normalizedStatus === 'online') {
+        // Check if telemetry is stale (24 hours)
+        deviceStatus = telemetryAgeMs > longThresholdMs ? 'offline' : 'power_on';
+      } else {
+        deviceStatus = 'power_on';
+      }
+    }
+  }
+
   return {
     // Core IDs
     id: entityId,
@@ -994,13 +1103,24 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     temperature: dataKeyValues['temperature'],
     water_level: dataKeyValues['water_level'],
 
-    // Status
+    // Status - RFC-0110
     connectionStatus: connectionStatus,
+    deviceStatus: deviceStatus, // Calculated status using RFC-0110 rules
+
+    // RFC-0110: Telemetry timestamps for status calculation
+    consumptionTs: consumptionTs,
+    pulsesTs: pulsesTs,
+    temperatureTs: temperatureTs,
+    waterLevelTs: waterLevelTs,
+    telemetryTimestamp: telemetryTimestamp, // Domain-specific timestamp used for status
+
+    // Domain
+    domain: domain,
 
     // Additional fields for card component
-    valType: deviceType.includes('HIDROMETRO') ? 'water_m3' : 'power_w',
-    unit: deviceType.includes('HIDROMETRO') ? 'm³' : 'kWh',
-    icon: deviceType.includes('HIDROMETRO') ? 'water' : deviceType.includes('TERMOSTATO') ? 'temperature' : 'energy',
+    valType: isWater ? 'water_m3' : 'power_w',
+    unit: isWater ? 'm³' : 'kWh',
+    icon: isWater ? 'water' : isTemperature ? 'temperature' : 'energy',
   };
 }
 
