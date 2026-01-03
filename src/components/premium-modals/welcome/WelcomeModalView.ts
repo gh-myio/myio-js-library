@@ -415,7 +415,8 @@ export class WelcomeModalView {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  max-width: 700px;
+  width: 80%;
+  max-width: 80%;
   padding: 40px 20px;
 }
 
@@ -435,8 +436,7 @@ export class WelcomeModalView {
   font-weight: 400;
   color: var(--wm-muted);
   line-height: 1.7;
-  width: 80%;
-  max-width: 80%;
+  width: 100%;
   text-align: center;
 }
 
@@ -564,8 +564,8 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-title {
-  margin: 0 0 10px 0;
-  font-size: 15px;
+  margin: 0 0 8px 0;
+  font-size: 12px;
   font-weight: 500;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
@@ -748,7 +748,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-title {
-    font-size: 14px;
+    font-size: 11px;
   }
 
   .myio-welcome-card-device-counts {
@@ -825,7 +825,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-title {
-    font-size: 15px;
+    font-size: 11px;
     margin-bottom: 6px;
   }
 
