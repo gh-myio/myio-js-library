@@ -11,7 +11,7 @@ let _onDataUpdatedCallCount = 0;
 const MAX_DATA_UPDATED_CALLS = 4;
 
 // RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
-// Using deviceCounts to show energy/water/temperature icons instead of subtitle text
+// deviceCounts will be fetched dynamically from ThingsBoard SERVER_SCOPE
 const DEFAULT_SHOPPING_CARDS = [
   {
     title: 'Mestre Álvaro',
@@ -19,7 +19,8 @@ const DEFAULT_SHOPPING_CARDS = [
     dashboardId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
     entityId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
     entityType: 'ASSET',
-    deviceCounts: { energy: 45, water: 12, temperature: 8 },
+    customerId: null, // Will be resolved from ThingsBoard
+    deviceCounts: { energy: 0, water: 0, temperature: 0 }, // Fetched dynamically
   },
   {
     title: 'Mont Serrat',
@@ -27,7 +28,8 @@ const DEFAULT_SHOPPING_CARDS = [
     dashboardId: '39e4ca30-b503-11f0-be7f-e760d1498268',
     entityId: '39e4ca30-b503-11f0-be7f-e760d1498268',
     entityType: 'ASSET',
-    deviceCounts: { energy: 38, water: 10, temperature: 6 },
+    customerId: null,
+    deviceCounts: { energy: 0, water: 0, temperature: 0 },
   },
   {
     title: 'Moxuara',
@@ -35,7 +37,8 @@ const DEFAULT_SHOPPING_CARDS = [
     dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
     entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
     entityType: 'ASSET',
-    deviceCounts: { energy: 52, water: 15, temperature: 10 },
+    customerId: null,
+    deviceCounts: { energy: 0, water: 0, temperature: 0 },
   },
   {
     title: 'Rio Poty',
@@ -43,7 +46,8 @@ const DEFAULT_SHOPPING_CARDS = [
     dashboardId: 'd432db90-cee9-11f0-998e-25174baff087',
     entityId: 'd432db90-cee9-11f0-998e-25174baff087',
     entityType: 'ASSET',
-    deviceCounts: { energy: 33, water: 8, temperature: 5 },
+    customerId: null,
+    deviceCounts: { energy: 0, water: 0, temperature: 0 },
   },
   {
     title: 'Shopping da Ilha',
@@ -51,7 +55,8 @@ const DEFAULT_SHOPPING_CARDS = [
     dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268',
     entityId: 'd2754480-b668-11f0-be7f-e760d1498268',
     entityType: 'ASSET',
-    deviceCounts: { energy: 41, water: 11, temperature: 7 },
+    customerId: null,
+    deviceCounts: { energy: 0, water: 0, temperature: 0 },
   },
   {
     title: 'Metrópole Ananindeua',
@@ -59,7 +64,8 @@ const DEFAULT_SHOPPING_CARDS = [
     dashboardId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityType: 'ASSET',
-    deviceCounts: { energy: 29, water: 7, temperature: 4 },
+    customerId: null,
+    deviceCounts: { energy: 0, water: 0, temperature: 0 },
   },
 ];
 
@@ -1713,6 +1719,143 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   };
 
+  // RFC-0111: Device count attribute keys from SERVER_SCOPE
+  const DEVICE_COUNT_KEYS = {
+    energy: {
+      total: 'qtDevices3f',
+      entries: 'qtDevices3f-Entries',
+      commonArea: 'qtDevices3f-CommonArea',
+      stores: 'qtDevices3f-Stores',
+    },
+    water: {
+      total: 'qtDevicesHidr',
+      entries: 'qtDevicesHidr-Entries',
+      commonArea: 'qtDevicesHidr-CommonArea',
+      stores: 'qtDevicesHidr-Stores',
+    },
+    temperature: {
+      total: 'qtDevicesTemp',
+      internal: 'qtDevicesTemp-Internal',
+      stores: 'qtDevicesTemp-Stores',
+    },
+  };
+
+  /**
+   * RFC-0111: Parse device count attributes from SERVER_SCOPE
+   * @param {Array} attributes - Raw attributes from ThingsBoard API
+   * @returns {Object} Parsed device counts { energy, water, temperature }
+   */
+  const parseDeviceCountAttributes = (attributes) => {
+    const getAttrValue = (key) => {
+      const attr = attributes.find((a) => a.key === key);
+      if (!attr) return 0;
+      const value = typeof attr.value === 'string' ? parseInt(attr.value, 10) : attr.value;
+      return isNaN(value) ? 0 : value;
+    };
+
+    return {
+      energy: getAttrValue(DEVICE_COUNT_KEYS.energy.total),
+      water: getAttrValue(DEVICE_COUNT_KEYS.water.total),
+      temperature: getAttrValue(DEVICE_COUNT_KEYS.temperature.total),
+    };
+  };
+
+  /**
+   * RFC-0111: Fetch device counts from ThingsBoard SERVER_SCOPE for a customer/asset
+   * @param {string} entityId - The entity ID (customer or asset)
+   * @param {string} entityType - Entity type ('CUSTOMER' or 'ASSET')
+   * @returns {Promise<Object|null>} Device counts { energy, water, temperature } or null
+   */
+  const fetchEntityDeviceCounts = async (entityId, entityType = 'CUSTOMER') => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) {
+      logDebug('JWT token not found for fetchEntityDeviceCounts');
+      return null;
+    }
+
+    const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'X-Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        logDebug(`Failed to fetch device counts for ${entityType} ${entityId}: ${response.status}`);
+        return null;
+      }
+
+      const attributes = await response.json();
+      return parseDeviceCountAttributes(attributes);
+    } catch (error) {
+      LogHelper.error(`Error fetching device counts for ${entityId}:`, error);
+      return null;
+    }
+  };
+
+  /**
+   * RFC-0111: Fetch device counts for all shopping cards in parallel
+   * @param {Array} shoppingCards - Array of shopping card configurations
+   * @returns {Promise<Array>} Updated shopping cards with real device counts
+   */
+  const fetchShoppingCardsDeviceCounts = async (shoppingCards) => {
+    logDebug('Fetching device counts for shopping cards...');
+
+    const updatedCards = await Promise.all(
+      shoppingCards.map(async (card) => {
+        const entityId = card.customerId || card.entityId;
+        const entityType = card.entityType || 'CUSTOMER';
+
+        const counts = await fetchEntityDeviceCounts(entityId, entityType);
+
+        if (counts) {
+          logDebug(`Device counts for ${card.title}:`, counts);
+          return {
+            ...card,
+            deviceCounts: counts,
+          };
+        }
+
+        // Return original card if fetch fails
+        return card;
+      })
+    );
+
+    logDebug('All shopping cards device counts fetched:', updatedCards.map((c) => ({ title: c.title, counts: c.deviceCounts })));
+    return updatedCards;
+  };
+
+  /**
+   * RFC-0111: Update shopping cards in welcome modal with real device counts
+   * @param {Object} welcomeModal - Welcome modal instance
+   * @param {Array} updatedCards - Shopping cards with real device counts
+   */
+  const updateWelcomeModalShoppingCards = (welcomeModal, updatedCards) => {
+    if (!welcomeModal || !welcomeModal.updateShoppingCards) {
+      logDebug('WelcomeModal does not support updateShoppingCards');
+      // Fallback: Update DOM directly
+      updatedCards.forEach((card) => {
+        const cardEl = document.querySelector(`[data-shopping-id="${card.entityId}"], [data-button-id="${card.buttonId}"]`);
+        if (cardEl) {
+          // Update device count badges if they exist
+          const energyBadge = cardEl.querySelector('.device-count-energy, [data-domain="energy"]');
+          const waterBadge = cardEl.querySelector('.device-count-water, [data-domain="water"]');
+          const tempBadge = cardEl.querySelector('.device-count-temperature, [data-domain="temperature"]');
+
+          if (energyBadge) energyBadge.textContent = card.deviceCounts.energy || 0;
+          if (waterBadge) waterBadge.textContent = card.deviceCounts.water || 0;
+          if (tempBadge) tempBadge.textContent = card.deviceCounts.temperature || 0;
+        }
+      });
+      return;
+    }
+
+    welcomeModal.updateShoppingCards(updatedCards);
+  };
+
   // Expose utilities globally for TELEMETRY widget (initial state)
   window.MyIOUtils = {
     DATA_API_HOST,
@@ -1774,7 +1917,7 @@ body.filter-modal-open { overflow: hidden !important; }
     showThemeToggle: true,
     showUserMenu: true, // Explicitly enable user menu
     configTemplate: welcomeConfig,
-    shoppingCards: DEFAULT_SHOPPING_CARDS, // Use hardcoded cards with correct dashboardIds
+    shoppingCards: DEFAULT_SHOPPING_CARDS, // Initial with zeros, updated async below
     userInfo: userInfo, // Pass user info for display
     ctaLabel: welcomeConfig.defaultPrimaryLabel || 'ACESSAR PAINEL',
     ctaDisabled: false,
@@ -1797,6 +1940,14 @@ body.filter-modal-open { overflow: hidden !important; }
       console.log('[MAIN_UNIQUE] Shopping card clicked:', card.title);
       // Handle shopping selection if needed
     },
+  });
+
+  // RFC-0111: Fetch real device counts asynchronously and update modal
+  fetchShoppingCardsDeviceCounts(DEFAULT_SHOPPING_CARDS).then((updatedCards) => {
+    logDebug('Updating welcome modal with real device counts');
+    updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
+  }).catch((error) => {
+    LogHelper.error('Failed to fetch shopping device counts:', error);
   });
 
   // === 5. RFC-0113: RENDER HEADER COMPONENT ===

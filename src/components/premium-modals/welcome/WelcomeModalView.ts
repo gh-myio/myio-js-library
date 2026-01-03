@@ -331,7 +331,7 @@ export class WelcomeModalView {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 60px 40px;
+  padding: 30px 40px 16px 40px;
   background:
     linear-gradient(180deg,
       rgba(122, 47, 247, 0.25) 0%,
@@ -342,7 +342,7 @@ export class WelcomeModalView {
     var(--wm-bg-image, none);
   background-size: cover;
   background-position: center;
-  min-height: 45vh;
+  min-height: 32vh;
   border-bottom: 1px solid rgba(122, 47, 247, 0.2);
 }
 
@@ -435,11 +435,11 @@ export class WelcomeModalView {
   text-align: center;
   width: 80vw;
   max-width: 900px;
-  padding: 40px 20px;
+  padding: 12px 20px;
 }
 
 .myio-welcome-hero-title {
-  margin: 0 0 20px 0 !important;
+  margin: 0 0 12px 0 !important;
   font-size: clamp(16px, 3vw, 28px) !important;
   font-weight: 800 !important;
   color: var(--wm-ink);
@@ -449,7 +449,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-hero-description {
-  margin: 0 0 36px 0 !important;
+  margin: 0 0 16px 0 !important;
   font-size: clamp(15px, 2.5vw, 20px) !important;
   font-weight: 400 !important;
   color: var(--wm-muted);
@@ -497,12 +497,12 @@ export class WelcomeModalView {
 
 /* Shopping Cards Section */
 .myio-welcome-shortcuts {
-  padding: 32px;
+  padding: 16px 32px 24px 32px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
 }
 
 .myio-welcome-shortcuts-title {
-  margin: 0 0 20px 0 !important;
+  margin: 0 0 12px 0 !important;
   font-size: 14px !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
