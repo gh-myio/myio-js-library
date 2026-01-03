@@ -25,6 +25,114 @@ self.onInit = async function () {
     return;
   }
 
+  // === 2.1 EXPOSE MyIOUtils FOR TELEMETRY WIDGET ===
+  // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
+  const DATA_API_HOST = settings.dataApiHost || 'https://api.myio-bas.com';
+  const CLIENT_ID = settings.clientId || '';
+  const CLIENT_SECRET = settings.clientSecret || '';
+
+  const LogHelper = {
+    log: (...args) => console.log('[MAIN_UNIQUE]', ...args),
+    warn: (...args) => console.warn('[MAIN_UNIQUE]', ...args),
+    error: (...args) => console.error('[MAIN_UNIQUE]', ...args),
+  };
+
+  // Utility functions for device status calculation
+  const calculateDeviceStatusMasterRules = (device, options = {}) => {
+    const now = Date.now();
+    const lastActivity = device.lastActivityTime || device.lastConnectTime || 0;
+    const offlineThreshold = options.offlineThresholdMs || 30 * 60 * 1000; // 30 min default
+
+    if (!lastActivity) return 'no_info';
+    if (now - lastActivity > offlineThreshold) return 'offline';
+    if (device.consumption === 0 || device.pulses === 0) return 'no_consumption';
+    return 'normal';
+  };
+
+  const mapConnectionStatus = (status) => {
+    const statusMap = {
+      connected: 'online',
+      disconnected: 'offline',
+      unknown: 'no_info',
+    };
+    return statusMap[status?.toLowerCase()] || status || 'offline';
+  };
+
+  const formatRelativeTime = (ts) => {
+    if (!ts) return '—';
+    const now = Date.now();
+    const diff = now - ts;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (mins < 1) return 'agora';
+    if (mins < 60) return `${mins}min atrás`;
+    if (hours < 24) return `${hours}h atrás`;
+    return `${days}d atrás`;
+  };
+
+  const formatarDuracao = (ms) => {
+    if (!ms || isNaN(ms)) return '—';
+    const secs = Math.floor(ms / 1000);
+    const mins = Math.floor(secs / 60);
+    const hours = Math.floor(mins / 60);
+    if (hours > 0) return `${hours}h ${mins % 60}min`;
+    if (mins > 0) return `${mins}min`;
+    return `${secs}s`;
+  };
+
+  const getCustomerNameForDevice = (device) => {
+    return device?.customerName || device?.ownerName || device?.customerId || 'N/A';
+  };
+
+  const findValue = (values, key, defaultValue = null) => {
+    if (!Array.isArray(values)) return defaultValue;
+    const found = values.find((v) => v.key === key || v.dataType === key);
+    return found ? found.value : defaultValue;
+  };
+
+  const fetchCustomerServerScopeAttrs = async (customerId) => {
+    // Stub - returns empty object, can be implemented with actual API call
+    logDebug('fetchCustomerServerScopeAttrs called for:', customerId);
+    return {};
+  };
+
+  const buildHeaderDevicesGrid = (container, devices, options) => {
+    // Stub - header grid building, TELEMETRY can use this or its own implementation
+    logDebug('buildHeaderDevicesGrid called with', devices?.length, 'devices');
+    return null;
+  };
+
+  // Expose utilities globally for TELEMETRY widget
+  window.MyIOUtils = {
+    DATA_API_HOST,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    LogHelper,
+    calculateDeviceStatusMasterRules,
+    mapConnectionStatus,
+    formatRelativeTime,
+    formatarDuracao,
+    getCustomerNameForDevice,
+    findValue,
+    fetchCustomerServerScopeAttrs,
+    buildHeaderDevicesGrid,
+    getConsumptionRangesHierarchical: () => null,
+    getCachedConsumptionLimits: () => null,
+    // Function to get credentials (called by TELEMETRY)
+    getCredentials: () => ({
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      customerId: settings.customerId || '',
+      dataApiHost: DATA_API_HOST,
+    }),
+    // Customer TB ID for API calls
+    customerTB_ID: settings.customerTB_ID || '',
+  };
+
+  logDebug('MyIOUtils exposed globally for TELEMETRY');
+
   // === 3. EXTRACT WELCOME CONFIG FROM SETTINGS ===
   const welcomeConfig = {
     enableDebugMode: settings.enableDebugMode,
