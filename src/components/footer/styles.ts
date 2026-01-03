@@ -1,9 +1,8 @@
 /**
  * RFC-0115: Footer Component Library
  * CSS styles for the Footer Component
+ * Uses CSS custom properties for dynamic theming
  */
-
-import { FooterColors, DEFAULT_FOOTER_COLORS } from './types';
 
 const STYLE_ID = 'myio-footer-component-styles';
 
@@ -17,14 +16,12 @@ export function areStylesInjected(): boolean {
 /**
  * Inject CSS styles into the document head
  */
-export function injectStyles(colors?: Partial<FooterColors>): void {
+export function injectStyles(): void {
   if (areStylesInjected()) return;
-
-  const c = { ...DEFAULT_FOOTER_COLORS, ...colors };
 
   const style = document.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = getStyles(c);
+  style.textContent = getStyles();
   document.head.appendChild(style);
 }
 
@@ -40,8 +37,9 @@ export function removeStyles(): void {
 
 /**
  * Get the CSS styles string
+ * Uses CSS custom properties that are set inline by FooterView
  */
-export function getStyles(colors: FooterColors): string {
+export function getStyles(): string {
   return `
 /* ==========================================
    MYIO Footer Component - Premium Design System
@@ -51,20 +49,28 @@ export function getStyles(colors: FooterColors): string {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .myio-footer-component {
-  /* Design Tokens - Purple Theme */
-  --fc-primary: ${colors.primary};
-  --fc-primary-hover: ${colors.primaryHover};
-  --fc-primary-dark: ${colors.primaryDark};
-  --fc-background: ${colors.background};
-  --fc-surface: ${colors.surface};
-  --fc-surface-elevated: ${colors.surfaceElevated};
-  --fc-text-primary: ${colors.textPrimary};
-  --fc-text-secondary: ${colors.textSecondary};
-  --fc-text-tertiary: ${colors.textTertiary};
-  --fc-border: ${colors.border};
-  --fc-error: ${colors.error};
-  --fc-compare-btn: ${colors.compareButton};
+  /* Fallback Design Tokens - Dark Theme */
+  --fc-primary: #9E8CBE;
+  --fc-primary-hover: #B8A5D6;
+  --fc-primary-dark: #8472A8;
+  --fc-bg-gradient-start: rgba(158, 140, 190, 0.95);
+  --fc-bg-gradient-end: rgba(132, 114, 168, 0.98);
+  --fc-border-top: rgba(184, 165, 214, 0.5);
+  --fc-text: #ffffff;
+  --fc-text-muted: rgba(255, 255, 255, 0.7);
+  --fc-chip-bg: rgba(158, 140, 190, 0.25);
+  --fc-chip-border: rgba(184, 165, 214, 0.4);
+  --fc-chip-text: #ffffff;
+  --fc-compare-btn: #3E1A7D;
+  --fc-compare-btn-hover: #5A2CB8;
+  --fc-clear-btn: rgba(200, 200, 200, 0.2);
+  --fc-clear-btn-text: #cccccc;
+  --fc-meta-bg: rgba(158, 140, 190, 0.15);
+  --fc-meta-border: rgba(184, 165, 214, 0.3);
+  --fc-empty-bg: rgba(158, 140, 190, 0.15);
+  --fc-empty-border: rgba(184, 165, 214, 0.4);
 
+  /* Static tokens */
   --fc-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --fc-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --fc-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -72,6 +78,7 @@ export function getStyles(colors: FooterColors): string {
   --fc-radius-md: 10px;
   --fc-radius-lg: 14px;
   --fc-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --fc-error: #ff4444;
 
   /* Layout */
   position: relative;
@@ -87,13 +94,13 @@ export function getStyles(colors: FooterColors): string {
 
   /* Visual */
   font-family: var(--fc-font-family);
-  color: var(--fc-text-primary);
+  color: var(--fc-text);
   background: linear-gradient(
     180deg,
-    rgba(158, 140, 190, 0.95) 0%,
-    rgba(132, 114, 168, 0.98) 100%
+    var(--fc-bg-gradient-start) 0%,
+    var(--fc-bg-gradient-end) 100%
   );
-  border-top: 2px solid rgba(184, 165, 214, 0.5);
+  border-top: 2px solid var(--fc-border-top);
   box-shadow:
     var(--fc-shadow-lg),
     0 -2px 24px rgba(158, 140, 190, 0.3);
@@ -117,7 +124,7 @@ export function getStyles(colors: FooterColors): string {
   padding-left: 8px;
   padding-right: 8px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(158, 140, 190, 0.6) transparent;
+  scrollbar-color: var(--fc-primary) transparent;
 }
 
 .myio-footer-dock::-webkit-scrollbar {
@@ -146,8 +153,8 @@ export function getStyles(colors: FooterColors): string {
   padding: 5px 10px;
   height: 34px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.25) 0%, rgba(158, 140, 190, 0.15) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, var(--fc-chip-bg) 0%, rgba(158, 140, 190, 0.15) 100%);
+  border: 1px solid var(--fc-chip-border);
   border-radius: var(--fc-radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   white-space: nowrap;
@@ -181,7 +188,7 @@ export function getStyles(colors: FooterColors): string {
 .myio-footer-chip-name {
   font-size: 10px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--fc-chip-text);
   letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -191,7 +198,7 @@ export function getStyles(colors: FooterColors): string {
 .myio-footer-chip-value {
   font-size: 12px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--fc-chip-text);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -238,13 +245,13 @@ export function getStyles(colors: FooterColors): string {
    ========================================== */
 
 .myio-footer-empty {
-  color: var(--fc-text-primary);
+  color: var(--fc-text);
   font-size: 15px;
   font-weight: 600;
   padding: 12px 24px;
   opacity: 0.9;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, transparent 100%);
-  border: 1px dashed rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, var(--fc-empty-bg) 0%, transparent 100%);
+  border: 1px dashed var(--fc-empty-border);
   border-radius: var(--fc-radius-md);
   text-shadow: 0 0 8px rgba(158, 140, 190, 0.3);
   animation: fcPulseGlow 2s ease-in-out infinite;
@@ -274,8 +281,8 @@ export function getStyles(colors: FooterColors): string {
   gap: 0px;
   padding: 4px 9px;
   min-width: 100px;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, rgba(158, 140, 190, 0.08) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.3);
+  background: linear-gradient(135deg, var(--fc-meta-bg) 0%, rgba(158, 140, 190, 0.08) 100%);
+  border: 1px solid var(--fc-meta-border);
   border-radius: var(--fc-radius-md);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -283,7 +290,7 @@ export function getStyles(colors: FooterColors): string {
 .myio-footer-meta-title {
   font-size: 10px;
   font-weight: 700;
-  color: var(--fc-text-primary);
+  color: var(--fc-text);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   text-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
@@ -292,7 +299,7 @@ export function getStyles(colors: FooterColors): string {
 .myio-footer-totals {
   font-size: 11px;
   font-weight: 700;
-  color: var(--fc-text-primary);
+  color: var(--fc-text);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
@@ -307,10 +314,10 @@ export function getStyles(colors: FooterColors): string {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
+  background: linear-gradient(135deg, var(--fc-clear-btn) 0%, rgba(200, 200, 200, 0.1) 100%);
   border: 1px solid rgba(200, 200, 200, 0.3);
   border-radius: var(--fc-radius-md);
-  color: #cccccc;
+  color: var(--fc-clear-btn-text);
   cursor: pointer;
   transition: var(--fc-transition);
 }
@@ -323,9 +330,9 @@ export function getStyles(colors: FooterColors): string {
 }
 
 .myio-footer-clear-btn:disabled {
-  background: var(--fc-surface);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: var(--fc-text-tertiary);
+  background: rgba(128, 128, 128, 0.2);
+  border-color: rgba(128, 128, 128, 0.1);
+  color: rgba(128, 128, 128, 0.5);
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
@@ -363,7 +370,7 @@ export function getStyles(colors: FooterColors): string {
   background: var(--fc-compare-btn);
   border: none;
   border-radius: var(--fc-radius-md);
-  color: var(--fc-text-primary);
+  color: #ffffff;
   cursor: pointer;
   overflow: hidden;
   box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.5), 0 4px 16px rgba(62, 26, 125, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -371,14 +378,14 @@ export function getStyles(colors: FooterColors): string {
 }
 
 .myio-footer-compare:hover {
-  background: linear-gradient(135deg, #5A2CB8 0%, #3E1A7D 100%);
+  background: linear-gradient(135deg, var(--fc-compare-btn-hover) 0%, var(--fc-compare-btn) 100%);
   box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.7), 0 6px 24px rgba(62, 26, 125, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
 .myio-footer-compare:disabled {
-  background: var(--fc-surface);
-  color: var(--fc-text-tertiary);
+  background: rgba(128, 128, 128, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   cursor: not-allowed;
   opacity: 0.5;
   box-shadow: none;
@@ -429,7 +436,7 @@ export function getStyles(colors: FooterColors): string {
   max-width: 480px;
   width: 90%;
   padding: 32px;
-  background: linear-gradient(135deg, var(--fc-surface-elevated) 0%, var(--fc-surface) 100%);
+  background: linear-gradient(135deg, #242b36 0%, #1a1f28 100%);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
@@ -459,7 +466,7 @@ export function getStyles(colors: FooterColors): string {
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 700;
-  color: var(--fc-text-primary);
+  color: #ffffff;
   text-align: center;
   letter-spacing: -0.02em;
 }
@@ -468,7 +475,7 @@ export function getStyles(colors: FooterColors): string {
   margin: 0 0 28px;
   font-size: 16px;
   font-weight: 500;
-  color: var(--fc-text-secondary);
+  color: rgba(255, 255, 255, 0.7);
   text-align: center;
   line-height: 1.6;
 }
@@ -480,50 +487,33 @@ export function getStyles(colors: FooterColors): string {
   font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--fc-primary) 0%, var(--fc-primary-dark) 100%);
+  background: linear-gradient(135deg, #9E8CBE 0%, #8472A8 100%);
   border: none;
   border-radius: 12px;
-  color: var(--fc-text-primary);
+  color: #ffffff;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(158, 140, 190, 0.4);
   transition: var(--fc-transition);
 }
 
 .myio-footer-alert-button:hover {
-  background: linear-gradient(135deg, var(--fc-primary-hover) 0%, var(--fc-primary) 100%);
+  background: linear-gradient(135deg, #B8A5D6 0%, #9E8CBE 100%);
   box-shadow: 0 6px 24px rgba(158, 140, 190, 0.5);
   transform: translateY(-2px);
 }
 
 /* ==========================================
-   Light Theme
+   Light Theme Overrides
    ========================================== */
 
 .myio-footer-component--light {
-  background: linear-gradient(
-    180deg,
-    rgba(248, 249, 252, 0.98) 0%,
-    rgba(240, 242, 245, 0.98) 100%
-  );
-  border-top: 2px solid rgba(158, 140, 190, 0.3);
   box-shadow:
     0 -4px 20px rgba(0, 0, 0, 0.1),
     0 -1px 0 rgba(158, 140, 190, 0.2);
 }
 
-.myio-footer-component--light .myio-footer-chip {
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, rgba(158, 140, 190, 0.08) 100%);
-  border-color: rgba(158, 140, 190, 0.3);
-}
-
-.myio-footer-component--light .myio-footer-chip:hover {
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.25) 0%, rgba(158, 140, 190, 0.15) 100%);
-  border-color: rgba(158, 140, 190, 0.5);
-}
-
 .myio-footer-component--light .myio-footer-chip-name,
 .myio-footer-component--light .myio-footer-chip-value {
-  color: #1a1a2e;
   text-shadow: none;
 }
 
@@ -539,32 +529,17 @@ export function getStyles(colors: FooterColors): string {
   color: #dc2626;
 }
 
-.myio-footer-component--light .myio-footer-empty {
-  color: #4a4a6a;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.1) 0%, transparent 100%);
-  border-color: rgba(158, 140, 190, 0.3);
-}
-
 .myio-footer-component--light .myio-footer-meta {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(158, 140, 190, 0.2);
+  box-shadow: none;
 }
 
 .myio-footer-component--light .myio-footer-meta-title,
 .myio-footer-component--light .myio-footer-totals {
-  color: #1a1a2e;
   text-shadow: none;
 }
 
-.myio-footer-component--light .myio-footer-clear-btn {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.1);
-  color: #4a4a6a;
-}
-
-.myio-footer-component--light .myio-footer-clear-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  border-color: rgba(0, 0, 0, 0.2);
+.myio-footer-component--light .myio-footer-empty {
+  text-shadow: none;
 }
 
 /* ==========================================

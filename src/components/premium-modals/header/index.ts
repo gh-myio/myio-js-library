@@ -48,6 +48,7 @@ export type {
 
   // Theme types
   HeaderThemeMode,
+  HeaderThemeConfig,
 
   // Filter modal types
   HeaderFilterModalParams,
@@ -60,6 +61,8 @@ export type {
 // Default constants
 export {
   HEADER_DEFAULT_CONFIG_TEMPLATE,
+  DEFAULT_HEADER_LIGHT_THEME,
+  DEFAULT_HEADER_DARK_THEME,
   DEFAULT_CARD_COLORS,
   HEADER_DEFAULT_LOGO_URL,
   HEADER_CSS_PREFIX,

@@ -11,7 +11,7 @@ import {
   MenuThemeMode,
   Shopping,
   MenuState,
-  DEFAULT_MENU_CONFIG,
+  DEFAULT_CONFIG_TEMPLATE,
   DEFAULT_TABS,
 } from './types';
 
@@ -22,7 +22,7 @@ import {
 export class MenuController implements MenuComponentInstance {
   private view: MenuView;
   private state: MenuState;
-  private config: Required<MenuConfigTemplate>;
+  private config: MenuConfigTemplate;
   private params: MenuComponentParams;
   private datePickerInstance: unknown = null;
   private destroyed = false;
@@ -71,9 +71,9 @@ export class MenuController implements MenuComponentInstance {
   /**
    * Merge user config with defaults
    */
-  private mergeConfig(userConfig?: MenuConfigTemplate): Required<MenuConfigTemplate> {
+  private mergeConfig(userConfig?: MenuConfigTemplate): MenuConfigTemplate {
     return {
-      ...DEFAULT_MENU_CONFIG,
+      ...DEFAULT_CONFIG_TEMPLATE,
       ...userConfig,
     };
   }

@@ -62,6 +62,156 @@ export const DEFAULT_FOOTER_COLORS: FooterColors = {
 };
 
 /**
+ * Theme-specific configuration for Footer Component
+ * Used for darkMode and lightMode settings
+ */
+export interface FooterThemeConfig {
+  // Main Colors
+  /** Primary brand color */
+  primaryColor?: string;
+  /** Primary hover color */
+  primaryHoverColor?: string;
+  /** Primary dark color */
+  primaryDarkColor?: string;
+
+  // Background Colors
+  /** Footer background gradient start */
+  backgroundGradientStart?: string;
+  /** Footer background gradient end */
+  backgroundGradientEnd?: string;
+  /** Footer border top color */
+  borderTopColor?: string;
+
+  // Text Colors
+  /** Primary text color */
+  textColor?: string;
+  /** Secondary/muted text color */
+  mutedTextColor?: string;
+
+  // Chip Colors
+  /** Chip background color */
+  chipBackgroundColor?: string;
+  /** Chip border color */
+  chipBorderColor?: string;
+  /** Chip text color */
+  chipTextColor?: string;
+
+  // Button Colors
+  /** Compare button background color */
+  compareButtonColor?: string;
+  /** Compare button hover color */
+  compareButtonHoverColor?: string;
+  /** Clear button background color */
+  clearButtonColor?: string;
+  /** Clear button text color */
+  clearButtonTextColor?: string;
+
+  // Meta/Totals Colors
+  /** Meta section background color */
+  metaBackgroundColor?: string;
+  /** Meta section border color */
+  metaBorderColor?: string;
+
+  // Empty State
+  /** Empty message background color */
+  emptyBackgroundColor?: string;
+  /** Empty message border color */
+  emptyBorderColor?: string;
+}
+
+/**
+ * Configuration template for Footer Component
+ * Maps to ThingsBoard widget settingsSchema.json
+ * Supports theme-specific settings via darkMode/lightMode
+ */
+export interface FooterConfigTemplate {
+  // Debug
+  /** Enable console logging for debugging */
+  enableDebugMode?: boolean;
+
+  // Labels (shared across themes)
+  /** Empty dock message */
+  emptyMessage?: string;
+  /** Compare button label */
+  compareButtonLabel?: string;
+  /** Clear button label */
+  clearButtonLabel?: string;
+
+  // Behavior (shared across themes)
+  /** Maximum number of selections allowed */
+  maxSelections?: number;
+
+  // Theme-specific settings
+  /** Dark mode configuration */
+  darkMode?: FooterThemeConfig;
+  /** Light mode configuration */
+  lightMode?: FooterThemeConfig;
+}
+
+/**
+ * Default theme configuration for dark mode
+ */
+export const DEFAULT_DARK_THEME: FooterThemeConfig = {
+  primaryColor: '#9E8CBE',
+  primaryHoverColor: '#B8A5D6',
+  primaryDarkColor: '#8472A8',
+  backgroundGradientStart: 'rgba(158, 140, 190, 0.95)',
+  backgroundGradientEnd: 'rgba(132, 114, 168, 0.98)',
+  borderTopColor: 'rgba(184, 165, 214, 0.5)',
+  textColor: '#ffffff',
+  mutedTextColor: 'rgba(255, 255, 255, 0.7)',
+  chipBackgroundColor: 'rgba(158, 140, 190, 0.25)',
+  chipBorderColor: 'rgba(184, 165, 214, 0.4)',
+  chipTextColor: '#ffffff',
+  compareButtonColor: '#3E1A7D',
+  compareButtonHoverColor: '#5A2CB8',
+  clearButtonColor: 'rgba(200, 200, 200, 0.2)',
+  clearButtonTextColor: '#cccccc',
+  metaBackgroundColor: 'rgba(158, 140, 190, 0.15)',
+  metaBorderColor: 'rgba(184, 165, 214, 0.3)',
+  emptyBackgroundColor: 'rgba(158, 140, 190, 0.15)',
+  emptyBorderColor: 'rgba(184, 165, 214, 0.4)',
+};
+
+/**
+ * Default theme configuration for light mode
+ */
+export const DEFAULT_LIGHT_THEME: FooterThemeConfig = {
+  primaryColor: '#7A2FF7',
+  primaryHoverColor: '#5A1FD1',
+  primaryDarkColor: '#4A19B1',
+  backgroundGradientStart: 'rgba(248, 249, 252, 0.98)',
+  backgroundGradientEnd: 'rgba(240, 242, 245, 0.98)',
+  borderTopColor: 'rgba(158, 140, 190, 0.3)',
+  textColor: '#1a1a2e',
+  mutedTextColor: '#4a4a6a',
+  chipBackgroundColor: 'rgba(122, 47, 247, 0.1)',
+  chipBorderColor: 'rgba(122, 47, 247, 0.25)',
+  chipTextColor: '#1a1a2e',
+  compareButtonColor: '#7A2FF7',
+  compareButtonHoverColor: '#5A1FD1',
+  clearButtonColor: 'rgba(0, 0, 0, 0.05)',
+  clearButtonTextColor: '#4a4a6a',
+  metaBackgroundColor: 'rgba(255, 255, 255, 0.8)',
+  metaBorderColor: 'rgba(122, 47, 247, 0.2)',
+  emptyBackgroundColor: 'rgba(122, 47, 247, 0.05)',
+  emptyBorderColor: 'rgba(122, 47, 247, 0.2)',
+};
+
+/**
+ * Default configuration template values
+ */
+export const DEFAULT_CONFIG_TEMPLATE: FooterConfigTemplate = {
+  enableDebugMode: false,
+  emptyMessage: 'Selecione dispositivos para comparar',
+  compareButtonLabel: 'Comparar',
+  clearButtonLabel: 'Limpar',
+  maxSelections: 6,
+  darkMode: DEFAULT_DARK_THEME,
+  lightMode: DEFAULT_LIGHT_THEME,
+};
+
+/**
  * Selected entity model for the Footer dock
  */
 export interface SelectedEntity {
@@ -137,6 +287,13 @@ export interface FooterComponentParams {
 
   /** ThingsBoard widget context (optional, for navigation and date range) */
   ctx?: ThingsboardWidgetContext;
+
+  /**
+   * Configuration template from ThingsBoard widget settings
+   * Contains all customization options including theme-specific colors
+   * Values here serve as defaults that can be overridden by other params
+   */
+  configTemplate?: FooterConfigTemplate;
 
   /** Selection store instance (default: window.MyIOSelectionStore) */
   selectionStore?: SelectionStore;

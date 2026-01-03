@@ -75,18 +75,12 @@
       margin-top: 10px;
     }
 
-    /* Menu Mount Area */
+    /* Menu Mount Area - TRANSPARENT background */
     .menu-mount-container {
-      background: #fff;
+      background: transparent;
       border-radius: 12px;
       padding: 0;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
       min-height: 60px;
-      transition: background 0.3s ease;
-    }
-
-    .menu-mount-container.dark-mode {
-      background: #1f2937;
     }
 
     #menu-mount {
@@ -707,15 +701,6 @@
         }
       }
 
-      // Update menu container background
-      const container = document.querySelector('.menu-mount-container');
-      if (container) {
-        if (themeMode === 'dark') {
-          container.classList.add('dark-mode');
-        } else {
-          container.classList.remove('dark-mode');
-        }
-      }
     }
 
     // Initialize on load

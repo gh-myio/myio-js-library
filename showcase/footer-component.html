@@ -18,6 +18,92 @@
       color: #f5f7fa;
       padding: 40px;
       padding-bottom: 120px; /* Space for footer */
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    body.light-mode {
+      background: linear-gradient(135deg, #f8f9fc 0%, #e8eaf0 100%);
+      color: #1a1a2e;
+    }
+
+    body.light-mode .section {
+      background: rgba(255, 255, 255, 0.8);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-mode .section-title {
+      color: #1a1a2e;
+    }
+
+    body.light-mode .subtitle {
+      color: #4a4a6a;
+    }
+
+    body.light-mode .device-card {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-mode .device-card:hover {
+      background: rgba(255, 255, 255, 1);
+      border-color: rgba(122, 47, 247, 0.3);
+    }
+
+    body.light-mode .device-card.selected {
+      background: rgba(122, 47, 247, 0.1);
+      border-color: rgba(122, 47, 247, 0.4);
+    }
+
+    body.light-mode .device-name {
+      color: #1a1a2e;
+    }
+
+    body.light-mode .device-value {
+      color: #7A2FF7;
+    }
+
+    body.light-mode .device-customer {
+      color: #4a4a6a;
+    }
+
+    body.light-mode .log-container {
+      background: rgba(0, 0, 0, 0.03);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-mode .log-entry {
+      border-color: rgba(0, 0, 0, 0.05);
+    }
+
+    body.light-mode .code-block {
+      background: rgba(0, 0, 0, 0.05);
+      border-color: rgba(0, 0, 0, 0.1);
+      color: #1a1a2e;
+    }
+
+    body.light-mode .info-box {
+      background: rgba(122, 47, 247, 0.05);
+      border-color: rgba(122, 47, 247, 0.2);
+    }
+
+    body.light-mode .info-box p {
+      color: #4a4a6a;
+    }
+
+    body.light-mode .domain-tab {
+      background: rgba(0, 0, 0, 0.03);
+      border-color: rgba(0, 0, 0, 0.1);
+      color: #4a4a6a;
+    }
+
+    body.light-mode .domain-tab:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    body.light-mode .domain-tab.active {
+      background: rgba(122, 47, 247, 0.1);
+      border-color: rgba(122, 47, 247, 0.3);
+      color: #1a1a2e;
     }
 
     .showcase-container {
@@ -749,7 +835,17 @@ footer.<span class="function">destroy</span>();
     function toggleTheme() {
       const currentTheme = footerInstance.getTheme();
       const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      // Update footer theme
       footerInstance.setTheme(newTheme);
+
+      // Update page theme
+      if (newTheme === 'light') {
+        document.body.classList.add('light-mode');
+      } else {
+        document.body.classList.remove('light-mode');
+      }
+
       logEvent('Theme', `Changed to: ${newTheme}`);
     }
 

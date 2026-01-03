@@ -253,10 +253,17 @@ export type {
   FooterComponentInstance,
   FooterColors,
   FooterThemeMode,
+  FooterThemeConfig,
+  FooterConfigTemplate,
   SelectedEntity as FooterSelectedEntity,
   UnitType as FooterUnitType,
 } from './components/footer';
-export { DEFAULT_FOOTER_COLORS } from './components/footer';
+export {
+  DEFAULT_FOOTER_COLORS,
+  DEFAULT_DARK_THEME as FOOTER_DEFAULT_DARK_THEME,
+  DEFAULT_LIGHT_THEME as FOOTER_DEFAULT_LIGHT_THEME,
+  DEFAULT_CONFIG_TEMPLATE as FOOTER_DEFAULT_CONFIG_TEMPLATE,
+} from './components/footer';
 
 // RFC-0113: Header Component
 export { createHeaderComponent } from './components/premium-modals/header/createHeaderComponent';

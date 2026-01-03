@@ -78,107 +78,239 @@ export interface TabConfig {
 export type MenuThemeMode = 'light' | 'dark';
 
 /**
+ * Theme-specific configuration (colors for cards, buttons, fonts)
+ * Used for darkMode and lightMode settings
+ */
+export interface MenuThemeConfig {
+  // Tab Colors
+  /** Active tab background color */
+  tabActiveBackgroundColor?: string;
+  /** Active tab font color */
+  tabActiveFontColor?: string;
+  /** Inactive tab background color */
+  tabInactiveBackgroundColor?: string;
+  /** Inactive tab font color */
+  tabInactiveFontColor?: string;
+  /** Tab border color */
+  tabBorderColor?: string;
+
+  // Button Colors
+  /** Load button background color */
+  loadButtonBackgroundColor?: string;
+  /** Load button font color */
+  loadButtonFontColor?: string;
+  /** Clear button background color */
+  clearButtonBackgroundColor?: string;
+  /** Clear button font color */
+  clearButtonFontColor?: string;
+  /** Goals button background color */
+  goalsButtonBackgroundColor?: string;
+  /** Goals button font color */
+  goalsButtonFontColor?: string;
+  /** Filter button background color */
+  filterButtonBackgroundColor?: string;
+  /** Filter button font color */
+  filterButtonFontColor?: string;
+
+  // Date Picker Colors
+  /** Date picker background color */
+  datePickerBackgroundColor?: string;
+  /** Date picker font color */
+  datePickerFontColor?: string;
+
+  // Context Modal Colors
+  /** Context modal background color */
+  modalBackgroundColor?: string;
+  /** Context modal header background color */
+  modalHeaderBackgroundColor?: string;
+  /** Context modal text color */
+  modalTextColor?: string;
+  /** Context modal description color */
+  modalDescriptionColor?: string;
+  /** Context modal border color */
+  modalBorderColor?: string;
+  /** Context option hover background color */
+  optionHoverBackgroundColor?: string;
+  /** Context option active background color */
+  optionActiveBackgroundColor?: string;
+  /** Context option active border color */
+  optionActiveBorderColor?: string;
+
+  // Filter Modal Colors
+  /** Filter modal background color */
+  filterModalBackgroundColor?: string;
+  /** Filter modal text color */
+  filterModalTextColor?: string;
+  /** Filter modal border color */
+  filterModalBorderColor?: string;
+  /** Filter chip background color */
+  chipBackgroundColor?: string;
+  /** Filter chip text color */
+  chipTextColor?: string;
+  /** Filter chip border color */
+  chipBorderColor?: string;
+  /** Filter item selected background color */
+  filterItemSelectedBackgroundColor?: string;
+  /** Filter item selected border color */
+  filterItemSelectedBorderColor?: string;
+}
+
+/**
  * Configuration template from ThingsBoard widget settings
  * Maps to settingsSchema.json properties with "menu_" prefix
  */
 export interface MenuConfigTemplate {
-  // Theme mode
-  /** Theme mode: 'light' or 'dark' (default: 'light') */
-  themeMode?: MenuThemeMode;
-
-  // Tab colors
-  /** Active tab background color (default: #2F5848) */
-  tabSelecionadoBackgroundColor?: string;
-  /** Active tab font color (default: #F2F2F2) */
-  tabSelecionadoFontColor?: string;
-  /** Inactive tab background color (default: #FFFFFF for light, #374151 for dark) */
-  tabNaoSelecionadoBackgroundColor?: string;
-  /** Inactive tab font color (default: #1C2743 for light, #E5E7EB for dark) */
-  tabNaoSelecionadoFontColor?: string;
-
-  // Load button colors
-  /** Load button background color (default: #2F5848) */
-  botaoCarregarBackgroundColor?: string;
-  /** Load button font color (default: #F2F2F2) */
-  botaoCarregarFontColor?: string;
-
-  // Clear button colors
-  /** Clear button background color (default: #FFFFFF for light, #374151 for dark) */
-  botaoLimparBackgroundColor?: string;
-  /** Clear button font color (default: #1C2743 for light, #E5E7EB for dark) */
-  botaoLimparFontColor?: string;
-
-  // Goals button colors
-  /** Goals button background color (default: #6a1b9a) */
-  botaoMetasBackgroundColor?: string;
-  /** Goals button font color (default: #F2F2F2) */
-  botaoMetasFontColor?: string;
-
-  // Filter button colors
-  /** Filter button background color (default: #FFFFFF for light, #374151 for dark) */
-  botaoFiltroBackgroundColor?: string;
-  /** Filter button font color (default: #1C2743 for light, #E5E7EB for dark) */
-  botaoFiltroFontColor?: string;
-
-  // Date picker colors
-  /** Date picker background color (default: #FFFFFF for light, #374151 for dark) */
-  datePickerBackgroundColor?: string;
-  /** Date picker font color (default: #1C2743 for light, #E5E7EB for dark) */
-  datePickerFontColor?: string;
-
   // Debug mode
   /** Enable console logging for debugging */
   enableDebugMode?: boolean;
+
+  // Theme Mode
+  /** Theme mode: 'light' or 'dark' (default: 'light') */
+  themeMode?: MenuThemeMode;
+
+  // Theme-specific settings
+  /** Dark mode configuration (colors for cards, buttons, fonts) */
+  darkMode?: MenuThemeConfig;
+  /** Light mode configuration (colors for cards, buttons, fonts) */
+  lightMode?: MenuThemeConfig;
+
+  // Legacy properties (from settingsSchema.json) - for backwards compatibility
+  /** Active tab background color (legacy) */
+  tabSelecionadoBackgroundColor?: string;
+  /** Active tab font color (legacy) */
+  tabSelecionadoFontColor?: string;
+  /** Inactive tab background color (legacy) */
+  tabNaoSelecionadoBackgroundColor?: string;
+  /** Inactive tab font color (legacy) */
+  tabNaoSelecionadoFontColor?: string;
+  /** Load button background color (legacy) */
+  botaoCarregarBackgroundColor?: string;
+  /** Load button font color (legacy) */
+  botaoCarregarFontColor?: string;
+  /** Clear button background color (legacy) */
+  botaoLimparBackgroundColor?: string;
+  /** Clear button font color (legacy) */
+  botaoLimparFontColor?: string;
+  /** Goals button background color (legacy) */
+  botaoMetasBackgroundColor?: string;
+  /** Goals button font color (legacy) */
+  botaoMetasFontColor?: string;
+  /** Filter button background color (legacy) */
+  botaoFiltroBackgroundColor?: string;
+  /** Filter button font color (legacy) */
+  botaoFiltroFontColor?: string;
+  /** Date picker background color (legacy) */
+  datePickerBackgroundColor?: string;
+  /** Date picker font color (legacy) */
+  datePickerFontColor?: string;
 }
 
 /**
- * Default configuration values for light theme
+ * Default theme configuration for light mode
  */
-export const DEFAULT_MENU_CONFIG_LIGHT: Required<MenuConfigTemplate> = {
-  themeMode: 'light',
-  tabSelecionadoBackgroundColor: '#2F5848',
-  tabSelecionadoFontColor: '#F2F2F2',
-  tabNaoSelecionadoBackgroundColor: '#FFFFFF',
-  tabNaoSelecionadoFontColor: '#1C2743',
-  botaoCarregarBackgroundColor: '#2F5848',
-  botaoCarregarFontColor: '#F2F2F2',
-  botaoLimparBackgroundColor: '#FFFFFF',
-  botaoLimparFontColor: '#1C2743',
-  botaoMetasBackgroundColor: '#6a1b9a',
-  botaoMetasFontColor: '#F2F2F2',
-  botaoFiltroBackgroundColor: '#FFFFFF',
-  botaoFiltroFontColor: '#1C2743',
+export const DEFAULT_LIGHT_THEME: MenuThemeConfig = {
+  // Tabs
+  tabActiveBackgroundColor: '#2F5848',
+  tabActiveFontColor: '#F2F2F2',
+  tabInactiveBackgroundColor: '#FFFFFF',
+  tabInactiveFontColor: '#1C2743',
+  tabBorderColor: '#e0e0e0',
+
+  // Buttons
+  loadButtonBackgroundColor: '#2F5848',
+  loadButtonFontColor: '#F2F2F2',
+  clearButtonBackgroundColor: '#FFFFFF',
+  clearButtonFontColor: '#1C2743',
+  goalsButtonBackgroundColor: '#6a1b9a',
+  goalsButtonFontColor: '#F2F2F2',
+  filterButtonBackgroundColor: '#FFFFFF',
+  filterButtonFontColor: '#1C2743',
+
+  // Date Picker
   datePickerBackgroundColor: '#FFFFFF',
   datePickerFontColor: '#1C2743',
-  enableDebugMode: false,
+
+  // Context Modal
+  modalBackgroundColor: '#ffffff',
+  modalHeaderBackgroundColor: '#f8fafc',
+  modalTextColor: '#1e293b',
+  modalDescriptionColor: '#64748b',
+  modalBorderColor: '#e2e8f0',
+  optionHoverBackgroundColor: '#f1f5f9',
+  optionActiveBackgroundColor: '#eff6ff',
+  optionActiveBorderColor: '#3b82f6',
+
+  // Filter Modal
+  filterModalBackgroundColor: '#ffffff',
+  filterModalTextColor: '#344054',
+  filterModalBorderColor: '#d9d9d9',
+  chipBackgroundColor: '#e0e7ff',
+  chipTextColor: '#3730a3',
+  chipBorderColor: '#a5b4fc',
+  filterItemSelectedBackgroundColor: '#f0f9ff',
+  filterItemSelectedBorderColor: '#3b82f6',
 };
 
 /**
- * Default configuration values for dark theme
+ * Default theme configuration for dark mode
  */
-export const DEFAULT_MENU_CONFIG_DARK: Required<MenuConfigTemplate> = {
-  themeMode: 'dark',
-  tabSelecionadoBackgroundColor: '#2F5848',
-  tabSelecionadoFontColor: '#F2F2F2',
-  tabNaoSelecionadoBackgroundColor: '#374151',
-  tabNaoSelecionadoFontColor: '#E5E7EB',
-  botaoCarregarBackgroundColor: '#2F5848',
-  botaoCarregarFontColor: '#F2F2F2',
-  botaoLimparBackgroundColor: '#374151',
-  botaoLimparFontColor: '#E5E7EB',
-  botaoMetasBackgroundColor: '#7c3aed',
-  botaoMetasFontColor: '#F2F2F2',
-  botaoFiltroBackgroundColor: '#374151',
-  botaoFiltroFontColor: '#E5E7EB',
+export const DEFAULT_DARK_THEME: MenuThemeConfig = {
+  // Tabs
+  tabActiveBackgroundColor: '#2F5848',
+  tabActiveFontColor: '#F2F2F2',
+  tabInactiveBackgroundColor: '#374151',
+  tabInactiveFontColor: '#E5E7EB',
+  tabBorderColor: '#4b5563',
+
+  // Buttons
+  loadButtonBackgroundColor: '#2F5848',
+  loadButtonFontColor: '#F2F2F2',
+  clearButtonBackgroundColor: '#374151',
+  clearButtonFontColor: '#E5E7EB',
+  goalsButtonBackgroundColor: '#7c3aed',
+  goalsButtonFontColor: '#F2F2F2',
+  filterButtonBackgroundColor: '#374151',
+  filterButtonFontColor: '#E5E7EB',
+
+  // Date Picker
   datePickerBackgroundColor: '#374151',
   datePickerFontColor: '#E5E7EB',
-  enableDebugMode: false,
+
+  // Context Modal
+  modalBackgroundColor: '#1f2937',
+  modalHeaderBackgroundColor: '#111827',
+  modalTextColor: '#f3f4f6',
+  modalDescriptionColor: '#9ca3af',
+  modalBorderColor: '#374151',
+  optionHoverBackgroundColor: '#374151',
+  optionActiveBackgroundColor: '#1e3a5f',
+  optionActiveBorderColor: '#3b82f6',
+
+  // Filter Modal
+  filterModalBackgroundColor: '#1f2937',
+  filterModalTextColor: '#e5e7eb',
+  filterModalBorderColor: '#4b5563',
+  chipBackgroundColor: '#312e81',
+  chipTextColor: '#c7d2fe',
+  chipBorderColor: '#4338ca',
+  filterItemSelectedBackgroundColor: '#1e3a5f',
+  filterItemSelectedBorderColor: '#3b82f6',
 };
 
 /**
- * Default configuration values (light theme)
+ * Default configuration template values
  */
-export const DEFAULT_MENU_CONFIG: Required<MenuConfigTemplate> = DEFAULT_MENU_CONFIG_LIGHT;
+export const DEFAULT_CONFIG_TEMPLATE: MenuConfigTemplate = {
+  enableDebugMode: false,
+  themeMode: 'light',
+  darkMode: DEFAULT_DARK_THEME,
+  lightMode: DEFAULT_LIGHT_THEME,
+};
+
+// Legacy exports for backwards compatibility
+export const DEFAULT_MENU_CONFIG_LIGHT = DEFAULT_LIGHT_THEME;
+export const DEFAULT_MENU_CONFIG_DARK = DEFAULT_DARK_THEME;
+export const DEFAULT_MENU_CONFIG = DEFAULT_CONFIG_TEMPLATE;
 
 /**
  * Default tab configuration following the existing MENU widget structure

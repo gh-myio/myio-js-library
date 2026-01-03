@@ -12,6 +12,8 @@ export type {
   FooterComponentInstance,
   FooterColors,
   FooterThemeMode,
+  FooterThemeConfig,
+  FooterConfigTemplate,
   SelectedEntity,
   UnitType,
   DateRange,
@@ -24,7 +26,12 @@ export type {
 } from './types';
 
 // Constants
-export { DEFAULT_FOOTER_COLORS } from './types';
+export {
+  DEFAULT_FOOTER_COLORS,
+  DEFAULT_DARK_THEME,
+  DEFAULT_LIGHT_THEME,
+  DEFAULT_CONFIG_TEMPLATE,
+} from './types';
 
 // Internal utilities (for advanced use cases)
 export { ChipRenderer, chipRenderer } from './ChipRenderer';

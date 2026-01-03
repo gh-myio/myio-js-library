@@ -299,7 +299,13 @@ export interface HeaderConfigTemplate {
   /** Theme mode: 'light' or 'dark' (default: 'light') */
   themeMode?: HeaderThemeMode;
 
-  // Card Colors (from settingsSchema.json)
+  // Theme-specific settings
+  /** Light mode theme configuration */
+  lightMode?: HeaderThemeConfig;
+  /** Dark mode theme configuration */
+  darkMode?: HeaderThemeConfig;
+
+  // Card Colors (from settingsSchema.json) - legacy, for backwards compatibility
   /** Equipment card background color */
   cardEquipamentosBackgroundColor?: string;
   /** Equipment card font color */
@@ -501,6 +507,126 @@ export interface HeaderFilterModalInstance {
 }
 
 // ============================================================================
+// Theme Configuration
+// ============================================================================
+
+/**
+ * Theme-specific configuration for Header Component
+ * Used for darkMode and lightMode settings
+ */
+export interface HeaderThemeConfig {
+  // Card Colors
+  /** Card background color */
+  cardBackgroundColor?: string;
+  /** Card border color */
+  cardBorderColor?: string;
+  /** KPI value text color */
+  kpiColor?: string;
+  /** Card title color */
+  titleColor?: string;
+  /** Subtitle/secondary text color */
+  subtextColor?: string;
+  /** Icon stroke color */
+  iconStrokeColor?: string;
+  /** Icon border color */
+  iconBorderColor?: string;
+
+  // Status Colors
+  /** OK/success color */
+  okColor?: string;
+  /** Warning color */
+  warnColor?: string;
+  /** Down/decrease trend color */
+  downColor?: string;
+  /** Up/increase trend color */
+  upColor?: string;
+
+  // Logo Card
+  /** Logo card background color */
+  logoBackgroundColor?: string;
+  /** Back button background color */
+  backButtonBackgroundColor?: string;
+  /** Back button background color on hover */
+  backButtonBackgroundHoverColor?: string;
+  /** Back button icon color */
+  backButtonColor?: string;
+  /** Back button icon color on hover */
+  backButtonHoverColor?: string;
+
+  // Shadows
+  /** Card shadow */
+  cardShadow?: string;
+  /** Card shadow on hover */
+  cardShadowHover?: string;
+}
+
+// ============================================================================
+// Default Theme Values
+// ============================================================================
+
+/**
+ * Default theme configuration for light mode
+ */
+export const DEFAULT_HEADER_LIGHT_THEME: HeaderThemeConfig = {
+  // Card Colors
+  cardBackgroundColor: 'rgba(255, 255, 255, 0.95)',
+  cardBorderColor: '#e6eef5',
+  kpiColor: '#1c2743',
+  titleColor: '#4a5b6b',
+  subtextColor: '#6b7a90',
+  iconStrokeColor: '#9BB4C9',
+  iconBorderColor: '#e3edf6',
+
+  // Status Colors
+  okColor: '#1f9d55',
+  warnColor: '#d97706',
+  downColor: '#099250',
+  upColor: '#c2410c',
+
+  // Logo Card
+  logoBackgroundColor: '#1f3a35',
+  backButtonBackgroundColor: 'rgba(255, 255, 255, 0.15)',
+  backButtonBackgroundHoverColor: 'rgba(255, 255, 255, 0.25)',
+  backButtonColor: 'rgba(255, 255, 255, 0.75)',
+  backButtonHoverColor: 'rgba(255, 255, 255, 1)',
+
+  // Shadows
+  cardShadow: '0 1px 1px rgba(16, 24, 40, 0.04), 0 8px 22px rgba(31, 116, 164, 0.08)',
+  cardShadowHover: '0 2px 2px rgba(16, 24, 40, 0.05), 0 10px 26px rgba(31, 116, 164, 0.12)',
+};
+
+/**
+ * Default theme configuration for dark mode
+ */
+export const DEFAULT_HEADER_DARK_THEME: HeaderThemeConfig = {
+  // Card Colors
+  cardBackgroundColor: 'rgba(30, 42, 56, 0.95)',
+  cardBorderColor: '#3d4f63',
+  kpiColor: '#ffffff',
+  titleColor: '#c8d4e0',
+  subtextColor: '#a8b5c4',
+  iconStrokeColor: '#8fa3b8',
+  iconBorderColor: '#3d4f63',
+
+  // Status Colors - brighter for dark bg
+  okColor: '#4ade80',
+  warnColor: '#fbbf24',
+  downColor: '#34d399',
+  upColor: '#fb923c',
+
+  // Logo Card - darker
+  logoBackgroundColor: '#0d1a14',
+  backButtonBackgroundColor: 'rgba(255, 255, 255, 0.1)',
+  backButtonBackgroundHoverColor: 'rgba(255, 255, 255, 0.2)',
+  backButtonColor: 'rgba(255, 255, 255, 0.6)',
+  backButtonHoverColor: 'rgba(255, 255, 255, 0.9)',
+
+  // Shadows
+  cardShadow: '0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 22px rgba(0, 0, 0, 0.3)',
+  cardShadowHover: '0 2px 4px rgba(0, 0, 0, 0.25), 0 10px 26px rgba(0, 0, 0, 0.4)',
+};
+
+// ============================================================================
 // Default Values
 // ============================================================================
 
@@ -518,7 +644,14 @@ export const DEFAULT_CARD_COLORS: HeaderCardColors = {
  * Default configuration template (from settingsSchema.json)
  */
 export const HEADER_DEFAULT_CONFIG_TEMPLATE: HeaderConfigTemplate = {
-  // Card Colors
+  // Theme Mode
+  themeMode: 'light',
+
+  // Theme-specific settings
+  lightMode: DEFAULT_HEADER_LIGHT_THEME,
+  darkMode: DEFAULT_HEADER_DARK_THEME,
+
+  // Card Colors (legacy - for backwards compatibility)
   cardEquipamentosBackgroundColor: '#1F3A35',
   cardEquipamentosFontColor: '#F2F2F2',
   cardEnergiaBackgroundColor: '#1F3A35',

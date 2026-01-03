@@ -17,6 +17,7 @@ export type {
   MenuComponentParams,
   MenuComponentInstance,
   MenuConfigTemplate,
+  MenuThemeConfig,
   MenuThemeMode,
   TabConfig,
   ContextOption,
@@ -29,8 +30,12 @@ export type {
 
 // Default configurations
 export {
+  DEFAULT_CONFIG_TEMPLATE,
+  DEFAULT_LIGHT_THEME,
+  DEFAULT_DARK_THEME,
+  DEFAULT_TABS,
+  // Legacy exports
   DEFAULT_MENU_CONFIG,
   DEFAULT_MENU_CONFIG_LIGHT,
   DEFAULT_MENU_CONFIG_DARK,
-  DEFAULT_TABS,
 } from './types';

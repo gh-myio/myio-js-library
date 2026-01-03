@@ -6,11 +6,15 @@
 import {
   FooterComponentParams,
   FooterThemeMode,
+  FooterThemeConfig,
+  FooterConfigTemplate,
   SelectedEntity,
   FooterEventType,
   FooterEventHandler,
   UnitType,
-  DEFAULT_FOOTER_COLORS,
+  DEFAULT_DARK_THEME,
+  DEFAULT_LIGHT_THEME,
+  DEFAULT_CONFIG_TEMPLATE,
 } from './types';
 import { injectStyles } from './styles';
 import { ChipRenderer } from './ChipRenderer';
@@ -39,6 +43,7 @@ export class FooterView {
   private clearBtnEl: HTMLButtonElement | null = null;
 
   private theme: FooterThemeMode;
+  private configTemplate: FooterConfigTemplate;
   private chipRenderer: ChipRenderer;
   private eventHandlers: Map<FooterEventType, FooterEventHandler[]> = new Map();
 
@@ -48,17 +53,78 @@ export class FooterView {
   constructor(private params: FooterComponentParams) {
     this.container = params.container;
     this.theme = params.theme ?? 'dark';
-    this.emptyMessage = params.emptyMessage ?? 'Selecione dispositivos para comparar';
-    this.compareButtonLabel = params.compareButtonLabel ?? 'Comparar';
+    this.configTemplate = params.configTemplate ?? DEFAULT_CONFIG_TEMPLATE;
+
+    // Get labels from params or configTemplate
+    this.emptyMessage = params.emptyMessage ?? this.configTemplate.emptyMessage ?? 'Selecione dispositivos para comparar';
+    this.compareButtonLabel = params.compareButtonLabel ?? this.configTemplate.compareButtonLabel ?? 'Comparar';
     this.chipRenderer = new ChipRenderer();
 
     // Create main element
     this.footerEl = document.createElement('section');
     this.footerEl.className = this.getClassName();
 
-    // Inject styles
-    const colors = { ...DEFAULT_FOOTER_COLORS, ...params.colors };
-    injectStyles(colors);
+    // Inject base styles
+    injectStyles();
+
+    // Apply theme colors
+    this.applyThemeColors();
+  }
+
+  /**
+   * Get the current theme config based on theme mode
+   */
+  private getThemeConfig(): FooterThemeConfig {
+    const themeConfig = this.theme === 'dark'
+      ? this.configTemplate.darkMode
+      : this.configTemplate.lightMode;
+
+    const defaults = this.theme === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
+
+    return { ...defaults, ...themeConfig };
+  }
+
+  /**
+   * Apply theme colors as CSS custom properties
+   */
+  private applyThemeColors(): void {
+    const config = this.getThemeConfig();
+
+    // Apply CSS variables to the footer element
+    const style = this.footerEl.style;
+
+    // Main colors
+    style.setProperty('--fc-primary', config.primaryColor ?? '');
+    style.setProperty('--fc-primary-hover', config.primaryHoverColor ?? '');
+    style.setProperty('--fc-primary-dark', config.primaryDarkColor ?? '');
+
+    // Background
+    style.setProperty('--fc-bg-gradient-start', config.backgroundGradientStart ?? '');
+    style.setProperty('--fc-bg-gradient-end', config.backgroundGradientEnd ?? '');
+    style.setProperty('--fc-border-top', config.borderTopColor ?? '');
+
+    // Text
+    style.setProperty('--fc-text', config.textColor ?? '');
+    style.setProperty('--fc-text-muted', config.mutedTextColor ?? '');
+
+    // Chip
+    style.setProperty('--fc-chip-bg', config.chipBackgroundColor ?? '');
+    style.setProperty('--fc-chip-border', config.chipBorderColor ?? '');
+    style.setProperty('--fc-chip-text', config.chipTextColor ?? '');
+
+    // Buttons
+    style.setProperty('--fc-compare-btn', config.compareButtonColor ?? '');
+    style.setProperty('--fc-compare-btn-hover', config.compareButtonHoverColor ?? '');
+    style.setProperty('--fc-clear-btn', config.clearButtonColor ?? '');
+    style.setProperty('--fc-clear-btn-text', config.clearButtonTextColor ?? '');
+
+    // Meta
+    style.setProperty('--fc-meta-bg', config.metaBackgroundColor ?? '');
+    style.setProperty('--fc-meta-border', config.metaBorderColor ?? '');
+
+    // Empty
+    style.setProperty('--fc-empty-bg', config.emptyBackgroundColor ?? '');
+    style.setProperty('--fc-empty-border', config.emptyBorderColor ?? '');
   }
 
   /**
@@ -274,6 +340,7 @@ export class FooterView {
   setTheme(theme: FooterThemeMode): void {
     this.theme = theme;
     this.footerEl.className = this.getClassName();
+    this.applyThemeColors();
   }
 
   /**
@@ -281,6 +348,14 @@ export class FooterView {
    */
   getTheme(): FooterThemeMode {
     return this.theme;
+  }
+
+  /**
+   * Update config template and reapply theme
+   */
+  setConfigTemplate(configTemplate: FooterConfigTemplate): void {
+    this.configTemplate = configTemplate;
+    this.applyThemeColors();
   }
 
   /**

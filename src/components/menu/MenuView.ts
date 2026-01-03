@@ -6,15 +6,16 @@
 import {
   MenuComponentParams,
   MenuConfigTemplate,
+  MenuThemeConfig,
   MenuThemeMode,
   MenuEventType,
   MenuEventHandler,
   TabConfig,
   ContextOption,
   Shopping,
-  DEFAULT_MENU_CONFIG,
-  DEFAULT_MENU_CONFIG_LIGHT,
-  DEFAULT_MENU_CONFIG_DARK,
+  DEFAULT_CONFIG_TEMPLATE,
+  DEFAULT_LIGHT_THEME,
+  DEFAULT_DARK_THEME,
   DEFAULT_TABS,
 } from './types';
 
@@ -24,7 +25,8 @@ import {
 export class MenuView {
   private container: HTMLElement;
   private root: HTMLElement;
-  private config: Required<MenuConfigTemplate>;
+  private configTemplate: MenuConfigTemplate;
+  private themeConfig: Required<MenuThemeConfig>;
   private tabs: TabConfig[];
   private eventHandlers: Map<MenuEventType, MenuEventHandler[]> = new Map();
   private styleElement: HTMLStyleElement | null = null;
@@ -37,8 +39,9 @@ export class MenuView {
 
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
-    this.themeMode = params.configTemplate?.themeMode ?? 'light';
-    this.config = this.mergeConfig(params.configTemplate);
+    this.configTemplate = { ...DEFAULT_CONFIG_TEMPLATE, ...params.configTemplate };
+    this.themeMode = 'light'; // Default, can be changed via setThemeMode
+    this.themeConfig = this.getThemeConfig();
     this.tabs = params.tabs ?? DEFAULT_TABS;
     this.activeTabId = params.initialTab ?? this.tabs[0]?.id ?? 'energy';
 
@@ -50,23 +53,27 @@ export class MenuView {
     this.root = document.createElement('div');
     this.root.className = `myio-menu-root myio-menu-theme-${this.themeMode}`;
 
-    if (this.config.enableDebugMode) {
-      console.log('[MenuView] Config:', this.config);
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] ConfigTemplate:', this.configTemplate);
+      console.log('[MenuView] ThemeConfig:', this.themeConfig);
       console.log('[MenuView] Tabs:', this.tabs);
       console.log('[MenuView] Theme:', this.themeMode);
     }
   }
 
   /**
-   * Merge user config with defaults based on theme mode
+   * Get the theme config based on current theme mode
    */
-  private mergeConfig(userConfig?: MenuConfigTemplate): Required<MenuConfigTemplate> {
-    const baseConfig = this.themeMode === 'dark' ? DEFAULT_MENU_CONFIG_DARK : DEFAULT_MENU_CONFIG_LIGHT;
+  private getThemeConfig(): Required<MenuThemeConfig> {
+    const defaults = this.themeMode === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
+    const userTheme = this.themeMode === 'dark'
+      ? this.configTemplate.darkMode
+      : this.configTemplate.lightMode;
+
     return {
-      ...baseConfig,
-      ...userConfig,
-      themeMode: this.themeMode,
-    };
+      ...defaults,
+      ...userTheme,
+    } as Required<MenuThemeConfig>;
   }
 
   /**
@@ -115,88 +122,22 @@ export class MenuView {
    * Get CSS styles for the menu
    */
   private getStyles(): string {
-    const c = this.config;
     return `
 /* ==========================================
    MYIO Menu Component - RFC-0114
+   Background is TRANSPARENT - colors for cards/buttons/fonts only
    ========================================== */
 
 .myio-menu-root {
-  --menu-tab-active-bg: ${c.tabSelecionadoBackgroundColor};
-  --menu-tab-active-color: ${c.tabSelecionadoFontColor};
-  --menu-tab-inactive-bg: ${c.tabNaoSelecionadoBackgroundColor};
-  --menu-tab-inactive-color: ${c.tabNaoSelecionadoFontColor};
-  --menu-btn-load-bg: ${c.botaoCarregarBackgroundColor};
-  --menu-btn-load-color: ${c.botaoCarregarFontColor};
-  --menu-btn-clear-bg: ${c.botaoLimparBackgroundColor};
-  --menu-btn-clear-color: ${c.botaoLimparFontColor};
-  --menu-btn-goals-bg: ${c.botaoMetasBackgroundColor};
-  --menu-btn-goals-color: ${c.botaoMetasFontColor};
-  --menu-btn-filter-bg: ${c.botaoFiltroBackgroundColor};
-  --menu-btn-filter-color: ${c.botaoFiltroFontColor};
-  --menu-datepicker-bg: ${c.datePickerBackgroundColor};
-  --menu-datepicker-color: ${c.datePickerFontColor};
-
-  /* Theme-aware colors (light mode defaults) */
-  --menu-toolbar-bg: #f8f9fa;
-  --menu-toolbar-border: #e0e0e0;
-  --menu-modal-bg: #ffffff;
-  --menu-modal-header-bg: #f8fafc;
-  --menu-modal-border: #e2e8f0;
-  --menu-modal-text: #1e293b;
-  --menu-modal-desc: #64748b;
-  --menu-option-hover-bg: #f1f5f9;
-  --menu-option-active-bg: #eff6ff;
-  --menu-option-active-border: #3b82f6;
-  --menu-option-active-color: #1d4ed8;
-  --menu-filter-bg: #ffffff;
-  --menu-filter-text: #344054;
-  --menu-filter-border: #d9d9d9;
-  --menu-filter-hover: #f2f2f2;
-  --menu-filter-selected-bg: #f0f9ff;
-  --menu-filter-selected-border: #3b82f6;
-  --menu-chip-bg: #e0e7ff;
-  --menu-chip-text: #3730a3;
-  --menu-chip-border: #a5b4fc;
-
   font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
   width: 100%;
 }
 
-/* Dark Theme Overrides */
-.myio-menu-root.myio-menu-theme-dark {
-  --menu-toolbar-bg: #1f2937;
-  --menu-toolbar-border: #374151;
-  --menu-modal-bg: #1f2937;
-  --menu-modal-header-bg: #111827;
-  --menu-modal-border: #374151;
-  --menu-modal-text: #f3f4f6;
-  --menu-modal-desc: #9ca3af;
-  --menu-option-hover-bg: #374151;
-  --menu-option-active-bg: #1e3a5f;
-  --menu-option-active-border: #3b82f6;
-  --menu-option-active-color: #93c5fd;
-  --menu-filter-bg: #1f2937;
-  --menu-filter-text: #e5e7eb;
-  --menu-filter-border: #4b5563;
-  --menu-filter-hover: #374151;
-  --menu-filter-selected-bg: #1e3a5f;
-  --menu-filter-selected-border: #3b82f6;
-  --menu-chip-bg: #312e81;
-  --menu-chip-text: #c7d2fe;
-  --menu-chip-border: #4338ca;
-}
-
-/* Toolbar Root */
+/* Toolbar Root - TRANSPARENT background */
 .myio-toolbar-root {
-  background: var(--menu-toolbar-bg);
+  background: transparent;
   border-radius: 12px;
   padding: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.myio-menu-theme-dark .myio-toolbar-root {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Tabs Row */
@@ -1469,21 +1410,52 @@ export class MenuView {
   }
 
   /**
-   * Apply dynamic styles based on config
+   * Apply dynamic styles based on themeConfig
    */
   private applyDynamicStyles(): void {
-    // CSS variables are already set in getStyles(), but we can update them here if needed
-    const c = this.config;
-    this.root.style.setProperty('--menu-tab-active-bg', c.tabSelecionadoBackgroundColor);
-    this.root.style.setProperty('--menu-tab-active-color', c.tabSelecionadoFontColor);
-    this.root.style.setProperty('--menu-tab-inactive-bg', c.tabNaoSelecionadoBackgroundColor);
-    this.root.style.setProperty('--menu-tab-inactive-color', c.tabNaoSelecionadoFontColor);
-    this.root.style.setProperty('--menu-btn-load-bg', c.botaoCarregarBackgroundColor);
-    this.root.style.setProperty('--menu-btn-load-color', c.botaoCarregarFontColor);
-    this.root.style.setProperty('--menu-btn-clear-bg', c.botaoLimparBackgroundColor);
-    this.root.style.setProperty('--menu-btn-clear-color', c.botaoLimparFontColor);
-    this.root.style.setProperty('--menu-btn-goals-bg', c.botaoMetasBackgroundColor);
-    this.root.style.setProperty('--menu-btn-goals-color', c.botaoMetasFontColor);
+    const t = this.themeConfig;
+
+    // Tab colors
+    this.root.style.setProperty('--menu-tab-active-bg', t.tabActiveBackgroundColor);
+    this.root.style.setProperty('--menu-tab-active-color', t.tabActiveFontColor);
+    this.root.style.setProperty('--menu-tab-inactive-bg', t.tabInactiveBackgroundColor);
+    this.root.style.setProperty('--menu-tab-inactive-color', t.tabInactiveFontColor);
+    this.root.style.setProperty('--menu-tab-border', t.tabBorderColor);
+
+    // Button colors
+    this.root.style.setProperty('--menu-btn-load-bg', t.loadButtonBackgroundColor);
+    this.root.style.setProperty('--menu-btn-load-color', t.loadButtonFontColor);
+    this.root.style.setProperty('--menu-btn-clear-bg', t.clearButtonBackgroundColor);
+    this.root.style.setProperty('--menu-btn-clear-color', t.clearButtonFontColor);
+    this.root.style.setProperty('--menu-btn-goals-bg', t.goalsButtonBackgroundColor);
+    this.root.style.setProperty('--menu-btn-goals-color', t.goalsButtonFontColor);
+    this.root.style.setProperty('--menu-btn-filter-bg', t.filterButtonBackgroundColor);
+    this.root.style.setProperty('--menu-btn-filter-color', t.filterButtonFontColor);
+
+    // Date picker colors
+    this.root.style.setProperty('--menu-datepicker-bg', t.datePickerBackgroundColor);
+    this.root.style.setProperty('--menu-datepicker-color', t.datePickerFontColor);
+
+    // Context modal colors
+    this.root.style.setProperty('--menu-modal-bg', t.modalBackgroundColor);
+    this.root.style.setProperty('--menu-modal-header-bg', t.modalHeaderBackgroundColor);
+    this.root.style.setProperty('--menu-modal-text', t.modalTextColor);
+    this.root.style.setProperty('--menu-modal-desc', t.modalDescriptionColor);
+    this.root.style.setProperty('--menu-modal-border', t.modalBorderColor);
+    this.root.style.setProperty('--menu-option-hover-bg', t.optionHoverBackgroundColor);
+    this.root.style.setProperty('--menu-option-active-bg', t.optionActiveBackgroundColor);
+    this.root.style.setProperty('--menu-option-active-border', t.optionActiveBorderColor);
+
+    // Filter modal colors
+    this.root.style.setProperty('--menu-filter-bg', t.filterModalBackgroundColor);
+    this.root.style.setProperty('--menu-filter-text', t.filterModalTextColor);
+    this.root.style.setProperty('--menu-filter-border', t.filterModalBorderColor);
+    this.root.style.setProperty('--menu-filter-hover', t.optionHoverBackgroundColor);
+    this.root.style.setProperty('--menu-chip-bg', t.chipBackgroundColor);
+    this.root.style.setProperty('--menu-chip-text', t.chipTextColor);
+    this.root.style.setProperty('--menu-chip-border', t.chipBorderColor);
+    this.root.style.setProperty('--menu-filter-selected-bg', t.filterItemSelectedBackgroundColor);
+    this.root.style.setProperty('--menu-filter-selected-border', t.filterItemSelectedBorderColor);
   }
 
   /**
@@ -1556,7 +1528,7 @@ export class MenuView {
    */
   public setThemeMode(mode: MenuThemeMode): void {
     this.themeMode = mode;
-    this.config = this.mergeConfig({ ...this.config, themeMode: mode });
+    this.themeConfig = this.getThemeConfig();
 
     // Update root class
     this.root.classList.remove('myio-menu-theme-light', 'myio-menu-theme-dark');
@@ -1575,7 +1547,7 @@ export class MenuView {
       themeToggleBtn.classList.toggle('is-dark', mode === 'dark');
     }
 
-    if (this.config.enableDebugMode) {
+    if (this.configTemplate.enableDebugMode) {
       console.log('[MenuView] Theme changed to:', mode);
     }
 

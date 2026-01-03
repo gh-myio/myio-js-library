@@ -146,22 +146,28 @@ export class HeaderView {
    Light Theme (default)
    ============================================================================ */
 .${HEADER_CSS_PREFIX}-root {
-  --hdr-card-bg: transparent;
-  --hdr-card-bg-solid: #ffffff;
+  /* Card backgrounds - transparent by default, cards use white with shadow */
+  --hdr-card-bg: rgba(255, 255, 255, 0.95);
   --hdr-card-bd: #e6eef5;
+  /* Text colors */
   --hdr-ink-1: #1c2743;
   --hdr-ink-2: #6b7a90;
   --hdr-title-color: #4a5b6b;
+  --hdr-kpi-color: #1c2743;
+  /* Icon colors */
   --hdr-icon-stroke: #9BB4C9;
   --hdr-icon-border: #e3edf6;
+  /* Status colors */
   --hdr-ok: #1f9d55;
   --hdr-warn: #d97706;
   --hdr-down: #099250;
   --hdr-up: #c2410c;
   --hdr-bar-ok: #9fc131;
-  --hdr-shadow: 0 8px 24px rgba(31, 116, 164, 0.08);
-  --hdr-shadow-hover: 0 10px 26px rgba(31, 116, 164, 0.12);
+  /* Shadows and radius */
+  --hdr-shadow: 0 1px 1px rgba(16, 24, 40, 0.04), 0 8px 22px rgba(31, 116, 164, 0.08);
+  --hdr-shadow-hover: 0 2px 2px rgba(16, 24, 40, 0.05), 0 10px 26px rgba(31, 116, 164, 0.12);
   --hdr-radius: 14px;
+  /* Logo card */
   --hdr-logo-bg: #1f3a35;
   --hdr-back-btn-bg: rgba(255, 255, 255, 0.15);
   --hdr-back-btn-bg-hover: rgba(255, 255, 255, 0.25);
@@ -184,21 +190,27 @@ export class HeaderView {
    Dark Theme
    ============================================================================ */
 .${HEADER_CSS_PREFIX}-root.${HEADER_CSS_PREFIX}-theme-dark {
-  --hdr-card-bg: #1e2a38;
-  --hdr-card-bg-solid: #1e2a38;
-  --hdr-card-bd: #2d3d4f;
+  /* Card backgrounds - dark semi-transparent */
+  --hdr-card-bg: rgba(30, 42, 56, 0.95);
+  --hdr-card-bd: #3d4f63;
+  /* Text colors - light for dark bg */
   --hdr-ink-1: #f0f4f8;
-  --hdr-ink-2: #9ca8b7;
-  --hdr-title-color: #b8c5d3;
-  --hdr-icon-stroke: #7a8fa3;
-  --hdr-icon-border: #2d3d4f;
+  --hdr-ink-2: #a8b5c4;
+  --hdr-title-color: #c8d4e0;
+  --hdr-kpi-color: #ffffff;
+  /* Icon colors */
+  --hdr-icon-stroke: #8fa3b8;
+  --hdr-icon-border: #3d4f63;
+  /* Status colors - brighter for dark bg */
   --hdr-ok: #4ade80;
   --hdr-warn: #fbbf24;
   --hdr-down: #34d399;
   --hdr-up: #fb923c;
-  --hdr-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  --hdr-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.35);
-  --hdr-logo-bg: #0f1a16;
+  /* Shadows */
+  --hdr-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 22px rgba(0, 0, 0, 0.3);
+  --hdr-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.25), 0 10px 26px rgba(0, 0, 0, 0.4);
+  /* Logo card - darker */
+  --hdr-logo-bg: #0d1a14;
   --hdr-back-btn-bg: rgba(255, 255, 255, 0.1);
   --hdr-back-btn-bg-hover: rgba(255, 255, 255, 0.2);
   --hdr-back-btn-color: rgba(255, 255, 255, 0.6);
@@ -281,6 +293,8 @@ export class HeaderView {
   font-size: 1.8rem;
   font-weight: 800;
   letter-spacing: 0.3px;
+  color: var(--hdr-kpi-color);
+  transition: color 0.2s ease;
 }
 
 .${HEADER_CSS_PREFIX}-card__subrow {
@@ -289,6 +303,7 @@ export class HeaderView {
   gap: 8px;
   font-size: 0.9rem;
   color: var(--hdr-ink-2);
+  transition: color 0.2s ease;
 }
 
 /* Info Trigger */
