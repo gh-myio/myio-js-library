@@ -838,12 +838,35 @@ function calculateDeviceCounts(classified) {
 }
 
 // ===================================================================
-// MyIOOrchestrator.getDevices - For TELEMETRY to fetch devices
+// MyIOOrchestrator - For TELEMETRY to fetch devices and cache
 // ===================================================================
 window.MyIOOrchestrator = window.MyIOOrchestrator || {};
+
+// Get devices by domain and context
 window.MyIOOrchestrator.getDevices = function (domain, context) {
   const data = window.MyIOOrchestratorData?.classified;
   return data?.[domain]?.[context] || [];
+};
+
+// Get cache by domain key (energy, water, temperature)
+window.MyIOOrchestrator.getCache = function (cacheKey) {
+  const data = window.MyIOOrchestratorData?.classified;
+  if (!data || !data[cacheKey]) return new Map();
+
+  // Convert domain devices to Map format expected by TELEMETRY
+  const cache = new Map();
+  const domainData = data[cacheKey];
+
+  // Flatten all contexts into single cache
+  Object.values(domainData).forEach((devices) => {
+    devices.forEach((device) => {
+      if (device.id) {
+        cache.set(device.id, device);
+      }
+    });
+  });
+
+  return cache;
 };
 
 self.onDestroy = function () {
