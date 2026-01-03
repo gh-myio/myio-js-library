@@ -592,10 +592,19 @@ self.onDataUpdated = function () {
 
   console.log('[MAIN_UNIQUE] onDataUpdated call #' + _onDataUpdatedCallCount);
 
-  const data = self.ctx.data || [];
+  const allData = self.ctx.data || [];
 
-  // Skip if no data
+  // RFC-0111: Filter to only use "AllDevices" datasource, ignore "customers" and others
+  const data = allData.filter((row) => {
+    const aliasName = row.datasource?.aliasName || '';
+    return aliasName === 'AllDevices' || aliasName === 'allDevices' || aliasName === 'all_devices';
+  });
+
+  console.log(`[MAIN_UNIQUE] Total rows: ${allData.length}, AllDevices rows: ${data.length}`);
+
+  // Skip if no data from AllDevices
   if (data.length === 0) {
+    console.log('[MAIN_UNIQUE] No data from AllDevices datasource - check alias configuration');
     return;
   }
 
@@ -616,7 +625,7 @@ self.onDataUpdated = function () {
   }
   self._lastDataHash = dataHash;
 
-  // Classify all devices from single datasource (pass logDebug for debug output)
+  // Classify all devices from AllDevices datasource (pass logDebug for debug output)
   const classified = classifyAllDevices(data, self._logDebug);
 
   // Build shopping cards for welcome modal
@@ -652,14 +661,24 @@ function classifyAllDevices(data, logDebug) {
   // Debug: log first row structure to understand ThingsBoard data format
   if (data.length > 0 && logDebug) {
     const firstRow = data[0];
-    logDebug('First row datasource structure:', {
-      hasDatasource: !!firstRow.datasource,
+    logDebug('First row FULL structure:', JSON.stringify({
       datasourceKeys: firstRow.datasource ? Object.keys(firstRow.datasource) : [],
       entityId: firstRow.datasource?.entityId,
       entityName: firstRow.datasource?.entityName,
+      entityType: firstRow.datasource?.entityType,
       entity: firstRow.datasource?.entity,
       aliasName: firstRow.datasource?.aliasName,
-    });
+      dataKeys: firstRow.data?.map(d => d.dataKey?.name) || [],
+    }, null, 2));
+
+    // Log first data item values
+    if (firstRow.data && firstRow.data.length > 0) {
+      logDebug('First row DATA values:', firstRow.data.slice(0, 5).map(d => ({
+        key: d.dataKey?.name,
+        label: d.dataKey?.label,
+        value: d.data?.[0]?.[1],
+      })));
+    }
   }
 
   data.forEach((row, index) => {
@@ -717,15 +736,32 @@ function extractDeviceMetadata(row) {
     findDataValue(row, 'deviceName') ||
     'Unknown';
 
+  // Try multiple paths for deviceType
+  const deviceType =
+    findDataValue(row, 'deviceType') ||
+    findDataValue(row, 'type') ||
+    datasource.entity?.type ||
+    datasource.entity?.deviceType ||
+    // Skip CUSTOMER/ASSET as deviceType - these are entity types, not device types
+    (datasource.entityType !== 'CUSTOMER' && datasource.entityType !== 'ASSET' ? datasource.entityType : '') ||
+    '';
+
+  // Try multiple paths for deviceProfile
+  const deviceProfile =
+    findDataValue(row, 'deviceProfile') ||
+    findDataValue(row, 'profile') ||
+    datasource.entity?.deviceProfileId?.id ||
+    '';
+
   return {
     id: entityId,
     entityId: entityId, // Also expose as entityId for card components
     name: deviceName,
     aliasName: datasource.aliasName || '',
-    deviceType: findDataValue(row, 'deviceType') || datasource.entityType || '',
-    deviceProfile: findDataValue(row, 'deviceProfile') || '',
+    deviceType: deviceType,
+    deviceProfile: deviceProfile,
     ingestionId: findDataValue(row, 'ingestionId') || '',
-    customerId: findDataValue(row, 'customerId') || '',
+    customerId: findDataValue(row, 'customerId') || datasource.entity?.customerId?.id || '',
     customerName: findDataValue(row, 'customerName') || findDataValue(row, 'ownerName') || '',
     lastActivityTime: findDataValue(row, 'lastActivityTime'),
     lastConnectTime: findDataValue(row, 'lastConnectTime'),
