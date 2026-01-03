@@ -278,6 +278,15 @@ export type HeaderEventType =
 export type HeaderEventHandler = (...args: unknown[]) => void;
 
 // ============================================================================
+// Theme Mode
+// ============================================================================
+
+/**
+ * Theme mode for the Header Component
+ */
+export type HeaderThemeMode = 'light' | 'dark';
+
+// ============================================================================
 // Configuration Template (maps to settingsSchema.json)
 // ============================================================================
 
@@ -286,6 +295,10 @@ export type HeaderEventHandler = (...args: unknown[]) => void;
  * Maps to ThingsBoard widget settingsSchema.json attributes
  */
 export interface HeaderConfigTemplate {
+  // Theme Mode
+  /** Theme mode: 'light' or 'dark' (default: 'light') */
+  themeMode?: HeaderThemeMode;
+
   // Card Colors (from settingsSchema.json)
   /** Equipment card background color */
   cardEquipamentosBackgroundColor?: string;
@@ -429,6 +442,12 @@ export interface HeaderComponentInstance {
   getSelectedShoppings: () => Shopping[];
   /** Set selected shoppings */
   setSelectedShoppings: (shoppings: Shopping[]) => void;
+
+  // Theme methods
+  /** Set the theme mode (light or dark) */
+  setThemeMode: (mode: HeaderThemeMode) => void;
+  /** Get the current theme mode */
+  getThemeMode: () => HeaderThemeMode;
 
   // Lifecycle
   /** Destroy the component and cleanup */

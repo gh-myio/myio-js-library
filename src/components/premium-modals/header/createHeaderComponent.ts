@@ -19,6 +19,7 @@ import {
   Shopping,
   HeaderEventType,
   HeaderEventHandler,
+  HeaderThemeMode,
   EquipmentKPI,
   EnergyKPI,
   TemperatureKPI,
@@ -339,6 +340,19 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     selectedShoppings = shoppings;
   }
 
+  // =========================================================================
+  // Theme methods
+  // =========================================================================
+
+  function setThemeMode(mode: HeaderThemeMode): void {
+    log('Setting theme mode:', mode);
+    view.setThemeMode(mode);
+  }
+
+  function getThemeMode(): HeaderThemeMode {
+    return view.getThemeMode();
+  }
+
   function destroy(): void {
     log('Destroying component');
 
@@ -405,6 +419,10 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     closeFilterModal,
     getSelectedShoppings,
     setSelectedShoppings,
+
+    // Theme
+    setThemeMode,
+    getThemeMode,
 
     // Lifecycle
     destroy,

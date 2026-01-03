@@ -46,6 +46,9 @@ export type {
   HeaderEventType,
   HeaderEventHandler,
 
+  // Theme types
+  HeaderThemeMode,
+
   // Filter modal types
   HeaderFilterModalParams,
   HeaderFilterModalInstance,

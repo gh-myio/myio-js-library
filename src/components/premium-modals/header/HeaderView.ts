@@ -14,6 +14,7 @@ import {
   CardType,
   HeaderEventType,
   HeaderEventHandler,
+  HeaderThemeMode,
   HEADER_DEFAULT_CONFIG_TEMPLATE,
   HEADER_CSS_PREFIX,
 } from './types';
@@ -27,6 +28,7 @@ export class HeaderView {
   private styleElement: HTMLStyleElement | null = null;
   private config: HeaderConfigTemplate;
   private eventHandlers: Map<HeaderEventType, Set<HeaderEventHandler>> = new Map();
+  private themeMode: HeaderThemeMode = 'light';
 
   // DOM element references
   private equipKpiEl: HTMLElement | null = null;
@@ -41,6 +43,7 @@ export class HeaderView {
 
   constructor(private params: HeaderComponentParams) {
     this.container = params.container;
+    this.themeMode = params.configTemplate?.themeMode ?? 'light';
     this.config = this.mergeConfig(params.configTemplate);
   }
 
@@ -102,7 +105,7 @@ export class HeaderView {
 
     // Build HTML
     this.element = document.createElement('div');
-    this.element.className = `${HEADER_CSS_PREFIX}-root`;
+    this.element.className = `${HEADER_CSS_PREFIX}-root ${HEADER_CSS_PREFIX}-theme-${this.themeMode}`;
     this.element.innerHTML = this.buildHTML();
 
     // Cache DOM references
@@ -139,18 +142,31 @@ export class HeaderView {
     return `
 /* RFC-0113: Header Component Styles */
 
+/* ============================================================================
+   Light Theme (default)
+   ============================================================================ */
 .${HEADER_CSS_PREFIX}-root {
   --hdr-card-bg: transparent;
+  --hdr-card-bg-solid: #ffffff;
   --hdr-card-bd: #e6eef5;
   --hdr-ink-1: #1c2743;
   --hdr-ink-2: #6b7a90;
+  --hdr-title-color: #4a5b6b;
+  --hdr-icon-stroke: #9BB4C9;
+  --hdr-icon-border: #e3edf6;
   --hdr-ok: #1f9d55;
   --hdr-warn: #d97706;
   --hdr-down: #099250;
   --hdr-up: #c2410c;
   --hdr-bar-ok: #9fc131;
   --hdr-shadow: 0 8px 24px rgba(31, 116, 164, 0.08);
+  --hdr-shadow-hover: 0 10px 26px rgba(31, 116, 164, 0.12);
   --hdr-radius: 14px;
+  --hdr-logo-bg: #1f3a35;
+  --hdr-back-btn-bg: rgba(255, 255, 255, 0.15);
+  --hdr-back-btn-bg-hover: rgba(255, 255, 255, 0.25);
+  --hdr-back-btn-color: rgba(255, 255, 255, 0.75);
+  --hdr-back-btn-color-hover: rgba(255, 255, 255, 1);
 
   display: flex;
   flex-direction: column;
@@ -164,6 +180,31 @@ export class HeaderView {
   background: transparent;
 }
 
+/* ============================================================================
+   Dark Theme
+   ============================================================================ */
+.${HEADER_CSS_PREFIX}-root.${HEADER_CSS_PREFIX}-theme-dark {
+  --hdr-card-bg: #1e2a38;
+  --hdr-card-bg-solid: #1e2a38;
+  --hdr-card-bd: #2d3d4f;
+  --hdr-ink-1: #f0f4f8;
+  --hdr-ink-2: #9ca8b7;
+  --hdr-title-color: #b8c5d3;
+  --hdr-icon-stroke: #7a8fa3;
+  --hdr-icon-border: #2d3d4f;
+  --hdr-ok: #4ade80;
+  --hdr-warn: #fbbf24;
+  --hdr-down: #34d399;
+  --hdr-up: #fb923c;
+  --hdr-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --hdr-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.35);
+  --hdr-logo-bg: #0f1a16;
+  --hdr-back-btn-bg: rgba(255, 255, 255, 0.1);
+  --hdr-back-btn-bg-hover: rgba(255, 255, 255, 0.2);
+  --hdr-back-btn-color: rgba(255, 255, 255, 0.6);
+  --hdr-back-btn-color-hover: rgba(255, 255, 255, 0.9);
+}
+
 /* Cards Grid */
 .${HEADER_CSS_PREFIX}-cards {
   display: grid;
@@ -175,22 +216,22 @@ export class HeaderView {
 /* Base Card */
 .${HEADER_CSS_PREFIX}-card {
   position: relative;
-  background: transparent;
+  background: var(--hdr-card-bg);
   border: 1px solid var(--hdr-card-bd);
   border-radius: var(--hdr-radius);
-  box-shadow: 0 1px 1px rgba(16, 24, 40, 0.04), 0 8px 22px rgba(31, 116, 164, 0.08);
+  box-shadow: var(--hdr-shadow);
   padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-height: 113px;
   max-height: 113px;
-  transition: box-shadow 0.2s ease, transform 0.08s ease;
+  transition: box-shadow 0.2s ease, transform 0.08s ease, background 0.2s ease;
 }
 
 .${HEADER_CSS_PREFIX}-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 2px rgba(16, 24, 40, 0.05), 0 10px 26px rgba(31, 116, 164, 0.12);
+  box-shadow: var(--hdr-shadow-hover);
 }
 
 /* Card Header */
@@ -207,8 +248,9 @@ export class HeaderView {
   gap: 4px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #4a5b6b;
+  color: var(--hdr-title-color);
   margin-bottom: 2px;
+  transition: color 0.2s ease;
 }
 
 .${HEADER_CSS_PREFIX}-card__icon {
@@ -217,9 +259,15 @@ export class HeaderView {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border: 1px solid #e3edf6;
+  border: 1px solid var(--hdr-icon-border);
   border-radius: 8px;
   background: transparent;
+  transition: border-color 0.2s ease;
+}
+
+.${HEADER_CSS_PREFIX}-card__icon svg path {
+  stroke: var(--hdr-icon-stroke);
+  transition: stroke 0.2s ease;
 }
 
 /* Card Main Content */
@@ -292,13 +340,14 @@ export class HeaderView {
 /* Logo Card */
 .${HEADER_CSS_PREFIX}-card--logo {
   position: relative;
-  background: #1f3a35;
+  background: var(--hdr-logo-bg);
   border: 0;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  transition: background 0.2s ease;
 }
 
 .${HEADER_CSS_PREFIX}-card--logo * {
@@ -333,8 +382,8 @@ export class HeaderView {
   padding: 0;
   border: none;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--hdr-back-btn-bg);
+  color: var(--hdr-back-btn-color);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -345,8 +394,8 @@ export class HeaderView {
 }
 
 .${HEADER_CSS_PREFIX}-back-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 1);
+  background: var(--hdr-back-btn-bg-hover);
+  color: var(--hdr-back-btn-color-hover);
   opacity: 1;
   transform: translateY(-50%) scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -791,6 +840,33 @@ export class HeaderView {
     } else {
       return `${value.toFixed(2)} m³`;
     }
+  }
+
+  // =========================================================================
+  // Theme Management
+  // =========================================================================
+
+  /**
+   * Set the theme mode (light or dark)
+   */
+  public setThemeMode(mode: HeaderThemeMode): void {
+    this.themeMode = mode;
+
+    if (this.element) {
+      // Update theme class
+      this.element.classList.remove(`${HEADER_CSS_PREFIX}-theme-light`, `${HEADER_CSS_PREFIX}-theme-dark`);
+      this.element.classList.add(`${HEADER_CSS_PREFIX}-theme-${mode}`);
+    }
+
+    // Emit theme change event
+    this.emit('theme-change' as HeaderEventType, { themeMode: mode });
+  }
+
+  /**
+   * Get the current theme mode
+   */
+  public getThemeMode(): HeaderThemeMode {
+    return this.themeMode;
   }
 
   // =========================================================================
