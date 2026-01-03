@@ -346,6 +346,8 @@ export interface WelcomeModalParams {
 export interface WelcomeModalInstance {
   /** Close the modal programmatically */
   close: () => void;
+  /** Open/show the modal again after it was closed */
+  open: () => void;
   /** The modal's root DOM element */
   element: HTMLElement;
   /** Register event handlers */
@@ -354,6 +356,14 @@ export interface WelcomeModalInstance {
   setThemeMode: (mode: WelcomeThemeMode) => void;
   /** Get the current theme mode */
   getThemeMode: () => WelcomeThemeMode;
+  /** Update shopping cards after data loads (RFC-0111: loading state) */
+  updateShoppingCards: (cards: ShoppingCard[]) => void;
+  /** Update user info display */
+  updateUserInfo: (info: UserInfo) => void;
+  /** Set CTA button label */
+  setCtaLabel: (label: string) => void;
+  /** Set CTA button disabled state */
+  setCtaDisabled: (disabled: boolean) => void;
 }
 
 /**

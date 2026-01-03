@@ -376,11 +376,32 @@ self.onInit = async function () {
 
 // ===================================================================
 // onDataUpdated - Called when ThingsBoard datasource updates
+// RFC-0111: Added data hash check to prevent infinite loop
 // ===================================================================
 self.onDataUpdated = function () {
   const data = self.ctx.data || [];
 
-  if (data.length === 0) return;
+  // Skip if no data
+  if (data.length === 0) {
+    return;
+  }
+
+  // Create a hash of the data to detect changes
+  // Only process if data actually changed
+  const dataHash = data
+    .map((row) => {
+      const ds = row.datasource || {};
+      const firstValue = row.data?.[0]?.data?.[0]?.[1] || '';
+      return `${ds.entityId || ''}:${firstValue}`;
+    })
+    .join('|')
+    .substring(0, 500); // Limit hash size
+
+  if (self._lastDataHash === dataHash) {
+    // Data hasn't changed, skip processing
+    return;
+  }
+  self._lastDataHash = dataHash;
 
   // Classify all devices from single datasource
   const classified = classifyAllDevices(data);
@@ -536,9 +557,15 @@ function buildShoppingCards(classified) {
         const customerId = device.customerId || 'unknown';
         if (!customerMap.has(customerId)) {
           customerMap.set(customerId, {
-            title: device.customerName || 'Unknown',
+            // Required fields for WelcomeModal ShoppingCard type
+            title: device.customerName || 'Shopping',
+            dashboardId: device.dashboardId || 'default-dashboard',
+            entityId: device.ingestionId || device.customerId || customerId,
+            entityType: 'CUSTOMER',
+            // Optional fields
             customerId,
             deviceCounts: { energy: 0, water: 0, temperature: 0 },
+            metaCounts: { users: 0, alarms: 0, notifications: 0 },
           });
         }
       });

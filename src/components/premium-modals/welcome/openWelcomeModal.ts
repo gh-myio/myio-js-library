@@ -203,9 +203,21 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
     element.style.transition = 'opacity 0.3s ease';
   });
 
+  /**
+   * Open/show the modal again after it was closed
+   */
+  function open(): void {
+    // If element is not in DOM, re-append it
+    if (!element.parentNode) {
+      document.body.appendChild(element);
+    }
+    view.show();
+  }
+
   // Return instance
   return {
     close,
+    open,
     element,
     on: (event: 'close', handler: () => void) => {
       if (event === 'close') {
@@ -216,5 +228,13 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
     setThemeMode: (mode: WelcomeThemeMode) => view.setThemeMode(mode),
     /** Get the current theme mode */
     getThemeMode: () => view.getThemeMode(),
+    /** Update shopping cards after data loads (RFC-0111: loading state) */
+    updateShoppingCards: (cards: ShoppingCard[]) => view.updateShoppingCards(cards),
+    /** Update user info display */
+    updateUserInfo: (info: { fullName: string; email: string }) => view.updateUserInfo(info),
+    /** Set CTA button label */
+    setCtaLabel: (label: string) => view.setCtaLabel(label),
+    /** Set CTA button disabled state */
+    setCtaDisabled: (disabled: boolean) => view.setCtaDisabled(disabled),
   };
 }

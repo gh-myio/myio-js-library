@@ -1172,6 +1172,153 @@ The following library components must exist:
 
 ---
 
-**Document Version**: 1.1
+---
+
+## 14. Bug Analysis - Log Review (2026-01-02)
+
+### Critical Issues Found
+
+| Issue | Location | Root Cause | Fix Required |
+|-------|----------|------------|--------------|
+| **No `myio:telemetry-config-change` listener** | TELEMETRY/controller.js | Missing event listener | Add listener in onInit |
+| `context=head_office` | TELEMETRY settings | Wrong context value | Should be `equipments` |
+| `buildHeaderDevicesGrid not available` | TELEMETRY:966 | MyIOUtils not exposing function | MAIN_UNIQUE must expose via window.MyIOUtils |
+| `Shoppings updated: 0` (infinite loop) | Log:199-520 | onDataUpdated called repeatedly with empty data | Fix data flow in MAIN_UNIQUE |
+| `DateRangePicker: Invalid input element` | Menu component | DOM element not ready | Timing issue in createMenuComponent |
+
+### Missing Implementation in TELEMETRY/controller.js
+
+**CRITICAL**: The RFC-0111 specifies that TELEMETRY must listen for `myio:telemetry-config-change` but this listener is **NOT IMPLEMENTED**.
+
+Add this code in `self.onInit`:
+
+```javascript
+// RFC-0111: Listen for config changes from MENU component
+window.addEventListener('myio:telemetry-config-change', (ev) => {
+  const { domain, context } = ev.detail;
+
+  LogHelper.log('[TELEMETRY] Received config change:', domain, context);
+
+  // Validate config
+  if (!DOMAIN_CONFIG[domain] || !CONTEXT_CONFIG[context]) {
+    LogHelper.error('[TELEMETRY] Invalid config:', domain, context);
+    return;
+  }
+
+  // Update widget configuration
+  WIDGET_DOMAIN = domain;
+  WIDGET_CONTEXT = context;
+
+  // Apply visual theme
+  applyDomainTheme(domain);
+  applyContextAttribute(context);
+
+  // Get devices from orchestrator
+  const devices = window.MyIOOrchestrator?.getDevices?.(domain, context) || [];
+
+  LogHelper.log('[TELEMETRY] Got devices from orchestrator:', devices.length);
+
+  // Update state and re-render
+  STATE.allDevices = devices;
+  initializeCards(devices);
+
+  // Update header stats
+  if (telemetryHeaderController) {
+    telemetryHeaderController.updateFromDevices(devices, {});
+  }
+});
+
+// Store reference for cleanup
+self._onTelemetryConfigChange = true;
+```
+
+Add cleanup in `self.onDestroy`:
+
+```javascript
+if (self._onTelemetryConfigChange) {
+  window.removeEventListener('myio:telemetry-config-change', ...);
+}
+```
+
+### Context Names Mismatch
+
+**Current Code** (CONTEXT_CONFIG) vs **RFC Specification**:
+
+| Current | RFC Required | Fix |
+|---------|--------------|-----|
+| `head_office` | Remove or rename | Not in RFC |
+| `entry` | `equipments` | Rename |
+| `common_area` | Keep for water | OK |
+| `stores` | Keep | OK |
+| `with_climate_control` | `termostato` | Rename |
+| `without_climate_control` | `termostato_external` | Rename |
+
+### Data Flow Issue
+
+The log shows:
+```
+[MAIN_UNIQUE] [MAIN_UNIQUE] Header will update via event listeners (repeated 100+ times)
+[MenuController] Shoppings updated: 0 (repeated)
+```
+
+**Problem**: `onDataUpdated` in MAIN_UNIQUE is being called repeatedly but sending empty data.
+
+**Fix**: Check if data is actually present before dispatching events:
+
+```javascript
+self.onDataUpdated = function() {
+  const data = self.ctx.data || [];
+
+  // Skip if no data
+  if (data.length === 0) {
+    LogHelper.log('[MAIN_UNIQUE] onDataUpdated - no data yet, skipping');
+    return;
+  }
+
+  // Check if data actually changed (prevent infinite loop)
+  const dataHash = JSON.stringify(data.map(d => d.datasource?.entityId)).substring(0, 100);
+  if (self._lastDataHash === dataHash) {
+    return; // Same data, skip
+  }
+  self._lastDataHash = dataHash;
+
+  // Process and classify devices...
+};
+```
+
+---
+
+## 15. Immediate Action Items
+
+### Priority 1 (Critical - Nothing Works)
+
+1. **Add `myio:telemetry-config-change` listener to TELEMETRY/controller.js**
+   - Location: Inside `self.onInit`, after line 1065
+   - This is why menu navigation doesn't work
+
+2. **Fix MAIN_UNIQUE_DATASOURCE data flow**
+   - Prevent infinite loop in onDataUpdated
+   - Ensure classified devices are being dispatched correctly
+
+### Priority 2 (Important)
+
+3. **Update CONTEXT_CONFIG in TELEMETRY**
+   - Add `equipments` context
+   - Rename `with_climate_control` to `termostato`
+   - Rename `without_climate_control` to `termostato_external`
+
+4. **Expose buildHeaderDevicesGrid via MyIOUtils**
+   - MAIN_UNIQUE_DATASOURCE must expose this function
+
+### Priority 3 (Nice to Have)
+
+5. **Fix DateRangePicker timing issue**
+   - Add retry logic or wait for DOM ready
+
+---
+
+**Document Version**: 1.2
 **Last Updated**: 2026-01-02
-**Revision**: Updated per rev-003 feedback - clarified MAIN vs MAIN_UNIQUE_DATASOURCE, removed MENU/MAIN modification references
+**Revision**:
+- v1.1: Updated per rev-003 feedback
+- v1.2: Added bug analysis from production log, identified missing `myio:telemetry-config-change` listener

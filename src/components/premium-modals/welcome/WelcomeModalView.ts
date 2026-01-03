@@ -1638,10 +1638,60 @@ export class WelcomeModalView {
       return;
     }
 
+    // Try to get token from various sources (ThingsBoard uses different token names)
+    const getToken = (): string | null => {
+      // Check localStorage with various possible token names
+      const tokenKeys = ['jwt_token', 'access_token', 'authToken', 'tb_token'];
+      for (const key of tokenKeys) {
+        const token = localStorage.getItem(key);
+        if (token) return token;
+      }
+
+      // Check sessionStorage
+      for (const key of tokenKeys) {
+        const token = sessionStorage.getItem(key);
+        if (token) return token;
+      }
+
+      // Try to get from ThingsBoard AuthService via window
+      const win = window as any;
+      if (win.AuthService?.jwtToken) return win.AuthService.jwtToken;
+
+      // Check if there's an auth token in the document cookies
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (tokenKeys.includes(name)) return value;
+      }
+
+      return null;
+    };
+
     // Try to fetch from API
     try {
-      const token = localStorage.getItem('jwt_token');
+      const token = getToken();
+
+      // If no token, try to get user info from ThingsBoard context (ctx.currentUser)
       if (!token) {
+        // Try to get from ctx if available
+        const ctx = this.params.ctx as any;
+        if (ctx?.currentUser) {
+          const user = ctx.currentUser;
+          const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.name || 'Usuário';
+          userNameEl.textContent = fullName;
+          userEmailEl.textContent = user.email || '';
+          return;
+        }
+
+        // Try to get from window.tb_user (some TB versions expose this)
+        const tbUser = (window as any).tb_user;
+        if (tbUser) {
+          const fullName = [tbUser.firstName, tbUser.lastName].filter(Boolean).join(' ') || tbUser.name || 'Usuário';
+          userNameEl.textContent = fullName;
+          userEmailEl.textContent = tbUser.email || '';
+          return;
+        }
+
         userNameEl.textContent = 'Usuário';
         userEmailEl.textContent = '';
         return;
@@ -1678,6 +1728,151 @@ export class WelcomeModalView {
 
     if (userNameEl) userNameEl.textContent = info.fullName;
     if (userEmailEl) userEmailEl.textContent = info.email;
+  }
+
+  /**
+   * Update shopping cards after data loads (RFC-0111: loading state support)
+   */
+  public updateShoppingCards(cards: ShoppingCard[]): void {
+    // Store updated cards
+    this.params.shoppingCards = cards;
+
+    // Find or create shortcuts section
+    let shortcutsSection = this.container.querySelector('.myio-welcome-shortcuts');
+    const modalContainer = this.container.querySelector('.myio-welcome-modal-container');
+
+    if (cards.length === 0) {
+      // If no cards, remove shortcuts section if it exists
+      if (shortcutsSection) {
+        shortcutsSection.remove();
+      }
+      return;
+    }
+
+    const shortcutsTitle = this.params.shortcutsTitle ?? this.config.defaultShortcutsTitle ?? 'Acesso Rápido aos Shoppings';
+    const themeConfig = this.getThemeConfig();
+    const shortcutsTitleColor = themeConfig.shortcutsTitleColor ?? themeConfig.mutedTextColor;
+
+    if (!shortcutsSection && modalContainer) {
+      // Create shortcuts section if it doesn't exist
+      shortcutsSection = document.createElement('div');
+      shortcutsSection.className = 'myio-welcome-shortcuts';
+      modalContainer.appendChild(shortcutsSection);
+    }
+
+    if (shortcutsSection) {
+      // Update shortcuts section content
+      shortcutsSection.innerHTML = `
+        <h2 class="myio-welcome-shortcuts-title"${shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''}>${shortcutsTitle}</h2>
+        <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
+          ${cards.map((card, index) => this.buildCardHTML(card, index)).join('')}
+        </div>
+      `;
+
+      // Re-bind card events
+      this.bindCardEvents();
+      this.setupLazyLoading();
+    }
+
+    if (this.config.enableDebugMode) {
+      console.log('[WelcomeModal] Shopping cards updated:', cards.length);
+    }
+  }
+
+  /**
+   * Bind events for shopping cards (used after dynamic update)
+   */
+  private bindCardEvents(): void {
+    const cards = this.container.querySelectorAll('.myio-welcome-card');
+    cards.forEach((card, index) => {
+      const shoppingCard = this.params.shoppingCards?.[index];
+      if (!shoppingCard) return;
+
+      // Click handler
+      card.addEventListener('click', (e: Event) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.myio-welcome-card-device-count')) {
+          return;
+        }
+        this.emit('card-click', shoppingCard);
+      });
+
+      // Keyboard support
+      card.addEventListener('keydown', (e: Event) => {
+        const keyEvent = e as KeyboardEvent;
+        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+          e.preventDefault();
+          this.emit('card-click', shoppingCard);
+        }
+      });
+    });
+
+    // Re-bind tooltip events
+    this.bindTooltipEvents();
+  }
+
+  /**
+   * Set CTA button label
+   */
+  public setCtaLabel(label: string): void {
+    const ctaBtn = this.container.querySelector('#welcomeCtaBtn');
+    if (ctaBtn) {
+      // Preserve the SVG arrow icon
+      const svgIcon = ctaBtn.querySelector('svg');
+      ctaBtn.textContent = '';
+      ctaBtn.appendChild(document.createTextNode(label + ' '));
+      if (svgIcon) {
+        ctaBtn.appendChild(svgIcon);
+      } else {
+        // Re-create arrow icon if it was lost
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.innerHTML = '<line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />';
+        ctaBtn.appendChild(svg);
+      }
+    }
+  }
+
+  /**
+   * Set CTA button disabled state
+   */
+  public setCtaDisabled(disabled: boolean): void {
+    const ctaBtn = this.container.querySelector('#welcomeCtaBtn') as HTMLButtonElement;
+    if (ctaBtn) {
+      ctaBtn.disabled = disabled;
+      ctaBtn.style.opacity = disabled ? '0.5' : '1';
+      ctaBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
+    }
+  }
+
+  /**
+   * Show the modal (after it was hidden)
+   */
+  public show(): void {
+    this.container.style.display = 'flex';
+    this.container.style.opacity = '0';
+    requestAnimationFrame(() => {
+      this.container.style.opacity = '1';
+      this.container.style.transition = 'opacity 0.3s ease';
+    });
+    document.body.style.overflow = 'hidden';
+  }
+
+  /**
+   * Hide the modal (without destroying it)
+   */
+  public hide(): void {
+    this.container.style.opacity = '0';
+    this.container.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => {
+      this.container.style.display = 'none';
+      document.body.style.overflow = '';
+    }, 300);
   }
 
   /**

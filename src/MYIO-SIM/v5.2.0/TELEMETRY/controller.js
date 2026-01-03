@@ -144,11 +144,99 @@ const DOMAIN_CONFIG = {
 // ============================================
 // CONTEXT CONFIGURATION
 // Defines filtering and labels per context
+// RFC-0111: Updated context names
 // ============================================
 const CONTEXT_CONFIG = {
+  // === ENERGY CONTEXTS ===
+  equipments: {
+    filterFn: (device) => !isStoreDevice(device),
+    aliasNames: {
+      energy: null,
+      water: null,
+      temperature: null,
+    },
+    headerLabel: 'Total de Equipamentos',
+    idPrefix: 'equipments',
+    widgetName: 'TELEMETRY_EQUIPMENTS',
+    filterChipIcon: '⚡',
+  },
+  stores: {
+    filterFn: isStoreDevice,
+    aliasNames: {
+      water: ['Todos Hidrometros Lojas'],
+      energy: null, // Uses isStoreDevice for energy
+      temperature: null,
+    },
+    headerLabel: 'Total de Lojas',
+    idPrefix: 'stores',
+    widgetName: 'TELEMETRY_STORES',
+    filterChipIcon: '🏪',
+  },
+
+  // === WATER CONTEXTS (RFC-0111) ===
+  hidrometro_area_comum: {
+    filterFn: (device) => !isStoreDevice(device),
+    aliasNames: {
+      water: ['HidrometrosAreaComum'],
+      energy: null,
+      temperature: null,
+    },
+    headerLabel: 'Total Area Comum',
+    idPrefix: 'hidrometro_area_comum',
+    widgetName: 'TELEMETRY_WATER_COMMON_AREA',
+    filterChipIcon: '🏢',
+  },
+  hidrometro: {
+    filterFn: isStoreDevice,
+    aliasNames: {
+      water: ['Todos Hidrometros Lojas'],
+      energy: null,
+      temperature: null,
+    },
+    headerLabel: 'Total de Lojas',
+    idPrefix: 'hidrometro',
+    widgetName: 'TELEMETRY_WATER_STORES',
+    filterChipIcon: '🏪',
+  },
+
+  // === TEMPERATURE CONTEXTS (RFC-0111) ===
+  termostato: {
+    filterFn: (device) => {
+      // Temperature sensors WITH climate control
+      const type = String(device?.deviceType || '').toUpperCase();
+      return type.includes('CLIMA') || type.includes('HVAC') || type.includes('AR_CONDICIONADO');
+    },
+    aliasNames: {
+      temperature: ['SensoresTemperaturaComClimatizacao', 'TemperatureSensorsWithClimate'],
+      energy: null,
+      water: null,
+    },
+    headerLabel: 'Ambientes Climatizaveis',
+    idPrefix: 'termostato',
+    widgetName: 'TELEMETRY_TEMP_CLIMATIZED',
+    filterChipIcon: '❄️',
+  },
+  termostato_external: {
+    filterFn: (device) => {
+      // Temperature sensors WITHOUT climate control
+      const type = String(device?.deviceType || '').toUpperCase();
+      return !type.includes('CLIMA') && !type.includes('HVAC') && !type.includes('AR_CONDICIONADO');
+    },
+    aliasNames: {
+      temperature: ['SensoresTemperaturaSemClimatizacao', 'TemperatureSensorsWithoutClimate'],
+      energy: null,
+      water: null,
+    },
+    headerLabel: 'Ambientes Nao Climatizaveis',
+    idPrefix: 'termostato_external',
+    widgetName: 'TELEMETRY_TEMP_NOT_CLIMATIZED',
+    filterChipIcon: '🌡️',
+  },
+
+  // === LEGACY CONTEXTS (for backward compatibility) ===
   entry: {
     filterFn: (device) => !isStoreDevice(device),
-    aliasNames: null, // No aliasName filter for entry
+    aliasNames: null,
     headerLabel: 'Total de Equipamentos',
     idPrefix: 'entry',
     widgetName: 'TELEMETRY_ENTRY',
@@ -166,18 +254,6 @@ const CONTEXT_CONFIG = {
     widgetName: 'TELEMETRY_COMMON_AREA',
     filterChipIcon: '🏢',
   },
-  stores: {
-    filterFn: isStoreDevice,
-    aliasNames: {
-      water: ['Todos Hidrometros Lojas'],
-      energy: null, // Uses isStoreDevice for energy
-      temperature: null,
-    },
-    headerLabel: 'Total de Lojas',
-    idPrefix: 'stores',
-    widgetName: 'TELEMETRY_STORES',
-    filterChipIcon: '🏪',
-  },
   head_office: {
     filterFn: (device) => !isStoreDevice(device),
     aliasNames: {
@@ -190,22 +266,8 @@ const CONTEXT_CONFIG = {
     widgetName: 'TELEMETRY_HEAD_OFFICE',
     filterChipIcon: '🏬',
   },
-  equipments: {
-    filterFn: (device) => !isStoreDevice(device),
-    aliasNames: {
-      energy: null,
-      water: null,
-      temperature: null,
-    },
-    headerLabel: 'Total de Equipamentos',
-    idPrefix: 'equipments',
-    widgetName: 'TELEMETRY_EQUIPMENTS',
-    filterChipIcon: '⚡',
-  },
   with_climate_control: {
     filterFn: (device) => {
-      // Temperature sensors WITH climate control
-      // Filter by deviceType or specific alias
       const type = String(device?.deviceType || '').toUpperCase();
       return type.includes('CLIMA') || type.includes('HVAC') || type.includes('AR_CONDICIONADO');
     },
@@ -221,8 +283,6 @@ const CONTEXT_CONFIG = {
   },
   without_climate_control: {
     filterFn: (device) => {
-      // Temperature sensors WITHOUT climate control
-      // Filter by deviceType or specific alias
       const type = String(device?.deviceType || '').toUpperCase();
       return !type.includes('CLIMA') && !type.includes('HVAC') && !type.includes('AR_CONDICIONADO');
     },
@@ -1062,6 +1122,63 @@ self.onInit = async function () {
       // Reload data with new dates if needed
     };
     window.addEventListener('myio:date-params', self._onDateParams);
+
+    // RFC-0111: Listen for config changes from MENU component
+    self._onTelemetryConfigChange = (ev) => {
+      const { domain, context } = ev.detail || {};
+
+      LogHelper.log('Received myio:telemetry-config-change:', domain, context);
+
+      // Validate config
+      if (!DOMAIN_CONFIG[domain]) {
+        LogHelper.error('Invalid domain received:', domain);
+        return;
+      }
+      if (!CONTEXT_CONFIG[context]) {
+        LogHelper.error('Invalid context received:', context);
+        return;
+      }
+
+      // Update widget configuration
+      WIDGET_DOMAIN = domain;
+      WIDGET_CONTEXT = context;
+
+      // Apply visual theme
+      applyDomainTheme(domain);
+      applyContextAttribute(context);
+
+      // Get devices from orchestrator
+      const devices = window.MyIOOrchestrator?.getDevices?.(domain, context) || [];
+
+      LogHelper.log('Got devices from orchestrator:', devices.length);
+
+      // Update state and re-render
+      STATE.allDevices = devices;
+
+      // Re-initialize cards with new devices
+      if (devices.length > 0) {
+        initializeCards(devices);
+      } else {
+        // Try to get from cache as fallback
+        const domainConfig = DOMAIN_CONFIG[domain];
+        const orchestrator = window.MyIOOrchestrator;
+        if (orchestrator) {
+          const cache = orchestrator.getCache?.(domainConfig.cacheKey);
+          if (cache && cache.size > 0) {
+            LogHelper.log('Using cache fallback for', domain, context);
+            processAndRenderDevices(cache);
+          }
+        }
+      }
+
+      // Update header stats
+      if (telemetryHeaderController) {
+        telemetryHeaderController.updateFromDevices(STATE.allDevices, {});
+      }
+    };
+    window.addEventListener('myio:telemetry-config-change', self._onTelemetryConfigChange);
+
+    LogHelper.log('RFC-0111: myio:telemetry-config-change listener registered');
   }, 0);
 };
 
@@ -1096,5 +1213,9 @@ self.onDestroy = function () {
   }
   if (self._onDateParams) {
     window.removeEventListener('myio:date-params', self._onDateParams);
+  }
+  // RFC-0111: Cleanup config change listener
+  if (self._onTelemetryConfigChange) {
+    window.removeEventListener('myio:telemetry-config-change', self._onTelemetryConfigChange);
   }
 };
