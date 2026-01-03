@@ -189,14 +189,15 @@ export interface WelcomePalette {
 
 /**
  * Device counts by domain for shopping card
+ * Use null for loading state (shows spinner), number for loaded state
  */
 export interface ShoppingCardDeviceCounts {
-  /** Number of energy devices */
-  energy?: number;
-  /** Number of water devices */
-  water?: number;
-  /** Number of temperature sensors */
-  temperature?: number;
+  /** Number of energy devices (null = loading spinner) */
+  energy?: number | null;
+  /** Number of water devices (null = loading spinner) */
+  water?: number | null;
+  /** Number of temperature sensors (null = loading spinner) */
+  temperature?: number | null;
 }
 
 /**

@@ -650,8 +650,22 @@ export class WelcomeModalView {
 .myio-welcome-card-device-count.water .icon { color: #3b82f6; }
 .myio-welcome-card-device-count.temperature .icon { color: #f97316; }
 
+/* Loading Spinner for Device Counts */
+.myio-welcome-card-device-count .count-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: welcome-count-spin 0.8s linear infinite;
+}
+.myio-welcome-card-device-count.energy .count-spinner { border-top-color: #22c55e; }
+.myio-welcome-card-device-count.water .count-spinner { border-top-color: #3b82f6; }
+.myio-welcome-card-device-count.temperature .count-spinner { border-top-color: #f97316; }
 
-
+@keyframes welcome-count-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* Close Button (optional) */
 .myio-welcome-close-btn {
@@ -1275,26 +1289,30 @@ export class WelcomeModalView {
     // Build subtitle: device counts (interactive) if available, otherwise fallback to subtitle text
     let subtitleHTML: string;
     if (card.deviceCounts) {
-      const { energy = 0, water = 0, temperature = 0 } = card.deviceCounts;
+      const counts = card.deviceCounts as { energy?: number | null; water?: number | null; temperature?: number | null };
+      // Helper: show spinner when loading (null/undefined), show number when loaded (including 0)
+      const renderCount = (count: number | null | undefined): string =>
+        count === null || count === undefined ? '<span class="count-spinner"></span>' : String(count);
+
       subtitleHTML = `
         <div class="myio-welcome-card-device-counts">
           <span class="myio-welcome-card-device-count energy"
                 data-tooltip-type="energy"
                 data-card-index="${index}"
                 title="Resumo de Energia">
-            <span class="icon">⚡</span> ${energy}
+            <span class="icon">⚡</span> ${renderCount(counts.energy)}
           </span>
           <span class="myio-welcome-card-device-count water"
                 data-tooltip-type="water"
                 data-card-index="${index}"
                 title="Resumo de Agua">
-            <span class="icon">💧</span> ${water}
+            <span class="icon">💧</span> ${renderCount(counts.water)}
           </span>
           <span class="myio-welcome-card-device-count temperature"
                 data-tooltip-type="temperature"
                 data-card-index="${index}"
                 title="Sensores de Temperatura">
-            <span class="icon">🌡️</span> ${temperature}
+            <span class="icon">🌡️</span> ${renderCount(counts.temperature)}
           </span>
         </div>
       `;
