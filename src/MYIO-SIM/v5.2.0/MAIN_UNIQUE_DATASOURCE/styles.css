@@ -40,17 +40,35 @@
 .myio-main-view-section {
   flex: 1;
   overflow: auto;
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   background: transparent !important;
 }
 
-/* Reset tb-dashboard-state content styling */
+/* RFC-0115: Reset tb-dashboard-state and all child content styling */
 .myio-main-view-section tb-dashboard-state,
-.myio-main-view-section .content {
+.myio-main-view-section .content,
+.myio-main-view-section tb-dashboard-state .content,
+.myio-main-view-section tb-dashboard-state .tb-widget,
+.myio-main-view-section tb-dashboard-state .tb-widget-container,
+.myio-main-view-section tb-dashboard-state tb-widget,
+.myio-main-view-section tb-dashboard-state .tb-dashboard-container,
+.myio-main-view-section tb-dashboard-state > *,
+.myio-main-view-section [class*="dashboard"],
+.myio-main-view-section [class*="widget-container"] {
   background: transparent !important;
+  background-color: transparent !important;
   margin: 0 !important;
   padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Force full width/height */
+.myio-main-view-section tb-dashboard-state {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
 }
 
 .myio-footer-section {

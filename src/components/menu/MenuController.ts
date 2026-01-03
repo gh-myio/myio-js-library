@@ -201,18 +201,22 @@ export class MenuController implements MenuComponentInstance {
   /**
    * Initialize date picker using library's DateRangePicker if available
    */
-  private initializeDatePicker(): void {
+  private async initializeDatePicker(): Promise<void> {
     const dateInput = this.view.getDateInput();
     if (!dateInput) return;
 
     // Check if createDateRangePicker is available from global MyIOLibrary
-    const win = window as unknown as { MyIOLibrary?: { createDateRangePicker?: (options: unknown) => unknown } };
+    const win = window as unknown as {
+      MyIOLibrary?: {
+        createDateRangePicker?: (input: HTMLInputElement, options: unknown) => Promise<unknown>
+      }
+    };
     const createDateRangePicker = win.MyIOLibrary?.createDateRangePicker;
 
     if (createDateRangePicker && typeof createDateRangePicker === 'function') {
       try {
-        this.datePickerInstance = createDateRangePicker({
-          input: dateInput,
+        // RFC-0115: Fixed signature - (input, options) instead of single object
+        this.datePickerInstance = await createDateRangePicker(dateInput, {
           initialRange: this.state.dateRange,
           locale: this.params.dateLocale ?? 'pt-BR',
           onChange: (start: Date, end: Date) => {
