@@ -1473,140 +1473,208 @@ export class WelcomeModalView {
       return;
     }
 
-    // Mock data for demonstration - in production this would come from actual API
-    const mockData = this.getMockTooltipData(type, card);
+    // Get real data from MyIOOrchestratorData filtered by shopping
+    const tooltipData = this.getTooltipData(type, card);
 
     switch (type) {
       case 'energy':
         if (MyIOLibrary.EnergySummaryTooltip) {
-          MyIOLibrary.EnergySummaryTooltip.show(triggerElement, mockData.energy);
+          MyIOLibrary.EnergySummaryTooltip.show(triggerElement, tooltipData.energy);
         }
         break;
       case 'water':
         if (MyIOLibrary.WaterSummaryTooltip) {
-          MyIOLibrary.WaterSummaryTooltip.show(triggerElement, mockData.water);
+          MyIOLibrary.WaterSummaryTooltip.show(triggerElement, tooltipData.water);
         }
         break;
       case 'temperature':
         if (MyIOLibrary.TempSensorSummaryTooltip) {
-          MyIOLibrary.TempSensorSummaryTooltip.show(triggerElement, mockData.temperature);
+          MyIOLibrary.TempSensorSummaryTooltip.show(triggerElement, tooltipData.temperature);
         }
         break;
       case 'users':
         if (MyIOLibrary.UsersSummaryTooltip) {
-          MyIOLibrary.UsersSummaryTooltip.show(triggerElement, mockData.users);
+          MyIOLibrary.UsersSummaryTooltip.show(triggerElement, tooltipData.users);
         }
         break;
       case 'alarms':
         if (MyIOLibrary.AlarmsSummaryTooltip) {
-          MyIOLibrary.AlarmsSummaryTooltip.show(triggerElement, mockData.alarms);
+          MyIOLibrary.AlarmsSummaryTooltip.show(triggerElement, tooltipData.alarms);
         }
         break;
       case 'notifications':
         if (MyIOLibrary.NotificationsSummaryTooltip) {
-          MyIOLibrary.NotificationsSummaryTooltip.show(triggerElement, mockData.notifications);
+          MyIOLibrary.NotificationsSummaryTooltip.show(triggerElement, tooltipData.notifications);
         }
         break;
     }
   }
 
   /**
-   * Get mock tooltip data for demonstration
+   * Get tooltip data from MyIOOrchestratorData filtered by shopping
    */
-  private getMockTooltipData(type: string, card: ShoppingCard): any {
+  private getTooltipData(type: string, card: ShoppingCard): any {
     const now = new Date().toISOString();
+    const win = window as any;
+    const orchestratorData = win.MyIOOrchestratorData;
+
+    // Normalize shopping name for matching
+    const shoppingName = (card.title || '').toLowerCase().trim();
+
+    // Helper to filter devices by ownerName matching card.title
+    const filterByOwner = (items: any[]): any[] => {
+      if (!items || !Array.isArray(items)) return [];
+      return items.filter((d: any) => {
+        const ownerName = (d.ownerName || d.customerName || '').toLowerCase().trim();
+        return ownerName === shoppingName || ownerName.includes(shoppingName) || shoppingName.includes(ownerName);
+      });
+    };
+
+    // Helper to aggregate status from devices
+    const aggregateStatus = (devices: any[]) => {
+      const result = {
+        waiting: 0,
+        weakConnection: 0,
+        offline: 0,
+        normal: 0,
+        alert: 0,
+        failure: 0,
+        standby: 0,
+        noConsumption: 0,
+        // Device lists for popup display
+        waitingDevices: [] as any[],
+        weakConnectionDevices: [] as any[],
+        offlineDevices: [] as any[],
+        normalDevices: [] as any[],
+        alertDevices: [] as any[],
+        failureDevices: [] as any[],
+        standbyDevices: [] as any[],
+        noConsumptionDevices: [] as any[],
+      };
+
+      const NO_CONSUMPTION_THRESHOLD = 0.01;
+
+      devices.forEach((d: any) => {
+        const deviceInfo = {
+          id: d.id || d.entityId || '',
+          label: d.label || d.entityLabel || d.name || '',
+          name: d.name || '',
+        };
+
+        const deviceStatus = d.deviceStatus || 'no_info';
+        const connectionStatus = (d.connectionStatus || '').toLowerCase();
+        const value = Number(d.value || d.consumption || d.pulses || 0);
+
+        // Determine category (mutually exclusive)
+        const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
+        const isWeakConnection = connectionStatus === 'bad' || connectionStatus === 'weak';
+        const isOffline = deviceStatus === 'offline' || deviceStatus === 'no_info' ||
+                          deviceStatus === 'power_off' || connectionStatus === 'offline';
+
+        if (isWaiting) {
+          result.waiting++;
+          result.waitingDevices.push(deviceInfo);
+        } else if (isWeakConnection) {
+          result.weakConnection++;
+          result.weakConnectionDevices.push(deviceInfo);
+        } else if (isOffline) {
+          result.offline++;
+          result.offlineDevices.push(deviceInfo);
+        } else if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+          result.noConsumption++;
+          result.noConsumptionDevices.push(deviceInfo);
+        } else {
+          // Online with consumption - map by deviceStatus
+          const statusMap: Record<string, string> = {
+            'power_on': 'normal',
+            'warning': 'alert',
+            'failure': 'failure',
+            'standby': 'standby',
+          };
+          const category = statusMap[deviceStatus] || 'normal';
+          (result as any)[category]++;
+          (result as any)[`${category}Devices`].push(deviceInfo);
+        }
+      });
+
+      return result;
+    };
+
+    // Get filtered devices for each domain
+    const energyItems = filterByOwner(orchestratorData?.energy?.items || []);
+    const waterItems = filterByOwner(orchestratorData?.water?.items || []);
+    const temperatureItems = filterByOwner(orchestratorData?.temperature?.items || []);
+
+    // Calculate totals
+    const energyTotal = energyItems.reduce((sum: number, d: any) => sum + Number(d.value || d.consumption || 0), 0);
+    const waterTotal = waterItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
+
+    // Debug logging
+    if (this.config.enableDebugMode) {
+      console.log(`[WelcomeModal] Tooltip data for "${card.title}":`, {
+        energyDevices: energyItems.length,
+        waterDevices: waterItems.length,
+        temperatureDevices: temperatureItems.length,
+      });
+    }
 
     return {
       energy: {
-        totalDevices: 45,
-        totalConsumption: 12500.50,
+        totalDevices: energyItems.length,
+        totalConsumption: energyTotal,
         unit: 'kWh',
         byCategory: [
-          { id: 'entrada', name: 'Entrada', icon: '📥', deviceCount: 2, consumption: 12500.50, percentage: 100 },
-          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: 15, consumption: 4200.00, percentage: 34 },
-          { id: 'areaComum', name: 'Area Comum', icon: '🏢', deviceCount: 28, consumption: 8300.50, percentage: 66 },
+          { id: 'equipamentos', name: 'Equipamentos', icon: '⚡', deviceCount: energyItems.filter((d: any) => d.deviceType !== '3F_MEDIDOR' || d.deviceProfile !== '3F_MEDIDOR').length, consumption: 0, percentage: 0 },
+          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: energyItems.filter((d: any) => d.deviceType === '3F_MEDIDOR' && d.deviceProfile === '3F_MEDIDOR').length, consumption: 0, percentage: 0 },
         ],
-        byStatus: {
-          waiting: 0,
-          weakConnection: 2,
-          offline: 1,
-          normal: 38,
-          alert: 3,
-          failure: 1,
-          standby: 0,
-          noConsumption: 0,
-        },
+        byStatus: aggregateStatus(energyItems),
         lastUpdated: now,
         customerName: card.title,
       },
       water: {
-        totalDevices: 12,
-        totalConsumption: 850.25,
+        totalDevices: waterItems.length,
+        totalConsumption: waterTotal,
         unit: 'm³',
         byCategory: [
-          { id: 'entrada', name: 'Entrada', icon: '📥', deviceCount: 1, consumption: 850.25, percentage: 100 },
-          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: 6, consumption: 420.00, percentage: 49 },
-          { id: 'areaComum', name: 'Area Comum', icon: '🏢', deviceCount: 5, consumption: 430.25, percentage: 51 },
+          { id: 'areaComum', name: 'Área Comum', icon: '🏢', deviceCount: waterItems.filter((d: any) => (d.deviceProfile || '').includes('AREA_COMUM')).length, consumption: 0, percentage: 0 },
+          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: waterItems.filter((d: any) => !(d.deviceProfile || '').includes('AREA_COMUM') && !(d.deviceProfile || '').includes('SHOPPING')).length, consumption: 0, percentage: 0 },
         ],
-        byStatus: {
-          waiting: 0,
-          weakConnection: 1,
-          offline: 0,
-          normal: 10,
-          alert: 1,
-          failure: 0,
-          standby: 0,
-          noConsumption: 0,
-        },
+        byStatus: aggregateStatus(waterItems),
         lastUpdated: now,
         customerName: card.title,
       },
       temperature: {
-        devices: [
-          { name: 'Sensor Lobby', temp: 23.5, status: 'ok' as const },
-          { name: 'Sensor Praca Alimentacao', temp: 24.2, status: 'ok' as const },
-          { name: 'Sensor Cinema', temp: 22.8, status: 'ok' as const },
-          { name: 'Sensor Estacionamento', temp: 27.1, status: 'warn' as const },
-        ],
-        temperatureMin: 20,
+        devices: temperatureItems.slice(0, 10).map((d: any) => ({
+          name: d.label || d.name || 'Sensor',
+          temp: Number(d.temperature || 0),
+          status: Number(d.temperature || 0) > 26 || Number(d.temperature || 0) < 18 ? 'warn' as const : 'ok' as const,
+        })),
+        temperatureMin: 18,
         temperatureMax: 26,
         lastUpdated: now,
         customerName: card.title,
       },
       users: {
-        totalUsers: 12,
-        activeUsers: 10,
-        inactiveUsers: 2,
-        byRole: {
-          admin: 2,
-          operator: 5,
-          viewer: 5,
-        },
+        totalUsers: 0,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        byRole: { admin: 0, operator: 0, viewer: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
       alarms: {
-        totalAlarms: 3,
-        activeAlarms: 2,
-        acknowledgedAlarms: 1,
-        bySeverity: {
-          critical: 1,
-          warning: 1,
-          info: 1,
-        },
+        totalAlarms: 0,
+        activeAlarms: 0,
+        acknowledgedAlarms: 0,
+        bySeverity: { critical: 0, warning: 0, info: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
       notifications: {
-        totalNotifications: 5,
-        unreadNotifications: 3,
-        readNotifications: 2,
-        byType: {
-          system: 1,
-          alert: 2,
-          info: 1,
-          success: 1,
-        },
+        totalNotifications: 0,
+        unreadNotifications: 0,
+        readNotifications: 0,
+        byType: { system: 0, alert: 0, info: 0, success: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
