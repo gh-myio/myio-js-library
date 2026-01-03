@@ -25,7 +25,7 @@
         "title": "Default Theme Mode",
         "type": "string",
         "enum": ["dark", "light"],
-        "default": "dark"
+        "default": "light"
       },
       "darkMode": {
         "type": "object",

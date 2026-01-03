@@ -57,12 +57,16 @@ const findValue =
     return found ? found.value : defaultValue;
   });
 
-const fetchCustomerServerScopeAttrs =
-  window.MyIOUtils?.fetchCustomerServerScopeAttrs ||
-  (() => {
-    LogHelper.error('fetchCustomerServerScopeAttrs not available - MAIN widget not loaded');
-    return {};
-  });
+// RFC-0115: Dynamic lookup - MAIN may not be loaded yet when this module loads
+const fetchCustomerServerScopeAttrs = async (customerId) => {
+  const fn = window.MyIOUtils?.fetchCustomerServerScopeAttrs;
+  if (fn && typeof fn === 'function') {
+    return fn(customerId);
+  }
+  // Fallback: will use credentials from MAIN instead
+  LogHelper.warn('fetchCustomerServerScopeAttrs not available - using MAIN credentials');
+  return {};
+};
 
 // ============================================
 // DOMAIN CONFIGURATION
@@ -303,7 +307,7 @@ let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let MAP_INSTANTANEOUS_POWER;
-let myIOAuth;
+// RFC-0115: myIOAuth comes from window.MyIOUtils.myIOAuth (exposed by MAIN)
 let activeCardComponents = [];
 let telemetryHeaderController = null;
 
@@ -424,8 +428,10 @@ function initializeCards(devices) {
       handleActionDashboard: async () => {
         LogHelper.log('Opening dashboard for:', device.entityId);
         try {
+          // RFC-0115: Use myIOAuth from MAIN via MyIOUtils
+          const myIOAuth = window.MyIOUtils?.myIOAuth;
           if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
-            LogHelper.error('myIOAuth not available');
+            LogHelper.error('myIOAuth not available from MAIN');
             window.alert('Autenticacao nao disponivel. Recarregue a pagina.');
             return;
           }
@@ -437,34 +443,18 @@ function initializeCards(devices) {
             throw new Error('JWT token nao encontrado');
           }
 
-          // Domain-specific dashboard popup
-          if (WIDGET_DOMAIN === 'energy') {
-            MyIOLibrary.openDashboardPopupEnergy({
-              deviceId: device.entityId,
-              readingType: 'energy',
-              startDate: self.ctx.$scope.startDateISO,
-              endDate: self.ctx.$scope.endDateISO,
-              tbJwtToken: tbToken,
-              ingestionToken: tokenIngestion,
-              clientId: CLIENT_ID,
-              clientSecret: CLIENT_SECRET,
-            });
-          } else if (WIDGET_DOMAIN === 'water') {
-            MyIOLibrary.openDashboardPopupWater?.({
-              deviceId: device.entityId,
-              startDate: self.ctx.$scope.startDateISO,
-              endDate: self.ctx.$scope.endDateISO,
-              tbJwtToken: tbToken,
-              ingestionToken: tokenIngestion,
-              clientId: CLIENT_ID,
-              clientSecret: CLIENT_SECRET,
-            });
-          } else if (WIDGET_DOMAIN === 'temperature') {
-            MyIOLibrary.openDashboardPopupTemperature?.({
-              deviceId: device.entityId,
-              tbJwtToken: tbToken,
-            });
-          }
+          // RFC-0115: Single call for all domains, readingType determines the modal behavior
+          // SDK requires clientId/clientSecret for chart authentication
+          MyIOLibrary.openDashboardPopupEnergy({
+            deviceId: device.entityId,
+            readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
+            startDate: self.ctx.$scope.startDateISO,
+            endDate: self.ctx.$scope.endDateISO,
+            tbJwtToken: tbToken,
+            ingestionToken: tokenIngestion,
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+          });
         } catch (err) {
           LogHelper.error('Error opening dashboard:', err);
           window.alert('Erro ao abrir dashboard.');
@@ -473,8 +463,10 @@ function initializeCards(devices) {
 
       handleActionReport: async () => {
         try {
+          // RFC-0115: Use myIOAuth from MAIN via MyIOUtils
+          const myIOAuth = window.MyIOUtils?.myIOAuth;
           if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
-            LogHelper.error('myIOAuth not available for report');
+            LogHelper.error('myIOAuth not available from MAIN for report');
             window.alert('Autenticacao nao disponivel.');
             return;
           }
@@ -1007,16 +999,11 @@ self.onInit = async function () {
       MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
     }
 
-    // Initialize MyIO Auth
-    if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.buildMyioIngestionAuth) {
-      myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
-        clientId: CLIENT_ID,
-        clientSecret: CLIENT_SECRET,
-      });
-      LogHelper.log('MyIO Auth initialized');
+    // RFC-0115: Use myIOAuth from MAIN via MyIOUtils (no local initialization)
+    if (window.MyIOUtils?.myIOAuth) {
+      LogHelper.log('Using myIOAuth from MAIN via MyIOUtils');
     } else {
-      LogHelper.error('MyIOLibrary not available');
+      LogHelper.warn('myIOAuth not yet available from MAIN - will retry when needed');
     }
 
     // Wait for orchestrator and get pre-classified devices

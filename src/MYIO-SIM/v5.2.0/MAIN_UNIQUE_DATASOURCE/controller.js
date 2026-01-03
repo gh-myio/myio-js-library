@@ -178,6 +178,22 @@ self.onInit = async function () {
           dataApiHost: DATA_API_HOST,
         });
 
+        // RFC-0115: Create and expose myIOAuth globally for TELEMETRY
+        if (MyIOLibrary?.buildMyioIngestionAuth && CLIENT_ID && CLIENT_SECRET) {
+          try {
+            const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+              dataApiHost: DATA_API_HOST,
+              clientId: CLIENT_ID,
+              clientSecret: CLIENT_SECRET,
+            });
+            window.MyIOUtils.myIOAuth = myIOAuth;
+            window.MyIOUtils.getToken = () => myIOAuth.getToken();
+            logDebug('myIOAuth created and exposed on MyIOUtils');
+          } catch (err) {
+            LogHelper.error('Failed to create myIOAuth:', err);
+          }
+        }
+
         logDebug('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID });
       } else {
         LogHelper.error('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');

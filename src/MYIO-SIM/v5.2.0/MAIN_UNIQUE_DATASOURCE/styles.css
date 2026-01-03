@@ -55,7 +55,12 @@
 .myio-main-view-section tb-dashboard-state .tb-dashboard-container,
 .myio-main-view-section tb-dashboard-state > *,
 .myio-main-view-section [class*="dashboard"],
-.myio-main-view-section [class*="widget-container"] {
+.myio-main-view-section [class*="widget-container"],
+.myio-main-view-section .mat-drawer-content,
+.myio-main-view-section .mat-sidenav-content,
+.myio-main-view-section .tb-dashboard-page,
+.myio-main-view-section .tb-dashboard-page-content,
+.myio-main-view-section .tb-absolute-fill {
   background: transparent !important;
   background-color: transparent !important;
   margin: 0 !important;
@@ -69,6 +74,24 @@
   width: 100% !important;
   height: 100% !important;
   display: block !important;
+}
+
+/* RFC-0115: Reset all padding/margin on nested elements */
+.myio-main-view-section .tb-layout-wrap,
+.myio-main-view-section .tb-layout,
+.myio-main-view-section .tb-layout-main,
+.myio-main-view-section .cdk-virtual-scroll-viewport,
+.myio-main-view-section .cdk-virtual-scroll-content-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Override any ThingsBoard widget margins */
+.myio-main-view-section .tb-widget-title,
+.myio-main-view-section .tb-widget-content {
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .myio-footer-section {
