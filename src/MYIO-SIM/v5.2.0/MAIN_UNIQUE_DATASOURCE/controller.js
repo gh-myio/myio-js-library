@@ -25,16 +25,99 @@ self.onInit = async function () {
     return;
   }
 
-  // === 2.1 EXPOSE MyIOUtils FOR TELEMETRY WIDGET ===
+  // === 2.1 CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
   const DATA_API_HOST = settings.dataApiHost || 'https://api.data.apps.myio-bas.com';
-  const CLIENT_ID = settings.clientId || '';
-  const CLIENT_SECRET = settings.clientSecret || '';
+
+  // Credentials will be fetched from ThingsBoard customer attributes
+  let CLIENT_ID = '';
+  let CLIENT_SECRET = '';
+  let CUSTOMER_ING_ID = '';
 
   const LogHelper = {
     log: (...args) => console.log('[MAIN_UNIQUE]', ...args),
     warn: (...args) => console.warn('[MAIN_UNIQUE]', ...args),
     error: (...args) => console.error('[MAIN_UNIQUE]', ...args),
+  };
+
+  // Get ThingsBoard customer ID and JWT token
+  const getCustomerTB_ID = () => {
+    // Primary: from settings
+    if (settings.customerTB_ID) {
+      return settings.customerTB_ID;
+    }
+    // Fallback: try from ThingsBoard context
+    const ctx = self.ctx;
+    if (ctx?.stateController?.getStateParams?.()?.entityId?.id) {
+      return ctx.stateController.getStateParams().entityId.id;
+    }
+    if (ctx?.defaultSubscription?.options?.stateParams?.entityId?.id) {
+      return ctx.defaultSubscription.options.stateParams.entityId.id;
+    }
+    // Try from datasource
+    const data = ctx?.data || [];
+    for (const row of data) {
+      if (row?.datasource?.entity?.id?.id) {
+        return row.datasource.entity.id.id;
+      }
+    }
+    return '';
+  };
+
+  const getJwtToken = () => {
+    // Get JWT token from ThingsBoard auth service
+    try {
+      const authService = self.ctx?.$injector?.get?.('authService');
+      if (authService?.getJwtToken) {
+        return authService.getJwtToken();
+      }
+    } catch (e) {
+      // Fallback methods
+    }
+    // Try from localStorage
+    return localStorage.getItem('jwt_token') || '';
+  };
+
+  // Fetch credentials from ThingsBoard customer attributes (like old MAIN)
+  const fetchCredentialsFromThingsBoard = async () => {
+    const customerTB_ID = getCustomerTB_ID();
+    const jwt = getJwtToken();
+
+    logDebug('Fetching credentials for customer:', customerTB_ID);
+
+    if (!customerTB_ID || !jwt) {
+      LogHelper.warn('Missing customerTB_ID or JWT token');
+      return;
+    }
+
+    try {
+      // Use MyIOLibrary function to fetch customer attrs
+      if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
+        const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+        logDebug('Received attrs:', attrs);
+
+        CLIENT_ID = attrs?.client_id || '';
+        CLIENT_SECRET = attrs?.client_secret || '';
+        CUSTOMER_ING_ID = attrs?.ingestionId || '';
+
+        // Update MyIOUtils with fetched credentials
+        window.MyIOUtils.CLIENT_ID = CLIENT_ID;
+        window.MyIOUtils.CLIENT_SECRET = CLIENT_SECRET;
+        window.MyIOUtils.CUSTOMER_ING_ID = CUSTOMER_ING_ID;
+        window.MyIOUtils.getCredentials = () => ({
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          customerId: CUSTOMER_ING_ID,
+          dataApiHost: DATA_API_HOST,
+        });
+
+        logDebug('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID });
+      } else {
+        LogHelper.error('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
+      }
+    } catch (error) {
+      LogHelper.error('Failed to fetch credentials:', error);
+    }
   };
 
   // Utility functions for device status calculation
@@ -93,22 +176,25 @@ self.onInit = async function () {
   };
 
   const fetchCustomerServerScopeAttrs = async (customerId) => {
-    // Stub - returns empty object, can be implemented with actual API call
     logDebug('fetchCustomerServerScopeAttrs called for:', customerId);
+    const jwt = getJwtToken();
+    if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage && customerId && jwt) {
+      return await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerId, jwt);
+    }
     return {};
   };
 
   const buildHeaderDevicesGrid = (container, devices, options) => {
-    // Stub - header grid building, TELEMETRY can use this or its own implementation
     logDebug('buildHeaderDevicesGrid called with', devices?.length, 'devices');
     return null;
   };
 
-  // Expose utilities globally for TELEMETRY widget
+  // Expose utilities globally for TELEMETRY widget (initial state)
   window.MyIOUtils = {
     DATA_API_HOST,
     CLIENT_ID,
     CLIENT_SECRET,
+    CUSTOMER_ING_ID,
     LogHelper,
     calculateDeviceStatusMasterRules,
     mapConnectionStatus,
@@ -120,18 +206,19 @@ self.onInit = async function () {
     buildHeaderDevicesGrid,
     getConsumptionRangesHierarchical: () => null,
     getCachedConsumptionLimits: () => null,
-    // Function to get credentials (called by TELEMETRY)
     getCredentials: () => ({
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
-      customerId: settings.customerId || '',
+      customerId: CUSTOMER_ING_ID,
       dataApiHost: DATA_API_HOST,
     }),
-    // Customer TB ID for API calls
-    customerTB_ID: settings.customerTB_ID || '',
+    customerTB_ID: getCustomerTB_ID(),
   };
 
-  logDebug('MyIOUtils exposed globally for TELEMETRY');
+  logDebug('MyIOUtils exposed globally (credentials pending fetch)');
+
+  // Fetch credentials from ThingsBoard
+  await fetchCredentialsFromThingsBoard();
 
   // === 3. EXTRACT WELCOME CONFIG FROM SETTINGS ===
   const welcomeConfig = {

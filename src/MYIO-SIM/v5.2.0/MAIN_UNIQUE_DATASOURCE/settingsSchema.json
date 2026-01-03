@@ -15,24 +15,6 @@
         "default": "https://api.data.apps.myio-bas.com",
         "description": "MYIO Data API base URL"
       },
-      "clientId": {
-        "title": "Client ID",
-        "type": "string",
-        "default": "",
-        "description": "MYIO API Client ID for authentication"
-      },
-      "clientSecret": {
-        "title": "Client Secret",
-        "type": "string",
-        "default": "",
-        "description": "MYIO API Client Secret for authentication"
-      },
-      "customerId": {
-        "title": "Customer ID",
-        "type": "string",
-        "default": "",
-        "description": "MYIO Customer ID"
-      },
       "customerTB_ID": {
         "title": "ThingsBoard Customer ID",
         "type": "string",
@@ -194,21 +176,12 @@
   },
   "form": [
     {
-      "type": "fieldset",
-      "title": "API Credentials",
-      "items": [
-        "dataApiHost",
-        {
-          "key": "clientId",
-          "type": "text"
-        },
-        {
-          "key": "clientSecret",
-          "type": "password"
-        },
-        "customerId",
-        "customerTB_ID"
-      ]
+      "key": "dataApiHost",
+      "type": "text"
+    },
+    {
+      "key": "customerTB_ID",
+      "type": "text"
     },
     {
       "key": "enableDebugMode",
