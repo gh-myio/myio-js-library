@@ -18,7 +18,7 @@ import {
 } from './types';
 
 type WelcomeEventType = 'cta-click' | 'card-click' | 'logout' | 'close' | 'theme-change';
-type WelcomeEventHandler = ((data?: ShoppingCard | WelcomeThemeMode) => void);
+type WelcomeEventHandler = (data?: ShoppingCard | WelcomeThemeMode) => void;
 
 /**
  * Welcome Modal View - Handles rendering and DOM interactions
@@ -78,8 +78,8 @@ export class WelcomeModalView {
   private getThemeConfig(mode?: WelcomeThemeMode): WelcomeThemeConfig {
     const theme = mode ?? this.themeMode;
     return theme === 'dark'
-      ? (this.config.darkMode ?? DEFAULT_DARK_THEME)
-      : (this.config.lightMode ?? DEFAULT_LIGHT_THEME);
+      ? this.config.darkMode ?? DEFAULT_DARK_THEME
+      : this.config.lightMode ?? DEFAULT_LIGHT_THEME;
   }
 
   /**
@@ -177,7 +177,10 @@ export class WelcomeModalView {
     if (toggleBtn) {
       // Show current theme icon (moon for dark, sun for light)
       toggleBtn.innerHTML = this.themeMode === 'dark' ? this.getMoonIcon() : this.getSunIcon();
-      toggleBtn.setAttribute('title', this.themeMode === 'dark' ? 'Tema escuro (clique para claro)' : 'Tema claro (clique para escuro)');
+      toggleBtn.setAttribute(
+        'title',
+        this.themeMode === 'dark' ? 'Tema escuro (clique para claro)' : 'Tema claro (clique para escuro)'
+      );
     }
   }
 
@@ -231,7 +234,7 @@ export class WelcomeModalView {
    */
   private emit(event: WelcomeEventType, data?: ShoppingCard | WelcomeThemeMode): void {
     const handlers = this.eventHandlers.get(event) || [];
-    handlers.forEach(handler => handler(data));
+    handlers.forEach((handler) => handler(data));
   }
 
   /**
@@ -435,7 +438,7 @@ export class WelcomeModalView {
   text-align: center;
   width: 80vw;
   max-width: 900px;
-  padding: 12px 20px;
+  padding: 140px 20px 12px 20px;
 }
 
 .myio-welcome-hero-title {
@@ -497,6 +500,9 @@ export class WelcomeModalView {
 
 /* Shopping Cards Section */
 .myio-welcome-shortcuts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 16px 32px 24px 32px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
 }
@@ -514,9 +520,11 @@ export class WelcomeModalView {
 .myio-welcome-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-content: start;
   gap: 16px;
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .myio-welcome-card {
@@ -762,8 +770,8 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-shortcuts {
+    flex: 1 0 auto;
     padding: 20px;
-    flex-shrink: 0;
   }
 
   .myio-welcome-shortcuts-title {
@@ -776,7 +784,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card {
-    min-height: 110px;
+    min-height: 100px;
   }
 
   .myio-welcome-card-title {
@@ -838,6 +846,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-shortcuts {
+    flex: 1 0 auto;
     padding: 16px;
   }
 
@@ -852,7 +861,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card {
-    min-height: 90px;
+    min-height: 80px;
     padding: 14px;
   }
 
@@ -1038,7 +1047,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-modal--light .myio-welcome-shortcuts-title {
-  color: #6a6a8a;
+  color: #1f2937;
 }
 
 .myio-welcome-modal--light .myio-welcome-card {
@@ -1174,9 +1183,13 @@ export class WelcomeModalView {
     const logoUrl = this.params.logoUrl ?? themeConfig.logoUrl;
     const backgroundUrl = this.params.backgroundUrl ?? themeConfig.backgroundUrl;
     const heroTitle = this.params.heroTitle ?? this.config.defaultHeroTitle ?? 'Bem-vindo ao MYIO Platform';
-    const heroDescription = this.params.heroDescription ?? this.config.defaultHeroDescription ?? 'Gestão inteligente de energia, água e recursos para shoppings centers';
+    const heroDescription =
+      this.params.heroDescription ??
+      this.config.defaultHeroDescription ??
+      'Gestão inteligente de energia, água e recursos para shoppings centers';
     const ctaLabel = this.params.ctaLabel ?? this.config.defaultPrimaryLabel ?? 'ACESSAR PAINEL';
-    const shortcutsTitle = this.params.shortcutsTitle ?? this.config.defaultShortcutsTitle ?? 'Acesso Rápido aos Shoppings';
+    const shortcutsTitle =
+      this.params.shortcutsTitle ?? this.config.defaultShortcutsTitle ?? 'Acesso Rápido aos Shoppings';
     const showUserMenu = this.params.showUserMenu ?? this.config.showUserMenuByDefault ?? true;
     const showThemeToggle = this.params.showThemeToggle ?? true;
     const shoppingCards = this.params.shoppingCards ?? [];
@@ -1189,24 +1202,35 @@ export class WelcomeModalView {
     const bgStyle = backgroundUrl ? `style="--wm-bg-image: url('${backgroundUrl}')"` : '';
     // Show current theme icon (moon for dark, sun for light)
     const themeIcon = this.themeMode === 'dark' ? this.getMoonIcon() : this.getSunIcon();
-    const themeTooltip = this.themeMode === 'dark' ? 'Tema escuro (clique para claro)' : 'Tema claro (clique para escuro)';
+    const themeTooltip =
+      this.themeMode === 'dark' ? 'Tema escuro (clique para claro)' : 'Tema claro (clique para escuro)';
 
     return `
       <div class="myio-welcome-modal-container">
         <div class="myio-welcome-hero" ${bgStyle}>
-          ${logoUrl ? `
+          ${
+            logoUrl
+              ? `
             <div class="myio-welcome-logo">
               <img src="${logoUrl}" alt="Logo" />
             </div>
-          ` : ''}
+          `
+              : ''
+          }
 
-          ${showUserMenu ? `
+          ${
+            showUserMenu
+              ? `
             <div class="myio-welcome-user-menu" id="welcomeUserMenu">
-              ${showThemeToggle ? `
+              ${
+                showThemeToggle
+                  ? `
                 <button class="myio-welcome-theme-toggle" id="welcomeThemeToggle" type="button" title="${themeTooltip}">
                   ${themeIcon}
                 </button>
-              ` : ''}
+              `
+                  : ''
+              }
               <div class="myio-welcome-user-info">
                 <div class="myio-welcome-user-name" id="welcomeUserName">Carregando...</div>
                 <div class="myio-welcome-user-email" id="welcomeUserEmail"></div>
@@ -1220,17 +1244,25 @@ export class WelcomeModalView {
                 Sair
               </button>
             </div>
-          ` : showThemeToggle ? `
+          `
+              : showThemeToggle
+              ? `
             <div class="myio-welcome-user-menu" id="welcomeUserMenu">
               <button class="myio-welcome-theme-toggle" id="welcomeThemeToggle" type="button" title="${themeTooltip}">
                 ${themeIcon}
               </button>
             </div>
-          ` : ''}
+          `
+              : ''
+          }
 
           <div class="myio-welcome-hero-content">
-            <h1 class="myio-welcome-hero-title" id="welcomeHeroTitle"${heroTitleColor ? ` style="color: ${heroTitleColor}"` : ''}>${heroTitle}</h1>
-            <p class="myio-welcome-hero-description" id="welcomeHeroDescription"${heroDescColor ? ` style="color: ${heroDescColor}"` : ''}>${heroDescription}</p>
+            <h1 class="myio-welcome-hero-title" id="welcomeHeroTitle"${
+              heroTitleColor ? ` style="color: ${heroTitleColor}"` : ''
+            }>${heroTitle}</h1>
+            <p class="myio-welcome-hero-description" id="welcomeHeroDescription"${
+              heroDescColor ? ` style="color: ${heroDescColor}"` : ''
+            }>${heroDescription}</p>
             <button class="myio-welcome-cta-btn" id="welcomeCtaBtn" type="button">
               ${ctaLabel}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1241,14 +1273,20 @@ export class WelcomeModalView {
           </div>
         </div>
 
-        ${shoppingCards.length > 0 ? `
+        ${
+          shoppingCards.length > 0
+            ? `
           <div class="myio-welcome-shortcuts">
-            <h2 class="myio-welcome-shortcuts-title"${shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''}>${shortcutsTitle}</h2>
+            <h2 class="myio-welcome-shortcuts-title"${
+              shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+            }>${shortcutsTitle}</h2>
             <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
               ${shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('')}
             </div>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
     `;
   }
@@ -1289,7 +1327,11 @@ export class WelcomeModalView {
     // Build subtitle: device counts (interactive) if available, otherwise fallback to subtitle text
     let subtitleHTML: string;
     if (card.deviceCounts) {
-      const counts = card.deviceCounts as { energy?: number | null; water?: number | null; temperature?: number | null };
+      const counts = card.deviceCounts as {
+        energy?: number | null;
+        water?: number | null;
+        temperature?: number | null;
+      };
       // Helper: show spinner when loading (null/undefined), show number when loaded (including 0)
       const renderCount = (count: number | null | undefined): string =>
         count === null || count === undefined ? '<span class="count-spinner"></span>' : String(count);
@@ -1402,8 +1444,10 @@ export class WelcomeModalView {
    */
   private bindTooltipEvents(): void {
     // Device count tooltips (energy, water, temperature)
-    const deviceCounts = this.container.querySelectorAll('.myio-welcome-card-device-count[data-tooltip-type]');
-    deviceCounts.forEach(countEl => {
+    const deviceCounts = this.container.querySelectorAll(
+      '.myio-welcome-card-device-count[data-tooltip-type]'
+    );
+    deviceCounts.forEach((countEl) => {
       countEl.addEventListener('click', (e: Event) => {
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
@@ -1429,8 +1473,10 @@ export class WelcomeModalView {
     });
 
     // Meta counts tooltips (users, alarms, notifications)
-    const metaCounts = this.container.querySelectorAll('.myio-welcome-card-meta-counts .myio-welcome-card-device-count[data-tooltip-type]');
-    metaCounts.forEach(countEl => {
+    const metaCounts = this.container.querySelectorAll(
+      '.myio-welcome-card-meta-counts .myio-welcome-card-device-count[data-tooltip-type]'
+    );
+    metaCounts.forEach((countEl) => {
       countEl.addEventListener('click', (e: Event) => {
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
@@ -1526,7 +1572,9 @@ export class WelcomeModalView {
       if (!items || !Array.isArray(items)) return [];
       return items.filter((d: any) => {
         const ownerName = (d.ownerName || d.customerName || '').toLowerCase().trim();
-        return ownerName === shoppingName || ownerName.includes(shoppingName) || shoppingName.includes(ownerName);
+        return (
+          ownerName === shoppingName || ownerName.includes(shoppingName) || shoppingName.includes(ownerName)
+        );
       });
     };
 
@@ -1568,8 +1616,11 @@ export class WelcomeModalView {
         // Determine category (mutually exclusive)
         const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
         const isWeakConnection = connectionStatus === 'bad' || connectionStatus === 'weak';
-        const isOffline = deviceStatus === 'offline' || deviceStatus === 'no_info' ||
-                          deviceStatus === 'power_off' || connectionStatus === 'offline';
+        const isOffline =
+          deviceStatus === 'offline' ||
+          deviceStatus === 'no_info' ||
+          deviceStatus === 'power_off' ||
+          connectionStatus === 'offline';
 
         if (isWaiting) {
           result.waiting++;
@@ -1586,10 +1637,10 @@ export class WelcomeModalView {
         } else {
           // Online with consumption - map by deviceStatus
           const statusMap: Record<string, string> = {
-            'power_on': 'normal',
-            'warning': 'alert',
-            'failure': 'failure',
-            'standby': 'standby',
+            power_on: 'normal',
+            warning: 'alert',
+            failure: 'failure',
+            standby: 'standby',
           };
           const category = statusMap[deviceStatus] || 'normal';
           (result as any)[category]++;
@@ -1606,7 +1657,10 @@ export class WelcomeModalView {
     const temperatureItems = filterByOwner(orchestratorData?.temperature?.items || []);
 
     // Calculate totals
-    const energyTotal = energyItems.reduce((sum: number, d: any) => sum + Number(d.value || d.consumption || 0), 0);
+    const energyTotal = energyItems.reduce(
+      (sum: number, d: any) => sum + Number(d.value || d.consumption || 0),
+      0
+    );
     const waterTotal = waterItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
 
     // Debug logging
@@ -1624,8 +1678,26 @@ export class WelcomeModalView {
         totalConsumption: energyTotal,
         unit: 'kWh',
         byCategory: [
-          { id: 'equipamentos', name: 'Equipamentos', icon: '⚡', deviceCount: energyItems.filter((d: any) => d.deviceType !== '3F_MEDIDOR' || d.deviceProfile !== '3F_MEDIDOR').length, consumption: 0, percentage: 0 },
-          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: energyItems.filter((d: any) => d.deviceType === '3F_MEDIDOR' && d.deviceProfile === '3F_MEDIDOR').length, consumption: 0, percentage: 0 },
+          {
+            id: 'equipamentos',
+            name: 'Equipamentos',
+            icon: '⚡',
+            deviceCount: energyItems.filter(
+              (d: any) => d.deviceType !== '3F_MEDIDOR' || d.deviceProfile !== '3F_MEDIDOR'
+            ).length,
+            consumption: 0,
+            percentage: 0,
+          },
+          {
+            id: 'lojas',
+            name: 'Lojas',
+            icon: '🏪',
+            deviceCount: energyItems.filter(
+              (d: any) => d.deviceType === '3F_MEDIDOR' && d.deviceProfile === '3F_MEDIDOR'
+            ).length,
+            consumption: 0,
+            percentage: 0,
+          },
         ],
         byStatus: aggregateStatus(energyItems),
         lastUpdated: now,
@@ -1636,8 +1708,26 @@ export class WelcomeModalView {
         totalConsumption: waterTotal,
         unit: 'm³',
         byCategory: [
-          { id: 'areaComum', name: 'Área Comum', icon: '🏢', deviceCount: waterItems.filter((d: any) => (d.deviceProfile || '').includes('AREA_COMUM')).length, consumption: 0, percentage: 0 },
-          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: waterItems.filter((d: any) => !(d.deviceProfile || '').includes('AREA_COMUM') && !(d.deviceProfile || '').includes('SHOPPING')).length, consumption: 0, percentage: 0 },
+          {
+            id: 'areaComum',
+            name: 'Área Comum',
+            icon: '🏢',
+            deviceCount: waterItems.filter((d: any) => (d.deviceProfile || '').includes('AREA_COMUM')).length,
+            consumption: 0,
+            percentage: 0,
+          },
+          {
+            id: 'lojas',
+            name: 'Lojas',
+            icon: '🏪',
+            deviceCount: waterItems.filter(
+              (d: any) =>
+                !(d.deviceProfile || '').includes('AREA_COMUM') &&
+                !(d.deviceProfile || '').includes('SHOPPING')
+            ).length,
+            consumption: 0,
+            percentage: 0,
+          },
         ],
         byStatus: aggregateStatus(waterItems),
         lastUpdated: now,
@@ -1647,7 +1737,10 @@ export class WelcomeModalView {
         devices: temperatureItems.slice(0, 10).map((d: any) => ({
           name: d.label || d.name || 'Sensor',
           temp: Number(d.temperature || 0),
-          status: Number(d.temperature || 0) > 26 || Number(d.temperature || 0) < 18 ? 'warn' as const : 'ok' as const,
+          status:
+            Number(d.temperature || 0) > 26 || Number(d.temperature || 0) < 18
+              ? ('warn' as const)
+              : ('ok' as const),
         })),
         temperatureMin: 18,
         temperatureMax: 26,
@@ -1689,7 +1782,7 @@ export class WelcomeModalView {
     if (!this.config.enableLazyLoading) {
       // Load all images immediately
       const bgElements = this.container.querySelectorAll('.myio-welcome-card-bg[data-src]');
-      bgElements.forEach(el => {
+      bgElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
         const src = htmlEl.dataset.src;
         if (src) {
@@ -1707,7 +1800,7 @@ export class WelcomeModalView {
 
     this.intersectionObserver = new IntersectionObserver(
       (entries) => {
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const el = entry.target as HTMLElement;
             const src = el.dataset.src;
@@ -1722,7 +1815,7 @@ export class WelcomeModalView {
       { rootMargin }
     );
 
-    bgElements.forEach(el => this.intersectionObserver?.observe(el));
+    bgElements.forEach((el) => this.intersectionObserver?.observe(el));
   }
 
   /**
@@ -1784,7 +1877,8 @@ export class WelcomeModalView {
         const ctx = this.params.ctx as any;
         if (ctx?.currentUser) {
           const user = ctx.currentUser;
-          const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.name || 'Usuário';
+          const fullName =
+            [user.firstName, user.lastName].filter(Boolean).join(' ') || user.name || 'Usuário';
           userNameEl.textContent = fullName;
           userEmailEl.textContent = user.email || '';
           return;
@@ -1793,7 +1887,8 @@ export class WelcomeModalView {
         // Try to get from window.tb_user (some TB versions expose this)
         const tbUser = (window as any).tb_user;
         if (tbUser) {
-          const fullName = [tbUser.firstName, tbUser.lastName].filter(Boolean).join(' ') || tbUser.name || 'Usuário';
+          const fullName =
+            [tbUser.firstName, tbUser.lastName].filter(Boolean).join(' ') || tbUser.name || 'Usuário';
           userNameEl.textContent = fullName;
           userEmailEl.textContent = tbUser.email || '';
           return;
@@ -1856,7 +1951,8 @@ export class WelcomeModalView {
       return;
     }
 
-    const shortcutsTitle = this.params.shortcutsTitle ?? this.config.defaultShortcutsTitle ?? 'Acesso Rápido aos Shoppings';
+    const shortcutsTitle =
+      this.params.shortcutsTitle ?? this.config.defaultShortcutsTitle ?? 'Acesso Rápido aos Shoppings';
     const themeConfig = this.getThemeConfig();
     const shortcutsTitleColor = themeConfig.shortcutsTitleColor ?? themeConfig.mutedTextColor;
 
@@ -1870,7 +1966,9 @@ export class WelcomeModalView {
     if (shortcutsSection) {
       // Update shortcuts section content
       shortcutsSection.innerHTML = `
-        <h2 class="myio-welcome-shortcuts-title"${shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''}>${shortcutsTitle}</h2>
+        <h2 class="myio-welcome-shortcuts-title"${
+          shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+        }>${shortcutsTitle}</h2>
         <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
           ${cards.map((card, index) => this.buildCardHTML(card, index)).join('')}
         </div>
