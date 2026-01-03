@@ -40,6 +40,17 @@
 .myio-main-view-section {
   flex: 1;
   overflow: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+}
+
+/* Reset tb-dashboard-state content styling */
+.myio-main-view-section tb-dashboard-state,
+.myio-main-view-section .content {
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .myio-footer-section {

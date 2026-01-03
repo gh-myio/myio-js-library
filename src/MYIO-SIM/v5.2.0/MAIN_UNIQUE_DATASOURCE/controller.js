@@ -1289,6 +1289,10 @@ body.filter-modal-open { overflow: hidden !important; }
         [data-theme="dark"] #${containerId} .filter-tab-expand:hover {
           background: rgba(255, 255, 255, 0.25);
         }
+        /* RFC-0115: Customer name styling */
+        [data-theme="dark"] #${containerId} .check-item .customer-name {
+          color: #38bdf8 !important;
+        }
       `;
     };
 
@@ -1435,12 +1439,15 @@ body.filter-modal-open { overflow: hidden !important; }
         const subLabel = getItemSubLabel(item);
         const value = getItemValue(item);
         const formattedValue = formatValue(value);
+        // RFC-0115: Get customer name for display
+        const customerName = item.customerName || item.ownerName || '';
 
         const div = document.createElement('div');
         div.className = 'check-item';
         div.innerHTML = `
           <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
           <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
+          ${customerName ? `<span class="customer-name" style="color: #0ea5e9; font-size: 10px; margin-right: 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${customerName}">${customerName}</span>` : ''}
           ${subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''}
           <span style="color: ${value > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
         `;

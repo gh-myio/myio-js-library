@@ -748,6 +748,21 @@ async function processAndRenderDevices(cache) {
     const isOfflineDevice = ['offline', 'no_info', 'not_installed'].includes(deviceStatus);
     const displayValue = isOfflineDevice ? null : item.value ?? item.total_value ?? 0;
 
+    // RFC-0115: Calculate operationHours from lastConnectTime (same as EQUIPMENTS)
+    const lastConnectTimestamp = item.lastConnectTime || item.lastActivityTime || null;
+    let operationHoursFormatted = '-';
+    if (lastConnectTimestamp && !isOfflineDevice) {
+      const nowMs = Date.now();
+      const durationMs = nowMs - lastConnectTimestamp;
+      operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
+    }
+
+    // RFC-0115: Get instantaneousPower for energy cards (same as EQUIPMENTS)
+    let instantaneousPower = item.consumptionPower ?? item.consumption ?? item.value ?? null;
+    if (isOfflineDevice) {
+      instantaneousPower = null; // Clear for offline devices
+    }
+
     allDevices.push({
       entityId: item.tbId || item.entityId || ingestionId,
       ingestionId: ingestionId,
@@ -761,7 +776,7 @@ async function processAndRenderDevices(cache) {
       customerId: item.customerId || null,
       centralName: item.centralName || null,
       ownerName: item.ownerName || null,
-      lastConnectTime: item.lastConnectTime || item.lastActivityTime || Date.now(),
+      lastConnectTime: lastConnectTimestamp,
       lastActivityTime: item.lastActivityTime || null,
       lastDisconnectTime: item.lastDisconnectTime || null,
       aliasName: item.aliasName || '',
@@ -771,6 +786,12 @@ async function processAndRenderDevices(cache) {
       pulsesTs: item.pulsesTs || null,
       waterVolumeTs: item.waterVolumeTs || null,
       temperatureTs: item.temperatureTs || null,
+      // RFC-0115: Footer metrics - operationHours and instantaneousPower
+      operationHours: operationHoursFormatted,
+      instantaneousPower: instantaneousPower,
+      consumption_power: instantaneousPower, // Alias for card component
+      pulses: item.pulses ?? 0, // For water domain
+      mapInstantaneousPower: item.deviceMapInstantaneousPower || item.deviceMapInstaneousPower || '',
     });
   });
 
@@ -1125,6 +1146,53 @@ self.onInit = async function () {
     };
     window.addEventListener('myio:theme-change', self._onThemeChange);
     LogHelper.log('myio:theme-change listener registered');
+
+    // RFC-0115: Listen for API enrichment completion to refresh header with consumption values
+    self._onDataEnriched = (ev) => {
+      LogHelper.log('Received myio:data-enriched - refreshing devices and header');
+
+      // Get updated devices from orchestrator
+      const mappedContext = mapContextToOrchestrator(WIDGET_CONTEXT, WIDGET_DOMAIN);
+      const newDevices = window.MyIOOrchestrator?.getDevices?.(WIDGET_DOMAIN, mappedContext) || [];
+
+      if (newDevices.length > 0) {
+        // Re-process and render with updated consumption values
+        STATE.allDevices = newDevices.map((device) => {
+          // Ensure val is set from API enriched value
+          const val = device.val ?? device.value ?? device.consumption ?? 0;
+          const isOffline = ['offline', 'no_info', 'not_installed'].includes(device.deviceStatus);
+
+          // Calculate operationHours
+          const lastConnectTimestamp = device.lastConnectTime || device.lastActivityTime || null;
+          let operationHoursFormatted = '-';
+          if (lastConnectTimestamp && !isOffline) {
+            const nowMs = Date.now();
+            const durationMs = nowMs - lastConnectTimestamp;
+            operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
+          }
+
+          return {
+            ...device,
+            val: isOffline ? null : val,
+            operationHours: operationHoursFormatted,
+            instantaneousPower: isOffline ? null : (device.consumptionPower ?? device.consumption ?? device.value ?? null),
+            consumption_power: isOffline ? null : (device.consumptionPower ?? device.consumption ?? device.value ?? null),
+            pulses: device.pulses ?? 0,
+            domain: WIDGET_DOMAIN,
+          };
+        });
+
+        // Re-render cards
+        initializeCards(STATE.allDevices);
+
+        // Update header with new consumption values
+        if (telemetryHeaderController) {
+          telemetryHeaderController.updateFromDevices(STATE.allDevices, {});
+        }
+      }
+    };
+    window.addEventListener('myio:data-enriched', self._onDataEnriched);
+    LogHelper.log('myio:data-enriched listener registered');
   }, 0);
 };
 
@@ -1167,5 +1235,9 @@ self.onDestroy = function () {
   // Cleanup theme change listener
   if (self._onThemeChange) {
     window.removeEventListener('myio:theme-change', self._onThemeChange);
+  }
+  // RFC-0115: Cleanup data-enriched listener
+  if (self._onDataEnriched) {
+    window.removeEventListener('myio:data-enriched', self._onDataEnriched);
   }
 };
