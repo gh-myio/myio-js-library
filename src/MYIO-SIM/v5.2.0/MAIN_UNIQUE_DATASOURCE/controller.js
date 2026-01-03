@@ -658,39 +658,49 @@ function classifyAllDevices(data, logDebug) {
     temperature: { termostato: [], termostato_external: [] },
   };
 
-  // Debug: log first row structure to understand ThingsBoard data format
-  if (data.length > 0 && logDebug) {
-    const firstRow = data[0];
-    logDebug('First row FULL structure:', JSON.stringify({
-      datasourceKeys: firstRow.datasource ? Object.keys(firstRow.datasource) : [],
+  // RFC-0111: Deduplicate by entityId - ThingsBoard sends 1 row per (device, dataKey)
+  // We only need 1 entry per unique device
+  const seenDeviceIds = new Set();
+  const uniqueDevices = [];
+
+  // First pass: deduplicate and extract unique devices
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const entityId = row.datasource?.entityId || row.datasource?.entity?.id?.id;
+
+    if (!entityId || seenDeviceIds.has(entityId)) {
+      continue; // Skip duplicates
+    }
+
+    seenDeviceIds.add(entityId);
+    uniqueDevices.push(row);
+  }
+
+  if (logDebug) {
+    logDebug(`Deduplication: ${data.length} rows → ${uniqueDevices.length} unique devices`);
+  }
+
+  // Debug: log first row structure (only once)
+  if (uniqueDevices.length > 0 && logDebug) {
+    const firstRow = uniqueDevices[0];
+    logDebug('First device structure:', {
       entityId: firstRow.datasource?.entityId,
       entityName: firstRow.datasource?.entityName,
       entityType: firstRow.datasource?.entityType,
-      entity: firstRow.datasource?.entity,
       aliasName: firstRow.datasource?.aliasName,
-      dataKeys: firstRow.data?.map(d => d.dataKey?.name) || [],
-    }, null, 2));
-
-    // Log first data item values
-    if (firstRow.data && firstRow.data.length > 0) {
-      logDebug('First row DATA values:', firstRow.data.slice(0, 5).map(d => ({
-        key: d.dataKey?.name,
-        label: d.dataKey?.label,
-        value: d.data?.[0]?.[1],
-      })));
-    }
+    });
   }
 
-  data.forEach((row, index) => {
-    const device = extractDeviceMetadata(row);
+  // Second pass: classify unique devices
+  for (let i = 0; i < uniqueDevices.length; i++) {
+    const device = extractDeviceMetadata(uniqueDevices[i]);
 
     // Debug: log first 3 devices
-    if (index < 3 && logDebug) {
-      logDebug(`Device ${index}:`, {
+    if (i < 3 && logDebug) {
+      logDebug(`Device ${i}:`, {
         id: device.id,
         name: device.name,
         deviceType: device.deviceType,
-        deviceProfile: device.deviceProfile,
       });
     }
 
@@ -700,7 +710,15 @@ function classifyAllDevices(data, logDebug) {
     if (classified[domain]?.[context]) {
       classified[domain][context].push(device);
     }
-  });
+  }
+
+  // Log classification summary - always log this for debugging
+  const summary = {
+    energy: { equipments: classified.energy.equipments.length, stores: classified.energy.stores.length },
+    water: { area_comum: classified.water.hidrometro_area_comum.length, lojas: classified.water.hidrometro.length },
+    temperature: { climatizado: classified.temperature.termostato.length, externo: classified.temperature.termostato_external.length },
+  };
+  console.log('[MAIN_UNIQUE] Classification summary:', JSON.stringify(summary));
 
   // Cache for getDevices
   window.MyIOOrchestratorData = { classified, timestamp: Date.now() };
@@ -737,16 +755,32 @@ function extractDeviceMetadata(row) {
     'Unknown';
 
   // Try multiple paths for deviceType
-  const deviceType =
+  let deviceType =
     findDataValue(row, 'deviceType') ||
     findDataValue(row, 'type') ||
     datasource.entity?.type ||
     datasource.entity?.deviceType ||
-    // Skip CUSTOMER/ASSET as deviceType - these are entity types, not device types
-    (datasource.entityType !== 'CUSTOMER' && datasource.entityType !== 'ASSET' ? datasource.entityType : '') ||
     '';
 
+  // Skip generic entity types - these are not device types
+  if (deviceType === 'DEVICE' || deviceType === 'CUSTOMER' || deviceType === 'ASSET') {
+    deviceType = '';
+  }
+
+  // RFC-0111: Infer deviceType from device name if not available
+  if (!deviceType && deviceName) {
+    const nameLower = deviceName.toLowerCase();
+    if (nameLower.includes('hidr') || nameLower.includes('hidro') || nameLower.includes('água') || nameLower.includes('water')) {
+      deviceType = 'HIDROMETRO';
+    } else if (nameLower.includes('termo') || nameLower.includes('temp') || nameLower.includes('sensor')) {
+      deviceType = 'TERMOSTATO';
+    } else if (nameLower.includes('medidor') || nameLower.includes('energia') || nameLower.includes('kwh') || nameLower.includes('3f')) {
+      deviceType = '3F_MEDIDOR';
+    }
+  }
+
   // Try multiple paths for deviceProfile
+  // NOTE: Do NOT use deviceType as fallback - it causes wrong classification
   const deviceProfile =
     findDataValue(row, 'deviceProfile') ||
     findDataValue(row, 'profile') ||
