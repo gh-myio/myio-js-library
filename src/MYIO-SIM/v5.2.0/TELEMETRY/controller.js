@@ -932,6 +932,11 @@ self.onInit = async function () {
   applyDomainTheme(WIDGET_DOMAIN);
   applyContextAttribute(WIDGET_CONTEXT);
 
+  // RFC-0120: Apply initial theme from MAIN's defaultThemeMode setting
+  const initialTheme = window.MyIOUtils?.currentThemeMode || window.MyIOUtils?.getThemeMode?.() || 'dark';
+  applyThemeMode(initialTheme);
+  LogHelper.log('Initial theme from MAIN:', initialTheme);
+
   // Build header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
   if (buildHeaderDevicesGrid) {

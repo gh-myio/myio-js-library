@@ -2008,6 +2008,7 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   // Expose utilities globally for TELEMETRY widget (initial state)
+  // RFC-0120: Include currentThemeMode for consistent theme propagation
   window.MyIOUtils = {
     DATA_API_HOST,
     CLIENT_ID,
@@ -2032,7 +2033,17 @@ body.filter-modal-open { overflow: hidden !important; }
       dataApiHost: DATA_API_HOST,
     }),
     customerTB_ID: getCustomerTB_ID(),
+    // RFC-0120: Theme state for child widgets
+    currentThemeMode: currentThemeMode,
+    getThemeMode: () => currentThemeMode,
   };
+
+  // RFC-0120: Apply initial theme to main wrapper immediately
+  const mainWrap = document.getElementById('mainUniqueWrap');
+  if (mainWrap) {
+    mainWrap.setAttribute('data-theme', currentThemeMode);
+    logDebug('Initial theme applied to mainUniqueWrap:', currentThemeMode);
+  }
 
   logDebug('MyIOUtils exposed globally (credentials pending fetch)');
 
@@ -2272,13 +2283,19 @@ body.filter-modal-open { overflow: hidden !important; }
     handlePanelModalRequest(domain, panelType);
   });
 
-  // === 11. LISTEN FOR GLOBAL THEME CHANGES (from Menu) ===
+  // === 11. LISTEN FOR GLOBAL THEME CHANGES (from Menu or Welcome) ===
+  // RFC-0120: Centralized theme change handler
   window.addEventListener('myio:theme-change', (e) => {
     const themeMode = e.detail?.themeMode;
     if (!themeMode) return;
 
     logDebug('Global theme change received:', themeMode);
     currentThemeMode = themeMode;
+
+    // RFC-0120: Sync to MyIOUtils for child widgets (TELEMETRY, etc.)
+    if (window.MyIOUtils) {
+      window.MyIOUtils.currentThemeMode = themeMode;
+    }
 
     // Apply to main wrapper
     const wrap = document.getElementById('mainUniqueWrap');
