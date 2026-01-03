@@ -133,12 +133,10 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     // Call user callback
     params.onBackClick?.();
 
-    // Try ThingsBoard navigation
-    if (params.ctx?.stateController?.openState) {
-      params.ctx.stateController.openState('welcome');
-    } else if (params.homeUrl) {
-      window.location.href = params.homeUrl;
-    }
+    // Dispatch event to open welcome modal
+    window.dispatchEvent(new CustomEvent('myio:open-welcome-modal', {
+      detail: { source: 'header-back-button', timestamp: Date.now() }
+    }));
 
     emit('back-click');
   });

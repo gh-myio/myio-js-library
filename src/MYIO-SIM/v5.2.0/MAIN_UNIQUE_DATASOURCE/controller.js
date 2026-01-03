@@ -1913,6 +1913,14 @@ body.filter-modal-open { overflow: hidden !important; }
 
   window.addEventListener('myio:data-ready', dataReadyHandler, { once: true });
 
+  // RFC-0111: Listen for event to re-open welcome modal (from header back button)
+  window.addEventListener('myio:open-welcome-modal', () => {
+    logDebug('Re-opening welcome modal (triggered by header back button)');
+    if (welcomeModal && welcomeModal.open) {
+      welcomeModal.open();
+    }
+  });
+
   // === 5. RFC-0113: RENDER HEADER COMPONENT ===
   const headerContainer = document.getElementById('headerContainer');
   let headerInstance = null;
