@@ -6,13 +6,19 @@
 /* eslint-disable no-undef */
 /* global self, window, document */
 
+// Global throttle counter for onDataUpdated (max 4 calls)
+let _onDataUpdatedCallCount = 0;
+const MAX_DATA_UPDATED_CALLS = 4;
+
 self.onInit = async function () {
   'use strict';
 
-  // Debug helper function
-  const logDebug = self.ctx.settings?.enableDebugMode
+  // Debug helper function - stored on self for access from onDataUpdated
+  self._logDebug = self.ctx.settings?.enableDebugMode
     ? (...args) => console.log('[MAIN_UNIQUE]', ...args)
     : () => {};
+
+  const logDebug = self._logDebug;
 
   // === 1. CONFIGURATION ===
   const settings = self.ctx.settings || {};
@@ -572,8 +578,20 @@ self.onInit = async function () {
 // ===================================================================
 // onDataUpdated - Called when ThingsBoard datasource updates
 // RFC-0111: Added data hash check to prevent infinite loop
+// RFC-0111: Added throttle to max 4 calls
 // ===================================================================
 self.onDataUpdated = function () {
+  // Throttle: only allow MAX_DATA_UPDATED_CALLS calls
+  _onDataUpdatedCallCount++;
+  if (_onDataUpdatedCallCount > MAX_DATA_UPDATED_CALLS) {
+    if (_onDataUpdatedCallCount === MAX_DATA_UPDATED_CALLS + 1) {
+      console.log('[MAIN_UNIQUE] onDataUpdated throttled - max calls reached:', MAX_DATA_UPDATED_CALLS);
+    }
+    return;
+  }
+
+  console.log('[MAIN_UNIQUE] onDataUpdated call #' + _onDataUpdatedCallCount);
+
   const data = self.ctx.data || [];
 
   // Skip if no data
@@ -598,8 +616,8 @@ self.onDataUpdated = function () {
   }
   self._lastDataHash = dataHash;
 
-  // Classify all devices from single datasource
-  const classified = classifyAllDevices(data);
+  // Classify all devices from single datasource (pass logDebug for debug output)
+  const classified = classifyAllDevices(data, self._logDebug);
 
   // Build shopping cards for welcome modal
   const shoppingCards = buildShoppingCards(classified);
@@ -624,15 +642,39 @@ self.onDataUpdated = function () {
 // ===================================================================
 // Device Classification Logic
 // ===================================================================
-function classifyAllDevices(data) {
+function classifyAllDevices(data, logDebug) {
   const classified = {
     energy: { equipments: [], stores: [] },
     water: { hidrometro_area_comum: [], hidrometro: [] },
     temperature: { termostato: [], termostato_external: [] },
   };
 
-  data.forEach((row) => {
+  // Debug: log first row structure to understand ThingsBoard data format
+  if (data.length > 0 && logDebug) {
+    const firstRow = data[0];
+    logDebug('First row datasource structure:', {
+      hasDatasource: !!firstRow.datasource,
+      datasourceKeys: firstRow.datasource ? Object.keys(firstRow.datasource) : [],
+      entityId: firstRow.datasource?.entityId,
+      entityName: firstRow.datasource?.entityName,
+      entity: firstRow.datasource?.entity,
+      aliasName: firstRow.datasource?.aliasName,
+    });
+  }
+
+  data.forEach((row, index) => {
     const device = extractDeviceMetadata(row);
+
+    // Debug: log first 3 devices
+    if (index < 3 && logDebug) {
+      logDebug(`Device ${index}:`, {
+        id: device.id,
+        name: device.name,
+        deviceType: device.deviceType,
+        deviceProfile: device.deviceProfile,
+      });
+    }
+
     const domain = detectDomain(device);
     const context = detectContext(device, domain);
 
@@ -650,11 +692,37 @@ function classifyAllDevices(data) {
 function extractDeviceMetadata(row) {
   // Extract device info from ThingsBoard data row
   const datasource = row.datasource || {};
+
+  // ThingsBoard entityId can be an object { id: "uuid", entityType: "DEVICE" } or a string
+  const extractEntityId = (entityIdObj) => {
+    if (!entityIdObj) return null;
+    if (typeof entityIdObj === 'string') return entityIdObj;
+    return entityIdObj.id || null;
+  };
+
+  // Try multiple paths for entity ID
+  const entityId =
+    extractEntityId(datasource.entity?.id) ||
+    extractEntityId(datasource.entityId) ||
+    extractEntityId(row.entityId) ||
+    datasource.entity?.id?.id ||
+    null;
+
+  // Try multiple paths for device name
+  const deviceName =
+    datasource.entityName ||
+    datasource.entity?.name ||
+    datasource.name ||
+    findDataValue(row, 'name') ||
+    findDataValue(row, 'deviceName') ||
+    'Unknown';
+
   return {
-    id: datasource.entityId || row.entityId,
-    name: datasource.entityName || datasource.name || 'Unknown',
+    id: entityId,
+    entityId: entityId, // Also expose as entityId for card components
+    name: deviceName,
     aliasName: datasource.aliasName || '',
-    deviceType: findDataValue(row, 'deviceType') || datasource.entityType,
+    deviceType: findDataValue(row, 'deviceType') || datasource.entityType || '',
     deviceProfile: findDataValue(row, 'deviceProfile') || '',
     ingestionId: findDataValue(row, 'ingestionId') || '',
     customerId: findDataValue(row, 'customerId') || '',
@@ -681,62 +749,104 @@ function findDataValue(row, key) {
 }
 
 function detectDomain(device) {
-  const aliasName = (device.aliasName || '').toLowerCase();
-  const deviceType = (device.deviceType || '').toLowerCase();
-  const deviceProfile = (device.deviceProfile || '').toLowerCase();
+  const deviceType = String(device?.deviceType || '').toUpperCase();
 
-  // Water detection
-  if (
-    aliasName.includes('hidro') ||
-    aliasName.includes('water') ||
-    deviceType.includes('hidro') ||
-    deviceProfile.includes('hidro')
-  ) {
+  // Water detection: HIDROMETRO or HIDROMETRO_AREA_COMUM
+  if (deviceType.includes('HIDROMETRO') || deviceType.includes('HIDRO')) {
     return 'water';
   }
 
-  // Temperature detection
-  if (
-    aliasName.includes('temp') ||
-    aliasName.includes('sensor') ||
-    deviceType.includes('termo') ||
-    deviceProfile.includes('termo') ||
-    deviceType.includes('clima')
-  ) {
+  // Temperature detection: TERMOSTATO or TERMOSTATO_EXTERNAL
+  if (deviceType.includes('TERMOSTATO')) {
     return 'temperature';
   }
 
-  // Default: Energy
+  // Default: Energy (3F_MEDIDOR, ENTRADA, RELOGIO, TRAFO, SUBESTACAO, etc.)
   return 'energy';
 }
 
+/**
+ * RFC-0111: Detect device context based on deviceType and deviceProfile
+ *
+ * WATER Rules:
+ * - deviceType = deviceProfile = HIDROMETRO → STORE (hidrometro)
+ * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM → AREA_COMUM
+ * - deviceType = HIDROMETRO_AREA_COMUM → AREA_COMUM
+ *
+ * ENERGY Rules:
+ * - deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
+ * - deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
+ * - deviceType != 3F_MEDIDOR AND NOT (ENTRADA/RELOGIO/TRAFO/SUBESTACAO) → equipments
+ * - deviceType = ENTRADA/RELOGIO/TRAFO/SUBESTACAO → equipments
+ *
+ * TEMPERATURE Rules:
+ * - deviceType = deviceProfile = TERMOSTATO → termostato (climatized)
+ * - deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → termostato_external
+ * - deviceType = TERMOSTATO_EXTERNAL → termostato_external
+ */
 function detectContext(device, domain) {
-  const aliasName = (device.aliasName || '').toLowerCase();
-  const deviceType = (device.deviceType || '').toUpperCase();
-  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  const deviceType = String(device?.deviceType || '').toUpperCase();
+  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
 
-  if (domain === 'energy') {
-    // Check if store device (3F_MEDIDOR)
-    if (deviceProfile === '3F_MEDIDOR' || deviceType === '3F_MEDIDOR') {
-      return 'stores';
-    }
-    return 'equipments';
-  }
+  // Special equipment types (always equipments, not stores)
+  const specialEquipmentTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO', 'DE_ENTRADA'];
+  const isSpecialEquipment = specialEquipmentTypes.some(
+    (t) => deviceType.includes(t) || deviceProfile.includes(t)
+  );
 
   if (domain === 'water') {
-    // Check alias for common area vs stores
-    if (aliasName.includes('comum') || aliasName.includes('common')) {
+    // HIDROMETRO_AREA_COMUM in deviceType → area comum
+    if (deviceType.includes('HIDROMETRO_AREA_COMUM') || deviceType.includes('AREA_COMUM')) {
       return 'hidrometro_area_comum';
     }
+    // deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM → area comum
+    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('AREA_COMUM')) {
+      return 'hidrometro_area_comum';
+    }
+    // deviceType = deviceProfile = HIDROMETRO → store
+    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO') && !deviceProfile.includes('AREA_COMUM')) {
+      return 'hidrometro'; // Store
+    }
+    // Default for water
     return 'hidrometro';
   }
 
-  if (domain === 'temperature') {
-    // Check if climatized environment
-    if (deviceType.includes('CLIMA') || deviceProfile.includes('CLIMA')) {
-      return 'termostato';
+  if (domain === 'energy') {
+    // Special equipment → always equipments (not stores)
+    if (isSpecialEquipment) {
+      return 'equipments';
     }
-    return 'termostato_external';
+    // deviceType = deviceProfile = 3F_MEDIDOR → store
+    if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
+      return 'stores';
+    }
+    // deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
+    if (deviceType === '3F_MEDIDOR' && deviceProfile !== '3F_MEDIDOR') {
+      return 'equipments';
+    }
+    // deviceType != 3F_MEDIDOR → equipments
+    if (deviceType !== '3F_MEDIDOR') {
+      return 'equipments';
+    }
+    // Default fallback
+    return 'equipments';
+  }
+
+  if (domain === 'temperature') {
+    // TERMOSTATO_EXTERNAL in deviceType → external (non-climatized)
+    if (deviceType.includes('TERMOSTATO_EXTERNAL') || deviceType.includes('EXTERNAL')) {
+      return 'termostato_external';
+    }
+    // deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → external
+    if (deviceType.includes('TERMOSTATO') && deviceProfile.includes('EXTERNAL')) {
+      return 'termostato_external';
+    }
+    // deviceType = deviceProfile = TERMOSTATO → climatized
+    if (deviceType.includes('TERMOSTATO') && deviceProfile.includes('TERMOSTATO') && !deviceProfile.includes('EXTERNAL')) {
+      return 'termostato'; // Climatized
+    }
+    // Default for temperature
+    return 'termostato';
   }
 
   return 'equipments'; // Default

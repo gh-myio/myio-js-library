@@ -143,30 +143,18 @@ const DOMAIN_CONFIG = {
 
 // ============================================
 // CONTEXT CONFIGURATION
-// Defines filtering and labels per context
-// RFC-0111: Updated context names
+// RFC-0111: Simplified - only presentation properties
+// Classification is done in MAIN_UNIQUE_DATASOURCE
 // ============================================
 const CONTEXT_CONFIG = {
   // === ENERGY CONTEXTS ===
   equipments: {
-    filterFn: (device) => !isStoreDevice(device),
-    aliasNames: {
-      energy: null,
-      water: null,
-      temperature: null,
-    },
     headerLabel: 'Total de Equipamentos',
     idPrefix: 'equipments',
     widgetName: 'TELEMETRY_EQUIPMENTS',
     filterChipIcon: '⚡',
   },
   stores: {
-    filterFn: isStoreDevice,
-    aliasNames: {
-      water: ['Todos Hidrometros Lojas'],
-      energy: null, // Uses isStoreDevice for energy
-      temperature: null,
-    },
     headerLabel: 'Total de Lojas',
     idPrefix: 'stores',
     widgetName: 'TELEMETRY_STORES',
@@ -175,24 +163,12 @@ const CONTEXT_CONFIG = {
 
   // === WATER CONTEXTS (RFC-0111) ===
   hidrometro_area_comum: {
-    filterFn: (device) => !isStoreDevice(device),
-    aliasNames: {
-      water: ['HidrometrosAreaComum'],
-      energy: null,
-      temperature: null,
-    },
     headerLabel: 'Total Area Comum',
     idPrefix: 'hidrometro_area_comum',
     widgetName: 'TELEMETRY_WATER_COMMON_AREA',
     filterChipIcon: '🏢',
   },
   hidrometro: {
-    filterFn: isStoreDevice,
-    aliasNames: {
-      water: ['Todos Hidrometros Lojas'],
-      energy: null,
-      temperature: null,
-    },
     headerLabel: 'Total de Lojas',
     idPrefix: 'hidrometro',
     widgetName: 'TELEMETRY_WATER_STORES',
@@ -201,32 +177,12 @@ const CONTEXT_CONFIG = {
 
   // === TEMPERATURE CONTEXTS (RFC-0111) ===
   termostato: {
-    filterFn: (device) => {
-      // Temperature sensors WITH climate control
-      const type = String(device?.deviceType || '').toUpperCase();
-      return type.includes('CLIMA') || type.includes('HVAC') || type.includes('AR_CONDICIONADO');
-    },
-    aliasNames: {
-      temperature: ['SensoresTemperaturaComClimatizacao', 'TemperatureSensorsWithClimate'],
-      energy: null,
-      water: null,
-    },
     headerLabel: 'Ambientes Climatizaveis',
     idPrefix: 'termostato',
     widgetName: 'TELEMETRY_TEMP_CLIMATIZED',
     filterChipIcon: '❄️',
   },
   termostato_external: {
-    filterFn: (device) => {
-      // Temperature sensors WITHOUT climate control
-      const type = String(device?.deviceType || '').toUpperCase();
-      return !type.includes('CLIMA') && !type.includes('HVAC') && !type.includes('AR_CONDICIONADO');
-    },
-    aliasNames: {
-      temperature: ['SensoresTemperaturaSemClimatizacao', 'TemperatureSensorsWithoutClimate'],
-      energy: null,
-      water: null,
-    },
     headerLabel: 'Ambientes Nao Climatizaveis',
     idPrefix: 'termostato_external',
     widgetName: 'TELEMETRY_TEMP_NOT_CLIMATIZED',
@@ -235,62 +191,30 @@ const CONTEXT_CONFIG = {
 
   // === LEGACY CONTEXTS (for backward compatibility) ===
   entry: {
-    filterFn: (device) => !isStoreDevice(device),
-    aliasNames: null,
     headerLabel: 'Total de Equipamentos',
     idPrefix: 'entry',
     widgetName: 'TELEMETRY_ENTRY',
     filterChipIcon: '⚙️',
   },
   common_area: {
-    filterFn: (device) => !isStoreDevice(device),
-    aliasNames: {
-      water: ['HidrometrosAreaComum'],
-      energy: null,
-      temperature: null,
-    },
     headerLabel: 'Total Area Comum',
     idPrefix: 'common',
     widgetName: 'TELEMETRY_COMMON_AREA',
     filterChipIcon: '🏢',
   },
   head_office: {
-    filterFn: (device) => !isStoreDevice(device),
-    aliasNames: {
-      water: ['HidrometrosMatriz', 'HidrometrosSede'],
-      energy: ['EquipamentosMatriz', 'EquipamentosSede'],
-      temperature: ['SensoresMatriz', 'SensoresSede'],
-    },
     headerLabel: 'Total Sede/Matriz',
     idPrefix: 'head_office',
     widgetName: 'TELEMETRY_HEAD_OFFICE',
     filterChipIcon: '🏬',
   },
   with_climate_control: {
-    filterFn: (device) => {
-      const type = String(device?.deviceType || '').toUpperCase();
-      return type.includes('CLIMA') || type.includes('HVAC') || type.includes('AR_CONDICIONADO');
-    },
-    aliasNames: {
-      temperature: ['SensoresTemperaturaComClimatizacao', 'TemperatureSensorsWithClimate'],
-      energy: null,
-      water: null,
-    },
     headerLabel: 'Sensores c/ Climatizacao',
     idPrefix: 'temp_climate',
     widgetName: 'TELEMETRY_TEMP_WITH_CLIMATE',
     filterChipIcon: '❄️',
   },
   without_climate_control: {
-    filterFn: (device) => {
-      const type = String(device?.deviceType || '').toUpperCase();
-      return !type.includes('CLIMA') && !type.includes('HVAC') && !type.includes('AR_CONDICIONADO');
-    },
-    aliasNames: {
-      temperature: ['SensoresTemperaturaSemClimatizacao', 'TemperatureSensorsWithoutClimate'],
-      energy: null,
-      water: null,
-    },
     headerLabel: 'Sensores s/ Climatizacao',
     idPrefix: 'temp_no_climate',
     widgetName: 'TELEMETRY_TEMP_WITHOUT_CLIMATE',
@@ -301,13 +225,26 @@ const CONTEXT_CONFIG = {
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
 /**
- * Check if device is a store device (3F_MEDIDOR profile + type)
+ * RFC-0111: Map legacy context names to orchestrator context names
+ * The classification logic is in MAIN_UNIQUE_DATASOURCE.
+ * TELEMETRY just uses pre-classified data from the orchestrator.
  */
-function isStoreDevice(device) {
-  const profile = String(device?.deviceProfile || '').toUpperCase();
-  const type = String(device?.deviceType || '').toUpperCase();
-  return profile === '3F_MEDIDOR' || type === '3F_MEDIDOR';
+function mapContextToOrchestrator(context, domain) {
+  const contextMap = {
+    // Energy legacy contexts
+    head_office: 'equipments',
+    entry: 'equipments',
+    common_area: 'equipments',
+    // Water legacy contexts
+    water_common_area: 'hidrometro_area_comum',
+    water_stores: 'hidrometro',
+    // Temperature legacy contexts
+    with_climate_control: 'termostato',
+    without_climate_control: 'termostato_external',
+  };
+  return contextMap[context] || context;
 }
 
 /**
@@ -394,33 +331,18 @@ function showLoadingOverlay(show, message) {
 
 // ============================================
 // FILTER DEVICES BY DOMAIN AND CONTEXT
+// RFC-0111: Simplified - data comes pre-classified from MAIN_UNIQUE_DATASOURCE
 // ============================================
 function filterDevicesByConfig(devices) {
-  const domainConfig = DOMAIN_CONFIG[WIDGET_DOMAIN];
   const contextConfig = CONTEXT_CONFIG[WIDGET_CONTEXT];
 
-  if (!domainConfig || !contextConfig) {
-    LogHelper.error(`Invalid domain (${WIDGET_DOMAIN}) or context (${WIDGET_CONTEXT})`);
-    return devices;
+  if (!contextConfig) {
+    LogHelper.warn(`Unknown context: ${WIDGET_CONTEXT}`);
   }
 
-  return devices.filter((device) => {
-    // 1. Apply context filter function (isStoreDevice, etc.)
-    if (contextConfig.filterFn && !contextConfig.filterFn(device)) {
-      return false;
-    }
-
-    // 2. Apply aliasName filter (for water domain primarily)
-    const aliasNames = contextConfig.aliasNames?.[WIDGET_DOMAIN];
-    if (aliasNames && aliasNames.length > 0) {
-      const deviceAlias = device.aliasName || '';
-      if (!aliasNames.includes(deviceAlias)) {
-        return false;
-      }
-    }
-
-    return true;
-  });
+  // RFC-0111: Data comes pre-classified from MAIN_UNIQUE_DATASOURCE orchestrator
+  // No filtering needed in TELEMETRY
+  return devices;
 }
 
 // ============================================
@@ -1065,39 +987,47 @@ self.onInit = async function () {
       LogHelper.error('MyIOLibrary not available');
     }
 
-    // Wait for orchestrator and get cache
+    // Wait for orchestrator and get pre-classified devices
     const orchestrator = await waitForOrchestrator();
 
     if (orchestrator) {
-      const cacheKey = domainConfig.cacheKey;
-      const existingCache = orchestrator.getCache(cacheKey);
+      // RFC-0111: Use getDevices to get pre-classified data from MAIN_UNIQUE_DATASOURCE
+      const mappedContext = mapContextToOrchestrator(WIDGET_CONTEXT, WIDGET_DOMAIN);
+      const devices = orchestrator.getDevices?.(WIDGET_DOMAIN, mappedContext) || [];
 
-      if (existingCache && existingCache.size > 0) {
-        LogHelper.log(`Using existing ${cacheKey} cache: ${existingCache.size} items`);
-        await processAndRenderDevices(existingCache);
+      LogHelper.log(`Total devices from cache: ${window.MyIOOrchestratorData?.classified?.[WIDGET_DOMAIN]?.[mappedContext]?.length || 0}`);
+      LogHelper.log(`Filtered devices (${WIDGET_DOMAIN}/${mappedContext}): ${devices.length}`);
+
+      if (devices.length > 0) {
+        LogHelper.log(`Using pre-classified devices: ${devices.length} items for ${WIDGET_DOMAIN}/${mappedContext}`);
+        STATE.allDevices = devices;
+        initializeCards(devices);
+        showLoadingOverlay(false);
       } else {
-        LogHelper.log(`Waiting for ${domainConfig.eventReady} event...`);
+        LogHelper.log(`No pre-classified devices found, waiting for ${domainConfig.eventReady} event...`);
 
-        const waitForCache = new Promise((resolve) => {
+        const waitForData = new Promise((resolve) => {
           const handlerTimeout = setTimeout(() => {
-            LogHelper.warn('Timeout waiting for cache event');
+            LogHelper.warn('Timeout waiting for data event');
             resolve(null);
           }, 15000);
 
+          // Listen for myio:data-ready from orchestrator
           const handler = (ev) => {
             clearTimeout(handlerTimeout);
-            window.removeEventListener(domainConfig.eventReady, handler);
-            resolve(ev.detail?.cache || ev.detail?.items);
+            window.removeEventListener('myio:data-ready', handler);
+            const newDevices = orchestrator.getDevices?.(WIDGET_DOMAIN, mappedContext) || [];
+            resolve(newDevices);
           };
-          window.addEventListener(domainConfig.eventReady, handler);
+          window.addEventListener('myio:data-ready', handler);
         });
 
-        const cache = await waitForCache;
-        if (cache) {
-          await processAndRenderDevices(cache);
-        } else {
-          showLoadingOverlay(false);
+        const dataDevices = await waitForData;
+        if (dataDevices && dataDevices.length > 0) {
+          STATE.allDevices = dataDevices;
+          initializeCards(dataDevices);
         }
+        showLoadingOverlay(false);
       }
     } else {
       showLoadingOverlay(false);
@@ -1159,16 +1089,10 @@ self.onInit = async function () {
       if (devices.length > 0) {
         initializeCards(devices);
       } else {
-        // Try to get from cache as fallback
-        const domainConfig = DOMAIN_CONFIG[domain];
-        const orchestrator = window.MyIOOrchestrator;
-        if (orchestrator) {
-          const cache = orchestrator.getCache?.(domainConfig.cacheKey);
-          if (cache && cache.size > 0) {
-            LogHelper.log('Using cache fallback for', domain, context);
-            processAndRenderDevices(cache);
-          }
-        }
+        LogHelper.warn(`No devices found for ${domain}/${context}`);
+        // Clear cards if no devices
+        STATE.allDevices = [];
+        initializeCards([]);
       }
 
       // Update header stats

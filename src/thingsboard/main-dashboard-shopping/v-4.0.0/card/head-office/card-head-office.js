@@ -27,6 +27,10 @@ const LABEL_CHAR_LIMIT = 18;
 const DEFAUL_DELAY_TIME_CONNECTION_IN_MINS = 1440; // 24 hours x 60 minutes = 1440 mins
 const CSS_TAG = 'head-office-card-v1';
 
+// Throttle warnings - only log once per type
+let _warnedMissingEntityId = false;
+let _warnedMissingDelayTime = false;
+
 /**
  * Ensure CSS is injected once per page
  */
@@ -61,14 +65,22 @@ function normalizeParams(params) {
 
   const entityObject = params.entityObject;
   if (!entityObject.entityId) {
-    LogHelper.warn('[CardHeadOffice] entityId is missing, generating temporary ID');
+    // Only warn once, not for every device
+    if (!_warnedMissingEntityId) {
+      _warnedMissingEntityId = true;
+      LogHelper.warn('[CardHeadOffice] entityId is missing on some devices, generating temporary IDs');
+    }
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
   if (!params.delayTimeConnectionInMins) {
-    LogHelper.warn(
-      `[CardHeadOffice] delayTimeConnectionInMins is missing, defaulting to ${DEFAUL_DELAY_TIME_CONNECTION_IN_MINS} mins`
-    );
+    // Only warn once, not for every device
+    if (!_warnedMissingDelayTime) {
+      _warnedMissingDelayTime = true;
+      LogHelper.warn(
+        `[CardHeadOffice] delayTimeConnectionInMins is missing, defaulting to ${DEFAUL_DELAY_TIME_CONNECTION_IN_MINS} mins`
+      );
+    }
   }
 
   return {
@@ -969,27 +981,11 @@ function verifyOfflineStatus(entityObject, delayTimeInMins = 15, LogHelper) {
   // Rule 1: If last disconnect is more recent than last connect, device is offline
   if (lastDisconnectTime.getTime() > lastConnectionTime.getTime()) {
     isOffline = true;
-    LogHelper.log(
-      '[CardHeadOffice][ConnectionStatus Verify] Device is OFFLINE because lastDisconnectTime is more recent than lastConnectTime',
-      entityObject.nameEl
-    );
   } else if (timeSinceConnection > delayTimeInMs) {
     // Rule 2: If connection is recent (< configured delay), consider offline (probation period)
     isOffline = true;
-    LogHelper.log(
-      '[CardHeadOffice][ConnectionStatus Verify] Device is OFFLINE because lastConnectTime is older than configured delayTimeConnectionInMins:',
-      delayTimeInMins,
-      'for device',
-      entityObject.nameEl
-    );
   } else {
     isOffline = false;
-    LogHelper.log(
-      '[CardHeadOffice][ConnectionStatus Verify] Device is ONLINE because lastConnectTime is within configured delayTimeConnectionInMins:',
-      delayTimeInMins,
-      'for device',
-      entityObject.nameEl
-    );
   }
 
   // Otherwise: Connected for more than configured delay, device is online
@@ -1010,32 +1006,18 @@ function paint(root, state) {
   if (entityObject.connectionStatus) {
     // connectionStatus is already mapped ('online', 'waiting', 'offline')
     if (entityObject.connectionStatus === 'offline') {
-      LogHelper.log(
-        '[CardHeadOffice][ConnectionStatus Verify 01] Setting deviceStatus to OFFLINE based on connectionStatus'
-      );
       entityObject.deviceStatus = DeviceStatusType.OFFLINE;
       statusDecisionSource = 'connectionStatus === "offline"';
     } else {
-      LogHelper.log(
-        '[CardHeadOffice] Device is ONLINE or WAITING based on connectionStatus for device',
-        entityObject.nameEl
-      );
       statusDecisionSource = `connectionStatus === "${entityObject.connectionStatus}" (kept original deviceStatus)`;
     }
     // If online/waiting, keep the existing deviceStatus (which reflects power status)
   } else {
     // RFC-0091: Fallback to timestamp-based verification when connectionStatus not available
     if (verifyOfflineStatus(entityObject, delayTimeConnectionInMins, LogHelper) === false) {
-      LogHelper.log(
-        '[CardHeadOffice][ConnectionStatus Verify 02] Setting deviceStatus to OFFLINE based on timestamp verification by verifyOfflineStatus METHOD with delayTimeConnectionInMins:',
-        delayTimeConnectionInMins
-      );
       entityObject.deviceStatus = DeviceStatusType.OFFLINE;
       statusDecisionSource = `verifyOfflineStatus() returned false (delay: ${delayTimeConnectionInMins} mins)`;
     } else {
-      LogHelper.log(
-        `[CardHeadOffice][ConnectionStatus Verify 03] Device is ONLINE with deviceStatus = ${entityObject.deviceStatus} based on timestamp verification for device ${entityObject.nameEl}`
-      );
       statusDecisionSource = `verifyOfflineStatus() returned true (delay: ${delayTimeConnectionInMins} mins)`;
     }
   }
