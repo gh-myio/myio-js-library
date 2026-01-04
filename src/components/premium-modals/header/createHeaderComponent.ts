@@ -160,6 +160,100 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
   // Tooltip integration (RFC-0105)
   // =========================================================================
 
+  /**
+   * Normalize energy data to the format expected by EnergySummaryTooltip
+   * RFC-0121: Ensures status object exists with all required properties
+   */
+  function normalizeEnergyData(data: unknown): unknown {
+    const d = data as Record<string, unknown>;
+    // If data already has proper status object, return as-is
+    if (d.status && typeof d.status === 'object') {
+      return data;
+    }
+    // Create normalized data with default status
+    return {
+      totalDevices: d.totalDevices ?? d.deviceCount ?? 0,
+      totalConsumption: d.customerTotal ?? d.totalConsumption ?? 0,
+      unit: d.unit ?? 'kWh',
+      categories: d.categories ?? [],
+      status: {
+        waiting: 0,
+        weakConnection: 0,
+        offline: 0,
+        normal: 0,
+        alert: 0,
+        failure: 0,
+        standby: 0,
+        noConsumption: 0,
+        ...((d.status as object) || {}),
+      },
+      // Pass through other properties
+      equipmentsTotal: d.equipmentsTotal,
+      lojasTotal: d.lojasTotal,
+      customerTotal: d.customerTotal,
+      unfilteredTotal: d.unfilteredTotal,
+      isFiltered: d.isFiltered,
+    };
+  }
+
+  /**
+   * Normalize water data to the format expected by WaterSummaryTooltip
+   * RFC-0121: Ensures status object exists with all required properties
+   */
+  function normalizeWaterData(data: unknown): unknown {
+    const d = data as Record<string, unknown>;
+    // If data already has proper status object, return as-is
+    if (d.status && typeof d.status === 'object') {
+      return data;
+    }
+    // Create normalized data with default status
+    return {
+      totalDevices: d.totalDevices ?? d.deviceCount ?? 0,
+      totalConsumption: d.filteredTotal ?? d.totalConsumption ?? 0,
+      unit: d.unit ?? 'm³',
+      categories: d.categories ?? [],
+      status: {
+        waiting: 0,
+        weakConnection: 0,
+        offline: 0,
+        normal: 0,
+        alert: 0,
+        failure: 0,
+        standby: 0,
+        noConsumption: 0,
+        ...((d.status as object) || {}),
+      },
+      // Pass through other properties
+      filteredTotal: d.filteredTotal,
+      unfilteredTotal: d.unfilteredTotal,
+      commonArea: d.commonArea,
+      stores: d.stores,
+      isFiltered: d.isFiltered,
+    };
+  }
+
+  /**
+   * Normalize temperature data to the format expected by TempSensorSummaryTooltip
+   * RFC-0121: Ensures devices array exists
+   */
+  function normalizeTemperatureData(data: unknown): unknown {
+    const d = data as Record<string, unknown>;
+    // If data already has proper devices array, return as-is
+    if (Array.isArray(d.devices) && d.devices.length > 0) {
+      return data;
+    }
+    // Create normalized data
+    return {
+      ...d,
+      devices: d.devices ?? [],
+      globalAvg: d.globalAvg,
+      filteredAvg: d.filteredAvg,
+      shoppingsInRange: d.shoppingsInRange ?? [],
+      shoppingsOutOfRange: d.shoppingsOutOfRange ?? [],
+      shoppingsUnknownRange: d.shoppingsUnknownRange ?? [],
+    };
+  }
+
   function showTooltipForCard(cardType: CardType, triggerElement: HTMLElement): void {
     const data = tooltipData[cardType];
     if (!data) {
@@ -175,16 +269,33 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
 
     switch (cardType) {
       case 'equipment':
-        lib.EquipmentSummaryTooltip?.show(triggerElement, data);
+        // EquipmentSummaryTooltip may not exist yet
+        if (lib.EquipmentSummaryTooltip) {
+          lib.EquipmentSummaryTooltip.show(triggerElement, data);
+        } else {
+          log('EquipmentSummaryTooltip not available');
+        }
         break;
       case 'energy':
-        lib.EnergySummaryTooltip?.show(triggerElement, data);
+        if (lib.EnergySummaryTooltip) {
+          const normalizedData = normalizeEnergyData(data);
+          log('Showing energy tooltip with normalized data:', normalizedData);
+          lib.EnergySummaryTooltip.show(triggerElement, normalizedData);
+        }
         break;
       case 'temperature':
-        lib.TempSensorSummaryTooltip?.show(triggerElement, data);
+        if (lib.TempSensorSummaryTooltip) {
+          const normalizedData = normalizeTemperatureData(data);
+          log('Showing temperature tooltip with normalized data:', normalizedData);
+          lib.TempSensorSummaryTooltip.show(triggerElement, normalizedData);
+        }
         break;
       case 'water':
-        lib.WaterSummaryTooltip?.show(triggerElement, data);
+        if (lib.WaterSummaryTooltip) {
+          const normalizedData = normalizeWaterData(data);
+          log('Showing water tooltip with normalized data:', normalizedData);
+          lib.WaterSummaryTooltip.show(triggerElement, normalizedData);
+        }
         break;
     }
   }
