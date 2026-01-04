@@ -38,6 +38,10 @@ export interface Shopping {
   customerId: string;
   /** Ingestion ID for API calls */
   ingestionId?: string;
+  /** Minimum temperature threshold for this shopping (from customers datasource) */
+  minTemperature?: number | null;
+  /** Maximum temperature threshold for this shopping (from customers datasource) */
+  maxTemperature?: number | null;
 }
 
 /**

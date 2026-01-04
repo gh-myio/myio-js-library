@@ -9,6 +9,7 @@ import {
   WelcomeConfigTemplate,
   WelcomeThemeConfig,
   WelcomeThemeMode,
+  WelcomeCardVersion,
   ShoppingCard,
   UserInfo,
   DEFAULT_PALETTE,
@@ -16,6 +17,12 @@ import {
   DEFAULT_DARK_THEME,
   DEFAULT_LIGHT_THEME,
 } from './types';
+import {
+  CustomerCardV2,
+  createCustomerCardV2,
+  CustomerCardV2Instance,
+  CustomerCardData,
+} from '../../customer-card-v2';
 
 type WelcomeEventType = 'cta-click' | 'card-click' | 'logout' | 'close' | 'theme-change';
 type WelcomeEventHandler = (data?: ShoppingCard | WelcomeThemeMode) => void;
@@ -28,10 +35,12 @@ export class WelcomeModalView {
   private palette: WelcomePalette;
   private config: WelcomeConfigTemplate;
   private themeMode: WelcomeThemeMode;
+  private cardVersion: WelcomeCardVersion;
   private eventHandlers: Map<WelcomeEventType, WelcomeEventHandler[]> = new Map();
   private styleElement: HTMLStyleElement | null = null;
   private intersectionObserver: IntersectionObserver | null = null;
   private resizeHandler: (() => void) | null = null;
+  private cardV2Instances: CustomerCardV2Instance[] = [];
 
   constructor(private params: WelcomeModalParams) {
     // Merge configTemplate with defaults
@@ -39,6 +48,9 @@ export class WelcomeModalView {
 
     // Set initial theme mode
     this.themeMode = params.themeMode ?? 'dark';
+
+    // Set card version (v1 = original, v2 = Metro UI)
+    this.cardVersion = params.cardVersion ?? 'v1';
 
     // Build palette from current theme config
     this.palette = this.buildPaletteForTheme(this.themeMode);
@@ -114,6 +126,11 @@ export class WelcomeModalView {
     this.container.className = `myio-welcome-modal myio-welcome-modal--${mode}`;
     this.updateThemeToggleIcon();
     this.updateThemeVisuals();
+
+    // Update V2 card themes if using cardVersion='v2'
+    if (this.cardVersion === 'v2') {
+      this.cardV2Instances.forEach((instance) => instance.setThemeMode(mode));
+    }
 
     if (this.config.enableDebugMode) {
       console.log('[WelcomeModal] Theme changed to:', mode);
@@ -270,11 +287,79 @@ export class WelcomeModalView {
   public render(): HTMLElement {
     this.injectStyles();
     this.container.innerHTML = this.buildHTML();
+
+    // Render V2 cards if using cardVersion='v2'
+    if (this.cardVersion === 'v2') {
+      this.renderCardsV2();
+    }
+
     this.bindEvents();
     this.setupLazyLoading();
     this.loadUserInfo();
     this.setupDynamicLayout();
     return this.container;
+  }
+
+  /**
+   * Render V2 cards using CustomerCardV2 component
+   */
+  private renderCardsV2(): void {
+    const grid = this.container.querySelector('#welcomeCardsGrid');
+    if (!grid) return;
+
+    const shoppingCards = this.params.shoppingCards ?? [];
+
+    // Clear any existing V2 instances
+    this.destroyCardsV2();
+
+    // Create V2 card instances
+    shoppingCards.forEach((card, index) => {
+      const cardData: CustomerCardData = {
+        title: card.title,
+        subtitle: card.subtitle,
+        dashboardId: card.dashboardId,
+        entityId: card.entityId,
+        entityType: card.entityType,
+        bgImageUrl: card.bgImageUrl,
+        buttonId: card.buttonId,
+        deviceCounts: card.deviceCounts,
+        metaCounts: card.metaCounts,
+      };
+
+      const instance = createCustomerCardV2({
+        container: grid as HTMLElement,
+        card: cardData,
+        index,
+        themeMode: this.themeMode,
+        onClick: (clickedCard) => {
+          this.emit('card-click', card);
+        },
+        onTileClick: (type, clickedCard, cardIndex) => {
+          // Handle tile click - show tooltip
+          const tileEl = this.container.querySelector(
+            `.myio-customer-card-v2__tile--${type}[data-card-index="${cardIndex}"]`
+          );
+          if (tileEl) {
+            this.handleTooltipClick(type as any, card, tileEl as HTMLElement);
+          }
+        },
+        debugActive: this.config.enableDebugMode,
+      });
+
+      this.cardV2Instances.push(instance);
+    });
+
+    if (this.config.enableDebugMode) {
+      console.log('[WelcomeModal] Rendered V2 cards:', this.cardV2Instances.length);
+    }
+  }
+
+  /**
+   * Destroy all V2 card instances
+   */
+  private destroyCardsV2(): void {
+    this.cardV2Instances.forEach((instance) => instance.destroy());
+    this.cardV2Instances = [];
   }
 
   /**
@@ -339,9 +424,9 @@ export class WelcomeModalView {
     const gridAvailableHeight = availableHeight - shortcutsPadding - titleHeight - totalGapHeight;
     const optimalCardHeight = Math.floor(gridAvailableHeight / rows);
 
-    // Apply minimum and maximum constraints
-    const minCardHeight = 80;
-    const maxCardHeight = 150;
+    // Apply minimum and maximum constraints (+25% from original)
+    const minCardHeight = 100;
+    const maxCardHeight = 188;
     const cardHeight = Math.max(minCardHeight, Math.min(maxCardHeight, optimalCardHeight));
 
     // Apply calculated height to cards
@@ -507,7 +592,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-logo img {
-  height: 120px;
+  height: 144px;
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
@@ -673,10 +758,46 @@ export class WelcomeModalView {
   width: 100%;
 }
 
+/* V2 Grid - Metro UI style cards */
+.myio-welcome-cards-grid--v2 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+.myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
+  min-height: 180px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .myio-welcome-cards-grid--v2 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
+    min-height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .myio-welcome-cards-grid--v2 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
+    min-height: 140px;
+  }
+}
+
 .myio-welcome-card {
   position: relative;
   display: block !important;
-  min-height: 90px;
+  min-height: 112px;
   padding: 10px 14px !important;
   background: var(--wm-card-bg);
   border: 1px solid var(--wm-card-border);
@@ -770,15 +891,15 @@ export class WelcomeModalView {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 4px !important;
-  padding: 5px 10px !important;
-  min-width: 52px !important;
-  font-size: 13px !important;
+  gap: 5px !important;
+  padding: 6px 12px !important;
+  min-width: 62px !important;
+  font-size: 15px !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px !important;
+  border-radius: 7px !important;
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
@@ -790,7 +911,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .value {
-  font-size: 11px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
   opacity: 0.85;
   white-space: nowrap;
@@ -803,7 +924,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .icon {
-  font-size: 11px !important;
+  font-size: 13px !important;
 }
 
 .myio-welcome-card-device-count.energy:hover {
@@ -825,8 +946,8 @@ export class WelcomeModalView {
 
 /* Loading Spinner for Device Counts */
 .myio-welcome-card-device-count .count-spinner {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-top-color: currentColor;
   border-radius: 50%;
@@ -887,7 +1008,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-logo img {
-    height: 60px;
+    height: 72px;
   }
 
   .myio-welcome-user-menu {
@@ -949,7 +1070,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card {
-    min-height: 80px;
+    min-height: 100px;
   }
 
   .myio-welcome-card-title {
@@ -958,13 +1079,21 @@ export class WelcomeModalView {
 
   .myio-welcome-card-device-counts {
     bottom: 8px !important;
-    gap: 5px;
+    gap: 6px;
   }
 
   .myio-welcome-card-device-count {
-    padding: 3px 6px;
-    font-size: 10px;
-    min-width: 44px !important;
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 52px !important;
+  }
+
+  .myio-welcome-card-device-count .icon {
+    font-size: 11px !important;
+  }
+
+  .myio-welcome-card-device-count .value {
+    font-size: 11px !important;
   }
 }
 
@@ -989,7 +1118,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-logo img {
-    height: 40px;
+    height: 48px;
   }
 
   .myio-welcome-user-menu {
@@ -1038,13 +1167,21 @@ export class WelcomeModalView {
 
   .myio-welcome-card-device-counts {
     bottom: 6px !important;
-    gap: 4px;
+    gap: 5px;
   }
 
   .myio-welcome-card-device-count {
-    padding: 2px 4px;
-    font-size: 9px;
-    min-width: 36px !important;
+    padding: 3px 6px;
+    font-size: 11px;
+    min-width: 44px !important;
+  }
+
+  .myio-welcome-card-device-count .icon {
+    font-size: 10px !important;
+  }
+
+  .myio-welcome-card-device-count .value {
+    font-size: 10px !important;
   }
 
   .myio-welcome-card-arrow {
@@ -1062,16 +1199,15 @@ export class WelcomeModalView {
   align-items: center;
   justify-content: center;
   padding: 12px 20px;
-  background: linear-gradient(180deg, rgba(15, 20, 25, 0.95) 0%, rgba(10, 15, 20, 1) 100%);
-  border-top: 1px solid rgba(122, 47, 247, 0.15);
+  background: #5B2EBC;
+  border-top: 1px solid rgba(122, 47, 247, 0.3);
 }
 
 .myio-welcome-footer-text {
   font-size: 11px;
   font-weight: 500;
-  color: var(--wm-muted);
+  color: #F9F9F9;
   letter-spacing: 0.02em;
-  opacity: 0.7;
 }
 
 /* Animation */
@@ -1303,12 +1439,12 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-modal--light .myio-welcome-footer {
-  background: linear-gradient(180deg, rgba(248, 249, 252, 0.98) 0%, rgba(240, 242, 245, 1) 100%);
-  border-top-color: rgba(122, 47, 247, 0.1);
+  background: #5B2EBC;
+  border-top-color: rgba(122, 47, 247, 0.3);
 }
 
 .myio-welcome-modal--light .myio-welcome-footer-text {
-  color: #4a4a6a;
+  color: #F9F9F9;
 }
 
 .myio-welcome-modal--light .myio-welcome-theme-toggle {
@@ -1480,8 +1616,8 @@ export class WelcomeModalView {
             <h2 class="myio-welcome-shortcuts-title"${
               shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
             }>${shortcutsTitle}</h2>
-            <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
-              ${shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('')}
+            <div class="myio-welcome-cards-grid${this.cardVersion === 'v2' ? ' myio-welcome-cards-grid--v2' : ''}" id="welcomeCardsGrid">
+              ${this.cardVersion === 'v1' ? shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('') : '<!-- V2 cards rendered via JS -->'}
             </div>
           </div>
         `
@@ -2204,19 +2340,30 @@ export class WelcomeModalView {
     }
 
     if (shortcutsSection) {
-      // Update shortcuts section content
-      shortcutsSection.innerHTML = `
-        <h2 class="myio-welcome-shortcuts-title"${
-          shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
-        }>${shortcutsTitle}</h2>
-        <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
-          ${cards.map((card, index) => this.buildCardHTML(card, index)).join('')}
-        </div>
-      `;
-
-      // Re-bind card events
-      this.bindCardEvents();
-      this.setupLazyLoading();
+      // Update shortcuts section content based on card version
+      if (this.cardVersion === 'v2') {
+        shortcutsSection.innerHTML = `
+          <h2 class="myio-welcome-shortcuts-title"${
+            shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+          }>${shortcutsTitle}</h2>
+          <div class="myio-welcome-cards-grid myio-welcome-cards-grid--v2" id="welcomeCardsGrid">
+          </div>
+        `;
+        // Render V2 cards
+        this.renderCardsV2();
+      } else {
+        shortcutsSection.innerHTML = `
+          <h2 class="myio-welcome-shortcuts-title"${
+            shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+          }>${shortcutsTitle}</h2>
+          <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
+            ${cards.map((card, index) => this.buildCardHTML(card, index)).join('')}
+          </div>
+        `;
+        // Re-bind card events for V1
+        this.bindCardEvents();
+        this.setupLazyLoading();
+      }
 
       // Recalculate grid layout for new cards
       requestAnimationFrame(() => {
@@ -2339,6 +2486,9 @@ export class WelcomeModalView {
       window.removeEventListener('resize', this.resizeHandler);
       this.resizeHandler = null;
     }
+
+    // Destroy V2 card instances
+    this.destroyCardsV2();
 
     // Note: styleElement is shared across instances, so we don't remove it here
     this.eventHandlers.clear();

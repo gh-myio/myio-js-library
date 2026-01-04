@@ -734,3 +734,28 @@ export {
 } from './components/filter-modal';
 
 export { generateFilterModalStyles } from './components/filter-modal';
+
+// RFC-0127: CustomerCard Components
+export { CustomerCardV1, createCustomerCardV1 } from './components/customer-card-v1';
+export { injectCustomerCardV1Styles } from './components/customer-card-v1';
+
+export type {
+  CustomerCardData,
+  CustomerCardV1Params,
+  CustomerCardV1Instance,
+  CustomerCardDeviceCounts,
+  CustomerCardMetaCounts,
+  ThemeMode as CustomerCardThemeMode,
+} from './components/customer-card-v1';
+
+// RFC-0127: CustomerCardV2 (Metro UI Style)
+export { CustomerCardV2, createCustomerCardV2 } from './components/customer-card-v2';
+export { injectCustomerCardV2Styles } from './components/customer-card-v2';
+
+export type {
+  CustomerCardV2Params,
+  CustomerCardV2Instance,
+  MetroTile,
+} from './components/customer-card-v2';
+
+export { METRO_TILE_COLORS } from './components/customer-card-v2';

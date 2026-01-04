@@ -2488,12 +2488,19 @@ export class MenuView {
    * Open filter modal
    */
   public openFilterModal(): void {
-    this.ensureFilterModalHeaderController();
-
     const modal = this.root.querySelector('#menuFilterModal');
     if (modal) {
       modal.classList.add('is-open');
       this.renderFilterList();
+
+      // RFC-0126: Initialize controller AFTER modal is visible in DOM
+      // Use requestAnimationFrame to ensure DOM is ready before binding buttons
+      requestAnimationFrame(() => {
+        this.ensureFilterModalHeaderController();
+        // Bind buttons directly as fallback
+        this.bindFilterModalButtonsFallback();
+      });
+
       // Focus search input
       const searchInput = this.root.querySelector('#menuFilterSearch') as HTMLInputElement;
       if (searchInput) {
@@ -2524,10 +2531,14 @@ export class MenuView {
   }
 
   private ensureFilterModalHeaderController(): void {
-    if (this.filterModalHeaderController) return;
-
     const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;
     if (!modalCard) return;
+
+    // RFC-0126: Allow re-initialization by destroying previous controller
+    if (this.filterModalHeaderController) {
+      this.filterModalHeaderController.destroy?.();
+      this.filterModalHeaderController = null as unknown as ReturnType<typeof ModalHeader.createController>;
+    }
 
     const headerEl = this.root.querySelector('#menuFilter-header') as HTMLElement | null;
 
@@ -2546,6 +2557,41 @@ export class MenuView {
     this.filterModalHeaderController.reset();
     this.applyFilterModalTheme(this.filterModalHeaderController.getTheme());
     this.applyFilterModalMaximize(this.filterModalHeaderController.isMaximized());
+  }
+
+  /**
+   * RFC-0126: Fallback button bindings for filter modal
+   * Direct event listeners as backup if ModalHeader.createController fails
+   */
+  private bindFilterModalButtonsFallback(): void {
+    const closeBtn = this.root.querySelector('#menuFilter-close');
+    const maxBtn = this.root.querySelector('#menuFilter-maximize');
+    const themeBtn = this.root.querySelector('#menuFilter-theme-toggle');
+
+    // Remove existing listeners to avoid duplicates (using cloneNode trick)
+    if (closeBtn && !closeBtn.hasAttribute('data-bound')) {
+      closeBtn.setAttribute('data-bound', 'true');
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeFilterModal();
+      });
+    }
+
+    if (maxBtn && !maxBtn.hasAttribute('data-bound')) {
+      maxBtn.setAttribute('data-bound', 'true');
+      maxBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.filterModalHeaderController?.toggleMaximize?.();
+      });
+    }
+
+    if (themeBtn && !themeBtn.hasAttribute('data-bound')) {
+      themeBtn.setAttribute('data-bound', 'true');
+      themeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.filterModalHeaderController?.toggleTheme?.();
+      });
+    }
   }
 
   private applyFilterModalTheme(theme: 'dark' | 'light'): void {

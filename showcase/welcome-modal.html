@@ -182,6 +182,72 @@
       font-family: monospace;
       color: #7A2FF7;
     }
+
+    /* Floating Card Version Toggle */
+    .card-version-toggle {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(122, 47, 247, 0.4);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(122, 47, 247, 0.2);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .card-version-toggle button {
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-version-toggle button:hover {
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(122, 47, 247, 0.1);
+    }
+
+    .card-version-toggle button.active {
+      color: white;
+      background: linear-gradient(135deg, #7A2FF7 0%, #5A1FD1 100%);
+    }
+
+    .card-version-toggle button .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-version-toggle button.active .badge {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .card-version-toggle-label {
+      position: fixed;
+      bottom: 72px;
+      right: 24px;
+      z-index: 9999;
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
   </style>
 </head>
 <body>
@@ -345,10 +411,35 @@ modal.<span class="function">close</span>();
     </div>
   </div>
 
+  <!-- Floating Card Version Toggle -->
+  <div class="card-version-toggle-label">Card Version</div>
+  <div class="card-version-toggle">
+    <button id="cardV1Btn">V1 <span class="badge">Original</span></button>
+    <button id="cardV2Btn" class="active">V2 <span class="badge">Metro UI</span></button>
+  </div>
+
   <!-- Load the library -->
   <script src="../dist/myio-js-library.umd.js"></script>
 
   <script>
+    // Current card version (v1 = Original, v2 = Metro UI) - default to v2
+    let currentCardVersion = 'v2';
+
+    // Card version toggle handlers
+    document.getElementById('cardV1Btn').addEventListener('click', function() {
+      currentCardVersion = 'v1';
+      this.classList.add('active');
+      document.getElementById('cardV2Btn').classList.remove('active');
+      logEvent('cardVersion', 'Changed to V1 (Original)');
+    });
+
+    document.getElementById('cardV2Btn').addEventListener('click', function() {
+      currentCardVersion = 'v2';
+      this.classList.add('active');
+      document.getElementById('cardV1Btn').classList.remove('active');
+      logEvent('cardVersion', 'Changed to V2 (Metro UI)');
+    });
+
     // Event logging helper
     function logEvent(event, data) {
       const log = document.getElementById('eventLog');
@@ -417,7 +508,7 @@ modal.<span class="function">close</span>();
 
     // Default welcome modal
     function openDefaultWelcome() {
-      logEvent('openWelcomeModal', 'Default configuration');
+      logEvent('openWelcomeModal', `Default configuration (cardVersion: ${currentCardVersion})`);
 
       const modal = MyIOLibrary.openWelcomeModal({
         logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
@@ -430,6 +521,7 @@ modal.<span class="function">close</span>();
           email: 'joao.silva@myio.com.br'
         },
         shoppingCards: MOCK_SHOPPING_CARDS,
+        cardVersion: currentCardVersion, // V1 (Original) or V2 (Metro UI)
         closeOnEscape: true,
         closeOnCtaClick: true,
         closeOnCardClick: true,
@@ -450,7 +542,7 @@ modal.<span class="function">close</span>();
 
     // Custom colors welcome modal
     function openCustomWelcome() {
-      logEvent('openWelcomeModal', 'Custom colors (green theme)');
+      logEvent('openWelcomeModal', `Custom colors (green theme, cardVersion: ${currentCardVersion})`);
 
       const modal = MyIOLibrary.openWelcomeModal({
         logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
@@ -470,6 +562,7 @@ modal.<span class="function">close</span>();
           email: 'maria.santos@holding.com.br'
         },
         shoppingCards: MOCK_SHOPPING_CARDS.slice(0, 4),
+        cardVersion: currentCardVersion,
         onCardClick: (card) => {
           logEvent('onCardClick', `Green theme - Card: ${card.title}`);
         },
@@ -505,7 +598,7 @@ modal.<span class="function">close</span>();
 
     // Welcome modal without user menu
     function openNoUserMenu() {
-      logEvent('openWelcomeModal', 'Without user menu');
+      logEvent('openWelcomeModal', `Without user menu (cardVersion: ${currentCardVersion})`);
 
       const modal = MyIOLibrary.openWelcomeModal({
         logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
@@ -514,6 +607,7 @@ modal.<span class="function">close</span>();
         ctaLabel: 'VER TODOS',
         showUserMenu: false,
         shoppingCards: MOCK_SHOPPING_CARDS,
+        cardVersion: currentCardVersion,
         onCardClick: (card) => {
           logEvent('onCardClick', `No user menu - Card: ${card.title}`);
         },
@@ -525,7 +619,7 @@ modal.<span class="function">close</span>();
 
     // Welcome modal starting in Light Theme
     function openLightTheme() {
-      logEvent('openWelcomeModal', 'Light Theme mode');
+      logEvent('openWelcomeModal', `Light Theme mode (cardVersion: ${currentCardVersion})`);
 
       const modal = MyIOLibrary.openWelcomeModal({
         logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
@@ -539,6 +633,7 @@ modal.<span class="function">close</span>();
           email: 'joao.silva@myio.com.br'
         },
         shoppingCards: MOCK_SHOPPING_CARDS,
+        cardVersion: currentCardVersion,
         onThemeChange: (newTheme) => {
           logEvent('onThemeChange', `Theme changed to: ${newTheme}`);
         },
@@ -556,7 +651,7 @@ modal.<span class="function">close</span>();
 
     // Welcome modal with theme change callback (simulates MAIN component control)
     function openWithThemeCallback() {
-      logEvent('openWelcomeModal', 'With onThemeChange callback (MAIN component integration)');
+      logEvent('openWelcomeModal', `With onThemeChange callback (cardVersion: ${currentCardVersion})`);
 
       // Store modal reference to demonstrate external theme control
       window.currentModal = MyIOLibrary.openWelcomeModal({
@@ -571,6 +666,7 @@ modal.<span class="function">close</span>();
           email: 'admin@myio.com.br'
         },
         shoppingCards: MOCK_SHOPPING_CARDS.slice(0, 4),
+        cardVersion: currentCardVersion,
         onThemeChange: (newTheme) => {
           logEvent('onThemeChange', `MAIN received theme change: ${newTheme}`);
           // In a real app, MAIN component would update global theme here
@@ -589,7 +685,7 @@ modal.<span class="function">close</span>();
     // Welcome modal with configTemplate (simulates ThingsBoard widget settings)
     // NEW STRUCTURE: Uses darkMode and lightMode for theme-specific settings
     function openWithConfigTemplate() {
-      logEvent('openWelcomeModal', 'With configTemplate (darkMode/lightMode structure)');
+      logEvent('openWelcomeModal', `With configTemplate (cardVersion: ${currentCardVersion})`);
 
       // This simulates passing settings from ThingsBoard widget settingsSchema.json
       // NEW: Theme-specific settings are now in darkMode and lightMode objects
@@ -646,6 +742,8 @@ modal.<span class="function">close</span>();
         configTemplate,
         // Shopping cards still need to be passed
         shoppingCards: MOCK_SHOPPING_CARDS,
+        // Card version (v1 or v2)
+        cardVersion: currentCardVersion,
         // User info
         userInfo: {
           fullName: 'Config Template User',

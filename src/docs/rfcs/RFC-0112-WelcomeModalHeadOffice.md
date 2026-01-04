@@ -160,6 +160,7 @@ interface WelcomeModalParams {
 
   // Shopping Cards
   shoppingCards?: ShoppingCard[];
+  cardVersion?: 'v1' | 'v2';  // Card style: v1=Original, v2=Metro UI (default: 'v1')
 
   // Modal Behavior
   closeOnBackdrop?: boolean;   // default: false
@@ -226,6 +227,58 @@ interface ShoppingCard {
 
 ---
 
+## Card Versions
+
+The Welcome Modal supports two different card styles via the `cardVersion` parameter:
+
+### V1 - Original Style (default)
+
+The original card design with background image, device counts as badges, and meta counts.
+
+```javascript
+openWelcomeModal({
+  cardVersion: 'v1', // or omit (default)
+  shoppingCards: [...],
+});
+```
+
+**Features:**
+- Background image support via `bgImageUrl`
+- Device counts displayed as inline badges: `⚡ 45 💧 12 🌡️ 8`
+- Consumption values in parentheses: `⚡ 45 (1.2 MWh)`
+- Meta counts (users, alarms, notifications) above title
+- Hover scale effect (1.03)
+- Dark gradient overlay
+
+### V2 - Metro UI Style
+
+Modern flat design with colored tiles in a 2x3 grid layout, inspired by Windows Metro UI.
+
+```javascript
+openWelcomeModal({
+  cardVersion: 'v2',
+  shoppingCards: [...],
+});
+```
+
+**Features:**
+- Flat, square colored tiles in 2x3 grid
+- Color-coded categories:
+  - Green: Energy (⚡)
+  - Blue: Water (💧)
+  - Orange: Temperature (🌡️)
+  - Purple: Users (👥)
+  - Red: Alarms (🚨)
+  - Yellow: Notifications (🔔)
+- Title bar at top with shopping name
+- Each tile clickable independently via `onTileClick`
+- Loading spinner support for tiles with `null` values
+- Theme support (dark/light)
+
+For detailed documentation on the CustomerCard components, see [RFC-0127: CustomerCard Component](./RFC-0127-CustomerCardComponent.md).
+
+---
+
 ## Usage Examples
 
 ### Basic Usage
@@ -250,6 +303,29 @@ const modal = openWelcomeModal({
 
 // Close programmatically
 modal.close();
+```
+
+### With Metro UI Cards (V2)
+
+```javascript
+import { openWelcomeModal } from 'myio-js-library';
+
+const modal = openWelcomeModal({
+  heroTitle: 'Bem-vindo ao MYIO Platform',
+  heroDescription: 'Gestão inteligente de energia, água e recursos.',
+  ctaLabel: 'ACESSAR PAINEL',
+  cardVersion: 'v2', // Metro UI style
+  shoppingCards: [
+    {
+      title: 'Mestre Álvaro',
+      dashboardId: 'dash-1',
+      entityId: 'ent-1',
+      deviceCounts: { energy: 45, water: 12, temperature: 8 },
+      metaCounts: { users: 12, alarms: 3, notifications: 5 }
+    },
+  ],
+  onCardClick: (card) => console.log('Card clicked:', card.title),
+});
 ```
 
 ### With Theme Support (MAIN Component Integration)
@@ -470,6 +546,10 @@ Algoritmo:
 - 2026-01-04: Meta counts no TOP, título no CENTER, device counts no BOTTOM
 - 2026-01-04: Font size do título aumentado (22px desktop, 16px tablet, 14px mobile)
 - 2026-01-04: Padding lateral do grid ajustado (12px desktop, 10px tablet, 8px mobile)
+- 2026-01-04: **Rev-006**: Card Version Support (V1/V2)
+- 2026-01-04: Added `cardVersion` parameter: `'v1'` (Original) or `'v2'` (Metro UI)
+- 2026-01-04: V2 uses CustomerCardV2 component with 2x3 colored tile grid
+- 2026-01-04: See RFC-0127 for CustomerCard component details
 
 ---
 
@@ -477,5 +557,8 @@ Algoritmo:
 
 - [RFC-0057 MYIO SIM Welcome](./RFC-0057-MYIO-SIM-Welcome.rev001.md)
 - [RFC-0111 Unified Main Single Datasource](./RFC-0111-Unified-Main-Single-Datasource-Architecture.md)
+- [RFC-0127 CustomerCard Component](./RFC-0127-CustomerCardComponent.md) - V1 and V2 card implementations
 - [Showcase: welcome-modal.html](../../showcase/welcome-modal.html)
+- [Showcase: customer-card-v1.html](../../showcase/customer-card-v1.html)
+- [Showcase: customer-card-v2.html](../../showcase/customer-card-v2.html)
 - [WELCOME Widget Source](../../MYIO-SIM/v5.2.0/WELCOME/)

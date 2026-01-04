@@ -9,6 +9,13 @@
 export type WelcomeThemeMode = 'dark' | 'light';
 
 /**
+ * Card version for shopping cards
+ * - 'v1': Original card design with background image and device counts
+ * - 'v2': Metro UI style with 2x3 colored tile grid
+ */
+export type WelcomeCardVersion = 'v1' | 'v2';
+
+/**
  * Theme-specific configuration (colors, background, logo)
  * Used for darkMode and lightMode settings
  */
@@ -320,6 +327,12 @@ export interface WelcomeModalParams {
   // Shopping Cards
   /** Array of shopping cards to display */
   shoppingCards?: ShoppingCard[];
+  /**
+   * Card version to use for shopping cards
+   * - 'v1': Original card design with background image and device counts (default)
+   * - 'v2': Metro UI style with 2x3 colored tile grid
+   */
+  cardVersion?: WelcomeCardVersion;
 
   // Modal Behavior
   /** Close modal when clicking backdrop (default: false for full-screen) */

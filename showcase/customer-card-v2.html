@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CustomerCardV2 Component Showcase - Metro UI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 50%, #0d1117 100%);
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .showcase-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .showcase-header h1 {
+      color: #F5F7FA;
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    .showcase-header p {
+      color: rgba(245, 247, 250, 0.7);
+      font-size: 16px;
+    }
+
+    .showcase-header .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #5B2EBC;
+      color: #F9F9F9;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .theme-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .theme-toggle button {
+      padding: 12px 24px;
+      border: 1px solid rgba(122, 47, 247, 0.3);
+      border-radius: 8px;
+      background: rgba(122, 47, 247, 0.1);
+      color: #F5F7FA;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle button:hover {
+      background: rgba(122, 47, 247, 0.2);
+      border-color: rgba(122, 47, 247, 0.5);
+    }
+
+    .theme-toggle button.active {
+      background: rgba(122, 47, 247, 0.4);
+      border-color: #7A2FF7;
+    }
+
+    .cards-section {
+      margin-bottom: 48px;
+    }
+
+    .cards-section h2 {
+      color: #F5F7FA;
+      font-size: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 200px);
+      gap: 16px;
+      max-width: 680px;
+      margin: 0 auto;
+      justify-content: center;
+    }
+
+    .cards-grid--light {
+      background: linear-gradient(135deg, #f0f2f5 0%, #e5e7eb 100%);
+      padding: 24px;
+      border-radius: 16px;
+    }
+
+    .event-log {
+      max-width: 800px;
+      margin: 40px auto 0;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .event-log h3 {
+      color: #F5F7FA;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .event-log-content {
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 12px;
+      color: #22c55e;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .event-log-content:empty::before {
+      content: 'Click on cards or tiles to see events...';
+      color: rgba(245, 247, 250, 0.5);
+    }
+
+    .comparison-section {
+      max-width: 1200px;
+      margin: 48px auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .comparison-section h2 {
+      color: #F5F7FA;
+      font-size: 18px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .comparison-card {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .comparison-card .card-wrapper {
+      display: flex;
+      justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+      .cards-grid {
+        grid-template-columns: repeat(2, 180px);
+      }
+      .comparison-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 20px;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
+        max-width: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-header">
+    <h1>CustomerCardV2 Component</h1>
+    <p>RFC-0127: Metro UI style with flat, square tiles in a 2x3 grid</p>
+    <span class="badge">METRO UI</span>
+  </div>
+
+  <div class="theme-toggle">
+    <button id="darkThemeBtn" class="active">Dark Theme</button>
+    <button id="lightThemeBtn">Light Theme</button>
+  </div>
+
+  <div class="cards-section">
+    <h2>Dark Theme Cards</h2>
+    <div class="cards-grid" id="darkCardsGrid"></div>
+  </div>
+
+  <div class="cards-section">
+    <h2>Light Theme Cards</h2>
+    <div class="cards-grid cards-grid--light" id="lightCardsGrid"></div>
+  </div>
+
+  <div class="comparison-section">
+    <div class="comparison-card">
+      <h2>V1 - Original Style</h2>
+      <div class="card-wrapper" id="v1CardWrapper" style="height: 150px;"></div>
+    </div>
+    <div class="comparison-card">
+      <h2>V2 - Metro UI Style</h2>
+      <div class="card-wrapper" id="v2CardWrapper" style="width: 200px; margin: 0 auto;"></div>
+    </div>
+  </div>
+
+  <div class="event-log">
+    <h3>Event Log</h3>
+    <div class="event-log-content" id="eventLog"></div>
+  </div>
+
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    // Sample card data
+    const sampleCards = [
+      {
+        title: 'Shopping Mestre Alvaro',
+        dashboardId: 'dash-1',
+        entityId: 'ent-1',
+        entityType: 'ASSET',
+        metaCounts: { users: 45, alarms: 3, notifications: 12 },
+        deviceCounts: {
+          energy: 156,
+          energyConsumption: 2450.5,
+          water: 34,
+          waterConsumption: 1250,
+          temperature: 28,
+          temperatureAvg: 23.5
+        }
+      },
+      {
+        title: 'Shopping Vila Velha',
+        dashboardId: 'dash-2',
+        entityId: 'ent-2',
+        entityType: 'ASSET',
+        metaCounts: { users: 32, alarms: 0, notifications: 5 },
+        deviceCounts: {
+          energy: 89,
+          energyConsumption: 850.3,
+          water: 22,
+          waterConsumption: 680,
+          temperature: 15,
+          temperatureAvg: 24.2
+        }
+      },
+      {
+        title: 'Shopping Vitoria',
+        dashboardId: 'dash-3',
+        entityId: 'ent-3',
+        entityType: 'ASSET',
+        metaCounts: { users: 67, alarms: 8, notifications: 23 },
+        deviceCounts: {
+          energy: 234,
+          energyConsumption: 4500.0,
+          water: 45,
+          waterConsumption: 2100,
+          temperature: 42,
+          temperatureAvg: 22.8
+        }
+      },
+      {
+        title: 'Shopping Praia da Costa',
+        dashboardId: 'dash-4',
+        entityId: 'ent-4',
+        entityType: 'ASSET',
+        metaCounts: { users: 28, alarms: 1, notifications: 7 },
+        deviceCounts: {
+          energy: null, // Loading state
+          energyConsumption: null,
+          water: 18,
+          waterConsumption: 520,
+          temperature: 12,
+          temperatureAvg: 25.1
+        }
+      },
+      {
+        title: 'Shopping Jardins',
+        dashboardId: 'dash-5',
+        entityId: 'ent-5',
+        entityType: 'ASSET',
+        metaCounts: { users: 51, alarms: 2, notifications: 9 },
+        deviceCounts: {
+          energy: 178,
+          energyConsumption: 3200.0,
+          water: 38,
+          waterConsumption: 1450,
+          temperature: 31,
+          temperatureAvg: 23.0
+        }
+      },
+      {
+        title: 'Shopping Norte Sul',
+        dashboardId: 'dash-6',
+        entityId: 'ent-6',
+        entityType: 'ASSET',
+        metaCounts: { users: 39, alarms: 5, notifications: 15 },
+        deviceCounts: {
+          energy: 145,
+          energyConsumption: 2800.5,
+          water: 29,
+          waterConsumption: 980,
+          temperature: 24,
+          temperatureAvg: 24.5
+        }
+      }
+    ];
+
+    const eventLog = document.getElementById('eventLog');
+    const darkCardsGrid = document.getElementById('darkCardsGrid');
+    const lightCardsGrid = document.getElementById('lightCardsGrid');
+
+    const darkCards = [];
+    const lightCards = [];
+
+    function logEvent(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      eventLog.innerHTML = `[${timestamp}] ${message}\n` + eventLog.innerHTML;
+    }
+
+    // Create dark theme cards (V2 Metro)
+    sampleCards.forEach((cardData, index) => {
+      const card = MyIOLibrary.createCustomerCardV2({
+        container: darkCardsGrid,
+        card: cardData,
+        index: index,
+        themeMode: 'dark',
+        onClick: (card) => {
+          logEvent(`Header clicked: ${card.title}`);
+        },
+        onTileClick: (type, card, idx) => {
+          logEvent(`Tile clicked: ${type} on ${card.title}`);
+        }
+      });
+      darkCards.push(card);
+    });
+
+    // Create light theme cards (V2 Metro)
+    sampleCards.forEach((cardData, index) => {
+      const card = MyIOLibrary.createCustomerCardV2({
+        container: lightCardsGrid,
+        card: cardData,
+        index: index,
+        themeMode: 'light',
+        onClick: (card) => {
+          logEvent(`[Light] Header clicked: ${card.title}`);
+        },
+        onTileClick: (type, card, idx) => {
+          logEvent(`[Light] Tile clicked: ${type} on ${card.title}`);
+        }
+      });
+      lightCards.push(card);
+    });
+
+    // Create comparison cards (V1 vs V2)
+    const comparisonData = sampleCards[0];
+
+    // V1 for comparison
+    MyIOLibrary.createCustomerCardV1({
+      container: document.getElementById('v1CardWrapper'),
+      card: comparisonData,
+      index: 0,
+      themeMode: 'dark',
+      onClick: (card) => logEvent(`[V1] Card clicked: ${card.title}`),
+      onBadgeClick: (type, card, idx) => logEvent(`[V1] Badge clicked: ${type}`)
+    });
+
+    // V2 for comparison
+    MyIOLibrary.createCustomerCardV2({
+      container: document.getElementById('v2CardWrapper'),
+      card: comparisonData,
+      index: 0,
+      themeMode: 'dark',
+      onClick: (card) => logEvent(`[V2] Header clicked: ${card.title}`),
+      onTileClick: (type, card, idx) => logEvent(`[V2] Tile clicked: ${type}`)
+    });
+
+    // Theme toggle buttons
+    document.getElementById('darkThemeBtn').addEventListener('click', function() {
+      this.classList.add('active');
+      document.getElementById('lightThemeBtn').classList.remove('active');
+      darkCards.forEach(card => card.setThemeMode('dark'));
+    });
+
+    document.getElementById('lightThemeBtn').addEventListener('click', function() {
+      this.classList.add('active');
+      document.getElementById('darkThemeBtn').classList.remove('active');
+      darkCards.forEach(card => card.setThemeMode('light'));
+    });
+
+    logEvent('CustomerCardV2 Metro UI showcase initialized');
+  </script>
+</body>
+</html>

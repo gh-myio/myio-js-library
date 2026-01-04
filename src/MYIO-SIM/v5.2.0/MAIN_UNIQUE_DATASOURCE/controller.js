@@ -3004,7 +3004,16 @@ self.onDataUpdated = function () {
   const tempValues = temperatureItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
   const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
-  // Energy summary event
+  // RFC-0126: Build tooltip status data for each domain
+  const allEnergyDevices = [...(classified.energy.equipments || []), ...(classified.energy.stores || [])];
+  const allWaterDevices = [...(classified.water.hidrometro_area_comum || []), ...(classified.water.hidrometro || [])];
+  const allTempDevices = [...(classified.temperature.termostato || []), ...(classified.temperature.termostato_external || [])];
+
+  const energyByStatus = buildTooltipStatusData(allEnergyDevices);
+  const waterByStatus = buildTooltipStatusData(allWaterDevices);
+  const tempByStatus = buildTooltipStatusData(allTempDevices);
+
+  // Energy summary event - RFC-0126: Include byStatus and byCategory for tooltips
   window.dispatchEvent(
     new CustomEvent('myio:energy-summary-ready', {
       detail: {
@@ -3013,22 +3022,34 @@ self.onDataUpdated = function () {
         isFiltered: false,
         equipmentsTotal: classified.energy.equipments.reduce((sum, d) => sum + Number(d.value || 0), 0),
         lojasTotal: classified.energy.stores.reduce((sum, d) => sum + Number(d.value || 0), 0),
+        // RFC-0126: Tooltip data
+        totalDevices: allEnergyDevices.length,
+        totalConsumption: energyTotal,
+        byStatus: energyByStatus,
+        byCategory: buildEnergyCategoryData(classified),
+        lastUpdated: new Date().toISOString(),
       },
     })
   );
 
-  // Water summary event
+  // Water summary event - RFC-0126: Include byStatus and byCategory for tooltips
   window.dispatchEvent(
     new CustomEvent('myio:water-summary-ready', {
       detail: {
         filteredTotal: waterTotal,
         unfilteredTotal: waterTotal,
         isFiltered: false,
+        // RFC-0126: Tooltip data
+        totalDevices: allWaterDevices.length,
+        totalConsumption: waterTotal,
+        byStatus: waterByStatus,
+        byCategory: buildWaterCategoryData(classified),
+        lastUpdated: new Date().toISOString(),
       },
     })
   );
 
-  // Temperature summary event
+  // Temperature summary event - RFC-0126: Include devices for tooltip
   window.dispatchEvent(
     new CustomEvent('myio:temperature-data-ready', {
       detail: {
@@ -3036,6 +3057,17 @@ self.onDataUpdated = function () {
         isFiltered: false,
         shoppingsInRange: [],
         shoppingsOutOfRange: [],
+        // RFC-0126: Tooltip data
+        totalDevices: allTempDevices.length,
+        devices: allTempDevices.map((d) => ({
+          id: d.id || d.entityId || '',
+          name: d.labelOrName || d.name || '',
+          temperature: Number(d.temperature || 0),
+          customerName: d.customerName || d.ownerName || '',
+          status: d.deviceStatus || d.status || 'unknown',
+        })),
+        byStatus: tempByStatus,
+        lastUpdated: new Date().toISOString(),
       },
     })
   );
@@ -3059,6 +3091,142 @@ self.onDataUpdated = function () {
 
   LogHelper.log('Initial summary events dispatched');
 };
+
+// ===================================================================
+// RFC-0126: Tooltip Status Data Aggregation
+// Builds byStatus structure expected by EnergySummaryTooltip, WaterSummaryTooltip
+// ===================================================================
+function buildTooltipStatusData(devices) {
+  const byStatus = {
+    waiting: 0,
+    waitingDevices: [],
+    weakConnection: 0,
+    weakConnectionDevices: [],
+    offline: 0,
+    offlineDevices: [],
+    normal: 0,
+    normalDevices: [],
+    alert: 0,
+    alertDevices: [],
+    failure: 0,
+    failureDevices: [],
+    standby: 0,
+    standbyDevices: [],
+    noConsumption: 0,
+    noConsumptionDevices: [],
+  };
+
+  if (!Array.isArray(devices)) return byStatus;
+
+  devices.forEach((d) => {
+    const rawStatus = (d.deviceStatus || d.status || '').toLowerCase();
+    const value = Number(d.value || d.val || d.consumption || d.pulses || 0);
+    const deviceInfo = {
+      id: d.id || d.entityId || '',
+      name: d.labelOrName || d.name || d.deviceName || '',
+      value: value,
+      customerName: d.customerName || d.ownerName || '',
+    };
+
+    // Map raw status to tooltip status categories
+    if (rawStatus === 'waiting' || rawStatus === 'aguardando') {
+      byStatus.waiting++;
+      byStatus.waitingDevices.push(deviceInfo);
+    } else if (rawStatus === 'weak_connection' || rawStatus === 'conexao_fraca') {
+      byStatus.weakConnection++;
+      byStatus.weakConnectionDevices.push(deviceInfo);
+    } else if (rawStatus === 'offline' || rawStatus === 'no_info' || rawStatus === 'not_installed') {
+      byStatus.offline++;
+      byStatus.offlineDevices.push(deviceInfo);
+    } else if (rawStatus === 'alert' || rawStatus === 'alerta') {
+      byStatus.alert++;
+      byStatus.alertDevices.push(deviceInfo);
+    } else if (rawStatus === 'failure' || rawStatus === 'falha') {
+      byStatus.failure++;
+      byStatus.failureDevices.push(deviceInfo);
+    } else if (rawStatus === 'standby') {
+      byStatus.standby++;
+      byStatus.standbyDevices.push(deviceInfo);
+    } else if (value === 0 || rawStatus === 'no_consumption' || rawStatus === 'sem_consumo') {
+      byStatus.noConsumption++;
+      byStatus.noConsumptionDevices.push(deviceInfo);
+    } else {
+      // Default: normal/online
+      byStatus.normal++;
+      byStatus.normalDevices.push(deviceInfo);
+    }
+  });
+
+  return byStatus;
+}
+
+/**
+ * RFC-0126: Build category data for energy tooltip
+ */
+function buildEnergyCategoryData(classified) {
+  const categories = [];
+
+  // Equipamentos
+  const equipDevices = classified?.energy?.equipments || [];
+  if (equipDevices.length > 0) {
+    categories.push({
+      name: 'Equipamentos',
+      icon: '⚙️',
+      count: equipDevices.length,
+      consumption: equipDevices.reduce((sum, d) => sum + Number(d.value || 0), 0),
+      subcategories: [
+        { name: 'Elevadores', count: equipDevices.filter((d) => (d.deviceType || '').toLowerCase().includes('elevador')).length },
+        { name: 'Escadas Rolantes', count: equipDevices.filter((d) => (d.deviceType || '').toLowerCase().includes('escada')).length },
+        { name: 'HVAC', count: equipDevices.filter((d) => (d.deviceType || '').toLowerCase().includes('ar_condicionado') || (d.deviceType || '').toLowerCase().includes('hvac')).length },
+        { name: 'Outros', count: equipDevices.filter((d) => !['elevador', 'escada', 'hvac', 'ar_condicionado'].some((t) => (d.deviceType || '').toLowerCase().includes(t))).length },
+      ],
+    });
+  }
+
+  // Lojas
+  const storeDevices = classified?.energy?.stores || [];
+  if (storeDevices.length > 0) {
+    categories.push({
+      name: 'Lojas',
+      icon: '🏬',
+      count: storeDevices.length,
+      consumption: storeDevices.reduce((sum, d) => sum + Number(d.value || 0), 0),
+    });
+  }
+
+  return categories;
+}
+
+/**
+ * RFC-0126: Build category data for water tooltip
+ */
+function buildWaterCategoryData(classified) {
+  const categories = [];
+
+  // Area Comum
+  const commonAreaDevices = classified?.water?.hidrometro_area_comum || [];
+  if (commonAreaDevices.length > 0) {
+    categories.push({
+      name: 'Area Comum',
+      icon: '🏢',
+      count: commonAreaDevices.length,
+      consumption: commonAreaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0),
+    });
+  }
+
+  // Lojas
+  const storeDevices = classified?.water?.hidrometro || [];
+  if (storeDevices.length > 0) {
+    categories.push({
+      name: 'Lojas',
+      icon: '🏬',
+      count: storeDevices.length,
+      consumption: storeDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0),
+    });
+  }
+
+  return categories;
+}
 
 // ===================================================================
 // Device Classification Logic
