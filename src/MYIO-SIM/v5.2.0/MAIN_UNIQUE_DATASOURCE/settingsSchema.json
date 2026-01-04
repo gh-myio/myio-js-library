@@ -31,15 +31,29 @@
         "type": "object",
         "title": "Dark Mode Settings",
         "properties": {
-          "backgroundUrl": {
-            "title": "Background URL",
+          "backgroundType": {
+            "title": "Background Type",
             "type": "string",
-            "default": "https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F"
+            "enum": ["image", "color"],
+            "default": "image",
+            "description": "Choose between image URL or solid color"
+          },
+          "backgroundUrl": {
+            "title": "Background Image URL",
+            "type": "string",
+            "default": "https://dashboard.myio-bas.com/api/images/public/kBFzJaR3fKk8uQYNdR8j3r7JcYjKardi",
+            "description": "Used when Background Type is 'image'"
+          },
+          "backgroundColor": {
+            "title": "Background Color",
+            "type": "string",
+            "default": "#0f172a",
+            "description": "Hex color used when Background Type is 'color'"
           },
           "logoUrl": {
             "title": "Logo URL",
             "type": "string",
-            "default": "https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG"
+            "default": "https://dashboard.myio-bas.com/api/images/public/Gi9qaUMi2Z7G2wrdReKzMCZu5epG17lX"
           },
           "primaryColor": {
             "title": "Primary Color",
@@ -67,13 +81,29 @@
         "type": "object",
         "title": "Light Mode Settings",
         "properties": {
+          "backgroundType": {
+            "title": "Background Type",
+            "type": "string",
+            "enum": ["image", "color"],
+            "default": "image",
+            "description": "Choose between image URL or solid color"
+          },
           "backgroundUrl": {
-            "title": "Background URL",
-            "type": "string"
+            "title": "Background Image URL",
+            "type": "string",
+            "default": "https://dashboard.myio-bas.com/api/images/public/GhVcMLXPx1pYSo1SnQ5Yd2pIT6wEg2Uk",
+            "description": "Used when Background Type is 'image'"
+          },
+          "backgroundColor": {
+            "title": "Background Color",
+            "type": "string",
+            "default": "#f8fafc",
+            "description": "Hex color used when Background Type is 'color'"
           },
           "logoUrl": {
             "title": "Logo URL",
-            "type": "string"
+            "type": "string",
+            "default": "https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG"
           },
           "primaryColor": {
             "title": "Primary Color",
@@ -194,16 +224,57 @@
     {
       "type": "fieldset",
       "title": "Dark Mode",
-      "items": ["darkMode.backgroundUrl", "darkMode.logoUrl", "darkMode.primaryColor", "darkMode.textColor"]
+      "items": [
+        {
+          "key": "darkMode.backgroundType",
+          "type": "select"
+        },
+        {
+          "key": "darkMode.backgroundColor",
+          "type": "color"
+        },
+        "darkMode.backgroundUrl",
+        "darkMode.logoUrl",
+        {
+          "key": "darkMode.primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.secondaryColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.textColor",
+          "type": "color"
+        }
+      ]
     },
     {
       "type": "fieldset",
       "title": "Light Mode",
       "items": [
+        {
+          "key": "lightMode.backgroundType",
+          "type": "select"
+        },
+        {
+          "key": "lightMode.backgroundColor",
+          "type": "color"
+        },
         "lightMode.backgroundUrl",
         "lightMode.logoUrl",
-        "lightMode.primaryColor",
-        "lightMode.textColor"
+        {
+          "key": "lightMode.primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.secondaryColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.textColor",
+          "type": "color"
+        }
       ]
     },
     {

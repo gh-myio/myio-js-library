@@ -362,6 +362,14 @@
     // Global menu instance
     let menuInstance = null;
 
+    // Mock shoppings data for Goals Panel demo
+    const mockShoppings = [
+      { name: 'Shopping Mestre Alvaro', value: 'ing-ma', customerId: 'cust-ma', ingestionId: 'ing-ma' },
+      { name: 'Shopping Mont Serrat', value: 'ing-ms', customerId: 'cust-ms', ingestionId: 'ing-ms' },
+      { name: 'Vitoria Mall', value: 'ing-vm', customerId: 'cust-vm', ingestionId: 'ing-vm' },
+      { name: 'Shopping Praia', value: 'ing-sp', customerId: 'cust-sp', ingestionId: 'ing-sp' },
+    ];
+
     // Show error
     function showError(message, error) {
       const errorDisplay = document.getElementById('error-display');

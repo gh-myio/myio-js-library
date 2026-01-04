@@ -6,7 +6,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: transparent !important;
+  /* RFC-0121: background is set dynamically via JS based on settings.backgroundType */
   padding: 0;
   margin: 0;
 }

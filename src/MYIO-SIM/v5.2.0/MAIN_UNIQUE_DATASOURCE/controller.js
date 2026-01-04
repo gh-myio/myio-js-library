@@ -2038,12 +2038,59 @@ body.filter-modal-open { overflow: hidden !important; }
     getThemeMode: () => currentThemeMode,
   };
 
+  // RFC-0121: Helper to apply background to page and all relevant containers
+  const applyBackgroundToPage = (themeMode) => {
+    const themeSettings = themeMode === 'dark' ? settings.darkMode : settings.lightMode;
+    const backgroundType = themeSettings?.backgroundType || 'color';
+
+    let backgroundStyle;
+    if (backgroundType === 'image' && themeSettings?.backgroundUrl) {
+      backgroundStyle = `url('${themeSettings.backgroundUrl}') center center / cover no-repeat fixed`;
+    } else {
+      const bgColor = themeSettings?.backgroundColor || (themeMode === 'dark' ? '#0f172a' : '#f8fafc');
+      backgroundStyle = bgColor;
+    }
+
+    // Apply to body
+    document.body.style.background = backgroundStyle;
+
+    // Apply to ThingsBoard dashboard containers
+    const tbContainers = [
+      '.tb-dashboard-page',
+      '.tb-dashboard-page-content',
+      '.tb-absolute-fill',
+      '.mat-drawer-content',
+      '.mat-sidenav-content',
+      '.tb-dashboard-container',
+      '.tb-widget-container',
+      '.tb-widget',
+      'tb-dashboard-state',
+    ];
+
+    tbContainers.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        el.style.background = 'transparent';
+        el.style.backgroundColor = 'transparent';
+      });
+    });
+
+    // Apply to main wrap
+    const wrap = document.getElementById('mainUniqueWrap');
+    if (wrap) {
+      wrap.style.background = backgroundStyle;
+    }
+
+    logDebug('Background applied to page:', { themeMode, backgroundType, backgroundStyle });
+  };
+
   // RFC-0120: Apply initial theme to main wrapper immediately
   const mainWrap = document.getElementById('mainUniqueWrap');
   if (mainWrap) {
     mainWrap.setAttribute('data-theme', currentThemeMode);
-    logDebug('Initial theme applied to mainUniqueWrap:', currentThemeMode);
   }
+
+  // RFC-0121: Apply initial background to page
+  applyBackgroundToPage(currentThemeMode);
 
   logDebug('MyIOUtils exposed globally (credentials pending fetch)');
 
@@ -2297,11 +2344,14 @@ body.filter-modal-open { overflow: hidden !important; }
       window.MyIOUtils.currentThemeMode = themeMode;
     }
 
-    // Apply to main wrapper
+    // Apply to main wrapper with background
     const wrap = document.getElementById('mainUniqueWrap');
     if (wrap) {
       wrap.setAttribute('data-theme', themeMode);
     }
+
+    // RFC-0121: Apply background to entire page
+    applyBackgroundToPage(themeMode);
 
     // Update all components with new theme
     if (headerInstance) headerInstance.setThemeMode?.(themeMode);
@@ -2317,6 +2367,10 @@ body.filter-modal-open { overflow: hidden !important; }
     if (wrap) {
       wrap.setAttribute('data-theme', themeMode);
     }
+
+    // RFC-0121: Apply background to entire page
+    applyBackgroundToPage(themeMode);
+
     window.dispatchEvent(
       new CustomEvent('myio:theme-change', {
         detail: { themeMode },

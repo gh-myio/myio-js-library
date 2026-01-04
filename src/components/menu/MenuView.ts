@@ -140,39 +140,38 @@ export class MenuView {
   padding: 8px;
 }
 
-/* Tabs Row - CSS Grid for perfect divider centering */
+/* Tabs Row - Flexbox with even distribution */
 .myio-tabs-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
 }
 
-/* Menu Blocks */
+/* Menu Blocks - compact, no extra space */
 .myio-menu-block {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
-/* Block 2 (actions) - centered in its cell */
+/* Block 2 (actions) */
 .myio-menu-actions {
-  justify-self: center;
   gap: 6px;
 }
 
-/* Block 3 (extras) - aligned to right */
+/* Block 3 (extras) */
 .myio-menu-extras {
-  justify-self: end;
   gap: 6px;
 }
 
-/* Subtle Divider - centered in its 1fr cell */
+/* Subtle Divider */
 .myio-menu-divider {
-  justify-self: center;
   width: 1px;
   height: 28px;
   background: var(--menu-tab-border, rgba(128, 128, 128, 0.3));
+  flex-shrink: 0;
 }
 
 /* Tabs Navigation */
@@ -796,6 +795,172 @@ export class MenuView {
     max-height: 90vh;
   }
 }
+
+/* ==========================================
+   RESPONSIVE: Hamburger Menu for Mobile
+   ========================================== */
+
+/* Hamburger Button - Hidden on desktop */
+.myio-menu-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--menu-tab-border, #e0e0e0);
+  border-radius: 8px;
+  background: var(--menu-tab-inactive-bg, #fff);
+  color: var(--menu-tab-inactive-color, #1C2743);
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.myio-menu-hamburger:hover {
+  background: var(--menu-filter-hover, #f1f5f9);
+}
+
+/* Mobile Overlay */
+.myio-menu-mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 9998;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.myio-menu-mobile-overlay.is-open {
+  opacity: 1;
+}
+
+/* Mobile Drawer */
+.myio-menu-mobile-drawer {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 85%;
+  max-width: 320px;
+  height: 100vh;
+  background: var(--menu-modal-bg, #fff);
+  z-index: 9999;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  overflow-y: auto;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.myio-menu-mobile-drawer.is-open {
+  transform: translateX(0);
+}
+
+/* Mobile Drawer Header */
+.myio-menu-mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--menu-tab-border, #e0e0e0);
+  background: var(--menu-modal-header-bg, #f8fafc);
+}
+
+.myio-menu-mobile-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--menu-modal-text, #1e293b);
+}
+
+.myio-menu-mobile-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--menu-modal-desc, #64748b);
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.myio-menu-mobile-close:hover {
+  background: var(--menu-filter-hover, #f1f5f9);
+  color: var(--menu-modal-text, #1e293b);
+}
+
+/* Mobile Drawer Content */
+.myio-menu-mobile-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Mobile Section */
+.myio-menu-mobile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.myio-menu-mobile-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--menu-modal-desc, #64748b);
+  padding: 0 4px;
+}
+
+.myio-menu-mobile-section .tab {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* Mobile Date Picker */
+.myio-menu-mobile-section .tab.date-picker-tab {
+  min-width: unset;
+  width: 100%;
+}
+
+.myio-menu-mobile-section .tab.date-picker-tab input {
+  text-align: left;
+}
+
+/* Responsive Breakpoint: Show hamburger, hide desktop menu */
+@media (max-width: 900px) {
+  /* Show hamburger button */
+  .myio-menu-hamburger {
+    display: flex;
+  }
+
+  /* Show mobile overlay and drawer (controlled by JS) */
+  .myio-menu-mobile-overlay,
+  .myio-menu-mobile-drawer {
+    display: block;
+  }
+
+  /* Hide desktop menu items */
+  .myio-menu-root .myio-tabs-row > .myio-menu-block,
+  .myio-menu-root .myio-tabs-row > .myio-menu-divider {
+    display: none;
+  }
+
+  /* Keep tabs row but just for hamburger */
+  .myio-tabs-row {
+    justify-content: flex-start;
+  }
+}
 `;
   }
 
@@ -812,6 +977,11 @@ export class MenuView {
     return `
       <section class="myio-toolbar-root">
         <div class="myio-tabs-row">
+          <!-- Hamburger Button (visible on mobile only) -->
+          <button class="myio-menu-hamburger" aria-label="Abrir menu" aria-expanded="false">
+            ☰
+          </button>
+
           <!-- Block 1: Domain Tabs (Energy, Water, Temperature) -->
           <nav class="myio-tabs myio-menu-block" role="tablist" aria-label="Secoes">
             ${this.tabs.map(tab => this.buildTabHTML(tab)).join('')}
@@ -840,6 +1010,45 @@ export class MenuView {
 
         ${this.tabs.map(tab => this.buildContextModalHTML(tab)).join('')}
       </section>
+
+      <!-- Mobile Menu Overlay -->
+      <div class="myio-menu-mobile-overlay" aria-hidden="true"></div>
+
+      <!-- Mobile Menu Drawer -->
+      <nav class="myio-menu-mobile-drawer" aria-label="Menu mobile" aria-hidden="true">
+        <div class="myio-menu-mobile-header">
+          <h3>Menu</h3>
+          <button class="myio-menu-mobile-close" aria-label="Fechar menu">×</button>
+        </div>
+        <div class="myio-menu-mobile-content">
+          <!-- Section: Navegacao -->
+          <div class="myio-menu-mobile-section">
+            <span class="myio-menu-mobile-section-title">Navegação</span>
+            ${this.tabs.map(tab => this.buildMobileTabHTML(tab)).join('')}
+          </div>
+
+          <!-- Section: Filtros -->
+          <div class="myio-menu-mobile-section">
+            <span class="myio-menu-mobile-section-title">Filtros e Período</span>
+            ${showFilter ? this.buildFilterButtonHTML() : ''}
+            ${this.buildMobileDatePickerHTML()}
+          </div>
+
+          <!-- Section: Acoes -->
+          <div class="myio-menu-mobile-section">
+            <span class="myio-menu-mobile-section-title">Ações</span>
+            ${showLoad ? this.buildLoadButtonHTML() : ''}
+            ${showClear ? this.buildClearButtonHTML() : ''}
+          </div>
+
+          <!-- Section: Extras -->
+          <div class="myio-menu-mobile-section">
+            <span class="myio-menu-mobile-section-title">Configurações</span>
+            ${showGoals ? this.buildGoalsButtonHTML() : ''}
+            ${this.buildThemeToggleHTML()}
+          </div>
+        </div>
+      </nav>
 
       ${this.buildFilterModalHTML()}
     `;
@@ -1000,6 +1209,47 @@ export class MenuView {
           id="menuDateInput"
           type="text"
           name="menuDateRange"
+          placeholder="Selecione o periodo"
+          readonly
+          title="Clique para alterar o intervalo de datas"
+        />
+      </button>
+    `;
+  }
+
+  /**
+   * Build Mobile Tab HTML (for mobile drawer)
+   */
+  private buildMobileTabHTML(tab: TabConfig): string {
+    const isActive = tab.id === this.activeTabId;
+    const currentContextId = this.contextsByTab.get(tab.id) ?? tab.defaultContext ?? tab.contexts[0]?.id;
+    const currentContext = tab.contexts.find(c => c.id === currentContextId);
+    const contextTitle = currentContext ? currentContext.title : '';
+
+    return `
+      <button
+        class="tab ${isActive ? 'is-active' : ''}"
+        data-tab-id="${tab.id}"
+        data-mobile-tab="true"
+      >
+        <span class="ico">${tab.icon}</span>
+        <span class="tab-label">${tab.label}${contextTitle ? `: ${contextTitle}` : ''}</span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+    `;
+  }
+
+  /**
+   * Build Mobile Date Picker HTML (for mobile drawer)
+   */
+  private buildMobileDatePickerHTML(): string {
+    return `
+      <button class="tab date-picker-tab" data-mobile-date="true">
+        <span class="ico">📅</span>
+        <input
+          id="menuMobileDateInput"
+          type="text"
+          name="menuMobileDateRange"
           placeholder="Selecione o periodo"
           readonly
           title="Clique para alterar o intervalo de datas"
@@ -1184,6 +1434,130 @@ export class MenuView {
     const searchInput = this.root.querySelector('#menuFilterSearch') as HTMLInputElement;
     if (searchInput) {
       searchInput.addEventListener('input', () => this.renderFilterList());
+    }
+
+    // ==========================================
+    // Mobile Menu Handling
+    // ==========================================
+
+    // Hamburger button - open mobile menu
+    const hamburgerBtn = this.root.querySelector('.myio-menu-hamburger') as HTMLElement;
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Hamburger button found:', !!hamburgerBtn);
+      if (hamburgerBtn) {
+        const computedStyle = window.getComputedStyle(hamburgerBtn);
+        console.log('[MenuView] Hamburger display:', computedStyle.display);
+        console.log('[MenuView] Hamburger visible:', computedStyle.display !== 'none');
+      }
+    }
+    if (hamburgerBtn) {
+      hamburgerBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.configTemplate.enableDebugMode) {
+          console.log('[MenuView] Hamburger clicked!');
+        }
+        this.openMobileMenu();
+      });
+    }
+
+    // Mobile close button
+    const mobileCloseBtn = this.root.querySelector('.myio-menu-mobile-close');
+    if (mobileCloseBtn) {
+      mobileCloseBtn.addEventListener('click', () => this.closeMobileMenu());
+    }
+
+    // Mobile overlay - close on click
+    const mobileOverlay = this.root.querySelector('.myio-menu-mobile-overlay');
+    if (mobileOverlay) {
+      mobileOverlay.addEventListener('click', () => this.closeMobileMenu());
+    }
+
+    // Mobile tabs - trigger context modal
+    this.root.querySelectorAll('.myio-menu-mobile-drawer .tab[data-tab-id]').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tabId = (tab as HTMLElement).dataset.tabId!;
+        this.closeMobileMenu();
+        // Small delay to let mobile menu close animation complete
+        setTimeout(() => this.handleTabClick(tabId), 150);
+      });
+    });
+
+    // Sync mobile date picker with desktop date picker
+    const mobileDateInput = this.root.querySelector('#menuMobileDateInput') as HTMLInputElement;
+    const desktopDateInput = this.root.querySelector('#menuDateInput') as HTMLInputElement;
+    if (mobileDateInput && desktopDateInput) {
+      // Keep them in sync
+      const syncDates = () => {
+        mobileDateInput.value = desktopDateInput.value;
+      };
+      // Initial sync
+      syncDates();
+      // Observe changes (using MutationObserver for value changes)
+      const observer = new MutationObserver(syncDates);
+      observer.observe(desktopDateInput, { attributes: true, attributeFilter: ['value'] });
+      // Also sync on input event
+      desktopDateInput.addEventListener('change', syncDates);
+    }
+  }
+
+  /**
+   * Open mobile menu drawer
+   */
+  private openMobileMenu(): void {
+    const overlay = this.root.querySelector('.myio-menu-mobile-overlay') as HTMLElement;
+    const drawer = this.root.querySelector('.myio-menu-mobile-drawer') as HTMLElement;
+    const hamburger = this.root.querySelector('.myio-menu-hamburger');
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] openMobileMenu called');
+      console.log('[MenuView] Overlay found:', !!overlay);
+      console.log('[MenuView] Drawer found:', !!drawer);
+      if (overlay) {
+        const overlayStyle = window.getComputedStyle(overlay);
+        console.log('[MenuView] Overlay display:', overlayStyle.display);
+      }
+      if (drawer) {
+        const drawerStyle = window.getComputedStyle(drawer);
+        console.log('[MenuView] Drawer display:', drawerStyle.display);
+      }
+    }
+
+    if (overlay && drawer) {
+      overlay.classList.add('is-open');
+      drawer.classList.add('is-open');
+      overlay.setAttribute('aria-hidden', 'false');
+      drawer.setAttribute('aria-hidden', 'false');
+      hamburger?.setAttribute('aria-expanded', 'true');
+
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] Mobile menu opened successfully');
+      }
+    }
+  }
+
+  /**
+   * Close mobile menu drawer
+   */
+  private closeMobileMenu(): void {
+    const overlay = this.root.querySelector('.myio-menu-mobile-overlay');
+    const drawer = this.root.querySelector('.myio-menu-mobile-drawer');
+    const hamburger = this.root.querySelector('.myio-menu-hamburger');
+
+    if (overlay && drawer) {
+      overlay.classList.remove('is-open');
+      drawer.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+      drawer.setAttribute('aria-hidden', 'true');
+      hamburger?.setAttribute('aria-expanded', 'false');
+
+      // Restore body scroll
+      document.body.style.overflow = '';
     }
   }
 

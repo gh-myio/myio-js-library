@@ -122,6 +122,7 @@ export class WelcomeModalView {
 
   /**
    * Update visual elements when theme changes (background, logo, CSS vars)
+   * RFC-0121: Also update inline styles on elements that use hardcoded colors in CSS
    */
   private updateThemeVisuals(): void {
     const themeConfig = this.getThemeConfig();
@@ -151,6 +152,61 @@ export class WelcomeModalView {
     this.container.style.setProperty('--wm-logout-btn-border', this.palette.logoutBtnBorder || '');
     this.container.style.setProperty('--wm-card-bg', this.palette.shoppingCardBg || '');
     this.container.style.setProperty('--wm-card-border', this.palette.shoppingCardBorder || '');
+
+    // RFC-0121: Update inline styles on elements that have hardcoded colors in light mode CSS
+    // This ensures theme colors are applied correctly when switching themes
+    const heroTitleEl = this.container.querySelector('.myio-welcome-hero-title') as HTMLElement;
+    if (heroTitleEl) {
+      heroTitleEl.style.color = themeConfig.heroTitleColor || themeConfig.textColor || this.palette.ink;
+    }
+
+    const heroDescEl = this.container.querySelector('.myio-welcome-hero-description') as HTMLElement;
+    if (heroDescEl) {
+      heroDescEl.style.color = themeConfig.heroDescriptionColor || themeConfig.mutedTextColor || this.palette.muted;
+    }
+
+    const shortcutsTitleEl = this.container.querySelector('.myio-welcome-shortcuts-title') as HTMLElement;
+    if (shortcutsTitleEl) {
+      shortcutsTitleEl.style.color = themeConfig.shortcutsTitleColor || themeConfig.mutedTextColor || this.palette.muted;
+    }
+
+    const userNameEl = this.container.querySelector('.myio-welcome-user-name') as HTMLElement;
+    if (userNameEl) {
+      userNameEl.style.color = themeConfig.textColor || this.palette.ink;
+    }
+
+    const userEmailEl = this.container.querySelector('.myio-welcome-user-email') as HTMLElement;
+    if (userEmailEl) {
+      userEmailEl.style.color = themeConfig.mutedTextColor || this.palette.muted;
+    }
+
+    // Update CTA button gradient
+    const ctaBtn = this.container.querySelector('.myio-welcome-cta-btn') as HTMLElement;
+    if (ctaBtn) {
+      ctaBtn.style.background = `linear-gradient(135deg, ${this.palette.primary} 0%, ${this.palette.secondary} 100%)`;
+    }
+
+    // Update card titles
+    const cardTitles = this.container.querySelectorAll('.myio-welcome-card-title') as NodeListOf<HTMLElement>;
+    cardTitles.forEach((el) => {
+      el.style.color = themeConfig.textColor || this.palette.ink;
+    });
+
+    // Update card subtitles
+    const cardSubtitles = this.container.querySelectorAll('.myio-welcome-card-subtitle') as NodeListOf<HTMLElement>;
+    cardSubtitles.forEach((el) => {
+      el.style.color = themeConfig.mutedTextColor || this.palette.muted;
+    });
+
+    if (this.config.enableDebugMode) {
+      console.log('[WelcomeModal] Theme visuals updated:', {
+        theme: this.themeMode,
+        primaryColor: this.palette.primary,
+        secondaryColor: this.palette.secondary,
+        textColor: themeConfig.textColor,
+        mutedTextColor: themeConfig.mutedTextColor,
+      });
+    }
   }
 
   /**
