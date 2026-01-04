@@ -32,7 +32,7 @@ import type {
 
 import { createConsumption7DaysChart } from './createConsumption7DaysChart';
 import { DEFAULT_COLORS, THEME_COLORS, DEFAULT_CONFIG } from './types';
-import { createModalHeader, type ModalHeaderInstance, type ModalTheme } from '../ModalHeader';
+import { ModalHeader } from '../../utils/ModalHeader';
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
 import { CSS_TOKENS, DATERANGEPICKER_STYLES } from '../premium-modals/internal/styles/tokens';
 
@@ -632,7 +632,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
   let chartInstance: ReturnType<typeof createConsumption7DaysChart> | null = null;
   let styleElement: HTMLStyleElement | null = null;
   let settingsModalElement: HTMLElement | null = null;
-  let settingsHeaderInstance: ModalHeaderInstance | null = null;
+  let settingsHeaderHTML = '';
   let dateRangePickerInstance: DateRangeControl | null = null;
 
   // State
@@ -782,22 +782,21 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
     const lineChartIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;pointer-events:none"><polyline points="2,12 5,7 9,9 14,3"/></svg>`;
     const barChartIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="1" y="9" width="3" height="6" rx="0.5"/><rect x="6" y="5" width="3" height="10" rx="0.5"/><rect x="11" y="7" width="3" height="8" rx="0.5"/></svg>`;
 
-    // Create header instance using ModalHeader component
-    settingsHeaderInstance = createModalHeader({
-      id: `${widgetId}-settings`,
+    // Generate header HTML using ModalHeader component
+    settingsHeaderHTML = ModalHeader.generateHTML({
+      modalId: `${widgetId}-settings`,
       title: 'Configurações',
       icon: '⚙️',
-      theme: tempTheme as ModalTheme,
+      theme: tempTheme,
       showThemeToggle: false,
       showMaximize: false,
       showClose: true,
-      onClose: () => closeSettingsModal(),
     });
 
     return `
       <div id="${widgetId}-settings-overlay" class="myio-settings-overlay myio-modal-scope hidden">
         <div class="myio-settings-card">
-          ${settingsHeaderInstance.render()}
+          ${settingsHeaderHTML}
           <div class="myio-settings-body">
             <!-- CONTEXT 1: Período e Dados -->
             <div class="myio-settings-context-group">
@@ -1373,7 +1372,10 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
    */
   async function setupSettingsModalListeners(): Promise<void> {
     // Attach header listeners (handles close button)
-    settingsHeaderInstance?.attachListeners();
+    ModalHeader.setupHandlers({
+      modalId: `${widgetId}-settings`,
+      onClose: () => closeSettingsModal(),
+    });
 
     // Initialize DateRangePicker
     const dateRangeInput = document.getElementById(`${widgetId}-settings-daterange`) as HTMLInputElement;
@@ -1408,7 +1410,9 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
             tempPeriod = diffDays || 7;
 
             // If period is <= 2 days, force granularity to hourly
-            const granularitySelect = document.getElementById(`${widgetId}-settings-granularity`) as HTMLSelectElement;
+            const granularitySelect = document.getElementById(
+              `${widgetId}-settings-granularity`
+            ) as HTMLSelectElement;
             if (granularitySelect && diffHours <= 48) {
               granularitySelect.value = '1h';
               // Show day period field for hourly granularity
@@ -1416,7 +1420,12 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
               if (dayPeriodField) dayPeriodField.style.display = 'block';
             }
 
-            console.log('[ConsumptionChartWidget] Date range applied:', { start: result.startISO, end: result.endISO, hours: diffHours, days: tempPeriod });
+            console.log('[ConsumptionChartWidget] Date range applied:', {
+              start: result.startISO,
+              end: result.endISO,
+              hours: diffHours,
+              days: tempPeriod,
+            });
           },
         });
       } catch (error) {
@@ -1592,7 +1601,9 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
               tempPeriod = diffDays || 7;
 
               // If period is <= 2 days, force granularity to hourly
-              const granularitySelect = document.getElementById(`${widgetId}-settings-granularity`) as HTMLSelectElement;
+              const granularitySelect = document.getElementById(
+                `${widgetId}-settings-granularity`
+              ) as HTMLSelectElement;
               if (granularitySelect && diffHours <= 48) {
                 granularitySelect.value = '1h';
                 const dayPeriodField = document.getElementById(`${widgetId}-settings-dayperiod-field`);
@@ -1813,9 +1824,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
         styleElement = null;
       }
 
-      // Destroy settings header
-      settingsHeaderInstance?.destroy();
-      settingsHeaderInstance = null;
+      // Settings header is handled by static API - no cleanup needed
 
       // Destroy date range picker
       if (dateRangePickerInstance) {

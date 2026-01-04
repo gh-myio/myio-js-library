@@ -431,16 +431,24 @@ export class TelemetryGridView {
   openFilterModal(): void {
     this.log('openFilterModal called');
 
-    const createFilterModal =
-      this.params.createFilterModal ||
-      ((window as unknown as Record<string, Record<string, unknown>>).MyIOUtils
-        ?.createFilterModal as
-        | ((config: unknown) => FilterModalController | null)
-        | undefined);
+    // Check params first, then fallback to window.MyIOUtils
+    const paramsCreateFilterModal = this.params.createFilterModal;
+    const windowCreateFilterModal = (
+      window as unknown as Record<string, Record<string, unknown>>
+    ).MyIOUtils?.createFilterModal as
+      | ((config: unknown) => FilterModalController | null)
+      | undefined;
+
+    this.log('createFilterModal sources:', {
+      fromParams: !!paramsCreateFilterModal,
+      fromWindow: !!windowCreateFilterModal,
+      myIOUtilsExists: !!(window as unknown as Record<string, unknown>).MyIOUtils,
+    });
+
+    const createFilterModal = paramsCreateFilterModal || windowCreateFilterModal;
 
     if (!createFilterModal) {
-      this.log('createFilterModal not available - checking window.MyIOUtils:',
-        !!(window as unknown as Record<string, unknown>).MyIOUtils);
+      this.log('createFilterModal not available');
       return;
     }
 

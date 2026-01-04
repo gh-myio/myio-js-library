@@ -52,7 +52,7 @@ export class MenuView {
     this.activeTabId = params.initialTab ?? this.tabs[0]?.id ?? 'energy';
 
     // Initialize contexts with defaults
-    this.tabs.forEach(tab => {
+    this.tabs.forEach((tab) => {
       this.contextsByTab.set(tab.id, tab.defaultContext ?? tab.contexts[0]?.id ?? '');
     });
 
@@ -72,9 +72,8 @@ export class MenuView {
    */
   private getThemeConfig(): Required<MenuThemeConfig> {
     const defaults = this.themeMode === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
-    const userTheme = this.themeMode === 'dark'
-      ? this.configTemplate.darkMode
-      : this.configTemplate.lightMode;
+    const userTheme =
+      this.themeMode === 'dark' ? this.configTemplate.darkMode : this.configTemplate.lightMode;
 
     return {
       ...defaults,
@@ -108,7 +107,7 @@ export class MenuView {
    */
   public emit(event: MenuEventType, data?: unknown): void {
     const handlers = this.eventHandlers.get(event) || [];
-    handlers.forEach(handler => handler(data));
+    handlers.forEach((handler) => handler(data));
   }
 
   /**
@@ -131,7 +130,7 @@ export class MenuView {
     return `
 /* ==========================================
    MYIO Menu Component - RFC-0114
-   Background is TRANSPARENT - colors for cards/buttons/fonts only
+   Unified Toolbar Bar Design
    ========================================== */
 
 .myio-menu-root {
@@ -139,167 +138,329 @@ export class MenuView {
   width: 100%;
 }
 
-/* Toolbar Root - TRANSPARENT background */
+/* Toolbar Root - Container */
 .myio-toolbar-root {
   background: transparent;
-  border-radius: 12px;
-  padding: 8px;
+  padding: 0;
 }
 
-/* Tabs Row - Flexbox with even distribution */
-.myio-tabs-row {
+/* ==========================================
+   Unified Toolbar Bar
+   ========================================== */
+
+.myio-toolbar-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: var(--menu-bar-bg, rgba(255, 255, 255, 0.95));
+  border: 1px solid var(--menu-bar-border, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 6px 16px;
+  gap: 0;
   width: 100%;
-  gap: 8px;
+  overflow: hidden;
 }
 
-/* Subtle Divider */
-.myio-menu-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--menu-tab-border, rgba(128, 128, 128, 0.3));
-  flex-shrink: 0;
+/* Dark theme bar */
+.myio-menu-theme-dark .myio-toolbar-bar {
+  background: var(--menu-bar-bg, rgba(30, 41, 59, 0.95));
+  border-color: var(--menu-bar-border, rgba(255, 255, 255, 0.1));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* Tabs Navigation */
-.myio-tabs {
+/* Toolbar Sections */
+.myio-toolbar-section {
   display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.myio-toolbar-section--nav {
+  flex: 0 0 auto;
+}
+
+.myio-toolbar-section--filters {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.myio-toolbar-section--actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
   gap: 8px;
 }
 
-/* Tab Button */
-.myio-menu-root .tab {
+/* Section Divider - Flexible spacer with line */
+.myio-toolbar-divider {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  max-width: 60px;
+  height: 28px;
+}
+
+.myio-toolbar-divider::after {
+  content: '';
+  width: 1px;
+  height: 100%;
+  background: var(--menu-bar-divider, rgba(0, 0, 0, 0.12));
+}
+
+.myio-menu-theme-dark .myio-toolbar-divider::after {
+  background: var(--menu-bar-divider, rgba(255, 255, 255, 0.15));
+}
+
+/* ==========================================
+   Toolbar Items (Buttons)
+   ========================================== */
+
+.myio-toolbar-item {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: var(--menu-tab-inactive-bg);
-  color: var(--menu-tab-inactive-color);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.myio-menu-root .tab:hover {
-  background: var(--menu-filter-hover);
-  border-color: var(--menu-filter-border);
-}
-
-.myio-menu-root .tab.is-active {
-  background: var(--menu-tab-active-bg);
-  color: var(--menu-tab-active-color);
-  border-color: var(--menu-tab-active-bg);
-}
-
-.myio-menu-root .tab .ico {
-  font-size: 16px;
-}
-
-.myio-menu-root .tab .dropdown-arrow {
-  font-size: 10px;
-  margin-left: 4px;
-  opacity: 0.7;
-}
-
-/* Filter Button */
-.myio-menu-root .myio-filter-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: var(--menu-btn-filter-bg);
-  color: var(--menu-btn-filter-color);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.myio-menu-root .myio-filter-btn:hover {
-  background: var(--menu-filter-hover);
-  border-color: var(--menu-filter-border);
-}
-
-/* Date Picker Container */
-.myio-menu-root .tab.date-picker-tab {
-  min-width: 280px;
-  background: var(--menu-datepicker-bg);
-  color: var(--menu-datepicker-color);
-}
-
-.myio-menu-root .tab.date-picker-tab input {
-  width: 100%;
+  padding: 8px 14px;
   border: none;
+  border-radius: 8px;
   background: transparent;
-  color: inherit;
+  color: var(--menu-item-color, #475569);
   font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  min-height: 36px;
+}
+
+.myio-toolbar-item:hover {
+  background: var(--menu-item-hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.myio-toolbar-item:active {
+  background: var(--menu-item-active-bg, rgba(0, 0, 0, 0.08));
+}
+
+/* Dark theme items */
+.myio-menu-theme-dark .myio-toolbar-item {
+  color: var(--menu-item-color, #e2e8f0);
+}
+
+.myio-menu-theme-dark .myio-toolbar-item:hover {
+  background: var(--menu-item-hover-bg, rgba(255, 255, 255, 0.08));
+}
+
+.myio-menu-theme-dark .myio-toolbar-item:active {
+  background: var(--menu-item-active-bg, rgba(255, 255, 255, 0.12));
+}
+
+/* Item Icon */
+.myio-toolbar-item .ico {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Item with dropdown arrow */
+.myio-toolbar-item .dropdown-arrow {
+  font-size: 9px;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+/* ==========================================
+   Navigation Button (Primary)
+   ========================================== */
+
+.myio-toolbar-item--nav {
+  background: var(--menu-nav-bg, #3e1a7d);
+  color: var(--menu-nav-color, #ffffff);
+  font-weight: 600;
+  padding: 8px 16px;
+}
+
+.myio-toolbar-item--nav:hover {
+  background: var(--menu-nav-hover-bg, #4c2391);
+}
+
+.myio-toolbar-item--nav .nav-label {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================
+   Filter Button
+   ========================================== */
+
+.myio-toolbar-item--filter {
+  color: var(--menu-filter-color, #6366f1);
+}
+
+.myio-toolbar-item--filter:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.myio-menu-theme-dark .myio-toolbar-item--filter {
+  color: var(--menu-filter-color, #a5b4fc);
+}
+
+.myio-menu-theme-dark .myio-toolbar-item--filter:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+/* ==========================================
+   Date Picker - MyIO Premium Style
+   ========================================== */
+
+.myio-toolbar-item--date {
+  min-width: 340px;
+  padding: 0;
+  background: transparent;
+  border: 2px solid var(--menu-date-border, #3e1a7d);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  align-items: stretch;
+}
+
+.myio-toolbar-item--date:hover {
+  border-color: var(--menu-date-hover-border, #5a2d9e);
+  box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.15);
+}
+
+.myio-toolbar-item--date:focus-within {
+  border-color: var(--menu-date-focus-border, #3e1a7d);
+  box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.25);
+}
+
+.myio-toolbar-item--date .ico {
+  background: var(--menu-date-icon-bg, #3e1a7d);
+  color: white;
+  padding: 0 12px;
+  margin: 0;
   font-size: 14px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+}
+
+.myio-toolbar-item--date input {
+  flex: 1;
+  border: none;
+  background: var(--menu-date-input-bg, #ffffff);
+  color: var(--menu-date-input-color, #1e293b);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
   cursor: pointer;
   outline: none;
+  min-width: 200px;
 }
 
-/* Action Buttons */
-.myio-menu-root .tab.btn-load {
-  background: var(--menu-btn-load-bg);
-  color: var(--menu-btn-load-color);
-  border-color: var(--menu-btn-load-bg);
+.myio-toolbar-item--date input::placeholder {
+  color: var(--menu-date-placeholder, #64748b);
+  font-weight: 500;
 }
 
-.myio-menu-root .tab.btn-load:hover {
-  opacity: 0.9;
+/* Dark theme date picker */
+.myio-menu-theme-dark .myio-toolbar-item--date {
+  border-color: var(--menu-date-border, #6b46c1);
 }
 
-.myio-menu-root .tab.btn-clear {
-  background: var(--menu-btn-clear-bg);
-  color: var(--menu-btn-clear-color);
+.myio-menu-theme-dark .myio-toolbar-item--date:hover {
+  border-color: var(--menu-date-hover-border, #805ad5);
+  box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.2);
 }
 
-.myio-menu-root .tab.btn-clear:hover {
-  background: var(--menu-filter-hover);
+.myio-menu-theme-dark .myio-toolbar-item--date .ico {
+  background: var(--menu-date-icon-bg, #6b46c1);
 }
 
-.myio-menu-root .tab.btn-goals {
-  background: var(--menu-btn-goals-bg);
-  color: var(--menu-btn-goals-color);
-  border-color: var(--menu-btn-goals-bg);
+.myio-menu-theme-dark .myio-toolbar-item--date input {
+  background: var(--menu-date-input-bg, #1e293b);
+  color: var(--menu-date-input-color, #f1f5f9);
 }
 
-.myio-menu-root .tab.btn-goals:hover {
-  opacity: 0.9;
+.myio-menu-theme-dark .myio-toolbar-item--date input::placeholder {
+  color: var(--menu-date-placeholder, #94a3b8);
 }
 
-/* Theme Toggle Button */
-.myio-menu-root .tab.btn-theme-toggle {
-  background: var(--menu-tab-inactive-bg);
-  color: var(--menu-tab-inactive-color);
-  border-color: var(--menu-filter-border);
-  padding: 10px 12px;
-  min-width: 44px;
+/* ==========================================
+   Action Buttons
+   ========================================== */
+
+.myio-toolbar-item--load {
+  background: var(--menu-load-bg, #10b981);
+  color: var(--menu-load-color, #ffffff);
 }
 
-.myio-menu-root .tab.btn-theme-toggle:hover {
-  background: var(--menu-filter-hover);
+.myio-toolbar-item--load:hover {
+  background: var(--menu-load-hover-bg, #059669);
 }
 
-.myio-menu-root .tab.btn-theme-toggle .theme-icon {
+.myio-toolbar-item--clear {
+  color: var(--menu-clear-color, #94a3b8);
+}
+
+.myio-toolbar-item--clear:hover {
+  color: var(--menu-clear-hover-color, #64748b);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.myio-menu-theme-dark .myio-toolbar-item--clear {
+  color: var(--menu-clear-color, #94a3b8);
+}
+
+.myio-menu-theme-dark .myio-toolbar-item--clear:hover {
+  color: var(--menu-clear-hover-color, #cbd5e1);
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.myio-toolbar-item--goals {
+  background: var(--menu-goals-bg, #f59e0b);
+  color: var(--menu-goals-color, #ffffff);
+}
+
+.myio-toolbar-item--goals:hover {
+  background: var(--menu-goals-hover-bg, #d97706);
+}
+
+/* ==========================================
+   Icon-only Buttons
+   ========================================== */
+
+.myio-toolbar-item--icon {
+  padding: 8px;
+  min-width: 36px;
+  width: 36px;
+}
+
+.myio-toolbar-item--icon .theme-icon {
   font-size: 18px;
   line-height: 1;
 }
 
 /* Material Icons in buttons */
-.myio-menu-root .tab i.material-icons {
+.myio-toolbar-item i.material-icons {
   font-size: 18px;
+}
+
+/* ==========================================
+   Legacy .tab class support (for compatibility)
+   ========================================== */
+
+.myio-menu-root .tab {
+  display: none; /* Hide legacy tabs */
+}
+
+/* Keep filter button visible if using old class */
+.myio-menu-root .myio-filter-btn {
+  display: none; /* Hide legacy filter button */
 }
 
 /* ==========================================
@@ -811,31 +972,48 @@ export class MenuView {
    Responsive
    ========================================== */
 
+@media (max-width: 1200px) {
+  .myio-toolbar-item--date {
+    min-width: 180px;
+  }
+
+  .myio-toolbar-item--nav .nav-label {
+    max-width: 150px;
+  }
+}
+
 @media (max-width: 768px) {
-  .myio-tabs-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .myio-tabs {
+  .myio-toolbar-bar {
     flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .myio-toolbar-section--filters {
+    order: 3;
+    flex: 1 1 100%;
     justify-content: center;
   }
 
-  .myio-menu-root .tab {
-    flex: 1 1 auto;
-    justify-content: center;
+  .myio-toolbar-divider {
+    display: none;
   }
 
-  .myio-menu-root .tab.date-picker-tab {
-    min-width: 100%;
+  .myio-toolbar-item--date {
+    min-width: 160px;
   }
 }
 
 @media (max-width: 480px) {
-  .myio-menu-root .tab {
-    padding: 8px 12px;
-    font-size: 13px;
+  .myio-toolbar-item {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .myio-toolbar-item--icon {
+    width: 32px;
+    min-width: 32px;
+    padding: 6px;
   }
 
   .myio-menu-context-modal-content {
@@ -1003,31 +1181,15 @@ export class MenuView {
     display: block;
   }
 
-  /* Hide desktop menu items */
-  .myio-menu-root .myio-tabs-row > .myio-menu-block,
-  .myio-menu-root .myio-tabs-row > .myio-menu-divider {
+  /* Hide the unified toolbar bar on mobile */
+  .myio-toolbar-bar {
     display: none;
-  }
-
-  /* Keep tabs row but just for hamburger */
-  .myio-tabs-row {
-    justify-content: flex-start;
   }
 }
 
 /* ==========================================
    UNIFIED NAVIGATION MODAL (3 Columns)
    ========================================== */
-
-/* Navigation Button */
-.myio-unified-nav-btn {
-  min-width: 200px;
-}
-
-.myio-unified-nav-btn .nav-label {
-  flex: 1;
-  text-align: left;
-}
 
 /* Unified Modal Backdrop */
 .myio-unified-modal {
@@ -1276,7 +1438,8 @@ export class MenuView {
 
   /**
    * Build the HTML structure
-   * Layout: [Navigation Button] | [Filter, Calendar, Load, Clear] | [Goals, Theme]
+   * Layout: Unified Toolbar Bar with sections
+   * [Navigation] | [Filter, Calendar] | [Load, Clear, Goals, Theme]
    */
   private buildHTML(): string {
     const showGoals = this.params.showGoalsButton !== false;
@@ -1286,19 +1449,44 @@ export class MenuView {
 
     return `
       <section class="myio-toolbar-root">
-        <div class="myio-tabs-row">
-          <!-- Hamburger Button (visible on mobile only) -->
-          <button class="myio-menu-hamburger" aria-label="Abrir menu" aria-expanded="false">
-            ☰
-          </button>
+        <!-- Hamburger Button (visible on mobile only) -->
+        <button class="myio-menu-hamburger" aria-label="Abrir menu" aria-expanded="false">
+          ☰
+        </button>
 
-          <!-- All menu items in a single row -->
+        <!-- Unified Toolbar Bar -->
+        <div class="myio-toolbar-bar">
+          <!-- Navigation -->
           ${this.buildUnifiedNavButtonHTML()}
+
+          <div class="myio-toolbar-divider"></div>
+
+          <!-- Filter -->
           ${showFilter ? this.buildFilterButtonHTML() : ''}
+
+          ${showFilter ? '<div class="myio-toolbar-divider"></div>' : ''}
+
+          <!-- Date Picker -->
           ${this.buildDatePickerHTML()}
+
+          <div class="myio-toolbar-divider"></div>
+
+          <!-- Load -->
           ${showLoad ? this.buildLoadButtonHTML() : ''}
+
+          ${showLoad ? '<div class="myio-toolbar-divider"></div>' : ''}
+
+          <!-- Clear -->
           ${showClear ? this.buildClearButtonHTML() : ''}
+
+          ${showClear ? '<div class="myio-toolbar-divider"></div>' : ''}
+
+          <!-- Goals -->
           ${showGoals ? this.buildGoalsButtonHTML() : ''}
+
+          ${showGoals ? '<div class="myio-toolbar-divider"></div>' : ''}
+
+          <!-- Theme Toggle -->
           ${this.buildThemeToggleHTML()}
         </div>
 
@@ -1318,7 +1506,7 @@ export class MenuView {
           <!-- Section: Navegacao -->
           <div class="myio-menu-mobile-section">
             <span class="myio-menu-mobile-section-title">Navegação</span>
-            ${this.tabs.map(tab => this.buildMobileTabHTML(tab)).join('')}
+            ${this.tabs.map((tab) => this.buildMobileTabHTML(tab)).join('')}
           </div>
 
           <!-- Section: Filtros -->
@@ -1353,17 +1541,18 @@ export class MenuView {
    * Shows current active tab and context (e.g., "Energia > Equipamentos")
    */
   private buildUnifiedNavButtonHTML(): string {
-    const activeTab = this.tabs.find(t => t.id === this.activeTabId);
+    const activeTab = this.tabs.find((t) => t.id === this.activeTabId);
     if (!activeTab) return '';
 
-    const currentContextId = this.contextsByTab.get(this.activeTabId) ?? activeTab.defaultContext ?? activeTab.contexts[0]?.id;
-    const currentContext = activeTab.contexts.find(c => c.id === currentContextId);
+    const currentContextId =
+      this.contextsByTab.get(this.activeTabId) ?? activeTab.defaultContext ?? activeTab.contexts[0]?.id;
+    const currentContext = activeTab.contexts.find((c) => c.id === currentContextId);
     const label = currentContext ? `${activeTab.label} > ${currentContext.title}` : activeTab.label;
 
     return `
       <button
         id="menuUnifiedNavBtn"
-        class="tab is-active myio-unified-nav-btn"
+        class="myio-toolbar-item myio-toolbar-item--nav"
         aria-haspopup="dialog"
         aria-expanded="false"
       >
@@ -1381,11 +1570,12 @@ export class MenuView {
     const btn = this.root.querySelector('#menuUnifiedNavBtn');
     if (!btn) return;
 
-    const activeTab = this.tabs.find(t => t.id === this.activeTabId);
+    const activeTab = this.tabs.find((t) => t.id === this.activeTabId);
     if (!activeTab) return;
 
-    const currentContextId = this.contextsByTab.get(this.activeTabId) ?? activeTab.defaultContext ?? activeTab.contexts[0]?.id;
-    const currentContext = activeTab.contexts.find(c => c.id === currentContextId);
+    const currentContextId =
+      this.contextsByTab.get(this.activeTabId) ?? activeTab.defaultContext ?? activeTab.contexts[0]?.id;
+    const currentContext = activeTab.contexts.find((c) => c.id === currentContextId);
     const label = currentContext ? `${activeTab.label} > ${currentContext.title}` : activeTab.label;
 
     const iconEl = btn.querySelector('.ico');
@@ -1413,7 +1603,7 @@ export class MenuView {
             <button class="myio-unified-modal-close" aria-label="Fechar">×</button>
           </div>
           <div class="myio-unified-modal-body">
-            ${this.tabs.map(tab => this.buildUnifiedColumnHTML(tab)).join('')}
+            ${this.tabs.map((tab) => this.buildUnifiedColumnHTML(tab)).join('')}
           </div>
         </div>
       </div>
@@ -1429,9 +1619,9 @@ export class MenuView {
 
     // Define header background colors per domain
     const headerColors: Record<string, string> = {
-      energy: 'linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)',
-      water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-      temperature: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+      energy: 'linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%)', // Orange tone
+      water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',   // Blue tone
+      temperature: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', // Reddish tone
     };
 
     return `
@@ -1441,9 +1631,10 @@ export class MenuView {
           <span>${tab.label}</span>
         </div>
         <div class="myio-unified-column-options">
-          ${tab.contexts.map(ctx => {
-            const isActive = isActiveTab && ctx.id === currentContextId;
-            return `
+          ${tab.contexts
+            .map((ctx) => {
+              const isActive = isActiveTab && ctx.id === currentContextId;
+              return `
               <button
                 class="myio-unified-option ${tab.id} ${isActive ? 'is-active' : ''}"
                 data-tab-id="${tab.id}"
@@ -1458,7 +1649,8 @@ export class MenuView {
                 <span class="option-check">✓</span>
               </button>
             `;
-          }).join('')}
+            })
+            .join('')}
         </div>
       </div>
     `;
@@ -1494,12 +1686,12 @@ export class MenuView {
    * Inactive tab: "Domain" only (e.g., "Agua")
    */
   private getTabLabel(tabId: string, isActive: boolean): string {
-    const tab = this.tabs.find(t => t.id === tabId);
+    const tab = this.tabs.find((t) => t.id === tabId);
     if (!tab) return '';
 
     if (isActive) {
       const currentContextId = this.contextsByTab.get(tabId) ?? tab.defaultContext ?? tab.contexts[0]?.id;
-      const currentContext = tab.contexts.find(c => c.id === currentContextId);
+      const currentContext = tab.contexts.find((c) => c.id === currentContextId);
       return currentContext ? `${tab.label}: ${currentContext.title}` : tab.label;
     }
 
@@ -1510,7 +1702,7 @@ export class MenuView {
    * Update all tab labels based on current active tab
    */
   private updateAllTabLabels(): void {
-    this.tabs.forEach(tab => {
+    this.tabs.forEach((tab) => {
       const isActive = tab.id === this.activeTabId;
       const tabEl = this.root.querySelector(`#menuTab_${tab.id}`);
       if (!tabEl) return;
@@ -1557,7 +1749,9 @@ export class MenuView {
             <span id="menuContextModalTitle_${tab.id}">Selecione o contexto de ${tab.label}</span>
           </div>
           <div class="myio-menu-context-modal-options">
-            ${tab.contexts.map(ctx => this.buildContextOptionHTML(tab, ctx, ctx.id === currentContextId)).join('')}
+            ${tab.contexts
+              .map((ctx) => this.buildContextOptionHTML(tab, ctx, ctx.id === currentContextId))
+              .join('')}
           </div>
         </div>
       </div>
@@ -1590,9 +1784,9 @@ export class MenuView {
    */
   private buildGoalsButtonHTML(): string {
     return `
-      <button id="menuGoalsBtn" class="tab btn-goals" title="Configurar metas de consumo">
-        <i class="material-icons">flag</i>
-        Metas
+      <button id="menuGoalsBtn" class="myio-toolbar-item myio-toolbar-item--goals" title="Configurar metas de consumo">
+        <span class="ico">🎯</span>
+        <span>Metas</span>
       </button>
     `;
   }
@@ -1602,28 +1796,29 @@ export class MenuView {
    */
   private buildFilterButtonHTML(): string {
     return `
-      <button id="menuFilterBtn" class="myio-filter-btn" type="button" title="Filtro de Shoppings">
-        <span class="ico">⎇</span> Filtro
+      <button id="menuFilterBtn" class="myio-toolbar-item myio-toolbar-item--filter" type="button" title="Filtro de Shoppings">
+        <span class="ico">🏢</span>
+        <span>Filtro de Shoppings</span>
       </button>
     `;
   }
 
   /**
-   * Build Date Picker HTML
+   * Build Date Picker HTML - MyIO Premium Style with time
    */
   private buildDatePickerHTML(): string {
     return `
-      <button class="tab date-picker-tab">
+      <div class="myio-toolbar-item myio-toolbar-item--date">
         <span class="ico">📅</span>
         <input
           id="menuDateInput"
           type="text"
           name="menuDateRange"
-          placeholder="Selecione o periodo"
+          placeholder="DD/MM/AA HH:mm até DD/MM/AA HH:mm"
           readonly
-          title="Clique para alterar o intervalo de datas"
+          title="Clique para selecionar período com data e hora"
         />
-      </button>
+      </div>
     `;
   }
 
@@ -1633,7 +1828,7 @@ export class MenuView {
   private buildMobileTabHTML(tab: TabConfig): string {
     const isActive = tab.id === this.activeTabId;
     const currentContextId = this.contextsByTab.get(tab.id) ?? tab.defaultContext ?? tab.contexts[0]?.id;
-    const currentContext = tab.contexts.find(c => c.id === currentContextId);
+    const currentContext = tab.contexts.find((c) => c.id === currentContextId);
     const contextTitle = currentContext ? currentContext.title : '';
 
     return `
@@ -1673,9 +1868,9 @@ export class MenuView {
    */
   private buildLoadButtonHTML(): string {
     return `
-      <button id="menuLoadBtn" class="tab btn-load" title="Carregar dados">
-        <i class="material-icons">refresh</i>
-        Carregar
+      <button id="menuLoadBtn" class="myio-toolbar-item myio-toolbar-item--load" title="Carregar dados">
+        <span class="ico">🔍</span>
+        <span>Carregar</span>
       </button>
     `;
   }
@@ -1685,9 +1880,9 @@ export class MenuView {
    */
   private buildClearButtonHTML(): string {
     return `
-      <button id="menuClearBtn" class="tab btn-clear" title="Limpar cache e recarregar">
-        <i class="material-icons">delete_sweep</i>
-        Limpar
+      <button id="menuClearBtn" class="myio-toolbar-item myio-toolbar-item--clear" title="Limpar cache e recarregar">
+        <span class="ico">🗑️</span>
+        <span>Limpar</span>
       </button>
     `;
   }
@@ -1698,7 +1893,9 @@ export class MenuView {
   private buildThemeToggleHTML(): string {
     const isDark = this.themeMode === 'dark';
     return `
-      <button id="menuThemeToggleBtn" class="tab btn-theme-toggle ${isDark ? 'is-dark' : ''}" title="Alternar tema claro/escuro">
+      <button id="menuThemeToggleBtn" class="myio-toolbar-item myio-toolbar-item--icon ${
+        isDark ? 'is-dark' : ''
+      }" title="Alternar tema claro/escuro">
         <span class="theme-icon">${isDark ? '🌙' : '☀️'}</span>
       </button>
     `;
@@ -1789,7 +1986,7 @@ export class MenuView {
     }
 
     // Unified option clicks
-    this.root.querySelectorAll('.myio-unified-option').forEach(option => {
+    this.root.querySelectorAll('.myio-unified-option').forEach((option) => {
       option.addEventListener('click', (e) => {
         e.stopPropagation();
         const el = option as HTMLElement;
@@ -1803,7 +2000,7 @@ export class MenuView {
     // ==========================================
     // Legacy Tab clicks (kept for compatibility)
     // ==========================================
-    this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
+    this.root.querySelectorAll('.tab[data-tab-id]').forEach((tab) => {
       tab.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1813,7 +2010,7 @@ export class MenuView {
     });
 
     // Context modal backdrop clicks
-    this.root.querySelectorAll('.myio-menu-context-modal').forEach(modal => {
+    this.root.querySelectorAll('.myio-menu-context-modal').forEach((modal) => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           this.closeAllContextModals();
@@ -1822,7 +2019,7 @@ export class MenuView {
     });
 
     // Context option clicks
-    this.root.querySelectorAll('.myio-menu-context-option').forEach(option => {
+    this.root.querySelectorAll('.myio-menu-context-option').forEach((option) => {
       option.addEventListener('click', (e) => {
         e.stopPropagation();
         const el = option as HTMLElement;
@@ -1867,7 +2064,7 @@ export class MenuView {
     }
 
     // Filter modal close buttons (legacy data-close attribute)
-    this.root.querySelectorAll('#menuFilterModal [data-close]').forEach(btn => {
+    this.root.querySelectorAll('#menuFilterModal [data-close]').forEach((btn) => {
       btn.addEventListener('click', () => this.closeFilterModal());
     });
 
@@ -1940,7 +2137,7 @@ export class MenuView {
     }
 
     // Mobile tabs - trigger context modal
-    this.root.querySelectorAll('.myio-menu-mobile-drawer .tab[data-tab-id]').forEach(tab => {
+    this.root.querySelectorAll('.myio-menu-mobile-drawer .tab[data-tab-id]').forEach((tab) => {
       tab.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -2072,7 +2269,7 @@ export class MenuView {
    * Update active states in the unified modal
    */
   private updateUnifiedModalActiveStates(): void {
-    this.root.querySelectorAll('.myio-unified-option').forEach(opt => {
+    this.root.querySelectorAll('.myio-unified-option').forEach((opt) => {
       const el = opt as HTMLElement;
       const tabId = el.dataset.tabId!;
       const contextId = el.dataset.contextId!;
@@ -2085,10 +2282,14 @@ export class MenuView {
     });
 
     // Update column active states
-    this.root.querySelectorAll('.myio-unified-column').forEach(col => {
-      const tabId = col.classList.contains('energy') ? 'energy' :
-                    col.classList.contains('water') ? 'water' :
-                    col.classList.contains('temperature') ? 'temperature' : '';
+    this.root.querySelectorAll('.myio-unified-column').forEach((col) => {
+      const tabId = col.classList.contains('energy')
+        ? 'energy'
+        : col.classList.contains('water')
+        ? 'water'
+        : col.classList.contains('temperature')
+        ? 'temperature'
+        : '';
       col.classList.toggle('is-active-column', tabId === this.activeTabId);
     });
   }
@@ -2150,7 +2351,7 @@ export class MenuView {
 
       // Sync active state with current context
       const currentContextId = this.contextsByTab.get(tabId);
-      modal.querySelectorAll('.myio-menu-context-option').forEach(opt => {
+      modal.querySelectorAll('.myio-menu-context-option').forEach((opt) => {
         const optContextId = (opt as HTMLElement).dataset.contextId;
         opt.classList.toggle('is-active', optContextId === currentContextId);
       });
@@ -2162,7 +2363,7 @@ export class MenuView {
    * @param confirmed - If true, the user selected a context; if false, cancelled
    */
   private closeAllContextModals(confirmed = false): void {
-    this.root.querySelectorAll('.myio-menu-context-modal').forEach(modal => {
+    this.root.querySelectorAll('.myio-menu-context-modal').forEach((modal) => {
       modal.classList.remove('is-open');
     });
 
@@ -2187,7 +2388,7 @@ export class MenuView {
     this.pendingTabId = null; // Clear pending state
 
     // Update tab active states
-    this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
+    this.root.querySelectorAll('.tab[data-tab-id]').forEach((tab) => {
       const id = (tab as HTMLElement).dataset.tabId;
       tab.classList.toggle('is-active', id === tabId);
     });
@@ -2198,7 +2399,7 @@ export class MenuView {
     // Update active state in modal
     const modal = this.root.querySelector(`#menuContextModal_${tabId}`);
     if (modal) {
-      modal.querySelectorAll('.myio-menu-context-option').forEach(opt => {
+      modal.querySelectorAll('.myio-menu-context-option').forEach((opt) => {
         const optContextId = (opt as HTMLElement).dataset.contextId;
         opt.classList.toggle('is-active', optContextId === contextId);
       });
@@ -2257,9 +2458,7 @@ export class MenuView {
   private ensureFilterModalHeaderController(): void {
     if (this.filterModalHeaderController) return;
 
-    const modalCard = this.root.querySelector(
-      '.myio-menu-filter-modal-card'
-    ) as HTMLElement | null;
+    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;
     if (!modalCard) return;
 
     const headerEl = this.root.querySelector('#menuFilter-header') as HTMLElement | null;
@@ -2272,8 +2471,7 @@ export class MenuView {
       maximizeTarget: modalCard,
       maximizedClass: 'myio-menu-filter-modal-card--maximized',
       onThemeChange: (theme) => this.applyFilterModalTheme(theme),
-      onMaximizeChange: (isMaximized) =>
-        this.applyFilterModalMaximize(isMaximized),
+      onMaximizeChange: (isMaximized) => this.applyFilterModalMaximize(isMaximized),
       onClose: () => this.closeFilterModal(),
     });
 
@@ -2283,13 +2481,10 @@ export class MenuView {
   }
 
   private applyFilterModalTheme(theme: 'dark' | 'light'): void {
-    const modalCard = this.root.querySelector(
-      '.myio-menu-filter-modal-card'
-    ) as HTMLElement | null;
+    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;
     if (!modalCard) return;
 
-    modalCard.style.background =
-      theme === 'light' ? '#ffffff' : 'var(--menu-filter-bg, #ffffff)';
+    modalCard.style.background = theme === 'light' ? '#ffffff' : 'var(--menu-filter-bg, #ffffff)';
 
     if (this.configTemplate.enableDebugMode) {
       console.log('[MenuView] Filter modal theme:', theme);
@@ -2297,9 +2492,7 @@ export class MenuView {
   }
 
   private applyFilterModalMaximize(isMaximized: boolean): void {
-    const modalCard = this.root.querySelector(
-      '.myio-menu-filter-modal-card'
-    ) as HTMLElement | null;
+    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;
     if (!modalCard) return;
 
     if (isMaximized) {
@@ -2331,7 +2524,7 @@ export class MenuView {
 
     // Select all by default if no selection exists
     if (this.filterSelection.size === 0) {
-      shoppings.forEach(s => this.filterSelection.add(s.value));
+      shoppings.forEach((s) => this.filterSelection.add(s.value));
     }
 
     this.renderFilterList();
@@ -2341,7 +2534,7 @@ export class MenuView {
    * Get selected shoppings
    */
   public getSelectedShoppings(): Shopping[] {
-    return this.availableShoppings.filter(s => this.filterSelection.has(s.value));
+    return this.availableShoppings.filter((s) => this.filterSelection.has(s.value));
   }
 
   /**
@@ -2349,7 +2542,7 @@ export class MenuView {
    */
   public setSelectedShoppings(shoppings: Shopping[]): void {
     this.filterSelection.clear();
-    shoppings.forEach(s => this.filterSelection.add(s.value));
+    shoppings.forEach((s) => this.filterSelection.add(s.value));
     this.renderFilterList();
   }
 
@@ -2366,8 +2559,8 @@ export class MenuView {
     if (!listEl) return;
 
     const query = (searchInput?.value || '').toLowerCase();
-    const filtered = this.availableShoppings.filter(s =>
-      !query || s.name.toLowerCase().includes(query) || s.value.toLowerCase().includes(query)
+    const filtered = this.availableShoppings.filter(
+      (s) => !query || s.name.toLowerCase().includes(query) || s.value.toLowerCase().includes(query)
     );
 
     // Render count
@@ -2383,16 +2576,20 @@ export class MenuView {
 
     // Render chips
     if (chipsEl) {
-      const selected = this.availableShoppings.filter(s => this.filterSelection.has(s.value));
-      chipsEl.innerHTML = selected.map(s => `
+      const selected = this.availableShoppings.filter((s) => this.filterSelection.has(s.value));
+      chipsEl.innerHTML = selected
+        .map(
+          (s) => `
         <span class="myio-menu-filter-chip" data-value="${s.value}">
           <span>${s.name}</span>
           <button class="chip-remove" title="Remover" aria-label="Remover">×</button>
         </span>
-      `).join('');
+      `
+        )
+        .join('');
 
       // Bind chip remove buttons
-      chipsEl.querySelectorAll('.chip-remove').forEach(btn => {
+      chipsEl.querySelectorAll('.chip-remove').forEach((btn) => {
         btn.addEventListener('click', (e) => {
           const chip = (e.target as HTMLElement).closest('.myio-menu-filter-chip') as HTMLElement;
           const value = chip?.dataset.value;
@@ -2424,9 +2621,10 @@ export class MenuView {
       return;
     }
 
-    listEl.innerHTML = filtered.map(s => {
-      const counts = this.getShoppingDeviceCounts(s.name);
-      return `
+    listEl.innerHTML = filtered
+      .map((s) => {
+        const counts = this.getShoppingDeviceCounts(s.name);
+        return `
         <button
           class="myio-menu-filter-item ${this.filterSelection.has(s.value) ? 'selected' : ''}"
           data-value="${s.value}"
@@ -2435,19 +2633,32 @@ export class MenuView {
           <div class="checkbox">${this.filterSelection.has(s.value) ? '✓' : ''}</div>
           <span class="filter-item-name">${s.name}</span>
           <div class="filter-item-icons">
-            <span class="filter-icon users" data-tooltip-type="users" data-shopping="${s.name}">👥 <span class="count">${counts.users}</span></span>
-            <span class="filter-icon alarms" data-tooltip-type="alarms" data-shopping="${s.name}">🚨 <span class="count">${counts.alarms}</span></span>
-            <span class="filter-icon notifications" data-tooltip-type="notifications" data-shopping="${s.name}">🔔 <span class="count">${counts.notifications}</span></span>
-            <span class="filter-icon energy" data-tooltip-type="energy" data-shopping="${s.name}">⚡ <span class="count">${counts.energy}</span></span>
-            <span class="filter-icon water" data-tooltip-type="water" data-shopping="${s.name}">💧 <span class="count">${counts.water}</span></span>
-            <span class="filter-icon temperature" data-tooltip-type="temperature" data-shopping="${s.name}">🌡️ <span class="count">${counts.temperature}</span></span>
+            <span class="filter-icon users" data-tooltip-type="users" data-shopping="${
+              s.name
+            }">👥 <span class="count">${counts.users}</span></span>
+            <span class="filter-icon alarms" data-tooltip-type="alarms" data-shopping="${
+              s.name
+            }">🚨 <span class="count">${counts.alarms}</span></span>
+            <span class="filter-icon notifications" data-tooltip-type="notifications" data-shopping="${
+              s.name
+            }">🔔 <span class="count">${counts.notifications}</span></span>
+            <span class="filter-icon energy" data-tooltip-type="energy" data-shopping="${
+              s.name
+            }">⚡ <span class="count">${counts.energy}</span></span>
+            <span class="filter-icon water" data-tooltip-type="water" data-shopping="${
+              s.name
+            }">💧 <span class="count">${counts.water}</span></span>
+            <span class="filter-icon temperature" data-tooltip-type="temperature" data-shopping="${
+              s.name
+            }">🌡️ <span class="count">${counts.temperature}</span></span>
           </div>
         </button>
       `;
-    }).join('');
+      })
+      .join('');
 
     // Bind item clicks (checkbox area)
-    listEl.querySelectorAll('.myio-menu-filter-item').forEach(item => {
+    listEl.querySelectorAll('.myio-menu-filter-item').forEach((item) => {
       item.addEventListener('click', (e: Event) => {
         // Don't toggle if clicking on an icon
         const target = e.target as HTMLElement;
@@ -2475,7 +2686,7 @@ export class MenuView {
   private bindFilterTooltipEvents(listEl: Element): void {
     const icons = listEl.querySelectorAll('.filter-icon[data-tooltip-type]');
 
-    icons.forEach(icon => {
+    icons.forEach((icon) => {
       const showHandler = (e: Event) => {
         e.stopPropagation();
         const el = e.currentTarget as HTMLElement;
@@ -2515,7 +2726,7 @@ export class MenuView {
       'NotificationsSummaryTooltip',
     ];
 
-    tooltips.forEach(name => {
+    tooltips.forEach((name) => {
       const tooltip = MyIOLibrary[name];
       if (tooltip) {
         // Try both method names for compatibility
@@ -2582,7 +2793,14 @@ export class MenuView {
   /**
    * Get device counts for a shopping
    */
-  private getShoppingDeviceCounts(shoppingName: string): { users: number; alarms: number; notifications: number; energy: number; water: number; temperature: number } {
+  private getShoppingDeviceCounts(shoppingName: string): {
+    users: number;
+    alarms: number;
+    notifications: number;
+    energy: number;
+    water: number;
+    temperature: number;
+  } {
     const win = window as any;
     const orchestratorData = win.MyIOOrchestratorData;
 
@@ -2592,9 +2810,11 @@ export class MenuView {
       if (!items || !Array.isArray(items)) return [];
       return items.filter((d: any) => {
         const ownerName = (d.ownerName || d.customerName || '').toLowerCase().trim();
-        return ownerName === normalizedName ||
-               ownerName.includes(normalizedName) ||
-               normalizedName.includes(ownerName);
+        return (
+          ownerName === normalizedName ||
+          ownerName.includes(normalizedName) ||
+          normalizedName.includes(ownerName)
+        );
       });
     };
 
@@ -2626,9 +2846,11 @@ export class MenuView {
       const normalizedName = shoppingName.toLowerCase().trim();
       return items.filter((d: any) => {
         const ownerName = (d.ownerName || d.customerName || '').toLowerCase().trim();
-        return ownerName === normalizedName ||
-               ownerName.includes(normalizedName) ||
-               normalizedName.includes(ownerName);
+        return (
+          ownerName === normalizedName ||
+          ownerName.includes(normalizedName) ||
+          normalizedName.includes(ownerName)
+        );
       });
     };
 
@@ -2641,10 +2863,20 @@ export class MenuView {
       case 'energy':
         return {
           totalDevices: energyItems.length,
-          totalConsumption: energyItems.reduce((sum: number, d: any) => sum + Number(d.value || d.consumption || 0), 0),
+          totalConsumption: energyItems.reduce(
+            (sum: number, d: any) => sum + Number(d.value || d.consumption || 0),
+            0
+          ),
           unit: 'kWh',
           byCategory: [
-            { id: 'equipamentos', name: 'Equipamentos', icon: '⚡', deviceCount: energyItems.length, consumption: 0, percentage: 0 },
+            {
+              id: 'equipamentos',
+              name: 'Equipamentos',
+              icon: '⚡',
+              deviceCount: energyItems.length,
+              consumption: 0,
+              percentage: 0,
+            },
           ],
           byStatus: { normal: energyItems.length, offline: 0, alert: 0 },
           lastUpdated: now,
@@ -2653,10 +2885,20 @@ export class MenuView {
       case 'water':
         return {
           totalDevices: waterItems.length,
-          totalConsumption: waterItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0),
+          totalConsumption: waterItems.reduce(
+            (sum: number, d: any) => sum + Number(d.value || d.pulses || 0),
+            0
+          ),
           unit: 'm³',
           byCategory: [
-            { id: 'hidrometros', name: 'Hidrômetros', icon: '💧', deviceCount: waterItems.length, consumption: 0, percentage: 0 },
+            {
+              id: 'hidrometros',
+              name: 'Hidrômetros',
+              icon: '💧',
+              deviceCount: waterItems.length,
+              consumption: 0,
+              percentage: 0,
+            },
           ],
           byStatus: { normal: waterItems.length, offline: 0, alert: 0 },
           lastUpdated: now,
@@ -2782,7 +3024,7 @@ export class MenuView {
   public setActiveTab(tabId: string): void {
     this.activeTabId = tabId;
 
-    this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
+    this.root.querySelectorAll('.tab[data-tab-id]').forEach((tab) => {
       const id = (tab as HTMLElement).dataset.tabId;
       tab.classList.toggle('is-active', id === tabId);
     });
@@ -2874,7 +3116,6 @@ export class MenuView {
 
     // Emit theme change event
     this.emit('theme-change', { themeMode: mode });
-
   }
 
   /**

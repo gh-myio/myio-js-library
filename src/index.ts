@@ -8,15 +8,11 @@ export {
   formatTankHeadFromCm,
   calcDeltaPercent,
   formatWaterByGroup,
-  formatAllInSameWaterUnit
+  formatAllInSameWaterUnit,
 } from './format/water';
 
 // Time/Duration utilities
-export {
-  formatRelativeTime,
-  formatarDuracao,
-  formatDuration
-} from './format/time';
+export { formatRelativeTime, formatarDuracao, formatDuration } from './format/time';
 
 // Date utilities
 export { formatDateToYMD } from './date/ymd';
@@ -24,35 +20,44 @@ export { determineInterval } from './date/interval';
 export { getSaoPauloISOString } from './date/saoPauloIso';
 export { getDateRangeArray } from './date/range';
 export { formatDateForInput, parseInputDateToDate } from './date/inputDate';
-export { 
-  timeWindowFromInputYMD, 
-  formatDateWithTimezoneOffset, 
-  getSaoPauloISOStringFixed 
+export {
+  timeWindowFromInputYMD,
+  formatDateWithTimezoneOffset,
+  getSaoPauloISOStringFixed,
 } from './date/timeWindow';
 export { averageByDay, groupByDay, type TimedValue } from './date/averageByDay';
+export { getDefaultPeriodCurrentMonthSoFar } from './utils/dateUtils.js';
 
 // CSV utilities
 export { exportToCSV } from './csv/singleReport';
 export { exportToCSVAll } from './csv/allStores';
-export { 
-  buildWaterReportCSV, 
-  buildWaterStoresCSV, 
-  toCSV, 
-  type WaterRow, 
-  type StoreRow 
+export {
+  buildWaterReportCSV,
+  buildWaterStoresCSV,
+  toCSV,
+  type WaterRow,
+  type StoreRow,
 } from './csv/waterReports';
 
 // Classification utilities
 export { classify } from './classify/energyEntity';
-export { 
-  classifyWaterLabel, 
-  classifyWaterLabels, 
-  getWaterCategories, 
-  isWaterCategory 
+export {
+  classifyWaterLabel,
+  classifyWaterLabels,
+  getWaterCategories,
+  isWaterCategory,
 } from './classify/waterLabel';
 
 // General utilities
-export { getValueByDatakey, getValueByDatakeyLegacy, findValue, findValueWithDefault } from './utils/getValueByDatakey';
+export {
+  getValueByDatakey,
+  getValueByDatakeyLegacy,
+  findValue,
+  findValueWithDefault,
+} from './utils/getValueByDatakey';
+
+// RFC-0122: LogHelper utilities (contextual logging)
+export { createLogHelper, LogHelper } from './utils/logHelper.js';
 
 // Device Status utilities
 export {
@@ -76,7 +81,8 @@ export {
   isValidConnectionStatus,
   getDeviceStatusInfo,
   calculateDeviceStatus, // RFC-0110: Unified device status calculation with telemetry timestamps
-  calculateDeviceStatusWithRanges // @deprecated - use calculateDeviceStatus with ranges parameter
+  calculateDeviceStatusWithRanges, // @deprecated - use calculateDeviceStatus with ranges parameter
+  calculateDeviceStatusMasterRules, // RFC-0110: Simplified status calculation with master rules
 } from './utils/deviceStatus.js';
 
 // RFC-0109: Device Item Factory utilities
@@ -91,23 +97,35 @@ export {
   extractPowerLimitsForDevice,
   createDeviceItem,
   createDeviceItemsFromMap,
-  recalculateDeviceStatus
+  recalculateDeviceStatus,
 } from './utils/deviceItem.js';
+
+// RFC-0111: Device Info utilities (domain and context detection)
+export {
+  DomainType as DeviceDomainType,
+  ContextType as DeviceContextType,
+  detectDomain,
+  detectContext,
+  detectDomainAndContext,
+  mapConnectionStatus,
+  calculateShoppingDeviceCounts,
+  extractEntityId,
+} from './utils/deviceInfo.js';
 
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
-export { 
-  buildMyioIngestionAuth, 
-  clearAllAuthCaches, 
+export {
+  buildMyioIngestionAuth,
+  clearAllAuthCaches,
   getAuthCacheStats,
   type MyIOAuthConfig,
-  type MyIOAuthInstance 
+  type MyIOAuthInstance,
 } from './thingsboard/auth/buildMyioIngestionAuth';
 export {
   fetchThingsboardCustomerServerScopeAttrs,
   fetchThingsboardCustomerAttrsFromStorage,
   extractMyIOCredentials,
-  type ThingsboardCustomerAttrsConfig
+  type ThingsboardCustomerAttrsConfig,
 } from './thingsboard/api/fetchThingsboardCustomerServerScopeAttrs';
 // export {
 //   getEntityInfoAndAttributesTB,
@@ -121,7 +139,7 @@ export {
   detectSuperAdminMyio,
   detectSuperAdminHolding,
   getAnnotationPermissions,
-  canModifyAnnotation
+  canModifyAnnotation,
 } from './utils/superAdminUtils';
 
 // Annotation Types (RFC-0104)
@@ -137,7 +155,7 @@ export type {
   AnnotationFilterState,
   PaginationState,
   PermissionSet,
-  NewAnnotationData
+  NewAnnotationData,
 } from './components/premium-modals/settings/annotations/types';
 
 export {
@@ -149,19 +167,16 @@ export {
   STATUS_LABELS_EN,
   ANNOTATION_TYPE_COLORS,
   IMPORTANCE_COLORS,
-  STATUS_COLORS
+  STATUS_COLORS,
 } from './components/premium-modals/settings/annotations/types';
 
 // RFC-0104: Annotation Indicator Component
-export {
-  AnnotationIndicator,
-  createAnnotationIndicator
-} from './utils/AnnotationIndicator';
+export { AnnotationIndicator, createAnnotationIndicator } from './utils/AnnotationIndicator';
 
 export type {
   AnnotationIndicatorConfig,
   AnnotationIndicatorTheme,
-  AnnotationSummary
+  AnnotationSummary,
 } from './utils/AnnotationIndicator';
 
 // Re-export existing utilities
@@ -180,9 +195,16 @@ export { decodePayload } from './codec/decodePayload';
 export { decodePayloadBase64Xor } from './codec/decodePayload';
 
 export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
-export { renderCardComponent as renderCardComponentEnhanced, renderCardComponentV2, renderCardComponentLegacy } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card-v2.js';
+export {
+  renderCardComponent as renderCardComponentEnhanced,
+  renderCardComponentV2,
+  renderCardComponentLegacy,
+} from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card-v2.js';
 export { renderCardComponentHeadOffice } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/head-office';
-export { renderCardComponent as renderCardComponentV5, renderCardComponentV5 as renderCardV5 } from './thingsboard/main-dashboard-shopping/v-5.2.0/card/template-card-v5.js';
+export {
+  renderCardComponent as renderCardComponentV5,
+  renderCardComponentV5 as renderCardV5,
+} from './thingsboard/main-dashboard-shopping/v-5.2.0/card/template-card-v5.js';
 
 // MYIO Components - Drag-to-Footer Dock Implementation
 export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';
@@ -200,7 +222,7 @@ export {
   openDashboardPopupReport,
   openDashboardPopupAllReport,
   openDashboardPopup,
-  openDashboardPopupWaterTank
+  openDashboardPopupWaterTank,
 } from './components/premium-modals';
 
 // Energy Modal Types
@@ -209,7 +231,7 @@ export type {
   EnergyModalContext,
   EnergyModalI18n,
   EnergyModalStyleOverrides,
-  EnergyModalError
+  EnergyModalError,
 } from './components/premium-modals/energy/openDashboardPopupEnergy';
 
 // Settings Modal Component
@@ -219,7 +241,7 @@ export type {
   PersistResult,
   SettingsError,
   SettingsEvent,
-  TbScope
+  TbScope,
 } from './components/premium-modals/settings/types';
 
 // Water Tank Modal Types
@@ -230,7 +252,7 @@ export type {
   WaterTankTelemetryData,
   WaterTankDataPoint,
   WaterTankModalI18n,
-  WaterTankModalStyleOverrides
+  WaterTankModalStyleOverrides,
 } from './components/premium-modals/water-tank/openDashboardPopupWaterTank';
 
 // RFC-0112: Welcome Modal Head Office
@@ -242,9 +264,12 @@ export type {
   ShoppingCard,
   ShoppingCardDeviceCounts,
   ShoppingCardMetaCounts,
-  UserInfo as WelcomeUserInfo
+  UserInfo as WelcomeUserInfo,
 } from './components/premium-modals/welcome/types';
-export { DEFAULT_PALETTE as WELCOME_DEFAULT_PALETTE, DEFAULT_SHOPPING_CARDS } from './components/premium-modals/welcome/types';
+export {
+  DEFAULT_PALETTE as WELCOME_DEFAULT_PALETTE,
+  DEFAULT_SHOPPING_CARDS,
+} from './components/premium-modals/welcome/types';
 
 // RFC-0115: Footer Component
 export { createFooterComponent } from './components/footer';
@@ -292,13 +317,18 @@ export {
 } from './components/premium-modals/header/types';
 
 // DateRangePicker - Public API
-export { createDateRangePicker, type CreateDateRangePickerOptions, type DateRangeControl, type DateRangeResult } from './components/createDateRangePicker';
+export {
+  createDateRangePicker,
+  type CreateDateRangePickerOptions,
+  type DateRangeControl,
+  type DateRangeResult,
+} from './components/createDateRangePicker';
 
 // Premium Date Range Input Component
 export { createInputDateRangePickerInsideDIV } from './components/createInputDateRangePickerInsideDIV';
-export type { 
-  CreateInputDateRangePickerInsideDIVParams, 
-  DateRangeInputController 
+export type {
+  CreateInputDateRangePickerInsideDIVParams,
+  DateRangeInputController,
 } from './components/createInputDateRangePickerInsideDIV';
 
 // Utils namespace exports
@@ -312,7 +342,7 @@ export {
   type DemandModalPdfConfig,
   type DemandModalStyles,
   type DemandModalInstance,
-  type TelemetryFetcher
+  type TelemetryFetcher,
 } from './components/DemandModal';
 
 // Goals Panel Component (RFC-0075)
@@ -333,7 +363,7 @@ export {
   exportTemperatureCSV,
   // Constants
   DEFAULT_CLAMP_RANGE,
-  CHART_COLORS
+  CHART_COLORS,
 } from './components/temperature';
 
 // RFC-0085: Temperature Modal Types
@@ -348,7 +378,7 @@ export type {
   TemperatureTelemetry,
   TemperatureStats,
   TemperatureGranularity,
-  ClampRange
+  ClampRange,
 } from './components/temperature';
 
 // Temperature Range Tooltip (Reusable UI component)
@@ -357,20 +387,24 @@ export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempR
 
 // Energy Range Tooltip (Reusable UI component)
 export { EnergyRangeTooltip } from './utils/EnergyRangeTooltip';
-export type { EnergyEntityData, EnergyStatus, EnergyStatusResult, PowerRange, PowerRanges } from './utils/EnergyRangeTooltip';
+export type {
+  EnergyEntityData,
+  EnergyStatus,
+  EnergyStatusResult,
+  PowerRange,
+  PowerRanges,
+} from './utils/EnergyRangeTooltip';
 
 // RFC-0105: Energy Summary Tooltip (Dashboard summary on hover)
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
 export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
-export { ModalHeader } from './utils/ModalHeader';
 export type {
-  ModalHeaderOptions,
-  ModalHeaderHandlers,
-  ModalHeaderControllerOptions,
-  ModalHeaderController,
-} from './utils/ModalHeader';
-export type { DashboardEnergySummary, CategorySummary, StatusSummary, DeviceInfo } from './utils/EnergySummaryTooltip';
+  DashboardEnergySummary,
+  CategorySummary,
+  StatusSummary,
+  DeviceInfo,
+} from './utils/EnergySummaryTooltip';
 export type { DashboardWaterSummary, WaterCategorySummary } from './utils/WaterSummaryTooltip';
 
 // RFC-0110: Device Comparison Tooltip (Premium device comparison on percentage hover)
@@ -387,11 +421,19 @@ export type { TempSensorSummaryData, TempSensorDevice } from './utils/TempSensor
 
 // RFC-0107: Contract Summary Tooltip (Shopping Dashboard contract status)
 export { ContractSummaryTooltip } from './utils/ContractSummaryTooltip';
-export type { ContractSummaryData, ContractDomainCounts, ContractTemperatureCounts } from './utils/ContractSummaryTooltip';
+export type {
+  ContractSummaryData,
+  ContractDomainCounts,
+  ContractTemperatureCounts,
+} from './utils/ContractSummaryTooltip';
 
 // RFC-0112 Rev-001: Users Summary Tooltip (Welcome Modal meta icons)
 export { UsersSummaryTooltip } from './utils/UsersSummaryTooltip';
-export type { UsersSummaryData, UsersByRole, UserInfo as UsersTooltipUserInfo } from './utils/UsersSummaryTooltip';
+export type {
+  UsersSummaryData,
+  UsersByRole,
+  UserInfo as UsersTooltipUserInfo,
+} from './utils/UsersSummaryTooltip';
 
 // RFC-0116: Alarms Summary Tooltip (Not yet released - placeholder)
 export { AlarmsSummaryTooltip } from './utils/AlarmsSummaryTooltip';
@@ -401,18 +443,21 @@ export type { AlarmsSummaryData, AlarmInfo } from './utils/AlarmsSummaryTooltip'
 export { NotificationsSummaryTooltip } from './utils/NotificationsSummaryTooltip';
 export type { NotificationsSummaryData, NotificationInfo } from './utils/NotificationsSummaryTooltip';
 
-// Modal Header Component (Reusable)
-export {
-  createModalHeader,
-  getModalHeaderStyles
-} from './components/ModalHeader';
-
+// Unified Modal Header Component (RFC-0121)
+export { ModalHeader } from './utils/ModalHeader';
 export type {
-  ModalHeaderConfig,
-  ModalHeaderInstance,
-  ModalTheme,
-  ExportFormat as ModalExportFormat
-} from './components/ModalHeader';
+  ModalHeaderOptions,
+  ModalHeaderHandlers,
+  ModalHeaderControllerOptions,
+  ModalHeaderController,
+  ExportFormat as ModalExportFormat,
+} from './utils/ModalHeader';
+
+// Legacy Modal Header Component (Deprecated - use ModalHeader above)
+// @deprecated Use ModalHeader from './utils/ModalHeader' instead
+export { createModalHeader, getModalHeaderStyles } from './components/ModalHeader';
+
+export type { ModalHeaderConfig, ModalHeaderInstance, ModalTheme } from './components/ModalHeader';
 
 // RFC-0098: Consumption 7 Days Chart Component
 export {
@@ -421,7 +466,7 @@ export {
   createConsumptionChartWidget,
   DEFAULT_COLORS as CONSUMPTION_CHART_COLORS,
   DEFAULT_CONFIG as CONSUMPTION_CHART_DEFAULTS,
-  THEME_COLORS as CONSUMPTION_THEME_COLORS
+  THEME_COLORS as CONSUMPTION_THEME_COLORS,
 } from './components/Consumption7DaysChart';
 
 // RFC-0098: Consumption 7 Days Chart Types
@@ -513,9 +558,7 @@ export type {
 } from './components/DistributionChart';
 
 // RFC-0103: Power Limits Setup Modal
-export {
-  openPowerLimitsSetupModal,
-} from './components/premium-modals/power-limits';
+export { openPowerLimitsSetupModal } from './components/premium-modals/power-limits';
 
 // RFC-0103: Power Limits Setup Modal Types
 export type {
@@ -539,10 +582,7 @@ export {
 } from './components/premium-modals/power-limits';
 
 // RFC-0107: Contract Devices Modal (Shopping Dashboard)
-export {
-  openContractDevicesModal,
-  DEVICE_COUNT_KEYS,
-} from './components/premium-modals/contract-devices';
+export { openContractDevicesModal, DEVICE_COUNT_KEYS } from './components/premium-modals/contract-devices';
 
 // RFC-0107: Contract Devices Modal Types
 export type {
@@ -555,9 +595,7 @@ export type {
 } from './components/premium-modals/contract-devices';
 
 // RFC-0108: Measurement Setup Modal
-export {
-  openMeasurementSetupModal,
-} from './components/premium-modals/measurement-setup';
+export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
 
 // RFC-0108: Measurement Setup Modal Types
 export type {
@@ -628,10 +666,7 @@ export type {
   MenuState,
 } from './components/menu';
 
-export {
-  DEFAULT_MENU_CONFIG,
-  DEFAULT_TABS,
-} from './components/menu';
+export { DEFAULT_MENU_CONFIG, DEFAULT_TABS } from './components/menu';
 
 // RFC-0121: TelemetryGrid Component
 export { createTelemetryGridComponent } from './components/telemetry-grid';

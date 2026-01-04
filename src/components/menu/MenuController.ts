@@ -14,6 +14,7 @@ import {
   DEFAULT_CONFIG_TEMPLATE,
   DEFAULT_TABS,
 } from './types';
+import { createDateRangePicker, DateRangeControl, DateRangeResult } from '../createDateRangePicker';
 
 /**
  * Menu Controller - Handles business logic and coordinates between
@@ -199,39 +200,43 @@ export class MenuController implements MenuComponentInstance {
   }
 
   /**
-   * Initialize date picker using library's DateRangePicker if available
+   * Initialize date picker using library's DateRangePicker
    */
   private async initializeDatePicker(): Promise<void> {
     const dateInput = this.view.getDateInput();
-    if (!dateInput) return;
+    if (!dateInput) {
+      console.warn('[MenuController] Date input not found');
+      return;
+    }
 
-    // Check if createDateRangePicker is available from global MyIOLibrary
-    const win = window as unknown as {
-      MyIOLibrary?: {
-        createDateRangePicker?: (input: HTMLInputElement, options: unknown) => Promise<unknown>
+    try {
+      // RFC-0115: Use imported createDateRangePicker directly
+      // RFC-0086: Added includeTime for DateTime picker
+      const control = await createDateRangePicker(dateInput, {
+        presetStart: this.state.dateRange.start.toISOString(),
+        presetEnd: this.state.dateRange.end.toISOString(),
+        locale: (this.params.dateLocale as 'pt-BR' | 'en-US') ?? 'pt-BR',
+        includeTime: true, // Enable time selection
+        timePrecision: 'minute',
+        maxRangeDays: 31,
+        onApply: (result: DateRangeResult) => {
+          // Skip if user cancelled (empty values)
+          if (!result.startISO || !result.endISO) {
+            return;
+          }
+          const start = new Date(result.startISO);
+          const end = new Date(result.endISO);
+          this.handleDateChange(start, end);
+        },
+      });
+
+      this.datePickerInstance = control;
+
+      if (this.config.enableDebugMode) {
+        console.log('[MenuController] DateRangePicker with time initialized');
       }
-    };
-    const createDateRangePicker = win.MyIOLibrary?.createDateRangePicker;
-
-    if (createDateRangePicker && typeof createDateRangePicker === 'function') {
-      try {
-        // RFC-0115: Fixed signature - (input, options) instead of single object
-        this.datePickerInstance = await createDateRangePicker(dateInput, {
-          initialRange: this.state.dateRange,
-          locale: this.params.dateLocale ?? 'pt-BR',
-          onChange: (start: Date, end: Date) => {
-            this.handleDateChange(start, end);
-          },
-        });
-
-        if (this.config.enableDebugMode) {
-          console.log('[MenuController] DateRangePicker initialized');
-        }
-      } catch (error) {
-        console.warn('[MenuController] Failed to initialize DateRangePicker:', error);
-        this.setupFallbackDatePicker(dateInput);
-      }
-    } else {
+    } catch (error) {
+      console.warn('[MenuController] Failed to initialize DateRangePicker:', error);
       this.setupFallbackDatePicker(dateInput);
     }
 
@@ -309,12 +314,24 @@ export class MenuController implements MenuComponentInstance {
     const dateInput = this.view.getDateInput();
     if (dateInput) {
       const { start, end } = this.state.dateRange;
-      dateInput.value = `${this.formatDateBR(start)} - ${this.formatDateBR(end)}`;
+      dateInput.value = `${this.formatDateTimeBR(start)} até ${this.formatDateTimeBR(end)}`;
     }
   }
 
   /**
-   * Format date as DD/MM/YYYY (Brazilian format)
+   * Format date as DD/MM/YY HH:mm (Brazilian format with time)
+   */
+  private formatDateTimeBR(date: Date): string {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+
+  /**
+   * Format date as DD/MM/YYYY (Brazilian format - without time)
    */
   private formatDateBR(date: Date): string {
     const day = String(date.getDate()).padStart(2, '0');

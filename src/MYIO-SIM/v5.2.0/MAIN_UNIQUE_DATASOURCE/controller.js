@@ -6,9 +6,17 @@
 /* eslint-disable no-undef */
 /* global self, window, document */
 
+// Debug configuration - set from settings.enableDebugMode in onInit
+let DEBUG_ACTIVE = false;
+
+// RFC-0122: LogHelper - initialized inside onInit after library check
+// @see src/utils/logHelper.js - createLogHelper
+let LogHelper = null;
+
 // Global throttle counter for onDataUpdated (max 4 calls)
 let _onDataUpdatedCallCount = 0;
-const MAX_DATA_UPDATED_CALLS = 4;
+
+const MAX_DATA_UPDATED_CALLS = 2;
 
 // RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
 // deviceCounts use null = loading (spinner), number = loaded (show value)
@@ -69,30 +77,48 @@ const DEFAULT_SHOPPING_CARDS = [
   },
 ];
 
+const DOMAIN_TEMPERATURE = 'temperature';
+const DOMAIN_ENERGY = 'energy';
+const DOMAIN_WATER = 'water';
+const DOMAIN_ALL_LIST = [DOMAIN_ENERGY, DOMAIN_WATER, DOMAIN_TEMPERATURE];
+
+// RFC-0111: Guard to prevent multiple API enrichment calls
+let _apiEnrichmentDone = false;
+let _apiEnrichmentInProgress = false;
+
+// Global counter for credentials retry attempts (max 10 attempts)
+let _credentialsRetryCount = 0;
+const MAX_CREDENTIALS_RETRIES = 10;
+
 self.onInit = async function () {
   'use strict';
 
-  console.log('[MAIN_UNIQUE] onInit called', self.ctx);
-
-  // Debug helper function - stored on self for access from onDataUpdated
-  self._logDebug = self.ctx.settings?.enableDebugMode
-    ? (...args) => console.log('[MAIN_UNIQUE]', ...args)
-    : () => {};
-
-  const logDebug = self._logDebug;
-
-  // === 1. CONFIGURATION ===
-  const settings = self.ctx.settings || {};
-  let currentThemeMode = settings.defaultThemeMode || 'dark';
-
-  // === 2. LIBRARY REFERENCE ===
+  // === 1. LIBRARY REFERENCE (must be first) ===
   const MyIOLibrary = window.MyIOLibrary;
   if (!MyIOLibrary) {
     console.error('[MAIN_UNIQUE] MyIOLibrary not found');
     return;
   }
 
-  // === 2.1 CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
+  // === 1.1 CONFIGURATION ===
+  const settings = self.ctx.settings || {};
+  let currentThemeMode = settings.defaultThemeMode || 'dark';
+  DEBUG_ACTIVE = settings.enableDebugMode ?? false;
+
+  // RFC-0122: Initialize LogHelper from library
+  if (!MyIOLibrary.createLogHelper) {
+    showToast('Erro: biblioteca não carregada (createLogHelper)', 'error');
+    return;
+  }
+
+  LogHelper = MyIOLibrary.createLogHelper({
+    debugActive: DEBUG_ACTIVE,
+    config: { widget: 'MAIN_UNIQUE_DATASOURCE' },
+  });
+
+  LogHelper.log('[MAIN_UNIQUE] onInit called', self.ctx);
+
+  // === 2. CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
   const DATA_API_HOST = settings.dataApiHost || 'https://api.data.apps.myio-bas.com';
 
@@ -101,26 +127,23 @@ self.onInit = async function () {
   let CLIENT_SECRET = '';
   let CUSTOMER_ING_ID = '';
 
-  const LogHelper = {
-    log: (...args) => console.log('[MAIN_UNIQUE]', ...args),
-    warn: (...args) => console.warn('[MAIN_UNIQUE]', ...args),
-    error: (...args) => console.error('[MAIN_UNIQUE]', ...args),
-  };
-
   // Get ThingsBoard customer ID and JWT token
   const getCustomerTB_ID = () => {
     // Primary: from settings
     if (settings.customerTB_ID) {
       return settings.customerTB_ID;
     }
+
     // Fallback: try from ThingsBoard context
     const ctx = self.ctx;
     if (ctx?.stateController?.getStateParams?.()?.entityId?.id) {
       return ctx.stateController.getStateParams().entityId.id;
     }
+
     if (ctx?.defaultSubscription?.options?.stateParams?.entityId?.id) {
       return ctx.defaultSubscription.options.stateParams.entityId.id;
     }
+
     // Try from datasource
     const data = ctx?.data || [];
     for (const row of data) {
@@ -128,6 +151,7 @@ self.onInit = async function () {
         return row.datasource.entity.id.id;
       }
     }
+
     return '';
   };
 
@@ -135,10 +159,11 @@ self.onInit = async function () {
     // Get JWT token from ThingsBoard auth service
     try {
       const authService = self.ctx?.$injector?.get?.('authService');
+
       if (authService?.getJwtToken) {
         return authService.getJwtToken();
       }
-    } catch (e) {
+    } catch {
       // Fallback methods
     }
     // Try from localStorage
@@ -150,7 +175,7 @@ self.onInit = async function () {
     const customerTB_ID = getCustomerTB_ID();
     const jwt = getJwtToken();
 
-    logDebug('Fetching credentials for customer:', customerTB_ID);
+    LogHelper.log('Fetching credentials for customer:', customerTB_ID);
 
     if (!customerTB_ID || !jwt) {
       LogHelper.warn('Missing customerTB_ID or JWT token');
@@ -161,7 +186,7 @@ self.onInit = async function () {
       // Use MyIOLibrary function to fetch customer attrs
       if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
         const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-        logDebug('Received attrs:', attrs);
+        LogHelper.log('Received attrs:', attrs);
 
         CLIENT_ID = attrs?.client_id || '';
         CLIENT_SECRET = attrs?.client_secret || '';
@@ -186,15 +211,16 @@ self.onInit = async function () {
               clientId: CLIENT_ID,
               clientSecret: CLIENT_SECRET,
             });
+
             window.MyIOUtils.myIOAuth = myIOAuth;
             window.MyIOUtils.getToken = () => myIOAuth.getToken();
-            logDebug('myIOAuth created and exposed on MyIOUtils');
+            LogHelper.log('myIOAuth created and exposed on MyIOUtils');
           } catch (err) {
             LogHelper.error('Failed to create myIOAuth:', err);
           }
         }
 
-        logDebug('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID });
+        LogHelper.log('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID });
       } else {
         LogHelper.error('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
       }
@@ -203,103 +229,19 @@ self.onInit = async function () {
     }
   };
 
-  // RFC-0110: Utility functions for device status calculation
-  // Uses domain-specific telemetry timestamps with dual thresholds
-  const calculateDeviceStatusMasterRules = (options = {}) => {
-    const {
-      connectionStatus = '',
-      telemetryTimestamp = null,
-      delayMins = 1440, // 24h for online status
-      domain = 'energy',
-    } = options;
-
-    const SHORT_DELAY_MINS = 60; // For offline/bad recovery
-    const now = Date.now();
-
-    const normalizedStatus = (connectionStatus || '').toLowerCase().trim();
-
-    // 1. WAITING → NOT_INSTALLED (absolute priority)
-    if (normalizedStatus === 'waiting' || normalizedStatus === 'connecting' || normalizedStatus === 'pending') {
-      return 'not_installed';
-    }
-
-    // 2. No domain-specific telemetry → OFFLINE
-    if (!telemetryTimestamp) {
-      return 'offline';
-    }
-
-    const telemetryAgeMs = now - telemetryTimestamp;
-    const shortThresholdMs = SHORT_DELAY_MINS * 60 * 1000;
-    const longThresholdMs = delayMins * 60 * 1000;
-
-    // 3. BAD status → check recent telemetry (60 mins)
-    if (normalizedStatus === 'bad') {
-      return telemetryAgeMs < shortThresholdMs ? 'power_on' : 'weak_connection';
-    }
-
-    // 4. OFFLINE status → check recent telemetry (60 mins)
-    if (normalizedStatus === 'offline') {
-      return telemetryAgeMs < shortThresholdMs ? 'power_on' : 'offline';
-    }
-
-    // 5. ONLINE status → check stale telemetry (24h)
-    if (normalizedStatus === 'online') {
-      return telemetryAgeMs > longThresholdMs ? 'offline' : 'power_on';
-    }
-
-    // 6. Default: treat as online if has recent telemetry
-    return telemetryAgeMs < longThresholdMs ? 'power_on' : 'offline';
-  };
-
-  const mapConnectionStatus = (status) => {
-    const statusMap = {
-      connected: 'online',
-      disconnected: 'offline',
-      unknown: 'no_info',
-    };
-    return statusMap[status?.toLowerCase()] || status || 'offline';
-  };
-
-  const formatRelativeTime = (ts) => {
-    if (!ts) return '—';
-    const now = Date.now();
-    const diff = now - ts;
-    const mins = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (mins < 1) return 'agora';
-    if (mins < 60) return `${mins}min atrás`;
-    if (hours < 24) return `${hours}h atrás`;
-    return `${days}d atrás`;
-  };
-
-  const formatarDuracao = (ms) => {
-    if (!ms || isNaN(ms)) return '—';
-    const secs = Math.floor(ms / 1000);
-    const mins = Math.floor(secs / 60);
-    const hours = Math.floor(mins / 60);
-    if (hours > 0) return `${hours}h ${mins % 60}min`;
-    if (mins > 0) return `${mins}min`;
-    return `${secs}s`;
-  };
-
   const getCustomerNameForDevice = (device) => {
-    return device?.customerName || device?.ownerName || device?.customerId || 'N/A';
-  };
-
-  const findValue = (values, key, defaultValue = null) => {
-    if (!Array.isArray(values)) return defaultValue;
-    const found = values.find((v) => v.key === key || v.dataType === key);
-    return found ? found.value : defaultValue;
+    return device?.customerName || device?.ownerName || 'N/A';
   };
 
   const fetchCustomerServerScopeAttrs = async (customerId) => {
-    logDebug('fetchCustomerServerScopeAttrs called for:', customerId);
+    LogHelper.log('fetchCustomerServerScopeAttrs called for:', customerId);
     const jwt = getJwtToken();
+
     if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage && customerId && jwt) {
-      return await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerId, jwt);
+      const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerId, jwt);
+      return attrs || {};
     }
+
     return {};
   };
 
@@ -605,7 +547,7 @@ body.filter-modal-open { overflow: hidden !important; }
     styleEl.id = 'myio-header-css';
     styleEl.textContent = HEADER_CSS;
     document.head.appendChild(styleEl);
-    logDebug('Header CSS injected');
+    LogHelper.log('Header CSS injected');
   }
 
   // Header domain configuration
@@ -637,10 +579,15 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   // RFC-0093: Build and inject a centralized header for device grids
+  // Global assignment - FIEL ao showcase/telemetry-grid/index.html
+  window.MyIOUtils = window.MyIOUtils || {};
+
   const buildHeaderDevicesGrid = (config) => {
+    LogHelper.log('[buildHeaderDevicesGrid]', config);
+
     const {
       container,
-      domain = 'energy',
+      domain = DOMAIN_ENERGY,
       idPrefix = 'devices',
       labels = {},
       includeSearch = true,
@@ -674,6 +621,7 @@ body.filter-modal-open { overflow: hidden !important; }
       searchInput: `${idPrefix}Search`,
       btnSearch: `${idPrefix}BtnSearch`,
       btnFilter: `${idPrefix}BtnFilter`,
+      btnMaximize: `${idPrefix}BtnMaximize`,
     };
 
     const searchButtonHTML = includeSearch
@@ -716,35 +664,87 @@ body.filter-modal-open { overflow: hidden !important; }
           </div>
           ${searchButtonHTML}
           ${filterButtonHTML}
+          <button class="icon-btn" id="${ids.btnMaximize}" title="Maximizar" aria-label="Maximizar">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="icon-maximize" aria-hidden="true">
+              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="icon-minimize" style="display:none;" aria-hidden="true">
+              <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+            </svg>
+          </button>
         </div>
       </div>
     `;
 
     containerEl.insertAdjacentHTML('afterbegin', headerHTML);
 
-    if (includeSearch && onSearchClick) {
-      const btnSearch = document.getElementById(ids.btnSearch);
-      const searchWrap = document.getElementById(ids.searchWrap);
-      if (btnSearch) {
-        btnSearch.addEventListener('click', () => {
-          if (searchWrap) {
-            searchWrap.classList.toggle('active');
-            if (searchWrap.classList.contains('active')) {
-              const input = document.getElementById(ids.searchInput);
-              if (input) input.focus();
+    // Use setTimeout to ensure DOM is ready before attaching event handlers
+    // RFC-0121: Follows showcase pattern for consistent behavior
+    setTimeout(() => {
+      // Search button handler
+      if (includeSearch && onSearchClick) {
+        const btnSearch = document.getElementById(ids.btnSearch);
+        const searchWrap = document.getElementById(ids.searchWrap);
+        LogHelper.log('[buildHeaderDevicesGrid] Search button:', ids.btnSearch, btnSearch);
+        if (btnSearch) {
+          btnSearch.addEventListener('click', () => {
+            LogHelper.log('[buildHeaderDevicesGrid] Search button clicked');
+            if (searchWrap) {
+              searchWrap.classList.toggle('active');
+              if (searchWrap.classList.contains('active')) {
+                const input = document.getElementById(ids.searchInput);
+                if (input) input.focus();
+              }
             }
+            onSearchClick();
+          });
+        }
+      }
+
+      // Filter button handler
+      if (includeFilter && onFilterClick) {
+        const btnFilter = document.getElementById(ids.btnFilter);
+        LogHelper.log('[buildHeaderDevicesGrid] Filter button:', ids.btnFilter, btnFilter);
+        if (btnFilter) {
+          btnFilter.addEventListener('click', () => {
+            LogHelper.log('[buildHeaderDevicesGrid] Filter button clicked');
+            onFilterClick();
+          });
+        }
+      }
+
+      // Maximize button handler - toggles .maximized class on telemetry-grid-wrap
+      const btnMaximize = document.getElementById(ids.btnMaximize);
+      LogHelper.log('[buildHeaderDevicesGrid] Maximize button:', ids.btnMaximize, btnMaximize);
+      if (btnMaximize) {
+        btnMaximize.addEventListener('click', () => {
+          LogHelper.log('[buildHeaderDevicesGrid] Maximize button clicked');
+          const telemetryWrap = document.querySelector('.telemetry-grid-wrap');
+          if (!telemetryWrap) {
+            LogHelper.warn('[buildHeaderDevicesGrid] .telemetry-grid-wrap not found');
+            return;
           }
-          onSearchClick();
+          const isMaximized = telemetryWrap.classList.toggle('maximized');
+
+          // Toggle button icon
+          const iconMax = btnMaximize.querySelector('.icon-maximize');
+          const iconMin = btnMaximize.querySelector('.icon-minimize');
+          if (iconMax && iconMin) {
+            iconMax.style.display = isMaximized ? 'none' : 'block';
+            iconMin.style.display = isMaximized ? 'block' : 'none';
+          }
+
+          // Also dispatch event for other listeners
+          window.dispatchEvent(
+            new CustomEvent('myio:telemetry-maximize', {
+              detail: { domain, idPrefix, maximized: isMaximized },
+            })
+          );
+
+          LogHelper.log('[buildHeaderDevicesGrid] Maximized:', isMaximized);
         });
       }
-    }
-
-    if (includeFilter && onFilterClick) {
-      const btnFilter = document.getElementById(ids.btnFilter);
-      if (btnFilter) {
-        btnFilter.addEventListener('click', onFilterClick);
-      }
-    }
+    }, 0);
 
     const controller = {
       ids,
@@ -771,7 +771,7 @@ body.filter-modal-open { overflow: hidden !important; }
         consumptionEl.textContent = domainConfig.formatValue(consumption);
         zeroEl.textContent = zeroCount.toString();
 
-        logDebug(`Header stats updated for ${idPrefix}:`, stats);
+        LogHelper.log(`Header stats updated for ${idPrefix}:`, stats);
       },
 
       updateFromDevices(devices, options = {}) {
@@ -838,7 +838,7 @@ body.filter-modal-open { overflow: hidden !important; }
       },
     };
 
-    logDebug(`Header built for domain '${domain}' with prefix '${idPrefix}'`);
+    LogHelper.log(`Header built for domain '${domain}' with prefix '${idPrefix}'`);
 
     return controller;
   };
@@ -848,7 +848,7 @@ body.filter-modal-open { overflow: hidden !important; }
    * @param {Object} config - Configuration object
    * @returns {Object} Modal controller with open, close, and destroy methods
    */
-  const createFilterModal = (config) => {
+  window.MyIOUtils.createFilterModal = (config) => {
     const {
       widgetName = 'WIDGET',
       containerId,
@@ -862,7 +862,6 @@ body.filter-modal-open { overflow: hidden !important; }
       getItemSubLabel = () => '',
       formatValue = (val) => val.toFixed(2),
       onApply = () => {},
-      onReset = () => {},
       onClose = () => {},
     } = config;
 
@@ -871,10 +870,22 @@ body.filter-modal-open { overflow: hidden !important; }
 
     // RFC-0103: Filter tab icons
     const filterTabIcons = {
-      online: '⚡', normal: '⚡', offline: '🔴', notInstalled: '📦', standby: '🔌', alert: '⚠️', failure: '🚨',
-      withConsumption: '✓', noConsumption: '○',
-      elevators: '🏙', escalators: '📶', hvac: '❄️', others: '⚙️',
-      commonArea: '💧', stores: '🏪', all: '📊'
+      online: '⚡',
+      normal: '⚡',
+      offline: '🔴',
+      notInstalled: '📦',
+      standby: '🔌',
+      alert: '⚠️',
+      failure: '🚨',
+      withConsumption: '✓',
+      noConsumption: '○',
+      elevators: '🏙',
+      escalators: '📶',
+      hvac: '❄️',
+      others: '⚙️',
+      commonArea: '💧',
+      stores: '🏪',
+      all: '📊',
     };
 
     // Generate CSS styles with customizable primary color
@@ -915,18 +926,89 @@ body.filter-modal-open { overflow: hidden !important; }
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
           }
         }
+        /* RFC-0121: MyIO Premium Header Style */
         #${containerId} .${modalClass}-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 16px 20px;
-          border-bottom: 1px solid #DDE7F1;
+          padding: 8px 12px;
+          background: #3e1a7d;
+          color: white;
+          border-radius: 16px 16px 0 0;
+          min-height: 32px;
+          user-select: none;
+        }
+        #${containerId} .${modalClass}-header__left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1;
+          min-width: 0;
+        }
+        #${containerId} .${modalClass}-header__icon {
+          font-size: 18px;
         }
         #${containerId} .${modalClass}-header h3 {
           margin: 0;
-          font-size: 18px;
-          font-weight: 700;
-          color: #1C2743;
+          font-size: 16px;
+          font-weight: 600;
+          color: white;
+          line-height: 1.4;
+        }
+        #${containerId} .${modalClass}-header__actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        #${containerId} .${modalClass}-header__btn {
+          background: none;
+          border: none;
+          font-size: 16px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 6px;
+          color: rgba(255, 255, 255, 0.8);
+          transition: background-color 0.2s, color 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 28px;
+          min-height: 28px;
+          line-height: 1;
+        }
+        #${containerId} .${modalClass}-header__btn:hover {
+          background: rgba(255, 255, 255, 0.15);
+          color: white;
+        }
+        #${containerId} .${modalClass}-header__btn--close:hover {
+          background: rgba(239, 68, 68, 0.3);
+          color: #fecaca;
+        }
+        /* Light theme header */
+        #${containerId} .${modalClass}-header--light {
+          background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+          border-bottom: 1px solid #cbd5e1;
+        }
+        #${containerId} .${modalClass}-header--light h3 {
+          color: #475569;
+        }
+        #${containerId} .${modalClass}-header--light .${modalClass}-header__btn {
+          color: rgba(71, 85, 105, 0.8);
+        }
+        #${containerId} .${modalClass}-header--light .${modalClass}-header__btn:hover {
+          background: rgba(0, 0, 0, 0.08);
+          color: #1e293b;
+        }
+        /* Maximized state */
+        #${containerId} .${modalClass}-card.maximized {
+          max-width: 100%;
+          width: 100%;
+          max-height: 100vh;
+          height: 100vh;
+          border-radius: 0;
+        }
+        #${containerId} .${modalClass}-card.maximized .${modalClass}-header {
+          border-radius: 0;
         }
         /* RFC-0103: Three-column layout */
         #${containerId} .${modalClass}-body {
@@ -1319,7 +1401,11 @@ body.filter-modal-open { overflow: hidden !important; }
         { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline', 'notInstalled'] },
         { id: 'status', label: 'Status', filters: ['normal', 'standby', 'alert', 'failure'] },
         { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
-        { id: 'type', label: 'Tipo', filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+        {
+          id: 'type',
+          label: 'Tipo',
+          filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'],
+        },
       ];
 
       const allTab = filterTabs.find((t) => t.id === 'all');
@@ -1342,17 +1428,24 @@ body.filter-modal-open { overflow: hidden !important; }
           <div class="filter-group">
             <span class="filter-group-label">${group.label}</span>
             <div class="filter-group-tabs">
-              ${groupTabs.map((tab) => {
-                const icon = filterTabIcons[tab.id] || '';
-                const count = counts[tab.id] || 0;
-                // RFC-0110: Add expand button (+) if count > 0
-                const expandBtn = count > 0 ? `<button class="filter-tab-expand" data-expand-filter="${tab.id}" title="Ver dispositivos">+</button>` : '';
-                return `
+              ${groupTabs
+                .map((tab) => {
+                  const icon = filterTabIcons[tab.id] || '';
+                  const count = counts[tab.id] || 0;
+                  // RFC-0110: Add expand button (+) if count > 0
+                  const expandBtn =
+                    count > 0
+                      ? `<button class="filter-tab-expand" data-expand-filter="${tab.id}" title="Ver dispositivos">+</button>`
+                      : '';
+                  return `
                 <button class="filter-tab active" data-filter="${tab.id}">
-                  ${icon} ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${count}</span>)${expandBtn}
+                  ${icon} ${tab.label} (<span id="count${
+                    tab.id.charAt(0).toUpperCase() + tab.id.slice(1)
+                  }">${count}</span>)${expandBtn}
                 </button>
               `;
-              }).join('')}
+                })
+                .join('')}
             </div>
           </div>
         `;
@@ -1365,11 +1458,17 @@ body.filter-modal-open { overflow: hidden !important; }
       return `
         <div id="filterModal" class="${modalClass} hidden">
           <div class="${modalClass}-card">
-            <div class="${modalClass}-header">
-              <h3>Filtrar e Ordenar</h3>
-              <button class="icon-btn" id="closeFilter">
-                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-              </button>
+            <!-- RFC-0121: MyIO Premium Header Style -->
+            <div class="${modalClass}-header" id="${containerId}Header">
+              <div class="${modalClass}-header__left">
+                <span class="${modalClass}-header__icon">🔍</span>
+                <h3>Filtrar e Ordenar</h3>
+              </div>
+              <div class="${modalClass}-header__actions">
+                <button class="${modalClass}-header__btn" id="${containerId}ThemeToggle" title="Alternar tema">☀️</button>
+                <button class="${modalClass}-header__btn" id="${containerId}Maximize" title="Maximizar">🗖</button>
+                <button class="${modalClass}-header__btn ${modalClass}-header__btn--close" id="closeFilter" title="Fechar">&times;</button>
+              </div>
             </div>
             <div class="${modalClass}-body">
               <!-- LEFT COLUMN: Filters -->
@@ -1438,7 +1537,9 @@ body.filter-modal-open { overflow: hidden !important; }
       let itemsProcessing = items.slice();
       if (isFiltered) {
         const allowedShoppingIds = globalSelection.map((c) => c.value);
-        itemsProcessing = itemsProcessing.filter((item) => item.customerId && allowedShoppingIds.includes(item.customerId));
+        itemsProcessing = itemsProcessing.filter(
+          (item) => item.customerId && allowedShoppingIds.includes(item.customerId)
+        );
       }
 
       const sortedItems = itemsProcessing.sort((a, b) =>
@@ -1446,7 +1547,8 @@ body.filter-modal-open { overflow: hidden !important; }
       );
 
       if (sortedItems.length === 0) {
-        checklist.innerHTML = '<div style="padding:10px; color:#666; font-size:12px; text-align:center;">Nenhum dispositivo encontrado.</div>';
+        checklist.innerHTML =
+          '<div style="padding:10px; color:#666; font-size:12px; text-align:center;">Nenhum dispositivo encontrado.</div>';
         return;
       }
 
@@ -1464,9 +1566,19 @@ body.filter-modal-open { overflow: hidden !important; }
         div.innerHTML = `
           <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
           <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
-          ${customerName ? `<span class="customer-name" style="color: #0ea5e9; font-size: 10px; margin-right: 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${customerName}">${customerName}</span>` : ''}
-          ${subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''}
-          <span style="color: ${value > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
+          ${
+            customerName
+              ? `<span class="customer-name" style="color: #0ea5e9; font-size: 10px; margin-right: 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${customerName}">${customerName}</span>`
+              : ''
+          }
+          ${
+            subLabel
+              ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>`
+              : ''
+          }
+          <span style="color: ${
+            value > 0 ? '#16a34a' : '#94a3b8'
+          }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
         `;
         checklist.appendChild(div);
       });
@@ -1476,7 +1588,42 @@ body.filter-modal-open { overflow: hidden !important; }
       const closeBtn = modal.querySelector('#closeFilter');
       if (closeBtn) closeBtn.addEventListener('click', close);
 
-      modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) close();
+      });
+
+      // RFC-0121: Theme toggle button
+      let modalTheme = 'dark';
+      const themeToggleBtn = modal.querySelector(`#${containerId}ThemeToggle`);
+      const headerEl = modal.querySelector(`#${containerId}Header`);
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          modalTheme = modalTheme === 'dark' ? 'light' : 'dark';
+          themeToggleBtn.textContent = modalTheme === 'dark' ? '☀️' : '🌙';
+          if (headerEl) {
+            headerEl.classList.toggle(`${modalClass}-header--light`, modalTheme === 'light');
+          }
+          LogHelper.log('[FilterModal] Theme toggled:', modalTheme);
+        });
+      }
+
+      // RFC-0121: Maximize button
+      let isMaximized = false;
+      const maximizeBtn = modal.querySelector(`#${containerId}Maximize`);
+      const cardEl = modal.querySelector(`.${modalClass}-card`);
+      if (maximizeBtn) {
+        maximizeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          isMaximized = !isMaximized;
+          maximizeBtn.textContent = isMaximized ? '🗗' : '🗖';
+          maximizeBtn.title = isMaximized ? 'Restaurar' : 'Maximizar';
+          if (cardEl) {
+            cardEl.classList.toggle('maximized', isMaximized);
+          }
+          LogHelper.log('[FilterModal] Maximized:', isMaximized);
+        });
+      }
 
       const applyBtn = modal.querySelector('#applyFilters');
       if (applyBtn) {
@@ -1489,7 +1636,11 @@ body.filter-modal-open { overflow: hidden !important; }
           });
           const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
           const sortMode = sortRadio ? sortRadio.value : 'cons_desc';
-          LogHelper.log(`[${widgetName}] Filters applied:`, { selectedCount: selectedSet.size, totalItems: items.length, sortMode });
+          LogHelper.log(`[${widgetName}] Filters applied:`, {
+            selectedCount: selectedSet.size,
+            totalItems: items.length,
+            sortMode,
+          });
           onApply({ selectedIds: selectedSet.size === items.length ? null : selectedSet, sortMode });
           close();
         });
@@ -1501,14 +1652,18 @@ body.filter-modal-open { overflow: hidden !important; }
       const selectAllBtn = modal.querySelector('#selectAllItems');
       if (selectAllBtn) {
         selectAllBtn.addEventListener('click', () => {
-          modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = true);
+          modal
+            .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+            .forEach((cb) => (cb.checked = true));
         });
       }
 
       const clearAllBtn = modal.querySelector('#clearAllItems');
       if (clearAllBtn) {
         clearAllBtn.addEventListener('click', () => {
-          modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = false);
+          modal
+            .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+            .forEach((cb) => (cb.checked = false));
         });
       }
 
@@ -1528,12 +1683,16 @@ body.filter-modal-open { overflow: hidden !important; }
       if (clearBtn && searchInput) {
         clearBtn.addEventListener('click', () => {
           searchInput.value = '';
-          modal.querySelectorAll('#deviceChecklist .check-item').forEach((item) => item.style.display = 'flex');
+          modal
+            .querySelectorAll('#deviceChecklist .check-item')
+            .forEach((item) => (item.style.display = 'flex'));
           searchInput.focus();
         });
       }
 
-      escHandler = (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); };
+      escHandler = (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+      };
       document.addEventListener('keydown', escHandler);
     };
 
@@ -1543,7 +1702,7 @@ body.filter-modal-open { overflow: hidden !important; }
         { name: 'connectivity', ids: ['online', 'offline', 'notInstalled'] },
         { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
         { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
-        { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+        { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] },
       ];
 
       const getFilterFn = (filterId) => {
@@ -1561,7 +1720,9 @@ body.filter-modal-open { overflow: hidden !important; }
         for (let i = 0; i < filterGroups.length; i++) {
           const group = filterGroups[i];
           const activeInGroup = Array.from(filterTabsEl)
-            .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+            .filter(
+              (t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active')
+            )
             .map((t) => t.getAttribute('data-filter'));
           if (activeInGroup.length > 0) {
             filteredItems = filteredItems.filter((item) => itemPassesGroup(item, activeInGroup));
@@ -1603,16 +1764,26 @@ body.filter-modal-open { overflow: hidden !important; }
         });
       };
 
-      const statusToConnectivity = { normal: 'online', standby: 'online', alert: 'online', failure: 'online', offline: 'offline' };
+      const statusToConnectivity = {
+        normal: 'online',
+        standby: 'online',
+        alert: 'online',
+        failure: 'online',
+        offline: 'offline',
+      };
 
       const getFilteredItems = () => {
         let filteredItems = [...items];
         filterGroups.forEach((group) => {
           const activeInGroup = Array.from(filterTabsEl)
-            .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+            .filter(
+              (t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active')
+            )
             .map((t) => t.getAttribute('data-filter'));
           if (activeInGroup.length > 0) {
-            filteredItems = filteredItems.filter((item) => activeInGroup.some((filterId) => getFilterFn(filterId)(item)));
+            filteredItems = filteredItems.filter((item) =>
+              activeInGroup.some((filterId) => getFilterFn(filterId)(item))
+            );
           }
         });
         return filteredItems;
@@ -1625,7 +1796,9 @@ body.filter-modal-open { overflow: hidden !important; }
             if (countEl) countEl.textContent = filteredItems.length;
           } else {
             const count = filteredItems.filter(tabConfig.filter).length;
-            const countEl = modal.querySelector(`#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`);
+            const countEl = modal.querySelector(
+              `#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`
+            );
             if (countEl) countEl.textContent = count;
           }
         });
@@ -1649,11 +1822,15 @@ body.filter-modal-open { overflow: hidden !important; }
             if (allOthersActive) {
               otherTabs.forEach((t) => t.classList.remove('active'));
               if (allTab) allTab.classList.remove('active');
-              modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = false);
+              modal
+                .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+                .forEach((cb) => (cb.checked = false));
             } else {
               otherTabs.forEach((t) => t.classList.add('active'));
               if (allTab) allTab.classList.add('active');
-              modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = true);
+              modal
+                .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+                .forEach((cb) => (cb.checked = true));
             }
             return;
           }
@@ -1664,8 +1841,11 @@ body.filter-modal-open { overflow: hidden !important; }
           if (isNowActive) {
             const impliedConnectivity = statusToConnectivity[filterType];
             if (impliedConnectivity) {
-              const connectivityTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === impliedConnectivity);
-              if (connectivityTab && !connectivityTab.classList.contains('active')) connectivityTab.classList.add('active');
+              const connectivityTab = Array.from(filterTabsEl).find(
+                (t) => t.getAttribute('data-filter') === impliedConnectivity
+              );
+              if (connectivityTab && !connectivityTab.classList.contains('active'))
+                connectivityTab.classList.add('active');
             }
             const filteredItems = getFilteredItems();
             const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'];
@@ -1698,10 +1878,16 @@ body.filter-modal-open { overflow: hidden !important; }
     };
 
     // RFC-0110: Device list tooltip for expand buttons (+)
-    const showDeviceTooltip = (triggerEl, filterId, devices, _filterTabs, _filterTabIcons, _getItemLabel, _getItemSubLabel) => {
-      const InfoTooltip = window.MyIOLibrary?.InfoTooltip
-        || window.MyIO?.InfoTooltip
-        || window.InfoTooltip;
+    const showDeviceTooltip = (
+      triggerEl,
+      filterId,
+      devices,
+      _filterTabs,
+      _filterTabIcons,
+      _getItemLabel,
+      _getItemSubLabel
+    ) => {
+      const InfoTooltip = window.MyIOLibrary?.InfoTooltip || window.MyIO?.InfoTooltip || window.InfoTooltip;
 
       if (!InfoTooltip) {
         LogHelper.warn('[MAIN_UNIQUE] InfoTooltip not available');
@@ -1723,27 +1909,43 @@ body.filter-modal-open { overflow: hidden !important; }
         `;
       } else {
         const dotColors = {
-          online: '#22c55e', offline: '#6b7280', notInstalled: '#92400e', normal: '#3b82f6', standby: '#22c55e',
-          alert: '#f59e0b', failure: '#ef4444', elevators: '#7c3aed', escalators: '#db2777',
-          hvac: '#0891b2', others: '#57534e', commonArea: '#0284c7', stores: '#9333ea'
+          online: '#22c55e',
+          offline: '#6b7280',
+          notInstalled: '#92400e',
+          normal: '#3b82f6',
+          standby: '#22c55e',
+          alert: '#f59e0b',
+          failure: '#ef4444',
+          elevators: '#7c3aed',
+          escalators: '#db2777',
+          hvac: '#0891b2',
+          others: '#57534e',
+          commonArea: '#0284c7',
+          stores: '#9333ea',
         };
         const dotColor = dotColors[filterId] || '#94a3b8';
 
-        const deviceItems = devices.slice(0, 50).map((device) => {
-          const deviceLabel = getItemLabel(device) || 'Sem nome';
-          const customerName = getItemSubLabel ? getItemSubLabel(device) : '';
-          const displayLabel = customerName ? `${deviceLabel} (${customerName})` : deviceLabel;
-          return `
+        const deviceItems = devices
+          .slice(0, 50)
+          .map((device) => {
+            const deviceLabel = getItemLabel(device) || 'Sem nome';
+            const customerName = getItemSubLabel ? getItemSubLabel(device) : '';
+            const displayLabel = customerName ? `${deviceLabel} (${customerName})` : deviceLabel;
+            return `
             <div class="myio-info-tooltip__row" style="padding: 6px 0; gap: 8px;">
               <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; flex-shrink: 0;"></span>
               <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px;" title="${displayLabel}">${displayLabel}</span>
             </div>
           `;
-        }).join('');
+          })
+          .join('');
 
-        const moreText = devices.length > 50
-          ? `<div style="font-style: italic; color: #94a3b8; font-size: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; margin-top: 8px;">... e mais ${devices.length - 50} dispositivos</div>`
-          : '';
+        const moreText =
+          devices.length > 50
+            ? `<div style="font-style: italic; color: #94a3b8; font-size: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; margin-top: 8px;">... e mais ${
+                devices.length - 50
+              } dispositivos</div>`
+            : '';
 
         devicesHtml = `
           <div class="myio-info-tooltip__section">
@@ -1761,7 +1963,7 @@ body.filter-modal-open { overflow: hidden !important; }
       InfoTooltip.show(triggerEl, {
         icon: icon,
         title: `${label} (${devices.length})`,
-        content: devicesHtml
+        content: devicesHtml,
       });
     };
 
@@ -1772,7 +1974,14 @@ body.filter-modal-open { overflow: hidden !important; }
       }
     };
 
-    const setupExpandButtonListeners = (modal, items, _filterTabs, _filterTabIcons, _getItemLabel, _getItemSubLabel) => {
+    const setupExpandButtonListeners = (
+      modal,
+      items,
+      _filterTabs,
+      _filterTabIcons,
+      _getItemLabel,
+      _getItemSubLabel
+    ) => {
       const expandBtns = modal.querySelectorAll('.filter-tab-expand');
 
       expandBtns.forEach((btn) => {
@@ -1785,7 +1994,15 @@ body.filter-modal-open { overflow: hidden !important; }
         btn.addEventListener('mouseenter', (e) => {
           e.stopPropagation();
           const matchingDevices = items.filter(filterFn);
-          showDeviceTooltip(btn, filterId, matchingDevices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
+          showDeviceTooltip(
+            btn,
+            filterId,
+            matchingDevices,
+            filterTabs,
+            filterTabIcons,
+            getItemLabel,
+            getItemSubLabel
+          );
         });
 
         btn.addEventListener('mouseleave', (e) => {
@@ -1796,7 +2013,15 @@ body.filter-modal-open { overflow: hidden !important; }
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const matchingDevices = items.filter(filterFn);
-          showDeviceTooltip(btn, filterId, matchingDevices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
+          showDeviceTooltip(
+            btn,
+            filterId,
+            matchingDevices,
+            filterTabs,
+            filterTabIcons,
+            getItemLabel,
+            getItemSubLabel
+          );
         });
       });
     };
@@ -1840,7 +2065,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
       populateChecklist(modal, items, state.selectedIds);
 
-      const sortRadio = modal.querySelector(`input[name="sortMode"][value="${state.sortMode || 'cons_desc'}"]`);
+      const sortRadio = modal.querySelector(
+        `input[name="sortMode"][value="${state.sortMode || 'cons_desc'}"]`
+      );
       if (sortRadio) sortRadio.checked = true;
 
       modal.classList.remove('hidden');
@@ -1872,69 +2099,6 @@ body.filter-modal-open { overflow: hidden !important; }
     return { open, close, destroy };
   };
 
-  // RFC-0111: Fetch logged-in user info from ThingsBoard API
-  const fetchUserInfo = async () => {
-    try {
-      const tbToken = localStorage.getItem('jwt_token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (tbToken) {
-        headers['X-Authorization'] = `Bearer ${tbToken}`;
-      }
-
-      const response = await fetch('/api/auth/user', {
-        method: 'GET',
-        headers: headers,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        logDebug('Failed to fetch user info:', response.status);
-        return null;
-      }
-
-      const user = await response.json();
-      logDebug('User data from API:', user);
-
-      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Usuário';
-      return {
-        fullName,
-        email: user.email || '',
-      };
-    } catch (error) {
-      LogHelper.error('Error fetching user info:', error);
-      return null;
-    }
-  };
-
-  /**
-   * RFC-0111: Calculate device counts per shopping from classified data
-   * Uses ownerName (shopping name) as the key for matching with shopping cards
-   * @param {Object} classified - Classified device data from window.MyIOOrchestratorData
-   * @returns {Map} Map of ownerName (normalized) -> { energy, water, temperature }
-   */
-  const calculateShoppingDeviceCounts = (classified) => {
-    const countsByOwnerName = new Map();
-
-    // Count devices per domain per ownerName (shopping name)
-    ['energy', 'water', 'temperature'].forEach((domain) => {
-      const domainDevices = classified[domain] || {};
-      Object.values(domainDevices).forEach((devices) => {
-        devices.forEach((device) => {
-          // RFC-0111 FIX: Use ownerName for matching, normalize to lowercase
-          const ownerName = (device.ownerName || device.customerName || '').toLowerCase().trim();
-          if (!ownerName) return; // Skip devices without ownerName
-
-          if (!countsByOwnerName.has(ownerName)) {
-            countsByOwnerName.set(ownerName, { energy: 0, water: 0, temperature: 0 });
-          }
-          countsByOwnerName.get(ownerName)[domain]++;
-        });
-      });
-    });
-
-    return countsByOwnerName;
-  };
-
   /**
    * RFC-0111: Update DEFAULT_SHOPPING_CARDS with real counts from classified data
    * Matches by shopping card title to device ownerName
@@ -1942,13 +2106,13 @@ body.filter-modal-open { overflow: hidden !important; }
    * @returns {Array} Updated shopping cards with real device counts
    */
   const updateShoppingCardsWithRealCounts = (classified) => {
-    const countsByOwnerName = calculateShoppingDeviceCounts(classified);
+    const countsByOwnerName = MyIOLibrary.calculateShoppingDeviceCounts(DOMAIN_ALL_LIST, classified);
 
-    logDebug('Device counts by ownerName:', Object.fromEntries(countsByOwnerName));
+    LogHelper.log('Device counts by ownerName:', Object.fromEntries(countsByOwnerName));
 
     return DEFAULT_SHOPPING_CARDS.map((card) => {
       if (!card.title) {
-        logDebug('Card has no title, skipping');
+        LogHelper.log('Card has no title, skipping');
         return card;
       }
 
@@ -1957,7 +2121,7 @@ body.filter-modal-open { overflow: hidden !important; }
       // 1. Try exact match on normalized title
       if (countsByOwnerName.has(cardTitleNorm)) {
         const counts = countsByOwnerName.get(cardTitleNorm);
-        logDebug(`Exact match for ${card.title}:`, counts);
+        LogHelper.log(`Exact match for ${card.title}:`, counts);
         return { ...card, deviceCounts: counts };
       }
 
@@ -1970,11 +2134,11 @@ body.filter-modal-open { overflow: hidden !important; }
 
       if (matchByName) {
         const counts = countsByOwnerName.get(matchByName);
-        logDebug(`Partial match ${card.title} -> ${matchByName}:`, counts);
+        LogHelper.log(`Partial match ${card.title} -> ${matchByName}:`, counts);
         return { ...card, deviceCounts: counts };
       }
 
-      logDebug(`No counts found for ${card.title}`);
+      LogHelper.log(`No counts found for ${card.title}`);
       return card;
     });
   };
@@ -1987,14 +2151,16 @@ body.filter-modal-open { overflow: hidden !important; }
   const updateWelcomeModalShoppingCards = (welcomeModal, updatedCards) => {
     if (welcomeModal && welcomeModal.updateShoppingCards) {
       welcomeModal.updateShoppingCards(updatedCards);
-      logDebug('Welcome modal updated with real device counts');
+      LogHelper.log('Welcome modal updated with real device counts');
       return;
     }
 
     // Fallback: Update DOM directly
-    logDebug('Updating shopping cards DOM directly');
+    LogHelper.log('Updating shopping cards DOM directly');
     updatedCards.forEach((card) => {
-      const cardEl = document.querySelector(`[data-shopping-id="${card.entityId}"], [data-button-id="${card.buttonId}"]`);
+      const cardEl = document.querySelector(
+        `[data-shopping-id="${card.entityId}"], [data-button-id="${card.buttonId}"]`
+      );
       if (cardEl) {
         const energyBadge = cardEl.querySelector('.device-count-energy, [data-domain="energy"]');
         const waterBadge = cardEl.querySelector('.device-count-water, [data-domain="water"]');
@@ -2015,15 +2181,14 @@ body.filter-modal-open { overflow: hidden !important; }
     CLIENT_SECRET,
     CUSTOMER_ING_ID,
     LogHelper,
-    calculateDeviceStatusMasterRules,
-    mapConnectionStatus,
-    formatRelativeTime,
-    formatarDuracao,
+    calculateDeviceStatusMasterRules: MyIOLibrary.calculateDeviceStatusMasterRules,
+    mapConnectionStatus: MyIOLibrary.mapConnectionStatus,
+    formatRelativeTime: MyIOLibrary.formatRelativeTime,
+    formatarDuracao: MyIOLibrary.formatarDuracao,
     getCustomerNameForDevice,
-    findValue,
+    findValue: MyIOLibrary.findValueWithDefault,
     fetchCustomerServerScopeAttrs,
     buildHeaderDevicesGrid,
-    createFilterModal,
     getConsumptionRangesHierarchical: () => null,
     getCachedConsumptionLimits: () => null,
     getCredentials: () => ({
@@ -2084,7 +2249,12 @@ body.filter-modal-open { overflow: hidden !important; }
     });
 
     // Also force sections to be transparent
-    const sections = ['.myio-header-section', '.myio-menu-section', '.myio-main-view-section', '.myio-footer-section'];
+    const sections = [
+      '.myio-header-section',
+      '.myio-menu-section',
+      '.myio-main-view-section',
+      '.myio-footer-section',
+    ];
     sections.forEach((selector) => {
       document.querySelectorAll(selector).forEach((el) => {
         el.style.background = 'transparent';
@@ -2098,7 +2268,7 @@ body.filter-modal-open { overflow: hidden !important; }
       wrap.style.background = backgroundStyle;
     }
 
-    logDebug('Background applied to page:', { themeMode, backgroundType, backgroundStyle });
+    LogHelper.log('Background applied to page:', { themeMode, backgroundType, backgroundStyle });
   };
 
   // RFC-0120: Apply initial theme to main wrapper immediately
@@ -2110,7 +2280,7 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0121: Apply initial background to page
   applyBackgroundToPage(currentThemeMode);
 
-  logDebug('MyIOUtils exposed globally (credentials pending fetch)');
+  LogHelper.log('MyIOUtils exposed globally (credentials pending fetch)');
 
   // Fetch credentials from ThingsBoard
   await fetchCredentialsFromThingsBoard();
@@ -2129,14 +2299,16 @@ body.filter-modal-open { overflow: hidden !important; }
   // Skip welcome modal if already opened (prevents duplicate modals)
   const welcomeModalKey = '__MYIO_WELCOME_MODAL_OPENED__';
   if (window[welcomeModalKey]) {
-    logDebug('Welcome modal already opened, skipping');
+    LogHelper.log('Welcome modal already opened, skipping');
     return; // Don't continue initialization for child widgets
   }
+
   window[welcomeModalKey] = true;
 
   // Fetch user info for display in the modal
-  const userInfo = await fetchUserInfo();
-  logDebug('User info fetched:', userInfo);
+  const userInfoRaw = await MyIOLibrary.fetchCurrentUserInfo();
+  const userInfo = userInfoRaw ? { fullName: userInfoRaw.name, email: userInfoRaw.email } : null;
+  LogHelper.log('User info fetched:', userInfo);
 
   const welcomeModal = MyIOLibrary.openWelcomeModal({
     ctx: self.ctx,
@@ -2159,12 +2331,12 @@ body.filter-modal-open { overflow: hidden !important; }
       if (footerInstance) footerInstance.setThemeMode?.(newTheme);
     },
     onClose: () => {
-      console.log('[MAIN_UNIQUE] Welcome modal closed');
+      LogHelper.log('[MAIN_UNIQUE] Welcome modal closed');
       // Clear flag to allow re-opening on next navigation
       window['__MYIO_WELCOME_MODAL_OPENED__'] = false;
     },
     onCardClick: (card) => {
-      console.log('[MAIN_UNIQUE] Shopping card clicked:', card.title);
+      LogHelper.log('[MAIN_UNIQUE] Shopping card clicked:', card.title);
       // Handle shopping selection if needed
     },
   });
@@ -2172,7 +2344,7 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0111: Listen for data-ready event and update welcome modal with real counts
   const dataReadyHandler = (event) => {
     const { classified, shoppingCards: dynamicCards } = event.detail || {};
-    logDebug('Data ready event received, updating welcome modal');
+    LogHelper.log('Data ready event received, updating welcome modal');
 
     if (classified) {
       // Calculate counts from loaded data (using deviceType classification)
@@ -2188,7 +2360,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // RFC-0111: Listen for event to re-open welcome modal (from header back button)
   window.addEventListener('myio:open-welcome-modal', () => {
-    logDebug('Re-opening welcome modal (triggered by header back button)');
+    LogHelper.log('Re-opening welcome modal (triggered by header back button)');
     if (welcomeModal && welcomeModal.open) {
       welcomeModal.open();
     }
@@ -2243,7 +2415,7 @@ body.filter-modal-open { overflow: hidden !important; }
   const menuContainer = document.getElementById('menuContainer');
   let menuInstance = null;
   let telemetryGridInstance = null;
-  let currentTelemetryDomain = 'energy';
+  let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
 
   if (menuContainer && MyIOLibrary.createMenuComponent) {
@@ -2258,16 +2430,16 @@ body.filter-modal-open { overflow: hidden !important; }
         tabNaoSelecionadoFontColor: settings.tabNaoSelecionadoFontColor || '#1C2743',
         enableDebugMode: settings.enableDebugMode,
       },
-      initialTab: 'energy',
+      initialTab: DOMAIN_ENERGY,
       initialDateRange: {
         start: getFirstDayOfMonth(),
         end: new Date(),
       },
       onTabChange: (tabId, contextId, target) => {
-        console.log('[MAIN_UNIQUE] Tab changed:', tabId, contextId, target);
+        LogHelper.log('[MAIN_UNIQUE] Tab changed:', tabId, contextId, target);
       },
       onContextChange: (tabId, contextId, target) => {
-        console.log('[MAIN_UNIQUE] Context changed:', tabId, contextId, target);
+        LogHelper.log('[MAIN_UNIQUE] Context changed:', tabId, contextId, target);
         handleContextChange(tabId, contextId, target);
       },
       onDateRangeChange: (start, end) => {
@@ -2332,6 +2504,7 @@ body.filter-modal-open { overflow: hidden !important; }
         cardAguaFontColor: settings.cardAguaFontColor,
       },
 
+      // RFC-0121: Pass buildHeaderDevicesGrid and createFilterModal for header/filter rendering
       buildHeaderDevicesGrid: window.MyIOUtils?.buildHeaderDevicesGrid,
       createFilterModal: window.MyIOUtils?.createFilterModal,
 
@@ -2352,7 +2525,12 @@ body.filter-modal-open { overflow: hidden !important; }
       onStatsUpdate: (stats) => {
         window.dispatchEvent(
           new CustomEvent('myio:telemetry-stats', {
-            detail: { stats, domain: currentTelemetryDomain, context: currentTelemetryContext, ts: Date.now() },
+            detail: {
+              stats,
+              domain: currentTelemetryDomain,
+              context: currentTelemetryContext,
+              ts: Date.now(),
+            },
           })
         );
       },
@@ -2382,10 +2560,10 @@ body.filter-modal-open { overflow: hidden !important; }
         end: self.ctx.$scope.endDateISO,
       }),
       onCompareClick: (entities, unitType) => {
-        console.log('[MAIN_UNIQUE] Compare clicked:', entities.length, unitType);
+        LogHelper.log('[MAIN_UNIQUE] Compare clicked:', entities.length, unitType);
       },
       onSelectionChange: (entities) => {
-        console.log('[MAIN_UNIQUE] Selection changed:', entities.length);
+        LogHelper.log('[MAIN_UNIQUE] Selection changed:', entities.length);
       },
     });
   }
@@ -2405,7 +2583,7 @@ body.filter-modal-open { overflow: hidden !important; }
     // NOTE: RFC-0113 header updates via events, not direct method calls
     // The header component listens to 'myio:data-ready' event automatically
     if (headerInstance && deviceCounts) {
-      logDebug('[MAIN_UNIQUE] Header will update via event listeners');
+      LogHelper.log('[MAIN_UNIQUE] Header will update via event listeners');
     }
 
     // Update menu shoppings
@@ -2433,7 +2611,7 @@ body.filter-modal-open { overflow: hidden !important; }
     const themeMode = e.detail?.themeMode;
     if (!themeMode) return;
 
-    logDebug('Global theme change received:', themeMode);
+    LogHelper.log('Global theme change received:', themeMode);
     currentThemeMode = themeMode;
 
     // RFC-0120: Sync to MyIOUtils for child widgets (TELEMETRY, etc.)
@@ -2513,7 +2691,7 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   }
 
-  function handlePanelModalRequest(domain, panelType) {
+  function handlePanelModalRequest(domain, _panelType) {
     const container = document.getElementById('panelModalContainer');
     if (!container) return;
 
@@ -2533,7 +2711,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let panelInstance = null;
 
     // Create appropriate panel based on domain
-    if (domain === 'energy' && MyIOLibrary.createEnergyPanel) {
+    if (domain === DOMAIN_ENERGY && MyIOLibrary.createEnergyPanel) {
       panelInstance = MyIOLibrary.createEnergyPanel({
         container: panelContent,
         ctx: self.ctx,
@@ -2545,7 +2723,7 @@ body.filter-modal-open { overflow: hidden !important; }
         },
         onError: (err) => console.error('[EnergyPanel]', err),
       });
-    } else if (domain === 'water' && MyIOLibrary.createWaterPanel) {
+    } else if (domain === DOMAIN_WATER && MyIOLibrary.createWaterPanel) {
       panelInstance = MyIOLibrary.createWaterPanel({
         container: panelContent,
         ctx: self.ctx,
@@ -2556,7 +2734,7 @@ body.filter-modal-open { overflow: hidden !important; }
         },
         onError: (err) => console.error('[WaterPanel]', err),
       });
-    } else if (domain === 'temperature' && MyIOLibrary.createTemperaturePanel) {
+    } else if (domain === DOMAIN_TEMPERATURE && MyIOLibrary.createTemperaturePanel) {
       panelInstance = MyIOLibrary.createTemperaturePanel({
         container: panelContent,
         ctx: self.ctx,
@@ -2607,22 +2785,6 @@ body.filter-modal-open { overflow: hidden !important; }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   }
-
-  function formatEnergy(value) {
-    if (!value || isNaN(value)) return '- kWh';
-    if (value >= 1000) return (value / 1000).toFixed(1) + ' MWh';
-    return value.toFixed(0) + ' kWh';
-  }
-
-  function formatTemperature(value) {
-    if (!value || isNaN(value)) return '- °C';
-    return value.toFixed(1) + ' °C';
-  }
-
-  function formatWater(value) {
-    if (!value || isNaN(value)) return '- m³';
-    return value.toFixed(1) + ' m³';
-  }
 };
 
 // ===================================================================
@@ -2631,30 +2793,33 @@ body.filter-modal-open { overflow: hidden !important; }
 // RFC-0111: Added throttle to max 4 calls
 // ===================================================================
 self.onDataUpdated = function () {
+  // Guard: LogHelper not ready yet (onInit not complete)
+  if (!LogHelper) return;
+
   // Throttle: only allow MAX_DATA_UPDATED_CALLS calls
   _onDataUpdatedCallCount++;
   if (_onDataUpdatedCallCount > MAX_DATA_UPDATED_CALLS) {
     if (_onDataUpdatedCallCount === MAX_DATA_UPDATED_CALLS + 1) {
-      console.log('[MAIN_UNIQUE] onDataUpdated throttled - max calls reached:', MAX_DATA_UPDATED_CALLS);
+      LogHelper.log('[MAIN_UNIQUE] onDataUpdated throttled - max calls reached:', MAX_DATA_UPDATED_CALLS);
     }
     return;
   }
 
-  console.log('[MAIN_UNIQUE] onDataUpdated call #' + _onDataUpdatedCallCount);
+  LogHelper.log('[MAIN_UNIQUE] onDataUpdated call #' + _onDataUpdatedCallCount);
 
   const allData = self.ctx.data || [];
 
   // RFC-0111: Filter to only use "AllDevices" datasource, ignore "customers" and others
   const data = allData.filter((row) => {
     const aliasName = row.datasource?.aliasName || '';
-    return aliasName === 'AllDevices' || aliasName === 'allDevices' || aliasName === 'all_devices';
+    return aliasName === 'AllDevices';
   });
 
-  console.log(`[MAIN_UNIQUE] Total rows: ${allData.length}, AllDevices rows: ${data.length}`);
+  LogHelper.log(`[MAIN_UNIQUE] Total rows: ${allData.length}, AllDevices rows: ${data.length}`);
 
   // Skip if no data from AllDevices
   if (data.length === 0) {
-    console.log('[MAIN_UNIQUE] No data from AllDevices datasource - check alias configuration');
+    LogHelper.log('[MAIN_UNIQUE] No data from AllDevices datasource - check alias configuration');
     return;
   }
 
@@ -2673,10 +2838,11 @@ self.onDataUpdated = function () {
     // Data hasn't changed, skip processing
     return;
   }
+
   self._lastDataHash = dataHash;
 
-  // Classify all devices from AllDevices datasource (pass logDebug for debug output)
-  const classified = classifyAllDevices(data, self._logDebug);
+  // Classify all devices from AllDevices datasource
+  const classified = classifyAllDevices(data);
 
   // Build shopping cards for welcome modal
   const shoppingCards = buildShoppingCards(classified);
@@ -2704,13 +2870,13 @@ self.onDataUpdated = function () {
   const waterItems = orch.water?.items || [];
   const temperatureItems = orch.temperature?.items || [];
 
-  self._logDebug('Initial MyIOOrchestratorData.energy.items count:', energyItems.length);
-  self._logDebug('Initial MyIOOrchestratorData.water.items count:', waterItems.length);
+  self._LogHelper.log('Initial MyIOOrchestratorData.energy.items count:', energyItems.length);
+  self._LogHelper.log('Initial MyIOOrchestratorData.water.items count:', waterItems.length);
 
   // Calculate initial totals
   const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
   const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
-  const tempValues = temperatureItems.map(d => Number(d.temperature || 0)).filter(v => v > 0);
+  const tempValues = temperatureItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
   const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
   // Energy summary event
@@ -2766,13 +2932,13 @@ self.onDataUpdated = function () {
     })
   );
 
-  self._logDebug('Initial summary events dispatched');
+  self._LogHelper.log('Initial summary events dispatched');
 };
 
 // ===================================================================
 // Device Classification Logic
 // ===================================================================
-function classifyAllDevices(data, logDebug) {
+function classifyAllDevices(data) {
   const classified = {
     energy: { equipments: [], stores: [], entrada: [] },
     water: { hidrometro_area_comum: [], hidrometro: [], entrada: [] },
@@ -2792,43 +2958,21 @@ function classifyAllDevices(data, logDebug) {
     if (!deviceRowsMap.has(entityId)) {
       deviceRowsMap.set(entityId, []);
     }
+
     deviceRowsMap.get(entityId).push(row);
   }
 
-  if (logDebug) {
-    logDebug(`Grouping: ${data.length} rows → ${deviceRowsMap.size} unique devices`);
-  }
-
-  // Debug: log first device's rows structure
-  if (deviceRowsMap.size > 0 && logDebug) {
-    const firstDeviceRows = deviceRowsMap.values().next().value;
-    const dataKeysFound = firstDeviceRows.map((r) => r.dataKey?.name).filter(Boolean);
-    logDebug('First device dataKeys:', dataKeysFound);
-  }
+  LogHelper.log(`Grouping: ${data.length} rows → ${deviceRowsMap.size} unique devices`);
 
   // Process each device with all its rows
-  let deviceIndex = 0;
-  for (const [entityId, rows] of deviceRowsMap) {
-    const device = extractDeviceMetadataFromRows(rows, logDebug);
-
-    // Debug: log first 3 devices
-    if (deviceIndex < 3 && logDebug) {
-      logDebug(`Device ${deviceIndex}:`, {
-        id: device.id,
-        name: device.name,
-        deviceType: device.deviceType,
-        deviceProfile: device.deviceProfile,
-      });
-    }
-
-    const domain = detectDomain(device);
-    const context = detectContext(device, domain);
+  for (const rows of deviceRowsMap.values()) {
+    const device = extractDeviceMetadataFromRows(rows);
+    const domain = window.MyIOLibrary.detectDomain(device);
+    const context = window.MyIOLibrary.detectContext(device, domain);
 
     if (classified[domain]?.[context]) {
       classified[domain][context].push(device);
     }
-
-    deviceIndex++;
   }
 
   // Log classification summary - always log this for debugging
@@ -2848,26 +2992,8 @@ function classifyAllDevices(data, logDebug) {
       externo: classified.temperature.termostato_external.length,
     },
   };
-  console.log('[MAIN_UNIQUE] Classification summary:', JSON.stringify(summary));
 
-  // Debug: Log sample of energy/equipments devices to understand why there are so many
-  if (classified.energy.equipments.length > 0 && logDebug) {
-    // Count by deviceType
-    const typeCounts = {};
-    classified.energy.equipments.forEach((d) => {
-      const t = d.deviceType || '(empty)';
-      typeCounts[t] = (typeCounts[t] || 0) + 1;
-    });
-    logDebug('Energy/equipments by deviceType:', typeCounts);
-
-    const sampleSize = Math.min(10, classified.energy.equipments.length);
-    const samples = classified.energy.equipments.slice(0, sampleSize).map((d) => ({
-      name: d.name,
-      deviceType: d.deviceType || '(empty)',
-      deviceProfile: d.deviceProfile || '(empty)',
-    }));
-    logDebug('Sample energy/equipments devices (first ' + sampleSize + '):', samples);
-  }
+  LogHelper.log('[MAIN_UNIQUE] Classification summary:', JSON.stringify(summary));
 
   // RFC-0111: Build flat items arrays for each domain (for tooltip compatibility)
   // Tooltip expects MyIOOrchestratorData[domain].items format
@@ -2876,35 +3002,24 @@ function classifyAllDevices(data, logDebug) {
     ...classified.energy.stores,
     ...classified.energy.entrada,
   ];
+
   const waterItems = [
     ...classified.water.hidrometro_area_comum,
     ...classified.water.hidrometro,
     ...classified.water.entrada,
   ];
+
   const temperatureItems = [
     ...classified.temperature.termostato,
     ...classified.temperature.termostato_external,
   ];
 
   // RFC-0113: Debug logging for tooltip - verify labels and status
-  if (logDebug) {
-    logDebug(`Energy items total: ${energyItems.length} (equip: ${classified.energy.equipments.length}, stores: ${classified.energy.stores.length}, entrada: ${classified.energy.entrada.length})`);
-    logDebug(`Water items total: ${waterItems.length}`);
-    logDebug(`Temperature items total: ${temperatureItems.length}`);
-
-    // Sample 3 energy devices to verify label, deviceStatus, connectionStatus
-    const samples = energyItems.slice(0, 3).map((d, i) => ({
-      idx: i,
-      id: d.id,
-      name: d.name,
-      label: d.label,
-      entityLabel: d.entityLabel,
-      deviceStatus: d.deviceStatus,
-      connectionStatus: d.connectionStatus,
-      value: d.value,
-    }));
-    logDebug('Sample energy items (first 3):', samples);
-  }
+  LogHelper.log(
+    `Energy items total: ${energyItems.length} (equip: ${classified.energy.equipments.length}, stores: ${classified.energy.stores.length}, entrada: ${classified.energy.entrada.length})`
+  );
+  LogHelper.log(`Water items total: ${waterItems.length}`);
+  LogHelper.log(`Temperature items total: ${temperatureItems.length}`);
 
   // Cache for getDevices and tooltip
   window.MyIOOrchestratorData = {
@@ -2929,42 +3044,65 @@ function classifyAllDevices(data, logDebug) {
 }
 
 /**
+ * Extract device metadata from a single row
+ * Used by buildShoppingsList where we iterate row by row
+ */
+function extractDeviceMetadataToBuildShoppingsList(row) {
+  const datasource = row?.datasource || {};
+  const entityId = datasource.entityId || null;
+  const deviceName = datasource.entityName || 'SEM_NAME';
+
+  // Get value from single row's data
+  const getLatestValue = () => {
+    if (row.data && row.data.length > 0) {
+      const latestData = row.data[row.data.length - 1];
+
+      if (Array.isArray(latestData) && latestData.length >= 2) {
+        return latestData[1];
+      }
+    }
+
+    return null;
+  };
+
+  const keyName = row.dataKey?.name;
+  const value = getLatestValue();
+
+  return {
+    id: entityId,
+    entityId: entityId,
+    name: deviceName,
+    aliasName: datasource.aliasName || '',
+    deviceType: keyName === 'deviceType' ? value : '',
+    deviceProfile: keyName === 'deviceProfile' ? value : '',
+    ingestionId: keyName === 'ingestionId' ? value : '',
+    customerId: datasource.entity?.customerId?.id || '',
+    customerName: keyName === 'customerName' || keyName === 'ownerName' ? value : '',
+  };
+}
+
+/**
  * Extract device metadata from ALL rows for a single device
  * ThingsBoard sends 1 row per (device, dataKey), so we need to merge all rows
  */
-function extractDeviceMetadataFromRows(rows, logDebug) {
+function extractDeviceMetadataFromRows(rows) {
   if (!rows || rows.length === 0) return null;
 
   // Use first row for datasource info (same for all rows of same device)
   const firstRow = rows[0];
   const datasource = firstRow.datasource || {};
-
-  // Extract entityId
-  const extractEntityId = (entityIdObj) => {
-    if (!entityIdObj) return null;
-    if (typeof entityIdObj === 'string') return entityIdObj;
-    return entityIdObj.id || null;
-  };
-
-  const entityId =
-    extractEntityId(datasource.entity?.id) ||
-    extractEntityId(datasource.entityId) ||
-    datasource.entity?.id?.id ||
-    null;
-
-  // RFC-0111 FIX: Use entityLabel for label (like MAIN does)
-  const deviceName = datasource.entityName || datasource.entity?.name || 'Unknown';
-  const entityLabel = datasource.entityLabel || datasource.entityName || deviceName;
-
-  // Build a map of dataKey values AND timestamps from all rows
+  const entityId = datasource.entityId;
+  const deviceName = datasource.entityName || 'SEM_NAME';
+  const entityLabel = datasource.entityLabel || 'SEM_ETIQUEPA';
   const dataKeyValues = {};
   const dataKeyTimestamps = {};
+
   for (const row of rows) {
     const keyName = row.dataKey?.name;
+
     if (keyName && row.data && row.data.length > 0) {
-      // Get the latest value (last element in data array)
-      // row.data[i] = [timestamp, value]
       const latestData = row.data[row.data.length - 1];
+
       if (Array.isArray(latestData) && latestData.length >= 2) {
         dataKeyTimestamps[keyName] = latestData[0]; // timestamp
         dataKeyValues[keyName] = latestData[1]; // value
@@ -2972,60 +3110,33 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     }
   }
 
-  // Extract deviceType from dataKey values
-  let deviceType = dataKeyValues['deviceType'] || dataKeyValues['type'] || '';
-
-  // Skip generic entity types
-  if (deviceType === 'DEVICE' || deviceType === 'CUSTOMER' || deviceType === 'ASSET') {
-    deviceType = '';
-  }
-
   // RFC-0111: Classification is based ONLY on deviceType from ThingsBoard
   // No name-based inference - deviceType must be properly configured in ThingsBoard
-
-  // Extract deviceProfile from dataKey values
-  const deviceProfile = dataKeyValues['deviceProfile'] || dataKeyValues['profile'] || '';
-
-  // Get consumption value
-  const consumptionValue = dataKeyValues['consumption'] || 0;
-
-  // Get identifier - normalize empty values
-  const rawIdentifier = String(dataKeyValues['identifier'] || dataKeyValues['slaveId'] || '').trim();
-  const deviceIdentifier = !rawIdentifier
-    ? 'Sem identificador'
-    : rawIdentifier.toUpperCase().includes('SEM IDENTIFICADOR')
-      ? 'Sem identificador'
-      : rawIdentifier;
-
-  // Get connection status
-  const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'offline';
-  const connectionStatus = window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus) || rawConnectionStatus;
-
-  // RFC-0111 FIX: Get label from dataKey (overrides entityLabel if present)
+  const deviceType = dataKeyValues['deviceType'] || 'SEM_DEVICE_TYPE';
+  const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
+  const consumptionValue = dataKeyValues['consumption'] || null;
+  const deviceIdentifier = String(dataKeyValues['identifier'] || 'SEM IDENTIFICADOR').trim();
+  const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
+  const connectionStatus = window.MyIOLibrary.mapConnectionStatus(rawConnectionStatus);
   const labelFromDataKey = dataKeyValues['label'] || '';
   const deviceLabel = labelFromDataKey || entityLabel;
-
-  // RFC-0111 FIX: Get deviceMapInstaneousPower for EQUIPMENTS
-  const deviceMapInstaneousPower = dataKeyValues['deviceMapInstaneousPower'] || dataKeyValues['deviceMapInstantaneousPower'] || '';
-
-  // RFC-0110: Get domain-specific telemetry timestamps
+  const deviceMapInstaneousPower =
+    dataKeyValues['deviceMapInstaneousPower'] || dataKeyValues['deviceMapInstantaneousPower'] || ''; // deviceMapInstaneousPower
   const consumptionTs = dataKeyTimestamps['consumption'] || null;
   const pulsesTs = dataKeyTimestamps['pulses'] || null;
-  const temperatureTs = dataKeyTimestamps['temperature'] || null;
+  const temperatureTs = dataKeyTimestamps[DOMAIN_TEMPERATURE] || null;
   const waterLevelTs = dataKeyTimestamps['water_level'] || null;
-
-  // Determine domain for status calculation
-  const isWater = deviceType.includes('HIDROMETRO') || deviceType.includes('HIDRO');
-  const isTemperature = deviceType.includes('TERMOSTATO') || deviceType.includes('TEMP');
-  const domain = isWater ? 'water' : isTemperature ? 'temperature' : 'energy';
+  const isWater = deviceType.includes('HIDROMETRO');
+  const isTemperature = deviceType.includes('TERMOSTATO');
+  const domain = isWater ? DOMAIN_WATER : isTemperature ? DOMAIN_TEMPERATURE : DOMAIN_ENERGY;
 
   // RFC-0110: Get domain-specific telemetry timestamp
   let telemetryTimestamp = null;
-  if (domain === 'energy') {
+  if (domain === DOMAIN_ENERGY) {
     telemetryTimestamp = consumptionTs;
-  } else if (domain === 'water') {
+  } else if (domain === DOMAIN_WATER) {
     telemetryTimestamp = pulsesTs || waterLevelTs;
-  } else if (domain === 'temperature') {
+  } else if (domain === DOMAIN_TEMPERATURE) {
     telemetryTimestamp = temperatureTs;
   }
 
@@ -3043,16 +3154,16 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     });
   } else {
     // Fallback: basic status calculation
+    LogHelper.warn('calculateDeviceStatusMasterRules not available, using fallback');
+    showToast('Aviso: usando cálculo de status básico (fallback)', 'warning');
     const SHORT_DELAY_MINS = 60;
     const LONG_DELAY_MINS = 1440;
     const now = Date.now();
-
     const normalizedStatus = (connectionStatus || '').toLowerCase();
 
     if (normalizedStatus === 'waiting') {
       deviceStatus = 'not_installed';
     } else if (!telemetryTimestamp) {
-      // No domain-specific telemetry → offline
       deviceStatus = 'offline';
     } else {
       const telemetryAgeMs = now - telemetryTimestamp;
@@ -3111,7 +3222,7 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     val: consumptionValue, // RFC-0111: Card component expects val
     value: consumptionValue, // RFC-0111 FIX: Another alias used by some components
     pulses: dataKeyValues['pulses'],
-    temperature: dataKeyValues['temperature'],
+    temperature: dataKeyValues[DOMAIN_TEMPERATURE],
     water_level: dataKeyValues['water_level'],
 
     // RFC-0111 FIX: Power limits for EQUIPMENTS status calculation
@@ -3136,162 +3247,7 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
     // Additional fields for card component
     valType: isWater ? 'water_m3' : 'power_w',
     unit: isWater ? 'm³' : 'kWh',
-    icon: isWater ? 'water' : isTemperature ? 'temperature' : 'energy',
-  };
-}
-
-function detectDomain(device) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-
-  // Water detection: HIDROMETRO or HIDROMETRO_AREA_COMUM
-  if (deviceType.includes('HIDROMETRO') || deviceType.includes('HIDRO')) {
-    return 'water';
-  }
-
-  // Temperature detection: TERMOSTATO or TERMOSTATO_EXTERNAL
-  if (deviceType.includes('TERMOSTATO')) {
-    return 'temperature';
-  }
-
-  // Default: Energy (3F_MEDIDOR, ENTRADA, RELOGIO, TRAFO, SUBESTACAO, etc.)
-  return 'energy';
-}
-
-/**
- * RFC-0111: Detect device context based on deviceType and deviceProfile
- *
- * WATER Rules:
- * - deviceType = deviceProfile = HIDROMETRO → STORE (hidrometro)
- * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM → AREA_COMUM
- * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING → ENTRADA WATER
- * - deviceType = HIDROMETRO_AREA_COMUM → AREA_COMUM
- *
- * ENERGY Rules:
- * - deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
- * - deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
- * - deviceType != 3F_MEDIDOR AND NOT (ENTRADA/RELOGIO/TRAFO/SUBESTACAO) → equipments
- * - deviceType = ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA ENERGY
- *
- * TEMPERATURE Rules:
- * - deviceType = deviceProfile = TERMOSTATO → termostato (climatized)
- * - deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → termostato_external
- * - deviceType = TERMOSTATO_EXTERNAL → termostato_external
- */
-function detectContext(device, domain) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
-
-  // ENTRADA types - main shopping meters (not individual stores or equipment)
-  const entradaTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO', 'DE_ENTRADA'];
-  const isEntrada = entradaTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t));
-
-  if (domain === 'water') {
-    // RFC-0111: HIDROMETRO_SHOPPING → ENTRADA WATER (main water meter for shopping)
-    if (deviceProfile.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('SHOPPING')) {
-      return 'entrada';
-    }
-    // HIDROMETRO_AREA_COMUM in deviceType or deviceProfile → area comum
-    if (
-      deviceType.includes('HIDROMETRO_AREA_COMUM') ||
-      deviceType.includes('AREA_COMUM') ||
-      deviceProfile.includes('AREA_COMUM')
-    ) {
-      return 'hidrometro_area_comum';
-    }
-    // deviceType = deviceProfile = HIDROMETRO → store (hidrometro)
-    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO')) {
-      return 'hidrometro'; // Store
-    }
-    // Default for water: hidrometro (store)
-    return 'hidrometro';
-  }
-
-  if (domain === 'energy') {
-    // RFC-0111: ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA ENERGY (main meters)
-    if (isEntrada) {
-      return 'entrada';
-    }
-    // RFC-0111: deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
-    if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
-      return 'stores';
-    }
-    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
-    if (deviceType === '3F_MEDIDOR' && deviceProfile !== '3F_MEDIDOR') {
-      return 'equipments';
-    }
-    // RFC-0111: deviceType != 3F_MEDIDOR → equipments
-    return 'equipments';
-  }
-
-  if (domain === 'temperature') {
-    // TERMOSTATO_EXTERNAL in deviceType → external (non-climatized)
-    if (deviceType.includes('TERMOSTATO_EXTERNAL') || deviceType.includes('EXTERNAL')) {
-      return 'termostato_external';
-    }
-    // deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → external
-    if (deviceType.includes('TERMOSTATO') && deviceProfile.includes('EXTERNAL')) {
-      return 'termostato_external';
-    }
-    // deviceType = deviceProfile = TERMOSTATO → climatized
-    if (
-      deviceType.includes('TERMOSTATO') &&
-      deviceProfile.includes('TERMOSTATO') &&
-      !deviceProfile.includes('EXTERNAL')
-    ) {
-      return 'termostato'; // Climatized
-    }
-    // Default for temperature
-    return 'termostato';
-  }
-
-  return 'equipments'; // Default
-}
-
-/**
- * Extract device metadata from a single row
- * Used by buildShoppingsList where we iterate row by row
- */
-function extractDeviceMetadata(row) {
-  const datasource = row?.datasource || {};
-
-  const extractEntityId = (entityIdObj) => {
-    if (!entityIdObj) return null;
-    if (typeof entityIdObj === 'string') return entityIdObj;
-    return entityIdObj.id || null;
-  };
-
-  const entityId =
-    extractEntityId(datasource.entity?.id) ||
-    extractEntityId(datasource.entityId) ||
-    datasource.entity?.id?.id ||
-    null;
-
-  const deviceName = datasource.entityName || datasource.entity?.name || 'Unknown';
-
-  // Get value from single row's data
-  const getLatestValue = () => {
-    if (row.data && row.data.length > 0) {
-      const latestData = row.data[row.data.length - 1];
-      if (Array.isArray(latestData) && latestData.length >= 2) {
-        return latestData[1];
-      }
-    }
-    return null;
-  };
-
-  const keyName = row.dataKey?.name;
-  const value = getLatestValue();
-
-  return {
-    id: entityId,
-    entityId: entityId,
-    name: deviceName,
-    aliasName: datasource.aliasName || '',
-    deviceType: keyName === 'deviceType' ? value : '',
-    deviceProfile: keyName === 'deviceProfile' ? value : '',
-    ingestionId: keyName === 'ingestionId' ? value : '',
-    customerId: datasource.entity?.customerId?.id || '',
-    customerName: keyName === 'customerName' || keyName === 'ownerName' ? value : '',
+    icon: isWater ? DOMAIN_WATER : isTemperature ? DOMAIN_TEMPERATURE : DOMAIN_ENERGY,
   };
 }
 
@@ -3303,10 +3259,11 @@ function buildShoppingCards(classified) {
     Object.values(domainDevices).forEach((devices) => {
       devices.forEach((device) => {
         const customerId = device.customerId || 'unknown';
+
         if (!customerMap.has(customerId)) {
           customerMap.set(customerId, {
             // Required fields for WelcomeModal ShoppingCard type
-            title: device.customerName || 'Shopping',
+            title: device.customerName || device.ownerName || 'SEM ETIQUETA PARA O CLIENTE',
             dashboardId: device.dashboardId || 'default-dashboard',
             entityId: device.ingestionId || device.customerId || customerId,
             entityType: 'CUSTOMER',
@@ -3321,7 +3278,7 @@ function buildShoppingCards(classified) {
   });
 
   // Count devices per domain per customer
-  ['energy', 'water', 'temperature'].forEach((domain) => {
+  [DOMAIN_ENERGY, DOMAIN_WATER, DOMAIN_TEMPERATURE].forEach((domain) => {
     const domainDevices = classified[domain] || {};
     Object.values(domainDevices).forEach((devices) => {
       devices.forEach((device) => {
@@ -3341,8 +3298,9 @@ function buildShoppingsList(data) {
   const customerMap = new Map();
 
   data.forEach((row) => {
-    const device = extractDeviceMetadata(row);
+    const device = extractDeviceMetadataToBuildShoppingsList(row);
     const customerId = device.customerId;
+
     if (customerId && !customerMap.has(customerId)) {
       customerMap.set(customerId, {
         name: device.customerName || 'Unknown',
@@ -3360,7 +3318,6 @@ function calculateDeviceCounts(classified) {
   let total = 0;
   let energyTotal = 0;
   let waterTotal = 0;
-  let tempTotal = 0;
   let tempSum = 0;
   let tempCount = 0;
 
@@ -3368,11 +3325,11 @@ function calculateDeviceCounts(classified) {
     Object.values(contexts).forEach((devices) => {
       total += devices.length;
       devices.forEach((device) => {
-        if (domain === 'energy') {
+        if (domain === DOMAIN_ENERGY) {
           energyTotal += device.consumption || 0;
-        } else if (domain === 'water') {
+        } else if (domain === DOMAIN_WATER) {
           waterTotal += device.pulses || 0;
-        } else if (domain === 'temperature') {
+        } else if (domain === DOMAIN_TEMPERATURE) {
           if (device.temperature != null) {
             tempSum += device.temperature;
             tempCount++;
@@ -3422,36 +3379,15 @@ window.MyIOOrchestrator.getCache = function (cacheKey) {
   return cache;
 };
 
-// ===================================================================
-// RFC-0111: API Enrichment - Fetch consumption totals from ingestion API
-// ===================================================================
-
-/**
- * Get default period for API calls (today by default)
- * Returns ISO strings for startTime and endTime
- */
-function getDefaultPeriod() {
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-  return {
-    startISO: startOfDay.toISOString(),
-    endISO: endOfDay.toISOString(),
-    granularity: 'day',
-  };
-}
-
 /**
  * RFC-0111: Enrich devices with consumption data from ingestion API
  * Calls /api/v1/telemetry/customers/{customerId}/{domain}/devices/totals
  * and matches results by ingestionId
  *
  * @param {Object} classified - Classified devices object from classifyAllDevices
- * @param {Function} logDebug - Debug logging function
  * @returns {Promise<Object>} - Enriched classified devices
  */
-async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
+async function enrichDevicesWithConsumption(classified) {
   const utils = window.MyIOUtils;
   const lib = window.MyIOLibrary;
 
@@ -3468,7 +3404,7 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
   }
 
   const { clientId, clientSecret, customerId, dataApiHost } = creds;
-  logDebug('Starting API enrichment with customerId:', customerId);
+  LogHelper.log('Starting API enrichment with customerId:', customerId);
 
   // Create MyIOAuth instance
   let myIOAuth;
@@ -3487,6 +3423,7 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
   let token;
   try {
     token = await myIOAuth.getToken();
+
     if (!token) {
       console.warn('[MAIN_UNIQUE] Failed to get ingestion token');
       return classified;
@@ -3496,7 +3433,7 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
     return classified;
   }
 
-  const period = getDefaultPeriod();
+  const period = window.MyIOLibrary.getDefaultPeriodCurrentMonthSoFar();
 
   // Build ingestionId maps for each domain (for quick lookup)
   const energyIngestionMap = new Map();
@@ -3520,8 +3457,8 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
     });
   });
 
-  logDebug(`Energy devices with ingestionId: ${energyIngestionMap.size}`);
-  logDebug(`Water devices with ingestionId: ${waterIngestionMap.size}`);
+  LogHelper.log(`Energy devices with ingestionId: ${energyIngestionMap.size}`);
+  LogHelper.log(`Water devices with ingestionId: ${waterIngestionMap.size}`);
 
   // Fetch and enrich energy domain
   if (energyIngestionMap.size > 0) {
@@ -3533,7 +3470,7 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
       energyUrl.searchParams.set('endTime', period.endISO);
       energyUrl.searchParams.set('deep', '1');
 
-      logDebug('Fetching energy totals from:', energyUrl.toString());
+      LogHelper.log('Fetching energy totals from:', energyUrl.toString());
 
       const res = await fetch(energyUrl.toString(), {
         headers: { Authorization: `Bearer ${token}` },
@@ -3543,13 +3480,14 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
         const json = await res.json();
         const rows = Array.isArray(json) ? json : json?.data ?? [];
 
-        logDebug(`Energy API returned ${rows.length} rows`);
+        LogHelper.log(`Energy API returned ${rows.length} rows`);
 
         // Match by ingestionId and update consumption
         let matchCount = 0;
         for (const row of rows) {
           const apiId = row.id; // ingestionId from API
           const device = energyIngestionMap.get(apiId);
+
           if (device) {
             const consumptionValue = Number(row.total_value || 0);
             device.consumption = consumptionValue;
@@ -3559,7 +3497,7 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
           }
         }
 
-        logDebug(`Energy enrichment: matched ${matchCount}/${rows.length} API rows`);
+        LogHelper.log(`Energy enrichment: matched ${matchCount}/${rows.length} API rows`);
       } else {
         console.warn(`[MAIN_UNIQUE] Energy API error: ${res.status}`);
       }
@@ -3574,11 +3512,12 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
       const waterUrl = new URL(
         `${dataApiHost}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
       );
+
       waterUrl.searchParams.set('startTime', period.startISO);
       waterUrl.searchParams.set('endTime', period.endISO);
       waterUrl.searchParams.set('deep', '1');
 
-      logDebug('Fetching water totals from:', waterUrl.toString());
+      LogHelper.log('Fetching water totals from:', waterUrl.toString());
 
       const res = await fetch(waterUrl.toString(), {
         headers: { Authorization: `Bearer ${token}` },
@@ -3588,13 +3527,14 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
         const json = await res.json();
         const rows = Array.isArray(json) ? json : json?.data ?? [];
 
-        logDebug(`Water API returned ${rows.length} rows`);
+        LogHelper.log(`Water API returned ${rows.length} rows`);
 
         // Match by ingestionId and update consumption
         let matchCount = 0;
         for (const row of rows) {
           const apiId = row.id; // ingestionId from API
           const device = waterIngestionMap.get(apiId);
+
           if (device) {
             const consumptionValue = Number(row.total_value || row.total_volume || row.total_pulses || 0);
             device.consumption = consumptionValue;
@@ -3605,7 +3545,7 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
           }
         }
 
-        logDebug(`Water enrichment: matched ${matchCount}/${rows.length} API rows`);
+        LogHelper.log(`Water enrichment: matched ${matchCount}/${rows.length} API rows`);
       } else {
         console.warn(`[MAIN_UNIQUE] Water API error: ${res.status}`);
       }
@@ -3619,27 +3559,36 @@ async function enrichDevicesWithConsumption(classified, logDebug = () => {}) {
   return classified;
 }
 
-// RFC-0111: Guard to prevent multiple API enrichment calls
-let _apiEnrichmentDone = false;
-let _apiEnrichmentInProgress = false;
-
 /**
  * RFC-0111: Trigger API enrichment after initial classification
  * This is called asynchronously so it doesn't block the initial render
  */
 async function triggerApiEnrichment() {
-  const logDebug = self._logDebug || (() => {});
-
   // Guard: Only run once
   if (_apiEnrichmentDone || _apiEnrichmentInProgress) {
-    logDebug('API enrichment already done or in progress, skipping');
+    LogHelper.log('API enrichment already done or in progress, skipping');
     return;
   }
 
   // Wait for credentials to be set
   const utils = window.MyIOUtils;
   if (!utils?.getCredentials) {
-    logDebug('Waiting for credentials to be available...');
+    _credentialsRetryCount++;
+
+    LogHelper.log(
+      `Waiting for credentials to be available... (attempt ${_credentialsRetryCount}/${MAX_CREDENTIALS_RETRIES})`
+    );
+
+    if (_credentialsRetryCount >= MAX_CREDENTIALS_RETRIES) {
+      LogHelper.log('Max retries exceeded for credentials availability');
+      window.MyIOUtils?.handleDataLoadError?.(
+        'credentials',
+        'Failed to load credentials after 10 attempts - widget stuck in busy state'
+      );
+
+      return;
+    }
+
     // Retry after 1 second
     setTimeout(triggerApiEnrichment, 1000);
     return;
@@ -3647,26 +3596,43 @@ async function triggerApiEnrichment() {
 
   const creds = utils.getCredentials();
   if (!creds?.clientId || !creds?.clientSecret || !creds?.customerId) {
-    logDebug('Credentials not yet available, retrying...');
+    _credentialsRetryCount++;
+
+    LogHelper.log(
+      `Credentials not yet available, retrying... (attempt ${_credentialsRetryCount}/${MAX_CREDENTIALS_RETRIES})`
+    );
+
+    if (_credentialsRetryCount >= MAX_CREDENTIALS_RETRIES) {
+      LogHelper.log('Max retries exceeded for credentials values');
+
+      window.MyIOUtils?.handleDataLoadError?.(
+        'credentials',
+        'Credentials incomplete after 10 attempts - widget stuck in busy state'
+      );
+
+      return;
+    }
+
     setTimeout(triggerApiEnrichment, 1000);
+
     return;
   }
 
   // Set in-progress flag
   _apiEnrichmentInProgress = true;
-  logDebug('Credentials available, starting API enrichment');
+  LogHelper.log('Credentials available, starting API enrichment');
 
   // Get current classified data
   const classified = window.MyIOOrchestratorData?.classified;
   if (!classified) {
-    logDebug('No classified data available for enrichment');
+    LogHelper.log('No classified data available for enrichment');
     _apiEnrichmentInProgress = false;
     return;
   }
 
   try {
     // Enrich with API data
-    const enriched = await enrichDevicesWithConsumption(classified, logDebug);
+    const enriched = await enrichDevicesWithConsumption(classified);
 
     // RFC-0111 FIX: Rebuild flat items arrays for tooltip compatibility
     const energyItems = [
@@ -3674,11 +3640,13 @@ async function triggerApiEnrichment() {
       ...enriched.energy.stores,
       ...enriched.energy.entrada,
     ];
+
     const waterItems = [
       ...enriched.water.hidrometro_area_comum,
       ...enriched.water.hidrometro,
       ...enriched.water.entrada,
     ];
+
     const temperatureItems = [
       ...enriched.temperature.termostato,
       ...enriched.temperature.termostato_external,
@@ -3687,20 +3655,23 @@ async function triggerApiEnrichment() {
     // Update cache with enriched data and domain items
     window.MyIOOrchestratorData.classified = enriched;
     window.MyIOOrchestratorData.apiEnrichedAt = Date.now();
+
     window.MyIOOrchestratorData.energy = {
       items: energyItems,
       timestamp: Date.now(),
     };
+
     window.MyIOOrchestratorData.water = {
       items: waterItems,
       timestamp: Date.now(),
     };
+
     window.MyIOOrchestratorData.temperature = {
       items: temperatureItems,
       timestamp: Date.now(),
     };
 
-    logDebug('API enrichment complete, dispatching updated event');
+    LogHelper.log('API enrichment complete, dispatching updated event');
 
     // Dispatch enriched data event
     window.dispatchEvent(
@@ -3726,14 +3697,14 @@ async function triggerApiEnrichment() {
     );
 
     // RFC-0113: Debug logging - verify item counts for tooltip
-    logDebug('MyIOOrchestratorData.energy.items count:', energyItems.length);
-    logDebug('MyIOOrchestratorData.water.items count:', waterItems.length);
-    logDebug('MyIOOrchestratorData.temperature.items count:', temperatureItems.length);
+    LogHelper.log('MyIOOrchestratorData.energy.items count:', energyItems.length);
+    LogHelper.log('MyIOOrchestratorData.water.items count:', waterItems.length);
+    LogHelper.log('MyIOOrchestratorData.temperature.items count:', temperatureItems.length);
 
     // Sample device for debugging (check label and status)
     if (energyItems.length > 0) {
       const sample = energyItems[0];
-      logDebug('Sample energy item:', {
+      LogHelper.log('Sample energy item:', {
         id: sample.id,
         name: sample.name,
         label: sample.label,
@@ -3747,7 +3718,7 @@ async function triggerApiEnrichment() {
     // Calculate totals from enriched data
     const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
     const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
-    const tempValues = temperatureItems.map(d => Number(d.temperature || 0)).filter(v => v > 0);
+    const tempValues = temperatureItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
     const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
     // Energy summary event
@@ -3803,7 +3774,7 @@ async function triggerApiEnrichment() {
       })
     );
 
-    logDebug('Summary events dispatched');
+    LogHelper.log('Summary events dispatched');
 
     // Mark as done
     _apiEnrichmentDone = true;

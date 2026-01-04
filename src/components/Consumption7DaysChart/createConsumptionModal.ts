@@ -20,17 +20,11 @@
  * ```
  */
 
-import type {
-  Consumption7DaysConfig,
-  Consumption7DaysData,
-  ChartType,
-  VizMode,
-  ThemeMode,
-} from './types';
+import type { Consumption7DaysConfig, Consumption7DaysData, ChartType, VizMode, ThemeMode } from './types';
 
 import { createConsumption7DaysChart } from './createConsumption7DaysChart';
 import { DEFAULT_COLORS, THEME_COLORS, DEFAULT_CONFIG } from './types';
-import { createModalHeader, type ModalHeaderInstance, type ModalTheme, type ExportFormat } from '../ModalHeader';
+import { ModalHeader, type ExportFormat } from '../../utils/ModalHeader';
 
 // ============================================================================
 // Types
@@ -86,13 +80,11 @@ const DOMAIN_CONFIG: Record<string, { name: string; icon: string }> = {
 /**
  * Creates a consumption modal with the standard MyIO header
  */
-export function createConsumptionModal(
-  config: ConsumptionModalConfig
-): ConsumptionModalInstance {
+export function createConsumptionModal(config: ConsumptionModalConfig): ConsumptionModalInstance {
   const modalId = `myio-consumption-modal-${Date.now()}`;
   let modalElement: HTMLElement | null = null;
   let chartInstance: ReturnType<typeof createConsumption7DaysChart> | null = null;
-  let headerInstance: ModalHeaderInstance | null = null;
+  let headerHTML = '';
   let currentTheme: ThemeMode = config.theme ?? 'light';
   let currentChartType: ChartType = config.defaultChartType ?? 'line';
   let currentVizMode: VizMode = config.defaultVizMode ?? 'total';
@@ -124,16 +116,17 @@ export function createConsumptionModal(
   function renderModal(): string {
     const colors = getThemeColors();
 
-    // Create header instance
+    // Generate header HTML
     const exportFormats = config.exportFormats || ['csv'];
-    headerInstance = createModalHeader({
-      id: modalId,
-      title: title,
+    headerHTML = ModalHeader.generateHTML({
+      modalId,
       icon: domainCfg.icon,
-      theme: currentTheme as ModalTheme,
+      title,
+      theme: currentTheme,
       isMaximized: true, // Modal is always fullscreen
       showMaximize: false, // Hide maximize button - modal is already fullscreen
-      exportFormats: exportFormats,
+      showExport: true,
+      exportFormats,
       onExport: (format: ExportFormat) => {
         // If custom handler provided, use it
         if (config.onExport) {
@@ -146,14 +139,6 @@ export function createConsumptionModal(
             console.warn(`[ConsumptionModal] Export format "${format}" requires custom onExport handler`);
           }
         }
-      },
-      onThemeToggle: (theme) => {
-        currentTheme = theme as ThemeMode;
-        chartInstance?.setTheme(currentTheme);
-        updateModal();
-      },
-      onClose: () => {
-        instance.close();
       },
     });
 
@@ -171,7 +156,9 @@ export function createConsumptionModal(
       cursor: pointer;
       transition: all 0.2s;
       white-space: nowrap;
-    `.replace(/\s+/g, ' ').trim();
+    `
+      .replace(/\s+/g, ' ')
+      .trim();
 
     const tabBgColor = currentTheme === 'dark' ? '#4b5563' : '#e5e7eb';
     const activeColor = '#3e1a7d';
@@ -234,7 +221,7 @@ export function createConsumptionModal(
           overflow: hidden;
         ">
           <!-- MyIO Premium Header (using ModalHeader component) -->
-          ${headerInstance.render()}
+          ${headerHTML}
 
           <!-- Controls Bar -->
           <div class="myio-consumption-modal-controls" style="
@@ -247,34 +234,54 @@ export function createConsumptionModal(
             flex-wrap: wrap;
           ">
             <!-- Settings Button -->
-            ${showSettingsButton ? `
+            ${
+              showSettingsButton
+                ? `
               <button id="${modalId}-settings-btn" class="myio-modal-settings-btn" title="Configurações">⚙️</button>
-            ` : ''}
+            `
+                : ''
+            }
 
             <!-- Viz Mode Tabs -->
             <div style="display: flex; gap: 2px; background: ${tabBgColor}; border-radius: 8px; padding: 3px;">
-              <button id="${modalId}-viz-total" class="myio-modal-tab-btn ${currentVizMode === 'total' ? 'active' : ''}"
+              <button id="${modalId}-viz-total" class="myio-modal-tab-btn ${
+      currentVizMode === 'total' ? 'active' : ''
+    }"
                 data-viz="total" title="Consolidado"
-                style="background: ${currentVizMode === 'total' ? activeColor : 'transparent'}; color: ${currentVizMode === 'total' ? 'white' : inactiveTextColor};">
+                style="background: ${currentVizMode === 'total' ? activeColor : 'transparent'}; color: ${
+      currentVizMode === 'total' ? 'white' : inactiveTextColor
+    };">
                 ${consolidadoIcon}
               </button>
-              <button id="${modalId}-viz-separate" class="myio-modal-tab-btn ${currentVizMode === 'separate' ? 'active' : ''}"
+              <button id="${modalId}-viz-separate" class="myio-modal-tab-btn ${
+      currentVizMode === 'separate' ? 'active' : ''
+    }"
                 data-viz="separate" title="Por Shopping"
-                style="background: ${currentVizMode === 'separate' ? activeColor : 'transparent'}; color: ${currentVizMode === 'separate' ? 'white' : inactiveTextColor};">
+                style="background: ${currentVizMode === 'separate' ? activeColor : 'transparent'}; color: ${
+      currentVizMode === 'separate' ? 'white' : inactiveTextColor
+    };">
                 ${porShoppingIcon}
               </button>
             </div>
 
             <!-- Chart Type Tabs -->
             <div style="display: flex; gap: 2px; background: ${tabBgColor}; border-radius: 8px; padding: 3px;">
-              <button id="${modalId}-type-line" class="myio-modal-tab-btn ${currentChartType === 'line' ? 'active' : ''}"
+              <button id="${modalId}-type-line" class="myio-modal-tab-btn ${
+      currentChartType === 'line' ? 'active' : ''
+    }"
                 data-type="line" title="Gráfico de Linhas"
-                style="background: ${currentChartType === 'line' ? activeColor : 'transparent'}; color: ${currentChartType === 'line' ? 'white' : inactiveTextColor};">
+                style="background: ${currentChartType === 'line' ? activeColor : 'transparent'}; color: ${
+      currentChartType === 'line' ? 'white' : inactiveTextColor
+    };">
                 ${lineChartIcon}
               </button>
-              <button id="${modalId}-type-bar" class="myio-modal-tab-btn ${currentChartType === 'bar' ? 'active' : ''}"
+              <button id="${modalId}-type-bar" class="myio-modal-tab-btn ${
+      currentChartType === 'bar' ? 'active' : ''
+    }"
                 data-type="bar" title="Gráfico de Barras"
-                style="background: ${currentChartType === 'bar' ? activeColor : 'transparent'}; color: ${currentChartType === 'bar' ? 'white' : inactiveTextColor};">
+                style="background: ${currentChartType === 'bar' ? activeColor : 'transparent'}; color: ${
+      currentChartType === 'bar' ? 'white' : inactiveTextColor
+    };">
                 ${barChartIcon}
               </button>
             </div>
@@ -302,7 +309,17 @@ export function createConsumptionModal(
     if (!modalElement) return;
 
     // Attach header listeners (handles theme, maximize, close, export)
-    headerInstance?.attachListeners();
+    ModalHeader.setupHandlers({
+      modalId,
+      onThemeToggle: (theme) => {
+        currentTheme = theme;
+        chartInstance?.setTheme(currentTheme);
+        updateModal();
+      },
+      onClose: () => instance.close(),
+      exportFormats: config.exportFormats || ['csv'],
+      onExport: config.onExport ? (format) => config.onExport?.(format) : undefined,
+    });
 
     // Settings button
     if (showSettingsButton) {
@@ -396,8 +413,7 @@ export function createConsumptionModal(
 
     const cachedData = chartInstance?.getCachedData();
 
-    // Destroy current header and chart
-    headerInstance?.destroy();
+    // Destroy current chart
     chartInstance?.destroy();
 
     // Re-render modal
@@ -457,10 +473,6 @@ export function createConsumptionModal(
         if (handleKeydown) {
           document.removeEventListener('keydown', handleKeydown);
         }
-
-        // Destroy header
-        headerInstance?.destroy();
-        headerInstance = null;
 
         // Destroy chart
         chartInstance?.destroy();

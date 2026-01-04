@@ -307,8 +307,245 @@ export const MODAL_STYLES = `
 `;
 
 // Premium DateRangePicker styling with MyIO brand colors
+// Global styles (no scope) for menu and other components
 export const DATERANGEPICKER_STYLES = `
-/* MyIO Premium DateRangePicker Styling */
+/* ==========================================
+   MyIO Premium DateRangePicker - Global Styles
+   ========================================== */
+
+.daterangepicker {
+  font-family: 'Inter', 'Roboto', Arial, sans-serif;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  background: #ffffff;
+  z-index: 10000;
+}
+
+/* Wider ranges panel */
+.daterangepicker.show-ranges.ltr .drp-calendar.left {
+  border-left: 1px solid #e0e0e0;
+}
+
+.daterangepicker .ranges {
+  min-width: 200px;
+  width: auto !important;
+}
+
+.daterangepicker .ranges ul {
+  width: 100% !important;
+  min-width: 180px;
+}
+
+.daterangepicker .ranges li {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.daterangepicker .calendar-table {
+  background: #ffffff;
+  border: none;
+}
+
+.daterangepicker .calendar-table th,
+.daterangepicker .calendar-table td {
+  border: none;
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+  color: #333333;
+}
+
+.daterangepicker .calendar-table th {
+  background: #f7f7f7;
+  color: #333333;
+  font-weight: 600;
+}
+
+.daterangepicker .calendar-table td.available {
+  color: #333333;
+}
+
+.daterangepicker .calendar-table td.available:hover {
+  background: #f0f0f0;
+  color: #333333;
+}
+
+.daterangepicker .calendar-table td.off {
+  color: #999999;
+}
+
+.daterangepicker .calendar-table td.in-range {
+  background: rgba(62, 26, 125, 0.1);
+  color: #333333;
+}
+
+.daterangepicker .calendar-table td.start-date,
+.daterangepicker .calendar-table td.end-date {
+  background: #3e1a7d;
+  color: white;
+  border-radius: 4px;
+}
+
+.daterangepicker .calendar-table td.active {
+  background: #3e1a7d;
+  color: white;
+  border-radius: 4px;
+}
+
+/* Premium button styling for Aplicar/Cancelar */
+.daterangepicker .drp-buttons {
+  border-top: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  background: #f7f7f7;
+  text-align: right;
+}
+
+.daterangepicker .drp-buttons .btn {
+  margin-left: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 90px;
+}
+
+/* Aplicar button - MyIO Primary Purple */
+.daterangepicker .drp-buttons .applyBtn {
+  background: linear-gradient(135deg, #3e1a7d 0%, #2d1458 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(62, 26, 125, 0.3);
+}
+
+.daterangepicker .drp-buttons .applyBtn:hover {
+  background: linear-gradient(135deg, #4a2391 0%, #3e1a7d 100%);
+  box-shadow: 0 4px 12px rgba(62, 26, 125, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Cancelar button - Secondary */
+.daterangepicker .drp-buttons .cancelBtn {
+  background: #ffffff;
+  color: #333333;
+  border: 2px solid #e0e0e0;
+}
+
+.daterangepicker .drp-buttons .cancelBtn:hover {
+  background: #f7f7f7;
+  border-color: #3e1a7d;
+  color: #3e1a7d;
+}
+
+/* Ranges (preset buttons) styling */
+.daterangepicker .ranges {
+  background: #f7f7f7;
+  border-right: 1px solid #e0e0e0;
+  padding: 8px 0;
+}
+
+.daterangepicker .ranges ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.daterangepicker .ranges li {
+  padding: 10px 16px;
+  margin: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.daterangepicker .ranges li:hover {
+  background: rgba(62, 26, 125, 0.1);
+  color: #3e1a7d;
+}
+
+.daterangepicker .ranges li.active {
+  background: #3e1a7d;
+  color: white;
+  font-weight: 600;
+}
+
+/* Time picker styling */
+.daterangepicker .calendar-time {
+  border-top: 1px solid #e0e0e0;
+  background: #f7f7f7;
+  padding: 10px;
+  text-align: center;
+}
+
+.daterangepicker .calendar-time select {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  background: #ffffff;
+  color: #333333;
+  margin: 0 2px;
+}
+
+.daterangepicker .calendar-time select:focus {
+  outline: none;
+  border-color: #3e1a7d;
+  box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.2);
+}
+
+/* Header styling */
+.daterangepicker .drp-calendar {
+  background: #ffffff;
+  padding: 8px;
+}
+
+.daterangepicker .month {
+  color: #3e1a7d;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.daterangepicker th.month {
+  background: transparent;
+}
+
+.daterangepicker .prev,
+.daterangepicker .next {
+  color: #3e1a7d;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+}
+
+.daterangepicker .prev:hover,
+.daterangepicker .next:hover {
+  background: #3e1a7d;
+  color: white;
+  border-color: #3e1a7d;
+}
+
+/* Selected date label */
+.daterangepicker .drp-selected {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333333;
+  padding-right: 10px;
+}
+
+/* ==========================================
+   Scoped styles for modals (kept for compatibility)
+   ========================================== */
+
 .myio-modal-scope .daterangepicker {
   font-family: var(--myio-font);
   border: 1px solid var(--myio-border);

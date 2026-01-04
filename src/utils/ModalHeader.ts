@@ -35,6 +35,8 @@
 // Types
 // ============================================
 
+export type ExportFormat = 'csv' | 'xls' | 'pdf';
+
 export interface ModalHeaderOptions {
   /** Icon emoji or HTML */
   icon: string;
@@ -56,19 +58,29 @@ export interface ModalHeaderOptions {
   primaryColor?: string;
   /** Border radius when not maximized */
   borderRadius?: string;
+  /** Show export button */
+  showExport?: boolean;
+  /** Available export formats (shows dropdown if multiple) */
+  exportFormats?: ExportFormat[];
+  /** Callback when export is clicked with format */
+  onExport?: (format: ExportFormat) => void;
 }
 
 export interface ModalHeaderHandlers {
   /** Unique modal ID */
   modalId: string;
-  /** Theme toggle callback */
-  onThemeToggle?: () => void;
+  /** Theme toggle callback - receives new theme */
+  onThemeToggle?: (theme: 'dark' | 'light') => void;
   /** Maximize callback */
   onMaximize?: () => void;
   /** Close callback */
   onClose?: () => void;
   /** Drag start callback */
   onDragStart?: (e: MouseEvent) => void;
+  /** Export formats (for setup handlers) */
+  exportFormats?: ExportFormat[];
+  /** Export callback */
+  onExport?: (format: ExportFormat) => void;
 }
 
 export interface ModalHeaderControllerOptions {
@@ -110,6 +122,26 @@ export interface ModalHeaderController {
   /** Destroy controller and remove event listeners */
   destroy(): void;
 }
+
+// ============================================
+// Constants
+// ============================================
+
+const DEFAULT_BG_COLOR = '#3e1a7d'; // MyIO purple
+const DEFAULT_TEXT_COLOR = 'white';
+const DEFAULT_BORDER_RADIUS = '10px 10px 0 0';
+
+const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
+  csv: 'CSV',
+  xls: 'Excel (XLS)',
+  pdf: 'PDF',
+};
+
+const EXPORT_FORMAT_ICONS: Record<ExportFormat, string> = {
+  csv: '📄',
+  xls: '📊',
+  pdf: '📑',
+};
 
 // ============================================
 // CSS Styles
@@ -177,13 +209,12 @@ const MODAL_HEADER_CSS = `
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.8);
   transition: background-color 0.2s, color 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 28px;
   min-height: 28px;
   line-height: 1;
-  vertical-align: middle;
 }
 
 .myio-modal-header__btn:hover {
@@ -202,6 +233,44 @@ const MODAL_HEADER_CSS = `
 .myio-modal-header__btn--close:hover {
   background: rgba(239, 68, 68, 0.3);
   color: #fecaca;
+}
+
+/* Export Dropdown */
+.myio-export-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 140px;
+  z-index: 10001;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.myio-export-dropdown.show {
+  display: block;
+}
+
+.myio-export-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.myio-export-option:hover {
+  background-color: #f0f0f0;
 }
 
 /* Light Theme Override */
@@ -254,6 +323,106 @@ function injectCSS(): void {
 }
 
 // ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Generate export button/dropdown HTML
+ */
+function generateExportHTML(modalId: string, exportFormats: ExportFormat[]): string {
+  if (exportFormats.length === 0) return '';
+
+  // Single format - just show button
+  if (exportFormats.length === 1) {
+    const format = exportFormats[0];
+    const icon = EXPORT_FORMAT_ICONS[format] || '📥';
+    return `<button
+        id="${modalId}-export"
+        class="myio-modal-header__btn"
+        title="Exportar ${EXPORT_FORMAT_LABELS[format]}"
+      >${icon}</button>`;
+  }
+
+  // Multiple formats - show dropdown
+  const dropdownOptions = exportFormats
+    .map((format) => {
+      const icon = EXPORT_FORMAT_ICONS[format] || '📄';
+      const label = EXPORT_FORMAT_LABELS[format] || format.toUpperCase();
+      return `<button
+          id="${modalId}-export-${format}"
+          class="myio-export-option"
+          data-format="${format}"
+          title="Exportar ${label}"
+        >${icon} ${label}</button>`;
+    })
+    .join('');
+
+  return `
+    <div style="position: relative; display: inline-block;">
+      <button
+        id="${modalId}-export-btn"
+        class="myio-modal-header__btn"
+        title="Exportar"
+      >📥</button>
+      <div id="${modalId}-export-dropdown" class="myio-export-dropdown">
+        ${dropdownOptions}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Setup export event handlers
+ */
+function setupExportHandlers(
+  modalId: string,
+  formats: ExportFormat[],
+  onExport?: (format: ExportFormat) => void
+): void {
+  if (formats.length === 0 || !onExport) return;
+
+  // Single format handler
+  if (formats.length === 1) {
+    const singleBtn = document.getElementById(`${modalId}-export`);
+    if (singleBtn) {
+      singleBtn.addEventListener('click', () => onExport(formats[0]));
+    }
+    return;
+  }
+
+  // Dropdown handlers
+  const dropdownBtn = document.getElementById(`${modalId}-export-btn`);
+  const dropdown = document.getElementById(`${modalId}-export-dropdown`);
+
+  if (dropdownBtn && dropdown) {
+    // Toggle dropdown
+    dropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('show');
+    });
+
+    // Export format handlers
+    formats.forEach((format) => {
+      const optionBtn = document.getElementById(`${modalId}-export-${format}`);
+      if (optionBtn) {
+        optionBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdown.classList.remove('show');
+          onExport(format);
+        });
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target as Node) && e.target !== dropdownBtn) {
+        dropdown.classList.remove('show');
+      }
+    });
+  }
+}
+
+// ============================================
 // ModalHeader Object
 // ============================================
 
@@ -275,10 +444,16 @@ export const ModalHeader = {
       showClose = true,
       primaryColor = '#3e1a7d',
       borderRadius = '10px 10px 0 0',
+      showExport = false,
+      exportFormats = [],
+      onExport,
     } = options;
 
     const themeClass = theme === 'light' ? 'myio-modal-header--light' : '';
     const maximizedClass = isMaximized ? '' : 'myio-modal-header--not-maximized';
+
+    // Export button (if enabled)
+    const exportBtn = showExport ? generateExportHTML(modalId, exportFormats) : '';
 
     // Theme toggle button
     const themeToggleBtn = showThemeToggle
@@ -319,6 +494,7 @@ export const ModalHeader = {
           <h2 class="myio-modal-header__title">${title}</h2>
         </div>
         <div class="myio-modal-header__actions">
+          ${exportBtn}
           ${themeToggleBtn}
           ${maximizeBtn}
           ${closeBtn}
@@ -378,11 +554,11 @@ export const ModalHeader = {
       .replace(/\s+/g, ' ')
       .trim();
 
-    const closeBtnStyle = `${btnStyle} font-weight: bold; line-height: 1; vertical-align: middle;`;
+    const closeBtnStyle = `${btnStyle} font-weight: bold; line-height: 1; display: inline-flex; align-items: center; justify-content: center;`;
 
     // Theme toggle button
     const themeToggleBtn = showThemeToggle
-      ? `<button id="${modalId}-theme-toggle" title="Alternar tema" style="${btnStyle} line-height: 1; vertical-align: middle;">${
+      ? `<button id="${modalId}-theme-toggle" title="Alternar tema" style="${btnStyle} line-height: 1; display: inline-flex; align-items: center; justify-content: center;">${
           theme === 'dark' ? '☀️' : '🌙'
         }</button>`
       : '';
@@ -391,7 +567,9 @@ export const ModalHeader = {
     const maximizeBtn = showMaximize
       ? `<button id="${modalId}-maximize" title="${
           isMaximized ? 'Restaurar' : 'Maximizar'
-        }" style="${btnStyle} line-height: 1; vertical-align: middle;">${isMaximized ? '🗗' : '🗖'}</button>`
+        }" style="${btnStyle} line-height: 1; display: inline-flex; align-items: center; justify-content: center;">${
+          isMaximized ? '🗗' : '🗖'
+        }</button>`
       : '';
 
     // Close button
@@ -420,7 +598,7 @@ export const ModalHeader = {
    * Setup event handlers for modal header buttons
    */
   setupHandlers(handlers: ModalHeaderHandlers): void {
-    const { modalId, onThemeToggle, onMaximize, onClose, onDragStart } = handlers;
+    const { modalId, onThemeToggle, onMaximize, onClose, onDragStart, exportFormats, onExport } = handlers;
 
     // Theme toggle
     if (onThemeToggle) {
@@ -428,7 +606,10 @@ export const ModalHeader = {
       if (themeBtn) {
         themeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          onThemeToggle();
+          // Get current theme from button state (☀️ = light, 🌙 = dark)
+          const currentThemeIcon = themeBtn.textContent?.trim();
+          const newTheme = currentThemeIcon === '☀️' ? 'light' : 'dark';
+          onThemeToggle(newTheme);
         });
       }
     }
@@ -466,6 +647,9 @@ export const ModalHeader = {
         });
       }
     }
+
+    // Export handlers
+    setupExportHandlers(modalId, exportFormats || [], onExport);
   },
 
   /**

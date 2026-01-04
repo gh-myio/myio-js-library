@@ -578,3 +578,90 @@ export function calculateDeviceStatusWithRanges({
     delayTimeConnectionInMins,
   });
 }
+
+/**
+ * RFC-0110: Simplified device status calculation using master rules.
+ *
+ * This is a simplified version of calculateDeviceStatus() that uses
+ * fixed thresholds and doesn't require telemetry value ranges.
+ * Useful for quick status determination based on connection and telemetry age.
+ *
+ * MASTER RULES:
+ * - WAITING/CONNECTING/PENDING → 'not_installed'
+ * - No telemetryTimestamp → 'offline'
+ * - BAD + recent telemetry (< 60 mins) → 'power_on', else 'weak_connection'
+ * - OFFLINE + recent telemetry (< 60 mins) → 'power_on', else 'offline'
+ * - ONLINE + stale telemetry (> delayMins) → 'offline', else 'power_on'
+ *
+ * @param {Object} options - Configuration object
+ * @param {string} [options.connectionStatus=''] - Connection status from ThingsBoard
+ * @param {number|null} [options.telemetryTimestamp=null] - Domain-specific telemetry timestamp (ms)
+ * @param {number} [options.delayMins=1440] - Long threshold in minutes (default: 24h)
+ * @param {string} [options.domain='energy'] - Device domain (for logging/debug)
+ * @returns {string} Device status: 'not_installed', 'offline', 'power_on', or 'weak_connection'
+ *
+ * @example
+ * // Device with recent telemetry
+ * calculateDeviceStatusMasterRules({
+ *   connectionStatus: 'online',
+ *   telemetryTimestamp: Date.now() - 60000, // 1 min ago
+ *   delayMins: 1440,
+ * }); // Returns 'power_on'
+ *
+ * @example
+ * // Device with stale telemetry
+ * calculateDeviceStatusMasterRules({
+ *   connectionStatus: 'online',
+ *   telemetryTimestamp: Date.now() - 25 * 60 * 60 * 1000, // 25h ago
+ *   delayMins: 1440,
+ * }); // Returns 'offline'
+ */
+export function calculateDeviceStatusMasterRules(options = {}) {
+  const {
+    connectionStatus = '',
+    telemetryTimestamp = null,
+    delayMins = 1440, // 24h for online status
+    domain = 'energy',
+  } = options;
+
+  const SHORT_DELAY_MINS = 60; // For offline/bad recovery
+  const now = Date.now();
+
+  const normalizedStatus = (connectionStatus || '').toLowerCase().trim();
+
+  // 1. WAITING → NOT_INSTALLED (absolute priority)
+  if (
+    normalizedStatus === 'waiting' ||
+    normalizedStatus === 'connecting' ||
+    normalizedStatus === 'pending'
+  ) {
+    return DeviceStatusType.NOT_INSTALLED;
+  }
+
+  // 2. No domain-specific telemetry → OFFLINE
+  if (!telemetryTimestamp) {
+    return DeviceStatusType.OFFLINE;
+  }
+
+  const telemetryAgeMs = now - telemetryTimestamp;
+  const shortThresholdMs = SHORT_DELAY_MINS * 60 * 1000;
+  const longThresholdMs = delayMins * 60 * 1000;
+
+  // 3. BAD status → check recent telemetry (60 mins)
+  if (normalizedStatus === 'bad') {
+    return telemetryAgeMs < shortThresholdMs ? DeviceStatusType.POWER_ON : DeviceStatusType.WEAK_CONNECTION;
+  }
+
+  // 4. OFFLINE status → check recent telemetry (60 mins)
+  if (normalizedStatus === 'offline') {
+    return telemetryAgeMs < shortThresholdMs ? DeviceStatusType.POWER_ON : DeviceStatusType.OFFLINE;
+  }
+
+  // 5. ONLINE status → check stale telemetry (24h)
+  if (normalizedStatus === 'online') {
+    return telemetryAgeMs > longThresholdMs ? DeviceStatusType.OFFLINE : DeviceStatusType.POWER_ON;
+  }
+
+  // 6. Default: treat as online if has recent telemetry
+  return telemetryAgeMs < longThresholdMs ? DeviceStatusType.POWER_ON : DeviceStatusType.OFFLINE;
+}
