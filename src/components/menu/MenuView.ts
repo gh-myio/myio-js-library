@@ -2586,6 +2586,7 @@ export class MenuView {
 
   /**
    * Update available shoppings
+   * RFC-0126: Dispatches myio:customers-ready event for MAIN orchestrator
    */
   public updateShoppings(shoppings: Shopping[]): void {
     this.availableShoppings = shoppings;
@@ -2596,6 +2597,20 @@ export class MenuView {
     }
 
     this.renderFilterList();
+
+    // RFC-0126: Dispatch CustomEvent for MAIN orchestrator and legacy widgets
+    window.dispatchEvent(
+      new CustomEvent('myio:customers-ready', {
+        detail: {
+          count: shoppings.length,
+          customers: shoppings,
+        },
+      })
+    );
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] myio:customers-ready dispatched:', shoppings.length, 'customers');
+    }
   }
 
   /**
@@ -3018,9 +3033,29 @@ export class MenuView {
 
   /**
    * Handle filter apply
+   * RFC-0126: Dispatches myio:filter-applied event for MAIN orchestrator
    */
   private handleFilterApply(): void {
     const selected = this.getSelectedShoppings();
+
+    // RFC-0126: Update global state for backward compatibility with legacy widgets
+    (window as unknown as { custumersSelected: Shopping[] }).custumersSelected = selected;
+
+    // RFC-0126: Dispatch CustomEvent for MAIN orchestrator and legacy widgets
+    window.dispatchEvent(
+      new CustomEvent('myio:filter-applied', {
+        detail: {
+          selection: selected,
+          ts: Date.now(),
+        },
+      })
+    );
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] myio:filter-applied dispatched:', selected.length, 'selected');
+    }
+
+    // Emit internal event for callback handlers
     this.emit('filter-apply', selected);
     this.closeFilterModal();
   }

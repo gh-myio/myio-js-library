@@ -1688,7 +1688,10 @@ export function renderCardComponentHeadOffice(containerEl, params) {
   const state = normalizeParams(params);
   const root = buildDOM(state);
 
-  state.isSelected = params.isSelected || false;
+  // isSelected can be a function (callback) or boolean - evaluate if function
+  state.isSelected = typeof params.isSelected === 'function'
+    ? params.isSelected()
+    : (params.isSelected || false);
 
   containerEl.appendChild(root);
   bindEvents(root, state, state.callbacks);

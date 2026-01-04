@@ -2562,12 +2562,112 @@ body.filter-modal-open { overflow: hidden !important; }
     });
   }
 
-  // Apply shopping filter from Header/Menu filter modal
+  // RFC-0126: Apply shopping filter from Header/Menu filter modal
   window.addEventListener('myio:filter-applied', (e) => {
-    if (!telemetryGridInstance) return;
     const selection = e.detail?.selection || [];
     const shoppingIds = Array.isArray(selection) ? selection.map((s) => s?.value).filter(Boolean) : [];
-    telemetryGridInstance.applyFilter(shoppingIds);
+
+    // RFC-0126: Store in global state for backward compatibility with legacy widgets
+    window.custumersSelected = selection;
+    window.STATE = window.STATE || {};
+    window.STATE.selectedShoppingIds = shoppingIds;
+
+    LogHelper.log('[MAIN_UNIQUE] myio:filter-applied received:', shoppingIds.length, 'shoppings selected');
+
+    // 1. Apply filter to TelemetryGrid
+    if (telemetryGridInstance) {
+      telemetryGridInstance.applyFilter(shoppingIds);
+    }
+
+    // 2. Calculate filtered stats and update Header
+    const classified = window.MyIOOrchestratorData?.classified;
+    if (classified && headerInstance) {
+      // Filter devices by selected shoppingIds (match by customerId or ingestionId)
+      const filterDevices = (devices) => {
+        if (shoppingIds.length === 0) return devices; // No filter = all
+        return devices.filter((d) =>
+          shoppingIds.includes(d.customerId) || shoppingIds.includes(d.ingestionId)
+        );
+      };
+
+      // Calculate filtered totals for each domain
+      const allEnergyItems = [...(classified.energy?.equipments || []), ...(classified.energy?.stores || [])];
+      const allWaterItems = [...(classified.water?.hidrometro_area_comum || []), ...(classified.water?.hidrometro || [])];
+      const allTempItems = [...(classified.temperature?.termostato || []), ...(classified.temperature?.termostato_external || [])];
+
+      const filteredEnergy = filterDevices(allEnergyItems);
+      const filteredWater = filterDevices(allWaterItems);
+      const filteredTemp = filterDevices(allTempItems);
+
+      // Calculate totals
+      const unfilteredEnergyTotal = allEnergyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+      const unfilteredWaterTotal = allWaterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+
+      const filteredEnergyTotal = filteredEnergy.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+      const filteredWaterTotal = filteredWater.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+
+      // Temperature average
+      const tempValues = filteredTemp.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
+      const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+
+      // Online equipment count
+      const onlineEquipments = filteredEnergy.filter((device) => {
+        const status = (device.deviceStatus || '').toLowerCase();
+        return !['offline', 'no_info', 'not_installed'].includes(status);
+      }).length;
+
+      const isFiltered = shoppingIds.length > 0;
+
+      // Dispatch filtered summary events for Header component
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-summary-ready', {
+          detail: {
+            customerTotal: filteredEnergyTotal,
+            unfilteredTotal: unfilteredEnergyTotal,
+            isFiltered: isFiltered,
+          },
+        })
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:water-summary-ready', {
+          detail: {
+            filteredTotal: filteredWaterTotal,
+            unfilteredTotal: unfilteredWaterTotal,
+            isFiltered: isFiltered,
+          },
+        })
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:temperature-data-ready', {
+          detail: {
+            globalAvg: tempAvg,
+            isFiltered: isFiltered,
+            shoppingsInRange: [],
+            shoppingsOutOfRange: [],
+          },
+        })
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:equipment-count-updated', {
+          detail: {
+            totalEquipments: allEnergyItems.length,
+            filteredEquipments: isFiltered ? onlineEquipments : onlineEquipments,
+            allShoppingsSelected: !isFiltered,
+          },
+        })
+      );
+
+      LogHelper.log('[MAIN_UNIQUE] Filter applied - Updated header with filtered stats');
+    }
+
+    // 3. Update Welcome modal cards if visible
+    if (welcomeModal && classified) {
+      const updatedCards = updateShoppingCardsWithRealCounts(classified);
+      updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
+    }
   });
 
   // === 7. RFC-0115: RENDER FOOTER COMPONENT ===
