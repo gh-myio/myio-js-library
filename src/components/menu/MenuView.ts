@@ -43,6 +43,9 @@ export class MenuView {
   // Filter Modal (RFC-0121 ModalHeader controller pattern)
   private filterModalHeaderController: ModalHeaderController | null = null;
 
+  // Unified Navigation Modal (RFC-0121 ModalHeader controller pattern)
+  private unifiedModalHeaderController: ModalHeaderController | null = null;
+
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
     this.configTemplate = { ...DEFAULT_CONFIG_TEMPLATE, ...params.configTemplate };
@@ -1221,38 +1224,19 @@ export class MenuView {
   flex-direction: column;
 }
 
-/* Unified Modal Header - MYIO Purple */
-.myio-unified-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background: #3e1a7d;
-  border-bottom: none;
-  font-weight: 700;
-  font-size: 16px;
-  color: white;
-  border-radius: 16px 16px 0 0;
+/* Unified Modal Header - Uses ModalHeader component (RFC-0121) */
+/* .myio-modal-header styles come from ModalHeader.ts */
+
+/* Unified Modal Maximized State */
+.myio-unified-modal-content--maximized {
+  max-width: calc(100vw - 40px) !important;
+  max-height: calc(100vh - 40px) !important;
+  width: calc(100vw - 40px) !important;
+  height: calc(100vh - 40px) !important;
 }
 
-.myio-unified-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 24px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.myio-unified-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+.myio-unified-modal-content--maximized .myio-modal-header {
+  border-radius: 0 !important;
 }
 
 /* Unified Modal Body - 3 Columns */
@@ -1589,19 +1573,28 @@ export class MenuView {
    * Build the unified context modal with 3 columns
    */
   private buildUnifiedContextModalHTML(): string {
+    const headerHTML = ModalHeader.generateHTML({
+      icon: '📊',
+      title: 'Selecione a visualização',
+      modalId: 'menuUnified',
+      theme: 'dark',
+      isMaximized: false,
+      showThemeToggle: true,
+      showMaximize: true,
+      showClose: true,
+      borderRadius: '16px 16px 0 0',
+    });
+
     return `
       <div
         id="menuUnifiedContextModal"
         class="myio-unified-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="menuUnifiedModalTitle"
+        aria-labelledby="menuUnified-header"
       >
         <div class="myio-unified-modal-content">
-          <div class="myio-unified-modal-header">
-            <span id="menuUnifiedModalTitle">Selecione a visualização</span>
-            <button class="myio-unified-modal-close" aria-label="Fechar">×</button>
-          </div>
+          ${headerHTML}
           <div class="myio-unified-modal-body">
             ${this.tabs.map((tab) => this.buildUnifiedColumnHTML(tab)).join('')}
           </div>
@@ -1979,11 +1972,8 @@ export class MenuView {
       });
     }
 
-    // Unified modal close button
-    const unifiedCloseBtn = this.root.querySelector('.myio-unified-modal-close');
-    if (unifiedCloseBtn) {
-      unifiedCloseBtn.addEventListener('click', () => this.closeUnifiedModal());
-    }
+    // Unified modal header controller (RFC-0121)
+    this.ensureUnifiedModalHeaderController();
 
     // Unified option clicks
     this.root.querySelectorAll('.myio-unified-option').forEach((option) => {
@@ -2232,6 +2222,8 @@ export class MenuView {
    * Open the unified context modal
    */
   private openUnifiedModal(): void {
+    this.ensureUnifiedModalHeaderController();
+
     const modal = this.root.querySelector('#menuUnifiedContextModal');
     const btn = this.root.querySelector('#menuUnifiedNavBtn');
 
@@ -2259,9 +2251,82 @@ export class MenuView {
       modal.classList.remove('is-open');
       btn?.setAttribute('aria-expanded', 'false');
 
+      // Reset header controller state
+      this.unifiedModalHeaderController?.reset();
+      if (this.unifiedModalHeaderController) {
+        this.applyUnifiedModalTheme(this.unifiedModalHeaderController.getTheme());
+        this.applyUnifiedModalMaximize(this.unifiedModalHeaderController.isMaximized());
+      }
+
       if (this.configTemplate.enableDebugMode) {
         console.log('[MenuView] Unified modal closed');
       }
+    }
+  }
+
+  /**
+   * Ensure unified modal header controller is initialized
+   */
+  private ensureUnifiedModalHeaderController(): void {
+    if (this.unifiedModalHeaderController) return;
+
+    const modalContent = this.root.querySelector('.myio-unified-modal-content') as HTMLElement | null;
+    if (!modalContent) return;
+
+    const headerEl = this.root.querySelector('#menuUnified-header') as HTMLElement | null;
+
+    this.unifiedModalHeaderController = ModalHeader.createController({
+      modalId: 'menuUnified',
+      theme: 'dark',
+      themeTarget: headerEl ?? undefined,
+      lightThemeClass: 'myio-modal-header--light',
+      maximizeTarget: modalContent,
+      maximizedClass: 'myio-unified-modal-content--maximized',
+      onThemeChange: (theme) => this.applyUnifiedModalTheme(theme),
+      onMaximizeChange: (isMaximized) => this.applyUnifiedModalMaximize(isMaximized),
+      onClose: () => this.closeUnifiedModal(),
+    });
+
+    this.unifiedModalHeaderController.reset();
+    this.applyUnifiedModalTheme(this.unifiedModalHeaderController.getTheme());
+    this.applyUnifiedModalMaximize(this.unifiedModalHeaderController.isMaximized());
+  }
+
+  /**
+   * Apply theme to unified modal
+   */
+  private applyUnifiedModalTheme(theme: 'dark' | 'light'): void {
+    const modalContent = this.root.querySelector('.myio-unified-modal-content') as HTMLElement | null;
+    if (!modalContent) return;
+
+    modalContent.style.background = theme === 'light' ? '#ffffff' : '#ffffff';
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Unified modal theme:', theme);
+    }
+  }
+
+  /**
+   * Apply maximize state to unified modal
+   */
+  private applyUnifiedModalMaximize(isMaximized: boolean): void {
+    const modalContent = this.root.querySelector('.myio-unified-modal-content') as HTMLElement | null;
+    if (!modalContent) return;
+
+    if (isMaximized) {
+      modalContent.style.maxWidth = 'calc(100vw - 40px)';
+      modalContent.style.maxHeight = 'calc(100vh - 40px)';
+      modalContent.style.width = 'calc(100vw - 40px)';
+      modalContent.style.height = 'calc(100vh - 40px)';
+    } else {
+      modalContent.style.maxWidth = '';
+      modalContent.style.maxHeight = '';
+      modalContent.style.width = '';
+      modalContent.style.height = '';
+    }
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Unified modal maximized:', isMaximized);
     }
   }
 
@@ -3081,6 +3146,9 @@ export class MenuView {
     this.filterModalHeaderController?.destroy();
     this.filterModalHeaderController = null;
 
+    this.unifiedModalHeaderController?.destroy();
+    this.unifiedModalHeaderController = null;
+
     if (this.root.parentNode) {
       this.root.parentNode.removeChild(this.root);
     }
@@ -3090,6 +3158,9 @@ export class MenuView {
    * Set the theme mode (light or dark)
    */
   public setThemeMode(mode: MenuThemeMode): void {
+    // Guard: Avoid loop if theme is already the same
+    if (this.themeMode === mode) return;
+
     this.themeMode = mode;
     this.themeConfig = this.getThemeConfig();
 

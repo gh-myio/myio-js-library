@@ -31,6 +31,7 @@ export class WelcomeModalView {
   private eventHandlers: Map<WelcomeEventType, WelcomeEventHandler[]> = new Map();
   private styleElement: HTMLStyleElement | null = null;
   private intersectionObserver: IntersectionObserver | null = null;
+  private resizeHandler: (() => void) | null = null;
 
   constructor(private params: WelcomeModalParams) {
     // Merge configTemplate with defaults
@@ -272,7 +273,95 @@ export class WelcomeModalView {
     this.bindEvents();
     this.setupLazyLoading();
     this.loadUserInfo();
+    this.setupDynamicLayout();
     return this.container;
+  }
+
+  /**
+   * Setup dynamic layout calculation and resize listener
+   */
+  private setupDynamicLayout(): void {
+    // Calculate layout after DOM is ready
+    requestAnimationFrame(() => {
+      this.calculateGridLayout();
+    });
+
+    // Setup resize listener with debounce
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    this.resizeHandler = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        this.calculateGridLayout();
+      }, 100);
+    };
+    window.addEventListener('resize', this.resizeHandler);
+  }
+
+  /**
+   * Calculate and apply dynamic grid layout based on available space
+   * Algorithm:
+   * 1. Get modal container height (90vh)
+   * 2. Get hero section height
+   * 3. Calculate available height for shortcuts section
+   * 4. Calculate number of card rows (cards / 3 columns)
+   * 5. Calculate optimal card height to fill available space
+   * 6. Apply calculated dimensions
+   */
+  private calculateGridLayout(): void {
+    const modalContainer = this.container.querySelector('.myio-welcome-modal-container') as HTMLElement;
+    const heroSection = this.container.querySelector('.myio-welcome-hero') as HTMLElement;
+    const shortcutsSection = this.container.querySelector('.myio-welcome-shortcuts') as HTMLElement;
+    const cardsGrid = this.container.querySelector('.myio-welcome-cards-grid') as HTMLElement;
+    const cards = this.container.querySelectorAll('.myio-welcome-card') as NodeListOf<HTMLElement>;
+
+    if (!modalContainer || !heroSection || !shortcutsSection || !cardsGrid || cards.length === 0) {
+      return;
+    }
+
+    // Get dimensions
+    const modalHeight = modalContainer.clientHeight;
+    const heroHeight = heroSection.clientHeight;
+
+    // Calculate shortcuts section available height
+    const shortcutsPadding = 40; // top (16px) + bottom (24px) padding
+    const titleHeight = 40; // shortcuts title + margin
+    const availableHeight = modalHeight - heroHeight;
+
+    // Calculate grid dimensions
+    const columns = 3;
+    const rows = Math.ceil(cards.length / columns);
+    const gap = 16; // gap between cards
+    const totalGapHeight = (rows - 1) * gap;
+
+    // Calculate optimal card height
+    const gridAvailableHeight = availableHeight - shortcutsPadding - titleHeight - totalGapHeight;
+    const optimalCardHeight = Math.floor(gridAvailableHeight / rows);
+
+    // Apply minimum and maximum constraints
+    const minCardHeight = 100;
+    const maxCardHeight = 200;
+    const cardHeight = Math.max(minCardHeight, Math.min(maxCardHeight, optimalCardHeight));
+
+    // Apply calculated height to cards
+    cards.forEach((card) => {
+      card.style.minHeight = `${cardHeight}px`;
+      card.style.height = `${cardHeight}px`;
+    });
+
+    // Debug logging
+    if (this.config.enableDebugMode) {
+      console.log('[WelcomeModal] Grid Layout Calculated:', {
+        modalHeight,
+        heroHeight,
+        availableHeight,
+        rows,
+        columns,
+        gridAvailableHeight,
+        optimalCardHeight,
+        appliedCardHeight: cardHeight,
+        cardsCount: cards.length,
+      });
+    }
   }
 
   /**
@@ -559,7 +648,7 @@ export class WelcomeModalView {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 32px 24px 32px;
+  padding: 16px 12px 16px 12px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
 }
 
@@ -575,26 +664,22 @@ export class WelcomeModalView {
 
 .myio-welcome-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   align-content: start;
-  gap: 16px;
-  max-width: 1200px;
-  margin: 0 auto;
+  gap: 12px;
   width: 100%;
 }
 
 .myio-welcome-card {
   position: relative;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-end !important;
-  min-height: 140px !important;
-  padding: 20px !important;
+  display: block !important;
+  min-height: 120px;
+  padding: 12px 16px !important;
   background: var(--wm-card-bg);
   border: 1px solid var(--wm-card-border);
   border-radius: 16px !important;
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, height 0.2s ease;
   overflow: hidden;
 }
 
@@ -602,7 +687,7 @@ export class WelcomeModalView {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%);
   z-index: 1;
   transition: opacity 0.25s ease;
 }
@@ -637,21 +722,25 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-content {
-  position: relative;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
   z-index: 2;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   text-align: center !important;
+  width: 90%;
 }
 
 .myio-welcome-card-title {
-  margin: 0 0 8px 0 !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .myio-welcome-card-subtitle {
@@ -661,21 +750,27 @@ export class WelcomeModalView {
   color: var(--wm-muted);
 }
 
-/* Device Counts Display - Interactive */
+/* Device Counts Display - Interactive - Bottom positioned */
 .myio-welcome-card-device-counts {
+  position: absolute !important;
+  bottom: 10px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 3 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 12px !important;
-  margin-top: 4px !important;
+  gap: 8px !important;
 }
 
 .myio-welcome-card-device-count {
   display: flex !important;
   align-items: center !important;
+  justify-content: center !important;
   gap: 4px !important;
-  padding: 4px 8px !important;
-  font-size: 12px !important;
+  padding: 5px 10px !important;
+  min-width: 52px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
   background: rgba(0, 0, 0, 0.3);
@@ -685,6 +780,17 @@ export class WelcomeModalView {
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+}
+
+.myio-welcome-card-device-count .count {
+  font-weight: 700 !important;
+}
+
+.myio-welcome-card-device-count .value {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
 .myio-welcome-card-device-count:hover {
@@ -827,7 +933,7 @@ export class WelcomeModalView {
 
   .myio-welcome-shortcuts {
     flex: 1 0 auto;
-    padding: 20px;
+    padding: 12px 10px;
   }
 
   .myio-welcome-shortcuts-title {
@@ -835,25 +941,27 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-cards-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
   }
 
   .myio-welcome-card {
-    min-height: 100px;
+    min-height: 80px;
   }
 
   .myio-welcome-card-title {
-    font-size: 12px;
+    font-size: 16px !important;
   }
 
   .myio-welcome-card-device-counts {
-    gap: 6px;
+    bottom: 8px !important;
+    gap: 5px;
   }
 
   .myio-welcome-card-device-count {
     padding: 3px 6px;
     font-size: 10px;
+    min-width: 44px !important;
   }
 }
 
@@ -903,7 +1011,7 @@ export class WelcomeModalView {
 
   .myio-welcome-shortcuts {
     flex: 1 0 auto;
-    padding: 16px;
+    padding: 10px 8px;
   }
 
   .myio-welcome-shortcuts-title {
@@ -912,27 +1020,28 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
 
   .myio-welcome-card {
     min-height: 80px;
-    padding: 14px;
+    padding: 10px;
   }
 
   .myio-welcome-card-title {
-    font-size: 12px;
-    margin-bottom: 6px;
+    font-size: 14px !important;
   }
 
   .myio-welcome-card-device-counts {
-    gap: 8px;
+    bottom: 6px !important;
+    gap: 4px;
   }
 
   .myio-welcome-card-device-count {
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: 2px 4px;
+    font-size: 9px;
+    min-width: 36px !important;
   }
 
   .myio-welcome-card-arrow {
@@ -999,14 +1108,18 @@ export class WelcomeModalView {
 
 /* ==========================================
    Meta Counts Row (Users, Alarms, Notifications)
-   Above card title - same style as device counts
+   Positioned at top of card - absolute positioning
    ========================================== */
 .myio-welcome-card-meta-counts {
+  position: absolute !important;
+  top: 10px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 3 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 8px !important;
-  margin-bottom: 12px !important;
+  gap: 6px !important;
 }
 
 /* Extend device-count styles for meta types */
@@ -1208,8 +1321,8 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-meta-counts {
-    gap: 6px;
-    margin-bottom: 6px;
+    top: 8px !important;
+    gap: 4px;
   }
 }
 
@@ -1221,8 +1334,8 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-meta-counts {
-    gap: 4px;
-    margin-bottom: 4px;
+    top: 6px !important;
+    gap: 3px;
   }
 }
 `;
@@ -1385,12 +1498,42 @@ export class WelcomeModalView {
     if (card.deviceCounts) {
       const counts = card.deviceCounts as {
         energy?: number | null;
+        energyConsumption?: number | null;
         water?: number | null;
+        waterConsumption?: number | null;
         temperature?: number | null;
+        temperatureAvg?: number | null;
       };
+
       // Helper: show spinner when loading (null/undefined), show number when loaded (including 0)
       const renderCount = (count: number | null | undefined): string =>
         count === null || count === undefined ? '<span class="count-spinner"></span>' : String(count);
+
+      // Helper: format energy consumption (kWh or MWh if >= 1000)
+      const formatEnergy = (value: number | null | undefined): string => {
+        if (value === null || value === undefined) return '';
+        if (value >= 1000) {
+          return `${(value / 1000).toFixed(1)} MWh`;
+        }
+        return `${value.toFixed(0)} kWh`;
+      };
+
+      // Helper: format water consumption (m³)
+      const formatWater = (value: number | null | undefined): string => {
+        if (value === null || value === undefined) return '';
+        return `${value.toFixed(0)} m³`;
+      };
+
+      // Helper: format temperature average (°C)
+      const formatTemp = (value: number | null | undefined): string => {
+        if (value === null || value === undefined) return '';
+        return `${value.toFixed(1)} °C`;
+      };
+
+      // Build badge content with count and value
+      const energyValue = formatEnergy(counts.energyConsumption);
+      const waterValue = formatWater(counts.waterConsumption);
+      const tempValue = formatTemp(counts.temperatureAvg);
 
       subtitleHTML = `
         <div class="myio-welcome-card-device-counts">
@@ -1398,19 +1541,25 @@ export class WelcomeModalView {
                 data-tooltip-type="energy"
                 data-card-index="${index}"
                 title="Resumo de Energia">
-            <span class="icon">⚡</span> ${renderCount(counts.energy)}
+            <span class="icon">⚡</span>
+            <span class="count">${renderCount(counts.energy)}</span>
+            ${energyValue ? `<span class="value">(${energyValue})</span>` : ''}
           </span>
           <span class="myio-welcome-card-device-count water"
                 data-tooltip-type="water"
                 data-card-index="${index}"
                 title="Resumo de Agua">
-            <span class="icon">💧</span> ${renderCount(counts.water)}
+            <span class="icon">💧</span>
+            <span class="count">${renderCount(counts.water)}</span>
+            ${waterValue ? `<span class="value">(${waterValue})</span>` : ''}
           </span>
           <span class="myio-welcome-card-device-count temperature"
                 data-tooltip-type="temperature"
                 data-card-index="${index}"
                 title="Sensores de Temperatura">
-            <span class="icon">🌡️</span> ${renderCount(counts.temperature)}
+            <span class="icon">🌡️</span>
+            <span class="count">${renderCount(counts.temperature)}</span>
+            ${tempValue ? `<span class="value">(${tempValue})</span>` : ''}
           </span>
         </div>
       `;
@@ -1428,11 +1577,11 @@ export class WelcomeModalView {
            data-entity-id="${card.entityId}"
            data-entity-type="${card.entityType || 'ASSET'}">
         ${bgImage}
+        ${metaCountsHTML}
         <div class="myio-welcome-card-content">
-          ${metaCountsHTML}
           <h3 class="myio-welcome-card-title">${card.title}</h3>
-          ${subtitleHTML}
         </div>
+        ${subtitleHTML}
       </div>
     `;
   }
@@ -2033,6 +2182,11 @@ export class WelcomeModalView {
       // Re-bind card events
       this.bindCardEvents();
       this.setupLazyLoading();
+
+      // Recalculate grid layout for new cards
+      requestAnimationFrame(() => {
+        this.calculateGridLayout();
+      });
     }
 
     if (this.config.enableDebugMode) {
@@ -2143,6 +2297,12 @@ export class WelcomeModalView {
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();
       this.intersectionObserver = null;
+    }
+
+    // Remove resize listener
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = null;
     }
 
     // Note: styleElement is shared across instances, so we don't remove it here

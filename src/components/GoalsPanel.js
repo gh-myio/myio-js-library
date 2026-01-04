@@ -8,6 +8,8 @@
 
 /* eslint-disable */
 
+import { ModalHeader } from '../utils/ModalHeader';
+
 /**
  * Opens the Goals Setup Panel modal
  *
@@ -63,6 +65,9 @@ export function openGoalsPanel(params) {
   // i18n strings
   const i18n = locale === 'en-US' ? getEnglishStrings() : getPortugueseStrings();
 
+  // Modal constants
+  const MODAL_ID = 'goals-modal';
+
   // Modal state
   let modalState = {
     currentTab: 'shopping', // 'shopping' | 'assets'
@@ -71,7 +76,8 @@ export function openGoalsPanel(params) {
     goalsData: data || null,
     isDirty: false,
     isSaving: false,
-    validationErrors: []
+    validationErrors: [],
+    headerController: null
   };
 
   // Create modal instance
@@ -133,27 +139,26 @@ export function openGoalsPanel(params) {
   }
 
   function generateModalHTML() {
+    // Generate standardized modal header using ModalHeader component
+    const headerHTML = ModalHeader.generateInlineHTML({
+      icon: '⭐',
+      title: i18n.modalTitle,
+      modalId: MODAL_ID,
+      theme: 'dark',
+      isMaximized: false,
+      showThemeToggle: false,
+      showMaximize: false,
+      showClose: true,
+      primaryColor: theme.primaryColor,
+      borderRadius: `${theme.borderRadius} ${theme.borderRadius} 0 0`
+    });
+
     return `
       <div class="myio-goals-modal-backdrop" aria-hidden="true"></div>
       <div class="myio-goals-modal-container">
         <div class="myio-goals-modal-card">
-          <!-- Header -->
-          <div class="myio-goals-modal-header">
-            <div class="myio-goals-header-content">
-              <div class="myio-goals-header-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                        fill="currentColor" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </div>
-              <h2 id="goals-modal-title" class="myio-goals-modal-title">${i18n.modalTitle}</h2>
-            </div>
-            <button class="myio-goals-close-btn" aria-label="${i18n.close}" data-action="close">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
+          <!-- Header (ModalHeader RFC-0121) -->
+          ${headerHTML}
 
           <!-- Year Selector -->
           <div class="myio-goals-year-selector">
@@ -473,11 +478,25 @@ export function openGoalsPanel(params) {
     const modal = document.getElementById('myio-goals-panel-modal');
     if (!modal) return;
 
-    // Close button
+    // Setup ModalHeader handlers (RFC-0121)
+    ModalHeader.setupHandlers({
+      modalId: MODAL_ID,
+      onClose: () => {
+        if (modalState.isDirty) {
+          if (confirm(i18n.unsavedChanges)) {
+            closeModal();
+          }
+        } else {
+          closeModal();
+        }
+      }
+    });
+
+    // Action buttons (save, cancel, year navigation)
     modal.addEventListener('click', (e) => {
       const action = e.target.closest('[data-action]')?.dataset.action;
 
-      if (action === 'close' || action === 'cancel') {
+      if (action === 'cancel') {
         if (modalState.isDirty) {
           if (confirm(i18n.unsavedChanges)) {
             closeModal();
@@ -1097,52 +1116,7 @@ export function openGoalsPanel(params) {
         overflow: hidden;
       }
 
-      .myio-goals-modal-header {
-        background: ${theme.primaryColor};
-        color: white;
-        padding: 20px 24px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-      }
-
-      .myio-goals-header-content {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .myio-goals-header-icon {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .myio-goals-modal-title {
-        margin: 0;
-        font-size: 20px;
-        font-weight: 600;
-      }
-
-      .myio-goals-close-btn {
-        background: transparent;
-        border: none;
-        color: white;
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s;
-      }
-
-      .myio-goals-close-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
-      }
+      /* Header styles are now managed by ModalHeader component (RFC-0121) */
 
       .myio-goals-year-selector {
         padding: 16px 24px;

@@ -691,3 +691,45 @@ export {
   CONTEXT_CONFIG as TELEMETRY_CONTEXT_CONFIG,
   DEFAULT_FILTER_TABS as TELEMETRY_DEFAULT_FILTER_TABS,
 } from './components/telemetry-grid';
+
+// RFC-0125: HeaderDevicesGrid Component
+export { createHeaderDevicesGridComponent } from './components/header-devices-grid';
+export { HeaderDevicesGridView, HeaderDevicesGridController } from './components/header-devices-grid';
+
+export type {
+  HeaderDevicesDomain,
+  HeaderDevicesThemeMode,
+  HeaderStats,
+  HeaderLabels,
+  HeaderDevicesGridParams,
+  HeaderDevicesGridInstance,
+  HeaderDevice,
+  HeaderDomainConfig,
+} from './components/header-devices-grid';
+
+export { HEADER_DEVICES_GRID_STYLES, injectHeaderDevicesGridStyles } from './components/header-devices-grid';
+
+// RFC-0125: FilterModal Component
+export { createFilterModalComponent } from './components/filter-modal';
+export { FilterModalView, FilterModalController } from './components/filter-modal';
+
+export type {
+  FilterModalThemeMode,
+  FilterModalDomain,
+  SortMode as FilterSortMode,
+  FilterTab,
+  FilterableDevice,
+  AppliedFilters,
+  FilterModalParams,
+  FilterModalInstance,
+  FilterModalState,
+  FilterGroup,
+} from './components/filter-modal';
+
+export {
+  FILTER_GROUPS,
+  FILTER_TAB_ICONS,
+  STATUS_TO_CONNECTIVITY,
+} from './components/filter-modal';
+
+export { generateFilterModalStyles } from './components/filter-modal';

@@ -363,14 +363,14 @@ modal.<span class="function">close</span>();
       log.insertBefore(entry, log.firstChild);
     }
 
-    // Mock shopping cards with device counts and meta counts
+    // Mock shopping cards with device counts, consumption values and meta counts
     const MOCK_SHOPPING_CARDS = [
       {
         title: 'Mestre Álvaro',
         dashboardId: 'a6272d20-c974-11f0-84a2-1f4ed3957b2a',
         entityId: 'customer-mestre-alvaro',
         entityType: 'CUSTOMER',
-        deviceCounts: { energy: 45, water: 12, temperature: 8 },
+        deviceCounts: { energy: 45, energyConsumption: 1250, water: 12, waterConsumption: 180, temperature: 8, temperatureAvg: 23.5 },
         metaCounts: { users: 12, alarms: 3, notifications: 5 },
       },
       {
@@ -378,7 +378,7 @@ modal.<span class="function">close</span>();
         dashboardId: 'b7383e31-d085-22f1-95b3-2f5fe4068c3b',
         entityId: 'customer-mont-serrat',
         entityType: 'CUSTOMER',
-        deviceCounts: { energy: 38, water: 10, temperature: 6 },
+        deviceCounts: { energy: 38, energyConsumption: 890, water: 10, waterConsumption: 145, temperature: 6, temperatureAvg: 24.2 },
         metaCounts: { users: 8, alarms: 1, notifications: 2 },
       },
       {
@@ -386,7 +386,7 @@ modal.<span class="function">close</span>();
         dashboardId: 'c8494f42-e196-33f2-a6c4-3f6gf5179d4c',
         entityId: 'customer-vitoria-mall',
         entityType: 'CUSTOMER',
-        deviceCounts: { energy: 52, water: 15, temperature: 10 },
+        deviceCounts: { energy: 52, energyConsumption: 2100, water: 15, waterConsumption: 220, temperature: 10, temperatureAvg: 22.8 },
         metaCounts: { users: 15, alarms: 5, notifications: 8 },
       },
       {
@@ -394,7 +394,7 @@ modal.<span class="function">close</span>();
         dashboardId: 'd9505g53-f2a7-44f3-b7d5-4g7hg628ae5d',
         entityId: 'customer-norte',
         entityType: 'CUSTOMER',
-        deviceCounts: { energy: 33, water: 8, temperature: 5 },
+        deviceCounts: { energy: 33, energyConsumption: 650, water: 8, waterConsumption: 95, temperature: 5, temperatureAvg: 25.1 },
         metaCounts: { users: 6, alarms: 0, notifications: 1 },
       },
       {
@@ -402,7 +402,7 @@ modal.<span class="function">close</span>();
         dashboardId: 'e0616h64-g3b8-55f4-c8e6-5h8ih739bf6e',
         entityId: 'customer-sul',
         entityType: 'CUSTOMER',
-        deviceCounts: { energy: 41, water: 11, temperature: 7 },
+        deviceCounts: { energy: 41, energyConsumption: 980, water: 11, waterConsumption: 160, temperature: 7, temperatureAvg: 23.9 },
         metaCounts: { users: 10, alarms: 2, notifications: 4 },
       },
       {
@@ -410,7 +410,7 @@ modal.<span class="function">close</span>();
         dashboardId: 'f1727i75-h4c9-66f5-d9f7-6i9ji840cg7f',
         entityId: 'customer-leste',
         entityType: 'CUSTOMER',
-        deviceCounts: { energy: 29, water: 7, temperature: 4 },
+        deviceCounts: { energy: 29, energyConsumption: 520, water: 7, waterConsumption: 85, temperature: 4, temperatureAvg: 24.6 },
         metaCounts: { users: 5, alarms: 1, notifications: 0 },
       },
     ];

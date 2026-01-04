@@ -194,10 +194,16 @@ export interface WelcomePalette {
 export interface ShoppingCardDeviceCounts {
   /** Number of energy devices (null = loading spinner) */
   energy?: number | null;
+  /** Total energy consumption in kWh (null = loading) */
+  energyConsumption?: number | null;
   /** Number of water devices (null = loading spinner) */
   water?: number | null;
+  /** Total water consumption in m³ (null = loading) */
+  waterConsumption?: number | null;
   /** Number of temperature sensors (null = loading spinner) */
   temperature?: number | null;
+  /** Average temperature in °C (null = loading) */
+  temperatureAvg?: number | null;
 }
 
 /**
@@ -394,7 +400,7 @@ export const DEFAULT_SHOPPING_CARDS: ShoppingCard[] = [
     dashboardId: 'dashboard-mestre-alvaro',
     entityId: 'entity-mestre-alvaro',
     entityType: 'ASSET',
-    deviceCounts: { energy: 45, water: 12, temperature: 8 },
+    deviceCounts: { energy: 45, energyConsumption: 1250, water: 12, waterConsumption: 180, temperature: 8, temperatureAvg: 23.5 },
     metaCounts: { users: 12, alarms: 3, notifications: 5 },
   },
   {
@@ -402,7 +408,7 @@ export const DEFAULT_SHOPPING_CARDS: ShoppingCard[] = [
     dashboardId: 'dashboard-mont-serrat',
     entityId: 'entity-mont-serrat',
     entityType: 'ASSET',
-    deviceCounts: { energy: 38, water: 10, temperature: 6 },
+    deviceCounts: { energy: 38, energyConsumption: 890, water: 10, waterConsumption: 145, temperature: 6, temperatureAvg: 24.2 },
     metaCounts: { users: 8, alarms: 1, notifications: 2 },
   },
   {
@@ -410,7 +416,7 @@ export const DEFAULT_SHOPPING_CARDS: ShoppingCard[] = [
     dashboardId: 'dashboard-vitoria-mall',
     entityId: 'entity-vitoria-mall',
     entityType: 'ASSET',
-    deviceCounts: { energy: 52, water: 15, temperature: 10 },
+    deviceCounts: { energy: 52, energyConsumption: 2100, water: 15, waterConsumption: 220, temperature: 10, temperatureAvg: 22.8 },
     metaCounts: { users: 15, alarms: 5, notifications: 8 },
   },
   {
@@ -418,7 +424,7 @@ export const DEFAULT_SHOPPING_CARDS: ShoppingCard[] = [
     dashboardId: 'dashboard-norte',
     entityId: 'entity-norte',
     entityType: 'ASSET',
-    deviceCounts: { energy: 33, water: 8, temperature: 5 },
+    deviceCounts: { energy: 33, energyConsumption: 650, water: 8, waterConsumption: 95, temperature: 5, temperatureAvg: 25.1 },
     metaCounts: { users: 6, alarms: 0, notifications: 1 },
   },
   {
@@ -426,7 +432,7 @@ export const DEFAULT_SHOPPING_CARDS: ShoppingCard[] = [
     dashboardId: 'dashboard-sul',
     entityId: 'entity-sul',
     entityType: 'ASSET',
-    deviceCounts: { energy: 41, water: 11, temperature: 7 },
+    deviceCounts: { energy: 41, energyConsumption: 980, water: 11, waterConsumption: 160, temperature: 7, temperatureAvg: 23.9 },
     metaCounts: { users: 10, alarms: 2, notifications: 4 },
   },
   {
@@ -434,7 +440,7 @@ export const DEFAULT_SHOPPING_CARDS: ShoppingCard[] = [
     dashboardId: 'dashboard-leste',
     entityId: 'entity-leste',
     entityType: 'ASSET',
-    deviceCounts: { energy: 29, water: 7, temperature: 4 },
+    deviceCounts: { energy: 29, energyConsumption: 520, water: 7, waterConsumption: 85, temperature: 4, temperatureAvg: 24.6 },
     metaCounts: { users: 5, alarms: 1, notifications: 0 },
   },
 ];

@@ -24,7 +24,7 @@ This RFC documents the **WelcomeModal** component in the MYIO library. This moda
 
 ## Implementation Status
 
-### Completed Features (Rev-001)
+### Completed Features (Rev-004)
 
 1. **Modal Behavior**
    - Modal occupies ~90% of viewport width and height
@@ -48,7 +48,10 @@ This RFC documents the **WelcomeModal** component in the MYIO library. This moda
 
 4. **Shopping Card Features**
    - Customer name centered
+   - Grid layout fixo: 3 cards por linha em todas as resoluções
    - Device counts per domain (⚡ energy, 💧 water, 🌡️ temperature)
+   - Meta counts row (👥 users, 🚨 alarms, 🔔 notifications)
+   - Badges com `min-width` uniforme para 3 dígitos (52px/44px/36px)
    - Interactive device count badges with hover effects
    - Hover scale effect (1.03)
    - Tooltip integration on hover
@@ -184,13 +187,22 @@ interface WelcomeModalInstance {
 }
 ```
 
-### ShoppingCard (with Device Counts)
+### ShoppingCard (with Device Counts and Consumption)
 
 ```typescript
 interface ShoppingCardDeviceCounts {
-  energy?: number;
-  water?: number;
-  temperature?: number;
+  energy?: number | null;           // Device count (null = spinner)
+  energyConsumption?: number | null; // Total kWh (displays as MWh if >= 1000)
+  water?: number | null;            // Device count
+  waterConsumption?: number | null;  // Total m³
+  temperature?: number | null;      // Device count
+  temperatureAvg?: number | null;   // Average °C
+}
+
+interface ShoppingCardMetaCounts {
+  users?: number;        // Number of users
+  alarms?: number;       // Active alarms
+  notifications?: number; // Unread notifications
 }
 
 interface ShoppingCard {
@@ -201,7 +213,8 @@ interface ShoppingCard {
   entityType?: string;  // default: 'ASSET'
   bgImageUrl?: string;
   buttonId?: string;
-  deviceCounts?: ShoppingCardDeviceCounts;  // Replaces subtitle if provided
+  deviceCounts?: ShoppingCardDeviceCounts;  // Shows: ⚡ 45 (1.2 MWh) 💧 12 (180 m³) 🌡️ 8 (23.5 °C)
+  metaCounts?: ShoppingCardMetaCounts;      // Shows: 👥 12 🚨 3 🔔 5
 }
 ```
 
@@ -393,11 +406,37 @@ When clicked:
 
 ## Responsive Breakpoints
 
-| Breakpoint | Modal Size | User Menu | Theme Toggle |
-|------------|------------|-----------|--------------|
-| Desktop (>768px) | 90vw × 90vh | Absolute top-right | Absolute below menu |
-| Tablet (≤768px) | 95vw × 95vh | Relative, full width | Absolute, adjusted |
-| Mobile (≤480px) | 100vw × 100vh | Relative, full width | Absolute, smaller |
+| Breakpoint | Modal Size | Grid Layout | Badge min-width |
+|------------|------------|-------------|-----------------|
+| Desktop (>768px) | 90vw × 90vh | 3 colunas fixas | 52px |
+| Tablet (≤768px) | 95vw × 95vh | 3 colunas fixas | 44px |
+| Mobile (≤480px) | 100vw × 100vh | 3 colunas fixas | 36px |
+
+---
+
+## Dynamic Layout Algorithm (Rev-003)
+
+O componente implementa um algoritmo de cálculo dinâmico de layout que otimiza o uso do espaço disponível:
+
+### `calculateGridLayout()`
+
+```
+Algoritmo:
+1. Obter altura do modal container (90vh)
+2. Obter altura da hero section
+3. Calcular altura disponível = modal - hero
+4. Descontar padding (40px) e título (40px)
+5. Calcular número de linhas = ceil(cards / 3)
+6. Calcular gaps entre linhas = (linhas - 1) * 16px
+7. Altura ideal do card = (altura disponível - gaps) / linhas
+8. Aplicar constraints: min=100px, max=200px
+```
+
+### Características:
+- **Resize listener**: Recalcula layout com debounce de 100ms ao redimensionar janela
+- **Dynamic update**: Recalcula ao chamar `updateShoppingCards()`
+- **Debug mode**: Logs detalhados quando `enableDebugMode: true`
+- **Constraints**: Cards nunca menores que 100px ou maiores que 200px
 
 ---
 
@@ -411,6 +450,16 @@ When clicked:
 - 2026-01-02: Added `onThemeChange` callback and `setThemeMode`/`getThemeMode` methods
 - 2026-01-02: Added device counts per shopping card
 - 2026-01-02: Improved responsive layout for mobile
+- 2026-01-04: **Rev-002**: Grid fixo em 3 colunas por linha
+- 2026-01-04: Badges de dispositivos com `min-width` uniforme (52px desktop, 44px tablet, 36px mobile)
+- 2026-01-04: Badges de meta counts (users, alarms, notifications) com mesmo tratamento
+- 2026-01-04: **Rev-003**: Algoritmo de layout dinâmico `calculateGridLayout()`
+- 2026-01-04: Altura dos cards calculada automaticamente baseado no espaço disponível
+- 2026-01-04: Resize listener com debounce para recalcular em redimensionamento
+- 2026-01-04: **Rev-004**: Exibição de consumo/média nos badges
+- 2026-01-04: Energy: `⚡ 45 (1.2 MWh)` ou `⚡ 45 (850 kWh)` se < 1000
+- 2026-01-04: Water: `💧 12 (180 m³)`
+- 2026-01-04: Temperature: `🌡️ 8 (23.5 °C)`
 
 ---
 

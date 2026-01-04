@@ -2188,7 +2188,9 @@ body.filter-modal-open { overflow: hidden !important; }
     getCustomerNameForDevice,
     findValue: MyIOLibrary.findValueWithDefault,
     fetchCustomerServerScopeAttrs,
-    buildHeaderDevicesGrid,
+    // RFC-0125: Use library components for header and filter modal
+    buildHeaderDevicesGrid: MyIOLibrary.createHeaderDevicesGridComponent,
+    createFilterModal: MyIOLibrary.createFilterModalComponent,
     getConsumptionRangesHierarchical: () => null,
     getCachedConsumptionLimits: () => null,
     getCredentials: () => ({
