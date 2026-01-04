@@ -108,6 +108,7 @@ export {
   detectDomainAndContext,
   mapConnectionStatus,
   calculateShoppingDeviceCounts,
+  calculateShoppingDeviceStats, // RFC-0112: Includes consumption values
   extractEntityId,
 } from './utils/deviceInfo.js';
 

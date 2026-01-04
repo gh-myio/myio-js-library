@@ -241,6 +241,93 @@ export function calculateShoppingDeviceCounts(domainList, classified) {
 }
 
 /**
+ * RFC-0112: Calculate device counts AND consumption values per shopping from classified data.
+ * Extends calculateShoppingDeviceCounts to include energyConsumption, waterConsumption, and temperatureAvg.
+ *
+ * @param {string[]} domainList - Array of domain names (e.g., ['energy', 'water', 'temperature'])
+ * @param {Object} classified - Classified device data from window.MyIOOrchestratorData
+ * @returns {Map<string, ShoppingDeviceStats>} Map of ownerName (normalized) -> counts and consumption per domain
+ *
+ * @typedef {Object} ShoppingDeviceStats
+ * @property {number} energy - Count of energy devices
+ * @property {number} water - Count of water devices
+ * @property {number} temperature - Count of temperature devices
+ * @property {number|null} energyConsumption - Total kWh consumption (null if no devices)
+ * @property {number|null} waterConsumption - Total m³ consumption (null if no devices)
+ * @property {number|null} temperatureAvg - Average temperature in °C (null if no devices)
+ *
+ * @example
+ * const stats = calculateShoppingDeviceStats(
+ *   ['energy', 'water', 'temperature'],
+ *   window.MyIOOrchestratorData.classified
+ * );
+ * stats.get('shopping abc');
+ * // { energy: 5, water: 2, temperature: 3, energyConsumption: 1250.5, waterConsumption: 180, temperatureAvg: 23.5 }
+ */
+export function calculateShoppingDeviceStats(domainList, classified) {
+  const statsByOwnerName = new Map();
+
+  domainList.forEach((domain) => {
+    const domainDevices = classified[domain] || {};
+
+    Object.values(domainDevices).forEach((devices) => {
+      devices.forEach((device) => {
+        const ownerName = (device.ownerName || device.customerName || '').toLowerCase().trim();
+        if (!ownerName) return;
+
+        if (!statsByOwnerName.has(ownerName)) {
+          statsByOwnerName.set(ownerName, {
+            energy: 0,
+            water: 0,
+            temperature: 0,
+            energyConsumption: null,
+            waterConsumption: null,
+            temperatureAvg: null,
+            // Internal accumulators (not exposed in final result)
+            _tempSum: 0,
+            _tempCount: 0,
+          });
+        }
+
+        const stats = statsByOwnerName.get(ownerName);
+        stats[domain]++;
+
+        // RFC-0112: Accumulate consumption values
+        if (domain === 'energy') {
+          const consumption = Number(device.consumption || device.val || device.value || 0);
+          if (consumption > 0) {
+            stats.energyConsumption = (stats.energyConsumption || 0) + consumption;
+          }
+        } else if (domain === 'water') {
+          const consumption = Number(device.consumption || device.val || device.pulses || 0);
+          if (consumption > 0) {
+            stats.waterConsumption = (stats.waterConsumption || 0) + consumption;
+          }
+        } else if (domain === 'temperature') {
+          const temp = Number(device.temperature || 0);
+          if (temp > 0) {
+            stats._tempSum += temp;
+            stats._tempCount++;
+          }
+        }
+      });
+    });
+  });
+
+  // Calculate temperature averages and clean up internal accumulators
+  statsByOwnerName.forEach((stats) => {
+    if (stats._tempCount > 0) {
+      stats.temperatureAvg = Math.round((stats._tempSum / stats._tempCount) * 10) / 10;
+    }
+    // Remove internal accumulators
+    delete stats._tempSum;
+    delete stats._tempCount;
+  });
+
+  return statsByOwnerName;
+}
+
+/**
  * Extract entity ID from various ThingsBoard entity ID formats.
  *
  * @param {string|Object|null} entityIdObj - Entity ID in string or object format

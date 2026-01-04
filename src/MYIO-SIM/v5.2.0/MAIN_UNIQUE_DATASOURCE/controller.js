@@ -2100,15 +2100,16 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   /**
-   * RFC-0111: Update DEFAULT_SHOPPING_CARDS with real counts from classified data
+   * RFC-0111/RFC-0112: Update DEFAULT_SHOPPING_CARDS with real counts and consumption from classified data
    * Matches by shopping card title to device ownerName
    * @param {Object} classified - Classified device data
-   * @returns {Array} Updated shopping cards with real device counts
+   * @returns {Array} Updated shopping cards with real device counts and consumption values
    */
   const updateShoppingCardsWithRealCounts = (classified) => {
-    const countsByOwnerName = MyIOLibrary.calculateShoppingDeviceCounts(DOMAIN_ALL_LIST, classified);
+    // RFC-0112: Use calculateShoppingDeviceStats to get counts AND consumption values
+    const statsByOwnerName = MyIOLibrary.calculateShoppingDeviceStats(DOMAIN_ALL_LIST, classified);
 
-    LogHelper.log('Device counts by ownerName:', Object.fromEntries(countsByOwnerName));
+    LogHelper.log('Device stats by ownerName:', Object.fromEntries(statsByOwnerName));
 
     return DEFAULT_SHOPPING_CARDS.map((card) => {
       if (!card.title) {
@@ -2119,23 +2120,45 @@ body.filter-modal-open { overflow: hidden !important; }
       const cardTitleNorm = card.title.toLowerCase().trim();
 
       // 1. Try exact match on normalized title
-      if (countsByOwnerName.has(cardTitleNorm)) {
-        const counts = countsByOwnerName.get(cardTitleNorm);
-        LogHelper.log(`Exact match for ${card.title}:`, counts);
-        return { ...card, deviceCounts: counts };
+      if (statsByOwnerName.has(cardTitleNorm)) {
+        const stats = statsByOwnerName.get(cardTitleNorm);
+        LogHelper.log(`Exact match for ${card.title}:`, stats);
+        // RFC-0112: Return deviceCounts with both counts and consumption values
+        return {
+          ...card,
+          deviceCounts: {
+            energy: stats.energy,
+            water: stats.water,
+            temperature: stats.temperature,
+            energyConsumption: stats.energyConsumption,
+            waterConsumption: stats.waterConsumption,
+            temperatureAvg: stats.temperatureAvg,
+          },
+        };
       }
 
       // 2. Try partial match: ownerName contains card title OR card title contains ownerName
-      const matchByName = [...countsByOwnerName.keys()].find((ownerName) => {
+      const matchByName = [...statsByOwnerName.keys()].find((ownerName) => {
         if (typeof ownerName !== 'string') return false;
         // Check both directions for partial match
         return ownerName.includes(cardTitleNorm) || cardTitleNorm.includes(ownerName);
       });
 
       if (matchByName) {
-        const counts = countsByOwnerName.get(matchByName);
-        LogHelper.log(`Partial match ${card.title} -> ${matchByName}:`, counts);
-        return { ...card, deviceCounts: counts };
+        const stats = statsByOwnerName.get(matchByName);
+        LogHelper.log(`Partial match ${card.title} -> ${matchByName}:`, stats);
+        // RFC-0112: Return deviceCounts with both counts and consumption values
+        return {
+          ...card,
+          deviceCounts: {
+            energy: stats.energy,
+            water: stats.water,
+            temperature: stats.temperature,
+            energyConsumption: stats.energyConsumption,
+            waterConsumption: stats.waterConsumption,
+            temperatureAvg: stats.temperatureAvg,
+          },
+        };
       }
 
       LogHelper.log(`No counts found for ${card.title}`);
