@@ -139,12 +139,14 @@ export class MenuView {
 .myio-menu-root {
   font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
   width: 100%;
+  box-sizing: border-box;
 }
 
 /* Toolbar Root - Container */
 .myio-toolbar-root {
   background: transparent;
-  padding: 0;
+  padding: 0 12px; /* RFC-0114: Align with Header (12px) and TelemetryGrid (12px) horizontal padding */
+  box-sizing: border-box;
 }
 
 /* ==========================================
@@ -159,10 +161,11 @@ export class MenuView {
   border: 1px solid var(--menu-bar-border, rgba(0, 0, 0, 0.08));
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  padding: 6px 16px;
+  padding: 6px 12px; /* RFC-0114: Reduced from 16px to 12px for consistent spacing */
   gap: 0;
   width: 100%;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* Dark theme bar */
