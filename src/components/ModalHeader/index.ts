@@ -176,7 +176,9 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
       border-radius: 6px;
       color: rgba(255, 255, 255, 0.8);
       transition: background-color 0.2s, color 0.2s;
-    `.replace(/\s+/g, ' ').trim();
+    `
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   // Generate export dropdown HTML
@@ -187,7 +189,9 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
     // Single format - just show button
     if (formats.length === 1) {
       return `
-        <button id="${config.id}-export" title="Exportar ${EXPORT_FORMAT_LABELS[formats[0]]}" style="${getButtonStyle()}">
+        <button id="${config.id}-export" title="Exportar ${
+        EXPORT_FORMAT_LABELS[formats[0]]
+      }" style="${getButtonStyle()}">
           📥
         </button>
       `;
@@ -212,7 +216,9 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
           margin-top: 4px;
           overflow: hidden;
         ">
-          ${formats.map(format => `
+          ${formats
+            .map(
+              (format) => `
             <button
               id="${config.id}-export-${format}"
               class="myio-export-option"
@@ -234,7 +240,9 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
             >
               ${EXPORT_FORMAT_ICONS[format]} ${EXPORT_FORMAT_LABELS[format]}
             </button>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       </div>
     `;
@@ -245,7 +253,7 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
     render(): string {
       const bgColor = config.backgroundColor || DEFAULT_BG_COLOR;
       const textColor = config.textColor || DEFAULT_TEXT_COLOR;
-      const borderRadius = currentIsMaximized ? '0' : (config.borderRadius || DEFAULT_BORDER_RADIUS);
+      const borderRadius = currentIsMaximized ? '0' : config.borderRadius || DEFAULT_BORDER_RADIUS;
       const showTheme = config.showThemeToggle !== false;
       const showMax = config.showMaximize !== false;
       const showClose = config.showClose !== false;
@@ -279,21 +287,37 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
           </h2>
           <div style="display: flex; gap: 4px; align-items: center;">
             ${showExport ? renderExportDropdown() : ''}
-            ${showTheme ? `
-              <button id="${config.id}-theme-toggle" title="${currentTheme === 'dark' ? 'Modo claro' : 'Modo escuro'}" style="${buttonStyle}">
+            ${
+              showTheme
+                ? `
+              <button id="${config.id}-theme-toggle" title="${
+                    currentTheme === 'dark' ? 'Modo claro' : 'Modo escuro'
+                  }" style="${buttonStyle}">
                 ${currentTheme === 'dark' ? '☀️' : '🌙'}
               </button>
-            ` : ''}
-            ${showMax ? `
-              <button id="${config.id}-maximize" title="${currentIsMaximized ? 'Restaurar' : 'Maximizar'}" style="${buttonStyle}">
+            `
+                : ''
+            }
+            ${
+              showMax
+                ? `
+              <button id="${config.id}-maximize" title="${
+                    currentIsMaximized ? 'Restaurar' : 'Maximizar'
+                  }" style="${buttonStyle}">
                 ${currentIsMaximized ? '🗗' : '🗖'}
               </button>
-            ` : ''}
-            ${showClose ? `
-              <button id="${config.id}-close" title="Fechar" style="${buttonStyle}; font-size: 20px;">
+            `
+                : ''
+            }
+            ${
+              showClose
+                ? `
+              <button id="${config.id}-close" title="Fechar" style="${buttonStyle}; font-weight: bold; line-height: 1; vertical-align: middle;">
                 ×
               </button>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         </div>
       `;
@@ -315,8 +339,12 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
         cleanupHandlers.push(() => exportBtn?.removeEventListener('click', clickHandler));
 
         // Hover effect
-        const enterHandler = () => { exportBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; };
-        const leaveHandler = () => { exportBtn!.style.backgroundColor = 'transparent'; };
+        const enterHandler = () => {
+          exportBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        };
+        const leaveHandler = () => {
+          exportBtn!.style.backgroundColor = 'transparent';
+        };
         exportBtn.addEventListener('mouseenter', enterHandler);
         exportBtn.addEventListener('mouseleave', leaveHandler);
         cleanupHandlers.push(() => {
@@ -344,7 +372,11 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
 
         // Close dropdown when clicking outside
         const outsideClickHandler = (e: Event) => {
-          if (exportDropdown && !exportDropdown.contains(e.target as Node) && e.target !== exportDropdownBtn) {
+          if (
+            exportDropdown &&
+            !exportDropdown.contains(e.target as Node) &&
+            e.target !== exportDropdownBtn
+          ) {
             exportDropdown.style.display = 'none';
           }
         };
@@ -352,7 +384,7 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
         cleanupHandlers.push(() => document.removeEventListener('click', outsideClickHandler));
 
         // Export format buttons
-        config.exportFormats?.forEach(format => {
+        config.exportFormats?.forEach((format) => {
           const btn = document.getElementById(`${config.id}-export-${format}`);
           if (btn) {
             const clickHandler = () => handleExportClick(format);
@@ -360,8 +392,12 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
             cleanupHandlers.push(() => btn.removeEventListener('click', clickHandler));
 
             // Hover effect
-            const enterHandler = () => { btn.style.backgroundColor = '#f0f0f0'; };
-            const leaveHandler = () => { btn.style.backgroundColor = 'white'; };
+            const enterHandler = () => {
+              btn.style.backgroundColor = '#f0f0f0';
+            };
+            const leaveHandler = () => {
+              btn.style.backgroundColor = 'white';
+            };
             btn.addEventListener('mouseenter', enterHandler);
             btn.addEventListener('mouseleave', leaveHandler);
             cleanupHandlers.push(() => {
@@ -372,8 +408,12 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
         });
 
         // Hover effect for dropdown button
-        const enterHandler = () => { exportDropdownBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; };
-        const leaveHandler = () => { exportDropdownBtn.style.backgroundColor = 'transparent'; };
+        const enterHandler = () => {
+          exportDropdownBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        };
+        const leaveHandler = () => {
+          exportDropdownBtn.style.backgroundColor = 'transparent';
+        };
         exportDropdownBtn.addEventListener('mouseenter', enterHandler);
         exportDropdownBtn.addEventListener('mouseleave', leaveHandler);
         cleanupHandlers.push(() => {
@@ -388,8 +428,12 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
         cleanupHandlers.push(() => themeBtn?.removeEventListener('click', handleThemeClick));
 
         // Hover effect
-        const enterHandler = () => { themeBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; };
-        const leaveHandler = () => { themeBtn!.style.backgroundColor = 'transparent'; };
+        const enterHandler = () => {
+          themeBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        };
+        const leaveHandler = () => {
+          themeBtn!.style.backgroundColor = 'transparent';
+        };
         themeBtn.addEventListener('mouseenter', enterHandler);
         themeBtn.addEventListener('mouseleave', leaveHandler);
         cleanupHandlers.push(() => {
@@ -403,8 +447,12 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
         maximizeBtn.addEventListener('click', handleMaximizeClick);
         cleanupHandlers.push(() => maximizeBtn?.removeEventListener('click', handleMaximizeClick));
 
-        const enterHandler = () => { maximizeBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; };
-        const leaveHandler = () => { maximizeBtn!.style.backgroundColor = 'transparent'; };
+        const enterHandler = () => {
+          maximizeBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        };
+        const leaveHandler = () => {
+          maximizeBtn!.style.backgroundColor = 'transparent';
+        };
         maximizeBtn.addEventListener('mouseenter', enterHandler);
         maximizeBtn.addEventListener('mouseleave', leaveHandler);
         cleanupHandlers.push(() => {
@@ -418,8 +466,12 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
         closeBtn.addEventListener('click', handleCloseClick);
         cleanupHandlers.push(() => closeBtn?.removeEventListener('click', handleCloseClick));
 
-        const enterHandler = () => { closeBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; };
-        const leaveHandler = () => { closeBtn!.style.backgroundColor = 'transparent'; };
+        const enterHandler = () => {
+          closeBtn!.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        };
+        const leaveHandler = () => {
+          closeBtn!.style.backgroundColor = 'transparent';
+        };
         closeBtn.addEventListener('mouseenter', enterHandler);
         closeBtn.addEventListener('mouseleave', leaveHandler);
         cleanupHandlers.push(() => {
@@ -457,7 +509,7 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
 
     destroy(): void {
       // Run all cleanup handlers
-      cleanupHandlers.forEach(handler => handler());
+      cleanupHandlers.forEach((handler) => handler());
       cleanupHandlers.length = 0;
 
       themeBtn = null;

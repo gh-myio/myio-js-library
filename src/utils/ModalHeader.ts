@@ -182,6 +182,8 @@ const MODAL_HEADER_CSS = `
   justify-content: center;
   min-width: 28px;
   min-height: 28px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .myio-modal-header__btn:hover {
@@ -194,7 +196,7 @@ const MODAL_HEADER_CSS = `
 }
 
 .myio-modal-header__btn--close {
-  font-size: 20px;
+  font-weight: bold;
 }
 
 .myio-modal-header__btn--close:hover {
@@ -359,7 +361,9 @@ export const ModalHeader = {
       min-height: 32px;
       user-select: none;
       cursor: move;
-    `.replace(/\s+/g, ' ').trim();
+    `
+      .replace(/\s+/g, ' ')
+      .trim();
 
     const btnStyle = `
       background: none;
@@ -370,18 +374,24 @@ export const ModalHeader = {
       border-radius: 6px;
       color: ${btnColor};
       transition: background-color 0.2s;
-    `.replace(/\s+/g, ' ').trim();
+    `
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    const closeBtnStyle = `${btnStyle} font-size: 20px;`;
+    const closeBtnStyle = `${btnStyle} font-weight: bold; line-height: 1; vertical-align: middle;`;
 
     // Theme toggle button
     const themeToggleBtn = showThemeToggle
-      ? `<button id="${modalId}-theme-toggle" title="Alternar tema" style="${btnStyle}">${theme === 'dark' ? '☀️' : '🌙'}</button>`
+      ? `<button id="${modalId}-theme-toggle" title="Alternar tema" style="${btnStyle} line-height: 1; vertical-align: middle;">${
+          theme === 'dark' ? '☀️' : '🌙'
+        }</button>`
       : '';
 
     // Maximize button
     const maximizeBtn = showMaximize
-      ? `<button id="${modalId}-maximize" title="${isMaximized ? 'Restaurar' : 'Maximizar'}" style="${btnStyle}">${isMaximized ? '🗗' : '🗖'}</button>`
+      ? `<button id="${modalId}-maximize" title="${
+          isMaximized ? 'Restaurar' : 'Maximizar'
+        }" style="${btnStyle} line-height: 1; vertical-align: middle;">${isMaximized ? '🗗' : '🗖'}</button>`
       : '';
 
     // Close button
@@ -461,10 +471,7 @@ export const ModalHeader = {
   /**
    * Update header button states (theme icon, maximize icon)
    */
-  updateState(
-    modalId: string,
-    state: { theme?: 'dark' | 'light'; isMaximized?: boolean }
-  ): void {
+  updateState(modalId: string, state: { theme?: 'dark' | 'light'; isMaximized?: boolean }): void {
     if (state.theme !== undefined) {
       const themeBtn = document.getElementById(`${modalId}-theme-toggle`);
       if (themeBtn) {
