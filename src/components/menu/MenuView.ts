@@ -19,6 +19,8 @@ import {
   DEFAULT_TABS,
 } from './types';
 
+import { ModalHeader } from '../../utils/ModalHeader';
+
 /**
  * Menu View - Handles rendering and DOM interactions
  */
@@ -36,6 +38,10 @@ export class MenuView {
   private activeTabId: string;
   private contextsByTab: Map<string, string> = new Map();
   private pendingTabId: string | null = null; // Tab being previewed in modal
+
+  // Filter Modal State
+  private filterModalIsMaximized: boolean = false;
+  private filterModalTheme: 'dark' | 'light' = 'dark';
 
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
@@ -146,24 +152,7 @@ export class MenuView {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-}
-
-/* Menu Blocks - compact, no extra space */
-.myio-menu-block {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* Block 2 (actions) */
-.myio-menu-actions {
-  gap: 6px;
-}
-
-/* Block 3 (extras) */
-.myio-menu-extras {
-  gap: 6px;
+  gap: 8px;
 }
 
 /* Subtle Divider */
@@ -177,7 +166,7 @@ export class MenuView {
 /* Tabs Navigation */
 .myio-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
 /* Tab Button */
@@ -486,7 +475,7 @@ export class MenuView {
 .myio-menu-filter-modal-card {
   background: var(--menu-filter-bg);
   border-radius: 12px;
-  max-width: 600px;
+  max-width: 966px;
   width: 92%;
   max-height: 86vh;
   display: flex;
@@ -494,27 +483,12 @@ export class MenuView {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
 
-.myio-menu-filter-modal-header,
 .myio-menu-filter-modal-footer {
   padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: var(--menu-filter-bg);
-}
-
-.myio-menu-filter-modal-header {
-  border-bottom: 1px solid var(--menu-filter-border);
-}
-
-.myio-menu-filter-modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--menu-filter-text);
-}
-
-.myio-menu-filter-modal-footer {
   border-top: 1px solid var(--menu-filter-border);
   gap: 8px;
   color: var(--menu-modal-desc);
@@ -529,19 +503,6 @@ export class MenuView {
   background: var(--menu-filter-bg);
 }
 
-.myio-menu-filter-close-btn {
-  cursor: pointer;
-  border: 0;
-  background: transparent;
-  font-size: 24px;
-  line-height: 1;
-  color: var(--menu-modal-desc);
-  padding: 4px;
-}
-
-.myio-menu-filter-close-btn:hover {
-  color: var(--menu-filter-text);
-}
 
 /* Filter Search */
 .myio-menu-filter-search {
@@ -658,7 +619,7 @@ export class MenuView {
   gap: 10px;
   border: 1px solid var(--menu-filter-border);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: var(--menu-filter-bg);
   font-weight: 500;
   color: var(--menu-filter-text);
@@ -686,6 +647,98 @@ export class MenuView {
   justify-content: center;
   font-size: 12px;
   color: white;
+}
+
+.myio-menu-filter-item .filter-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myio-menu-filter-item .filter-item-icons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.myio-menu-filter-item .filter-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  width: 64px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.myio-menu-filter-item .filter-icon:hover {
+  transform: scale(1.05);
+}
+
+.myio-menu-filter-item .filter-icon .count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--menu-filter-text);
+  margin-left: 2px;
+}
+
+/* Icon colors */
+.myio-menu-filter-item .filter-icon.users {
+  color: #a78bfa;
+}
+.myio-menu-filter-item .filter-icon.users:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.myio-menu-filter-item .filter-icon.alarms {
+  color: #f87171;
+}
+.myio-menu-filter-item .filter-icon.alarms:hover {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.myio-menu-filter-item .filter-icon.notifications {
+  color: #fbbf24;
+}
+.myio-menu-filter-item .filter-icon.notifications:hover {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+.myio-menu-filter-item .filter-icon.energy {
+  color: #22c55e;
+}
+.myio-menu-filter-item .filter-icon.energy:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.myio-menu-filter-item .filter-icon.water {
+  color: #3b82f6;
+}
+.myio-menu-filter-item .filter-icon.water:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.myio-menu-filter-item .filter-icon.temperature {
+  color: #f97316;
+}
+.myio-menu-filter-item .filter-icon.temperature:hover {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.4);
 }
 
 .myio-menu-filter-item.selected {
@@ -961,12 +1014,269 @@ export class MenuView {
     justify-content: flex-start;
   }
 }
+
+/* ==========================================
+   UNIFIED NAVIGATION MODAL (3 Columns)
+   ========================================== */
+
+/* Navigation Button */
+.myio-unified-nav-btn {
+  min-width: 200px;
+}
+
+.myio-unified-nav-btn .nav-label {
+  flex: 1;
+  text-align: left;
+}
+
+/* Unified Modal Backdrop */
+.myio-unified-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.myio-unified-modal.is-open {
+  display: flex;
+}
+
+/* Unified Modal Content */
+.myio-unified-modal-content {
+  background: var(--menu-modal-bg, #fff);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Unified Modal Header - MYIO Purple */
+.myio-unified-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #3e1a7d;
+  border-bottom: none;
+  font-weight: 700;
+  font-size: 16px;
+  color: white;
+  border-radius: 16px 16px 0 0;
+}
+
+.myio-unified-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.myio-unified-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Unified Modal Body - 3 Columns */
+.myio-unified-modal-body {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Single Column */
+.myio-unified-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--menu-modal-border, #e2e8f0);
+  min-width: 0;
+}
+
+.myio-unified-column:last-child {
+  border-right: none;
+}
+
+/* Column Header */
+.myio-unified-column-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #1c2743;
+  border-bottom: 1px solid var(--menu-modal-border, #e2e8f0);
+}
+
+.myio-unified-column-header .ico {
+  font-size: 18px;
+}
+
+/* Column Options */
+.myio-unified-column-options {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Single Option */
+.myio-unified-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.myio-unified-option:hover {
+  background: var(--menu-option-hover-bg, #f8fafc);
+  border-color: var(--menu-modal-border, #cbd5e1);
+}
+
+.myio-unified-option.is-active {
+  background: var(--menu-option-active-bg, #eff6ff);
+  border-color: var(--menu-option-active-border, #1d4f91);
+}
+
+/* Domain-specific hover/active colors */
+.myio-unified-option.energy:hover {
+  background: #fff8e1;
+  border-color: #ffcc80;
+}
+.myio-unified-option.energy.is-active {
+  background: #fff8e1;
+  border-color: #f59e0b;
+}
+
+.myio-unified-option.water:hover {
+  background: #e3f2fd;
+  border-color: #90caf9;
+}
+.myio-unified-option.water.is-active {
+  background: #e3f2fd;
+  border-color: #1976d2;
+}
+
+.myio-unified-option.temperature:hover {
+  background: #fff3e0;
+  border-color: #ffcc80;
+}
+.myio-unified-option.temperature.is-active {
+  background: #fff3e0;
+  border-color: #e65100;
+}
+
+.myio-unified-option .option-ico {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.myio-unified-option .option-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.myio-unified-option .option-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--menu-modal-text, #1c2743);
+  line-height: 1.3;
+}
+
+.myio-unified-option .option-desc {
+  font-size: 11px;
+  color: var(--menu-modal-desc, #64748b);
+  margin-top: 2px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.myio-unified-option .option-check {
+  font-size: 16px;
+  font-weight: bold;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s ease;
+  color: var(--menu-option-active-border, #1d4f91);
+  flex-shrink: 0;
+}
+
+.myio-unified-option.is-active .option-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.myio-unified-option.energy .option-check {
+  color: #f59e0b;
+}
+
+.myio-unified-option.water .option-check {
+  color: #1976d2;
+}
+
+.myio-unified-option.temperature .option-check {
+  color: #e65100;
+}
+
+/* Responsive - Stack columns on smaller screens */
+@media (max-width: 700px) {
+  .myio-unified-modal-body {
+    flex-direction: column;
+  }
+
+  .myio-unified-column {
+    border-right: none;
+    border-bottom: 1px solid var(--menu-modal-border, #e2e8f0);
+  }
+
+  .myio-unified-column:last-child {
+    border-bottom: none;
+  }
+
+  .myio-unified-modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+  }
+}
 `;
   }
 
   /**
    * Build the HTML structure
-   * Layout: [Tabs] | [Filter, Calendar, Load, Clear] | [Goals, Theme]
+   * Layout: [Navigation Button] | [Filter, Calendar, Load, Clear] | [Goals, Theme]
    */
   private buildHTML(): string {
     const showGoals = this.params.showGoalsButton !== false;
@@ -982,33 +1292,17 @@ export class MenuView {
             ☰
           </button>
 
-          <!-- Block 1: Domain Tabs (Energy, Water, Temperature) -->
-          <nav class="myio-tabs myio-menu-block" role="tablist" aria-label="Secoes">
-            ${this.tabs.map(tab => this.buildTabHTML(tab)).join('')}
-          </nav>
-
-          <!-- Divider 1 (centered in its grid cell) -->
-          <span class="myio-menu-divider"></span>
-
-          <!-- Block 2: Filter, Calendar, Load, Clear -->
-          <div class="myio-menu-block myio-menu-actions">
-            ${showFilter ? this.buildFilterButtonHTML() : ''}
-            ${this.buildDatePickerHTML()}
-            ${showLoad ? this.buildLoadButtonHTML() : ''}
-            ${showClear ? this.buildClearButtonHTML() : ''}
-          </div>
-
-          <!-- Divider 2 (centered in its grid cell) -->
-          <span class="myio-menu-divider"></span>
-
-          <!-- Block 3: Goals and Theme -->
-          <div class="myio-menu-block myio-menu-extras">
-            ${showGoals ? this.buildGoalsButtonHTML() : ''}
-            ${this.buildThemeToggleHTML()}
-          </div>
+          <!-- All menu items in a single row -->
+          ${this.buildUnifiedNavButtonHTML()}
+          ${showFilter ? this.buildFilterButtonHTML() : ''}
+          ${this.buildDatePickerHTML()}
+          ${showLoad ? this.buildLoadButtonHTML() : ''}
+          ${showClear ? this.buildClearButtonHTML() : ''}
+          ${showGoals ? this.buildGoalsButtonHTML() : ''}
+          ${this.buildThemeToggleHTML()}
         </div>
 
-        ${this.tabs.map(tab => this.buildContextModalHTML(tab)).join('')}
+        ${this.buildUnifiedContextModalHTML()}
       </section>
 
       <!-- Mobile Menu Overlay -->
@@ -1051,6 +1345,122 @@ export class MenuView {
       </nav>
 
       ${this.buildFilterModalHTML()}
+    `;
+  }
+
+  /**
+   * Build the unified navigation button HTML
+   * Shows current active tab and context (e.g., "Energia > Equipamentos")
+   */
+  private buildUnifiedNavButtonHTML(): string {
+    const activeTab = this.tabs.find(t => t.id === this.activeTabId);
+    if (!activeTab) return '';
+
+    const currentContextId = this.contextsByTab.get(this.activeTabId) ?? activeTab.defaultContext ?? activeTab.contexts[0]?.id;
+    const currentContext = activeTab.contexts.find(c => c.id === currentContextId);
+    const label = currentContext ? `${activeTab.label} > ${currentContext.title}` : activeTab.label;
+
+    return `
+      <button
+        id="menuUnifiedNavBtn"
+        class="tab is-active myio-unified-nav-btn"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+      >
+        <span class="ico">${activeTab.icon}</span>
+        <span class="nav-label">${label}</span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+    `;
+  }
+
+  /**
+   * Update the unified navigation button label
+   */
+  private updateUnifiedNavButton(): void {
+    const btn = this.root.querySelector('#menuUnifiedNavBtn');
+    if (!btn) return;
+
+    const activeTab = this.tabs.find(t => t.id === this.activeTabId);
+    if (!activeTab) return;
+
+    const currentContextId = this.contextsByTab.get(this.activeTabId) ?? activeTab.defaultContext ?? activeTab.contexts[0]?.id;
+    const currentContext = activeTab.contexts.find(c => c.id === currentContextId);
+    const label = currentContext ? `${activeTab.label} > ${currentContext.title}` : activeTab.label;
+
+    const iconEl = btn.querySelector('.ico');
+    const labelEl = btn.querySelector('.nav-label');
+
+    if (iconEl) iconEl.textContent = activeTab.icon;
+    if (labelEl) labelEl.textContent = label;
+  }
+
+  /**
+   * Build the unified context modal with 3 columns
+   */
+  private buildUnifiedContextModalHTML(): string {
+    return `
+      <div
+        id="menuUnifiedContextModal"
+        class="myio-unified-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="menuUnifiedModalTitle"
+      >
+        <div class="myio-unified-modal-content">
+          <div class="myio-unified-modal-header">
+            <span id="menuUnifiedModalTitle">Selecione a visualização</span>
+            <button class="myio-unified-modal-close" aria-label="Fechar">×</button>
+          </div>
+          <div class="myio-unified-modal-body">
+            ${this.tabs.map(tab => this.buildUnifiedColumnHTML(tab)).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Build a single column for the unified modal
+   */
+  private buildUnifiedColumnHTML(tab: TabConfig): string {
+    const currentContextId = this.contextsByTab.get(tab.id) ?? tab.defaultContext ?? tab.contexts[0]?.id;
+    const isActiveTab = tab.id === this.activeTabId;
+
+    // Define header background colors per domain
+    const headerColors: Record<string, string> = {
+      energy: 'linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)',
+      water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+      temperature: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+    };
+
+    return `
+      <div class="myio-unified-column ${tab.id} ${isActiveTab ? 'is-active-column' : ''}">
+        <div class="myio-unified-column-header" style="background: ${headerColors[tab.id] || '#f8fafc'}">
+          <span class="ico">${tab.icon}</span>
+          <span>${tab.label}</span>
+        </div>
+        <div class="myio-unified-column-options">
+          ${tab.contexts.map(ctx => {
+            const isActive = isActiveTab && ctx.id === currentContextId;
+            return `
+              <button
+                class="myio-unified-option ${tab.id} ${isActive ? 'is-active' : ''}"
+                data-tab-id="${tab.id}"
+                data-context-id="${ctx.id}"
+                data-target="${ctx.target}"
+              >
+                <span class="option-ico">${ctx.icon}</span>
+                <div class="option-info">
+                  <div class="option-title">${ctx.title}</div>
+                  <div class="option-desc">${ctx.description}</div>
+                </div>
+                <span class="option-check">✓</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
     `;
   }
 
@@ -1298,13 +1708,22 @@ export class MenuView {
    * Build Filter Modal HTML
    */
   private buildFilterModalHTML(): string {
+    const headerHTML = ModalHeader.generateHTML({
+      icon: '🏢',
+      title: 'Filtro de Shoppings',
+      modalId: 'menuFilter',
+      theme: this.filterModalTheme,
+      isMaximized: this.filterModalIsMaximized,
+      showThemeToggle: true,
+      showMaximize: true,
+      showClose: true,
+      borderRadius: '12px 12px 0 0',
+    });
+
     return `
-      <div id="menuFilterModal" class="myio-menu-filter-modal" role="dialog" aria-modal="true" aria-labelledby="menuFilterTitle">
+      <div id="menuFilterModal" class="myio-menu-filter-modal" role="dialog" aria-modal="true" aria-labelledby="menuFilter-header">
         <div class="myio-menu-filter-modal-card">
-          <header class="myio-menu-filter-modal-header">
-            <h3 id="menuFilterTitle">Filtro de Shoppings</h3>
-            <button class="myio-menu-filter-close-btn" data-close="true" aria-label="Fechar">×</button>
-          </header>
+          ${headerHTML}
 
           <div class="myio-menu-filter-modal-body">
             <div class="myio-menu-filter-row">
@@ -1339,7 +1758,51 @@ export class MenuView {
    * Bind event listeners
    */
   private bindEvents(): void {
-    // Tab clicks
+    // ==========================================
+    // Unified Navigation Modal
+    // ==========================================
+
+    // Unified nav button click - open modal
+    const unifiedNavBtn = this.root.querySelector('#menuUnifiedNavBtn');
+    if (unifiedNavBtn) {
+      unifiedNavBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.openUnifiedModal();
+      });
+    }
+
+    // Unified modal backdrop click - close
+    const unifiedModal = this.root.querySelector('#menuUnifiedContextModal');
+    if (unifiedModal) {
+      unifiedModal.addEventListener('click', (e) => {
+        if (e.target === unifiedModal) {
+          this.closeUnifiedModal();
+        }
+      });
+    }
+
+    // Unified modal close button
+    const unifiedCloseBtn = this.root.querySelector('.myio-unified-modal-close');
+    if (unifiedCloseBtn) {
+      unifiedCloseBtn.addEventListener('click', () => this.closeUnifiedModal());
+    }
+
+    // Unified option clicks
+    this.root.querySelectorAll('.myio-unified-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const el = option as HTMLElement;
+        const tabId = el.dataset.tabId!;
+        const contextId = el.dataset.contextId!;
+        const target = el.dataset.target!;
+        this.handleUnifiedOptionSelect(tabId, contextId, target);
+      });
+    });
+
+    // ==========================================
+    // Legacy Tab clicks (kept for compatibility)
+    // ==========================================
     this.root.querySelectorAll('.tab[data-tab-id]').forEach(tab => {
       tab.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1403,9 +1866,17 @@ export class MenuView {
       });
     }
 
-    // Filter modal close buttons
+    // Filter modal close buttons (legacy data-close attribute)
     this.root.querySelectorAll('#menuFilterModal [data-close]').forEach(btn => {
       btn.addEventListener('click', () => this.closeFilterModal());
+    });
+
+    // Setup ModalHeader handlers for filter modal
+    ModalHeader.setupHandlers({
+      modalId: 'menuFilter',
+      onClose: () => this.closeFilterModal(),
+      onThemeToggle: () => this.toggleFilterModalTheme(),
+      onMaximize: () => this.toggleFilterModalMaximize(),
     });
 
     // Filter modal backdrop click
@@ -1561,6 +2032,106 @@ export class MenuView {
     }
   }
 
+  // ==========================================
+  // Unified Modal Methods
+  // ==========================================
+
+  /**
+   * Open the unified context modal
+   */
+  private openUnifiedModal(): void {
+    const modal = this.root.querySelector('#menuUnifiedContextModal');
+    const btn = this.root.querySelector('#menuUnifiedNavBtn');
+
+    if (modal) {
+      modal.classList.add('is-open');
+      btn?.setAttribute('aria-expanded', 'true');
+
+      // Update active states in the modal
+      this.updateUnifiedModalActiveStates();
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] Unified modal opened');
+      }
+    }
+  }
+
+  /**
+   * Close the unified context modal
+   */
+  private closeUnifiedModal(): void {
+    const modal = this.root.querySelector('#menuUnifiedContextModal');
+    const btn = this.root.querySelector('#menuUnifiedNavBtn');
+
+    if (modal) {
+      modal.classList.remove('is-open');
+      btn?.setAttribute('aria-expanded', 'false');
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] Unified modal closed');
+      }
+    }
+  }
+
+  /**
+   * Update active states in the unified modal
+   */
+  private updateUnifiedModalActiveStates(): void {
+    this.root.querySelectorAll('.myio-unified-option').forEach(opt => {
+      const el = opt as HTMLElement;
+      const tabId = el.dataset.tabId!;
+      const contextId = el.dataset.contextId!;
+
+      const currentContextId = this.contextsByTab.get(tabId);
+      const isActiveTab = tabId === this.activeTabId;
+      const isActive = isActiveTab && contextId === currentContextId;
+
+      el.classList.toggle('is-active', isActive);
+    });
+
+    // Update column active states
+    this.root.querySelectorAll('.myio-unified-column').forEach(col => {
+      const tabId = col.classList.contains('energy') ? 'energy' :
+                    col.classList.contains('water') ? 'water' :
+                    col.classList.contains('temperature') ? 'temperature' : '';
+      col.classList.toggle('is-active-column', tabId === this.activeTabId);
+    });
+  }
+
+  /**
+   * Handle option selection in the unified modal
+   */
+  private handleUnifiedOptionSelect(tabId: string, contextId: string, target: string): void {
+    // Update internal state
+    this.contextsByTab.set(tabId, contextId);
+
+    // Check if this is a new tab activation
+    const isNewTab = this.activeTabId !== tabId;
+
+    // Update active tab to the selected one
+    this.activeTabId = tabId;
+
+    // Update the unified navigation button
+    this.updateUnifiedNavButton();
+
+    // Update active states in the modal
+    this.updateUnifiedModalActiveStates();
+
+    // Close the modal
+    this.closeUnifiedModal();
+
+    // Emit events
+    this.emit('context-change', { tabId, contextId, target });
+
+    if (isNewTab) {
+      this.emit('tab-change', { tabId, contextId, target });
+    }
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Unified option selected:', { tabId, contextId, target });
+    }
+  }
+
   /**
    * Handle tab click
    */
@@ -1673,6 +2244,70 @@ export class MenuView {
     if (modal) {
       modal.classList.remove('is-open');
     }
+    // Reset maximize state when closing
+    if (this.filterModalIsMaximized) {
+      this.filterModalIsMaximized = false;
+      this.updateFilterModalMaximizeState();
+    }
+  }
+
+  /**
+   * Toggle filter modal theme (dark/light)
+   */
+  private toggleFilterModalTheme(): void {
+    this.filterModalTheme = this.filterModalTheme === 'dark' ? 'light' : 'dark';
+
+    // Update header state
+    ModalHeader.updateState('menuFilter', { theme: this.filterModalTheme });
+
+    // Update modal card background based on theme
+    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement;
+    if (modalCard) {
+      if (this.filterModalTheme === 'light') {
+        modalCard.style.background = '#ffffff';
+      } else {
+        modalCard.style.background = 'var(--menu-filter-bg, #ffffff)';
+      }
+    }
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Filter modal theme:', this.filterModalTheme);
+    }
+  }
+
+  /**
+   * Toggle filter modal maximize state
+   */
+  private toggleFilterModalMaximize(): void {
+    this.filterModalIsMaximized = !this.filterModalIsMaximized;
+    this.updateFilterModalMaximizeState();
+
+    // Update header state
+    ModalHeader.updateState('menuFilter', { isMaximized: this.filterModalIsMaximized });
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Filter modal maximized:', this.filterModalIsMaximized);
+    }
+  }
+
+  /**
+   * Update filter modal maximize visual state
+   */
+  private updateFilterModalMaximizeState(): void {
+    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement;
+    if (modalCard) {
+      if (this.filterModalIsMaximized) {
+        modalCard.style.maxWidth = 'calc(100vw - 40px)';
+        modalCard.style.maxHeight = 'calc(100vh - 40px)';
+        modalCard.style.width = 'calc(100vw - 40px)';
+        modalCard.style.height = 'calc(100vh - 40px)';
+      } else {
+        modalCard.style.maxWidth = '966px';
+        modalCard.style.maxHeight = '86vh';
+        modalCard.style.width = '92%';
+        modalCard.style.height = '';
+      }
+    }
   }
 
   // Filter modal state
@@ -1780,19 +2415,37 @@ export class MenuView {
       return;
     }
 
-    listEl.innerHTML = filtered.map(s => `
-      <button
-        class="myio-menu-filter-item ${this.filterSelection.has(s.value) ? 'selected' : ''}"
-        data-value="${s.value}"
-      >
-        <div class="checkbox">${this.filterSelection.has(s.value) ? '✓' : ''}</div>
-        <span>${s.name}</span>
-      </button>
-    `).join('');
+    listEl.innerHTML = filtered.map(s => {
+      const counts = this.getShoppingDeviceCounts(s.name);
+      return `
+        <button
+          class="myio-menu-filter-item ${this.filterSelection.has(s.value) ? 'selected' : ''}"
+          data-value="${s.value}"
+          data-name="${s.name}"
+        >
+          <div class="checkbox">${this.filterSelection.has(s.value) ? '✓' : ''}</div>
+          <span class="filter-item-name">${s.name}</span>
+          <div class="filter-item-icons">
+            <span class="filter-icon users" data-tooltip-type="users" data-shopping="${s.name}">👥 <span class="count">${counts.users}</span></span>
+            <span class="filter-icon alarms" data-tooltip-type="alarms" data-shopping="${s.name}">🚨 <span class="count">${counts.alarms}</span></span>
+            <span class="filter-icon notifications" data-tooltip-type="notifications" data-shopping="${s.name}">🔔 <span class="count">${counts.notifications}</span></span>
+            <span class="filter-icon energy" data-tooltip-type="energy" data-shopping="${s.name}">⚡ <span class="count">${counts.energy}</span></span>
+            <span class="filter-icon water" data-tooltip-type="water" data-shopping="${s.name}">💧 <span class="count">${counts.water}</span></span>
+            <span class="filter-icon temperature" data-tooltip-type="temperature" data-shopping="${s.name}">🌡️ <span class="count">${counts.temperature}</span></span>
+          </div>
+        </button>
+      `;
+    }).join('');
 
-    // Bind item clicks
+    // Bind item clicks (checkbox area)
     listEl.querySelectorAll('.myio-menu-filter-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e: Event) => {
+        // Don't toggle if clicking on an icon
+        const target = e.target as HTMLElement;
+        if (target.closest('.filter-icon')) {
+          e.stopPropagation();
+          return;
+        }
         const value = (item as HTMLElement).dataset.value!;
         if (this.filterSelection.has(value)) {
           this.filterSelection.delete(value);
@@ -1802,6 +2455,246 @@ export class MenuView {
         this.renderFilterList();
       });
     });
+
+    // Bind tooltip icon clicks/hover
+    this.bindFilterTooltipEvents(listEl);
+  }
+
+  /**
+   * Bind tooltip events for filter icons
+   */
+  private bindFilterTooltipEvents(listEl: Element): void {
+    const icons = listEl.querySelectorAll('.filter-icon[data-tooltip-type]');
+
+    icons.forEach(icon => {
+      const showHandler = (e: Event) => {
+        e.stopPropagation();
+        const el = e.currentTarget as HTMLElement;
+        const tooltipType = el.dataset.tooltipType as string;
+        const shoppingName = el.dataset.shopping as string;
+
+        this.showFilterTooltip(tooltipType, shoppingName, el);
+      };
+
+      const hideHandler = () => {
+        this.hideFilterTooltips();
+      };
+
+      icon.addEventListener('mouseenter', showHandler);
+      icon.addEventListener('click', showHandler);
+      icon.addEventListener('mouseleave', hideHandler);
+    });
+  }
+
+  /**
+   * Hide all filter tooltips with delayed hide
+   */
+  private hideFilterTooltips(): void {
+    const win = window as any;
+    const MyIOLibrary = win.MyIOLibrary;
+
+    if (!MyIOLibrary) return;
+
+    // Call startDelayedHide for each tooltip type (they have internal timeout management)
+    // Note: Some tooltips use _startDelayedHide, others use startDelayedHide
+    const tooltips = [
+      'EnergySummaryTooltip',
+      'WaterSummaryTooltip',
+      'TempSensorSummaryTooltip',
+      'UsersSummaryTooltip',
+      'AlarmsSummaryTooltip',
+      'NotificationsSummaryTooltip',
+    ];
+
+    tooltips.forEach(name => {
+      const tooltip = MyIOLibrary[name];
+      if (tooltip) {
+        // Try both method names for compatibility
+        if (typeof tooltip._startDelayedHide === 'function') {
+          tooltip._startDelayedHide();
+        } else if (typeof tooltip.startDelayedHide === 'function') {
+          tooltip.startDelayedHide();
+        }
+      }
+    });
+  }
+
+  /**
+   * Show tooltip for filter icon using MyIOLibrary tooltips
+   */
+  private showFilterTooltip(type: string, shoppingName: string, triggerElement: HTMLElement): void {
+    const win = window as any;
+    const MyIOLibrary = win.MyIOLibrary;
+
+    if (!MyIOLibrary) {
+      if (this.configTemplate.enableDebugMode) {
+        console.warn('[MenuView] MyIOLibrary not available for tooltips');
+      }
+      return;
+    }
+
+    // Build tooltip data for this shopping
+    const tooltipData = this.buildFilterTooltipData(type, shoppingName);
+
+    switch (type) {
+      case 'energy':
+        if (MyIOLibrary.EnergySummaryTooltip) {
+          MyIOLibrary.EnergySummaryTooltip.show(triggerElement, tooltipData);
+        }
+        break;
+      case 'water':
+        if (MyIOLibrary.WaterSummaryTooltip) {
+          MyIOLibrary.WaterSummaryTooltip.show(triggerElement, tooltipData);
+        }
+        break;
+      case 'temperature':
+        if (MyIOLibrary.TempSensorSummaryTooltip) {
+          MyIOLibrary.TempSensorSummaryTooltip.show(triggerElement, tooltipData);
+        }
+        break;
+      case 'users':
+        if (MyIOLibrary.UsersSummaryTooltip) {
+          MyIOLibrary.UsersSummaryTooltip.show(triggerElement, tooltipData);
+        }
+        break;
+      case 'alarms':
+        if (MyIOLibrary.AlarmsSummaryTooltip) {
+          MyIOLibrary.AlarmsSummaryTooltip.show(triggerElement, tooltipData);
+        }
+        break;
+      case 'notifications':
+        if (MyIOLibrary.NotificationsSummaryTooltip) {
+          MyIOLibrary.NotificationsSummaryTooltip.show(triggerElement, tooltipData);
+        }
+        break;
+    }
+  }
+
+  /**
+   * Get device counts for a shopping
+   */
+  private getShoppingDeviceCounts(shoppingName: string): { users: number; alarms: number; notifications: number; energy: number; water: number; temperature: number } {
+    const win = window as any;
+    const orchestratorData = win.MyIOOrchestratorData;
+
+    const normalizedName = shoppingName.toLowerCase().trim();
+
+    const filterByOwner = (items: any[]): any[] => {
+      if (!items || !Array.isArray(items)) return [];
+      return items.filter((d: any) => {
+        const ownerName = (d.ownerName || d.customerName || '').toLowerCase().trim();
+        return ownerName === normalizedName ||
+               ownerName.includes(normalizedName) ||
+               normalizedName.includes(ownerName);
+      });
+    };
+
+    const energyItems = filterByOwner(orchestratorData?.energy?.items || []);
+    const waterItems = filterByOwner(orchestratorData?.water?.items || []);
+    const temperatureItems = filterByOwner(orchestratorData?.temperature?.items || []);
+
+    return {
+      users: 0,
+      alarms: 0,
+      notifications: 0,
+      energy: energyItems.length,
+      water: waterItems.length,
+      temperature: temperatureItems.length,
+    };
+  }
+
+  /**
+   * Build tooltip data for a shopping
+   */
+  private buildFilterTooltipData(type: string, shoppingName: string): any {
+    const now = new Date().toISOString();
+    const win = window as any;
+    const orchestratorData = win.MyIOOrchestratorData;
+
+    // Helper to filter devices by shopping name
+    const filterByOwner = (items: any[]): any[] => {
+      if (!items || !Array.isArray(items)) return [];
+      const normalizedName = shoppingName.toLowerCase().trim();
+      return items.filter((d: any) => {
+        const ownerName = (d.ownerName || d.customerName || '').toLowerCase().trim();
+        return ownerName === normalizedName ||
+               ownerName.includes(normalizedName) ||
+               normalizedName.includes(ownerName);
+      });
+    };
+
+    // Get filtered devices
+    const energyItems = filterByOwner(orchestratorData?.energy?.items || []);
+    const waterItems = filterByOwner(orchestratorData?.water?.items || []);
+    const temperatureItems = filterByOwner(orchestratorData?.temperature?.items || []);
+
+    switch (type) {
+      case 'energy':
+        return {
+          totalDevices: energyItems.length,
+          totalConsumption: energyItems.reduce((sum: number, d: any) => sum + Number(d.value || d.consumption || 0), 0),
+          unit: 'kWh',
+          byCategory: [
+            { id: 'equipamentos', name: 'Equipamentos', icon: '⚡', deviceCount: energyItems.length, consumption: 0, percentage: 0 },
+          ],
+          byStatus: { normal: energyItems.length, offline: 0, alert: 0 },
+          lastUpdated: now,
+          customerName: shoppingName,
+        };
+      case 'water':
+        return {
+          totalDevices: waterItems.length,
+          totalConsumption: waterItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0),
+          unit: 'm³',
+          byCategory: [
+            { id: 'hidrometros', name: 'Hidrômetros', icon: '💧', deviceCount: waterItems.length, consumption: 0, percentage: 0 },
+          ],
+          byStatus: { normal: waterItems.length, offline: 0, alert: 0 },
+          lastUpdated: now,
+          customerName: shoppingName,
+        };
+      case 'temperature':
+        return {
+          devices: temperatureItems.slice(0, 10).map((d: any) => ({
+            name: d.label || d.name || 'Sensor',
+            temp: Number(d.temperature || 0),
+            status: Number(d.temperature || 0) > 26 || Number(d.temperature || 0) < 18 ? 'warn' : 'ok',
+          })),
+          temperatureMin: 18,
+          temperatureMax: 26,
+          lastUpdated: now,
+          customerName: shoppingName,
+        };
+      case 'users':
+        return {
+          totalUsers: 0,
+          activeUsers: 0,
+          inactiveUsers: 0,
+          byRole: { admin: 0, operator: 0, viewer: 0 },
+          lastUpdated: now,
+          customerName: shoppingName,
+        };
+      case 'alarms':
+        return {
+          totalAlarms: 0,
+          activeAlarms: 0,
+          acknowledgedAlarms: 0,
+          bySeverity: { critical: 0, warning: 0, info: 0 },
+          lastUpdated: now,
+          customerName: shoppingName,
+        };
+      case 'notifications':
+        return {
+          totalNotifications: 0,
+          unreadNotifications: 0,
+          readNotifications: 0,
+          byType: { system: 0, alert: 0, info: 0, success: 0 },
+          lastUpdated: now,
+          customerName: shoppingName,
+        };
+      default:
+        return {};
+    }
   }
 
   /**

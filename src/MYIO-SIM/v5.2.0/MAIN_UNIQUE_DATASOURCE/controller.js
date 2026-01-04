@@ -2242,6 +2242,9 @@ body.filter-modal-open { overflow: hidden !important; }
   // === 6. RFC-0114: RENDER MENU COMPONENT ===
   const menuContainer = document.getElementById('menuContainer');
   let menuInstance = null;
+  let telemetryGridInstance = null;
+  let currentTelemetryDomain = 'energy';
+  let currentTelemetryContext = 'equipments';
 
   if (menuContainer && MyIOLibrary.createMenuComponent) {
     menuInstance = MyIOLibrary.createMenuComponent({
@@ -2295,6 +2298,75 @@ body.filter-modal-open { overflow: hidden !important; }
     });
   }
 
+  // === 6.1 RFC-0121: RENDER TELEMETRY GRID COMPONENT ===
+  const telemetryGridContainer = document.getElementById('telemetryGridContainer');
+
+  if (telemetryGridContainer && MyIOLibrary.createTelemetryGridComponent) {
+    const initialDevices =
+      window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
+
+    telemetryGridInstance = MyIOLibrary.createTelemetryGridComponent({
+      container: telemetryGridContainer,
+      domain: currentTelemetryDomain,
+      context: currentTelemetryContext,
+      devices: initialDevices,
+      themeMode: currentThemeMode,
+
+      debugActive: settings.enableDebugMode,
+      activeTooltipDebug: settings.activeTooltipDebug,
+      useNewComponents: true,
+      enableSelection: true,
+      enableDragDrop: true,
+      hideInfoMenuItem: true,
+
+      configTemplate: {
+        enableDebugMode: settings.enableDebugMode,
+        activeTooltipDebug: settings.activeTooltipDebug,
+        cardEquipamentosBackgroundColor: settings.cardEquipamentosBackgroundColor,
+        cardEquipamentosFontColor: settings.cardEquipamentosFontColor,
+        cardEnergiaBackgroundColor: settings.cardEnergiaBackgroundColor,
+        cardEnergiaFontColor: settings.cardEnergiaFontColor,
+        cardTemperaturaBackgroundColor: settings.cardTemperaturaBackgroundColor,
+        cardTemperaturaFontColor: settings.cardTemperaturaFontColor,
+        cardAguaBackgroundColor: settings.cardAguaBackgroundColor,
+        cardAguaFontColor: settings.cardAguaFontColor,
+      },
+
+      buildHeaderDevicesGrid: window.MyIOUtils?.buildHeaderDevicesGrid,
+      createFilterModal: window.MyIOUtils?.createFilterModal,
+
+      onCardAction: (action, device) => {
+        window.dispatchEvent(
+          new CustomEvent('myio:telemetry-card-action', {
+            detail: {
+              action,
+              device,
+              domain: currentTelemetryDomain,
+              context: currentTelemetryContext,
+              ts: Date.now(),
+            },
+          })
+        );
+      },
+
+      onStatsUpdate: (stats) => {
+        window.dispatchEvent(
+          new CustomEvent('myio:telemetry-stats', {
+            detail: { stats, domain: currentTelemetryDomain, context: currentTelemetryContext, ts: Date.now() },
+          })
+        );
+      },
+    });
+  }
+
+  // Apply shopping filter from Header/Menu filter modal
+  window.addEventListener('myio:filter-applied', (e) => {
+    if (!telemetryGridInstance) return;
+    const selection = e.detail?.selection || [];
+    const shoppingIds = Array.isArray(selection) ? selection.map((s) => s?.value).filter(Boolean) : [];
+    telemetryGridInstance.applyFilter(shoppingIds);
+  });
+
   // === 7. RFC-0115: RENDER FOOTER COMPONENT ===
   const footerContainer = document.getElementById('footerContainer');
   let footerInstance = null;
@@ -2340,6 +2412,13 @@ body.filter-modal-open { overflow: hidden !important; }
     if (menuInstance && e.detail.shoppings) {
       menuInstance.updateShoppings?.(e.detail.shoppings);
     }
+
+    // Update telemetry grid devices for current domain/context
+    if (telemetryGridInstance) {
+      const devices =
+        window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
+      telemetryGridInstance.updateDevices(devices);
+    }
   });
 
   // === 10. LISTEN FOR PANEL MODAL REQUESTS ===
@@ -2376,6 +2455,7 @@ body.filter-modal-open { overflow: hidden !important; }
     if (menuInstance) menuInstance.setThemeMode?.(themeMode);
     if (footerInstance) footerInstance.setThemeMode?.(themeMode);
     if (welcomeModal) welcomeModal.setThemeMode?.(themeMode);
+    if (telemetryGridInstance) telemetryGridInstance.setThemeMode?.(themeMode);
   });
 
   // === HELPER FUNCTIONS ===
@@ -2404,7 +2484,10 @@ body.filter-modal-open { overflow: hidden !important; }
       // Open panel modal instead of switching TELEMETRY
       handlePanelModalRequest(tabId, 'summary');
     } else {
-      // Dispatch config change to TELEMETRY
+      currentTelemetryDomain = tabId;
+      currentTelemetryContext = contextId;
+
+      // Keep legacy event for backwards compatibility (TELEMETRY widget and any external listeners)
       window.dispatchEvent(
         new CustomEvent('myio:telemetry-config-change', {
           detail: {
@@ -2414,6 +2497,12 @@ body.filter-modal-open { overflow: hidden !important; }
           },
         })
       );
+
+      if (telemetryGridInstance) {
+        const devices = window.MyIOOrchestrator?.getDevices?.(tabId, contextId) || [];
+        telemetryGridInstance.updateConfig(tabId, contextId);
+        telemetryGridInstance.updateDevices(devices);
+      }
 
       // Also dispatch dashboard state for FOOTER
       window.dispatchEvent(

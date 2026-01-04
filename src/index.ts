@@ -363,6 +363,13 @@ export type { EnergyEntityData, EnergyStatus, EnergyStatusResult, PowerRange, Po
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
 export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
+export { ModalHeader } from './utils/ModalHeader';
+export type {
+  ModalHeaderOptions,
+  ModalHeaderHandlers,
+  ModalHeaderControllerOptions,
+  ModalHeaderController,
+} from './utils/ModalHeader';
 export type { DashboardEnergySummary, CategorySummary, StatusSummary, DeviceInfo } from './utils/EnergySummaryTooltip';
 export type { DashboardWaterSummary, WaterCategorySummary } from './utils/WaterSummaryTooltip';
 
@@ -625,3 +632,28 @@ export {
   DEFAULT_MENU_CONFIG,
   DEFAULT_TABS,
 } from './components/menu';
+
+// RFC-0121: TelemetryGrid Component
+export { createTelemetryGridComponent } from './components/telemetry-grid';
+export { TelemetryGridView, TelemetryGridController } from './components/telemetry-grid';
+
+export type {
+  TelemetryDomain,
+  TelemetryContext,
+  ThemeMode as TelemetryThemeMode,
+  SortMode as TelemetrySortMode,
+  TelemetryDevice,
+  FilterState as TelemetryFilterState,
+  TelemetryStats,
+  TelemetryConfigTemplate,
+  Shopping as TelemetryShopping,
+  TelemetryGridParams,
+  TelemetryGridInstance,
+  TelemetryGridEventType,
+} from './components/telemetry-grid';
+
+export {
+  DOMAIN_CONFIG as TELEMETRY_DOMAIN_CONFIG,
+  CONTEXT_CONFIG as TELEMETRY_CONTEXT_CONFIG,
+  DEFAULT_FILTER_TABS as TELEMETRY_DEFAULT_FILTER_TABS,
+} from './components/telemetry-grid';

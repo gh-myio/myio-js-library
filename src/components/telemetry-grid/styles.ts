@@ -1,0 +1,622 @@
+/**
+ * RFC-0121: TelemetryGrid Component Styles
+ * Migrated from TELEMETRY widget styles.css
+ */
+
+export const TELEMETRY_GRID_STYLES = `
+/* ====== TELEMETRY GRID COMPONENT - UNIFIED STYLES ====== */
+/* Supports 3 domains: energy (orange), water (blue), temperature (red) */
+
+.telemetry-grid-wrap {
+  /* Default: energy domain (orange) */
+  --telemetry-primary: #f59e0b;
+  --telemetry-primary-light: #fef3c7;
+  --telemetry-primary-dark: #d97706;
+  --telemetry-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --telemetry-shadow: rgba(245, 158, 11, 0.35);
+  --telemetry-accent: #fbbf24;
+
+  /* Common tokens */
+  --fs: 0.94;
+  --card-grad: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  --card-bd: #dde7f1;
+  --ink-1: #1c2743;
+  --ink-2: #6b7a90;
+  --blue: #1f6fb5;
+  --accent: #9fc131;
+  --danger: #e54848;
+  --shadow: 0 8px 24px rgba(31, 116, 164, 0.08);
+  --shadow-hover: 0 14px 36px rgba(31, 116, 164, 0.16);
+  --radius: 20px;
+
+  /* Typography */
+  --fs-2xs: calc(11px * var(--fs));
+  --fs-xs: calc(12px * var(--fs));
+  --fs-sm: calc(13px * var(--fs));
+  --fs-md: calc(14px * var(--fs));
+  --fs-lg: calc(16px * var(--fs));
+  --fs-xl: calc(20px * var(--fs));
+  --fs-xxl: calc(28px * var(--fs));
+
+  position: relative;
+  box-sizing: border-box;
+  padding: 8px 12px 12px 12px;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: transparent !important;
+}
+
+/* ====== DOMAIN COLOR THEMES ====== */
+/* Energy Domain - Orange/Amber */
+.telemetry-grid-wrap[data-domain="energy"] {
+  --telemetry-primary: #f59e0b;
+  --telemetry-primary-light: #fef3c7;
+  --telemetry-primary-dark: #d97706;
+  --telemetry-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --telemetry-shadow: rgba(245, 158, 11, 0.35);
+  --telemetry-accent: #fbbf24;
+}
+
+/* Water Domain - Blue/Cyan */
+.telemetry-grid-wrap[data-domain="water"] {
+  --telemetry-primary: #0ea5e9;
+  --telemetry-primary-light: #e0f2fe;
+  --telemetry-primary-dark: #0284c7;
+  --telemetry-gradient: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  --telemetry-shadow: rgba(14, 165, 233, 0.35);
+  --telemetry-accent: #38bdf8;
+}
+
+/* Temperature Domain - Red/Rose */
+.telemetry-grid-wrap[data-domain="temperature"] {
+  --telemetry-primary: #f43f5e;
+  --telemetry-primary-light: #ffe4e6;
+  --telemetry-primary-dark: #e11d48;
+  --telemetry-gradient: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  --telemetry-shadow: rgba(244, 63, 94, 0.35);
+  --telemetry-accent: #fb7185;
+}
+
+/* ====== LIGHT/DARK THEME MODE ====== */
+/* Light Theme (default) */
+.telemetry-grid-wrap[data-theme="light"] {
+  --card-grad: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  --card-bd: #dde7f1;
+  --ink-1: #1c2743;
+  --ink-2: #6b7a90;
+  --shadow: 0 8px 24px rgba(31, 116, 164, 0.08);
+  --shadow-hover: 0 14px 36px rgba(31, 116, 164, 0.16);
+}
+
+/* Dark Theme */
+.telemetry-grid-wrap[data-theme="dark"] {
+  --card-grad: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --card-bd: #334155;
+  --ink-1: #f1f5f9;
+  --ink-2: #94a3b8;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 14px 36px rgba(0, 0, 0, 0.4);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .telemetry-card {
+  background-color: #1e293b;
+  border-color: var(--card-bd);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .toolbar-zoom button {
+  background: #1e293b;
+  border-color: var(--card-bd);
+  color: var(--ink-1);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .toolbar-zoom button:hover {
+  background: #334155;
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .realtime-toggle {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-color: var(--card-bd);
+  color: var(--ink-1);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .realtime-toggle:hover {
+  background: #334155;
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .realtime-progress-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--card-bd);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .realtime-progress-bar {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .shopping-filter-chips .filter-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--card-bd);
+  color: var(--ink-1);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .telemetry-loading-overlay {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.telemetry-grid-wrap[data-theme="dark"] .loading-spinner p {
+  color: var(--ink-1);
+}
+
+/* ====== TOOLBAR ====== */
+.telemetry-grid-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 6px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.telemetry-grid-toolbar button {
+  border: 1px solid var(--card-bd);
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: var(--fs-lg);
+  color: var(--ink-1);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.telemetry-grid-toolbar button:hover {
+  background: #f3f8fc;
+  border-color: var(--telemetry-primary);
+}
+
+/* ====== SHOPPING FILTER CHIPS ====== */
+.telemetry-shopping-chips {
+  display: inline-flex !important;
+  gap: 6px;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 380px);
+  margin-right: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #c0c0c0 transparent;
+}
+
+.telemetry-shopping-chips::-webkit-scrollbar {
+  height: 4px;
+}
+
+.telemetry-shopping-chips::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.telemetry-shopping-chips::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 2px;
+}
+
+.telemetry-shopping-chips .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--telemetry-primary-light);
+  border: 1px solid var(--telemetry-accent);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: var(--fs-xs);
+  color: var(--telemetry-primary-dark);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.telemetry-shopping-chips .filter-chip-icon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* ====== HEADER CONTAINER ====== */
+.telemetry-grid-header {
+  margin-bottom: 8px;
+}
+
+/* ====== CARDS GRID ====== */
+.telemetry-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.telemetry-cards-grid > * {
+  min-width: 0;
+  width: auto;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1920px) {
+  .telemetry-cards-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (min-width: 1600px) and (max-width: 1919px) {
+  .telemetry-cards-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .telemetry-cards-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .telemetry-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .telemetry-cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+}
+
+/* ====== LOADING OVERLAY ====== */
+.telemetry-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.telemetry-loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.telemetry-loading-spinner p {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0;
+}
+
+@keyframes telemetry-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.telemetry-loading-spinner svg {
+  animation: telemetry-spin 1s linear infinite;
+}
+
+/* ====== EMPTY STATE ====== */
+.telemetry-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.telemetry-empty-state svg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.telemetry-empty-state h3 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0 0 8px 0;
+}
+
+.telemetry-empty-state p {
+  font-size: var(--fs-sm);
+  margin: 0;
+}
+
+/* ====== REALTIME CONTROLS ====== */
+.telemetry-realtime-controls {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.telemetry-realtime-controls > button,
+.telemetry-realtime-controls > div {
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
+}
+
+.realtime-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--card-bd);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: var(--ink-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.realtime-toggle:hover {
+  border-color: var(--telemetry-primary);
+  background: var(--telemetry-primary-light);
+}
+
+.realtime-toggle.active {
+  border-color: var(--telemetry-primary);
+  background: var(--telemetry-gradient);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--telemetry-shadow);
+  animation: realtimePulse 2s ease-in-out infinite;
+}
+
+.realtime-toggle .toggle-icon {
+  font-size: 14px;
+}
+
+.realtime-toggle .toggle-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.realtime-toggle.active .toggle-status {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Progress bar container */
+.realtime-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--telemetry-primary-light);
+  border: 1px solid var(--telemetry-accent);
+  border-radius: 8px;
+  min-width: 100px;
+}
+
+.realtime-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 50px;
+}
+
+.realtime-progress-fill {
+  height: 100%;
+  background: var(--telemetry-gradient);
+  border-radius: 3px;
+  width: 100%;
+  transition: width 0.1s linear;
+}
+
+.realtime-progress-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--telemetry-primary-dark);
+  min-width: 24px;
+  text-align: right;
+}
+
+@keyframes realtimePulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px var(--telemetry-shadow);
+  }
+  50% {
+    box-shadow: 0 2px 16px var(--telemetry-shadow);
+  }
+}
+
+/* ====== CARD STYLES (domain-aware) ====== */
+.telemetry-card {
+  position: relative;
+  background-color: #fff;
+  background-image: var(--card-grad) !important;
+  border: 1px solid var(--card-bd);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--ink-1);
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  background-clip: padding-box;
+}
+
+.telemetry-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--telemetry-accent);
+}
+
+/* Card value highlight with domain color */
+.telemetry-card .value-highlight {
+  color: var(--telemetry-primary-dark);
+  font-weight: 700;
+}
+
+/* Domain-specific badges */
+.domain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--telemetry-gradient);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Status chips with domain awareness */
+.chip.domain-online {
+  background: var(--telemetry-primary-light);
+  color: var(--telemetry-primary-dark);
+  border: 1px solid var(--telemetry-accent);
+}
+
+.chip.domain-offline {
+  background: #f3f4f6;
+  color: var(--ink-2);
+  border: 1px solid #d1d5db;
+}
+
+/* ====== CONTEXT-SPECIFIC STYLES ====== */
+.telemetry-grid-wrap[data-context="entry"] .header-icon::before {
+  content: "entry";
+}
+
+.telemetry-grid-wrap[data-context="common_area"] .header-icon::before {
+  content: "area";
+}
+
+.telemetry-grid-wrap[data-context="stores"] .header-icon::before {
+  content: "store";
+}
+
+/* ====== SEARCH INPUT ====== */
+.telemetry-search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--card-grad);
+  border: 1px solid var(--card-bd);
+  border-radius: 8px;
+  transition: border-color 0.2s ease;
+}
+
+.telemetry-search-container:focus-within {
+  border-color: var(--telemetry-primary);
+}
+
+.telemetry-search-container input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--ink-1);
+  outline: none;
+  padding: 4px 0;
+}
+
+.telemetry-search-container input::placeholder {
+  color: var(--ink-2);
+}
+
+.telemetry-search-icon {
+  color: var(--ink-2);
+  width: 16px;
+  height: 16px;
+}
+
+/* ====== STATS BAR ====== */
+.telemetry-stats-bar {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--card-bd);
+  margin-bottom: 8px;
+}
+
+.telemetry-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.telemetry-stat-value {
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+.telemetry-stat-label {
+  font-size: var(--fs-xs);
+}
+`;
+
+/**
+ * Inject styles into the document
+ */
+export function injectTelemetryGridStyles(): void {
+  const styleId = 'telemetry-grid-styles';
+
+  // Check if already injected
+  if (document.getElementById(styleId)) {
+    return;
+  }
+
+  const styleElement = document.createElement('style');
+  styleElement.id = styleId;
+  styleElement.textContent = TELEMETRY_GRID_STYLES;
+  document.head.appendChild(styleElement);
+}
+
+/**
+ * Remove injected styles from the document
+ */
+export function removeTelemetryGridStyles(): void {
+  const styleElement = document.getElementById('telemetry-grid-styles');
+  if (styleElement) {
+    styleElement.remove();
+  }
+}

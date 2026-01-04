@@ -32,6 +32,7 @@ import {
 
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
 import { CSS_TOKENS, DATERANGEPICKER_STYLES } from '../premium-modals/internal/styles/tokens';
+import { ModalHeader } from '../../utils/ModalHeader';
 
 // ============================================================================
 // Types
@@ -251,36 +252,19 @@ function renderModal(
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         font-family: 'Roboto', Arial, sans-serif;
       ">
-        <!-- Header - MyIO Premium Style -->
-        <div style="
-          padding: 4px 8px; display: flex; align-items: center; justify-content: space-between;
-          background: #3e1a7d; color: white; border-radius: ${isMaximized ? '0' : '10px 10px 0 0'};
-          min-height: 20px;
-        ">
-          <h2 style="margin: 6px; font-size: 18px; font-weight: 600; color: white; line-height: 2;">
-            🌡️ ${state.label} - Histórico de Temperatura
-          </h2>
-          <div style="display: flex; gap: 4px; align-items: center;">
-            <!-- Theme Toggle -->
-            <button id="${modalId}-theme-toggle" title="Alternar tema" style="
-              background: none; border: none; font-size: 16px; cursor: pointer;
-              padding: 4px 8px; border-radius: 6px; color: rgba(255,255,255,0.8);
-              transition: background-color 0.2s;
-            ">${state.theme === 'dark' ? '☀️' : '🌙'}</button>
-            <!-- Maximize Button -->
-            <button id="${modalId}-maximize" title="${isMaximized ? 'Restaurar' : 'Maximizar'}" style="
-              background: none; border: none; font-size: 16px; cursor: pointer;
-              padding: 4px 8px; border-radius: 6px; color: rgba(255,255,255,0.8);
-              transition: background-color 0.2s;
-            ">${isMaximized ? '🗗' : '🗖'}</button>
-            <!-- Close Button -->
-            <button id="${modalId}-close" title="Fechar" style="
-              background: none; border: none; font-size: 20px; cursor: pointer;
-              padding: 4px 8px; border-radius: 6px; color: rgba(255,255,255,0.8);
-              transition: background-color 0.2s;
-            ">×</button>
-          </div>
-        </div>
+        <!-- Header - MyIO Premium Style (via ModalHeader component) -->
+        ${ModalHeader.generateInlineHTML({
+          icon: '🌡️',
+          title: `${state.label} - Histórico de Temperatura`,
+          modalId,
+          theme: state.theme,
+          isMaximized,
+          showThemeToggle: true,
+          showMaximize: true,
+          showClose: true,
+          primaryColor: '#3e1a7d',
+          borderRadius: '10px 10px 0 0',
+        })}
 
         <!-- Body -->
         <div style="flex: 1; overflow-y: auto; padding: 16px;">

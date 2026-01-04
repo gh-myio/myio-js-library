@@ -13,10 +13,12 @@
     style="height: 80px; min-height: 80px; max-height: 80px"
   ></section>
 
-  <!-- Main Content: TELEMETRY widget via tb-dashboard-state -->
-  <section id="mainViewContainer" class="myio-main-view-section" style="flex: 1; overflow: auto">
-    <tb-dashboard-state class="content" [ctx]="ctx" stateId="telemetry"></tb-dashboard-state>
-  </section>
+  <!-- RFC-0121: TelemetryGrid (rendered via createTelemetryGridComponent) -->
+  <section
+    id="telemetryGridContainer"
+    class="myio-main-view-section"
+    style="flex: 1; overflow: auto"
+  ></section>
 
   <!-- RFC-0115: Footer (rendered via createFooterComponent) -->
   <section

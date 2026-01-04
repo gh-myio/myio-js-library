@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RFC-0121: TelemetryGrid Component Showcase</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0f172a;
+      color: #f1f5f9;
+      min-height: 100vh;
+    }
+
+    .showcase-header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 24px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .showcase-header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .showcase-header p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 16px 24px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .control-group select,
+    .control-group button {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #f1f5f9;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .control-group select:hover,
+    .control-group button:hover {
+      border-color: #60a5fa;
+    }
+
+    .control-group button {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    .control-group button:hover {
+      background: #2563eb;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      padding: 12px 24px;
+      background: rgba(59, 130, 246, 0.1);
+      border-bottom: 1px solid #334155;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .telemetry-container {
+      height: calc(100vh - 220px);
+      overflow: hidden;
+    }
+
+    /* Light mode */
+    body.light-mode {
+      background: #f8fafc;
+      color: #1e293b;
+    }
+
+    body.light-mode .showcase-header {
+      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+      border-color: #e2e8f0;
+    }
+
+    body.light-mode .showcase-header p {
+      color: #64748b;
+    }
+
+    body.light-mode .controls-bar {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    body.light-mode .control-group select,
+    body.light-mode .control-group button {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #1e293b;
+    }
+
+    body.light-mode .stats-bar {
+      background: rgba(59, 130, 246, 0.05);
+      border-color: #e2e8f0;
+    }
+
+    body.light-mode .stat-value {
+      color: #1e293b;
+    }
+
+    body.light-mode .stat-label {
+      color: #64748b;
+    }
+
+    /* Header Devices Grid Styles - FIEL ao TELEMETRY widget */
+    .equip-stats-header {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+      background: var(--card-bg, #1e293b);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .equip-stats-header .stat-item {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+      padding: 12px 16px;
+      border-right: 1px solid var(--card-bd, #334155);
+    }
+
+    .equip-stats-header .stat-item:last-of-type {
+      border-right: none;
+    }
+
+    .equip-stats-header .stat-label {
+      font-size: 11px;
+      color: var(--ink-2, #94a3b8);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .equip-stats-header .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink-1, #f1f5f9);
+    }
+
+    /* Highlight com background de destaque e barras em ambos os lados */
+    .equip-stats-header .stat-item.highlight {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.25) 100%);
+      border-left: 3px solid var(--telemetry-primary, #f59e0b);
+      border-right: 3px solid var(--telemetry-primary, #f59e0b);
+      position: relative;
+    }
+
+    .equip-stats-header .stat-item.highlight .stat-value {
+      color: var(--telemetry-primary, #f59e0b);
+      font-size: 20px;
+    }
+
+    /* Ajuste para o item após o highlight não ter borda dupla */
+    .equip-stats-header .stat-item.highlight + .stat-item {
+      border-left: none;
+    }
+
+    .equip-stats-header .filter-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-left: 1px solid var(--card-bd, #334155);
+    }
+
+    .equip-stats-header .search-wrap {
+      display: none;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .equip-stats-header .search-wrap.active {
+      display: block;
+    }
+
+    .equip-stats-header .search-wrap input {
+      padding: 6px 12px;
+      border: 1px solid var(--card-bd, #334155);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink-1, #f1f5f9);
+      font-size: 13px;
+      width: 180px;
+    }
+
+    .equip-stats-header .search-wrap input:focus {
+      outline: none;
+      border-color: var(--telemetry-primary, #f59e0b);
+    }
+
+    .equip-stats-header .icon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--card-bd, #334155);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink-2, #94a3b8);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .equip-stats-header .icon-btn:hover {
+      background: var(--telemetry-primary, #f59e0b);
+      border-color: var(--telemetry-primary, #f59e0b);
+      color: white;
+    }
+
+    /* Light mode for header */
+    body.light-mode .equip-stats-header {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+    }
+
+    body.light-mode .equip-stats-header .stat-item {
+      border-color: #e2e8f0;
+    }
+
+    body.light-mode .equip-stats-header .stat-item.highlight {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.2) 100%);
+      border-left-color: var(--telemetry-primary, #f59e0b);
+      border-right-color: var(--telemetry-primary, #f59e0b);
+    }
+
+    body.light-mode .equip-stats-header .stat-label {
+      color: #64748b;
+    }
+
+    body.light-mode .equip-stats-header .stat-value {
+      color: #1e293b;
+    }
+
+    body.light-mode .equip-stats-header .filter-actions {
+      border-color: #e2e8f0;
+    }
+
+    body.light-mode .equip-stats-header .search-wrap input {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #1e293b;
+    }
+
+    body.light-mode .equip-stats-header .icon-btn {
+      border-color: #cbd5e1;
+      color: #64748b;
+    }
+
+    /* ====== FILTER MODAL STYLES ====== */
+    .filter-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      backdrop-filter: blur(4px);
+      animation: filterModalFadeIn 0.2s ease-in;
+    }
+
+    .filter-modal-overlay.hidden {
+      display: none;
+    }
+
+    @keyframes filterModalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .filter-modal-card {
+      background: #fff;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .filter-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .filter-modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .filter-modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #64748b;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .filter-modal-close:hover {
+      color: #1e293b;
+    }
+
+    .filter-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .filter-section {
+      margin-bottom: 20px;
+    }
+
+    .filter-section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .filter-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .filter-tab {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+      gap: 6px;
+    }
+
+    .filter-tab:hover {
+      transform: translateY(-1px);
+    }
+
+    .filter-tab.active {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .filter-tab[data-filter="all"] { background: #e2e8f0; color: #475569; }
+    .filter-tab[data-filter="all"].active { border-color: #475569; }
+    .filter-tab[data-filter="online"] { background: #dbeafe; color: #1d4ed8; }
+    .filter-tab[data-filter="online"].active { border-color: #1d4ed8; }
+    .filter-tab[data-filter="offline"] { background: #fecaca; color: #b91c1c; }
+    .filter-tab[data-filter="offline"].active { border-color: #b91c1c; }
+    .filter-tab[data-filter="notInstalled"] { background: #fef3c7; color: #92400e; }
+    .filter-tab[data-filter="notInstalled"].active { border-color: #92400e; }
+    .filter-tab[data-filter="withConsumption"] { background: #dcfce7; color: #15803d; }
+    .filter-tab[data-filter="withConsumption"].active { border-color: #15803d; }
+    .filter-tab[data-filter="noConsumption"] { background: #f1f5f9; color: #475569; }
+    .filter-tab[data-filter="noConsumption"].active { border-color: #475569; }
+
+    .sort-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sort-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      transition: all 0.15s;
+    }
+
+    .sort-option:hover {
+      background: #f1f5f9;
+    }
+
+    .sort-option.active {
+      background: var(--telemetry-primary, #f59e0b);
+      color: white;
+      border-color: var(--telemetry-primary, #f59e0b);
+    }
+
+    .sort-option .sort-icon {
+      font-size: 14px;
+    }
+
+    .filter-modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      padding: 16px 20px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .filter-modal-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-modal-btn.secondary {
+      background: #e2e8f0;
+      color: #475569;
+      border: none;
+    }
+
+    .filter-modal-btn.secondary:hover {
+      background: #cbd5e1;
+    }
+
+    .filter-modal-btn.primary {
+      background: var(--telemetry-primary, #f59e0b);
+      color: white;
+      border: none;
+    }
+
+    .filter-modal-btn.primary:hover {
+      filter: brightness(1.1);
+    }
+
+    /* ====== MAXIMIZE MODE ====== */
+    .telemetry-grid-wrap.maximized {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 99999 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: var(--card-bg, #0f172a) !important;
+      border-radius: 0 !important;
+      overflow: auto !important;
+      padding: 16px !important;
+    }
+
+    .telemetry-grid-wrap.maximized .telemetry-grid-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--card-bg, #0f172a);
+      padding-bottom: 12px;
+    }
+
+    .telemetry-grid-wrap.maximized .telemetry-cards-grid {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    body.light-mode .telemetry-grid-wrap.maximized {
+      background: #f8fafc !important;
+    }
+
+    body.light-mode .telemetry-grid-wrap.maximized .telemetry-grid-header {
+      background: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+  <header class="showcase-header">
+    <h1>RFC-0121: TelemetryGrid Component</h1>
+    <p>Unified device cards grid component for energy, water, and temperature domains</p>
+  </header>
+
+  <div class="controls-bar">
+    <div class="control-group">
+      <label>Domain:</label>
+      <select id="domainSelect">
+        <option value="energy" selected>Energy</option>
+        <option value="water">Water</option>
+        <option value="temperature">Temperature</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Context:</label>
+      <select id="contextSelect">
+        <option value="equipments" selected>Equipments</option>
+        <option value="stores">Stores</option>
+        <option value="hidrometro">Hidrometro</option>
+        <option value="hidrometro_area_comum">Hidrometro Area Comum</option>
+        <option value="termostato">Termostato</option>
+        <option value="termostato_external">Termostato External</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Theme:</label>
+      <select id="themeSelect">
+        <option value="dark" selected>Dark</option>
+        <option value="light">Light</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Devices:</label>
+      <select id="deviceCountSelect">
+        <option value="5">5 devices</option>
+        <option value="10" selected>10 devices</option>
+        <option value="25">25 devices</option>
+        <option value="50">50 devices</option>
+        <option value="100">100 devices</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <button id="refreshBtn">Refresh Data</button>
+    </div>
+
+    <div class="control-group">
+      <button id="clearFiltersBtn">Clear Filters</button>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-item">
+      <span class="stat-value" id="statTotal">0</span>
+      <span class="stat-label">Total</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="statOnline">0</span>
+      <span class="stat-label">Online</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="statOffline">0</span>
+      <span class="stat-label">Offline</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="statConsumption">0</span>
+      <span class="stat-label">Com Consumo</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="statNoConsumption">0</span>
+      <span class="stat-label">Sem Consumo</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="statFiltered">0</span>
+      <span class="stat-label">Filtrados</span>
+    </div>
+  </div>
+
+  <div class="telemetry-container" id="telemetryContainer"></div>
+
+  <!--
+    To run this showcase:
+    1. Run start-server.bat (Windows) or start-server.sh (Linux/macOS)
+    2. Open: http://localhost:3333/showcase/telemetry-grid/
+  -->
+
+  <!-- Load UMD build which works without module system -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+  <script>
+    // MyIOLibrary is exposed globally by UMD build
+
+    // Mock data generator
+    function generateMockDevices(count, domain) {
+      const devices = [];
+      const statuses = ['power_on', 'power_on', 'power_on', 'offline', 'not_installed'];
+      const customerIds = ['cust-001', 'cust-002', 'cust-003', 'cust-004', 'cust-005'];
+      const customerNames = ['Shopping A', 'Shopping B', 'Shopping C', 'Shopping D', 'Shopping E'];
+
+      for (let i = 0; i < count; i++) {
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const custIndex = Math.floor(Math.random() * customerIds.length);
+        const isOffline = status === 'offline' || status === 'not_installed';
+
+        let value = 0;
+        if (!isOffline) {
+          if (domain === 'energy') {
+            value = Math.random() * 500 + 10; // kWh
+          } else if (domain === 'water') {
+            value = Math.random() * 10000 + 100; // Liters
+          } else if (domain === 'temperature') {
+            value = Math.random() * 15 + 18; // Celsius (18-33)
+          }
+        }
+
+        devices.push({
+          entityId: `entity-${i + 1}`,
+          ingestionId: `ing-${i + 1}`,
+          labelOrName: `Device ${String(i + 1).padStart(3, '0')}`,
+          deviceIdentifier: `ID-${String(i + 1).padStart(4, '0')}`,
+          deviceType: domain === 'temperature' ? 'temperature_sensor' : `${domain}_meter`,
+          deviceProfile: `${domain}_profile`,
+          deviceStatus: status,
+          connectionStatus: isOffline ? 'disconnected' : 'connected',
+          customerId: customerIds[custIndex],
+          customerName: customerNames[custIndex],
+          centralName: customerNames[custIndex],
+          ownerName: 'Owner Corp',
+          val: isOffline ? null : value,
+          value: isOffline ? null : value,
+          consumption: domain === 'energy' ? value : undefined,
+          consumption_power: domain === 'energy' ? (isOffline ? null : value * 0.1) : undefined,
+          pulses: domain === 'water' ? value : undefined,
+          temperature: domain === 'temperature' ? value : undefined,
+          instantaneousPower: domain === 'energy' ? (isOffline ? null : value * 0.1) : null,
+          operationHours: isOffline ? '-' : `${Math.floor(Math.random() * 24)}h ${Math.floor(Math.random() * 60)}m`,
+          lastConnectTime: Date.now() - Math.random() * 86400000,
+          lastActivityTime: Date.now() - Math.random() * 3600000,
+          consumptionTs: domain === 'energy' ? Date.now() - Math.random() * 60000 : undefined,
+          pulsesTs: domain === 'water' ? Date.now() - Math.random() * 60000 : undefined,
+          temperatureTs: domain === 'temperature' ? Date.now() - Math.random() * 60000 : undefined,
+          domain: domain,
+        });
+      }
+
+      return devices;
+    }
+
+    // Mock buildHeaderDevicesGrid - FIEL ao MAIN_UNIQUE_DATASOURCE/controller.js
+    window.MyIOUtils = window.MyIOUtils || {};
+    window.MyIOUtils.buildHeaderDevicesGrid = (config) => {
+      console.log('[Mock buildHeaderDevicesGrid]', config);
+
+      const {
+        container,
+        domain = 'energy',
+        idPrefix = 'devices',
+        labels = {},
+        includeSearch = true,
+        includeFilter = true,
+        onSearchClick,
+        onFilterClick,
+      } = config;
+
+      const containerEl = typeof container === 'string'
+        ? document.querySelector(container)
+        : container;
+
+      if (!containerEl) {
+        console.error('buildHeaderDevicesGrid: Container not found');
+        return null;
+      }
+
+      // Domain config
+      const DOMAIN_CONFIG = {
+        energy: {
+          totalLabel: 'Total de Equipamentos',
+          consumptionLabel: 'Consumo Total',
+          zeroLabel: 'Sem Consumo',
+          unit: 'kWh',
+          formatValue: (v) => `${(v || 0).toFixed(2)} kWh`,
+        },
+        water: {
+          totalLabel: 'Total de Hidrometros',
+          consumptionLabel: 'Consumo Total',
+          zeroLabel: 'Sem Consumo',
+          unit: 'm³',
+          formatValue: (v) => `${(v || 0).toFixed(2)} m³`,
+        },
+        temperature: {
+          totalLabel: 'Total de Sensores',
+          consumptionLabel: 'Temperatura Media',
+          zeroLabel: 'Sem Leitura',
+          unit: '°C',
+          formatValue: (v) => `${(v || 0).toFixed(1)} °C`,
+        },
+      };
+
+      const domainConfig = DOMAIN_CONFIG[domain] || DOMAIN_CONFIG.energy;
+
+      const finalLabels = {
+        connectivity: labels.connectivity || 'Conectividade',
+        total: labels.total || domainConfig.totalLabel,
+        consumption: labels.consumption || domainConfig.consumptionLabel,
+        zero: labels.zero || domainConfig.zeroLabel,
+      };
+
+      const ids = {
+        header: `${idPrefix}StatsHeader`,
+        connectivity: `${idPrefix}StatsConnectivity`,
+        total: `${idPrefix}StatsTotal`,
+        consumption: `${idPrefix}StatsConsumption`,
+        zero: `${idPrefix}StatsZero`,
+        searchWrap: `${idPrefix}SearchWrap`,
+        searchInput: `${idPrefix}Search`,
+        btnSearch: `${idPrefix}BtnSearch`,
+        btnFilter: `${idPrefix}BtnFilter`,
+      };
+
+      const searchButtonHTML = includeSearch
+        ? `<button class="icon-btn" id="${ids.btnSearch}" title="Buscar" aria-label="Buscar">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
+            </svg>
+          </button>`
+        : '';
+
+      const filterButtonHTML = includeFilter
+        ? `<button class="icon-btn" id="${ids.btnFilter}" title="Filtros" aria-label="Filtros">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/>
+            </svg>
+          </button>`
+        : '';
+
+      // Botão de maximizar
+      ids.btnMaximize = `${idPrefix}BtnMaximize`;
+      const maximizeButtonHTML = `<button class="icon-btn" id="${ids.btnMaximize}" title="Maximizar" aria-label="Maximizar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="icon-maximize">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+          </svg>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="icon-minimize" style="display:none;">
+            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+          </svg>
+        </button>`;
+
+      const headerHTML = `
+        <div class="equip-stats-header" id="${ids.header}">
+          <div class="stat-item">
+            <span class="stat-label">${finalLabels.connectivity}</span>
+            <span class="stat-value" id="${ids.connectivity}">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">${finalLabels.total}</span>
+            <span class="stat-value" id="${ids.total}">-</span>
+          </div>
+          <div class="stat-item highlight">
+            <span class="stat-label">${finalLabels.consumption}</span>
+            <span class="stat-value" id="${ids.consumption}">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">${finalLabels.zero}</span>
+            <span class="stat-value" id="${ids.zero}">-</span>
+          </div>
+          <div class="filter-actions">
+            <div class="search-wrap" id="${ids.searchWrap}">
+              <input type="text" id="${ids.searchInput}" placeholder="Buscar..." autocomplete="off">
+            </div>
+            ${searchButtonHTML}
+            ${filterButtonHTML}
+            ${maximizeButtonHTML}
+          </div>
+        </div>
+      `;
+
+      console.log('[Mock Header] includeFilter:', includeFilter);
+      console.log('[Mock Header] filterButtonHTML:', filterButtonHTML);
+      console.log('[Mock Header] ids:', ids);
+
+      containerEl.insertAdjacentHTML('afterbegin', headerHTML);
+
+      console.log('[Mock Header] HTML inserted, setting up events...');
+      console.log('[Mock Header] Full headerHTML:', headerHTML);
+
+      // Use setTimeout to ensure DOM is ready
+      setTimeout(() => {
+        // Maximize button event
+        const btnMaximize = document.getElementById(ids.btnMaximize);
+        console.log('[Mock Header] Maximize button:', ids.btnMaximize, btnMaximize);
+        if (btnMaximize) {
+          btnMaximize.addEventListener('click', () => {
+            console.log('[Mock Header] Maximize button clicked!');
+            const telemetryWrap = document.querySelector('.telemetry-grid-wrap');
+            console.log('[Mock Header] telemetryWrap found:', telemetryWrap);
+            if (!telemetryWrap) {
+              console.error('[Mock Header] .telemetry-grid-wrap not found!');
+              return;
+            }
+            const isMaximized = telemetryWrap.classList.toggle('maximized');
+
+            // Toggle icons
+            const iconMax = btnMaximize.querySelector('.icon-maximize');
+            const iconMin = btnMaximize.querySelector('.icon-minimize');
+            if (iconMax && iconMin) {
+              iconMax.style.display = isMaximized ? 'none' : 'block';
+              iconMin.style.display = isMaximized ? 'block' : 'none';
+            }
+
+            // Update title
+            btnMaximize.title = isMaximized ? 'Minimizar' : 'Maximizar';
+
+            console.log('[Mock Header] Maximize toggled:', isMaximized);
+          });
+        } else {
+          console.error('[Mock Header] Maximize button not found:', ids.btnMaximize);
+        }
+
+        // Search button event
+        if (includeSearch && onSearchClick) {
+          const btnSearch = document.getElementById(ids.btnSearch);
+          const searchWrap = document.getElementById(ids.searchWrap);
+          console.log('[Mock Header] Search button:', ids.btnSearch, btnSearch);
+          if (btnSearch) {
+            btnSearch.addEventListener('click', () => {
+              console.log('[Mock Header] Search button clicked!');
+              if (searchWrap) {
+                searchWrap.classList.toggle('active');
+                if (searchWrap.classList.contains('active')) {
+                  const input = document.getElementById(ids.searchInput);
+                  if (input) input.focus();
+                }
+              }
+              onSearchClick();
+            });
+          } else {
+            console.error('[Mock Header] Search button not found:', ids.btnSearch);
+          }
+        }
+
+        // Filter button event
+        if (includeFilter && onFilterClick) {
+          const btnFilter = document.getElementById(ids.btnFilter);
+          console.log('[Mock Header] Filter button:', ids.btnFilter, btnFilter);
+          if (btnFilter) {
+            btnFilter.addEventListener('click', () => {
+              console.log('[Mock Header] Filter button clicked!');
+              onFilterClick();
+            });
+          } else {
+            console.error('[Mock Header] Filter button not found:', ids.btnFilter);
+          }
+        }
+
+        console.log('[Mock Header] All events registered');
+      }, 0);
+
+      // Controller
+      const controller = {
+        ids,
+        domain,
+        domainConfig,
+
+        updateStats(stats) {
+          const { online = 0, total = 0, consumption = 0, zeroCount = 0 } = stats;
+
+          const connectivityEl = document.getElementById(ids.connectivity);
+          const totalEl = document.getElementById(ids.total);
+          const consumptionEl = document.getElementById(ids.consumption);
+          const zeroEl = document.getElementById(ids.zero);
+
+          if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
+            console.warn(`buildHeaderDevicesGrid: Stats elements not found for ${idPrefix}`);
+            return;
+          }
+
+          const percentage = total > 0 ? ((online / total) * 100).toFixed(1) : '0.0';
+
+          connectivityEl.textContent = `${online}/${total} (${percentage}%)`;
+          totalEl.textContent = total.toString();
+          consumptionEl.textContent = domainConfig.formatValue(consumption);
+          zeroEl.textContent = zeroCount.toString();
+
+          console.log(`[Mock Header] Stats updated:`, stats);
+        },
+
+        updateFromDevices(devices, options = {}) {
+          let online = 0;
+          let totalConsumption = 0;
+          let zeroCount = 0;
+
+          devices.forEach((device) => {
+            const devStatus = (device.deviceStatus || '').toLowerCase();
+            const isOffline = ['offline', 'no_info'].includes(devStatus);
+            const isNotInstalled = devStatus === 'not_installed';
+            if (!isOffline && !isNotInstalled) {
+              online++;
+            }
+
+            const consumption = Number(device.val) || Number(device.value) || 0;
+            totalConsumption += consumption;
+            if (consumption === 0) zeroCount++;
+          });
+
+          this.updateStats({
+            online,
+            total: devices.length,
+            consumption: totalConsumption,
+            zeroCount,
+          });
+        },
+
+        getSearchInput() {
+          return document.getElementById(ids.searchInput);
+        },
+
+        toggleSearch(active) {
+          const searchWrap = document.getElementById(ids.searchWrap);
+          if (searchWrap) {
+            if (active !== undefined) {
+              searchWrap.classList.toggle('active', active);
+            } else {
+              searchWrap.classList.toggle('active');
+            }
+          }
+        },
+
+        destroy() {
+          const header = document.getElementById(ids.header);
+          if (header) header.remove();
+        },
+      };
+
+      console.log(`[Mock Header] Built for domain '${domain}' with prefix '${idPrefix}'`);
+      return controller;
+    };
+
+    // Mock getCustomerNameForDevice
+    window.MyIOUtils.getCustomerNameForDevice = (device) => device.customerName || device.customerId || 'N/A';
+
+    // Mock createFilterModal - FIEL ao MAIN_UNIQUE_DATASOURCE/controller.js e TELEMETRY/controller.js
+    // RFC-0090: Layout de 3 colunas (Filtros | Checklist | Ordenação)
+    window.MyIOUtils.createFilterModal = (config) => {
+      console.log('[Mock createFilterModal] Creating modal with config:', config);
+
+      const {
+        widgetName = 'WIDGET',
+        containerId = 'filterModalContainer',
+        modalClass = 'telemetry-modal', // RFC-0121: Support TELEMETRY widget naming
+        primaryColor = '#f59e0b',
+        itemIdAttr = 'data-device-id', // RFC-0121: Support TELEMETRY widget attribute
+        filterTabs = [],
+        sortOptions = [],
+        onFilterChange,
+        onSortChange,
+        getItems = () => [],
+        getItemStatus = (item) => item.deviceStatus,
+        getItemLabel = (item) => item.labelOrName || item.label || 'Unknown',
+        getItemValue = (item) => Number(item.val) || Number(item.value) || 0,
+      } = config;
+
+      let modalElement = null;
+      let selectedIds = null; // null = all selected
+      let currentSort = sortOptions[0]?.id || 'cons_desc';
+      let allItems = [];
+      let headerController = null; // ModalHeader controller
+
+      const filterIcons = {
+        all: '📊', online: '⚡', offline: '🔴', notInstalled: '📦',
+        withConsumption: '✓', noConsumption: '○',
+      };
+
+      const filterGroups = [
+        { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline', 'notInstalled'] },
+        { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
+      ];
+
+      function generateFilterTabsHTML(counts) {
+        const allTab = filterTabs.find(t => t.id === 'all');
+        let html = '';
+
+        if (allTab) {
+          html += `
+            <div class="filter-group filter-group-all">
+              <button class="filter-tab active" data-filter="all">
+                ${filterIcons['all']} ${allTab.label} (<span id="countAll">${counts['all'] || 0}</span>)
+              </button>
+            </div>
+          `;
+        }
+
+        filterGroups.forEach(group => {
+          const groupTabs = filterTabs.filter(t => group.filters.includes(t.id));
+          if (groupTabs.length === 0) return;
+
+          html += `
+            <div class="filter-group">
+              <span class="filter-group-label">${group.label}</span>
+              <div class="filter-group-tabs">
+                ${groupTabs.map(tab => {
+                  const icon = filterIcons[tab.id] || '';
+                  const count = counts[tab.id] || 0;
+                  return `
+                    <button class="filter-tab" data-filter="${tab.id}">
+                      ${icon} ${tab.label} (<span id="count${tab.id}">${count}</span>)
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        });
+
+        return html;
+      }
+
+      function createModal() {
+        const container = document.createElement('div');
+        container.id = containerId;
+
+        const counts = calculateCounts(allItems);
+
+        container.innerHTML = `
+          <style>
+            #${containerId} .fm-overlay {
+              position: fixed;
+              inset: 0;
+              background: rgba(0, 0, 0, 0.6);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              z-index: 999999;
+              backdrop-filter: blur(4px);
+              animation: fmFadeIn 0.2s ease-in;
+            }
+            #${containerId} .fm-overlay.hidden { display: none; }
+            @keyframes fmFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+            #${containerId} .fm-card {
+              background: #fff;
+              border-radius: 16px;
+              width: 90%;
+              max-width: 1000px;
+              max-height: 85vh;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+              overflow: hidden;
+            }
+
+            /* MyIO Premium Header Style */
+            #${containerId} .fm-header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 8px 12px;
+              background: #3e1a7d;
+              color: white;
+              border-radius: 16px 16px 0 0;
+              min-height: 32px;
+              user-select: none;
+            }
+            #${containerId} .fm-header__left {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex: 1;
+              min-width: 0;
+            }
+            #${containerId} .fm-header__icon { font-size: 18px; }
+            #${containerId} .fm-header h3 {
+              margin: 0;
+              font-size: 16px;
+              font-weight: 600;
+              color: white;
+              line-height: 1.4;
+            }
+            #${containerId} .fm-header__actions {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            }
+            #${containerId} .fm-header__btn {
+              background: none;
+              border: none;
+              font-size: 16px;
+              cursor: pointer;
+              padding: 4px 8px;
+              border-radius: 6px;
+              color: rgba(255, 255, 255, 0.8);
+              transition: background-color 0.2s, color 0.2s;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 28px;
+              min-height: 28px;
+            }
+            #${containerId} .fm-header__btn:hover {
+              background: rgba(255, 255, 255, 0.15);
+              color: white;
+            }
+            #${containerId} .fm-header__btn--close {
+              font-size: 20px;
+            }
+            #${containerId} .fm-header__btn--close:hover {
+              background: rgba(239, 68, 68, 0.3);
+              color: #fecaca;
+            }
+
+            /* Light Theme Header */
+            #${containerId} .fm-header--light {
+              background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+              border-bottom: 1px solid #cbd5e1;
+            }
+            #${containerId} .fm-header--light h3 {
+              color: #475569;
+            }
+            #${containerId} .fm-header--light .fm-header__btn {
+              color: rgba(71, 85, 105, 0.8);
+            }
+            #${containerId} .fm-header--light .fm-header__btn:hover {
+              background: rgba(0, 0, 0, 0.08);
+              color: #1e293b;
+            }
+            #${containerId} .fm-header--light .fm-header__btn--close:hover {
+              background: rgba(239, 68, 68, 0.15);
+              color: #dc2626;
+            }
+
+            /* Maximized State */
+            #${containerId} .fm-card.maximized {
+              max-width: 100%;
+              width: 100%;
+              max-height: 100vh;
+              height: 100vh;
+              border-radius: 0;
+            }
+            #${containerId} .fm-card.maximized .fm-header {
+              border-radius: 0;
+            }
+            #${containerId} .fm-card.maximized .fm-body {
+              max-height: calc(100vh - 120px);
+            }
+
+            #${containerId} .fm-body {
+              flex: 1;
+              overflow-y: auto;
+              padding: 20px;
+              display: flex;
+              gap: 20px;
+            }
+
+            /* LEFT: Filter Sidebar */
+            #${containerId} .filter-sidebar {
+              width: 200px;
+              min-width: 200px;
+              display: flex;
+              flex-direction: column;
+              gap: 16px;
+              border-right: 1px solid #e2e8f0;
+              padding-right: 20px;
+            }
+            #${containerId} .filter-group { display: flex; flex-direction: column; gap: 6px; }
+            #${containerId} .filter-group-all {
+              padding-bottom: 12px;
+              border-bottom: 1px solid #e2e8f0;
+              margin-bottom: 4px;
+            }
+            #${containerId} .filter-group-label {
+              font-size: 11px; font-weight: 600; color: #64748b;
+              text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+            }
+            #${containerId} .filter-group-tabs { display: flex; flex-direction: column; gap: 4px; }
+            #${containerId} .filter-tab {
+              display: inline-flex; align-items: center; gap: 4px;
+              padding: 6px 10px; border-radius: 16px;
+              font-size: 12px; font-weight: 500; cursor: pointer;
+              border: none; opacity: 0.6; transition: all 0.15s;
+              text-align: left;
+            }
+            #${containerId} .filter-tab:hover { opacity: 0.85; }
+            #${containerId} .filter-tab.active { opacity: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+            #${containerId} .filter-tab[data-filter="all"] { background: #e2e8f0; color: #475569; }
+            #${containerId} .filter-tab[data-filter="online"] { background: #dbeafe; color: #1d4ed8; }
+            #${containerId} .filter-tab[data-filter="offline"] { background: #fecaca; color: #b91c1c; }
+            #${containerId} .filter-tab[data-filter="notInstalled"] { background: #fef3c7; color: #92400e; }
+            #${containerId} .filter-tab[data-filter="withConsumption"] { background: #dcfce7; color: #15803d; }
+            #${containerId} .filter-tab[data-filter="noConsumption"] { background: #f1f5f9; color: #475569; }
+
+            /* CENTER: Checklist */
+            #${containerId} .filter-content {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              min-width: 0;
+              border-right: 1px solid #e2e8f0;
+              padding-right: 20px;
+            }
+            #${containerId} .filter-search {
+              position: relative;
+              margin-bottom: 10px;
+            }
+            #${containerId} .filter-search input {
+              width: 100%;
+              padding: 10px 12px 10px 36px;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              font-size: 13px;
+              outline: none;
+            }
+            #${containerId} .filter-search input:focus {
+              border-color: ${primaryColor};
+              box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
+            }
+            #${containerId} .filter-search svg {
+              position: absolute;
+              left: 12px;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 16px;
+              height: 16px;
+              fill: #94a3b8;
+            }
+            #${containerId} .inline-actions {
+              display: flex;
+              gap: 8px;
+              margin-bottom: 10px;
+            }
+            #${containerId} .tiny-btn {
+              padding: 6px 12px;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              background: #fff;
+              font-size: 12px;
+              font-weight: 500;
+              color: #475569;
+              cursor: pointer;
+              transition: all 0.15s;
+            }
+            #${containerId} .tiny-btn:hover { background: #f8fafc; border-color: ${primaryColor}; color: ${primaryColor}; }
+            #${containerId} .checklist {
+              flex: 1;
+              min-height: 200px;
+              max-height: 350px;
+              overflow-y: auto;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 4px;
+            }
+            #${containerId} .check-item {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 8px;
+              border-radius: 4px;
+              transition: background 0.15s;
+            }
+            #${containerId} .check-item:hover { background: #f8fafc; }
+            #${containerId} .check-item input { width: 16px; height: 16px; cursor: pointer; }
+            #${containerId} .check-item label { flex: 1; cursor: pointer; font-size: 13px; color: #1e293b; }
+            #${containerId} .check-item .value {
+              font-size: 12px; font-weight: 600; min-width: 70px; text-align: right;
+            }
+            #${containerId} .check-item .customer {
+              font-size: 11px; color: #0ea5e9; max-width: 100px;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            }
+
+            /* RIGHT: Sort Options */
+            #${containerId} .filter-sortbar {
+              width: 160px;
+              min-width: 160px;
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+            }
+            #${containerId} .sort-label {
+              font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 4px;
+            }
+            #${containerId} .radio-grid { display: flex; flex-direction: column; gap: 4px; }
+            #${containerId} .radio-grid label {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 8px 10px;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 12px;
+              color: #475569;
+              transition: all 0.15s;
+            }
+            #${containerId} .radio-grid label:hover { background: #f8fafc; border-color: ${primaryColor}; }
+            #${containerId} .radio-grid label:has(input:checked) {
+              background: rgba(245, 158, 11, 0.1);
+              border-color: ${primaryColor};
+              color: #b45309;
+              font-weight: 600;
+            }
+            #${containerId} .radio-grid input { width: 14px; height: 14px; cursor: pointer; }
+
+            /* Footer */
+            #${containerId} .fm-footer {
+              display: flex;
+              gap: 12px;
+              justify-content: flex-end;
+              padding: 16px 20px;
+              border-top: 1px solid #e2e8f0;
+            }
+            #${containerId} .fm-btn {
+              padding: 10px 20px;
+              border-radius: 8px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.15s;
+            }
+            #${containerId} .fm-btn.secondary { background: #e2e8f0; color: #475569; border: none; }
+            #${containerId} .fm-btn.secondary:hover { background: #cbd5e1; }
+            #${containerId} .fm-btn.primary { background: ${primaryColor}; color: white; border: none; }
+            #${containerId} .fm-btn.primary:hover { filter: brightness(1.1); }
+
+            /* ========== DARK THEME SUPPORT ========== */
+            /* RFC-0115: data-theme is set on body */
+            body:not(.light-mode) #${containerId} .fm-card {
+              background: #1e293b;
+              border-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .fm-header {
+              border-bottom-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .fm-header h3 {
+              color: #f1f5f9;
+            }
+            body:not(.light-mode) #${containerId} .fm-close {
+              color: #94a3b8;
+            }
+            body:not(.light-mode) #${containerId} .fm-close:hover {
+              color: #f1f5f9;
+            }
+            body:not(.light-mode) #${containerId} .filter-sidebar {
+              border-right-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .filter-content {
+              border-right-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .filter-group-all {
+              border-bottom-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .filter-group-label {
+              color: #94a3b8;
+            }
+            body:not(.light-mode) #${containerId} .filter-search input {
+              background: #0f172a;
+              border-color: #334155;
+              color: #f1f5f9;
+            }
+            body:not(.light-mode) #${containerId} .filter-search input::placeholder {
+              color: #64748b;
+            }
+            body:not(.light-mode) #${containerId} .filter-search input:focus {
+              border-color: ${primaryColor};
+              box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            }
+            body:not(.light-mode) #${containerId} .filter-search svg {
+              fill: #94a3b8;
+            }
+            body:not(.light-mode) #${containerId} .tiny-btn {
+              background: #0f172a;
+              border-color: #334155;
+              color: #e2e8f0;
+            }
+            body:not(.light-mode) #${containerId} .tiny-btn:hover {
+              background: #1e293b;
+              border-color: ${primaryColor};
+              color: ${primaryColor};
+            }
+            body:not(.light-mode) #${containerId} .checklist {
+              background: #0f172a;
+              border-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .check-item:hover {
+              background: #334155;
+            }
+            body:not(.light-mode) #${containerId} .check-item label {
+              color: #e2e8f0;
+            }
+            body:not(.light-mode) #${containerId} .check-item .customer {
+              color: #38bdf8;
+            }
+            body:not(.light-mode) #${containerId} .sort-label {
+              color: #f1f5f9;
+            }
+            body:not(.light-mode) #${containerId} .radio-grid label {
+              border-color: #334155;
+              color: #e2e8f0;
+              background: #0f172a;
+            }
+            body:not(.light-mode) #${containerId} .radio-grid label:hover {
+              background: #1e293b;
+              border-color: ${primaryColor};
+            }
+            body:not(.light-mode) #${containerId} .radio-grid label:has(input:checked) {
+              background: rgba(245, 158, 11, 0.15);
+              border-color: ${primaryColor};
+              color: ${primaryColor};
+            }
+            body:not(.light-mode) #${containerId} .fm-footer {
+              border-top-color: #334155;
+            }
+            body:not(.light-mode) #${containerId} .fm-btn.secondary {
+              background: #0f172a;
+              border-color: #334155;
+              color: #e2e8f0;
+            }
+            body:not(.light-mode) #${containerId} .fm-btn.secondary:hover {
+              background: #1e293b;
+            }
+          </style>
+
+          <div class="fm-overlay hidden" id="${containerId}Overlay">
+            <div class="fm-card">
+              <!-- Header - MyIO Premium Style -->
+              <div class="fm-header">
+                <div class="fm-header__left">
+                  <span class="fm-header__icon">🔍</span>
+                  <h3>Filtrar e Ordenar</h3>
+                </div>
+                <div class="fm-header__actions">
+                  <button class="fm-header__btn" id="${containerId}ThemeToggle" title="Alternar tema">☀️</button>
+                  <button class="fm-header__btn" id="${containerId}Maximize" title="Maximizar">🗖</button>
+                  <button class="fm-header__btn fm-header__btn--close" id="${containerId}Close" title="Fechar">&times;</button>
+                </div>
+              </div>
+              <div class="fm-body">
+                <!-- LEFT: Filter Tabs -->
+                <div class="filter-sidebar" id="${containerId}Sidebar">
+                  ${generateFilterTabsHTML(counts)}
+                </div>
+
+                <!-- CENTER: Device Checklist -->
+                <div class="filter-content">
+                  <div class="filter-search">
+                    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <input type="text" id="${containerId}Search" placeholder="Buscar dispositivo...">
+                  </div>
+                  <div class="inline-actions">
+                    <button class="tiny-btn" id="${containerId}SelectAll">Selecionar Todos</button>
+                    <button class="tiny-btn" id="${containerId}ClearAll">Limpar Seleção</button>
+                  </div>
+                  <div class="checklist" id="${containerId}Checklist"></div>
+                </div>
+
+                <!-- RIGHT: Sort Options -->
+                <div class="filter-sortbar">
+                  <span class="sort-label">Ordenar por</span>
+                  <div class="radio-grid">
+                    ${(sortOptions.length > 0 ? sortOptions : [
+                      { id: 'cons_desc', label: 'Maior consumo', icon: '↓' },
+                      { id: 'cons_asc', label: 'Menor consumo', icon: '↑' },
+                      { id: 'alpha_asc', label: 'Nome (A-Z)', icon: 'A' },
+                      { id: 'alpha_desc', label: 'Nome (Z-A)', icon: 'Z' },
+                      { id: 'shopping_asc', label: 'Shopping (A-Z)', icon: '🏢' },
+                      { id: 'shopping_desc', label: 'Shopping (Z-A)', icon: '🏢' },
+                    ]).map((opt, i) => `
+                      <label>
+                        <input type="radio" name="${containerId}Sort" value="${opt.id}" ${i === 0 ? 'checked' : ''}>
+                        ${opt.icon ? `<span style="font-weight: bold; min-width: 16px;">${opt.icon}</span>` : ''}
+                        ${opt.label}
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+              <div class="fm-footer">
+                <button class="fm-btn secondary" id="${containerId}Reset">Fechar</button>
+                <button class="fm-btn primary" id="${containerId}Apply">Aplicar</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(container);
+        modalElement = container;
+        setupEventHandlers();
+      }
+
+      function calculateCounts(items) {
+        const counts = {};
+        filterTabs.forEach(tab => {
+          counts[tab.id] = items.filter(tab.filter).length;
+        });
+        return counts;
+      }
+
+      function populateChecklist(filterFn = null) {
+        const checklist = document.getElementById(`${containerId}Checklist`);
+        if (!checklist) return;
+
+        checklist.innerHTML = '';
+
+        let itemsToShow = allItems;
+        if (filterFn) {
+          itemsToShow = allItems.filter(filterFn);
+        }
+
+        if (itemsToShow.length === 0) {
+          checklist.innerHTML = '<div style="padding: 20px; text-align: center; color: #64748b; font-size: 13px;">Nenhum dispositivo encontrado.</div>';
+          return;
+        }
+
+        // Sort by label
+        itemsToShow.sort((a, b) => (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR'));
+
+        itemsToShow.forEach(item => {
+          const itemId = item.entityId || item.id;
+          const isChecked = !selectedIds || selectedIds.has(itemId);
+          const label = getItemLabel(item);
+          const value = getItemValue(item);
+          const status = getItemStatus(item);
+          const customerName = item.customerName || item.ownerName || '';
+
+          // Format value based on domain
+          let formattedValue = '';
+          const domain = item.domain || 'energy';
+          if (domain === 'temperature') {
+            formattedValue = value > 0 ? `${value.toFixed(1)} °C` : '-.-- °C';
+          } else if (domain === 'water') {
+            formattedValue = value > 0 ? `${value.toFixed(2)} m³` : '0.00 m³';
+          } else {
+            formattedValue = value > 0 ? `${value.toFixed(2)} kWh` : '0.00 kWh';
+          }
+
+          // Status indicator color
+          const statusColors = {
+            power_on: '#16a34a',
+            offline: '#dc2626',
+            not_installed: '#f59e0b',
+          };
+          const statusColor = statusColors[status] || '#94a3b8';
+
+          const div = document.createElement('div');
+          div.className = 'check-item';
+          div.innerHTML = `
+            <input type="checkbox" id="chk-${itemId}" ${itemIdAttr}="${itemId}" ${isChecked ? 'checked' : ''}>
+            <label for="chk-${itemId}">
+              <span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${statusColor}; margin-right: 6px;"></span>
+              ${label}
+            </label>
+            ${customerName ? `<span class="customer" title="${customerName}">${customerName}</span>` : ''}
+            <span class="value" style="color: ${value > 0 ? '#16a34a' : '#94a3b8'};">${formattedValue}</span>
+          `;
+          checklist.appendChild(div);
+        });
+      }
+
+      function setupEventHandlers() {
+        const overlay = document.getElementById(`${containerId}Overlay`);
+        const resetBtn = document.getElementById(`${containerId}Reset`);
+        const applyBtn = document.getElementById(`${containerId}Apply`);
+        const searchInput = document.getElementById(`${containerId}Search`);
+        const selectAllBtn = document.getElementById(`${containerId}SelectAll`);
+        const clearAllBtn = document.getElementById(`${containerId}ClearAll`);
+        const sidebar = document.getElementById(`${containerId}Sidebar`);
+
+        // Create ModalHeader controller (encapsulates theme/maximize/close logic)
+        // Uses MyIOLibrary.ModalHeader.createController pattern
+        if (!headerController && window.MyIOLibrary?.ModalHeader?.createController) {
+          headerController = window.MyIOLibrary.ModalHeader.createController({
+            modalId: containerId,
+            theme: 'dark',
+            maximizeTarget: `#${containerId} .fm-card`,
+            maximizedClass: 'maximized',
+            themeTarget: `#${containerId} .fm-header`,
+            lightThemeClass: 'fm-header--light',
+            onClose: () => controller.close(),
+            onThemeChange: (theme) => console.log('[FilterModal] Theme:', theme),
+            onMaximizeChange: (max) => console.log('[FilterModal] Maximized:', max),
+          });
+        } else {
+          // Fallback: manual event binding if ModalHeader not available
+          const closeBtn = document.getElementById(`${containerId}Close`);
+          if (closeBtn) closeBtn.addEventListener('click', () => controller.close());
+        }
+
+        // Close on overlay click
+        overlay.addEventListener('click', e => { if (e.target === overlay) controller.close(); });
+        resetBtn.addEventListener('click', () => controller.close());
+
+        // Filter tabs
+        sidebar.addEventListener('click', e => {
+          const tab = e.target.closest('.filter-tab');
+          if (!tab) return;
+
+          sidebar.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          const filterId = tab.dataset.filter;
+          const filterFn = filterTabs.find(t => t.id === filterId)?.filter || (() => true);
+          populateChecklist(filterId === 'all' ? null : filterFn);
+        });
+
+        // Search
+        searchInput.addEventListener('input', e => {
+          const query = (e.target.value || '').toLowerCase().trim();
+          const checklist = document.getElementById(`${containerId}Checklist`);
+          checklist.querySelectorAll('.check-item').forEach(item => {
+            const label = item.querySelector('label');
+            const text = (label?.textContent || '').toLowerCase();
+            item.style.display = text.includes(query) ? 'flex' : 'none';
+          });
+        });
+
+        // Select/Clear all
+        selectAllBtn.addEventListener('click', () => {
+          const checklist = document.getElementById(`${containerId}Checklist`);
+          checklist.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        });
+        clearAllBtn.addEventListener('click', () => {
+          const checklist = document.getElementById(`${containerId}Checklist`);
+          checklist.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        });
+
+        // Apply
+        applyBtn.addEventListener('click', () => {
+          const checklist = document.getElementById(`${containerId}Checklist`);
+          const checked = checklist.querySelectorAll('input[type="checkbox"]:checked');
+          const newSelectedIds = new Set();
+          checked.forEach(cb => {
+            // Support both data-id and itemIdAttr (e.g., data-device-id)
+            const id = cb.getAttribute(itemIdAttr) || cb.dataset.id || cb.dataset.deviceId;
+            if (id) newSelectedIds.add(id);
+          });
+
+          const sortRadio = document.querySelector(`input[name="${containerId}Sort"]:checked`);
+          currentSort = sortRadio ? sortRadio.value : 'cons_desc';
+
+          // If all selected, pass null
+          selectedIds = newSelectedIds.size === allItems.length ? null : newSelectedIds;
+
+          if (onFilterChange) onFilterChange(selectedIds);
+          if (onSortChange) onSortChange(currentSort);
+
+          console.log('[Mock FilterModal] Applied:', { selectedCount: newSelectedIds.size, sortMode: currentSort, itemIdAttr });
+          controller.close();
+        });
+
+        // ESC to close
+        document.addEventListener('keydown', e => {
+          if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            controller.close();
+          }
+        });
+      }
+
+      const controller = {
+        open(items) {
+          allItems = items || [];
+          if (!modalElement) {
+            createModal();
+          } else {
+            // Update counts and checklist
+            const counts = calculateCounts(allItems);
+            const sidebar = document.getElementById(`${containerId}Sidebar`);
+            if (sidebar) sidebar.innerHTML = generateFilterTabsHTML(counts);
+            setupEventHandlers(); // Re-bind handlers
+          }
+          populateChecklist();
+          const overlay = document.getElementById(`${containerId}Overlay`);
+          if (overlay) overlay.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
+          console.log(`[Mock FilterModal] Opened with ${allItems.length} items`);
+        },
+
+        close() {
+          const overlay = document.getElementById(`${containerId}Overlay`);
+          if (overlay) overlay.classList.add('hidden');
+          document.body.style.overflow = '';
+
+          // Reset header state (theme, maximize) via controller
+          if (headerController) {
+            headerController.reset();
+          }
+        },
+
+        destroy() {
+          // Cleanup header controller
+          if (headerController) {
+            headerController.destroy();
+            headerController = null;
+          }
+          if (modalElement) {
+            modalElement.remove();
+            modalElement = null;
+          }
+        },
+      };
+
+      return controller;
+    };
+
+    // Use the real renderCardComponentHeadOffice from MyIOLibrary (loaded via UMD)
+    // The UMD build already exposes MyIOLibrary.renderCardComponentHeadOffice
+    console.log('[Showcase] MyIOLibrary.renderCardComponentHeadOffice available:', !!MyIOLibrary.renderCardComponentHeadOffice);
+
+    // State
+    let telemetryGridInstance = null;
+    let currentDomain = 'energy';
+    let currentContext = 'equipments';
+    let currentTheme = 'dark';
+    let currentDeviceCount = 10;
+
+    // Update stats display
+    function updateStatsDisplay(stats) {
+      document.getElementById('statTotal').textContent = stats.total;
+      document.getElementById('statOnline').textContent = stats.online;
+      document.getElementById('statOffline').textContent = stats.offline;
+      document.getElementById('statConsumption').textContent = stats.withConsumption;
+      document.getElementById('statNoConsumption').textContent = stats.noConsumption;
+      document.getElementById('statFiltered').textContent = stats.filteredCount;
+    }
+
+    // Initialize component
+    function initComponent() {
+      const container = document.getElementById('telemetryContainer');
+      container.innerHTML = '';
+
+      const devices = generateMockDevices(currentDeviceCount, currentDomain);
+
+      telemetryGridInstance = MyIOLibrary.createTelemetryGridComponent({
+        container: container,
+        domain: currentDomain,
+        context: currentContext,
+        devices: devices,
+        themeMode: currentTheme,
+        debugActive: true,
+        useNewComponents: true,
+        enableSelection: true,
+        enableDragDrop: true,
+        hideInfoMenuItem: true,
+
+        onCardAction: (action, device) => {
+          console.log('Card action:', action, device.labelOrName);
+          alert(`Action: ${action}\nDevice: ${device.labelOrName}`);
+        },
+
+        onCardClick: (device) => {
+          console.log('Card clicked:', device.labelOrName);
+        },
+
+        onStatsUpdate: (stats) => {
+          console.log('Stats updated:', stats);
+          updateStatsDisplay(stats);
+        },
+
+        onFilterChange: (filters) => {
+          console.log('Filters changed:', filters);
+        },
+      });
+
+      console.log('TelemetryGrid component created:', telemetryGridInstance);
+
+      // Initial stats update
+      updateStatsDisplay(telemetryGridInstance.getStats());
+    }
+
+    // Event handlers
+    document.getElementById('domainSelect').addEventListener('change', (e) => {
+      currentDomain = e.target.value;
+
+      // Update context options based on domain
+      const contextSelect = document.getElementById('contextSelect');
+      const contextOptions = {
+        energy: ['equipments', 'stores'],
+        water: ['hidrometro', 'hidrometro_area_comum'],
+        temperature: ['termostato', 'termostato_external'],
+      };
+
+      contextSelect.innerHTML = contextOptions[currentDomain]
+        .map(c => `<option value="${c}">${c}</option>`)
+        .join('');
+      currentContext = contextOptions[currentDomain][0];
+
+      if (telemetryGridInstance) {
+        const devices = generateMockDevices(currentDeviceCount, currentDomain);
+        telemetryGridInstance.updateConfig(currentDomain, currentContext);
+        telemetryGridInstance.updateDevices(devices);
+      }
+    });
+
+    document.getElementById('contextSelect').addEventListener('change', (e) => {
+      currentContext = e.target.value;
+      if (telemetryGridInstance) {
+        telemetryGridInstance.updateConfig(currentDomain, currentContext);
+      }
+    });
+
+    document.getElementById('themeSelect').addEventListener('change', (e) => {
+      currentTheme = e.target.value;
+      document.body.classList.toggle('light-mode', currentTheme === 'light');
+      if (telemetryGridInstance) {
+        telemetryGridInstance.setThemeMode(currentTheme);
+      }
+    });
+
+    document.getElementById('deviceCountSelect').addEventListener('change', (e) => {
+      currentDeviceCount = parseInt(e.target.value, 10);
+      if (telemetryGridInstance) {
+        const devices = generateMockDevices(currentDeviceCount, currentDomain);
+        telemetryGridInstance.updateDevices(devices);
+      }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      if (telemetryGridInstance) {
+        const devices = generateMockDevices(currentDeviceCount, currentDomain);
+        telemetryGridInstance.updateDevices(devices);
+      }
+    });
+
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+      if (telemetryGridInstance) {
+        telemetryGridInstance.clearFilters();
+      }
+    });
+
+    // Initialize on load
+    initComponent();
+  </script>
+</body>
+</html>

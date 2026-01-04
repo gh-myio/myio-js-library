@@ -76,3 +76,9 @@ src\MYIO-SIM\v5.2.0\MAIN\controller.js
 src\MYIO-SIM\v5.2.0\EQUIPMENTS\controller.js
 
 como que era esses custom eventos do menu para atualização e etc
+
+como telemetry src\MYIO-SIM\v5.2.0\TELEMETRY
+vai virar componente, temos que ver o impacto na nova main
+src\MYIO-SIM\v5.2.0\MAIN_UNIQUE_DATASOURCE
+
+e aproveite e faça um showcase com dados mock para validarmos o componente gridDevicesTelemetry, o novo componente
