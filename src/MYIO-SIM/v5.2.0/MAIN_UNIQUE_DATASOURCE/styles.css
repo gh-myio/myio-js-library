@@ -98,6 +98,39 @@
   padding: 0 !important;
 }
 
+/* RFC-0121: Force transparency on Header section containers */
+.myio-header-section .tb-widget,
+.myio-header-section .tb-widget-container,
+.myio-header-section .tb-dashboard-container,
+.myio-header-section .mat-drawer-content,
+.myio-header-section tb-dashboard-state,
+.myio-header-section [class*="widget"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* RFC-0121: Force transparency on Menu section containers */
+.myio-menu-section .tb-widget,
+.myio-menu-section .tb-widget-container,
+.myio-menu-section .tb-dashboard-container,
+.myio-menu-section .mat-drawer-content,
+.myio-menu-section tb-dashboard-state,
+.myio-menu-section [class*="widget"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* RFC-0121: Force transparency on Footer section containers */
+.myio-footer-section .tb-widget,
+.myio-footer-section .tb-widget-container,
+.myio-footer-section .tb-dashboard-container,
+.myio-footer-section .mat-drawer-content,
+.myio-footer-section tb-dashboard-state,
+.myio-footer-section [class*="widget"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 .myio-footer-section {
   flex-shrink: 0;
   overflow: hidden;

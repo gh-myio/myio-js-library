@@ -2054,7 +2054,7 @@ body.filter-modal-open { overflow: hidden !important; }
     // Apply to body
     document.body.style.background = backgroundStyle;
 
-    // Apply to ThingsBoard dashboard containers
+    // Apply to ThingsBoard dashboard containers (global and section-specific)
     const tbContainers = [
       '.tb-dashboard-page',
       '.tb-dashboard-page-content',
@@ -2065,9 +2065,27 @@ body.filter-modal-open { overflow: hidden !important; }
       '.tb-widget-container',
       '.tb-widget',
       'tb-dashboard-state',
+      // Section-specific containers
+      '.myio-header-section .tb-widget',
+      '.myio-header-section .tb-widget-container',
+      '.myio-menu-section .tb-widget',
+      '.myio-menu-section .tb-widget-container',
+      '.myio-main-view-section .tb-widget',
+      '.myio-main-view-section .tb-widget-container',
+      '.myio-footer-section .tb-widget',
+      '.myio-footer-section .tb-widget-container',
     ];
 
     tbContainers.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        el.style.background = 'transparent';
+        el.style.backgroundColor = 'transparent';
+      });
+    });
+
+    // Also force sections to be transparent
+    const sections = ['.myio-header-section', '.myio-menu-section', '.myio-main-view-section', '.myio-footer-section'];
+    sections.forEach((selector) => {
       document.querySelectorAll(selector).forEach((el) => {
         el.style.background = 'transparent';
         el.style.backgroundColor = 'transparent';
