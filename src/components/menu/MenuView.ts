@@ -20,6 +20,7 @@ import {
 } from './types';
 
 import { ModalHeader } from '../../utils/ModalHeader';
+import type { ModalHeaderController } from '../../utils/ModalHeader';
 
 /**
  * Menu View - Handles rendering and DOM interactions
@@ -39,9 +40,8 @@ export class MenuView {
   private contextsByTab: Map<string, string> = new Map();
   private pendingTabId: string | null = null; // Tab being previewed in modal
 
-  // Filter Modal State
-  private filterModalIsMaximized: boolean = false;
-  private filterModalTheme: 'dark' | 'light' = 'dark';
+  // Filter Modal (RFC-0121 ModalHeader controller pattern)
+  private filterModalHeaderController: ModalHeaderController | null = null;
 
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
@@ -1712,8 +1712,8 @@ export class MenuView {
       icon: '🏢',
       title: 'Filtro de Shoppings',
       modalId: 'menuFilter',
-      theme: this.filterModalTheme,
-      isMaximized: this.filterModalIsMaximized,
+      theme: this.getFilterModalDefaultTheme(),
+      isMaximized: false,
       showThemeToggle: true,
       showMaximize: true,
       showClose: true,
@@ -1871,13 +1871,8 @@ export class MenuView {
       btn.addEventListener('click', () => this.closeFilterModal());
     });
 
-    // Setup ModalHeader handlers for filter modal
-    ModalHeader.setupHandlers({
-      modalId: 'menuFilter',
-      onClose: () => this.closeFilterModal(),
-      onThemeToggle: () => this.toggleFilterModalTheme(),
-      onMaximize: () => this.toggleFilterModalMaximize(),
-    });
+    // RFC-0121: ModalHeader controller pattern (encapsulated state)
+    this.ensureFilterModalHeaderController();
 
     // Filter modal backdrop click
     const filterModal = this.root.querySelector('#menuFilterModal');
@@ -2224,6 +2219,8 @@ export class MenuView {
    * Open filter modal
    */
   public openFilterModal(): void {
+    this.ensureFilterModalHeaderController();
+
     const modal = this.root.querySelector('#menuFilterModal');
     if (modal) {
       modal.classList.add('is-open');
@@ -2244,69 +2241,81 @@ export class MenuView {
     if (modal) {
       modal.classList.remove('is-open');
     }
-    // Reset maximize state when closing
-    if (this.filterModalIsMaximized) {
-      this.filterModalIsMaximized = false;
-      this.updateFilterModalMaximizeState();
+
+    // RFC-0121: reset modal header state when closing
+    this.filterModalHeaderController?.reset();
+    if (this.filterModalHeaderController) {
+      this.applyFilterModalTheme(this.filterModalHeaderController.getTheme());
+      this.applyFilterModalMaximize(this.filterModalHeaderController.isMaximized());
     }
   }
 
-  /**
-   * Toggle filter modal theme (dark/light)
-   */
-  private toggleFilterModalTheme(): void {
-    this.filterModalTheme = this.filterModalTheme === 'dark' ? 'light' : 'dark';
+  private getFilterModalDefaultTheme(): 'dark' | 'light' {
+    return 'dark';
+  }
 
-    // Update header state
-    ModalHeader.updateState('menuFilter', { theme: this.filterModalTheme });
+  private ensureFilterModalHeaderController(): void {
+    if (this.filterModalHeaderController) return;
 
-    // Update modal card background based on theme
-    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement;
-    if (modalCard) {
-      if (this.filterModalTheme === 'light') {
-        modalCard.style.background = '#ffffff';
-      } else {
-        modalCard.style.background = 'var(--menu-filter-bg, #ffffff)';
-      }
+    const modalCard = this.root.querySelector(
+      '.myio-menu-filter-modal-card'
+    ) as HTMLElement | null;
+    if (!modalCard) return;
+
+    const headerEl = this.root.querySelector('#menuFilter-header') as HTMLElement | null;
+
+    this.filterModalHeaderController = ModalHeader.createController({
+      modalId: 'menuFilter',
+      theme: this.getFilterModalDefaultTheme(),
+      themeTarget: headerEl ?? undefined,
+      lightThemeClass: 'myio-modal-header--light',
+      maximizeTarget: modalCard,
+      maximizedClass: 'myio-menu-filter-modal-card--maximized',
+      onThemeChange: (theme) => this.applyFilterModalTheme(theme),
+      onMaximizeChange: (isMaximized) =>
+        this.applyFilterModalMaximize(isMaximized),
+      onClose: () => this.closeFilterModal(),
+    });
+
+    this.filterModalHeaderController.reset();
+    this.applyFilterModalTheme(this.filterModalHeaderController.getTheme());
+    this.applyFilterModalMaximize(this.filterModalHeaderController.isMaximized());
+  }
+
+  private applyFilterModalTheme(theme: 'dark' | 'light'): void {
+    const modalCard = this.root.querySelector(
+      '.myio-menu-filter-modal-card'
+    ) as HTMLElement | null;
+    if (!modalCard) return;
+
+    modalCard.style.background =
+      theme === 'light' ? '#ffffff' : 'var(--menu-filter-bg, #ffffff)';
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Filter modal theme:', theme);
+    }
+  }
+
+  private applyFilterModalMaximize(isMaximized: boolean): void {
+    const modalCard = this.root.querySelector(
+      '.myio-menu-filter-modal-card'
+    ) as HTMLElement | null;
+    if (!modalCard) return;
+
+    if (isMaximized) {
+      modalCard.style.maxWidth = 'calc(100vw - 40px)';
+      modalCard.style.maxHeight = 'calc(100vh - 40px)';
+      modalCard.style.width = 'calc(100vw - 40px)';
+      modalCard.style.height = 'calc(100vh - 40px)';
+    } else {
+      modalCard.style.maxWidth = '966px';
+      modalCard.style.maxHeight = '86vh';
+      modalCard.style.width = '92%';
+      modalCard.style.height = '';
     }
 
     if (this.configTemplate.enableDebugMode) {
-      console.log('[MenuView] Filter modal theme:', this.filterModalTheme);
-    }
-  }
-
-  /**
-   * Toggle filter modal maximize state
-   */
-  private toggleFilterModalMaximize(): void {
-    this.filterModalIsMaximized = !this.filterModalIsMaximized;
-    this.updateFilterModalMaximizeState();
-
-    // Update header state
-    ModalHeader.updateState('menuFilter', { isMaximized: this.filterModalIsMaximized });
-
-    if (this.configTemplate.enableDebugMode) {
-      console.log('[MenuView] Filter modal maximized:', this.filterModalIsMaximized);
-    }
-  }
-
-  /**
-   * Update filter modal maximize visual state
-   */
-  private updateFilterModalMaximizeState(): void {
-    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement;
-    if (modalCard) {
-      if (this.filterModalIsMaximized) {
-        modalCard.style.maxWidth = 'calc(100vw - 40px)';
-        modalCard.style.maxHeight = 'calc(100vh - 40px)';
-        modalCard.style.width = 'calc(100vw - 40px)';
-        modalCard.style.height = 'calc(100vh - 40px)';
-      } else {
-        modalCard.style.maxWidth = '966px';
-        modalCard.style.maxHeight = '86vh';
-        modalCard.style.width = '92%';
-        modalCard.style.height = '';
-      }
+      console.log('[MenuView] Filter modal maximized:', isMaximized);
     }
   }
 
@@ -2827,6 +2836,9 @@ export class MenuView {
     this.closeFilterModal();
     this.eventHandlers.clear();
 
+    this.filterModalHeaderController?.destroy();
+    this.filterModalHeaderController = null;
+
     if (this.root.parentNode) {
       this.root.parentNode.removeChild(this.root);
     }
@@ -2862,6 +2874,7 @@ export class MenuView {
 
     // Emit theme change event
     this.emit('theme-change', { themeMode: mode });
+
   }
 
   /**
