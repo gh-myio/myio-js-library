@@ -127,7 +127,7 @@ export class HeaderDevicesGridView {
         </button>`
       : '';
 
-    const themeClass = this.themeMode === 'dark' ? 'hdg-header--dark' : '';
+    const themeClass = this.themeMode === 'light' ? 'hdg-header--light' : '';
 
     const headerHTML = `
       <div class="hdg-header ${themeClass}" id="${this.ids.header}">
@@ -250,7 +250,7 @@ export class HeaderDevicesGridView {
     this.themeMode = mode;
 
     if (this.headerEl) {
-      this.headerEl.classList.toggle('hdg-header--dark', mode === 'dark');
+      this.headerEl.classList.toggle('hdg-header--light', mode === 'light');
     }
   }
 

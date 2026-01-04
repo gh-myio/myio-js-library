@@ -3425,6 +3425,20 @@ function buildShoppingCards(classified) {
 }
 
 function buildShoppingsList(data) {
+  // RFC-0126: Priority 1 - Extract from aliasName='Shopping' or 'customers' datasource
+  // This datasource contains customer entities directly with label, id, minTemperature, maxTemperature
+  const fromAlias = buildShoppingsListFromAlias(data);
+  if (fromAlias.length > 0) {
+    return fromAlias;
+  }
+
+  // RFC-0126: Priority 2 - Use classified data from MyIOOrchestratorData
+  const classified = window.MyIOOrchestratorData?.classified;
+  if (classified) {
+    return buildShoppingsListFromClassified(classified);
+  }
+
+  // Fallback: try to extract from raw rows (less reliable)
   const customerMap = new Map();
 
   data.forEach((row) => {
@@ -3442,6 +3456,94 @@ function buildShoppingsList(data) {
   });
 
   return Array.from(customerMap.values());
+}
+
+/**
+ * RFC-0126: Build shoppings list from aliasName='Shopping' or 'customers' datasource
+ * This is the preferred method as it contains customer entities directly
+ */
+function buildShoppingsListFromAlias(data) {
+  const customerMap = new Map();
+
+  data.forEach((row) => {
+    const aliasName = row?.datasource?.aliasName || '';
+    // Check for 'Shopping' or 'customers' alias
+    if (aliasName === 'Shopping' || aliasName === 'customers') {
+      const entityId = row?.datasource?.entityId || '';
+      const entityLabel = row?.datasource?.entityLabel || '';
+      const dataKey = row?.dataKey?.name || '';
+      const latestValue = row?.data?.[row.data.length - 1]?.[1];
+
+      // Initialize customer entry if not exists
+      if (entityId && !customerMap.has(entityId)) {
+        customerMap.set(entityId, {
+          name: entityLabel || 'Unknown',
+          value: entityId,
+          customerId: entityId,
+          ingestionId: '',
+          minTemperature: null,
+          maxTemperature: null,
+        });
+      }
+
+      // Update customer with data key values
+      const customer = customerMap.get(entityId);
+      if (customer) {
+        if (dataKey === 'ingestionId' && latestValue) {
+          customer.ingestionId = latestValue;
+          customer.value = latestValue; // Use ingestionId as value
+        }
+        if (dataKey === 'minTemperature' && latestValue != null) {
+          customer.minTemperature = Number(latestValue);
+        }
+        if (dataKey === 'maxTemperature' && latestValue != null) {
+          customer.maxTemperature = Number(latestValue);
+        }
+      }
+    }
+  });
+
+  const result = Array.from(customerMap.values());
+  if (result.length > 0) {
+    LogHelper.log('[buildShoppingsListFromAlias] Built shoppings list:', result.length, 'customers');
+  }
+  return result;
+}
+
+/**
+ * RFC-0126: Build shoppings list from classified device data
+ * Uses the merged device objects which have complete metadata
+ */
+function buildShoppingsListFromClassified(classified) {
+  const customerMap = new Map();
+
+  // Iterate through all domains and contexts
+  [DOMAIN_ENERGY, DOMAIN_WATER, DOMAIN_TEMPERATURE].forEach((domain) => {
+    const domainData = classified[domain] || {};
+
+    Object.values(domainData).forEach((devices) => {
+      if (!Array.isArray(devices)) return;
+
+      devices.forEach((device) => {
+        const customerId = device.customerId;
+        const customerName = device.customerName || device.ownerName || device.centralName || '';
+        const ingestionId = device.ingestionId || '';
+
+        if (customerId && !customerMap.has(customerId)) {
+          customerMap.set(customerId, {
+            name: customerName || 'Unknown',
+            value: ingestionId || customerId,
+            customerId: customerId,
+            ingestionId: ingestionId,
+          });
+        }
+      });
+    });
+  });
+
+  const result = Array.from(customerMap.values());
+  LogHelper.log('[buildShoppingsListFromClassified] Built shoppings list:', result.length, 'customers');
+  return result;
 }
 
 function calculateDeviceCounts(classified) {

@@ -162,30 +162,46 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
 
   /**
    * Normalize energy data to the format expected by EnergySummaryTooltip
-   * RFC-0121: Ensures status object exists with all required properties
+   * RFC-0121: Ensures byStatus and byCategory exist with all required properties
    */
   function normalizeEnergyData(data: unknown): unknown {
     const d = data as Record<string, unknown>;
-    // If data already has proper status object, return as-is
-    if (d.status && typeof d.status === 'object') {
+    // If data already has proper byStatus object, return as-is
+    if (d.byStatus && typeof d.byStatus === 'object') {
       return data;
     }
-    // Create normalized data with default status
+
+    // Default status object
+    const defaultStatus = {
+      waiting: 0,
+      weakConnection: 0,
+      offline: 0,
+      normal: 0,
+      alert: 0,
+      failure: 0,
+      standby: 0,
+      noConsumption: 0,
+      waitingDevices: [],
+      weakConnectionDevices: [],
+      offlineDevices: [],
+      normalDevices: [],
+      alertDevices: [],
+      failureDevices: [],
+      standbyDevices: [],
+      noConsumptionDevices: [],
+    };
+
+    // Create normalized data with default byStatus and byCategory
     return {
       totalDevices: d.totalDevices ?? d.deviceCount ?? 0,
       totalConsumption: d.customerTotal ?? d.totalConsumption ?? 0,
       unit: d.unit ?? 'kWh',
-      categories: d.categories ?? [],
-      status: {
-        waiting: 0,
-        weakConnection: 0,
-        offline: 0,
-        normal: 0,
-        alert: 0,
-        failure: 0,
-        standby: 0,
-        noConsumption: 0,
-        ...((d.status as object) || {}),
+      // EnergySummaryTooltip expects byCategory (array) not categories
+      byCategory: d.byCategory ?? d.categories ?? [],
+      // EnergySummaryTooltip expects byStatus (object) not status
+      byStatus: {
+        ...defaultStatus,
+        ...((d.byStatus as object) || (d.status as object) || {}),
       },
       // Pass through other properties
       equipmentsTotal: d.equipmentsTotal,
@@ -198,30 +214,46 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
 
   /**
    * Normalize water data to the format expected by WaterSummaryTooltip
-   * RFC-0121: Ensures status object exists with all required properties
+   * RFC-0121: Ensures byStatus and byCategory exist with all required properties
    */
   function normalizeWaterData(data: unknown): unknown {
     const d = data as Record<string, unknown>;
-    // If data already has proper status object, return as-is
-    if (d.status && typeof d.status === 'object') {
+    // If data already has proper byStatus object, return as-is
+    if (d.byStatus && typeof d.byStatus === 'object') {
       return data;
     }
-    // Create normalized data with default status
+
+    // Default status object
+    const defaultStatus = {
+      waiting: 0,
+      weakConnection: 0,
+      offline: 0,
+      normal: 0,
+      alert: 0,
+      failure: 0,
+      standby: 0,
+      noConsumption: 0,
+      waitingDevices: [],
+      weakConnectionDevices: [],
+      offlineDevices: [],
+      normalDevices: [],
+      alertDevices: [],
+      failureDevices: [],
+      standbyDevices: [],
+      noConsumptionDevices: [],
+    };
+
+    // Create normalized data with default byStatus and byCategory
     return {
       totalDevices: d.totalDevices ?? d.deviceCount ?? 0,
       totalConsumption: d.filteredTotal ?? d.totalConsumption ?? 0,
       unit: d.unit ?? 'm³',
-      categories: d.categories ?? [],
-      status: {
-        waiting: 0,
-        weakConnection: 0,
-        offline: 0,
-        normal: 0,
-        alert: 0,
-        failure: 0,
-        standby: 0,
-        noConsumption: 0,
-        ...((d.status as object) || {}),
+      // WaterSummaryTooltip expects byCategory (array) not categories
+      byCategory: d.byCategory ?? d.categories ?? [],
+      // WaterSummaryTooltip expects byStatus (object) not status
+      byStatus: {
+        ...defaultStatus,
+        ...((d.byStatus as object) || (d.status as object) || {}),
       },
       // Pass through other properties
       filteredTotal: d.filteredTotal,

@@ -312,6 +312,7 @@ export class WelcomeModalView {
     const heroSection = this.container.querySelector('.myio-welcome-hero') as HTMLElement;
     const shortcutsSection = this.container.querySelector('.myio-welcome-shortcuts') as HTMLElement;
     const cardsGrid = this.container.querySelector('.myio-welcome-cards-grid') as HTMLElement;
+    const footerSection = this.container.querySelector('.myio-welcome-footer') as HTMLElement;
     const cards = this.container.querySelectorAll('.myio-welcome-card') as NodeListOf<HTMLElement>;
 
     if (!modalContainer || !heroSection || !shortcutsSection || !cardsGrid || cards.length === 0) {
@@ -321,16 +322,17 @@ export class WelcomeModalView {
     // Get dimensions
     const modalHeight = modalContainer.clientHeight;
     const heroHeight = heroSection.clientHeight;
+    const footerHeight = footerSection?.clientHeight || 40; // Default footer height
 
     // Calculate shortcuts section available height
-    const shortcutsPadding = 40; // top (16px) + bottom (24px) padding
-    const titleHeight = 40; // shortcuts title + margin
-    const availableHeight = modalHeight - heroHeight;
+    const shortcutsPadding = 24; // top (10px) + bottom (12px) padding + title margin
+    const titleHeight = 28; // shortcuts title + margin
+    const availableHeight = modalHeight - heroHeight - footerHeight;
 
     // Calculate grid dimensions
     const columns = 3;
     const rows = Math.ceil(cards.length / columns);
-    const gap = 16; // gap between cards
+    const gap = 10; // gap between cards
     const totalGapHeight = (rows - 1) * gap;
 
     // Calculate optimal card height
@@ -338,8 +340,8 @@ export class WelcomeModalView {
     const optimalCardHeight = Math.floor(gridAvailableHeight / rows);
 
     // Apply minimum and maximum constraints
-    const minCardHeight = 100;
-    const maxCardHeight = 200;
+    const minCardHeight = 80;
+    const maxCardHeight = 150;
     const cardHeight = Math.max(minCardHeight, Math.min(maxCardHeight, optimalCardHeight));
 
     // Apply calculated height to cards
@@ -353,6 +355,7 @@ export class WelcomeModalView {
       console.log('[WelcomeModal] Grid Layout Calculated:', {
         modalHeight,
         heroHeight,
+        footerHeight,
         availableHeight,
         rows,
         columns,
@@ -479,7 +482,7 @@ export class WelcomeModalView {
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding: 30px 40px 12px 40px;
+  padding: 16px 32px 8px 32px;
   background:
     linear-gradient(180deg,
       rgba(122, 47, 247, 0.25) 0%,
@@ -490,7 +493,7 @@ export class WelcomeModalView {
     var(--wm-bg-image, none);
   background-size: cover;
   background-position: center;
-  min-height: 32vh;
+  min-height: 22vh;
   border-bottom: 1px solid rgba(122, 47, 247, 0.2);
 }
 
@@ -504,7 +507,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-logo img {
-  height: 180px;
+  height: 120px;
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
@@ -583,7 +586,7 @@ export class WelcomeModalView {
   text-align: center;
   width: 80vw;
   max-width: 900px;
-  padding: 140px 20px 12px 20px;
+  padding: 80px 20px 8px 20px;
 }
 
 .myio-welcome-hero-title {
@@ -648,7 +651,7 @@ export class WelcomeModalView {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 24px 24px 24px;
+  padding: 10px 24px 12px 24px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
 }
 
@@ -666,18 +669,18 @@ export class WelcomeModalView {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-content: start;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
 .myio-welcome-card {
   position: relative;
   display: block !important;
-  min-height: 120px;
-  padding: 12px 16px !important;
+  min-height: 90px;
+  padding: 10px 14px !important;
   background: var(--wm-card-bg);
   border: 1px solid var(--wm-card-border);
-  border-radius: 16px !important;
+  border-radius: 14px !important;
   cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, height 0.2s ease;
   overflow: hidden;
@@ -873,7 +876,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-hero {
-    padding: 80px 20px 40px 20px;
+    padding: 50px 16px 20px 16px;
     min-height: auto;
     flex-shrink: 0;
   }
@@ -976,17 +979,17 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-hero {
-    padding: 70px 16px 30px 16px;
+    padding: 45px 12px 16px 12px;
     min-height: auto;
   }
 
   .myio-welcome-logo {
-    top: 10px;
-    left: 10px;
+    top: 8px;
+    left: 8px;
   }
 
   .myio-welcome-logo img {
-    height: 45px;
+    height: 40px;
   }
 
   .myio-welcome-user-menu {
