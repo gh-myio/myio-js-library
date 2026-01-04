@@ -24,7 +24,7 @@ This RFC documents the **WelcomeModal** component in the MYIO library. This moda
 
 ## Implementation Status
 
-### Completed Features (Rev-004)
+### Completed Features (Rev-005)
 
 1. **Modal Behavior**
    - Modal occupies ~90% of viewport width and height
@@ -47,14 +47,20 @@ This RFC documents the **WelcomeModal** component in the MYIO library. This moda
    - Theme-specific background images
 
 4. **Shopping Card Features**
-   - Customer name centered
    - Grid layout fixo: 3 cards por linha em todas as resoluções
-   - Device counts per domain (⚡ energy, 💧 water, 🌡️ temperature)
-   - Meta counts row (👥 users, 🚨 alarms, 🔔 notifications)
-   - Badges com `min-width` uniforme para 3 dígitos (52px/44px/36px)
+   - **Card Layout Structure:**
+     - TOP: Meta counts (👥 users, 🚨 alarms, 🔔 notifications) - position absolute
+     - CENTER: Customer name (título) - position absolute centered
+     - BOTTOM: Device counts (⚡ 💧 🌡️) com valores de consumo - position absolute
+   - **Device counts com valores de consumo:**
+     - Energy: `⚡ 45 (1.2 MWh)` ou `⚡ 45 (850 kWh)` se < 1000
+     - Water: `💧 12 (180 m³)`
+     - Temperature: `🌡️ 8 (23.5 °C)`
+   - Badges com `min-width` uniforme para 3 dígitos
    - Interactive device count badges with hover effects
    - Hover scale effect (1.03)
    - Tooltip integration on hover
+   - **Dynamic Layout Algorithm:** `calculateGridLayout()` ajusta altura dos cards automaticamente
 
 5. **Responsive Design**
    - Full viewport on mobile (100vw, 100vh)
@@ -460,6 +466,10 @@ Algoritmo:
 - 2026-01-04: Energy: `⚡ 45 (1.2 MWh)` ou `⚡ 45 (850 kWh)` se < 1000
 - 2026-01-04: Water: `💧 12 (180 m³)`
 - 2026-01-04: Temperature: `🌡️ 8 (23.5 °C)`
+- 2026-01-04: **Rev-005**: Novo layout de card com posicionamento absoluto
+- 2026-01-04: Meta counts no TOP, título no CENTER, device counts no BOTTOM
+- 2026-01-04: Font size do título aumentado (22px desktop, 16px tablet, 14px mobile)
+- 2026-01-04: Padding lateral do grid ajustado (12px desktop, 10px tablet, 8px mobile)
 
 ---
 

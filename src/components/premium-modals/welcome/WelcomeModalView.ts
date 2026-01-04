@@ -648,7 +648,7 @@ export class WelcomeModalView {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 12px 16px 12px;
+  padding: 16px 24px 16px 24px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
 }
 
@@ -933,7 +933,7 @@ export class WelcomeModalView {
 
   .myio-welcome-shortcuts {
     flex: 1 0 auto;
-    padding: 12px 10px;
+    padding: 12px 16px;
   }
 
   .myio-welcome-shortcuts-title {
@@ -1011,7 +1011,7 @@ export class WelcomeModalView {
 
   .myio-welcome-shortcuts {
     flex: 1 0 auto;
-    padding: 10px 8px;
+    padding: 10px 12px;
   }
 
   .myio-welcome-shortcuts-title {
@@ -1050,6 +1050,25 @@ export class WelcomeModalView {
     width: 28px;
     height: 28px;
   }
+}
+
+/* Footer */
+.myio-welcome-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, rgba(15, 20, 25, 0.95) 0%, rgba(10, 15, 20, 1) 100%);
+  border-top: 1px solid rgba(122, 47, 247, 0.15);
+}
+
+.myio-welcome-footer-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--wm-muted);
+  letter-spacing: 0.02em;
+  opacity: 0.7;
 }
 
 /* Animation */
@@ -1280,6 +1299,15 @@ export class WelcomeModalView {
   color: #1a1a2e;
 }
 
+.myio-welcome-modal--light .myio-welcome-footer {
+  background: linear-gradient(180deg, rgba(248, 249, 252, 0.98) 0%, rgba(240, 242, 245, 1) 100%);
+  border-top-color: rgba(122, 47, 247, 0.1);
+}
+
+.myio-welcome-modal--light .myio-welcome-footer-text {
+  color: #4a4a6a;
+}
+
 .myio-welcome-modal--light .myio-welcome-theme-toggle {
   background: rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.12);
@@ -1456,6 +1484,10 @@ export class WelcomeModalView {
         `
             : ''
         }
+
+        <div class="myio-welcome-footer">
+          <span class="myio-welcome-footer-text">Powered by MYIO Platform • Gestão Inteligente de Recursos</span>
+        </div>
       </div>
     `;
   }

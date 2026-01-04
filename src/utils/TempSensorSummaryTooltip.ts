@@ -371,6 +371,7 @@ function injectCSS(): void {
 
 interface TooltipState {
   hideTimer: ReturnType<typeof setTimeout> | null;
+  forceHideTimer: ReturnType<typeof setTimeout> | null;
   isMouseOverTooltip: boolean;
   isMaximized: boolean;
   isDragging: boolean;
@@ -381,6 +382,7 @@ interface TooltipState {
 
 const state: TooltipState = {
   hideTimer: null,
+  forceHideTimer: null,
   isMouseOverTooltip: false,
   isMaximized: false,
   isDragging: false,
@@ -860,14 +862,24 @@ export const TempSensorSummaryTooltip = {
    * Show tooltip
    */
   show(triggerElement: HTMLElement, data: TempSensorSummaryData): void {
-    // Cancel pending hide
+    // Cancel pending hide and force hide
     if (state.hideTimer) {
       clearTimeout(state.hideTimer);
       state.hideTimer = null;
     }
+    if (state.forceHideTimer) {
+      clearTimeout(state.forceHideTimer);
+      state.forceHideTimer = null;
+    }
 
     const container = this.getContainer();
     container.classList.remove('closing');
+
+    // Set up force hide timer (8 seconds max)
+    state.forceHideTimer = setTimeout(() => {
+      state.isMouseOverTooltip = false;
+      this.hide();
+    }, 8000);
 
     const baseTitle = data.title || 'Resumo de Temperatura';
     const titleSuffix = data.customerName ? ` (${data.customerName})` : '';
@@ -909,6 +921,10 @@ export const TempSensorSummaryTooltip = {
       clearTimeout(state.hideTimer);
       state.hideTimer = null;
     }
+    if (state.forceHideTimer) {
+      clearTimeout(state.forceHideTimer);
+      state.forceHideTimer = null;
+    }
     state.isMouseOverTooltip = false;
 
     const container = document.getElementById(this.containerId);
@@ -927,6 +943,10 @@ export const TempSensorSummaryTooltip = {
     if (state.hideTimer) {
       clearTimeout(state.hideTimer);
       state.hideTimer = null;
+    }
+    if (state.forceHideTimer) {
+      clearTimeout(state.forceHideTimer);
+      state.forceHideTimer = null;
     }
     state.isMouseOverTooltip = false;
 

@@ -315,6 +315,7 @@ export const AlarmsSummaryTooltip = {
 
   // Timer for delayed hide
   _hideTimer: null as ReturnType<typeof setTimeout> | null,
+  _forceHideTimer: null as ReturnType<typeof setTimeout> | null,
   _isMouseOverTooltip: false,
   _isDragging: false,
   _dragOffset: { x: 0, y: 0 },
@@ -327,10 +328,20 @@ export const AlarmsSummaryTooltip = {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
     }
+    if (this._forceHideTimer) {
+      clearTimeout(this._forceHideTimer);
+      this._forceHideTimer = null;
+    }
 
     const container = this.getContainer();
     container.classList.remove('closing');
     container.innerHTML = this.renderHTML(summary);
+
+    // Set up force hide timer (8 seconds max)
+    this._forceHideTimer = setTimeout(() => {
+      this._isMouseOverTooltip = false;
+      this.hide();
+    }, 8000);
 
     // Position tooltip near the trigger element
     const rect = triggerElement.getBoundingClientRect();
@@ -432,6 +443,10 @@ export const AlarmsSummaryTooltip = {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
     }
+    if (this._forceHideTimer) {
+      clearTimeout(this._forceHideTimer);
+      this._forceHideTimer = null;
+    }
 
     const container = document.getElementById(this.containerId);
     if (container) {
@@ -499,6 +514,10 @@ export const AlarmsSummaryTooltip = {
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
+    }
+    if (this._forceHideTimer) {
+      clearTimeout(this._forceHideTimer);
+      this._forceHideTimer = null;
     }
     this._isMouseOverTooltip = false;
     this._isDragging = false;

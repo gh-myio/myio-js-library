@@ -922,6 +922,7 @@ export const EnergySummaryTooltip = {
 
   // Timer for delayed hide
   _hideTimer: null as ReturnType<typeof setTimeout> | null,
+  _forceHideTimer: null as ReturnType<typeof setTimeout> | null,
   _isMouseOverTooltip: false,
 
   // State for maximize and drag (PIN creates clones instead of toggling state)
@@ -943,6 +944,16 @@ export const EnergySummaryTooltip = {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
     }
+    if (this._forceHideTimer) {
+      clearTimeout(this._forceHideTimer);
+      this._forceHideTimer = null;
+    }
+
+    // Force hide after 8 seconds regardless of any state
+    this._forceHideTimer = setTimeout(() => {
+      this._isMouseOverTooltip = false;
+      this.hide();
+    }, 8000);
 
     const container = this.getContainer();
     container.classList.remove('closing');
@@ -1554,6 +1565,10 @@ export const EnergySummaryTooltip = {
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
       this._hideTimer = null;
+    }
+    if (this._forceHideTimer) {
+      clearTimeout(this._forceHideTimer);
+      this._forceHideTimer = null;
     }
     this._isMouseOverTooltip = false;
     this._isMaximized = false;

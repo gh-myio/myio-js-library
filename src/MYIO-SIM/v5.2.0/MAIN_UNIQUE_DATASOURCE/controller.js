@@ -2941,6 +2941,9 @@ self.onDataUpdated = function () {
 // Device Classification Logic
 // ===================================================================
 function classifyAllDevices(data) {
+  // Guard: LogHelper not ready yet (onInit not complete)
+  if (!LogHelper) return null;
+
   const classified = {
     energy: { equipments: [], stores: [], entrada: [] },
     water: { hidrometro_area_comum: [], hidrometro: [], entrada: [] },
@@ -3088,6 +3091,8 @@ function extractDeviceMetadataToBuildShoppingsList(row) {
  * ThingsBoard sends 1 row per (device, dataKey), so we need to merge all rows
  */
 function extractDeviceMetadataFromRows(rows) {
+  // Guard: LogHelper not ready yet (onInit not complete)
+  if (!LogHelper) return null;
   if (!rows || rows.length === 0) return null;
 
   // Use first row for datasource info (same for all rows of same device)
@@ -3390,6 +3395,9 @@ window.MyIOOrchestrator.getCache = function (cacheKey) {
  * @returns {Promise<Object>} - Enriched classified devices
  */
 async function enrichDevicesWithConsumption(classified) {
+  // Guard: LogHelper not ready yet (onInit not complete)
+  if (!LogHelper) return classified;
+
   const utils = window.MyIOUtils;
   const lib = window.MyIOLibrary;
 
@@ -3566,6 +3574,9 @@ async function enrichDevicesWithConsumption(classified) {
  * This is called asynchronously so it doesn't block the initial render
  */
 async function triggerApiEnrichment() {
+  // Guard: LogHelper not ready yet (onInit not complete)
+  if (!LogHelper) return;
+
   // Guard: Only run once
   if (_apiEnrichmentDone || _apiEnrichmentInProgress) {
     LogHelper.log('API enrichment already done or in progress, skipping');
