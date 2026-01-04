@@ -71,7 +71,6 @@ export {
   normalizeConnectionStatus, // RFC-0109: Normalize raw connectionStatus values
   isTelemetryStale, // RFC-0110: Check if telemetry is stale based on timestamps (preferred)
   isConnectionStale, // @deprecated - use isTelemetryStale instead
-  mapConnectionStatus,
   mapDeviceStatusToCardStatus,
   shouldFlashIcon,
   isDeviceOffline,
