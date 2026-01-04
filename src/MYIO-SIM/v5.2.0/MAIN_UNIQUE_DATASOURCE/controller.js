@@ -2895,8 +2895,8 @@ self.onDataUpdated = function () {
   const waterItems = orch.water?.items || [];
   const temperatureItems = orch.temperature?.items || [];
 
-  self._LogHelper.log('Initial MyIOOrchestratorData.energy.items count:', energyItems.length);
-  self._LogHelper.log('Initial MyIOOrchestratorData.water.items count:', waterItems.length);
+  LogHelper.log('Initial MyIOOrchestratorData.energy.items count:', energyItems.length);
+  LogHelper.log('Initial MyIOOrchestratorData.water.items count:', waterItems.length);
 
   // Calculate initial totals
   const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
@@ -2957,7 +2957,7 @@ self.onDataUpdated = function () {
     })
   );
 
-  self._LogHelper.log('Initial summary events dispatched');
+  LogHelper.log('Initial summary events dispatched');
 };
 
 // ===================================================================

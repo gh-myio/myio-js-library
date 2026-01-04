@@ -648,13 +648,13 @@ export class WelcomeModalView {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 24px 16px 24px;
+  padding: 16px 24px 24px 24px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
 }
 
 .myio-welcome-shortcuts-title {
   margin: 0 0 12px 0 !important;
-  font-size: 14px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
   text-transform: uppercase;
@@ -933,11 +933,11 @@ export class WelcomeModalView {
 
   .myio-welcome-shortcuts {
     flex: 1 0 auto;
-    padding: 12px 16px;
+    padding: 12px 16px 20px 16px;
   }
 
   .myio-welcome-shortcuts-title {
-    font-size: 14px;
+    font-size: 10px;
   }
 
   .myio-welcome-cards-grid {
@@ -1011,12 +1011,12 @@ export class WelcomeModalView {
 
   .myio-welcome-shortcuts {
     flex: 1 0 auto;
-    padding: 10px 12px;
+    padding: 10px 12px 16px 12px;
   }
 
   .myio-welcome-shortcuts-title {
-    font-size: 13px;
-    margin-bottom: 12px;
+    font-size: 9px;
+    margin-bottom: 10px;
   }
 
   .myio-welcome-cards-grid {
