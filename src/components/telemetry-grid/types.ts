@@ -312,6 +312,7 @@ export interface HeaderGridConfig {
   container: string | HTMLElement;
   domain: TelemetryDomain;
   idPrefix: string;
+  themeMode?: ThemeMode;
   labels: {
     total: string;
     consumption: string;
@@ -347,18 +348,28 @@ export interface SortOption {
   icon: string;
 }
 
+export interface AppliedFilters {
+  selectedIds: Set<string> | null;
+  sortMode: SortMode;
+  statusFilter?: string;
+  consumptionFilter?: string;
+}
+
 export interface FilterModalConfig {
   widgetName: string;
   containerId: string;
   modalClass: string;
   primaryColor: string;
   itemIdAttr: string;
-  getItems: () => TelemetryDevice[];
-  getItemStatus: (item: TelemetryDevice) => string;
+  themeMode?: ThemeMode;
   filterTabs: FilterTab[];
-  sortOptions: SortOption[];
-  onFilterChange: (selectedIds: Set<string> | null) => void;
-  onSortChange: (sortMode: SortMode) => void;
+  getItemId?: (item: TelemetryDevice) => string;
+  getItemLabel?: (item: TelemetryDevice) => string;
+  getItemValue?: (item: TelemetryDevice) => number;
+  getItemSubLabel?: (item: TelemetryDevice) => string;
+  formatValue?: (val: number) => string;
+  onApply?: (filters: AppliedFilters) => void;
+  onClose?: () => void;
 }
 
 export interface FilterModalController {

@@ -161,6 +161,7 @@ export class TelemetryGridView {
       container: headerContainer as HTMLElement,
       domain: this.controller.getDomain(),
       idPrefix: contextConfig.idPrefix,
+      themeMode: this.controller.getThemeMode(), // RFC-0125: Pass theme from controller
       labels: {
         total: contextConfig.headerLabel,
         consumption: `${domainConfig.headerLabel} ${contextConfig.headerLabel}`,
@@ -464,32 +465,32 @@ export class TelemetryGridView {
         modalClass: 'telemetry-modal',
         primaryColor: this.getCSSVariableValue('--telemetry-primary') || '#f59e0b',
         itemIdAttr: 'data-device-id',
-        getItems: () => this.controller.getDevices(),
-        getItemStatus: (item: TelemetryDevice) =>
-          item.deviceStatus || this.controller.calculateDeviceStatus(item),
+        themeMode: this.controller.getThemeMode(), // RFC-0125: Pass theme from controller
         filterTabs: [
           { id: 'all', label: 'Todos', filter: () => true },
           {
             id: 'online',
             label: 'Online',
-            filter: (d: TelemetryDevice) => d.deviceStatus === 'power_on',
+            filter: (d: TelemetryDevice) => {
+              const status = (d.deviceStatus || '').toLowerCase();
+              return status === 'power_on' || status === 'normal' || status === 'standby' || status === 'alert';
+            },
           },
           {
             id: 'offline',
             label: 'Offline',
-            filter: (d: TelemetryDevice) => d.deviceStatus === 'offline',
+            filter: (d: TelemetryDevice) => (d.deviceStatus || '').toLowerCase() === 'offline',
           },
           {
             id: 'notInstalled',
             label: 'Nao Instalado',
-            filter: (d: TelemetryDevice) => d.deviceStatus === 'not_installed',
+            filter: (d: TelemetryDevice) => (d.deviceStatus || '').toLowerCase() === 'not_installed',
           },
           {
             id: 'withConsumption',
             label: 'Com Consumo',
             filter: (d: TelemetryDevice) => {
-              const consumption =
-                Number(d.val) || Number(d.value) || 0;
+              const consumption = Number(d.val) || Number(d.value) || 0;
               return consumption > 0;
             },
           },
@@ -497,26 +498,29 @@ export class TelemetryGridView {
             id: 'noConsumption',
             label: 'Sem Consumo',
             filter: (d: TelemetryDevice) => {
-              const consumption =
-                Number(d.val) || Number(d.value) || 0;
+              const consumption = Number(d.val) || Number(d.value) || 0;
               return consumption === 0;
             },
           },
         ],
-        sortOptions: [
-          { id: 'cons_desc', label: `${domainConfig.headerLabel} (maior)`, icon: '↓' },
-          { id: 'cons_asc', label: `${domainConfig.headerLabel} (menor)`, icon: '↑' },
-          { id: 'alpha_asc', label: 'Nome (A-Z)', icon: 'A' },
-          { id: 'alpha_desc', label: 'Nome (Z-A)', icon: 'Z' },
-          { id: 'shopping_asc', label: 'Shopping (A-Z)', icon: '🏢' },
-          { id: 'shopping_desc', label: 'Shopping (Z-A)', icon: '🏢' },
-        ],
-        onFilterChange: (selectedIds: Set<string> | null) => {
-          this.controller.setDeviceFilter(selectedIds);
+        getItemId: (d: TelemetryDevice) => d.entityId || '',
+        getItemLabel: (d: TelemetryDevice) => d.labelOrName || d.deviceIdentifier || '',
+        getItemValue: (d: TelemetryDevice) => Number(d.val) || Number(d.value) || 0,
+        getItemSubLabel: (d: TelemetryDevice) => d.deviceStatus || '',
+        formatValue: (val: number) => domainConfig.formatValue ? domainConfig.formatValue(val) : `${val.toFixed(2)}`,
+        onApply: (filters) => {
+          // RFC-0125: Handle filter apply with both selectedIds and sortMode
+          this.log('Filter applied:', filters);
+          if (filters.selectedIds !== undefined) {
+            this.controller.setDeviceFilter(filters.selectedIds);
+          }
+          if (filters.sortMode) {
+            this.controller.setSortMode(filters.sortMode as 'cons_desc' | 'cons_asc' | 'alpha_asc' | 'alpha_desc' | 'shopping_asc' | 'shopping_desc');
+            this.emit('sort-change', filters.sortMode);
+          }
         },
-        onSortChange: (sortMode: string) => {
-          this.controller.setSortMode(sortMode as 'cons_desc' | 'cons_asc' | 'alpha_asc' | 'alpha_desc' | 'shopping_asc' | 'shopping_desc');
-          this.emit('sort-change', sortMode);
+        onClose: () => {
+          this.log('Filter modal closed');
         },
       });
     }
