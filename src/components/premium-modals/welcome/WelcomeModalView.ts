@@ -1834,6 +1834,7 @@ export class WelcomeModalView {
       '.myio-welcome-card-device-count[data-tooltip-type]'
     );
     deviceCounts.forEach((countEl) => {
+      // Click toggles tooltip: if open, close immediately; if closed, open
       countEl.addEventListener('click', (e: Event) => {
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
@@ -1843,6 +1844,22 @@ export class WelcomeModalView {
 
         if (!card) return;
 
+        // Check if tooltip is visible and toggle
+        const win = window as any;
+        const MyIOLibrary = win.MyIOLibrary;
+        if (MyIOLibrary) {
+          const tooltip = tooltipType === 'energy' ? MyIOLibrary.EnergySummaryTooltip :
+                         tooltipType === 'water' ? MyIOLibrary.WaterSummaryTooltip :
+                         tooltipType === 'temperature' ? MyIOLibrary.TempSensorSummaryTooltip : null;
+
+          if (tooltip?.isVisible?.()) {
+            // Tooltip is open - close it immediately
+            tooltip.hide?.();
+            return;
+          }
+        }
+
+        // Tooltip is closed - open it
         this.handleTooltipClick(tooltipType as any, card, target);
       });
 
@@ -1855,6 +1872,17 @@ export class WelcomeModalView {
         if (!card) return;
 
         this.handleTooltipClick(tooltipType as any, card, target);
+      });
+
+      // Start 2.5s timer to destroy tooltip when mouse leaves the badge
+      countEl.addEventListener('mouseleave', () => {
+        const win = window as any;
+        const MyIOLibrary = win.MyIOLibrary;
+        if (MyIOLibrary) {
+          MyIOLibrary.EnergySummaryTooltip?._startDelayedHide?.();
+          MyIOLibrary.WaterSummaryTooltip?._startDelayedHide?.();
+          MyIOLibrary.TempSensorSummaryTooltip?.startDelayedHide?.();
+        }
       });
     });
 
@@ -1863,6 +1891,7 @@ export class WelcomeModalView {
       '.myio-welcome-card-meta-counts .myio-welcome-card-device-count[data-tooltip-type]'
     );
     metaCounts.forEach((countEl) => {
+      // Click toggles tooltip: if open, close immediately; if closed, open
       countEl.addEventListener('click', (e: Event) => {
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
@@ -1872,6 +1901,22 @@ export class WelcomeModalView {
 
         if (!card) return;
 
+        // Check if tooltip is visible and toggle
+        const win = window as any;
+        const MyIOLibrary = win.MyIOLibrary;
+        if (MyIOLibrary) {
+          const tooltip = tooltipType === 'users' ? MyIOLibrary.UsersSummaryTooltip :
+                         tooltipType === 'alarms' ? MyIOLibrary.AlarmsSummaryTooltip :
+                         tooltipType === 'notifications' ? MyIOLibrary.NotificationsSummaryTooltip : null;
+
+          if (tooltip?.isVisible?.()) {
+            // Tooltip is open - close it immediately
+            tooltip.hide?.();
+            return;
+          }
+        }
+
+        // Tooltip is closed - open it
         this.handleTooltipClick(tooltipType as any, card, target);
       });
 
@@ -1884,6 +1929,17 @@ export class WelcomeModalView {
         if (!card) return;
 
         this.handleTooltipClick(tooltipType as any, card, target);
+      });
+
+      // Start 2.5s timer to destroy tooltip when mouse leaves the badge
+      countEl.addEventListener('mouseleave', () => {
+        const win = window as any;
+        const MyIOLibrary = win.MyIOLibrary;
+        if (MyIOLibrary) {
+          MyIOLibrary.UsersSummaryTooltip?._startDelayedHide?.();
+          MyIOLibrary.AlarmsSummaryTooltip?._startDelayedHide?.();
+          MyIOLibrary.NotificationsSummaryTooltip?._startDelayedHide?.();
+        }
       });
     });
   }

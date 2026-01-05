@@ -27,8 +27,10 @@ export const ContextType = {
   ENTRADA: 'entrada',
 
   // Water contexts
-  HIDROMETRO: 'hidrometro',
-  HIDROMETRO_AREA_COMUM: 'hidrometro_area_comum',
+  HIDROMETRO: 'hidrometro', // Lojas (stores)
+  HIDROMETRO_AREA_COMUM: 'hidrometro_area_comum', // Área comum (exceto banheiros)
+  BANHEIROS: 'banheiros', // Banheiros (identifier = 'BANHEIROS')
+  HIDROMETRO_ENTRADA: 'hidrometro_entrada', // Entrada do shopping
 
   // Temperature contexts
   TERMOSTATO: 'termostato',
@@ -65,13 +67,13 @@ export function detectDomain(device) {
 }
 
 /**
- * RFC-0111: Detect device context based on deviceType and deviceProfile.
+ * RFC-0111: Detect device context based on deviceType, deviceProfile, and identifier.
  *
- * WATER Rules:
- * - deviceType = deviceProfile = HIDROMETRO → STORE (hidrometro)
- * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM → AREA_COMUM
- * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING → ENTRADA WATER
- * - deviceType = HIDROMETRO_AREA_COMUM → AREA_COMUM
+ * WATER Rules (priority order):
+ * 1. deviceType = HIDROMETRO_SHOPPING OR deviceProfile = HIDROMETRO_SHOPPING → ENTRADA (main water meter)
+ * 2. deviceProfile = HIDROMETRO_AREA_COMUM AND identifier = 'BANHEIROS' → BANHEIROS
+ * 3. deviceProfile = HIDROMETRO_AREA_COMUM → AREA_COMUM (common area without bathrooms)
+ * 4. deviceType = deviceProfile = HIDROMETRO → LOJAS (store water meters)
  *
  * ENERGY Rules:
  * - deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
@@ -84,9 +86,10 @@ export function detectDomain(device) {
  * - deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → termostato_external
  * - deviceType = TERMOSTATO_EXTERNAL → termostato_external
  *
- * @param {Object} device - Device object with deviceType and deviceProfile properties
+ * @param {Object} device - Device object with deviceType, deviceProfile, and identifier properties
  * @param {string} [device.deviceType] - The device type string
  * @param {string} [device.deviceProfile] - The device profile string
+ * @param {string} [device.identifier] - The device identifier (server_scope attribute)
  * @param {'energy' | 'water' | 'temperature'} domain - The device domain
  * @returns {string} The detected context
  *
@@ -95,31 +98,37 @@ export function detectDomain(device) {
  * // Returns 'hidrometro'
  *
  * @example
- * detectContext({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }, 'energy');
- * // Returns 'stores'
+ * detectContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_AREA_COMUM', identifier: 'BANHEIROS' }, 'water');
+ * // Returns 'banheiros'
  *
  * @example
- * detectContext({ deviceType: 'TERMOSTATO', deviceProfile: 'TERMOSTATO_EXTERNAL' }, 'temperature');
- * // Returns 'termostato_external'
+ * detectContext({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }, 'energy');
+ * // Returns 'stores'
  */
 export function detectContext(device, domain) {
   const deviceType = String(device?.deviceType || '').toUpperCase();
   const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
+  const identifier = String(device?.identifier || '').toUpperCase();
   const entradaTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
   const isEntrada = entradaTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t));
 
   if (domain === DomainType.WATER) {
-    // RFC-0111: HIDROMETRO_SHOPPING → ENTRADA WATER (main water meter for shopping)
-    if (deviceProfile.includes('HIDROMETRO_SHOPPING')) {
-      return ContextType.ENTRADA;
+    // Priority 1: HIDROMETRO_SHOPPING → ENTRADA (main water meter for shopping)
+    if (deviceType.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('HIDROMETRO_SHOPPING')) {
+      return ContextType.HIDROMETRO_ENTRADA;
     }
 
-    // HIDROMETRO_AREA_COMUM in deviceType or deviceProfile → area comum
-    if (deviceType.includes('HIDROMETRO_AREA_COMUM')) {
+    // Priority 2: BANHEIROS (identifier = 'BANHEIROS' with HIDROMETRO_AREA_COMUM profile)
+    if (deviceProfile.includes('HIDROMETRO_AREA_COMUM') && identifier === 'BANHEIROS') {
+      return ContextType.BANHEIROS;
+    }
+
+    // Priority 3: HIDROMETRO_AREA_COMUM (common area without bathroom identifier)
+    if (deviceProfile.includes('HIDROMETRO_AREA_COMUM') || deviceType.includes('HIDROMETRO_AREA_COMUM')) {
       return ContextType.HIDROMETRO_AREA_COMUM;
     }
 
-    // deviceType = deviceProfile = HIDROMETRO → store (hidrometro)
+    // Priority 4: deviceType = HIDROMETRO and deviceProfile = HIDROMETRO → store (lojas)
     if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO')) {
       return ContextType.HIDROMETRO;
     }

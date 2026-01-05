@@ -379,7 +379,7 @@ interface TooltipState {
   isDragging: boolean;
   dragOffset: { x: number; y: number };
   savedPosition: { left: string; top: string } | null;
-  pinnedCounter: number;
+  isPinned: boolean; // When true, tooltip won't auto-hide
 }
 
 const state: TooltipState = {
@@ -390,7 +390,7 @@ const state: TooltipState = {
   isDragging: false,
   dragOffset: { x: 0, y: 0 },
   savedPosition: null,
-  pinnedCounter: 0,
+  isPinned: false,
 };
 
 // ============================================
@@ -551,19 +551,20 @@ function generateContentHTML(data: TempSensorSummaryData): string {
 
 /**
  * Setup hover listeners on tooltip container
+ * NOTE: Timer is NOT cancelled when mouse enters tooltip
+ * Only clicking PIN button will cancel the timer and fix the tooltip
  */
 function setupHoverListeners(container: HTMLElement): void {
   container.onmouseenter = () => {
     state.isMouseOverTooltip = true;
-    if (state.hideTimer) {
-      clearTimeout(state.hideTimer);
-      state.hideTimer = null;
-    }
+    // NOTE: We intentionally do NOT cancel the hide timer here
+    // The tooltip will be destroyed after 2.5s unless PIN is clicked
   };
 
   container.onmouseleave = () => {
     state.isMouseOverTooltip = false;
-    startDelayedHide();
+    // NOTE: Timer was already started when mouse left the badge
+    // No need to restart it here
   };
 }
 
@@ -578,7 +579,7 @@ function setupButtonListeners(container: HTMLElement): void {
       const action = (btn as HTMLElement).dataset.action;
       switch (action) {
         case 'pin':
-          createPinnedClone(container);
+          togglePin(container);
           break;
         case 'maximize':
           toggleMaximize(container);
@@ -634,125 +635,60 @@ function setupDragListeners(container: HTMLElement): void {
 }
 
 /**
- * Create pinned clone
+ * Toggle PIN state - fixes tooltip on screen or unfixes and restarts timer
+ * First click: PIN fixes the tooltip, cancels all timers
+ * Second click: Unpin, restarts 2.5s timer
  */
-function createPinnedClone(container: HTMLElement): void {
-  state.pinnedCounter++;
-  const pinnedId = `myio-temp-sensor-tooltip-pinned-${state.pinnedCounter}`;
+function togglePin(container: HTMLElement): void {
+  const pinBtn = container.querySelector('[data-action="pin"]');
 
-  const clone = container.cloneNode(true) as HTMLElement;
-  clone.id = pinnedId;
-  clone.classList.add('pinned');
-  clone.classList.remove('closing');
+  if (state.isPinned) {
+    // UNPIN: Remove pinned state and restart timer
+    state.isPinned = false;
+    container.classList.remove('pinned');
 
-  const pinBtn = clone.querySelector('[data-action="pin"]');
-  if (pinBtn) {
-    pinBtn.classList.add('pinned');
-    pinBtn.setAttribute('title', 'Desafixar');
-    pinBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
-        <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
-        <line x1="12" y1="16" x2="12" y2="21"/>
-        <line x1="8" y1="4" x2="16" y2="4"/>
-      </svg>
-    `;
-  }
+    // Update PIN button visual
+    if (pinBtn) {
+      pinBtn.classList.remove('pinned');
+      pinBtn.setAttribute('title', 'Fixar na tela');
+      pinBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+          <line x1="12" y1="16" x2="12" y2="21"/>
+          <line x1="8" y1="4" x2="16" y2="4"/>
+        </svg>
+      `;
+    }
 
-  document.body.appendChild(clone);
-  setupPinnedCloneListeners(clone, pinnedId);
-  TempSensorSummaryTooltip.hide();
-}
+    // Restart 2.5s timer
+    startDelayedHide();
+  } else {
+    // PIN: Fix tooltip on screen, cancel all timers
+    state.isPinned = true;
+    container.classList.add('pinned');
 
-/**
- * Setup listeners for pinned clone
- */
-function setupPinnedCloneListeners(clone: HTMLElement, cloneId: string): void {
-  let isMaximized = false;
-  let savedPosition: { left: string; top: string } | null = null;
+    // Cancel all timers
+    if (state.hideTimer) {
+      clearTimeout(state.hideTimer);
+      state.hideTimer = null;
+    }
+    if (state.forceHideTimer) {
+      clearTimeout(state.forceHideTimer);
+      state.forceHideTimer = null;
+    }
 
-  const pinBtn = clone.querySelector('[data-action="pin"]');
-  if (pinBtn) {
-    (pinBtn as HTMLElement).onclick = (e: MouseEvent) => {
-      e.stopPropagation();
-      closePinnedClone(cloneId);
-    };
-  }
-
-  const closeBtn = clone.querySelector('[data-action="close"]');
-  if (closeBtn) {
-    (closeBtn as HTMLElement).onclick = (e: MouseEvent) => {
-      e.stopPropagation();
-      closePinnedClone(cloneId);
-    };
-  }
-
-  const maxBtn = clone.querySelector('[data-action="maximize"]');
-  if (maxBtn) {
-    (maxBtn as HTMLElement).onclick = (e: MouseEvent) => {
-      e.stopPropagation();
-      isMaximized = !isMaximized;
-      if (isMaximized) {
-        savedPosition = { left: clone.style.left, top: clone.style.top };
-        maxBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 5V3h12v12h-2"/></svg>`;
-        maxBtn.setAttribute('title', 'Restaurar');
-      } else {
-        maxBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
-        maxBtn.setAttribute('title', 'Maximizar');
-        if (savedPosition) {
-          clone.style.left = savedPosition.left;
-          clone.style.top = savedPosition.top;
-        }
-      }
-      clone.classList.toggle('maximized', isMaximized);
-    };
-  }
-
-  // Drag for clone
-  const header = clone.querySelector('[data-drag-handle]') as HTMLElement;
-  if (header) {
-    let isDragging = false;
-    let dragOffset = { x: 0, y: 0 };
-
-    header.onmousedown = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('[data-action]')) return;
-      if (isMaximized) return;
-
-      isDragging = true;
-      clone.classList.add('dragging');
-      const rect = clone.getBoundingClientRect();
-      dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-
-      const onMouseMove = (e: MouseEvent) => {
-        if (!isDragging) return;
-        const newLeft = e.clientX - dragOffset.x;
-        const newTop = e.clientY - dragOffset.y;
-        const maxLeft = window.innerWidth - clone.offsetWidth;
-        const maxTop = window.innerHeight - clone.offsetHeight;
-        clone.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
-        clone.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
-      };
-
-      const onMouseUp = () => {
-        isDragging = false;
-        clone.classList.remove('dragging');
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    };
-  }
-}
-
-/**
- * Close pinned clone
- */
-function closePinnedClone(cloneId: string): void {
-  const clone = document.getElementById(cloneId);
-  if (clone) {
-    clone.classList.add('closing');
-    setTimeout(() => clone.remove(), 400);
+    // Update PIN button visual
+    if (pinBtn) {
+      pinBtn.classList.add('pinned');
+      pinBtn.setAttribute('title', 'Desafixar (reinicia timer)');
+      pinBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
+          <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+          <line x1="12" y1="16" x2="12" y2="21"/>
+          <line x1="8" y1="4" x2="16" y2="4"/>
+        </svg>
+      `;
+    }
   }
 }
 
@@ -789,9 +725,13 @@ function toggleMaximize(container: HTMLElement): void {
 
 /**
  * Start delayed hide (1.5s)
+ * Timer is NOT cancelled when mouse hovers over tooltip
+ * Only PIN button can cancel the timer
  */
 function startDelayedHide(): void {
-  if (state.isMouseOverTooltip) return;
+  // Don't hide if tooltip is pinned
+  if (state.isPinned) return;
+
   if (state.hideTimer) {
     clearTimeout(state.hideTimer);
   }
@@ -808,7 +748,14 @@ function hideWithAnimation(): void {
   if (container && container.classList.contains('visible')) {
     container.classList.add('closing');
     setTimeout(() => {
-      // Reset state and clear content to prevent invisible blocking divs
+      // Reset all state to prevent invisible blocking divs
+      state.isMouseOverTooltip = false;
+      state.isMaximized = false;
+      state.isDragging = false;
+      state.savedPosition = null;
+      state.isPinned = false;
+
+      // Remove all classes and clear content
       container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
       container.innerHTML = '';
     }, 400);
@@ -859,6 +806,14 @@ export const TempSensorSummaryTooltip = {
       document.body.appendChild(container);
     }
     return container;
+  },
+
+  /**
+   * Check if tooltip is currently visible
+   */
+  isVisible(): boolean {
+    const container = document.getElementById(this.containerId);
+    return container?.classList.contains('visible') ?? false;
   },
 
   /**
@@ -929,10 +884,11 @@ export const TempSensorSummaryTooltip = {
       state.forceHideTimer = null;
     }
     state.isMouseOverTooltip = false;
+    state.isPinned = false;
 
     const container = document.getElementById(this.containerId);
     if (container) {
-      container.classList.remove('visible', 'closing');
+      container.classList.remove('visible', 'closing', 'pinned');
     }
   },
 
@@ -943,6 +899,7 @@ export const TempSensorSummaryTooltip = {
     state.isMaximized = false;
     state.isDragging = false;
     state.savedPosition = null;
+    state.isPinned = false;
     if (state.hideTimer) {
       clearTimeout(state.hideTimer);
       state.hideTimer = null;

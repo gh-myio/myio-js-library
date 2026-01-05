@@ -118,6 +118,20 @@ export {
   extractEntityId,
 } from './utils/deviceInfo.js';
 
+// RFC-0128: Equipment Category utilities (energy equipment subcategorization)
+export {
+  EquipmentCategory,
+  EQUIPMENT_CLASSIFICATION_CONFIG,
+  classifyEquipment,
+  classifyEquipmentSubcategory,
+  getCategoryDisplayInfo,
+  buildEquipmentCategorySummary,
+  buildEquipmentCategoryDataForTooltip,
+  isStoreDevice,
+  isEquipmentDevice,
+  isEntradaDevice,
+} from './utils/equipmentCategory.js';
+
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
 export {
@@ -296,9 +310,10 @@ export {
   DEFAULT_CONFIG_TEMPLATE as FOOTER_DEFAULT_CONFIG_TEMPLATE,
 } from './components/footer';
 
-// RFC-0113: Header Component
-export { createHeaderComponent } from './components/premium-modals/header/createHeaderComponent';
-export { HeaderView } from './components/premium-modals/header/HeaderView';
+// RFC-0113: Header Component (moved from premium-modals per RFC-0128)
+export { createHeaderComponent } from './components/header/createHeaderComponent';
+export { HeaderView } from './components/header/HeaderView';
+export { HeaderFilterModal } from './components/header/HeaderFilterModal';
 export type {
   HeaderComponentParams,
   HeaderComponentInstance,
@@ -315,12 +330,17 @@ export type {
   FilterPreset as HeaderFilterPreset,
   CardType as HeaderCardType,
   HeaderEventType,
-} from './components/premium-modals/header/types';
+  HeaderThemeMode,
+  HeaderThemeConfig,
+} from './components/header/types';
 export {
   HEADER_DEFAULT_CONFIG_TEMPLATE,
   DEFAULT_CARD_COLORS as HEADER_DEFAULT_CARD_COLORS,
   HEADER_DEFAULT_LOGO_URL,
-} from './components/premium-modals/header/types';
+  DEFAULT_HEADER_LIGHT_THEME,
+  DEFAULT_HEADER_DARK_THEME,
+  HEADER_CSS_PREFIX,
+} from './components/header/types';
 
 // DateRangePicker - Public API
 export {

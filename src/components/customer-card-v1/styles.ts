@@ -131,15 +131,15 @@ export function injectCustomerCardV1Styles(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 6px 12px;
-  min-width: 62px;
-  font-size: 15px;
+  gap: 3px;
+  padding: 4px 8px;
+  min-width: 48px;
+  font-size: 11px;
   font-weight: 600;
   color: rgba(245, 247, 250, 0.8);
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
@@ -151,7 +151,7 @@ export function injectCustomerCardV1Styles(): void {
 }
 
 .myio-customer-card-v1__badge .value {
-  font-size: 13px;
+  font-size: 9px;
   font-weight: 400;
   opacity: 0.85;
   white-space: nowrap;
@@ -164,7 +164,7 @@ export function injectCustomerCardV1Styles(): void {
 }
 
 .myio-customer-card-v1__badge .icon {
-  font-size: 13px;
+  font-size: 10px;
 }
 
 /* Badge Type Colors */
@@ -266,21 +266,22 @@ export function injectCustomerCardV1Styles(): void {
 
   .myio-customer-card-v1__device-counts {
     bottom: 8px;
-    gap: 6px;
+    gap: 5px;
   }
 
   .myio-customer-card-v1__badge {
-    padding: 4px 8px;
-    font-size: 12px;
-    min-width: 52px;
+    padding: 3px 6px;
+    font-size: 10px;
+    min-width: 42px;
+    gap: 2px;
   }
 
   .myio-customer-card-v1__badge .icon {
-    font-size: 11px;
+    font-size: 9px;
   }
 
   .myio-customer-card-v1__badge .value {
-    font-size: 11px;
+    font-size: 8px;
   }
 }
 
@@ -299,21 +300,22 @@ export function injectCustomerCardV1Styles(): void {
 
   .myio-customer-card-v1__device-counts {
     bottom: 6px;
-    gap: 5px;
+    gap: 4px;
   }
 
   .myio-customer-card-v1__badge {
-    padding: 3px 6px;
-    font-size: 11px;
-    min-width: 44px;
+    padding: 2px 5px;
+    font-size: 9px;
+    min-width: 36px;
+    gap: 2px;
   }
 
   .myio-customer-card-v1__badge .icon {
-    font-size: 10px;
+    font-size: 8px;
   }
 
   .myio-customer-card-v1__badge .value {
-    font-size: 10px;
+    font-size: 7px;
   }
 }
 `;

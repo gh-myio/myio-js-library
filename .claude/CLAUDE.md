@@ -107,14 +107,72 @@ const WAITING_STATUSES = ['waiting', 'aguardando', 'not_installed', 'pending', '
 const WEAK_STATUSES = ['weak_connection', 'conexao_fraca', 'bad'];
 ```
 
+### 6. Device Domain & Context Classification (RFC-0111)
+
+Three domains with their contexts:
+
+| Domain | Contexts | Classification |
+|--------|----------|----------------|
+| **energy** | `equipments`, `stores`, `entrada` | deviceType/Profile = 3F_MEDIDOR or ENTRADA/RELOGIO/TRAFO/SUBESTACAO |
+| **water** | `hidrometro_entrada`, `banheiros`, `hidrometro_area_comum`, `hidrometro` | deviceType includes HIDROMETRO |
+| **temperature** | `termostato`, `termostato_external` | deviceType includes TERMOSTATO |
+
+```javascript
+import { detectDomain, detectContext, detectDomainAndContext } from 'myio-js-library';
+
+const { domain, context } = detectDomainAndContext(device);
+// domain: 'energy' | 'water' | 'temperature'
+// context: 'equipments' | 'stores' | 'entrada' | 'hidrometro' | etc.
+```
+
+### 7. Energy Equipment Subcategorization (RFC-0128)
+
+Detailed equipment classification for energy domain:
+
+| Category | Classification Rule | Icon |
+|----------|---------------------|------|
+| **Entrada** | deviceType/Profile contains ENTRADA, RELOGIO, TRAFO, SUBESTACAO | 📥 |
+| **Lojas** | deviceType = deviceProfile = '3F_MEDIDOR' (exact match) | 🏬 |
+| **Climatizacao** | CHILLER, FANCOIL, HVAC, AR_CONDICIONADO, BOMBA_CAG, or identifier contains CAG | ❄️ |
+| **Elevadores** | ELEVADOR or identifier starts with ELV- | 🛗 |
+| **Escadas Rolantes** | ESCADA_ROLANTE or identifier starts with ESC- | 🎢 |
+| **Outros** | Remaining 3F_MEDIDOR equipment | ⚙️ |
+| **Area Comum** | Calculated: Entrada - (Lojas + Climatizacao + Elevadores + Esc. Rolantes + Outros) | 🏢 |
+
+```javascript
+import {
+  classifyEquipment,
+  buildEquipmentCategorySummary,
+  buildEquipmentCategoryDataForTooltip,
+  EquipmentCategory
+} from 'myio-js-library';
+
+// Classify single device
+const category = classifyEquipment(device); // 'climatizacao', 'lojas', etc.
+
+// Build summary for tooltip
+const summary = buildEquipmentCategorySummary(devices);
+// { entrada: { count, consumption, percentage, subcategories }, ... }
+
+// Get tooltip-ready data
+const categories = buildEquipmentCategoryDataForTooltip(devices);
+// [{ id, name, icon, deviceCount, consumption, percentage, children }, ...]
+```
+
+**Subcategories:**
+- **Climatizacao**: Chillers, Fancoils, CAG, Bombas Hidraulicas, Outros HVAC
+- **Outros**: Iluminacao, Bombas de Incendio, Geradores/Nobreaks, Geral
+
 ## Key Files
 
 | File | Description |
 |------|-------------|
 | `src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js` | Main widget controller (new architecture) |
 | `src/components/menu/MenuView.ts` | Menu component with filter modal |
-| `src/components/premium-modals/header/createHeaderComponent.ts` | Header KPI cards |
+| `src/components/header/createHeaderComponent.ts` | Header KPI cards (moved from premium-modals per RFC-0128) |
 | `src/components/premium-modals/welcome/WelcomeModalView.ts` | Welcome modal |
+| `src/utils/deviceInfo.js` | Domain/context detection (RFC-0111) |
+| `src/utils/equipmentCategory.js` | Energy equipment subcategorization (RFC-0128) |
 
 ## Common Issues & Solutions
 
@@ -143,9 +201,11 @@ const WEAK_STATUSES = ['weak_connection', 'conexao_fraca', 'bad'];
 
 - RFCs in `src/docs/rfcs/`
 - Key RFCs:
+  - RFC-0111: Unified device domain/context classification
   - RFC-0112: WelcomeModalHeadOffice
   - RFC-0126: MenuShoppingFilterSync (timing issues)
   - RFC-0127: CustomerCardComponent
+  - RFC-0128: Energy equipment subcategorization
 
 ## Current Version
 

@@ -87,6 +87,7 @@ const MAX_CREDENTIALS_RETRIES = 10;
 
 // RFC-0126: Module-level variables for event handlers
 // These must be declared before self.onInit so handlers can be registered immediately
+let _onDataUpdatedCallCount = null;
 let _cachedShoppings = [];
 let _cachedClassified = null;
 let _cachedDeviceCounts = null;
@@ -151,29 +152,17 @@ self.onInit = async function () {
   let CLIENT_SECRET = '';
   let CUSTOMER_ING_ID = '';
 
-  // Get ThingsBoard customer ID and JWT token
+  // Get ThingsBoard customer ID (required from settings)
   const getCustomerTB_ID = () => {
-    // Primary: from settings
     if (settings.customerTB_ID) {
       return settings.customerTB_ID;
     }
 
-    // Fallback: try from ThingsBoard context
-    const ctx = self.ctx;
-    if (ctx?.stateController?.getStateParams?.()?.entityId?.id) {
-      return ctx.stateController.getStateParams().entityId.id;
-    }
-
-    if (ctx?.defaultSubscription?.options?.stateParams?.entityId?.id) {
-      return ctx.defaultSubscription.options.stateParams.entityId.id;
-    }
-
-    // Try from datasource
-    const data = ctx?.data || [];
-    for (const row of data) {
-      if (row?.datasource?.entity?.id?.id) {
-        return row.datasource.entity.id.id;
-      }
+    // settings.customerTB_ID not configured - show error toast
+    if (typeof MyIOLibrary?.MyIOToast?.error === 'function') {
+      MyIOLibrary.MyIOToast.error('settings.customerTB_ID not configured');
+    } else {
+      console.error('[MAIN_UNIQUE] settings.customerTB_ID not configured');
     }
 
     return '';
@@ -2394,12 +2383,56 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0126: Update module-level reference for early event handlers
   _welcomeModalRef = welcomeModal;
 
-  // RFC-0126: If classified data was cached before welcome modal was created, update now
-  if (_cachedClassified) {
-    LogHelper.log('[MAIN_UNIQUE] Loading welcome modal from cached classified data');
-    const updatedCards = updateShoppingCardsWithRealCounts(_cachedClassified);
+  // Retry function: wait for data-ready event with retry and toast feedback
+  // 10 attempts x 3s = 30s max wait time
+  const waitForDataReadyWithRetry = async (componentName, onDataReceived, maxRetries = 10, intervalMs = 3000) => {
+    let dataReceived = false;
+    let receivedClassified = null;
+
+    // Listen for data-ready event
+    const dataReadyHandler = (event) => {
+      const { classified } = event.detail || {};
+      if (classified) {
+        dataReceived = true;
+        receivedClassified = classified;
+      }
+    };
+    window.addEventListener('myio:data-ready', dataReadyHandler);
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      // Check if data already arrived
+      if (dataReceived && receivedClassified) {
+        window.removeEventListener('myio:data-ready', dataReadyHandler);
+        LogHelper.log(`[MAIN_UNIQUE] ${componentName} data received on attempt ${attempt}`);
+        if (attempt > 1) {
+          MyIOLibrary.MyIOToast?.success?.(`Dados de ${componentName} carregados (tentativa ${attempt})`);
+        }
+        onDataReceived(receivedClassified);
+        return true;
+      }
+
+      if (attempt < maxRetries) {
+        MyIOLibrary.MyIOToast?.warning?.(
+          `Aguardando dados para ${componentName}... Tentativa ${attempt}/${maxRetries}`,
+          intervalMs
+        );
+        LogHelper.log(`[MAIN_UNIQUE] Waiting for ${componentName} data, attempt ${attempt}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    // All retries exhausted
+    window.removeEventListener('myio:data-ready', dataReadyHandler);
+    LogHelper.log(`[MAIN_UNIQUE] ${componentName} data not received after ${maxRetries} attempts`);
+    MyIOLibrary.MyIOToast?.error?.(`Não foi possível carregar dados de ${componentName}. Tente recarregar.`);
+    return false;
+  };
+
+  // Start retry for WelcomeModal data (non-blocking)
+  waitForDataReadyWithRetry('Shopping Cards', (classified) => {
+    const updatedCards = updateShoppingCardsWithRealCounts(classified);
     updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
-  }
+  });
 
   // RFC-0126: Listen for update event from early handler (handles future updates)
   const updateWelcomeHandler = (event) => {
@@ -2414,8 +2447,8 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   };
 
-  window.addEventListener('myio:update-welcome-modal', updateWelcomeHandler);
-  // Also listen for data-ready in case early handler didn't cache (fallback)
+  // Listen for data-ready to update WelcomeModal when data arrives (permanent listener)
+  // This covers cases where data takes longer than the retry period (30s)
   window.addEventListener('myio:data-ready', updateWelcomeHandler);
 
   // RFC-0111: Listen for event to re-open welcome modal (from header back button)
@@ -2473,24 +2506,25 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0126: Update module-level reference for early event handlers
     _headerInstanceRef = headerInstance;
 
-    // RFC-0126: If data was cached before header was created, dispatch events now
-    if (_cachedClassified) {
-      LogHelper.log('[MAIN_UNIQUE] Re-dispatching summary events for header from cache');
+    // Helper function to dispatch header events from classified data
+    const dispatchHeaderEventsFromClassified = (classifiedData) => {
+      LogHelper.log('[MAIN_UNIQUE] Dispatching summary events for header');
 
-      // Calculate totals from cached data
+      // Calculate totals
       const energyItems = [
-        ...(_cachedClassified.energy?.equipments || []),
-        ...(_cachedClassified.energy?.stores || []),
-        ...(_cachedClassified.energy?.entrada || []),
+        ...(classifiedData.energy?.equipments || []),
+        ...(classifiedData.energy?.stores || []),
+        ...(classifiedData.energy?.entrada || []),
       ];
       const waterItems = [
-        ...(_cachedClassified.water?.hidrometro_area_comum || []),
-        ...(_cachedClassified.water?.hidrometro || []),
-        ...(_cachedClassified.water?.entrada || []),
+        ...(classifiedData.water?.hidrometro_entrada || []),
+        ...(classifiedData.water?.banheiros || []),
+        ...(classifiedData.water?.hidrometro_area_comum || []),
+        ...(classifiedData.water?.hidrometro || []),
       ];
       const tempItems = [
-        ...(_cachedClassified.temperature?.termostato || []),
-        ...(_cachedClassified.temperature?.termostato_external || []),
+        ...(classifiedData.temperature?.termostato || []),
+        ...(classifiedData.temperature?.termostato_external || []),
       ];
 
       const energyTotal = energyItems.reduce(
@@ -2502,72 +2536,73 @@ body.filter-modal-open { overflow: hidden !important; }
       const tempAvg =
         tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
-      // RFC-0126 FIX: Build tooltip status data for each domain (same as main onDataUpdated)
+      // Build tooltip status data
       const allEnergyDevices = [
-        ...(_cachedClassified.energy?.equipments || []),
-        ...(_cachedClassified.energy?.stores || []),
+        ...(classifiedData.energy?.equipments || []),
+        ...(classifiedData.energy?.stores || []),
       ];
       const allWaterDevices = [
-        ...(_cachedClassified.water?.hidrometro_area_comum || []),
-        ...(_cachedClassified.water?.hidrometro || []),
+        ...(classifiedData.water?.hidrometro_entrada || []),
+        ...(classifiedData.water?.banheiros || []),
+        ...(classifiedData.water?.hidrometro_area_comum || []),
+        ...(classifiedData.water?.hidrometro || []),
       ];
       const allTempDevices = [
-        ...(_cachedClassified.temperature?.termostato || []),
-        ...(_cachedClassified.temperature?.termostato_external || []),
+        ...(classifiedData.temperature?.termostato || []),
+        ...(classifiedData.temperature?.termostato_external || []),
       ];
 
       const energyByStatus = buildTooltipStatusData(allEnergyDevices);
       const waterByStatus = buildTooltipStatusData(allWaterDevices);
       const tempByStatus = buildTooltipStatusData(allTempDevices);
 
-      // Get temperature limits from MyIOUtils (populated from customer attributes)
+      // Get temperature limits
       const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
       const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
 
-      // Dispatch events for header with full tooltip data
+      // Dispatch energy event
       window.dispatchEvent(
         new CustomEvent('myio:energy-summary-ready', {
           detail: {
             customerTotal: energyTotal,
             unfilteredTotal: energyTotal,
             isFiltered: false,
-            equipmentsTotal: (_cachedClassified.energy?.equipments || []).reduce(
+            equipmentsTotal: (classifiedData.energy?.equipments || []).reduce(
               (sum, d) => sum + Number(d.value || 0),
               0
             ),
-            lojasTotal: (_cachedClassified.energy?.stores || []).reduce(
+            lojasTotal: (classifiedData.energy?.stores || []).reduce(
               (sum, d) => sum + Number(d.value || 0),
               0
             ),
-            // RFC-0126: Tooltip data
             totalDevices: allEnergyDevices.length,
             totalConsumption: energyTotal,
             byStatus: energyByStatus,
-            byCategory: buildEnergyCategoryDataByShopping(_cachedClassified),
-            shoppingsEnergy: buildShoppingsEnergyBreakdown(_cachedClassified),
+            byCategory: buildEnergyCategoryDataByShopping(classifiedData),
+            shoppingsEnergy: buildShoppingsEnergyBreakdown(classifiedData),
             lastUpdated: new Date().toISOString(),
           },
         })
       );
 
+      // Dispatch water event
       window.dispatchEvent(
         new CustomEvent('myio:water-summary-ready', {
           detail: {
             filteredTotal: waterTotal,
             unfilteredTotal: waterTotal,
             isFiltered: false,
-            // RFC-0126: Tooltip data
             totalDevices: allWaterDevices.length,
             totalConsumption: waterTotal,
             byStatus: waterByStatus,
-            byCategory: buildWaterCategoryDataByShopping(_cachedClassified),
-            shoppingsWater: buildShoppingsWaterBreakdown(_cachedClassified),
+            byCategory: buildWaterCategoryDataByShopping(classifiedData),
+            shoppingsWater: buildShoppingsWaterBreakdown(classifiedData),
             lastUpdated: new Date().toISOString(),
           },
         })
       );
 
-      // RFC-0126: Build temperature devices with proper status
+      // Build and dispatch temperature event
       const tempDevicesForTooltip = allTempDevices.map((d) => {
         const temp = Number(d.temperature || 0);
         let status = 'unknown';
@@ -2588,7 +2623,6 @@ body.filter-modal-open { overflow: hidden !important; }
             isFiltered: false,
             shoppingsInRange: [],
             shoppingsOutOfRange: [],
-            // RFC-0126: Tooltip data
             totalDevices: allTempDevices.length,
             devices: tempDevicesForTooltip,
             temperatureMin: minTemp,
@@ -2599,7 +2633,8 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
 
-      const onlineEquipments = (_cachedClassified.energy?.equipments || []).filter((d) => {
+      // Dispatch equipment count event
+      const onlineEquipments = (classifiedData.energy?.equipments || []).filter((d) => {
         const status = (d.deviceStatus || d.status || '').toLowerCase();
         return !['offline', 'no_info', 'not_installed'].includes(status);
       }).length;
@@ -2607,16 +2642,20 @@ body.filter-modal-open { overflow: hidden !important; }
       window.dispatchEvent(
         new CustomEvent('myio:equipment-count-updated', {
           detail: {
-            totalEquipments: (_cachedClassified.energy?.equipments || []).length,
+            totalEquipments: (classifiedData.energy?.equipments || []).length,
             filteredEquipments: onlineEquipments,
             allShoppingsSelected: true,
-            // RFC-0126: Tooltip data
             byStatus: energyByStatus,
-            byCategory: buildEnergyCategoryData(_cachedClassified),
+            byCategory: buildEnergyCategoryData(classifiedData),
           },
         })
       );
-    }
+    };
+
+    // Start retry for Header data (non-blocking)
+    waitForDataReadyWithRetry('Header KPIs', (classified) => {
+      dispatchHeaderEventsFromClassified(classified);
+    });
   }
 
   // === 6. RFC-0114: RENDER MENU COMPONENT ===
@@ -2694,33 +2733,54 @@ body.filter-modal-open { overflow: hidden !important; }
   const telemetryGridContainer = document.getElementById('telemetryGridContainer');
 
   if (telemetryGridContainer && MyIOLibrary.createTelemetryGridComponent) {
-    // RFC-0126: Get devices from orchestrator OR from cached classified data
+    // Get devices from orchestrator
     let initialDevices =
       window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
 
-    // RFC-0126: Fallback to cached classified data if orchestrator not ready
-    if (initialDevices.length === 0 && _cachedClassified) {
-      LogHelper.log('[MAIN_UNIQUE] Using cached classified data for TelemetryGrid');
-      if (currentTelemetryDomain === DOMAIN_ENERGY && currentTelemetryContext === 'equipments') {
-        initialDevices = _cachedClassified.energy?.equipments || [];
-      } else if (currentTelemetryDomain === DOMAIN_ENERGY && currentTelemetryContext === 'stores') {
-        initialDevices = _cachedClassified.energy?.stores || [];
-      } else if (
-        currentTelemetryDomain === DOMAIN_WATER &&
-        currentTelemetryContext === 'hidrometro_area_comum'
-      ) {
-        initialDevices = _cachedClassified.water?.hidrometro_area_comum || [];
-      } else if (currentTelemetryDomain === DOMAIN_WATER && currentTelemetryContext === 'hidrometro') {
-        initialDevices = _cachedClassified.water?.hidrometro || [];
-      } else if (currentTelemetryDomain === DOMAIN_TEMPERATURE && currentTelemetryContext === 'termostato') {
-        initialDevices = _cachedClassified.temperature?.termostato || [];
-      } else if (
-        currentTelemetryDomain === DOMAIN_TEMPERATURE &&
-        currentTelemetryContext === 'termostato_external'
-      ) {
-        initialDevices = _cachedClassified.temperature?.termostato_external || [];
+    // Retry function: 5 attempts, 3 seconds interval, with toast feedback
+    const retryGetDevicesWithToast = async (domain, context, maxRetries = 5, intervalMs = 3000) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const devices = window.MyIOOrchestrator?.getDevices?.(domain, context) || [];
+
+        if (devices.length > 0) {
+          LogHelper.log(`[MAIN_UNIQUE] Devices loaded on attempt ${attempt}:`, devices.length);
+          if (attempt > 1) {
+            // Show success toast if we had to retry
+            MyIOLibrary.MyIOToast?.success?.(`Dados carregados com sucesso (tentativa ${attempt})`);
+          }
+          return devices;
+        }
+
+        if (attempt < maxRetries) {
+          // Show warning toast with retry count
+          MyIOLibrary.MyIOToast?.warning?.(
+            `Aguardando dados do orchestrator... Tentativa ${attempt}/${maxRetries}`,
+            intervalMs
+          );
+          LogHelper.log(`[MAIN_UNIQUE] Orchestrator not ready, retry ${attempt}/${maxRetries} in ${intervalMs}ms`);
+
+          // Wait before next attempt
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
       }
-      LogHelper.log('[MAIN_UNIQUE] TelemetryGrid devices from cache:', initialDevices.length);
+
+      // All retries exhausted
+      LogHelper.log('[MAIN_UNIQUE] All retries exhausted, no devices available');
+      MyIOLibrary.MyIOToast?.error?.('Não foi possível carregar os dados. Tente recarregar a página.');
+      return [];
+    };
+
+    // If no devices initially, start retry loop (non-blocking)
+    if (initialDevices.length === 0) {
+      LogHelper.log('[MAIN_UNIQUE] No devices from orchestrator, starting retry...');
+
+      // Start retry in background and update grid when data arrives
+      retryGetDevicesWithToast(currentTelemetryDomain, currentTelemetryContext).then(devices => {
+        if (devices.length > 0 && telemetryGridInstance) {
+          LogHelper.log('[MAIN_UNIQUE] Updating TelemetryGrid with retried devices:', devices.length);
+          telemetryGridInstance.updateDevices?.(devices);
+        }
+      });
     }
 
     telemetryGridInstance = MyIOLibrary.createTelemetryGridComponent({
@@ -2819,9 +2879,10 @@ body.filter-modal-open { overflow: hidden !important; }
           entrada: filterDevices(classified.energy?.entrada || []),
         },
         water: {
+          hidrometro_entrada: filterDevices(classified.water?.hidrometro_entrada || []),
+          banheiros: filterDevices(classified.water?.banheiros || []),
           hidrometro_area_comum: filterDevices(classified.water?.hidrometro_area_comum || []),
           hidrometro: filterDevices(classified.water?.hidrometro || []),
-          entrada: filterDevices(classified.water?.entrada || []),
         },
         temperature: {
           termostato: filterDevices(classified.temperature?.termostato || []),
@@ -2832,6 +2893,8 @@ body.filter-modal-open { overflow: hidden !important; }
       // Calculate filtered totals for each domain
       const allEnergyItems = [...(classified.energy?.equipments || []), ...(classified.energy?.stores || [])];
       const allWaterItems = [
+        ...(classified.water?.hidrometro_entrada || []),
+        ...(classified.water?.banheiros || []),
         ...(classified.water?.hidrometro_area_comum || []),
         ...(classified.water?.hidrometro || []),
       ];
@@ -3327,6 +3390,8 @@ function processDataAndDispatchEvents() {
   // RFC-0126: Build tooltip status data for each domain
   const allEnergyDevices = [...(classified.energy.equipments || []), ...(classified.energy.stores || [])];
   const allWaterDevices = [
+    ...(classified.water.hidrometro_entrada || []),
+    ...(classified.water.banheiros || []),
     ...(classified.water.hidrometro_area_comum || []),
     ...(classified.water.hidrometro || []),
   ];
@@ -3540,82 +3605,30 @@ function buildTooltipStatusData(devices) {
 
 /**
  * RFC-0126: Build category data for energy tooltip
- * FIXED: Use deviceCount (not count), add id and percentage
+ * RFC-0128: Uses centralized equipment classification from library
+ * Returns 7 categories: Entrada, Lojas, Climatizacao, Elevadores, Esc. Rolantes, Outros, Area Comum
  */
 function buildEnergyCategoryData(classified) {
-  const categories = [];
+  // Collect all energy devices
+  const allEnergyDevices = [
+    ...(classified?.energy?.entrada || []),
+    ...(classified?.energy?.equipments || []),
+    ...(classified?.energy?.stores || []),
+  ];
 
-  const equipDevices = classified?.energy?.equipments || [];
-  const storeDevices = classified?.energy?.stores || [];
-
-  // Calculate total for percentage
-  const equipConsumption = equipDevices.reduce((sum, d) => sum + Number(d.value || 0), 0);
-  const storeConsumption = storeDevices.reduce((sum, d) => sum + Number(d.value || 0), 0);
-  const totalConsumption = equipConsumption + storeConsumption;
-
-  // Equipamentos
-  if (equipDevices.length > 0) {
-    const elevatorsCount = equipDevices.filter((d) =>
-      (d.deviceType || '').toLowerCase().includes('elevador')
-    ).length;
-    const escalatorsCount = equipDevices.filter((d) =>
-      (d.deviceType || '').toLowerCase().includes('escada')
-    ).length;
-    const hvacCount = equipDevices.filter(
-      (d) =>
-        (d.deviceType || '').toLowerCase().includes('ar_condicionado') ||
-        (d.deviceType || '').toLowerCase().includes('hvac')
-    ).length;
-    const othersCount = equipDevices.filter(
-      (d) =>
-        !['elevador', 'escada', 'hvac', 'ar_condicionado'].some((t) =>
-          (d.deviceType || '').toLowerCase().includes(t)
-        )
-    ).length;
-
-    categories.push({
-      id: 'equipamentos',
-      name: 'Equipamentos',
-      icon: '⚙️',
-      deviceCount: equipDevices.length,
-      consumption: equipConsumption,
-      percentage: totalConsumption > 0 ? (equipConsumption / totalConsumption) * 100 : 0,
-      children: [
-        {
-          id: 'elevadores',
-          name: 'Elevadores',
-          icon: '🛗',
-          deviceCount: elevatorsCount,
-          consumption: 0,
-          percentage: 0,
-        },
-        {
-          id: 'escadas',
-          name: 'Escadas Rolantes',
-          icon: '🎢',
-          deviceCount: escalatorsCount,
-          consumption: 0,
-          percentage: 0,
-        },
-        { id: 'hvac', name: 'HVAC', icon: '❄️', deviceCount: hvacCount, consumption: 0, percentage: 0 },
-        { id: 'outros', name: 'Outros', icon: '⚙️', deviceCount: othersCount, consumption: 0, percentage: 0 },
-      ].filter((c) => c.deviceCount > 0),
-    });
+  // RFC-0128: Use library function for standardized classification (required)
+  if (typeof MyIOLibrary?.buildEquipmentCategoryDataForTooltip === 'function') {
+    return MyIOLibrary.buildEquipmentCategoryDataForTooltip(allEnergyDevices);
   }
 
-  // Lojas
-  if (storeDevices.length > 0) {
-    categories.push({
-      id: 'lojas',
-      name: 'Lojas',
-      icon: '🏬',
-      deviceCount: storeDevices.length,
-      consumption: storeConsumption,
-      percentage: totalConsumption > 0 ? (storeConsumption / totalConsumption) * 100 : 0,
-    });
+  // Library function not available - show error toast
+  if (typeof MyIOLibrary?.MyIOToast?.error === 'function') {
+    MyIOLibrary.MyIOToast.error('buildEquipmentCategoryDataForTooltip not available in MyIOLibrary');
+  } else {
+    console.error('[MAIN_UNIQUE] buildEquipmentCategoryDataForTooltip not available in MyIOLibrary');
   }
 
-  return categories;
+  return [];
 }
 
 /**
@@ -3759,20 +3772,29 @@ function buildEnergyCategoryDataByShopping(classified) {
 
 /**
  * RFC-0126: Build category data for water tooltip
+ * RFC-0111: Updated categories: Entrada, Banheiros, Área Comum, Pontos Não Mapeados, Lojas
  * FIXED: Use deviceCount (not count), add id and percentage
  */
 function buildWaterCategoryData(classified) {
   const categories = [];
 
+  const entradaDevices = classified?.water?.hidrometro_entrada || [];
+  const banheirosDevices = classified?.water?.banheiros || [];
   const commonAreaDevices = classified?.water?.hidrometro_area_comum || [];
   const storeDevices = classified?.water?.hidrometro || [];
-  const entradaDevices = classified?.water?.entrada || [];
 
-  // Calculate totals for percentage
+  // Calculate consumption for each category
+  const entradaConsumption = entradaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+  const banheirosConsumption = banheirosDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
   const commonConsumption = commonAreaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
   const storeConsumption = storeDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
-  const entradaConsumption = entradaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
-  const totalConsumption = commonConsumption + storeConsumption + entradaConsumption;
+
+  // Pontos Não Mapeados = Entrada - (Banheiros + Área Comum + Lojas)
+  const mappedConsumption = banheirosConsumption + commonConsumption + storeConsumption;
+  const unmappedConsumption = Math.max(0, entradaConsumption - mappedConsumption);
+
+  // Total = Entrada consumption (as reference) or sum of all categories
+  const totalConsumption = entradaConsumption || mappedConsumption;
 
   // Entrada
   if (entradaDevices.length > 0) {
@@ -3786,15 +3808,39 @@ function buildWaterCategoryData(classified) {
     });
   }
 
-  // Area Comum
+  // Banheiros
+  if (banheirosDevices.length > 0) {
+    categories.push({
+      id: 'banheiros',
+      name: 'Banheiros',
+      icon: '🚻',
+      deviceCount: banheirosDevices.length,
+      consumption: banheirosConsumption,
+      percentage: totalConsumption > 0 ? (banheirosConsumption / totalConsumption) * 100 : 0,
+    });
+  }
+
+  // Área Comum
   if (commonAreaDevices.length > 0) {
     categories.push({
       id: 'areaComum',
-      name: 'Area Comum',
+      name: 'Área Comum',
       icon: '🏢',
       deviceCount: commonAreaDevices.length,
       consumption: commonConsumption,
       percentage: totalConsumption > 0 ? (commonConsumption / totalConsumption) * 100 : 0,
+    });
+  }
+
+  // Pontos Não Mapeados (calculated, no devices directly)
+  if (unmappedConsumption > 0) {
+    categories.push({
+      id: 'naoMapeados',
+      name: 'Pontos Não Mapeados',
+      icon: '❓',
+      deviceCount: 0,
+      consumption: unmappedConsumption,
+      percentage: totalConsumption > 0 ? (unmappedConsumption / totalConsumption) * 100 : 0,
     });
   }
 
@@ -3815,13 +3861,15 @@ function buildWaterCategoryData(classified) {
 
 /**
  * RFC-0126: Build water tooltip tree grouped by Shopping -> Categoria
+ * RFC-0111: Updated categories: Entrada, Banheiros, Área Comum, Pontos Não Mapeados, Lojas
  */
 function buildWaterCategoryDataByShopping(classified) {
+  const entradaDevices = classified?.water?.hidrometro_entrada || [];
+  const banheirosDevices = classified?.water?.banheiros || [];
   const commonAreaDevices = classified?.water?.hidrometro_area_comum || [];
   const storeDevices = classified?.water?.hidrometro || [];
-  const entradaDevices = classified?.water?.entrada || [];
 
-  const allDevices = [...commonAreaDevices, ...storeDevices, ...entradaDevices];
+  const allDevices = [...entradaDevices, ...banheirosDevices, ...commonAreaDevices, ...storeDevices];
   const globalTotal = allDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
 
   const byShopping = new Map();
@@ -3835,6 +3883,7 @@ function buildWaterCategoryDataByShopping(classified) {
         totalDevices: 0,
         totalConsumption: 0,
         entrada: { devices: [], consumption: 0 },
+        banheiros: { devices: [], consumption: 0 },
         areaComum: { devices: [], consumption: 0 },
         lojas: { devices: [], consumption: 0 },
       });
@@ -3851,6 +3900,7 @@ function buildWaterCategoryDataByShopping(classified) {
   };
 
   entradaDevices.forEach((d) => add(ensure(getShoppingName(d)), 'entrada', d));
+  banheirosDevices.forEach((d) => add(ensure(getShoppingName(d)), 'banheiros', d));
   commonAreaDevices.forEach((d) => add(ensure(getShoppingName(d)), 'areaComum', d));
   storeDevices.forEach((d) => add(ensure(getShoppingName(d)), 'lojas', d));
 
@@ -3858,32 +3908,52 @@ function buildWaterCategoryDataByShopping(classified) {
 
   return shoppings.map((s) => {
     const total = s.totalConsumption;
+    const entradaConsumption = s.entrada.consumption;
+    const mappedConsumption = s.banheiros.consumption + s.areaComum.consumption + s.lojas.consumption;
+    const unmappedConsumption = Math.max(0, entradaConsumption - mappedConsumption);
+
     const children = [
       {
         id: 'entrada',
         name: 'Entrada',
-        icon: 'ÐY"¾',
+        icon: '📥',
         deviceCount: s.entrada.devices.length,
         consumption: s.entrada.consumption,
         percentage: total > 0 ? (s.entrada.consumption / total) * 100 : 0,
       },
       {
+        id: 'banheiros',
+        name: 'Banheiros',
+        icon: '🚻',
+        deviceCount: s.banheiros.devices.length,
+        consumption: s.banheiros.consumption,
+        percentage: total > 0 ? (s.banheiros.consumption / total) * 100 : 0,
+      },
+      {
         id: 'areaComum',
-        name: 'Area Comum',
-        icon: 'ÐY?½',
+        name: 'Área Comum',
+        icon: '🏢',
         deviceCount: s.areaComum.devices.length,
         consumption: s.areaComum.consumption,
         percentage: total > 0 ? (s.areaComum.consumption / total) * 100 : 0,
       },
       {
+        id: 'naoMapeados',
+        name: 'Pontos Não Mapeados',
+        icon: '❓',
+        deviceCount: 0,
+        consumption: unmappedConsumption,
+        percentage: total > 0 ? (unmappedConsumption / total) * 100 : 0,
+      },
+      {
         id: 'lojas',
         name: 'Lojas',
-        icon: 'ÐY?ª',
+        icon: '🏬',
         deviceCount: s.lojas.devices.length,
         consumption: s.lojas.consumption,
         percentage: total > 0 ? (s.lojas.consumption / total) * 100 : 0,
       },
-    ].filter((c) => c.deviceCount > 0);
+    ].filter((c) => c.deviceCount > 0 || c.consumption > 0);
 
     return {
       id: `shopping:${s.name.toLowerCase().trim()}`,
@@ -3942,16 +4012,18 @@ function buildShoppingsEnergyBreakdown(classified) {
 
 /**
  * RFC-0126: Build shoppings water breakdown for tooltip
+ * RFC-0111: Updated categories: Entrada, Banheiros, Área Comum, Pontos Não Mapeados, Lojas
  * Groups consumption by shopping (ownerName/customerName)
  */
 function buildShoppingsWaterBreakdown(classified) {
   const shoppingMap = new Map();
 
-  const allDevices = [
-    ...(classified?.water?.hidrometro_area_comum || []),
-    ...(classified?.water?.hidrometro || []),
-    ...(classified?.water?.entrada || []),
-  ];
+  const entradaDevices = classified?.water?.hidrometro_entrada || [];
+  const banheirosDevices = classified?.water?.banheiros || [];
+  const commonAreaDevices = classified?.water?.hidrometro_area_comum || [];
+  const storeDevices = classified?.water?.hidrometro || [];
+
+  const allDevices = [...entradaDevices, ...banheirosDevices, ...commonAreaDevices, ...storeDevices];
 
   for (const device of allDevices) {
     const ownerName = device.ownerName || device.customerName || 'Unknown';
@@ -3961,6 +4033,8 @@ function buildShoppingsWaterBreakdown(classified) {
       shoppingMap.set(normalizedName, {
         id: normalizedName,
         name: ownerName,
+        entrada: 0,
+        banheiros: 0,
         areaComum: 0,
         lojas: 0,
       });
@@ -3970,17 +4044,26 @@ function buildShoppingsWaterBreakdown(classified) {
     const value = Number(device.value || device.pulses || 0);
 
     // Check category based on device classification
-    const isStore = (classified?.water?.hidrometro || []).includes(device);
-
-    if (isStore) {
-      entry.lojas += value;
-    } else {
+    if (entradaDevices.includes(device)) {
+      entry.entrada += value;
+    } else if (banheirosDevices.includes(device)) {
+      entry.banheiros += value;
+    } else if (commonAreaDevices.includes(device)) {
       entry.areaComum += value;
+    } else if (storeDevices.includes(device)) {
+      entry.lojas += value;
     }
   }
 
   // Sort by total consumption descending
-  return Array.from(shoppingMap.values()).sort((a, b) => b.areaComum + b.lojas - (a.areaComum + a.lojas));
+  return Array.from(shoppingMap.values())
+    .map((entry) => {
+      // Calculate Pontos Não Mapeados per shopping
+      const mappedConsumption = entry.banheiros + entry.areaComum + entry.lojas;
+      const naoMapeados = Math.max(0, entry.entrada - mappedConsumption);
+      return { ...entry, naoMapeados };
+    })
+    .sort((a, b) => b.entrada - a.entrada);
 }
 
 // ===================================================================
@@ -3992,7 +4075,7 @@ function classifyAllDevices(data) {
 
   const classified = {
     energy: { equipments: [], stores: [], entrada: [] },
-    water: { hidrometro_area_comum: [], hidrometro: [], entrada: [] },
+    water: { hidrometro_entrada: [], banheiros: [], hidrometro_area_comum: [], hidrometro: [] },
     temperature: { termostato: [], termostato_external: [] },
   };
 
@@ -4034,9 +4117,10 @@ function classifyAllDevices(data) {
       entrada: classified.energy.entrada.length,
     },
     water: {
+      entrada: classified.water.hidrometro_entrada.length,
+      banheiros: classified.water.banheiros.length,
       area_comum: classified.water.hidrometro_area_comum.length,
       lojas: classified.water.hidrometro.length,
-      entrada: classified.water.entrada.length,
     },
     temperature: {
       climatizado: classified.temperature.termostato.length,
@@ -4055,9 +4139,10 @@ function classifyAllDevices(data) {
   ];
 
   const waterItems = [
+    ...classified.water.hidrometro_entrada,
+    ...classified.water.banheiros,
     ...classified.water.hidrometro_area_comum,
     ...classified.water.hidrometro,
-    ...classified.water.entrada,
   ];
 
   const temperatureItems = [
@@ -4193,11 +4278,10 @@ function extractDeviceMetadataFromRows(rows) {
     telemetryTimestamp = temperatureTs;
   }
 
-  // RFC-0110: Calculate device status using master rules
+  // RFC-0110: Calculate device status using master rules (required)
   const lib = window.MyIOLibrary;
   let deviceStatus = 'offline';
 
-  // Use library function if available, otherwise basic logic
   if (lib?.calculateDeviceStatusMasterRules) {
     deviceStatus = lib.calculateDeviceStatusMasterRules({
       connectionStatus: connectionStatus,
@@ -4206,33 +4290,13 @@ function extractDeviceMetadataFromRows(rows) {
       domain: domain,
     });
   } else {
-    // Fallback: basic status calculation
-    LogHelper.warn('calculateDeviceStatusMasterRules not available, using fallback');
-    showToast('Aviso: usando cálculo de status básico (fallback)', 'warning');
-    const SHORT_DELAY_MINS = 60;
-    const LONG_DELAY_MINS = 1440;
-    const now = Date.now();
-    const normalizedStatus = (connectionStatus || '').toLowerCase();
-
-    if (normalizedStatus === 'waiting') {
-      deviceStatus = 'not_installed';
-    } else if (!telemetryTimestamp) {
-      deviceStatus = 'offline';
+    // Library function not available - show error toast
+    if (typeof lib?.MyIOToast?.error === 'function') {
+      lib.MyIOToast.error('calculateDeviceStatusMasterRules not available in MyIOLibrary');
     } else {
-      const telemetryAgeMs = now - telemetryTimestamp;
-      const shortThresholdMs = SHORT_DELAY_MINS * 60 * 1000;
-      const longThresholdMs = LONG_DELAY_MINS * 60 * 1000;
-
-      if (normalizedStatus === 'offline' || normalizedStatus === 'bad') {
-        // Check if has recent telemetry (60 mins)
-        deviceStatus = telemetryAgeMs < shortThresholdMs ? 'power_on' : 'offline';
-      } else if (normalizedStatus === 'online') {
-        // Check if telemetry is stale (24 hours)
-        deviceStatus = telemetryAgeMs > longThresholdMs ? 'offline' : 'power_on';
-      } else {
-        deviceStatus = 'power_on';
-      }
+      console.error('[MAIN_UNIQUE] calculateDeviceStatusMasterRules not available in MyIOLibrary');
     }
+    deviceStatus = 'offline';
   }
 
   return {
@@ -4829,9 +4893,10 @@ async function triggerApiEnrichment() {
     ];
 
     const waterItems = [
+      ...enriched.water.hidrometro_entrada,
+      ...enriched.water.banheiros,
       ...enriched.water.hidrometro_area_comum,
       ...enriched.water.hidrometro,
-      ...enriched.water.entrada,
     ];
 
     const temperatureItems = [
@@ -4914,6 +4979,8 @@ async function triggerApiEnrichment() {
       ...(enriched.energy?.stores || []),
     ];
     const allWaterDevicesAfterEnrich = [
+      ...(enriched.water?.hidrometro_entrada || []),
+      ...(enriched.water?.banheiros || []),
       ...(enriched.water?.hidrometro_area_comum || []),
       ...(enriched.water?.hidrometro || []),
     ];

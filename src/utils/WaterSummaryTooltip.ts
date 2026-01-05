@@ -806,6 +806,7 @@ export const WaterSummaryTooltip = {
   _hideTimer: null as ReturnType<typeof setTimeout> | null,
   _forceHideTimer: null as ReturnType<typeof setTimeout> | null,
   _isMouseOverTooltip: false,
+  _isPinned: false, // When true, tooltip won't auto-hide
 
   // State for maximize and drag (PIN creates clones instead of toggling state)
   _isMaximized: false,
@@ -1148,162 +1149,63 @@ export const WaterSummaryTooltip = {
   },
 
   /**
-   * Counter for unique pinned clone IDs
-   */
-  _pinnedCounter: 0,
-
-  /**
-   * Create a pinned clone of the tooltip that stays on screen independently
+   * Toggle PIN state - fixes tooltip on screen or unfixes and restarts timer
+   * First click: PIN fixes the tooltip, cancels all timers
+   * Second click: Unpin, restarts 2.5s timer
    */
   togglePin(): void {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
-    // Create a unique ID for this pinned clone
-    this._pinnedCounter++;
-    const pinnedId = `${this.containerId}-pinned-${this._pinnedCounter}`;
+    const pinBtn = container.querySelector('[data-action="pin"]');
 
-    // Clone the container
-    const clone = container.cloneNode(true) as HTMLElement;
-    clone.id = pinnedId;
-    clone.classList.add('pinned');
-    clone.classList.remove('closing');
+    if (this._isPinned) {
+      // UNPIN: Remove pinned state and restart timer
+      this._isPinned = false;
+      container.classList.remove('pinned');
 
-    // Update the PIN button to show it's pinned (change to unpin/close icon)
-    const pinBtn = clone.querySelector('[data-action="pin"]');
-    if (pinBtn) {
-      pinBtn.classList.add('pinned');
-      pinBtn.setAttribute('title', 'Desafixar');
-      // Change icon to indicate it's pinned (rotated pushpin)
-      pinBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
-          <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
-          <line x1="12" y1="16" x2="12" y2="21"/>
-          <line x1="8" y1="4" x2="16" y2="4"/>
-        </svg>
-      `;
-    }
+      // Update PIN button visual
+      if (pinBtn) {
+        pinBtn.classList.remove('pinned');
+        pinBtn.setAttribute('title', 'Fixar na tela');
+        pinBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+            <line x1="12" y1="16" x2="12" y2="21"/>
+            <line x1="8" y1="4" x2="16" y2="4"/>
+          </svg>
+        `;
+      }
 
-    // Append clone to body
-    document.body.appendChild(clone);
+      // Restart 2.5s timer
+      this._startDelayedHide();
+    } else {
+      // PIN: Fix tooltip on screen, cancel all timers
+      this._isPinned = true;
+      container.classList.add('pinned');
 
-    // Setup event listeners for the pinned clone
-    this._setupPinnedCloneListeners(clone, pinnedId);
+      // Cancel all timers
+      if (this._hideTimer) {
+        clearTimeout(this._hideTimer);
+        this._hideTimer = null;
+      }
+      if (this._forceHideTimer) {
+        clearTimeout(this._forceHideTimer);
+        this._forceHideTimer = null;
+      }
 
-    // Hide the original tooltip
-    this.hide();
-  },
-
-  /**
-   * Setup event listeners for a pinned clone
-   */
-  _setupPinnedCloneListeners(clone: HTMLElement, cloneId: string): void {
-    // Handle PIN button click - unpin/close the clone
-    const pinBtn = clone.querySelector('[data-action="pin"]');
-    if (pinBtn) {
-      pinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._closePinnedClone(cloneId);
-      });
-    }
-
-    // Handle close button
-    const closeBtn = clone.querySelector('[data-action="close"]');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._closePinnedClone(cloneId);
-      });
-    }
-
-    // Handle maximize button
-    let isMaximized = false;
-    let savedPosition: { left: string; top: string } | null = null;
-    const maxBtn = clone.querySelector('[data-action="maximize"]');
-    if (maxBtn) {
-      maxBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isMaximized = !isMaximized;
-
-        if (isMaximized) {
-          savedPosition = { left: clone.style.left, top: clone.style.top };
-        }
-        clone.classList.toggle('maximized', isMaximized);
-
-        if (isMaximized) {
-          maxBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="5" y="5" width="14" height="14" rx="2"/>
-              <path d="M9 5V3h12v12h-2"/>
-            </svg>
-          `;
-          maxBtn.setAttribute('title', 'Restaurar');
-        } else {
-          maxBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
-          `;
-          maxBtn.setAttribute('title', 'Maximizar');
-          if (savedPosition) {
-            clone.style.left = savedPosition.left;
-            clone.style.top = savedPosition.top;
-          }
-        }
-      });
-    }
-
-    // Setup drag for the clone
-    const header = clone.querySelector('[data-drag-handle]') as HTMLElement;
-    if (header) {
-      let isDragging = false;
-      let dragOffset = { x: 0, y: 0 };
-
-      const onMouseDown = (e: MouseEvent) => {
-        if ((e.target as HTMLElement).closest('[data-action]')) return;
-        if (isMaximized) return;
-
-        isDragging = true;
-        clone.classList.add('dragging');
-
-        const rect = clone.getBoundingClientRect();
-        dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      };
-
-      const onMouseMove = (e: MouseEvent) => {
-        if (!isDragging) return;
-        const newLeft = e.clientX - dragOffset.x;
-        const newTop = e.clientY - dragOffset.y;
-        const maxLeft = window.innerWidth - clone.offsetWidth;
-        const maxTop = window.innerHeight - clone.offsetHeight;
-        clone.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
-        clone.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
-      };
-
-      const onMouseUp = () => {
-        isDragging = false;
-        clone.classList.remove('dragging');
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-
-      header.addEventListener('mousedown', onMouseDown);
-    }
-  },
-
-  /**
-   * Close and remove a pinned clone
-   */
-  _closePinnedClone(cloneId: string): void {
-    const clone = document.getElementById(cloneId);
-    if (clone) {
-      clone.classList.add('closing');
-      setTimeout(() => {
-        clone.remove();
-      }, 400);
+      // Update PIN button visual
+      if (pinBtn) {
+        pinBtn.classList.add('pinned');
+        pinBtn.setAttribute('title', 'Desafixar (reinicia timer)');
+        pinBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
+            <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+            <line x1="12" y1="16" x2="12" y2="21"/>
+            <line x1="8" y1="4" x2="16" y2="4"/>
+          </svg>
+        `;
+      }
     }
   },
 
@@ -1359,6 +1261,7 @@ export const WaterSummaryTooltip = {
     this._isMaximized = false;
     this._isDragging = false;
     this._savedPosition = null;
+    this._isPinned = false;
 
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
@@ -1373,6 +1276,8 @@ export const WaterSummaryTooltip = {
 
   /**
    * Setup hover listeners on the tooltip itself
+   * NOTE: Timer is NOT cancelled when mouse enters tooltip
+   * Only clicking PIN button will cancel the timer and fix the tooltip
    */
   _setupTooltipHoverListeners(container: HTMLElement): void {
     // Remove existing listeners first
@@ -1381,26 +1286,26 @@ export const WaterSummaryTooltip = {
 
     container.onmouseenter = () => {
       this._isMouseOverTooltip = true;
-      // Cancel any pending hide
-      if (this._hideTimer) {
-        clearTimeout(this._hideTimer);
-        this._hideTimer = null;
-      }
+      // NOTE: We intentionally do NOT cancel the hide timer here
+      // The tooltip will be destroyed after 2.5s unless PIN is clicked
     };
 
     container.onmouseleave = () => {
       this._isMouseOverTooltip = false;
-      // Start delayed hide
-      this._startDelayedHide();
+      // NOTE: Timer was already started when mouse left the badge
+      // No need to restart it here
     };
   },
 
   /**
    * Start delayed hide with animation
+   * Timer of 2.5s starts when mouse leaves the badge
+   * Timer is NOT cancelled when mouse hovers over tooltip
+   * Only PIN button can cancel the timer
    */
   _startDelayedHide(): void {
-    // Don't hide if mouse is over tooltip
-    if (this._isMouseOverTooltip) return;
+    // Don't hide if tooltip is pinned
+    if (this._isPinned) return;
 
     // Cancel existing timer
     if (this._hideTimer) {
@@ -1408,6 +1313,7 @@ export const WaterSummaryTooltip = {
     }
 
     // Wait 1.5 seconds before starting to close
+    // NOTE: This timer is NOT cancelled when mouse hovers over tooltip
     this._hideTimer = setTimeout(() => {
       this.hideWithAnimation();
     }, 1500);
@@ -1440,6 +1346,14 @@ export const WaterSummaryTooltip = {
   },
 
   /**
+   * Check if tooltip is currently visible
+   */
+  isVisible(): boolean {
+    const container = document.getElementById(this.containerId);
+    return container?.classList.contains('visible') ?? false;
+  },
+
+  /**
    * Hide tooltip immediately (for cleanup)
    */
   hide(): void {
@@ -1456,6 +1370,7 @@ export const WaterSummaryTooltip = {
     this._isDragging = false;
     this._savedPosition = null;
     this._currentStatus = null;
+    this._isPinned = false;
 
     // Hide device list popup
     this.hideDeviceListPopup();

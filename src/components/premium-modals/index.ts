@@ -30,10 +30,10 @@ export {
   DEFAULT_SHOPPING_CARDS,
 } from './welcome/types';
 
-// RFC-0113: Header Component
-export { createHeaderComponent } from './header/createHeaderComponent';
-export { HeaderView } from './header/HeaderView';
-export { HeaderFilterModal } from './header/HeaderFilterModal';
+// RFC-0113: Header Component (moved to ../header per RFC-0128, re-exported for backward compatibility)
+export { createHeaderComponent } from '../header/createHeaderComponent';
+export { HeaderView } from '../header/HeaderView';
+export { HeaderFilterModal } from '../header/HeaderFilterModal';
 export type {
   HeaderComponentParams,
   HeaderComponentInstance,
@@ -50,12 +50,12 @@ export type {
   FilterPreset,
   CardType,
   HeaderEventType,
-} from './header/types';
+} from '../header/types';
 export {
   HEADER_DEFAULT_CONFIG_TEMPLATE,
   DEFAULT_CARD_COLORS as HEADER_DEFAULT_CARD_COLORS,
   HEADER_DEFAULT_LOGO_URL,
-} from './header/types';
+} from '../header/types';
 
 // RFC-0115: Footer Component
 export { createFooterComponent } from '../footer/createFooterComponent';
