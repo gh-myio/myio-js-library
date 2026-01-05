@@ -93,7 +93,11 @@ const MAX_CREDENTIALS_RETRIES = 10;
 // RFC-0126: Module-level variables for event handlers
 // These must be declared before self.onInit so handlers can be registered immediately
 let _cachedShoppings = [];
+let _cachedClassified = null;
+let _cachedDeviceCounts = null;
 let _menuInstanceRef = null;
+let _welcomeModalRef = null;
+let _headerInstanceRef = null;
 
 // RFC-0126: Register event handlers IMMEDIATELY (before any async code)
 // This ensures handlers are ready before ThingsBoard calls onDataUpdated
@@ -103,10 +107,28 @@ window.addEventListener('myio:data-ready', (e) => {
     _cachedShoppings = e.detail.shoppings;
     console.log('[MAIN_UNIQUE] Shoppings cached (early handler):', _cachedShoppings.length);
   }
+
+  // RFC-0126: Cache classified data for welcome modal and header
+  if (e.detail?.classified) {
+    _cachedClassified = e.detail.classified;
+    console.log('[MAIN_UNIQUE] Classified data cached (early handler)');
+  }
+
+  if (e.detail?.deviceCounts) {
+    _cachedDeviceCounts = e.detail.deviceCounts;
+    console.log('[MAIN_UNIQUE] Device counts cached (early handler):', _cachedDeviceCounts);
+  }
+
   // Try to update menu if it exists
   if (_menuInstanceRef && e.detail?.shoppings) {
     _menuInstanceRef.updateShoppings?.(e.detail.shoppings);
     console.log('[MAIN_UNIQUE] Shoppings sent to menu (early handler)');
+  }
+
+  // RFC-0126: Try to update welcome modal if it exists
+  if (_welcomeModalRef && e.detail?.classified) {
+    // Dispatch event so onInit handler can process it
+    window.dispatchEvent(new CustomEvent('myio:update-welcome-modal', { detail: e.detail }));
   }
 });
 
@@ -2406,22 +2428,32 @@ body.filter-modal-open { overflow: hidden !important; }
     },
   });
 
-  // RFC-0111: Listen for data-ready event and update welcome modal with real counts
-  const dataReadyHandler = (event) => {
+  // RFC-0126: Update module-level reference for early event handlers
+  _welcomeModalRef = welcomeModal;
+
+  // RFC-0126: If classified data was cached before welcome modal was created, update now
+  if (_cachedClassified) {
+    LogHelper.log('[MAIN_UNIQUE] Loading welcome modal from cached classified data');
+    const updatedCards = updateShoppingCardsWithRealCounts(_cachedClassified);
+    updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
+  }
+
+  // RFC-0126: Listen for update event from early handler (handles future updates)
+  const updateWelcomeHandler = (event) => {
     const { classified, shoppingCards: dynamicCards } = event.detail || {};
-    LogHelper.log('Data ready event received, updating welcome modal');
+    LogHelper.log('Update welcome modal event received');
 
     if (classified) {
-      // Calculate counts from loaded data (using deviceType classification)
       const updatedCards = updateShoppingCardsWithRealCounts(classified);
       updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
     } else if (dynamicCards && dynamicCards.length > 0) {
-      // Use dynamically built cards from buildShoppingCards
       updateWelcomeModalShoppingCards(welcomeModal, dynamicCards);
     }
   };
 
-  window.addEventListener('myio:data-ready', dataReadyHandler, { once: true });
+  window.addEventListener('myio:update-welcome-modal', updateWelcomeHandler);
+  // Also listen for data-ready in case early handler didn't cache (fallback)
+  window.addEventListener('myio:data-ready', updateWelcomeHandler);
 
   // RFC-0111: Listen for event to re-open welcome modal (from header back button)
   window.addEventListener('myio:open-welcome-modal', () => {
@@ -2474,6 +2506,57 @@ body.filter-modal-open { overflow: hidden !important; }
         }
       },
     });
+
+    // RFC-0126: Update module-level reference for early event handlers
+    _headerInstanceRef = headerInstance;
+
+    // RFC-0126: If data was cached before header was created, dispatch events now
+    if (_cachedClassified) {
+      LogHelper.log('[MAIN_UNIQUE] Re-dispatching summary events for header from cache');
+
+      // Calculate totals from cached data
+      const energyItems = [
+        ...(_cachedClassified.energy?.equipments || []),
+        ...(_cachedClassified.energy?.stores || []),
+        ...(_cachedClassified.energy?.entrada || []),
+      ];
+      const waterItems = [
+        ...(_cachedClassified.water?.hidrometro_area_comum || []),
+        ...(_cachedClassified.water?.hidrometro || []),
+        ...(_cachedClassified.water?.entrada || []),
+      ];
+      const tempItems = [
+        ...(_cachedClassified.temperature?.termostato || []),
+        ...(_cachedClassified.temperature?.termostato_external || []),
+      ];
+
+      const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.val || d.consumption || 0), 0);
+      const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.pulses || d.value || 0), 0);
+      const tempValues = tempItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
+      const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+
+      // Dispatch events for header
+      window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', {
+        detail: { customerTotal: energyTotal, unfilteredTotal: energyTotal, isFiltered: false },
+      }));
+
+      window.dispatchEvent(new CustomEvent('myio:water-summary-ready', {
+        detail: { filteredTotal: waterTotal, unfilteredTotal: waterTotal, isFiltered: false },
+      }));
+
+      window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', {
+        detail: { globalAvg: tempAvg, isFiltered: false },
+      }));
+
+      const onlineEquipments = (_cachedClassified.energy?.equipments || []).filter((d) => {
+        const status = (d.deviceStatus || d.status || '').toLowerCase();
+        return !['offline', 'no_info', 'not_installed'].includes(status);
+      }).length;
+
+      window.dispatchEvent(new CustomEvent('myio:equipment-count-updated', {
+        detail: { totalEquipments: (_cachedClassified.energy?.equipments || []).length, filteredEquipments: onlineEquipments, allShoppingsSelected: true },
+      }));
+    }
   }
 
   // === 6. RFC-0114: RENDER MENU COMPONENT ===
@@ -2548,8 +2631,28 @@ body.filter-modal-open { overflow: hidden !important; }
   const telemetryGridContainer = document.getElementById('telemetryGridContainer');
 
   if (telemetryGridContainer && MyIOLibrary.createTelemetryGridComponent) {
-    const initialDevices =
+    // RFC-0126: Get devices from orchestrator OR from cached classified data
+    let initialDevices =
       window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
+
+    // RFC-0126: Fallback to cached classified data if orchestrator not ready
+    if (initialDevices.length === 0 && _cachedClassified) {
+      LogHelper.log('[MAIN_UNIQUE] Using cached classified data for TelemetryGrid');
+      if (currentTelemetryDomain === DOMAIN_ENERGY && currentTelemetryContext === 'equipments') {
+        initialDevices = _cachedClassified.energy?.equipments || [];
+      } else if (currentTelemetryDomain === DOMAIN_ENERGY && currentTelemetryContext === 'stores') {
+        initialDevices = _cachedClassified.energy?.stores || [];
+      } else if (currentTelemetryDomain === DOMAIN_WATER && currentTelemetryContext === 'hidrometro_area_comum') {
+        initialDevices = _cachedClassified.water?.hidrometro_area_comum || [];
+      } else if (currentTelemetryDomain === DOMAIN_WATER && currentTelemetryContext === 'hidrometro') {
+        initialDevices = _cachedClassified.water?.hidrometro || [];
+      } else if (currentTelemetryDomain === DOMAIN_TEMPERATURE && currentTelemetryContext === 'termostato') {
+        initialDevices = _cachedClassified.temperature?.termostato || [];
+      } else if (currentTelemetryDomain === DOMAIN_TEMPERATURE && currentTelemetryContext === 'termostato_external') {
+        initialDevices = _cachedClassified.temperature?.termostato_external || [];
+      }
+      LogHelper.log('[MAIN_UNIQUE] TelemetryGrid devices from cache:', initialDevices.length);
+    }
 
     telemetryGridInstance = MyIOLibrary.createTelemetryGridComponent({
       container: telemetryGridContainer,

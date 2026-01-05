@@ -46,6 +46,10 @@ export class MenuView {
   // Unified Navigation Modal (RFC-0121 ModalHeader controller pattern)
   private unifiedModalHeaderController: ModalHeaderController | null = null;
 
+  // RFC-0126: State for unified modal when controller fails (same as filter modal)
+  private unifiedModalMaximized = false;
+  private unifiedModalTheme: 'dark' | 'light' = 'dark';
+
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
     this.configTemplate = { ...DEFAULT_CONFIG_TEMPLATE, ...params.configTemplate };
@@ -2237,6 +2241,9 @@ export class MenuView {
       // Update active states in the modal
       this.updateUnifiedModalActiveStates();
 
+      // RFC-0126: Bind fallback buttons (same pattern as filter modal)
+      this.bindUnifiedModalButtonsFallback();
+
       if (this.configTemplate.enableDebugMode) {
         console.log('[MenuView] Unified modal opened');
       }
@@ -2293,6 +2300,72 @@ export class MenuView {
     this.unifiedModalHeaderController.reset();
     this.applyUnifiedModalTheme(this.unifiedModalHeaderController.getTheme());
     this.applyUnifiedModalMaximize(this.unifiedModalHeaderController.isMaximized());
+  }
+
+  /**
+   * RFC-0126: Fallback button bindings for unified modal
+   * Direct event listeners - works independently of ModalHeader.createController
+   * This is needed because document.getElementById() in createController may not find elements in shadow DOM
+   */
+  private bindUnifiedModalButtonsFallback(): void {
+    const closeBtn = this.root.querySelector('#menuUnified-close');
+    const maxBtn = this.root.querySelector('#menuUnified-maximize');
+    const themeBtn = this.root.querySelector('#menuUnified-theme-toggle');
+    const modalContent = this.root.querySelector('.myio-unified-modal-content') as HTMLElement | null;
+
+    // Close button
+    if (closeBtn && !closeBtn.hasAttribute('data-bound')) {
+      closeBtn.setAttribute('data-bound', 'true');
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeUnifiedModal();
+      });
+    }
+
+    // Maximize button - RFC-0126: Direct implementation without depending on controller
+    if (maxBtn && !maxBtn.hasAttribute('data-bound')) {
+      maxBtn.setAttribute('data-bound', 'true');
+      maxBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Try controller first
+        if (this.unifiedModalHeaderController?.toggleMaximize) {
+          this.unifiedModalHeaderController.toggleMaximize();
+        } else {
+          // Fallback: toggle maximize state directly
+          this.unifiedModalMaximized = !this.unifiedModalMaximized;
+          this.applyUnifiedModalMaximize(this.unifiedModalMaximized);
+          // Update button icon
+          (maxBtn as HTMLElement).textContent = this.unifiedModalMaximized ? '🗗' : '🗖';
+          (maxBtn as HTMLElement).title = this.unifiedModalMaximized ? 'Restaurar' : 'Maximizar';
+        }
+      });
+    }
+
+    // Theme button - RFC-0126: Direct implementation without depending on controller
+    if (themeBtn && !themeBtn.hasAttribute('data-bound')) {
+      themeBtn.setAttribute('data-bound', 'true');
+      themeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Try controller first
+        if (this.unifiedModalHeaderController?.toggleTheme) {
+          this.unifiedModalHeaderController.toggleTheme();
+        } else {
+          // Fallback: toggle theme state directly
+          this.unifiedModalTheme = this.unifiedModalTheme === 'dark' ? 'light' : 'dark';
+          this.applyUnifiedModalTheme(this.unifiedModalTheme);
+          // Update button icon
+          (themeBtn as HTMLElement).textContent = this.unifiedModalTheme === 'dark' ? '☀️' : '🌙';
+        }
+      });
+    }
+
+    if (this.configTemplate.enableDebugMode) {
+      console.log('[MenuView] Unified modal buttons bound (fallback):', {
+        closeBtn: !!closeBtn,
+        maxBtn: !!maxBtn,
+        themeBtn: !!themeBtn,
+      });
+    }
   }
 
   /**
