@@ -30,6 +30,10 @@ import {
 declare global {
   interface Window {
     MyIOLibrary?: {
+      InfoTooltip?: {
+        show: (trigger: HTMLElement, options: { icon: string; title: string; content: string }) => void;
+        startDelayedHide: () => void;
+      };
       EnergySummaryTooltip?: {
         show: (trigger: HTMLElement, data: unknown) => void;
         hide: () => void;
@@ -286,6 +290,73 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     };
   }
 
+  function buildEquipmentTooltipContent(data: unknown): string {
+    const d = (data ?? {}) as Record<string, unknown>;
+    const totalEquipments = Number(d.totalEquipments ?? d.totalDevices ?? 0);
+    const filteredEquipments = Number(d.filteredEquipments ?? totalEquipments);
+    const allShoppingsSelected =
+      typeof d.allShoppingsSelected === 'boolean' ? (d.allShoppingsSelected as boolean) : true;
+
+    const summaryValue = allShoppingsSelected
+      ? `${totalEquipments}`
+      : `${filteredEquipments} / ${totalEquipments}`;
+
+    const byCategory = (d.byCategory ?? d.categories) as unknown;
+    const categories = Array.isArray(byCategory) ? byCategory : [];
+
+    const categoriesHtml = categories
+      .map((c: any) => {
+        const name = String(c?.name ?? c?.label ?? 'Categoria');
+        const deviceCount = Number(c?.deviceCount ?? c?.count ?? 0);
+        const icon = String(c?.icon ?? '');
+        return `
+          <div class="myio-info-tooltip__row" style="padding: 6px 0; gap: 8px;">
+            <span class="myio-info-tooltip__label">${icon ? `${icon} ` : ''}${name}</span>
+            <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${deviceCount}</span>
+          </div>
+        `;
+      })
+      .join('');
+
+    return `
+      <div class="myio-info-tooltip__section">
+        <div class="myio-info-tooltip__section-title">
+          <span>📦</span> Resumo
+        </div>
+        <div class="myio-info-tooltip__row">
+          <span class="myio-info-tooltip__label">Total de Equipamentos:</span>
+          <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${summaryValue}</span>
+        </div>
+      </div>
+      ${
+        categoriesHtml
+          ? `
+        <div class="myio-info-tooltip__section">
+          <div class="myio-info-tooltip__section-title">
+            <span>📊</span> Por Categoria
+          </div>
+          ${categoriesHtml}
+        </div>
+      `
+          : ''
+      }
+    `;
+  }
+
+  function showEquipmentTooltip(triggerElement: HTMLElement, data: unknown): void {
+    const lib = window.MyIOLibrary;
+    const InfoTooltip = lib?.InfoTooltip;
+    if (!InfoTooltip) {
+      log('InfoTooltip not available');
+      return;
+    }
+    InfoTooltip.show(triggerElement, {
+      icon: '🏗️',
+      title: 'Detalhes de Equipamentos',
+      content: buildEquipmentTooltipContent(data),
+    });
+  }
+
   function showTooltipForCard(cardType: CardType, triggerElement: HTMLElement): void {
     const data = tooltipData[cardType];
     if (!data) {
@@ -301,11 +372,11 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
 
     switch (cardType) {
       case 'equipment':
-        // EquipmentSummaryTooltip may not exist yet
+        // Some deployments don't ship an EquipmentSummaryTooltip; fallback to InfoTooltip.
         if (lib.EquipmentSummaryTooltip) {
           lib.EquipmentSummaryTooltip.show(triggerElement, data);
         } else {
-          log('EquipmentSummaryTooltip not available');
+          showEquipmentTooltip(triggerElement, data);
         }
         break;
       case 'energy':

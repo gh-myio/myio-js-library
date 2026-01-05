@@ -38,6 +38,8 @@ export interface TempSensorSummaryData {
   customerName?: string;
   /** Last updated timestamp */
   lastUpdated?: string;
+  /** Max devices to display in list (default: 100) */
+  maxDevices?: number;
 }
 
 // ============================================
@@ -483,9 +485,10 @@ function generateContentHTML(data: TempSensorSummaryData): string {
   // Build device list HTML
   let deviceListHtml = '';
   if (deviceList.length > 0) {
+    const maxDevices = data.maxDevices ?? 100;
     const sortedDevices = [...deviceList].sort((a, b) => b.temp - a.temp);
-    const displayDevices = sortedDevices.slice(0, 8);
-    const hasMore = sortedDevices.length > 8;
+    const displayDevices = sortedDevices.slice(0, maxDevices);
+    const hasMore = sortedDevices.length > maxDevices;
 
     deviceListHtml = `
       <div class="myio-temp-sensor-tooltip__section">
@@ -504,7 +507,7 @@ function generateContentHTML(data: TempSensorSummaryData): string {
               </div>
             `;
           }).join('')}
-          ${hasMore ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${sortedDevices.length - 8} sensores</div>` : ''}
+          ${hasMore ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${sortedDevices.length - maxDevices} sensores</div>` : ''}
         </div>
       </div>
     `;
