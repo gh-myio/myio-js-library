@@ -2561,14 +2561,16 @@ export class MenuView {
 
   /**
    * RFC-0126: Fallback button bindings for filter modal
-   * Direct event listeners as backup if ModalHeader.createController fails
+   * Direct event listeners - works independently of ModalHeader.createController
+   * This is needed because document.getElementById() in createController may not find elements in shadow DOM
    */
   private bindFilterModalButtonsFallback(): void {
     const closeBtn = this.root.querySelector('#menuFilter-close');
     const maxBtn = this.root.querySelector('#menuFilter-maximize');
     const themeBtn = this.root.querySelector('#menuFilter-theme-toggle');
+    const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;
 
-    // Remove existing listeners to avoid duplicates (using cloneNode trick)
+    // Close button
     if (closeBtn && !closeBtn.hasAttribute('data-bound')) {
       closeBtn.setAttribute('data-bound', 'true');
       closeBtn.addEventListener('click', (e) => {
@@ -2577,22 +2579,47 @@ export class MenuView {
       });
     }
 
+    // Maximize button - RFC-0126: Direct implementation without depending on controller
     if (maxBtn && !maxBtn.hasAttribute('data-bound')) {
       maxBtn.setAttribute('data-bound', 'true');
       maxBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.filterModalHeaderController?.toggleMaximize?.();
+        // Try controller first
+        if (this.filterModalHeaderController?.toggleMaximize) {
+          this.filterModalHeaderController.toggleMaximize();
+        } else {
+          // Fallback: toggle maximize state directly
+          this.filterModalMaximized = !this.filterModalMaximized;
+          this.applyFilterModalMaximize(this.filterModalMaximized);
+          // Update button icon
+          (maxBtn as HTMLElement).textContent = this.filterModalMaximized ? '🗗' : '🗖';
+          (maxBtn as HTMLElement).title = this.filterModalMaximized ? 'Restaurar' : 'Maximizar';
+        }
       });
     }
 
+    // Theme button - RFC-0126: Direct implementation without depending on controller
     if (themeBtn && !themeBtn.hasAttribute('data-bound')) {
       themeBtn.setAttribute('data-bound', 'true');
       themeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.filterModalHeaderController?.toggleTheme?.();
+        // Try controller first
+        if (this.filterModalHeaderController?.toggleTheme) {
+          this.filterModalHeaderController.toggleTheme();
+        } else {
+          // Fallback: toggle theme state directly
+          this.filterModalTheme = this.filterModalTheme === 'dark' ? 'light' : 'dark';
+          this.applyFilterModalTheme(this.filterModalTheme);
+          // Update button icon
+          (themeBtn as HTMLElement).textContent = this.filterModalTheme === 'dark' ? '☀️' : '🌙';
+        }
       });
     }
   }
+
+  // RFC-0126: State for filter modal when controller fails
+  private filterModalMaximized = false;
+  private filterModalTheme: 'dark' | 'light' = 'dark';
 
   private applyFilterModalTheme(theme: 'dark' | 'light'): void {
     const modalCard = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;

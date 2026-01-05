@@ -90,6 +90,45 @@ let _apiEnrichmentInProgress = false;
 let _credentialsRetryCount = 0;
 const MAX_CREDENTIALS_RETRIES = 10;
 
+// RFC-0126: Module-level variables for event handlers
+// These must be declared before self.onInit so handlers can be registered immediately
+let _cachedShoppings = [];
+let _menuInstanceRef = null;
+
+// RFC-0126: Register event handlers IMMEDIATELY (before any async code)
+// This ensures handlers are ready before ThingsBoard calls onDataUpdated
+window.addEventListener('myio:data-ready', (e) => {
+  // Cache shoppings from the event
+  if (e.detail?.shoppings && e.detail.shoppings.length > 0) {
+    _cachedShoppings = e.detail.shoppings;
+    console.log('[MAIN_UNIQUE] Shoppings cached (early handler):', _cachedShoppings.length);
+  }
+  // Try to update menu if it exists
+  if (_menuInstanceRef && e.detail?.shoppings) {
+    _menuInstanceRef.updateShoppings?.(e.detail.shoppings);
+    console.log('[MAIN_UNIQUE] Shoppings sent to menu (early handler)');
+  }
+});
+
+window.addEventListener('myio:request-shoppings', () => {
+  console.log('[MAIN_UNIQUE] myio:request-shoppings received (early handler), cached:', _cachedShoppings.length);
+  if (_menuInstanceRef && _cachedShoppings.length > 0) {
+    _menuInstanceRef.updateShoppings?.(_cachedShoppings);
+    console.log('[MAIN_UNIQUE] Shoppings sent to menu on request');
+  } else if (_menuInstanceRef) {
+    // Try to build shoppings from current data
+    const allData = self.ctx?.data || [];
+    if (allData.length > 0 && typeof buildShoppingsList === 'function') {
+      const shoppings = buildShoppingsList(allData);
+      if (shoppings.length > 0) {
+        _cachedShoppings = shoppings;
+        _menuInstanceRef.updateShoppings?.(shoppings);
+        console.log('[MAIN_UNIQUE] Shoppings built on demand:', shoppings.length);
+      }
+    }
+  }
+});
+
 self.onInit = async function () {
   'use strict';
 
@@ -2494,6 +2533,15 @@ body.filter-modal-open { overflow: hidden !important; }
         window.dispatchEvent(new CustomEvent('myio:open-goals-panel'));
       },
     });
+
+    // RFC-0126: Update module-level reference for early event handlers
+    _menuInstanceRef = menuInstance;
+
+    // RFC-0126: If shoppings were cached before menu was created, update now
+    if (_cachedShoppings.length > 0) {
+      menuInstance.updateShoppings?.(_cachedShoppings);
+      LogHelper.log('[MAIN_UNIQUE] Shoppings loaded from cache after menu creation:', _cachedShoppings.length);
+    }
   }
 
   // === 6.1 RFC-0121: RENDER TELEMETRY GRID COMPONENT ===
@@ -2697,32 +2745,15 @@ body.filter-modal-open { overflow: hidden !important; }
   // === 8. INITIALIZE ORCHESTRATOR ===
   await initializeOrchestrator();
 
-  // === 9. LISTEN FOR DATA READY EVENT ===
-  // RFC-0126: Cache for shoppings to handle timing issues
-  let cachedShoppings = [];
-
+  // === 9. LISTEN FOR DATA READY EVENT (additional handlers) ===
+  // NOTE: Shoppings are handled by module-level handlers (lines ~100-130)
+  // This handler updates components that use local variables
   window.addEventListener('myio:data-ready', (e) => {
     const { deviceCounts } = e.detail;
 
-    // NOTE: We use DEFAULT_SHOPPING_CARDS with hardcoded dashboardIds
-    // Do NOT update shopping cards from dynamically generated data
-    // The hardcoded cards have the correct navigation dashboardIds
-
-    // Update header KPIs
-    // NOTE: RFC-0113 header updates via events, not direct method calls
-    // The header component listens to 'myio:data-ready' event automatically
+    // Update header KPIs (header listens to event automatically)
     if (headerInstance && deviceCounts) {
       LogHelper.log('[MAIN_UNIQUE] Header will update via event listeners');
-    }
-
-    // Update menu shoppings
-    // RFC-0126: Cache shoppings for myio:request-shoppings handler
-    if (e.detail.shoppings && e.detail.shoppings.length > 0) {
-      cachedShoppings = e.detail.shoppings;
-      LogHelper.log('[MAIN_UNIQUE] Shoppings cached:', cachedShoppings.length);
-    }
-    if (menuInstance && e.detail.shoppings) {
-      menuInstance.updateShoppings?.(e.detail.shoppings);
     }
 
     // Update telemetry grid devices for current domain/context
@@ -2730,26 +2761,6 @@ body.filter-modal-open { overflow: hidden !important; }
       const devices =
         window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
       telemetryGridInstance.updateDevices(devices);
-    }
-  });
-
-  // === 9.1 RFC-0126: LISTEN FOR MENU REQUEST SHOPPINGS ===
-  // The menu component emits this event when it's ready to receive shoppings
-  // This handles timing issues where myio:data-ready fires before menu is ready
-  window.addEventListener('myio:request-shoppings', () => {
-    LogHelper.log('[MAIN_UNIQUE] myio:request-shoppings received, cachedShoppings:', cachedShoppings.length);
-    if (menuInstance && cachedShoppings.length > 0) {
-      menuInstance.updateShoppings?.(cachedShoppings);
-      LogHelper.log('[MAIN_UNIQUE] Shoppings sent to menu:', cachedShoppings.length);
-    } else if (menuInstance) {
-      // Try to build shoppings from current data
-      const allData = self.ctx?.data || [];
-      const shoppings = buildShoppingsList(allData);
-      if (shoppings.length > 0) {
-        cachedShoppings = shoppings;
-        menuInstance.updateShoppings?.(shoppings);
-        LogHelper.log('[MAIN_UNIQUE] Shoppings built on demand:', shoppings.length);
-      }
     }
   });
 
@@ -3149,8 +3160,14 @@ function buildTooltipStatusData(devices) {
 
   if (!Array.isArray(devices)) return byStatus;
 
+  // RFC-0126 FIX: Define online statuses (from calculateDeviceStatusMasterRules)
+  const ONLINE_STATUSES = ['power_on', 'online', 'normal', 'ok', 'running', 'active'];
+  const OFFLINE_STATUSES = ['offline', 'no_info'];
+  const WAITING_STATUSES = ['waiting', 'aguardando', 'not_installed', 'pending', 'connecting'];
+  const WEAK_STATUSES = ['weak_connection', 'conexao_fraca', 'bad'];
+
   devices.forEach((d) => {
-    const rawStatus = (d.deviceStatus || d.status || '').toLowerCase();
+    const rawStatus = (d.deviceStatus || d.status || d.connectionStatus || '').toLowerCase();
     const value = Number(d.value || d.val || d.consumption || d.pulses || 0);
     const deviceInfo = {
       id: d.id || d.entityId || '',
@@ -3159,32 +3176,63 @@ function buildTooltipStatusData(devices) {
       customerName: d.customerName || d.ownerName || '',
     };
 
-    // Map raw status to tooltip status categories
-    if (rawStatus === 'waiting' || rawStatus === 'aguardando') {
+    // RFC-0126 FIX: Map deviceStatus from calculateDeviceStatusMasterRules to tooltip categories
+    // Priority order matters!
+
+    // 1. WAITING/NOT_INSTALLED (device pending installation)
+    if (WAITING_STATUSES.includes(rawStatus)) {
       byStatus.waiting++;
       byStatus.waitingDevices.push(deviceInfo);
-    } else if (rawStatus === 'weak_connection' || rawStatus === 'conexao_fraca') {
+    }
+    // 2. WEAK CONNECTION
+    else if (WEAK_STATUSES.includes(rawStatus)) {
       byStatus.weakConnection++;
       byStatus.weakConnectionDevices.push(deviceInfo);
-    } else if (rawStatus === 'offline' || rawStatus === 'no_info' || rawStatus === 'not_installed') {
+    }
+    // 3. OFFLINE (device truly offline)
+    else if (OFFLINE_STATUSES.includes(rawStatus)) {
       byStatus.offline++;
       byStatus.offlineDevices.push(deviceInfo);
-    } else if (rawStatus === 'alert' || rawStatus === 'alerta') {
+    }
+    // 4. ALERT status
+    else if (rawStatus === 'alert' || rawStatus === 'alerta') {
       byStatus.alert++;
       byStatus.alertDevices.push(deviceInfo);
-    } else if (rawStatus === 'failure' || rawStatus === 'falha') {
+    }
+    // 5. FAILURE status
+    else if (rawStatus === 'failure' || rawStatus === 'falha') {
       byStatus.failure++;
       byStatus.failureDevices.push(deviceInfo);
-    } else if (rawStatus === 'standby') {
+    }
+    // 6. STANDBY status
+    else if (rawStatus === 'standby') {
       byStatus.standby++;
       byStatus.standbyDevices.push(deviceInfo);
-    } else if (value === 0 || rawStatus === 'no_consumption' || rawStatus === 'sem_consumo') {
+    }
+    // 7. ONLINE with ZERO consumption = noConsumption
+    else if (ONLINE_STATUSES.includes(rawStatus) && value === 0) {
       byStatus.noConsumption++;
       byStatus.noConsumptionDevices.push(deviceInfo);
-    } else {
-      // Default: normal/online
+    }
+    // 8. ONLINE with consumption = normal
+    else if (ONLINE_STATUSES.includes(rawStatus) && value > 0) {
       byStatus.normal++;
       byStatus.normalDevices.push(deviceInfo);
+    }
+    // 9. Explicit noConsumption status
+    else if (rawStatus === 'no_consumption' || rawStatus === 'sem_consumo') {
+      byStatus.noConsumption++;
+      byStatus.noConsumptionDevices.push(deviceInfo);
+    }
+    // 10. Default: check value to decide
+    else {
+      if (value === 0) {
+        byStatus.noConsumption++;
+        byStatus.noConsumptionDevices.push(deviceInfo);
+      } else {
+        byStatus.normal++;
+        byStatus.normalDevices.push(deviceInfo);
+      }
     }
   });
 
