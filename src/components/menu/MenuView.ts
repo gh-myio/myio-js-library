@@ -1620,7 +1620,7 @@ export class MenuView {
     // Define header background colors per domain
     const headerColors: Record<string, string> = {
       energy: 'linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%)', // Orange tone
-      water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',   // Blue tone
+      water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', // Blue tone
       temperature: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', // Reddish tone
     };
 
@@ -3233,7 +3233,7 @@ export class MenuView {
         };
       case 'temperature':
         return {
-          devices: temperatureItems.slice(0, 10).map((d: any) => ({
+          devices: temperatureItems.map((d: any) => ({
             name: d.label || d.name || 'Sensor',
             temp: Number(d.temperature || 0),
             status: Number(d.temperature || 0) > 26 || Number(d.temperature || 0) < 18 ? 'warn' : 'ok',

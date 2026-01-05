@@ -180,12 +180,14 @@ export class WelcomeModalView {
 
     const heroDescEl = this.container.querySelector('.myio-welcome-hero-description') as HTMLElement;
     if (heroDescEl) {
-      heroDescEl.style.color = themeConfig.heroDescriptionColor || themeConfig.mutedTextColor || this.palette.muted;
+      heroDescEl.style.color =
+        themeConfig.heroDescriptionColor || themeConfig.mutedTextColor || this.palette.muted;
     }
 
     const shortcutsTitleEl = this.container.querySelector('.myio-welcome-shortcuts-title') as HTMLElement;
     if (shortcutsTitleEl) {
-      shortcutsTitleEl.style.color = themeConfig.shortcutsTitleColor || themeConfig.mutedTextColor || this.palette.muted;
+      shortcutsTitleEl.style.color =
+        themeConfig.shortcutsTitleColor || themeConfig.mutedTextColor || this.palette.muted;
     }
 
     const userNameEl = this.container.querySelector('.myio-welcome-user-name') as HTMLElement;
@@ -211,7 +213,9 @@ export class WelcomeModalView {
     });
 
     // Update card subtitles
-    const cardSubtitles = this.container.querySelectorAll('.myio-welcome-card-subtitle') as NodeListOf<HTMLElement>;
+    const cardSubtitles = this.container.querySelectorAll(
+      '.myio-welcome-card-subtitle'
+    ) as NodeListOf<HTMLElement>;
     cardSubtitles.forEach((el) => {
       el.style.color = themeConfig.mutedTextColor || this.palette.muted;
     });
@@ -1616,8 +1620,14 @@ export class WelcomeModalView {
             <h2 class="myio-welcome-shortcuts-title"${
               shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
             }>${shortcutsTitle}</h2>
-            <div class="myio-welcome-cards-grid${this.cardVersion === 'v2' ? ' myio-welcome-cards-grid--v2' : ''}" id="welcomeCardsGrid">
-              ${this.cardVersion === 'v1' ? shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('') : '<!-- V2 cards rendered via JS -->'}
+            <div class="myio-welcome-cards-grid${
+              this.cardVersion === 'v2' ? ' myio-welcome-cards-grid--v2' : ''
+            }" id="welcomeCardsGrid">
+              ${
+                this.cardVersion === 'v1'
+                  ? shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('')
+                  : '<!-- V2 cards rendered via JS -->'
+              }
             </div>
           </div>
         `
@@ -2110,7 +2120,7 @@ export class WelcomeModalView {
         customerName: card.title,
       },
       temperature: {
-        devices: temperatureItems.slice(0, 10).map((d: any) => ({
+        devices: temperatureItems.map((d: any) => ({
           name: d.label || d.name || 'Sensor',
           temp: Number(d.temperature || 0),
           status:

@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getDefaultPeriodCurrentMonthSoFar, getDefaultPeriodCurrentDaySoFar } from '../src/index.ts';
+import {
+  getDefaultPeriodCurrentMonthSoFar,
+  getDefaultPeriodCurrentDaySoFar,
+  getFirstDayOfMonth,
+  getFirstDayOfMonthFor,
+  getLastDayOfMonth,
+} from '../src/index.ts';
 
 describe('dateUtils', () => {
   // Store original Date
@@ -235,6 +241,123 @@ describe('dateUtils', () => {
 
       expect(monthResult.granularity).toBe('day');
       expect(dayResult.granularity).toBe('hour');
+    });
+  });
+
+  describe('getFirstDayOfMonth', () => {
+    it('should return first day of current month', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 0, 15, 14, 30, 0, 0)); // Jan 15, 2026
+
+      const result = getFirstDayOfMonth();
+
+      expect(result.getFullYear()).toBe(2026);
+      expect(result.getMonth()).toBe(0); // January
+      expect(result.getDate()).toBe(1);
+      expect(result.getHours()).toBe(0);
+      expect(result.getMinutes()).toBe(0);
+      expect(result.getSeconds()).toBe(0);
+      expect(result.getMilliseconds()).toBe(0);
+    });
+
+    it('should work for different months', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 5, 20)); // June 20, 2026
+
+      const result = getFirstDayOfMonth();
+
+      expect(result.getMonth()).toBe(5); // June
+      expect(result.getDate()).toBe(1);
+    });
+
+    it('should return Date object', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 0, 15));
+
+      const result = getFirstDayOfMonth();
+      expect(result).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('getFirstDayOfMonthFor', () => {
+    it('should accept Date object and return first day of that month', () => {
+      const inputDate = new Date(2026, 5, 15); // June 15, 2026
+      const result = getFirstDayOfMonthFor(inputDate);
+
+      expect(result.getFullYear()).toBe(2026);
+      expect(result.getMonth()).toBe(5); // June
+      expect(result.getDate()).toBe(1);
+      expect(result.getHours()).toBe(0);
+    });
+
+    it('should accept year and month numbers', () => {
+      const result = getFirstDayOfMonthFor(2026, 11); // December 2026
+
+      expect(result.getFullYear()).toBe(2026);
+      expect(result.getMonth()).toBe(11); // December
+      expect(result.getDate()).toBe(1);
+    });
+
+    it('should handle February correctly', () => {
+      const result = getFirstDayOfMonthFor(2024, 1); // February 2024 (leap year)
+
+      expect(result.getMonth()).toBe(1); // February
+      expect(result.getDate()).toBe(1);
+    });
+  });
+
+  describe('getLastDayOfMonth', () => {
+    it('should return last day of current month for January (31 days)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 0, 15)); // January
+
+      const result = getLastDayOfMonth();
+
+      expect(result.getFullYear()).toBe(2026);
+      expect(result.getMonth()).toBe(0); // January
+      expect(result.getDate()).toBe(31);
+      expect(result.getHours()).toBe(23);
+      expect(result.getMinutes()).toBe(59);
+      expect(result.getSeconds()).toBe(59);
+      expect(result.getMilliseconds()).toBe(999);
+    });
+
+    it('should return last day of February in leap year (29 days)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2024, 1, 15)); // February 2024 (leap year)
+
+      const result = getLastDayOfMonth();
+
+      expect(result.getMonth()).toBe(1); // February
+      expect(result.getDate()).toBe(29);
+    });
+
+    it('should return last day of February in non-leap year (28 days)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2025, 1, 15)); // February 2025 (not leap year)
+
+      const result = getLastDayOfMonth();
+
+      expect(result.getMonth()).toBe(1); // February
+      expect(result.getDate()).toBe(28);
+    });
+
+    it('should return last day of April (30 days)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 3, 15)); // April
+
+      const result = getLastDayOfMonth();
+
+      expect(result.getMonth()).toBe(3); // April
+      expect(result.getDate()).toBe(30);
+    });
+
+    it('should return Date object', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 0, 15));
+
+      const result = getLastDayOfMonth();
+      expect(result).toBeInstanceOf(Date);
     });
   });
 });

@@ -63,3 +63,50 @@ export function getDefaultPeriodCurrentDaySoFar() {
     granularity: 'hour',
   };
 }
+
+/**
+ * Get the first day of the current month at 00:00:00.000 local time
+ *
+ * @returns {Date} First day of current month
+ *
+ * @example
+ * const firstDay = getFirstDayOfMonth();
+ * // If today is 2026-01-15, returns Date for 2026-01-01 00:00:00.000
+ */
+export function getFirstDayOfMonth() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+}
+
+/**
+ * Get the first day of a specific month at 00:00:00.000 local time
+ *
+ * @param {Date|number} dateOrYear - Date object or year number
+ * @param {number} [month] - Month (0-11) if first param is year
+ * @returns {Date} First day of specified month
+ *
+ * @example
+ * getFirstDayOfMonthFor(new Date(2026, 5, 15)); // June 1st, 2026
+ * getFirstDayOfMonthFor(2026, 5); // June 1st, 2026
+ */
+export function getFirstDayOfMonthFor(dateOrYear, month) {
+  if (dateOrYear instanceof Date) {
+    return new Date(dateOrYear.getFullYear(), dateOrYear.getMonth(), 1, 0, 0, 0, 0);
+  }
+  return new Date(dateOrYear, month, 1, 0, 0, 0, 0);
+}
+
+/**
+ * Get the last day of the current month at 23:59:59.999 local time
+ *
+ * @returns {Date} Last day of current month
+ *
+ * @example
+ * const lastDay = getLastDayOfMonth();
+ * // If today is 2026-01-15, returns Date for 2026-01-31 23:59:59.999
+ */
+export function getLastDayOfMonth() {
+  const now = new Date();
+  // Day 0 of next month = last day of current month
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+}

@@ -13,11 +13,6 @@ let DEBUG_ACTIVE = false;
 // @see src/utils/logHelper.js - createLogHelper
 let LogHelper = null;
 
-// Global throttle counter for onDataUpdated (max 4 calls)
-let _onDataUpdatedCallCount = 0;
-
-const MAX_DATA_UPDATED_CALLS = 5;
-
 // RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
 // deviceCounts use null = loading (spinner), number = loaded (show value)
 const DEFAULT_SHOPPING_CARDS = [
@@ -99,58 +94,13 @@ let _menuInstanceRef = null;
 let _welcomeModalRef = null;
 let _headerInstanceRef = null;
 
-// RFC-0126: Register event handlers IMMEDIATELY (before any async code)
-// This ensures handlers are ready before ThingsBoard calls onDataUpdated
-window.addEventListener('myio:data-ready', (e) => {
-  // Cache shoppings from the event
-  if (e.detail?.shoppings && e.detail.shoppings.length > 0) {
-    _cachedShoppings = e.detail.shoppings;
-    console.log('[MAIN_UNIQUE] Shoppings cached (early handler):', _cachedShoppings.length);
-  }
-
-  // RFC-0126: Cache classified data for welcome modal and header
-  if (e.detail?.classified) {
-    _cachedClassified = e.detail.classified;
-    console.log('[MAIN_UNIQUE] Classified data cached (early handler)');
-  }
-
-  if (e.detail?.deviceCounts) {
-    _cachedDeviceCounts = e.detail.deviceCounts;
-    console.log('[MAIN_UNIQUE] Device counts cached (early handler):', _cachedDeviceCounts);
-  }
-
-  // Try to update menu if it exists
-  if (_menuInstanceRef && e.detail?.shoppings) {
-    _menuInstanceRef.updateShoppings?.(e.detail.shoppings);
-    console.log('[MAIN_UNIQUE] Shoppings sent to menu (early handler)');
-  }
-
-  // RFC-0126: Try to update welcome modal if it exists
-  if (_welcomeModalRef && e.detail?.classified) {
-    // Dispatch event so onInit handler can process it
-    window.dispatchEvent(new CustomEvent('myio:update-welcome-modal', { detail: e.detail }));
-  }
-});
-
+// RFC-0127: Event handler for menu requesting shoppings
+// Responds with cached data when menu component requests it
 window.addEventListener('myio:request-shoppings', () => {
-  console.log(
-    '[MAIN_UNIQUE] myio:request-shoppings received (early handler), cached:',
-    _cachedShoppings.length
-  );
+  console.log('[MAIN_UNIQUE] myio:request-shoppings received, cached:', _cachedShoppings.length);
   if (_menuInstanceRef && _cachedShoppings.length > 0) {
     _menuInstanceRef.updateShoppings?.(_cachedShoppings);
     console.log('[MAIN_UNIQUE] Shoppings sent to menu on request');
-  } else if (_menuInstanceRef) {
-    // Try to build shoppings from current data
-    const allData = self.ctx?.data || [];
-    if (allData.length > 0 && typeof buildShoppingsList === 'function') {
-      const shoppings = buildShoppingsList(allData);
-      if (shoppings.length > 0) {
-        _cachedShoppings = shoppings;
-        _menuInstanceRef.updateShoppings?.(shoppings);
-        console.log('[MAIN_UNIQUE] Shoppings built on demand:', shoppings.length);
-      }
-    }
   }
 });
 
@@ -165,6 +115,7 @@ self.onInit = async function () {
   _cachedDeviceCounts = null;
   _menuInstanceRef = null;
   _headerInstanceRef = null;
+  _welcomeModalRef = null;
 
   // === 1. LIBRARY REFERENCE (must be first) ===
   const MyIOLibrary = window.MyIOLibrary;
@@ -2689,7 +2640,7 @@ body.filter-modal-open { overflow: hidden !important; }
       },
       initialTab: DOMAIN_ENERGY,
       initialDateRange: {
-        start: getFirstDayOfMonth(),
+        start: window.MyIOLibrary.getFirstDayOfMonth(),
         end: new Date(),
       },
       onTabChange: (tabId, contextId, target) => {
@@ -3260,10 +3211,41 @@ body.filter-modal-open { overflow: hidden !important; }
     // This will be called from onDataUpdated
   }
 
-  function getFirstDayOfMonth() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
+  // === 11. RFC-0127: PROCESS DATA AFTER INITIALIZATION ===
+  // Wait for ThingsBoard to populate ctx.data, then process and dispatch events
+  // Using setTimeout to ensure data is available after all async initialization
+  const processDataWithRetry = (attempts = 0) => {
+    const maxAttempts = 10;
+    const delay = 500; // 500ms between attempts
+
+    const allData = self.ctx?.data || [];
+    if (allData.length === 0 && attempts < maxAttempts) {
+      LogHelper.log(`[MAIN_UNIQUE] Waiting for data... attempt ${attempts + 1}/${maxAttempts}`);
+      setTimeout(() => processDataWithRetry(attempts + 1), delay);
+      return;
+    }
+
+    if (allData.length === 0) {
+      LogHelper.warn('[MAIN_UNIQUE] No data available after max attempts');
+      return;
+    }
+
+    // Process data and dispatch events
+    const success = processDataAndDispatchEvents();
+    if (success) {
+      LogHelper.log('[MAIN_UNIQUE] Data processed successfully on init');
+
+      // Update menu with shoppings
+      if (_menuInstanceRef && _cachedShoppings.length > 0) {
+        _menuInstanceRef.updateShoppings?.(_cachedShoppings);
+      }
+    }
+  };
+
+  // Start data processing after a short delay
+  setTimeout(() => processDataWithRetry(), 100);
+
+  LogHelper.log('[MAIN_UNIQUE] onInit complete');
 };
 
 // ===================================================================
@@ -3272,20 +3254,16 @@ body.filter-modal-open { overflow: hidden !important; }
 // RFC-0111: Added throttle to max 4 calls
 // ===================================================================
 self.onDataUpdated = function () {
-  // Guard: LogHelper not ready yet (onInit not complete)
-  if (!LogHelper) return;
+  // RFC-0127: onDataUpdated intentionally left empty
+  // All data processing is done in onInit via processDataAndDispatchEvents()
+  // This prevents timing issues with early event handlers caching stale data
+};
 
-  // Throttle: only allow MAX_DATA_UPDATED_CALLS calls
-  _onDataUpdatedCallCount++;
-  if (_onDataUpdatedCallCount > MAX_DATA_UPDATED_CALLS) {
-    if (_onDataUpdatedCallCount === MAX_DATA_UPDATED_CALLS + 1) {
-      LogHelper.log('[MAIN_UNIQUE] onDataUpdated throttled - max calls reached:', MAX_DATA_UPDATED_CALLS);
-    }
-    return;
-  }
-
-  LogHelper.log('[MAIN_UNIQUE] onDataUpdated call #' + _onDataUpdatedCallCount);
-
+// ===================================================================
+// RFC-0127: Process data and dispatch events
+// Called from onInit after data is available
+// ===================================================================
+function processDataAndDispatchEvents() {
   const allData = self.ctx.data || [];
 
   // RFC-0111: Filter to only use "AllDevices" datasource, ignore "customers" and others
@@ -3294,31 +3272,15 @@ self.onDataUpdated = function () {
     return aliasName === 'AllDevices';
   });
 
-  LogHelper.log(`[MAIN_UNIQUE] Total rows: ${allData.length}, AllDevices rows: ${data.length}`);
+  LogHelper.log(
+    `[MAIN_UNIQUE] processDataAndDispatchEvents - Total rows: ${allData.length}, AllDevices rows: ${data.length}`
+  );
 
   // Skip if no data from AllDevices
   if (data.length === 0) {
     LogHelper.log('[MAIN_UNIQUE] No data from AllDevices datasource - check alias configuration');
-    return;
+    return false;
   }
-
-  // Create a hash of the data to detect changes
-  // Only process if data actually changed
-  const dataHash = data
-    .map((row) => {
-      const ds = row.datasource || {};
-      const firstValue = row.data?.[0]?.data?.[0]?.[1] || '';
-      return `${ds.entityId || ''}:${firstValue}`;
-    })
-    .join('|')
-    .substring(0, 500); // Limit hash size
-
-  if (self._lastDataHash === dataHash) {
-    // Data hasn't changed, skip processing
-    return;
-  }
-
-  self._lastDataHash = dataHash;
 
   // Classify all devices from AllDevices datasource
   const classified = classifyAllDevices(data);
@@ -3329,32 +3291,34 @@ self.onDataUpdated = function () {
   // Calculate device counts
   const deviceCounts = calculateDeviceCounts(classified);
 
+  // Update module-level cache
+  _cachedClassified = classified;
+  _cachedDeviceCounts = deviceCounts;
+  _cachedShoppings = buildShoppingsList(allData);
+
   // Dispatch data ready event
-  // RFC-0126: Pass allData (not filtered) to buildShoppingsList so it can extract
-  // customers from aliasName='customers' datasource
   window.dispatchEvent(
     new CustomEvent('myio:data-ready', {
       detail: {
         classified,
         shoppingCards,
         deviceCounts,
-        shoppings: buildShoppingsList(allData),
+        shoppings: _cachedShoppings,
         timestamp: Date.now(),
       },
     })
   );
 
   // RFC-0113: Dispatch initial summary events for header component
-  // Get items from MyIOOrchestratorData (set by classifyAllDevices)
   const orch = window.MyIOOrchestratorData || {};
   const energyItems = orch.energy?.items || [];
   const waterItems = orch.water?.items || [];
   const temperatureItems = orch.temperature?.items || [];
 
-  LogHelper.log('Initial MyIOOrchestratorData.energy.items count:', energyItems.length);
-  LogHelper.log('Initial MyIOOrchestratorData.water.items count:', waterItems.length);
+  LogHelper.log('MyIOOrchestratorData.energy.items count:', energyItems.length);
+  LogHelper.log('MyIOOrchestratorData.water.items count:', waterItems.length);
 
-  // Calculate initial totals
+  // Calculate totals
   const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
   const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
   const tempValues = temperatureItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
@@ -3375,11 +3339,11 @@ self.onDataUpdated = function () {
   const waterByStatus = buildTooltipStatusData(allWaterDevices);
   const tempByStatus = buildTooltipStatusData(allTempDevices);
 
-  // Get temperature limits from MyIOUtils (populated from customer attributes)
+  // Get temperature limits from MyIOUtils
   const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
   const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
 
-  // Energy summary event - RFC-0126: Include byStatus, byCategory, shoppingsEnergy for tooltips
+  // Energy summary event
   window.dispatchEvent(
     new CustomEvent('myio:energy-summary-ready', {
       detail: {
@@ -3388,7 +3352,6 @@ self.onDataUpdated = function () {
         isFiltered: false,
         equipmentsTotal: classified.energy.equipments.reduce((sum, d) => sum + Number(d.value || 0), 0),
         lojasTotal: classified.energy.stores.reduce((sum, d) => sum + Number(d.value || 0), 0),
-        // RFC-0126: Tooltip data
         totalDevices: allEnergyDevices.length,
         totalConsumption: energyTotal,
         byStatus: energyByStatus,
@@ -3399,14 +3362,13 @@ self.onDataUpdated = function () {
     })
   );
 
-  // Water summary event - RFC-0126: Include byStatus, byCategory, shoppingsWater for tooltips
+  // Water summary event
   window.dispatchEvent(
     new CustomEvent('myio:water-summary-ready', {
       detail: {
         filteredTotal: waterTotal,
         unfilteredTotal: waterTotal,
         isFiltered: false,
-        // RFC-0126: Tooltip data
         totalDevices: allWaterDevices.length,
         totalConsumption: waterTotal,
         byStatus: waterByStatus,
@@ -3417,7 +3379,7 @@ self.onDataUpdated = function () {
     })
   );
 
-  // RFC-0126: Build temperature devices with proper status (ok/warn/unknown)
+  // Temperature devices with proper status
   const tempDevicesForTooltip = allTempDevices.map((d) => {
     const temp = Number(d.temperature || 0);
     let status = 'unknown';
@@ -3431,7 +3393,7 @@ self.onDataUpdated = function () {
     };
   });
 
-  // Temperature summary event - RFC-0126: Include devices with proper format for tooltip
+  // Temperature summary event
   window.dispatchEvent(
     new CustomEvent('myio:temperature-data-ready', {
       detail: {
@@ -3439,7 +3401,6 @@ self.onDataUpdated = function () {
         isFiltered: false,
         shoppingsInRange: [],
         shoppingsOutOfRange: [],
-        // RFC-0126: Tooltip data
         totalDevices: allTempDevices.length,
         devices: tempDevicesForTooltip,
         temperatureMin: minTemp,
@@ -3450,28 +3411,27 @@ self.onDataUpdated = function () {
     })
   );
 
-  // FIX: Calculate online equipment count (same logic as TELEMETRY header)
+  // Equipment count
   const onlineEquipments = classified.energy.equipments.filter((device) => {
     const status = (device.deviceStatus || '').toLowerCase();
     return !['offline', 'no_info', 'not_installed'].includes(status);
   }).length;
 
-  // Equipment count event - RFC-0126: Include byStatus and byCategory for tooltip
   window.dispatchEvent(
     new CustomEvent('myio:equipment-count-updated', {
       detail: {
         totalEquipments: classified.energy.equipments.length,
         filteredEquipments: onlineEquipments,
         allShoppingsSelected: true,
-        // RFC-0126: Tooltip data
         byStatus: energyByStatus,
         byCategory: buildEnergyCategoryData(classified),
       },
     })
   );
 
-  LogHelper.log('Initial summary events dispatched');
-};
+  LogHelper.log('Summary events dispatched');
+  return true;
+}
 
 // ===================================================================
 // RFC-0126: Tooltip Status Data Aggregation
@@ -3748,10 +3708,31 @@ function buildEnergyCategoryDataByShopping(classified) {
       consumption: s.equipConsumption,
       percentage: total > 0 ? (s.equipConsumption / total) * 100 : 0,
       children: [
-        { id: 'elevadores', name: 'Elevadores', icon: 'ÐY>-', deviceCount: elevatorsCount, consumption: 0, percentage: 0 },
-        { id: 'escadas', name: 'Escadas Rolantes', icon: 'ÐYZ½', deviceCount: escalatorsCount, consumption: 0, percentage: 0 },
+        {
+          id: 'elevadores',
+          name: 'Elevadores',
+          icon: 'ÐY>-',
+          deviceCount: elevatorsCount,
+          consumption: 0,
+          percentage: 0,
+        },
+        {
+          id: 'escadas',
+          name: 'Escadas Rolantes',
+          icon: 'ÐYZ½',
+          deviceCount: escalatorsCount,
+          consumption: 0,
+          percentage: 0,
+        },
         { id: 'hvac', name: 'HVAC', icon: 'ƒ?"‹÷?', deviceCount: hvacCount, consumption: 0, percentage: 0 },
-        { id: 'outros', name: 'Outros', icon: 'ƒsT‹÷?', deviceCount: Math.max(0, othersCount), consumption: 0, percentage: 0 },
+        {
+          id: 'outros',
+          name: 'Outros',
+          icon: 'ƒsT‹÷?',
+          deviceCount: Math.max(0, othersCount),
+          consumption: 0,
+          percentage: 0,
+        },
       ].filter((c) => c.deviceCount > 0),
     };
 
@@ -4376,14 +4357,25 @@ function buildShoppingsList(data) {
     const customerWithLimits = fromAlias.find((c) => c.minTemperature != null || c.maxTemperature != null);
     if (customerWithLimits) {
       if (!window.MyIOUtils) window.MyIOUtils = {};
-      if (!window.MyIOUtils.temperatureLimits) window.MyIOUtils.temperatureLimits = { minTemperature: null, maxTemperature: null };
-      if (customerWithLimits.minTemperature != null && window.MyIOUtils.temperatureLimits.minTemperature !== customerWithLimits.minTemperature) {
+      if (!window.MyIOUtils.temperatureLimits)
+        window.MyIOUtils.temperatureLimits = { minTemperature: null, maxTemperature: null };
+      if (
+        customerWithLimits.minTemperature != null &&
+        window.MyIOUtils.temperatureLimits.minTemperature !== customerWithLimits.minTemperature
+      ) {
         window.MyIOUtils.temperatureLimits.minTemperature = customerWithLimits.minTemperature;
-        LogHelper.log(`[buildShoppingsList] Exposed global minTemperature: ${customerWithLimits.minTemperature}`);
+        LogHelper.log(
+          `[buildShoppingsList] Exposed global minTemperature: ${customerWithLimits.minTemperature}`
+        );
       }
-      if (customerWithLimits.maxTemperature != null && window.MyIOUtils.temperatureLimits.maxTemperature !== customerWithLimits.maxTemperature) {
+      if (
+        customerWithLimits.maxTemperature != null &&
+        window.MyIOUtils.temperatureLimits.maxTemperature !== customerWithLimits.maxTemperature
+      ) {
         window.MyIOUtils.temperatureLimits.maxTemperature = customerWithLimits.maxTemperature;
-        LogHelper.log(`[buildShoppingsList] Exposed global maxTemperature: ${customerWithLimits.maxTemperature}`);
+        LogHelper.log(
+          `[buildShoppingsList] Exposed global maxTemperature: ${customerWithLimits.maxTemperature}`
+        );
       }
     }
     return fromAlias;
