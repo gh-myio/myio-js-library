@@ -2342,6 +2342,7 @@ body.filter-modal-open { overflow: hidden !important; }
     showUserMenu: true, // Explicitly enable user menu
     configTemplate: welcomeConfig,
     shoppingCards: DEFAULT_SHOPPING_CARDS, // Initial with zeros, updated async below
+    cardVersion: 'v1', // Use original card style (not Metro UI v2)
     userInfo: userInfo, // Pass user info for display
     ctaLabel: welcomeConfig.defaultPrimaryLabel || 'ACESSAR PAINEL',
     ctaDisabled: false,

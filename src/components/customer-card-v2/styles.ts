@@ -44,14 +44,14 @@ export function injectCustomerCardV2Styles(): void {
 
 /* Header - Title */
 .myio-customer-card-v2__header {
-  padding: 16px 20px;
+  padding: 10px 16px;
   background: #5B2EBC;
   text-align: center;
 }
 
 .myio-customer-card-v2__title {
   margin: 0;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: #F9F9F9;
   text-transform: uppercase;
@@ -75,11 +75,12 @@ export function injectCustomerCardV2Styles(): void {
 /* Individual Tile */
 .myio-customer-card-v2__tile {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 12px 8px;
-  min-height: 60px;
+  gap: 4px;
+  padding: 4px 6px;
+  min-height: 22px;
   cursor: pointer;
   transition: background-color 0.15s ease, transform 0.1s ease;
   position: relative;
@@ -139,37 +140,21 @@ export function injectCustomerCardV2Styles(): void {
 
 /* Tile Content */
 .myio-customer-card-v2__tile-icon {
-  font-size: 20px;
-  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .myio-customer-card-v2__tile-value {
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 700;
   color: #FFFFFF;
   line-height: 1;
 }
 
-.myio-customer-card-v2__tile-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 2px;
-}
-
-.myio-customer-card-v2__tile-secondary {
-  font-size: 11px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 2px;
-}
-
 /* Loading Spinner */
 .myio-customer-card-v2__spinner {
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #FFFFFF;
   border-radius: 50%;
@@ -202,28 +187,25 @@ export function injectCustomerCardV2Styles(): void {
    ========================================== */
 @media (max-width: 768px) {
   .myio-customer-card-v2__header {
-    padding: 12px 16px;
+    padding: 8px 12px;
   }
 
   .myio-customer-card-v2__title {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .myio-customer-card-v2__tile {
-    padding: 10px 6px;
-    min-height: 50px;
+    padding: 3px 4px;
+    min-height: 18px;
+    gap: 3px;
   }
 
   .myio-customer-card-v2__tile-icon {
-    font-size: 16px;
+    font-size: 10px;
   }
 
   .myio-customer-card-v2__tile-value {
-    font-size: 14px;
-  }
-
-  .myio-customer-card-v2__tile-label {
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 
@@ -232,33 +214,30 @@ export function injectCustomerCardV2Styles(): void {
    ========================================== */
 @media (max-width: 480px) {
   .myio-customer-card-v2__header {
-    padding: 10px 12px;
+    padding: 6px 10px;
   }
 
   .myio-customer-card-v2__title {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .myio-customer-card-v2__tile {
-    padding: 8px 4px;
-    min-height: 45px;
+    padding: 2px 3px;
+    min-height: 16px;
+    gap: 2px;
   }
 
   .myio-customer-card-v2__tile-icon {
-    font-size: 14px;
-    margin-bottom: 2px;
+    font-size: 9px;
   }
 
   .myio-customer-card-v2__tile-value {
-    font-size: 12px;
-  }
-
-  .myio-customer-card-v2__tile-label {
-    font-size: 8px;
-  }
-
-  .myio-customer-card-v2__tile-secondary {
     font-size: 9px;
+  }
+
+  .myio-customer-card-v2__spinner {
+    width: 10px;
+    height: 10px;
   }
 }
 `;

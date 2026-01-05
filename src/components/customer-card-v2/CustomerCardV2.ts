@@ -75,66 +75,14 @@ export class CustomerCardV2 implements CustomerCardV2Instance {
         ? '<span class="myio-customer-card-v2__spinner"></span>'
         : String(count);
 
-    // Helper: format consumption values
-    const formatEnergy = (value: number | null | undefined): string => {
-      if (value === null || value === undefined) return '';
-      return value >= 1000 ? `${(value / 1000).toFixed(1)} MWh` : `${value.toFixed(0)} kWh`;
-    };
-
-    const formatWater = (value: number | null | undefined): string => {
-      if (value === null || value === undefined) return '';
-      return `${value.toFixed(0)} m3`;
-    };
-
-    const formatTemp = (value: number | null | undefined): string => {
-      if (value === null || value === undefined) return '';
-      return `${value.toFixed(1)} C`;
-    };
-
     // Build tiles in order: energy, water, temperature, users, alarms, notifications
     const tiles = [
-      {
-        type: 'energy',
-        icon: '⚡',
-        value: renderValue(counts.energy),
-        label: 'Energia',
-        secondary: formatEnergy(counts.energyConsumption),
-      },
-      {
-        type: 'water',
-        icon: '💧',
-        value: renderValue(counts.water),
-        label: 'Agua',
-        secondary: formatWater(counts.waterConsumption),
-      },
-      {
-        type: 'temperature',
-        icon: '🌡️',
-        value: renderValue(counts.temperature),
-        label: 'Temp',
-        secondary: formatTemp(counts.temperatureAvg),
-      },
-      {
-        type: 'users',
-        icon: '👥',
-        value: String(meta.users || 0),
-        label: 'Usuarios',
-        secondary: '',
-      },
-      {
-        type: 'alarms',
-        icon: '🚨',
-        value: String(meta.alarms || 0),
-        label: 'Alarmes',
-        secondary: '',
-      },
-      {
-        type: 'notifications',
-        icon: '🔔',
-        value: String(meta.notifications || 0),
-        label: 'Avisos',
-        secondary: '',
-      },
+      { type: 'energy', icon: '⚡', value: renderValue(counts.energy) },
+      { type: 'water', icon: '💧', value: renderValue(counts.water) },
+      { type: 'temperature', icon: '🌡️', value: renderValue(counts.temperature) },
+      { type: 'users', icon: '👥', value: String(meta.users || 0) },
+      { type: 'alarms', icon: '🚨', value: String(meta.alarms || 0) },
+      { type: 'notifications', icon: '🔔', value: String(meta.notifications || 0) },
     ];
 
     return tiles
@@ -142,12 +90,9 @@ export class CustomerCardV2 implements CustomerCardV2Instance {
         (tile) => `
       <div class="myio-customer-card-v2__tile myio-customer-card-v2__tile--${tile.type}"
            data-tile-type="${tile.type}"
-           data-card-index="${this.index}"
-           title="${tile.label}">
+           data-card-index="${this.index}">
         <span class="myio-customer-card-v2__tile-icon">${tile.icon}</span>
         <span class="myio-customer-card-v2__tile-value">${tile.value}</span>
-        <span class="myio-customer-card-v2__tile-label">${tile.label}</span>
-        ${tile.secondary ? `<span class="myio-customer-card-v2__tile-secondary">${tile.secondary}</span>` : ''}
       </div>
     `
       )
