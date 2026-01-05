@@ -3062,6 +3062,100 @@ export class MenuView {
   }
 
   /**
+   * RFC-0126: Build byStatus object from devices array
+   * Same logic as buildTooltipStatusData in MAIN_UNIQUE_DATASOURCE controller
+   */
+  private buildByStatusFromDevices(devices: any[]): any {
+    const byStatus: any = {
+      waiting: 0,
+      waitingDevices: [],
+      weakConnection: 0,
+      weakConnectionDevices: [],
+      offline: 0,
+      offlineDevices: [],
+      normal: 0,
+      normalDevices: [],
+      alert: 0,
+      alertDevices: [],
+      failure: 0,
+      failureDevices: [],
+      standby: 0,
+      standbyDevices: [],
+      noConsumption: 0,
+      noConsumptionDevices: [],
+    };
+
+    if (!Array.isArray(devices)) return byStatus;
+
+    // RFC-0126: Define status categories (same as MAIN_UNIQUE_DATASOURCE)
+    const ONLINE_STATUSES = ['power_on', 'online', 'normal', 'ok', 'running', 'active'];
+    const OFFLINE_STATUSES = ['offline', 'no_info'];
+    const WAITING_STATUSES = ['waiting', 'aguardando', 'not_installed', 'pending', 'connecting'];
+    const WEAK_STATUSES = ['weak_connection', 'conexao_fraca', 'bad'];
+
+    for (const device of devices) {
+      const rawStatus = (device.deviceStatus || device.status || '').toLowerCase().trim();
+      const consumption = Number(device.value || device.consumption || device.val || 0);
+      const deviceInfo = {
+        id: device.entityId || device.id || '',
+        name: device.labelOrName || device.name || device.label || '',
+        label: device.labelOrName || device.name || device.label || '',
+        consumption,
+        status: rawStatus,
+        customerName: device.ownerName || device.customerName || '',
+      };
+
+      // Categorize by status
+      if (WAITING_STATUSES.includes(rawStatus)) {
+        byStatus.waiting++;
+        byStatus.waitingDevices.push(deviceInfo);
+      } else if (WEAK_STATUSES.includes(rawStatus)) {
+        byStatus.weakConnection++;
+        byStatus.weakConnectionDevices.push(deviceInfo);
+      } else if (OFFLINE_STATUSES.includes(rawStatus)) {
+        byStatus.offline++;
+        byStatus.offlineDevices.push(deviceInfo);
+      } else if (rawStatus === 'alert' || rawStatus === 'alerta') {
+        byStatus.alert++;
+        byStatus.alertDevices.push(deviceInfo);
+      } else if (rawStatus === 'failure' || rawStatus === 'falha') {
+        byStatus.failure++;
+        byStatus.failureDevices.push(deviceInfo);
+      } else if (rawStatus === 'standby') {
+        byStatus.standby++;
+        byStatus.standbyDevices.push(deviceInfo);
+      } else if (rawStatus === 'no_consumption' || rawStatus === 'sem_consumo') {
+        byStatus.noConsumption++;
+        byStatus.noConsumptionDevices.push(deviceInfo);
+      } else if (ONLINE_STATUSES.includes(rawStatus)) {
+        // Online device - check consumption
+        if (consumption === 0) {
+          byStatus.noConsumption++;
+          byStatus.noConsumptionDevices.push(deviceInfo);
+        } else {
+          byStatus.normal++;
+          byStatus.normalDevices.push(deviceInfo);
+        }
+      } else if (!rawStatus || rawStatus === 'unknown') {
+        // Unknown status - check by consumption
+        if (consumption === 0) {
+          byStatus.noConsumption++;
+          byStatus.noConsumptionDevices.push(deviceInfo);
+        } else {
+          byStatus.normal++;
+          byStatus.normalDevices.push(deviceInfo);
+        }
+      } else {
+        // Default to normal for other statuses
+        byStatus.normal++;
+        byStatus.normalDevices.push(deviceInfo);
+      }
+    }
+
+    return byStatus;
+  }
+
+  /**
    * Build tooltip data for a shopping
    */
   private buildFilterTooltipData(type: string, shoppingName: string): any {
@@ -3090,6 +3184,8 @@ export class MenuView {
 
     switch (type) {
       case 'energy':
+        // RFC-0126 FIX: Build real status from device data instead of hardcoding
+        const energyByStatus = this.buildByStatusFromDevices(energyItems);
         return {
           totalDevices: energyItems.length,
           totalConsumption: energyItems.reduce(
@@ -3107,11 +3203,13 @@ export class MenuView {
               percentage: 0,
             },
           ],
-          byStatus: { normal: energyItems.length, offline: 0, alert: 0 },
+          byStatus: energyByStatus,
           lastUpdated: now,
           customerName: shoppingName,
         };
       case 'water':
+        // RFC-0126 FIX: Build real status from device data instead of hardcoding
+        const waterByStatus = this.buildByStatusFromDevices(waterItems);
         return {
           totalDevices: waterItems.length,
           totalConsumption: waterItems.reduce(
@@ -3129,7 +3227,7 @@ export class MenuView {
               percentage: 0,
             },
           ],
-          byStatus: { normal: waterItems.length, offline: 0, alert: 0 },
+          byStatus: waterByStatus,
           lastUpdated: now,
           customerName: shoppingName,
         };

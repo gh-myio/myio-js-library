@@ -2535,17 +2535,64 @@ body.filter-modal-open { overflow: hidden !important; }
       const tempValues = tempItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
       const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
-      // Dispatch events for header
+      // RFC-0126 FIX: Build tooltip status data for each domain (same as main onDataUpdated)
+      const allEnergyDevices = [...(_cachedClassified.energy?.equipments || []), ...(_cachedClassified.energy?.stores || [])];
+      const allWaterDevices = [...(_cachedClassified.water?.hidrometro_area_comum || []), ...(_cachedClassified.water?.hidrometro || [])];
+      const allTempDevices = [...(_cachedClassified.temperature?.termostato || []), ...(_cachedClassified.temperature?.termostato_external || [])];
+
+      const energyByStatus = buildTooltipStatusData(allEnergyDevices);
+      const waterByStatus = buildTooltipStatusData(allWaterDevices);
+      const tempByStatus = buildTooltipStatusData(allTempDevices);
+
+      // Dispatch events for header with full tooltip data
       window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', {
-        detail: { customerTotal: energyTotal, unfilteredTotal: energyTotal, isFiltered: false },
+        detail: {
+          customerTotal: energyTotal,
+          unfilteredTotal: energyTotal,
+          isFiltered: false,
+          equipmentsTotal: (_cachedClassified.energy?.equipments || []).reduce((sum, d) => sum + Number(d.value || 0), 0),
+          lojasTotal: (_cachedClassified.energy?.stores || []).reduce((sum, d) => sum + Number(d.value || 0), 0),
+          // RFC-0126: Tooltip data
+          totalDevices: allEnergyDevices.length,
+          totalConsumption: energyTotal,
+          byStatus: energyByStatus,
+          byCategory: buildEnergyCategoryData(_cachedClassified),
+          lastUpdated: new Date().toISOString(),
+        },
       }));
 
       window.dispatchEvent(new CustomEvent('myio:water-summary-ready', {
-        detail: { filteredTotal: waterTotal, unfilteredTotal: waterTotal, isFiltered: false },
+        detail: {
+          filteredTotal: waterTotal,
+          unfilteredTotal: waterTotal,
+          isFiltered: false,
+          // RFC-0126: Tooltip data
+          totalDevices: allWaterDevices.length,
+          totalConsumption: waterTotal,
+          byStatus: waterByStatus,
+          byCategory: buildWaterCategoryData(_cachedClassified),
+          lastUpdated: new Date().toISOString(),
+        },
       }));
 
       window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', {
-        detail: { globalAvg: tempAvg, isFiltered: false },
+        detail: {
+          globalAvg: tempAvg,
+          isFiltered: false,
+          shoppingsInRange: [],
+          shoppingsOutOfRange: [],
+          // RFC-0126: Tooltip data
+          totalDevices: allTempDevices.length,
+          devices: allTempDevices.map((d) => ({
+            id: d.id || d.entityId || '',
+            name: d.labelOrName || d.name || '',
+            temperature: Number(d.temperature || 0),
+            customerName: d.customerName || d.ownerName || '',
+            status: d.deviceStatus || d.status || 'unknown',
+          })),
+          byStatus: tempByStatus,
+          lastUpdated: new Date().toISOString(),
+        },
       }));
 
       const onlineEquipments = (_cachedClassified.energy?.equipments || []).filter((d) => {
@@ -2554,7 +2601,13 @@ body.filter-modal-open { overflow: hidden !important; }
       }).length;
 
       window.dispatchEvent(new CustomEvent('myio:equipment-count-updated', {
-        detail: { totalEquipments: (_cachedClassified.energy?.equipments || []).length, filteredEquipments: onlineEquipments, allShoppingsSelected: true },
+        detail: {
+          totalEquipments: (_cachedClassified.energy?.equipments || []).length,
+          filteredEquipments: onlineEquipments,
+          allShoppingsSelected: true,
+          // RFC-0126: Tooltip data
+          byStatus: energyByStatus,
+        },
       }));
     }
   }
