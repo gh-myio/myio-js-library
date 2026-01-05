@@ -26,7 +26,7 @@ export {
   getSaoPauloISOStringFixed,
 } from './date/timeWindow';
 export { averageByDay, groupByDay, type TimedValue } from './date/averageByDay';
-export { getDefaultPeriodCurrentMonthSoFar } from './utils/dateUtils.js';
+export { getDefaultPeriodCurrentMonthSoFar, getDefaultPeriodCurrentDaySoFar } from './utils/dateUtils.js';
 
 // CSV utilities
 export { exportToCSV } from './csv/singleReport';

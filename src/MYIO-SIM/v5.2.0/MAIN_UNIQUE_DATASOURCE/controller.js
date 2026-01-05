@@ -157,6 +157,15 @@ window.addEventListener('myio:request-shoppings', () => {
 self.onInit = async function () {
   'use strict';
 
+  // === 0. CLEAR MODULE-LEVEL CACHE (must be first) ===
+  // Prevents stale data when widget is reloaded or dashboard refreshed
+  _onDataUpdatedCallCount = 0;
+  _cachedShoppings = [];
+  _cachedClassified = null;
+  _cachedDeviceCounts = null;
+  _menuInstanceRef = null;
+  _headerInstanceRef = null;
+
   // === 1. LIBRARY REFERENCE (must be first) ===
   const MyIOLibrary = window.MyIOLibrary;
   if (!MyIOLibrary) {
