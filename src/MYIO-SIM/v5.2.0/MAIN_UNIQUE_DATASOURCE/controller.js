@@ -16,7 +16,7 @@ let LogHelper = null;
 // Global throttle counter for onDataUpdated (max 4 calls)
 let _onDataUpdatedCallCount = 0;
 
-const MAX_DATA_UPDATED_CALLS = 2;
+const MAX_DATA_UPDATED_CALLS = 5;
 
 // RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
 // deviceCounts use null = loading (spinner), number = loaded (show value)
@@ -133,7 +133,10 @@ window.addEventListener('myio:data-ready', (e) => {
 });
 
 window.addEventListener('myio:request-shoppings', () => {
-  console.log('[MAIN_UNIQUE] myio:request-shoppings received (early handler), cached:', _cachedShoppings.length);
+  console.log(
+    '[MAIN_UNIQUE] myio:request-shoppings received (early handler), cached:',
+    _cachedShoppings.length
+  );
   if (_menuInstanceRef && _cachedShoppings.length > 0) {
     _menuInstanceRef.updateShoppings?.(_cachedShoppings);
     console.log('[MAIN_UNIQUE] Shoppings sent to menu on request');
@@ -2530,85 +2533,129 @@ body.filter-modal-open { overflow: hidden !important; }
         ...(_cachedClassified.temperature?.termostato_external || []),
       ];
 
-      const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.val || d.consumption || 0), 0);
+      const energyTotal = energyItems.reduce(
+        (sum, d) => sum + Number(d.value || d.val || d.consumption || 0),
+        0
+      );
       const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.pulses || d.value || 0), 0);
       const tempValues = tempItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
-      const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+      const tempAvg =
+        tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
       // RFC-0126 FIX: Build tooltip status data for each domain (same as main onDataUpdated)
-      const allEnergyDevices = [...(_cachedClassified.energy?.equipments || []), ...(_cachedClassified.energy?.stores || [])];
-      const allWaterDevices = [...(_cachedClassified.water?.hidrometro_area_comum || []), ...(_cachedClassified.water?.hidrometro || [])];
-      const allTempDevices = [...(_cachedClassified.temperature?.termostato || []), ...(_cachedClassified.temperature?.termostato_external || [])];
+      const allEnergyDevices = [
+        ...(_cachedClassified.energy?.equipments || []),
+        ...(_cachedClassified.energy?.stores || []),
+      ];
+      const allWaterDevices = [
+        ...(_cachedClassified.water?.hidrometro_area_comum || []),
+        ...(_cachedClassified.water?.hidrometro || []),
+      ];
+      const allTempDevices = [
+        ...(_cachedClassified.temperature?.termostato || []),
+        ...(_cachedClassified.temperature?.termostato_external || []),
+      ];
 
       const energyByStatus = buildTooltipStatusData(allEnergyDevices);
       const waterByStatus = buildTooltipStatusData(allWaterDevices);
       const tempByStatus = buildTooltipStatusData(allTempDevices);
 
+      // Get temperature limits from MyIOUtils (populated from customer attributes)
+      const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
+      const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
+
       // Dispatch events for header with full tooltip data
-      window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', {
-        detail: {
-          customerTotal: energyTotal,
-          unfilteredTotal: energyTotal,
-          isFiltered: false,
-          equipmentsTotal: (_cachedClassified.energy?.equipments || []).reduce((sum, d) => sum + Number(d.value || 0), 0),
-          lojasTotal: (_cachedClassified.energy?.stores || []).reduce((sum, d) => sum + Number(d.value || 0), 0),
-          // RFC-0126: Tooltip data
-          totalDevices: allEnergyDevices.length,
-          totalConsumption: energyTotal,
-          byStatus: energyByStatus,
-          byCategory: buildEnergyCategoryData(_cachedClassified),
-          lastUpdated: new Date().toISOString(),
-        },
-      }));
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-summary-ready', {
+          detail: {
+            customerTotal: energyTotal,
+            unfilteredTotal: energyTotal,
+            isFiltered: false,
+            equipmentsTotal: (_cachedClassified.energy?.equipments || []).reduce(
+              (sum, d) => sum + Number(d.value || 0),
+              0
+            ),
+            lojasTotal: (_cachedClassified.energy?.stores || []).reduce(
+              (sum, d) => sum + Number(d.value || 0),
+              0
+            ),
+            // RFC-0126: Tooltip data
+            totalDevices: allEnergyDevices.length,
+            totalConsumption: energyTotal,
+            byStatus: energyByStatus,
+            byCategory: buildEnergyCategoryData(_cachedClassified),
+            shoppingsEnergy: buildShoppingsEnergyBreakdown(_cachedClassified),
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+      );
 
-      window.dispatchEvent(new CustomEvent('myio:water-summary-ready', {
-        detail: {
-          filteredTotal: waterTotal,
-          unfilteredTotal: waterTotal,
-          isFiltered: false,
-          // RFC-0126: Tooltip data
-          totalDevices: allWaterDevices.length,
-          totalConsumption: waterTotal,
-          byStatus: waterByStatus,
-          byCategory: buildWaterCategoryData(_cachedClassified),
-          lastUpdated: new Date().toISOString(),
-        },
-      }));
+      window.dispatchEvent(
+        new CustomEvent('myio:water-summary-ready', {
+          detail: {
+            filteredTotal: waterTotal,
+            unfilteredTotal: waterTotal,
+            isFiltered: false,
+            // RFC-0126: Tooltip data
+            totalDevices: allWaterDevices.length,
+            totalConsumption: waterTotal,
+            byStatus: waterByStatus,
+            byCategory: buildWaterCategoryData(_cachedClassified),
+            shoppingsWater: buildShoppingsWaterBreakdown(_cachedClassified),
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+      );
 
-      window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', {
-        detail: {
-          globalAvg: tempAvg,
-          isFiltered: false,
-          shoppingsInRange: [],
-          shoppingsOutOfRange: [],
-          // RFC-0126: Tooltip data
-          totalDevices: allTempDevices.length,
-          devices: allTempDevices.map((d) => ({
-            id: d.id || d.entityId || '',
-            name: d.labelOrName || d.name || '',
-            temperature: Number(d.temperature || 0),
-            customerName: d.customerName || d.ownerName || '',
-            status: d.deviceStatus || d.status || 'unknown',
-          })),
-          byStatus: tempByStatus,
-          lastUpdated: new Date().toISOString(),
-        },
-      }));
+      // RFC-0126: Build temperature devices with proper status
+      const tempDevicesForTooltip = allTempDevices.map((d) => {
+        const temp = Number(d.temperature || 0);
+        let status = 'unknown';
+        if (temp > 0) {
+          status = temp >= minTemp && temp <= maxTemp ? 'ok' : 'warn';
+        }
+        return {
+          name: d.labelOrName || d.name || d.label || 'Sensor',
+          temp: temp,
+          status: status,
+        };
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('myio:temperature-data-ready', {
+          detail: {
+            globalAvg: tempAvg,
+            isFiltered: false,
+            shoppingsInRange: [],
+            shoppingsOutOfRange: [],
+            // RFC-0126: Tooltip data
+            totalDevices: allTempDevices.length,
+            devices: tempDevicesForTooltip,
+            temperatureMin: minTemp,
+            temperatureMax: maxTemp,
+            byStatus: tempByStatus,
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+      );
 
       const onlineEquipments = (_cachedClassified.energy?.equipments || []).filter((d) => {
         const status = (d.deviceStatus || d.status || '').toLowerCase();
         return !['offline', 'no_info', 'not_installed'].includes(status);
       }).length;
 
-      window.dispatchEvent(new CustomEvent('myio:equipment-count-updated', {
-        detail: {
-          totalEquipments: (_cachedClassified.energy?.equipments || []).length,
-          filteredEquipments: onlineEquipments,
-          allShoppingsSelected: true,
-          // RFC-0126: Tooltip data
-          byStatus: energyByStatus,
-        },
-      }));
+      window.dispatchEvent(
+        new CustomEvent('myio:equipment-count-updated', {
+          detail: {
+            totalEquipments: (_cachedClassified.energy?.equipments || []).length,
+            filteredEquipments: onlineEquipments,
+            allShoppingsSelected: true,
+            // RFC-0126: Tooltip data
+            byStatus: energyByStatus,
+            byCategory: buildEnergyCategoryData(_cachedClassified),
+          },
+        })
+      );
     }
   }
 
@@ -2676,7 +2723,10 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0126: If shoppings were cached before menu was created, update now
     if (_cachedShoppings.length > 0) {
       menuInstance.updateShoppings?.(_cachedShoppings);
-      LogHelper.log('[MAIN_UNIQUE] Shoppings loaded from cache after menu creation:', _cachedShoppings.length);
+      LogHelper.log(
+        '[MAIN_UNIQUE] Shoppings loaded from cache after menu creation:',
+        _cachedShoppings.length
+      );
     }
   }
 
@@ -2695,13 +2745,19 @@ body.filter-modal-open { overflow: hidden !important; }
         initialDevices = _cachedClassified.energy?.equipments || [];
       } else if (currentTelemetryDomain === DOMAIN_ENERGY && currentTelemetryContext === 'stores') {
         initialDevices = _cachedClassified.energy?.stores || [];
-      } else if (currentTelemetryDomain === DOMAIN_WATER && currentTelemetryContext === 'hidrometro_area_comum') {
+      } else if (
+        currentTelemetryDomain === DOMAIN_WATER &&
+        currentTelemetryContext === 'hidrometro_area_comum'
+      ) {
         initialDevices = _cachedClassified.water?.hidrometro_area_comum || [];
       } else if (currentTelemetryDomain === DOMAIN_WATER && currentTelemetryContext === 'hidrometro') {
         initialDevices = _cachedClassified.water?.hidrometro || [];
       } else if (currentTelemetryDomain === DOMAIN_TEMPERATURE && currentTelemetryContext === 'termostato') {
         initialDevices = _cachedClassified.temperature?.termostato || [];
-      } else if (currentTelemetryDomain === DOMAIN_TEMPERATURE && currentTelemetryContext === 'termostato_external') {
+      } else if (
+        currentTelemetryDomain === DOMAIN_TEMPERATURE &&
+        currentTelemetryContext === 'termostato_external'
+      ) {
         initialDevices = _cachedClassified.temperature?.termostato_external || [];
       }
       LogHelper.log('[MAIN_UNIQUE] TelemetryGrid devices from cache:', initialDevices.length);
@@ -2790,30 +2846,46 @@ body.filter-modal-open { overflow: hidden !important; }
       // Filter devices by selected shoppingIds (match by customerId or ingestionId)
       const filterDevices = (devices) => {
         if (shoppingIds.length === 0) return devices; // No filter = all
-        return devices.filter((d) =>
-          shoppingIds.includes(d.customerId) || shoppingIds.includes(d.ingestionId)
+        return devices.filter(
+          (d) => shoppingIds.includes(d.customerId) || shoppingIds.includes(d.ingestionId)
         );
       };
 
       // Calculate filtered totals for each domain
       const allEnergyItems = [...(classified.energy?.equipments || []), ...(classified.energy?.stores || [])];
-      const allWaterItems = [...(classified.water?.hidrometro_area_comum || []), ...(classified.water?.hidrometro || [])];
-      const allTempItems = [...(classified.temperature?.termostato || []), ...(classified.temperature?.termostato_external || [])];
+      const allWaterItems = [
+        ...(classified.water?.hidrometro_area_comum || []),
+        ...(classified.water?.hidrometro || []),
+      ];
+      const allTempItems = [
+        ...(classified.temperature?.termostato || []),
+        ...(classified.temperature?.termostato_external || []),
+      ];
 
       const filteredEnergy = filterDevices(allEnergyItems);
       const filteredWater = filterDevices(allWaterItems);
       const filteredTemp = filterDevices(allTempItems);
 
       // Calculate totals
-      const unfilteredEnergyTotal = allEnergyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
-      const unfilteredWaterTotal = allWaterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+      const unfilteredEnergyTotal = allEnergyItems.reduce(
+        (sum, d) => sum + Number(d.value || d.consumption || 0),
+        0
+      );
+      const unfilteredWaterTotal = allWaterItems.reduce(
+        (sum, d) => sum + Number(d.value || d.pulses || 0),
+        0
+      );
 
-      const filteredEnergyTotal = filteredEnergy.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+      const filteredEnergyTotal = filteredEnergy.reduce(
+        (sum, d) => sum + Number(d.value || d.consumption || 0),
+        0
+      );
       const filteredWaterTotal = filteredWater.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
 
       // Temperature average
       const tempValues = filteredTemp.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
-      const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+      const tempAvg =
+        tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
       // Online equipment count
       const onlineEquipments = filteredEnergy.filter((device) => {
@@ -3204,14 +3276,24 @@ self.onDataUpdated = function () {
 
   // RFC-0126: Build tooltip status data for each domain
   const allEnergyDevices = [...(classified.energy.equipments || []), ...(classified.energy.stores || [])];
-  const allWaterDevices = [...(classified.water.hidrometro_area_comum || []), ...(classified.water.hidrometro || [])];
-  const allTempDevices = [...(classified.temperature.termostato || []), ...(classified.temperature.termostato_external || [])];
+  const allWaterDevices = [
+    ...(classified.water.hidrometro_area_comum || []),
+    ...(classified.water.hidrometro || []),
+  ];
+  const allTempDevices = [
+    ...(classified.temperature.termostato || []),
+    ...(classified.temperature.termostato_external || []),
+  ];
 
   const energyByStatus = buildTooltipStatusData(allEnergyDevices);
   const waterByStatus = buildTooltipStatusData(allWaterDevices);
   const tempByStatus = buildTooltipStatusData(allTempDevices);
 
-  // Energy summary event - RFC-0126: Include byStatus and byCategory for tooltips
+  // Get temperature limits from MyIOUtils (populated from customer attributes)
+  const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
+  const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
+
+  // Energy summary event - RFC-0126: Include byStatus, byCategory, shoppingsEnergy for tooltips
   window.dispatchEvent(
     new CustomEvent('myio:energy-summary-ready', {
       detail: {
@@ -3225,12 +3307,13 @@ self.onDataUpdated = function () {
         totalConsumption: energyTotal,
         byStatus: energyByStatus,
         byCategory: buildEnergyCategoryData(classified),
+        shoppingsEnergy: buildShoppingsEnergyBreakdown(classified),
         lastUpdated: new Date().toISOString(),
       },
     })
   );
 
-  // Water summary event - RFC-0126: Include byStatus and byCategory for tooltips
+  // Water summary event - RFC-0126: Include byStatus, byCategory, shoppingsWater for tooltips
   window.dispatchEvent(
     new CustomEvent('myio:water-summary-ready', {
       detail: {
@@ -3242,12 +3325,27 @@ self.onDataUpdated = function () {
         totalConsumption: waterTotal,
         byStatus: waterByStatus,
         byCategory: buildWaterCategoryData(classified),
+        shoppingsWater: buildShoppingsWaterBreakdown(classified),
         lastUpdated: new Date().toISOString(),
       },
     })
   );
 
-  // Temperature summary event - RFC-0126: Include devices for tooltip
+  // RFC-0126: Build temperature devices with proper status (ok/warn/unknown)
+  const tempDevicesForTooltip = allTempDevices.map((d) => {
+    const temp = Number(d.temperature || 0);
+    let status = 'unknown';
+    if (temp > 0) {
+      status = temp >= minTemp && temp <= maxTemp ? 'ok' : 'warn';
+    }
+    return {
+      name: d.labelOrName || d.name || d.label || 'Sensor',
+      temp: temp,
+      status: status,
+    };
+  });
+
+  // Temperature summary event - RFC-0126: Include devices with proper format for tooltip
   window.dispatchEvent(
     new CustomEvent('myio:temperature-data-ready', {
       detail: {
@@ -3257,13 +3355,9 @@ self.onDataUpdated = function () {
         shoppingsOutOfRange: [],
         // RFC-0126: Tooltip data
         totalDevices: allTempDevices.length,
-        devices: allTempDevices.map((d) => ({
-          id: d.id || d.entityId || '',
-          name: d.labelOrName || d.name || '',
-          temperature: Number(d.temperature || 0),
-          customerName: d.customerName || d.ownerName || '',
-          status: d.deviceStatus || d.status || 'unknown',
-        })),
+        devices: tempDevicesForTooltip,
+        temperatureMin: minTemp,
+        temperatureMax: maxTemp,
         byStatus: tempByStatus,
         lastUpdated: new Date().toISOString(),
       },
@@ -3276,13 +3370,16 @@ self.onDataUpdated = function () {
     return !['offline', 'no_info', 'not_installed'].includes(status);
   }).length;
 
-  // Equipment count event
+  // Equipment count event - RFC-0126: Include byStatus and byCategory for tooltip
   window.dispatchEvent(
     new CustomEvent('myio:equipment-count-updated', {
       detail: {
         totalEquipments: classified.energy.equipments.length,
-        filteredEquipments: onlineEquipments, // FIX: Use online count, not total
+        filteredEquipments: onlineEquipments,
         allShoppingsSelected: true,
+        // RFC-0126: Tooltip data
+        byStatus: energyByStatus,
+        byCategory: buildEnergyCategoryData(classified),
       },
     })
   );
@@ -3397,35 +3494,78 @@ function buildTooltipStatusData(devices) {
 
 /**
  * RFC-0126: Build category data for energy tooltip
+ * FIXED: Use deviceCount (not count), add id and percentage
  */
 function buildEnergyCategoryData(classified) {
   const categories = [];
 
-  // Equipamentos
   const equipDevices = classified?.energy?.equipments || [];
+  const storeDevices = classified?.energy?.stores || [];
+
+  // Calculate total for percentage
+  const equipConsumption = equipDevices.reduce((sum, d) => sum + Number(d.value || 0), 0);
+  const storeConsumption = storeDevices.reduce((sum, d) => sum + Number(d.value || 0), 0);
+  const totalConsumption = equipConsumption + storeConsumption;
+
+  // Equipamentos
   if (equipDevices.length > 0) {
+    const elevatorsCount = equipDevices.filter((d) =>
+      (d.deviceType || '').toLowerCase().includes('elevador')
+    ).length;
+    const escalatorsCount = equipDevices.filter((d) =>
+      (d.deviceType || '').toLowerCase().includes('escada')
+    ).length;
+    const hvacCount = equipDevices.filter(
+      (d) =>
+        (d.deviceType || '').toLowerCase().includes('ar_condicionado') ||
+        (d.deviceType || '').toLowerCase().includes('hvac')
+    ).length;
+    const othersCount = equipDevices.filter(
+      (d) =>
+        !['elevador', 'escada', 'hvac', 'ar_condicionado'].some((t) =>
+          (d.deviceType || '').toLowerCase().includes(t)
+        )
+    ).length;
+
     categories.push({
+      id: 'equipamentos',
       name: 'Equipamentos',
       icon: '⚙️',
-      count: equipDevices.length,
-      consumption: equipDevices.reduce((sum, d) => sum + Number(d.value || 0), 0),
-      subcategories: [
-        { name: 'Elevadores', count: equipDevices.filter((d) => (d.deviceType || '').toLowerCase().includes('elevador')).length },
-        { name: 'Escadas Rolantes', count: equipDevices.filter((d) => (d.deviceType || '').toLowerCase().includes('escada')).length },
-        { name: 'HVAC', count: equipDevices.filter((d) => (d.deviceType || '').toLowerCase().includes('ar_condicionado') || (d.deviceType || '').toLowerCase().includes('hvac')).length },
-        { name: 'Outros', count: equipDevices.filter((d) => !['elevador', 'escada', 'hvac', 'ar_condicionado'].some((t) => (d.deviceType || '').toLowerCase().includes(t))).length },
-      ],
+      deviceCount: equipDevices.length,
+      consumption: equipConsumption,
+      percentage: totalConsumption > 0 ? (equipConsumption / totalConsumption) * 100 : 0,
+      children: [
+        {
+          id: 'elevadores',
+          name: 'Elevadores',
+          icon: '🛗',
+          deviceCount: elevatorsCount,
+          consumption: 0,
+          percentage: 0,
+        },
+        {
+          id: 'escadas',
+          name: 'Escadas Rolantes',
+          icon: '🎢',
+          deviceCount: escalatorsCount,
+          consumption: 0,
+          percentage: 0,
+        },
+        { id: 'hvac', name: 'HVAC', icon: '❄️', deviceCount: hvacCount, consumption: 0, percentage: 0 },
+        { id: 'outros', name: 'Outros', icon: '⚙️', deviceCount: othersCount, consumption: 0, percentage: 0 },
+      ].filter((c) => c.deviceCount > 0),
     });
   }
 
   // Lojas
-  const storeDevices = classified?.energy?.stores || [];
   if (storeDevices.length > 0) {
     categories.push({
+      id: 'lojas',
       name: 'Lojas',
       icon: '🏬',
-      count: storeDevices.length,
-      consumption: storeDevices.reduce((sum, d) => sum + Number(d.value || 0), 0),
+      deviceCount: storeDevices.length,
+      consumption: storeConsumption,
+      percentage: totalConsumption > 0 ? (storeConsumption / totalConsumption) * 100 : 0,
     });
   }
 
@@ -3434,33 +3574,144 @@ function buildEnergyCategoryData(classified) {
 
 /**
  * RFC-0126: Build category data for water tooltip
+ * FIXED: Use deviceCount (not count), add id and percentage
  */
 function buildWaterCategoryData(classified) {
   const categories = [];
 
-  // Area Comum
   const commonAreaDevices = classified?.water?.hidrometro_area_comum || [];
+  const storeDevices = classified?.water?.hidrometro || [];
+  const entradaDevices = classified?.water?.entrada || [];
+
+  // Calculate totals for percentage
+  const commonConsumption = commonAreaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+  const storeConsumption = storeDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+  const entradaConsumption = entradaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+  const totalConsumption = commonConsumption + storeConsumption + entradaConsumption;
+
+  // Entrada
+  if (entradaDevices.length > 0) {
+    categories.push({
+      id: 'entrada',
+      name: 'Entrada',
+      icon: '📥',
+      deviceCount: entradaDevices.length,
+      consumption: entradaConsumption,
+      percentage: totalConsumption > 0 ? (entradaConsumption / totalConsumption) * 100 : 0,
+    });
+  }
+
+  // Area Comum
   if (commonAreaDevices.length > 0) {
     categories.push({
+      id: 'areaComum',
       name: 'Area Comum',
       icon: '🏢',
-      count: commonAreaDevices.length,
-      consumption: commonAreaDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0),
+      deviceCount: commonAreaDevices.length,
+      consumption: commonConsumption,
+      percentage: totalConsumption > 0 ? (commonConsumption / totalConsumption) * 100 : 0,
     });
   }
 
   // Lojas
-  const storeDevices = classified?.water?.hidrometro || [];
   if (storeDevices.length > 0) {
     categories.push({
+      id: 'lojas',
       name: 'Lojas',
       icon: '🏬',
-      count: storeDevices.length,
-      consumption: storeDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0),
+      deviceCount: storeDevices.length,
+      consumption: storeConsumption,
+      percentage: totalConsumption > 0 ? (storeConsumption / totalConsumption) * 100 : 0,
     });
   }
 
   return categories;
+}
+
+/**
+ * RFC-0126: Build shoppings energy breakdown for tooltip
+ * Groups consumption by shopping (ownerName/customerName)
+ */
+function buildShoppingsEnergyBreakdown(classified) {
+  const shoppingMap = new Map();
+
+  const allDevices = [...(classified?.energy?.equipments || []), ...(classified?.energy?.stores || [])];
+
+  for (const device of allDevices) {
+    const ownerName = device.ownerName || device.customerName || 'Unknown';
+    const normalizedName = ownerName.toLowerCase().trim();
+
+    if (!shoppingMap.has(normalizedName)) {
+      shoppingMap.set(normalizedName, {
+        id: normalizedName,
+        name: ownerName,
+        equipamentos: 0,
+        lojas: 0,
+      });
+    }
+
+    const entry = shoppingMap.get(normalizedName);
+    const value = Number(device.value || device.consumption || 0);
+
+    // Check if it's a store device (3F_MEDIDOR)
+    const deviceProfile = (device.deviceProfile || '').toUpperCase();
+    const deviceType = (device.deviceType || '').toUpperCase();
+    const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+
+    if (isStore) {
+      entry.lojas += value;
+    } else {
+      entry.equipamentos += value;
+    }
+  }
+
+  // Sort by total consumption descending
+  return Array.from(shoppingMap.values()).sort(
+    (a, b) => b.equipamentos + b.lojas - (a.equipamentos + a.lojas)
+  );
+}
+
+/**
+ * RFC-0126: Build shoppings water breakdown for tooltip
+ * Groups consumption by shopping (ownerName/customerName)
+ */
+function buildShoppingsWaterBreakdown(classified) {
+  const shoppingMap = new Map();
+
+  const allDevices = [
+    ...(classified?.water?.hidrometro_area_comum || []),
+    ...(classified?.water?.hidrometro || []),
+    ...(classified?.water?.entrada || []),
+  ];
+
+  for (const device of allDevices) {
+    const ownerName = device.ownerName || device.customerName || 'Unknown';
+    const normalizedName = ownerName.toLowerCase().trim();
+
+    if (!shoppingMap.has(normalizedName)) {
+      shoppingMap.set(normalizedName, {
+        id: normalizedName,
+        name: ownerName,
+        areaComum: 0,
+        lojas: 0,
+      });
+    }
+
+    const entry = shoppingMap.get(normalizedName);
+    const value = Number(device.value || device.pulses || 0);
+
+    // Check category based on device classification
+    const isStore = (classified?.water?.hidrometro || []).includes(device);
+
+    if (isStore) {
+      entry.lojas += value;
+    } else {
+      entry.areaComum += value;
+    }
+  }
+
+  // Sort by total consumption descending
+  return Array.from(shoppingMap.values()).sort((a, b) => b.areaComum + b.lojas - (a.areaComum + a.lojas));
 }
 
 // ===================================================================
@@ -3832,6 +4083,21 @@ function buildShoppingsList(data) {
   // This datasource contains customer entities directly with label, id, minTemperature, maxTemperature
   const fromAlias = buildShoppingsListFromAlias(data);
   if (fromAlias.length > 0) {
+    // RFC-0126: Expose temperature limits globally (like old MAIN controller)
+    // Use the first customer with valid temperature limits
+    const customerWithLimits = fromAlias.find((c) => c.minTemperature != null || c.maxTemperature != null);
+    if (customerWithLimits) {
+      if (!window.MyIOUtils) window.MyIOUtils = {};
+      if (!window.MyIOUtils.temperatureLimits) window.MyIOUtils.temperatureLimits = { minTemperature: null, maxTemperature: null };
+      if (customerWithLimits.minTemperature != null && window.MyIOUtils.temperatureLimits.minTemperature !== customerWithLimits.minTemperature) {
+        window.MyIOUtils.temperatureLimits.minTemperature = customerWithLimits.minTemperature;
+        LogHelper.log(`[buildShoppingsList] Exposed global minTemperature: ${customerWithLimits.minTemperature}`);
+      }
+      if (customerWithLimits.maxTemperature != null && window.MyIOUtils.temperatureLimits.maxTemperature !== customerWithLimits.maxTemperature) {
+        window.MyIOUtils.temperatureLimits.maxTemperature = customerWithLimits.maxTemperature;
+        LogHelper.log(`[buildShoppingsList] Exposed global maxTemperature: ${customerWithLimits.maxTemperature}`);
+      }
+    }
     return fromAlias;
   }
 
