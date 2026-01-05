@@ -2698,6 +2698,9 @@ body.filter-modal-open { overflow: hidden !important; }
   await initializeOrchestrator();
 
   // === 9. LISTEN FOR DATA READY EVENT ===
+  // RFC-0126: Cache for shoppings to handle timing issues
+  let cachedShoppings = [];
+
   window.addEventListener('myio:data-ready', (e) => {
     const { deviceCounts } = e.detail;
 
@@ -2713,6 +2716,11 @@ body.filter-modal-open { overflow: hidden !important; }
     }
 
     // Update menu shoppings
+    // RFC-0126: Cache shoppings for myio:request-shoppings handler
+    if (e.detail.shoppings && e.detail.shoppings.length > 0) {
+      cachedShoppings = e.detail.shoppings;
+      LogHelper.log('[MAIN_UNIQUE] Shoppings cached:', cachedShoppings.length);
+    }
     if (menuInstance && e.detail.shoppings) {
       menuInstance.updateShoppings?.(e.detail.shoppings);
     }
@@ -2722,6 +2730,26 @@ body.filter-modal-open { overflow: hidden !important; }
       const devices =
         window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
       telemetryGridInstance.updateDevices(devices);
+    }
+  });
+
+  // === 9.1 RFC-0126: LISTEN FOR MENU REQUEST SHOPPINGS ===
+  // The menu component emits this event when it's ready to receive shoppings
+  // This handles timing issues where myio:data-ready fires before menu is ready
+  window.addEventListener('myio:request-shoppings', () => {
+    LogHelper.log('[MAIN_UNIQUE] myio:request-shoppings received, cachedShoppings:', cachedShoppings.length);
+    if (menuInstance && cachedShoppings.length > 0) {
+      menuInstance.updateShoppings?.(cachedShoppings);
+      LogHelper.log('[MAIN_UNIQUE] Shoppings sent to menu:', cachedShoppings.length);
+    } else if (menuInstance) {
+      // Try to build shoppings from current data
+      const allData = self.ctx?.data || [];
+      const shoppings = buildShoppingsList(allData);
+      if (shoppings.length > 0) {
+        cachedShoppings = shoppings;
+        menuInstance.updateShoppings?.(shoppings);
+        LogHelper.log('[MAIN_UNIQUE] Shoppings built on demand:', shoppings.length);
+      }
     }
   });
 
@@ -2977,13 +3005,15 @@ self.onDataUpdated = function () {
   const deviceCounts = calculateDeviceCounts(classified);
 
   // Dispatch data ready event
+  // RFC-0126: Pass allData (not filtered) to buildShoppingsList so it can extract
+  // customers from aliasName='customers' datasource
   window.dispatchEvent(
     new CustomEvent('myio:data-ready', {
       detail: {
         classified,
         shoppingCards,
         deviceCounts,
-        shoppings: buildShoppingsList(data),
+        shoppings: buildShoppingsList(allData),
         timestamp: Date.now(),
       },
     })
