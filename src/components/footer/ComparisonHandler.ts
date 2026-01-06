@@ -147,6 +147,15 @@ export class ComparisonHandler {
       throw new Error('Ingestion token not available');
     }
 
+    // Get credentials for comparison mode (required by openDashboardPopupEnergy)
+    const credentials = win.MyIOUtils?.getCredentials?.() || {};
+    const clientId = credentials.clientId;
+    const clientSecret = credentials.clientSecret;
+
+    if (!clientId || !clientSecret) {
+      this.log.warn('clientId/clientSecret not found in MyIOUtils.getCredentials()');
+    }
+
     // Prepare data sources
     const dataSources: ComparisonDataSource[] = entities.map(entity => ({
       type: 'device',
@@ -177,6 +186,8 @@ export class ComparisonHandler {
       startDate: start,
       endDate: end,
       granularity: granularity,
+      clientId: clientId,
+      clientSecret: clientSecret,
       chartsBaseUrl: this.chartsBaseUrl,
       dataApiHost: this.dataApiHost,
       theme: this.params.theme ?? 'dark',

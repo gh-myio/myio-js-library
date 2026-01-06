@@ -1141,7 +1141,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-title {
-    font-size: 16px !important;
+    font-size: calc(16px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-counts {
@@ -1151,16 +1151,16 @@ export class WelcomeModalView {
 
   .myio-welcome-card-device-count {
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: calc(12px * var(--wm-font-scale));
     min-width: 52px !important;
   }
 
   .myio-welcome-card-device-count .icon {
-    font-size: 11px !important;
+    font-size: calc(11px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-count .value {
-    font-size: 11px !important;
+    font-size: calc(11px * var(--wm-font-scale)) !important;
   }
 }
 
@@ -1229,7 +1229,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-title {
-    font-size: 14px !important;
+    font-size: calc(14px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-counts {
@@ -1239,16 +1239,16 @@ export class WelcomeModalView {
 
   .myio-welcome-card-device-count {
     padding: 3px 6px;
-    font-size: 11px;
+    font-size: calc(11px * var(--wm-font-scale));
     min-width: 44px !important;
   }
 
   .myio-welcome-card-device-count .icon {
-    font-size: 10px !important;
+    font-size: calc(10px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-count .value {
-    font-size: 10px !important;
+    font-size: calc(10px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-arrow {
@@ -1905,16 +1905,43 @@ export class WelcomeModalView {
       });
     });
 
-    // Font size slider - updates CSS variable used by calc() in card styles
+    // Font size slider - directly scales card text elements
     const fontSizeRange = this.container.querySelector('#fontSizeRange') as HTMLInputElement;
     const fontSizeValue = this.container.querySelector('#fontSizeValue');
     if (fontSizeRange && fontSizeValue) {
+      const applyFontScale = (scale: number) => {
+        // Apply to card titles (use setProperty with 'important' to override CSS !important)
+        const cardTitles = this.container.querySelectorAll('.myio-welcome-card-title') as NodeListOf<HTMLElement>;
+        cardTitles.forEach((el) => {
+          el.style.setProperty('font-size', `${22 * scale}px`, 'important');
+        });
+        // Apply to card subtitles
+        const cardSubtitles = this.container.querySelectorAll('.myio-welcome-card-subtitle') as NodeListOf<HTMLElement>;
+        cardSubtitles.forEach((el) => {
+          el.style.setProperty('font-size', `${13 * scale}px`, 'important');
+        });
+        // Apply to device count badges
+        const deviceCounts = this.container.querySelectorAll('.myio-welcome-card-device-count') as NodeListOf<HTMLElement>;
+        deviceCounts.forEach((el) => {
+          el.style.setProperty('font-size', `${11 * scale}px`, 'important');
+        });
+        // Apply to device count values
+        const countValues = this.container.querySelectorAll('.myio-welcome-card-device-count .value') as NodeListOf<HTMLElement>;
+        countValues.forEach((el) => {
+          el.style.setProperty('font-size', `${10 * scale}px`, 'important');
+        });
+        // Apply to device count icons
+        const countIcons = this.container.querySelectorAll('.myio-welcome-card-device-count .icon') as NodeListOf<HTMLElement>;
+        countIcons.forEach((el) => {
+          el.style.setProperty('font-size', `${10 * scale}px`, 'important');
+        });
+      };
+
       fontSizeRange.addEventListener('input', () => {
         const value = parseInt(fontSizeRange.value, 10);
         fontSizeValue.textContent = `${value}%`;
-        // Apply font scale via CSS variable - calc() in styles handles the rest
         const scale = value / 100;
-        this.container.style.setProperty('--wm-font-scale', `${scale}`);
+        applyFontScale(scale);
       });
     }
 
@@ -2211,12 +2238,15 @@ export class WelcomeModalView {
       });
     }
 
+    // Use RFC-0128 equipment classification for energy categories
+    const energyCategories = win.MyIOLibrary?.buildEquipmentCategoryDataForTooltip?.(energyItems) || [];
+
     return {
       energy: {
         totalDevices: energyItems.length,
         totalConsumption: energyTotal,
         unit: 'kWh',
-        byCategory: [
+        byCategory: energyCategories.length > 0 ? energyCategories : [
           {
             id: 'equipamentos',
             name: 'Equipamentos',
@@ -2224,8 +2254,8 @@ export class WelcomeModalView {
             deviceCount: energyItems.filter(
               (d: any) => d.deviceType !== '3F_MEDIDOR' || d.deviceProfile !== '3F_MEDIDOR'
             ).length,
-            consumption: 0,
-            percentage: 0,
+            consumption: energyTotal * 0.3, // Fallback estimate
+            percentage: 30,
           },
           {
             id: 'lojas',
@@ -2234,44 +2264,52 @@ export class WelcomeModalView {
             deviceCount: energyItems.filter(
               (d: any) => d.deviceType === '3F_MEDIDOR' && d.deviceProfile === '3F_MEDIDOR'
             ).length,
-            consumption: 0,
-            percentage: 0,
+            consumption: energyTotal * 0.7, // Fallback estimate
+            percentage: 70,
           },
         ],
         byStatus: aggregateStatus(energyItems),
         lastUpdated: now,
         customerName: card.title,
       },
-      water: {
-        totalDevices: waterItems.length,
-        totalConsumption: waterTotal,
-        unit: 'm³',
-        byCategory: [
-          {
-            id: 'areaComum',
-            name: 'Área Comum',
-            icon: '🏢',
-            deviceCount: waterItems.filter((d: any) => (d.deviceProfile || '').includes('AREA_COMUM')).length,
-            consumption: 0,
-            percentage: 0,
-          },
-          {
-            id: 'lojas',
-            name: 'Lojas',
-            icon: '🏪',
-            deviceCount: waterItems.filter(
-              (d: any) =>
-                !(d.deviceProfile || '').includes('AREA_COMUM') &&
-                !(d.deviceProfile || '').includes('SHOPPING')
-            ).length,
-            consumption: 0,
-            percentage: 0,
-          },
-        ],
-        byStatus: aggregateStatus(waterItems),
-        lastUpdated: now,
-        customerName: card.title,
-      },
+      water: (() => {
+        // Calculate water consumption by category
+        const areaComumItems = waterItems.filter((d: any) => (d.deviceProfile || '').includes('AREA_COMUM'));
+        const lojaItems = waterItems.filter(
+          (d: any) =>
+            !(d.deviceProfile || '').includes('AREA_COMUM') &&
+            !(d.deviceProfile || '').includes('SHOPPING')
+        );
+        const areaComumConsumption = areaComumItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
+        const lojasConsumption = lojaItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
+
+        return {
+          totalDevices: waterItems.length,
+          totalConsumption: waterTotal,
+          unit: 'm³',
+          byCategory: [
+            {
+              id: 'areaComum',
+              name: 'Área Comum',
+              icon: '🏢',
+              deviceCount: areaComumItems.length,
+              consumption: areaComumConsumption,
+              percentage: waterTotal > 0 ? (areaComumConsumption / waterTotal) * 100 : 0,
+            },
+            {
+              id: 'lojas',
+              name: 'Lojas',
+              icon: '🏪',
+              deviceCount: lojaItems.length,
+              consumption: lojasConsumption,
+              percentage: waterTotal > 0 ? (lojasConsumption / waterTotal) * 100 : 0,
+            },
+          ],
+          byStatus: aggregateStatus(waterItems),
+          lastUpdated: now,
+          customerName: card.title,
+        };
+      })(),
       temperature: {
         devices: temperatureItems.map((d: any) => ({
           name: d.label || d.name || 'Sensor',

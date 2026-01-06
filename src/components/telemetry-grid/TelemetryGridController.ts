@@ -215,10 +215,11 @@ export class TelemetryGridController {
       );
     }
 
-    // Apply shopping filter
+    // Apply shopping filter - match by customerId OR ingestionId (value from Shopping.value is usually ingestionId)
     if (this.state.filters.selectedShoppingIds.length > 0) {
       filtered = filtered.filter((d) =>
-        this.state.filters.selectedShoppingIds.includes(d.customerId)
+        this.state.filters.selectedShoppingIds.includes(d.customerId) ||
+        this.state.filters.selectedShoppingIds.includes(d.ingestionId)
       );
     }
 
