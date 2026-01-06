@@ -390,11 +390,35 @@ Object.assign(window.MyIOUtils, {
       }
 
       const json = await res.json();
-      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: Got ${json?.length || 0} devices`);
-      return json;
+      // RFC-0130: API returns { data: [...], summary: { totalDevices, totalValue } }
+      const devices = Array.isArray(json) ? json : (json?.data || []);
+      const totalValue = json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+
+      // RFC-0130: Aggregate by customer for separate view mode
+      const byCustomer = {};
+      devices.forEach((d) => {
+        const custId = d.customerId;
+        if (custId) {
+          if (!byCustomer[custId]) {
+            byCustomer[custId] = { name: d.customerName || custId, total: 0, deviceCount: 0 };
+          }
+          byCustomer[custId].total += d.total_value || 0;
+          byCustomer[custId].deviceCount++;
+        }
+      });
+
+      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: Got ${devices.length} devices, total: ${totalValue.toFixed(2)} kWh, customers: ${Object.keys(byCustomer).length}`);
+
+      // Return object with devices, total, and byCustomer for chart flexibility
+      return {
+        devices,
+        total: totalValue,
+        byCustomer,
+        summary: json?.summary || { totalDevices: devices.length, totalValue }
+      };
     } catch (error) {
       LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption error:', error);
-      return [];
+      return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
     }
   },
 });
@@ -7135,6 +7159,34 @@ const MyIOOrchestrator = (() => {
           if (!item.tbId && !item.ingestionId && item.id) {
             cache.set(item.id, item);
           }
+        });
+        return cache;
+      }
+      return new Map();
+    },
+
+    // RFC-0130: getEnergyCache - alias for ENERGY widget compatibility
+    getEnergyCache: () => {
+      const energyData = window.MyIOOrchestratorData?.energy;
+      if (energyData && energyData.items && energyData.items.length > 0) {
+        const cache = new Map();
+        energyData.items.forEach((item) => {
+          if (item.ingestionId) cache.set(item.ingestionId, item);
+          if (item.tbId && item.tbId !== item.ingestionId) cache.set(item.tbId, item);
+        });
+        return cache;
+      }
+      return new Map();
+    },
+
+    // RFC-0130: getWaterCache - alias for WATER widget compatibility
+    getWaterCache: () => {
+      const waterData = window.MyIOOrchestratorData?.water;
+      if (waterData && waterData.items && waterData.items.length > 0) {
+        const cache = new Map();
+        waterData.items.forEach((item) => {
+          if (item.ingestionId) cache.set(item.ingestionId, item);
+          if (item.tbId && item.tbId !== item.ingestionId) cache.set(item.tbId, item);
         });
         return cache;
       }

@@ -814,19 +814,21 @@ function setupMaximizeButton() {
 }
 
 /**
- * RFC-0097: Fetches consumption for a period and groups by day
+ * RFC-0097/RFC-0130: Fetches consumption for a period and groups by day
  * Fetches in batches of 3 with delay between batches to avoid rate limiting.
+ * Returns both totals and per-customer breakdown for chart modes (total vs separate)
  * @param {string} customerId - Customer ID
  * @param {number} startTs - Start timestamp (unused, we use dayBoundaries)
  * @param {number} endTs - End timestamp (unused, we use dayBoundaries)
  * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
- * @returns {Promise<number[]>} - Array of daily totals
+ * @returns {Promise<{dailyTotals: number[], byCustomerPerDay: Object[]}>}
  */
 async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
     const BATCH_SIZE = 3;
     const BATCH_DELAY_MS = 500; // 500ms delay between batches
     const dailyTotals = [];
+    const byCustomerPerDay = []; // Array of { customerId: { name, total } } per day
 
     // Process in batches of 3
     for (let i = 0; i < dayBoundaries.length; i += BATCH_SIZE) {
@@ -836,15 +838,21 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
       const batchPromises = batch.map(async (day) => {
         try {
           const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, day.startTs, day.endTs);
-          return result?.total || 0;
+          return {
+            total: result?.total || 0,
+            byCustomer: result?.byCustomer || {}
+          };
         } catch (dayError) {
           LogHelper.warn(`[ENERGY] [RFC-0097] Error fetching day ${day.label}:`, dayError);
-          return 0;
+          return { total: 0, byCustomer: {} };
         }
       });
 
       const batchResults = await Promise.all(batchPromises);
-      dailyTotals.push(...batchResults);
+      batchResults.forEach((r) => {
+        dailyTotals.push(r.total);
+        byCustomerPerDay.push(r.byCustomer);
+      });
 
       // Add delay before next batch (except for last batch)
       if (i + BATCH_SIZE < dayBoundaries.length) {
@@ -856,10 +864,13 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
       `[ENERGY] [RFC-0097] Period consumption for ${customerId.slice(0, 8)}:`,
       dailyTotals.map((v) => v.toFixed(2))
     );
-    return dailyTotals;
+    return { dailyTotals, byCustomerPerDay };
   } catch (error) {
     LogHelper.error('[ENERGY] Error fetching period consumption:', error);
-    return new Array(dayBoundaries.length).fill(0);
+    return {
+      dailyTotals: new Array(dayBoundaries.length).fill(0),
+      byCustomerPerDay: new Array(dayBoundaries.length).fill({})
+    };
   }
 }
 
@@ -951,10 +962,11 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
  *    - Resto → Outros Equipamentos
  */
 function classifyEquipmentDetailed(device) {
-  let deviceType = (device.deviceType || '').toUpperCase();
-  const deviceProfile = (device.deviceProfile || '').toUpperCase();
-  const identifier = (device.deviceIdentifier || device.name || '').toUpperCase();
-  const labelOrName = (device.labelOrName || device.label || device.name || '').toUpperCase();
+  // RFC-0130: Ensure all values are strings before calling toUpperCase()
+  let deviceType = String(device.deviceType || '').toUpperCase();
+  const deviceProfile = String(device.deviceProfile || '').toUpperCase();
+  const identifier = String(device.deviceIdentifier || device.name || '').toUpperCase();
+  const labelOrName = String(device.labelOrName || device.label || device.name || '').toUpperCase();
 
   // RFC-0076: REGRA 1: Se é 3F_MEDIDOR e tem deviceProfile válido, usa o deviceProfile como deviceType
   if (deviceType === '3F_MEDIDOR' && deviceProfile && deviceProfile !== 'N/D') {
@@ -1021,234 +1033,61 @@ function classifyEquipmentDetailed(device) {
 }
 
 /**
- * Calcula distribuição baseada no modo selecionado
+ * RFC-0130: Calcula distribuição baseada no modo selecionado
+ * USA DADOS PRÉ-CATEGORIZADOS DO MAIN (window.STATE.energy)
  * @param {string} mode - Modo de visualização (groups, elevators, escalators, hvac, others, stores)
  * @returns {Object} - Distribuição {label: consumption}
  */
 async function calculateDistributionByMode(mode) {
   try {
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    // RFC-0130: Use window.STATE.energy from MAIN (already categorized)
+    const energyState = window.STATE?.energy || window.parent?.STATE?.energy;
 
-    if (!orchestrator || typeof orchestrator.getEnergyCache !== 'function') {
-      LogHelper.warn('[ENERGY] Orchestrator not available');
+    if (!energyState) {
+      LogHelper.warn('[ENERGY] [RFC-0130] window.STATE.energy not available');
       return null;
     }
 
-    const energyCache = orchestrator.getEnergyCache();
+    LogHelper.log('[ENERGY] [RFC-0130] Using pre-categorized data from MAIN (window.STATE.energy)');
 
-    if (!energyCache || energyCache.size === 0) {
-      LogHelper.warn('[ENERGY] Energy cache is empty');
-      return null;
-    }
+    // MAIN provides: lojas, entrada, areacomum
+    const lojasTotal = energyState.lojas?.total || 0;
+    const areacomumItems = energyState.areacomum?.items || [];
 
-    // Get filtered shopping customerIds (if filter is active)
-    const filteredCustomerIds = getSelectedShoppingCustomerIds();
-    const hasFilter = filteredCustomerIds.length > 0;
-
-    LogHelper.log(
-      `[ENERGY] Calculating distribution for mode: ${mode}${
-        hasFilter ? ` (filtered by ${filteredCustomerIds.length} shoppings)` : ' (all shoppings)'
-      }`
-    );
-
-    // Create a filtered view of energyCache if filter is active
-    const filteredEnergyCache = new Map();
-    if (hasFilter) {
-      energyCache.forEach((deviceData, ingestionId) => {
-        if (filteredCustomerIds.includes(deviceData.customerId)) {
-          filteredEnergyCache.set(ingestionId, deviceData);
-        }
-      });
-      LogHelper.log(
-        `[ENERGY] Filtered energyCache: ${filteredEnergyCache.size} devices (from ${energyCache.size} total)`
-      );
-    } else {
-      // No filter - use all devices
-      energyCache.forEach((deviceData, ingestionId) => {
-        filteredEnergyCache.set(ingestionId, deviceData);
-      });
-    }
-
-    // Use filteredEnergyCache for all calculations
-    const workingCache = filteredEnergyCache;
+    LogHelper.log(`[ENERGY] [RFC-0130] Lojas total: ${lojasTotal.toFixed(2)} kWh`);
+    LogHelper.log(`[ENERGY] [RFC-0130] Areacomum items: ${areacomumItems.length} devices`);
 
     if (mode === 'groups') {
-      // Por grupos de equipamentos (padrão)
+      // Subcategorizar areacomum em: Elevadores, Escadas Rolantes, Climatização, Outros
       const groups = {
+        Lojas: lojasTotal,
         Elevadores: 0,
         'Escadas Rolantes': 0,
         Climatização: 0,
         'Outros Equipamentos': 0,
-        Lojas: 0,
       };
 
-      // RFC-0076: Device counters for debugging
       const deviceCounters = {
+        Lojas: energyState.lojas?.count || 0,
         Elevadores: 0,
         'Escadas Rolantes': 0,
         Climatização: 0,
         'Outros Equipamentos': 0,
-        Lojas: 0,
       };
 
-      // Get lojas IDs from orchestrator (same logic as MAIN uses)
-      const lojasIngestionIds = orchestrator.getLojasIngestionIds?.() || new Set();
-      LogHelper.log(`[ENERGY] Using lojasIngestionIds from orchestrator: ${lojasIngestionIds.size} lojas`);
+      // Subcategorize areacomum items
+      areacomumItems.forEach((item) => {
+        const consumption = Number(item.value) || 0;
+        const category = classifyEquipmentDetailed(item);
 
-      let sampleCount = 0;
-      workingCache.forEach((deviceData, ingestionId) => {
-        const consumption = Number(deviceData.total_value) || 0;
-
-        // Priority 1: Check if it's a LOJA (using same logic as MAIN)
-        if (lojasIngestionIds.has(ingestionId)) {
-          groups['Lojas'] += consumption;
-          deviceCounters['Lojas']++;
-
-          if (sampleCount < 10) {
-            LogHelper.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
-              name: deviceData.name,
-              ingestionId: ingestionId,
-              classified: 'Lojas (from lojasIngestionIds)',
-              consumption: consumption,
-            });
-            sampleCount++;
-          }
-          return; // Skip further classification
-        }
-
-        // RFC-0076: Priority 2: Classify EQUIPMENTS (everything that's not a loja)
-        const label = String(
-          deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || ''
-        ).toLowerCase();
-
-        // RFC-0076: CRITICAL FIX - Get metadata from energyCache deviceData
-        // The energyCache should have all fields from ThingsBoard entity
-        const device = {
-          deviceType: deviceData.deviceType || deviceData.type || '',
-          deviceProfile: deviceData.deviceProfile || deviceData.additionalInfo?.deviceProfile || '',
-          deviceIdentifier:
-            deviceData.deviceIdentifier ||
-            deviceData.additionalInfo?.deviceIdentifier ||
-            deviceData.name ||
-            '',
-          name: deviceData.name || deviceData.entityName || '',
-          labelOrName: label,
-          label: label,
-        };
-
-        const type = classifyEquipmentDetailed(device);
-        groups[type] = (groups[type] || 0) + consumption;
-        deviceCounters[type] = (deviceCounters[type] || 0) + 1;
-
-        // RFC-0076: Enhanced logging - Log ALL devices that could be elevators
-        const couldBeElevator =
-          deviceData.deviceType === '3F_MEDIDOR' ||
-          deviceData.type === '3F_MEDIDOR' ||
-          deviceData.deviceType === 'ELEVADOR' ||
-          deviceData.type === 'ELEVADOR' ||
-          (deviceData.deviceProfile && deviceData.deviceProfile.toUpperCase() === 'ELEVADOR') ||
-          (deviceData.additionalInfo?.deviceProfile &&
-            deviceData.additionalInfo.deviceProfile.toUpperCase() === 'ELEVADOR') ||
-          (deviceData.name && deviceData.name.toUpperCase().includes('ELV'));
-
-        // RFC-0076: Log first 30 devices for debugging (increased from 10)
-        if (sampleCount < 30 || couldBeElevator) {
-          LogHelper.log(
-            `[ENERGY] 🔍 Device classification ${couldBeElevator ? '⚡ ELEVATOR CANDIDATE' : 'sample'} #${
-              sampleCount + 1
-            }:`,
-            {
-              name: deviceData.name,
-              ingestionId: ingestionId,
-              deviceType: deviceData.deviceType,
-              deviceProfile: deviceData.deviceProfile,
-              deviceIdentifier: deviceData.deviceIdentifier,
-              additionalInfo: deviceData.additionalInfo,
-              label: label,
-              classified: type,
-              consumption: consumption,
-              deviceObject: device,
-              namePattern: {
-                hasELV: label.toUpperCase().includes('ELV'),
-                hasELEVADOR: label.toUpperCase().includes('ELEVADOR'),
-                hasESRL: label.toUpperCase().includes('ESRL'),
-                hasESCADA: label.toUpperCase().includes('ESCADA'),
-                hasCAG:
-                  (deviceData.name || '').toUpperCase().includes('CAG') ||
-                  label.toUpperCase().includes('CAG'),
-                hasMOTR: label.toUpperCase().includes('MOTR'),
-              },
-            }
-          );
-          if (!couldBeElevator) sampleCount++;
-        }
-
-        // RFC-0076: Log Elevadores and Escadas Rolantes specifically
-        if (type === 'Elevadores' || type === 'Escadas Rolantes') {
-          LogHelper.log(`[ENERGY] ✅ Found ${type}:`, {
-            name: deviceData.name,
-            deviceType: deviceData.deviceType,
-            deviceProfile: deviceData.deviceProfile,
-            consumption: consumption,
-            classifiedBy: 'name-pattern',
-          });
-        }
+        groups[category] = (groups[category] || 0) + consumption;
+        deviceCounters[category] = (deviceCounters[category] || 0) + 1;
       });
 
-      // RFC-0076: Enhanced logging for debugging
-      LogHelper.log('[ENERGY] ============================================');
-      LogHelper.log('[ENERGY] Distribution by groups (RFC-0076):');
-      LogHelper.log(
-        '[ENERGY] - Total devices processed:',
-        workingCache.size,
-        hasFilter ? `(filtered from ${energyCache.size})` : ''
-      );
-      LogHelper.log('[ENERGY] - Lojas from orchestrator:', lojasIngestionIds.size);
-      LogHelper.log('[ENERGY] Device counts by category:');
+      LogHelper.log('[ENERGY] [RFC-0130] Distribution by groups:');
       Object.entries(deviceCounters).forEach(([cat, count]) => {
         LogHelper.log(`[ENERGY]   - ${cat}: ${count} devices, ${groups[cat].toFixed(2)} kWh`);
       });
-      LogHelper.log('[ENERGY] Distribution breakdown (consumption):', groups);
-
-      // RFC-0076: Warning and diagnostic info if no elevators found
-      if (deviceCounters['Elevadores'] === 0) {
-        LogHelper.warn('[ENERGY] ⚠️  No elevators detected in energyCache. Possible causes:');
-        LogHelper.warn('[ENERGY]     1. Elevators may not have energy measurement devices');
-        LogHelper.warn('[ENERGY]     2. Elevator devices may not be included in /energy/devices/totals API');
-        LogHelper.warn('[ENERGY]     3. deviceType/deviceProfile metadata may be missing from energyCache');
-        LogHelper.warn('[ENERGY]     4. Elevator naming convention may differ from expected patterns');
-        LogHelper.warn("[ENERGY]     Expected patterns: 'ELEVADOR', 'ELEVATOR', 'ELV' in device name/label");
-
-        // Print sample of "Outros Equipamentos" to help identify misclassified elevators
-        LogHelper.log("[ENERGY] 📋 Sample of 'Outros Equipamentos' (first 20 devices):");
-        let othersCount = 0;
-        workingCache.forEach((deviceData, ingestionId) => {
-          if (!lojasIngestionIds.has(ingestionId) && othersCount < 20) {
-            const label = String(
-              deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || ''
-            ).toLowerCase();
-            const device = {
-              deviceType: deviceData.deviceType || '',
-              deviceProfile: deviceData.deviceProfile || '',
-              deviceIdentifier: deviceData.deviceIdentifier || '',
-              name: deviceData.name || '',
-              labelOrName: label,
-              label: label,
-            };
-            const classification = classifyEquipmentDetailed(device);
-            if (classification === 'Outros Equipamentos') {
-              LogHelper.log(
-                `[ENERGY]    - "${deviceData.name || label}" (deviceType: ${device.deviceType}, profile: ${
-                  device.deviceProfile
-                })`
-              );
-              othersCount++;
-            }
-          }
-        });
-      }
-
-      LogHelper.log('[ENERGY] ============================================');
 
       return groups;
     } else {
@@ -1274,48 +1113,29 @@ async function calculateDistributionByMode(mode) {
           equipmentType = 'Elevadores';
       }
 
-      // Get lojas IDs from orchestrator (same logic as MAIN uses)
-      const lojasIngestionIds = orchestrator.getLojasIngestionIds?.() || new Set();
-
-      // Agrupar por shopping
       const shoppingDistribution = {};
 
-      workingCache.forEach((deviceData, ingestionId) => {
-        const consumption = Number(deviceData.total_value) || 0;
-        let type;
-
-        // RFC-0076: Check if it's a loja first (using same logic as MAIN)
-        if (lojasIngestionIds.has(ingestionId)) {
-          type = 'Lojas';
-        } else {
-          // Classify equipment (includes deviceProfile, deviceIdentifier and name)
-          const label = String(
-            deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || ''
-          ).toLowerCase();
-          const device = {
-            deviceType: deviceData.deviceType || '',
-            deviceProfile: deviceData.deviceProfile || '',
-            deviceIdentifier: deviceData.deviceIdentifier || '',
-            name: deviceData.name || '',
-            labelOrName: label,
-            label: label,
-          };
-          type = classifyEquipmentDetailed(device);
-        }
-
-        // Só incluir se for do tipo selecionado
-        if (type === equipmentType) {
-          const customerId = deviceData.customerId;
-          const shoppingName = getShoppingName(customerId);
-
+      if (equipmentType === 'Lojas') {
+        // Use lojas items from MAIN
+        const lojasItems = energyState.lojas?.items || [];
+        lojasItems.forEach((item) => {
+          const consumption = Number(item.value) || 0;
+          const shoppingName = getShoppingName(item.customerId);
           shoppingDistribution[shoppingName] = (shoppingDistribution[shoppingName] || 0) + consumption;
-        }
-      });
+        });
+      } else {
+        // Filter areacomum by equipment type
+        areacomumItems.forEach((item) => {
+          const category = classifyEquipmentDetailed(item);
+          if (category === equipmentType) {
+            const consumption = Number(item.value) || 0;
+            const shoppingName = getShoppingName(item.customerId);
+            shoppingDistribution[shoppingName] = (shoppingDistribution[shoppingName] || 0) + consumption;
+          }
+        });
+      }
 
-      LogHelper.log(
-        `[ENERGY] Distribution by ${mode}${hasFilter ? ' (filtered)' : ''}:`,
-        shoppingDistribution
-      );
+      LogHelper.log(`[ENERGY] [RFC-0130] Distribution by ${mode}:`, shoppingDistribution);
       return shoppingDistribution;
     }
   } catch (error) {
@@ -1325,31 +1145,19 @@ async function calculateDistributionByMode(mode) {
 }
 
 /**
- * Obtém o nome do shopping pelo customerId
+ * RFC-0130: Obtém o nome do shopping pelo customerId
+ * Usa dados já disponíveis no contexto
  */
 function getShoppingName(customerId) {
   if (!customerId) return 'Sem Shopping';
 
-  // Priority 1: Try to get from energyCache (has customerName from API /totals)
-  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-  if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
-    const energyCache = orchestrator.getEnergyCache();
-
-    // Find any device with this customerId and get customerName
-    for (const [ingestionId, deviceData] of energyCache) {
-      if (deviceData.customerId === customerId && deviceData.customerName) {
-        return deviceData.customerName;
-      }
-    }
-  }
-
-  // Priority 2: Tentar buscar dos customers carregados
+  // Priority 1: Tentar buscar dos customers carregados
   if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find((c) => c.value === customerId);
+    const shopping = window.custumersSelected.find((c) => c.value === customerId || c.ingestionId === customerId);
     if (shopping) return shopping.name;
   }
 
-  // Priority 3: Tentar buscar do ctx
+  // Priority 2: Tentar buscar do ctx
   if (self.ctx.$scope?.custumer && Array.isArray(self.ctx.$scope.custumer)) {
     const shopping = self.ctx.$scope.custumer.find((c) => c.value === customerId);
     if (shopping) return shopping.name;
@@ -1615,23 +1423,33 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
     }
   }
 
+  // RFC-0130: Use parent customer ingestion ID (CUSTOMER_ING_ID) for API calls
+  // The API doesn't support querying by individual shopping IDs
+  const parentCustomerId = window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID;
+  if (!parentCustomerId) {
+    LogHelper.error('[ENERGY] [RFC-0097] ❌ CUSTOMER_ING_ID not available from orchestrator');
+    return {
+      labels: [],
+      dailyTotals: [],
+      shoppingData: {},
+      shoppingNames: {},
+      customerIds,
+      fetchTimestamp: Date.now(),
+    };
+  }
+
   LogHelper.log(
     '[ENERGY] [RFC-0097] Fetching',
     period,
     'days with granularity',
     granularity,
-    'for customers:',
-    customerIds
+    'using parent CUSTOMER_ING_ID:',
+    parentCustomerId
   );
 
+  // RFC-0130: shoppingData will be built from API response (not from customerIds filter)
   const shoppingData = {}; // { customerId: [values per day...] }
   const shoppingNames = {}; // { customerId: name }
-
-  // Initialize shopping data
-  customerIds.forEach((cid) => {
-    shoppingData[cid] = [];
-    shoppingNames[cid] = getShoppingNameForFilter(cid);
-  });
 
   // Calculate period start/end timestamps (full period, not per day)
   const now = new Date();
@@ -1661,30 +1479,40 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
 
   const labels = dayBoundaries.map((d) => d.label);
 
-  // OPTIMIZATION: Only N API calls (one per shopping for entire period)
-  LogHelper.log('[ENERGY] [RFC-0097] Executing', customerIds.length, 'API calls (one per shopping)...');
+  // RFC-0130: Single API call using parent CUSTOMER_ING_ID (not per-shopping)
+  LogHelper.log('[ENERGY] [RFC-0097] Executing single API call for parent customer...');
 
-  const fetchPromises = customerIds.map((customerId) =>
-    fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries)
-  );
+  // Use parent customer ID for API call
+  const result = await fetchPeriodConsumptionByDay(parentCustomerId, startTs, endTs, dayBoundaries);
 
-  const results = await Promise.all(fetchPromises);
+  // RFC-0130: Extract daily totals and per-customer breakdown
+  const dailyTotals = result.dailyTotals || [];
+  const byCustomerPerDay = result.byCustomerPerDay || [];
 
-  // Process results - each result is an array of daily totals for that shopping
-  results.forEach((dailyValues, idx) => {
-    const customerId = customerIds[idx];
-    shoppingData[customerId] = dailyValues;
+  // RFC-0130: Build shoppingData from byCustomerPerDay
+  // Transform from [{custId: {name, total}}, ...] to {custId: [day0, day1, ...]}
+  const allCustomerIds = new Set();
+  byCustomerPerDay.forEach((dayData) => {
+    Object.keys(dayData).forEach((custId) => allCustomerIds.add(custId));
   });
 
-  // Calculate daily totals (sum across all shoppings)
-  const dailyTotals = [];
-  for (let dayIdx = 0; dayIdx < period; dayIdx++) {
-    let dayTotal = 0;
-    for (const customerId of customerIds) {
-      dayTotal += shoppingData[customerId][dayIdx] || 0;
-    }
-    dailyTotals.push(dayTotal);
-  }
+  // Initialize shoppingData arrays for each customer
+  allCustomerIds.forEach((custId) => {
+    shoppingData[custId] = [];
+    const firstDay = byCustomerPerDay.find((d) => d[custId]);
+    shoppingNames[custId] = firstDay?.[custId]?.name || custId;
+  });
+
+  // Fill in daily values for each customer
+  byCustomerPerDay.forEach((dayData) => {
+    allCustomerIds.forEach((custId) => {
+      const value = dayData[custId]?.total || 0;
+      shoppingData[custId].push(value);
+    });
+  });
+
+  LogHelper.log('[ENERGY] [RFC-0130] Daily totals from parent customer:', dailyTotals);
+  LogHelper.log('[ENERGY] [RFC-0130] Customers found:', allCustomerIds.size);
 
   // RFC-0097: Store in cache for re-rendering
   cachedChartData = {
@@ -1700,7 +1528,7 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
     days: period,
     shoppings: customerIds.length,
     totalPoints: labels.length,
-    parallelCalls: fetchPromises.length,
+    apiCalls: 1, // RFC-0130: Single API call using parent CUSTOMER_ING_ID
   });
 
   return cachedChartData;
@@ -1825,11 +1653,22 @@ self.onInit = async function () {
 
   // Primeiro, prepara o "ouvinte" que vai receber os dados quando o MAIN responder.
   // ✅ Listen on both window and window.parent to support both iframe and non-iframe contexts
-  registeredHandlers.handleEnergySummary = (ev) => {
+  registeredHandlers.handleEnergySummary = async (ev) => {
     LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
     // Chama as funções que atualizam os cards na tela com os dados recebidos.
     updateTotalConsumptionStoresCard(ev.detail); // Novo: card de lojas
     updateTotalConsumptionEquipmentsCard(ev.detail); // Novo: card de equipamentos
+
+    // RFC-0130: Refresh distribution chart when energy data is ready
+    // This ensures the chart gets data after orchestrator has populated energyCache
+    if (distributionChartInstance) {
+      LogHelper.log('[ENERGY] [RFC-0130] Refreshing distribution chart after energy-summary-ready');
+      try {
+        await distributionChartInstance.refresh();
+      } catch (error) {
+        LogHelper.error('[ENERGY] [RFC-0130] Error refreshing distribution chart:', error);
+      }
+    }
   };
 
   window.addEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);

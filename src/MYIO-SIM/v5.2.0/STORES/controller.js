@@ -800,7 +800,7 @@ async function renderList(visible) {
       name: it.label,
       customerName: customerName,
       centralName: it.centralName || 'N/A',
-      deviceIdentifier: deviceIdentifierToDisplay,
+      deviceIdentifier: 'power_on', //deviceIdentifierToDisplay,
 
       // Valores e Tipos
       val: valNum,
