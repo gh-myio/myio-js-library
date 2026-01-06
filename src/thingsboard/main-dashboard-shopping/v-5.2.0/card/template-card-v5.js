@@ -188,6 +188,11 @@ export function renderCardComponentV5({
   useNewComponents = true, // Flag to enable/disable new components
   enableSelection = true, // Flag to enable selection functionality
   enableDragDrop = true, // Flag to enable drag and drop
+  // RFC-0130: Tooltip control flags (default: false - no tooltips)
+  showEnergyRangeTooltip = false, // Tooltip on device image for energy devices
+  showPercentageTooltip = false, // Tooltip on percentage badge
+  showTempComparisonTooltip = false, // Tooltip on temperature deviation badge
+  showTempRangeTooltip = false, // Tooltip on device image for temperature devices
 }) {
   const {
     entityId,
@@ -368,6 +373,29 @@ export function renderCardComponentV5({
         lastDisconnectTime: entityObject.lastDisconnectTime,
         connectionStatusTime: entityObject.connectionStatusTime,
         timeVal: entityObject.timeVal,
+      },
+      now: new Date().toISOString(),
+    });
+  }
+
+  // DEBUG: Investigate "Burguer king" offline issue
+  const isBurguerKing = labelStr.toLowerCase().includes('burguer') || identifierStr.includes('SCMAL0L1113CD');
+  if (isBurguerKing) {
+    console.warn(`🍔 [DEBUG BURGUER KING CARD-V5] renderCardComponentV5 for "${labelOrName}":`, {
+      entityId,
+      deviceIdentifier,
+      deviceStatus,
+      connectionStatus,
+      isOffline,
+      shouldFlashIcon,
+      cardStatus: mapDeviceStatusToCardStatus(deviceStatus),
+      val,
+      perc,
+      entityObject: {
+        lastConnectTime: entityObject?.lastConnectTime,
+        lastDisconnectTime: entityObject?.lastDisconnectTime,
+        connectionStatusTime: entityObject?.connectionStatusTime,
+        timeVal: entityObject?.timeVal,
       },
       now: new Date().toISOString(),
     });
@@ -1453,10 +1481,10 @@ export function renderCardComponentV5({
     });
   }
 
-  // Attach TempRangeTooltip for TERMOSTATO devices
+  // RFC-0130: Attach TempRangeTooltip for TERMOSTATO devices (only if showTempRangeTooltip is true)
   const tempTooltipTrigger = enhancedCardElement.querySelector('.temp-tooltip-trigger');
   let tempTooltipCleanup = null;
-  if (tempTooltipTrigger && isTermostatoDevice) {
+  if (showTempRangeTooltip && tempTooltipTrigger && isTermostatoDevice) {
     // Build entity data for tooltip
     const tooltipEntityData = {
       val: val,
@@ -1468,10 +1496,10 @@ export function renderCardComponentV5({
     tempTooltipCleanup = TempRangeTooltip.attach(tempTooltipTrigger, tooltipEntityData);
   }
 
-  // Attach EnergyRangeTooltip for energy devices
+  // RFC-0130: Attach EnergyRangeTooltip for energy devices (only if showEnergyRangeTooltip is true)
   const energyTooltipTrigger = enhancedCardElement.querySelector('.energy-tooltip-trigger');
   let energyTooltipCleanup = null;
-  if (energyTooltipTrigger && isEnergyDeviceFlag) {
+  if (showEnergyRangeTooltip && energyTooltipTrigger && isEnergyDeviceFlag) {
     // Build entity data for energy tooltip
     const energyTooltipData = {
       labelOrName: cardEntity.name,
@@ -1482,10 +1510,10 @@ export function renderCardComponentV5({
     energyTooltipCleanup = EnergyRangeTooltip.attach(energyTooltipTrigger, energyTooltipData);
   }
 
-  // Attach DeviceComparisonTooltip for percentage badge (non-termostato devices)
+  // RFC-0130: Attach DeviceComparisonTooltip for percentage badge (only if showPercentageTooltip is true)
   const percentageTooltipTrigger = enhancedCardElement.querySelector('.percentage-tooltip-trigger');
   let percentageTooltipCleanup = null;
-  if (percentageTooltipTrigger && !isTermostatoDevice) {
+  if (showPercentageTooltip && percentageTooltipTrigger && !isTermostatoDevice) {
     // Get comparison data function - this pulls from entityObject's comparison data
     const getComparisonData = () => {
       // Extract comparison data from entityObject if available
@@ -1524,10 +1552,10 @@ export function renderCardComponentV5({
     percentageTooltipCleanup = DeviceComparisonTooltip.attach(percentageTooltipTrigger, getComparisonData);
   }
 
-  // Attach TempComparisonTooltip for temperature deviation badge (TERMOSTATO devices)
+  // RFC-0130: Attach TempComparisonTooltip for temperature deviation badge (only if showTempComparisonTooltip is true)
   const tempComparisonTrigger = enhancedCardElement.querySelector('.temp-comparison-tooltip-trigger');
   let tempComparisonCleanup = null;
-  if (tempComparisonTrigger && isTermostatoDevice && tempDeviationPercent) {
+  if (showTempComparisonTooltip && tempComparisonTrigger && isTermostatoDevice && tempDeviationPercent) {
     const getTempComparisonData = () => {
       // Get average temperature from entityObject if available
       const avgTemp =

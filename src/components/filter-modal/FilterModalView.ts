@@ -197,6 +197,8 @@ export class FilterModalView {
       const value = this.getItemValue(item);
       const formattedValue = this.formatValue(value);
       const customerName = item.customerName || item.ownerName || '';
+      // Don't show subLabel if it's the same as customerName (avoid duplicate display)
+      const showSubLabel = subLabel && subLabel !== customerName;
 
       const div = document.createElement('div');
       div.className = 'check-item';
@@ -209,7 +211,7 @@ export class FilterModalView {
             : ''
         }
         ${
-          subLabel
+          showSubLabel
             ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>`
             : ''
         }

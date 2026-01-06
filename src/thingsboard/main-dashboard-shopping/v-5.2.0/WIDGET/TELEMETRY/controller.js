@@ -2405,6 +2405,24 @@ function renderList(visible) {
       LogHelper.log('RENDER CARD Cesan Banheiros L2 >>> OBJ: ', it);
     }
 
+    // DEBUG: Investigate why "Burguer king" card is rendering as offline
+    if (it.label?.toLowerCase().includes('burguer') || it.name?.includes('3F SCMAL0L1113CD')) {
+      LogHelper.log('[DEBUG BURGUER KING] Raw item data:', {
+        label: it.label,
+        name: it.name,
+        connectionStatus: it.connectionStatus,
+        deviceStatus: it.deviceStatus,
+        lastActivityTime: it.lastActivityTime,
+        lastConnectTime: it.lastConnectTime,
+        lastDisconnectTime: it.lastDisconnectTime,
+        connectionStatusTime: it.connectionStatusTime,
+        consumption: it.consumption,
+        val: valNum,
+        timeVal: it.timeVal,
+      });
+      LogHelper.log('[DEBUG BURGUER KING] entityObject.deviceStatus:', entityObject.deviceStatus);
+    }
+
     const myTbToken = localStorage.getItem('jwt_token');
     let cachedIngestionToken = null;
 

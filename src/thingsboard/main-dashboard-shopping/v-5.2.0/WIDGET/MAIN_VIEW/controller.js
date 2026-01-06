@@ -157,7 +157,10 @@ Object.assign(window.MyIOUtils, {
       if (newSettings.water) window.MyIOUtils.measurementSettings.water = newSettings.water;
       if (newSettings.energy) window.MyIOUtils.measurementSettings.energy = newSettings.energy;
       if (newSettings.temperature) window.MyIOUtils.measurementSettings.temperature = newSettings.temperature;
-      LogHelper.log('[MyIOUtils] RFC-0108: Measurement settings updated:', window.MyIOUtils.measurementSettings);
+      LogHelper.log(
+        '[MyIOUtils] RFC-0108: Measurement settings updated:',
+        window.MyIOUtils.measurementSettings
+      );
     }
   },
 
@@ -887,6 +890,9 @@ Object.assign(window.MyIOUtils, {
 
     widgetSettings.customerTB_ID = customerTB_ID;
 
+    // RFC-0130: Expose customerTB_ID globally immediately for periodKey function
+    window.__myioCustomerTB_ID = customerTB_ID;
+
     // Triple-check: Validate that cached data belongs to current shopping
     // If shopping changed, clear all cached data to prevent stale data display
     const shoppingChanged = window.STATE?.validateCustomer?.(customerTB_ID);
@@ -1298,7 +1304,12 @@ if (!window.STATE) {
 
       if (this._customerTB_ID && this._customerTB_ID !== customerTB_ID) {
         // Shopping changed! Clear ALL cached data aggressively
-        console.warn(`[STATE] 🔄 Shopping changed from ${this._customerTB_ID} to ${customerTB_ID} - CLEARING ALL CACHES`);
+        console.warn(
+          `[STATE] 🔄 Shopping changed from ${this._customerTB_ID} to ${customerTB_ID} - CLEARING ALL CACHES`
+        );
+
+        // RFC-0130: Update global customerTB_ID immediately
+        window.__myioCustomerTB_ID = customerTB_ID;
 
         // Clear window.STATE
         this.energy = null;
@@ -1325,10 +1336,17 @@ if (!window.STATE) {
         }
 
         // HARD: Dispatch clear event for all widgets
-        ['energy', 'water', 'temperature'].forEach(domain => {
-          window.dispatchEvent(new CustomEvent('myio:telemetry:clear', {
-            detail: { domain, reason: 'customer_changed', fromCustomer: this._customerTB_ID, toCustomer: customerTB_ID }
-          }));
+        ['energy', 'water', 'temperature'].forEach((domain) => {
+          window.dispatchEvent(
+            new CustomEvent('myio:telemetry:clear', {
+              detail: {
+                domain,
+                reason: 'customer_changed',
+                fromCustomer: this._customerTB_ID,
+                toCustomer: customerTB_ID,
+              },
+            })
+          );
         });
 
         this._customerTB_ID = customerTB_ID;
@@ -1696,7 +1714,11 @@ function categorizeItemsByGroupWater(items) {
 
     // Rule 1: ENTRADA - deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
     // RFC-0107: Also check for _isHidrometerDevice flag (from ctx.data hidrometro items)
-    if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING') || item._isHidrometerDevice) {
+    if (
+      dt === 'HIDROMETRO_SHOPPING' ||
+      (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING') ||
+      item._isHidrometerDevice
+    ) {
       entrada.push(item);
       continue;
     }
@@ -1915,9 +1937,8 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
         const baseLabel = i.label || i.name || '';
         const identifier = i.identifier || '';
         // Show "label (identifier)" if identifier exists and is different from label
-        const displayLabel = identifier && identifier !== baseLabel
-          ? `${baseLabel} (${identifier})`
-          : baseLabel;
+        const displayLabel =
+          identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel;
         return {
           id: i.id,
           label: displayLabel,
@@ -2075,9 +2096,10 @@ function aggregateDeviceStatus(items) {
     // Priority: waiting > weakConnection > offline > noConsumption > consumption status
 
     // 1. WAITING (not_installed) - highest priority
-    const isWaiting = deviceStatus === 'not_installed' ||
-                      connectionStatus === 'waiting' ||
-                      ['waiting', 'connecting', 'pending'].includes(String(connectionStatus).toLowerCase());
+    const isWaiting =
+      deviceStatus === 'not_installed' ||
+      connectionStatus === 'waiting' ||
+      ['waiting', 'connecting', 'pending'].includes(String(connectionStatus).toLowerCase());
     if (isWaiting) {
       result.waiting++;
       result.waitingDevices.push(deviceInfo);
@@ -2085,8 +2107,9 @@ function aggregateDeviceStatus(items) {
     }
 
     // 2. WEAK CONNECTION
-    const isWeakConnection = deviceStatus === 'weak_connection' ||
-                              ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
+    const isWeakConnection =
+      deviceStatus === 'weak_connection' ||
+      ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
     if (isWeakConnection) {
       result.weakConnection++;
       result.weakConnectionDevices.push(deviceInfo);
@@ -2094,8 +2117,9 @@ function aggregateDeviceStatus(items) {
     }
 
     // 3. OFFLINE
-    const isOffline = ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
-                      ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
+    const isOffline =
+      ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
+      ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
     if (isOffline) {
       result.offline++;
       result.offlineDevices.push(deviceInfo);
@@ -2433,9 +2457,14 @@ function populateStateTemperature(items) {
 
 /**
  * Generates a unique key from domain and period for request deduplication.
+ * RFC-0130: Uses customerTB_ID from multiple sources with fallback
  */
 function periodKey(domain, period) {
-  const customerTbId = widgetSettings.customerTB_ID;
+  // RFC-0130: Get customerTB_ID from multiple sources with fallback
+  const customerTbId = widgetSettings.customerTB_ID ||
+    window.MyIOOrchestrator?.customerTB_ID ||
+    window.__myioCustomerTB_ID ||
+    'default';
   return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
 }
 
@@ -3038,6 +3067,145 @@ const MyIOOrchestrator = (() => {
   let CLIENT_ID = '';
   let CLIENT_SECRET = '';
 
+  // RFC-0130: Retry configuration for resilient data loading
+  const RETRY_CONFIG = {
+    maxRetries: 5,
+    intervalMs: 3000,
+    domains: ['energy', 'water', 'temperature'],
+  };
+
+  // RFC-0130: Track pending retry attempts per domain
+  const pendingRetries = new Map();
+
+  /**
+   * RFC-0130: Get default period from library or build one
+   * Uses same pattern as MAIN_UNIQUE_DATASOURCE
+   */
+  function getDefaultPeriod() {
+    // Try to get from library first
+    if (window.MyIOLibrary?.getDefaultPeriodCurrentMonthSoFar) {
+      const period = window.MyIOLibrary.getDefaultPeriodCurrentMonthSoFar();
+      LogHelper.log('[Orchestrator] 📅 Using default period from MyIOLibrary:', period);
+      return period;
+    }
+
+    // Fallback: build period for last 7 days
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const formatISO = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}T00:00:00-03:00`;
+    };
+
+    const formatISOEnd = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}T23:59:59-03:00`;
+    };
+
+    const period = {
+      startISO: formatISO(startOfMonth),
+      endISO: formatISOEnd(now),
+      granularity: 'day',
+      tz: 'America/Sao_Paulo',
+    };
+
+    LogHelper.log('[Orchestrator] 📅 Built fallback default period:', period);
+    return period;
+  }
+
+  /**
+   * RFC-0130: Wait for period with retry and toast feedback
+   * Inspired by MAIN_UNIQUE_DATASOURCE retry pattern
+   * @param {string} domain - Domain to wait for
+   * @param {number} maxRetries - Maximum retry attempts (default: 5)
+   * @param {number} intervalMs - Interval between retries in ms (default: 3000)
+   * @returns {Promise<object|null>} - Returns period object or null if timeout
+   */
+  async function waitForPeriodWithRetry(domain, maxRetries = RETRY_CONFIG.maxRetries, intervalMs = RETRY_CONFIG.intervalMs) {
+    const MyIOToast = window.MyIOLibrary?.MyIOToast;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      // Check if period is now available
+      if (currentPeriod) {
+        LogHelper.log(`[Orchestrator] ✅ Period available on attempt ${attempt}:`, currentPeriod);
+        if (attempt > 1 && MyIOToast) {
+          MyIOToast.success(`Período definido (tentativa ${attempt})`, 2000);
+        }
+        return currentPeriod;
+      }
+
+      // Check if HEADER has emitted initial period
+      const headerPeriod = window.__myioInitialPeriod;
+      if (headerPeriod) {
+        LogHelper.log(`[Orchestrator] ✅ Found __myioInitialPeriod on attempt ${attempt}:`, headerPeriod);
+        currentPeriod = headerPeriod;
+        return headerPeriod;
+      }
+
+      if (attempt < maxRetries) {
+        LogHelper.log(`[Orchestrator] ⏳ Waiting for period, attempt ${attempt}/${maxRetries}...`);
+        if (MyIOToast) {
+          MyIOToast.warning(`Aguardando configuração de período... Tentativa ${attempt}/${maxRetries}`, intervalMs - 500);
+        }
+
+        // Wait before next attempt
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    // RFC-0130: After all retries failed, use default period as final fallback
+    LogHelper.warn(`[Orchestrator] ⚠️ Period not available after ${maxRetries} attempts - using default period`);
+    const defaultPeriod = getDefaultPeriod();
+    currentPeriod = defaultPeriod;
+    window.__myioInitialPeriod = defaultPeriod;
+
+    // Emit the default period so other widgets know
+    window.dispatchEvent(
+      new CustomEvent('myio:update-date', {
+        detail: { period: defaultPeriod },
+      })
+    );
+
+    return defaultPeriod;
+  }
+
+  /**
+   * RFC-0130: Request data with automatic retry if period is not yet available
+   * @param {string} domain - Domain to request data for
+   * @param {object} providedPeriod - Period object (optional)
+   */
+  async function requestDataWithRetry(domain, providedPeriod = null) {
+    // Prevent duplicate retry loops for same domain
+    if (pendingRetries.has(domain)) {
+      LogHelper.log(`[Orchestrator] ⏭️ Retry already in progress for ${domain}`);
+      return;
+    }
+
+    pendingRetries.set(domain, true);
+
+    try {
+      let period = providedPeriod || currentPeriod;
+
+      // If no period, wait for it with retry (will use default period as fallback)
+      if (!period) {
+        LogHelper.log(`[Orchestrator] 🔄 No period for ${domain}, starting retry loop...`);
+        period = await waitForPeriodWithRetry(domain);
+        // waitForPeriodWithRetry always returns a period (uses default as fallback)
+      }
+
+      // Now hydrate with the period
+      LogHelper.log(`[Orchestrator] 📡 requestDataWithRetry → hydrateDomain(${domain})`);
+      await hydrateDomain(domain, period);
+    } finally {
+      pendingRetries.delete(domain);
+    }
+  }
+
   // Credentials promise resolver for async wait
   let credentialsResolver = null;
   let credentialsPromise = new Promise((resolve) => {
@@ -3121,17 +3289,23 @@ const MyIOOrchestrator = (() => {
 
       // Log for WAITING devices
       if (status === 'not_installed') {
-        LogHelper.log(`[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+        LogHelper.log(
+          `[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`
+        );
       }
 
       return status;
     }
 
     // Fallback: Simple mapping if library not available
-    const normalizedStatus = String(connectionStatus || '').toLowerCase().trim();
+    const normalizedStatus = String(connectionStatus || '')
+      .toLowerCase()
+      .trim();
 
     if (['waiting', 'connecting', 'pending'].includes(normalizedStatus)) {
-      LogHelper.log(`[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+      LogHelper.log(
+        `[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`
+      );
       return 'not_installed';
     }
 
@@ -3164,14 +3338,18 @@ const MyIOOrchestrator = (() => {
   function createOrchestratorItem({ entityId, meta, apiRow = null, overrides = {} }) {
     // RFC-0110 v5: Determine domain and telemetry timestamp for device status calculation
     const effectiveDeviceType = (meta.deviceProfile || meta.deviceType || '').toLowerCase();
-    const isWaterDevice = effectiveDeviceType.includes('hidrometro') || effectiveDeviceType.includes('water') || effectiveDeviceType.includes('tank');
-    const isTempDevice = effectiveDeviceType.includes('termostato') || effectiveDeviceType.includes('temperature');
+    const isWaterDevice =
+      effectiveDeviceType.includes('hidrometro') ||
+      effectiveDeviceType.includes('water') ||
+      effectiveDeviceType.includes('tank');
+    const isTempDevice =
+      effectiveDeviceType.includes('termostato') || effectiveDeviceType.includes('temperature');
     const domain = isWaterDevice ? 'water' : isTempDevice ? 'temperature' : 'energy';
     const telemetryTimestamp = isWaterDevice
-      ? (meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs)
+      ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
       : isTempDevice
-        ? meta.temperatureTs
-        : meta.consumptionTs;
+      ? meta.temperatureTs
+      : meta.consumptionTs;
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
@@ -3185,7 +3363,7 @@ const MyIOOrchestrator = (() => {
     const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
     if (isDebugDevice) {
       const lib = window.MyIOLibrary;
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440;
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 86000;
       const shortDelayMins = 60;
       const telemetryStale = lib?.isTelemetryStale
         ? lib.isTelemetryStale(telemetryTimestamp, meta.lastActivityTime, delayMins)
@@ -3199,7 +3377,9 @@ const MyIOOrchestrator = (() => {
         telemetryTimestamp,
         telemetryTimestampFormatted: telemetryTimestamp ? new Date(telemetryTimestamp).toISOString() : 'N/A',
         lastActivityTime: meta.lastActivityTime,
-        lastActivityTimeFormatted: meta.lastActivityTime ? new Date(meta.lastActivityTime).toISOString() : 'N/A',
+        lastActivityTimeFormatted: meta.lastActivityTime
+          ? new Date(meta.lastActivityTime).toISOString()
+          : 'N/A',
         telemetryStale,
         delayMins,
         shortDelayMins,
@@ -3398,8 +3578,7 @@ const MyIOOrchestrator = (() => {
         meta.connectionStatus = val;
         // RFC-0110: Extract timestamp of connectionStatus for stale check
         meta.connectionStatusTs = row?.data?.[0]?.[0] ?? null;
-      }
-      else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
+      } else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
@@ -3413,7 +3592,7 @@ const MyIOOrchestrator = (() => {
         // RFC-0110: Extract timestamp for telemetry-based offline detection
         // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
         const ts = row?.data?.[0]?.[0];
-        meta.consumptionTs = (ts && ts > 0) ? ts : null;
+        meta.consumptionTs = ts && ts > 0 ? ts : null;
 
         // DEBUG: Log first 8 consumption timestamps
         if (_debugConsumptionCount < _debugConsumptionMax) {
@@ -3434,9 +3613,8 @@ const MyIOOrchestrator = (() => {
         // RFC-0110: Extract timestamp for telemetry-based offline detection
         // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
         const ts = row?.data?.[0]?.[0];
-        meta.pulsesTs = (ts && ts > 0) ? ts : null;
-      }
-      else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
+        meta.pulsesTs = ts && ts > 0 ? ts : null;
+      } else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
       // Tank-specific fields (TANK/CAIXA_DAGUA)
       else if (keyName === 'water_level') {
@@ -3444,14 +3622,13 @@ const MyIOOrchestrator = (() => {
         // RFC-0110: Extract timestamp for telemetry-based offline detection
         // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
         const ts = row?.data?.[0]?.[0];
-        meta.waterLevelTs = (ts && ts > 0) ? ts : null;
-      }
-      else if (keyName === 'water_percentage') {
+        meta.waterLevelTs = ts && ts > 0 ? ts : null;
+      } else if (keyName === 'water_percentage') {
         meta.waterPercentage = val;
         // RFC-0110: Extract timestamp for telemetry-based offline detection
         // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
         const ts = row?.data?.[0]?.[0];
-        meta.waterPercentageTs = (ts && ts > 0) ? ts : null;
+        meta.waterPercentageTs = ts && ts > 0 ? ts : null;
       }
       // Temperature-specific fields
       else if (keyName === 'temperature') {
@@ -3459,7 +3636,7 @@ const MyIOOrchestrator = (() => {
         // RFC-0110: Extract timestamp for telemetry-based offline detection
         // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
         const ts = row?.data?.[0]?.[0];
-        meta.temperatureTs = (ts && ts > 0) ? ts : null;
+        meta.temperatureTs = ts && ts > 0 ? ts : null;
       }
     }
 
@@ -3490,8 +3667,12 @@ const MyIOOrchestrator = (() => {
       for (const [entityId, meta] of metadataByEntityId.entries()) {
         const labelUpper = (meta.label || '').toUpperCase();
         const entityNameUpper = (meta.entityName || '').toUpperCase();
-        if (labelUpper.includes('VACINA') || labelUpper.includes('VACINAÇÃO') ||
-            entityNameUpper.includes('VACINA') || entityNameUpper.includes('VACINAÇÃO')) {
+        if (
+          labelUpper.includes('VACINA') ||
+          labelUpper.includes('VACINAÇÃO') ||
+          entityNameUpper.includes('VACINA') ||
+          entityNameUpper.includes('VACINAÇÃO')
+        ) {
           vacinaDevices.push({
             label: meta.label,
             entityName: meta.entityName,
@@ -3649,10 +3830,12 @@ const MyIOOrchestrator = (() => {
           // RFC-0108 DEBUG: Analyze cached data for ingestionId issues (water domain)
           if (domain === 'water') {
             const items = cachedData.items;
-            const withIngestionId = items.filter(i => i.ingestionId).length;
-            const withApiData = items.filter(i => i._hasApiData).length;
-            const withZeroValue = items.filter(i => i.value === 0 || i.value === null || i.value === undefined).length;
-            const entradaDevices = items.filter(i => i.labelWidget === 'Entrada');
+            const withIngestionId = items.filter((i) => i.ingestionId).length;
+            const withApiData = items.filter((i) => i._hasApiData).length;
+            const withZeroValue = items.filter(
+              (i) => i.value === 0 || i.value === null || i.value === undefined
+            ).length;
+            const entradaDevices = items.filter((i) => i.labelWidget === 'Entrada');
 
             LogHelper.log(`[RFC-0108 CACHE DEBUG] Water cache analysis:`, {
               total: items.length,
@@ -3665,25 +3848,30 @@ const MyIOOrchestrator = (() => {
 
             // Log devices with labelWidget='Entrada' to diagnose VACINACAO issue
             if (entradaDevices.length > 0) {
-              LogHelper.log(`[RFC-0108 CACHE DEBUG] Entrada devices:`, entradaDevices.map(d => ({
-                label: d.label,
-                value: d.value,
-                ingestionId: d.ingestionId || 'MISSING',
-                hasApiData: d._hasApiData,
-                tbId: d.tbId?.substring(0, 8),
-              })));
+              LogHelper.log(
+                `[RFC-0108 CACHE DEBUG] Entrada devices:`,
+                entradaDevices.map((d) => ({
+                  label: d.label,
+                  value: d.value,
+                  ingestionId: d.ingestionId || 'MISSING',
+                  hasApiData: d._hasApiData,
+                  tbId: d.tbId?.substring(0, 8),
+                }))
+              );
             }
 
             // Log devices with value=0 but might have API data
-            const suspiciousDevices = items.filter(i => i.value === 0 && !i._hasApiData);
+            const suspiciousDevices = items.filter((i) => i.value === 0 && !i._hasApiData);
             if (suspiciousDevices.length > 0) {
-              LogHelper.log(`[RFC-0108 CACHE DEBUG] Devices with value=0 and no API match (first 5):`,
-                suspiciousDevices.slice(0, 5).map(d => ({
+              LogHelper.log(
+                `[RFC-0108 CACHE DEBUG] Devices with value=0 and no API match (first 5):`,
+                suspiciousDevices.slice(0, 5).map((d) => ({
                   label: d.label,
                   ingestionId: d.ingestionId || 'MISSING',
                   deviceType: d.deviceType,
                   labelWidget: d.labelWidget,
-                })));
+                }))
+              );
             }
           }
 
@@ -3730,18 +3918,20 @@ const MyIOOrchestrator = (() => {
           const temperatureValue = Number(meta.temperature || 0);
 
           // RFC-0111: Use centralized factory
-          items.push(createOrchestratorItem({
-            entityId,
-            meta,
-            overrides: {
-              label: meta.label || meta.identifier || 'Sensor',
-              entityLabel: meta.label || meta.identifier || 'Sensor',
-              name: meta.label || meta.identifier || 'Sensor',
-              value: temperatureValue,
-              temperature: temperatureValue,
-              deviceType: meta.deviceType || 'TERMOSTATO',
-            },
-          }));
+          items.push(
+            createOrchestratorItem({
+              entityId,
+              meta,
+              overrides: {
+                label: meta.label || meta.identifier || 'Sensor',
+                entityLabel: meta.label || meta.identifier || 'Sensor',
+                name: meta.label || meta.identifier || 'Sensor',
+                value: temperatureValue,
+                temperature: temperatureValue,
+                deviceType: meta.deviceType || 'TERMOSTATO',
+              },
+            })
+          );
         }
 
         // Populate window.STATE.temperature
@@ -3833,23 +4023,25 @@ const MyIOOrchestrator = (() => {
             // else: HIDROMETRO with profile = HIDROMETRO or empty → Lojas
 
             // RFC-0111: Use centralized factory
-            hidrometroItems.push(createOrchestratorItem({
-              entityId,
-              meta,
-              overrides: {
-                label: meta.label || meta.identifier || 'Hidrômetro',
-                entityLabel: meta.label || meta.identifier || 'Hidrômetro',
-                name: meta.label || meta.identifier || 'Hidrômetro',
-                value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment
-                pulses: pulses,
-                deviceType: deviceType,
-                deviceProfile: deviceProfile || deviceType,
-                effectiveDeviceType: deviceProfile || deviceType,
-                labelWidget: labelWidget,
-                groupLabel: labelWidget,
-                _isHidrometerDevice: isEntradaDevice,
-              },
-            }));
+            hidrometroItems.push(
+              createOrchestratorItem({
+                entityId,
+                meta,
+                overrides: {
+                  label: meta.label || meta.identifier || 'Hidrômetro',
+                  entityLabel: meta.label || meta.identifier || 'Hidrômetro',
+                  name: meta.label || meta.identifier || 'Hidrômetro',
+                  value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment
+                  pulses: pulses,
+                  deviceType: deviceType,
+                  deviceProfile: deviceProfile || deviceType,
+                  effectiveDeviceType: deviceProfile || deviceType,
+                  labelWidget: labelWidget,
+                  groupLabel: labelWidget,
+                  _isHidrometerDevice: isEntradaDevice,
+                },
+              })
+            );
             continue;
           }
 
@@ -3858,24 +4050,26 @@ const MyIOOrchestrator = (() => {
             const waterPercentage = Number(meta.waterPercentage || 0);
 
             // RFC-0111: Use centralized factory
-            tankItems.push(createOrchestratorItem({
-              entityId,
-              meta,
-              overrides: {
-                label: meta.label || meta.identifier || "Caixa d'água",
-                entityLabel: meta.label || meta.identifier || "Caixa d'água",
-                name: meta.label || meta.identifier || "Caixa d'água",
-                value: waterLevel,
-                waterLevel: waterLevel,
-                waterPercentage: waterPercentage,
-                deviceType: deviceType || 'TANK',
-                deviceProfile: meta.deviceProfile || deviceType || 'TANK',
-                effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
-                labelWidget: "Caixa D'Água",
-                groupLabel: "Caixa D'Água",
-                _isTankDevice: true,
-              },
-            }));
+            tankItems.push(
+              createOrchestratorItem({
+                entityId,
+                meta,
+                overrides: {
+                  label: meta.label || meta.identifier || "Caixa d'água",
+                  entityLabel: meta.label || meta.identifier || "Caixa d'água",
+                  name: meta.label || meta.identifier || "Caixa d'água",
+                  value: waterLevel,
+                  waterLevel: waterLevel,
+                  waterPercentage: waterPercentage,
+                  deviceType: deviceType || 'TANK',
+                  deviceProfile: meta.deviceProfile || deviceType || 'TANK',
+                  effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
+                  labelWidget: "Caixa D'Água",
+                  groupLabel: "Caixa D'Água",
+                  _isTankDevice: true,
+                },
+              })
+            );
           }
         }
 
@@ -4083,7 +4277,9 @@ const MyIOOrchestrator = (() => {
           }
         }
       }
-      LogHelper.log(`[Orchestrator] 📊 API data map: ${apiDataMap.size} items by ID, ${apiDataByName.size} by name`);
+      LogHelper.log(
+        `[Orchestrator] 📊 API data map: ${apiDataMap.size} items by ID, ${apiDataByName.size} by name`
+      );
 
       // RFC-0108 DEBUG: Compare metadata ingestionIds with API ids
       if (domain === 'water') {
@@ -4094,9 +4290,9 @@ const MyIOOrchestrator = (() => {
         const apiIds = new Set(apiDataMap.keys());
 
         // Find IDs in API but not in metadata
-        const apiOnly = [...apiIds].filter(id => !metaIngestionIds.has(id));
+        const apiOnly = [...apiIds].filter((id) => !metaIngestionIds.has(id));
         // Find IDs in metadata but not in API
-        const metaOnly = [...metaIngestionIds].filter(id => !apiIds.has(id));
+        const metaOnly = [...metaIngestionIds].filter((id) => !apiIds.has(id));
 
         LogHelper.log(`[RFC-0108 DEBUG] Water ID comparison:`, {
           metadataCount: metaIngestionIds.size,
@@ -4136,7 +4332,11 @@ const MyIOOrchestrator = (() => {
             apiRow = apiDataByName.get(metaLabel);
             matchedBy = 'name';
             nameMatchedCount++;
-            LogHelper.log(`[RFC-0108 DEBUG] Name-based match for "${meta.label}": found API data with value ${getValueFromRow(apiRow)}`);
+            LogHelper.log(
+              `[RFC-0108 DEBUG] Name-based match for "${
+                meta.label
+              }": found API data with value ${getValueFromRow(apiRow)}`
+            );
           }
         }
 
@@ -4190,36 +4390,38 @@ const MyIOOrchestrator = (() => {
         });
 
         // RFC-0111: Use centralized factory
-        items.push(createOrchestratorItem({
-          entityId,
-          meta,
-          apiRow,
-          overrides: {
-            id: ingestionId || entityId,
-            identifier: identifier,
-            deviceIdentifier: identifier,
-            label: label,
-            entityLabel: label,
-            name: name,
-            value: getValueFromRow(apiRow),
-            perc: 0,
-            deviceType: deviceType,
-            deviceProfile: deviceProfile,
-            effectiveDeviceType: deviceProfile || deviceType || null,
-            // API-specific fields
-            gatewayId: apiRow?.gatewayId || null,
-            customerId: apiRow?.customerId || null,
-            assetId: apiRow?.assetId || null,
-            assetName: apiRow?.assetName || null,
-            // Power limits and instantaneous power
-            deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
-            consumptionPower: meta.consumption || null,
-            labelWidget: labelWidget,
-            groupLabel: labelWidget,
-            _hasApiData: hasApiData,
-            _matchedBy: matchedBy,
-          },
-        }));
+        items.push(
+          createOrchestratorItem({
+            entityId,
+            meta,
+            apiRow,
+            overrides: {
+              id: ingestionId || entityId,
+              identifier: identifier,
+              deviceIdentifier: identifier,
+              label: label,
+              entityLabel: label,
+              name: name,
+              value: getValueFromRow(apiRow),
+              perc: 0,
+              deviceType: deviceType,
+              deviceProfile: deviceProfile,
+              effectiveDeviceType: deviceProfile || deviceType || null,
+              // API-specific fields
+              gatewayId: apiRow?.gatewayId || null,
+              customerId: apiRow?.customerId || null,
+              assetId: apiRow?.assetId || null,
+              assetName: apiRow?.assetName || null,
+              // Power limits and instantaneous power
+              deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
+              consumptionPower: meta.consumption || null,
+              labelWidget: labelWidget,
+              groupLabel: labelWidget,
+              _hasApiData: hasApiData,
+              _matchedBy: matchedBy,
+            },
+          })
+        );
       }
 
       LogHelper.log(
@@ -4228,8 +4430,8 @@ const MyIOOrchestrator = (() => {
 
       // DEBUG: Log sample items
       if (items.length > 0) {
-        const sampleWithApi = items.find(i => i._hasApiData);
-        const sampleWithoutApi = items.find(i => !i._hasApiData);
+        const sampleWithApi = items.find((i) => i._hasApiData);
+        const sampleWithoutApi = items.find((i) => !i._hasApiData);
         if (sampleWithApi) {
           LogHelper.log(`[Orchestrator] 🔍 Sample item WITH API data:`, {
             id: sampleWithApi.id,
@@ -4253,49 +4455,65 @@ const MyIOOrchestrator = (() => {
 
         // RFC-0108 DEBUG: Log VACINA device specifically after enrichment (regardless of classification)
         if (domain === 'water') {
-          const vacinaItems = items.filter(i => {
+          const vacinaItems = items.filter((i) => {
             const label = (i.label || '').toUpperCase();
             const name = (i.name || '').toUpperCase();
             return label.includes('VACINA') || name.includes('VACINA');
           });
           if (vacinaItems.length > 0) {
-            LogHelper.log(`[RFC-0108 DEBUG] VACINA device AFTER ENRICHMENT:`, JSON.stringify(vacinaItems.map(d => ({
-              label: d.label,
-              value: d.value,
-              ingestionId: d.ingestionId,
-              hasApiData: d._hasApiData,
-              matchedBy: d._matchedBy,
-              labelWidget: d.labelWidget,
-              deviceType: d.deviceType,
-              deviceProfile: d.deviceProfile,
-            })), null, 2));
+            LogHelper.log(
+              `[RFC-0108 DEBUG] VACINA device AFTER ENRICHMENT:`,
+              JSON.stringify(
+                vacinaItems.map((d) => ({
+                  label: d.label,
+                  value: d.value,
+                  ingestionId: d.ingestionId,
+                  hasApiData: d._hasApiData,
+                  matchedBy: d._matchedBy,
+                  labelWidget: d.labelWidget,
+                  deviceType: d.deviceType,
+                  deviceProfile: d.deviceProfile,
+                })),
+                null,
+                2
+              )
+            );
           }
 
-          const entradaDevices = items.filter(i => i.labelWidget === 'Entrada');
+          const entradaDevices = items.filter((i) => i.labelWidget === 'Entrada');
           if (entradaDevices.length > 0) {
-            LogHelper.log(`[RFC-0108 DEBUG] Entrada devices after enrichment:`, entradaDevices.map(d => ({
-              label: d.label,
-              value: d.value,
-              hasApiData: d._hasApiData,
-              matchedBy: d._matchedBy,
-              ingestionId: d.ingestionId || 'MISSING',
-            })));
+            LogHelper.log(
+              `[RFC-0108 DEBUG] Entrada devices after enrichment:`,
+              entradaDevices.map((d) => ({
+                label: d.label,
+                value: d.value,
+                hasApiData: d._hasApiData,
+                matchedBy: d._matchedBy,
+                ingestionId: d.ingestionId || 'MISSING',
+              }))
+            );
           }
 
           // Log all devices that have no match and value=0
-          const unmatchedDevices = items.filter(i => !i._hasApiData && i.value === 0);
+          const unmatchedDevices = items.filter((i) => !i._hasApiData && i.value === 0);
           if (unmatchedDevices.length > 0 && unmatchedDevices.length <= 20) {
-            LogHelper.log(`[RFC-0108 DEBUG] ALL unmatched devices (value=0):`, unmatchedDevices.map(d => ({
-              label: d.label,
-              ingestionId: d.ingestionId || 'MISSING',
-              labelWidget: d.labelWidget,
-            })));
+            LogHelper.log(
+              `[RFC-0108 DEBUG] ALL unmatched devices (value=0):`,
+              unmatchedDevices.map((d) => ({
+                label: d.label,
+                ingestionId: d.ingestionId || 'MISSING',
+                labelWidget: d.labelWidget,
+              }))
+            );
           } else if (unmatchedDevices.length > 20) {
-            LogHelper.log(`[RFC-0108 DEBUG] Too many unmatched devices: ${unmatchedDevices.length} - showing first 10:`, unmatchedDevices.slice(0, 10).map(d => ({
-              label: d.label,
-              ingestionId: d.ingestionId || 'MISSING',
-              labelWidget: d.labelWidget,
-            })));
+            LogHelper.log(
+              `[RFC-0108 DEBUG] Too many unmatched devices: ${unmatchedDevices.length} - showing first 10:`,
+              unmatchedDevices.slice(0, 10).map((d) => ({
+                label: d.label,
+                ingestionId: d.ingestionId || 'MISSING',
+                labelWidget: d.labelWidget,
+              }))
+            );
           }
         }
       }
@@ -4325,40 +4543,51 @@ const MyIOOrchestrator = (() => {
         }
 
         if (mergedCount > 0) {
-          LogHelper.log(`[Orchestrator] 🔄 RFC-0108: Merged API values into ${mergedCount}/${hidrometroItems.length} hidrometros`);
+          LogHelper.log(
+            `[Orchestrator] 🔄 RFC-0108: Merged API values into ${mergedCount}/${hidrometroItems.length} hidrometros`
+          );
 
           // DEBUG: Log VACINA device after merge
-          const vacinaHidro = hidrometroItems.find(h => {
+          const vacinaHidro = hidrometroItems.find((h) => {
             const label = (h.label || '').toUpperCase();
             return label.includes('VACINA');
           });
           if (vacinaHidro) {
-            LogHelper.log(`[RFC-0108 DEBUG] VACINA hidrometro AFTER MERGE:`, JSON.stringify({
-              label: vacinaHidro.label,
-              value: vacinaHidro.value,
-              pulses: vacinaHidro.pulses,
-              hasApiData: vacinaHidro._hasApiData,
-              matchedBy: vacinaHidro._matchedBy,
-            }, null, 2));
+            LogHelper.log(
+              `[RFC-0108 DEBUG] VACINA hidrometro AFTER MERGE:`,
+              JSON.stringify(
+                {
+                  label: vacinaHidro.label,
+                  value: vacinaHidro.value,
+                  pulses: vacinaHidro.pulses,
+                  hasApiData: vacinaHidro._hasApiData,
+                  matchedBy: vacinaHidro._matchedBy,
+                },
+                null,
+                2
+              )
+            );
           }
         }
 
         // Create set of IDs already processed as tanks or hidrometros
         const waterDeviceIds = new Set([
-          ...tankItems.map(i => i.tbId),
-          ...hidrometroItems.map(i => i.tbId)
+          ...tankItems.map((i) => i.tbId),
+          ...hidrometroItems.map((i) => i.tbId),
         ]);
         // Filter items to exclude duplicates
-        const itemsWithoutWaterDevices = items.filter(i => !waterDeviceIds.has(i.tbId));
+        const itemsWithoutWaterDevices = items.filter((i) => !waterDeviceIds.has(i.tbId));
         finalItems = [...itemsWithoutWaterDevices, ...tankItems, ...hidrometroItems];
         LogHelper.log(
-          `[Orchestrator] 🚰 Combined ${itemsWithoutWaterDevices.length} metadata items + ${tankItems.length} tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total (filtered ${items.length - itemsWithoutWaterDevices.length} duplicates)`
+          `[Orchestrator] 🚰 Combined ${itemsWithoutWaterDevices.length} metadata items + ${
+            tankItems.length
+          } tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total (filtered ${
+            items.length - itemsWithoutWaterDevices.length
+          } duplicates)`
         );
       }
 
-      LogHelper.log(
-        `[Orchestrator] fetchAndEnrich: fetched ${finalItems.length} items for domain ${domain}`
-      );
+      LogHelper.log(`[Orchestrator] fetchAndEnrich: fetched ${finalItems.length} items for domain ${domain}`);
       return finalItems;
     } catch (error) {
       LogHelper.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
@@ -4600,7 +4829,28 @@ const MyIOOrchestrator = (() => {
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
-    currentPeriod = ev.detail.period;
+
+    // RFC-0130: Check if period changed - if so, clear cache for this domain
+    const newPeriod = ev.detail.period;
+    const periodChanged = !currentPeriod ||
+      currentPeriod.startISO !== newPeriod?.startISO ||
+      currentPeriod.endISO !== newPeriod?.endISO;
+
+    if (periodChanged && visibleTab) {
+      LogHelper.log(`[Orchestrator] 🔄 RFC-0130: Period changed, clearing cache for ${visibleTab}`);
+
+      // Clear MyIOOrchestratorData cache
+      if (window.MyIOOrchestratorData && window.MyIOOrchestratorData[visibleTab]) {
+        delete window.MyIOOrchestratorData[visibleTab];
+        LogHelper.log(`[Orchestrator] 🗑️ RFC-0130: Cleared MyIOOrchestratorData for ${visibleTab}`);
+      }
+
+      // Clear inFlight to allow new request
+      inFlight.clear();
+      LogHelper.log('[Orchestrator] 🗑️ RFC-0130: Cleared inFlight cache');
+    }
+
+    currentPeriod = newPeriod;
 
     // Cross-context emission removed - HEADER already handles this
     // No need to re-emit here as it creates infinite loop
@@ -4619,22 +4869,38 @@ const MyIOOrchestrator = (() => {
       // Silently ignore - busy indicator may not exist yet
     }
     visibleTab = tab;
+
+    // RFC-0130: Check if cached data for this domain has 0 items (failed previous load)
+    // If so, clear it to force a fresh fetch
+    const cachedData = window.MyIOOrchestratorData?.[tab];
+    if (cachedData && cachedData.items && cachedData.items.length === 0) {
+      LogHelper.log(`[Orchestrator] 🗑️ RFC-0130: Clearing empty cache for ${tab} (previous load failed)`);
+      delete window.MyIOOrchestratorData[tab];
+      // Also clear inFlight to allow new request
+      inFlight.clear();
+    }
+
     if (visibleTab && currentPeriod) {
-      LogHelper.log(`[Orchestrator] ?? myio:dashboard-state ? hydrateDomain(${visibleTab})`);
+      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
+    } else if (visibleTab && !currentPeriod) {
+      // RFC-0130: No period yet - start retry loop to wait for period
+      LogHelper.log(`[Orchestrator] ⏳ RFC-0130: myio:dashboard-state - no period, starting retry for ${visibleTab}`);
+      requestDataWithRetry(visibleTab, null);
     } else {
       LogHelper.log(
-        `[Orchestrator] ?? myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
+        `[Orchestrator] ⏭️ myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
       );
     }
   });
 
   // Request-data listener with pending listeners support
+  // RFC-0130: Enhanced with retry logic for resilient data loading
   window.addEventListener('myio:telemetry:request-data', async (ev) => {
-    const { domain, period, widgetId, priority } = ev.detail;
+    const { domain, period, widgetId, priority, isRetry } = ev.detail;
 
     LogHelper.log(
-      `[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority})`
+      `[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority}, isRetry: ${!!isRetry})`
     );
 
     // Check if already loading
@@ -4668,8 +4934,12 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data → hydrateDomain(${domain})`);
         await hydrateDomain(domain, p);
       } else {
-        LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data skipped (no period)`);
+        // RFC-0130: No period available - use retry mechanism
+        LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data - no period, starting retry for ${domain}`);
         OrchestratorState.loading[domain] = false;
+
+        // Start retry in background (non-blocking)
+        requestDataWithRetry(domain, null);
       }
     } catch (error) {
       LogHelper.error(`[Orchestrator] Error hydrating ${domain}:`, error);
@@ -4757,6 +5027,10 @@ const MyIOOrchestrator = (() => {
     tokenManager,
     metrics,
     config,
+
+    // RFC-0130: Expose retry functions for external use
+    requestDataWithRetry,
+    waitForPeriodWithRetry,
 
     // Expose centralized busy management
     showGlobalBusy,
@@ -4852,6 +5126,24 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   LogHelper.log('[Orchestrator] 📢 Emitted myio:orchestrator:ready event');
 
+  // RFC-0130: Auto-trigger data fetch when both orchestrator is ready AND period is available
+  // This solves the "data doesn't load automatically" issue
+  setTimeout(() => {
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
+
+    if (period) {
+      LogHelper.log(`[Orchestrator] 🚀 RFC-0130: Auto-triggering data fetch for ${domain} after ready`);
+      window.MyIOOrchestrator?.hydrateDomain?.(domain, period);
+    } else {
+      LogHelper.log(`[Orchestrator] ⏳ RFC-0130: No period yet, will wait for myio:update-date event`);
+      // Start retry loop for visible domain
+      if (window.MyIOOrchestrator?.requestDataWithRetry) {
+        window.MyIOOrchestrator.requestDataWithRetry(domain, null);
+      }
+    }
+  }, 500);
+
   // RFC-0107: Contract loading will be initialized from self.onInit after customerTB_ID is set
 } else {
   // Fallback: no stub exists (shouldn't happen but be safe)
@@ -4860,6 +5152,17 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   window.MyIOOrchestrator.credentialsSet = false;
 
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
+
+  // RFC-0130: Auto-trigger for fallback case
+  setTimeout(() => {
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
+
+    if (period) {
+      LogHelper.log(`[Orchestrator] 🚀 RFC-0130: Auto-triggering data fetch for ${domain} (fallback)`);
+      window.MyIOOrchestrator?.hydrateDomain?.(domain, period);
+    }
+  }, 500);
 
   // RFC-0107: Contract loading will be initialized from self.onInit after customerTB_ID is set
 }

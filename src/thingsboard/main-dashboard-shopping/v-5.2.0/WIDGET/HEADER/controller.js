@@ -522,6 +522,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               tz: 'America/Sao_Paulo',
             };
 
+            // RFC-0130: Store period globally for retry mechanism
+            window.__myioInitialPeriod = initialPeriod;
+
             LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${tab}:`, initialPeriod);
             emitToAllContexts('myio:update-date', { period: initialPeriod });
           } else {
@@ -621,8 +624,35 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       LogHelper.log('[HEADER] Emitting standardized period:', period);
 
+      // RFC-0130: Invalidate orchestrator cache before fetching new data
+      // This ensures that when date range changes, fresh data is always fetched
+      try {
+        const orchestrator = window.MyIOOrchestrator;
+        if (orchestrator) {
+          // Clear inFlight cache to force new requests
+          if (orchestrator.getSharedWidgetState) {
+            const state = orchestrator.getSharedWidgetState();
+            if (state && state.lastProcessedPeriodKey) {
+              state.lastProcessedPeriodKey = null;
+              LogHelper.log('[HEADER] 🔄 RFC-0130: Cleared lastProcessedPeriodKey');
+            }
+          }
+
+          // Clear MyIOOrchestratorData cache for current domain
+          if (window.MyIOOrchestratorData && window.MyIOOrchestratorData[currentDomain.value]) {
+            delete window.MyIOOrchestratorData[currentDomain.value];
+            LogHelper.log(`[HEADER] 🔄 RFC-0130: Cleared MyIOOrchestratorData cache for ${currentDomain.value}`);
+          }
+        }
+      } catch (cacheErr) {
+        LogHelper.warn('[HEADER] ⚠️ RFC-0130: Error clearing cache:', cacheErr);
+      }
+
       // Emit standardized event to all contexts (use shared function)
       emitToAllContexts('myio:update-date', { period });
+
+      // Store period globally for retry mechanism
+      window.__myioInitialPeriod = period;
 
       // Backward compatibility: also emit old format
       emitToAllContexts('myio:update-date-legacy', { startDate: startISO, endDate: endISO });
