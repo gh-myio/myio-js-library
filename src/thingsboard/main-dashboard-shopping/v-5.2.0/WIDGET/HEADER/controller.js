@@ -659,6 +659,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       LogHelper.log('[HEADER] Emitting standardized period:', period);
 
+      // RFC-0130: Show busy overlay when loading data
+      try {
+        const orchestrator = window.MyIOOrchestrator;
+        if (orchestrator?.showGlobalBusy) {
+          orchestrator.showGlobalBusy(currentDomain.value, 'Carregando dados...');
+          LogHelper.log(`[HEADER] RFC-0130: Showing busy overlay for ${currentDomain.value}`);
+        }
+      } catch (busyErr) {
+        LogHelper.warn('[HEADER] Failed to show busy overlay:', busyErr);
+      }
+
       // RFC-0130: Invalidate orchestrator cache before fetching new data
       // This ensures that when date range changes, fresh data is always fetched
       try {

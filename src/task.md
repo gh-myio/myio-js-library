@@ -40,6 +40,26 @@ console.error("Erro ao enviar requisição:", e);
 
 window.MyIOOrchestrator?.hideGlobalBusy
 
+esse endpoint y.myio.com.br vai ser chamando quando
+
+ao chamar
+
+@/src\components\premium-modals\settings\SettingsModalView.ts
+
+```
+    this.fetchLatestConsumptionTelemetry();
+
+```
+
+e cair no caro
+
+@/src\components\premium-modals\settings\SettingsModalView.ts
+
+```
+        telemetryElement.innerHTML = '<span class="telemetry-no-data">Sem dados</span>';
+
+```
+
 ---
 
 temos que criar em
@@ -60,3 +80,8 @@ copiando de
 const MyIOOrchestrator = (() => {
 
 ```
+
+teremos implementar um delay de 2segundos e
+implementar até 3 tentativas espassadas com 10 segundos de uma nova requisição de fetchLatestConsumptionTelemetry
+
+para ver se carregou última telemetria, mas jã pode chamar hideGlobalBusy e mostrar um toast de warning que estã tentando carregar a última telemetria do dispositivo e onde mostraria ^Sem dados^, mostramos "Atualizaando última telemetria. (1/5)"

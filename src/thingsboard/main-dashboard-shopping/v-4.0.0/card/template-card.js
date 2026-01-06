@@ -27,67 +27,38 @@ export function renderCardComponent({
     valType,
   } = entityObject;
 
-  // 1. LÓGICA DE STATUS
-  const DeviceStatus = {
-    CONNECTED: "connected",
-    OFFLINE: "offline",
-    POWER_ON: "power_on",
-    STANDBY: "standby",
-    POWER_OFF: "power_off",
-    WARNING: "warning",
-    DANGER: "danger",
-    MAINTENANCE: "maintenance",
-  };
+  // 1. LÓGICA DE STATUS - Using centralized deviceStatus.js utilities
+  const MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+    (typeof window !== 'undefined' && window.MyIOLibrary);
 
-  const statusIcons = {
-    [DeviceStatus.CONNECTED]: "✅",
-    [DeviceStatus.OFFLINE]: "🔌",
-    [DeviceStatus.POWER_ON]: "⚡",
-    [DeviceStatus.STANDBY]: "⏸️",
-    [DeviceStatus.POWER_OFF]: "⏹️",
-    [DeviceStatus.WARNING]: "⚠️",
-    [DeviceStatus.DANGER]: "🚨",
-    [DeviceStatus.MAINTENANCE]: "🛠️",
-  };
+  const { DeviceStatusType, deviceStatusIcons, shouldFlashIcon: checkShouldFlash } = MyIO;
 
   // 2. NOVA LÓGICA DE CLASSES E ÍCONES
   const isOfflineOrDanger =
-    connectionStatus === DeviceStatus.OFFLINE ||
-    connectionStatus === DeviceStatus.DANGER;
+    connectionStatus === DeviceStatusType.OFFLINE || connectionStatus === DeviceStatusType.FAILURE;
 
-  const shouldFlashIcon =
-    connectionStatus === DeviceStatus.OFFLINE ||
-    connectionStatus === DeviceStatus.WARNING ||
-    connectionStatus === DeviceStatus.DANGER ||
-    connectionStatus === DeviceStatus.MAINTENANCE;
+  const shouldFlashIcon = checkShouldFlash(connectionStatus);
 
-  const icon =
-    statusIcons[connectionStatus] || statusIcons[DeviceStatus.POWER_ON];
+  const icon = deviceStatusIcons[connectionStatus] || deviceStatusIcons[DeviceStatusType.POWER_ON];
 
-  // Fallback seguro: não use "MyIOLibrary" direto
-  const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary) ||
-    (typeof window !== "undefined" && window.MyIOLibrary) || {
-      formatEnergy: (v, g) => `${v} kWh`,
-      formatNumberReadable: (n) => Number(n ?? 0).toFixed(1),
-    };
+  // 3. FORMATAÇÃO DE VALORES
+  let valFormatted = MyIO.formatEnergy ? MyIO.formatEnergy(val) : `${val} kWh`;
 
-  let valFormatted = MyIO.formatEnergy(val);
-
-  if (valType === "ENERGY") {
+  if (valType === 'ENERGY') {
     valFormatted = MyIO.formatEnergy(val);
-  } else if (valType === "WATER") {
+  } else if (valType === 'WATER') {
     valFormatted = `${val} m³`;
-  } else if (valType === "TANK") {
+  } else if (valType === 'TANK') {
     valFormatted = `${val} m.c.a`;
   } else {
     valFormatted = val;
   }
-  const percFormatted = MyIO.formatNumberReadable(perc);
+  const percFormatted = MyIO.formatNumberReadable?.(perc) ?? Number(perc ?? 0).toFixed(1);
 
   // Injeta CSS uma única vez
-  if (!document.getElementById("myio-card-styles")) {
-    const style = document.createElement("style");
-    style.id = "myio-card-styles";
+  if (!document.getElementById('myio-card-styles')) {
+    const style = document.createElement('style');
+    style.id = 'myio-card-styles';
     // --- CSS ATUALIZADO ---
     style.textContent = ` 
 .device-card-centered,
@@ -357,23 +328,23 @@ export function renderCardComponent({
   }
   let formattedDateVal;
   let formattedDate;
-  let Infcolor = "#5cb85c";
+  let Infcolor = '#5cb85c';
   if (connectionStatusTime) {
     const date = new Date(connectionStatusTime);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0"); // mês começa do 0
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // mês começa do 0
     const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
 
     formattedDate = `Online: (${day}/${month}/${year} - ${hours}:${minutes})`;
 
     const datVal = new Date(timaVal);
-    const dayVal = String(datVal.getDate()).padStart(2, "0");
-    const monthVal = String(datVal.getMonth() + 1).padStart(2, "0"); // mês começa do 0
+    const dayVal = String(datVal.getDate()).padStart(2, '0');
+    const monthVal = String(datVal.getMonth() + 1).padStart(2, '0'); // mês começa do 0
     const yearVal = date.getFullYear();
-    const hoursVal = String(date.getHours()).padStart(2, "0");
-    const minutesVal = String(date.getMinutes()).padStart(2, "0");
+    const hoursVal = String(date.getHours()).padStart(2, '0');
+    const minutesVal = String(date.getMinutes()).padStart(2, '0');
 
     const now = new Date();
     const diffMs = now - datVal;
@@ -382,24 +353,23 @@ export function renderCardComponent({
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    let diffText = "";
+    let diffText = '';
     if (diffMinutes < 60) {
-      diffText = `${diffMinutes} minuto${diffMinutes !== 1 ? "s" : ""}`;
+      diffText = `${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
     } else if (diffHours < 24) {
-      diffText = `${diffHours} hora${diffHours !== 1 ? "s" : ""}`;
+      diffText = `${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
     } else {
-      diffText = `${diffDays} dia${diffDays !== 1 ? "s" : ""} `;
+      diffText = `${diffDays} dia${diffDays !== 1 ? 's' : ''} `;
     }
     formattedDateVal = `${dayVal}/${monthVal}/${yearVal} - ${hoursVal}:${minutesVal} (${diffText})`;
 
-    
     if (diffHours >= 24) {
-      Infcolor = "#cc2900"; // Mais de 24h: vermelho
+      Infcolor = '#cc2900'; // Mais de 24h: vermelho
     } else if (diffMinutes >= 30) {
-      Infcolor = "#e89105"; // Entre 30min e 24h: laranja
+      Infcolor = '#e89105'; // Entre 30min e 24h: laranja
     }
   } else {
-    Infcolor = "#d6dcdd"; // Sem dados: cinza
+    Infcolor = '#d6dcdd'; // Sem dados: cinza
   }
 
   //
@@ -411,30 +381,23 @@ export function renderCardComponent({
       str = '';
     }
     return str
-      .normalize("NFD") // separa letras dos acentos
-      .replace(/[\u0300-\u036f]/g, "") // remove os acentos
+      .normalize('NFD') // separa letras dos acentos
+      .replace(/[\u0300-\u036f]/g, '') // remove os acentos
       .toUpperCase(); // deixa em maiúsculo
   }
 
   // Mapeamento de imagens por tipo de dispositivo
   const deviceImages = {
-    MOTOR:
-      "https://dashboard.myio-bas.com/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
-    "3F_MEDIDOR":
-      "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-    RELOGIO:
-      "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
-    HIDROMETRO:
-      "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
-    ENTRADA:
-      "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
-    CAIXA_DAGUA:
-      "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq",
+    MOTOR: 'https://dashboard.myio-bas.com/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts',
+    '3F_MEDIDOR': 'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
+    RELOGIO: 'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
+    HIDROMETRO: 'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
+    ENTRADA: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
+    CAIXA_DAGUA: 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
   };
 
   // URL padrão caso o tipo não seja encontrado
-  const defaultImage =
-    "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
+  const defaultImage = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
 
   // Normaliza e busca a imagem correspondente
   const nameType = normalizeString(deviceType);
@@ -442,9 +405,7 @@ export function renderCardComponent({
 
   // Template HTML do card
   const html = `
-    <div class="device-card-centered clickable ${
-      isOfflineOrDanger ? "offline" : "" 
-    }"
+    <div class="device-card-centered clickable ${isOfflineOrDanger ? 'offline' : ''}"
       data-entity-id="${entityId}"
       data-entity-label="${labelOrName}"
       data-entity-type="${entityType}"
@@ -458,7 +419,7 @@ export function renderCardComponent({
 
           <div class="card-actions" >
             ${
-              typeof handleActionDashboard === "function"
+              typeof handleActionDashboard === 'function'
                 ? `
               <div class="card-action action-dashboard" data-action="dashboard" title="Dashboard">
                 <img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/>
@@ -466,7 +427,7 @@ export function renderCardComponent({
                 : ``
             }
             ${
-              typeof handleActionReport === "function"
+              typeof handleActionReport === 'function'
                 ? `
               <div class="card-action action-report" data-action="report" title="Relatório">
                 <img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4"/>
@@ -474,7 +435,7 @@ export function renderCardComponent({
                 : ``
             }
             ${
-              typeof handleActionSettings === "function"
+              typeof handleActionSettings === 'function'
                 ? `
               <div class="card-action action-settings" data-action="settings" title="Configurações">
                 <img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>
@@ -482,7 +443,7 @@ export function renderCardComponent({
                 : ``
             }
             ${
-              typeof handleSelect === "function"
+              typeof handleSelect === 'function'
                 ? `
               <input class="card-action action-checker" data-action="checker" title="Selecionar" type="checkbox">`
                 : ``
@@ -494,23 +455,27 @@ export function renderCardComponent({
             <div class="device-title-row" style="flex-direction: column; min-height: 38px;">
               <span class="device-title" title="${labelOrName}">
                 ${
-                  String(labelOrName ?? "").length > 15
-                    ? String(labelOrName).slice(0, 15) + "…"
-                    : String(labelOrName ?? "")
+                  String(labelOrName ?? '').length > 15
+                    ? String(labelOrName).slice(0, 15) + '…'
+                    : String(labelOrName ?? '')
                 }
               </span>
-              ${deviceIdentifier ? `
+              ${
+                deviceIdentifier
+                  ? `
                 <span class="device-subtitle" title="${deviceIdentifier}">
                   ${deviceIdentifier}
                 </span>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
 
-            <img class="device-image" src="${img || ""}" />
+            <img class="device-image" src="${img || ''}" />
             <div class="device-data-row">
               <div class="consumption-main">
                 
-                <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
+                <span class="flash-icon ${shouldFlashIcon ? 'flash' : ''}">
                   ${icon}
                 </span>
 
@@ -551,7 +516,7 @@ export function renderCardComponent({
           <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 -960 960 960" width="30px" fill="#dea404">
             <path d="m456-200 174-340H510v-220L330-420h126v220Zm24 120q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
           </svg>
-          <div><span>${MyIO.formatEnergy(val / 1000) || "-"}</span></div>
+          <div><span>${MyIO.formatEnergy(val / 1000) || '-'}</span></div>
         </div>
 
         <div id="lastconsumptionTime">
@@ -568,57 +533,57 @@ export function renderCardComponent({
   // Agora sim criamos o $card e só então anexamos handlers
   const $card = $(html);
 
-  if (typeof handleActionDashboard === "function") {
-    $card.find(".action-dashboard").on("click", (e) => {
+  if (typeof handleActionDashboard === 'function') {
+    $card.find('.action-dashboard').on('click', (e) => {
       e.stopPropagation();
       handleActionDashboard(entityObject);
     });
   }
-  if (typeof handleActionReport === "function") {
-    $card.find(".action-report").on("click", (e) => {
+  if (typeof handleActionReport === 'function') {
+    $card.find('.action-report').on('click', (e) => {
       e.stopPropagation();
       handleActionReport(entityObject);
     });
   }
-  if (typeof handleActionSettings === "function") {
-    $card.find(".action-settings").on("click", (e) => {
+  if (typeof handleActionSettings === 'function') {
+    $card.find('.action-settings').on('click', (e) => {
       e.stopPropagation();
       handleActionSettings(entityObject);
     });
   }
-  if (typeof handleSelect === "function") {
+  if (typeof handleSelect === 'function') {
     // checker
-    $card.find(".action-checker").on("click", (e) => {
+    $card.find('.action-checker').on('click', (e) => {
       e.stopPropagation();
       handleSelect(entityObject);
     });
   }
 
-  if (typeof handleClickCard === "function") {
-    $card.find(".action-checker").on("click", (e) => {
+  if (typeof handleClickCard === 'function') {
+    $card.find('.action-checker').on('click', (e) => {
       e.stopPropagation();
       handleClickCard(entityObject);
     });
   }
 
-  $card.on("click", (e) => {
-    if (!$(e.target).closest(".card-action").length) {
-      if (typeof handleClickCard === "function") {
+  $card.on('click', (e) => {
+    if (!$(e.target).closest('.card-action').length) {
+      if (typeof handleClickCard === 'function') {
         handleClickCard(entityObject);
-      } else if (typeof handleActionDashboard === "function") {
+      } else if (typeof handleActionDashboard === 'function') {
         handleActionDashboard(entityObject);
       }
     }
   });
 
-  $card.find("#infoButtom-front").on("click", function (e) {
+  $card.find('#infoButtom-front').on('click', function (e) {
     e.stopPropagation();
-    $(this).closest(".device-card-centered").addClass("flipped");
+    $(this).closest('.device-card-centered').addClass('flipped');
   });
 
-  $card.find("#infoButtom-back").on("click", function (e) {
+  $card.find('#infoButtom-back').on('click', function (e) {
     e.stopPropagation();
-    $(this).closest(".device-card-centered").removeClass("flipped");
+    $(this).closest('.device-card-centered').removeClass('flipped');
   });
 
   return $card;
