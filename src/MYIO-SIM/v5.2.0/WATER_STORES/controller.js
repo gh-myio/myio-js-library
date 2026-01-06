@@ -1653,7 +1653,8 @@ self.onInit = async function () {
       );
       LogHelper.log(`[WATER_STORES] Classification breakdown: ${JSON.stringify(classification || {})}`);
 
-      // RFC-0109: Use items directly from MAIN (already classified as loja)
+      // RFC-0109/RFC-0131: Use items directly from MAIN (already classified as loja)
+      // Copy ALL telemetry fields for proper status calculation and card rendering
       STATE.itemsBase = stores.items.map((item) => ({
         id: item.tbId || item.ingestionId,
         tbId: item.tbId,
@@ -1669,26 +1670,51 @@ self.onInit = async function () {
         connectionStatusTime: item.lastConnectTime || null,
         timeVal: item.lastActivityTime || null,
         lastDisconnectTime: item.lastDisconnectTime || null,
-        lastConnectTime: item.lastConnectTime || null,
+        lastConnectTime: item.lastConnectTime || item.lastActivityTime || null,
+        lastActivityTime: item.lastActivityTime || null,
         deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
         customerId: item.customerId || null,
         connectionStatus: item.connectionStatus || 'offline',
-        pulses: item.pulses || null,
+        // RFC-0131: Copy telemetry fields for status calculation
+        pulses: item.pulses || item.consumption || 0,
+        pulsesTs: item.pulsesTs || item.lastActivityTime || null,
+        waterVolumeTs: item.waterVolumeTs || item.lastActivityTime || null,
+        consumption: item.consumption || item.value || 0,
         ownerName: item.ownerName || null,
+        // RFC-0131: Copy the actual value
+        value: item.value || item.consumption || 0,
       }));
 
-      // RFC-0109: Enrich with values from MAIN
+      // RFC-0131: Enrich with MAIN values first (pulses from TB are fine)
       STATE.itemsEnriched = STATE.itemsBase.map((item) => {
         const sourceItem = stores.items.find((i) => i.tbId === item.tbId || i.ingestionId === item.ingestionId);
         return {
           ...item,
-          value: sourceItem?.value || 0,
+          value: sourceItem?.value || sourceItem?.consumption || item.value || 0,
+          pulses: sourceItem?.pulses || sourceItem?.consumption || item.pulses || 0,
           perc: 0,
         };
       });
 
       LogHelper.log(`[WATER_STORES] Built ${STATE.itemsBase.length} items from MAIN classified data`);
       STATE.dataFromMain = true; // RFC-0109: Mark that data came from MAIN
+
+      // RFC-0131: MAIN now enriches water data with API values before emitting
+      // Check if data is already API-enriched (has apiEnriched flag)
+      const isApiEnriched = ev.detail?.apiEnriched || false;
+      LogHelper.log(`[WATER_STORES] RFC-0131: Data from MAIN (apiEnriched: ${isApiEnriched})`);
+
+      // Use values directly from MAIN (already enriched or will be re-emitted when enriched)
+      STATE.itemsEnriched = STATE.itemsBase.map((item) => {
+        const sourceItem = stores.items.find((i) => i.tbId === item.tbId || i.ingestionId === item.ingestionId);
+        return {
+          ...item,
+          value: sourceItem?.value || sourceItem?.consumption || item.value || 0,
+          pulses: sourceItem?.pulses || sourceItem?.consumption || item.pulses || 0,
+          perc: 0,
+        };
+      });
+
       reflowFromState();
       hideBusy();
     }

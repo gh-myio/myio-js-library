@@ -2,19 +2,28 @@
 
 // ============================================
 // MYIO-SIM 5.2.0 - ENERGY Widget Controller
+// RFC-0131: Minimalist refactor using MyIOUtils
 // ============================================
 
 // ============================================
 // SHARED UTILITIES (from MAIN via window.MyIOUtils)
 // ============================================
-// Use shared utilities from MAIN, with fallback to console
 const LogHelper = window.MyIOUtils?.LogHelper || {
   log: (...args) => console.log('[ENERGY]', ...args),
   warn: (...args) => console.warn('[ENERGY]', ...args),
   error: (...args) => console.error('[ENERGY]', ...args),
 };
 
-// Log script load
+// RFC-0131: Element selector using shared utility
+const $id = (id) => window.MyIOUtils?.$id?.(self.ctx, id) || document.getElementById(id);
+
+// RFC-0131: Cleanup functions registry
+let cleanupFns = [];
+function cleanupAll() {
+  cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+  cleanupFns = [];
+}
+
 LogHelper.log('Script loaded, using shared utilities:', !!window.MyIOUtils?.LogHelper);
 
 // ============================================
@@ -116,8 +125,8 @@ function renderTotalConsumptionEquipmentsUI(energyData, valueEl, trendEl, infoEl
  * Inicializa o card de consumo total de LOJAS com estado de loading
  */
 function initializeTotalConsumptionStoresCard() {
-  const valueEl = document.getElementById('total-consumption-stores-value');
-  const trendEl = document.getElementById('total-consumption-stores-trend');
+  const valueEl = $id('total-consumption-stores-value');
+  const trendEl = $id('total-consumption-stores-trend');
 
   // Show loading state
   if (valueEl) {
@@ -142,8 +151,8 @@ function initializeTotalConsumptionStoresCard() {
  * Inicializa o card de consumo total de EQUIPAMENTOS com estado de loading
  */
 function initializeTotalConsumptionEquipmentsCard() {
-  const valueEl = document.getElementById('total-consumption-equipments-value');
-  const trendEl = document.getElementById('total-consumption-equipments-trend');
+  const valueEl = $id('total-consumption-equipments-value');
+  const trendEl = $id('total-consumption-equipments-trend');
 
   // Show loading state
   if (valueEl) {
@@ -173,9 +182,9 @@ function updateTotalConsumptionStoresCard(summary) {
 
   if (!summary) return;
 
-  const valueEl = document.getElementById('total-consumption-stores-value');
-  const trendEl = document.getElementById('total-consumption-stores-trend');
-  const infoEl = document.getElementById('total-consumption-stores-info');
+  const valueEl = $id('total-consumption-stores-value');
+  const trendEl = $id('total-consumption-stores-trend');
+  const infoEl = $id('total-consumption-stores-info');
 
   renderTotalConsumptionStoresUI(summary, valueEl, trendEl, infoEl);
 }
@@ -189,9 +198,9 @@ function updateTotalConsumptionEquipmentsCard(summary) {
 
   if (!summary) return;
 
-  const valueEl = document.getElementById('total-consumption-equipments-value');
-  const trendEl = document.getElementById('total-consumption-equipments-trend');
-  const infoEl = document.getElementById('total-consumption-equipments-info');
+  const valueEl = $id('total-consumption-equipments-value');
+  const trendEl = $id('total-consumption-equipments-trend');
+  const infoEl = $id('total-consumption-equipments-info');
 
   renderTotalConsumptionEquipmentsUI(summary, valueEl, trendEl, infoEl);
 }
@@ -200,9 +209,9 @@ function updateTotalConsumptionEquipmentsCard(summary) {
  * DEPRECATED: Inicializa o card de consumo total com estado de loading
  */
 function initializeTotalConsumptionCard() {
-  const valueEl = document.getElementById('total-consumption-value');
-  const trendEl = document.getElementById('total-consumption-trend');
-  const infoEl = document.getElementById('total-consumption-info');
+  const valueEl = $id('total-consumption-value');
+  const trendEl = $id('total-consumption-trend');
+  const infoEl = $id('total-consumption-info');
 
   // Show loading state
   if (valueEl) {
@@ -313,20 +322,16 @@ let pendingLineChartUpdate = null;
  * RFC-0097: Show loading overlay on energy chart
  */
 function showChartLoading() {
-  const overlay = document.getElementById('lineChartLoading');
-  if (overlay) {
-    overlay.style.display = 'flex';
-  }
+  const overlay = $id('lineChartLoading');
+  if (overlay) overlay.style.display = 'flex';
 }
 
 /**
  * RFC-0097: Hide loading overlay on energy chart
  */
 function hideChartLoading() {
-  const overlay = document.getElementById('lineChartLoading');
-  if (overlay) {
-    overlay.style.display = 'none';
-  }
+  const overlay = $id('lineChartLoading');
+  if (overlay) overlay.style.display = 'none';
 }
 
 // RFC-0098: Reference to fullscreen modal instance
@@ -803,13 +808,13 @@ function handleFullscreenEsc(e) {
  * RFC-0097: Setup maximize button handler
  */
 function setupMaximizeButton() {
-  const maximizeBtn = document.getElementById('maximizeChartBtn');
+  const maximizeBtn = $id('maximizeChartBtn');
   if (!maximizeBtn) {
     LogHelper.warn('[ENERGY] [RFC-0097] Maximize button not found');
     return;
   }
 
-  maximizeBtn.addEventListener('click', toggleChartFullscreen);
+  maximizeBtn.addEventListener('click', openFullscreenModal);
   LogHelper.log('[ENERGY] [RFC-0097] Maximize button handler setup complete');
 }
 
@@ -1604,252 +1609,134 @@ function setupDistributionModeSelector() {
 // MAIN INITIALIZATION
 // ============================================
 
-// RFC-0097: Guard to prevent multiple initializations and store handlers for cleanup
+// RFC-0131: Guard to prevent multiple initializations
 let energyWidgetInitialized = false;
-let registeredHandlers = {
-  handleEnergySummary: null,
-  handleFilterApplied: null,
-  handleEquipmentMetadataEnriched: null,
-};
-
-/**
- * RFC-0097: Cleanup function to remove all event listeners
- */
-function cleanupEventListeners() {
-  if (registeredHandlers.handleEnergySummary) {
-    window.removeEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
-    if (window.parent !== window) {
-      window.parent.removeEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
-    }
-  }
-  if (registeredHandlers.handleFilterApplied) {
-    window.removeEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
-    if (window.parent !== window) {
-      window.parent.removeEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
-    }
-  }
-  if (registeredHandlers.handleEquipmentMetadataEnriched) {
-    window.removeEventListener(
-      'myio:equipment-metadata-enriched',
-      registeredHandlers.handleEquipmentMetadataEnriched
-    );
-    if (window.parent !== window) {
-      window.parent.removeEventListener(
-        'myio:equipment-metadata-enriched',
-        registeredHandlers.handleEquipmentMetadataEnriched
-      );
-    }
-  }
-  LogHelper.log('[ENERGY] [RFC-0097] Event listeners cleaned up');
-}
 
 // ============================================
 // WIDGET ENERGY - FUNÇÃO DE INICIALIZAÇÃO COMPLETA
+// RFC-0131: Minimalist refactor using MyIOUtils
 // ============================================
 self.onInit = async function () {
-  // RFC-0097: Prevent multiple initializations
+  // RFC-0131: Prevent multiple initializations
   if (energyWidgetInitialized) {
-    LogHelper.log('[ENERGY] [RFC-0097] Widget already initialized, skipping...');
+    LogHelper.log('[ENERGY] [RFC-0131] Widget already initialized, skipping...');
     return;
   }
 
-  LogHelper.log('[ENERGY] Initializing energy charts and consumption cards...');
+  LogHelper.log('[ENERGY] [RFC-0131] Initializing energy charts and consumption cards...');
 
-  // RFC-0097: Cleanup any existing listeners before adding new ones
-  cleanupEventListeners();
+  // RFC-0131: Cleanup any existing listeners before adding new ones
+  cleanupAll();
 
   // 1. INICIALIZA A UI: Mostra os spinners de "loading" para o usuário.
-  // -----------------------------------------------------------------
   initializeCharts();
-  initializeTotalConsumptionStoresCard(); // Novo: card de lojas
-  initializeTotalConsumptionEquipmentsCard(); // Novo: card de equipamentos
-  // initializePeakDemandCard(); // DESABILITADO TEMPORARIAMENTE
+  initializeTotalConsumptionStoresCard();
+  initializeTotalConsumptionEquipmentsCard();
 
-  // 2. LÓGICA DO CARD "CONSUMO TOTAL": Pede os dados ao MAIN.
-  //    Este é o novo fluxo corrigido que resolve o problema do loading.
-  // -----------------------------------------------------------------
+  // 2. RFC-0131: Register event listeners using addListenerBoth (auto-cleanup)
+  const addListener = window.MyIOUtils?.addListenerBoth || ((ev, handler) => {
+    window.addEventListener(ev, handler);
+    return () => window.removeEventListener(ev, handler);
+  });
 
-  // Primeiro, prepara o "ouvinte" que vai receber os dados quando o MAIN responder.
-  // ✅ Listen on both window and window.parent to support both iframe and non-iframe contexts
-  registeredHandlers.handleEnergySummary = async (ev) => {
+  // Listen for energy summary from orchestrator
+  cleanupFns.push(addListener('myio:energy-summary-ready', async (ev) => {
     LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
-    // Chama as funções que atualizam os cards na tela com os dados recebidos.
-    updateTotalConsumptionStoresCard(ev.detail); // Novo: card de lojas
-    updateTotalConsumptionEquipmentsCard(ev.detail); // Novo: card de equipamentos
+    updateTotalConsumptionStoresCard(ev.detail);
+    updateTotalConsumptionEquipmentsCard(ev.detail);
 
-    // RFC-0130: Refresh distribution chart when energy data is ready
-    // This ensures the chart gets data after orchestrator has populated energyCache
+    // Refresh distribution chart when energy data is ready
     if (distributionChartInstance) {
-      LogHelper.log('[ENERGY] [RFC-0130] Refreshing distribution chart after energy-summary-ready');
       try {
         await distributionChartInstance.refresh();
       } catch (error) {
-        LogHelper.error('[ENERGY] [RFC-0130] Error refreshing distribution chart:', error);
+        LogHelper.error('[ENERGY] Error refreshing distribution chart:', error);
       }
     }
-  };
+  }));
 
-  window.addEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
-
-  if (window.parent !== window) {
-    window.parent.addEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
-  }
-
-  // RFC-0073: Listen to shopping filter changes and update charts
-  registeredHandlers.handleFilterApplied = async (ev) => {
-    LogHelper.log('[ENERGY] [RFC-0073] Shopping filter applied, updating charts...', ev.detail);
-
-    // Invalidate cache when filter changes
+  // Listen to shopping filter changes and update charts
+  cleanupFns.push(addListener('myio:filter-applied', async (ev) => {
+    LogHelper.log('[ENERGY] Shopping filter applied, updating charts...', ev.detail);
     cachedChartData = null;
 
-    // RFC-0102: Update distribution chart to reflect filtered data
     if (distributionChartInstance) {
-      LogHelper.log('[ENERGY] [RFC-0102] Refreshing distribution chart after filter change');
       await distributionChartInstance.refresh();
     }
-
-    // RFC-0098: Update line chart using component API if available
-    if (consumptionChartInstance && typeof consumptionChartInstance.refresh === 'function') {
-      LogHelper.log('[ENERGY] [RFC-0098] Refreshing chart via component API');
-      await consumptionChartInstance.refresh(true); // Force refresh to bypass cache
-    } else {
-      LogHelper.error('[ENERGY] [RFC-0098] Component not available for refresh');
+    if (consumptionChartInstance?.refresh) {
+      await consumptionChartInstance.refresh(true);
     }
-  };
+  }));
 
-  window.addEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
-
-  if (window.parent !== window) {
-    window.parent.addEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
-  }
-
-  // RFC-0076: Listen to equipment metadata enrichment from EQUIPMENTS widget
-  // This forces chart updates when EQUIPMENTS finishes enriching the cache with deviceType/deviceProfile
-  registeredHandlers.handleEquipmentMetadataEnriched = async (ev) => {
-    LogHelper.log('[ENERGY] [RFC-0076] 🔧 Equipment metadata enriched! Forcing chart update...', ev.detail);
-
-    // RFC-0102: Force immediate update of distribution chart to pick up elevator classifications
+  // Listen to equipment metadata enrichment
+  cleanupFns.push(addListener('myio:equipment-metadata-enriched', async (ev) => {
+    LogHelper.log('[ENERGY] Equipment metadata enriched! Refreshing chart...', ev.detail);
     if (distributionChartInstance) {
-      LogHelper.log('[ENERGY] [RFC-0102] Refreshing distribution chart after metadata enrichment');
       await distributionChartInstance.refresh();
     }
+  }));
 
-    LogHelper.log('[ENERGY] [RFC-0076] [RFC-0102] Charts updated with enriched metadata');
-  };
+  // Listen for cache clear
+  cleanupFns.push(addListener('myio:telemetry:clear', () => {
+    LogHelper.log('[ENERGY] Cache clear event received.');
+    initializeTotalConsumptionCard();
+  }));
 
-  window.addEventListener(
-    'myio:equipment-metadata-enriched',
-    registeredHandlers.handleEquipmentMetadataEnriched
-  );
-
-  if (window.parent !== window) {
-    window.parent.addEventListener(
-      'myio:equipment-metadata-enriched',
-      registeredHandlers.handleEquipmentMetadataEnriched
-    );
-  }
-
-  // RFC-0097: Mark widget as initialized
+  // RFC-0131: Mark widget as initialized
   energyWidgetInitialized = true;
 
-  // DEPOIS (NOVO CÓDIGO PARA O onInit DO WIDGET ENERGY)
-
-  // Em seguida, inicia um "vigia" que espera o Orquestrador ficar pronto.
-  const waitForOrchestratorAndRequestSummary = () => {
-    let attempts = 0;
-    const maxAttempts = 50; // Tenta por 10 segundos (50 * 200ms)
-
-    const intervalId = setInterval(() => {
-      attempts++;
-
-      // ✅ CORREÇÃO: Procura no "quarto" (window) E na "sala principal" (window.parent)
-      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-
-      // VERIFICA SE O ORQUESTRADOR FOI ENCONTRADO EM UM DOS DOIS LUGARES
-      if (orchestrator && typeof orchestrator.requestSummary === 'function') {
-        // SUCESSO! Orquestrador encontrado.
-        clearInterval(intervalId); // Para de vigiar
-        LogHelper.log(`[ENERGY] Orquestrador encontrado após ${attempts} tentativas. Solicitando resumo.`);
-
-        // Chama a função do orquestrador encontrado
-        orchestrator.requestSummary();
-      } else if (attempts >= maxAttempts) {
-        // FALHA: Timeout
-        clearInterval(intervalId); // Para de vigiar
-        LogHelper.error(
-          '[ENERGY] TIMEOUT: Orquestrador não foi encontrado após 10 segundos. O card não será carregado.'
-        );
+  // 3. RFC-0131: Wait for orchestrator using onOrchestratorReady (no polling)
+  const onReady = window.MyIOUtils?.onOrchestratorReady;
+  if (onReady) {
+    cleanupFns.push(onReady((orch) => {
+      LogHelper.log('[ENERGY] [RFC-0131] Orchestrator ready, requesting summary...');
+      orch.requestSummary?.();
+    }, { timeoutMs: 10000 }));
+  } else {
+    // Fallback: simple retry with toast warning
+    LogHelper.warn('[ENERGY] MyIOUtils.onOrchestratorReady not available, using fallback');
+    setTimeout(() => {
+      const orch = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      if (orch?.requestSummary) {
+        orch.requestSummary();
+      } else {
+        LogHelper.error('[ENERGY] Orchestrator not found after timeout');
       }
-    }, 200); // Verifica a cada 200ms
-  };
-
-  // Inicia o "vigia"
-  waitForOrchestratorAndRequestSummary();
-
-  // 4. OUTROS LISTENERS (Bônus): Mantém a robustez do widget.
-  // -----------------------------------------------------------------
-
-  // Limpa os caches se um evento global de limpeza for disparado.
-  window.addEventListener('myio:telemetry:clear', (ev) => {
-    LogHelper.log('[ENERGY] Evento de limpeza de cache recebido.', ev.detail);
-
-    // Reinicializa os cards para o estado de loading
-    initializeTotalConsumptionCard();
-    //initializePeakDemandCard();
-  });
+    }, 2000);
+  }
 };
 
 // ============================================
 // WIDGET ENERGY - CLEANUP ON DESTROY
+// RFC-0131: Minimalist cleanup using cleanupAll
 // ============================================
 
 self.onDestroy = function () {
-  LogHelper.log('[ENERGY] [RFC-0073] Widget destroying, cleaning up modals');
+  LogHelper.log('[ENERGY] [RFC-0131] Widget destroying...');
 
-  // RFC-0073: Remove chart configuration modal if it exists
-  const globalContainer = document.getElementById('energyChartConfigModalGlobal');
-  if (globalContainer) {
-    const modal = globalContainer.querySelector('#chartConfigModal');
-    if (modal && modal._escHandler) {
-      document.removeEventListener('keydown', modal._escHandler);
-      modal._escHandler = null;
-    }
+  // RFC-0131: Cleanup all registered listeners
+  cleanupAll();
 
-    // Remove global modal container from document.body
-    globalContainer.remove();
-    LogHelper.log('[ENERGY] [RFC-0073] Global modal container removed on destroy');
+  // Close fullscreen modal if open
+  if (fullscreenModalInstance) {
+    fullscreenModalInstance.close?.();
+    fullscreenModalInstance = null;
   }
 
-  // Remove modal-open class if widget is destroyed with modal open
-  document.body.classList.remove('modal-open');
-
-  // RFC-0097: Cleanup fullscreen mode if active
-  if (isChartFullscreen) {
-    closeFullscreenChart();
-    isChartFullscreen = false;
-  }
-
-  // RFC-0097: Remove fullscreen container from parent document
-  const targetDoc = window.parent?.document || document;
-  const fullscreenContainer = targetDoc.getElementById('energyChartFullscreenGlobal');
-  if (fullscreenContainer) {
-    fullscreenContainer.remove();
-    LogHelper.log('[ENERGY] [RFC-0097] Fullscreen container removed on destroy');
-  }
-
-  // RFC-0097: Cleanup event listeners and reset initialization flag
-  cleanupEventListeners();
-  energyWidgetInitialized = false;
-  cachedChartData = null;
-  isUpdatingLineChart = false;
-  pendingLineChartUpdate = null;
-
-  // RFC-0098: Cleanup consumption chart instance
-  if (consumptionChartInstance && typeof consumptionChartInstance.destroy === 'function') {
-    LogHelper.log('[ENERGY] [RFC-0098] Destroying consumption chart instance');
+  // RFC-0098: Cleanup chart instances
+  if (consumptionChartInstance?.destroy) {
     consumptionChartInstance.destroy();
     consumptionChartInstance = null;
   }
+  if (distributionChartInstance?.destroy) {
+    distributionChartInstance.destroy();
+    distributionChartInstance = null;
+  }
 
-  LogHelper.log('[ENERGY] [RFC-0097] Widget destroyed, state reset');
+  // Reset state
+  energyWidgetInitialized = false;
+  cachedChartData = null;
+  isChartFullscreen = false;
+
+  LogHelper.log('[ENERGY] [RFC-0131] Widget destroyed');
 };

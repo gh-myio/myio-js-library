@@ -2,8 +2,29 @@
 // ============================================
 // MYIO-SIM 1.0.0 - WATER Widget Controller
 // RFC-0087: Water Consumption Dashboard
-// Based on ENERGY widget structure
+// RFC-0131: Minimalist refactor using MyIOUtils
 // ============================================
+
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log('[WATER]', ...args),
+  warn: (...args) => console.warn('[WATER]', ...args),
+  error: (...args) => console.error('[WATER]', ...args),
+};
+
+// RFC-0131: Element selector using shared utility
+const $id = (id) => window.MyIOUtils?.$id?.(self.ctx, id) || document.getElementById(id);
+
+// RFC-0131: Cleanup functions registry
+let cleanupFns = [];
+function cleanupAll() {
+  cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+  cleanupFns = [];
+}
+
+LogHelper.log('Script loaded, using shared utilities:', !!window.MyIOUtils?.LogHelper);
 
 // ============================================
 // CACHE CONFIGURATION
@@ -50,11 +71,11 @@ function getCachedTotalConsumption() {
 
   const age = Date.now() - totalConsumptionCache.timestamp;
   if (age > TOTAL_CONSUMPTION_CACHE_TTL) {
-    console.log('[WATER] Total consumption cache expired');
+    LogHelper.log('Total consumption cache expired');
     return null;
   }
 
-  console.log('[WATER] Using cached total consumption data');
+  LogHelper.log('Using cached total consumption data');
   return totalConsumptionCache.data;
 }
 
@@ -72,7 +93,7 @@ function cacheTotalConsumption(storesTotal, commonAreaTotal, totalGeral) {
     commonAreaTotal,
     timestamp: Date.now(),
   };
-  console.log('[WATER] Total consumption data cached:', totalConsumptionCache.data);
+  LogHelper.log('Total consumption data cached:', totalConsumptionCache.data);
 }
 
 /**
@@ -86,21 +107,7 @@ function formatWaterVolume(value) {
   return value.toFixed(1).replace('.', ',') + ' m³';
 }
 
-// ============================================
-// WIDGET CONTAINER HELPER
-// ============================================
-
-/**
- * Gets element by ID within the widget container (not global document)
- * This is required for ThingsBoard widgets to work correctly
- */
-function $id(id) {
-  if (self.ctx && self.ctx.$container) {
-    return self.ctx.$container[0].querySelector(`#${id}`);
-  }
-  // Fallback to global document (should not happen in ThingsBoard context)
-  return document.getElementById(id);
-}
+// RFC-0131: $id function is now defined at the top of the file using MyIOUtils
 
 // ============================================
 // UI UPDATE FUNCTIONS
@@ -110,9 +117,9 @@ function $id(id) {
  * Renderiza a UI do card de consumo de LOJAS
  */
 function renderStoresConsumptionUI(data, valueEl, trendEl, infoEl) {
-  console.log('[WATER] renderStoresConsumptionUI called:', { data, hasValueEl: !!valueEl });
+  LogHelper.log(' renderStoresConsumptionUI called:', { data, hasValueEl: !!valueEl });
   if (!data) {
-    console.log('[WATER] renderStoresConsumptionUI: data is null/undefined, returning');
+    LogHelper.log(' renderStoresConsumptionUI: data is null/undefined, returning');
     return;
   }
 
@@ -121,10 +128,10 @@ function renderStoresConsumptionUI(data, valueEl, trendEl, infoEl) {
   const storesPercentage = totalGeral > 0 ? (storesTotal / totalGeral) * 100 : 0;
 
   if (valueEl) {
-    console.log('[WATER] Setting stores value to:', formatWaterVolume(storesTotal));
+    LogHelper.log(' Setting stores value to:', formatWaterVolume(storesTotal));
     valueEl.textContent = formatWaterVolume(storesTotal);
   } else {
-    console.log('[WATER] WARNING: valueEl is null for stores card!');
+    LogHelper.log(' WARNING: valueEl is null for stores card!');
   }
 
   if (trendEl) {
@@ -136,7 +143,7 @@ function renderStoresConsumptionUI(data, valueEl, trendEl, infoEl) {
     infoEl.textContent = 'Hidrômetros de lojas';
   }
 
-  console.log('[WATER] Card de Lojas atualizado:', { storesTotal, storesPercentage });
+  LogHelper.log(' Card de Lojas atualizado:', { storesTotal, storesPercentage });
 }
 
 /**
@@ -162,7 +169,7 @@ function renderCommonAreaConsumptionUI(data, valueEl, trendEl, infoEl) {
     infoEl.textContent = 'Hidrômetros de áreas comuns';
   }
 
-  console.log('[WATER] Card de Área Comum atualizado:', { commonAreaTotal, commonAreaPercentage });
+  LogHelper.log(' Card de Área Comum atualizado:', { commonAreaTotal, commonAreaPercentage });
 }
 
 /**
@@ -190,7 +197,7 @@ function renderTotalConsumptionUI(data, valueEl, trendEl, infoEl) {
     )} área comum`;
   }
 
-  console.log('[WATER] Card Total atualizado:', { totalGeral });
+  LogHelper.log(' Card Total atualizado:', { totalGeral });
 }
 
 /**
@@ -232,14 +239,14 @@ function initializeCards() {
     totalTrendEl.className = 'trend neutral';
   }
 
-  console.log('[WATER] Cards initialized with loading state');
+  LogHelper.log(' Cards initialized with loading state');
 }
 
 /**
  * Atualiza todos os cards com dados
  */
 function updateAllCards(data) {
-  console.log('[WATER] Updating all cards with data:', data);
+  LogHelper.log(' Updating all cards with data:', data);
 
   // Stores
   renderStoresConsumptionUI(
@@ -334,13 +341,13 @@ function getSelectedShoppingIds() {
     const selectedIds = window.custumersSelected.map((c) => c.ingestionId || c.value).filter(Boolean);
 
     if (selectedIds.length > 0) {
-      console.log('[WATER] [RFC-0098] Using filtered shopping ingestionIds:', selectedIds);
+      LogHelper.log(' [RFC-0098] Using filtered shopping ingestionIds:', selectedIds);
       return selectedIds;
     }
   }
 
   // Fallback: return empty array (will use widget's customerId)
-  console.log('[WATER] [RFC-0098] No shopping filter active, using widget customerId');
+  LogHelper.log(' [RFC-0098] No shopping filter active, using widget customerId');
   return [];
 }
 
@@ -398,7 +405,7 @@ async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayB
     );
     return { dailyTotals, byCustomerPerDay };
   } catch (error) {
-    console.error('[WATER] Error fetching period consumption:', error);
+    LogHelper.error(' Error fetching period consumption:', error);
     return {
       dailyTotals: new Array(dayBoundaries.length).fill(0),
       byCustomerPerDay: new Array(dayBoundaries.length).fill({}),
@@ -421,7 +428,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
   const holdingCustomerId = creds?.CUSTOMER_ING_ID || fallbackCustomerId || window.myioHoldingCustomerId;
 
   if (!holdingCustomerId) {
-    console.warn('[WATER] [RFC-0098] No holding customer ID available');
+    LogHelper.warn(' [RFC-0098] No holding customer ID available');
     return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
 
@@ -430,12 +437,12 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
   if (cachedChartData && cachedChartData.fetchTimestamp) {
     const cacheAge = Date.now() - cachedChartData.fetchTimestamp;
     if (cacheAge < CHART_CACHE_TTL && cachedChartData.cacheKey === cacheKey) {
-      console.log('[WATER] [RFC-0098] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
+      LogHelper.log(' [RFC-0098] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
       return cachedChartData;
     }
   }
 
-  console.log('[WATER] [RFC-0098] Fetching', period, 'days for holding:', holdingCustomerId, hasFilter ? `(filter: ${selectedShoppingIds.length} shoppings)` : '');
+  LogHelper.log(' [RFC-0098] Fetching', period, 'days for holding:', holdingCustomerId, hasFilter ? `(filter: ${selectedShoppingIds.length} shoppings)` : '');
 
   // Calculate period boundaries
   const now = new Date();
@@ -466,7 +473,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
   const labels = dayBoundaries.map((d) => d.label);
 
   // Fetch data using HOLDING ID - API with deep=1 returns all shoppings
-  console.log('[WATER] [RFC-0098] Fetching data for', period, 'days using holding ID...');
+  LogHelper.log(' [RFC-0098] Fetching data for', period, 'days using holding ID...');
   const { dailyTotals: rawDailyTotals, byCustomerPerDay } = await fetchWaterPeriodConsumptionByDay(
     holdingCustomerId,
     startTs,
@@ -489,7 +496,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
     ? Array.from(allCustomerIds).filter((custId) => selectedShoppingIds.includes(custId))
     : Array.from(allCustomerIds);
 
-  console.log('[WATER] [RFC-0098] Customers from API:', allCustomerIds.size, 'filtered to:', filteredCustomerIds.length);
+  LogHelper.log(' [RFC-0098] Customers from API:', allCustomerIds.size, 'filtered to:', filteredCustomerIds.length);
 
   // Build per-shopping arrays (only for filtered customers)
   filteredCustomerIds.forEach((custId) => {
@@ -529,7 +536,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
   // Update cache
   cachedChartData = result;
 
-  console.log('[WATER] [RFC-0098] Data fetched:', {
+  LogHelper.log(' [RFC-0098] Data fetched:', {
     days: period,
     shoppings: allCustomerIds.size,
     totalPoints: labels.length,
@@ -545,7 +552,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
  * @returns {Promise<object>} - Consumption7DaysData formatted data
  */
 async function fetchWaterConsumptionDataAdapter(period) {
-  console.log('[WATER] [RFC-0098] Fetching data via adapter for', period, 'days');
+  LogHelper.log(' [RFC-0098] Fetching data via adapter for', period, 'days');
 
   // Update chartConfig period for compatibility with existing modal
   chartConfig.period = period;
@@ -569,7 +576,7 @@ async function fetchWaterConsumptionDataAdapter(period) {
 async function initializeLineChart() {
   // RFC-0098: Use standardized widget component if available (preferred)
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
-    console.log('[WATER] [RFC-0098] Using createConsumptionChartWidget component');
+    LogHelper.log(' [RFC-0098] Using createConsumptionChartWidget component');
 
     // Get widget container for ThingsBoard compatibility
     const $container = self.ctx?.$container || null;
@@ -592,22 +599,22 @@ async function initializeLineChart() {
 
       // Callbacks
       onMaximizeClick: () => {
-        console.log('[WATER] [RFC-0098] Maximize button clicked');
+        LogHelper.log(' [RFC-0098] Maximize button clicked');
         openFullscreenModal();
       },
       onDataLoaded: (data) => {
         // Update cache for fullscreen and other features
         cachedChartData = data;
-        console.log('[WATER] [RFC-0098] Data loaded:', data.labels?.length, 'days');
+        LogHelper.log(' [RFC-0098] Data loaded:', data.labels?.length, 'days');
       },
       onError: (error) => {
-        console.error('[WATER] [RFC-0098] Chart error:', error);
+        LogHelper.error(' [RFC-0098] Chart error:', error);
       },
     });
 
     // Render the chart
     await consumptionChartInstance.render();
-    console.log('[WATER] [RFC-0098] Consumption chart rendered successfully');
+    LogHelper.log(' [RFC-0098] Consumption chart rendered successfully');
 
     // Store reference for compatibility with existing code
     lineChartInstance = consumptionChartInstance.getChartInstance();
@@ -615,7 +622,7 @@ async function initializeLineChart() {
   }
 
   // RFC-0098: Component is required - no fallback to legacy canvas
-  console.error('[WATER] [RFC-0098] createConsumptionChartWidget not available');
+  LogHelper.error(' [RFC-0098] createConsumptionChartWidget not available');
 }
 
 /**
@@ -626,11 +633,11 @@ async function initializePieChart(data) {
   // RFC-0102: Distribution chart is now initialized via createDistributionChartWidget
   // This function is kept for backwards compatibility
   if (distributionChartInstance) {
-    console.log('[WATER] [RFC-0102] Refreshing distribution chart');
+    LogHelper.log(' [RFC-0102] Refreshing distribution chart');
     await distributionChartInstance.refresh();
     return;
   }
-  console.warn('[WATER] [RFC-0102] Distribution chart instance not available');
+  LogHelper.warn(' [RFC-0102] Distribution chart instance not available');
 }
 
 /**
@@ -638,11 +645,11 @@ async function initializePieChart(data) {
  */
 async function initializeDistributionChartWidget() {
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createDistributionChartWidget) {
-    console.error('[WATER] [RFC-0102] createDistributionChartWidget not available');
+    LogHelper.error(' [RFC-0102] createDistributionChartWidget not available');
     return;
   }
 
-  console.log('[WATER] [RFC-0102] Initializing distribution chart widget...');
+  LogHelper.log(' [RFC-0102] Initializing distribution chart widget...');
 
   // Calculate distribution data for water using REAL data from orchestrator
   const calculateWaterDistribution = async (mode) => {
@@ -654,7 +661,7 @@ async function initializeDistributionChartWidget() {
       if (waterClassified) {
         const storesTotal = waterClassified.stores?.total || 0;
         const commonAreaTotal = waterClassified.commonArea?.total || 0;
-        console.log('[WATER] [RFC-0102] Distribution using waterClassified:', { stores: storesTotal, commonArea: commonAreaTotal });
+        LogHelper.log(' [RFC-0102] Distribution using waterClassified:', { stores: storesTotal, commonArea: commonAreaTotal });
         return {
           Lojas: storesTotal,
           'Área Comum': commonAreaTotal,
@@ -662,7 +669,7 @@ async function initializeDistributionChartWidget() {
       }
       // Fallback to local cache
       const cachedData = getCachedTotalConsumption();
-      console.log('[WATER] [RFC-0102] Distribution using cached totals:', cachedData);
+      LogHelper.log(' [RFC-0102] Distribution using cached totals:', cachedData);
       return {
         Lojas: cachedData?.storesTotal || 0,
         'Área Comum': cachedData?.commonAreaTotal || 0,
@@ -670,7 +677,7 @@ async function initializeDistributionChartWidget() {
     } else if (mode === 'stores' || mode === 'common') {
       // Aggregate consumption by shopping using real data from waterCache
       if (!orchestrator || typeof orchestrator.getWaterCache !== 'function') {
-        console.warn('[WATER] Orchestrator not available for distribution calculation');
+        LogHelper.warn(' Orchestrator not available for distribution calculation');
         return null;
       }
 
@@ -678,7 +685,7 @@ async function initializeDistributionChartWidget() {
       const waterValidIds = orchestrator.getWaterValidIds?.() || { stores: new Set(), commonArea: new Set() };
 
       if (!waterCache || waterCache.size === 0) {
-        console.warn('[WATER] Water cache is empty');
+        LogHelper.warn(' Water cache is empty');
         return null;
       }
 
@@ -696,9 +703,10 @@ async function initializeDistributionChartWidget() {
           return;
         }
 
-        const consumption = Number(deviceData.total_value) || 0;
+        // RFC-0131: waterClassified items use 'value', not 'total_value'
+        const consumption = Number(deviceData.value) || Number(deviceData.total_value) || 0;
         const customerId = deviceData.customerId;
-        const shoppingName = getShoppingNameForFilter(customerId);
+        const shoppingName = deviceData.ownerName || getShoppingNameForFilter(customerId);
 
         shoppingDistribution[shoppingName] = (shoppingDistribution[shoppingName] || 0) + consumption;
       });
@@ -751,21 +759,21 @@ async function initializeDistributionChartWidget() {
       console.log(`[WATER] [RFC-0102] Distribution mode changed to: ${mode}`);
     },
     onDataLoaded: (data) => {
-      console.log('[WATER] [RFC-0102] Distribution data loaded:', Object.keys(data).length, 'items');
+      LogHelper.log(' [RFC-0102] Distribution data loaded:', Object.keys(data).length, 'items');
     },
     onError: (error) => {
-      console.error('[WATER] [RFC-0102] Distribution chart error:', error);
+      LogHelper.error(' [RFC-0102] Distribution chart error:', error);
     },
   });
 
   try {
     await distributionChartInstance.render();
-    console.log('[WATER] [RFC-0102] Distribution chart rendered successfully');
+    LogHelper.log(' [RFC-0102] Distribution chart rendered successfully');
 
     // Store legacy reference for backwards compatibility
     pieChartInstance = distributionChartInstance.getChartInstance();
   } catch (error) {
-    console.error('[WATER] [RFC-0102] Failed to render distribution chart:', error);
+    LogHelper.error(' [RFC-0102] Failed to render distribution chart:', error);
   }
 }
 
@@ -774,12 +782,12 @@ async function initializeDistributionChartWidget() {
  * @deprecated Use distributionChartInstance.setMode() instead
  */
 async function updatePieChartMode(mode) {
-  console.log('[WATER] [RFC-0102] Updating distribution chart mode:', mode);
+  LogHelper.log(' [RFC-0102] Updating distribution chart mode:', mode);
 
   if (distributionChartInstance) {
     await distributionChartInstance.setMode(mode);
   } else {
-    console.warn('[WATER] [RFC-0102] Distribution chart instance not available');
+    LogHelper.warn(' [RFC-0102] Distribution chart instance not available');
   }
 }
 
@@ -803,7 +811,7 @@ function setupZoomControls() {
         if (dashboard) {
           dashboard.style.fontSize = `${currentZoom}%`;
         }
-        console.log('[WATER] Zoom decreased to:', currentZoom);
+        LogHelper.log(' Zoom decreased to:', currentZoom);
       }
     });
   }
@@ -815,12 +823,12 @@ function setupZoomControls() {
         if (dashboard) {
           dashboard.style.fontSize = `${currentZoom}%`;
         }
-        console.log('[WATER] Zoom increased to:', currentZoom);
+        LogHelper.log(' Zoom increased to:', currentZoom);
       }
     });
   }
 
-  console.log('[WATER] Zoom controls initialized');
+  LogHelper.log(' Zoom controls initialized');
 }
 
 // ============================================
@@ -835,7 +843,7 @@ function setupZoomControls() {
  */
 function handleWaterDataReady(event) {
   const { source, data, cache } = event.detail || {};
-  console.log('[WATER] Received water data:', { source, hasCache: !!cache, hasData: !!data });
+  LogHelper.log(' Received water data:', { source, hasCache: !!cache, hasData: !!data });
 
   // Atualiza cache local
   const cached = getCachedTotalConsumption() || { storesTotal: 0, commonAreaTotal: 0, totalGeral: 0 };
@@ -847,7 +855,7 @@ function handleWaterDataReady(event) {
     cached.commonAreaTotal = orchestratorTotals.commonArea;
     cached.totalGeral = orchestratorTotals.total;
 
-    console.log('[WATER] Using Orchestrator totals (valid TB aliases):', {
+    LogHelper.log(' Using Orchestrator totals (valid TB aliases):', {
       total: cached.totalGeral,
       stores: cached.storesTotal,
       commonArea: cached.commonAreaTotal,
@@ -865,7 +873,7 @@ function handleWaterDataReady(event) {
     cached.commonAreaTotal = totalFromCache * 0.4;
     cached.totalGeral = totalFromCache;
 
-    console.log('[WATER] FALLBACK: Using estimated 60/40 split (waiting for valid IDs):', {
+    LogHelper.log(' FALLBACK: Using estimated 60/40 split (waiting for valid IDs):', {
       total: totalFromCache,
       stores: cached.storesTotal,
       commonArea: cached.commonAreaTotal,
@@ -895,7 +903,7 @@ function handleWaterDataReady(event) {
  * Handler para mudança de filtro/data
  */
 function handleDateUpdate(event) {
-  console.log('[WATER] Date update received:', event.detail);
+  LogHelper.log(' Date update received:', event.detail);
 
   // Show loading state
   initializeCards();
@@ -921,16 +929,16 @@ let fullscreenModalInstance = null;
  */
 async function openFullscreenModal() {
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionModal) {
-    console.error('[WATER] [RFC-0098] createConsumptionModal not available');
+    LogHelper.error(' [RFC-0098] createConsumptionModal not available');
     return;
   }
 
-  console.log('[WATER] [RFC-0098] Opening fullscreen modal...');
+  LogHelper.log(' [RFC-0098] Opening fullscreen modal...');
 
   // RFC-0098: Get cached data from the consumption chart widget for instant display
   const initialData = cachedChartData || consumptionChartInstance?.getCachedData?.() || null;
   if (initialData) {
-    console.log('[WATER] [RFC-0098] Using cached data for modal (instant display)');
+    LogHelper.log(' [RFC-0098] Using cached data for modal (instant display)');
   }
 
   fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
@@ -946,7 +954,7 @@ async function openFullscreenModal() {
     fetchData: fetchWaterConsumptionDataAdapter,
     initialData: initialData, // RFC-0098: Pass cached data for instant display
     onClose: () => {
-      console.log('[WATER] [RFC-0098] Fullscreen modal closed');
+      LogHelper.log(' [RFC-0098] Fullscreen modal closed');
       fullscreenModalInstance = null;
       isChartFullscreen = false;
     },
@@ -1306,7 +1314,7 @@ function rebuildFullscreenChart(container) {
     },
   });
 
-  console.log('[WATER] [RFC-0097] Fullscreen chart rebuilt');
+  LogHelper.log(' [RFC-0097] Fullscreen chart rebuilt');
 }
 
 /**
@@ -1315,12 +1323,12 @@ function rebuildFullscreenChart(container) {
 function setupMaximizeButton() {
   const maximizeBtn = $id('maximizeChartBtn');
   if (!maximizeBtn) {
-    console.warn('[WATER] [RFC-0097] Maximize button not found');
+    LogHelper.warn('[RFC-0097] Maximize button not found');
     return;
   }
 
-  maximizeBtn.addEventListener('click', toggleChartFullscreen);
-  console.log('[WATER] [RFC-0097] Maximize button handler setup complete');
+  maximizeBtn.addEventListener('click', openFullscreenModal);
+  LogHelper.log('[RFC-0097] Maximize button handler setup complete');
 }
 
 /**
@@ -1334,7 +1342,7 @@ function setupChartTabHandlers() {
   const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
 
   if (vizTabs.length === 0 && typeTabs.length === 0) {
-    console.log('[WATER] [RFC-0098] No external tabs found - widget handles tabs internally');
+    LogHelper.log(' [RFC-0098] No external tabs found - widget handles tabs internally');
     return;
   }
 
@@ -1368,7 +1376,7 @@ function setupChartTabHandlers() {
     });
   });
 
-  console.log('[WATER] [RFC-0098] External tab handlers setup (if present)');
+  LogHelper.log(' [RFC-0098] External tab handlers setup (if present)');
 }
 
 // RFC-0098: Legacy chart functions removed (rerenderLineChart, openChartConfigModal, etc.) - settings handled by component
@@ -1395,101 +1403,28 @@ function renderShoppingFilterChips(selection) {
     chipsContainer.appendChild(chip);
   });
 
-  console.log('[WATER] 📍 Rendered', selection.length, 'shopping filter chips');
+  LogHelper.log(' 📍 Rendered', selection.length, 'shopping filter chips');
 }
 
-function setupEventListeners() {
-  // Listen for water data from MAIN
-  window.addEventListener('myio:water-data-ready', handleWaterDataReady);
-
-  // Listen for water totals calculated from valid TB aliases (Orchestrator)
-  window.addEventListener('myio:water-totals-updated', (ev) => {
-    const { commonArea, stores, total } = ev.detail || {};
-    console.log('[WATER] 💧 heard myio:water-totals-updated:', { commonArea, stores, total });
-
-    if (total > 0) {
-      // Atualiza com totais reais do Orchestrator
-      cacheTotalConsumption(stores, commonArea, total);
-
-      // Atualiza UI
-      const cached = { storesTotal: stores, commonAreaTotal: commonArea, totalGeral: total };
-      updateAllCards(cached);
-      initializePieChart(cached);
-
-      console.log('[WATER] ✅ Updated with Orchestrator totals:', cached);
-    }
-  });
-
-  // Listen for date/filter updates
-  window.addEventListener('myio:update-date', handleDateUpdate);
-
-  // RFC-0093: Listen for shopping filter changes
-  window.addEventListener('myio:filter-applied', (ev) => {
-    const selection = ev.detail?.selection || [];
-    console.log('[WATER] 🔥 heard myio:filter-applied:', selection.length, 'shoppings');
-    renderShoppingFilterChips(selection);
-  });
-
-  // RFC-0093: Check for pre-existing filter when WATER initializes
-  if (
-    window.custumersSelected &&
-    Array.isArray(window.custumersSelected) &&
-    window.custumersSelected.length > 0
-  ) {
-    console.log('[WATER] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
-    renderShoppingFilterChips(window.custumersSelected);
-  }
-
-  // Distribution mode selector
-  const distributionSelect = $id('distributionMode');
-  if (distributionSelect) {
-    distributionSelect.addEventListener('change', (e) => {
-      updatePieChartMode(e.target.value);
-    });
-  }
-
-  console.log('[WATER] Event listeners setup complete');
-}
-
-function cleanup() {
-  window.removeEventListener('myio:water-data-ready', handleWaterDataReady);
-  window.removeEventListener('myio:update-date', handleDateUpdate);
-
-  // RFC-0098: Cleanup consumption chart instance first
-  if (consumptionChartInstance && typeof consumptionChartInstance.destroy === 'function') {
-    console.log('[WATER] [RFC-0098] Destroying consumption chart instance');
-    consumptionChartInstance.destroy();
-    consumptionChartInstance = null;
-  }
-
-  // RFC-0102: Cleanup distribution chart instance
-  if (distributionChartInstance && typeof distributionChartInstance.destroy === 'function') {
-    console.log('[WATER] [RFC-0102] Destroying distribution chart instance');
-    distributionChartInstance.destroy();
-    distributionChartInstance = null;
-  }
-
-  if (lineChartInstance) {
-    lineChartInstance.destroy();
-    lineChartInstance = null;
-  }
-
-  if (pieChartInstance) {
-    pieChartInstance.destroy();
-    pieChartInstance = null;
-  }
-}
+// RFC-0131: Guard to prevent multiple initializations
+let waterWidgetInitialized = false;
 
 // ============================================
 // THINGSBOARD WIDGET HOOKS
+// RFC-0131: Minimalist refactor using MyIOUtils
 // ============================================
 
 self.onInit = function () {
-  console.log('[WATER] Widget initialized');
-  console.log('[WATER] DEBUG: Chart.js available?', typeof Chart !== 'undefined');
-  console.log('[WATER] DEBUG: MyIOLibrary available?', typeof MyIOLibrary !== 'undefined');
-  console.log('[WATER] DEBUG: water-chart-widget container?', !!$id('water-chart-widget'));
-  console.log('[WATER] DEBUG: water-distribution-widget container?', !!$id('water-distribution-widget'));
+  // RFC-0131: Prevent multiple initializations
+  if (waterWidgetInitialized) {
+    LogHelper.log('[RFC-0131] Widget already initialized, skipping...');
+    return;
+  }
+
+  LogHelper.log('[RFC-0131] Initializing water charts and consumption cards...');
+
+  // RFC-0131: Cleanup any existing listeners before adding new ones
+  cleanupAll();
 
   // Initialize cards with loading state
   initializeCards();
@@ -1497,129 +1432,108 @@ self.onInit = function () {
   // Setup zoom controls
   setupZoomControls();
 
-  // Setup event listeners
-  setupEventListeners();
+  // RFC-0131: Register event listeners using addListenerBoth (auto-cleanup)
+  const addListener = window.MyIOUtils?.addListenerBoth || ((ev, handler) => {
+    window.addEventListener(ev, handler);
+    return () => window.removeEventListener(ev, handler);
+  });
 
-  // RFC-0097: Setup chart tab handlers (vizMode and chartType)
+  // Listen for water data from MAIN
+  cleanupFns.push(addListener('myio:water-data-ready', handleWaterDataReady));
+
+  // Listen for water totals calculated from valid TB aliases (Orchestrator)
+  cleanupFns.push(addListener('myio:water-totals-updated', (ev) => {
+    const { commonArea, stores, total } = ev.detail || {};
+    LogHelper.log('Water totals updated:', { commonArea, stores, total });
+
+    if (total > 0) {
+      cacheTotalConsumption(stores, commonArea, total);
+      const cached = { storesTotal: stores, commonAreaTotal: commonArea, totalGeral: total };
+      updateAllCards(cached);
+      initializePieChart(cached);
+    }
+  }));
+
+  // Listen for water summary from orchestrator (RFC-0131)
+  cleanupFns.push(addListener('myio:water-summary-ready', (ev) => {
+    const { stores, commonArea, filteredTotal } = ev.detail || {};
+    LogHelper.log('Water summary ready:', { stores, commonArea, filteredTotal });
+
+    cacheTotalConsumption(stores || 0, commonArea || 0, filteredTotal || 0);
+    const data = { storesTotal: stores || 0, commonAreaTotal: commonArea || 0, totalGeral: filteredTotal || 0 };
+    updateAllCards(data);
+    initializePieChart(data);
+  }));
+
+  // Listen for date/filter updates
+  cleanupFns.push(addListener('myio:update-date', handleDateUpdate));
+
+  // Listen for shopping filter changes
+  cleanupFns.push(addListener('myio:filter-applied', async (ev) => {
+    const selection = ev.detail?.selection || [];
+    LogHelper.log('Filter applied:', selection.length, 'shoppings');
+    renderShoppingFilterChips(selection);
+
+    // Invalidate cache and refresh charts
+    cachedChartData = null;
+    if (consumptionChartInstance?.refresh) {
+      await consumptionChartInstance.refresh(true);
+    }
+    if (distributionChartInstance?.refresh) {
+      await distributionChartInstance.refresh();
+    }
+  }));
+
+  // Check for pre-existing filter
+  if (window.custumersSelected?.length > 0) {
+    renderShoppingFilterChips(window.custumersSelected);
+  }
+
+  // Distribution mode selector
+  const distributionSelect = $id('distributionMode');
+  if (distributionSelect) {
+    distributionSelect.addEventListener('change', (e) => updatePieChartMode(e.target.value));
+  }
+
+  // Setup chart tab handlers and maximize button
   setupChartTabHandlers();
-
-  // RFC-0097: Setup maximize button for fullscreen
   setupMaximizeButton();
 
-  // RFC-0098: Chart config button handled by createConsumption7DaysChart component via settingsButtonId and onSettingsClick
+  // RFC-0131: Mark widget as initialized
+  waterWidgetInitialized = true;
 
-  // Initialize charts with empty/loading state
-  setTimeout(() => {
-    console.log('[WATER] DEBUG setTimeout: Initializing charts...');
+  // Initialize charts immediately
+  initializeLineChart();
+  initializeDistributionChartWidget();
 
-    initializeLineChart();
-
-    // RFC-0102: Initialize distribution chart widget
-    initializeDistributionChartWidget();
-
-    // FIX: Check Orchestrator totals FIRST (may already be available)
-    const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
-    if (orchestratorTotals && orchestratorTotals.total > 0) {
-      console.log('[WATER] Using Orchestrator totals on init:', orchestratorTotals);
-      const data = {
-        storesTotal: orchestratorTotals.stores,
-        commonAreaTotal: orchestratorTotals.commonArea,
-        totalGeral: orchestratorTotals.total,
-      };
-      cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
-      initializePieChart(data);
-      updateAllCards(data);
-    } else {
-      // Check if we already have cached data from MAIN
-      const cached = getCachedTotalConsumption();
-      if (cached) {
-        console.log('[WATER] Using cached data on init:', cached);
-        initializePieChart(cached);
-        updateAllCards(cached);
+  // RFC-0131: Wait for orchestrator using onOrchestratorReady (no polling)
+  const onReady = window.MyIOUtils?.onOrchestratorReady;
+  if (onReady) {
+    cleanupFns.push(onReady((orch) => {
+      LogHelper.log('[RFC-0131] Orchestrator ready, requesting water summary...');
+      orch.requestWaterSummary?.();
+    }, { timeoutMs: 10000 }));
+  } else {
+    // Fallback: simple retry with toast warning
+    LogHelper.warn('MyIOUtils.onOrchestratorReady not available, using fallback');
+    setTimeout(() => {
+      const orch = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      if (orch?.requestWaterSummary) {
+        orch.requestWaterSummary();
+      } else if (orch?.getWaterTotals) {
+        // Legacy fallback
+        const totals = orch.getWaterTotals();
+        if (totals?.total > 0) {
+          const data = { storesTotal: totals.stores, commonAreaTotal: totals.commonArea, totalGeral: totals.total };
+          cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
+          updateAllCards(data);
+          initializePieChart(data);
+        }
       } else {
-        // Initialize with zeros while waiting for real data
-        const emptyData = {
-          storesTotal: 0,
-          commonAreaTotal: 0,
-          totalGeral: 0,
-        };
-        initializePieChart(emptyData);
-        // Keep loading state on cards
+        LogHelper.error('Orchestrator not found after timeout');
       }
-    }
-  }, 500);
-
-  // Request data from MAIN immediately
-  setTimeout(() => {
-    console.log('[WATER] Requesting water data from MAIN...');
-    window.dispatchEvent(
-      new CustomEvent('myio:request-water-data', {
-        detail: { requestor: 'WATER' },
-      })
-    );
-  }, 200);
-
-  // FIX: Retry request after 2 seconds if cards still show loading
-  setTimeout(() => {
-    const storesValueEl = $id('total-consumption-stores-value');
-    const hasSpinner = storesValueEl?.querySelector('.loading-spinner');
-    if (hasSpinner) {
-      console.log('[WATER] Cards still loading, retrying data request...');
-
-      // Check Orchestrator totals again
-      const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
-      if (orchestratorTotals && orchestratorTotals.total > 0) {
-        console.log('[WATER] Retry: Found Orchestrator totals:', orchestratorTotals);
-        const data = {
-          storesTotal: orchestratorTotals.stores,
-          commonAreaTotal: orchestratorTotals.commonArea,
-          totalGeral: orchestratorTotals.total,
-        };
-        cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
-        updateAllCards(data);
-        initializePieChart(data);
-      } else {
-        // Request from MAIN again
-        window.dispatchEvent(
-          new CustomEvent('myio:request-water-data', {
-            detail: { requestor: 'WATER', retry: true },
-          })
-        );
-      }
-    }
-  }, 2000);
-
-  // FIX: Final retry after 5 seconds - last attempt before giving up
-  setTimeout(() => {
-    const storesValueEl = $id('total-consumption-stores-value');
-    const hasSpinner = storesValueEl?.querySelector('.loading-spinner');
-    if (hasSpinner) {
-      console.log('[WATER] Final retry - cards still loading after 5s...');
-
-      const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
-      if (orchestratorTotals && orchestratorTotals.total > 0) {
-        console.log('[WATER] Final retry: Found Orchestrator totals:', orchestratorTotals);
-        const data = {
-          storesTotal: orchestratorTotals.stores,
-          commonAreaTotal: orchestratorTotals.commonArea,
-          totalGeral: orchestratorTotals.total,
-        };
-        cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
-        updateAllCards(data);
-        initializePieChart(data);
-      } else {
-        // Show zero values instead of infinite loading
-        console.log('[WATER] No data available, showing zero values');
-        const emptyData = {
-          storesTotal: 0,
-          commonAreaTotal: 0,
-          totalGeral: 0,
-        };
-        updateAllCards(emptyData);
-        initializePieChart(emptyData);
-      }
-    }
-  }, 5000);
+    }, 2000);
+  }
 };
 
 self.onDataUpdated = function () {
@@ -1631,6 +1545,39 @@ self.onResize = function () {
 };
 
 self.onDestroy = function () {
-  console.log('[WATER] Widget destroyed');
-  cleanup();
+  LogHelper.log('[RFC-0131] Widget destroying...');
+
+  // RFC-0131: Cleanup all registered listeners
+  cleanupAll();
+
+  // Close fullscreen modal if open
+  if (fullscreenModalInstance) {
+    fullscreenModalInstance.close?.();
+    fullscreenModalInstance = null;
+  }
+
+  // Cleanup chart instances
+  if (consumptionChartInstance?.destroy) {
+    consumptionChartInstance.destroy();
+    consumptionChartInstance = null;
+  }
+  if (distributionChartInstance?.destroy) {
+    distributionChartInstance.destroy();
+    distributionChartInstance = null;
+  }
+  if (lineChartInstance?.destroy) {
+    lineChartInstance.destroy();
+    lineChartInstance = null;
+  }
+  if (pieChartInstance?.destroy) {
+    pieChartInstance.destroy();
+    pieChartInstance = null;
+  }
+
+  // Reset state
+  waterWidgetInitialized = false;
+  cachedChartData = null;
+  isChartFullscreen = false;
+
+  LogHelper.log('[RFC-0131] Widget destroyed');
 };

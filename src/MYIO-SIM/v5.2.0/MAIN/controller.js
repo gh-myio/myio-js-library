@@ -346,7 +346,9 @@ Object.assign(window.MyIOUtils, {
       // Build auth client - use MyIOLibrary.buildMyioIngestionAuth directly
       const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
       if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
-        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available');
+        LogHelper.error(
+          '[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available'
+        );
         return [];
       }
 
@@ -391,8 +393,9 @@ Object.assign(window.MyIOUtils, {
 
       const json = await res.json();
       // RFC-0130: API returns { data: [...], summary: { totalDevices, totalValue } }
-      const devices = Array.isArray(json) ? json : (json?.data || []);
-      const totalValue = json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+      const devices = Array.isArray(json) ? json : json?.data || [];
+      const totalValue =
+        json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
 
       // RFC-0130: Aggregate by customer for separate view mode
       const byCustomer = {};
@@ -407,14 +410,18 @@ Object.assign(window.MyIOUtils, {
         }
       });
 
-      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: Got ${devices.length} devices, total: ${totalValue.toFixed(2)} kWh, customers: ${Object.keys(byCustomer).length}`);
+      LogHelper.log(
+        `[MyIOUtils] fetchEnergyDayConsumption: Got ${devices.length} devices, total: ${totalValue.toFixed(
+          2
+        )} kWh, customers: ${Object.keys(byCustomer).length}`
+      );
 
       // Return object with devices, total, and byCustomer for chart flexibility
       return {
         devices,
         total: totalValue,
         byCustomer,
-        summary: json?.summary || { totalDevices: devices.length, totalValue }
+        summary: json?.summary || { totalDevices: devices.length, totalValue },
       };
     } catch (error) {
       LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption error:', error);
@@ -443,7 +450,9 @@ Object.assign(window.MyIOUtils, {
       // Build auth client
       const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
       if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
-        LogHelper.error('[MyIOUtils] fetchWaterDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available');
+        LogHelper.error(
+          '[MyIOUtils] fetchWaterDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available'
+        );
         return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
       }
 
@@ -488,8 +497,9 @@ Object.assign(window.MyIOUtils, {
 
       const json = await res.json();
       // RFC-0130: API returns { data: [...], summary: { totalDevices, totalValue } }
-      const devices = Array.isArray(json) ? json : (json?.data || []);
-      const totalValue = json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+      const devices = Array.isArray(json) ? json : json?.data || [];
+      const totalValue =
+        json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
 
       // RFC-0130: Aggregate by customer for separate view mode
       const byCustomer = {};
@@ -504,18 +514,652 @@ Object.assign(window.MyIOUtils, {
         }
       });
 
-      LogHelper.log(`[MyIOUtils] fetchWaterDayConsumption: Got ${devices.length} devices, total: ${totalValue.toFixed(2)} m³, customers: ${Object.keys(byCustomer).length}`);
+      LogHelper.log(
+        `[MyIOUtils] fetchWaterDayConsumption: Got ${devices.length} devices, total: ${totalValue.toFixed(
+          2
+        )} m³, customers: ${Object.keys(byCustomer).length}`
+      );
 
       return {
         devices,
         total: totalValue,
         byCustomer,
-        summary: json?.summary || { totalDevices: devices.length, totalValue }
+        summary: json?.summary || { totalDevices: devices.length, totalValue },
       };
     } catch (error) {
       LogHelper.error('[MyIOUtils] fetchWaterDayConsumption error:', error);
       return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
     }
+  },
+
+  /**
+   * RFC-0130: Fetch energy day consumption data with timezone support
+   * Used by ENERGY widget for daily charts with proper timezone handling
+   * @param {string} customerId - Customer ingestion ID
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - Granularity ('1h', '1d', etc.) - default '1d'
+   * @returns {Promise<Object>} { devices, total, byCustomer, summary }
+   */
+  fetchEnergyDayConsumptionWithTimezone: async (customerId, startTs, endTs, granularity = '1d') => {
+    try {
+      // Get credentials from orchestrator
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: No credentials available');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      // Build auth client
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
+        LogHelper.error(
+          '[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: MyIOLibrary.buildMyioIngestionAuth not available'
+        );
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+
+      // Get token
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: Failed to get token');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      // Format timestamps to ISO with timezone
+      const startISO = new Date(startTs).toISOString();
+      const endISO = new Date(endTs).toISOString();
+
+      // Build API URL with timezone support
+      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
+      url.searchParams.set('startTime', startISO);
+      url.searchParams.set('endTime', endISO);
+      url.searchParams.set('deep', '1');
+      url.searchParams.set('timezone', 'America/Sao_Paulo'); // Always use Sao Paulo timezone
+      if (granularity) {
+        url.searchParams.set('granularity', granularity);
+      }
+
+      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: ${url.toString()}`);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchEnergyDayConsumptionWithTimezone');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const json = await res.json();
+      const devices = Array.isArray(json) ? json : json?.data || [];
+      const totalValue =
+        json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+
+      // RFC-0130: Aggregate by customer for separate view mode
+      const byCustomer = {};
+      devices.forEach((d) => {
+        const custId = d.customerId;
+        if (custId) {
+          if (!byCustomer[custId]) {
+            byCustomer[custId] = {
+              name: d.customerName || custId,
+              total: 0,
+              deviceCount: 0,
+              timezone: 'America/Sao_Paulo',
+            };
+          }
+          byCustomer[custId].total += d.total_value || 0;
+          byCustomer[custId].deviceCount++;
+        }
+      });
+
+      LogHelper.log(
+        `[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: Got ${
+          devices.length
+        } devices, total: ${totalValue.toFixed(2)} kWh in America/Sao_Paulo timezone`
+      );
+
+      return {
+        devices,
+        total: totalValue,
+        byCustomer,
+        summary: {
+          ...json?.summary,
+          timezone: 'America/Sao_Paulo',
+          totalDevices: devices.length,
+          totalValue,
+        },
+      };
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchEnergyDayConsumptionWithTimezone error:', error);
+      return {
+        devices: [],
+        total: 0,
+        byCustomer: {},
+        summary: { totalDevices: 0, totalValue: 0, timezone: 'America/Sao_Paulo' },
+      };
+    }
+  },
+
+  /**
+   * RFC-0130: Fetch water day consumption data with timezone support
+   * Used by WATER widget for daily charts with proper timezone handling
+   * @param {string} customerId - Customer ingestion ID
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - Granularity ('1h', '1d', etc.) - default '1d'
+   * @returns {Promise<Object>} { devices, total, byCustomer, summary }
+   */
+  fetchWaterDayConsumptionWithTimezone: async (customerId, startTs, endTs, granularity = '1d') => {
+    try {
+      // Get credentials from orchestrator
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchWaterDayConsumptionWithTimezone: No credentials available');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      // Build auth client
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
+        LogHelper.error(
+          '[MyIOUtils] fetchWaterDayConsumptionWithTimezone: MyIOLibrary.buildMyioIngestionAuth not available'
+        );
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+
+      // Get token
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchWaterDayConsumptionWithTimezone: Failed to get token');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      // Format timestamps to ISO with timezone
+      const startISO = new Date(startTs).toISOString();
+      const endISO = new Date(endTs).toISOString();
+
+      // Build API URL with timezone support
+      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
+      url.searchParams.set('startTime', startISO);
+      url.searchParams.set('endTime', endISO);
+      url.searchParams.set('deep', '1');
+      url.searchParams.set('timezone', 'America/Sao_Paulo'); // Always use Sao Paulo timezone
+      if (granularity) {
+        url.searchParams.set('granularity', granularity);
+      }
+
+      LogHelper.log(`[MyIOUtils] fetchWaterDayConsumptionWithTimezone: ${url.toString()}`);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchWaterDayConsumptionWithTimezone');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const json = await res.json();
+      const devices = Array.isArray(json) ? json : json?.data || [];
+      const totalValue =
+        json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+
+      // RFC-0130: Aggregate by customer for separate view mode
+      const byCustomer = {};
+      devices.forEach((d) => {
+        const custId = d.customerId;
+        if (custId) {
+          if (!byCustomer[custId]) {
+            byCustomer[custId] = {
+              name: d.customerName || custId,
+              total: 0,
+              deviceCount: 0,
+              timezone: 'America/Sao_Paulo',
+            };
+          }
+          byCustomer[custId].total += d.total_value || 0;
+          byCustomer[custId].deviceCount++;
+        }
+      });
+
+      LogHelper.log(
+        `[MyIOUtils] fetchWaterDayConsumptionWithTimezone: Got ${
+          devices.length
+        } devices, total: ${totalValue.toFixed(2)} m³ in America/Sao_Paulo timezone`
+      );
+
+      return {
+        devices,
+        total: totalValue,
+        byCustomer,
+        summary: {
+          ...json?.summary,
+          timezone: 'America/Sao_Paulo',
+          totalDevices: devices.length,
+          totalValue,
+        },
+      };
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchWaterDayConsumptionWithTimezone error:', error);
+      return {
+        devices: [],
+        total: 0,
+        byCustomer: {},
+        summary: { totalDevices: 0, totalValue: 0, timezone: 'America/Sao_Paulo' },
+      };
+    }
+  },
+
+  /**
+   * RFC-0130: Calculate device consumption trends for predictive insights
+   * Analyzes historical consumption patterns to identify usage trends
+   * @param {Array} historicalData - Array of { timestamp, value } objects
+   * @param {Object} options - Analysis options
+   * @returns {Object} Trend analysis results
+   */
+  calculateConsumptionTrends: (historicalData, options = {}) => {
+    if (!Array.isArray(historicalData) || historicalData.length < 2) {
+      LogHelper.warn('[MyIOUtils] calculateConsumptionTrends: Insufficient historical data');
+      return { trend: 'insufficient_data', confidence: 0, slope: 0, changePercent: 0 };
+    }
+
+    const {
+      minDataPoints = 7, // At least 7 data points for meaningful analysis
+      recentWindow = 3, // Last 3 points for recent trend
+    } = options;
+
+    if (historicalData.length < minDataPoints) {
+      return { trend: 'insufficient_data', confidence: 0, slope: 0, changePercent: 0 };
+    }
+
+    // Calculate linear regression for overall trend
+    const validPoints = historicalData.filter(
+      (d) => d.value !== null && d.value !== undefined && !isNaN(d.value)
+    );
+    if (validPoints.length < minDataPoints) {
+      return { trend: 'insufficient_data', confidence: 0, slope: 0, changePercent: 0 };
+    }
+
+    const n = validPoints.length;
+    const sumX = validPoints.reduce((sum, _, i) => sum + i, 0);
+    const sumY = validPoints.reduce((sum, d) => sum + d.value, 0);
+    const sumXY = validPoints.reduce((sum, d, i) => sum + i * d.value, 0);
+    const sumXX = validPoints.reduce((sum, _, i) => sum + i * i, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Calculate recent trend (last recentWindow points)
+    const recentPoints = validPoints.slice(-recentWindow);
+    if (recentPoints.length >= 2) {
+      const recentStartIndex = n - recentPoints.length;
+      const recentSumX = recentPoints.reduce((sum, _, i) => sum + (recentStartIndex + i), 0);
+      const recentSumY = recentPoints.reduce((sum, d) => sum + d.value, 0);
+      const recentSumXY = recentPoints.reduce((sum, d, i) => sum + (recentStartIndex + i) * d.value, 0);
+      const recentSumXX = recentPoints.reduce(
+        (sum, _, i) => sum + (recentStartIndex + i) * (recentStartIndex + i),
+        0
+      );
+
+      const recentN = recentPoints.length;
+      const recentSlope =
+        (recentN * recentSumXY - recentSumX * recentSumY) /
+        (recentN * recentSumXX - recentSumX * recentSumXX);
+
+      // Compare overall and recent slopes to determine trend
+      const recentAvgValue = recentPoints.reduce((sum, d) => sum + d.value, 0) / recentPoints.length;
+      const overallAvgValue = validPoints.reduce((sum, d) => sum + d.value, 0) / validPoints.length;
+
+      const changePercent = ((recentAvgValue - overallAvgValue) / overallAvgValue) * 100;
+      const isIncreasing = recentSlope > 0.01; // Small threshold to avoid noise
+      const isDecreasing = recentSlope < -0.01;
+      const isStable = !isIncreasing && !isDecreasing;
+
+      // Calculate confidence based on data consistency
+      const values = validPoints.map((d) => d.value);
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+      const stdDev = Math.sqrt(variance);
+      const coefficientOfVariation = mean !== 0 ? stdDev / Math.abs(mean) : 0;
+      const confidence = Math.max(0, Math.min(100, (1 - coefficientOfVariation) * 100));
+
+      let trend = 'stable';
+      if (isIncreasing) trend = 'increasing';
+      else if (isDecreasing) trend = 'decreasing';
+
+      return {
+        trend,
+        confidence: Math.round(confidence),
+        slope,
+        recentSlope,
+        changePercent: Math.round(changePercent * 100) / 100,
+        overallAvg: overallAvgValue,
+        recentAvg: recentAvgValue,
+        dataPoints: n,
+      };
+    }
+
+    // Fallback for insufficient recent data
+    return {
+      trend: 'stable',
+      confidence: 30,
+      slope,
+      recentSlope: 0,
+      changePercent: 0,
+      overallAvg: validPoints.reduce((sum, d) => sum + d.value, 0) / validPoints.length,
+      recentAvg: validPoints[validPoints.length - 1].value,
+      dataPoints: n,
+    };
+  },
+
+  /**
+   * RFC-0130: Optimize energy usage based on current consumption patterns
+   * Provides recommendations for energy conservation
+   * @param {Array} consumptionData - Array of consumption records
+   * @param {Object} deviceInfo - Device metadata
+   * @returns {Array} Array of optimization recommendations
+   */
+  optimizeEnergyUsage: (consumptionData, deviceInfo = {}) => {
+    if (!Array.isArray(consumptionData) || consumptionData.length === 0) {
+      LogHelper.warn('[MyIOUtils] optimizeEnergyUsage: No consumption data provided');
+      return [];
+    }
+
+    const recommendations = [];
+    const trends = window.MyIOUtils.calculateConsumptionTrends(consumptionData, { minDataPoints: 3 });
+
+    // Analyze trends for specific recommendations
+    if (trends.trend === 'increasing' && trends.changePercent > 10) {
+      recommendations.push({
+        type: 'high_consumption_trend',
+        priority: 'high',
+        message: `${deviceInfo.label || 'Equipamento'} apresenta tendência de aumento de ${
+          trends.changePercent
+        }% no consumo nos últimos dias.`,
+        suggestion: 'Verificar possíveis vazamentos ou uso ineficiente.',
+        potentialSavings: 'Até 15% de redução possível',
+        confidence: trends.confidence,
+      });
+    }
+
+    // Check for abnormal spikes in recent consumption
+    const recentData = consumptionData.slice(-7); // Last 7 days
+    if (recentData.length >= 3) {
+      const avgConsumption = recentData.reduce((sum, d) => sum + (d.value || 0), 0) / recentData.length;
+      const maxValue = Math.max(...recentData.map((d) => d.value || 0));
+      const spikeRatio = maxValue / avgConsumption;
+
+      if (spikeRatio > 2.0) {
+        recommendations.push({
+          type: 'consumption_spike',
+          priority: 'medium',
+          message: `Pico de consumo detectado (${(spikeRatio * 100).toFixed(0)}% acima da média).`,
+          suggestion: 'Investigar causa do pico de consumo.',
+          potentialSavings: 'Redução de picos pode economizar até 10%',
+          confidence: 80,
+        });
+      }
+    }
+
+    // Check for potential nighttime usage (waste)
+    const hasTimestamps = consumptionData.every((d) => d.timestamp);
+    if (hasTimestamps) {
+      const nighttimeUsage = consumptionData.filter((d) => {
+        const hour = new Date(d.timestamp).getHours();
+        return hour >= 22 || hour <= 6; // 10 PM to 6 AM
+      });
+
+      if (nighttimeUsage.length > 0) {
+        const totalNightUsage = nighttimeUsage.reduce((sum, d) => sum + (d.value || 0), 0);
+        const avgNightUsage = totalNightUsage / nighttimeUsage.length;
+        const totalDayUsage = consumptionData.reduce((sum, d) => sum + (d.value || 0), 0) - totalNightUsage;
+        const avgDayUsage =
+          consumptionData.length > nighttimeUsage.length
+            ? totalDayUsage / (consumptionData.length - nighttimeUsage.length)
+            : 0;
+
+        if (avgNightUsage > avgDayUsage * 0.5) {
+          recommendations.push({
+            type: 'nighttime_usage',
+            priority: 'low',
+            message: 'Consumo elevado detectado durante período noturno.',
+            suggestion: 'Verificar se equipamentos podem ser desligados à noite.',
+            potentialSavings: 'Até 20% de redução se otimizado',
+            confidence: 70,
+          });
+        }
+      }
+    }
+
+    // Generic efficiency recommendations based on device type
+    const deviceType = (deviceInfo.deviceType || '').toLowerCase();
+    if (deviceType.includes('bomba') || deviceType.includes('motor')) {
+      recommendations.push({
+        type: 'pump_efficiency',
+        priority: 'medium',
+        message: 'Verificar eficiência de bombas e motores.',
+        suggestion: 'Considerar manutenção preventiva para reduzir consumo.',
+        potentialSavings: '5-10% de economia possível',
+        confidence: 60,
+      });
+    }
+
+    return recommendations.sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
+    });
+  },
+
+  // ============================================
+  // RFC-0131: Refactoring Utilities (ENERGY/WATER shared)
+  // ============================================
+
+  /**
+   * RFC-0131: ThingsBoard-compatible element selector
+   * Searches within widget container first, fallback to document
+   * @param {Object} ctx - ThingsBoard widget context (self.ctx)
+   * @param {string} id - Element ID to find
+   * @returns {HTMLElement|null} Found element or null
+   */
+  $id: (ctx, id) => {
+    const container = ctx?.$container?.[0];
+    if (container?.querySelector) return container.querySelector(`#${id}`);
+    return document.getElementById(id);
+  },
+
+  /**
+   * RFC-0131: Register event listener on both window and window.parent
+   * Returns cleanup function to remove both listeners
+   * @param {string} eventName - Event name to listen for
+   * @param {Function} handler - Event handler function
+   * @param {Object} options - addEventListener options
+   * @returns {Function} Cleanup function to remove listeners
+   */
+  addListenerBoth: (eventName, handler, options) => {
+    window.addEventListener(eventName, handler, options);
+    if (window.parent && window.parent !== window) {
+      window.parent.addEventListener(eventName, handler, options);
+    }
+    return () => {
+      window.removeEventListener(eventName, handler, options);
+      if (window.parent && window.parent !== window) {
+        window.parent.removeEventListener(eventName, handler, options);
+      }
+    };
+  },
+
+  /**
+   * RFC-0131: Wait for orchestrator to be ready
+   * Uses myio:orchestrator:ready event + isReady check
+   * Replaces polling patterns in ENERGY and WATER
+   * @param {Function} cb - Callback when orchestrator is ready
+   * @param {Object} opts - Options { timeoutMs: 10000 }
+   * @returns {Function} Cleanup function
+   */
+  onOrchestratorReady: (cb, { timeoutMs = 10000 } = {}) => {
+    const getOrch = () => window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+
+    // Already ready?
+    const orch = getOrch();
+    if (orch?.isReady) {
+      try {
+        cb(orch);
+      } catch (e) {
+        LogHelper.error('[MyIOUtils] onOrchestratorReady callback error:', e);
+      }
+      return () => {};
+    }
+
+    let done = false;
+    let cleanup;
+
+    const onReady = () => {
+      if (done) return;
+      done = true;
+      if (cleanup) cleanup();
+      const orch2 = getOrch();
+      if (orch2) {
+        try {
+          cb(orch2);
+        } catch (e) {
+          LogHelper.error('[MyIOUtils] onOrchestratorReady callback error:', e);
+        }
+      }
+    };
+
+    const off = window.MyIOUtils.addListenerBoth('myio:orchestrator:ready', onReady);
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      if (cleanup) cleanup();
+      LogHelper.warn(`[MyIOUtils] onOrchestratorReady timeout after ${timeoutMs}ms`);
+    }, timeoutMs);
+
+    cleanup = () => {
+      clearTimeout(timer);
+      off();
+    };
+
+    return cleanup;
+  },
+
+  /**
+   * RFC-0131: Open consumption fullscreen modal (unified for all domains)
+   * Removes duplication of openFullscreenModal() in ENERGY and WATER
+   * @param {Object} params - Modal configuration
+   * @returns {Promise<{modal}>} Promise resolving to modal instance
+   */
+  openConsumptionFullscreen: async ({
+    domain,
+    title,
+    unit,
+    unitLarge,
+    thresholdForLargeUnit,
+    decimalPlaces = 1,
+    chartConfig,
+    cachedChartData,
+    consumptionChartInstance,
+    fetchData,
+    theme = 'light',
+    showSettingsButton = false,
+    onClose,
+  }) => {
+    const MyIOLib = window.MyIOLibrary || (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary : null);
+    if (!MyIOLib?.createConsumptionModal) {
+      throw new Error('MyIOLibrary.createConsumptionModal not available');
+    }
+
+    const initialData = cachedChartData || consumptionChartInstance?.getCachedData?.() || null;
+
+    const modal = MyIOLib.createConsumptionModal({
+      domain,
+      title,
+      unit,
+      unitLarge,
+      thresholdForLargeUnit,
+      decimalPlaces,
+      defaultPeriod: chartConfig?.period || 7,
+      defaultChartType: chartConfig?.chartType || 'line',
+      defaultVizMode: chartConfig?.vizMode || 'total',
+      theme,
+      showSettingsButton,
+      fetchData,
+      initialData,
+      onClose,
+    });
+
+    await modal.open();
+    return { modal };
+  },
+
+  /**
+   * RFC-0131: Create a TTL (time-to-live) cache
+   * Useful for caching data with automatic expiration
+   * @param {number} ttlMs - Time-to-live in milliseconds
+   * @returns {Object} Cache object with get/set/clear methods
+   */
+  createTTLCache: (ttlMs) => {
+    let value = null;
+    let ts = 0;
+
+    return {
+      get: () => (value && Date.now() - ts < ttlMs ? value : null),
+      set: (v) => {
+        value = v;
+        ts = Date.now();
+      },
+      clear: () => {
+        value = null;
+        ts = 0;
+      },
+    };
+  },
+
+  /**
+   * RFC-0130: Calculate carbon footprint estimation from energy consumption
+   * Useful for environmental impact reporting
+   * @param {number} energyConsumptionKwh - Energy consumption in kWh
+   * @param {number} carbonIntensity - Carbon intensity factor (gCO2/kWh) - default: 250g/kWh (Brazil average)
+   * @returns {Object} Carbon footprint calculations
+   */
+  calculateCarbonFootprint: (energyConsumptionKwh, carbonIntensity = 250) => {
+    if (!energyConsumptionKwh || energyConsumptionKwh <= 0) {
+      return { co2Grams: 0, co2Kg: 0, co2Tonnes: 0, equivalentKmDriven: 0 };
+    }
+
+    const co2Grams = energyConsumptionKwh * carbonIntensity;
+    const co2Kg = co2Grams / 1000;
+    const co2Tonnes = co2Kg / 1000;
+
+    // Equivalent of km driven by an average car (120g CO2/km)
+    const equivalentKmDriven = co2Grams / 120;
+
+    return {
+      co2Grams: Math.round(co2Grams),
+      co2Kg: Math.round(co2Kg * 100) / 100,
+      co2Tonnes: Math.round(co2Tonnes * 1000) / 1000,
+      equivalentKmDriven: Math.round(equivalentKmDriven),
+      carbonIntensityUsed: carbonIntensity,
+      assumptions: 'Based on Brazilian grid average carbon intensity',
+    };
   },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
@@ -1326,25 +1970,29 @@ const HEADER_DOMAIN_CONFIG = {
     totalLabel: 'Total de Equipamentos',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
-    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`),
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`,
   },
   stores: {
     totalLabel: 'Total de Lojas',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
-    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`),
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`,
   },
   water: {
     totalLabel: 'Total de Hidrômetros',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
-    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatWaterVolumeM3(val) : `${val.toFixed(2)} m³`),
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatWaterVolumeM3(val) : `${val.toFixed(2)} m³`,
   },
   temperature: {
     totalLabel: 'Total de Sensores',
     consumptionLabel: 'Média de Temperatura',
     zeroLabel: 'Sem Leitura',
-    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatTemperature(val) : `${val.toFixed(1)}°C`),
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatTemperature(val) : `${val.toFixed(1)}°C`,
   },
 };
 
@@ -1602,10 +2250,22 @@ function createFilterModal(config) {
 
   // RFC-0103: Filter tab icons
   const filterTabIcons = {
-    online: '⚡', normal: '⚡', offline: '🔴', notInstalled: '📦', standby: '🔌', alert: '⚠️', failure: '🚨',
-    withConsumption: '✓', noConsumption: '○',
-    elevators: '🏙', escalators: '📶', hvac: '❄️', others: '⚙️',
-    commonArea: '💧', stores: '🏪', all: '📊'
+    online: '⚡',
+    normal: '⚡',
+    offline: '🔴',
+    notInstalled: '📦',
+    standby: '🔌',
+    alert: '⚠️',
+    failure: '🚨',
+    withConsumption: '✓',
+    noConsumption: '○',
+    elevators: '🏙',
+    escalators: '📶',
+    hvac: '❄️',
+    others: '⚙️',
+    commonArea: '💧',
+    stores: '🏪',
+    all: '📊',
   };
 
   // Generate CSS styles with customizable primary color
@@ -1932,7 +2592,11 @@ function createFilterModal(config) {
       { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline', 'notInstalled'] },
       { id: 'status', label: 'Status', filters: ['normal', 'standby', 'alert', 'failure'] },
       { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
-      { id: 'type', label: 'Tipo', filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+      {
+        id: 'type',
+        label: 'Tipo',
+        filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'],
+      },
     ];
 
     const allTab = filterTabs.find((t) => t.id === 'all');
@@ -1955,17 +2619,24 @@ function createFilterModal(config) {
         <div class="filter-group">
           <span class="filter-group-label">${group.label}</span>
           <div class="filter-group-tabs">
-            ${groupTabs.map((tab) => {
-              const icon = filterTabIcons[tab.id] || '';
-              const count = counts[tab.id] || 0;
-              // RFC-0110: Add expand button (+) if count > 0
-              const expandBtn = count > 0 ? `<button class="filter-tab-expand" data-expand-filter="${tab.id}" title="Ver dispositivos">+</button>` : '';
-              return `
+            ${groupTabs
+              .map((tab) => {
+                const icon = filterTabIcons[tab.id] || '';
+                const count = counts[tab.id] || 0;
+                // RFC-0110: Add expand button (+) if count > 0
+                const expandBtn =
+                  count > 0
+                    ? `<button class="filter-tab-expand" data-expand-filter="${tab.id}" title="Ver dispositivos">+</button>`
+                    : '';
+                return `
               <button class="filter-tab active" data-filter="${tab.id}">
-                ${icon} ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${count}</span>)${expandBtn}
+                ${icon} ${tab.label} (<span id="count${
+                  tab.id.charAt(0).toUpperCase() + tab.id.slice(1)
+                }">${count}</span>)${expandBtn}
               </button>
             `;
-            }).join('')}
+              })
+              .join('')}
           </div>
         </div>
       `;
@@ -2051,7 +2722,9 @@ function createFilterModal(config) {
     let itemsProcessing = items.slice();
     if (isFiltered) {
       const allowedShoppingIds = globalSelection.map((c) => c.value);
-      itemsProcessing = itemsProcessing.filter((item) => item.customerId && allowedShoppingIds.includes(item.customerId));
+      itemsProcessing = itemsProcessing.filter(
+        (item) => item.customerId && allowedShoppingIds.includes(item.customerId)
+      );
     }
 
     const sortedItems = itemsProcessing.sort((a, b) =>
@@ -2059,7 +2732,8 @@ function createFilterModal(config) {
     );
 
     if (sortedItems.length === 0) {
-      checklist.innerHTML = '<div style="padding:10px; color:#666; font-size:12px; text-align:center;">Nenhum dispositivo encontrado.</div>';
+      checklist.innerHTML =
+        '<div style="padding:10px; color:#666; font-size:12px; text-align:center;">Nenhum dispositivo encontrado.</div>';
       return;
     }
 
@@ -2075,8 +2749,14 @@ function createFilterModal(config) {
       div.innerHTML = `
         <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
         <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
-        ${subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''}
-        <span style="color: ${value > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
+        ${
+          subLabel
+            ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>`
+            : ''
+        }
+        <span style="color: ${
+          value > 0 ? '#16a34a' : '#94a3b8'
+        }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
       `;
       checklist.appendChild(div);
     });
@@ -2086,7 +2766,9 @@ function createFilterModal(config) {
     const closeBtn = modal.querySelector('#closeFilter');
     if (closeBtn) closeBtn.addEventListener('click', close);
 
-    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) close();
+    });
 
     const applyBtn = modal.querySelector('#applyFilters');
     if (applyBtn) {
@@ -2099,7 +2781,11 @@ function createFilterModal(config) {
         });
         const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
         const sortMode = sortRadio ? sortRadio.value : 'cons_desc';
-        LogHelper.log(`[${widgetName}] Filters applied:`, { selectedCount: selectedSet.size, totalItems: items.length, sortMode });
+        LogHelper.log(`[${widgetName}] Filters applied:`, {
+          selectedCount: selectedSet.size,
+          totalItems: items.length,
+          sortMode,
+        });
         onApply({ selectedIds: selectedSet.size === items.length ? null : selectedSet, sortMode });
         close();
       });
@@ -2111,14 +2797,18 @@ function createFilterModal(config) {
     const selectAllBtn = modal.querySelector('#selectAllItems');
     if (selectAllBtn) {
       selectAllBtn.addEventListener('click', () => {
-        modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = true);
+        modal
+          .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+          .forEach((cb) => (cb.checked = true));
       });
     }
 
     const clearAllBtn = modal.querySelector('#clearAllItems');
     if (clearAllBtn) {
       clearAllBtn.addEventListener('click', () => {
-        modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = false);
+        modal
+          .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+          .forEach((cb) => (cb.checked = false));
       });
     }
 
@@ -2138,12 +2828,16 @@ function createFilterModal(config) {
     if (clearBtn && searchInput) {
       clearBtn.addEventListener('click', () => {
         searchInput.value = '';
-        modal.querySelectorAll('#deviceChecklist .check-item').forEach((item) => item.style.display = 'flex');
+        modal
+          .querySelectorAll('#deviceChecklist .check-item')
+          .forEach((item) => (item.style.display = 'flex'));
         searchInput.focus();
       });
     }
 
-    escHandler = (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); };
+    escHandler = (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+    };
     document.addEventListener('keydown', escHandler);
   }
 
@@ -2153,7 +2847,7 @@ function createFilterModal(config) {
       { name: 'connectivity', ids: ['online', 'offline', 'notInstalled'] },
       { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
       { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
-      { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+      { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] },
     ];
 
     const getFilterFn = (filterId) => {
@@ -2213,7 +2907,13 @@ function createFilterModal(config) {
       });
     };
 
-    const statusToConnectivity = { normal: 'online', standby: 'online', alert: 'online', failure: 'online', offline: 'offline' };
+    const statusToConnectivity = {
+      normal: 'online',
+      standby: 'online',
+      alert: 'online',
+      failure: 'online',
+      offline: 'offline',
+    };
 
     const getFilteredItems = () => {
       let filteredItems = [...items];
@@ -2222,7 +2922,9 @@ function createFilterModal(config) {
           .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
           .map((t) => t.getAttribute('data-filter'));
         if (activeInGroup.length > 0) {
-          filteredItems = filteredItems.filter((item) => activeInGroup.some((filterId) => getFilterFn(filterId)(item)));
+          filteredItems = filteredItems.filter((item) =>
+            activeInGroup.some((filterId) => getFilterFn(filterId)(item))
+          );
         }
       });
       return filteredItems;
@@ -2235,7 +2937,9 @@ function createFilterModal(config) {
           if (countEl) countEl.textContent = filteredItems.length;
         } else {
           const count = filteredItems.filter(tabConfig.filter).length;
-          const countEl = modal.querySelector(`#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`);
+          const countEl = modal.querySelector(
+            `#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`
+          );
           if (countEl) countEl.textContent = count;
         }
       });
@@ -2259,11 +2963,15 @@ function createFilterModal(config) {
           if (allOthersActive) {
             otherTabs.forEach((t) => t.classList.remove('active'));
             if (allTab) allTab.classList.remove('active');
-            modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = false);
+            modal
+              .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+              .forEach((cb) => (cb.checked = false));
           } else {
             otherTabs.forEach((t) => t.classList.add('active'));
             if (allTab) allTab.classList.add('active');
-            modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = true);
+            modal
+              .querySelectorAll(`#deviceChecklist input[type='checkbox']`)
+              .forEach((cb) => (cb.checked = true));
           }
           return;
         }
@@ -2274,8 +2982,11 @@ function createFilterModal(config) {
         if (isNowActive) {
           const impliedConnectivity = statusToConnectivity[filterType];
           if (impliedConnectivity) {
-            const connectivityTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === impliedConnectivity);
-            if (connectivityTab && !connectivityTab.classList.contains('active')) connectivityTab.classList.add('active');
+            const connectivityTab = Array.from(filterTabsEl).find(
+              (t) => t.getAttribute('data-filter') === impliedConnectivity
+            );
+            if (connectivityTab && !connectivityTab.classList.contains('active'))
+              connectivityTab.classList.add('active');
           }
           const filteredItems = getFilteredItems();
           const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'];
@@ -2310,11 +3021,17 @@ function createFilterModal(config) {
   // RFC-0110: Device list tooltip for expand buttons (+)
   // Uses InfoTooltip from library for consistent UX (draggable, PIN, maximize, delayed hide)
 
-  function showDeviceTooltip(triggerEl, filterId, devices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel) {
+  function showDeviceTooltip(
+    triggerEl,
+    filterId,
+    devices,
+    filterTabs,
+    filterTabIcons,
+    getItemLabel,
+    getItemSubLabel
+  ) {
     // Get InfoTooltip from library (try multiple paths)
-    const InfoTooltip = window.MyIOLibrary?.InfoTooltip
-      || window.MyIO?.InfoTooltip
-      || window.InfoTooltip;
+    const InfoTooltip = window.MyIOLibrary?.InfoTooltip || window.MyIO?.InfoTooltip || window.InfoTooltip;
 
     if (!InfoTooltip) {
       LogHelper.warn('[MAIN] InfoTooltip not available');
@@ -2339,27 +3056,43 @@ function createFilterModal(config) {
     } else {
       // Get status dot color based on filter
       const dotColors = {
-        online: '#22c55e', offline: '#6b7280', notInstalled: '#92400e', normal: '#3b82f6', standby: '#22c55e',
-        alert: '#f59e0b', failure: '#ef4444', elevators: '#7c3aed', escalators: '#db2777',
-        hvac: '#0891b2', others: '#57534e', commonArea: '#0284c7', stores: '#9333ea'
+        online: '#22c55e',
+        offline: '#6b7280',
+        notInstalled: '#92400e',
+        normal: '#3b82f6',
+        standby: '#22c55e',
+        alert: '#f59e0b',
+        failure: '#ef4444',
+        elevators: '#7c3aed',
+        escalators: '#db2777',
+        hvac: '#0891b2',
+        others: '#57534e',
+        commonArea: '#0284c7',
+        stores: '#9333ea',
       };
       const dotColor = dotColors[filterId] || '#94a3b8';
 
-      const deviceItems = devices.slice(0, 50).map((device) => {
-        const deviceLabel = getItemLabel(device) || 'Sem nome';
-        const customerName = getItemSubLabel ? getItemSubLabel(device) : '';
-        const displayLabel = customerName ? `${deviceLabel} (${customerName})` : deviceLabel;
-        return `
+      const deviceItems = devices
+        .slice(0, 50)
+        .map((device) => {
+          const deviceLabel = getItemLabel(device) || 'Sem nome';
+          const customerName = getItemSubLabel ? getItemSubLabel(device) : '';
+          const displayLabel = customerName ? `${deviceLabel} (${customerName})` : deviceLabel;
+          return `
           <div class="myio-info-tooltip__row" style="padding: 6px 0; gap: 8px;">
             <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; flex-shrink: 0;"></span>
             <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px;" title="${displayLabel}">${displayLabel}</span>
           </div>
         `;
-      }).join('');
+        })
+        .join('');
 
-      const moreText = devices.length > 50
-        ? `<div style="font-style: italic; color: #94a3b8; font-size: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; margin-top: 8px;">... e mais ${devices.length - 50} dispositivos</div>`
-        : '';
+      const moreText =
+        devices.length > 50
+          ? `<div style="font-style: italic; color: #94a3b8; font-size: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; margin-top: 8px;">... e mais ${
+              devices.length - 50
+            } dispositivos</div>`
+          : '';
 
       devicesHtml = `
         <div class="myio-info-tooltip__section">
@@ -2378,7 +3111,7 @@ function createFilterModal(config) {
     InfoTooltip.show(triggerEl, {
       icon: icon,
       title: `${label} (${devices.length})`,
-      content: devicesHtml
+      content: devicesHtml,
     });
   }
 
@@ -2389,7 +3122,14 @@ function createFilterModal(config) {
     }
   }
 
-  function setupExpandButtonListeners(modal, items, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel) {
+  function setupExpandButtonListeners(
+    modal,
+    items,
+    filterTabs,
+    filterTabIcons,
+    getItemLabel,
+    getItemSubLabel
+  ) {
     const expandBtns = modal.querySelectorAll('.filter-tab-expand');
 
     expandBtns.forEach((btn) => {
@@ -2404,7 +3144,15 @@ function createFilterModal(config) {
         e.stopPropagation();
         // Filter devices matching this filter
         const matchingDevices = items.filter(filterFn);
-        showDeviceTooltip(btn, filterId, matchingDevices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
+        showDeviceTooltip(
+          btn,
+          filterId,
+          matchingDevices,
+          filterTabs,
+          filterTabIcons,
+          getItemLabel,
+          getItemSubLabel
+        );
       });
 
       btn.addEventListener('mouseleave', (e) => {
@@ -2417,7 +3165,15 @@ function createFilterModal(config) {
         e.stopPropagation();
         // Also show tooltip on click for better UX
         const matchingDevices = items.filter(filterFn);
-        showDeviceTooltip(btn, filterId, matchingDevices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
+        showDeviceTooltip(
+          btn,
+          filterId,
+          matchingDevices,
+          filterTabs,
+          filterTabIcons,
+          getItemLabel,
+          getItemSubLabel
+        );
       });
     });
   }
@@ -2525,7 +3281,8 @@ function calculateDeviceStatusMasterRules(options = {}) {
   const normalizedStatus = (connectionStatus || '').toLowerCase().trim();
 
   // 1. WAITING → NOT_INSTALLED (absolute, no discussion)
-  const isWaitingStatus = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
+  const isWaitingStatus =
+    normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
   if (isWaitingStatus) {
     return 'not_installed';
   }
@@ -2625,15 +3382,35 @@ function createStandardFilterTabs(config = {}) {
   if (domain === 'temperature') {
     baseTabs.push(
       { id: 'normal', label: 'Normal', filter: (item) => isOnline(item) && getItemStatus(item) === 'normal' },
-      { id: 'alert', label: 'Alerta', filter: (item) => isOnline(item) && ['hot', 'cold', 'warning', 'alert'].includes(getItemStatus(item)) }
+      {
+        id: 'alert',
+        label: 'Alerta',
+        filter: (item) => isOnline(item) && ['hot', 'cold', 'warning', 'alert'].includes(getItemStatus(item)),
+      }
     );
   } else {
     // energy/water domains
     baseTabs.push(
-      { id: 'normal', label: 'Normal', filter: (item) => isOnline(item) && ['power_on', 'normal', 'running'].includes(getItemStatus(item)) },
-      { id: 'standby', label: 'Stand By', filter: (item) => isOnline(item) && getItemStatus(item) === 'standby' },
-      { id: 'alert', label: 'Alerta', filter: (item) => isOnline(item) && ['warning', 'alert', 'maintenance'].includes(getItemStatus(item)) },
-      { id: 'failure', label: 'Falha', filter: (item) => isOnline(item) && ['failure', 'power_off'].includes(getItemStatus(item)) }
+      {
+        id: 'normal',
+        label: 'Normal',
+        filter: (item) => isOnline(item) && ['power_on', 'normal', 'running'].includes(getItemStatus(item)),
+      },
+      {
+        id: 'standby',
+        label: 'Stand By',
+        filter: (item) => isOnline(item) && getItemStatus(item) === 'standby',
+      },
+      {
+        id: 'alert',
+        label: 'Alerta',
+        filter: (item) => isOnline(item) && ['warning', 'alert', 'maintenance'].includes(getItemStatus(item)),
+      },
+      {
+        id: 'failure',
+        label: 'Falha',
+        filter: (item) => isOnline(item) && ['failure', 'power_off'].includes(getItemStatus(item)),
+      }
     );
   }
 
@@ -2656,7 +3433,11 @@ function createStandardFilterTabs(config = {}) {
       { id: 'elevators', label: 'Elevadores', filter: isElevator },
       { id: 'escalators', label: 'Escadas', filter: isEscalator },
       { id: 'hvac', label: 'Climatização', filter: isHVAC },
-      { id: 'others', label: 'Outros', filter: (item) => !isElevator(item) && !isEscalator(item) && !isHVAC(item) }
+      {
+        id: 'others',
+        label: 'Outros',
+        filter: (item) => !isElevator(item) && !isEscalator(item) && !isHVAC(item),
+      }
     );
   }
 
@@ -2673,9 +3454,8 @@ function calculateOperationTime(lastConnectTime) {
     return { durationMs: 0, formatted: '-' };
   }
 
-  const connectTs = typeof lastConnectTime === 'string'
-    ? new Date(lastConnectTime).getTime()
-    : lastConnectTime;
+  const connectTs =
+    typeof lastConnectTime === 'string' ? new Date(lastConnectTime).getTime() : lastConnectTime;
 
   if (isNaN(connectTs) || connectTs <= 0) {
     return { durationMs: 0, formatted: '-' };
@@ -2689,20 +3469,22 @@ function calculateOperationTime(lastConnectTime) {
   }
 
   // Use formatarDuracao if available, otherwise format manually
-  const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => {
-    const totalMins = Math.floor(ms / 60000);
-    const hours = Math.floor(totalMins / 60);
-    const mins = totalMins % 60;
-    if (hours >= 24) {
-      const days = Math.floor(hours / 24);
-      const remainingHours = hours % 24;
-      return `${days}d ${remainingHours}h`;
-    }
-    if (hours > 0) {
-      return `${hours}h ${mins}min`;
-    }
-    return `${mins}min`;
-  });
+  const formatarDuracao =
+    window.MyIOUtils?.formatarDuracao ||
+    ((ms) => {
+      const totalMins = Math.floor(ms / 60000);
+      const hours = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        return `${days}d ${remainingHours}h`;
+      }
+      if (hours > 0) {
+        return `${hours}h ${mins}min`;
+      }
+      return `${mins}min`;
+    });
 
   return {
     durationMs,
@@ -3115,11 +3897,10 @@ Object.assign(window.MyIOUtils, {
         },
 
         getWaterCache: () => {
-          const waterData = window.MyIOOrchestratorData?.water;
-          if (!waterData?.items?.length) return new Map();
+          const waterClassified = window.MyIOOrchestratorData?.waterClassified;
+          if (!waterClassified?.all?.items?.length) return new Map();
           const cache = new Map();
-          waterData.items.forEach((item) => {
-            if (item.tbId) cache.set(item.tbId, item);
+          waterClassified.all.items.forEach((item) => {
             if (item.ingestionId) cache.set(item.ingestionId, item);
           });
           return cache;
@@ -4425,7 +5206,9 @@ function populateStateTemperature(items) {
     return connStatus !== 'offline' && devStatus !== 'offline' && devStatus !== 'no_info';
   });
 
-  LogHelper.log(`[Orchestrator] 🌡️ Temperature grouping: ${items.length} total items, ${onlineItems.length} online items`);
+  LogHelper.log(
+    `[Orchestrator] 🌡️ Temperature grouping: ${items.length} total items, ${onlineItems.length} online items`
+  );
 
   onlineItems.forEach((item) => {
     const shoppingName = item.ownerName || item.customerName || 'Desconhecido';
@@ -4448,7 +5231,13 @@ function populateStateTemperature(items) {
   shoppingTempMap.forEach((data) => {
     if (data.temps.length === 0) return;
     const avg = data.temps.reduce((a, b) => a + b, 0) / data.temps.length;
-    const shoppingInfo = { name: data.name, avg, min: data.min, max: data.max, deviceCount: data.temps.length };
+    const shoppingInfo = {
+      name: data.name,
+      avg,
+      min: data.min,
+      max: data.max,
+      deviceCount: data.temps.length,
+    };
 
     if (avg >= data.min && avg <= data.max) {
       shoppingsInRange.push(shoppingInfo);
@@ -4478,7 +5267,9 @@ function populateStateTemperature(items) {
       },
     })
   );
-  LogHelper.log(`[Orchestrator] 🌡️ Emitted myio:temperature-data-ready for HEADER (${shoppingsInRange.length} in-range, ${shoppingsOutOfRange.length} out-of-range)`);
+  LogHelper.log(
+    `[Orchestrator] 🌡️ Emitted myio:temperature-data-ready for HEADER (${shoppingsInRange.length} in-range, ${shoppingsOutOfRange.length} out-of-range)`
+  );
 }
 
 /**
@@ -5205,14 +5996,15 @@ const MyIOOrchestrator = (() => {
       const isHidrometerDevice = deviceType.startsWith('HIDROMETRO') || deviceType.includes('WATER');
       const isTemperatureDevice = deviceType === 'TERMOSTATO' || deviceType.includes('TEMP');
 
-      const domain = isTankDevice || isHidrometerDevice ? 'water' : isTemperatureDevice ? 'temperature' : 'energy';
+      const domain =
+        isTankDevice || isHidrometerDevice ? 'water' : isTemperatureDevice ? 'temperature' : 'energy';
       const telemetryTimestamp = isTankDevice
-        ? (options.waterLevelTs ?? options.waterPercentageTs ?? null)
+        ? options.waterLevelTs ?? options.waterPercentageTs ?? null
         : isHidrometerDevice
-          ? (options.pulsesTs ?? null)
-          : isTemperatureDevice
-            ? (options.temperatureTs ?? null)
-            : (options.consumptionTs ?? null);
+        ? options.pulsesTs ?? null
+        : isTemperatureDevice
+        ? options.temperatureTs ?? null
+        : options.consumptionTs ?? null;
 
       // DEBUG RFC-0110: Log calculation inputs for stale telemetry detection
       if (!window._debugDeviceStatusLogged) window._debugDeviceStatusLogged = 0;
@@ -5221,7 +6013,9 @@ const MyIOOrchestrator = (() => {
         const now = Date.now();
         const telemetryAgeMs = telemetryTimestamp ? now - telemetryTimestamp : 'N/A';
         const telemetryAgeMins = telemetryTimestamp ? Math.round((now - telemetryTimestamp) / 60000) : 'N/A';
-        LogHelper.log(`[Orchestrator] 🔍 RFC-0110 DEBUG deviceStatus #${window._debugDeviceStatusLogged}: connectionStatus='${connectionStatus}', domain='${domain}', telemetryTimestamp=${telemetryTimestamp}, telemetryAge=${telemetryAgeMins} mins, consumptionTs=${options.consumptionTs}, lastActivityTime=${options.lastActivityTime}, delayMins=${delayMins}`);
+        LogHelper.log(
+          `[Orchestrator] 🔍 RFC-0110 DEBUG deviceStatus #${window._debugDeviceStatusLogged}: connectionStatus='${connectionStatus}', domain='${domain}', telemetryTimestamp=${telemetryTimestamp}, telemetryAge=${telemetryAgeMins} mins, consumptionTs=${options.consumptionTs}, lastActivityTime=${options.lastActivityTime}, delayMins=${delayMins}`
+        );
       }
 
       const status = lib.calculateDeviceStatus({
@@ -5235,7 +6029,9 @@ const MyIOOrchestrator = (() => {
 
       // Log for WAITING devices
       if (status === 'not_installed') {
-        LogHelper.log(`[MYIO-SIM Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+        LogHelper.log(
+          `[MYIO-SIM Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`
+        );
       }
 
       // DEBUG RFC-0110: Log when online device should be offline due to stale telemetry
@@ -5243,7 +6039,9 @@ const MyIOOrchestrator = (() => {
         if (!window._debugStaleLogged) window._debugStaleLogged = 0;
         if (window._debugStaleLogged < 5) {
           window._debugStaleLogged++;
-          LogHelper.log(`[Orchestrator] 🔍 RFC-0110 DEBUG stale #${window._debugStaleLogged}: ONLINE with stale telemetry → OFFLINE`);
+          LogHelper.log(
+            `[Orchestrator] 🔍 RFC-0110 DEBUG stale #${window._debugStaleLogged}: ONLINE with stale telemetry → OFFLINE`
+          );
         }
       }
 
@@ -5251,10 +6049,14 @@ const MyIOOrchestrator = (() => {
     }
 
     // Fallback: Simple mapping if library not available
-    const normalizedStatus = String(connectionStatus || '').toLowerCase().trim();
+    const normalizedStatus = String(connectionStatus || '')
+      .toLowerCase()
+      .trim();
 
     if (['waiting', 'connecting', 'pending'].includes(normalizedStatus)) {
-      LogHelper.log(`[MYIO-SIM Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+      LogHelper.log(
+        `[MYIO-SIM Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`
+      );
       return 'not_installed';
     }
 
@@ -5374,7 +6176,7 @@ const MyIOOrchestrator = (() => {
       // RFC-0110 v5: Capture timestamp for telemetry
       // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
       const rawTs = row?.data?.[0]?.[0];
-      const ts = (rawTs && rawTs > 0) ? rawTs : null;
+      const ts = rawTs && rawTs > 0 ? rawTs : null;
 
       if (!entityId) continue;
 
@@ -5414,18 +6216,32 @@ const MyIOOrchestrator = (() => {
         if (!window._debugConsumptionTsLogged) window._debugConsumptionTsLogged = 0;
         if (window._debugConsumptionTsLogged < 5) {
           window._debugConsumptionTsLogged++;
-          LogHelper.log(`[Orchestrator] 🔍 RFC-0110 DEBUG consumption #${window._debugConsumptionTsLogged}: label='${meta.label || meta.entityName}', consumption=${val}, ts=${ts}, rawTs=${rawTs}`);
+          LogHelper.log(
+            `[Orchestrator] 🔍 RFC-0110 DEBUG consumption #${window._debugConsumptionTsLogged}: label='${
+              meta.label || meta.entityName
+            }', consumption=${val}, ts=${ts}, rawTs=${rawTs}`
+          );
         }
       }
       // Water-specific fields (RFC-0110 v5: capture timestamp for telemetry)
-      else if (keyName === 'pulses') { meta.pulses = val; meta.pulsesTs = ts; }
-      else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
+      else if (keyName === 'pulses') {
+        meta.pulses = val;
+        meta.pulsesTs = ts;
+      } else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
       // Tank-specific fields (TANK/CAIXA_DAGUA) (RFC-0110 v5: capture timestamp for telemetry)
-      else if (keyName === 'water_level') { meta.waterLevel = val; meta.waterLevelTs = ts; }
-      else if (keyName === 'water_percentage') { meta.waterPercentage = val; meta.waterPercentageTs = ts; }
+      else if (keyName === 'water_level') {
+        meta.waterLevel = val;
+        meta.waterLevelTs = ts;
+      } else if (keyName === 'water_percentage') {
+        meta.waterPercentage = val;
+        meta.waterPercentageTs = ts;
+      }
       // Temperature-specific fields (RFC-0110 v5: capture timestamp for telemetry)
-      else if (keyName === 'temperature') { meta.temperature = val; meta.temperatureTs = ts; }
+      else if (keyName === 'temperature') {
+        meta.temperature = val;
+        meta.temperatureTs = ts;
+      }
     }
 
     // Build map by ingestionId
@@ -6232,7 +7048,10 @@ const MyIOOrchestrator = (() => {
       const lojaItems = items.filter((item) => isStoreDevice(item));
       const equipmentItems = items.filter((item) => !isStoreDevice(item));
       const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
-      const equipmentsTotal = equipmentItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const equipmentsTotal = equipmentItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // Calculate breakdown by shopping using customerId or ownerName
       const shoppingMap = new Map();
@@ -6278,7 +7097,11 @@ const MyIOOrchestrator = (() => {
           detail: energySummary,
         })
       );
-      LogHelper.log(`[Orchestrator] 📊 Emitted myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+      LogHelper.log(
+        `[Orchestrator] 📊 Emitted myio:energy-summary-ready (total: ${customerTotal.toFixed(
+          2
+        )} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`
+      );
 
       // RFC-0103: Also emit initial water-summary-ready from ctx.data when energy loads
       // This ensures HEADER gets water data without waiting for water tab to be selected
@@ -6288,7 +7111,9 @@ const MyIOOrchestrator = (() => {
         const ownerNameMap = new Map(); // entityId -> ownerName (from ownername dataKey)
         const ctxData = self?.ctx?.data || [];
 
-        LogHelper.log(`[Orchestrator] 💧 Checking ctx.data for water devices (${ctxData.length} datasources)`);
+        LogHelper.log(
+          `[Orchestrator] 💧 Checking ctx.data for water devices (${ctxData.length} datasources)`
+        );
 
         // RFC-0108: First pass - collect ownerName for each entity from ownername dataKey (all datasources)
         ctxData.forEach((ds) => {
@@ -6415,7 +7240,9 @@ const MyIOOrchestrator = (() => {
           }
         });
         LogHelper.log(`[Orchestrator] 💧 Water dataKeys: ${Array.from(waterDataKeys).join(', ')}`);
-        LogHelper.log(`[Orchestrator] 💧 Water devices: ${withOwnerName} with ownerName, ${withoutOwnerName} without (customersList: ${customersList.length})`);
+        LogHelper.log(
+          `[Orchestrator] 💧 Water devices: ${withOwnerName} with ownerName, ${withoutOwnerName} without (customersList: ${customersList.length})`
+        );
 
         // RFC-0109: Water meter classification
         // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
@@ -6440,17 +7267,21 @@ const MyIOOrchestrator = (() => {
         };
 
         // Convert map to array and calculate water value (prefer consumption, fallback to pulses)
-        const waterItems = Array.from(waterDevicesMap.values()).map((d) => {
-          const classification = classifyWaterMeter(d);
-          return {
-            ...d,
-            value: d.consumption > 0 ? d.consumption : d.pulses,
-            _isStore: classification === 'loja',
-            _classification: classification,
-          };
-        }).filter((d) => d.value > 0);
+        const waterItems = Array.from(waterDevicesMap.values())
+          .map((d) => {
+            const classification = classifyWaterMeter(d);
+            return {
+              ...d,
+              value: d.consumption > 0 ? d.consumption : d.pulses,
+              _isStore: classification === 'loja',
+              _classification: classification,
+            };
+          })
+          .filter((d) => d.value > 0);
 
-        LogHelper.log(`[Orchestrator] 💧 Found ${waterDevicesMap.size} water devices, ${waterItems.length} with values`);
+        LogHelper.log(
+          `[Orchestrator] 💧 Found ${waterDevicesMap.size} water devices, ${waterItems.length} with values`
+        );
 
         // RFC-0109: Log classification breakdown
         const classificationCounts = waterItems.reduce((acc, item) => {
@@ -6496,7 +7327,11 @@ const MyIOOrchestrator = (() => {
           };
 
           window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
-          LogHelper.log(`[Orchestrator] 💧 Initial water-summary-ready from ctx.data (total: ${waterTotal.toFixed(2)} m³, area: ${commonAreaTotal.toFixed(2)}, lojas: ${storesTotal.toFixed(2)})`);
+          LogHelper.log(
+            `[Orchestrator] 💧 Initial water-summary-ready from ctx.data (total: ${waterTotal.toFixed(
+              2
+            )} m³, area: ${commonAreaTotal.toFixed(2)}, lojas: ${storesTotal.toFixed(2)})`
+          );
 
           // RFC-0109: Emit myio:water-tb-data-ready for WATER_COMMON_AREA and WATER_STORES widgets
           // This provides the classified devices directly to the widgets
@@ -6538,15 +7373,168 @@ const MyIOOrchestrator = (() => {
           // Only update if we have MORE items or if there's no existing data
           if (newItemCount > 0 && (newItemCount >= existingItemCount || !existingWaterClassified)) {
             window.MyIOOrchestratorData.waterClassified = waterClassifiedData;
-            LogHelper.log(`[Orchestrator] 💧 Stored waterClassified data in window.MyIOOrchestratorData (${newItemCount} items, replaced ${existingItemCount}, ignored ${entradaItems.length} entrada)`);
+            LogHelper.log(
+              `[Orchestrator] 💧 Stored waterClassified data in window.MyIOOrchestratorData (${newItemCount} items, replaced ${existingItemCount}, ignored ${entradaItems.length} entrada)`
+            );
           } else if (newItemCount > 0) {
-            LogHelper.log(`[Orchestrator] 💧 Skipped storing waterClassified - existing has more items (${existingItemCount} vs ${newItemCount})`);
+            LogHelper.log(
+              `[Orchestrator] 💧 Skipped storing waterClassified - existing has more items (${existingItemCount} vs ${newItemCount})`
+            );
           }
 
-          window.dispatchEvent(new CustomEvent('myio:water-tb-data-ready', {
-            detail: waterClassifiedData,
-          }));
-          LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-tb-data-ready (commonArea: ${commonAreaItems.length}, stores: ${storeWaterItems.length}, entrada: ${entradaItems.length} ignored)`);
+          window.dispatchEvent(
+            new CustomEvent('myio:water-tb-data-ready', {
+              detail: waterClassifiedData,
+            })
+          );
+          LogHelper.log(
+            `[Orchestrator] 💧 Emitted myio:water-tb-data-ready (commonArea: ${commonAreaItems.length}, stores: ${storeWaterItems.length}, entrada: ${entradaItems.length} ignored)`
+          );
+
+          // RFC-0131: Enrich water data with API totals (async)
+          // This allows child widgets to receive API-enriched data without making their own API calls
+          (async () => {
+            try {
+              const startISO = self.ctx?.scope?.startDateISO || self.ctx?.$scope?.startDateISO;
+              const endISO = self.ctx?.scope?.endDateISO || self.ctx?.$scope?.endDateISO;
+
+              if (!startISO || !endISO) {
+                LogHelper.log('[Orchestrator] 💧 RFC-0131: No date range, skipping API enrichment');
+                return;
+              }
+
+              const creds = window.MyIOOrchestrator?.getCredentials?.();
+              if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET || !creds?.CUSTOMER_ING_ID) {
+                LogHelper.log('[Orchestrator] 💧 RFC-0131: No credentials, skipping API enrichment');
+                return;
+              }
+
+              // Build auth and fetch API totals
+              const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+              if (!MyIOLib?.buildMyioIngestionAuth) {
+                LogHelper.warn('[Orchestrator] 💧 RFC-0131: MyIOLibrary not available');
+                return;
+              }
+
+              const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+                dataApiHost: DATA_API_HOST,
+                clientId: creds.CLIENT_ID,
+                clientSecret: creds.CLIENT_SECRET,
+              });
+
+              const token = await myIOAuth.getToken();
+              if (!token) {
+                LogHelper.warn('[Orchestrator] 💧 RFC-0131: Failed to get token');
+                return;
+              }
+
+              // Fetch water API totals
+              const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`);
+              url.searchParams.set('startTime', startISO);
+              url.searchParams.set('endTime', endISO);
+              url.searchParams.set('deep', '1');
+
+              LogHelper.log(`[Orchestrator] 💧 RFC-0131: Fetching water API totals...`);
+              const res = await fetch(url.toString(), {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+
+              if (!res.ok) {
+                LogHelper.warn(`[Orchestrator] 💧 RFC-0131: API returned ${res.status}`);
+                return;
+              }
+
+              const json = await res.json();
+              const apiDevices = Array.isArray(json) ? json : json?.data || [];
+
+              if (apiDevices.length === 0) {
+                LogHelper.log('[Orchestrator] 💧 RFC-0131: API returned no devices');
+                return;
+              }
+
+              // Build lookup map by ingestionId
+              const apiMap = new Map();
+              apiDevices.forEach((d) => {
+                if (d.id) apiMap.set(d.id, d);
+              });
+
+              LogHelper.log(`[Orchestrator] 💧 RFC-0131: Got ${apiMap.size} devices from API`);
+
+              // Enrich items with API values
+              const enrichItem = (item) => {
+                const apiData = apiMap.get(item.ingestionId);
+                if (apiData) {
+                  return {
+                    ...item,
+                    value: Number(apiData.total_value || apiData.total_volume || 0),
+                    apiEnriched: true,
+                  };
+                }
+                return item;
+              };
+
+              const enrichedCommonArea = commonAreaItems.map(enrichItem);
+              const enrichedStores = storeWaterItems.map(enrichItem);
+              const enrichedAll = itemsForCalculation.map(enrichItem);
+
+              // Recalculate totals
+              const newCommonAreaTotal = enrichedCommonArea.reduce((sum, i) => sum + (i.value || 0), 0);
+              const newStoresTotal = enrichedStores.reduce((sum, i) => sum + (i.value || 0), 0);
+              const newWaterTotal = newCommonAreaTotal + newStoresTotal;
+
+              // Build enriched data
+              const enrichedWaterClassified = {
+                commonArea: {
+                  items: enrichedCommonArea,
+                  total: newCommonAreaTotal,
+                  count: enrichedCommonArea.length,
+                },
+                stores: {
+                  items: enrichedStores,
+                  total: newStoresTotal,
+                  count: enrichedStores.length,
+                },
+                entrada: waterClassifiedData.entrada, // Keep entrada as-is
+                all: {
+                  items: enrichedAll,
+                  total: newWaterTotal,
+                  count: enrichedAll.length,
+                },
+                classification: classificationCounts,
+                timestamp: Date.now(),
+                apiEnriched: true,
+              };
+
+              // Update global cache
+              window.MyIOOrchestratorData.waterClassified = enrichedWaterClassified;
+
+              // Re-emit with enriched data
+              window.dispatchEvent(
+                new CustomEvent('myio:water-tb-data-ready', {
+                  detail: enrichedWaterClassified,
+                })
+              );
+
+              LogHelper.log(
+                `[Orchestrator] 💧 RFC-0131: Re-emitted myio:water-tb-data-ready with API values (total: ${newWaterTotal.toFixed(2)} m³, stores: ${newStoresTotal.toFixed(2)}, commonArea: ${newCommonAreaTotal.toFixed(2)})`
+              );
+
+              // Also update water-summary-ready
+              const enrichedWaterSummary = {
+                filteredTotal: newWaterTotal,
+                unfilteredTotal: newWaterTotal,
+                isFiltered: false,
+                deviceCount: enrichedAll.length,
+                commonArea: newCommonAreaTotal,
+                stores: newStoresTotal,
+                apiEnriched: true,
+              };
+              window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: enrichedWaterSummary }));
+
+            } catch (err) {
+              LogHelper.warn(`[Orchestrator] 💧 RFC-0131: API enrichment failed: ${err.message}`);
+            }
+          })();
         }
       } catch (err) {
         LogHelper.warn(`[Orchestrator] Failed to emit initial water-summary-ready: ${err.message}`);
@@ -6569,19 +7557,27 @@ const MyIOOrchestrator = (() => {
           detail: { cache: waterCache, items, periodKey: pKey },
         })
       );
-      LogHelper.log(
-        `[Orchestrator] 💧 Emitted myio:water-data-ready for HEADER (${waterCache.size} items)`
-      );
+      LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-data-ready for HEADER (${waterCache.size} items)`);
 
       // RFC-0103: Emit water-summary-ready for HEADER widget with breakdown
       // RFC-0109: Exclude entrada items from calculations
-      const itemsExcludingEntrada = items.filter((item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada');
-      const filteredTotal = itemsExcludingEntrada.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const itemsExcludingEntrada = items.filter(
+        (item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada'
+      );
+      const filteredTotal = itemsExcludingEntrada.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
       // RFC-0109: Calculate breakdown by type using isWaterStoreDevice for water domain
       const storeItems = itemsExcludingEntrada.filter((item) => item._isStore || isWaterStoreDevice(item));
-      const commonAreaItems = itemsExcludingEntrada.filter((item) => !item._isStore && !isWaterStoreDevice(item));
+      const commonAreaItems = itemsExcludingEntrada.filter(
+        (item) => !item._isStore && !isWaterStoreDevice(item)
+      );
       const stores = storeItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
-      const commonArea = commonAreaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const commonArea = commonAreaItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // Calculate breakdown by shopping using customerId or ownerName (excluding entrada)
       const waterShoppingMap = new Map();
@@ -6626,7 +7622,11 @@ const MyIOOrchestrator = (() => {
           detail: waterSummary,
         })
       );
-      LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-summary-ready (total: ${filteredTotal.toFixed(2)} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`);
+      LogHelper.log(
+        `[Orchestrator] 💧 Emitted myio:water-summary-ready (total: ${filteredTotal.toFixed(
+          2
+        )} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`
+      );
     }
 
     try {
@@ -6810,13 +7810,19 @@ const MyIOOrchestrator = (() => {
         : allItems;
 
       const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
-      const filteredTotal = filteredItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const filteredTotal = filteredItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
       const lojaItems = filteredItems.filter((item) => isStoreDevice(item));
       const equipmentItems = filteredItems.filter((item) => !isStoreDevice(item));
       const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
-      const equipmentsTotal = equipmentItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const equipmentsTotal = equipmentItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // Calculate breakdown by shopping using customerId or ownerName
       const shoppingMap = new Map();
@@ -6858,14 +7864,22 @@ const MyIOOrchestrator = (() => {
       };
 
       window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', { detail: energySummary }));
-      LogHelper.log(`[Orchestrator] 📊 Filter applied - energy-summary-ready (filtered: ${filteredTotal.toFixed(2)} / total: ${unfilteredTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+      LogHelper.log(
+        `[Orchestrator] 📊 Filter applied - energy-summary-ready (filtered: ${filteredTotal.toFixed(
+          2
+        )} / total: ${unfilteredTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(
+          2
+        )}, lojas: ${lojasTotal.toFixed(2)})`
+      );
     }
 
     // Get water data and calculate filtered/unfiltered totals
     const waterData = window.MyIOOrchestratorData?.water;
     if (waterData?.items?.length) {
       // RFC-0109: Exclude entrada items from calculations
-      const allItems = waterData.items.filter((item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada');
+      const allItems = waterData.items.filter(
+        (item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada'
+      );
 
       // Build set of selected shopping names from selection array for matching
       const selectedWaterShoppingNames = new Set(selection.map((s) => s.name?.toLowerCase()).filter(Boolean));
@@ -6880,13 +7894,19 @@ const MyIOOrchestrator = (() => {
         : allItems;
 
       const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
-      const filteredTotal = filteredItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const filteredTotal = filteredItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // RFC-0109: Calculate breakdown by type using isWaterStoreDevice for water domain
       const storeItems = filteredItems.filter((item) => item._isStore || isWaterStoreDevice(item));
       const commonAreaItems = filteredItems.filter((item) => !item._isStore && !isWaterStoreDevice(item));
       const stores = storeItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
-      const commonArea = commonAreaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const commonArea = commonAreaItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // Calculate breakdown by shopping using customerId or ownerName (excluding entrada)
       const waterShoppingMap = new Map();
@@ -6928,7 +7948,13 @@ const MyIOOrchestrator = (() => {
       };
 
       window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
-      LogHelper.log(`[Orchestrator] 💧 Filter applied - water-summary-ready (filtered: ${filteredTotal.toFixed(2)} / total: ${unfilteredTotal.toFixed(2)} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`);
+      LogHelper.log(
+        `[Orchestrator] 💧 Filter applied - water-summary-ready (filtered: ${filteredTotal.toFixed(
+          2
+        )} / total: ${unfilteredTotal.toFixed(2)} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(
+          2
+        )})`
+      );
     }
 
     // Get temperature data from STATE and calculate filtered averages
@@ -6951,12 +7977,18 @@ const MyIOOrchestrator = (() => {
           })
         : allItems;
 
-      LogHelper.log(`[Orchestrator] 🌡️ Temperature filter: ${allItems.length} total → ${filteredItems.length} filtered (${selectedShoppingNames.size} shopping names)`);
+      LogHelper.log(
+        `[Orchestrator] 🌡️ Temperature filter: ${allItems.length} total → ${filteredItems.length} filtered (${selectedShoppingNames.size} shopping names)`
+      );
 
       // Calculate averages (only online devices)
       const calcAvg = (items) => {
-        const onlineItems = items.filter((i) => i.connectionStatus !== 'offline' && i.deviceStatus !== 'offline');
-        const withTemp = onlineItems.filter((i) => typeof i.temperature === 'number' && !isNaN(i.temperature) && i.temperature > 0);
+        const onlineItems = items.filter(
+          (i) => i.connectionStatus !== 'offline' && i.deviceStatus !== 'offline'
+        );
+        const withTemp = onlineItems.filter(
+          (i) => typeof i.temperature === 'number' && !isNaN(i.temperature) && i.temperature > 0
+        );
         return withTemp.length > 0 ? withTemp.reduce((s, i) => s + i.temperature, 0) / withTemp.length : null;
       };
 
@@ -6965,11 +7997,18 @@ const MyIOOrchestrator = (() => {
 
       // Group by shopping for tooltip
       const shoppingTempMap = new Map();
-      const onlineFiltered = filteredItems.filter((i) => i.connectionStatus !== 'offline' && i.deviceStatus !== 'offline');
+      const onlineFiltered = filteredItems.filter(
+        (i) => i.connectionStatus !== 'offline' && i.deviceStatus !== 'offline'
+      );
       onlineFiltered.forEach((item) => {
         const shoppingName = item.ownerName || item.customerName || 'Desconhecido';
         if (!shoppingTempMap.has(shoppingName)) {
-          shoppingTempMap.set(shoppingName, { name: shoppingName, temps: [], min: limits.min, max: limits.max });
+          shoppingTempMap.set(shoppingName, {
+            name: shoppingName,
+            temps: [],
+            min: limits.min,
+            max: limits.max,
+          });
         }
         const temp = Number(item.temperature || 0);
         if (!isNaN(temp) && temp > 0) {
@@ -6984,7 +8023,13 @@ const MyIOOrchestrator = (() => {
       shoppingTempMap.forEach((data) => {
         if (data.temps.length === 0) return;
         const avg = data.temps.reduce((a, b) => a + b, 0) / data.temps.length;
-        const shoppingInfo = { name: data.name, avg, min: data.min, max: data.max, deviceCount: data.temps.length };
+        const shoppingInfo = {
+          name: data.name,
+          avg,
+          min: data.min,
+          max: data.max,
+          deviceCount: data.temps.length,
+        };
 
         if (avg >= data.min && avg <= data.max) {
           shoppingsInRange.push(shoppingInfo);
@@ -7010,11 +8055,17 @@ const MyIOOrchestrator = (() => {
       };
 
       window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', { detail: tempSummary }));
-      LogHelper.log(`[Orchestrator] 🌡️ Filter applied - temperature-data-ready (filtered avg: ${filteredAvg?.toFixed(1) || 'N/A'}°C, ${shoppingsInRange.length} in-range, ${shoppingsOutOfRange.length} out-of-range)`);
+      LogHelper.log(
+        `[Orchestrator] 🌡️ Filter applied - temperature-data-ready (filtered avg: ${
+          filteredAvg?.toFixed(1) || 'N/A'
+        }°C, ${shoppingsInRange.length} in-range, ${shoppingsOutOfRange.length} out-of-range)`
+      );
     }
 
     // Emit orchestrator-filter-updated for backwards compatibility
-    window.dispatchEvent(new CustomEvent('myio:orchestrator-filter-updated', { detail: { selectedIds, isFiltered } }));
+    window.dispatchEvent(
+      new CustomEvent('myio:orchestrator-filter-updated', { detail: { selectedIds, isFiltered } })
+    );
     LogHelper.log('[Orchestrator] 🔄 Emitted myio:orchestrator-filter-updated');
   });
 
@@ -7275,18 +8326,39 @@ const MyIOOrchestrator = (() => {
       return new Map();
     },
 
-    // RFC-0130: getWaterCache - alias for WATER widget compatibility
+    // RFC-0131: getWaterCache - uses waterClassified for WATER widget
     getWaterCache: () => {
-      const waterData = window.MyIOOrchestratorData?.water;
-      if (waterData && waterData.items && waterData.items.length > 0) {
+      const waterClassified = window.MyIOOrchestratorData?.waterClassified;
+      if (waterClassified?.all?.items?.length > 0) {
         const cache = new Map();
-        waterData.items.forEach((item) => {
+        waterClassified.all.items.forEach((item) => {
           if (item.ingestionId) cache.set(item.ingestionId, item);
           if (item.tbId && item.tbId !== item.ingestionId) cache.set(item.tbId, item);
         });
         return cache;
       }
       return new Map();
+    },
+
+    // RFC-0131: getWaterValidIds - returns Sets of ingestionIds by classification
+    getWaterValidIds: () => {
+      const waterClassified = window.MyIOOrchestratorData?.waterClassified;
+      const stores = new Set();
+      const commonArea = new Set();
+
+      if (waterClassified?.stores?.items) {
+        waterClassified.stores.items.forEach((item) => {
+          if (item.ingestionId) stores.add(item.ingestionId);
+        });
+      }
+      if (waterClassified?.commonArea?.items) {
+        waterClassified.commonArea.items.forEach((item) => {
+          if (item.ingestionId) commonArea.add(item.ingestionId);
+        });
+      }
+
+      LogHelper.log(`[Orchestrator] getWaterValidIds: stores=${stores.size}, commonArea=${commonArea.size}`);
+      return { stores, commonArea };
     },
 
     // RFC-0091: Stub for getCacheStats - for compatibility with EQUIPMENTS
@@ -7372,11 +8444,116 @@ const MyIOOrchestrator = (() => {
         difference: lojasTotal, // For backwards compatibility
       };
 
-      LogHelper.log(`[Orchestrator] 📊 Emitting myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+      LogHelper.log(
+        `[Orchestrator] 📊 Emitting myio:energy-summary-ready (total: ${customerTotal.toFixed(
+          2
+        )} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`
+      );
 
       window.dispatchEvent(
         new CustomEvent('myio:energy-summary-ready', {
           detail: energySummary,
+        })
+      );
+    },
+
+    /**
+     * RFC-0131: Request water summary (mirrors requestSummary for energy)
+     * Called by WATER widget to get summary data on demand
+     * Recalculates and emits myio:water-summary-ready
+     */
+    requestWaterSummary: () => {
+      LogHelper.log('[Orchestrator] requestWaterSummary called by WATER widget');
+
+      // RFC-0131: Use waterClassified which has stores/commonArea pre-calculated
+      const waterClassified = window.MyIOOrchestratorData?.waterClassified;
+
+      if (waterClassified) {
+        // Fast path: use pre-calculated totals from waterClassified
+        const stores = waterClassified.stores?.total || 0;
+        const commonArea = waterClassified.commonArea?.total || 0;
+        const total = waterClassified.all?.total || (stores + commonArea);
+        const deviceCount = waterClassified.all?.count || 0;
+
+        const waterSummary = {
+          filteredTotal: total,
+          unfilteredTotal: total,
+          isFiltered: false,
+          deviceCount,
+          commonArea,
+          stores,
+          shoppingsWater: [],
+        };
+
+        window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
+        LogHelper.log(`[Orchestrator] requestWaterSummary: emitted from waterClassified (total: ${total.toFixed(2)} m³, stores: ${stores.toFixed(2)}, commonArea: ${commonArea.toFixed(2)})`);
+        return;
+      }
+
+      // Fallback: calculate from water.items if waterClassified not available
+      const waterData = window.MyIOOrchestratorData?.water;
+      const items = waterData?.items;
+
+      if (!Array.isArray(items) || items.length === 0) {
+        LogHelper.warn('[Orchestrator] requestWaterSummary: No water data cached yet');
+        return;
+      }
+
+      // Exclude entrada items (same as existing logic)
+      const itemsExcludingEntrada = items.filter(
+        (item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada'
+      );
+
+      // Calculate totals by classification
+      let commonArea = 0;
+      let stores = 0;
+
+      itemsExcludingEntrada.forEach((item) => {
+        const value = Number(item.value) || 0;
+        if (item._classification === 'loja') {
+          stores += value;
+        } else {
+          commonArea += value;
+        }
+      });
+
+      const total = commonArea + stores;
+
+      // Build shopping breakdown
+      const shoppingMap = new Map();
+      itemsExcludingEntrada.forEach((item) => {
+        const name = item.ownerName || 'Desconhecido';
+        if (!shoppingMap.has(name)) {
+          shoppingMap.set(name, { name, areaComum: 0, lojas: 0 });
+        }
+        const entry = shoppingMap.get(name);
+        const value = Number(item.value) || 0;
+        if (item._classification === 'loja') {
+          entry.lojas += value;
+        } else {
+          entry.areaComum += value;
+        }
+      });
+
+      const waterSummary = {
+        filteredTotal: total,
+        unfilteredTotal: total,
+        isFiltered: false,
+        deviceCount: itemsExcludingEntrada.length,
+        commonArea,
+        stores,
+        shoppingsWater: Array.from(shoppingMap.values()),
+      };
+
+      LogHelper.log(
+        `[Orchestrator] 💧 requestWaterSummary: emitted (total: ${total.toFixed(2)} m³, area: ${commonArea.toFixed(
+          2
+        )}, lojas: ${stores.toFixed(2)})`
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:water-summary-ready', {
+          detail: waterSummary,
         })
       );
     },
