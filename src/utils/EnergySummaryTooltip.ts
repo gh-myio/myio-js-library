@@ -1025,12 +1025,16 @@ export const EnergySummaryTooltip = {
   renderShoppingBreakdown(shoppings: ShoppingBreakdown[] | undefined): string {
     if (!shoppings || shoppings.length === 0) return '';
 
-    const rows = shoppings.map(s => `
+    const rows = shoppings.map(s => {
+      // Handle both 'name' (from buildEnergyCategoryDataByShopping) and 'shoppingName' (from interface)
+      const name = (s as unknown as { name?: string }).name || s.shoppingName || 'Unknown';
+      return `
       <div class="energy-summary-tooltip__summary-breakdown-row">
-        <span>${s.shoppingName}</span>
+        <span>${name}</span>
         <span>${s.deviceCount}</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     return `
       <div class="energy-summary-tooltip__summary-breakdown">

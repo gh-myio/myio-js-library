@@ -162,6 +162,7 @@ export class TelemetryGridController {
   }
 
   setShoppingFilter(shoppingIds: string[]): void {
+    this.log('setShoppingFilter called with:', shoppingIds);
     this.state.filters.selectedShoppingIds = shoppingIds;
     this.applyFilters();
     this.notifyStateChange();
@@ -215,12 +216,29 @@ export class TelemetryGridController {
       );
     }
 
-    // Apply shopping filter - match by customerId OR ingestionId (value from Shopping.value is usually ingestionId)
+    // Apply shopping filter - match by customerId, ingestionId, OR customerName
+    // Shopping.value can be: ingestionId, customerId (ThingsBoard customer), or entityId (ThingsBoard asset)
     if (this.state.filters.selectedShoppingIds.length > 0) {
+      const beforeCount = filtered.length;
+      // Debug: log sample device IDs to see what we're comparing
+      if (filtered.length > 0) {
+        const sample = filtered[0];
+        this.log('Filter debug - selectedIds:', this.state.filters.selectedShoppingIds);
+        this.log('Filter debug - sample device:', {
+          labelOrName: sample.labelOrName,
+          customerId: sample.customerId,
+          ingestionId: sample.ingestionId,
+          customerName: sample.customerName,
+          ownerName: sample.ownerName,
+        });
+      }
       filtered = filtered.filter((d) =>
         this.state.filters.selectedShoppingIds.includes(d.customerId) ||
-        this.state.filters.selectedShoppingIds.includes(d.ingestionId)
+        this.state.filters.selectedShoppingIds.includes(d.ingestionId) ||
+        this.state.filters.selectedShoppingIds.includes(d.customerName) ||
+        this.state.filters.selectedShoppingIds.includes(d.ownerName)
       );
+      this.log('Filter result:', beforeCount, '->', filtered.length, 'devices');
     }
 
     // Apply device IDs filter

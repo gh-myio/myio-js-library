@@ -2869,6 +2869,15 @@ body.filter-modal-open { overflow: hidden !important; }
     window.STATE.selectedShoppingIds = shoppingIds;
 
     LogHelper.log('[MAIN_UNIQUE] myio:filter-applied received:', shoppingIds.length, 'shoppings selected');
+    LogHelper.log('[MAIN_UNIQUE] Filter shoppingIds values:', shoppingIds);
+    if (selection.length > 0) {
+      LogHelper.log('[MAIN_UNIQUE] Filter selection sample:', {
+        name: selection[0]?.name,
+        value: selection[0]?.value,
+        customerId: selection[0]?.customerId,
+        ingestionId: selection[0]?.ingestionId,
+      });
+    }
 
     // 1. Apply filter to TelemetryGrid
     if (telemetryGridInstance) {
@@ -2879,11 +2888,15 @@ body.filter-modal-open { overflow: hidden !important; }
     const classified = window.MyIOOrchestratorData?.classified;
     if (classified && headerInstance) {
       // Build filtered classified structure (used by tooltip/category breakdowns)
-      // Filter devices by selected shoppingIds (match by customerId or ingestionId)
+      // Filter devices by selected shoppingIds (match by customerId, ingestionId, customerName, or ownerName)
       const filterDevices = (devices) => {
         if (shoppingIds.length === 0) return devices; // No filter = all
         return devices.filter(
-          (d) => shoppingIds.includes(d.customerId) || shoppingIds.includes(d.ingestionId)
+          (d) =>
+            shoppingIds.includes(d.customerId) ||
+            shoppingIds.includes(d.ingestionId) ||
+            shoppingIds.includes(d.customerName) ||
+            shoppingIds.includes(d.ownerName)
         );
       };
 

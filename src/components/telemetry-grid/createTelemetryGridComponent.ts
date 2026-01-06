@@ -141,8 +141,11 @@ export function createTelemetryGridComponent(
   }
 
   function applyFilter(shoppingIds: string[]): void {
-    log('applyFilter called with', shoppingIds.length, 'shoppings');
+    log('applyFilter called with', shoppingIds.length, 'shoppings:', shoppingIds);
     controller.setShoppingFilter(shoppingIds);
+    // Log result after filter applied
+    const filtered = controller.getFilteredDevices();
+    log('After filter - filtered devices:', filtered.length);
   }
 
   function setSearchTerm(term: string): void {

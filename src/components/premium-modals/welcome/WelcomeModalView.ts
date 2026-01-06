@@ -607,7 +607,7 @@ export class WelcomeModalView {
 /* User Menu - Desktop: absolute positioned */
 .myio-welcome-user-menu {
   position: absolute;
-  top: 24px;
+  top: 32px;
   right: 32px;
   z-index: 10;
   display: flex;
@@ -671,7 +671,7 @@ export class WelcomeModalView {
 /* Font Size Slider */
 .myio-welcome-font-slider {
   position: absolute;
-  top: 80px;
+  top: 100px;
   right: 32px;
   z-index: 10;
   display: flex;
