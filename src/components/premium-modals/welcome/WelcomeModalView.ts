@@ -525,6 +525,7 @@ export class WelcomeModalView {
   --wm-logout-btn-border: ${p.logoutBtnBorder};
   --wm-card-bg: ${p.shoppingCardBg};
   --wm-card-border: ${p.shoppingCardBorder};
+  --wm-font-scale: 1;
 
   position: fixed;
   inset: 0;
@@ -926,7 +927,7 @@ export class WelcomeModalView {
 
 .myio-welcome-card-title {
   margin: 0 !important;
-  font-size: 22px !important;
+  font-size: calc(22px * var(--wm-font-scale)) !important;
   font-weight: 700 !important;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
@@ -935,7 +936,7 @@ export class WelcomeModalView {
 
 .myio-welcome-card-subtitle {
   margin: 0 !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--wm-font-scale)) !important;
   font-weight: 400 !important;
   color: var(--wm-muted);
 }
@@ -960,7 +961,7 @@ export class WelcomeModalView {
   gap: 4px !important;
   padding: 4px 8px !important;
   min-width: 50px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--wm-font-scale)) !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
   background: rgba(0, 0, 0, 0.3);
@@ -977,7 +978,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .value {
-  font-size: 10px !important;
+  font-size: calc(10px * var(--wm-font-scale)) !important;
   font-weight: 400 !important;
   opacity: 0.85;
   white-space: nowrap;
@@ -990,7 +991,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .icon {
-  font-size: 10px !important;
+  font-size: calc(10px * var(--wm-font-scale)) !important;
 }
 
 .myio-welcome-card-device-count.energy:hover {
@@ -1904,22 +1905,16 @@ export class WelcomeModalView {
       });
     });
 
-    // Font size slider
+    // Font size slider - updates CSS variable used by calc() in card styles
     const fontSizeRange = this.container.querySelector('#fontSizeRange') as HTMLInputElement;
     const fontSizeValue = this.container.querySelector('#fontSizeValue');
     if (fontSizeRange && fontSizeValue) {
       fontSizeRange.addEventListener('input', () => {
         const value = parseInt(fontSizeRange.value, 10);
         fontSizeValue.textContent = `${value}%`;
-        // Apply font size to the modal container
+        // Apply font scale via CSS variable - calc() in styles handles the rest
         const scale = value / 100;
         this.container.style.setProperty('--wm-font-scale', `${scale}`);
-        // Apply to device count badges
-        const deviceCounts = this.container.querySelectorAll('.myio-welcome-card-device-counts');
-        deviceCounts.forEach((el) => {
-          (el as HTMLElement).style.transform = `scale(${scale})`;
-          (el as HTMLElement).style.transformOrigin = 'left center';
-        });
       });
     }
 

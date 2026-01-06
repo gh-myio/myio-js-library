@@ -2361,6 +2361,11 @@ body.filter-modal-open { overflow: hidden !important; }
     ctaDisabled: false,
     closeOnCtaClick: true,
     closeOnCardClick: true,
+    showEnergyValue: false,
+    showWaterValue: false,
+    showTempValue: false,
+    countSizeMultiplier: 2,
+    showFontSizeSlider: true,
     onThemeChange: (newTheme) => {
       currentThemeMode = newTheme;
       applyGlobalTheme(newTheme);
