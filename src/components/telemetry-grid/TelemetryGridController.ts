@@ -216,14 +216,19 @@ export class TelemetryGridController {
       );
     }
 
-    // Apply shopping filter - match by customerId, ingestionId, OR customerName
+    // Apply shopping filter - match by customerId, ingestionId, OR customerName/ownerName
     // Shopping.value can be: ingestionId, customerId (ThingsBoard customer), or entityId (ThingsBoard asset)
+    // Use case-insensitive matching for names to handle Unicode normalization issues
     if (this.state.filters.selectedShoppingIds.length > 0) {
       const beforeCount = filtered.length;
+      // Normalize filter IDs to lowercase for case-insensitive name matching
+      const normalizedIds = this.state.filters.selectedShoppingIds.map((id) =>
+        (id || '').toLowerCase().trim()
+      );
       // Debug: log sample device IDs to see what we're comparing
       if (filtered.length > 0) {
         const sample = filtered[0];
-        this.log('Filter debug - selectedIds:', this.state.filters.selectedShoppingIds);
+        this.log('Filter debug - selectedIds (first 5):', normalizedIds.slice(0, 5));
         this.log('Filter debug - sample device:', {
           labelOrName: sample.labelOrName,
           customerId: sample.customerId,
@@ -232,12 +237,15 @@ export class TelemetryGridController {
           ownerName: sample.ownerName,
         });
       }
-      filtered = filtered.filter((d) =>
-        this.state.filters.selectedShoppingIds.includes(d.customerId) ||
-        this.state.filters.selectedShoppingIds.includes(d.ingestionId) ||
-        this.state.filters.selectedShoppingIds.includes(d.customerName) ||
-        this.state.filters.selectedShoppingIds.includes(d.ownerName)
-      );
+      filtered = filtered.filter((d) => {
+        // Check exact match for UUIDs
+        if (normalizedIds.includes((d.customerId || '').toLowerCase())) return true;
+        if (normalizedIds.includes((d.ingestionId || '').toLowerCase())) return true;
+        // Check case-insensitive match for names
+        if (normalizedIds.includes((d.customerName || '').toLowerCase().trim())) return true;
+        if (normalizedIds.includes((d.ownerName || '').toLowerCase().trim())) return true;
+        return false;
+      });
       this.log('Filter result:', beforeCount, '->', filtered.length, 'devices');
     }
 

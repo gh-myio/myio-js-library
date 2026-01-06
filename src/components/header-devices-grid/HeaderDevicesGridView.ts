@@ -12,6 +12,8 @@ import type {
   HeaderDomainConfig,
 } from './types.js';
 import { injectHeaderDevicesGridStyles } from './styles.js';
+import { formatEnergy } from '../../format/energy.js';
+import { formatWater } from '../../format/water.js';
 
 const DOMAIN_CONFIG: Record<HeaderDevicesDomain, HeaderDomainConfig> = {
   energy: {
@@ -19,14 +21,14 @@ const DOMAIN_CONFIG: Record<HeaderDevicesDomain, HeaderDomainConfig> = {
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
     unit: 'kWh',
-    formatValue: (value: number) => `${value.toFixed(2)} kWh`,
+    formatValue: (value: number) => formatEnergy(value, undefined, 2),
   },
   water: {
     totalLabel: 'Total Hidrômetros',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
     unit: 'm³',
-    formatValue: (value: number) => `${value.toFixed(2)} m³`,
+    formatValue: (value: number) => formatWater(value),
   },
   temperature: {
     totalLabel: 'Total Sensores',

@@ -753,8 +753,15 @@ export class HeaderView {
    */
   public updateEnergyCard(data: EnergyKPI): void {
     if (this.energyKpiEl) {
-      const formatted = this.formatEnergy(data.customerTotal);
-      this.energyKpiEl.textContent = formatted;
+      if (data.isFiltered && data.unfilteredTotal > 0) {
+        // Show filtered / total comparison
+        const filteredFormatted = this.formatEnergy(data.customerTotal);
+        const totalFormatted = this.formatEnergy(data.unfilteredTotal);
+        this.energyKpiEl.innerHTML = `<span style="font-size:0.85em">${filteredFormatted} <span style="opacity:0.6">/ ${totalFormatted}</span></span>`;
+      } else {
+        const formatted = this.formatEnergy(data.customerTotal);
+        this.energyKpiEl.textContent = formatted;
+      }
     }
 
     if (this.energyTrendEl) {
@@ -802,8 +809,15 @@ export class HeaderView {
    */
   public updateWaterCard(data: WaterKPI): void {
     if (this.waterKpiEl) {
-      const formatted = this.formatWater(data.filteredTotal);
-      this.waterKpiEl.textContent = formatted;
+      if (data.isFiltered && data.unfilteredTotal > 0) {
+        // Show filtered / total comparison
+        const filteredFormatted = this.formatWater(data.filteredTotal);
+        const totalFormatted = this.formatWater(data.unfilteredTotal);
+        this.waterKpiEl.innerHTML = `<span style="font-size:0.85em">${filteredFormatted} <span style="opacity:0.6">/ ${totalFormatted}</span></span>`;
+      } else {
+        const formatted = this.formatWater(data.filteredTotal);
+        this.waterKpiEl.textContent = formatted;
+      }
     }
 
     if (this.waterTrendEl) {
