@@ -2442,6 +2442,11 @@ function renderList(visible) {
       useNewComponents: true, // Habilitar novos componentes
       enableSelection: true, // Habilitar seleção
       enableDragDrop: true, // Habilitar drag and drop
+      // RFC-0130: Disable all tooltips for now
+      showEnergyRangeTooltip: false,
+      showPercentageTooltip: false,
+      showTempComparisonTooltip: false,
+      showTempRangeTooltip: false,
 
       handleActionDashboard: async () => {
         const jwtToken = localStorage.getItem('jwt_token');

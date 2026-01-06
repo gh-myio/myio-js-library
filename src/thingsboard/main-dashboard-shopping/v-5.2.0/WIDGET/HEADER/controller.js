@@ -541,6 +541,41 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       updateControlsState(currentDomain.value);
     }
 
+    // RFC-0130: Listen for data-ready events to enable controls after retry mechanism loads data
+    // This ensures the "Relatório" button is enabled even if data loads after initial load
+    window.addEventListener('myio:energy-summary-ready', () => {
+      if (currentDomain.value === 'energy') {
+        LogHelper.log('[HEADER] RFC-0130: Energy data loaded, ensuring controls are enabled');
+        updateControlsState('energy');
+      }
+    });
+
+    window.addEventListener('myio:water-summary-ready', () => {
+      if (currentDomain.value === 'water') {
+        LogHelper.log('[HEADER] RFC-0130: Water data loaded, ensuring controls are enabled');
+        updateControlsState('water');
+      }
+    });
+
+    // RFC-0130: Also listen for generic data-ready event
+    window.addEventListener('myio:data-ready', (ev) => {
+      const domain = currentDomain.value;
+      if (domain === 'energy' || domain === 'water') {
+        LogHelper.log(`[HEADER] RFC-0130: Data ready event received, ensuring controls are enabled for ${domain}`);
+        updateControlsState(domain);
+      }
+    });
+
+    // RFC-0130: Listen for telemetry provide-data event (from MAIN_VIEW Orchestrator)
+    // This ensures controls are enabled after retry mechanism successfully loads data
+    window.addEventListener('myio:telemetry:provide-data', (ev) => {
+      const domain = ev.detail?.domain || currentDomain.value;
+      if (domain === 'energy' || domain === 'water') {
+        LogHelper.log(`[HEADER] RFC-0130: Telemetry data provided for ${domain}, ensuring controls are enabled`);
+        updateControlsState(domain);
+      }
+    });
+
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
 
