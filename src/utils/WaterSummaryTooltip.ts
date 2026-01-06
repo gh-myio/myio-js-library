@@ -1100,7 +1100,7 @@ export const WaterSummaryTooltip = {
         <div class="myio-info-tooltip__section-title">
           Medidores (${devices.length})
         </div>
-        <div style="max-height: 200px; overflow-y: auto;">
+        <div class="myio-info-tooltip__device-list">
           ${deviceItems}
         </div>
       </div>
@@ -1696,9 +1696,16 @@ export const WaterSummaryTooltip = {
     };
 
     items.forEach((item: any) => {
+      // Build display label with identifier: "label (identifier)" format
+      const baseLabel = item.label || item.entityLabel || item.name || '';
+      const identifier = item.identifier || item.deviceIdentifier || '';
+      const displayLabel = (identifier && identifier !== baseLabel)
+        ? `${baseLabel} (${identifier})`
+        : baseLabel || identifier;
+
       const deviceInfo: DeviceInfo = {
         id: item.id || item.deviceId || '',
-        label: item.label || item.entityLabel || item.name || item.deviceIdentifier || '',
+        label: displayLabel,
         name: item.name || item.entityLabel || '',
       };
 

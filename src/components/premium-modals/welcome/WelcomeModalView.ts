@@ -895,15 +895,15 @@ export class WelcomeModalView {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 5px !important;
-  padding: 6px 12px !important;
-  min-width: 62px !important;
-  font-size: 15px !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+  min-width: 50px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px !important;
+  border-radius: 5px !important;
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
@@ -915,7 +915,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .value {
-  font-size: 13px !important;
+  font-size: 10px !important;
   font-weight: 400 !important;
   opacity: 0.85;
   white-space: nowrap;
@@ -928,7 +928,7 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-card-device-count .icon {
-  font-size: 13px !important;
+  font-size: 10px !important;
 }
 
 .myio-welcome-card-device-count.energy:hover {

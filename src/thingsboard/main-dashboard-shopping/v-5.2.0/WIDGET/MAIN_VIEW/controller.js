@@ -1911,12 +1911,20 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       formatted: total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
     details: {
-      devices: items.map((i) => ({
-        id: i.id,
-        label: i.label || i.name,
-        value: i.value,
-        deviceStatus: i.deviceStatus,
-      })),
+      devices: items.map((i) => {
+        const baseLabel = i.label || i.name || '';
+        const identifier = i.identifier || '';
+        // Show "label (identifier)" if identifier exists and is different from label
+        const displayLabel = identifier && identifier !== baseLabel
+          ? `${baseLabel} (${identifier})`
+          : baseLabel;
+        return {
+          id: i.id,
+          label: displayLabel,
+          value: i.value,
+          deviceStatus: i.deviceStatus,
+        };
+      }),
       name: name,
     },
   });
@@ -3099,7 +3107,7 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0110 v5: Use library's calculateDeviceStatus if available
     if (lib?.calculateDeviceStatus) {
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // 24h default
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 86400; // 24h default
       const shortDelayMins = 60; // 60 mins for BAD/OFFLINE recovery
 
       const status = lib.calculateDeviceStatus({

@@ -148,9 +148,16 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
   };
 
   items.forEach((item) => {
+    // Build display label with identifier: "label (identifier)" format
+    const baseLabel = item.label || item.entityLabel || item.name || '';
+    const identifier = item.identifier || item.deviceIdentifier || '';
+    const displayLabel = (identifier && identifier !== baseLabel)
+      ? `${baseLabel} (${identifier})`
+      : baseLabel || identifier;
+
     const deviceInfo = {
       id: item.id || item.deviceId || '',
-      label: item.label || item.entityLabel || item.name || item.deviceIdentifier || '',
+      label: displayLabel,
       name: item.name || item.entityLabel || '',
     };
 

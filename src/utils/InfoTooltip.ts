@@ -211,6 +211,18 @@ const INFO_TOOLTIP_CSS = `
   gap: 12px;
 }
 
+/* Device list container - scrollable with max height */
+.myio-info-tooltip__device-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* When tooltip is maximized, expand device list to fill available space */
+.myio-info-tooltip.maximized .myio-info-tooltip__device-list {
+  max-height: none;
+  flex: 1;
+}
+
 .myio-info-tooltip__label {
   color: #64748b;
   font-size: 12px;
