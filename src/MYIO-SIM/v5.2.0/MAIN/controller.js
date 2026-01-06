@@ -421,6 +421,102 @@ Object.assign(window.MyIOUtils, {
       return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
     }
   },
+
+  /**
+   * RFC-0130: Fetch water consumption data for a specific period
+   * Similar to fetchEnergyDayConsumption but for water domain
+   * @param {string} customerId - Customer ingestion ID
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - Granularity ('1d', '1h', etc.) - default '1d'
+   * @returns {Promise<Object>} { devices, total, byCustomer, summary }
+   */
+  fetchWaterDayConsumption: async (customerId, startTs, endTs, granularity = '1d') => {
+    try {
+      // Get credentials from orchestrator
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchWaterDayConsumption: No credentials available');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      // Build auth client
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
+        LogHelper.error('[MyIOUtils] fetchWaterDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+
+      // Get token
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchWaterDayConsumption: Failed to get token');
+        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+      }
+
+      // Format timestamps to ISO
+      const startISO = new Date(startTs).toISOString();
+      const endISO = new Date(endTs).toISOString();
+
+      // Build URL for water API
+      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
+      url.searchParams.set('startTime', startISO);
+      url.searchParams.set('endTime', endISO);
+      url.searchParams.set('deep', '1');
+      if (granularity) {
+        url.searchParams.set('granularity', granularity);
+      }
+
+      LogHelper.log(`[MyIOUtils] fetchWaterDayConsumption: ${url.toString()}`);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchWaterDayConsumption');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const json = await res.json();
+      // RFC-0130: API returns { data: [...], summary: { totalDevices, totalValue } }
+      const devices = Array.isArray(json) ? json : (json?.data || []);
+      const totalValue = json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+
+      // RFC-0130: Aggregate by customer for separate view mode
+      const byCustomer = {};
+      devices.forEach((d) => {
+        const custId = d.customerId;
+        if (custId) {
+          if (!byCustomer[custId]) {
+            byCustomer[custId] = { name: d.customerName || custId, total: 0, deviceCount: 0 };
+          }
+          byCustomer[custId].total += d.total_value || 0;
+          byCustomer[custId].deviceCount++;
+        }
+      });
+
+      LogHelper.log(`[MyIOUtils] fetchWaterDayConsumption: Got ${devices.length} devices, total: ${totalValue.toFixed(2)} m³, customers: ${Object.keys(byCustomer).length}`);
+
+      return {
+        devices,
+        total: totalValue,
+        byCustomer,
+        summary: json?.summary || { totalDevices: devices.length, totalValue }
+      };
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchWaterDayConsumption error:', error);
+      return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
+    }
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error

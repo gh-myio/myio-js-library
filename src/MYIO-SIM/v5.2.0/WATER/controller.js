@@ -349,17 +349,18 @@ function getSelectedShoppingIds() {
  * Water API (/water/devices/totals) returns total_value per device (not consumption array like energy)
  * So we need to make one API call per day to get daily breakdown.
  * Fetches in batches of 3 with delay between batches to avoid rate limiting.
- * @param {string} customerId - Customer ID
+ * @param {string} customerId - Customer ID (may be holding ID which returns all shoppings)
  * @param {number} startTs - Start timestamp (unused, we use dayBoundaries)
  * @param {number} endTs - End timestamp (unused, we use dayBoundaries)
  * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
- * @returns {Promise<number[]>} - Array of daily totals
+ * @returns {Promise<{dailyTotals: number[], byCustomerPerDay: Object[]}>} - Daily totals and per-customer breakdown
  */
 async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
     const BATCH_SIZE = 3;
-    const BATCH_DELAY_MS = 500; // 200ms delay between batches
+    const BATCH_DELAY_MS = 500;
     const dailyTotals = [];
+    const byCustomerPerDay = [];
 
     // Process in batches of 3
     for (let i = 0; i < dayBoundaries.length; i += BATCH_SIZE) {
@@ -369,15 +370,21 @@ async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayB
       const batchPromises = batch.map(async (day) => {
         try {
           const result = await window.MyIOUtils.fetchWaterDayConsumption(customerId, day.startTs, day.endTs);
-          return result?.total || 0;
+          return {
+            total: result?.total || 0,
+            byCustomer: result?.byCustomer || {},
+          };
         } catch (dayError) {
           console.warn(`[WATER] [RFC-0098] Error fetching day ${day.label}:`, dayError);
-          return 0;
+          return { total: 0, byCustomer: {} };
         }
       });
 
       const batchResults = await Promise.all(batchPromises);
-      dailyTotals.push(...batchResults);
+      batchResults.forEach((res) => {
+        dailyTotals.push(res.total);
+        byCustomerPerDay.push(res.byCustomer);
+      });
 
       // Add delay before next batch (except for last batch)
       if (i + BATCH_SIZE < dayBoundaries.length) {
@@ -389,10 +396,13 @@ async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayB
       `[WATER] [RFC-0098] Period consumption for ${customerId.slice(0, 8)}:`,
       dailyTotals.map((v) => v.toFixed(2))
     );
-    return dailyTotals;
+    return { dailyTotals, byCustomerPerDay };
   } catch (error) {
     console.error('[WATER] Error fetching period consumption:', error);
-    return new Array(dayBoundaries.length).fill(0);
+    return {
+      dailyTotals: new Array(dayBoundaries.length).fill(0),
+      byCustomerPerDay: new Array(dayBoundaries.length).fill({}),
+    };
   }
 }
 
@@ -401,40 +411,31 @@ async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayB
  * Returns structured data with per-shopping breakdown for vizMode support
  */
 async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
-  // Get filtered shopping IDs or use fallback customerId
+  // Get filtered shopping IDs (used to filter results AFTER API call)
   const selectedShoppingIds = getSelectedShoppingIds();
+  const hasFilter = selectedShoppingIds.length > 0;
 
-  // Use fallback from MAIN if no filter active
-  const fallbackId = fallbackCustomerId || window.myioHoldingCustomerId;
-  const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : fallbackId ? [fallbackId] : [];
+  // ALWAYS use holding CUSTOMER_ING_ID for API call (with deep=1, returns all shoppings)
+  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+  const creds = orchestrator?.getCredentials?.();
+  const holdingCustomerId = creds?.CUSTOMER_ING_ID || fallbackCustomerId || window.myioHoldingCustomerId;
 
-  if (!customerIds || customerIds.length === 0) {
-    console.warn('[WATER] [RFC-0098] No customer IDs available');
+  if (!holdingCustomerId) {
+    console.warn('[WATER] [RFC-0098] No holding customer ID available');
     return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
 
-  // Check cache
+  // Check cache (invalidate if filter changed)
+  const cacheKey = hasFilter ? selectedShoppingIds.sort().join(',') : holdingCustomerId;
   if (cachedChartData && cachedChartData.fetchTimestamp) {
     const cacheAge = Date.now() - cachedChartData.fetchTimestamp;
-    const sameCustomers =
-      cachedChartData.customerIds?.length === customerIds.length &&
-      cachedChartData.customerIds?.every((id) => customerIds.includes(id));
-
-    if (cacheAge < CHART_CACHE_TTL && sameCustomers) {
+    if (cacheAge < CHART_CACHE_TTL && cachedChartData.cacheKey === cacheKey) {
       console.log('[WATER] [RFC-0098] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
       return cachedChartData;
     }
   }
 
-  console.log('[WATER] [RFC-0098] Fetching', period, 'days for customers:', customerIds);
-
-  const shoppingData = {};
-  const shoppingNames = {};
-
-  customerIds.forEach((cid) => {
-    shoppingData[cid] = [];
-    shoppingNames[cid] = getShoppingNameForFilter(cid);
-  });
+  console.log('[WATER] [RFC-0098] Fetching', period, 'days for holding:', holdingCustomerId, hasFilter ? `(filter: ${selectedShoppingIds.length} shoppings)` : '');
 
   // Calculate period boundaries
   const now = new Date();
@@ -464,25 +465,52 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
 
   const labels = dayBoundaries.map((d) => d.label);
 
-  // Fetch data for all customers in parallel
-  console.log('[WATER] [RFC-0098] Executing', customerIds.length, 'API calls (one per shopping)...');
-  const fetchPromises = customerIds.map((customerId) =>
-    fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries)
+  // Fetch data using HOLDING ID - API with deep=1 returns all shoppings
+  console.log('[WATER] [RFC-0098] Fetching data for', period, 'days using holding ID...');
+  const { dailyTotals: rawDailyTotals, byCustomerPerDay } = await fetchWaterPeriodConsumptionByDay(
+    holdingCustomerId,
+    startTs,
+    endTs,
+    dayBoundaries
   );
 
-  const results = await Promise.all(fetchPromises);
+  // Build shoppingData from byCustomerPerDay
+  const shoppingData = {};
+  const shoppingNames = {};
 
-  results.forEach((dailyValues, idx) => {
-    const customerId = customerIds[idx];
-    shoppingData[customerId] = dailyValues;
+  // Collect all unique customer IDs from all days
+  const allCustomerIds = new Set();
+  byCustomerPerDay.forEach((dayData) => {
+    Object.keys(dayData).forEach((custId) => allCustomerIds.add(custId));
   });
 
-  // Calculate daily totals
+  // Filter by selected shoppings if filter is active
+  const filteredCustomerIds = hasFilter
+    ? Array.from(allCustomerIds).filter((custId) => selectedShoppingIds.includes(custId))
+    : Array.from(allCustomerIds);
+
+  console.log('[WATER] [RFC-0098] Customers from API:', allCustomerIds.size, 'filtered to:', filteredCustomerIds.length);
+
+  // Build per-shopping arrays (only for filtered customers)
+  filteredCustomerIds.forEach((custId) => {
+    shoppingData[custId] = [];
+    // Get name from first day that has this customer
+    const firstDayWithCustomer = byCustomerPerDay.find((dayData) => dayData[custId]);
+    shoppingNames[custId] = firstDayWithCustomer?.[custId]?.name || getShoppingNameForFilter(custId);
+
+    // Build daily values for this customer
+    dayBoundaries.forEach((_, dayIdx) => {
+      const dayData = byCustomerPerDay[dayIdx] || {};
+      shoppingData[custId].push(dayData[custId]?.total || 0);
+    });
+  });
+
+  // Recalculate daily totals based on filtered customers
   const dailyTotals = [];
   for (let dayIdx = 0; dayIdx < period; dayIdx++) {
     let dayTotal = 0;
-    for (const customerId of customerIds) {
-      dayTotal += shoppingData[customerId][dayIdx] || 0;
+    for (const custId of filteredCustomerIds) {
+      dayTotal += shoppingData[custId]?.[dayIdx] || 0;
     }
     dailyTotals.push(dayTotal);
   }
@@ -492,7 +520,9 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
     dailyTotals,
     shoppingData,
     shoppingNames,
-    customerIds,
+    holdingCustomerId,
+    customerIds: filteredCustomerIds,
+    cacheKey,
     fetchTimestamp: Date.now(),
   };
 
@@ -501,7 +531,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
 
   console.log('[WATER] [RFC-0098] Data fetched:', {
     days: period,
-    shoppings: customerIds.length,
+    shoppings: allCustomerIds.size,
     totalPoints: labels.length,
   });
 
@@ -614,13 +644,25 @@ async function initializeDistributionChartWidget() {
 
   console.log('[WATER] [RFC-0102] Initializing distribution chart widget...');
 
-  // Calculate distribution data for water using REAL data from waterCache
+  // Calculate distribution data for water using REAL data from orchestrator
   const calculateWaterDistribution = async (mode) => {
-    const cachedData = getCachedTotalConsumption();
     const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
     if (mode === 'groups') {
-      // Lojas vs Área Comum
+      // Lojas vs Área Comum - get from waterClassified data first
+      const waterClassified = window.MyIOOrchestratorData?.waterClassified || window.parent?.MyIOOrchestratorData?.waterClassified;
+      if (waterClassified) {
+        const storesTotal = waterClassified.stores?.total || 0;
+        const commonAreaTotal = waterClassified.commonArea?.total || 0;
+        console.log('[WATER] [RFC-0102] Distribution using waterClassified:', { stores: storesTotal, commonArea: commonAreaTotal });
+        return {
+          Lojas: storesTotal,
+          'Área Comum': commonAreaTotal,
+        };
+      }
+      // Fallback to local cache
+      const cachedData = getCachedTotalConsumption();
+      console.log('[WATER] [RFC-0102] Distribution using cached totals:', cachedData);
       return {
         Lojas: cachedData?.storesTotal || 0,
         'Área Comum': cachedData?.commonAreaTotal || 0,

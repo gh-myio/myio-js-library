@@ -1496,31 +1496,49 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
     Object.keys(dayData).forEach((custId) => allCustomerIds.add(custId));
   });
 
-  // Initialize shoppingData arrays for each customer
-  allCustomerIds.forEach((custId) => {
+  // RFC-0130: Filter by selected shoppings if filter is active
+  const hasFilter = customerIds && customerIds.length > 0;
+  const filteredCustomerIds = hasFilter
+    ? Array.from(allCustomerIds).filter((custId) => customerIds.includes(custId))
+    : Array.from(allCustomerIds);
+
+  LogHelper.log('[ENERGY] [RFC-0130] Customers from API:', allCustomerIds.size, 'filtered to:', filteredCustomerIds.length);
+
+  // Initialize shoppingData arrays for each customer (only filtered ones)
+  filteredCustomerIds.forEach((custId) => {
     shoppingData[custId] = [];
     const firstDay = byCustomerPerDay.find((d) => d[custId]);
-    shoppingNames[custId] = firstDay?.[custId]?.name || custId;
+    shoppingNames[custId] = firstDay?.[custId]?.name || getShoppingNameForFilter(custId);
   });
 
   // Fill in daily values for each customer
   byCustomerPerDay.forEach((dayData) => {
-    allCustomerIds.forEach((custId) => {
+    filteredCustomerIds.forEach((custId) => {
       const value = dayData[custId]?.total || 0;
       shoppingData[custId].push(value);
     });
   });
 
-  LogHelper.log('[ENERGY] [RFC-0130] Daily totals from parent customer:', dailyTotals);
-  LogHelper.log('[ENERGY] [RFC-0130] Customers found:', allCustomerIds.size);
+  // Recalculate daily totals based on filtered customers
+  const filteredDailyTotals = [];
+  for (let dayIdx = 0; dayIdx < period; dayIdx++) {
+    let dayTotal = 0;
+    for (const custId of filteredCustomerIds) {
+      dayTotal += shoppingData[custId]?.[dayIdx] || 0;
+    }
+    filteredDailyTotals.push(dayTotal);
+  }
+
+  LogHelper.log('[ENERGY] [RFC-0130] Daily totals (filtered):', filteredDailyTotals);
+  LogHelper.log('[ENERGY] [RFC-0130] Customers found:', filteredCustomerIds.length);
 
   // RFC-0097: Store in cache for re-rendering
   cachedChartData = {
     labels,
-    dailyTotals,
+    dailyTotals: filteredDailyTotals,
     shoppingData,
     shoppingNames,
-    customerIds,
+    customerIds: filteredCustomerIds,
     fetchTimestamp: Date.now(),
   };
 
