@@ -938,7 +938,7 @@ self.onInit = async function () {
             const nowMs = Date.now();
             const ageMs = telemetryTs ? nowMs - telemetryTs : 'N/A';
             const ageMins = telemetryTs ? Math.round(ageMs / 60000) : 'N/A';
-            const staleCheck = telemetryTs ? lib?.isTelemetryStale(telemetryTs, null, LONG_DELAY_MINS) : 'N/A';
+            const staleCheck = telemetryTs ? lib?.isTelemetryStale(telemetryTs, LONG_DELAY_MINS) : 'N/A';
             LogHelper.log(`[EQUIPMENTS] 🎯 BOMBAS 6 DEBUG: telemetryTs=${telemetryTs}, consumptionTsFromMain=${consumptionTsFromMain}, ageMins=${ageMins}, staleCheck=${staleCheck}, lastActivityTime=${lastActivityTime}, connectionStatus='${mappedConnectionStatus}'`);
           }
 
@@ -949,10 +949,10 @@ self.onInit = async function () {
 
           // RFC-0110 v5: Calculate telemetry freshness
           const hasRecentTelemetry = hasEffectiveTimestamp && lib?.isTelemetryStale
-            ? !lib.isTelemetryStale(effectiveTimestamp, null, SHORT_DELAY_MINS) // < 60 mins
+            ? !lib.isTelemetryStale(effectiveTimestamp, SHORT_DELAY_MINS) // < 60 mins
             : false;
           const telemetryStaleForOnline = !hasEffectiveTimestamp || (lib?.isTelemetryStale
-            ? lib.isTelemetryStale(effectiveTimestamp, null, LONG_DELAY_MINS) // > 24h
+            ? lib.isTelemetryStale(effectiveTimestamp, LONG_DELAY_MINS) // > 24h
             : true);
 
           // Normalize connection status

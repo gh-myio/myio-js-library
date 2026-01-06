@@ -324,6 +324,79 @@ Object.assign(window.MyIOUtils, {
       return {};
     }
   },
+
+  /**
+   * RFC-0097: Fetch energy consumption for a specific day/period
+   * Used by ENERGY widget for chart data
+   * @param {string} customerId - Customer ID (ingestion ID)
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - Granularity ('1d', '1h', etc.) - default '1d'
+   * @returns {Promise<Array>} Array of device consumption data
+   */
+  fetchEnergyDayConsumption: async (customerId, startTs, endTs, granularity = '1d') => {
+    try {
+      // Get credentials from orchestrator
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: No credentials available');
+        return [];
+      }
+
+      // Build auth client - use MyIOLibrary.buildMyioIngestionAuth directly
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available');
+        return [];
+      }
+
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+
+      // Get token
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: Failed to get token');
+        return [];
+      }
+
+      // Format timestamps to ISO
+      const startISO = new Date(startTs).toISOString();
+      const endISO = new Date(endTs).toISOString();
+
+      // Build API URL
+      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
+      url.searchParams.set('startTime', startISO);
+      url.searchParams.set('endTime', endISO);
+      url.searchParams.set('deep', '1');
+      if (granularity) {
+        url.searchParams.set('granularity', granularity);
+      }
+
+      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: ${url.toString()}`);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchEnergyDayConsumption');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const json = await res.json();
+      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: Got ${json?.length || 0} devices`);
+      return json;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption error:', error);
+      return [];
+    }
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error
@@ -4321,7 +4394,12 @@ function populateStateTemperature(items) {
  * Generates a unique key from domain and period for request deduplication.
  */
 function periodKey(domain, period) {
-  const customerTbId = widgetSettings.customerTB_ID;
+  // RFC-0130: Get customerTB_ID from multiple sources with fallback
+  const customerTbId =
+    widgetSettings.customerTB_ID ||
+    window.MyIOOrchestrator?.customerTB_ID ||
+    window.__myioCustomerTB_ID ||
+    'default';
   return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
 }
 
@@ -7099,6 +7177,60 @@ const MyIOOrchestrator = (() => {
         );
         LogHelper.log(`[Orchestrator] 📢 Emitted myio:devices-classified (${energyData.items.length} items)`);
       }
+    },
+
+    /**
+     * RFC-0097: Calculate and dispatch energy summary for ENERGY widget
+     * Called by ENERGY widget's waitForOrchestratorAndRequestSummary
+     * Calculates customerTotal, equipmentsTotal, lojasTotal from cached data
+     */
+    requestSummary: () => {
+      LogHelper.log('[Orchestrator] requestSummary called by ENERGY widget');
+
+      const cachedData = window.MyIOOrchestratorData?.energy;
+      if (!cachedData || !cachedData.items || cachedData.items.length === 0) {
+        LogHelper.warn('[Orchestrator] requestSummary: No energy data cached yet');
+        return;
+      }
+
+      const items = cachedData.items;
+      let customerTotal = 0;
+      let equipmentsTotal = 0;
+      let lojasTotal = 0;
+
+      items.forEach((item) => {
+        const value = Number(item.value) || Number(item.consumption) || 0;
+        customerTotal += value;
+
+        // Check if it's a store device (both deviceType AND deviceProfile are '3F_MEDIDOR')
+        const deviceProfile = String(item.deviceProfile || '').toUpperCase();
+        const deviceType = String(item.deviceType || '').toUpperCase();
+        const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+
+        if (isStore) {
+          lojasTotal += value;
+        } else {
+          equipmentsTotal += value;
+        }
+      });
+
+      const energySummary = {
+        customerTotal,
+        unfilteredTotal: customerTotal,
+        isFiltered: false,
+        deviceCount: items.length,
+        equipmentsTotal,
+        lojasTotal,
+        difference: lojasTotal, // For backwards compatibility
+      };
+
+      LogHelper.log(`[Orchestrator] 📊 Emitting myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-summary-ready', {
+          detail: energySummary,
+        })
+      );
     },
 
     destroy: () => {

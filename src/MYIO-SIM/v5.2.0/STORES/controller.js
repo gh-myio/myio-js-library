@@ -19,6 +19,8 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
+const DELAY_IN_MINS_TO_STORES = 86400;
+
 const getDataApiHost = () => {
   const host = window.MyIOUtils?.DATA_API_HOST;
   if (!host) {
@@ -70,20 +72,15 @@ const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) =
 
 // RFC-0110: Centralized functions from MAIN for device status calculation
 const calculateDeviceStatusMasterRules =
-  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
-  (() => 'no_info');
+  window.MyIOUtils?.calculateDeviceStatusMasterRules || (() => 'no_info');
 
 const createStandardFilterTabs =
-  window.MyIOUtils?.createStandardFilterTabs ||
-  (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
+  window.MyIOUtils?.createStandardFilterTabs || (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
 
-const clearValueIfOffline =
-  window.MyIOUtils?.clearValueIfOffline ||
-  ((value, status) => value);
+const clearValueIfOffline = window.MyIOUtils?.clearValueIfOffline || ((value, status) => value);
 
 const calculateOperationTime =
-  window.MyIOUtils?.calculateOperationTime ||
-  ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
+  window.MyIOUtils?.calculateOperationTime || ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
 
 // RFC-0091: formatarDuracao for operationHours calculation (from MAIN)
 const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
@@ -590,7 +587,7 @@ function updateStoresStats(stores) {
     const deviceStatus = calculateDeviceStatusMasterRules({
       connectionStatus: mappedStatus,
       telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24h threshold for stale telemetry
+      delayMins: DELAY_IN_MINS_TO_STORES,
       domain: 'energy',
     });
 
@@ -713,7 +710,7 @@ async function renderList(visible) {
     let deviceStatus = calculateDeviceStatusMasterRules({
       connectionStatus: mappedConnectionStatus,
       telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24h threshold for stale telemetry
+      delayMins: DELAY_IN_MINS_TO_STORES,
       domain: 'energy',
     });
 
@@ -769,9 +766,7 @@ async function renderList(visible) {
 
         // Calculate device status using range-based calculation
         const parsedInstantaneousPower = Number(instantaneousPower);
-        const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower)
-          ? null
-          : parsedInstantaneousPower;
+        const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower) ? null : parsedInstantaneousPower;
 
         deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
           connectionStatus: mappedConnectionStatus,
@@ -784,7 +779,7 @@ async function renderList(visible) {
           },
           // RFC-0110: Pass telemetry info for proper status calculation
           telemetryTimestamp: telemetryTimestamp,
-          delayTimeConnectionInMins: 1440,
+          delayTimeConnectionInMins: DELAY_IN_MINS_TO_STORES,
         });
       } catch (e) {
         LogHelper.warn(`[RFC-0091] Failed to calculate deviceStatus for ${resolvedTbId}:`, e.message);
@@ -844,29 +839,37 @@ async function renderList(visible) {
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
       // Power ranges for tooltip visualization (uses rangesWithSource from deviceStatus calculation)
-      powerRanges: rangesWithSource ? {
-        standbyRange: rangesWithSource.standbyRange,
-        normalRange: rangesWithSource.normalRange,
-        alertRange: rangesWithSource.alertRange,
-        failureRange: rangesWithSource.failureRange,
-        source: rangesWithSource.source,
-        tier: rangesWithSource.tier,
-      } : null,
+      powerRanges: rangesWithSource
+        ? {
+            standbyRange: rangesWithSource.standbyRange,
+            normalRange: rangesWithSource.normalRange,
+            alertRange: rangesWithSource.alertRange,
+            failureRange: rangesWithSource.failureRange,
+            source: rangesWithSource.source,
+            tier: rangesWithSource.tier,
+          }
+        : null,
     };
 
     // RFC-0110 DEBUG: Log first 5 cards to verify entityObject data
     const cardIndex = visible.indexOf(it);
     if (cardIndex < 5) {
-      LogHelper.log(`[STORES] RFC-0110 card #${cardIndex + 1}: label='${it.label}', deviceStatus='${deviceStatus}', connectionStatus='${mappedConnectionStatus}', consumptionTs=${telemetryTimestamp}, lastActivityTime=${it.lastActivityTime}`);
+      LogHelper.log(
+        `[STORES] RFC-0110 card #${cardIndex + 1}: label='${
+          it.label
+        }', deviceStatus='${deviceStatus}', connectionStatus='${mappedConnectionStatus}', consumptionTs=${telemetryTimestamp}, lastActivityTime=${
+          it.lastActivityTime
+        }`
+      );
     }
 
-    // RFC-0110: delayTimeConnectionInMins - use 1440 (24h) to match RFC-0110 master rules
+    // RFC-0110: delayTimeConnectionInMins - use DELAY_IN_MINS_TO_STORES to match RFC-0110 master rules
     // This ensures card visual status matches header stats calculation
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
       debugActive: DEBUG_ACTIVE,
       activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
-      delayTimeConnectionInMins: 1440, // RFC-0110: 24h threshold for consistency
+      delayTimeConnectionInMins: DELAY_IN_MINS_TO_STORES, // RFC-0110: 24h threshold for consistency
 
       // --- DIFERENÇA 2: Callback de clique (mesmo que apenas logue) ---
       // Isso muitas vezes ativa o wrapper interativo do card
@@ -1056,7 +1059,7 @@ function getStoreStatus(store) {
   return calculateDeviceStatusMasterRules({
     connectionStatus: mappedStatus,
     telemetryTimestamp: telemetryTimestamp,
-    delayMins: 1440, // 24h threshold for stale telemetry
+    delayMins: DELAY_IN_MINS_TO_STORES,
     domain: 'energy',
   });
 }
@@ -1086,7 +1089,11 @@ function initFilterModal() {
     // RFC-0110: Include not_installed status and ensure consistent filtering
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info', 'not_installed'].includes(getStoreStatus(s)) },
+      {
+        id: 'online',
+        label: 'Online',
+        filter: (s) => !['offline', 'no_info', 'not_installed'].includes(getStoreStatus(s)),
+      },
       { id: 'offline', label: 'Offline', filter: (s) => ['offline', 'no_info'].includes(getStoreStatus(s)) },
       { id: 'notInstalled', label: 'Não Instalado', filter: (s) => getStoreStatus(s) === 'not_installed' },
       { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getStoreConsumption(s) > 0 },
@@ -1160,7 +1167,7 @@ function openFilterModal() {
     const deviceStatus = calculateDeviceStatusMasterRules({
       connectionStatus: mappedStatus,
       telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440,
+      delayMins: DELAY_IN_MINS_TO_STORES,
       domain: 'energy',
     });
     return { ...item, deviceStatus };
@@ -1381,12 +1388,19 @@ function detectWidgetType() {
     }
 
     // Match area comum
-    if (/\barea\s*comum\b/.test(labelWidget) || labelWidget.includes('areacomum') || labelWidget.includes('area_comum') || labelWidget.includes('área comum')) {
+    if (
+      /\barea\s*comum\b/.test(labelWidget) ||
+      labelWidget.includes('areacomum') ||
+      labelWidget.includes('area_comum') ||
+      labelWidget.includes('área comum')
+    ) {
       LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum"`);
       return 'areacomum';
     }
 
-    LogHelper.warn(`[detectWidgetType] ⚠️ labelWidget "${labelWidget}" não corresponde a nenhum tipo conhecido.`);
+    LogHelper.warn(
+      `[detectWidgetType] ⚠️ labelWidget "${labelWidget}" não corresponde a nenhum tipo conhecido.`
+    );
     return null;
   } catch (err) {
     LogHelper.error('[detectWidgetType] ❌ Erro durante detecção de tipo de widget:', err);
@@ -1767,7 +1781,7 @@ async function reflowFromState() {
       const deviceStatus = calculateDeviceStatusMasterRules({
         connectionStatus: mappedStatus,
         telemetryTimestamp: telemetryTimestamp,
-        delayMins: 1440, // 24h threshold for stale telemetry
+        delayMins: DELAY_IN_MINS_TO_STORES,
         domain: 'energy',
       });
       return { ...item, deviceStatus };
@@ -1782,7 +1796,9 @@ async function reflowFromState() {
     LogHelper.log('[STORES] RFC-0110 DEBUG deviceStatus distribution:', JSON.stringify(statusDistribution));
     const offlineCount = (statusDistribution['offline'] || 0) + (statusDistribution['no_info'] || 0);
     const notInstalledCount = statusDistribution['not_installed'] || 0;
-    LogHelper.log(`[STORES] RFC-0110 DEBUG: offline=${offlineCount}, not_installed=${notInstalledCount}, total=${itemsWithDeviceStatus.length}`);
+    LogHelper.log(
+      `[STORES] RFC-0110 DEBUG: offline=${offlineCount}, not_installed=${notInstalledCount}, total=${itemsWithDeviceStatus.length}`
+    );
 
     if (storesHeaderController) {
       storesHeaderController.updateFromDevices(itemsWithDeviceStatus, {});
@@ -1868,9 +1884,13 @@ async function hydrateAndRender() {
 
         STATE.itemsBase = mappedItems;
         STATE.itemsEnriched = mappedItems;
-        LogHelper.log(`[STORES] RFC-0102: Using ${mappedItems.length} lojas devices from Orchestrator with full TB metadata`);
+        LogHelper.log(
+          `[STORES] RFC-0102: Using ${mappedItems.length} lojas devices from Orchestrator with full TB metadata`
+        );
       } else {
-        LogHelper.warn('[STORES] RFC-0102: No lojas devices from Orchestrator, waiting for classification...');
+        LogHelper.warn(
+          '[STORES] RFC-0102: No lojas devices from Orchestrator, waiting for classification...'
+        );
         STATE.itemsBase = [];
         STATE.itemsEnriched = [];
       }
@@ -1880,11 +1900,13 @@ async function hydrateAndRender() {
       LogHelper.log(`[STORES] RFC-0102 Fallback: using energyCache with isStoreDevice filter`);
 
       // RFC-0106: Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
-      const isStoreDeviceFallback = window.MyIOUtils?.isStoreDevice || ((item) => {
-        const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
-        const deviceType = String(item?.deviceType || '').toUpperCase();
-        return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
-      });
+      const isStoreDeviceFallback =
+        window.MyIOUtils?.isStoreDevice ||
+        ((item) => {
+          const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
+          const deviceType = String(item?.deviceType || '').toUpperCase();
+          return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+        });
 
       if (energyCache && energyCache.size > 0) {
         const mappedItems = [];
@@ -1935,7 +1957,9 @@ async function hydrateAndRender() {
         });
         STATE.itemsBase = mappedItems;
         STATE.itemsEnriched = mappedItems;
-        LogHelper.log(`[STORES] RFC-0102 Fallback: ${mappedItems.length} items from energyCache (${processedTbIds.size} unique)`);
+        LogHelper.log(
+          `[STORES] RFC-0102 Fallback: ${mappedItems.length} items from energyCache (${processedTbIds.size} unique)`
+        );
       } else {
         LogHelper.warn('[STORES] Orchestrator cache is empty, waiting for data...');
         STATE.itemsBase = [];
@@ -1987,8 +2011,11 @@ self.onInit = async function () {
   ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
   HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
   DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
-  ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
-  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
+  //ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
+
+  LogHelper.log(
+    `[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`
+  );
 
   // RFC-0093: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
@@ -2282,11 +2309,13 @@ self.onInit = async function () {
 
     // RFC-0106: Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
     // Use isStoreDevice from MyIOUtils or inline check
-    const isStoreDevice = window.MyIOUtils?.isStoreDevice || ((item) => {
-      const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
-      const deviceType = String(item?.deviceType || '').toUpperCase();
-      return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
-    });
+    const isStoreDevice =
+      window.MyIOUtils?.isStoreDevice ||
+      ((item) => {
+        const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
+        const deviceType = String(item?.deviceType || '').toUpperCase();
+        return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+      });
 
     // RFC-0102: Filter and map items from orchestrator
     const mappedItems = [];
@@ -2295,7 +2324,11 @@ self.onInit = async function () {
 
       // Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
       if (!isStoreDevice(item)) {
-        LogHelper.log(`[TELEMETRY] Skipping non-loja device: ${item.label || item.name} (deviceType=${item.deviceType}, deviceProfile=${item.deviceProfile})`);
+        LogHelper.log(
+          `[TELEMETRY] Skipping non-loja device: ${item.label || item.name} (deviceType=${
+            item.deviceType
+          }, deviceProfile=${item.deviceProfile})`
+        );
         return; // Skip non-lojas devices
       }
 
@@ -2341,7 +2374,9 @@ self.onInit = async function () {
         value: mappedItems[0].value,
       });
     }
-    LogHelper.log(`[TELEMETRY] Using ${mappedItems.length} items from orchestrator (filtered from ${items.length} total)`);
+    LogHelper.log(
+      `[TELEMETRY] Using ${mappedItems.length} items from orchestrator (filtered from ${items.length} total)`
+    );
 
     // RFC-0102: Use orchestrator items directly as both itemsBase and itemsEnriched
     // No more merging with TB data - orchestrator is the single source of truth
@@ -2475,7 +2510,9 @@ self.onInit = async function () {
   // ------------------------------------------------------------
 
   // RFC-0102: No more ctx.data dependencies - data comes from orchestrator
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data via provide-data event...`);
+  LogHelper.log(
+    `[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data via provide-data event...`
+  );
 
   // Show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {

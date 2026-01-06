@@ -7,12 +7,15 @@
 // ============================================
 // SHARED UTILITIES (from MAIN via window.MyIOUtils)
 // ============================================
-// Use shared utilities from MAIN, with fallback to local implementation
+// Use shared utilities from MAIN, with fallback to console
 const LogHelper = window.MyIOUtils?.LogHelper || {
-  log: (...args) => LogHelper.log(...args),
-  warn: (...args) => LogHelper.warn(...args),
-  error: (...args) => LogHelper.error(...args),
+  log: (...args) => console.log('[ENERGY]', ...args),
+  warn: (...args) => console.warn('[ENERGY]', ...args),
+  error: (...args) => console.error('[ENERGY]', ...args),
 };
+
+// Log script load
+LogHelper.log('Script loaded, using shared utilities:', !!window.MyIOUtils?.LogHelper);
 
 // ============================================
 // DEBUG FLAGS
@@ -1365,11 +1368,11 @@ function getShoppingName(customerId) {
 async function fetchConsumptionDataAdapter(period) {
   LogHelper.log('[ENERGY] [RFC-0098] Fetching data via adapter for', period, 'days');
 
-  // Get customer ID from MAIN (exposed via window.myioHoldingCustomerId)
-  const customerId = window.myioHoldingCustomerId;
+  // Get customer ID from MAIN_VIEW (exposed via window.MyIOUtils.customerTB_ID)
+  const customerId = window.MyIOUtils?.customerTB_ID || window.myioHoldingCustomerId;
   if (!customerId) {
     LogHelper.error(
-      '[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId'
+      '[ENERGY] [RFC-0098] ❌ customerId not found - MAIN_VIEW has not initialized window.MyIOUtils.customerTB_ID'
     );
     return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
@@ -1401,17 +1404,17 @@ async function fetchConsumptionDataAdapter(period) {
 async function initializeCharts() {
   LogHelper.log('[ENERGY] [RFC-0098] Initializing charts with standardized component...');
 
-  // Get customer ID from MAIN (exposed via window.myioHoldingCustomerId)
-  const customerId = window.myioHoldingCustomerId;
+  // Get customer ID from MAIN_VIEW (exposed via window.MyIOUtils.customerTB_ID)
+  const customerId = window.MyIOUtils?.customerTB_ID || window.myioHoldingCustomerId;
 
   if (!customerId) {
     LogHelper.error(
-      '[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId'
+      '[ENERGY] [RFC-0098] ❌ customerId not found - MAIN_VIEW has not initialized window.MyIOUtils.customerTB_ID'
     );
     return;
   }
 
-  LogHelper.log('[ENERGY] Customer ID (from MAIN):', customerId);
+  LogHelper.log('[ENERGY] Customer ID (from MAIN_VIEW):', customerId);
 
   // Get widget container for ThingsBoard compatibility (shared by all widgets)
   const $container = self.ctx?.$container || null;
