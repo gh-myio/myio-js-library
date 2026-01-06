@@ -38,6 +38,7 @@ export interface HeaderDevicesGridInstance {
   updateStats: (stats: HeaderStats) => void;
   updateFromDevices: (devices: HeaderDevice[], options?: { cache?: Map<string, { total_value: number }> }) => void;
   setThemeMode: (mode: HeaderDevicesThemeMode) => void;
+  setDomain: (domain: HeaderDevicesDomain) => void;
   getSearchInput: () => HTMLInputElement | null;
   toggleSearch: (active?: boolean) => void;
   destroy: () => void;

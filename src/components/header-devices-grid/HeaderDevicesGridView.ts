@@ -256,6 +256,23 @@ export class HeaderDevicesGridView {
     }
   }
 
+  /**
+   * Update the domain and refresh labels/formatting
+   */
+  public setDomain(domain: HeaderDevicesDomain): void {
+    if (this.domain === domain) return;
+    this.domain = domain;
+    this.domainConfig = DOMAIN_CONFIG[domain];
+
+    // Update consumption label in DOM
+    const consumptionLabelEl = this.headerEl?.querySelector(
+      `.stat-item.highlight .stat-label`
+    ) as HTMLElement | null;
+    if (consumptionLabelEl) {
+      consumptionLabelEl.textContent = this.labels.consumption || this.domainConfig.consumptionLabel;
+    }
+  }
+
   public getSearchInput(): HTMLInputElement | null {
     return document.getElementById(this.ids.searchInput) as HTMLInputElement | null;
   }

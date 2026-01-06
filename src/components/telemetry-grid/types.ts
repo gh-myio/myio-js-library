@@ -329,6 +329,7 @@ export interface HeaderController {
     options?: Record<string, unknown>
   ) => void;
   getSearchInput: () => HTMLInputElement | null;
+  setDomain?: (domain: TelemetryDomain) => void;
   destroy?: () => void;
 }
 

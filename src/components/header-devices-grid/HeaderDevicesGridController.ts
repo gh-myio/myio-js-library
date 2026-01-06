@@ -7,6 +7,7 @@ import type {
   HeaderDevicesGridParams,
   HeaderDevicesGridInstance,
   HeaderDevicesThemeMode,
+  HeaderDevicesDomain,
   HeaderStats,
   HeaderDevice,
 } from './types.js';
@@ -74,6 +75,10 @@ export class HeaderDevicesGridController implements HeaderDevicesGridInstance {
 
   public setThemeMode(mode: HeaderDevicesThemeMode): void {
     this.view.setThemeMode(mode);
+  }
+
+  public setDomain(domain: HeaderDevicesDomain): void {
+    this.view.setDomain(domain);
   }
 
   public getSearchInput(): HTMLInputElement | null {

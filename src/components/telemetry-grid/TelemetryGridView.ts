@@ -409,6 +409,12 @@ export class TelemetryGridView {
       this.element.setAttribute('data-domain', domain);
       this.log(`Applied ${domain} theme`);
     }
+
+    // Update header domain to use correct unit formatting
+    if (this.headerController?.setDomain) {
+      this.headerController.setDomain(domain);
+      this.log(`Updated header domain to ${domain}`);
+    }
   }
 
   applyContextAttribute(context: TelemetryContext): void {
