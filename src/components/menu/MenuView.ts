@@ -2040,16 +2040,24 @@ export class MenuView {
       filterBtn.addEventListener('click', () => this.openFilterModal());
     }
 
-    // Load button
+    // Load button - dispatches force-refresh to clear cache and reload data
     const loadBtn = this.root.querySelector('#menuLoadBtn');
     if (loadBtn) {
-      loadBtn.addEventListener('click', () => this.emit('load'));
+      loadBtn.addEventListener('click', () => {
+        // Dispatch force-refresh event to clear orchestrator cache
+        window.dispatchEvent(new CustomEvent('myio:force-refresh'));
+        this.emit('load');
+      });
     }
 
-    // Clear button
+    // Clear button - also clears cache and reloads
     const clearBtn = this.root.querySelector('#menuClearBtn');
     if (clearBtn) {
-      clearBtn.addEventListener('click', () => this.emit('clear'));
+      clearBtn.addEventListener('click', () => {
+        // Dispatch force-refresh event to clear orchestrator cache
+        window.dispatchEvent(new CustomEvent('myio:force-refresh'));
+        this.emit('clear');
+      });
     }
 
     // Theme toggle button

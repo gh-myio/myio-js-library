@@ -238,12 +238,18 @@ export class TelemetryGridController {
         });
       }
       filtered = filtered.filter((d) => {
+        // Helper to safely convert to lowercase string
+        const toLower = (val: unknown): string => {
+          if (typeof val === 'string') return val.toLowerCase().trim();
+          if (val && typeof val === 'object' && 'id' in val) return String((val as { id: unknown }).id).toLowerCase().trim();
+          return String(val || '').toLowerCase().trim();
+        };
         // Check exact match for UUIDs
-        if (normalizedIds.includes((d.customerId || '').toLowerCase())) return true;
-        if (normalizedIds.includes((d.ingestionId || '').toLowerCase())) return true;
+        if (normalizedIds.includes(toLower(d.customerId))) return true;
+        if (normalizedIds.includes(toLower(d.ingestionId))) return true;
         // Check case-insensitive match for names
-        if (normalizedIds.includes((d.customerName || '').toLowerCase().trim())) return true;
-        if (normalizedIds.includes((d.ownerName || '').toLowerCase().trim())) return true;
+        if (normalizedIds.includes(toLower(d.customerName))) return true;
+        if (normalizedIds.includes(toLower(d.ownerName))) return true;
         return false;
       });
       this.log('Filter result:', beforeCount, '->', filtered.length, 'devices');

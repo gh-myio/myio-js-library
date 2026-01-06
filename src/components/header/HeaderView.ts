@@ -742,8 +742,8 @@ export class HeaderView {
 
     if (this.equipSubEl) {
       const percent = data.totalEquipments > 0
-        ? Math.round((data.filteredEquipments / data.totalEquipments) * 100)
-        : 0;
+        ? ((data.filteredEquipments / data.totalEquipments) * 100).toFixed(1)
+        : '0.0';
       this.equipSubEl.textContent = `${percent}% operacional`;
     }
   }
@@ -754,10 +754,10 @@ export class HeaderView {
   public updateEnergyCard(data: EnergyKPI): void {
     if (this.energyKpiEl) {
       if (data.isFiltered && data.unfilteredTotal > 0) {
-        // Show filtered / total comparison
+        // Show filtered / total comparison with smaller font to prevent line breaks
         const filteredFormatted = this.formatEnergy(data.customerTotal);
         const totalFormatted = this.formatEnergy(data.unfilteredTotal);
-        this.energyKpiEl.innerHTML = `<span style="font-size:0.85em">${filteredFormatted} <span style="opacity:0.6">/ ${totalFormatted}</span></span>`;
+        this.energyKpiEl.innerHTML = `<span style="font-size:0.72em;white-space:nowrap;display:inline-block">${filteredFormatted} <span style="opacity:0.6">/ ${totalFormatted}</span></span>`;
       } else {
         const formatted = this.formatEnergy(data.customerTotal);
         this.energyKpiEl.textContent = formatted;
@@ -810,10 +810,10 @@ export class HeaderView {
   public updateWaterCard(data: WaterKPI): void {
     if (this.waterKpiEl) {
       if (data.isFiltered && data.unfilteredTotal > 0) {
-        // Show filtered / total comparison
+        // Show filtered / total comparison with smaller font to prevent line breaks
         const filteredFormatted = this.formatWater(data.filteredTotal);
         const totalFormatted = this.formatWater(data.unfilteredTotal);
-        this.waterKpiEl.innerHTML = `<span style="font-size:0.85em">${filteredFormatted} <span style="opacity:0.6">/ ${totalFormatted}</span></span>`;
+        this.waterKpiEl.innerHTML = `<span style="font-size:0.72em;white-space:nowrap;display:inline-block">${filteredFormatted} <span style="opacity:0.6">/ ${totalFormatted}</span></span>`;
       } else {
         const formatted = this.formatWater(data.filteredTotal);
         this.waterKpiEl.textContent = formatted;

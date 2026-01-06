@@ -17,6 +17,7 @@ import {
   TelemetryGridEventHandler,
   HeaderController,
   FilterModalController,
+  DomainConfig,
 } from './types';
 import { TelemetryGridController } from './TelemetryGridController';
 import { injectTelemetryGridStyles } from './styles';
@@ -55,6 +56,7 @@ export class TelemetryGridView {
   private activeCardComponents: CardInstance[] = [];
   private headerController: HeaderController | null = null;
   private filterModalController: FilterModalController | null = null;
+  private lastFilterModalDomain: TelemetryDomain | null = null;
   private searchInput: HTMLInputElement | null = null;
 
   constructor(
@@ -245,6 +247,8 @@ export class TelemetryGridView {
       return;
     }
 
+    const currentDomain = this.controller.getDomain();
+
     devices.forEach((device) => {
       const container = document.createElement('div');
       grid.appendChild(container);
@@ -259,8 +263,11 @@ export class TelemetryGridView {
         device.customerName = getCustomerName(device);
       }
 
+      // Transform device for domain-specific rendering
+      const entityObject = this.prepareEntityObjectForDomain(device, currentDomain, domainConfig);
+
       const cardInstance = renderCardComponentHeadOffice(container, {
-        entityObject: device,
+        entityObject,
         debugActive: this.params.debugActive,
         activeTooltipDebug: this.params.activeTooltipDebug,
         delayTimeConnectionInMins,
@@ -354,6 +361,55 @@ export class TelemetryGridView {
       });
       this.activeCardComponents = [];
     }
+  }
+
+  /**
+   * Prepare entity object for domain-specific card rendering.
+   * Temperature cards need different field mappings than energy/water cards.
+   */
+  private prepareEntityObjectForDomain(
+    device: TelemetryDevice,
+    domain: TelemetryDomain,
+    domainConfig: DomainConfig
+  ): TelemetryDevice {
+    // For temperature domain, map temperature value to val and set correct metadata
+    if (domain === 'temperature') {
+      const tempValue = device.temperature ?? device.val ?? null;
+      return {
+        ...device,
+        // Temperature value fields (card component uses val/lastValue)
+        val: tempValue,
+        lastValue: tempValue,
+        temperatureC: tempValue,
+        currentTemperature: tempValue,
+        // Card metadata for temperature rendering
+        valType: 'temperature',
+        unit: '°C',
+        icon: 'temperature',
+        // Keep domain and context
+        domain: 'temperature',
+      };
+    }
+
+    // For water domain, ensure correct metadata
+    if (domain === 'water') {
+      return {
+        ...device,
+        valType: 'water',
+        unit: 'm³',
+        icon: 'water',
+        domain: 'water',
+      };
+    }
+
+    // For energy domain (default), ensure correct metadata
+    return {
+      ...device,
+      valType: 'energy',
+      unit: 'kWh',
+      icon: 'energy',
+      domain: 'energy',
+    };
   }
 
   // =========================================================================
@@ -461,9 +517,21 @@ export class TelemetryGridView {
 
     this.log('createFilterModal found, creating modal...');
 
+    const currentDomain = this.controller.getDomain();
+    const contextConfig = CONTEXT_CONFIG[this.controller.getContext()];
+    const domainConfig = DOMAIN_CONFIG[currentDomain];
+
+    // Recreate filter modal if domain changed (to use correct formatValue)
+    if (this.filterModalController && this.lastFilterModalDomain !== currentDomain) {
+      this.log(`Domain changed from ${this.lastFilterModalDomain} to ${currentDomain}, recreating filter modal`);
+      if (typeof this.filterModalController.destroy === 'function') {
+        this.filterModalController.destroy();
+      }
+      this.filterModalController = null;
+    }
+
     if (!this.filterModalController) {
-      const contextConfig = CONTEXT_CONFIG[this.controller.getContext()];
-      const domainConfig = DOMAIN_CONFIG[this.controller.getDomain()];
+      this.lastFilterModalDomain = currentDomain;
 
       this.filterModalController = createFilterModal({
         widgetName: contextConfig.widgetName,
@@ -512,7 +580,7 @@ export class TelemetryGridView {
         getItemId: (d: TelemetryDevice) => d.entityId || '',
         getItemLabel: (d: TelemetryDevice) => d.labelOrName || d.deviceIdentifier || '',
         getItemValue: (d: TelemetryDevice) => Number(d.val) || Number(d.value) || 0,
-        getItemSubLabel: (d: TelemetryDevice) => d.deviceStatus || '',
+        getItemSubLabel: (d: TelemetryDevice) => d.customerName || d.ownerName || '',
         formatValue: (val: number) => domainConfig.formatValue ? domainConfig.formatValue(val) : `${val.toFixed(2)}`,
         onApply: (filters) => {
           // RFC-0125: Handle filter apply with both selectedIds and sortMode

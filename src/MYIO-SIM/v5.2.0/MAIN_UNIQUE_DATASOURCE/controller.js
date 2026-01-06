@@ -95,6 +95,42 @@ let _menuInstanceRef = null;
 let _welcomeModalRef = null;
 let _headerInstanceRef = null;
 
+// ===================================================================
+// Data Cache Configuration (5-minute validity)
+// Stores enriched data to avoid redundant API calls on navigation
+// ===================================================================
+const DATA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
+let _dataCache = {
+  timestamp: 0,
+  enrichedData: null,
+  rawDatasource: null,
+  isValid: function () {
+    if (!this.enrichedData) return false;
+    const age = Date.now() - this.timestamp;
+    const valid = age < DATA_CACHE_TTL_MS;
+    if (!valid) {
+      console.log('[MAIN_UNIQUE] Cache expired (age:', Math.round(age / 1000), 's)');
+    }
+    return valid;
+  },
+  set: function (enrichedData, rawDatasource) {
+    this.enrichedData = enrichedData;
+    this.rawDatasource = rawDatasource;
+    this.timestamp = Date.now();
+    console.log('[MAIN_UNIQUE] Cache updated at', new Date(this.timestamp).toLocaleTimeString());
+  },
+  clear: function () {
+    this.enrichedData = null;
+    this.rawDatasource = null;
+    this.timestamp = 0;
+    console.log('[MAIN_UNIQUE] Cache cleared');
+  },
+  getAge: function () {
+    if (!this.timestamp) return null;
+    return Math.round((Date.now() - this.timestamp) / 1000);
+  },
+};
+
 // RFC-0127: Event handler for menu requesting shoppings
 // Responds with cached data when menu component requests it
 window.addEventListener('myio:request-shoppings', () => {
@@ -102,6 +138,20 @@ window.addEventListener('myio:request-shoppings', () => {
   if (_menuInstanceRef && _cachedShoppings.length > 0) {
     _menuInstanceRef.updateShoppings?.(_cachedShoppings);
     console.log('[MAIN_UNIQUE] Shoppings sent to menu on request');
+  }
+});
+
+// Force refresh event handler - clears cache and triggers data reload
+// Dispatched by Menu component "Carregar" button
+window.addEventListener('myio:force-refresh', () => {
+  console.log('[MAIN_UNIQUE] myio:force-refresh received - clearing cache');
+  _dataCache.clear();
+  _apiEnrichmentDone = false;
+  _apiEnrichmentInProgress = false;
+  // Trigger onDataUpdated to re-fetch data
+  if (self.ctx?.datasources?.[0]?.data) {
+    console.log('[MAIN_UNIQUE] Triggering data refresh...');
+    self.onDataUpdated();
   }
 });
 
@@ -2627,13 +2677,16 @@ body.filter-modal-open { overflow: hidden !important; }
         };
       });
 
+      // Calculate shoppings temperature status (in range vs out of range)
+      const tempShoppingsStatus = buildShoppingsTemperatureStatus(classifiedData, minTemp, maxTemp);
+
       window.dispatchEvent(
         new CustomEvent('myio:temperature-data-ready', {
           detail: {
             globalAvg: tempAvg,
             isFiltered: false,
-            shoppingsInRange: [],
-            shoppingsOutOfRange: [],
+            shoppingsInRange: tempShoppingsStatus.shoppingsInRange,
+            shoppingsOutOfRange: tempShoppingsStatus.shoppingsOutOfRange,
             totalDevices: allTempDevices.length,
             devices: tempDevicesForTooltip,
             temperatureMin: minTemp,
@@ -2731,6 +2784,16 @@ body.filter-modal-open { overflow: hidden !important; }
 
     // RFC-0126: Update module-level reference for early event handlers
     _menuInstanceRef = menuInstance;
+
+    // Set initial date range to scope variables (for handleActionDashboard)
+    const initialStart = window.MyIOLibrary.getFirstDayOfMonth();
+    const initialEnd = new Date();
+    self.ctx.$scope.startDateISO = initialStart.toISOString();
+    self.ctx.$scope.endDateISO = initialEnd.toISOString();
+    LogHelper.log('[MAIN_UNIQUE] Initial date range set:', {
+      startDateISO: self.ctx.$scope.startDateISO,
+      endDateISO: self.ctx.$scope.endDateISO,
+    });
 
     // RFC-0126: If shoppings were cached before menu was created, update now
     if (_cachedShoppings.length > 0) {
@@ -3029,13 +3092,16 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
 
+      // Calculate shoppings temperature status for filtered data
+      const filteredTempShoppingsStatus = buildShoppingsTemperatureStatus(filteredClassified, minTemp, maxTemp);
+
       window.dispatchEvent(
         new CustomEvent('myio:temperature-data-ready', {
           detail: {
             globalAvg: tempAvg,
             isFiltered: isFiltered,
-            shoppingsInRange: [],
-            shoppingsOutOfRange: [],
+            shoppingsInRange: filteredTempShoppingsStatus.shoppingsInRange,
+            shoppingsOutOfRange: filteredTempShoppingsStatus.shoppingsOutOfRange,
             totalDevices: filteredTemp.length,
             devices: tempDevicesForTooltip,
             temperatureMin: minTemp,
@@ -3249,6 +3315,7 @@ body.filter-modal-open { overflow: hidden !important; }
             deviceType: device.deviceType,
             deviceProfile: device.deviceProfile,
             customerName: device.customerName,
+            customerId: device.customerId, // RFC-0080: Required for GLOBAL mapInstantaneousPower fetch
             connectionData: {
               centralName: device.centralName || device.customerName,
               connectionStatusTime: device.lastConnectTime,
@@ -3262,6 +3329,26 @@ body.filter-modal-open { overflow: hidden !important; }
             mapInstantaneousPower: device.mapInstantaneousPower,
             onSaved: (payload) => {
               LogHelper.log('[MAIN_UNIQUE] Settings saved:', payload);
+
+              // Show success toast
+              if (typeof MyIOLibrary.showToast === 'function') {
+                MyIOLibrary.showToast({
+                  message: 'Configuracoes salvas com sucesso!',
+                  type: 'success',
+                  duration: 3000,
+                });
+              }
+
+              // Update device label in cache if changed
+              if (payload.entity?.ok && payload.entity?.updated?.includes('label')) {
+                const newLabel = payload.entity?.label || payload.entity?.updatedLabel;
+                if (newLabel && device.labelOrName !== newLabel) {
+                  LogHelper.log('[MAIN_UNIQUE] Updating device label in cache:', newLabel);
+                  device.labelOrName = newLabel;
+                  // Trigger refresh to update displayed label
+                  window.dispatchEvent(new CustomEvent('myio:request-reload'));
+                }
+              }
             },
           });
           break;
@@ -3819,14 +3906,17 @@ function processDataAndDispatchEvents() {
     };
   });
 
+  // Calculate shoppings temperature status
+  const tempShoppingsStatus = buildShoppingsTemperatureStatus(classified, minTemp, maxTemp);
+
   // Temperature summary event
   window.dispatchEvent(
     new CustomEvent('myio:temperature-data-ready', {
       detail: {
         globalAvg: tempAvg,
         isFiltered: false,
-        shoppingsInRange: [],
-        shoppingsOutOfRange: [],
+        shoppingsInRange: tempShoppingsStatus.shoppingsInRange,
+        shoppingsOutOfRange: tempShoppingsStatus.shoppingsOutOfRange,
         totalDevices: allTempDevices.length,
         devices: tempDevicesForTooltip,
         temperatureMin: minTemp,
@@ -4427,6 +4517,80 @@ function buildShoppingsWaterBreakdown(classified) {
     .sort((a, b) => b.entrada - a.entrada);
 }
 
+/**
+ * Calculate temperature shoppings status (in range vs out of range)
+ * Groups temperature devices by shopping and determines if each shopping's
+ * average temperature is within the defined min/max range.
+ *
+ * @param {Object} classified - Classified device data
+ * @param {number} minTemp - Minimum acceptable temperature
+ * @param {number} maxTemp - Maximum acceptable temperature
+ * @returns {{ shoppingsInRange: Array, shoppingsOutOfRange: Array }}
+ */
+function buildShoppingsTemperatureStatus(classified, minTemp, maxTemp) {
+  const termostatoDevices = classified?.temperature?.termostato || [];
+  const termostatoExternalDevices = classified?.temperature?.termostato_external || [];
+  const allDevices = [...termostatoDevices, ...termostatoExternalDevices];
+
+  if (allDevices.length === 0) {
+    return { shoppingsInRange: [], shoppingsOutOfRange: [] };
+  }
+
+  // Group devices by shopping
+  const shoppingMap = new Map();
+
+  for (const device of allDevices) {
+    const ownerName = device.ownerName || device.customerName || 'Unknown';
+    const normalizedName = ownerName.toLowerCase().trim();
+    const temp = Number(device.temperature || 0);
+
+    if (temp <= 0) continue; // Skip devices with no valid temperature reading
+
+    if (!shoppingMap.has(normalizedName)) {
+      shoppingMap.set(normalizedName, {
+        name: ownerName,
+        temperatures: [],
+        deviceCount: 0,
+      });
+    }
+
+    const entry = shoppingMap.get(normalizedName);
+    entry.temperatures.push(temp);
+    entry.deviceCount++;
+  }
+
+  // Calculate average temperature per shopping and classify
+  const shoppingsInRange = [];
+  const shoppingsOutOfRange = [];
+
+  for (const [, entry] of shoppingMap) {
+    if (entry.temperatures.length === 0) continue;
+
+    const avgTemp = entry.temperatures.reduce((a, b) => a + b, 0) / entry.temperatures.length;
+    const isInRange = avgTemp >= minTemp && avgTemp <= maxTemp;
+
+    const shoppingInfo = {
+      name: entry.name,
+      avgTemp: avgTemp,
+      deviceCount: entry.deviceCount,
+      minTemp: Math.min(...entry.temperatures),
+      maxTemp: Math.max(...entry.temperatures),
+    };
+
+    if (isInRange) {
+      shoppingsInRange.push(shoppingInfo);
+    } else {
+      shoppingsOutOfRange.push(shoppingInfo);
+    }
+  }
+
+  // Sort by name
+  shoppingsInRange.sort((a, b) => a.name.localeCompare(b.name));
+  shoppingsOutOfRange.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { shoppingsInRange, shoppingsOutOfRange };
+}
+
 // ===================================================================
 // Device Classification Logic
 // ===================================================================
@@ -4647,7 +4811,7 @@ function extractDeviceMetadataFromRows(rows) {
     deviceStatus = lib.calculateDeviceStatusMasterRules({
       connectionStatus: connectionStatus,
       telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24 hours
+      delayMins: 1440 * 60, // 24 hours
       domain: domain,
     });
   } else {
@@ -5169,6 +5333,103 @@ async function enrichDevicesWithConsumption(classified) {
 }
 
 /**
+ * Helper function to use cached enriched data
+ * Dispatches all necessary events with cached data instead of fetching from API
+ */
+function useCachedEnrichedData(enriched) {
+  // Rebuild flat items arrays for compatibility
+  const energyItems = [
+    ...enriched.energy.equipments,
+    ...enriched.energy.stores,
+    ...enriched.energy.entrada,
+  ];
+
+  const waterItems = [
+    ...enriched.water.hidrometro_entrada,
+    ...enriched.water.banheiros,
+    ...enriched.water.hidrometro_area_comum,
+    ...enriched.water.hidrometro,
+  ];
+
+  const temperatureItems = [
+    ...enriched.temperature.termostato,
+    ...enriched.temperature.termostato_external,
+  ];
+
+  // Update orchestrator data
+  window.MyIOOrchestratorData.classified = enriched;
+  window.MyIOOrchestratorData.apiEnrichedAt = Date.now();
+  window.MyIOOrchestratorData.energy = { items: energyItems, timestamp: Date.now() };
+  window.MyIOOrchestratorData.water = { items: waterItems, timestamp: Date.now() };
+  window.MyIOOrchestratorData.temperature = { items: temperatureItems, timestamp: Date.now() };
+
+  LogHelper.log('Using cached enriched data, dispatching events');
+
+  // Dispatch enriched data event
+  window.dispatchEvent(
+    new CustomEvent('myio:data-enriched', {
+      detail: { classified: enriched, timestamp: Date.now(), fromCache: true },
+    })
+  );
+
+  // Dispatch data-ready event
+  const deviceCounts = calculateDeviceCounts(enriched);
+  window.dispatchEvent(
+    new CustomEvent('myio:data-ready', {
+      detail: { classified: enriched, deviceCounts, timestamp: Date.now(), apiEnriched: true, fromCache: true },
+    })
+  );
+
+  // Dispatch summary events
+  const allEnergyDevices = [...energyItems];
+  const allWaterDevices = [...waterItems];
+
+  const energyTotal = allEnergyDevices.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+  const waterTotal = allWaterDevices.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+
+  const energyByStatus = buildTooltipStatusData(allEnergyDevices);
+  const waterByStatus = buildTooltipStatusData(allWaterDevices);
+
+  window.dispatchEvent(
+    new CustomEvent('myio:energy-summary-ready', {
+      detail: {
+        filteredTotal: energyTotal,
+        unfilteredTotal: energyTotal,
+        isFiltered: false,
+        lojasTotal: enriched.energy.stores.reduce((sum, d) => sum + Number(d.value || 0), 0),
+        totalDevices: allEnergyDevices.length,
+        totalConsumption: energyTotal,
+        byStatus: energyByStatus,
+        byCategory: buildEnergyCategoryData(enriched),
+        byShoppingTotal: buildEnergyCategoryDataByShopping(enriched),
+        shoppingsEnergy: buildShoppingsEnergyBreakdown(enriched),
+        lastUpdated: new Date().toISOString(),
+        fromCache: true,
+      },
+    })
+  );
+
+  window.dispatchEvent(
+    new CustomEvent('myio:water-summary-ready', {
+      detail: {
+        filteredTotal: waterTotal,
+        unfilteredTotal: waterTotal,
+        isFiltered: false,
+        totalDevices: allWaterDevices.length,
+        totalConsumption: waterTotal,
+        byStatus: waterByStatus,
+        byCategory: buildWaterCategoryData(enriched),
+        byShoppingTotal: buildWaterCategoryDataByShopping(enriched),
+        lastUpdated: new Date().toISOString(),
+        fromCache: true,
+      },
+    })
+  );
+
+  LogHelper.log('Cached data events dispatched (cache age:', _dataCache.getAge(), 's)');
+}
+
+/**
  * RFC-0111: Trigger API enrichment after initial classification
  * This is called asynchronously so it doesn't block the initial render
  */
@@ -5243,8 +5504,29 @@ async function triggerApiEnrichment() {
   }
 
   try {
+    // ===================================================================
+    // Check cache validity (5-minute TTL)
+    // If cache is valid, use cached enriched data instead of calling API
+    // ===================================================================
+    if (_dataCache.isValid()) {
+      LogHelper.log('Using cached data (age:', _dataCache.getAge(), 's)');
+      const enriched = _dataCache.enrichedData;
+
+      // Use cached enriched data - skip API call
+      useCachedEnrichedData(enriched);
+
+      _apiEnrichmentDone = true;
+      _apiEnrichmentInProgress = false;
+      return;
+    }
+
+    LogHelper.log('Cache miss or expired, fetching from API...');
+
     // Enrich with API data
     const enriched = await enrichDevicesWithConsumption(classified);
+
+    // Save to cache for future use
+    _dataCache.set(enriched, classified);
 
     // RFC-0111 FIX: Rebuild flat items arrays for tooltip compatibility
     const energyItems = [
@@ -5407,14 +5689,17 @@ async function triggerApiEnrichment() {
       })
     );
 
+    // Calculate shoppings temperature status after enrichment
+    const tempShoppingsStatusAfterEnrich = buildShoppingsTemperatureStatus(enriched, minTemp, maxTemp);
+
     // Temperature summary event (include tooltip fields)
     window.dispatchEvent(
       new CustomEvent('myio:temperature-data-ready', {
         detail: {
           globalAvg: tempAvg,
           isFiltered: false,
-          shoppingsInRange: [],
-          shoppingsOutOfRange: [],
+          shoppingsInRange: tempShoppingsStatusAfterEnrich.shoppingsInRange,
+          shoppingsOutOfRange: tempShoppingsStatusAfterEnrich.shoppingsOutOfRange,
           totalDevices: allTempDevicesAfterEnrich.length,
           devices: tempDevicesForTooltipAfterEnrich,
           temperatureMin: minTemp,

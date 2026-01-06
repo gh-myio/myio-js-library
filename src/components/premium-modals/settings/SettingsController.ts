@@ -345,7 +345,10 @@ export class SettingsController {
   private handleClose(): void {
     console.info('[SettingsModal] Modal closed');
     this.emitEvent('modal_closed');
-    
+
+    // Actually close the modal view
+    this.view.close();
+
     if (this.params.onClose) {
       this.params.onClose();
     }

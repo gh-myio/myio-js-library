@@ -29,6 +29,36 @@ export interface TempSensorDevice {
   status: 'ok' | 'warn' | 'unknown';
 }
 
+export interface ShoppingTemperatureInfo {
+  name: string;
+  avgTemp: number;
+  deviceCount: number;
+  minTemp?: number;
+  maxTemp?: number;
+}
+
+export interface DeviceInfo {
+  id: string;
+  label: string;
+  name?: string;
+}
+
+export interface TempStatusSummary {
+  // Connection status
+  waiting: number;
+  weakConnection: number;
+  offline: number;
+  // Temperature status
+  normal: number;  // in range
+  alert: number;   // out of range (warn)
+  // Device lists for each status (optional)
+  waitingDevices?: DeviceInfo[];
+  weakConnectionDevices?: DeviceInfo[];
+  offlineDevices?: DeviceInfo[];
+  normalDevices?: DeviceInfo[];
+  alertDevices?: DeviceInfo[];
+}
+
 export interface TempSensorSummaryData {
   devices: TempSensorDevice[];
   temperatureMin?: number;
@@ -40,6 +70,16 @@ export interface TempSensorSummaryData {
   lastUpdated?: string;
   /** Max devices to display in list (default: 100) */
   maxDevices?: number;
+  /** Global average temperature */
+  globalAvg?: number;
+  /** Total devices count */
+  totalDevices?: number;
+  /** Shoppings with all sensors in range */
+  shoppingsInRange?: ShoppingTemperatureInfo[];
+  /** Shoppings with sensors out of range */
+  shoppingsOutOfRange?: ShoppingTemperatureInfo[];
+  /** Status breakdown */
+  byStatus?: TempStatusSummary;
 }
 
 // ============================================
@@ -342,6 +382,197 @@ const TEMP_SENSOR_TOOLTIP_CSS = `
   font-weight: 700;
   color: #7c2d12;
 }
+
+/* Total Devices Banner */
+.myio-temp-sensor-tooltip__total-devices {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #fdba74;
+}
+
+.myio-temp-sensor-tooltip__total-devices-label {
+  font-weight: 600;
+  color: #9a3412;
+  font-size: 12px;
+}
+
+.myio-temp-sensor-tooltip__total-devices-value {
+  font-weight: 700;
+  font-size: 20px;
+  color: #c2410c;
+}
+
+/* Shopping Breakdown Sections */
+.myio-temp-sensor-tooltip__shopping-section {
+  margin: 12px 0;
+}
+
+.myio-temp-sensor-tooltip__shopping-header {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px;
+  gap: 8px;
+  padding: 4px 10px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.myio-temp-sensor-tooltip__shopping-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  align-items: center;
+  transition: background-color 0.15s ease;
+  font-size: 12px;
+}
+
+.myio-temp-sensor-tooltip__shopping-row:hover {
+  background: #f8fafc;
+}
+
+.myio-temp-sensor-tooltip__shopping-row.in-range {
+  border-left: 3px solid #22c55e;
+  background: #f0fdf4;
+}
+
+.myio-temp-sensor-tooltip__shopping-row.out-of-range {
+  border-left: 3px solid #f59e0b;
+  background: #fffbeb;
+}
+
+.myio-temp-sensor-tooltip__shopping-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.myio-temp-sensor-tooltip__shopping-icon {
+  font-size: 14px;
+}
+
+.myio-temp-sensor-tooltip__shopping-count {
+  text-align: center;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.myio-temp-sensor-tooltip__shopping-temp {
+  text-align: right;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.myio-temp-sensor-tooltip__shopping-temp.in-range {
+  color: #15803d;
+}
+
+.myio-temp-sensor-tooltip__shopping-temp.out-of-range {
+  color: #b45309;
+}
+
+/* Status Matrix */
+.myio-temp-sensor-tooltip__status-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 6px 0 12px 0;
+}
+
+.myio-temp-sensor-tooltip__status-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.myio-temp-sensor-tooltip__status-item.normal {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.myio-temp-sensor-tooltip__status-item.alert {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.myio-temp-sensor-tooltip__status-item.offline {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.myio-temp-sensor-tooltip__status-item.waiting {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px dashed #f59e0b;
+}
+
+.myio-temp-sensor-tooltip__status-item.weak-connection {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.myio-temp-sensor-tooltip__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.myio-temp-sensor-tooltip__status-dot.normal { background: #22c55e; }
+.myio-temp-sensor-tooltip__status-dot.alert { background: #f59e0b; }
+.myio-temp-sensor-tooltip__status-dot.offline { background: #6b7280; }
+.myio-temp-sensor-tooltip__status-dot.waiting { background: #fbbf24; }
+.myio-temp-sensor-tooltip__status-dot.weak-connection { background: #fb923c; }
+
+.myio-temp-sensor-tooltip__status-count {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.myio-temp-sensor-tooltip__status-label {
+  font-size: 9px;
+  opacity: 0.85;
+}
+
+/* Average Footer */
+.myio-temp-sensor-tooltip__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+  border-radius: 0 0 11px 11px;
+}
+
+.myio-temp-sensor-tooltip__footer-label {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+}
+
+.myio-temp-sensor-tooltip__footer-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
 `;
 
 // ============================================
@@ -446,46 +677,171 @@ function generateHeaderHTML(title: string, timestamp?: string): string {
 }
 
 /**
+ * Generate shopping breakdown section HTML
+ * Groups shoppings by in-range and out-of-range
+ */
+function generateShoppingBreakdownHTML(data: TempSensorSummaryData): string {
+  const shoppingsInRange = data.shoppingsInRange || [];
+  const shoppingsOutOfRange = data.shoppingsOutOfRange || [];
+
+  if (shoppingsInRange.length === 0 && shoppingsOutOfRange.length === 0) {
+    return '';
+  }
+
+  let html = `
+    <div class="myio-temp-sensor-tooltip__section-title">
+      <span>🏢</span> Distribuição por Shopping
+    </div>
+    <div class="myio-temp-sensor-tooltip__shopping-section">
+      <div class="myio-temp-sensor-tooltip__shopping-header">
+        <span>Shopping</span>
+        <span>Sensores</span>
+        <span>Média</span>
+      </div>
+  `;
+
+  // Out of range shoppings first (more important)
+  if (shoppingsOutOfRange.length > 0) {
+    shoppingsOutOfRange.forEach(shopping => {
+      html += `
+        <div class="myio-temp-sensor-tooltip__shopping-row out-of-range">
+          <span class="myio-temp-sensor-tooltip__shopping-name">
+            <span class="myio-temp-sensor-tooltip__shopping-icon">⚠️</span>
+            <span>${shopping.name}</span>
+          </span>
+          <span class="myio-temp-sensor-tooltip__shopping-count">${shopping.deviceCount}</span>
+          <span class="myio-temp-sensor-tooltip__shopping-temp out-of-range">${shopping.avgTemp.toFixed(1)}°C</span>
+        </div>
+      `;
+    });
+  }
+
+  // In range shoppings
+  if (shoppingsInRange.length > 0) {
+    shoppingsInRange.forEach(shopping => {
+      html += `
+        <div class="myio-temp-sensor-tooltip__shopping-row in-range">
+          <span class="myio-temp-sensor-tooltip__shopping-name">
+            <span class="myio-temp-sensor-tooltip__shopping-icon">✅</span>
+            <span>${shopping.name}</span>
+          </span>
+          <span class="myio-temp-sensor-tooltip__shopping-count">${shopping.deviceCount}</span>
+          <span class="myio-temp-sensor-tooltip__shopping-temp in-range">${shopping.avgTemp.toFixed(1)}°C</span>
+        </div>
+      `;
+    });
+  }
+
+  html += '</div>';
+  return html;
+}
+
+/**
+ * Generate status matrix HTML
+ */
+function generateStatusMatrixHTML(data: TempSensorSummaryData): string {
+  const { devices, byStatus } = data;
+
+  // FIX: Guard against undefined/null devices
+  const deviceList = devices && Array.isArray(devices) ? devices : [];
+
+  // Calculate from devices if byStatus not provided
+  let inRangeCount = 0;
+  let outOfRangeCount = 0;
+
+  deviceList.forEach((d) => {
+    if (d.status === 'ok') inRangeCount++;
+    else if (d.status === 'warn') outOfRangeCount++;
+  });
+
+  // Use byStatus if provided, otherwise use calculated values
+  const normal = byStatus?.normal ?? inRangeCount;
+  const alert = byStatus?.alert ?? outOfRangeCount;
+  const offline = byStatus?.offline ?? 0;
+  const waiting = byStatus?.waiting ?? 0;
+  const weakConnection = byStatus?.weakConnection ?? 0;
+
+  const statusItems = [
+    { key: 'normal', label: 'Na Faixa', count: normal },
+    { key: 'alert', label: 'Fora da Faixa', count: alert },
+    { key: 'offline', label: 'Offline', count: offline },
+    { key: 'waiting', label: 'Aguardando', count: waiting },
+    { key: 'weak-connection', label: 'Conexão Fraca', count: weakConnection },
+  ];
+
+  // Filter out zero counts except for normal and alert
+  const visibleItems = statusItems.filter(item =>
+    item.count > 0 || item.key === 'normal' || item.key === 'alert'
+  );
+
+  return `
+    <div class="myio-temp-sensor-tooltip__section-title">
+      <span>📊</span> Status dos Sensores
+    </div>
+    <div class="myio-temp-sensor-tooltip__status-matrix">
+      ${visibleItems.map(item => `
+        <div class="myio-temp-sensor-tooltip__status-item ${item.key}">
+          <span class="myio-temp-sensor-tooltip__status-dot ${item.key}"></span>
+          <span class="myio-temp-sensor-tooltip__status-count">${item.count}</span>
+          <span class="myio-temp-sensor-tooltip__status-label">${item.label}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+/**
  * Generate content HTML from data
+ * RFC-0129: Now groups by shopping like water tooltip
  */
 function generateContentHTML(data: TempSensorSummaryData): string {
-  const { devices, temperatureMin, temperatureMax } = data;
+  const { devices, temperatureMin, temperatureMax, globalAvg, totalDevices, shoppingsInRange, shoppingsOutOfRange } = data;
   const hasLimits = temperatureMin != null && temperatureMax != null;
 
   // FIX: Guard against undefined/null devices
   const deviceList = devices && Array.isArray(devices) ? devices : [];
 
-  // Calculate statistics
-  let devicesInRange = 0;
-  let devicesOutOfRange = 0;
-  let totalTemp = 0;
-
-  deviceList.forEach((d) => {
-    totalTemp += d.temp;
-    if (d.status === 'ok') devicesInRange++;
-    else if (d.status === 'warn') devicesOutOfRange++;
-  });
-
-  const avgTemp = deviceList.length > 0 ? totalTemp / deviceList.length : 0;
-
-  // Build status badge
-  let statusBadge = '';
-  if (deviceList.length === 0) {
-    statusBadge = '<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--info">Aguardando dados</span>';
-  } else if (!hasLimits) {
-    statusBadge = '<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--info">Faixa nao configurada</span>';
-  } else if (devicesOutOfRange === 0) {
-    statusBadge = '<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--ok">Todos na faixa</span>';
-  } else if (devicesInRange === 0) {
-    statusBadge = '<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--warn">Todos fora da faixa</span>';
-  } else {
-    statusBadge = `<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--warn">${devicesOutOfRange} fora da faixa</span>`;
+  // Calculate statistics from devices if not provided
+  let avgTemp = globalAvg ?? 0;
+  if (!globalAvg && deviceList.length > 0) {
+    avgTemp = deviceList.reduce((sum, d) => sum + d.temp, 0) / deviceList.length;
   }
 
-  // Build device list HTML
+  const deviceCount = totalDevices ?? deviceList.length;
+  const inRangeShoppings = shoppingsInRange?.length ?? 0;
+  const outOfRangeShoppings = shoppingsOutOfRange?.length ?? 0;
+  const hasShoppingData = inRangeShoppings > 0 || outOfRangeShoppings > 0;
+
+  // Build summary info
+  let summaryHtml = `
+    <div class="myio-temp-sensor-tooltip__total-devices">
+      <span class="myio-temp-sensor-tooltip__total-devices-label">Total de Sensores</span>
+      <span class="myio-temp-sensor-tooltip__total-devices-value">${deviceCount}</span>
+    </div>
+  `;
+
+  // Range info
+  if (hasLimits) {
+    summaryHtml += `
+      <div class="myio-temp-sensor-tooltip__section">
+        <div class="myio-temp-sensor-tooltip__row">
+          <span class="myio-temp-sensor-tooltip__label">Faixa Ideal:</span>
+          <span class="myio-temp-sensor-tooltip__value">${temperatureMin}°C - ${temperatureMax}°C</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Shopping breakdown (like water categories)
+  const shoppingBreakdownHtml = hasShoppingData ? generateShoppingBreakdownHTML(data) : '';
+
+  // Status matrix
+  const statusMatrixHtml = generateStatusMatrixHTML(data);
+
+  // Build device list HTML (collapsed by default, for detail view)
   let deviceListHtml = '';
-  if (deviceList.length > 0) {
-    const maxDevices = data.maxDevices ?? 100;
+  if (deviceList.length > 0 && deviceList.length <= 20) {
+    const maxDevices = data.maxDevices ?? 20;
     const sortedDevices = [...deviceList].sort((a, b) => b.temp - a.temp);
     const displayDevices = sortedDevices.slice(0, maxDevices);
     const hasMore = sortedDevices.length > maxDevices;
@@ -514,38 +870,10 @@ function generateContentHTML(data: TempSensorSummaryData): string {
   }
 
   return `
-    <div class="myio-temp-sensor-tooltip__section">
-      <div class="myio-temp-sensor-tooltip__section-title">
-        <span>📊</span> Resumo
-      </div>
-      <div class="myio-temp-sensor-tooltip__row">
-        <span class="myio-temp-sensor-tooltip__label">Media Geral:</span>
-        <span class="myio-temp-sensor-tooltip__value myio-temp-sensor-tooltip__value--highlight">${avgTemp.toFixed(1)}°C</span>
-      </div>
-      ${hasLimits ? `
-      <div class="myio-temp-sensor-tooltip__row">
-        <span class="myio-temp-sensor-tooltip__label">Faixa Ideal:</span>
-        <span class="myio-temp-sensor-tooltip__value">${temperatureMin}°C - ${temperatureMax}°C</span>
-      </div>
-      ` : ''}
-      <div class="myio-temp-sensor-tooltip__row">
-        <span class="myio-temp-sensor-tooltip__label">Sensores Ativos:</span>
-        <span class="myio-temp-sensor-tooltip__value">${devices.length}</span>
-      </div>
-      <div class="myio-temp-sensor-tooltip__row">
-        <span class="myio-temp-sensor-tooltip__label">Status:</span>
-        ${statusBadge}
-      </div>
-    </div>
-
+    ${summaryHtml}
+    ${shoppingBreakdownHtml}
+    ${statusMatrixHtml}
     ${deviceListHtml}
-
-    <div class="myio-temp-sensor-tooltip__notice">
-      <span class="myio-temp-sensor-tooltip__notice-icon">ℹ️</span>
-      <span class="myio-temp-sensor-tooltip__notice-text">
-        Considerados apenas sensores <strong>TERMOSTATO</strong> ativos.
-      </span>
-    </div>
   `;
 }
 
@@ -844,12 +1172,23 @@ export const TempSensorSummaryTooltip = {
     const title = baseTitle + titleSuffix;
     const timestamp = formatTimestamp(data.lastUpdated);
 
-    // Build HTML
+    // Calculate average temperature for footer
+    const devices = data.devices && Array.isArray(data.devices) ? data.devices : [];
+    let avgTemp = data.globalAvg ?? 0;
+    if (!data.globalAvg && devices.length > 0) {
+      avgTemp = devices.reduce((sum, d) => sum + d.temp, 0) / devices.length;
+    }
+
+    // Build HTML with footer (like water tooltip)
     container.innerHTML = `
       <div class="myio-temp-sensor-tooltip__panel">
         ${generateHeaderHTML(title, timestamp)}
         <div class="myio-temp-sensor-tooltip__content">
           ${generateContentHTML(data)}
+        </div>
+        <div class="myio-temp-sensor-tooltip__footer">
+          <span class="myio-temp-sensor-tooltip__footer-label">Média Geral</span>
+          <span class="myio-temp-sensor-tooltip__footer-value">${avgTemp.toFixed(1)}°C</span>
         </div>
       </div>
     `;

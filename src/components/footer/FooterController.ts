@@ -193,9 +193,15 @@ export class FooterController {
       }
     });
 
-    this.view.on('drop', (entityId) => {
-      if (typeof entityId === 'string') {
-        this.addEntityById(entityId);
+    this.view.on('drop', (dropData) => {
+      // Handle both string (legacy) and object (new format with entity data)
+      if (typeof dropData === 'string') {
+        this.addEntityById(dropData);
+      } else if (dropData && typeof dropData === 'object') {
+        const { id, entityJson } = dropData as { id: string; entityJson?: string };
+        if (id) {
+          this.addEntityByIdWithData(id, entityJson);
+        }
       }
     });
   }
@@ -347,6 +353,71 @@ export class FooterController {
     this.log.warn('addEntityById not fully implemented - use addEntity with full entity data', entityId);
     // TODO: Implement entity lookup from orchestrator or params.entityResolver
     return false;
+  }
+
+  /**
+   * Add an entity by ID with optional JSON data from drag-drop
+   * Parses the entity JSON and registers it before adding to selection
+   */
+  addEntityByIdWithData(entityId: string, entityJson?: string): boolean {
+    if (!this.store) {
+      this.log.error('Store not initialized');
+      return false;
+    }
+
+    // If we have entity JSON data, parse and use it
+    if (entityJson) {
+      try {
+        const entityData = JSON.parse(entityJson);
+        if (entityData && typeof entityData === 'object') {
+          // Normalize entity to SelectedEntity format
+          const detectedUnit = entityData.unit || this.detectUnitFromEntity(entityData);
+          const entity: SelectedEntity = {
+            id: entityData.entityId || entityData.id || entityId,
+            name: entityData.labelOrName || entityData.name || entityData.label || 'Device',
+            lastValue: entityData.val ?? entityData.lastValue ?? entityData.value ?? 0,
+            unit: detectedUnit,
+            icon: this.detectIconFromUnit(detectedUnit),
+            customerName: entityData.customerName || entityData.ownerName || entityData.centralName || '',
+            ingestionId: entityData.ingestionId || entityData.id || entityId,
+          };
+
+          this.log.log('Adding entity from drop data:', entity.id, entity.name);
+          return this.store.add(entity);
+        }
+      } catch (parseError) {
+        this.log.warn('Failed to parse dropped entity JSON:', parseError);
+      }
+    }
+
+    // Fallback to ID-only add (won't work properly but logs a warning)
+    return this.addEntityById(entityId);
+  }
+
+  /**
+   * Detect unit from entity data based on domain or device type
+   */
+  private detectUnitFromEntity(entityData: Record<string, unknown>): string {
+    const domain = entityData.domain as string;
+    if (domain === 'energy') return 'kWh';
+    if (domain === 'water') return 'm³';
+    if (domain === 'temperature') return '°C';
+
+    // Try to detect from deviceType
+    const deviceType = (entityData.deviceType as string) || '';
+    if (deviceType.includes('HIDROMETRO') || deviceType.includes('WATER')) return 'm³';
+    if (deviceType.includes('TERMOSTATO') || deviceType.includes('TEMP')) return '°C';
+
+    return 'kWh'; // Default to energy
+  }
+
+  /**
+   * Detect icon (UnitType) from unit string
+   */
+  private detectIconFromUnit(unit: string): UnitType {
+    if (unit === 'm³' || unit === 'L' || unit.toLowerCase().includes('water')) return 'water';
+    if (unit === '°C' || unit.toLowerCase().includes('temp')) return 'temperature';
+    return 'energy';
   }
 
   /**

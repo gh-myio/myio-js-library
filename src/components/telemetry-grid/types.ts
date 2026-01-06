@@ -64,12 +64,20 @@ export interface TelemetryDevice {
   // Value fields
   val: number | null;
   value: number | null;
+  lastValue?: number | null;
   consumption?: number;
   consumption_power?: number;
   pulses?: number;
   temperature?: number;
+  temperatureC?: number | null;
+  currentTemperature?: number | null;
   instantaneousPower?: number | null;
   operationHours?: string;
+
+  // Card rendering metadata
+  valType?: 'energy' | 'water' | 'temperature';
+  unit?: string;
+  icon?: string;
 
   // Timestamps
   lastConnectTime?: number;

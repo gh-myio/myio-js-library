@@ -230,8 +230,11 @@ export class FooterView {
       this.dockEl.addEventListener('drop', (e: DragEvent) => {
         e.preventDefault();
         const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
+        const entityJson = e.dataTransfer?.getData('application/json');
         if (id) {
-          this.emit('drop', id);
+          // Pass entity data if available for registration
+          const dropData = { id, entityJson };
+          this.emit('drop', dropData as unknown as string);
         }
       });
     }
@@ -244,8 +247,11 @@ export class FooterView {
     this.footerEl.addEventListener('drop', (e: DragEvent) => {
       e.preventDefault();
       const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
+      const entityJson = e.dataTransfer?.getData('application/json');
       if (id) {
-        this.emit('drop', id);
+        // Pass entity data if available for registration
+        const dropData = { id, entityJson };
+        this.emit('drop', dropData as unknown as string);
       }
     });
   }
