@@ -164,7 +164,7 @@ export class TelemetryGridView {
       themeMode: this.controller.getThemeMode(), // RFC-0125: Pass theme from controller
       labels: {
         total: contextConfig.headerLabel,
-        consumption: `${domainConfig.headerLabel} ${contextConfig.headerLabel}`,
+        consumption: domainConfig.headerLabel,
       },
       includeSearch: this.params.includeSearch !== false,
       includeFilter: this.params.includeFilter !== false,

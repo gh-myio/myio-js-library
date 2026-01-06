@@ -334,6 +334,18 @@ export interface WelcomeModalParams {
    */
   cardVersion?: WelcomeCardVersion;
 
+  // Display Options for Device Counts
+  /** Show energy consumption value in device count badges (default: true) */
+  showEnergyValue?: boolean;
+  /** Show water consumption value in device count badges (default: true) */
+  showWaterValue?: boolean;
+  /** Show temperature average value in device count badges (default: true) */
+  showTempValue?: boolean;
+  /** Size multiplier for device count badges (default: 1, use 2 for 2x size) */
+  countSizeMultiplier?: number;
+  /** Show font size adjustment slider below user menu (default: false) */
+  showFontSizeSlider?: boolean;
+
   // Modal Behavior
   /** Close modal when clicking backdrop (default: false for full-screen) */
   closeOnBackdrop?: boolean;

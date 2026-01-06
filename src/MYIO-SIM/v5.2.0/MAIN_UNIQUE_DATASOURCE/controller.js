@@ -2684,6 +2684,8 @@ body.filter-modal-open { overflow: hidden !important; }
       },
       onTabChange: (tabId, contextId, target) => {
         LogHelper.log('[MAIN_UNIQUE] Tab changed:', tabId, contextId, target);
+        // Issue 8 fix: Also handle tab change to update telemetry grid for water/temperature
+        handleContextChange(tabId, contextId, target);
       },
       onContextChange: (tabId, contextId, target) => {
         LogHelper.log('[MAIN_UNIQUE] Context changed:', tabId, contextId, target);
@@ -3061,6 +3063,16 @@ body.filter-modal-open { overflow: hidden !important; }
         start: self.ctx.$scope.startDateISO,
         end: self.ctx.$scope.endDateISO,
       }),
+      // Issue 5 fix: Add required params for comparison modal
+      dataApiHost: DATA_API_HOST,
+      chartsBaseUrl: 'https://graphs.staging.apps.myio-bas.com',
+      getIngestionToken: async () => {
+        const myIOAuth = window.MyIOUtils?.myIOAuth;
+        if (myIOAuth && typeof myIOAuth.getToken === 'function') {
+          return await myIOAuth.getToken();
+        }
+        return null;
+      },
       onCompareClick: (entities, unitType) => {
         LogHelper.log('[MAIN_UNIQUE] Compare clicked:', entities.length, unitType);
       },
@@ -3129,6 +3141,291 @@ body.filter-modal-open { overflow: hidden !important; }
     if (telemetryGridInstance) telemetryGridInstance.setThemeMode?.(themeMode);
   });
 
+  // === 12. Issue 6 fix: LISTEN FOR CARD ACTIONS (dashboard/report/settings) ===
+  window.addEventListener('myio:telemetry-card-action', async (e) => {
+    const { action, device, domain } = e.detail || {};
+    if (!action || !device) return;
+
+    LogHelper.log(`[MAIN_UNIQUE] Card action: ${action} for device ${device.entityId}, domain: ${domain}`);
+
+    const myIOAuth = window.MyIOUtils?.myIOAuth;
+    const tbToken = localStorage.getItem('jwt_token');
+
+    try {
+      switch (action) {
+        case 'dashboard': {
+          if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+            LogHelper.error('[MAIN_UNIQUE] myIOAuth not available');
+            window.alert('Autenticacao nao disponivel. Recarregue a pagina.');
+            return;
+          }
+
+          const ingestionToken = await myIOAuth.getToken();
+          if (!tbToken) {
+            throw new Error('JWT token nao encontrado');
+          }
+
+          MyIOLibrary.openDashboardPopupEnergy({
+            deviceId: device.entityId,
+            readingType: domain || currentTelemetryDomain,
+            startDate: self.ctx.$scope.startDateISO,
+            endDate: self.ctx.$scope.endDateISO,
+            tbJwtToken: tbToken,
+            ingestionToken: ingestionToken,
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+          });
+          break;
+        }
+
+        case 'report': {
+          if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+            LogHelper.error('[MAIN_UNIQUE] myIOAuth not available for report');
+            window.alert('Autenticacao nao disponivel.');
+            return;
+          }
+
+          const ingestionToken = await myIOAuth.getToken();
+          if (!ingestionToken) throw new Error('No ingestion token');
+
+          await MyIOLibrary.openDashboardPopupReport({
+            ingestionId: device.ingestionId,
+            identifier: device.deviceIdentifier,
+            label: device.labelOrName,
+            domain: domain || currentTelemetryDomain,
+            api: {
+              dataApiBaseUrl: DATA_API_HOST,
+              clientId: CLIENT_ID,
+              clientSecret: CLIENT_SECRET,
+              ingestionToken,
+            },
+          });
+          break;
+        }
+
+        case 'settings': {
+          if (!tbToken) {
+            LogHelper.error('[MAIN_UNIQUE] JWT token not found');
+            window.alert('Token nao encontrado');
+            return;
+          }
+
+          await MyIOLibrary.openDashboardPopupSettings({
+            deviceId: device.entityId,
+            label: device.labelOrName,
+            jwtToken: tbToken,
+            domain: domain || currentTelemetryDomain,
+            deviceType: device.deviceType,
+            deviceProfile: device.deviceProfile,
+            customerName: device.customerName,
+            connectionData: {
+              centralName: device.centralName || device.customerName,
+              connectionStatusTime: device.lastConnectTime,
+              timeVal: device.lastActivityTime || new Date('1970-01-01').getTime(),
+              deviceStatus: ['power_off', 'not_installed'].includes(device.deviceStatus)
+                ? 'power_off'
+                : 'power_on',
+              lastDisconnectTime: device.lastDisconnectTime || 0,
+            },
+            ui: { title: 'Configuracoes', width: 900 },
+            mapInstantaneousPower: device.mapInstantaneousPower,
+            onSaved: (payload) => {
+              LogHelper.log('[MAIN_UNIQUE] Settings saved:', payload);
+            },
+          });
+          break;
+        }
+
+        default:
+          LogHelper.warn(`[MAIN_UNIQUE] Unknown card action: ${action}`);
+      }
+    } catch (err) {
+      LogHelper.error(`[MAIN_UNIQUE] Error handling card action ${action}:`, err);
+      window.alert(`Erro ao executar acao: ${err?.message || err}`);
+    }
+  });
+
+  // === 13. Issue 7 fix: LISTEN FOR DATE UPDATE / RELOAD REQUESTS ===
+  window.addEventListener('myio:update-date', async (e) => {
+    const { startISO, endISO, startDate, endDate } = e.detail || {};
+    const start = startISO || startDate;
+    const end = endISO || endDate;
+
+    LogHelper.log('[MAIN_UNIQUE] Date update requested:', { start, end });
+
+    if (start) self.ctx.$scope.startDateISO = start;
+    if (end) self.ctx.$scope.endDateISO = end;
+
+    // Re-enrich data with new date range
+    await reloadDataWithNewDateRange();
+  });
+
+  window.addEventListener('myio:request-reload', async () => {
+    LogHelper.log('[MAIN_UNIQUE] Reload requested');
+    await reloadDataWithNewDateRange();
+  });
+
+  async function reloadDataWithNewDateRange() {
+    const classified = window.MyIOOrchestratorData?.classified;
+    if (!classified) {
+      LogHelper.warn('[MAIN_UNIQUE] No classified data to reload');
+      return;
+    }
+
+    try {
+      LogHelper.log('[MAIN_UNIQUE] Re-enriching data with current date range...');
+
+      // Re-enrich devices with new date range
+      const enriched = await enrichDevicesWithConsumption(classified);
+
+      // Update cache
+      const energyItems = [
+        ...enriched.energy.equipments,
+        ...enriched.energy.stores,
+        ...enriched.energy.entrada,
+      ];
+      const waterItems = [
+        ...enriched.water.hidrometro_entrada,
+        ...enriched.water.banheiros,
+        ...enriched.water.hidrometro_area_comum,
+        ...enriched.water.hidrometro,
+      ];
+      const temperatureItems = [
+        ...enriched.temperature.termostato,
+        ...enriched.temperature.termostato_external,
+      ];
+
+      window.MyIOOrchestratorData.classified = enriched;
+      window.MyIOOrchestratorData.energy = { items: energyItems, timestamp: Date.now() };
+      window.MyIOOrchestratorData.water = { items: waterItems, timestamp: Date.now() };
+      window.MyIOOrchestratorData.temperature = { items: temperatureItems, timestamp: Date.now() };
+
+      // Update telemetry grid
+      if (telemetryGridInstance) {
+        const devices = window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
+        telemetryGridInstance.updateDevices(devices);
+      }
+
+      // Dispatch updated events for header
+      const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+      const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
+      const tempValues = temperatureItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
+      const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-summary-ready', {
+          detail: {
+            customerTotal: energyTotal,
+            totalDevices: energyItems.length,
+            totalConsumption: energyTotal,
+            byStatus: buildTooltipStatusData(energyItems),
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:water-summary-ready', {
+          detail: {
+            filteredTotal: waterTotal,
+            totalDevices: waterItems.length,
+            totalConsumption: waterTotal,
+            byStatus: buildTooltipStatusData(waterItems),
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:temperature-data-ready', {
+          detail: {
+            globalAvg: tempAvg,
+            totalDevices: temperatureItems.length,
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+      );
+
+      LogHelper.log('[MAIN_UNIQUE] Data reload complete');
+      MyIOLibrary.MyIOToast?.success?.('Dados atualizados com sucesso');
+    } catch (err) {
+      LogHelper.error('[MAIN_UNIQUE] Error reloading data:', err);
+      MyIOLibrary.MyIOToast?.error?.('Erro ao atualizar dados');
+    }
+  }
+
+  // === 14. Issue 1 fix: LISTEN FOR GOALS PANEL REQUESTS ===
+  window.addEventListener('myio:open-goals-panel', () => {
+    LogHelper.log('[MAIN_UNIQUE] Goals panel requested');
+
+    if (!MyIOLibrary?.openGoalsPanel) {
+      LogHelper.error('[MAIN_UNIQUE] MyIOLibrary.openGoalsPanel not available');
+      window.alert('Componente de Metas nao esta disponivel.');
+      return;
+    }
+
+    try {
+      const customerId = window.myioHoldingCustomerId;
+      if (!customerId) {
+        LogHelper.error('[MAIN_UNIQUE] customerId not found');
+        window.alert('Customer ID nao disponivel. Aguarde o carregamento completo.');
+        return;
+      }
+
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        LogHelper.error('[MAIN_UNIQUE] JWT token not found');
+        window.alert('Token de autenticacao nao encontrado.');
+        return;
+      }
+
+      // Build shopping list from cached shoppings
+      const shoppingList = (_cachedShoppings || [])
+        .filter((c) => c.value && c.name && c.name.trim() !== c.value.trim())
+        .map((c) => ({
+          value: c.value,
+          name: c.name,
+        }));
+
+      LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel:', {
+        customerId,
+        shoppingCount: shoppingList.length,
+      });
+
+      MyIOLibrary.openGoalsPanel({
+        customerId: customerId,
+        token: token,
+        api: {
+          baseUrl: window.location.origin,
+        },
+        shoppingList: shoppingList,
+        locale: 'pt-BR',
+        onSave: async (goalsData) => {
+          LogHelper.log('[MAIN_UNIQUE] Goals saved:', goalsData?.version);
+          window.dispatchEvent(
+            new CustomEvent('myio:goals-updated', {
+              detail: { goalsData, customerId, timestamp: Date.now() },
+            })
+          );
+        },
+        onClose: () => {
+          LogHelper.log('[MAIN_UNIQUE] Goals Panel closed');
+        },
+        styles: {
+          primaryColor: '#6a1b9a',
+          accentColor: '#FFC107',
+          successColor: '#28a745',
+          errorColor: '#dc3545',
+          borderRadius: '8px',
+          zIndex: 10000,
+        },
+      });
+    } catch (err) {
+      LogHelper.error('[MAIN_UNIQUE] Error opening Goals Panel:', err);
+      window.alert(`Erro ao abrir metas: ${err?.message || err}`);
+    }
+  });
+
   // === HELPER FUNCTIONS ===
 
   function applyGlobalTheme(themeMode) {
@@ -3147,31 +3444,52 @@ body.filter-modal-open { overflow: hidden !important; }
     );
   }
 
+  // Issue 8 fix: Map Menu contextIds to classified data keys
+  // Menu uses different naming than the classified data structure
+  const MENU_TO_CLASSIFIED_CONTEXT_MAP = {
+    // Water contexts
+    water_common_area: 'hidrometro_area_comum',
+    water_stores: 'hidrometro',
+    // Temperature contexts
+    temperature_sensors: 'termostato',
+    temperature_sensors_external: 'termostato_external',
+    // Energy contexts (already match)
+    equipments: 'equipments',
+    stores: 'stores',
+    entrada: 'entrada',
+  };
+
   function handleContextChange(tabId, contextId, target) {
     // Check if this is a panel modal request (Geral, Resumo, Resumo Geral)
-    const panelContexts = ['energy_general', 'water_summary', 'temperature_summary'];
+    const panelContexts = ['energy_general', 'water_summary', 'temperature_summary', 'temperature_comparison'];
 
     if (panelContexts.includes(contextId)) {
       // Open panel modal instead of switching TELEMETRY
       handlePanelModalRequest(tabId, 'summary');
     } else {
+      // Issue 8 fix: Map menu context to classified data key
+      const classifiedContext = MENU_TO_CLASSIFIED_CONTEXT_MAP[contextId] || contextId;
+
       currentTelemetryDomain = tabId;
-      currentTelemetryContext = contextId;
+      currentTelemetryContext = classifiedContext;
+
+      LogHelper.log(`[MAIN_UNIQUE] Context change: menu=${contextId} -> classified=${classifiedContext}, domain=${tabId}`);
 
       // Keep legacy event for backwards compatibility (TELEMETRY widget and any external listeners)
       window.dispatchEvent(
         new CustomEvent('myio:telemetry-config-change', {
           detail: {
             domain: tabId,
-            context: contextId,
+            context: classifiedContext,
             timestamp: Date.now(),
           },
         })
       );
 
       if (telemetryGridInstance) {
-        const devices = window.MyIOOrchestrator?.getDevices?.(tabId, contextId) || [];
-        telemetryGridInstance.updateConfig(tabId, contextId);
+        const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
+        LogHelper.log(`[MAIN_UNIQUE] Updating telemetryGrid: domain=${tabId}, context=${classifiedContext}, devices=${devices.length}`);
+        telemetryGridInstance.updateConfig(tabId, classifiedContext);
         telemetryGridInstance.updateDevices(devices);
       }
 

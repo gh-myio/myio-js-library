@@ -17,14 +17,14 @@ const DOMAIN_CONFIG: Record<HeaderDevicesDomain, HeaderDomainConfig> = {
   energy: {
     totalLabel: 'Total Equipamentos',
     consumptionLabel: 'Consumo Total',
-    zeroLabel: 'Consumo Zero',
+    zeroLabel: 'Sem Consumo',
     unit: 'kWh',
     formatValue: (value: number) => `${value.toFixed(2)} kWh`,
   },
   water: {
     totalLabel: 'Total Hidrômetros',
     consumptionLabel: 'Consumo Total',
-    zeroLabel: 'Consumo Zero',
+    zeroLabel: 'Sem Consumo',
     unit: 'm³',
     formatValue: (value: number) => `${value.toFixed(2)} m³`,
   },

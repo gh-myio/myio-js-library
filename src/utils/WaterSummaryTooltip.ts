@@ -22,6 +22,13 @@
 // Types
 // ============================================
 
+export interface ShoppingBreakdown {
+  shoppingId: string;
+  shoppingName: string;
+  deviceCount: number;
+  consumption: number;
+}
+
 export interface WaterCategorySummary {
   id: string;
   name: string;
@@ -30,6 +37,8 @@ export interface WaterCategorySummary {
   consumption: number;
   percentage: number;
   children?: WaterCategorySummary[];
+  /** Breakdown by shopping (optional - for expand/collapse feature) */
+  byShoppingBreakdown?: ShoppingBreakdown[];
 }
 
 export interface DeviceInfo {
@@ -72,6 +81,8 @@ export interface DashboardWaterSummary {
   includeBathrooms?: boolean;
   /** Optional customer name to display in header (e.g., "Mestre Álvaro") */
   customerName?: string;
+  /** Summary breakdown by shopping (for head office view) */
+  byShoppingTotal?: ShoppingBreakdown[];
 }
 
 // ============================================
@@ -190,6 +201,8 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 
 .water-summary-tooltip__body {
   padding: 14px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 /* Maximized state */
@@ -311,6 +324,110 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   width: 8px;
   height: 1px;
   background: #cbd5e1;
+}
+
+/* Expand/Collapse Toggle Button */
+.water-summary-tooltip__expand-toggle {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.water-summary-tooltip__expand-toggle:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+.water-summary-tooltip__expand-toggle.expanded {
+  background: #1d4ed8;
+  color: white;
+}
+
+.water-summary-tooltip__expand-toggle.expanded:hover {
+  background: #1e40af;
+}
+
+/* Shopping breakdown rows (children of categories) */
+.water-summary-tooltip__shopping-row {
+  display: grid;
+  grid-template-columns: 1fr 50px 80px;
+  gap: 8px;
+  padding: 4px 10px 4px 38px;
+  font-size: 11px;
+  color: #64748b;
+  border-left: 2px solid #e2e8f0;
+  margin-left: 18px;
+  transition: background-color 0.15s ease;
+}
+
+.water-summary-tooltip__shopping-row:hover {
+  background: #f1f5f9;
+}
+
+.water-summary-tooltip__shopping-row:last-child {
+  border-bottom-left-radius: 4px;
+}
+
+.water-summary-tooltip__shopping-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.water-summary-tooltip__shopping-name::before {
+  content: '|—';
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+/* Hidden children (collapsed state) */
+.water-summary-tooltip__category-children {
+  display: none;
+  overflow: hidden;
+}
+
+.water-summary-tooltip__category-children.expanded {
+  display: block;
+}
+
+/* Summary breakdown by shopping */
+.water-summary-tooltip__summary-breakdown {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.water-summary-tooltip__summary-breakdown-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.water-summary-tooltip__summary-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.water-summary-tooltip__summary-breakdown-row::before {
+  content: '|—';
+  color: #cbd5e1;
+  margin-right: 6px;
 }
 
 .water-summary-tooltip__category-name {
@@ -644,7 +761,9 @@ export const WaterSummaryTooltip = {
   },
 
   /**
-   * Render category tree rows
+   * Render category tree rows with expand/collapse functionality
+   * Categories with shopping breakdown or children show (+) button
+   * All categories are collapsed by default
    */
   renderCategoryTree(categories: WaterCategorySummary[], unit: string): string {
     let html = '';
@@ -654,13 +773,19 @@ export const WaterSummaryTooltip = {
       return html;
     }
 
-    categories.forEach(cat => {
+    categories.forEach((cat, catIndex) => {
       const icon = WATER_CATEGORY_ICONS[cat.id] || WATER_CATEGORY_ICONS.areaComum;
-      const isParent = cat.children && cat.children.length > 0;
+      const hasChildren = cat.children && cat.children.length > 0;
+      const hasShoppingBreakdown = cat.byShoppingBreakdown && cat.byShoppingBreakdown.length > 0;
+      const isExpandable = hasChildren || hasShoppingBreakdown;
 
+      // Category row with expand toggle if expandable
       html += `
-        <div class="water-summary-tooltip__category-row ${isParent ? 'parent' : ''}">
+        <div class="water-summary-tooltip__category-row ${isExpandable ? 'parent' : ''}" data-category-id="${cat.id}">
           <span class="water-summary-tooltip__category-name">
+            ${isExpandable ? `
+              <button class="water-summary-tooltip__expand-toggle" data-target="water-cat-${catIndex}" title="Expandir">+</button>
+            ` : ''}
             <span class="water-summary-tooltip__category-icon">${icon}</span>
             <span>${cat.name}</span>
           </span>
@@ -669,21 +794,61 @@ export const WaterSummaryTooltip = {
         </div>
       `;
 
-      // Render children (subcategories)
-      if (cat.children && cat.children.length > 0) {
-        cat.children.forEach(child => {
-          const childIcon = WATER_CATEGORY_ICONS[child.id] || '•';
-          html += `
-            <div class="water-summary-tooltip__category-row child">
-              <span class="water-summary-tooltip__category-name">
-                <span class="water-summary-tooltip__category-icon">${childIcon}</span>
-                <span>${child.name}</span>
-              </span>
-              <span class="water-summary-tooltip__category-count">${child.deviceCount}</span>
-              <span class="water-summary-tooltip__category-consumption">${formatConsumption(child.consumption, unit)}</span>
-            </div>
-          `;
-        });
+      // Render children container (collapsed by default)
+      if (isExpandable) {
+        html += `<div class="water-summary-tooltip__category-children" id="water-cat-${catIndex}">`;
+
+        // Render shopping breakdown if available
+        if (hasShoppingBreakdown) {
+          cat.byShoppingBreakdown!.forEach(shopping => {
+            html += `
+              <div class="water-summary-tooltip__shopping-row">
+                <span class="water-summary-tooltip__shopping-name">${shopping.shoppingName}</span>
+                <span class="water-summary-tooltip__category-count">${shopping.deviceCount}</span>
+                <span class="water-summary-tooltip__category-consumption">${formatConsumption(shopping.consumption, unit)}</span>
+              </div>
+            `;
+          });
+        }
+
+        // Render subcategories (children) if available
+        if (hasChildren) {
+          cat.children!.forEach((child, childIndex) => {
+            const childIcon = WATER_CATEGORY_ICONS[child.id] || '•';
+            const childHasShoppingBreakdown = child.byShoppingBreakdown && child.byShoppingBreakdown.length > 0;
+
+            html += `
+              <div class="water-summary-tooltip__category-row child" data-category-id="${child.id}">
+                <span class="water-summary-tooltip__category-name">
+                  ${childHasShoppingBreakdown ? `
+                    <button class="water-summary-tooltip__expand-toggle" data-target="water-cat-${catIndex}-child-${childIndex}" title="Expandir">+</button>
+                  ` : ''}
+                  <span class="water-summary-tooltip__category-icon">${childIcon}</span>
+                  <span>${child.name}</span>
+                </span>
+                <span class="water-summary-tooltip__category-count">${child.deviceCount}</span>
+                <span class="water-summary-tooltip__category-consumption">${formatConsumption(child.consumption, unit)}</span>
+              </div>
+            `;
+
+            // Child's shopping breakdown
+            if (childHasShoppingBreakdown) {
+              html += `<div class="water-summary-tooltip__category-children" id="water-cat-${catIndex}-child-${childIndex}">`;
+              child.byShoppingBreakdown!.forEach(shopping => {
+                html += `
+                  <div class="water-summary-tooltip__shopping-row">
+                    <span class="water-summary-tooltip__shopping-name">${shopping.shoppingName}</span>
+                    <span class="water-summary-tooltip__category-count">${shopping.deviceCount}</span>
+                    <span class="water-summary-tooltip__category-consumption">${formatConsumption(shopping.consumption, unit)}</span>
+                  </div>
+                `;
+              });
+              html += `</div>`;
+            }
+          });
+        }
+
+        html += `</div>`;
       }
     });
 
@@ -739,6 +904,27 @@ export const WaterSummaryTooltip = {
   },
 
   /**
+   * Render shopping breakdown for summary section
+   */
+  renderShoppingBreakdown(shoppings: ShoppingBreakdown[] | undefined): string {
+    if (!shoppings || shoppings.length === 0) return '';
+
+    const rows = shoppings.map(s => `
+      <div class="water-summary-tooltip__summary-breakdown-row">
+        <span>${s.shoppingName}</span>
+        <span>${s.deviceCount}</span>
+      </div>
+    `).join('');
+
+    return `
+      <div class="water-summary-tooltip__summary-breakdown">
+        <div class="water-summary-tooltip__summary-breakdown-title">Por Shopping</div>
+        ${rows}
+      </div>
+    `;
+  },
+
+  /**
    * Render full tooltip HTML
    */
   renderHTML(summary: DashboardWaterSummary): string {
@@ -746,6 +932,7 @@ export const WaterSummaryTooltip = {
     const statusMatrix = this.renderStatusMatrix(summary.byStatus);
     const timestamp = formatTimestamp(summary.lastUpdated);
     const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
+    const shoppingBreakdown = this.renderShoppingBreakdown(summary.byShoppingTotal);
 
     return `
       <div class="water-summary-tooltip__content">
@@ -778,6 +965,7 @@ export const WaterSummaryTooltip = {
             <span class="water-summary-tooltip__total-devices-label">Total de Medidores</span>
             <span class="water-summary-tooltip__total-devices-value">${summary.totalDevices}</span>
           </div>
+          ${shoppingBreakdown}
 
           <div class="water-summary-tooltip__section-title">Distribuição por Categoria</div>
           <div class="water-summary-tooltip__category-tree">
@@ -880,6 +1068,7 @@ export const WaterSummaryTooltip = {
     this._setupButtonListeners(container);
     this._setupDragListeners(container);
     this._setupExpandButtonListeners(container);
+    this._setupCategoryExpandListeners(container);
   },
 
   /**
@@ -988,6 +1177,41 @@ export const WaterSummaryTooltip = {
         }
         // Start delayed hide
         self._startDevicePopupDelayedHide();
+      });
+    });
+  },
+
+  /**
+   * Setup category expand/collapse button listeners
+   * Toggles visibility of shopping breakdown within categories
+   */
+  _setupCategoryExpandListeners(container: HTMLElement): void {
+    const expandToggles = container.querySelectorAll('.water-summary-tooltip__expand-toggle');
+    expandToggles.forEach(btn => {
+      const btnEl = btn as HTMLElement;
+      btnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetId = btnEl.dataset.target;
+        if (!targetId) return;
+
+        const targetEl = container.querySelector(`#${targetId}`);
+        if (!targetEl) return;
+
+        const isExpanded = targetEl.classList.contains('expanded');
+
+        if (isExpanded) {
+          // Collapse
+          targetEl.classList.remove('expanded');
+          btnEl.classList.remove('expanded');
+          btnEl.textContent = '+';
+          btnEl.setAttribute('title', 'Expandir');
+        } else {
+          // Expand
+          targetEl.classList.add('expanded');
+          btnEl.classList.add('expanded');
+          btnEl.textContent = '−';
+          btnEl.setAttribute('title', 'Recolher');
+        }
       });
     });
   },

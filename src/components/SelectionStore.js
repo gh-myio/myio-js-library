@@ -214,24 +214,52 @@ class MyIOSelectionStoreClass {
 
   // Entity Management
   registerEntity(entity) {
-    if (!entity || typeof entity !== 'object' || !entity.id) {
-      throw new Error('Entity must be an object with an id property');
+    // Issue 4 fix: Support both 'id' and 'entityId' (TelemetryDevice uses entityId)
+    const entityId = entity?.id || entity?.entityId;
+    if (!entity || typeof entity !== 'object' || !entityId) {
+      throw new Error('Entity must be an object with an id or entityId property');
     }
 
+    // Issue 4 fix: Derive unit from domain if not provided
+    let unit = entity.unit || '';
+    if (!unit && entity.domain) {
+      switch (entity.domain) {
+        case 'energy':
+          unit = 'kWh';
+          break;
+        case 'water':
+          unit = 'm³';
+          break;
+        case 'temperature':
+          unit = '°C';
+          break;
+      }
+    }
+
+    // Issue 4 fix: Support 'value', 'consumption', 'pulses', 'temperature' as fallbacks for lastValue
+    const lastValue =
+      Number(entity.lastValue) ||
+      Number(entity.value) ||
+      Number(entity.consumption) ||
+      Number(entity.consumption_power) ||
+      Number(entity.pulses) ||
+      Number(entity.temperature) ||
+      0;
+
     const normalizedEntity = {
-      id: entity.id,
+      id: entityId,
       // RFC-0126: Support both 'name' and 'labelOrName' (TelemetryDevice uses labelOrName)
       name: entity.labelOrName || entity.label || entity.name || entity.deviceIdentifier || '',
-      icon: entity.icon || 'generic',
+      icon: entity.icon || entity.domain || 'generic',
       group: entity.group || '',
-      lastValue: Number(entity.lastValue) || 0,
-      unit: entity.unit || '',
+      lastValue: lastValue,
+      unit: unit,
       status: entity.status || entity.deviceStatus || 'unknown',
-      ingestionId: entity.ingestionId || entity.id, // ⭐ ADD: Store ingestionId for API calls
+      ingestionId: entity.ingestionId || entityId, // ⭐ ADD: Store ingestionId for API calls
       customerName: entity.customerName || entity.ownerName || entity.centralName || '',
     };
 
-    this.entities.set(entity.id, normalizedEntity);
+    this.entities.set(entityId, normalizedEntity);
   }
 
   unregisterEntity(id) {

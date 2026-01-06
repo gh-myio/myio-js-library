@@ -667,6 +667,68 @@ export class WelcomeModalView {
   height: 16px;
 }
 
+/* Font Size Slider */
+.myio-welcome-font-slider {
+  position: absolute;
+  top: 80px;
+  right: 32px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.myio-welcome-font-slider .slider-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.myio-welcome-font-slider .slider-label-lg {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.myio-welcome-font-slider .slider-value {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 40px;
+  text-align: right;
+}
+
+.myio-welcome-font-slider .font-size-range {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.myio-welcome-font-slider .font-size-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--wm-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.myio-welcome-font-slider .font-size-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--wm-primary);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
 /* Hero Content */
 .myio-welcome-hero-content {
   display: flex;
@@ -1532,6 +1594,7 @@ export class WelcomeModalView {
       this.params.shortcutsTitle ?? this.config.defaultShortcutsTitle ?? 'Acesso Rápido aos Shoppings';
     const showUserMenu = this.params.showUserMenu ?? this.config.showUserMenuByDefault ?? true;
     const showThemeToggle = this.params.showThemeToggle ?? true;
+    const showFontSizeSlider = this.params.showFontSizeSlider ?? false;
     const shoppingCards = this.params.shoppingCards ?? [];
 
     // Resolve text colors from theme config (with fallbacks)
@@ -1584,6 +1647,19 @@ export class WelcomeModalView {
                 Sair
               </button>
             </div>
+            ${
+              showFontSizeSlider
+                ? `
+              <div class="myio-welcome-font-slider" id="welcomeFontSlider">
+                <span class="slider-label">A</span>
+                <input type="range" id="fontSizeRange" min="25" max="200" value="100" step="25"
+                       class="font-size-range" title="Ajustar tamanho da fonte" />
+                <span class="slider-label-lg">A</span>
+                <span class="slider-value" id="fontSizeValue">100%</span>
+              </div>
+            `
+                : ''
+            }
           `
               : showThemeToggle
               ? `
@@ -1712,12 +1788,19 @@ export class WelcomeModalView {
       };
 
       // Build badge content with count and value
-      const energyValue = formatEnergy(counts.energyConsumption);
-      const waterValue = formatWater(counts.waterConsumption);
-      const tempValue = formatTemp(counts.temperatureAvg);
+      // Bug-fix-01: Use params to control display of values
+      const showEnergyVal = this.params.showEnergyValue !== false;
+      const showWaterVal = this.params.showWaterValue !== false;
+      const showTempVal = this.params.showTempValue !== false;
+      const sizeMultiplier = this.params.countSizeMultiplier ?? 1;
+      const sizeStyle = sizeMultiplier !== 1 ? `style="transform: scale(${sizeMultiplier}); transform-origin: left center;"` : '';
+
+      const energyValue = showEnergyVal ? formatEnergy(counts.energyConsumption) : '';
+      const waterValue = showWaterVal ? formatWater(counts.waterConsumption) : '';
+      const tempValue = showTempVal ? formatTemp(counts.temperatureAvg) : '';
 
       subtitleHTML = `
-        <div class="myio-welcome-card-device-counts">
+        <div class="myio-welcome-card-device-counts" ${sizeStyle}>
           <span class="myio-welcome-card-device-count energy"
                 data-tooltip-type="energy"
                 data-card-index="${index}"
@@ -1820,6 +1903,25 @@ export class WelcomeModalView {
         }
       });
     });
+
+    // Font size slider
+    const fontSizeRange = this.container.querySelector('#fontSizeRange') as HTMLInputElement;
+    const fontSizeValue = this.container.querySelector('#fontSizeValue');
+    if (fontSizeRange && fontSizeValue) {
+      fontSizeRange.addEventListener('input', () => {
+        const value = parseInt(fontSizeRange.value, 10);
+        fontSizeValue.textContent = `${value}%`;
+        // Apply font size to the modal container
+        const scale = value / 100;
+        this.container.style.setProperty('--wm-font-scale', `${scale}`);
+        // Apply to device count badges
+        const deviceCounts = this.container.querySelectorAll('.myio-welcome-card-device-counts');
+        deviceCounts.forEach((el) => {
+          (el as HTMLElement).style.transform = `scale(${scale})`;
+          (el as HTMLElement).style.transformOrigin = 'left center';
+        });
+      });
+    }
 
     // Tooltip icon clicks
     this.bindTooltipEvents();
