@@ -1,4 +1,4 @@
-/* global self, ctx */
+/* global self, ctx, document, localStorage, window, IntersectionObserver */
 
 /**
  * RFC-0057: Welcome LV Widget
@@ -32,20 +32,20 @@
 let DEBUG_ACTIVE = true;
 
 const LogHelper = {
-  log: function(...args) {
+  log: function (...args) {
     if (DEBUG_ACTIVE) {
       console.log('[WelcomeLV]', ...args);
     }
   },
-  warn: function(...args) {
+  warn: function (...args) {
     if (DEBUG_ACTIVE) {
       console.warn('[WelcomeLV]', ...args);
     }
   },
-  error: function(...args) {
+  error: function (...args) {
     // Always log errors regardless of debug mode
     console.error('[WelcomeLV]', ...args);
-  }
+  },
 };
 
 // Default MYIO palette
@@ -55,7 +55,7 @@ const DEFAULT_PALETTE = {
   gradientStart: 'rgba(10,18,44,0.55)',
   gradientEnd: 'rgba(10,18,44,0.15)',
   ink: '#F5F7FA',
-  muted: '#B8C2D8'
+  muted: '#B8C2D8',
 };
 
 const DEFAULT_LOGO_URL = 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG';
@@ -68,7 +68,7 @@ const DEFAULT_SHOPPING_CARDS = [
     buttonId: 'ShoppingMestreAlvaro',
     dashboardId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
     entityId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
-    entityType: 'ASSET'
+    entityType: 'ASSET',
   },
   {
     title: 'Mont Serrat',
@@ -76,7 +76,7 @@ const DEFAULT_SHOPPING_CARDS = [
     buttonId: 'ShoppingMontSerrat',
     dashboardId: '39e4ca30-b503-11f0-be7f-e760d1498268',
     entityId: '39e4ca30-b503-11f0-be7f-e760d1498268',
-    entityType: 'ASSET'
+    entityType: 'ASSET',
   },
   {
     title: 'Moxuara',
@@ -84,7 +84,7 @@ const DEFAULT_SHOPPING_CARDS = [
     buttonId: 'ShoppingMoxuara',
     dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
     entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
-    entityType: 'ASSET'
+    entityType: 'ASSET',
   },
   {
     title: 'Shopping da Ilha',
@@ -92,8 +92,8 @@ const DEFAULT_SHOPPING_CARDS = [
     buttonId: 'ShoppingDaIlha',
     dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268',
     entityId: 'd2754480-b668-11f0-be7f-e760d1498268',
-    entityType: 'ASSET'
-  }
+    entityType: 'ASSET',
+  },
 ];
 
 // State
@@ -141,8 +141,8 @@ async function fetchCustomerAttributes() {
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Authorization': `Bearer ${tbToken}`
-      }
+        'X-Authorization': `Bearer ${tbToken}`,
+      },
     });
 
     if (!response.ok) {
@@ -155,7 +155,7 @@ async function fetchCustomerAttributes() {
 
     // Convert array to object
     const attrs = {};
-    data.forEach(attr => {
+    data.forEach((attr) => {
       try {
         attrs[attr.key] = JSON.parse(attr.value);
       } catch (e) {
@@ -185,12 +185,12 @@ function resolvePalette(attrs) {
     gradientEnd: attrs['home.brand.palette']?.gradientEnd || DEFAULT_PALETTE.gradientEnd,
     ink: settings.textColor || attrs['home.brand.palette']?.ink || DEFAULT_PALETTE.ink,
     muted: settings.mutedTextColor || attrs['home.brand.palette']?.muted || DEFAULT_PALETTE.muted,
-    userMenuBg: settings.userMenuBackgroundColor || "rgba(255, 255, 255, 0.15)",
-    userMenuBorder: settings.userMenuBorderColor || "rgba(255, 255, 255, 0.3)",
-    logoutBtnBg: settings.logoutButtonBackgroundColor || "rgba(255, 255, 255, 0.2)",
-    logoutBtnBorder: settings.logoutButtonBorderColor || "rgba(255, 255, 255, 0.4)",
-    shoppingCardBg: settings.shoppingCardBackgroundColor || "rgba(255, 255, 255, 0.1)",
-    shoppingCardBorder: settings.shoppingCardBorderColor || "rgba(255, 255, 255, 0.2)"
+    userMenuBg: settings.userMenuBackgroundColor || 'rgba(255, 255, 255, 0.15)',
+    userMenuBorder: settings.userMenuBorderColor || 'rgba(255, 255, 255, 0.3)',
+    logoutBtnBg: settings.logoutButtonBackgroundColor || 'rgba(255, 255, 255, 0.2)',
+    logoutBtnBorder: settings.logoutButtonBorderColor || 'rgba(255, 255, 255, 0.4)',
+    shoppingCardBg: settings.shoppingCardBackgroundColor || 'rgba(255, 255, 255, 0.1)',
+    shoppingCardBorder: settings.shoppingCardBorderColor || 'rgba(255, 255, 255, 0.2)',
   };
 
   LogHelper.log('Palette resolved:', palette);
@@ -234,7 +234,7 @@ function applyPalette(palette) {
     '--welcome-logout-btn-bg': palette.logoutBtnBg,
     '--welcome-logout-btn-border': palette.logoutBtnBorder,
     '--welcome-shopping-card-bg': palette.shoppingCardBg,
-    '--welcome-shopping-card-border': palette.shoppingCardBorder
+    '--welcome-shopping-card-border': palette.shoppingCardBorder,
   };
 
   Object.entries(colorMap).forEach(([cssVar, color]) => {
@@ -286,7 +286,12 @@ function applyHeroBackground(attrs) {
     heroContainer.style.backgroundSize = 'cover';
     heroContainer.style.backgroundPosition = 'center';
     heroContainer.style.backgroundRepeat = 'no-repeat';
-    LogHelper.log('Hero background set:', backgroundUrl, '(source: settings)', settings.defaultBackgroundUrl ? 'YES' : 'NO');
+    LogHelper.log(
+      'Hero background set:',
+      backgroundUrl,
+      '(source: settings)',
+      settings.defaultBackgroundUrl ? 'YES' : 'NO'
+    );
   }
 }
 
@@ -296,16 +301,23 @@ function applyHeroBackground(attrs) {
  */
 async function fetchAndRenderUserMenu(attrs) {
   const settings = ctx.settings || {};
-  const showUserMenu = settings.showUserMenuByDefault !== undefined
-    ? settings.showUserMenuByDefault
-    : (attrs['home.showUserMenu'] !== false);
+  const showUserMenu =
+    settings.showUserMenuByDefault !== undefined
+      ? settings.showUserMenuByDefault
+      : attrs['home.showUserMenu'] !== false;
   const userMenuEl = document.getElementById('welcomeUserMenu');
 
   if (!userMenuEl) return;
 
   if (!showUserMenu) {
     userMenuEl.style.display = 'none';
-    LogHelper.log('User menu hidden by config (settings:', settings.showUserMenuByDefault, 'attrs:', attrs['home.showUserMenu'], ')');
+    LogHelper.log(
+      'User menu hidden by config (settings:',
+      settings.showUserMenuByDefault,
+      'attrs:',
+      attrs['home.showUserMenu'],
+      ')'
+    );
     return;
   }
 
@@ -319,7 +331,7 @@ async function fetchAndRenderUserMenu(attrs) {
     const response = await fetch('/api/auth/user', {
       method: 'GET',
       headers: headers,
-      credentials: 'include'
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -437,7 +449,7 @@ function extractShoppingCardsFromCtxData() {
   // Group data by datasource (each datasource = one shopping)
   const shoppingMap = new Map();
 
-  ctx.data.forEach(dataItem => {
+  ctx.data.forEach((dataItem) => {
     if (!dataItem.datasource) return;
 
     const datasourceKey = dataItem.datasource.entityId || dataItem.datasource.name;
@@ -449,16 +461,15 @@ function extractShoppingCardsFromCtxData() {
         entityType: dataItem.datasource.entityType,
         name: dataItem.datasource.name || dataItem.datasource.entityName,
         entityName: dataItem.datasource.entityName,
-        attributes: {}
+        attributes: {},
       });
     }
 
     // Collect attributes from dataKeys
     if (dataItem.dataKey) {
       const keyName = dataItem.dataKey.name;
-      const latestValue = dataItem.data && dataItem.data.length > 0
-        ? dataItem.data[dataItem.data.length - 1][1]
-        : null;
+      const latestValue =
+        dataItem.data && dataItem.data.length > 0 ? dataItem.data[dataItem.data.length - 1][1] : null;
 
       shoppingMap.get(datasourceKey).attributes[keyName] = latestValue;
     }
@@ -474,7 +485,7 @@ function extractShoppingCardsFromCtxData() {
       entityType: shopping.entityType,
       bgImageUrl: shopping.attributes.bgImageUrl || shopping.attributes.imageUrl || null,
       state: shopping.attributes.defaultState || '',
-      openInNewTab: shopping.attributes.openInNewTab === 'true' || shopping.attributes.openInNewTab === true
+      openInNewTab: shopping.attributes.openInNewTab === 'true' || shopping.attributes.openInNewTab === true,
     };
 
     cards.push(card);
@@ -494,14 +505,14 @@ function navigateToShoppingDashboard(card) {
 
     const state = [
       {
-        id: "default",
+        id: 'default',
         params: {
           entityId: {
             id: card.entityId,
-            entityType: card.entityType
-          }
-        }
-      }
+            entityType: card.entityType,
+          },
+        },
+      },
     ];
 
     const stateBase64 = encodeURIComponent(btoa(JSON.stringify(state)));
@@ -529,7 +540,7 @@ function setupLazyLoading() {
 
   if (!enableLazyLoading) {
     // Load all images immediately if lazy loading is disabled
-    document.querySelectorAll('.card-bg[data-bg-url]').forEach(bg => {
+    document.querySelectorAll('.card-bg[data-bg-url]').forEach((bg) => {
       const imageUrl = bg.getAttribute('data-bg-url');
       if (imageUrl) {
         bg.style.backgroundImage = `url(${imageUrl})`;
@@ -540,25 +551,34 @@ function setupLazyLoading() {
     return;
   }
 
-  const imageObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const cardBg = entry.target;
-        const imageUrl = cardBg.getAttribute('data-bg-url');
-        if (imageUrl) {
-          cardBg.style.backgroundImage = `url(${imageUrl})`;
-          cardBg.removeAttribute('data-bg-url');
-          imageObserver.unobserve(cardBg);
+  const imageObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const cardBg = entry.target;
+          const imageUrl = cardBg.getAttribute('data-bg-url');
+          if (imageUrl) {
+            cardBg.style.backgroundImage = `url(${imageUrl})`;
+            cardBg.removeAttribute('data-bg-url');
+            imageObserver.unobserve(cardBg);
+          }
         }
-      }
-    });
-  }, { rootMargin: rootMargin });
+      });
+    },
+    { rootMargin: rootMargin }
+  );
 
-  document.querySelectorAll('.card-bg[data-bg-url]').forEach(bg => {
+  document.querySelectorAll('.card-bg[data-bg-url]').forEach((bg) => {
     imageObserver.observe(bg);
   });
 
-  LogHelper.log('[rev001] Lazy loading observer set up for', document.querySelectorAll('.card-bg[data-bg-url]').length, 'images (rootMargin:', rootMargin, ')');
+  LogHelper.log(
+    '[rev001] Lazy loading observer set up for',
+    document.querySelectorAll('.card-bg[data-bg-url]').length,
+    'images (rootMargin:',
+    rootMargin,
+    ')'
+  );
 }
 
 /**
@@ -580,7 +600,9 @@ function renderShortcuts(attrs) {
     return;
   }
 
-  container.innerHTML = cards.map((card, index) => `
+  container.innerHTML = cards
+    .map(
+      (card, index) => `
     <button class="shopping-card"
             id="${card.buttonId || 'Shopping' + index}"
             type="button"
@@ -590,7 +612,9 @@ function renderShortcuts(attrs) {
       <h3>${card.title || 'Shopping'}</h3>
       <p>${card.subtitle || ''}</p>
     </button>
-  `).join('');
+  `
+    )
+    .join('');
 
   // Setup lazy loading for background images
   setupLazyLoading();
@@ -611,7 +635,10 @@ function renderShortcuts(attrs) {
     }
   });
 
-  LogHelper.log('Shopping cards rendered with navigation:', cards.map(c => c.buttonId || c.title).join(', '));
+  LogHelper.log(
+    'Shopping cards rendered with navigation:',
+    cards.map((c) => c.buttonId || c.title).join(', ')
+  );
 }
 
 /**
@@ -621,7 +648,12 @@ function renderShortcuts(attrs) {
 function handleCTAClick(attrs) {
   const settings = ctx.settings || {};
   const primaryState = settings.defaultPrimaryState || attrs['home.actions.primaryState'] || 'main';
-  LogHelper.log('CTA clicked → state:', primaryState, '(source: settings)', settings.defaultPrimaryState ? 'YES' : 'NO');
+  LogHelper.log(
+    'CTA clicked → state:',
+    primaryState,
+    '(source: settings)',
+    settings.defaultPrimaryState ? 'YES' : 'NO'
+  );
 
   try {
     ctx.stateController.openState(primaryState, {}, false);
@@ -645,7 +677,8 @@ function renderHeroContent(attrs) {
   // Priority: Widget Settings > Customer Attributes > Defaults
   const title = settings.defaultHeroTitle || attrs['home.hero.title'] || defaultTitle;
   const description = settings.defaultHeroDescription || attrs['home.hero.description'] || defaultDescription;
-  const primaryLabel = settings.defaultPrimaryLabel || attrs['home.actions.primaryLabel'] || defaultPrimaryLabel;
+  const primaryLabel =
+    settings.defaultPrimaryLabel || attrs['home.actions.primaryLabel'] || defaultPrimaryLabel;
 
   LogHelper.log('Hero settings:', { title, description, primaryLabel });
 
@@ -718,7 +751,7 @@ async function init() {
     // Render components
     applyHeroBackground(customerAttrs); // Apply hero background image
     renderLogo(customerAttrs);
-    renderHeroContent(customerAttrs);  // rev001: Text overrides
+    renderHeroContent(customerAttrs); // rev001: Text overrides
     await fetchAndRenderUserMenu(customerAttrs); // Fetch user from API
     renderShortcuts(customerAttrs);
     wireCTA(customerAttrs);
@@ -730,16 +763,16 @@ async function init() {
 }
 
 // Widget lifecycle hooks
-self.onInit = function() {
+self.onInit = function () {
   LogHelper.log('onInit() called');
   init();
 };
 
-self.onDataUpdated = function() {
+self.onDataUpdated = function () {
   // Widget doesn't depend on data updates
   LogHelper.log('onDataUpdated() called (no-op)');
 };
 
-self.onDestroy = function() {
+self.onDestroy = function () {
   LogHelper.log('onDestroy() called');
 };

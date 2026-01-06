@@ -50,28 +50,56 @@ export class ComparisonHandler {
 
   /**
    * Get the date range from params, stored value, or defaults
+   * Always validates the returned values to ensure they are valid date strings
    */
   private getDateRange(): DateRange {
+    // Helper to check if a date string is valid
+    const isValidDateString = (val: unknown): val is string => {
+      if (typeof val !== 'string' || !val) return false;
+      const d = new Date(val);
+      return !isNaN(d.getTime());
+    };
+
     // Try params.getDateRange first
     if (this.params.getDateRange) {
-      return this.params.getDateRange();
+      const range = this.params.getDateRange();
+      if (range && isValidDateString(range.start) && isValidDateString(range.end)) {
+        return range;
+      }
+      this.log.warn('getDateRange() returned invalid dates, trying fallbacks');
     }
 
     // Try stored date range
-    if (this.dateRange) {
+    if (this.dateRange && isValidDateString(this.dateRange.start) && isValidDateString(this.dateRange.end)) {
       return this.dateRange;
     }
 
     // Try ctx.scope
     const ctx = this.params.ctx;
     if (ctx?.scope?.startDateISO && ctx?.scope?.endDateISO) {
-      return {
-        start: ctx.scope.startDateISO,
-        end: ctx.scope.endDateISO,
-      };
+      const scopeStart = ctx.scope.startDateISO;
+      const scopeEnd = ctx.scope.endDateISO;
+      if (isValidDateString(scopeStart) && isValidDateString(scopeEnd)) {
+        return {
+          start: scopeStart,
+          end: scopeEnd,
+        };
+      }
+    }
+
+    // Try window.MyIOOrchestrator date range
+    const win = window as any;
+    if (win.MyIOOrchestrator?.dateRange) {
+      const orchStart = win.MyIOOrchestrator.dateRange.start || win.MyIOOrchestrator.dateRange.startDate;
+      const orchEnd = win.MyIOOrchestrator.dateRange.end || win.MyIOOrchestrator.dateRange.endDate;
+      if (isValidDateString(orchStart) && isValidDateString(orchEnd)) {
+        this.log.log('Using date range from MyIOOrchestrator');
+        return { start: orchStart, end: orchEnd };
+      }
     }
 
     // Default: last 7 days
+    this.log.log('Using default date range (last 7 days)');
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 7);

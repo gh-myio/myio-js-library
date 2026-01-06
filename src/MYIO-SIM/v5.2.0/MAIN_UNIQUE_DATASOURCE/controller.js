@@ -2385,7 +2385,12 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // Retry function: wait for data-ready event with retry and toast feedback
   // 10 attempts x 3s = 30s max wait time
-  const waitForDataReadyWithRetry = async (componentName, onDataReceived, maxRetries = 10, intervalMs = 3000) => {
+  const waitForDataReadyWithRetry = async (
+    componentName,
+    onDataReceived,
+    maxRetries = 10,
+    intervalMs = 3000
+  ) => {
     let dataReceived = false;
     let receivedClassified = null;
 
@@ -2417,7 +2422,7 @@ body.filter-modal-open { overflow: hidden !important; }
           intervalMs
         );
         LogHelper.log(`[MAIN_UNIQUE] Waiting for ${componentName} data, attempt ${attempt}/${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, intervalMs));
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
       }
     }
 
@@ -2759,10 +2764,12 @@ body.filter-modal-open { overflow: hidden !important; }
             `Aguardando dados do orchestrator... Tentativa ${attempt}/${maxRetries}`,
             intervalMs
           );
-          LogHelper.log(`[MAIN_UNIQUE] Orchestrator not ready, retry ${attempt}/${maxRetries} in ${intervalMs}ms`);
+          LogHelper.log(
+            `[MAIN_UNIQUE] Orchestrator not ready, retry ${attempt}/${maxRetries} in ${intervalMs}ms`
+          );
 
           // Wait before next attempt
-          await new Promise(resolve => setTimeout(resolve, intervalMs));
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
         }
       }
 
@@ -2777,7 +2784,7 @@ body.filter-modal-open { overflow: hidden !important; }
       LogHelper.log('[MAIN_UNIQUE] No devices from orchestrator, starting retry...');
 
       // Start retry in background and update grid when data arrives
-      retryGetDevicesWithToast(currentTelemetryDomain, currentTelemetryContext).then(devices => {
+      retryGetDevicesWithToast(currentTelemetryDomain, currentTelemetryContext).then((devices) => {
         if (devices.length > 0 && telemetryGridInstance) {
           LogHelper.log('[MAIN_UNIQUE] Updating TelemetryGrid with retried devices:', devices.length);
           telemetryGridInstance.updateDevices?.(devices);
@@ -3302,7 +3309,8 @@ body.filter-modal-open { overflow: hidden !important; }
 
       // Update telemetry grid
       if (telemetryGridInstance) {
-        const devices = window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
+        const devices =
+          window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
         telemetryGridInstance.updateDevices(devices);
       }
 
@@ -3310,7 +3318,8 @@ body.filter-modal-open { overflow: hidden !important; }
       const energyTotal = energyItems.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
       const waterTotal = waterItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0);
       const tempValues = temperatureItems.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
-      const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+      const tempAvg =
+        tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
       window.dispatchEvent(
         new CustomEvent('myio:energy-summary-ready', {
@@ -3365,7 +3374,7 @@ body.filter-modal-open { overflow: hidden !important; }
     }
 
     try {
-      const customerId = window.myioHoldingCustomerId;
+      const customerId = getCustomerTB_ID();
       if (!customerId) {
         LogHelper.error('[MAIN_UNIQUE] customerId not found');
         window.alert('Customer ID nao disponivel. Aguarde o carregamento completo.');
@@ -3461,7 +3470,12 @@ body.filter-modal-open { overflow: hidden !important; }
 
   function handleContextChange(tabId, contextId, target) {
     // Check if this is a panel modal request (Geral, Resumo, Resumo Geral)
-    const panelContexts = ['energy_general', 'water_summary', 'temperature_summary', 'temperature_comparison'];
+    const panelContexts = [
+      'energy_general',
+      'water_summary',
+      'temperature_summary',
+      'temperature_comparison',
+    ];
 
     if (panelContexts.includes(contextId)) {
       // Open panel modal instead of switching TELEMETRY
@@ -3473,7 +3487,9 @@ body.filter-modal-open { overflow: hidden !important; }
       currentTelemetryDomain = tabId;
       currentTelemetryContext = classifiedContext;
 
-      LogHelper.log(`[MAIN_UNIQUE] Context change: menu=${contextId} -> classified=${classifiedContext}, domain=${tabId}`);
+      LogHelper.log(
+        `[MAIN_UNIQUE] Context change: menu=${contextId} -> classified=${classifiedContext}, domain=${tabId}`
+      );
 
       // Keep legacy event for backwards compatibility (TELEMETRY widget and any external listeners)
       window.dispatchEvent(
@@ -3488,7 +3504,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
       if (telemetryGridInstance) {
         const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
-        LogHelper.log(`[MAIN_UNIQUE] Updating telemetryGrid: domain=${tabId}, context=${classifiedContext}, devices=${devices.length}`);
+        LogHelper.log(
+          `[MAIN_UNIQUE] Updating telemetryGrid: domain=${tabId}, context=${classifiedContext}, devices=${devices.length}`
+        );
         telemetryGridInstance.updateConfig(tabId, classifiedContext);
         telemetryGridInstance.updateDevices(devices);
       }

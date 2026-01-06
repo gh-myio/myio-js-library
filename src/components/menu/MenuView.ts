@@ -833,6 +833,7 @@ export class MenuView {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+  display: none;
 }
 
 .myio-menu-filter-item .filter-icon {
