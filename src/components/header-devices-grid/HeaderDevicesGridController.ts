@@ -15,9 +15,11 @@ import { HeaderDevicesGridView } from './HeaderDevicesGridView.js';
 
 export class HeaderDevicesGridController implements HeaderDevicesGridInstance {
   private view: HeaderDevicesGridView;
+  private domain: HeaderDevicesDomain;
 
   constructor(params: HeaderDevicesGridParams) {
     this.view = new HeaderDevicesGridView(params);
+    this.domain = params.domain || 'energy';
   }
 
   get element(): HTMLElement {
@@ -44,31 +46,48 @@ export class HeaderDevicesGridController implements HeaderDevicesGridInstance {
       }
     });
 
-    let totalConsumption = 0;
+    let totalValue = 0;
     let zeroCount = 0;
+    let validValueCount = 0;
 
     devices.forEach((device) => {
-      let consumption = 0;
+      let value = 0;
 
       if (cache && device.ingestionId) {
         const cached = cache.get(device.ingestionId);
         if (cached) {
-          consumption = Number(cached.total_value) || 0;
+          value = Number(cached.total_value) || 0;
         }
       }
 
-      if (consumption === 0) {
-        consumption = Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
+      if (value === 0) {
+        // For temperature, prioritize temperature field
+        if (this.domain === 'temperature') {
+          value = Number((device as Record<string, unknown>).temperature) ||
+                  Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
+        } else {
+          value = Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
+        }
       }
 
-      totalConsumption += consumption;
-      if (consumption === 0) zeroCount++;
+      totalValue += value;
+      if (value === 0) {
+        zeroCount++;
+      } else {
+        validValueCount++;
+      }
     });
+
+    // For temperature domain, calculate average instead of sum
+    let displayValue = totalValue;
+    if (this.domain === 'temperature' && validValueCount > 0) {
+      displayValue = totalValue / validValueCount;
+    }
 
     this.updateStats({
       online,
       total: devices.length,
-      consumption: totalConsumption,
+      consumption: displayValue,
       zeroCount,
     });
   }
@@ -78,6 +97,7 @@ export class HeaderDevicesGridController implements HeaderDevicesGridInstance {
   }
 
   public setDomain(domain: HeaderDevicesDomain): void {
+    this.domain = domain;
     this.view.setDomain(domain);
   }
 

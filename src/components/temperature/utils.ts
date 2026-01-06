@@ -310,11 +310,16 @@ export function getSelectedPeriodsLabel(selectedPeriods: DayPeriod[]): string {
  * @param decimals - Number of decimal places (default: 1)
  * @returns Formatted temperature string with °C unit, or '—' if value is invalid
  */
-export function formatTemperature(value: number | null | undefined, decimals: number = 1): string {
-  if (value === null || value === undefined || isNaN(value)) {
+export function formatTemperature(value: number | string | null | undefined, decimals: number = 1): string {
+  if (value === null || value === undefined) {
     return '—';
   }
-  return `${value.toFixed(decimals)}°C`;
+  // Convert to number if string
+  const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+  if (isNaN(numValue)) {
+    return '—';
+  }
+  return `${numValue.toFixed(decimals)}°C`;
 }
 
 /**

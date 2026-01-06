@@ -5125,6 +5125,17 @@ window.MyIOOrchestrator = window.MyIOOrchestrator || {};
 // Get devices by domain and context
 window.MyIOOrchestrator.getDevices = function (domain, context) {
   const data = window.MyIOOrchestratorData?.classified;
+  if (!data) return [];
+
+  // Special case: water > area_comum should include hidrometro_area_comum + banheiros
+  // (all water devices except lojas/entrada)
+  if (domain === 'water' && context === 'hidrometro_area_comum') {
+    return [
+      ...(data.water?.hidrometro_area_comum || []),
+      ...(data.water?.banheiros || []),
+    ];
+  }
+
   return data?.[domain]?.[context] || [];
 };
 
