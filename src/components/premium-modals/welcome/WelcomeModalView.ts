@@ -2273,38 +2273,115 @@ export class WelcomeModalView {
         customerName: card.title,
       },
       water: (() => {
-        // Calculate water consumption by category
-        const areaComumItems = waterItems.filter((d: any) => (d.deviceProfile || '').includes('AREA_COMUM'));
-        const lojaItems = waterItems.filter(
-          (d: any) =>
-            !(d.deviceProfile || '').includes('AREA_COMUM') &&
-            !(d.deviceProfile || '').includes('SHOPPING')
-        );
+        // RFC-0111: Calculate water consumption by category
+        // Categories: Entrada, Lojas, Banheiros, Área Comum, Pontos Não Mapeados
+        const getDeviceTypeProfile = (d: any) => {
+          const type = (d.deviceType || '').toUpperCase();
+          const profile = (d.deviceProfile || '').toUpperCase();
+          return type + ' ' + profile;
+        };
+
+        const entradaItems = waterItems.filter((d: any) => {
+          const combined = getDeviceTypeProfile(d);
+          return combined.includes('ENTRADA') || combined.includes('RELOGIO') || combined.includes('PRINCIPAL');
+        });
+        const banheirosItems = waterItems.filter((d: any) => {
+          const combined = getDeviceTypeProfile(d);
+          return combined.includes('BANHEIRO') || combined.includes('WC') || combined.includes('SANITARIO');
+        });
+        const areaComumItems = waterItems.filter((d: any) => {
+          const combined = getDeviceTypeProfile(d);
+          return combined.includes('AREA_COMUM') || combined.includes('COMUM');
+        });
+        // Lojas = remaining devices that aren't entrada, banheiros, or area comum
+        const lojaItems = waterItems.filter((d: any) => {
+          const combined = getDeviceTypeProfile(d);
+          const isEntrada = combined.includes('ENTRADA') || combined.includes('RELOGIO') || combined.includes('PRINCIPAL');
+          const isBanheiro = combined.includes('BANHEIRO') || combined.includes('WC') || combined.includes('SANITARIO');
+          const isAreaComum = combined.includes('AREA_COMUM') || combined.includes('COMUM');
+          return !isEntrada && !isBanheiro && !isAreaComum;
+        });
+
+        const entradaConsumption = entradaItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
+        const banheirosConsumption = banheirosItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
         const areaComumConsumption = areaComumItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
         const lojasConsumption = lojaItems.reduce((sum: number, d: any) => sum + Number(d.value || d.pulses || 0), 0);
+
+        // Pontos Não Mapeados = Entrada - (Lojas + Banheiros + Área Comum)
+        const mappedConsumption = lojasConsumption + banheirosConsumption + areaComumConsumption;
+        const unmappedConsumption = Math.max(0, entradaConsumption - mappedConsumption);
+
+        // Total reference = entrada or sum of mapped
+        const totalRef = entradaConsumption || mappedConsumption || waterTotal;
+
+        const categories = [];
+
+        // Entrada
+        if (entradaItems.length > 0 || entradaConsumption > 0) {
+          categories.push({
+            id: 'entrada',
+            name: 'Entrada',
+            icon: '📥',
+            deviceCount: entradaItems.length,
+            consumption: entradaConsumption,
+            percentage: 0, // Entry is 100% reference, not a percentage
+          });
+        }
+
+        // Lojas
+        if (lojaItems.length > 0 || lojasConsumption > 0) {
+          categories.push({
+            id: 'lojas',
+            name: 'Lojas',
+            icon: '🏪',
+            deviceCount: lojaItems.length,
+            consumption: lojasConsumption,
+            percentage: totalRef > 0 ? (lojasConsumption / totalRef) * 100 : 0,
+          });
+        }
+
+        // Banheiros
+        if (banheirosItems.length > 0 || banheirosConsumption > 0) {
+          categories.push({
+            id: 'banheiros',
+            name: 'Banheiros',
+            icon: '🚿',
+            deviceCount: banheirosItems.length,
+            consumption: banheirosConsumption,
+            percentage: totalRef > 0 ? (banheirosConsumption / totalRef) * 100 : 0,
+          });
+        }
+
+        // Área Comum
+        if (areaComumItems.length > 0 || areaComumConsumption > 0) {
+          categories.push({
+            id: 'areaComum',
+            name: 'Área Comum',
+            icon: '🏢',
+            deviceCount: areaComumItems.length,
+            consumption: areaComumConsumption,
+            percentage: totalRef > 0 ? (areaComumConsumption / totalRef) * 100 : 0,
+          });
+        }
+
+        // Pontos Não Mapeados
+        if (unmappedConsumption > 0) {
+          categories.push({
+            id: 'naoMapeados',
+            name: 'Pontos Não Mapeados',
+            icon: '📊',
+            deviceCount: 0,
+            consumption: unmappedConsumption,
+            percentage: totalRef > 0 ? (unmappedConsumption / totalRef) * 100 : 0,
+            isWarning: true,
+          });
+        }
 
         return {
           totalDevices: waterItems.length,
           totalConsumption: waterTotal,
           unit: 'm³',
-          byCategory: [
-            {
-              id: 'areaComum',
-              name: 'Área Comum',
-              icon: '🏢',
-              deviceCount: areaComumItems.length,
-              consumption: areaComumConsumption,
-              percentage: waterTotal > 0 ? (areaComumConsumption / waterTotal) * 100 : 0,
-            },
-            {
-              id: 'lojas',
-              name: 'Lojas',
-              icon: '🏪',
-              deviceCount: lojaItems.length,
-              consumption: lojasConsumption,
-              percentage: waterTotal > 0 ? (lojasConsumption / waterTotal) * 100 : 0,
-            },
-          ],
+          byCategory: categories,
           byStatus: aggregateStatus(waterItems),
           lastUpdated: now,
           customerName: card.title,

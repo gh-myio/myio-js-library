@@ -2861,7 +2861,11 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0126: Apply shopping filter from Header/Menu filter modal
   window.addEventListener('myio:filter-applied', (e) => {
     const selection = e.detail?.selection || [];
-    const shoppingIds = Array.isArray(selection) ? selection.map((s) => s?.value).filter(Boolean) : [];
+    // Include both value (UUID) AND name (shopping name) for matching
+    // Devices have ownerName as lowercase name (e.g., 'mestre álvaro'), not UUID
+    const shoppingIds = Array.isArray(selection)
+      ? selection.flatMap((s) => [s?.value, s?.name, s?.name?.toLowerCase()].filter(Boolean))
+      : [];
 
     // RFC-0126: Store in global state for backward compatibility with legacy widgets
     window.custumersSelected = selection;
