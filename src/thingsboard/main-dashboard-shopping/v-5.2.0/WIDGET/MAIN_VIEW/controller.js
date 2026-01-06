@@ -164,6 +164,58 @@ Object.assign(window.MyIOUtils, {
     }
   },
 
+  // RFC-0130: Delay time settings for connection status by device type
+  // Populated from widget settings in onInit
+  delayTimeSettings: {
+    stores: 86400, // 60 days for energy stores (3F_MEDIDOR)
+    equipment: 1440, // 24h for energy equipment (non-3F_MEDIDOR)
+    water: 2880, // 48h for water devices (HIDROMETRO*)
+    temperature: 1440, // 24h for temperature devices (TERMOSTATO*)
+  },
+
+  /**
+   * RFC-0130: Get delay time in minutes based on device profile
+   * @param {string} deviceProfile - Device profile (e.g., '3F_MEDIDOR', 'HIDROMETRO', 'TERMOSTATO')
+   * @returns {number} Delay time in minutes
+   */
+  getDelayTimeConnectionInMins: (deviceProfile) => {
+    const profile = (deviceProfile || '').toUpperCase();
+    const settings = window.MyIOUtils?.delayTimeSettings || {};
+
+    // Temperature devices
+    if (profile.includes('TERMOSTATO') || profile.includes('TEMPERATURE')) {
+      return settings.temperature ?? 1440; // 24h default
+    }
+
+    // Water devices
+    if (profile.includes('HIDROMETRO') || profile.includes('TANK') || profile.includes('CAIXA')) {
+      return settings.water ?? 2880; // 48h default
+    }
+
+    // Energy devices - check if store (3F_MEDIDOR) or equipment
+    if (profile === '3F_MEDIDOR') {
+      return settings.stores ?? 86400; // 60 days for stores
+    }
+
+    // Energy equipment (CHILLER, FANCOIL, ELEVADOR, ESCADA_ROLANTE, MOTOR, etc.)
+    return settings.equipment ?? 1440; // 24h default
+  },
+
+  /**
+   * RFC-0130: Update delay time settings (called from onInit with widget settings)
+   * @param {object} newSettings - New delay time settings
+   */
+  updateDelayTimeSettings: (newSettings) => {
+    if (newSettings) {
+      const settings = window.MyIOUtils.delayTimeSettings;
+      if (newSettings.stores !== undefined) settings.stores = newSettings.stores;
+      if (newSettings.equipment !== undefined) settings.equipment = newSettings.equipment;
+      if (newSettings.water !== undefined) settings.water = newSettings.water;
+      if (newSettings.temperature !== undefined) settings.temperature = newSettings.temperature;
+      LogHelper.log('[MyIOUtils] RFC-0130: Delay time settings updated:', settings);
+    }
+  },
+
   /**
    * Handle 401 Unauthorized errors globally
    * Shows toast message and reloads the page
@@ -913,6 +965,16 @@ Object.assign(window.MyIOUtils, {
     };
     widgetSettings.excludeDevicesAtCountSubtotalCAG =
       self.ctx.settings?.excludeDevicesAtCountSubtotalCAG ?? [];
+
+    // RFC-0130: Load delay time settings from widget settings
+    const delaySettings = {
+      stores: self.ctx.settings?.delayTimeConnectionInMinsToStore ?? 86400, // 60 days default
+      equipment: self.ctx.settings?.delayTimeConnectionInMinsToEquipment ?? 1440, // 24h default
+      water: self.ctx.settings?.delayTimeConnectionInMinsToWater ?? 2880, // 48h default
+      temperature: self.ctx.settings?.delayTimeConnectionInMinsToTemperature ?? 1440, // 24h default
+    };
+    window.MyIOUtils?.updateDelayTimeSettings?.(delaySettings);
+    LogHelper.log('[Orchestrator] RFC-0130: Delay time settings loaded:', delaySettings);
 
     LogHelper.log('[Orchestrator] 📋 Widget settings captured:', {
       customerTB_ID: widgetSettings.customerTB_ID,
@@ -2461,7 +2523,8 @@ function populateStateTemperature(items) {
  */
 function periodKey(domain, period) {
   // RFC-0130: Get customerTB_ID from multiple sources with fallback
-  const customerTbId = widgetSettings.customerTB_ID ||
+  const customerTbId =
+    widgetSettings.customerTB_ID ||
     window.MyIOOrchestrator?.customerTB_ID ||
     window.__myioCustomerTB_ID ||
     'default';
@@ -3126,7 +3189,11 @@ const MyIOOrchestrator = (() => {
    * @param {number} intervalMs - Interval between retries in ms (default: 3000)
    * @returns {Promise<object|null>} - Returns period object or null if timeout
    */
-  async function waitForPeriodWithRetry(domain, maxRetries = RETRY_CONFIG.maxRetries, intervalMs = RETRY_CONFIG.intervalMs) {
+  async function waitForPeriodWithRetry(
+    domain,
+    maxRetries = RETRY_CONFIG.maxRetries,
+    intervalMs = RETRY_CONFIG.intervalMs
+  ) {
     const MyIOToast = window.MyIOLibrary?.MyIOToast;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -3150,7 +3217,10 @@ const MyIOOrchestrator = (() => {
       if (attempt < maxRetries) {
         LogHelper.log(`[Orchestrator] ⏳ Waiting for period, attempt ${attempt}/${maxRetries}...`);
         if (MyIOToast) {
-          MyIOToast.warning(`Aguardando configuração de período... Tentativa ${attempt}/${maxRetries}`, intervalMs - 500);
+          MyIOToast.warning(
+            `Aguardando configuração de período... Tentativa ${attempt}/${maxRetries}`,
+            intervalMs - 500
+          );
         }
 
         // Wait before next attempt
@@ -3159,7 +3229,9 @@ const MyIOOrchestrator = (() => {
     }
 
     // RFC-0130: After all retries failed, use default period as final fallback
-    LogHelper.warn(`[Orchestrator] ⚠️ Period not available after ${maxRetries} attempts - using default period`);
+    LogHelper.warn(
+      `[Orchestrator] ⚠️ Period not available after ${maxRetries} attempts - using default period`
+    );
     const defaultPeriod = getDefaultPeriod();
     currentPeriod = defaultPeriod;
     window.__myioInitialPeriod = defaultPeriod;
@@ -3275,7 +3347,9 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0110 v5: Use library's calculateDeviceStatus if available
     if (lib?.calculateDeviceStatus) {
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 86400; // 24h default
+      // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
+      const deviceProfile = options.deviceProfile || options.deviceType || '';
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
       const shortDelayMins = 60; // 60 mins for BAD/OFFLINE recovery
 
       const status = lib.calculateDeviceStatus({
@@ -3352,8 +3426,11 @@ const MyIOOrchestrator = (() => {
       : meta.consumptionTs;
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
+    // RFC-0130: Pass deviceProfile for delay time calculation
+    const deviceProfile = meta.deviceProfile || meta.deviceType || '';
     const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
       domain: domain,
+      deviceProfile: deviceProfile,
       telemetryTimestamp: telemetryTimestamp || null,
       lastActivityTime: meta.lastActivityTime,
     });
@@ -3363,7 +3440,7 @@ const MyIOOrchestrator = (() => {
     const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
     if (isDebugDevice) {
       const lib = window.MyIOLibrary;
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 86000;
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
       const shortDelayMins = 60;
       const telemetryStale = lib?.isTelemetryStale
         ? lib.isTelemetryStale(telemetryTimestamp, meta.lastActivityTime, delayMins)
@@ -4832,7 +4909,8 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0130: Check if period changed - if so, clear cache for this domain
     const newPeriod = ev.detail.period;
-    const periodChanged = !currentPeriod ||
+    const periodChanged =
+      !currentPeriod ||
       currentPeriod.startISO !== newPeriod?.startISO ||
       currentPeriod.endISO !== newPeriod?.endISO;
 
@@ -4885,7 +4963,9 @@ const MyIOOrchestrator = (() => {
       hydrateDomain(visibleTab, currentPeriod);
     } else if (visibleTab && !currentPeriod) {
       // RFC-0130: No period yet - start retry loop to wait for period
-      LogHelper.log(`[Orchestrator] ⏳ RFC-0130: myio:dashboard-state - no period, starting retry for ${visibleTab}`);
+      LogHelper.log(
+        `[Orchestrator] ⏳ RFC-0130: myio:dashboard-state - no period, starting retry for ${visibleTab}`
+      );
       requestDataWithRetry(visibleTab, null);
     } else {
       LogHelper.log(
@@ -4935,7 +5015,9 @@ const MyIOOrchestrator = (() => {
         await hydrateDomain(domain, p);
       } else {
         // RFC-0130: No period available - use retry mechanism
-        LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data - no period, starting retry for ${domain}`);
+        LogHelper.log(
+          `[Orchestrator] 📡 myio:telemetry:request-data - no period, starting retry for ${domain}`
+        );
         OrchestratorState.loading[domain] = false;
 
         // Start retry in background (non-blocking)

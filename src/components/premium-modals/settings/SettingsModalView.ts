@@ -947,6 +947,8 @@ export class SettingsModalView {
       ok: { text: 'ONLINE', color: '#22c55e' },
       alert: { text: 'Atenção', color: '#f59e0b' },
       fail: { text: 'OFFLINE', color: '#ef4444' },
+      offline: { text: 'OFFLINE', color: '#ef4444' }, // RFC-0130: Added missing offline status
+      weak: { text: 'Conexão Fraca', color: '#f59e0b' }, // RFC-0130: Added missing weak status
       not_installed: { text: 'Não instalado', color: '#94a3b8' },
       unknown: { text: 'Sem informação', color: '#94a3b8' },
     };
@@ -2187,8 +2189,9 @@ export class SettingsModalView {
 
     try {
       // Fetch the latest single telemetry point
+      // RFC-0130: Extended window from 24h to 7 days to show older telemetry data
       const endTs = Date.now();
-      const startTs = endTs - 24 * 60 * 60 * 1000; // Last 24 hours
+      const startTs = endTs - 7 * 24 * 60 * 60 * 1000; // Last 7 days
       const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${telemetryConfig.key}&startTs=${startTs}&endTs=${endTs}&limit=1&orderBy=DESC`;
 
       const response = await fetch(url, {

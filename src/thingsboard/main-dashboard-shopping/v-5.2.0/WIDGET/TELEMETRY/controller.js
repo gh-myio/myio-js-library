@@ -1499,7 +1499,9 @@ function buildAuthoritativeItems() {
 
     // RFC-0110 v3: Domain-specific telemetry required + Dual threshold
     const SHORT_DELAY_MINS = 60;
-    const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
+    // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
+    const effectiveDeviceProfile = deviceTypeToDisplay || deviceProfile || '';
+    const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.(effectiveDeviceProfile) ?? 1440;
 
     // RFC-0110 v3: Get domain-specific telemetry timestamp
     // IMPORTANT: Each device type has its OWN specific telemetry
@@ -4294,7 +4296,9 @@ self.onInit = async function () {
 
       // RFC-0110 v3: Domain-specific telemetry required + Dual threshold
       const SHORT_DELAY_MINS = 60;
-      const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
+      // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
+      const itemDeviceProfile = item.deviceProfile || item.deviceType || '';
+      const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.(itemDeviceProfile) ?? 1440;
       const isTankItem = item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
       const isTemperatureItem = item.deviceType === 'TERMOSTATO';
       const isHidrometerItem = item._isHidrometerDevice || item.deviceType?.toUpperCase?.().startsWith?.('HIDROMETRO') || false;
