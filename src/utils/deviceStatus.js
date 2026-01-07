@@ -11,16 +11,16 @@
  * @enum {string}
  */
 export const DeviceStatusType = {
-  POWER_ON: "power_on",
-  STANDBY: "standby",
-  POWER_OFF: "power_off",
-  WARNING: "warning",
-  FAILURE: "failure",
-  MAINTENANCE: "maintenance",
-  NO_INFO: "no_info",
-  NOT_INSTALLED: "not_installed",
-  OFFLINE: "offline",
-  WEAK_CONNECTION: "weak_connection", // RFC-0109: Device with unstable/bad connection
+  POWER_ON: 'power_on',
+  STANDBY: 'standby',
+  POWER_OFF: 'power_off',
+  WARNING: 'warning',
+  FAILURE: 'failure',
+  MAINTENANCE: 'maintenance',
+  NO_INFO: 'no_info',
+  NOT_INSTALLED: 'not_installed',
+  OFFLINE: 'offline',
+  WEAK_CONNECTION: 'weak_connection', // RFC-0109: Device with unstable/bad connection
 };
 
 /**
@@ -29,11 +29,11 @@ export const DeviceStatusType = {
  * @enum {string}
  */
 export const ConnectionStatusType = {
-  ONLINE: "online",
-  CONNECTED: "connected", // alias for online
-  OFFLINE: "offline",
-  WAITING: "waiting",
-  BAD: "bad", // RFC-0109: Weak/unstable connection
+  ONLINE: 'online',
+  CONNECTED: 'connected', // alias for online
+  OFFLINE: 'offline',
+  WAITING: 'waiting',
+  BAD: 'bad', // RFC-0109: Weak/unstable connection
 };
 
 /**
@@ -41,16 +41,16 @@ export const ConnectionStatusType = {
  * @type {Object.<string, string>}
  */
 export const deviceStatusIcons = {
-  [DeviceStatusType.POWER_ON]: "⚡",
-  [DeviceStatusType.STANDBY]: "🔌",
-  [DeviceStatusType.POWER_OFF]: "⚫",
-  [DeviceStatusType.WARNING]: "⚠️",
-  [DeviceStatusType.FAILURE]: "🚨",
-  [DeviceStatusType.MAINTENANCE]: "🛠️",
-  [DeviceStatusType.NO_INFO]: "❓️",
-  [DeviceStatusType.NOT_INSTALLED]: "📦",
-  [DeviceStatusType.OFFLINE]: "🔴",
-  [DeviceStatusType.WEAK_CONNECTION]: "📶", // RFC-0109: Weak signal icon
+  [DeviceStatusType.POWER_ON]: '⚡',
+  [DeviceStatusType.STANDBY]: '🔌',
+  [DeviceStatusType.POWER_OFF]: '⚫',
+  [DeviceStatusType.WARNING]: '⚠️',
+  [DeviceStatusType.FAILURE]: '🚨',
+  [DeviceStatusType.MAINTENANCE]: '🛠️',
+  [DeviceStatusType.NO_INFO]: '❓️',
+  [DeviceStatusType.NOT_INSTALLED]: '📦',
+  [DeviceStatusType.OFFLINE]: '🔴',
+  [DeviceStatusType.WEAK_CONNECTION]: '📶', // RFC-0109: Weak signal icon
 };
 
 /**
@@ -58,16 +58,16 @@ export const deviceStatusIcons = {
  * @type {Object.<string, string>}
  */
 export const waterDeviceStatusIcons = {
-  [DeviceStatusType.POWER_ON]: "💧",
-  [DeviceStatusType.STANDBY]: "🚰",
-  [DeviceStatusType.POWER_OFF]: "⚫",
-  [DeviceStatusType.WARNING]: "⚠️",
-  [DeviceStatusType.FAILURE]: "🚨",
-  [DeviceStatusType.MAINTENANCE]: "🛠️",
-  [DeviceStatusType.NO_INFO]: "❓️",
-  [DeviceStatusType.NOT_INSTALLED]: "📦",
-  [DeviceStatusType.OFFLINE]: "🔴",
-  [DeviceStatusType.WEAK_CONNECTION]: "📶", // RFC-0109: Weak signal icon
+  [DeviceStatusType.POWER_ON]: '💧',
+  [DeviceStatusType.STANDBY]: '🚰',
+  [DeviceStatusType.POWER_OFF]: '⚫',
+  [DeviceStatusType.WARNING]: '⚠️',
+  [DeviceStatusType.FAILURE]: '🚨',
+  [DeviceStatusType.MAINTENANCE]: '🛠️',
+  [DeviceStatusType.NO_INFO]: '❓️',
+  [DeviceStatusType.NOT_INSTALLED]: '📦',
+  [DeviceStatusType.OFFLINE]: '🔴',
+  [DeviceStatusType.WEAK_CONNECTION]: '📶', // RFC-0109: Weak signal icon
 };
 
 /**
@@ -75,16 +75,16 @@ export const waterDeviceStatusIcons = {
  * @type {Object.<string, string>}
  */
 export const temperatureDeviceStatusIcons = {
-  [DeviceStatusType.POWER_ON]: "🌡️",
-  [DeviceStatusType.STANDBY]: "🌡️",
-  [DeviceStatusType.POWER_OFF]: "⚫",
-  [DeviceStatusType.WARNING]: "⚠️",
-  [DeviceStatusType.FAILURE]: "🚨",
-  [DeviceStatusType.MAINTENANCE]: "🛠️",
-  [DeviceStatusType.NO_INFO]: "❓️",
-  [DeviceStatusType.NOT_INSTALLED]: "📦",
-  [DeviceStatusType.OFFLINE]: "🔴",
-  [DeviceStatusType.WEAK_CONNECTION]: "📶", // RFC-0109: Weak signal icon
+  [DeviceStatusType.POWER_ON]: '🌡️',
+  [DeviceStatusType.STANDBY]: '🌡️',
+  [DeviceStatusType.POWER_OFF]: '⚫',
+  [DeviceStatusType.WARNING]: '⚠️',
+  [DeviceStatusType.FAILURE]: '🚨',
+  [DeviceStatusType.MAINTENANCE]: '🛠️',
+  [DeviceStatusType.NO_INFO]: '❓️',
+  [DeviceStatusType.NOT_INSTALLED]: '📦',
+  [DeviceStatusType.OFFLINE]: '🔴',
+  [DeviceStatusType.WEAK_CONNECTION]: '📶', // RFC-0109: Weak signal icon
 };
 
 /**
@@ -92,11 +92,11 @@ export const temperatureDeviceStatusIcons = {
  * @type {Object.<string, string>}
  */
 export const connectionStatusIcons = {
-  [ConnectionStatusType.ONLINE]: "🟢",
-  [ConnectionStatusType.CONNECTED]: "🟢",
-  [ConnectionStatusType.OFFLINE]: "🚫",
-  [ConnectionStatusType.WAITING]: "🟡",
-  [ConnectionStatusType.BAD]: "🟠", // RFC-0109: Weak connection icon (orange)
+  [ConnectionStatusType.ONLINE]: '🟢',
+  [ConnectionStatusType.CONNECTED]: '🟢',
+  [ConnectionStatusType.OFFLINE]: '🚫',
+  [ConnectionStatusType.WAITING]: '🟡',
+  [ConnectionStatusType.BAD]: '🟠', // RFC-0109: Weak connection icon (orange)
 };
 
 /**
@@ -156,24 +156,21 @@ export function normalizeConnectionStatus(rawStatus) {
  * device is offline. Telemetry (consumption/pulses/temperature) only updates when
  * the device actually sends data, making it a reliable indicator of activity.
  *
- * @param {number|Date|null} telemetryTimestamp - Primary: timestamp from telemetry data
- * @param {number|Date|null} lastActivityTime - Fallback: ThingsBoard lastActivityTime
- * @param {number} [delayMins=1440] - Threshold in minutes (default: 24 hours)
+ * @param {number|Date|null} telemetryTimestamp - Timestamp from telemetry data
+ * @param {number} [delayMins] - Threshold in minutes
  * @returns {boolean} true if telemetry is stale (device should be considered offline)
  *
  * @example
  * // Recent telemetry (30 min ago) → not stale
- * isTelemetryStale(Date.now() - 30 * 60 * 1000, null, 1440); // false
+ * isTelemetryStale(Date.now() - 30 * 60 * 1000, 1440); // false
  *
  * @example
  * // Old telemetry (25 hours ago) → stale
- * isTelemetryStale(Date.now() - 25 * 60 * 60 * 1000, null, 1440); // true
+ * isTelemetryStale(Date.now() - 25 * 60 * 60 * 1000, 1440); // true
  */
-export function isTelemetryStale(telemetryTimestamp, lastActivityTime = null, delayMins = 1440) {
-  // Use telemetryTimestamp or lastActivityTime as fallback
+export function isTelemetryStale(telemetryTimestamp, delayMins) {
   // RFC-0110 v3: Treat timestamp 0 or negative as invalid
-  const timestamp = (telemetryTimestamp && telemetryTimestamp > 0) ? telemetryTimestamp :
-                    (lastActivityTime && lastActivityTime > 0) ? lastActivityTime : null;
+  const timestamp = telemetryTimestamp && telemetryTimestamp > 0 ? telemetryTimestamp : null;
 
   // No valid timestamp available = assume not stale (conservative approach)
   if (!timestamp) {
@@ -197,17 +194,12 @@ export function isTelemetryStale(telemetryTimestamp, lastActivityTime = null, de
  *
  * @param {Object} params
  * @param {number|Date|null} params.connectionStatusTs - Timestamp do connectionStatus do ThingsBoard
- * @param {number|Date|null} params.lastActivityTime - Fallback: timestamp da última atividade
- * @param {number} [params.delayTimeConnectionInMins=1440] - Tempo em minutos para considerar conexão obsoleta
+ * @param {number} [params.delayTimeConnectionInMins] - Tempo em minutos para considerar conexão obsoleta
  * @returns {boolean} true se conexão está obsoleta (deve ser considerado offline)
  */
-export function isConnectionStale({
-  connectionStatusTs = null,
-  lastActivityTime = null,
-  delayTimeConnectionInMins = 1440,
-} = {}) {
+export function isConnectionStale({ connectionStatusTs = null, delayTimeConnectionInMins } = {}) {
   // Delegate to new function
-  return isTelemetryStale(connectionStatusTs, lastActivityTime, delayTimeConnectionInMins);
+  return isTelemetryStale(connectionStatusTs, delayTimeConnectionInMins);
 }
 
 /**
@@ -349,16 +341,16 @@ export function getDeviceStatusInfo(deviceStatus) {
     connectionIcon: getConnectionStatusIcon(connectionStatus),
     shouldFlash: shouldFlashIcon(deviceStatus),
     isOffline: isDeviceOffline(deviceStatus),
-    isValid: isValidDeviceStatus(deviceStatus)
+    isValid: isValidDeviceStatus(deviceStatus),
   };
 }
 
 /**
- * RFC-0110 v5: Unified device status calculation based on telemetry timestamps with fallback.
+ * RFC-0110 v5: Unified device status calculation based on telemetry timestamps.
  *
  * This function determines device status using:
  * 1. connectionStatus for immediate states (waiting)
- * 2. telemetryTimestamp (domain-specific) or lastActivityTime as fallback
+ * 2. telemetryTimestamp (domain-specific)
  * 3. Dual threshold for stale/offline detection
  * 4. telemetryValue for operational status (standby, power_on, warning, failure)
  *
@@ -366,23 +358,18 @@ export function getDeviceStatusInfo(deviceStatus) {
  * - WAITING → NOT_INSTALLED (absolute, no discussion)
  * - BAD + recent telemetry (< 60 mins) → POWER_ON, else WEAK_CONNECTION
  * - OFFLINE + recent telemetry (< 60 mins) → POWER_ON, else OFFLINE
- * - ONLINE + no effective timestamp → OFFLINE
+ * - ONLINE + no telemetry timestamp → OFFLINE
  * - ONLINE + stale (> 24h) → OFFLINE
  * - ONLINE + fresh (< 24h) → continue to value-based calculation
- *
- * Timestamp priority:
- * 1. telemetryTimestamp (domain-specific: consumptionTs, pulsesTs, etc.)
- * 2. lastActivityTime (fallback when no domain telemetry)
  *
  * @param {Object} params - Configuration object
  * @param {string} params.connectionStatus - Connection status: "waiting", "offline", "bad", or "online"
  * @param {string} [params.domain='energy'] - Device domain: 'energy', 'water', or 'temperature'
  * @param {number|null} [params.telemetryValue] - Telemetry value (consumption/pulses/temperature)
  * @param {number|null} [params.telemetryTimestamp] - Unix timestamp (ms) of domain-specific telemetry
- * @param {number|null} [params.lastActivityTime] - Fallback timestamp when no domain telemetry
  * @param {Object} [params.ranges] - Consumption ranges for status calculation
- * @param {number} [params.delayTimeConnectionInMins=1440] - Long threshold for 'online' status (default: 24h)
- * @param {number} [params.shortDelayMins=60] - Short threshold for 'offline'/'bad' status (default: 60 mins)
+ * @param {number} [params.delayTimeConnectionInMins] - Long threshold for 'online' status
+ * @param {number} [params.shortDelayMins] - Short threshold for 'offline'/'bad' status
  * @param {number|null} [params.lastConsumptionValue] - @deprecated Use telemetryValue instead
  * @param {number} [params.limitOfPowerOnStandByWatts] - @deprecated Use ranges instead
  * @param {number} [params.limitOfPowerOnAlertWatts] - @deprecated Use ranges instead
@@ -390,13 +377,11 @@ export function getDeviceStatusInfo(deviceStatus) {
  * @returns {string} Device status from DeviceStatusType enum
  *
  * @example
- * // RFC-0110 v5: With domain telemetry
  * calculateDeviceStatus({
  *   connectionStatus: "online",
  *   domain: "energy",
  *   telemetryValue: 500,
- *   telemetryTimestamp: consumptionTs, // Primary: domain-specific timestamp
- *   lastActivityTime: lastActivityTime, // Fallback if consumptionTs is null
+ *   telemetryTimestamp: consumptionTs,
  *   ranges: { ... },
  *   delayTimeConnectionInMins: 1440
  * }); // Returns "power_on" if fresh telemetry, "offline" if stale/missing
@@ -406,47 +391,34 @@ export function calculateDeviceStatus({
   // RFC-0110: New parameters
   domain = 'energy',
   telemetryValue = null,
-  telemetryTimestamp = null, // v3: MUST be domain-specific (consumptionTs, pulsesTs, etc.)
-  lastActivityTime = null, // v3: NOT USED as fallback anymore
+  telemetryTimestamp = null, // MUST be domain-specific (consumptionTs, pulsesTs, etc.)
   ranges = null,
   // RFC-0110 v2: Dual threshold configuration
-  delayTimeConnectionInMins = 1440, // For 'online' status (24h default)
-  shortDelayMins = 60, // For 'offline'/'bad' status (60 mins default)
+  delayTimeConnectionInMins, // For 'online' status
+  shortDelayMins, // For 'offline'/'bad' status
   // Legacy parameters (backward compatibility)
   lastConsumptionValue = null,
   limitOfPowerOnStandByWatts = null,
   limitOfPowerOnAlertWatts = null,
   limitOfPowerOnFailureWatts = null,
-  // @deprecated - kept for backward compatibility
-  lastConnectTime = null,
-  lastDisconnectTime = null,
 }) {
   // RFC-0109: Normalize connectionStatus first
   const normalizedStatus = normalizeConnectionStatus(connectionStatus);
 
   // 1. WAITING → NOT_INSTALLED (absolute priority)
-  if (normalizedStatus === "waiting") {
+  if (normalizedStatus === 'waiting') {
     return DeviceStatusType.NOT_INSTALLED;
   }
 
   // 2. RFC-0110 v5: Calculate timestamps for status detection
   // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
-  const hasTelemetryTs = telemetryTimestamp !== null && telemetryTimestamp !== undefined && telemetryTimestamp > 0;
-  const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
-
-  // RFC-0110 v5 FIX: For BAD/OFFLINE recovery, use lastActivityTime as fallback
-  // For ONLINE → OFFLINE stale detection, use ONLY telemetryTimestamp (no fallback)
-  const effectiveTimestampForRecovery = hasTelemetryTs ? telemetryTimestamp : (hasLastActivityTime ? lastActivityTime : null);
-  const hasEffectiveTimestampForRecovery = effectiveTimestampForRecovery !== null;
-
-  // 3. RFC-0110 v5: If no effective timestamp at all → OFFLINE (for ONLINE status)
-  // For BAD/OFFLINE, we check below with short threshold
-
-  // 4. BAD → Check telemetry (60 mins threshold)
+  const hasTelemetryTs =
+    telemetryTimestamp !== null && telemetryTimestamp !== undefined && telemetryTimestamp > 0;
+  // 3. BAD → Check telemetry (60 mins threshold)
   // If recent telemetry, treat as online (hide weak_connection from client)
   // If stale telemetry or no timestamp, show WEAK_CONNECTION
-  if (normalizedStatus === "bad") {
-    const hasRecentTelemetry = hasEffectiveTimestampForRecovery && !isTelemetryStale(effectiveTimestampForRecovery, null, shortDelayMins);
+  if (normalizedStatus === 'bad') {
+    const hasRecentTelemetry = hasTelemetryTs && !isTelemetryStale(telemetryTimestamp, shortDelayMins);
     if (hasRecentTelemetry) {
       // Device is working fine, continue to value-based calculation
     } else {
@@ -454,28 +426,25 @@ export function calculateDeviceStatus({
     }
   }
 
-  // 5. OFFLINE → Check telemetry (60 mins threshold)
+  // 4. OFFLINE → Check telemetry (60 mins threshold)
   // If recent telemetry (< 60 mins), treat as online
   // If stale telemetry (> 60 mins) or no timestamp, mark as OFFLINE
-  if (normalizedStatus === "offline") {
-    const hasRecentTelemetry = hasEffectiveTimestampForRecovery && !isTelemetryStale(effectiveTimestampForRecovery, null, shortDelayMins);
+  if (normalizedStatus === 'offline') {
+    const hasRecentTelemetry = hasTelemetryTs && !isTelemetryStale(telemetryTimestamp, shortDelayMins);
     if (!hasRecentTelemetry) {
       return DeviceStatusType.OFFLINE;
     }
     // Has recent telemetry - continue to value-based calculation
   }
 
-  // 6. ONLINE → Check telemetry (24h threshold)
-  // RFC-0110 v5 FIX: Use ONLY telemetryTimestamp for ONLINE → OFFLINE stale detection
-  // lastActivityTime is updated by keepalive/heartbeat, not actual domain telemetry
-  // So a device can have recent lastActivityTime but stale/missing domain-specific telemetry
-  if (normalizedStatus === "online") {
+  // 5. ONLINE → Check telemetry (24h threshold)
+  if (normalizedStatus === 'online') {
     // No domain-specific telemetry timestamp = device is not sending actual data = OFFLINE
     if (!hasTelemetryTs) {
       return DeviceStatusType.OFFLINE;
     }
     // Has telemetry timestamp but it's stale (> 24h) = OFFLINE
-    const telemetryStale = isTelemetryStale(telemetryTimestamp, null, delayTimeConnectionInMins);
+    const telemetryStale = isTelemetryStale(telemetryTimestamp, delayTimeConnectionInMins);
     if (telemetryStale) {
       return DeviceStatusType.OFFLINE;
     }
@@ -551,8 +520,7 @@ export function calculateDeviceStatus({
  * @param {number|null} params.lastConsumptionValue - Last power consumption value in watts
  * @param {Object} params.ranges - Consumption ranges object
  * @param {number|null} [params.telemetryTimestamp] - RFC-0110: Timestamp of telemetry
- * @param {number|null} [params.lastActivityTime] - RFC-0110: Fallback timestamp
- * @param {number} [params.delayTimeConnectionInMins=1440] - RFC-0110: Stale threshold (default 24h)
+ * @param {number} [params.delayTimeConnectionInMins] - RFC-0110: Stale threshold
  * @returns {string} Device status from DeviceStatusType enum
  */
 export function calculateDeviceStatusWithRanges({
@@ -561,19 +529,14 @@ export function calculateDeviceStatusWithRanges({
   ranges,
   // RFC-0110: New parameters
   telemetryTimestamp = null,
-  lastActivityTime = null,
-  delayTimeConnectionInMins = 1440,
-  // @deprecated - kept for backward compatibility
-  lastConnectTime = null,
-  lastDisconnectTime = null,
+  delayTimeConnectionInMins,
 }) {
   // Delegate to unified calculateDeviceStatus function
   return calculateDeviceStatus({
     connectionStatus,
     domain: 'energy',
     telemetryValue: lastConsumptionValue,
-    telemetryTimestamp: telemetryTimestamp || lastConnectTime || lastDisconnectTime,
-    lastActivityTime,
+    telemetryTimestamp,
     ranges,
     delayTimeConnectionInMins,
   });
@@ -596,7 +559,7 @@ export function calculateDeviceStatusWithRanges({
  * @param {Object} options - Configuration object
  * @param {string} [options.connectionStatus=''] - Connection status from ThingsBoard
  * @param {number|null} [options.telemetryTimestamp=null] - Domain-specific telemetry timestamp (ms)
- * @param {number} [options.delayMins=1440] - Long threshold in minutes (default: 24h)
+ * @param {number} [options.delayMins] - Long threshold in minutes
  * @param {string} [options.domain='energy'] - Device domain (for logging/debug)
  * @returns {string} Device status: 'not_installed', 'offline', 'power_on', or 'weak_connection'
  *
@@ -617,24 +580,13 @@ export function calculateDeviceStatusWithRanges({
  * }); // Returns 'offline'
  */
 export function calculateDeviceStatusMasterRules(options = {}) {
-  const {
-    connectionStatus = '',
-    telemetryTimestamp = null,
-    delayMins = 1440, // 24h for online status
-    domain = 'energy',
-  } = options;
+  const { connectionStatus, telemetryTimestamp = null, delayMins, domain, SHORT_DELAY_MINS } = options;
 
-  const SHORT_DELAY_MINS = 60; // For offline/bad recovery
   const now = Date.now();
-
   const normalizedStatus = (connectionStatus || '').toLowerCase().trim();
 
   // 1. WAITING → NOT_INSTALLED (absolute priority)
-  if (
-    normalizedStatus === 'waiting' ||
-    normalizedStatus === 'connecting' ||
-    normalizedStatus === 'pending'
-  ) {
+  if (normalizedStatus === 'waiting' || normalizedStatus === 'connecting' || normalizedStatus === 'pending') {
     return DeviceStatusType.NOT_INSTALLED;
   }
 

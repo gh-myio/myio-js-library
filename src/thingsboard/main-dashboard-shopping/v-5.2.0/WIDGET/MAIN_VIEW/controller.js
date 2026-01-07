@@ -339,6 +339,79 @@ Object.assign(window.MyIOUtils, {
       window.location.reload();
     }, 3500);
   },
+
+  /**
+   * RFC-0097: Fetch energy consumption for a specific day/period
+   * Used by ENERGY widget for chart data
+   * @param {string} customerId - Customer ID
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - Granularity ('1d', '1h', etc.) - default '1d'
+   * @returns {Promise<Array>} Array of device consumption data
+   */
+  fetchEnergyDayConsumption: async (customerId, startTs, endTs, granularity = '1d') => {
+    try {
+      // Get credentials from orchestrator
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: No credentials available');
+        return [];
+      }
+
+      // Build auth client - use MyIOLibrary.buildMyioIngestionAuth directly
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available');
+        return [];
+      }
+
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+
+      // Get token
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: Failed to get token');
+        return [];
+      }
+
+      // Format timestamps to ISO
+      const startISO = new Date(startTs).toISOString();
+      const endISO = new Date(endTs).toISOString();
+
+      // Build API URL
+      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
+      url.searchParams.set('startTime', startISO);
+      url.searchParams.set('endTime', endISO);
+      url.searchParams.set('deep', '1');
+      if (granularity) {
+        url.searchParams.set('granularity', granularity);
+      }
+
+      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: ${url.toString()}`);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError('fetchEnergyDayConsumption');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const json = await res.json();
+      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: Got ${json?.length || 0} devices`);
+      return json;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption error:', error);
+      return [];
+    }
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error
@@ -2531,6 +2604,7 @@ function periodKey(domain, period) {
   return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
 }
 
+const SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS = 60;
 // ========== ORCHESTRATOR SINGLETON ==========
 
 const MyIOOrchestrator = (() => {
@@ -3342,15 +3416,26 @@ const MyIOOrchestrator = (() => {
    * @param {number|null} [options.lastDisconnectTime] - Timestamp of last disconnection
    * @returns {string} deviceStatus: 'power_on', 'offline', 'weak_connection', 'not_installed'
    */
-  function convertConnectionStatusToDeviceStatus(connectionStatus, options = {}) {
+  function convertConnectionStatusToDeviceStatus(connectionStatus, deviceName, options = {}) {
     const lib = window.MyIOLibrary;
 
     // RFC-0110 v5: Use library's calculateDeviceStatus if available
     if (lib?.calculateDeviceStatus) {
       // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
       const deviceProfile = options.deviceProfile || options.deviceType || '';
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
-      const shortDelayMins = 60; // 60 mins for BAD/OFFLINE recovery
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile);
+      const shortDelayMins = SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS;
+      const isDebugDevice = deviceName.includes('HIDR. SCMP110A') || deviceName.includes('HIDR. SCMP110A');
+
+      if (isDebugDevice) {
+        console.log('[DEBUG] >>> convertConnectionStatusToDeviceStatus called with:', {
+          connectionStatus,
+          options,
+          deviceName,
+          delayMins,
+          shortDelayMins,
+        });
+      }
 
       const status = lib.calculateDeviceStatus({
         connectionStatus: connectionStatus,
@@ -3395,6 +3480,103 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
+   * RFC-0078: Extract power limits from mapInstantaneousPower JSON
+   * Resolves inconsistencies between TB names and JSON keys with intelligent fallback
+   * @param {Object} powerLimitsJSON - mapInstantaneousPower configuration
+   * @param {string} deviceType - Device type to find limits for
+   * @param {string} telemetryType - Telemetry type (default 'consumption')
+   * @returns {Object|null} Range configuration or null
+   */
+  function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
+    if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
+      return null;
+    }
+
+    const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
+      (config) => config.telemetryType === telemetryType
+    );
+
+    if (!telemetryConfig) return null;
+
+    // Normalize type to avoid space/case issues
+    const typeUpper = String(deviceType || '')
+      .toUpperCase()
+      .trim();
+
+    // 1. EXACT MATCH (ideal)
+    let deviceConfig = telemetryConfig.itemsByDeviceType.find(
+      (item) => String(item.deviceType).toUpperCase().trim() === typeUpper
+    );
+
+    // 2. ALIAS MATCHING
+    if (!deviceConfig) {
+      if (typeUpper.includes('ESCADA') || typeUpper === 'ESCADASROLANTES' || typeUpper.includes('ER ')) {
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'ESCADA_ROLANTE');
+      } else if (typeUpper.includes('ELEVADOR') || typeUpper.includes('ELV')) {
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'ELEVADOR');
+      } else if (typeUpper.includes('BOMBA')) {
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'BOMBA');
+      } else if (typeUpper.includes('CHILLER')) {
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'CHILLER');
+        if (!deviceConfig)
+          deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'MOTOR');
+      } else if (typeUpper.includes('FANCOIL'))
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'FANCOIL');
+      else if (typeUpper.includes('HVAC'))
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'HVAC');
+    }
+
+    // 3. UNIVERSAL FALLBACK (CATCH-ALL)
+    if (!deviceConfig) {
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === '3F_MEDIDOR');
+      if (!deviceConfig)
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'MOTOR');
+    }
+
+    if (!deviceConfig) return null;
+
+    // 4. Extract ranges
+    const ranges = {
+      standbyRange: { down: 0, up: 0 },
+      normalRange: { down: 0, up: 0 },
+      alertRange: { down: 0, up: 0 },
+      failureRange: { down: 0, up: 0 },
+    };
+
+    if (deviceConfig.limitsByDeviceStatus) {
+      deviceConfig.limitsByDeviceStatus.forEach((status) => {
+        const vals = status.limitsValues || status.limitsVales || {};
+        const baseValue = vals.baseValue ?? 0;
+        const topValue = vals.topValue ?? 99999999;
+
+        switch (status.deviceStatusName) {
+          case 'standBy':
+            ranges.standbyRange = { down: baseValue, up: topValue };
+            break;
+          case 'normal':
+            ranges.normalRange = { down: baseValue, up: topValue };
+            break;
+          case 'alert':
+            ranges.alertRange = { down: baseValue, up: topValue };
+            break;
+          case 'failure':
+            ranges.failureRange = { down: baseValue, up: topValue };
+            break;
+        }
+      });
+    }
+
+    return {
+      ...ranges,
+      source: 'json',
+      metadata: {
+        name: deviceConfig.name,
+        matchedType: deviceConfig.deviceType,
+      },
+    };
+  }
+
+  /**
    * RFC-0111: Factory function to create orchestrator items with centralized deviceStatus logic
    *
    * This function creates a standardized item object with:
@@ -3410,6 +3592,8 @@ const MyIOOrchestrator = (() => {
    * @returns {Object} Orchestrator item object
    */
   function createOrchestratorItem({ entityId, meta, apiRow = null, overrides = {} }) {
+    let debugLabel = meta.label || meta.identifier || overrides.label || '';
+
     // RFC-0110 v5: Determine domain and telemetry timestamp for device status calculation
     const effectiveDeviceType = (meta.deviceProfile || meta.deviceType || '').toLowerCase();
     const isWaterDevice =
@@ -3428,22 +3612,51 @@ const MyIOOrchestrator = (() => {
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     // RFC-0130: Pass deviceProfile for delay time calculation
     const deviceProfile = meta.deviceProfile || meta.deviceType || '';
-    const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
+    let deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, debugLabel, {
       domain: domain,
       deviceProfile: deviceProfile,
       telemetryTimestamp: telemetryTimestamp || null,
       lastActivityTime: meta.lastActivityTime,
     });
 
+    // RFC-0078: For energy devices with 'power_on' status, refine using power ranges
+    const isEnergyDevice = domain === 'energy';
+    if (isEnergyDevice && deviceStatus === 'power_on' && meta.consumption !== undefined) {
+      // Use device-level limits (TIER 0) first, then customer-level (TIER 2)
+      const deviceMapLimits = meta.deviceMapInstaneousPower
+        ? typeof meta.deviceMapInstaneousPower === 'string'
+          ? JSON.parse(meta.deviceMapInstaneousPower)
+          : meta.deviceMapInstaneousPower
+        : null;
+      const customerLimits = window.MyIOUtils?.mapInstantaneousPower || null;
+      const limitsToUse = deviceMapLimits || customerLimits;
+
+      if (limitsToUse) {
+        const deviceTypeForRanges = meta.deviceProfile || meta.deviceType || '3F_MEDIDOR';
+        const ranges = extractLimitsFromJSON(limitsToUse, deviceTypeForRanges, 'consumption');
+
+        if (ranges && typeof window.MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
+          const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
+          deviceStatus = window.MyIOLibrary.calculateDeviceStatusWithRanges({
+            connectionStatus: meta.connectionStatus,
+            lastConsumptionValue: meta.consumption,
+            ranges: ranges,
+            telemetryTimestamp: telemetryTimestamp,
+            delayTimeConnectionInMins: delayMins,
+          });
+        }
+      }
+    }
+
     // DEBUG: Forced tracking for specific device
-    const debugLabel = meta.label || meta.identifier || overrides.label || '';
+    debugLabel = meta.label || meta.identifier || overrides.label || '';
     const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
     if (isDebugDevice) {
       const lib = window.MyIOLibrary;
       const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
       const shortDelayMins = 60;
       const telemetryStale = lib?.isTelemetryStale
-        ? lib.isTelemetryStale(telemetryTimestamp, meta.lastActivityTime, delayMins)
+        ? lib.isTelemetryStale(telemetryTimestamp, delayMins)
         : 'N/A (lib not available)';
       console.warn(`🔴 [DEBUG MAIN_VIEW RFC-0110 v5] createOrchestratorItem for "${debugLabel}":`, {
         entityId,
@@ -5169,6 +5382,62 @@ const MyIOOrchestrator = (() => {
         CLIENT_ID,
         CLIENT_SECRET,
       };
+    },
+
+    /**
+     * RFC-0097: Calculate and dispatch energy summary for ENERGY widget
+     * Called by ENERGY widget's waitForOrchestratorAndRequestSummary
+     * Calculates customerTotal, equipmentsTotal, lojasTotal from cached data
+     */
+    requestSummary: () => {
+      LogHelper.log('[Orchestrator] requestSummary called by ENERGY widget');
+
+      const cachedData = window.MyIOOrchestratorData?.energy;
+      if (!cachedData || !cachedData.items || cachedData.items.length === 0) {
+        LogHelper.warn('[Orchestrator] requestSummary: No energy data cached yet');
+        return;
+      }
+
+      const items = cachedData.items;
+      let customerTotal = 0;
+      let equipmentsTotal = 0;
+      let lojasTotal = 0;
+
+      items.forEach((item) => {
+        const value = Number(item.value) || Number(item.consumption) || 0;
+        customerTotal += value;
+
+        // Check if it's a store device (both deviceType AND deviceProfile are '3F_MEDIDOR')
+        const deviceProfile = String(item.deviceProfile || '').toUpperCase();
+        const deviceType = String(item.deviceType || '').toUpperCase();
+        const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+
+        if (isStore) {
+          lojasTotal += value;
+        } else {
+          equipmentsTotal += value;
+        }
+      });
+
+      // Note: lojasTotal is calculated directly, not as difference
+      // For backwards compatibility with old ENERGY widget, also provide 'difference'
+      const energySummary = {
+        customerTotal,
+        unfilteredTotal: customerTotal,
+        isFiltered: false,
+        deviceCount: items.length,
+        equipmentsTotal,
+        lojasTotal,
+        difference: lojasTotal, // For backwards compatibility
+      };
+
+      LogHelper.log(`[Orchestrator] 📊 Emitting myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-summary-ready', {
+          detail: energySummary,
+        })
+      );
     },
 
     destroy: () => {

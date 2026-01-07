@@ -325,9 +325,13 @@ export function createConsumption7DaysChart(
 
     if (currentVizMode === 'separate' && data.shoppingData && data.shoppingNames) {
       // Per-shopping datasets - use config colors or defaults
+      // RFC-0130: Extended color palette to support more shoppings (20+ colors)
       const shoppingColors = colors.shoppingColors || [
         '#2563eb', '#16a34a', '#ea580c', '#dc2626', '#8b5cf6',
         '#0891b2', '#65a30d', '#d97706', '#be185d', '#0d9488',
+        '#7c3aed', '#059669', '#db2777', '#9333ea', '#0284c7',
+        '#ca8a04', '#4f46e5', '#c026d3', '#14b8a6', '#f97316',
+        '#6366f1', '#84cc16', '#ec4899', '#06b6d4', '#a855f7',
       ];
 
       datasets = Object.entries(data.shoppingData).map(([shoppingId, values], index) => ({

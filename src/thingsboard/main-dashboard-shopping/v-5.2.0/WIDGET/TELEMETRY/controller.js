@@ -791,7 +791,9 @@ function getItemsFromState(domain, labelWidget) {
       const cachedPeriodKey = orchestratorData.temperature.periodKey || '';
       const cachedCustomerId = cachedPeriodKey.split(':')[0];
       if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
-        LogHelper.warn(`[TELEMETRY] 🚫 MyIOOrchestratorData customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`);
+        LogHelper.warn(
+          `[TELEMETRY] 🚫 MyIOOrchestratorData customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`
+        );
         // Clear stale cache
         delete window.MyIOOrchestratorData.temperature;
       } else {
@@ -1211,30 +1213,6 @@ function toSpOffsetNoMs(dt, endOfDay = false) {
   ).padStart(2, '0')}-03:00`;
 }
 
-// converts raw API value to the UI target unit
-function toTargetUnit(raw) {
-  /*
-  const x = Number(raw || 0);
-
-  if (DEVICE_TYPE === "energy") {
-    return MyIO.formatEnergy(x);
-  }
-
-  if (DEVICE_TYPE === "water") {
-    return MyIO.formatWaterVolumeM3(x);
-  }
-
-  if (DEVICE_TYPE === "tank") {
-    return MyIO.formatTankHeadFromCm(x);
-  }
-
-  // Default fallback for temperature or unknown types
-  return x;
-  */
-  // TODO Trecho comentado, pois já faz o tratamento no componente
-
-  return Number(raw || 0);
-}
 function mustGetDateRange() {
   const s = self.ctx?.scope?.startDateISO;
   const e = self.ctx?.scope?.endDateISO;
@@ -1243,6 +1221,7 @@ function mustGetDateRange() {
 }
 
 const isAuthReady = () => !!(MyIOAuth && typeof MyIOAuth.getToken === 'function');
+
 async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
   const start = Date.now();
   while (!isAuthReady()) {
@@ -1252,69 +1231,6 @@ async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
   return true;
 }
 
-/** ===================== TB INDEXES ===================== **/
-function buildTbAttrIndex() {
-  // RFC-0091: Added deviceMapInstaneousPower for TIER 0 hierarchical resolution
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastDisconnectTime, lastActivityTime, connectionStatus, deviceMapInstaneousPower }
-  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
-  for (const row of rows) {
-    const key = String(row?.dataKey?.name || '').toLowerCase();
-    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
-    const val = row?.data?.[0]?.[1];
-
-    if (!tbId || val == null) continue;
-    if (!byTbId.has(tbId))
-      byTbId.set(tbId, {
-        slaveId: null,
-        centralId: null,
-        deviceType: null,
-        deviceProfile: null,
-        centralName: null,
-        customerName: null,
-        lastConnectTime: null,
-        lastDisconnectTime: null,
-        lastActivityTime: null,
-        connectionStatus: null,
-        consumption_power: null,
-        deviceMapInstaneousPower: null, // RFC-0091: Device-specific power limits (TIER 0)
-        log_annotations: null, // RFC-0096: Log annotations array
-        // RFC-0110 v3: Domain-specific telemetry timestamps
-        consumptionTs: null,
-        pulsesTs: null,
-        temperatureTs: null,
-        waterLevelTs: null,
-        waterPercentageTs: null,
-      });
-    const slot = byTbId.get(tbId);
-    if (key === 'slaveid') slot.slaveId = val;
-    if (key === 'centralid') slot.centralId = val;
-    if (key === 'devicetype') slot.deviceType = val;
-    if (key === 'deviceprofile') slot.deviceProfile = val;
-    if (key === 'centralname') slot.centralName = val;
-    if (key === 'customername') slot.customerName = val;
-    if (key === 'lastconnecttime') slot.lastConnectTime = val;
-    if (key === 'lastdisconnecttime') slot.lastDisconnectTime = val;
-    if (key === 'lastactivitytime') slot.lastActivityTime = val;
-    if (key === 'connectionstatus') slot.connectionStatus = String(val).toLowerCase();
-    // RFC-0091: Extract device-specific power limits JSON
-    if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
-    if (key === 'log_annotations') slot.log_annotations = val;
-    // RFC-0110 v3: Extract telemetry values AND timestamps
-    // Timestamp is in row.data[0][0], value is in row.data[0][1]
-    // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
-    const rawTs = row?.data?.[0]?.[0];
-    const ts = (rawTs && rawTs > 0) ? rawTs : null;
-    if (key === 'consumption') {
-      slot.consumption_power = val;
-      slot.consumptionTs = ts;
-    }
-    if (key === 'pulses') slot.pulsesTs = ts;
-    if (key === 'temperature') slot.temperatureTs = ts;
-    if (key === 'water_level') slot.waterLevelTs = ts;
-    if (key === 'water_percentage') slot.waterPercentageTs = ts;
-  }
-  return byTbId;
-}
 function buildTbIdIndexes() {
   const byIdentifier = new Map(); // identifier -> tbId
   const byIngestion = new Map(); // ingestionId -> tbId
@@ -1331,480 +1247,6 @@ function buildTbIdIndexes() {
     if (key === 'ingestionid') byIngestion.set(String(val), tbId);
   }
   return { byIdentifier, byIngestion };
-}
-
-/** ===================== CORE: DATA PIPELINE ===================== **/
-/**
- * RFC-0106: DEPRECATED - buildAuthoritativeItems no longer used.
- * All data now comes from orchestrator via 'myio:telemetry:provide-data' event.
- * This function used ctx.datasources and ctx.data which are no longer available.
- * @deprecated Use dataProvideHandler for all data processing
- */
-function buildAuthoritativeItems() {
-  LogHelper.warn('[RFC-0106] buildAuthoritativeItems is DEPRECATED - use orchestrator data');
-  // items da LIB: [{ id: ingestionId, identifier, label }, ...]
-  const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
-
-  //LogHelper.log('[TELEMETRY][buildAuthoritativeItems] base: ', base);
-
-  const ok = Array.isArray(base) ? base.filter((x) => x && x.id) : [];
-
-  const tbIdIdx = buildTbIdIndexes(); // { byIdentifier, byIngestion }
-  const attrsByTb = buildTbAttrIndex(); // tbId -> { slaveId, centralId, deviceType }
-
-  // Extract global minTemperature and maxTemperature from window.MyIOUtils
-  // These values are exposed by MAIN_VIEW widget which has the datasource for temperature limits
-  let globalTempMin = null;
-  let globalTempMax = null;
-
-  if (WIDGET_DOMAIN === 'temperature' && window.MyIOUtils?.temperatureLimits) {
-    globalTempMin = window.MyIOUtils.temperatureLimits.minTemperature;
-    globalTempMax = window.MyIOUtils.temperatureLimits.maxTemperature;
-    /*
-    LogHelper.log(
-      `[DeviceCards] Reading temperature limits from MyIOUtils: min=${globalTempMin}, max=${globalTempMax}`
-    );
-    */
-  }
-
-  const mapped = ok.map((r) => {
-    //LogHelper.log('[TELEMETRY][buildAuthoritativeItems] ok.map: ', r);
-
-    // r.id from buildListItemsThingsboardByUniqueDatasource can be:
-    // 1. ThingsBoard entityId (most common - comes directly from datasource.entity.id.id)
-    // 2. ingestionId value (only if device has ingestionId attribute that overwrites it)
-    const itemId = r.id;
-
-    // Check 1: Is itemId directly a valid ThingsBoard entityId in our attrs map?
-    const isDirectTbId = itemId && attrsByTb.has(itemId);
-
-    // Check 2: Try to find tbId by looking up itemId as an ingestionId
-    const tbFromIngestionLookup = itemId ? tbIdIdx.byIngestion.get(itemId) : null;
-
-    // Check 3: Try to find tbId by identifier
-    const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
-
-    // Priority: direct tbId > ingestion lookup > identifier lookup
-    // Direct tbId is highest priority because it's the actual entityId
-    let tbId = isDirectTbId ? itemId : tbFromIngestionLookup || tbFromIdentifier || null;
-
-    if (tbFromIngestionLookup && tbFromIdentifier && tbFromIngestionLookup !== tbFromIdentifier) {
-      /*
-      LogHelper.warn("[DeviceCards] TB id mismatch for item", {
-        label: r.label, identifier: r.identifier, itemId, tbFromIngestionLookup, tbFromIdentifier
-      });
-      */
-      tbId = isDirectTbId ? itemId : tbFromIngestionLookup;
-    }
-
-    const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
-    const deviceProfile = attrs.deviceProfile || 'no_info';
-    let deviceTypeToDisplay = attrs.deviceType || 'no_info';
-
-    // Use centralized isStoreDevice from MyIOUtils
-    if (window.MyIOUtils?.isStoreDevice?.({ deviceProfile })) {
-      deviceTypeToDisplay = '3F_MEDIDOR';
-    }
-
-    // Extract telemetry data from ThingsBoard ctx.data
-    // - TANK/CAIXA_DAGUA: water_level, water_percentage
-    // - ENERGY devices: consumption (most recent value)
-    // - TERMOSTATO: temperature (min/max come from global dataKeys)
-    let waterLevel = null;
-    let waterPercentage = null;
-    let consumption = null;
-    let instantaneousPower = null;
-    let temperature = null;
-    const isTankDevice = deviceTypeToDisplay === 'TANK' || deviceTypeToDisplay === 'CAIXA_DAGUA';
-    const isTermostatoDevice = deviceTypeToDisplay === 'TERMOSTATO';
-
-    // Debug log for device type detection
-    //LogHelper.log(`[DeviceCards] Device ${r.label}: deviceType=${deviceTypeToDisplay}, isTermostato=${isTermostatoDevice}`);
-
-    if (tbId) {
-      // Search for telemetry in ctx.data for this specific device
-      const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
-
-      // Debug: log all available telemetry keys for this device
-      if (isTermostatoDevice) {
-        const deviceKeys = rows
-          .filter((row) => (row?.datasource?.entityId?.id || row?.datasource?.entityId) === tbId)
-          .map((row) => row?.dataKey?.name);
-        //LogHelper.log(`[DeviceCards] TERMOSTATO tbId=${tbId}, available telemetry keys:`, deviceKeys);
-      }
-
-      for (const row of rows) {
-        const rowTbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
-        if (rowTbId === tbId) {
-          const key = String(row?.dataKey?.name || '').toLowerCase();
-          const val = row?.data?.[0]?.[1]; // Most recent value
-
-          // TANK specific telemetry
-          if (key === 'water_level') waterLevel = Number(val) || 0;
-          if (key === 'water_percentage') waterPercentage = Number(val) || 0;
-
-          // ENERGY/WATER devices: consumption (most recent)
-          if (key === 'consumption') consumption = Number(val) || 0;
-          if (key === 'consumption_power') instantaneousPower = Number(val) || 0;
-
-          // TERMOSTATO specific telemetry
-          if (key === 'temperature') {
-            temperature = Number(val) || 0;
-            /*
-            LogHelper.log(
-              `[DeviceCards] Found temperature telemetry: key=${key}, val=${val}, parsed=${temperature}`
-            );
-            */
-          }
-        }
-      }
-    }
-
-    // Calculate deviceStatus based on connectionStatus and current telemetry value
-    // connectionStatus comes from TB attribute: "online" or "offline"
-    const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
-    let deviceStatus = 'no_info'; // default
-
-    // RFC-0091: Parse deviceMapInstaneousPower from ctx.data (TIER 0 - highest priority)
-    let deviceMapLimits = null;
-    if (attrs.deviceMapInstaneousPower && typeof attrs.deviceMapInstaneousPower === 'string') {
-      try {
-        deviceMapLimits = JSON.parse(attrs.deviceMapInstaneousPower);
-      } catch (e) {
-        LogHelper.warn(`[RFC-0091] Failed to parse deviceMapInstaneousPower for ${tbId}:`, e.message);
-      }
-    }
-
-    let log_annotations_Parsed = null;
-    if (attrs.log_annotations && typeof attrs.log_annotations === 'string') {
-      try {
-        log_annotations_Parsed = JSON.parse(attrs.log_annotations);
-        LogHelper.log(`[TELEMETRY] OK parse log_annotations for ${tbId}:`, log_annotations_Parsed);
-      } catch (e) {
-        LogHelper.warn(`[RFC-0091] Failed to parse log_annotations for ${tbId}:`, e.message);
-      }
-    }
-
-    // RFC-0109: Use centralized connection status normalization
-    const lib = window.MyIOLibrary;
-    const normalizedStatus = lib?.normalizeConnectionStatus
-      ? lib.normalizeConnectionStatus(tbConnectionStatus)
-      : String(tbConnectionStatus || '').toLowerCase().trim();
-
-    // RFC-0109: Status categories
-    const isWaitingStatus = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
-    const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
-    const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
-    const isOnlineStatus = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
-
-    // RFC-0110 v3: Domain-specific telemetry required + Dual threshold
-    const SHORT_DELAY_MINS = 60;
-    // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
-    const effectiveDeviceProfile = deviceTypeToDisplay || deviceProfile || '';
-    const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.(effectiveDeviceProfile) ?? 1440;
-
-    // RFC-0110 v3: Get domain-specific telemetry timestamp
-    // IMPORTANT: Each device type has its OWN specific telemetry
-    const isHidrometerDevice = deviceTypeToDisplay?.toUpperCase?.().startsWith?.('HIDROMETRO') || false;
-    let telemetryTs = null;
-    if (isTankDevice) {
-      // Tanks (caixa d'água) use water_level or water_percentage
-      telemetryTs = attrs.waterLevelTs ?? attrs.waterPercentageTs ?? null;
-    } else if (isHidrometerDevice) {
-      // Hidrômetros use pulses
-      telemetryTs = attrs.pulsesTs ?? null;
-    } else if (isTermostatoDevice) {
-      // Temperature sensors use temperature
-      telemetryTs = attrs.temperatureTs ?? null;
-    } else {
-      // Energy devices use consumption
-      telemetryTs = attrs.consumptionTs ?? null;
-    }
-
-    // RFC-0110 v5: Check if domain-specific telemetry exists
-    // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
-    const hasConsumptionTs = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
-
-    // RFC-0110 v5: Fallback to lastActivityTime if no domain telemetry
-    const lastActivityTime = attrs.lastActivityTime ?? null;
-    const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
-    const effectiveTimestamp = hasConsumptionTs ? telemetryTs : (hasLastActivityTime ? lastActivityTime : null);
-    const hasEffectiveTimestamp = effectiveTimestamp !== null;
-
-    // RFC-0110 v5: Calculate telemetry freshness (with lastActivityTime fallback)
-    const hasRecentTelemetry = hasEffectiveTimestamp && lib?.isTelemetryStale
-      ? !lib.isTelemetryStale(effectiveTimestamp, null, SHORT_DELAY_MINS) // < 60 mins
-      : false;
-    const telemetryStaleForOnline = !hasEffectiveTimestamp || (lib?.isTelemetryStale
-      ? lib.isTelemetryStale(effectiveTimestamp, null, LONG_DELAY_MINS) // > 24h
-      : true);
-
-    // RFC-0110 v5: MASTER RULES (telemetryTs with lastActivityTime fallback)
-    // 1. WAITING → NOT_INSTALLED (absolute, no discussion)
-    // 2. BAD + recent telemetry (< 60 mins) → ONLINE
-    //    BAD + no telemetry OR stale → BAD
-    // 3. OFFLINE + recent telemetry (< 60 mins) → ONLINE
-    //    OFFLINE + no telemetry OR stale → OFFLINE
-    // 4. ONLINE + no telemetry → OFFLINE
-    //    ONLINE + stale (> 24h) → OFFLINE
-    //    ONLINE + fresh (< 24h) → ONLINE
-
-    if (isWaitingStatus) {
-      deviceStatus = 'not_installed'; // WAITING = NOT_INSTALLED, no discussion
-    } else if (isBadConnection) {
-      // BAD: Check recent telemetry (< 60 mins) → ONLINE, otherwise BAD
-      if (hasRecentTelemetry) {
-        deviceStatus = 'power_on'; // Recent telemetry proves device is working
-      } else {
-        deviceStatus = 'weak_connection'; // No telemetry or stale → keep BAD
-      }
-    } else if (isOfflineStatusRaw) {
-      // OFFLINE: Check recent telemetry (< 60 mins) → ONLINE, otherwise OFFLINE
-      if (hasRecentTelemetry) {
-        deviceStatus = 'power_on'; // Recent telemetry proves device is working
-      } else {
-        deviceStatus = 'offline'; // No telemetry or stale → OFFLINE
-      }
-    } else if (isOnlineStatus) {
-      // ONLINE: Verify with telemetry - no telemetry or stale (> 24h) → OFFLINE
-      if (!hasEffectiveTimestamp || telemetryStaleForOnline) {
-        deviceStatus = 'offline'; // Can't trust ONLINE without recent telemetry
-      } else {
-        // Has fresh telemetry → continue to range-based calculation for energy devices
-        deviceStatus = 'power_on'; // Default, may be refined below
-      }
-    }
-
-    // RFC-0078: For ONLINE devices with fresh telemetry, refine status using power ranges
-    const shouldCalculateRanges = deviceStatus === 'power_on' && isOnlineStatus && hasEffectiveTimestamp && !telemetryStaleForOnline;
-    if (shouldCalculateRanges) {
-      // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
-      const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
-
-      if (isEnergyDevice) {
-        // RFC-0091: Use hierarchical resolution - TIER 0 (deviceMap) > TIER 2 (customer/MAP_INSTANTANEOUS_POWER)
-        // First try device-specific limits, then fall back to customer-level
-        const limitsToUse = deviceMapLimits || MAP_INSTANTANEOUS_POWER;
-        const ranges = limitsToUse
-          ? extractLimitsFromJSON(limitsToUse, deviceTypeToDisplay, 'consumption')
-          : null;
-
-        if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
-          // RFC-0110: Pass telemetry timestamp for offline detection
-          deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
-            connectionStatus: tbConnectionStatus,
-            lastConsumptionValue: instantaneousPower,
-            ranges: ranges,
-            telemetryTimestamp: telemetryTs,
-            lastActivityTime: attrs.lastActivityTime,
-            delayTimeConnectionInMins: LONG_DELAY_MINS,
-          });
-
-          const source = deviceMapLimits
-            ? 'deviceMapInstaneousPower (TIER 0)'
-            : 'mapInstantaneousPower (TIER 2)';
-        } else {
-          // Fallback if no ranges found or MyIOLibrary not available
-          deviceStatus = 'power_on';
-        }
-      } else {
-        // TANK, TERMOSTATO - use simple power_on
-        deviceStatus = 'power_on';
-      }
-    }
-
-    // Determine value based on device type
-    let deviceValue = 0;
-    if (isTankDevice) {
-      deviceValue = waterLevel || 0;
-    } else if (isTermostatoDevice) {
-      deviceValue = temperature || 0;
-    }
-
-    // Calculate temperatureStatus: 'ok', 'above', 'below', or null
-    // Uses global min/max from dataKeys (not per-device)
-    let temperatureStatus = null;
-    if (isTermostatoDevice && temperature !== null) {
-      if (globalTempMax !== null && temperature > globalTempMax) {
-        temperatureStatus = 'above';
-      } else if (globalTempMin !== null && temperature < globalTempMin) {
-        temperatureStatus = 'below';
-      } else {
-        temperatureStatus = 'ok';
-      }
-      /*
-      LogHelper.log(
-        `[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`
-      );
-      */
-    }
-
-    // DEBUG: Forced tracking for specific device
-    const debugLabel = r.label || '';
-    const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC') || debugLabel.includes('Ar 15');
-
-    // RFC-0110 v5: Debug for Casa de Máquinas Ar 15 specifically
-    if (debugLabel.includes('Ar 15')) {
-      console.warn(`🔍 [RFC-0110 v5 DEBUG] CasaAR15 status calculation:`, {
-        label: debugLabel,
-        tbConnectionStatus: tbConnectionStatus,
-        isWaitingStatus,
-        isBadConnection,
-        isOfflineStatusRaw,
-        isOnlineStatus,
-        telemetryTs,
-        lastActivityTime: attrs.lastActivityTime,
-        hasConsumptionTs,
-        hasLastActivityTime,
-        effectiveTimestamp,
-        hasEffectiveTimestamp,
-        hasRecentTelemetry,
-        telemetryStaleForOnline,
-        SHORT_DELAY_MINS,
-        LONG_DELAY_MINS,
-        deviceStatus,
-        shouldCalculateRanges,
-        now: Date.now(),
-        deltaMinutes: effectiveTimestamp ? Math.round((Date.now() - effectiveTimestamp) / 60000) : null,
-      });
-    }
-    if (isDebugDevice) {
-      console.warn(`🔴 [DEBUG TELEMETRY] buildAuthoritativeItems for "${debugLabel}":`, {
-        tbId: tbId,
-        itemId: itemId,
-        tbConnectionStatus: tbConnectionStatus,
-        normalizedStatus: normalizedStatus,
-        isWaitingStatus: isWaitingStatus,
-        isBadConnection: isBadConnection,
-        isBadConnectionFinal: isBadConnectionFinal,
-        isOfflineStatusRaw: isOfflineStatusRaw,
-        isOnlineStatus: isOnlineStatus,
-        hasRecentTelemetry: hasRecentTelemetry,
-        telemetryStaleForOnline: telemetryStaleForOnline,
-        isOfflineStatus: isOfflineStatus,
-        isEffectivelyOnline: isEffectivelyOnline,
-        finalDeviceStatus: deviceStatus,
-        lastConnectTime: attrs.lastConnectTime,
-        lastDisconnectTime: attrs.lastDisconnectTime,
-        lastConnectTimeFormatted: attrs.lastConnectTime ? new Date(attrs.lastConnectTime).toISOString() : 'N/A',
-        lastDisconnectTimeFormatted: attrs.lastDisconnectTime ? new Date(attrs.lastDisconnectTime).toISOString() : 'N/A',
-        SHORT_DELAY_MINS: SHORT_DELAY_MINS,
-        LONG_DELAY_MINS: LONG_DELAY_MINS,
-        now: new Date().toISOString(),
-      });
-    }
-
-    return {
-      id: tbId || itemId, // para seleção/toggle
-      tbId, // ThingsBoard deviceId (Settings)
-      // ingestionId logic:
-      // - Energy devices: itemId is the ingestionId (isDirectTbId=false), use it for API matching
-      // - Termostatos: itemId is the tbId (isDirectTbId=true), use null to avoid Settings validation failing
-      ingestionId: attrs.ingestionId || (isDirectTbId ? null : itemId),
-      identifier: r.identifier,
-      label: r.label,
-      slaveId: attrs.slaveId ?? null,
-      centralId: attrs.centralId ?? null,
-      centralName: attrs.centralName ?? null,
-      customerName: attrs.customerName ?? null,
-      deviceType: deviceTypeToDisplay,
-      updatedIdentifiers: {},
-      connectionStatusTime: attrs.lastConnectTime ?? null,
-      lastDisconnectTime: attrs.lastDisconnectTime ?? null,
-      timeVal: attrs.lastActivityTime ?? null,
-      deviceStatus: deviceStatus, // Calculated based on connectionStatus + value
-      // TANK/CAIXA_DAGUA specific fields
-      waterLevel: waterLevel,
-      waterPercentage: waterPercentage,
-      // TERMOSTATO specific fields (min/max are global from dataKeys)
-      temperature: temperature,
-      temperatureMin: globalTempMin,
-      temperatureMax: globalTempMax,
-      temperatureStatus: temperatureStatus,
-      mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
-      // RFC-0091: Include device-specific power limits for Settings modal
-      deviceMapInstaneousPower: attrs.deviceMapInstaneousPower || null,
-      log_annotations: log_annotations_Parsed || null,
-      // Use appropriate value based on device type
-      value: deviceValue,
-      perc: isTankDevice ? waterPercentage || 0 : 0,
-    };
-  });
-
-  // RFC-0097: Filter out 3F_MEDIDOR devices without proper deviceProfile for areacomum widget
-  // These are generic meters that shouldn't be counted in area comum breakdown
-  const widgetType = detectWidgetType();
-  let filtered = mapped;
-
-  if (widgetType === 'areacomum') {
-    filtered = mapped.filter((item) => {
-      // Keep item unless it's a store device or a generic 3F_MEDIDOR without proper type
-      const deviceType = String(item.deviceType || '').toUpperCase();
-      const deviceProfile = String(item.deviceProfile || '').toUpperCase();
-
-      // Discard store devices (uses centralized isStoreDevice)
-      if (window.MyIOUtils?.isStoreDevice?.(item)) {
-        LogHelper.log(
-          `[RFC-0097] Filtering out store device: label="${item.label}", deviceProfile="${deviceProfile}"`
-        );
-        return false;
-      }
-
-      // Discard if deviceType = 3F_MEDIDOR with empty/N/D deviceProfile (no real classification)
-      if (deviceType === '3F_MEDIDOR' && (deviceProfile === 'N/D' || !deviceProfile)) {
-        LogHelper.log(
-          `[RFC-0097] Filtering out 3F_MEDIDOR without proper deviceProfile: label="${item.label}", deviceProfile="${deviceProfile}"`
-        );
-        return false;
-      }
-      return true;
-    });
-
-    LogHelper.log(`[RFC-0097] Filtered areacomum items: ${mapped.length} → ${filtered.length}`);
-  }
-
-  //LogHelper.log(`[DeviceCards] TB items: ${filtered.length}`);
-  return filtered;
-}
-
-/**
- * RFC-0106: DEPRECATED - fetchApiTotals removed.
- * All API calls now go through the orchestrator in MAIN_VIEW.
- * Data is received via 'myio:telemetry:provide-data' event from orchestrator.
- *
- * Previously this function called:
- * /api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals
- *
- * Now the orchestrator (MAIN_VIEW) makes this call once and distributes to all widgets.
- */
-// function fetchApiTotals(startISO, endISO) { /* REMOVED BY RFC-0106 */ }
-
-/**
- * RFC-0106: DEPRECATED - enrichItemsWithTotals no longer used.
- * Data enrichment is now handled by dataProvideHandler which receives
- * pre-enriched data from the orchestrator.
- *
- * @deprecated Use dataProvideHandler for data enrichment
- */
-function enrichItemsWithTotals(items, apiMap) {
-  LogHelper.warn('[RFC-0106] enrichItemsWithTotals is deprecated - data should come from orchestrator');
-  return items.map((it) => {
-    // For temperature domain, preserve the value from ctx.data (buildAuthoritativeItems)
-    if (WIDGET_DOMAIN === 'temperature') {
-      return { ...it, perc: 0 };
-    }
-
-    let raw = 0;
-
-    if (it.ingestionId && isValidUUID(it.ingestionId)) {
-      const row = apiMap.get(String(it.ingestionId));
-      raw = Number(row?.total_value ?? 0);
-    }
-
-    const value = Number(raw || 0);
-
-    return { ...it, value, perc: 0 };
-  });
 }
 
 /** ===================== FILTERS / SORT / PERC ===================== **/
@@ -2403,13 +1845,9 @@ function renderList(visible) {
       log_annotations: it.log_annotations || null,
     };
 
-    if (it.label === 'Cesan Banheiros L2') {
-      LogHelper.log('RENDER CARD Cesan Banheiros L2 >>> OBJ: ', it);
-    }
-
     // DEBUG: Investigate why "Burguer king" card is rendering as offline
-    if (it.label?.toLowerCase().includes('burguer') || it.name?.includes('3F SCMAL0L1113CD')) {
-      LogHelper.log('[DEBUG BURGUER KING] Raw item data:', {
+    if (it.label?.toUpperCase().includes('HEMOPA') || it.name?.includes('HIDR. SCMP110A')) {
+      LogHelper.log('[DEBUG HIDR. SCMP110A] Raw item data:', {
         label: it.label,
         name: it.name,
         connectionStatus: it.connectionStatus,
@@ -2422,7 +1860,7 @@ function renderList(visible) {
         val: valNum,
         timeVal: it.timeVal,
       });
-      LogHelper.log('[DEBUG BURGUER KING] entityObject.deviceStatus:', entityObject.deviceStatus);
+      LogHelper.log('[DEBUG HIDR. SCMP110A] entityObject.deviceStatus:', entityObject.deviceStatus);
     }
 
     const myTbToken = localStorage.getItem('jwt_token');
@@ -3436,40 +2874,6 @@ function emitLojasTotal(periodKey) {
 // ============================================================================
 
 /**
- * RFC-0106: Classify device by deviceType attribute
- * DELEGATES TO window.MyIOUtils.classifyDeviceByDeviceType
- * @param {Object} item - Device item with deviceType and identifier properties
- * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
- */
-function classifyDeviceByDeviceType(item) {
-  // RFC-0106: Use MAIN_VIEW's classification function
-  if (window.MyIOUtils?.classifyDeviceByDeviceType) {
-    return window.MyIOUtils.classifyDeviceByDeviceType(item);
-  }
-  // Fallback if MAIN_VIEW not loaded yet
-  LogHelper.warn('[RFC-0106] classifyDeviceByDeviceType: window.MyIOUtils not available, returning outros');
-  return 'outros';
-}
-
-/**
- * RFC-0106: Classify device by identifier attribute
- * DELEGATES TO window.MyIOUtils.classifyDeviceByIdentifier
- * @param {string} identifier - Device identifier (e.g., "CAG", "Fancoil", "ELV", etc.)
- * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'|null}
- */
-function classifyDeviceByIdentifier(identifier = '') {
-  // RFC-0106: Use MAIN_VIEW's classification function
-  if (window.MyIOUtils?.classifyDeviceByIdentifier) {
-    return window.MyIOUtils.classifyDeviceByIdentifier(identifier);
-  }
-  // Fallback if MAIN_VIEW not loaded yet
-  LogHelper.warn('[RFC-0106] classifyDeviceByIdentifier: window.MyIOUtils not available, returning null');
-  return null;
-}
-
-// RFC-0097: classifyDeviceByLabel foi removida - classificação agora é por deviceType
-
-/**
  * RFC-0106: Classify device using deviceType as primary method
  * DELEGATES TO window.MyIOUtils.classifyDevice
  * @param {Object} item - Device item with deviceType, deviceProfile, identifier, and label
@@ -3887,8 +3291,14 @@ self.onInit = async function () {
   const validDomains = ['energy', 'water', 'temperature', 'tank'];
 
   if (!configuredDomain || !validDomains.includes(configuredDomain)) {
-    LogHelper.error(`[TELEMETRY] ❌ CRITICAL: Invalid or missing DOMAIN in widget settings: "${configuredDomain}". Valid values: ${validDomains.join(', ')}`);
-    LogHelper.error(`[TELEMETRY] ❌ Widget labelWidget="${self.ctx.settings?.labelWidget}" must have DOMAIN configured correctly!`);
+    LogHelper.error(
+      `[TELEMETRY] ❌ CRITICAL: Invalid or missing DOMAIN in widget settings: "${configuredDomain}". Valid values: ${validDomains.join(
+        ', '
+      )}`
+    );
+    LogHelper.error(
+      `[TELEMETRY] ❌ Widget labelWidget="${self.ctx.settings?.labelWidget}" must have DOMAIN configured correctly!`
+    );
   }
 
   WIDGET_DOMAIN = configuredDomain || 'energy'; // Keep fallback for backwards compatibility but log error above
@@ -4132,7 +3542,10 @@ self.onInit = async function () {
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Cards re-rendered with new measurement settings`);
       }
     } catch (err) {
-      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error re-rendering after measurement settings change:`, err);
+      LogHelper.error(
+        `[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error re-rendering after measurement settings change:`,
+        err
+      );
     }
   });
 
@@ -4184,7 +3597,9 @@ self.onInit = async function () {
     const currentCustomerId = periodKey.split(':')[0];
     const lastCustomerId = lastProcessedPeriodKey?.split(':')[0];
     if (lastCustomerId && currentCustomerId !== lastCustomerId) {
-      LogHelper.warn(`[TELEMETRY] 🔄 Shopping changed (${lastCustomerId} → ${currentCustomerId}) - resetting cache`);
+      LogHelper.warn(
+        `[TELEMETRY] 🔄 Shopping changed (${lastCustomerId} → ${currentCustomerId}) - resetting cache`
+      );
       lastProcessedPeriodKey = null;
       STATE.itemsBase = [];
       STATE.itemsEnriched = [];
@@ -4264,203 +3679,14 @@ self.onInit = async function () {
         }
       }
 
-      // RFC-0109: Calculate deviceStatus using centralized logic and power ranges
-      let deviceStatus = item.deviceStatus || 'no_info';
+      // RFC-0130: Use deviceStatus from orchestrator (calculated in MAIN_VIEW createOrchestratorItem)
+      // This centralizes all deviceStatus logic including power ranges calculation
+      const deviceStatus = item.deviceStatus || 'no_info';
       const connectionStatus = item.connectionStatus || 'unknown';
 
-      // RFC-0109: Use centralized connection status normalization
-      const lib = window.MyIOLibrary;
-      const normalizedStatus = lib?.normalizeConnectionStatus
-        ? lib.normalizeConnectionStatus(connectionStatus)
-        : String(connectionStatus || '').toLowerCase().trim();
-
-      // RFC-0109: Detect status categories - WAITING FIRST (highest priority)
-      const isWaiting = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
-
-      // RFC-0109: LOG for tracking waiting devices
-      if (isWaiting || connectionStatus === 'waiting' || String(connectionStatus).toLowerCase() === 'waiting') {
-        LogHelper.log(`[TELEMETRY] 📦 RFC-0109 WAITING DEVICE DETECTED:`, {
-          id: item.id || item.tbId,
-          label: item.label,
-          connectionStatus: connectionStatus,
-          normalizedStatus: normalizedStatus,
-          isWaiting: isWaiting,
-          originalDeviceStatus: item.deviceStatus,
-          willSetTo: 'not_installed',
-        });
-      }
-
-      const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
-      const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
-      const isOnline = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
-
-      // RFC-0110 v3: Domain-specific telemetry required + Dual threshold
-      const SHORT_DELAY_MINS = 60;
-      // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
-      const itemDeviceProfile = item.deviceProfile || item.deviceType || '';
-      const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.(itemDeviceProfile) ?? 1440;
-      const isTankItem = item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
-      const isTemperatureItem = item.deviceType === 'TERMOSTATO';
-      const isHidrometerItem = item._isHidrometerDevice || item.deviceType?.toUpperCase?.().startsWith?.('HIDROMETRO') || false;
-
-      // RFC-0110 v3: Get domain-specific telemetry timestamp
-      // IMPORTANT: Each device type has its OWN specific telemetry
-      let telemetryTs = null;
-      if (isTankItem) {
-        // Tanks (caixa d'água) use water_level or water_percentage
-        telemetryTs = item.waterLevelTs ?? item.waterPercentageTs ?? null;
-      } else if (isHidrometerItem) {
-        // Hidrômetros use pulses
-        telemetryTs = item.pulsesTs ?? null;
-      } else if (isTemperatureItem) {
-        // Temperature sensors use temperature
-        telemetryTs = item.temperatureTs ?? null;
-      } else {
-        // Energy devices use consumption
-        telemetryTs = item.consumptionTs ?? null;
-      }
-
-      // RFC-0110 v5: Check if domain-specific telemetry exists
-      // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
-      const hasConsumptionTs = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
-
-      // RFC-0110 v5: Fallback to lastActivityTime if no domain telemetry
-      const lastActivityTime = item.lastActivityTime ?? null;
-      const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
-      const effectiveTimestamp = hasConsumptionTs ? telemetryTs : (hasLastActivityTime ? lastActivityTime : null);
-      const hasEffectiveTimestamp = effectiveTimestamp !== null;
-
-      // RFC-0110 v5: Calculate telemetry freshness (with lastActivityTime fallback)
-      const hasRecentTelemetry = hasEffectiveTimestamp && lib?.isTelemetryStale
-        ? !lib.isTelemetryStale(effectiveTimestamp, null, SHORT_DELAY_MINS) // < 60 mins
-        : false;
-      const telemetryStaleForOnline = !hasEffectiveTimestamp || (lib?.isTelemetryStale
-        ? lib.isTelemetryStale(effectiveTimestamp, null, LONG_DELAY_MINS) // > 24h
-        : true);
-
-      // RFC-0110 v5: MASTER RULES (telemetryTs with lastActivityTime fallback)
-      // 1. WAITING → NOT_INSTALLED (absolute, no discussion)
-      // 2. BAD + recent telemetry (< 60 mins) → ONLINE
-      //    BAD + no telemetry OR stale → BAD
-      // 3. OFFLINE + recent telemetry (< 60 mins) → ONLINE
-      //    OFFLINE + no telemetry OR stale → OFFLINE
-      // 4. ONLINE + no telemetry → OFFLINE
-      //    ONLINE + stale (> 24h) → OFFLINE
-      //    ONLINE + fresh (< 24h) → ONLINE
-
-      if (isWaiting) {
-        deviceStatus = 'not_installed'; // WAITING = NOT_INSTALLED, no discussion
-      } else if (isBadConnection) {
-        // BAD: Check recent telemetry (< 60 mins) → ONLINE, otherwise BAD
-        if (hasRecentTelemetry) {
-          deviceStatus = 'power_on'; // Recent telemetry proves device is working
-        } else {
-          deviceStatus = 'weak_connection'; // No telemetry or stale → keep BAD
-        }
-      } else if (isOfflineStatusRaw) {
-        // OFFLINE: Check recent telemetry (< 60 mins) → ONLINE, otherwise OFFLINE
-        if (hasRecentTelemetry) {
-          deviceStatus = 'power_on'; // Recent telemetry proves device is working
-        } else {
-          deviceStatus = 'offline'; // No telemetry or stale → OFFLINE
-        }
-      } else if (isOnline) {
-        // ONLINE: Verify with telemetry - no telemetry or stale (> 24h) → OFFLINE
-        if (!hasEffectiveTimestamp || telemetryStaleForOnline) {
-          deviceStatus = 'offline'; // Can't trust ONLINE without recent telemetry
-        } else {
-          // Has fresh telemetry → continue to range-based calculation
-          deviceStatus = 'power_on'; // Default, may be refined below
-        }
-      }
-
-      // RFC-0078: For ONLINE devices with fresh telemetry, refine status using power ranges
-      const shouldCalculateRanges = deviceStatus === 'power_on' && isOnline && hasEffectiveTimestamp && !telemetryStaleForOnline;
-      if (shouldCalculateRanges && isEnergyDomain) {
-        // For energy devices, calculate status using power ranges
-        const instantaneousPower = Number(item.consumptionPower || 0);
-        const deviceTypeForRanges = item.effectiveDeviceType || item.deviceProfile || item.deviceType || '';
-
-        // Use device-specific limits (TIER 0) or fall back to customer-level (TIER 2)
-        // RFC-0106: Get global mapInstantaneousPower from MyIOUtils (set by MAIN_VIEW)
-        const globalMapPower = window.MyIOUtils?.mapInstantaneousPower || MAP_INSTANTANEOUS_POWER;
-        const limitsToUse = item.deviceMapInstaneousPower || globalMapPower;
-        const ranges = limitsToUse
-          ? extractLimitsFromJSON(limitsToUse, deviceTypeForRanges, 'consumption')
-          : null;
-
-        if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
-          // RFC-0110: Pass telemetry timestamp for offline detection
-          deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
-            connectionStatus: connectionStatus,
-            lastConsumptionValue: instantaneousPower,
-            ranges: ranges,
-            telemetryTimestamp: telemetryTs,
-            lastActivityTime: item.lastActivityTime,
-            delayTimeConnectionInMins: LONG_DELAY_MINS,
-          });
-        } else {
-          // Fallback if no ranges or MyIOLibrary not available
-          deviceStatus = 'power_on';
-        }
-      }
-      // Note: Non-energy devices (TANK, TERMOSTATO) already have deviceStatus set by RFC-0110 v4 MASTER RULES above
-
-      // RFC-0110 v4: Calculate effective online state for debugging
-      const isEffectivelyOnline = deviceStatus === 'power_on';
-
-      // DEBUG: Forced tracking for specific device
-      const debugLabel = item.label || item.name || '';
-      const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC') || debugLabel.includes('Ar 15');
-
-      // RFC-0110 v5: Debug for Casa de Máquinas Ar 15 specifically
-      if (debugLabel.includes('Ar 15')) {
-        console.warn(`🔍 [RFC-0110 v5 DEBUG] CasaAR15 (processItems):`, {
-          label: debugLabel,
-          connectionStatus: connectionStatus,
-          isWaiting,
-          isBadConnection,
-          isOfflineStatusRaw,
-          isOnline,
-          telemetryTs,
-          lastActivityTime: item.lastActivityTime,
-          hasConsumptionTs,
-          hasLastActivityTime,
-          effectiveTimestamp,
-          hasEffectiveTimestamp,
-          hasRecentTelemetry,
-          telemetryStaleForOnline,
-          SHORT_DELAY_MINS,
-          LONG_DELAY_MINS,
-          deviceStatus,
-          shouldCalculateRanges,
-          now: Date.now(),
-          deltaMinutes: effectiveTimestamp ? Math.round((Date.now() - effectiveTimestamp) / 60000) : null,
-        });
-      }
-
-      if (isDebugDevice) {
-        console.warn(`🔴 [DEBUG TELEMETRY] processTemperatureItems for "${debugLabel}":`, {
-          id: item.id || item.tbId,
-          originalDeviceStatus: item.deviceStatus,
-          finalDeviceStatus: deviceStatus,
-          connectionStatus: connectionStatus,
-          normalizedStatus: normalizedStatus,
-          isWaiting: isWaiting,
-          isBadConnection: isBadConnection,
-          isOfflineStatusRaw: isOfflineStatusRaw,
-          isOnline: isOnline,
-          hasRecentTelemetry: hasRecentTelemetry,
-          telemetryStaleForOnline: telemetryStaleForOnline,
-          isEffectivelyOnline: isEffectivelyOnline,
-          SHORT_DELAY_MINS: SHORT_DELAY_MINS,
-          LONG_DELAY_MINS: LONG_DELAY_MINS,
-          now: new Date().toISOString(),
-        });
-      }
-
       // RFC-0107: Calculate percentage and value for water tanks
-      const isTankDevice = item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
+      const isTankDevice =
+        item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
       let itemPerc = 0;
       let itemValue = temp;
 
@@ -4563,16 +3789,6 @@ self.onInit = async function () {
     }, 100);
   };
 
-  /**
-   * RFC-0106: DEPRECATED - extractDatasourceIds no longer used.
-   * All data comes from orchestrator - no ctx.data dependencies.
-   * @deprecated Not needed with orchestrator architecture
-   */
-  function extractDatasourceIds(_datasources) {
-    LogHelper.warn('[RFC-0106] extractDatasourceIds is DEPRECATED');
-    return [];
-  }
-
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
   // RFC-0056 FIX v1.1: Listen for request_refresh from TELEMETRY_INFO
@@ -4613,7 +3829,9 @@ self.onInit = async function () {
       const cachedPeriodKey = storedData.periodKey || '';
       const cachedCustomerId = cachedPeriodKey.split(':')[0];
       if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
-        LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] 🚫 Stored data customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`);
+        LogHelper.warn(
+          `[TELEMETRY ${WIDGET_DOMAIN}] 🚫 Stored data customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`
+        );
         delete window.MyIOOrchestratorData[WIDGET_DOMAIN];
       } else {
         LogHelper.log(
@@ -4783,7 +4001,9 @@ self.onInit = async function () {
 
         // Use stored data if it's less than 60 seconds old AND has items
         if (age < 60000 && storedData.items && storedData.items.length > 0) {
-          LogHelper.log(`[TELEMETRY temperature] ✅ Using stored temperature data directly (no period needed)`);
+          LogHelper.log(
+            `[TELEMETRY temperature] ✅ Using stored temperature data directly (no period needed)`
+          );
           dataProvideHandler({
             detail: {
               domain: 'temperature',

@@ -339,13 +339,11 @@ export function createDeviceItem(entityId, meta, options = {}) {
     const consumptionValue = meta.consumption ?? apiRow?.value ?? null;
 
     // RFC-0110 v3: Use unified calculateDeviceStatus with domain-specific telemetry timestamp
-    // NOTE: lastActivityTime is NOT used as fallback in v3
     deviceStatus = calculateDeviceStatus({
       connectionStatus: connectionStatus,
       domain: 'energy',
       telemetryValue: consumptionValue,
-      telemetryTimestamp: telemetryTs, // v3: MUST be consumptionTs, NOT lastActivityTime
-      lastActivityTime: null, // v3: NOT used as fallback
+      telemetryTimestamp: telemetryTs,
       ranges: ranges,
       delayTimeConnectionInMins: delayTimeConnectionInMins,
     });
@@ -365,8 +363,8 @@ export function createDeviceItem(entityId, meta, options = {}) {
     // 3. Has domain-specific telemetry → apply dual threshold logic
     else {
       const SHORT_DELAY_MINS = 60;
-      const hasRecentTelemetry = !isTelemetryStale(telemetryTs, null, SHORT_DELAY_MINS); // v3: No fallback
-      const staleTelemetryLong = isTelemetryStale(telemetryTs, null, delayTimeConnectionInMins); // v3: No fallback
+      const hasRecentTelemetry = !isTelemetryStale(telemetryTs, SHORT_DELAY_MINS);
+      const staleTelemetryLong = isTelemetryStale(telemetryTs, delayTimeConnectionInMins);
 
       if (connectionStatus === 'bad') {
         // RFC-0110 v3: bad + recent telemetry → treat as online (hide from client)

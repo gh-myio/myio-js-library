@@ -51,7 +51,7 @@ ao chamar
 
 ```
 
-e cair no caro
+e cair no caso ou a data for mais antiga do que 24 horas
 
 @/src\components\premium-modals\settings\SettingsModalView.ts
 
