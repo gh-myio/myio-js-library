@@ -753,11 +753,7 @@ export type {
   FilterGroup,
 } from './components/filter-modal';
 
-export {
-  FILTER_GROUPS,
-  FILTER_TAB_ICONS,
-  STATUS_TO_CONNECTIVITY,
-} from './components/filter-modal';
+export { FILTER_GROUPS, FILTER_TAB_ICONS, STATUS_TO_CONNECTIVITY } from './components/filter-modal';
 
 export { generateFilterModalStyles } from './components/filter-modal';
 
@@ -778,10 +774,54 @@ export type {
 export { CustomerCardV2, createCustomerCardV2 } from './components/customer-card-v2';
 export { injectCustomerCardV2Styles } from './components/customer-card-v2';
 
-export type {
-  CustomerCardV2Params,
-  CustomerCardV2Instance,
-  MetroTile,
-} from './components/customer-card-v2';
+export type { CustomerCardV2Params, CustomerCardV2Instance, MetroTile } from './components/customer-card-v2';
 
 export { METRO_TILE_COLORS } from './components/customer-card-v2';
+
+// RFC-0132: EnergyPanel Component
+export { createEnergyPanelComponent } from './components/energy-panel';
+export type {
+  ThemeMode as EnergyPanelThemeMode,
+  PeriodDays as EnergyPanelPeriodDays,
+  VizMode as EnergyPanelVizMode,
+  ChartType as EnergyPanelChartType,
+  DistributionMode as EnergyPanelDistributionMode,
+  EnergyCategoryData as EnergyPanelEnergyCategoryData,
+  EnergySummaryData as EnergyPanelEnergySummaryData,
+  ConsumptionDataPoint as EnergyPanelConsumptionDataPoint,
+  DistributionDataPoint as EnergyPanelDistributionDataPoint,
+  FetchConsumptionFn as EnergyPanelFetchConsumptionFn,
+  FetchDistributionFn as EnergyPanelFetchDistributionFn,
+  OnFilterChangeCallback as EnergyPanelOnFilterChangeCallback,
+  OnPeriodChangeCallback as EnergyPanelOnPeriodChangeCallback,
+  OnVizModeChangeCallback as EnergyPanelOnVizModeChangeCallback,
+  OnMaximizeCallback as EnergyPanelOnMaximizeCallback,
+  OnRefreshCallback as EnergyPanelOnRefreshCallback,
+  EnergyPanelParams,
+  EnergyPanelInstance,
+  EnergyPanelState,
+} from './components/energy-panel';
+
+// RFC-0133: WaterPanel Component
+export { createWaterPanelComponent } from './components/water-panel';
+export type {
+  ThemeMode as WaterPanelThemeMode,
+  PeriodDays as WaterPanelPeriodDays,
+  VizMode as WaterPanelVizMode,
+  ChartType as WaterPanelChartType,
+  DistributionMode as WaterPanelDistributionMode,
+  WaterCategoryData as WaterPanelWaterCategoryData,
+  WaterSummaryData as WaterPanelWaterSummaryData,
+  ConsumptionDataPoint as WaterPanelConsumptionDataPoint,
+  DistributionDataPoint as WaterPanelDistributionDataPoint,
+  FetchConsumptionFn as WaterPanelFetchConsumptionFn,
+  FetchDistributionFn as WaterPanelFetchDistributionFn,
+  OnFilterChangeCallback as WaterPanelOnFilterChangeCallback,
+  OnPeriodChangeCallback as WaterPanelOnPeriodChangeCallback,
+  OnVizModeChangeCallback as WaterPanelOnVizModeChangeCallback,
+  OnMaximizeCallback as WaterPanelOnMaximizeCallback,
+  OnRefreshCallback as WaterPanelOnRefreshCallback,
+  WaterPanelParams,
+  WaterPanelInstance,
+  WaterPanelState,
+} from './components/water-panel';

@@ -2726,6 +2726,9 @@ body.filter-modal-open { overflow: hidden !important; }
   const menuContainer = document.getElementById('menuContainer');
   let menuInstance = null;
   let telemetryGridInstance = null;
+  let energyPanelInstance = null;  // RFC-0132: Energy panel instance
+  let waterPanelInstance = null;   // RFC-0133: Water panel instance
+  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
 
@@ -3236,6 +3239,9 @@ body.filter-modal-open { overflow: hidden !important; }
     if (footerInstance) footerInstance.setThemeMode?.(themeMode);
     if (welcomeModal) welcomeModal.setThemeMode?.(themeMode);
     if (telemetryGridInstance) telemetryGridInstance.setThemeMode?.(themeMode);
+    // RFC-0132/RFC-0133: Update panel themes
+    if (energyPanelInstance) energyPanelInstance.setTheme?.(themeMode);
+    if (waterPanelInstance) waterPanelInstance.setTheme?.(themeMode);
   });
 
   // === 12. Issue 6 fix: LISTEN FOR CARD ACTIONS (dashboard/report/settings) ===
@@ -3580,54 +3586,234 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   function handleContextChange(tabId, contextId, target) {
-    // Check if this is a panel modal request (Geral, Resumo, Resumo Geral)
-    const panelContexts = [
-      'energy_general',
-      'water_summary',
-      'temperature_summary',
-      'temperature_comparison',
-    ];
+    const telemetryContainer = document.getElementById('telemetryGridContainer');
 
-    if (panelContexts.includes(contextId)) {
-      // Open panel modal instead of switching TELEMETRY
+    // RFC-0132/RFC-0133: Check if this is a panel view request
+    if (contextId === 'energy_general') {
+      // Show Energy Panel in telemetryGridContainer
+      LogHelper.log('[MAIN_UNIQUE] Switching to Energy Panel view');
+      switchToEnergyPanel(telemetryContainer);
+      currentViewMode = 'energy-panel';
+    } else if (contextId === 'water_summary') {
+      // Show Water Panel in telemetryGridContainer
+      LogHelper.log('[MAIN_UNIQUE] Switching to Water Panel view');
+      switchToWaterPanel(telemetryContainer);
+      currentViewMode = 'water-panel';
+    } else if (contextId === 'temperature_summary' || contextId === 'temperature_comparison') {
+      // Temperature panels still use modal for now
       handlePanelModalRequest(tabId, 'summary');
     } else {
-      // Issue 8 fix: Map menu context to classified data key
-      const classifiedContext = MENU_TO_CLASSIFIED_CONTEXT_MAP[contextId] || contextId;
+      // Show Telemetry Grid (default view)
+      switchToTelemetryGrid(telemetryContainer, tabId, contextId, target);
+      currentViewMode = 'telemetry';
+    }
 
-      currentTelemetryDomain = tabId;
-      currentTelemetryContext = classifiedContext;
+    // Dispatch dashboard state for FOOTER
+    window.dispatchEvent(
+      new CustomEvent('myio:dashboard-state', {
+        detail: { domain: tabId, stateId: target },
+      })
+    );
+  }
 
+  // RFC-0132: Switch to Energy Panel view
+  function switchToEnergyPanel(container) {
+    if (!container) return;
+
+    // Destroy other views
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+
+    // If energy panel already exists, just return
+    if (energyPanelInstance) {
+      LogHelper.log('[MAIN_UNIQUE] Energy Panel already active');
+      return;
+    }
+
+    container.innerHTML = '';
+
+    if (MyIOLibrary.createEnergyPanelComponent) {
+      // Get summary from orchestrator if available
+      const summary = window.MyIOOrchestrator?.getEnergySummary?.() || null;
+
+      energyPanelInstance = MyIOLibrary.createEnergyPanelComponent({
+        container: container,
+        theme: currentThemeMode,
+        period: 7,
+        initialSummary: summary,
+        showCards: true,
+        showConsumptionChart: true,
+        showDistributionChart: true,
+        enableFullscreen: true,
+
+        onMaximizeClick: () => {
+          LogHelper.log('[MAIN_UNIQUE] Energy Panel maximize clicked');
+          // Could open fullscreen modal here
+        },
+
+        onRefresh: () => {
+          LogHelper.log('[MAIN_UNIQUE] Energy Panel refresh requested');
+          const newSummary = window.MyIOOrchestrator?.getEnergySummary?.() || null;
+          if (newSummary && energyPanelInstance) {
+            energyPanelInstance.updateSummary(newSummary);
+          }
+        },
+
+        onPeriodChange: (days) => {
+          LogHelper.log('[MAIN_UNIQUE] Energy Panel period changed:', days);
+        },
+
+        onVizModeChange: (mode) => {
+          LogHelper.log('[MAIN_UNIQUE] Energy Panel vizMode changed:', mode);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] Energy Panel created successfully');
+    } else {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">EnergyPanel component not available</div>';
+      LogHelper.log('[MAIN_UNIQUE] createEnergyPanelComponent not found in MyIOLibrary');
+    }
+  }
+
+  // RFC-0133: Switch to Water Panel view
+  function switchToWaterPanel(container) {
+    if (!container) return;
+
+    // Destroy other views
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+
+    // If water panel already exists, just return
+    if (waterPanelInstance) {
+      LogHelper.log('[MAIN_UNIQUE] Water Panel already active');
+      return;
+    }
+
+    container.innerHTML = '';
+
+    if (MyIOLibrary.createWaterPanelComponent) {
+      // Get summary from orchestrator if available
+      const summary = window.MyIOOrchestrator?.getWaterSummary?.() || null;
+
+      waterPanelInstance = MyIOLibrary.createWaterPanelComponent({
+        container: container,
+        theme: currentThemeMode,
+        period: 7,
+        initialSummary: summary,
+        showCards: true,
+        showConsumptionChart: true,
+        showDistributionChart: true,
+        enableFullscreen: true,
+
+        onMaximizeClick: () => {
+          LogHelper.log('[MAIN_UNIQUE] Water Panel maximize clicked');
+        },
+
+        onRefresh: () => {
+          LogHelper.log('[MAIN_UNIQUE] Water Panel refresh requested');
+          const newSummary = window.MyIOOrchestrator?.getWaterSummary?.() || null;
+          if (newSummary && waterPanelInstance) {
+            waterPanelInstance.updateSummary(newSummary);
+          }
+        },
+
+        onPeriodChange: (days) => {
+          LogHelper.log('[MAIN_UNIQUE] Water Panel period changed:', days);
+        },
+
+        onVizModeChange: (mode) => {
+          LogHelper.log('[MAIN_UNIQUE] Water Panel vizMode changed:', mode);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] Water Panel created successfully');
+    } else {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">WaterPanel component not available</div>';
+      LogHelper.log('[MAIN_UNIQUE] createWaterPanelComponent not found in MyIOLibrary');
+    }
+  }
+
+  // Switch back to Telemetry Grid view
+  function switchToTelemetryGrid(container, tabId, contextId, target) {
+    if (!container) return;
+
+    // Destroy panel views
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+
+    // Issue 8 fix: Map menu context to classified data key
+    const classifiedContext = MENU_TO_CLASSIFIED_CONTEXT_MAP[contextId] || contextId;
+
+    currentTelemetryDomain = tabId;
+    currentTelemetryContext = classifiedContext;
+
+    LogHelper.log(
+      `[MAIN_UNIQUE] Context change: menu=${contextId} -> classified=${classifiedContext}, domain=${tabId}`
+    );
+
+    // Keep legacy event for backwards compatibility
+    window.dispatchEvent(
+      new CustomEvent('myio:telemetry-config-change', {
+        detail: {
+          domain: tabId,
+          context: classifiedContext,
+          timestamp: Date.now(),
+        },
+      })
+    );
+
+    // If telemetry grid doesn't exist, create it
+    if (!telemetryGridInstance && MyIOLibrary.createTelemetryGridComponent) {
+      container.innerHTML = '';
+      const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
+
+      telemetryGridInstance = MyIOLibrary.createTelemetryGridComponent({
+        container: container,
+        domain: tabId,
+        context: classifiedContext,
+        devices: devices,
+        themeMode: currentThemeMode,
+        debugActive: settings.enableDebugMode,
+        activeTooltipDebug: settings.activeTooltipDebug,
+        useNewComponents: true,
+        enableSelection: true,
+        enableDragDrop: true,
+        hideInfoMenuItem: true,
+        configTemplate: {
+          enableDebugMode: settings.enableDebugMode,
+        },
+        onDeviceClick: (device) => {
+          LogHelper.log('[MAIN_UNIQUE] TelemetryGrid device clicked:', device?.entityLabel);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] TelemetryGrid recreated for context:', classifiedContext);
+    } else if (telemetryGridInstance) {
+      // Update existing telemetry grid
+      const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
       LogHelper.log(
-        `[MAIN_UNIQUE] Context change: menu=${contextId} -> classified=${classifiedContext}, domain=${tabId}`
+        `[MAIN_UNIQUE] Updating telemetryGrid: domain=${tabId}, context=${classifiedContext}, devices=${devices.length}`
       );
-
-      // Keep legacy event for backwards compatibility (TELEMETRY widget and any external listeners)
-      window.dispatchEvent(
-        new CustomEvent('myio:telemetry-config-change', {
-          detail: {
-            domain: tabId,
-            context: classifiedContext,
-            timestamp: Date.now(),
-          },
-        })
-      );
-
-      if (telemetryGridInstance) {
-        const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
-        LogHelper.log(
-          `[MAIN_UNIQUE] Updating telemetryGrid: domain=${tabId}, context=${classifiedContext}, devices=${devices.length}`
-        );
-        telemetryGridInstance.updateConfig(tabId, classifiedContext);
-        telemetryGridInstance.updateDevices(devices);
-      }
-
-      // Also dispatch dashboard state for FOOTER
-      window.dispatchEvent(
-        new CustomEvent('myio:dashboard-state', {
-          detail: { domain: tabId, stateId: target },
-        })
-      );
+      telemetryGridInstance.updateConfig(tabId, classifiedContext);
+      telemetryGridInstance.updateDevices(devices);
     }
   }
 

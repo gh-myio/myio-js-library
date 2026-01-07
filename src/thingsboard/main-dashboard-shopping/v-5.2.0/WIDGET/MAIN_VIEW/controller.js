@@ -11,6 +11,13 @@
 // Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
 let DEBUG_ACTIVE = true;
 
+// RFC-0130: Retry configuration for resilient data loading
+const RETRY_CONFIG = {
+  maxRetries: 15,
+  intervalMs: 1800,
+  domains: ['energy', 'water', 'temperature'],
+};
+
 // LogHelper utility - shared across all widgets in this context
 const LogHelper = {
   log: function (...args) {
@@ -227,7 +234,7 @@ Object.assign(window.MyIOUtils, {
     // Get MyIOToast from library
     const MyIOToast = window.MyIOLibrary?.MyIOToast;
     if (MyIOToast) {
-      MyIOToast.error('Sessão expirada. Recarregando página...', 3000);
+      MyIOToast.error('Sessão expirada. Recarregando página...', 6000);
     } else {
       console.error('[MyIOUtils] Sessão expirada. Recarregando página...');
     }
@@ -235,7 +242,7 @@ Object.assign(window.MyIOUtils, {
     // Reload page after toast displays
     setTimeout(() => {
       window.location.reload();
-    }, 2500);
+    }, 6000);
   },
 
   /**
@@ -269,16 +276,18 @@ Object.assign(window.MyIOUtils, {
     // Track retry attempts per domain
     window._dataLoadRetryAttempts = window._dataLoadRetryAttempts || {};
     const retryCount = window._dataLoadRetryAttempts[domain] || 0;
-    const MAX_RETRIES = 5;
 
-    if (retryCount < MAX_RETRIES) {
+    const maxRetries = RETRY_CONFIG.maxRetries;
+    const intervalMs = RETRY_CONFIG.intervalMs;
+
+    if (retryCount < maxRetries) {
       // Increment retry counter
       window._dataLoadRetryAttempts[domain] = retryCount + 1;
 
       const MyIOToast = window.MyIOLibrary?.MyIOToast;
-      const retryMessage = `Tentativa ${retryCount + 1}/${MAX_RETRIES}: Recarregando dados (${domain})...`;
+      const retryMessage = `Tentativa ${retryCount + 1}/${maxRetries}: Recarregando dados (${domain})...`;
 
-      LogHelper.warn(`[MyIOUtils] Retry ${retryCount + 1}/${MAX_RETRIES} for ${domain}`);
+      LogHelper.warn(`[MyIOUtils] Retry ${retryCount + 1}/${maxRetries} for ${domain}`);
 
       if (MyIOToast) {
         MyIOToast.warning(retryMessage, 3000);
@@ -312,22 +321,22 @@ Object.assign(window.MyIOUtils, {
             })
           );
         }
-      }, 2000);
+      }, intervalMs);
 
       return; // Don't reload yet - wait for retry
     }
 
     // Max retries exceeded - must reload
-    LogHelper.error(`[MyIOUtils] Max retries (${MAX_RETRIES}) exceeded for ${domain} - reloading page`);
+    LogHelper.error(`[MyIOUtils] Max retries (${maxRetries}) exceeded for ${domain} - reloading page`);
 
     // Reset retry counter before reload
     window._dataLoadRetryAttempts[domain] = 0;
 
     const MyIOToast = window.MyIOLibrary?.MyIOToast;
-    const message = `Erro ao carregar dados (${domain}). Recarregando página...`;
+    const message = `Erro ao carregar dados (${domain}). Recarregue a página...`;
 
     if (MyIOToast) {
-      MyIOToast.error(message, 4000);
+      MyIOToast.error(message, 8000);
     } else {
       console.error(`[MyIOUtils] ${message}`);
       // Fallback: show alert if toast not available
@@ -337,7 +346,7 @@ Object.assign(window.MyIOUtils, {
     // Reload page after toast displays
     setTimeout(() => {
       window.location.reload();
-    }, 3500);
+    }, 6000);
   },
 
   /**
@@ -361,7 +370,9 @@ Object.assign(window.MyIOUtils, {
       // Build auth client - use MyIOLibrary.buildMyioIngestionAuth directly
       const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
       if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
-        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available');
+        LogHelper.error(
+          '[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available'
+        );
         return [];
       }
 
@@ -3204,13 +3215,6 @@ const MyIOOrchestrator = (() => {
   let CLIENT_ID = '';
   let CLIENT_SECRET = '';
 
-  // RFC-0130: Retry configuration for resilient data loading
-  const RETRY_CONFIG = {
-    maxRetries: 5,
-    intervalMs: 3000,
-    domains: ['energy', 'water', 'temperature'],
-  };
-
   // RFC-0130: Track pending retry attempts per domain
   const pendingRetries = new Map();
 
@@ -5431,7 +5435,11 @@ const MyIOOrchestrator = (() => {
         difference: lojasTotal, // For backwards compatibility
       };
 
-      LogHelper.log(`[Orchestrator] 📊 Emitting myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+      LogHelper.log(
+        `[Orchestrator] 📊 Emitting myio:energy-summary-ready (total: ${customerTotal.toFixed(
+          2
+        )} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`
+      );
 
       window.dispatchEvent(
         new CustomEvent('myio:energy-summary-ready', {

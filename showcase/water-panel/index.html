@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RFC-0133: WaterPanel Component Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      color: #1e293b;
+    }
+
+    .showcase-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .showcase-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+
+    body.light-mode .showcase-header h1 {
+      color: #1e293b;
+    }
+
+    .showcase-header p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    body.light-mode .showcase-header p {
+      color: #64748b;
+    }
+
+    .showcase-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Error Display */
+    .error-display {
+      background: #7f1d1d;
+      border: 2px solid #dc2626;
+      border-radius: 12px;
+      padding: 20px;
+      color: #fecaca;
+      display: none;
+    }
+
+    .error-display.visible {
+      display: block;
+    }
+
+    .error-display h3 {
+      color: #fca5a5;
+      margin-bottom: 10px;
+    }
+
+    .error-display pre {
+      background: #450a0a;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* Status indicator */
+    .status-indicator {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .status-indicator.success {
+      background: #166534;
+      color: #86efac;
+    }
+
+    .status-indicator.error {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    .status-indicator.loading {
+      background: #1e3a5f;
+      color: #93c5fd;
+    }
+
+    /* Panel Mount Area */
+    .panel-mount-container {
+      background: transparent;
+      border-radius: 12px;
+      min-height: 400px;
+      border: 2px dashed #334155;
+    }
+
+    body.light-mode .panel-mount-container {
+      border-color: #cbd5e1;
+    }
+
+    #water-panel-mount {
+      min-height: 400px;
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #334155;
+    }
+
+    body.light-mode .controls-panel {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    .controls-panel h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 16px;
+    }
+
+    body.light-mode .controls-panel h3 {
+      color: #1e293b;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .controls-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .controls-panel button {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .controls-panel button.primary {
+      background: #0288d1;
+      color: white;
+      border: none;
+    }
+
+    .controls-panel button.primary:hover {
+      background: #0277bd;
+    }
+
+    .controls-panel button.secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+    }
+
+    body.light-mode .controls-panel button.secondary {
+      color: #1e293b;
+      border-color: #cbd5e1;
+    }
+
+    .controls-panel button.secondary:hover {
+      background: #334155;
+    }
+
+    body.light-mode .controls-panel button.secondary:hover {
+      background: #f1f5f9;
+    }
+
+    .controls-panel button.success {
+      background: #16a34a;
+      color: white;
+      border: none;
+    }
+
+    .controls-panel button.success:hover {
+      background: #15803d;
+    }
+
+    .controls-panel button.warning {
+      background: #d97706;
+      color: white;
+      border: none;
+    }
+
+    .controls-panel button.warning:hover {
+      background: #b45309;
+    }
+
+    .controls-panel button.danger {
+      background: #dc2626;
+      color: white;
+      border: none;
+    }
+
+    .controls-panel button.danger:hover {
+      background: #b91c1c;
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      background: #fbbf24;
+      color: #1f2937;
+      border: none;
+    }
+
+    .theme-toggle:hover {
+      background: #f59e0b;
+    }
+
+    .theme-toggle.dark {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    .theme-toggle.dark:hover {
+      background: #4338ca;
+    }
+
+    /* Event Log */
+    .event-log {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 16px;
+      max-height: 250px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+    }
+
+    body.light-mode .event-log {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .event-log-entry {
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      background: #1e293b;
+      display: flex;
+      gap: 10px;
+    }
+
+    body.light-mode .event-log-entry {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+    }
+
+    .event-log-entry .time {
+      color: #64748b;
+      min-width: 80px;
+    }
+
+    .event-log-entry .event-name {
+      color: #22c55e;
+      min-width: 160px;
+      font-weight: 500;
+    }
+
+    .event-log-entry .event-data {
+      color: #94a3b8;
+      flex: 1;
+      word-break: break-all;
+    }
+
+    .event-log-entry.error .event-name {
+      color: #f87171;
+    }
+
+    /* State Display */
+    .state-display {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      color: #94a3b8;
+    }
+
+    body.light-mode .state-display {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+
+    /* Info Box */
+    .info-box {
+      background: rgba(2, 136, 209, 0.1);
+      border: 1px solid rgba(2, 136, 209, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    body.light-mode .info-box {
+      background: rgba(2, 136, 209, 0.05);
+    }
+
+    .info-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    body.light-mode .info-box p {
+      color: #64748b;
+    }
+
+    .info-box code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #0288d1;
+    }
+
+    .info-box p + p {
+      margin-top: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .controls-row {
+        flex-direction: column;
+      }
+
+      .controls-panel button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-header">
+    <h1>RFC-0133: WaterPanel Component</h1>
+    <p>Componente standalone para exibicao de dados de agua - Lojas e Area Comum</p>
+  </div>
+
+  <div class="showcase-container">
+    <!-- Error Display -->
+    <div id="error-display" class="error-display">
+      <h3>Erro ao inicializar</h3>
+      <p id="error-message"></p>
+      <pre id="error-stack"></pre>
+    </div>
+
+    <!-- Status -->
+    <div id="status" class="status-indicator loading">Carregando biblioteca...</div>
+
+    <!-- WaterPanel Mount Area -->
+    <div class="panel-mount-container">
+      <div id="water-panel-mount"></div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls-panel">
+      <h3>Controles</h3>
+
+      <div class="controls-row">
+        <button class="primary" onclick="createPanel()">
+          <span>&#x1F4A7;</span> Criar WaterPanel
+        </button>
+        <button class="success" onclick="generateRandomData()">
+          <span>&#x1F3B2;</span> Gerar Dados Aleatorios
+        </button>
+        <button class="secondary" onclick="simulateRefresh()">
+          <span>&#x1F504;</span> Refresh (Simular)
+        </button>
+        <button class="secondary" onclick="simulateMaximize()">
+          <span>&#x26F6;</span> Maximize (Simular)
+        </button>
+      </div>
+
+      <div class="controls-row">
+        <button class="secondary" onclick="setPeriod(7)">7 Dias</button>
+        <button class="secondary" onclick="setPeriod(14)">14 Dias</button>
+        <button class="secondary" onclick="setPeriod(30)">30 Dias</button>
+      </div>
+
+      <div class="controls-row">
+        <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()">
+          <span id="theme-icon">&#x2600;&#xfe0f;</span>
+          <span id="theme-label">Modo Claro</span>
+        </button>
+        <button class="secondary" onclick="logCurrentState()">
+          <span>&#x1F4CB;</span> Log Estado Atual
+        </button>
+        <button class="danger" onclick="destroyPanel()">
+          <span>&#x2716;</span> Destruir Panel
+        </button>
+      </div>
+
+      <div class="info-box">
+        <p><strong>Uso:</strong> Clique em "Criar WaterPanel" para inicializar o componente.</p>
+        <p><strong>Dados:</strong> Use "Gerar Dados Aleatorios" para simular atualizacoes de KPIs.</p>
+        <p><strong>API:</strong> <code>createWaterPanelComponent(params)</code> retorna instancia com metodos <code>updateSummary()</code>, <code>setTheme()</code>, <code>setPeriod()</code>, etc.</p>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="controls-panel">
+      <h3>Log de Eventos</h3>
+      <div class="event-log" id="event-log">
+        <div class="event-log-entry">
+          <span class="time">--:--:--</span>
+          <span class="event-name">Aguardando...</span>
+          <span class="event-data">Clique em "Criar WaterPanel" para iniciar</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current State Display -->
+    <div class="controls-panel">
+      <h3>Estado Atual do Componente</h3>
+      <pre class="state-display" id="state-display">Nenhum componente criado ainda.</pre>
+    </div>
+  </div>
+
+  <!--
+    To run this showcase:
+    1. Run start-server.bat (Windows) or start-server.sh (Linux/macOS)
+    2. Open: http://localhost:3333/showcase/water-panel/
+  -->
+
+  <!-- Chart.js CDN (required for consumption and distribution charts) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Load the UMD bundle (two levels up from showcase/water-panel/) -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <script>
+    // Global panel instance
+    let panelInstance = null;
+    let currentTheme = 'light';
+
+    // Show error
+    function showError(message, error) {
+      const errorDisplay = document.getElementById('error-display');
+      const errorMessage = document.getElementById('error-message');
+      const errorStack = document.getElementById('error-stack');
+      const status = document.getElementById('status');
+
+      errorDisplay.classList.add('visible');
+      errorMessage.textContent = message;
+      errorStack.textContent = error?.stack || error?.message || String(error);
+
+      status.textContent = 'Erro';
+      status.className = 'status-indicator error';
+
+      console.error('[Showcase Error]', message, error);
+    }
+
+    // Update status
+    function updateStatus(text, type) {
+      const status = document.getElementById('status');
+      status.textContent = text;
+      status.className = `status-indicator ${type}`;
+    }
+
+    // Event log helper
+    function logEvent(eventName, data, isError = false) {
+      const logEl = document.getElementById('event-log');
+      const time = new Date().toLocaleTimeString('pt-BR');
+      const dataStr = data ? JSON.stringify(data) : '';
+
+      const entry = document.createElement('div');
+      entry.className = `event-log-entry${isError ? ' error' : ''}`;
+      entry.innerHTML = `
+        <span class="time">${time}</span>
+        <span class="event-name">${eventName}</span>
+        <span class="event-data">${dataStr}</span>
+      `;
+
+      logEl.insertBefore(entry, logEl.firstChild);
+
+      while (logEl.children.length > 50) {
+        logEl.removeChild(logEl.lastChild);
+      }
+    }
+
+    // Update state display
+    function updateStateDisplay() {
+      const stateEl = document.getElementById('state-display');
+      if (panelInstance) {
+        const summary = panelInstance.getSummary();
+        const state = {
+          theme: panelInstance.getTheme(),
+          period: panelInstance.getPeriod(),
+          vizMode: panelInstance.getVizMode(),
+          chartType: panelInstance.getChartType(),
+          selectedShoppingIds: panelInstance.getSelectedShoppingIds(),
+          summary: summary ? {
+            storesTotal: summary.storesTotal?.toFixed(2) + ' m3',
+            commonAreaTotal: summary.commonAreaTotal?.toFixed(2) + ' m3',
+            total: summary.total?.toFixed(2) + ' m3',
+            deviceCount: summary.deviceCount,
+          } : null
+        };
+        stateEl.textContent = JSON.stringify(state, null, 2);
+      } else {
+        stateEl.textContent = 'Nenhum componente criado ainda.';
+      }
+    }
+
+    // Generate mock summary data
+    function generateMockSummary() {
+      const storesTotal = Math.random() * 5000;
+      const commonAreaTotal = Math.random() * 3000;
+      const banheiros = Math.random() * 1500;
+      const entrada = Math.random() * 2000;
+
+      return {
+        storesTotal: storesTotal,
+        commonAreaTotal: commonAreaTotal,
+        total: storesTotal + commonAreaTotal,
+        deviceCount: Math.floor(Math.random() * 50) + 10,
+        byCategory: {
+          lojas: { total: storesTotal, count: Math.floor(Math.random() * 20) + 5 },
+          banheiros: { total: banheiros, count: Math.floor(Math.random() * 8) + 2 },
+          areaComum: { total: commonAreaTotal - banheiros, count: Math.floor(Math.random() * 6) + 1 },
+          entrada: { total: entrada, count: Math.floor(Math.random() * 3) + 1 },
+        },
+        byStatus: {
+          online: Math.floor(Math.random() * 30) + 10,
+          offline: Math.floor(Math.random() * 4),
+          waiting: Math.floor(Math.random() * 2),
+        }
+      };
+    }
+
+    // Create the WaterPanel
+    function createPanel() {
+      try {
+        if (panelInstance) {
+          panelInstance.destroy();
+          panelInstance = null;
+          logEvent('Panel destruido', {});
+        }
+
+        const container = document.getElementById('water-panel-mount');
+        if (!container) {
+          throw new Error('Container #water-panel-mount not found');
+        }
+
+        container.innerHTML = '';
+
+        if (typeof MyIOLibrary === 'undefined') {
+          throw new Error('MyIOLibrary nao carregada. Execute: npm run build');
+        }
+
+        if (typeof MyIOLibrary.createWaterPanelComponent !== 'function') {
+          const availableKeys = Object.keys(MyIOLibrary).filter(k => k.toLowerCase().includes('water'));
+          throw new Error(`createWaterPanelComponent nao encontrado. Exports relacionados a water: ${availableKeys.join(', ') || 'nenhum'}`);
+        }
+
+        const initialSummary = generateMockSummary();
+
+        panelInstance = MyIOLibrary.createWaterPanelComponent({
+          container: container,
+          theme: currentTheme,
+          period: 7,
+          initialSummary: initialSummary,
+
+          onMaximizeClick: () => {
+            logEvent('onMaximizeClick', { action: 'maximize' });
+            alert('Maximize clicado! Em producao, abriria modal fullscreen.');
+          },
+
+          onRefresh: () => {
+            logEvent('onRefresh', { action: 'refresh' });
+            const newData = generateMockSummary();
+            panelInstance.updateSummary(newData);
+            updateStateDisplay();
+            logEvent('Dados atualizados via refresh', { total: newData.total.toFixed(2) });
+          },
+
+          onPeriodChange: (days) => {
+            logEvent('onPeriodChange', { days: days });
+            updateStateDisplay();
+          },
+
+          onFilterChange: (shoppingIds) => {
+            logEvent('onFilterChange', { count: shoppingIds.length });
+            updateStateDisplay();
+          },
+
+          onVizModeChange: (mode) => {
+            logEvent('onVizModeChange', { mode: mode });
+            updateStateDisplay();
+          },
+
+          showCards: true,
+          showConsumptionChart: true,
+          showDistributionChart: true,
+          enableFullscreen: true,
+        });
+
+        updateStatus('WaterPanel criado com sucesso!', 'success');
+        logEvent('WaterPanel criado', {
+          theme: currentTheme,
+          period: 7,
+          storesTotal: initialSummary.storesTotal.toFixed(2),
+          commonAreaTotal: initialSummary.commonAreaTotal.toFixed(2)
+        });
+        updateStateDisplay();
+
+      } catch (error) {
+        showError('Erro ao criar WaterPanel', error);
+        logEvent('ERRO: ' + error.message, {}, true);
+      }
+    }
+
+    // Generate random data
+    function generateRandomData() {
+      if (!panelInstance) {
+        logEvent('Erro: Panel nao criado', {}, true);
+        alert('Crie o WaterPanel primeiro!');
+        return;
+      }
+
+      const newData = generateMockSummary();
+      panelInstance.updateSummary(newData);
+      updateStateDisplay();
+      logEvent('Dados aleatorios gerados', {
+        storesTotal: newData.storesTotal.toFixed(2) + ' m3',
+        commonAreaTotal: newData.commonAreaTotal.toFixed(2) + ' m3',
+        deviceCount: newData.deviceCount
+      });
+    }
+
+    // Simulate refresh
+    function simulateRefresh() {
+      if (!panelInstance) {
+        logEvent('Erro: Panel nao criado', {}, true);
+        alert('Crie o WaterPanel primeiro!');
+        return;
+      }
+
+      panelInstance.refresh();
+    }
+
+    // Simulate maximize
+    function simulateMaximize() {
+      if (!panelInstance) {
+        logEvent('Erro: Panel nao criado', {}, true);
+        alert('Crie o WaterPanel primeiro!');
+        return;
+      }
+
+      panelInstance.openFullscreen();
+    }
+
+    // Set period
+    function setPeriod(days) {
+      if (!panelInstance) {
+        logEvent('Erro: Panel nao criado', {}, true);
+        alert('Crie o WaterPanel primeiro!');
+        return;
+      }
+
+      panelInstance.setPeriod(days);
+      logEvent('Periodo alterado', { days: days });
+      updateStateDisplay();
+    }
+
+    // Toggle theme
+    function toggleTheme() {
+      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+      // Update body class
+      document.body.classList.toggle('light-mode', currentTheme === 'light');
+
+      // Update toggle button
+      const toggleBtn = document.getElementById('theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+      const themeLabel = document.getElementById('theme-label');
+
+      if (currentTheme === 'dark') {
+        toggleBtn.classList.add('dark');
+        themeIcon.innerHTML = '&#x1F319;';
+        themeLabel.textContent = 'Modo Escuro';
+      } else {
+        toggleBtn.classList.remove('dark');
+        themeIcon.innerHTML = '&#x2600;&#xfe0f;';
+        themeLabel.textContent = 'Modo Claro';
+      }
+
+      // Update panel theme if exists
+      if (panelInstance) {
+        panelInstance.setTheme(currentTheme);
+        logEvent('Tema alterado', { theme: currentTheme });
+        updateStateDisplay();
+      }
+    }
+
+    // Log current state
+    function logCurrentState() {
+      if (!panelInstance) {
+        logEvent('Erro: Panel nao criado', {}, true);
+        alert('Crie o WaterPanel primeiro!');
+        return;
+      }
+
+      const summary = panelInstance.getSummary();
+      const state = {
+        theme: panelInstance.getTheme(),
+        period: panelInstance.getPeriod(),
+        vizMode: panelInstance.getVizMode(),
+        chartType: panelInstance.getChartType(),
+        selectedShoppingIds: panelInstance.getSelectedShoppingIds(),
+        hasSummary: !!summary,
+      };
+
+      console.log('[WaterPanel State]', state);
+      console.log('[WaterPanel Summary]', summary);
+      logEvent('Estado atual', state);
+    }
+
+    // Destroy panel
+    function destroyPanel() {
+      if (!panelInstance) {
+        logEvent('Erro: Panel nao existe', {}, true);
+        return;
+      }
+
+      panelInstance.destroy();
+      panelInstance = null;
+      updateStatus('Panel destruido', 'loading');
+      logEvent('WaterPanel destruido', {});
+      updateStateDisplay();
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      logEvent('DOM carregado', {});
+
+      if (typeof MyIOLibrary === 'undefined') {
+        showError(
+          'MyIOLibrary nao carregada',
+          new Error('O arquivo ../../dist/myio-js-library.umd.js nao foi encontrado. Execute: npm run build')
+        );
+        return;
+      }
+
+      const hasCreateWaterPanel = typeof MyIOLibrary.createWaterPanelComponent === 'function';
+
+      logEvent('MyIOLibrary carregada', {
+        exports: Object.keys(MyIOLibrary).length,
+        hasCreateWaterPanelComponent: hasCreateWaterPanel
+      });
+
+      if (hasCreateWaterPanel) {
+        updateStatus('Biblioteca pronta - clique em "Criar WaterPanel"', 'success');
+      } else {
+        updateStatus('createWaterPanelComponent nao disponivel - rebuild necessario', 'error');
+        logEvent('AVISO: createWaterPanelComponent nao exportado', {}, true);
+      }
+    });
+
+    // Global error handler
+    window.addEventListener('error', (e) => {
+      showError('Erro JavaScript', e.error || e.message);
+    });
+
+    // Log library info
+    console.log('[WaterPanel Showcase] Iniciando...');
+    console.log('[WaterPanel Showcase] MyIOLibrary loaded:', typeof MyIOLibrary !== 'undefined');
+  </script>
+</body>
+</html>
