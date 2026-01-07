@@ -148,6 +148,7 @@ window.addEventListener('myio:force-refresh', () => {
   _dataCache.clear();
   _apiEnrichmentDone = false;
   _apiEnrichmentInProgress = false;
+
   // Trigger onDataUpdated to re-fetch data
   if (self.ctx?.datasources?.[0]?.data) {
     console.log('[MAIN_UNIQUE] Triggering data refresh...');
@@ -2726,8 +2727,8 @@ body.filter-modal-open { overflow: hidden !important; }
   const menuContainer = document.getElementById('menuContainer');
   let menuInstance = null;
   let telemetryGridInstance = null;
-  let energyPanelInstance = null;  // RFC-0132: Energy panel instance
-  let waterPanelInstance = null;   // RFC-0133: Water panel instance
+  let energyPanelInstance = null; // RFC-0132: Energy panel instance
+  let waterPanelInstance = null; // RFC-0133: Water panel instance
   let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
@@ -3096,7 +3097,11 @@ body.filter-modal-open { overflow: hidden !important; }
       );
 
       // Calculate shoppings temperature status for filtered data
-      const filteredTempShoppingsStatus = buildShoppingsTemperatureStatus(filteredClassified, minTemp, maxTemp);
+      const filteredTempShoppingsStatus = buildShoppingsTemperatureStatus(
+        filteredClassified,
+        minTemp,
+        maxTemp
+      );
 
       window.dispatchEvent(
         new CustomEvent('myio:temperature-data-ready', {
@@ -3676,7 +3681,8 @@ body.filter-modal-open { overflow: hidden !important; }
 
       LogHelper.log('[MAIN_UNIQUE] Energy Panel created successfully');
     } else {
-      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">EnergyPanel component not available</div>';
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">EnergyPanel component not available</div>';
       LogHelper.log('[MAIN_UNIQUE] createEnergyPanelComponent not found in MyIOLibrary');
     }
   }
@@ -3740,7 +3746,8 @@ body.filter-modal-open { overflow: hidden !important; }
 
       LogHelper.log('[MAIN_UNIQUE] Water Panel created successfully');
     } else {
-      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">WaterPanel component not available</div>';
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">WaterPanel component not available</div>';
       LogHelper.log('[MAIN_UNIQUE] createWaterPanelComponent not found in MyIOLibrary');
     }
   }
@@ -5316,10 +5323,7 @@ window.MyIOOrchestrator.getDevices = function (domain, context) {
   // Special case: water > area_comum should include hidrometro_area_comum + banheiros
   // (all water devices except lojas/entrada)
   if (domain === 'water' && context === 'hidrometro_area_comum') {
-    return [
-      ...(data.water?.hidrometro_area_comum || []),
-      ...(data.water?.banheiros || []),
-    ];
+    return [...(data.water?.hidrometro_area_comum || []), ...(data.water?.banheiros || [])];
   }
 
   return data?.[domain]?.[context] || [];
@@ -5403,7 +5407,16 @@ async function enrichDevicesWithConsumption(classified) {
     return classified;
   }
 
-  const period = window.MyIOLibrary.getDefaultPeriodCurrentMonthSoFar();
+  let period = window.MyIOLibrary.getDefaultPeriodCurrentMonthSoFar();
+  const scopeStartDateISO = self.ctx.$scope.startDateISO;
+  const scopeEndDateISO = self.ctx.$scope.startDateISO;
+
+  if (scopeStartDateISO && scopeEndDateISO) {
+    period = {
+      startISO: scopeStartDateISO,
+      endISO: scopeEndDateISO,
+    };
+  }
 
   // Build ingestionId maps for each domain (for quick lookup)
   const energyIngestionMap = new Map();
@@ -5535,11 +5548,7 @@ async function enrichDevicesWithConsumption(classified) {
  */
 function useCachedEnrichedData(enriched) {
   // Rebuild flat items arrays for compatibility
-  const energyItems = [
-    ...enriched.energy.equipments,
-    ...enriched.energy.stores,
-    ...enriched.energy.entrada,
-  ];
+  const energyItems = [...enriched.energy.equipments, ...enriched.energy.stores, ...enriched.energy.entrada];
 
   const waterItems = [
     ...enriched.water.hidrometro_entrada,
@@ -5548,10 +5557,7 @@ function useCachedEnrichedData(enriched) {
     ...enriched.water.hidrometro,
   ];
 
-  const temperatureItems = [
-    ...enriched.temperature.termostato,
-    ...enriched.temperature.termostato_external,
-  ];
+  const temperatureItems = [...enriched.temperature.termostato, ...enriched.temperature.termostato_external];
 
   // Update orchestrator data
   window.MyIOOrchestratorData.classified = enriched;
@@ -5573,7 +5579,13 @@ function useCachedEnrichedData(enriched) {
   const deviceCounts = calculateDeviceCounts(enriched);
   window.dispatchEvent(
     new CustomEvent('myio:data-ready', {
-      detail: { classified: enriched, deviceCounts, timestamp: Date.now(), apiEnriched: true, fromCache: true },
+      detail: {
+        classified: enriched,
+        deviceCounts,
+        timestamp: Date.now(),
+        apiEnriched: true,
+        fromCache: true,
+      },
     })
   );
 

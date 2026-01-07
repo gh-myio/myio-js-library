@@ -1,9 +1,12 @@
 import { EnergyPanelController } from './EnergyPanelController';
-import { EnergyPanelParams, EnergyPanelState, ChartType, VizMode } from './types';
+import { EnergyPanelParams, EnergyPanelState, ChartType, VizMode, ThemeMode } from './types';
 import { injectEnergyPanelStyles } from './styles';
 
 // Import existing chart components
-import { createConsumptionChartWidget, type ConsumptionWidgetInstance } from '../Consumption7DaysChart/createConsumptionChartWidget';
+import {
+  createConsumptionChartWidget,
+  type ConsumptionWidgetInstance,
+} from '../Consumption7DaysChart/createConsumptionChartWidget';
 import { createDistributionChartWidget } from '../DistributionChart/createDistributionChartWidget';
 import type { Consumption7DaysData } from '../Consumption7DaysChart/types';
 import type { DistributionData, DistributionChartInstance } from '../DistributionChart/types';
@@ -304,10 +307,10 @@ export class EnergyPanelView {
 
       // Mock per-shopping data
       const shoppingData: Record<string, number[]> = {
-        'shopping-1': dailyTotals.map(v => v * 0.35),
-        'shopping-2': dailyTotals.map(v => v * 0.25),
-        'shopping-3': dailyTotals.map(v => v * 0.25),
-        'shopping-4': dailyTotals.map(v => v * 0.15),
+        'shopping-1': dailyTotals.map((v) => v * 0.35),
+        'shopping-2': dailyTotals.map((v) => v * 0.25),
+        'shopping-3': dailyTotals.map((v) => v * 0.25),
+        'shopping-4': dailyTotals.map((v) => v * 0.15),
       };
 
       const shoppingNames: Record<string, string> = {
@@ -339,20 +342,20 @@ export class EnergyPanelView {
       if (mode === 'groups') {
         if (summary?.byCategory) {
           return {
-            'Lojas': summary.byCategory.lojas?.total || 0,
-            'Climatizacao': summary.byCategory.climatizacao?.total || 0,
-            'Elevadores': summary.byCategory.elevadores?.total || 0,
+            Lojas: summary.byCategory.lojas?.total || 0,
+            Climatizacao: summary.byCategory.climatizacao?.total || 0,
+            Elevadores: summary.byCategory.elevadores?.total || 0,
             'Escadas Rolantes': summary.byCategory.escadas?.total || 0,
-            'Outros': summary.byCategory.outros?.total || 0,
+            Outros: summary.byCategory.outros?.total || 0,
           };
         }
         // Mock data
         return {
-          'Lojas': 12500,
-          'Climatizacao': 8500,
-          'Elevadores': 3200,
+          Lojas: 12500,
+          Climatizacao: 8500,
+          Elevadores: 3200,
           'Escadas Rolantes': 2100,
-          'Outros': 1800,
+          Outros: 1800,
         };
       }
 
@@ -471,12 +474,16 @@ export class EnergyPanelView {
    */
   setIdealRange(range: { min: number; max: number; label?: string } | null): void {
     if (this.consumptionWidget) {
-      this.consumptionWidget.setIdealRange(range ? {
-        min: range.min,
-        max: range.max,
-        label: range.label,
-        enabled: true,
-      } : null);
+      this.consumptionWidget.setIdealRange(
+        range
+          ? {
+              min: range.min,
+              max: range.max,
+              label: range.label,
+              enabled: true,
+            }
+          : null
+      );
     }
   }
 

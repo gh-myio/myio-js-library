@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0109: Upsell Modal Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px 24px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      .control-group select,
+      .control-group button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .control-group select:hover,
+      .control-group button:hover {
+        border-color: #60a5fa;
+      }
+
+      .control-group button {
+        background: #3e1a7d;
+        border-color: #3e1a7d;
+      }
+
+      .control-group button:hover {
+        background: #2d1360;
+      }
+
+      .main-content {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .demo-section {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #334155;
+      }
+
+      .demo-section h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #f1f5f9;
+      }
+
+      .demo-section p {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 16px;
+        line-height: 1.5;
+      }
+
+      .demo-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .demo-btn {
+        background: #3e1a7d;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .demo-btn:hover {
+        background: #2d1360;
+        transform: translateY(-1px);
+      }
+
+      .info-panel {
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+      }
+
+      .info-panel h3 {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #60a5fa;
+      }
+
+      .info-panel ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .info-panel li {
+        color: #94a3b8;
+        font-size: 13px;
+        margin-bottom: 4px;
+        padding-left: 16px;
+        position: relative;
+      }
+
+      .info-panel li:before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: #22c55e;
+        font-weight: bold;
+      }
+
+      /* Light mode */
+      body.light-mode {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+
+      body.light-mode .showcase-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .showcase-header p {
+        color: #64748b;
+      }
+
+      body.light-mode .controls-bar {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .control-group select,
+      body.light-mode .control-group button {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+
+      body.light-mode .demo-section {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .demo-section h2 {
+        color: #1e293b;
+      }
+
+      body.light-mode .demo-section p {
+        color: #64748b;
+      }
+
+      body.light-mode .info-panel {
+        background: rgba(59, 130, 246, 0.05);
+        border-color: rgba(59, 130, 246, 0.2);
+      }
+
+      body.light-mode .info-panel li {
+        color: #64748b;
+      }
+
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 12px;
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+      }
+
+      .corrections-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .correction-item {
+        background: rgba(34, 197, 94, 0.05);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 8px;
+        padding: 12px;
+      }
+
+      .correction-item h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #22c55e;
+        margin-bottom: 6px;
+      }
+
+      .correction-item p {
+        color: #94a3b8;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      body.light-mode .correction-item {
+        background: rgba(34, 197, 94, 0.05);
+        border-color: rgba(34, 197, 94, 0.2);
+      }
+
+      body.light-mode .correction-item p {
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0109: Upsell Post-Setup Modal</h1>
+      <p>
+        Multi-step wizard for device configuration and attribute validation - Demonstração das correções
+        implementadas
+      </p>
+    </header>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Theme:</label>
+        <select id="themeSelect">
+          <option value="dark" selected>Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Language:</label>
+        <select id="langSelect">
+          <option value="pt" selected>Português</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Mock Data:</label>
+        <select id="dataSelect">
+          <option value="basic" selected>Basic (5 customers, 20 devices)</option>
+          <option value="extended">Extended (15 customers, 100 devices)</option>
+          <option value="large">Large (50 customers, 500 devices)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <span class="status-indicator">
+          <span
+            style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%; display: block"
+          ></span>
+          Todas as correções aplicadas
+        </span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="demo-section">
+        <h2>📦 Demonstração do Modal</h2>
+        <p>
+          Abra o modal Upsell Post-Setup para testar as correções implementadas. O modal agora funciona com
+          busca otimizada, ordem corrigida no Step 3, campo entityLabel e proteção contra fechamento
+          acidental.
+        </p>
+        <div class="demo-buttons">
+          <button class="demo-btn" id="openModalBtn">📦 Abrir Upsell Modal</button>
+          <button class="demo-btn" id="openModalBasicBtn">🚀 Modal com Dados Básicos</button>
+          <button class="demo-btn" id="openModalFilledBtn">✨ Modal com Device Pré-selecionado</button>
+        </div>
+      </div>
+
+      <div class="demo-section">
+        <h2>🔧 Correções Implementadas</h2>
+        <p>Todas as 6 correções solicitadas no RFC foram implementadas com sucesso:</p>
+
+        <div class="corrections-list">
+          <div class="correction-item">
+            <h4>✅ Problema #1: Busca Otimizada</h4>
+            <p>
+              Quando em modo single com 1 dispositivo selecionado, carregar apenas esse dispositivo específico
+              ao invés de todos.
+            </p>
+          </div>
+
+          <div class="correction-item">
+            <h4>✅ Problema #2: Ordem Step 3</h4>
+            <p>Reordenação corrigida: Owner → Relação TO → Device Profile → Atributos Server-Scope.</p>
+          </div>
+
+          <div class="correction-item">
+            <h4>✅ Problema #3: Campo Etiqueta</h4>
+            <p>
+              Adicionado campo "etiqueta" (entityLabel) no formulário, posicionado no início dos atributos.
+            </p>
+          </div>
+
+          <div class="correction-item">
+            <h4>✅ Problema #4: Modal Protegida</h4>
+            <p>Removida função de fechar modal clicando fora - agora só fecha via botões X ou Cancelar.</p>
+          </div>
+
+          <div class="correction-item">
+            <h4>✅ Problema #5: Bug de Busca</h4>
+            <p>
+              Campo de busca da relação TO não perde mais o foco - implementada atualização DOM otimizada.
+            </p>
+          </div>
+
+          <div class="correction-item">
+            <h4>✅ Problema #6: Erro 404</h4>
+            <p>
+              Verificação de existência de entidades antes de criar relações - evita erro 404 por entidades
+              inexistentes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-section">
+        <h2>🧪 Cenários de Teste</h2>
+        <p>Use estes botões para testar cenários específicos e validar as correções:</p>
+        <div class="demo-buttons">
+          <button class="demo-btn" id="testSearchBtn">🔍 Testar Busca de Dispositivos</button>
+          <button class="demo-btn" id="testAttributesBtn">📋 Testar Carregamento Atributos</button>
+          <button class="demo-btn" id="testRelationBtn">🔗 Testar Criação de Relação</button>
+          <button class="demo-btn" id="testMultiModeBtn">⚡ Modal Multi-Select</button>
+        </div>
+
+        <div class="info-panel">
+          <h3>Como testar as correções:</h3>
+          <ul>
+            <li>Selecione 1 device no Step 2 e clique "Carregar Atributos" - deve carregar só esse device</li>
+            <li>No Step 3, verifique a ordem: Owner, Relação TO, Device Profile, Atributos</li>
+            <li>Veja o campo "etiqueta" no início dos atributos Server-Scope</li>
+            <li>Tente clicar fora do modal - não deve fechar</li>
+            <li>Na busca de relação TO, digite sem perder o foco</li>
+            <li>Tente criar relação com entidade inválida - deve mostrar erro descritivo</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load UMD build -->
+    <script src="../../dist/myio-js-library.umd.js"></script>
+    <script>
+      console.log('MyIOLibrary UMD loaded:', !!window.MyIOLibrary);
+
+      // Mock data generators
+      function generateMockCustomers(count) {
+        const customers = [];
+        const names = [
+          'Shopping Center A',
+          'Plaza Mall B',
+          'Center Norte C',
+          'Shopping Sul D',
+          'Complex East E',
+        ];
+        const cnpjs = [
+          '11.222.333/0001-44',
+          '22.333.444/0001-55',
+          '33.444.555/0001-66',
+          '44.555.666/0001-77',
+          '55.666.777/0001-88',
+        ];
+
+        for (let i = 0; i < count; i++) {
+          const nameIndex = i % names.length;
+          customers.push({
+            id: { id: `customer-${i + 1}`, entityType: 'CUSTOMER' },
+            name: names[nameIndex] + ` ${Math.floor(i / names.length) + 1}`,
+            title: names[nameIndex] + ` ${Math.floor(i / names.length) + 1}`,
+            cnpj: cnpjs[nameIndex],
+            createdTime: Date.now() - Math.random() * 365 * 24 * 3600 * 1000,
+            parentCustomerId:
+              i > 4 ? { id: `customer-${Math.floor(Math.random() * 5) + 1}`, entityType: 'CUSTOMER' } : null,
+            ownerId: { id: 'tenant-001', entityType: 'TENANT' },
+          });
+        }
+
+        return customers;
+      }
+
+      function generateMockDevices(count, customerId) {
+        const devices = [];
+        const deviceTypes = ['HIDROMETRO', 'CHILLER', '3F_MEDIDOR', 'COMPRESSOR', 'ELEVADOR'];
+        const profiles = [
+          'water_profile',
+          'hvac_profile',
+          'energy_profile',
+          'hvac_profile',
+          'elevator_profile',
+        ];
+        const statuses = ['power_on', 'power_on', 'power_on', 'offline', 'not_installed'];
+
+        for (let i = 0; i < count; i++) {
+          const typeIndex = Math.floor(Math.random() * deviceTypes.length);
+          const status = statuses[Math.floor(Math.random() * statuses.length)];
+          devices.push({
+            id: { id: `device-${customerId}-${i + 1}`, entityType: 'DEVICE' },
+            name: `Device ${String(i + 1).padStart(3, '0')} - ${deviceTypes[typeIndex]}`,
+            label: `DEV-${String(i + 1).padStart(3, '0')}`,
+            type: profiles[typeIndex],
+            deviceProfileId: { id: `profile-${typeIndex + 1}`, entityType: 'DEVICE_PROFILE' },
+            customerId: { id: customerId, entityType: 'CUSTOMER' },
+            createdTime: Date.now() - Math.random() * 180 * 24 * 3600 * 1000,
+            serverAttrs: {
+              deviceType: deviceTypes[typeIndex],
+              deviceProfile: profiles[typeIndex],
+              centralId: `central-${Math.floor(Math.random() * 5) + 1}`,
+              slaveId: String(i + 1),
+              centralName: `Central ${customerId} PADRAO`,
+              identifier: `ID-${String(i + 1).padStart(4, '0')}`,
+            },
+            latestTelemetry:
+              status === 'power_on'
+                ? {
+                    connectionStatus: { value: 'online', ts: Date.now() },
+                    consumption: { value: Math.random() * 100, ts: Date.now() },
+                  }
+                : {
+                    connectionStatus: { value: 'offline', ts: Date.now() },
+                  },
+          });
+        }
+
+        return devices;
+      }
+
+      // Mock ThingsBoard API
+      function createMockTbApi() {
+        const customers = generateMockCustomers(5);
+        const allDevices = customers.flatMap((c) => generateMockDevices(20, c.id.id));
+
+        return {
+          token: 'mock-token-123',
+          tbApiBase: '',
+
+          // Mock API responses
+          mockFetch: async (path) => {
+            console.log('[Mock API] Fetch:', path);
+
+            if (path.includes('/customers')) {
+              return { data: customers };
+            }
+
+            if (path.includes('/devices')) {
+              const customerMatch = path.match(/customer\/([^/]+)\/devices/);
+              if (customerMatch) {
+                const customerId = customerMatch[1];
+                const customerDevices = allDevices.filter((d) => d.customerId.id === customerId);
+                return { data: customerDevices };
+              }
+            }
+
+            if (path.includes('/deviceProfile/names')) {
+              return [
+                { id: { id: 'profile-1' }, name: 'water_profile' },
+                { id: { id: 'profile-2' }, name: 'hvac_profile' },
+                { id: { id: 'profile-3' }, name: 'energy_profile' },
+              ];
+            }
+
+            if (path.includes('/attributes/SERVER_SCOPE')) {
+              return [
+                { key: 'deviceType', value: '3F_MEDIDOR' },
+                { key: 'centralId', value: 'central-001' },
+                { key: 'slaveId', value: '123' },
+              ];
+            }
+
+            if (path.includes('/relations')) {
+              return [];
+            }
+
+            return {};
+          },
+
+          updateDataSize: (size) => {
+            if (size === 'extended') {
+              Object.assign(this, { customers: generateMockCustomers(15) });
+            } else if (size === 'large') {
+              Object.assign(this, { customers: generateMockCustomers(50) });
+            }
+          },
+        };
+      }
+
+      const mockApi = createMockTbApi();
+
+      // Theme handling
+      document.getElementById('themeSelect').addEventListener('change', (e) => {
+        document.body.classList.toggle('light-mode', e.target.value === 'light');
+      });
+
+      // Data size handling
+      document.getElementById('dataSelect').addEventListener('change', (e) => {
+        mockApi.updateDataSize(e.target.value);
+      });
+
+      // Modal openers
+      document.getElementById('openModalBtn').addEventListener('click', () => {
+        const lang = document.getElementById('langSelect').value;
+
+        if (!window.MyIOLibrary?.openUpsellModal) {
+          alert(
+            'MyIOLibrary.openUpsellModal não está disponível. Verifique se a biblioteca foi carregada corretamente.'
+          );
+          return;
+        }
+
+        const modal = window.MyIOLibrary.openUpsellModal({
+          thingsboardToken: mockApi.token,
+          tbApiBase: mockApi.tbApiBase,
+          ingestionApiBase: 'https://api.data.apps.myio-bas.com',
+          lang: lang,
+          onClose: () => {
+            console.log('Modal fechado');
+          },
+        });
+
+        console.log('Modal Upsell aberto:', modal);
+      });
+
+      document.getElementById('openModalBasicBtn').addEventListener('click', () => {
+        const lang = document.getElementById('langSelect').value;
+
+        if (!window.MyIOLibrary?.openUpsellModal) {
+          alert('MyIOLibrary.openUpsellModal não está disponível.');
+          return;
+        }
+
+        const modal = window.MyIOLibrary.openUpsellModal({
+          thingsboardToken: mockApi.token,
+          tbApiBase: mockApi.tbApiBase,
+          lang: lang,
+          onClose: () => {
+            console.log('Modal básico fechado');
+          },
+        });
+      });
+
+      document.getElementById('openModalFilledBtn').addEventListener('click', () => {
+        const lang = document.getElementById('langSelect').value;
+
+        if (!window.MyIOLibrary?.openUpsellModal) {
+          alert('MyIOLibrary.openUpsellModal não está disponível.');
+          return;
+        }
+
+        const modal = window.MyIOLibrary.openUpsellModal({
+          thingsboardToken: mockApi.token,
+          tbApiBase: mockApi.tbApiBase,
+          lang: lang,
+          onClose: () => {
+            console.log('Modal pré-preenchido fechado');
+          },
+        });
+
+        // Simular seleção automática após um delay
+        setTimeout(() => {
+          console.log('Simulando seleção automática...');
+          // Em implementação real, você poderia pré-selecionar customer/device
+        }, 1000);
+      });
+
+      // Test scenarios
+      document.getElementById('testSearchBtn').addEventListener('click', () => {
+        alert(
+          '💡 Para testar a busca:\n\n1. Abra o modal\n2. Selecione um customer no Step 1\n3. No Step 2, use o campo de busca\n4. Selecione apenas 1 device\n5. Clique "Carregar Atributos" - deve carregar só esse device'
+        );
+      });
+
+      document.getElementById('testAttributesBtn').addEventListener('click', () => {
+        alert(
+          '💡 Para testar atributos:\n\n1. Vá ao Step 3\n2. Veja o campo "etiqueta" no topo dos atributos\n3. Observe a nova ordem: Owner → Relação TO → Device Profile → Atributos'
+        );
+      });
+
+      document.getElementById('testRelationBtn').addEventListener('click', () => {
+        alert(
+          '💡 Para testar relações:\n\n1. No Step 3, vá em "🔗 Relação TO"\n2. Clique "Adicionar"\n3. Digite na busca - não deve perder o foco\n4. Tente criar relação com ID inválido - deve mostrar erro detalhado'
+        );
+      });
+
+      document.getElementById('testMultiModeBtn').addEventListener('click', () => {
+        alert(
+          '💡 Para testar modo multi:\n\n1. No Step 2, clique em "Multi"\n2. Selecione vários devices\n3. Use botões "Forçar Atributo" e "Forçar Profile"\n4. Teste a busca em lote apenas nos selecionados'
+        );
+      });
+
+      console.log('Upsell Modal Showcase carregado! 🎉');
+    </script>
+  </body>
+</html>

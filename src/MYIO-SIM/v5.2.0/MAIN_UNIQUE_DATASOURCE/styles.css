@@ -59,8 +59,8 @@
 .myio-main-view-section tb-dashboard-state tb-widget,
 .myio-main-view-section tb-dashboard-state .tb-dashboard-container,
 .myio-main-view-section tb-dashboard-state > *,
-.myio-main-view-section [class*="dashboard"],
-.myio-main-view-section [class*="widget-container"],
+.myio-main-view-section [class*='dashboard'],
+.myio-main-view-section [class*='widget-container'],
 .myio-main-view-section .mat-drawer-content,
 .myio-main-view-section .mat-sidenav-content,
 .myio-main-view-section .tb-dashboard-page,
@@ -105,7 +105,7 @@
 .myio-header-section .tb-dashboard-container,
 .myio-header-section .mat-drawer-content,
 .myio-header-section tb-dashboard-state,
-.myio-header-section [class*="widget"] {
+.myio-header-section [class*='widget'] {
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -116,7 +116,7 @@
 .myio-menu-section .tb-dashboard-container,
 .myio-menu-section .mat-drawer-content,
 .myio-menu-section tb-dashboard-state,
-.myio-menu-section [class*="widget"] {
+.myio-menu-section [class*='widget'] {
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -127,7 +127,7 @@
 .myio-footer-section .tb-dashboard-container,
 .myio-footer-section .mat-drawer-content,
 .myio-footer-section tb-dashboard-state,
-.myio-footer-section [class*="widget"] {
+.myio-footer-section [class*='widget'] {
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -212,4 +212,8 @@
   flex: 1;
   overflow: auto;
   padding: 20px;
+}
+
+#equipmentsStatsHeader {
+  text-align: center;
 }

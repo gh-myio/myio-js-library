@@ -3304,6 +3304,13 @@ const MyIOOrchestrator = (() => {
 
       if (attempt < maxRetries) {
         LogHelper.log(`[Orchestrator] ⏳ Waiting for period, attempt ${attempt}/${maxRetries}...`);
+
+        // Force click no elemento energia
+        const energiaElement = document.querySelector('a[id="link0"][data-icon="⚡"]');
+        if (energiaElement) {
+          energiaElement.click();
+        }
+
         if (MyIOToast) {
           MyIOToast.warning(
             `Aguardando configuração de período... Tentativa ${attempt}/${maxRetries}`,

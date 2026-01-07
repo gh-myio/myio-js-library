@@ -243,7 +243,11 @@ async function getIngestionToken(): Promise<string> {
 
   ingestionToken = json.access_token;
   ingestionTokenExpiresAt = now + Number(json.expires_in) * 1000;
-  console.log('[UpsellModal] Ingestion token obtained, expires in ~', Math.round(json.expires_in / 60), 'min');
+  console.log(
+    '[UpsellModal] Ingestion token obtained, expires in ~',
+    Math.round(json.expires_in / 60),
+    'min'
+  );
 
   return ingestionToken;
 }
@@ -279,7 +283,9 @@ async function fetchIngestionDevicesPage(
   page: number,
   limit = 100
 ): Promise<IngestionPageResponse> {
-  const url = `${INGESTION_API_BASE}/management/devices?page=${page}&limit=${limit}&customerId=${encodeURIComponent(customerId)}&includeInactive=false&sortBy=name&sortOrder=asc`;
+  const url = `${INGESTION_API_BASE}/management/devices?page=${page}&limit=${limit}&customerId=${encodeURIComponent(
+    customerId
+  )}&includeInactive=false&sortBy=name&sortOrder=asc`;
   console.log(`[UpsellModal] Fetching ingestion devices page ${page}:`, url);
 
   const res = await fetch(url, {
@@ -301,7 +307,9 @@ async function fetchIngestionDevicesAllPaged(customerId: string): Promise<Ingest
   const cacheKey = `ingestion_${customerId}`;
   const cached = ingestionCache.get(cacheKey);
   if (cached && Date.now() < cached.timestamp + cached.ttl) {
-    console.log(`[UpsellModal] Using cached ingestion devices for ${customerId} (${cached.devices.length} devices)`);
+    console.log(
+      `[UpsellModal] Using cached ingestion devices for ${customerId} (${cached.devices.length} devices)`
+    );
     return cached.devices as unknown as IngestionDeviceRecord[];
   }
 
@@ -312,7 +320,9 @@ async function fetchIngestionDevicesAllPaged(customerId: string): Promise<Ingest
   const allDevices: IngestionDeviceRecord[] = [...(firstPage.data || [])];
   const totalPages = firstPage.pagination?.pages || 1;
 
-  console.log(`[UpsellModal] Ingestion has ${totalPages} pages, ${firstPage.pagination?.total || 0} total devices`);
+  console.log(
+    `[UpsellModal] Ingestion has ${totalPages} pages, ${firstPage.pagination?.total || 0} total devices`
+  );
 
   // Fetch remaining pages
   for (let p = 2; p <= totalPages; p++) {
@@ -344,7 +354,14 @@ function findIngestionDeviceByCentralSlaveId(
     // In ingestion API: gatewayId or gateway.id corresponds to ThingsBoard's centralId
     const deviceGatewayId = device.gatewayId || device.gateway?.id;
     if (deviceGatewayId === centralId && device.slaveId === slaveIdNum) {
-      console.log('[UpsellModal] Found matching device:', device.name, 'gatewayId:', deviceGatewayId, 'slaveId:', device.slaveId);
+      console.log(
+        '[UpsellModal] Found matching device:',
+        device.name,
+        'gatewayId:',
+        deviceGatewayId,
+        'slaveId:',
+        device.slaveId
+      );
       return device;
     }
   }
@@ -352,7 +369,14 @@ function findIngestionDeviceByCentralSlaveId(
   console.log('[UpsellModal] No match found. Looking for centralId:', centralId, 'slaveId:', slaveIdNum);
   // Log first few devices to help debug
   devices.slice(0, 3).forEach((d, i) => {
-    console.log(`[UpsellModal] Sample device ${i}:`, d.name, 'gatewayId:', d.gatewayId || d.gateway?.id, 'slaveId:', d.slaveId);
+    console.log(
+      `[UpsellModal] Sample device ${i}:`,
+      d.name,
+      'gatewayId:',
+      d.gatewayId || d.gateway?.id,
+      'slaveId:',
+      d.slaveId
+    );
   });
 
   return null;
@@ -579,8 +603,8 @@ function sortCustomers(
     } else if (field === 'createdTime') {
       compare = (a.createdTime || 0) - (b.createdTime || 0);
     } else if (field === 'parentName' && nameMap) {
-      const parentA = a.parentCustomerId?.id ? (nameMap.get(a.parentCustomerId.id) || '') : '';
-      const parentB = b.parentCustomerId?.id ? (nameMap.get(b.parentCustomerId.id) || '') : '';
+      const parentA = a.parentCustomerId?.id ? nameMap.get(a.parentCustomerId.id) || '' : '';
+      const parentB = b.parentCustomerId?.id ? nameMap.get(b.parentCustomerId.id) || '' : '';
       compare = parentA.toLowerCase().localeCompare(parentB.toLowerCase());
     }
     return order === 'asc' ? compare : -compare;
@@ -588,11 +612,7 @@ function sortCustomers(
 }
 
 // Helper: sort devices by field
-function sortDevices(
-  devices: Device[],
-  field: DeviceSortField,
-  order: SortOrder
-): Device[] {
+function sortDevices(devices: Device[], field: DeviceSortField, order: SortOrder): Device[] {
   return [...devices].sort((a, b) => {
     let compare = 0;
     if (field === 'name') {
@@ -604,9 +624,13 @@ function sortDevices(
     } else if (field === 'type') {
       compare = (a.type || '').toLowerCase().localeCompare((b.type || '').toLowerCase());
     } else if (field === 'deviceType') {
-      compare = (a.serverAttrs?.deviceType || '').toLowerCase().localeCompare((b.serverAttrs?.deviceType || '').toLowerCase());
+      compare = (a.serverAttrs?.deviceType || '')
+        .toLowerCase()
+        .localeCompare((b.serverAttrs?.deviceType || '').toLowerCase());
     } else if (field === 'deviceProfile') {
-      compare = (a.serverAttrs?.deviceProfile || '').toLowerCase().localeCompare((b.serverAttrs?.deviceProfile || '').toLowerCase());
+      compare = (a.serverAttrs?.deviceProfile || '')
+        .toLowerCase()
+        .localeCompare((b.serverAttrs?.deviceProfile || '').toLowerCase());
     }
     return order === 'asc' ? compare : -compare;
   });
@@ -650,7 +674,15 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
-    columnWidths: { label: 280, type: 180, createdTime: 100, deviceType: 80, deviceProfile: 90, telemetry: 100, status: 70 },
+    columnWidths: {
+      label: 280,
+      type: 180,
+      createdTime: 100,
+      deviceType: 80,
+      deviceProfile: 90,
+      telemetry: 100,
+      status: 70,
+    },
     deviceAttrsLoaded: false,
     attrsLoading: false,
     attrsLoadedCount: 0,
@@ -734,7 +766,9 @@ function renderModal(
         <!-- Header - MyIO Premium Style -->
         <div style="
           padding: 4px 8px; display: flex; align-items: center; justify-content: space-between;
-          background: ${MYIO_PURPLE}; color: white; border-radius: ${state.isMaximized ? '0' : '10px 10px 0 0'};
+          background: ${MYIO_PURPLE}; color: white; border-radius: ${
+    state.isMaximized ? '0' : '10px 10px 0 0'
+  };
           min-height: 20px;
         ">
           <h2 style="margin: 6px; font-size: 18px; font-weight: 600; color: white; line-height: 2;">
@@ -774,15 +808,16 @@ function renderModal(
           </div>
 
           <!-- Step Content -->
-          ${state.isLoading
-            ? renderLoading(colors, t)
-            : error
+          ${
+            state.isLoading
+              ? renderLoading(colors, t)
+              : error
               ? renderError(colors, t, error)
               : state.currentStep === 1
-                ? renderStep1(state, modalId, colors, t)
-                : state.currentStep === 2
-                  ? renderStep2(state, modalId, colors, t)
-                  : renderStep3(state, modalId, colors, t)
+              ? renderStep1(state, modalId, colors, t)
+              : state.currentStep === 2
+              ? renderStep2(state, modalId, colors, t)
+              : renderStep3(state, modalId, colors, t)
           }
         </div>
 
@@ -792,17 +827,25 @@ function renderModal(
           display: flex; justify-content: space-between; background: ${colors.cardBg};
         ">
           <div>
-            ${state.currentStep > 1 ? `
+            ${
+              state.currentStep > 1
+                ? `
               <button id="${modalId}-back" style="
                 background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f3f4f6'};
                 color: ${colors.text}; border: 1px solid ${colors.border};
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
                 font-size: 14px; font-family: 'Roboto', Arial, sans-serif;
               ">${t.back}</button>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
           <div style="display: flex; gap: 12px;">
-            ${state.currentStep === 2 && state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0 ? `
+            ${
+              state.currentStep === 2 &&
+              state.deviceSelectionMode === 'multi' &&
+              state.selectedDevices.length > 0
+                ? `
               <button id="${modalId}-bulk-attr" style="
                 background: #f59e0b; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
@@ -815,26 +858,34 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">🏷️ Forçar Profile (${state.selectedDevices.length})</button>
-            ` : ''}
+            `
+                : ''
+            }
             <button id="${modalId}-cancel" style="
               background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f3f4f6'};
               color: ${colors.text}; border: 1px solid ${colors.border};
               padding: 8px 16px; border-radius: 6px; cursor: pointer;
               font-size: 14px; font-family: 'Roboto', Arial, sans-serif;
             ">${t.cancel}</button>
-            ${state.currentStep < 3 ? `
+            ${
+              state.currentStep < 3
+                ? `
               <button id="${modalId}-next" style="
                 background: ${MYIO_PURPLE}; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
-              " ${state.deviceSelectionMode === 'multi' ? 'disabled title="Desabilitado no modo multi"' : ''}>${t.next}</button>
-            ` : `
+              " ${
+                state.deviceSelectionMode === 'multi' ? 'disabled title="Desabilitado no modo multi"' : ''
+              }>${t.next}</button>
+            `
+                : `
               <button id="${modalId}-save" style="
                 background: ${colors.success}; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
               ">${t.save}</button>
-            `}
+            `
+            }
           </div>
         </div>
       </div>
@@ -865,7 +916,9 @@ function renderModal(
       }
     </style>
 
-    ${state.bulkAttributeModal.open ? `
+    ${
+      state.bulkAttributeModal.open
+        ? `
       <!-- Bulk Attribute Modal -->
       <div class="myio-bulk-attr-overlay" style="
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -886,13 +939,21 @@ function renderModal(
             ">✕</button>
           </div>
 
-          <div style="margin-bottom: 16px; padding: 12px; background: ${colors.surface}; border-radius: 8px; border: 1px solid ${colors.border};">
-            <div style="font-size: 12px; color: ${colors.textMuted}; margin-bottom: 4px;">Devices selecionados:</div>
-            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${state.selectedDevices.length} dispositivos</div>
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.surface
+          }; border-radius: 8px; border: 1px solid ${colors.border};">
+            <div style="font-size: 12px; color: ${
+              colors.textMuted
+            }; margin-bottom: 4px;">Devices selecionados:</div>
+            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${
+            state.selectedDevices.length
+          } dispositivos</div>
           </div>
 
           <div style="margin-bottom: 16px;">
-            <label style="display: block; color: ${colors.textMuted}; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
+            <label style="display: block; color: ${
+              colors.textMuted
+            }; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
               Atributo (SERVER_SCOPE)
             </label>
             <select id="${modalId}-bulk-attr-select" style="
@@ -900,19 +961,33 @@ function renderModal(
               border-radius: 6px; font-size: 14px; color: ${colors.text};
               background: ${colors.inputBg}; cursor: pointer;
             ">
-              <option value="deviceType" ${state.bulkAttributeModal.attribute === 'deviceType' ? 'selected' : ''}>deviceType</option>
-              <option value="deviceProfile" ${state.bulkAttributeModal.attribute === 'deviceProfile' ? 'selected' : ''}>deviceProfile</option>
-              <option value="centralName" ${state.bulkAttributeModal.attribute === 'centralName' ? 'selected' : ''}>centralName</option>
-              <option value="centralId" ${state.bulkAttributeModal.attribute === 'centralId' ? 'selected' : ''}>centralId</option>
-              <option value="identifier" ${state.bulkAttributeModal.attribute === 'identifier' ? 'selected' : ''}>identifier</option>
+              <option value="deviceType" ${
+                state.bulkAttributeModal.attribute === 'deviceType' ? 'selected' : ''
+              }>deviceType</option>
+              <option value="deviceProfile" ${
+                state.bulkAttributeModal.attribute === 'deviceProfile' ? 'selected' : ''
+              }>deviceProfile</option>
+              <option value="centralName" ${
+                state.bulkAttributeModal.attribute === 'centralName' ? 'selected' : ''
+              }>centralName</option>
+              <option value="centralId" ${
+                state.bulkAttributeModal.attribute === 'centralId' ? 'selected' : ''
+              }>centralId</option>
+              <option value="identifier" ${
+                state.bulkAttributeModal.attribute === 'identifier' ? 'selected' : ''
+              }>identifier</option>
             </select>
           </div>
 
           <div style="margin-bottom: 20px;">
-            <label style="display: block; color: ${colors.textMuted}; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
+            <label style="display: block; color: ${
+              colors.textMuted
+            }; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
               Valor
             </label>
-            <input type="text" id="${modalId}-bulk-attr-value" value="${state.bulkAttributeModal.value}" placeholder="Digite o valor..." style="
+            <input type="text" id="${modalId}-bulk-attr-value" value="${
+            state.bulkAttributeModal.value
+          }" placeholder="Digite o valor..." style="
               width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
               border-radius: 6px; font-size: 14px; color: ${colors.text};
               background: ${colors.inputBg}; box-sizing: border-box;
@@ -930,14 +1005,22 @@ function renderModal(
               padding: 10px 20px; border-radius: 6px; cursor: pointer;
               font-size: 14px; font-weight: 500;
             " ${state.bulkAttributeModal.saving ? 'disabled' : ''}>
-              ${state.bulkAttributeModal.saving ? 'Salvando...' : 'Salvar para ' + state.selectedDevices.length + ' devices'}
+              ${
+                state.bulkAttributeModal.saving
+                  ? 'Salvando...'
+                  : 'Salvar para ' + state.selectedDevices.length + ' devices'
+              }
             </button>
           </div>
         </div>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
 
-    ${state.bulkProfileModal.open ? `
+    ${
+      state.bulkProfileModal.open
+        ? `
       <!-- Bulk Profile Modal -->
       <div class="myio-bulk-profile-overlay" style="
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -958,16 +1041,26 @@ function renderModal(
             ">✕</button>
           </div>
 
-          <div style="margin-bottom: 16px; padding: 12px; background: ${colors.surface}; border-radius: 8px; border: 1px solid ${colors.border};">
-            <div style="font-size: 12px; color: ${colors.textMuted}; margin-bottom: 4px;">Devices selecionados:</div>
-            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${state.selectedDevices.length} dispositivos</div>
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.surface
+          }; border-radius: 8px; border: 1px solid ${colors.border};">
+            <div style="font-size: 12px; color: ${
+              colors.textMuted
+            }; margin-bottom: 4px;">Devices selecionados:</div>
+            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${
+            state.selectedDevices.length
+          } dispositivos</div>
           </div>
 
           <div style="margin-bottom: 16px;">
-            <label style="display: block; color: ${colors.textMuted}; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
+            <label style="display: block; color: ${
+              colors.textMuted
+            }; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
               Device Profile (Entity Level)
             </label>
-            ${state.deviceProfiles.length === 0 ? `
+            ${
+              state.deviceProfiles.length === 0
+                ? `
               <div style="padding: 12px; background: ${colors.warning}20; border-radius: 6px; font-size: 12px; color: ${colors.warning}; margin-bottom: 12px;">
                 ⚠️ Clique em "Carregar Profiles" para listar os profiles disponíveis
               </div>
@@ -976,18 +1069,26 @@ function renderModal(
                 padding: 10px 16px; border-radius: 6px; cursor: pointer;
                 font-size: 13px; width: 100%;
               ">🔄 Carregar Profiles</button>
-            ` : `
+            `
+                : `
               <select id="${modalId}-bulk-profile-select" style="
                 width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
                 border-radius: 6px; font-size: 14px; color: ${colors.text};
                 background: ${colors.inputBg}; cursor: pointer;
               ">
                 <option value="">-- Selecione um Profile --</option>
-                ${state.deviceProfiles.map(p => `
-                  <option value="${p.id}" ${state.bulkProfileModal.selectedProfileId === p.id ? 'selected' : ''}>${p.name}</option>
-                `).join('')}
+                ${state.deviceProfiles
+                  .map(
+                    (p) => `
+                  <option value="${p.id}" ${
+                      state.bulkProfileModal.selectedProfileId === p.id ? 'selected' : ''
+                    }>${p.name}</option>
+                `
+                  )
+                  .join('')}
               </select>
-            `}
+            `
+            }
           </div>
 
           <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -996,19 +1097,29 @@ function renderModal(
               border: 1px solid ${colors.border}; padding: 10px 20px;
               border-radius: 6px; cursor: pointer; font-size: 14px;
             ">Cancelar</button>
-            ${state.deviceProfiles.length > 0 ? `
+            ${
+              state.deviceProfiles.length > 0
+                ? `
               <button id="${modalId}-bulk-profile-save" style="
                 background: #8b5cf6; color: white; border: none;
                 padding: 10px 20px; border-radius: 6px; cursor: pointer;
                 font-size: 14px; font-weight: 500;
               " ${state.bulkProfileModal.saving ? 'disabled' : ''}>
-                ${state.bulkProfileModal.saving ? 'Salvando...' : 'Aplicar para ' + state.selectedDevices.length + ' devices'}
+                ${
+                  state.bulkProfileModal.saving
+                    ? 'Salvando...'
+                    : 'Aplicar para ' + state.selectedDevices.length + ' devices'
+                }
               </button>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         </div>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
   `;
 
   // Setup event listeners
@@ -1101,10 +1212,14 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
     ">
       <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 200px;">
-          <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
+          <label style="color: ${
+            colors.textMuted
+          }; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
             🔍 ${t.searchCustomers}
           </label>
-          <input type="text" id="${modalId}-customer-search" placeholder="${t.searchCustomers}" value="${state.customerSearchTerm}" style="
+          <input type="text" id="${modalId}-customer-search" placeholder="${t.searchCustomers}" value="${
+    state.customerSearchTerm
+  }" style="
             width: 100%; padding: 10px 14px; border: 1px solid ${colors.border};
             border-radius: 6px; font-size: 14px; color: ${colors.text};
             background: ${colors.inputBg}; box-sizing: border-box;
@@ -1128,15 +1243,17 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
       max-height: 350px; overflow-y: auto; border: 1px solid ${colors.border};
       border-radius: 8px; background: ${colors.surface};
     " id="${modalId}-customer-list">
-      ${sortedCustomers.length === 0
-        ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-        : sortedCustomers.map(customer => {
-            const customerId = getEntityId(customer);
-            const isSelected = getEntityId(state.selectedCustomer) === customerId;
-            const createdDate = formatDate(customer.createdTime, state.locale);
-            const parentName = getParentName(customer);
-            const ownerName = getOwnerName(customer);
-            return `
+      ${
+        sortedCustomers.length === 0
+          ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
+          : sortedCustomers
+              .map((customer) => {
+                const customerId = getEntityId(customer);
+                const isSelected = getEntityId(state.selectedCustomer) === customerId;
+                const createdDate = formatDate(customer.createdTime, state.locale);
+                const parentName = getParentName(customer);
+                const ownerName = getOwnerName(customer);
+                return `
           <div class="myio-list-item ${isSelected ? 'selected' : ''}"
                data-customer-id="${customerId}" style="
             display: flex; align-items: center; gap: 10px;
@@ -1145,28 +1262,46 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
           ">
             <div style="font-size: 24px;">🏢</div>
             <div style="flex: 1; min-width: 100px;">
-              <div style="font-weight: 500; color: ${colors.text}; font-size: 13px;">${customer.name || customer.title}</div>
-              <div style="font-size: 11px; color: ${colors.textMuted};">${customer.cnpj || 'ID: ' + customerId.slice(0, 8) + '...'}</div>
+              <div style="font-weight: 500; color: ${colors.text}; font-size: 13px;">${
+                  customer.name || customer.title
+                }</div>
+              <div style="font-size: 11px; color: ${colors.textMuted};">${
+                  customer.cnpj || 'ID: ' + customerId.slice(0, 8) + '...'
+                }</div>
             </div>
             <div style="min-width: 90px; text-align: center;">
               <div style="font-size: 10px; color: ${colors.textMuted};">Pai</div>
-              <div style="font-size: 11px; color: ${parentName === 'N/A' ? colors.textMuted : colors.text}; font-weight: ${parentName === 'N/A' ? 'normal' : '500'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
+              <div style="font-size: 11px; color: ${
+                parentName === 'N/A' ? colors.textMuted : colors.text
+              }; font-weight: ${
+                  parentName === 'N/A' ? 'normal' : '500'
+                }; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
                 ${parentName}
               </div>
             </div>
             <div style="min-width: 70px; text-align: center;">
               <div style="font-size: 10px; color: ${colors.textMuted};">Owner</div>
-              <div style="font-size: 11px; color: ${ownerName === 'N/A' ? colors.textMuted : ownerName === 'TENANT' ? colors.primary : colors.text}; font-weight: ${ownerName === 'N/A' ? 'normal' : '500'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px;">
+              <div style="font-size: 11px; color: ${
+                ownerName === 'N/A' ? colors.textMuted : ownerName === 'TENANT' ? colors.primary : colors.text
+              }; font-weight: ${
+                  ownerName === 'N/A' ? 'normal' : '500'
+                }; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px;">
                 ${ownerName}
               </div>
             </div>
-            ${createdDate ? `<div style="min-width: 70px; text-align: center;">
+            ${
+              createdDate
+                ? `<div style="min-width: 70px; text-align: center;">
               <div style="font-size: 10px; color: ${colors.textMuted};">Criado</div>
               <div style="font-size: 11px; color: ${colors.text};">${createdDate}</div>
-            </div>` : ''}
+            </div>`
+                : ''
+            }
             ${isSelected ? `<div style="color: ${colors.success}; font-size: 16px;">✓</div>` : ''}
           </div>
-        `;}).join('')
+        `;
+              })
+              .join('')
       }
     </div>
   `;
@@ -1178,20 +1313,31 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
 
 function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t: typeof i18n.pt): string {
   // Get unique values for filters
-  const types = [...new Set(state.devices.map(d => d.type).filter(Boolean))].sort() as string[];
-  const deviceTypes = [...new Set(state.devices.map(d => d.serverAttrs?.deviceType).filter(Boolean))].sort() as string[];
-  const deviceProfiles = [...new Set(state.devices.map(d => d.serverAttrs?.deviceProfile).filter(Boolean))].sort() as string[];
+  const types = [...new Set(state.devices.map((d) => d.type).filter(Boolean))].sort() as string[];
+  const deviceTypes = [
+    ...new Set(state.devices.map((d) => d.serverAttrs?.deviceType).filter(Boolean)),
+  ].sort() as string[];
+  const deviceProfiles = [
+    ...new Set(state.devices.map((d) => d.serverAttrs?.deviceProfile).filter(Boolean)),
+  ].sort() as string[];
   const statuses = ['online', 'offline', 'waiting', 'bad'];
 
   const { field: sortField, order: sortOrder } = state.deviceSort;
-  const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles, statuses: filterStatuses } = state.deviceFilters;
+  const {
+    types: filterTypes,
+    deviceTypes: filterDeviceTypes,
+    deviceProfiles: filterDeviceProfiles,
+    statuses: filterStatuses,
+  } = state.deviceFilters;
   const searchTerm = state.deviceSearchTerm.toLowerCase();
 
   // Filter devices by dropdown filters
-  let filteredDevices = state.devices.filter(d => {
+  let filteredDevices = state.devices.filter((d) => {
     if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-    if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
-    if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+    if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
+      return false;
+    if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || ''))
+      return false;
     if (filterStatuses.length > 0) {
       const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
       if (!filterStatuses.includes(status)) return false;
@@ -1200,15 +1346,22 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
   });
 
   // Apply search term filter for display count
-  const searchFilteredDevices = searchTerm ? filteredDevices.filter(d => {
-    const name = (d.name || '').toLowerCase();
-    const label = (d.label || '').toLowerCase();
-    const type = (d.type || '').toLowerCase();
-    const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
-    const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
-    return name.includes(searchTerm) || label.includes(searchTerm) || type.includes(searchTerm) ||
-           deviceType.includes(searchTerm) || deviceProfile.includes(searchTerm);
-  }) : filteredDevices;
+  const searchFilteredDevices = searchTerm
+    ? filteredDevices.filter((d) => {
+        const name = (d.name || '').toLowerCase();
+        const label = (d.label || '').toLowerCase();
+        const type = (d.type || '').toLowerCase();
+        const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
+        const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+        return (
+          name.includes(searchTerm) ||
+          label.includes(searchTerm) ||
+          type.includes(searchTerm) ||
+          deviceType.includes(searchTerm) ||
+          deviceProfile.includes(searchTerm)
+        );
+      })
+    : filteredDevices;
 
   // Sort devices
   const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
@@ -1216,7 +1369,11 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
   // Grid height based on maximize state
   const gridHeight = state.isMaximized ? 'calc(100vh - 340px)' : '360px';
 
-  const hasActiveFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0 || filterStatuses.length > 0;
+  const hasActiveFilters =
+    filterTypes.length > 0 ||
+    filterDeviceTypes.length > 0 ||
+    filterDeviceProfiles.length > 0 ||
+    filterStatuses.length > 0;
 
   // Helper for sortable column header
   const renderSortableHeader = (col: string, label: string, field: DeviceSortField, width: number) => {
@@ -1241,67 +1398,120 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     ">
       <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
         <div style="flex: 2; min-width: 160px;">
-          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+          <label style="color: ${
+            colors.textMuted
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
             🔍 Buscar
           </label>
-          <input type="text" id="${modalId}-device-search" placeholder="${t.searchDevices}" value="${state.deviceSearchTerm}" style="
+          <input type="text" id="${modalId}-device-search" placeholder="${t.searchDevices}" value="${
+    state.deviceSearchTerm
+  }" style="
             width: 100%; padding: 7px 10px; border: 1px solid ${colors.border};
             border-radius: 6px; font-size: 13px; color: ${colors.text};
             background: ${colors.inputBg}; box-sizing: border-box;
           "/>
         </div>
         <div style="min-width: 100px;">
-          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+          <label style="color: ${
+            colors.textMuted
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
             Type ${filterTypes.length > 0 ? `(${filterTypes.length})` : ''}
           </label>
           <select id="${modalId}-device-type-filter" multiple size="1" style="
-            width: 100%; padding: 7px 8px; border: 1px solid ${filterTypes.length > 0 ? MYIO_PURPLE : colors.border};
+            width: 100%; padding: 7px 8px; border: 1px solid ${
+              filterTypes.length > 0 ? MYIO_PURPLE : colors.border
+            };
             border-radius: 6px; font-size: 11px; color: ${colors.text};
             background: ${colors.inputBg}; cursor: pointer; height: 32px;
           ">
-            ${types.map(type => `<option value="${type}" ${filterTypes.includes(type) ? 'selected' : ''}>${type}</option>`).join('')}
+            ${types
+              .map(
+                (type) =>
+                  `<option value="${type}" ${filterTypes.includes(type) ? 'selected' : ''}>${type}</option>`
+              )
+              .join('')}
           </select>
         </div>
         <div style="min-width: 100px;">
-          <label style="color: ${state.deviceAttrsLoaded ? colors.textMuted : colors.warning}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
-            deviceType ${filterDeviceTypes.length > 0 ? `(${filterDeviceTypes.length})` : ''} ${!state.deviceAttrsLoaded ? '🔒' : ''}
+          <label style="color: ${
+            state.deviceAttrsLoaded ? colors.textMuted : colors.warning
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            deviceType ${filterDeviceTypes.length > 0 ? `(${filterDeviceTypes.length})` : ''} ${
+    !state.deviceAttrsLoaded ? '🔒' : ''
+  }
           </label>
           <select id="${modalId}-device-devicetype-filter" multiple size="1" style="
-            width: 100%; padding: 7px 8px; border: 1px solid ${filterDeviceTypes.length > 0 ? MYIO_PURPLE : colors.border};
+            width: 100%; padding: 7px 8px; border: 1px solid ${
+              filterDeviceTypes.length > 0 ? MYIO_PURPLE : colors.border
+            };
             border-radius: 6px; font-size: 11px; color: ${colors.text};
-            background: ${colors.inputBg}; cursor: ${state.deviceAttrsLoaded ? 'pointer' : 'not-allowed'}; height: 32px;
+            background: ${colors.inputBg}; cursor: ${
+    state.deviceAttrsLoaded ? 'pointer' : 'not-allowed'
+  }; height: 32px;
             opacity: ${state.deviceAttrsLoaded ? '1' : '0.5'};
           " ${!state.deviceAttrsLoaded ? 'disabled' : ''}>
-            ${deviceTypes.map(dt => `<option value="${dt}" ${filterDeviceTypes.includes(dt) ? 'selected' : ''}>${dt}</option>`).join('')}
+            ${deviceTypes
+              .map(
+                (dt) =>
+                  `<option value="${dt}" ${filterDeviceTypes.includes(dt) ? 'selected' : ''}>${dt}</option>`
+              )
+              .join('')}
           </select>
         </div>
         <div style="min-width: 100px;">
-          <label style="color: ${state.deviceAttrsLoaded ? colors.textMuted : colors.warning}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
-            deviceProfile ${filterDeviceProfiles.length > 0 ? `(${filterDeviceProfiles.length})` : ''} ${!state.deviceAttrsLoaded ? '🔒' : ''}
+          <label style="color: ${
+            state.deviceAttrsLoaded ? colors.textMuted : colors.warning
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            deviceProfile ${filterDeviceProfiles.length > 0 ? `(${filterDeviceProfiles.length})` : ''} ${
+    !state.deviceAttrsLoaded ? '🔒' : ''
+  }
           </label>
           <select id="${modalId}-device-profile-filter" multiple size="1" style="
-            width: 100%; padding: 7px 8px; border: 1px solid ${filterDeviceProfiles.length > 0 ? MYIO_PURPLE : colors.border};
+            width: 100%; padding: 7px 8px; border: 1px solid ${
+              filterDeviceProfiles.length > 0 ? MYIO_PURPLE : colors.border
+            };
             border-radius: 6px; font-size: 11px; color: ${colors.text};
-            background: ${colors.inputBg}; cursor: ${state.deviceAttrsLoaded ? 'pointer' : 'not-allowed'}; height: 32px;
+            background: ${colors.inputBg}; cursor: ${
+    state.deviceAttrsLoaded ? 'pointer' : 'not-allowed'
+  }; height: 32px;
             opacity: ${state.deviceAttrsLoaded ? '1' : '0.5'};
           " ${!state.deviceAttrsLoaded ? 'disabled' : ''}>
-            ${deviceProfiles.map(p => `<option value="${p}" ${filterDeviceProfiles.includes(p) ? 'selected' : ''}>${p}</option>`).join('')}
+            ${deviceProfiles
+              .map(
+                (p) =>
+                  `<option value="${p}" ${filterDeviceProfiles.includes(p) ? 'selected' : ''}>${p}</option>`
+              )
+              .join('')}
           </select>
         </div>
         <div style="min-width: 100px;">
-          <label style="color: ${state.deviceTelemetryLoaded ? colors.textMuted : colors.warning}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
-            Status ${filterStatuses.length > 0 ? `(${filterStatuses.length})` : ''} ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+          <label style="color: ${
+            state.deviceTelemetryLoaded ? colors.textMuted : colors.warning
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            Status ${filterStatuses.length > 0 ? `(${filterStatuses.length})` : ''} ${
+    !state.deviceTelemetryLoaded ? '🔒' : ''
+  }
           </label>
           <select id="${modalId}-device-status-filter" multiple size="1" style="
-            width: 100%; padding: 7px 8px; border: 1px solid ${filterStatuses.length > 0 ? MYIO_PURPLE : colors.border};
+            width: 100%; padding: 7px 8px; border: 1px solid ${
+              filterStatuses.length > 0 ? MYIO_PURPLE : colors.border
+            };
             border-radius: 6px; font-size: 11px; color: ${colors.text};
-            background: ${colors.inputBg}; cursor: ${state.deviceTelemetryLoaded ? 'pointer' : 'not-allowed'}; height: 32px;
+            background: ${colors.inputBg}; cursor: ${
+    state.deviceTelemetryLoaded ? 'pointer' : 'not-allowed'
+  }; height: 32px;
             opacity: ${state.deviceTelemetryLoaded ? '1' : '0.5'};
           " ${!state.deviceTelemetryLoaded ? 'disabled' : ''}>
-            ${statuses.map(s => `<option value="${s}" ${filterStatuses.includes(s) ? 'selected' : ''}>${s}</option>`).join('')}
+            ${statuses
+              .map(
+                (s) => `<option value="${s}" ${filterStatuses.includes(s) ? 'selected' : ''}>${s}</option>`
+              )
+              .join('')}
           </select>
         </div>
-        ${hasActiveFilters ? `
+        ${
+          hasActiveFilters
+            ? `
           <div style="display: flex; align-items: flex-end;">
             <button id="${modalId}-clear-filters" style="
               background: ${colors.danger}; color: white; border: none;
@@ -1309,23 +1519,32 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               font-size: 11px; font-weight: 500;
             ">✕ Limpar</button>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <div style="font-size: 11px; color: ${colors.textMuted};">
             📍 <strong>${state.selectedCustomer?.name || state.selectedCustomer?.title}</strong>
-            <span style="margin-left: 8px; color: ${colors.primary};">(${sortedDevices.length}/${state.devices.length})</span>
+            <span style="margin-left: 8px; color: ${colors.primary};">(${sortedDevices.length}/${
+    state.devices.length
+  })</span>
           </div>
-          ${state.attrsLoading ? `
+          ${
+            state.attrsLoading
+              ? `
             <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
               ⏳ Atributos ${state.attrsLoadedCount}/${state.devices.length}...
             </span>
-          ` : state.deviceAttrsLoaded ? `
+          `
+              : state.deviceAttrsLoaded
+              ? `
             <span style="font-size: 10px; color: ${colors.success}; padding: 3px 8px;">
               ✅ Atributos OK
             </span>
-          ` : `
+          `
+              : `
             <button id="${modalId}-load-attrs" style="
               padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
               background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
@@ -1333,16 +1552,22 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
             ">
               🏷️ Carregar Atributos (${searchFilteredDevices.length})
             </button>
-          `}
-          ${state.telemetryLoading ? `
+          `
+          }
+          ${
+            state.telemetryLoading
+              ? `
             <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
               ⏳ Telemetria ${state.telemetryLoadedCount}/${sortedDevices.length}...
             </span>
-          ` : state.deviceTelemetryLoaded ? `
+          `
+              : state.deviceTelemetryLoaded
+              ? `
             <span style="font-size: 10px; color: ${colors.success}; padding: 3px 8px;">
               ✅ Telemetria OK
             </span>
-          ` : `
+          `
+              : `
             <button id="${modalId}-load-telemetry" style="
               padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
               background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
@@ -1350,8 +1575,11 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
             ">
               📡 Carregar Telemetria (${searchFilteredDevices.length})
             </button>
-          `}
-          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: ${colors.surface}; border-radius: 6px; border: 1px solid ${colors.border};">
+          `
+          }
+          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: ${
+            colors.surface
+          }; border-radius: 6px; border: 1px solid ${colors.border};">
             <span style="font-size: 10px; color: ${colors.textMuted};">Modo:</span>
             <button id="${modalId}-mode-single" style="
               padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; border: none;
@@ -1364,7 +1592,9 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               color: ${state.deviceSelectionMode === 'multi' ? 'white' : colors.textMuted};
             ">Multi</button>
           </div>
-          ${state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0 ? `
+          ${
+            state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0
+              ? `
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="font-size: 11px; color: ${colors.success}; font-weight: 500;">
                 ✓ ${state.selectedDevices.length} selecionados
@@ -1378,13 +1608,19 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
                 background: transparent; border: 1px solid ${colors.border}; color: ${colors.textMuted};
               ">Limpar</button>
             </div>
-          ` : ''}
-          ${state.deviceSelectionMode === 'multi' && state.selectedDevices.length === 0 ? `
+          `
+              : ''
+          }
+          ${
+            state.deviceSelectionMode === 'multi' && state.selectedDevices.length === 0
+              ? `
             <button id="${modalId}-select-all" style="
               padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
               background: transparent; border: 1px solid ${colors.border}; color: ${colors.text};
             ">Selecionar Todos</button>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       </div>
     </div>
@@ -1401,16 +1637,24 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
       ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
       ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
-      <div style="width: ${state.columnWidths.deviceType}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+      <div style="width: ${
+        state.columnWidths.deviceType
+      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
         devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
       </div>
-      <div style="width: ${state.columnWidths.deviceProfile}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+      <div style="width: ${
+        state.columnWidths.deviceProfile
+      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
         devProfile ${!state.deviceAttrsLoaded ? '🔒' : ''}
       </div>
-      <div style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+      <div style="width: ${
+        state.columnWidths.telemetry
+      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
         Telemetria ${!state.deviceTelemetryLoaded ? '🔒' : ''}
       </div>
-      <div style="width: ${state.columnWidths.status}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+      <div style="width: ${
+        state.columnWidths.status
+      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
         Status ${!state.deviceTelemetryLoaded ? '🔒' : ''}
       </div>
       <div style="width: 24px;"></div>
@@ -1420,9 +1664,10 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       max-height: ${gridHeight}; overflow-y: auto; border: 1px solid ${colors.border};
       border-radius: 0 0 8px 8px; background: ${colors.surface};
     " id="${modalId}-device-list">
-      ${sortedDevices.length === 0
-        ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-        : sortedDevices.map(device => renderDeviceRow(device, state, modalId, colors)).join('')
+      ${
+        sortedDevices.length === 0
+          ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
+          : sortedDevices.map((device) => renderDeviceRow(device, state, modalId, colors)).join('')
       }
     </div>
   `;
@@ -1431,8 +1676,10 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
 // Render a single device row
 function renderDeviceRow(device: Device, state: ModalState, modalId: string, colors: ThemeColors): string {
   const deviceId = getEntityId(device);
-  const isSelectedSingle = state.deviceSelectionMode === 'single' && getEntityId(state.selectedDevice) === deviceId;
-  const isSelectedMulti = state.deviceSelectionMode === 'multi' && state.selectedDevices.some(d => getEntityId(d) === deviceId);
+  const isSelectedSingle =
+    state.deviceSelectionMode === 'single' && getEntityId(state.selectedDevice) === deviceId;
+  const isSelectedMulti =
+    state.deviceSelectionMode === 'multi' && state.selectedDevices.some((d) => getEntityId(d) === deviceId);
   const isSelected = isSelectedSingle || isSelectedMulti;
 
   const attrs = device.serverAttrs || {};
@@ -1450,8 +1697,8 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
   const notLoadedStyle = { bg: '#f3f4f6', text: '#9ca3af' };
 
   // Only show status if telemetry is loaded
-  const connStatus = state.deviceTelemetryLoaded ? (telemetry.connectionStatus?.value || 'offline') : null;
-  const statusStyle = connStatus ? (statusColors[connStatus] || statusColors.offline) : notLoadedStyle;
+  const connStatus = state.deviceTelemetryLoaded ? telemetry.connectionStatus?.value || 'offline' : null;
+  const statusStyle = connStatus ? statusColors[connStatus] || statusColors.offline : notLoadedStyle;
 
   // Telemetry display - filter by device type to avoid showing irrelevant telemetry
   const telemetryItems: Array<{ label: string; value: string; unit: string; ts: string }> = [];
@@ -1462,17 +1709,33 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
   const attrDeviceType = (attrs.deviceType || '').toUpperCase();
 
   // Water devices: HIDROMETRO, CAIXA_DAGUA, TANK, or name contains 'hidr', 'agua', 'water'
-  const isWaterDevice = ['HIDROMETRO', 'CAIXA_DAGUA', 'TANK'].includes(attrDeviceType) ||
-    deviceName.includes('hidr') || deviceName.includes('agua') || deviceName.includes('water') ||
+  const isWaterDevice =
+    ['HIDROMETRO', 'CAIXA_DAGUA', 'TANK'].includes(attrDeviceType) ||
+    deviceName.includes('hidr') ||
+    deviceName.includes('agua') ||
+    deviceName.includes('water') ||
     deviceType.includes('water');
 
   // Energy devices: 3F_MEDIDOR, ENTRADA, MOTOR, CHILLER, FANCOIL, COMPRESSOR, ESCADA_ROLANTE, ELEVADOR
-  const isEnergyDevice = ['3F_MEDIDOR', 'ENTRADA', 'MOTOR', 'CHILLER', 'FANCOIL', 'COMPRESSOR', 'ESCADA_ROLANTE', 'ELEVADOR'].includes(attrDeviceType) ||
-    deviceType.includes('energy') || deviceType.includes('meter');
+  const isEnergyDevice =
+    [
+      '3F_MEDIDOR',
+      'ENTRADA',
+      'MOTOR',
+      'CHILLER',
+      'FANCOIL',
+      'COMPRESSOR',
+      'ESCADA_ROLANTE',
+      'ELEVADOR',
+    ].includes(attrDeviceType) ||
+    deviceType.includes('energy') ||
+    deviceType.includes('meter');
 
   // Temperature devices: name or type contains 'temp', 'sensor'
-  const isTemperatureDevice = deviceName.includes('temp') || deviceType.includes('temp') ||
-    deviceName.includes('sensor') && !isWaterDevice && !isEnergyDevice;
+  const isTemperatureDevice =
+    deviceName.includes('temp') ||
+    deviceType.includes('temp') ||
+    (deviceName.includes('sensor') && !isWaterDevice && !isEnergyDevice);
 
   if (state.deviceTelemetryLoaded) {
     // Only show telemetry that makes sense for the device type
@@ -1518,10 +1781,14 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
     }
   }
 
-  const statusTs = telemetry.connectionStatus?.ts ? formatDate(telemetry.connectionStatus.ts, state.locale, true) : '';
+  const statusTs = telemetry.connectionStatus?.ts
+    ? formatDate(telemetry.connectionStatus.ts, state.locale, true)
+    : '';
 
   // Tooltip content for device info
-  const tooltipContent = `Name: ${device.name}\\nID: ${deviceId}\\nType: ${device.type || 'N/A'}\\nCreated: ${formatDate(device.createdTime, state.locale, true)}`;
+  const tooltipContent = `Name: ${device.name}\\nID: ${deviceId}\\nType: ${
+    device.type || 'N/A'
+  }\\nCreated: ${formatDate(device.createdTime, state.locale, true)}`;
 
   // Format createdTime
   const createdTimeStr = device.createdTime ? formatDate(device.createdTime, state.locale) : '—';
@@ -1553,14 +1820,18 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
     if (telemetryItems.length === 0) {
       return `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
     }
-    return telemetryItems.map(item => `
+    return telemetryItems
+      .map(
+        (item) => `
       <span style="display: inline-flex; align-items: center; gap: 1px;">
         <span style="font-size: 9px; color: ${colors.text}; font-weight: 500;" title="${item.label}">${item.value}${item.unit}</span>
         <span class="myio-ts-btn" data-ts="${item.label}: ${item.value}${item.unit}\\n${item.ts}" style="
           cursor: pointer; font-size: 9px; color: ${colors.primary}; font-weight: 600;
         " title="${item.label}: ${item.ts}">(+)</span>
       </span>
-    `).join('');
+    `
+      )
+      .join('');
   };
 
   // Render status based on loaded state
@@ -1569,12 +1840,18 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       return `<span style="font-size: 8px; padding: 2px 6px; border-radius: 3px; background: ${notLoadedStyle.bg}; color: ${notLoadedStyle.text}; font-style: italic;">—</span>`;
     }
     return `
-      <span style="font-size: 9px; padding: 2px 6px; border-radius: 3px; background: ${statusStyle.bg}; color: ${statusStyle.text};">
+      <span style="font-size: 9px; padding: 2px 6px; border-radius: 3px; background: ${
+        statusStyle.bg
+      }; color: ${statusStyle.text};">
         ${connStatus}
       </span>
-      ${statusTs ? `<span class="myio-ts-btn" data-ts="${statusTs}" style="
+      ${
+        statusTs
+          ? `<span class="myio-ts-btn" data-ts="${statusTs}" style="
         cursor: pointer; font-size: 10px; color: ${colors.primary}; font-weight: 600;
-      " title="${statusTs}">(+)</span>` : ''}
+      " title="${statusTs}">(+)</span>`
+          : ''
+      }
     `;
   };
 
@@ -1585,17 +1862,27 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       padding: 6px 12px; border-bottom: 1px solid ${colors.border};
       cursor: pointer; transition: background 0.15s;
     ">
-      ${state.deviceSelectionMode === 'multi' ? `
+      ${
+        state.deviceSelectionMode === 'multi'
+          ? `
         <div style="width: 28px; flex-shrink: 0; text-align: center;">
           <input type="checkbox" class="myio-device-checkbox" data-device-id="${deviceId}"
             ${isSelectedMulti ? 'checked' : ''} style="
             width: 16px; height: 16px; cursor: pointer; accent-color: ${MYIO_PURPLE};
           " />
         </div>
-      ` : ''}
+      `
+          : ''
+      }
       <div style="width: 28px; font-size: 16px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
-      <div style="width: ${state.columnWidths.label}px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px;">
-        <div style="font-weight: 500; color: ${colors.text}; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${device.label || device.name}">
+      <div style="width: ${
+        state.columnWidths.label
+      }px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px;">
+        <div style="font-weight: 500; color: ${
+          colors.text
+        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${
+    device.label || device.name
+  }">
           ${device.label || device.name}
         </div>
         <span class="myio-info-btn" data-device-info="${encodeURIComponent(tooltipContent)}" style="
@@ -1604,26 +1891,38 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           display: flex; align-items: center; justify-content: center; border: 1px solid ${colors.border};
         " title="Ver detalhes">ⓘ</span>
       </div>
-      <div style="width: ${state.columnWidths.type}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden;">
+      <div style="width: ${
+        state.columnWidths.type
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden;">
         <div style="font-size: 9px; padding: 2px 4px; border-radius: 3px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
           background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
           color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};" title="${device.type || ''}">
           ${device.type || '—'}
         </div>
       </div>
-      <div style="width: ${state.columnWidths.createdTime}px; padding: 0 6px; text-align: center; flex-shrink: 0;">
+      <div style="width: ${
+        state.columnWidths.createdTime
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0;">
         <span style="font-size: 9px; color: ${colors.textMuted};">${createdTimeStr}</span>
       </div>
-      <div style="width: ${state.columnWidths.deviceType}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      <div style="width: ${
+        state.columnWidths.deviceType
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
         ${renderDeviceTypeValue()}
       </div>
-      <div style="width: ${state.columnWidths.deviceProfile}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      <div style="width: ${
+        state.columnWidths.deviceProfile
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
         ${renderDeviceProfileValue()}
       </div>
-      <div style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+      <div style="width: ${
+        state.columnWidths.telemetry
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
         ${renderTelemetryValue()}
       </div>
-      <div style="width: ${state.columnWidths.status}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px;">
+      <div style="width: ${
+        state.columnWidths.status
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px;">
         ${renderStatusValue()}
       </div>
       <div style="width: 24px; flex-shrink: 0; text-align: center;">
@@ -1663,7 +1962,9 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
   const deviceCustomerId = state.selectedDevice.customerId?.id || '';
 
   const suggestedType = handleDeviceType(state.selectedDevice.name);
-  const suggestedCentralName = `Central ${state.selectedCustomer.name || state.selectedCustomer.title} PADRAO`;
+  const suggestedCentralName = `Central ${
+    state.selectedCustomer.name || state.selectedCustomer.title
+  } PADRAO`;
   const isOwnerValid = deviceCustomerId === customerId;
   const hasRelation = state.deviceRelation !== null;
 
@@ -1678,7 +1979,9 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
     ">
       <div style="font-size: 40px;">${getDeviceIcon(state.selectedDevice.type)}</div>
       <div style="flex: 1;">
-        <div style="font-weight: 600; font-size: 16px; color: ${colors.text};">${state.selectedDevice.name}</div>
+        <div style="font-weight: 600; font-size: 16px; color: ${colors.text};">${
+    state.selectedDevice.name
+  }</div>
         <div style="font-size: 12px; color: ${colors.textMuted};">
           ID: ${deviceId} • Cliente: ${state.selectedCustomer.name || state.selectedCustomer.title}
         </div>
@@ -1688,70 +1991,74 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
       </div>
     </div>
 
-    <!-- Device Profile (Entity Level) -->
+    <!-- Owner (PRIMEIRO na ordem) -->
     <div style="margin-bottom: 20px;">
       <h3 style="margin: 0 0 12px 0; font-size: 14px; color: ${colors.textMuted}; font-weight: 500;">
-        🏷️ Device Profile (Entity)
+        👤 ${t.owner}
       </h3>
       <div style="
         padding: 16px; background: ${colors.cardBg}; border: 1px solid ${colors.border}; border-radius: 8px;
       ">
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 200px;">
-            <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Profile Atual</label>
-            <div style="font-size: 13px; color: ${colors.text}; font-weight: 500;">
-              ${state.selectedDevice.type || 'default'}
-            </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px; color: ${isOwnerValid ? colors.success : colors.danger};">
+              ${isOwnerValid ? '✅' : '❌'}
+            </span>
+            <span style="color: ${colors.text};">
+              ${
+                isOwnerValid
+                  ? `<strong>CUSTOMER:</strong> "${
+                      state.selectedCustomer.name || state.selectedCustomer.title
+                    }" (${t.validOwner})`
+                  : `<span style="color: ${colors.danger};"><strong>ERROR:</strong> ${t.invalidOwner} - Owner atual: ${deviceCustomerId}</span>`
+              }
+            </span>
           </div>
-          <div style="flex: 2; min-width: 200px;">
-            <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Alterar para</label>
-            <div style="display: flex; gap: 8px;">
-              <select id="${modalId}-device-profile-select" style="
-                flex: 1; padding: 8px 12px; border: 1px solid ${colors.border};
-                border-radius: 6px; font-size: 13px; color: ${colors.text};
-                background: ${colors.inputBg};
-              ">
-                <option value="">-- Selecione --</option>
-                ${state.deviceProfiles.map(p => `
-                  <option value="${p.id}" ${state.selectedDevice?.type === p.name ? 'selected' : ''}>${p.name}</option>
-                `).join('')}
-              </select>
-              <button id="${modalId}-load-profiles" style="
-                background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
-                padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
-              " title="Carregar profiles">🔄</button>
-              <button id="${modalId}-save-profile" style="
-                background: ${MYIO_PURPLE}; color: white; border: none;
-                padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 11px;
-              ">Salvar</button>
+          <button id="${modalId}-change-owner" style="
+            background: ${isOwnerValid ? colors.cardBg : MYIO_PURPLE};
+            color: ${isOwnerValid ? colors.text : 'white'};
+            border: 1px solid ${isOwnerValid ? colors.border : MYIO_PURPLE};
+            padding: 6px 12px; border-radius: 4px; cursor: pointer;
+            font-size: 11px; display: flex; align-items: center; gap: 4px;
+          ">${isOwnerValid ? '✏️ Alterar' : '🔧 Corrigir'}</button>
+        </div>
+
+        <!-- Change Owner Form (hidden by default) -->
+        <div id="${modalId}-change-owner-form" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid ${
+    colors.border
+  };">
+          <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 200px;">
+              <label style="color: ${
+                colors.textMuted
+              }; font-size: 10px; display: block; margin-bottom: 4px;">Novo Customer ID</label>
+              <input type="text" id="${modalId}-new-owner-id"
+                     value="${customerId}"
+                     placeholder="Customer ID..." style="
+                width: 100%; padding: 6px 8px; border: 1px solid ${colors.border};
+                border-radius: 4px; font-size: 12px; color: ${colors.text};
+                background: ${colors.inputBg}; box-sizing: border-box;
+              "/>
             </div>
+            <button id="${modalId}-save-owner" style="
+              background: ${colors.success}; color: white; border: none;
+              padding: 6px 12px; border-radius: 4px; cursor: pointer;
+              font-size: 11px;
+            ">Salvar</button>
+            <button id="${modalId}-cancel-change-owner" style="
+              background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
+              padding: 6px 12px; border-radius: 4px; cursor: pointer;
+              font-size: 11px;
+            ">Cancelar</button>
+          </div>
+          <div style="margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 11px; color: #92400e;">
+            ⚠️ Para corrigir o owner, use o ID do customer selecionado: <strong>${customerId}</strong>
           </div>
         </div>
-        ${state.deviceProfiles.length === 0 ? `
-          <div style="margin-top: 8px; padding: 8px; background: ${colors.warning}20; border-radius: 4px; font-size: 11px; color: ${colors.warning};">
-            ⚠️ Clique em 🔄 para carregar os profiles disponíveis
-          </div>
-        ` : ''}
       </div>
     </div>
 
-    <!-- Server-Scope Attributes -->
-    <div style="margin-bottom: 20px;">
-      <h3 style="margin: 0 0 12px 0; font-size: 14px; color: ${colors.textMuted}; font-weight: 500;">
-        📋 ${t.serverScopeAttrs}
-      </h3>
-      <div style="background: ${colors.cardBg}; border: 1px solid ${colors.border}; border-radius: 8px; overflow: hidden;">
-        ${renderAttrRow('centralId', attrs.centralId, true, null, colors, modalId)}
-        ${renderAttrRow('slaveId', attrs.slaveId, true, null, colors, modalId)}
-        ${renderAttrRow('centralName', attrs.centralName, false, suggestedCentralName, colors, modalId, t)}
-        ${renderDeviceTypeSelect(attrs.deviceType, suggestedType, colors, modalId, t)}
-        ${renderDeviceProfileSelect(attrs.deviceType || suggestedType, attrs.deviceProfile, colors, modalId)}
-        ${renderAttrRow('identifier', attrs.identifier, false, null, colors, modalId, t, false, 'Para LOJAS: LUC/SUC da Loja. Para outros casos, use padrões como: CAG (ecossistema CAG), ESCADA_ROLANTE, ELEVADOR, BOMBA, ENTRADA, TEMPERATURA')}
-        ${renderAttrRow('ingestionId', attrs.ingestionId, false, null, colors, modalId, t, true)}
-      </div>
-    </div>
-
-    <!-- Relation TO -->
+    <!-- Relation TO (SEGUNDO na ordem) -->
     <div style="margin-bottom: 20px;">
       <h3 style="margin: 0 0 12px 0; font-size: 14px; color: ${colors.textMuted}; font-weight: 500;">
         🔗 ${t.relationTo}
@@ -1759,12 +2066,15 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
       <div style="
         padding: 16px; background: ${colors.cardBg}; border: 1px solid ${colors.border}; border-radius: 8px;
       ">
-        ${hasRelation
-          ? `<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+        ${
+          hasRelation
+            ? `<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 20px; color: ${colors.success};">✅</span>
                 <span style="color: ${colors.text};">
-                  <strong>${state.deviceRelation?.toEntityType}:</strong> ${state.deviceRelation?.toEntityName || state.deviceRelation?.toEntityId}
+                  <strong>${state.deviceRelation?.toEntityType}:</strong> ${
+                state.deviceRelation?.toEntityName || state.deviceRelation?.toEntityId
+              }
                 </span>
               </div>
               <button id="${modalId}-delete-relation" style="
@@ -1773,7 +2083,7 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
                 font-size: 11px; display: flex; align-items: center; gap: 4px;
               ">🗑️ Remover</button>
             </div>`
-          : `<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            : `<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 20px;">⚠️</span>
                 <span style="color: ${colors.warning};">${t.noRelation}</span>
@@ -1787,10 +2097,14 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
         }
 
         <!-- Add Relation Form (hidden by default) -->
-        <div id="${modalId}-add-relation-form" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid ${colors.border};">
+        <div id="${modalId}-add-relation-form" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid ${
+    colors.border
+  };">
           <div style="display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap;">
             <div style="min-width: 100px;">
-              <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Tipo</label>
+              <label style="color: ${
+                colors.textMuted
+              }; font-size: 10px; display: block; margin-bottom: 4px;">Tipo</label>
               <select id="${modalId}-relation-entity-type" style="
                 width: 100%; padding: 6px 8px; border: 1px solid ${colors.border};
                 border-radius: 4px; font-size: 12px; color: ${colors.text};
@@ -1801,7 +2115,9 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
               </select>
             </div>
             <div style="flex: 1; min-width: 200px;">
-              <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">🔍 Buscar</label>
+              <label style="color: ${
+                colors.textMuted
+              }; font-size: 10px; display: block; margin-bottom: 4px;">🔍 Buscar</label>
               <input type="text" id="${modalId}-relation-search" placeholder="Buscar por nome..." style="
                 width: 100%; padding: 6px 8px; border: 1px solid ${colors.border};
                 border-radius: 4px; font-size: 12px; color: ${colors.text};
@@ -1826,40 +2142,70 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
           <div id="${modalId}-relation-entity-list" style="
             margin-top: 10px; max-height: 200px; overflow-y: auto;
             border: 1px solid ${colors.border}; border-radius: 4px;
-            display: ${state.customerAssets.length > 0 || state.relationSelectorType === 'CUSTOMER' ? 'block' : 'none'};
+            display: ${
+              state.customerAssets.length > 0 || state.relationSelectorType === 'CUSTOMER' ? 'block' : 'none'
+            };
           ">
-            ${state.relationSelectorType === 'ASSET' ?
-              state.customerAssets
-                .filter(a => !state.relationSelectorSearch || a.name.toLowerCase().includes(state.relationSelectorSearch.toLowerCase()))
-                .map(asset => `
-                  <div class="relation-entity-item" data-entity-type="ASSET" data-entity-id="${asset.id}" data-entity-name="${asset.name}" style="
+            ${
+              state.relationSelectorType === 'ASSET'
+                ? state.customerAssets
+                    .filter(
+                      (a) =>
+                        !state.relationSelectorSearch ||
+                        a.name.toLowerCase().includes(state.relationSelectorSearch.toLowerCase())
+                    )
+                    .map(
+                      (asset) => `
+                  <div class="relation-entity-item" data-entity-type="ASSET" data-entity-id="${
+                    asset.id
+                  }" data-entity-name="${asset.name}" style="
                     padding: 8px 12px; cursor: pointer; border-bottom: 1px solid ${colors.border};
                     display: flex; justify-content: space-between; align-items: center;
                   ">
                     <span style="color: ${colors.text}; font-size: 12px;">📦 ${asset.name}</span>
                     <span style="color: ${colors.textMuted}; font-size: 10px;">${asset.type || ''}</span>
                   </div>
-                `).join('') || `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum asset encontrado</div>`
-            :
-              state.customers
-                .filter(c => !state.relationSelectorSearch || (c.name || c.title || '').toLowerCase().includes(state.relationSelectorSearch.toLowerCase()))
-                .slice(0, 50)
-                .map(customer => `
-                  <div class="relation-entity-item" data-entity-type="CUSTOMER" data-entity-id="${getEntityId(customer)}" data-entity-name="${customer.name || customer.title}" style="
+                `
+                    )
+                    .join('') ||
+                  `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum asset encontrado</div>`
+                : state.customers
+                    .filter(
+                      (c) =>
+                        !state.relationSelectorSearch ||
+                        (c.name || c.title || '')
+                          .toLowerCase()
+                          .includes(state.relationSelectorSearch.toLowerCase())
+                    )
+                    .slice(0, 50)
+                    .map(
+                      (customer) => `
+                  <div class="relation-entity-item" data-entity-type="CUSTOMER" data-entity-id="${getEntityId(
+                    customer
+                  )}" data-entity-name="${customer.name || customer.title}" style="
                     padding: 8px 12px; cursor: pointer; border-bottom: 1px solid ${colors.border};
                     display: flex; justify-content: space-between; align-items: center;
                   ">
-                    <span style="color: ${colors.text}; font-size: 12px;">👤 ${customer.name || customer.title}</span>
+                    <span style="color: ${colors.text}; font-size: 12px;">👤 ${
+                        customer.name || customer.title
+                      }</span>
                   </div>
-                `).join('') || `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum customer encontrado</div>`
+                `
+                    )
+                    .join('') ||
+                  `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum customer encontrado</div>`
             }
           </div>
 
           <!-- Selected Entity Display -->
           <input type="hidden" id="${modalId}-relation-entity-id" value=""/>
-          <div id="${modalId}-relation-selected" style="display: none; margin-top: 10px; padding: 10px; background: ${colors.success}20; border-radius: 4px;">
+          <div id="${modalId}-relation-selected" style="display: none; margin-top: 10px; padding: 10px; background: ${
+    colors.success
+  }20; border-radius: 4px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span id="${modalId}-relation-selected-name" style="color: ${colors.text}; font-size: 12px;"></span>
+              <span id="${modalId}-relation-selected-name" style="color: ${
+    colors.text
+  }; font-size: 12px;"></span>
               <button id="${modalId}-save-relation" style="
                 background: ${colors.success}; color: white; border: none;
                 padding: 6px 12px; border-radius: 4px; cursor: pointer;
@@ -1871,63 +2217,93 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
       </div>
     </div>
 
-    <!-- Owner -->
-    <div>
+    <!-- Device Profile (Entity Level) - TERCEIRO na ordem -->
+    <div style="margin-bottom: 20px;">
       <h3 style="margin: 0 0 12px 0; font-size: 14px; color: ${colors.textMuted}; font-weight: 500;">
-        👤 ${t.owner}
+        🏷️ Device Profile (Entity)
       </h3>
       <div style="
         padding: 16px; background: ${colors.cardBg}; border: 1px solid ${colors.border}; border-radius: 8px;
       ">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 20px; color: ${isOwnerValid ? colors.success : colors.danger};">
-              ${isOwnerValid ? '✅' : '❌'}
-            </span>
-            <span style="color: ${colors.text};">
-              ${isOwnerValid
-                ? `<strong>CUSTOMER:</strong> "${state.selectedCustomer.name || state.selectedCustomer.title}" (${t.validOwner})`
-                : `<span style="color: ${colors.danger};"><strong>ERROR:</strong> ${t.invalidOwner} - Owner atual: ${deviceCustomerId}</span>`
-              }
-            </span>
-          </div>
-          <button id="${modalId}-change-owner" style="
-            background: ${isOwnerValid ? colors.cardBg : MYIO_PURPLE};
-            color: ${isOwnerValid ? colors.text : 'white'};
-            border: 1px solid ${isOwnerValid ? colors.border : MYIO_PURPLE};
-            padding: 6px 12px; border-radius: 4px; cursor: pointer;
-            font-size: 11px; display: flex; align-items: center; gap: 4px;
-          ">${isOwnerValid ? '✏️ Alterar' : '🔧 Corrigir'}</button>
-        </div>
-
-        <!-- Change Owner Form (hidden by default) -->
-        <div id="${modalId}-change-owner-form" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid ${colors.border};">
-          <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
-            <div style="flex: 2; min-width: 200px;">
-              <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Novo Customer ID</label>
-              <input type="text" id="${modalId}-new-owner-id"
-                     value="${customerId}"
-                     placeholder="Customer ID..." style="
-                width: 100%; padding: 6px 8px; border: 1px solid ${colors.border};
-                border-radius: 4px; font-size: 12px; color: ${colors.text};
-                background: ${colors.inputBg}; box-sizing: border-box;
-              "/>
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <label style="color: ${
+              colors.textMuted
+            }; font-size: 10px; display: block; margin-bottom: 4px;">Profile Atual</label>
+            <div style="font-size: 13px; color: ${colors.text}; font-weight: 500;">
+              ${state.selectedDevice.type || 'default'}
             </div>
-            <button id="${modalId}-save-owner" style="
-              background: ${colors.success}; color: white; border: none;
-              padding: 6px 12px; border-radius: 4px; cursor: pointer;
-              font-size: 11px;
-            ">Salvar</button>
-            <button id="${modalId}-cancel-change-owner" style="
-              background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
-              padding: 6px 12px; border-radius: 4px; cursor: pointer;
-              font-size: 11px;
-            ">Cancelar</button>
           </div>
-          <div style="margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 11px; color: #92400e;">
-            ⚠️ Para corrigir o owner, use o ID do customer selecionado: <strong>${customerId}</strong>
+          <div style="flex: 2; min-width: 200px;">
+            <label style="color: ${
+              colors.textMuted
+            }; font-size: 10px; display: block; margin-bottom: 4px;">Alterar para</label>
+            <div style="display: flex; gap: 8px;">
+              <select id="${modalId}-device-profile-select" style="
+                flex: 1; padding: 8px 12px; border: 1px solid ${colors.border};
+                border-radius: 6px; font-size: 13px; color: ${colors.text};
+                background: ${colors.inputBg};
+              ">
+                <option value="">-- Selecione --</option>
+                ${state.deviceProfiles
+                  .map(
+                    (p) => `
+                  <option value="${p.id}" ${state.selectedDevice?.type === p.name ? 'selected' : ''}>${
+                      p.name
+                    }</option>
+                `
+                  )
+                  .join('')}
+              </select>
+              <button id="${modalId}-load-profiles" style="
+                background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
+                padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
+              " title="Carregar profiles">🔄</button>
+              <button id="${modalId}-save-profile" style="
+                background: ${MYIO_PURPLE}; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 11px;
+              ">Salvar</button>
+            </div>
           </div>
         </div>
+        ${
+          state.deviceProfiles.length === 0
+            ? `
+          <div style="margin-top: 8px; padding: 8px; background: ${colors.warning}20; border-radius: 4px; font-size: 11px; color: ${colors.warning};">
+            ⚠️ Clique em 🔄 para carregar os profiles disponíveis
+          </div>
+        `
+            : ''
+        }
+      </div>
+    </div>
+
+    <!-- Server-Scope Attributes (QUARTO na ordem) -->
+    <div>
+      <h3 style="margin: 0 0 12px 0; font-size: 14px; color: ${colors.textMuted}; font-weight: 500;">
+        📋 ${t.serverScopeAttrs}
+      </h3>
+      <div style="background: ${colors.cardBg}; border: 1px solid ${
+    colors.border
+  }; border-radius: 8px; overflow: hidden;">
+        ${renderEntityLabelRow(state.selectedDevice.label, state.selectedDevice.name, colors, modalId, t)}
+        ${renderAttrRow('centralId', attrs.centralId, true, null, colors, modalId)}
+        ${renderAttrRow('slaveId', attrs.slaveId, true, null, colors, modalId)}
+        ${renderAttrRow('centralName', attrs.centralName, false, suggestedCentralName, colors, modalId, t)}
+        ${renderDeviceTypeSelect(attrs.deviceType, suggestedType, colors, modalId, t)}
+        ${renderDeviceProfileSelect(attrs.deviceType || suggestedType, attrs.deviceProfile, colors, modalId)}
+        ${renderAttrRow(
+          'identifier',
+          attrs.identifier,
+          false,
+          null,
+          colors,
+          modalId,
+          t,
+          false,
+          'Para LOJAS: LUC/SUC da Loja. Para outros casos, use padrões como: CAG (ecossistema CAG), ESCADA_ROLANTE, ELEVADOR, BOMBA, ENTRADA, TEMPERATURA'
+        )}
+        ${renderAttrRow('ingestionId', attrs.ingestionId, false, null, colors, modalId, t, true)}
       </div>
     </div>
   `;
@@ -1954,9 +2330,15 @@ function renderAttrRow(
       padding: 12px 16px; border-bottom: 1px solid ${colors.border};
     ">
       <span style="font-size: 16px;">${icon}</span>
-      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+      <span style="width: 110px; font-size: 13px; color: ${
+        colors.textMuted
+      }; font-weight: 500; display: flex; align-items: center; gap: 4px;">
         ${key}
-        ${helpText ? `<span title="${helpText}" style="cursor: help; font-size: 12px; color: ${colors.primary};">ℹ️</span>` : ''}
+        ${
+          helpText
+            ? `<span title="${helpText}" style="cursor: help; font-size: 12px; color: ${colors.primary};">ℹ️</span>`
+            : ''
+        }
       </span>
       <div style="flex: 1;">
         <input type="text" id="${modalId}-${key}" value="${value || ''}"
@@ -1968,20 +2350,28 @@ function renderAttrRow(
         "/>
       </div>
       <div style="width: 80px;">
-        ${!hasValue && suggestion && t ? `
+        ${
+          !hasValue && suggestion && t
+            ? `
           <button data-suggest="${key}" data-value="${suggestion}" style="
             background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
             padding: 6px 10px; border-radius: 4px; cursor: pointer;
             font-size: 11px; width: 100%;
           ">${t.suggest}</button>
-        ` : ''}
-        ${!hasValue && isFetchable && t ? `
+        `
+            : ''
+        }
+        ${
+          !hasValue && isFetchable && t
+            ? `
           <button id="${modalId}-fetch-ingestion" style="
             background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
             padding: 6px 10px; border-radius: 4px; cursor: pointer;
             font-size: 11px; width: 100%;
           ">${t.fetch}</button>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
     </div>
   `;
@@ -1997,8 +2387,17 @@ function renderDeviceTypeSelect(
   const hasValue = !!value;
   const icon = hasValue ? '✅' : '⚠️';
   const options = [
-    '3F_MEDIDOR', 'HIDROMETRO', 'CHILLER', 'ELEVADOR', 'ESCADA_ROLANTE',
-    'COMPRESSOR', 'FANCOIL', 'ENTRADA', 'CAIXA_DAGUA', 'TANK', 'MOTOR',
+    '3F_MEDIDOR',
+    'HIDROMETRO',
+    'CHILLER',
+    'ELEVADOR',
+    'ESCADA_ROLANTE',
+    'COMPRESSOR',
+    'FANCOIL',
+    'ENTRADA',
+    'CAIXA_DAGUA',
+    'TANK',
+    'MOTOR',
   ];
 
   return `
@@ -2007,7 +2406,9 @@ function renderDeviceTypeSelect(
       padding: 12px 16px; border-bottom: 1px solid ${colors.border};
     ">
       <span style="font-size: 16px;">${icon}</span>
-      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500;">deviceType</span>
+      <span style="width: 110px; font-size: 13px; color: ${
+        colors.textMuted
+      }; font-weight: 500;">deviceType</span>
       <div style="flex: 1;">
         <select id="${modalId}-deviceType" style="
           width: 100%; padding: 8px 12px; border: 1px solid ${hasValue ? colors.border : colors.warning};
@@ -2015,17 +2416,23 @@ function renderDeviceTypeSelect(
           background: ${colors.inputBg}; cursor: pointer;
         ">
           <option value="">Select type...</option>
-          ${options.map(o => `<option value="${o}" ${value === o ? 'selected' : ''}>${o}</option>`).join('')}
+          ${options
+            .map((o) => `<option value="${o}" ${value === o ? 'selected' : ''}>${o}</option>`)
+            .join('')}
         </select>
       </div>
       <div style="width: 80px;">
-        ${!hasValue ? `
+        ${
+          !hasValue
+            ? `
           <button data-suggest="deviceType" data-value="${suggested}" style="
             background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
             padding: 6px 10px; border-radius: 4px; cursor: pointer;
             font-size: 11px; width: 100%;
           ">${t.suggest}</button>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
     </div>
   `;
@@ -2040,7 +2447,8 @@ function renderDeviceProfileSelect(
   const hasValue = !!value;
   const icon = hasValue ? '✅' : '⚠️';
   const profiles = getSuggestedProfiles(deviceType as InferredDeviceType);
-  const helpText = 'IMPORTANTE: deviceType + deviceProfile definem o tipo do device. Se ambos = 3F_MEDIDOR → device é LOJA (energia). Se ambos = HIDROMETRO → device é LOJA (água).';
+  const helpText =
+    'IMPORTANTE: deviceType + deviceProfile definem o tipo do device. Se ambos = 3F_MEDIDOR → device é LOJA (energia). Se ambos = HIDROMETRO → device é LOJA (água).';
 
   return `
     <div style="
@@ -2048,7 +2456,9 @@ function renderDeviceProfileSelect(
       padding: 12px 16px; border-bottom: 1px solid ${colors.border};
     ">
       <span style="font-size: 16px;">${icon}</span>
-      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+      <span style="width: 110px; font-size: 13px; color: ${
+        colors.textMuted
+      }; font-weight: 500; display: flex; align-items: center; gap: 4px;">
         deviceProfile
         <span title="${helpText}" style="cursor: help; font-size: 12px; color: ${colors.primary};">ℹ️</span>
       </span>
@@ -2059,10 +2469,63 @@ function renderDeviceProfileSelect(
           background: ${colors.inputBg}; cursor: pointer;
         ">
           <option value="">Select profile...</option>
-          ${profiles.map(p => `<option value="${p}" ${value === p ? 'selected' : ''}>${p}</option>`).join('')}
+          ${profiles
+            .map((p) => `<option value="${p}" ${value === p ? 'selected' : ''}>${p}</option>`)
+            .join('')}
         </select>
       </div>
       <div style="width: 80px;"></div>
+    </div>
+  `;
+}
+
+function renderEntityLabelRow(
+  currentLabel: string | undefined,
+  deviceName: string,
+  colors: ThemeColors,
+  modalId: string,
+  t: typeof i18n.pt
+): string {
+  const hasValue = !!currentLabel;
+  const icon = hasValue ? '✅' : '⚠️';
+  const suggestedValue = currentLabel || deviceName;
+  const helpText =
+    'Etiqueta do dispositivo (entityLabel) - aparece no nome exibido da entidade no ThingsBoard';
+
+  return `
+    <div style="
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; border-bottom: 1px solid ${colors.border};
+    ">
+      <span style="font-size: 16px;">${icon}</span>
+      <span style="width: 110px; font-size: 13px; color: ${
+        colors.textMuted
+      }; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+        etiqueta
+        <span title="${helpText}" style="cursor: help; font-size: 12px; color: ${colors.primary};">ℹ️</span>
+      </span>
+      <div style="flex: 1;">
+        <input type="text" id="${modalId}-entityLabel" value="${currentLabel || ''}"
+               placeholder="Digite a etiqueta do dispositivo..." style="
+          width: 100%; padding: 8px 12px; border: 1px solid ${hasValue ? colors.border : colors.warning};
+          border-radius: 6px; font-size: 13px; color: ${colors.text};
+          background: ${colors.inputBg};
+          box-sizing: border-box;
+        "/>
+      </div>
+      <div style="width: 80px;">
+        ${
+          !hasValue
+            ? `
+          <button data-suggest="entityLabel" data-value="${suggestedValue}" style="
+            background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
+            padding: 6px 10px; border-radius: 4px; cursor: pointer;
+            font-size: 11px; width: 100%;
+          ">${t.suggest}</button>
+        `
+            : ''
+        }
+      </div>
     </div>
   `;
 }
@@ -2081,9 +2544,22 @@ function setupEventListeners(
   // Close handlers
   const closeHandler = () => closeModal(container, onClose);
 
-  container.querySelector('.myio-upsell-modal-overlay')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeHandler();
-  });
+  // Prevent modal from closing when clicking outside (as per RFC requirement #4)
+  // Modal can only be closed via X button or Cancel button
+  const overlay = container.querySelector('.myio-upsell-modal-overlay') as HTMLElement;
+  if (overlay) {
+    overlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Don't close - only X button and Cancel button can close the modal
+    });
+    // Prevent clicks on modal content from bubbling to overlay
+    const content = overlay.querySelector('.myio-upsell-modal-content') as HTMLElement;
+    if (content) {
+      content.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
+  }
 
   document.getElementById(`${modalId}-close`)?.addEventListener('click', closeHandler);
   document.getElementById(`${modalId}-cancel`)?.addEventListener('click', closeHandler);
@@ -2140,10 +2616,10 @@ function setupEventListeners(
   });
 
   // Customer selection
-  container.querySelectorAll('[data-customer-id]').forEach(el => {
+  container.querySelectorAll('[data-customer-id]').forEach((el) => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-customer-id');
-      state.selectedCustomer = state.customers.find(c => c.id?.id === id) || null;
+      state.selectedCustomer = state.customers.find((c) => c.id?.id === id) || null;
       state.selectedDevice = null;
       renderModal(container, state, modalId, t);
     });
@@ -2187,10 +2663,10 @@ function setupEventListeners(
   });
 
   // Device selection
-  container.querySelectorAll('[data-device-id]').forEach(el => {
+  container.querySelectorAll('[data-device-id]').forEach((el) => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-device-id');
-      state.selectedDevice = state.devices.find(d => d.id?.id === id) || null;
+      state.selectedDevice = state.devices.find((d) => d.id?.id === id) || null;
       renderModal(container, state, modalId, t);
     });
   });
@@ -2205,7 +2681,7 @@ function setupEventListeners(
   // Device type filter (multiselect) - device.type
   document.getElementById(`${modalId}-device-type-filter`)?.addEventListener('change', (e) => {
     const select = e.target as HTMLSelectElement;
-    state.deviceFilters.types = Array.from(select.selectedOptions).map(o => o.value);
+    state.deviceFilters.types = Array.from(select.selectedOptions).map((o) => o.value);
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -2213,7 +2689,7 @@ function setupEventListeners(
   // Device deviceType filter (multiselect) - serverAttrs.deviceType
   document.getElementById(`${modalId}-device-devicetype-filter`)?.addEventListener('change', (e) => {
     const select = e.target as HTMLSelectElement;
-    state.deviceFilters.deviceTypes = Array.from(select.selectedOptions).map(o => o.value);
+    state.deviceFilters.deviceTypes = Array.from(select.selectedOptions).map((o) => o.value);
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -2221,18 +2697,21 @@ function setupEventListeners(
   // Device profile filter (multiselect) - serverAttrs.deviceProfile
   document.getElementById(`${modalId}-device-profile-filter`)?.addEventListener('change', (e) => {
     const select = e.target as HTMLSelectElement;
-    state.deviceFilters.deviceProfiles = Array.from(select.selectedOptions).map(o => o.value);
+    state.deviceFilters.deviceProfiles = Array.from(select.selectedOptions).map((o) => o.value);
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
   // Status filter (only works when telemetry is loaded)
-  (document.getElementById(`${modalId}-device-status-filter`) as HTMLSelectElement | null)?.addEventListener('change', (e) => {
-    const select = e.target as HTMLSelectElement;
-    state.deviceFilters.statuses = Array.from(select.selectedOptions).map(o => o.value);
-    renderModal(container, state, modalId, t);
-    setupEventListeners(container, state, modalId, t, onClose);
-  });
+  (document.getElementById(`${modalId}-device-status-filter`) as HTMLSelectElement | null)?.addEventListener(
+    'change',
+    (e) => {
+      const select = e.target as HTMLSelectElement;
+      state.deviceFilters.statuses = Array.from(select.selectedOptions).map((o) => o.value);
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    }
+  );
 
   // Clear filters button
   document.getElementById(`${modalId}-clear-filters`)?.addEventListener('click', () => {
@@ -2264,7 +2743,7 @@ function setupEventListeners(
   setupInfoTooltips(container, state);
 
   // Suggestion buttons
-  container.querySelectorAll('[data-suggest]').forEach(btn => {
+  container.querySelectorAll('[data-suggest]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const field = btn.getAttribute('data-suggest');
       const value = btn.getAttribute('data-value');
@@ -2289,27 +2768,50 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-attrs`)?.addEventListener('click', async () => {
     if (state.attrsLoading) return;
 
-    console.log('[UpsellModal] Load attrs clicked - mode:', state.deviceSelectionMode, 'selected:', state.selectedDevices.length);
+    console.log(
+      '[UpsellModal] Load attrs clicked - mode:',
+      state.deviceSelectionMode,
+      'selected:',
+      state.selectedDevices.length
+    );
 
     let devicesToLoad: Device[];
 
-    // Priority 1: If multi-select mode with selected devices, load only those
-    if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
+    // Priority 1: If single mode with selected device, load only that one
+    if (state.deviceSelectionMode === 'single' && state.selectedDevice) {
+      devicesToLoad = [state.selectedDevice];
+      console.log('[UpsellModal] Loading attrs for SINGLE selected device only:', devicesToLoad.length);
+    }
+    // Priority 2: If multi-select mode with selected devices, load only those
+    else if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
       devicesToLoad = [...state.selectedDevices]; // Clone array
       console.log('[UpsellModal] Loading attrs for SELECTED devices only:', devicesToLoad.length);
     } else {
       // Priority 2: Apply filters (search term, types, deviceTypes, deviceProfiles)
-      const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+      const {
+        types: filterTypes,
+        deviceTypes: filterDeviceTypes,
+        deviceProfiles: filterDeviceProfiles,
+      } = state.deviceFilters;
       const searchTerm = state.deviceSearchTerm.toLowerCase();
-      const hasFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0 || searchTerm;
+      const hasFilters =
+        filterTypes.length > 0 ||
+        filterDeviceTypes.length > 0 ||
+        filterDeviceProfiles.length > 0 ||
+        searchTerm;
 
-      devicesToLoad = state.devices.filter(d => {
+      devicesToLoad = state.devices.filter((d) => {
         // Apply type filter
         if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
         // Apply deviceType filter
-        if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
+        if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
+          return false;
         // Apply deviceProfile filter
-        if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+        if (
+          filterDeviceProfiles.length > 0 &&
+          !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
+        )
+          return false;
         // Apply search filter
         if (searchTerm) {
           const name = (d.name || '').toLowerCase();
@@ -2317,14 +2819,24 @@ function setupEventListeners(
           const type = (d.type || '').toLowerCase();
           const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
           const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
-          if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm) &&
-              !deviceType.includes(searchTerm) && !deviceProfile.includes(searchTerm)) {
+          if (
+            !name.includes(searchTerm) &&
+            !label.includes(searchTerm) &&
+            !type.includes(searchTerm) &&
+            !deviceType.includes(searchTerm) &&
+            !deviceProfile.includes(searchTerm)
+          ) {
             return false;
           }
         }
         return true;
       });
-      console.log('[UpsellModal] Loading attrs for', hasFilters ? 'filtered' : 'all', 'devices:', devicesToLoad.length);
+      console.log(
+        '[UpsellModal] Loading attrs for',
+        hasFilters ? 'filtered' : 'all',
+        'devices:',
+        devicesToLoad.length
+      );
     }
 
     state.attrsLoading = true;
@@ -2347,24 +2859,47 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-telemetry`)?.addEventListener('click', async () => {
     if (state.telemetryLoading) return;
 
-    console.log('[UpsellModal] Load telemetry clicked - mode:', state.deviceSelectionMode, 'selected:', state.selectedDevices.length);
+    console.log(
+      '[UpsellModal] Load telemetry clicked - mode:',
+      state.deviceSelectionMode,
+      'selected:',
+      state.selectedDevices.length
+    );
 
     let devicesToLoad: Device[];
 
-    // Priority 1: If multi-select mode with selected devices, load only those
-    if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
+    // Priority 1: If single mode with selected device, load only that one
+    if (state.deviceSelectionMode === 'single' && state.selectedDevice) {
+      devicesToLoad = [state.selectedDevice];
+      console.log('[UpsellModal] Loading telemetry for SINGLE selected device only:', devicesToLoad.length);
+    }
+    // Priority 2: If multi-select mode with selected devices, load only those
+    else if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
       devicesToLoad = [...state.selectedDevices]; // Clone array
       console.log('[UpsellModal] Loading telemetry for SELECTED devices only:', devicesToLoad.length);
     } else {
       // Priority 2: Apply filters (search term, types, deviceTypes, deviceProfiles)
-      const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+      const {
+        types: filterTypes,
+        deviceTypes: filterDeviceTypes,
+        deviceProfiles: filterDeviceProfiles,
+      } = state.deviceFilters;
       const searchTerm = state.deviceSearchTerm.toLowerCase();
-      const hasFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0 || searchTerm;
+      const hasFilters =
+        filterTypes.length > 0 ||
+        filterDeviceTypes.length > 0 ||
+        filterDeviceProfiles.length > 0 ||
+        searchTerm;
 
-      devicesToLoad = state.devices.filter(d => {
+      devicesToLoad = state.devices.filter((d) => {
         if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-        if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
-        if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+        if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
+          return false;
+        if (
+          filterDeviceProfiles.length > 0 &&
+          !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
+        )
+          return false;
         // Apply search filter
         if (searchTerm) {
           const name = (d.name || '').toLowerCase();
@@ -2372,14 +2907,24 @@ function setupEventListeners(
           const type = (d.type || '').toLowerCase();
           const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
           const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
-          if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm) &&
-              !deviceType.includes(searchTerm) && !deviceProfile.includes(searchTerm)) {
+          if (
+            !name.includes(searchTerm) &&
+            !label.includes(searchTerm) &&
+            !type.includes(searchTerm) &&
+            !deviceType.includes(searchTerm) &&
+            !deviceProfile.includes(searchTerm)
+          ) {
             return false;
           }
         }
         return true;
       });
-      console.log('[UpsellModal] Loading telemetry for', hasFilters ? 'filtered' : 'all', 'devices:', devicesToLoad.length);
+      console.log(
+        '[UpsellModal] Loading telemetry for',
+        hasFilters ? 'filtered' : 'all',
+        'devices:',
+        devicesToLoad.length
+      );
     }
 
     state.telemetryLoading = true;
@@ -2419,12 +2964,21 @@ function setupEventListeners(
 
   // Select All button
   document.getElementById(`${modalId}-select-all`)?.addEventListener('click', () => {
-    const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+    const {
+      types: filterTypes,
+      deviceTypes: filterDeviceTypes,
+      deviceProfiles: filterDeviceProfiles,
+    } = state.deviceFilters;
     // Select all visible/filtered devices
-    let filteredDevices = state.devices.filter(d => {
+    let filteredDevices = state.devices.filter((d) => {
       if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-      if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
-      if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+      if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
+        return false;
+      if (
+        filterDeviceProfiles.length > 0 &&
+        !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
+      )
+        return false;
       return true;
     });
     state.selectedDevices = [...filteredDevices];
@@ -2439,7 +2993,7 @@ function setupEventListeners(
 
   // Checkbox handlers for multi-select
   const checkboxes = container.querySelectorAll('.myio-device-checkbox');
-  checkboxes.forEach(checkbox => {
+  checkboxes.forEach((checkbox) => {
     // Use onclick instead of onchange for more reliable behavior
     (checkbox as HTMLInputElement).onclick = (e) => {
       e.stopPropagation();
@@ -2447,7 +3001,7 @@ function setupEventListeners(
       const deviceId = input.getAttribute('data-device-id');
       if (!deviceId) return;
 
-      const device = state.devices.find(d => d.id?.id === deviceId);
+      const device = state.devices.find((d) => d.id?.id === deviceId);
       if (!device) return;
 
       // Use setTimeout to ensure checkbox state is updated
@@ -2456,12 +3010,12 @@ function setupEventListeners(
 
         if (isChecked) {
           // Add to selection if not already present
-          if (!state.selectedDevices.some(d => d.id?.id === deviceId)) {
+          if (!state.selectedDevices.some((d) => d.id?.id === deviceId)) {
             state.selectedDevices.push(device);
           }
         } else {
           // Remove from selection
-          state.selectedDevices = state.selectedDevices.filter(d => d.id?.id !== deviceId);
+          state.selectedDevices = state.selectedDevices.filter((d) => d.id?.id !== deviceId);
         }
 
         // Re-render and re-setup
@@ -2614,7 +3168,8 @@ function setupEventListeners(
 
   // Load Relation Entities (Assets or Customers)
   document.getElementById(`${modalId}-load-relation-entities`)?.addEventListener('click', async () => {
-    const entityType = (document.getElementById(`${modalId}-relation-entity-type`) as HTMLSelectElement)?.value as 'ASSET' | 'CUSTOMER';
+    const entityType = (document.getElementById(`${modalId}-relation-entity-type`) as HTMLSelectElement)
+      ?.value as 'ASSET' | 'CUSTOMER';
     state.relationSelectorType = entityType;
 
     if (entityType === 'ASSET' && state.selectedCustomer) {
@@ -2646,16 +3201,14 @@ function setupEventListeners(
   // Relation Search Input
   document.getElementById(`${modalId}-relation-search`)?.addEventListener('input', (e) => {
     state.relationSelectorSearch = (e.target as HTMLInputElement).value;
-    // Re-render just the list
-    renderModal(container, state, modalId, t);
-    setupEventListeners(container, state, modalId, t, onClose);
-    // Show the form again
-    const form = document.getElementById(`${modalId}-add-relation-form`);
-    if (form) form.style.display = 'block';
+    // Don't re-render on search input to avoid losing focus
+    // Instead, only update the entity list via DOM manipulation
+    const colors = getThemeColors(state.theme);
+    updateRelationEntityList(container, state, modalId, colors);
   });
 
   // Click on Entity Items
-  document.querySelectorAll('.relation-entity-item').forEach(item => {
+  document.querySelectorAll('.relation-entity-item').forEach((item) => {
     item.addEventListener('click', () => {
       const entityType = item.getAttribute('data-entity-type');
       const entityId = item.getAttribute('data-entity-id');
@@ -2674,7 +3227,7 @@ function setupEventListeners(
       }
 
       // Highlight selected item
-      document.querySelectorAll('.relation-entity-item').forEach(i => {
+      document.querySelectorAll('.relation-entity-item').forEach((i) => {
         (i as HTMLElement).style.background = '';
       });
       (item as HTMLElement).style.background = `${MYIO_PURPLE}20`;
@@ -2683,7 +3236,8 @@ function setupEventListeners(
 
   // Save Relation
   document.getElementById(`${modalId}-save-relation`)?.addEventListener('click', async () => {
-    const entityType = (document.getElementById(`${modalId}-relation-entity-type`) as HTMLSelectElement)?.value;
+    const entityType = (document.getElementById(`${modalId}-relation-entity-type`) as HTMLSelectElement)
+      ?.value;
     const entityId = (document.getElementById(`${modalId}-relation-entity-id`) as HTMLInputElement)?.value;
     if (!entityId || !state.selectedDevice) {
       alert('Selecione uma entidade da lista');
@@ -2753,7 +3307,7 @@ function setupEventListeners(
       await changeDeviceProfile(state, state.selectedDevice, newProfileId);
 
       // Update local state
-      const profile = state.deviceProfiles.find(p => p.id === newProfileId);
+      const profile = state.deviceProfiles.find((p) => p.id === newProfileId);
       if (profile && state.selectedDevice) {
         state.selectedDevice.type = profile.name;
         state.selectedDevice.deviceProfileId = { entityType: 'DEVICE_PROFILE', id: newProfileId };
@@ -2794,7 +3348,7 @@ function setupEventListeners(
       );
       console.log('[UpsellModal] Customer attributes:', customerAttrs);
 
-      const ingestionCustomerIdAttr = customerAttrs.find(a => a.key === 'ingestionId');
+      const ingestionCustomerIdAttr = customerAttrs.find((a) => a.key === 'ingestionId');
       const ingestionCustomerId = ingestionCustomerIdAttr?.value as string;
 
       if (!ingestionCustomerId) {
@@ -2818,10 +3372,16 @@ function setupEventListeners(
           input.style.borderColor = '#4caf50';
         }
         console.log('[UpsellModal] Found matching ingestion device:', matchingDevice);
-        alert(`IngestionId encontrado: ${matchingDevice.id}\nDevice: ${matchingDevice.name || 'N/A'}\nTipo: ${matchingDevice.deviceType || 'N/A'}`);
+        alert(
+          `IngestionId encontrado: ${matchingDevice.id}\nDevice: ${matchingDevice.name || 'N/A'}\nTipo: ${
+            matchingDevice.deviceType || 'N/A'
+          }`
+        );
       } else {
         console.log('[UpsellModal] No matching device found for centralId:', centralId, 'slaveId:', slaveId);
-        alert(`Nenhum device encontrado na API de ingestion com:\ncentralId=${centralId}\nslaveId=${slaveId}\n\nTotal de devices no customer: ${ingestionDevices.length}`);
+        alert(
+          `Nenhum device encontrado na API de ingestion com:\ncentralId=${centralId}\nslaveId=${slaveId}\n\nTotal de devices no customer: ${ingestionDevices.length}`
+        );
       }
     } catch (error) {
       console.error('[UpsellModal] Error fetching ingestionId:', error);
@@ -2831,10 +3391,22 @@ function setupEventListeners(
 
   // Apply search filters after render (to preserve filter state)
   if (state.customerSearchTerm && state.currentStep === 1) {
-    filterCustomerList(container, state.customers, state.customerSearchTerm.toLowerCase(), state.selectedCustomer, state.customerSort);
+    filterCustomerList(
+      container,
+      state.customers,
+      state.customerSearchTerm.toLowerCase(),
+      state.selectedCustomer,
+      state.customerSort
+    );
   }
   if (state.deviceSearchTerm && state.currentStep === 2) {
-    filterDeviceListVisual(container, state.devices, state.deviceSearchTerm.toLowerCase(), state.deviceFilters, state.deviceSort);
+    filterDeviceListVisual(
+      container,
+      state.devices,
+      state.deviceSearchTerm.toLowerCase(),
+      state.deviceFilters,
+      state.deviceSort
+    );
   }
 }
 
@@ -2994,6 +3566,102 @@ function hideMiniTooltip(): void {
 }
 
 // ============================================================================
+// Relation Entity List Update
+// ============================================================================
+
+function updateRelationEntityList(
+  container: HTMLElement,
+  state: ModalState,
+  modalId: string,
+  colors: ThemeColors
+): void {
+  const entityList = container.querySelector(`#${modalId}-relation-entity-list`);
+  if (!entityList) return;
+
+  const searchTerm = state.relationSelectorSearch.toLowerCase();
+
+  let filteredData: string;
+
+  if (state.relationSelectorType === 'ASSET') {
+    const filteredAssets = state.customerAssets.filter(
+      (a) => !searchTerm || a.name.toLowerCase().includes(searchTerm)
+    );
+
+    filteredData =
+      filteredAssets.length > 0
+        ? filteredAssets
+            .map(
+              (asset) => `
+            <div class="relation-entity-item" data-entity-type="ASSET" data-entity-id="${
+              asset.id
+            }" data-entity-name="${asset.name}" style="
+              padding: 8px 12px; cursor: pointer; border-bottom: 1px solid ${colors.border};
+              display: flex; justify-content: space-between; align-items: center;
+            ">
+              <span style="color: ${colors.text}; font-size: 12px;">📦 ${asset.name}</span>
+              <span style="color: ${colors.textMuted}; font-size: 10px;">${asset.type || ''}</span>
+            </div>
+          `
+            )
+            .join('')
+        : `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum asset encontrado</div>`;
+  } else {
+    const filteredCustomers = state.customers
+      .filter((c) => !searchTerm || (c.name || c.title || '').toLowerCase().includes(searchTerm))
+      .slice(0, 50);
+
+    filteredData =
+      filteredCustomers.length > 0
+        ? filteredCustomers
+            .map(
+              (customer) => `
+            <div class="relation-entity-item" data-entity-type="CUSTOMER" data-entity-id="${getEntityId(
+              customer
+            )}" data-entity-name="${customer.name || customer.title}" style="
+              padding: 8px 12px; cursor: pointer; border-bottom: 1px solid ${colors.border};
+              display: flex; justify-content: space-between; align-items: center;
+            ">
+              <span style="color: ${colors.text}; font-size: 12px;">👤 ${
+                customer.name || customer.title
+              }</span>
+            </div>
+          `
+            )
+            .join('')
+        : `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum customer encontrado</div>`;
+  }
+
+  entityList.innerHTML = filteredData;
+
+  // Re-attach event listeners for the new items
+  entityList.querySelectorAll('.relation-entity-item').forEach((item) => {
+    item.addEventListener('click', () => {
+      const entityType = item.getAttribute('data-entity-type');
+      const entityId = item.getAttribute('data-entity-id');
+      const entityName = item.getAttribute('data-entity-name');
+
+      // Set the hidden input
+      const hiddenInput = document.getElementById(`${modalId}-relation-entity-id`) as HTMLInputElement;
+      if (hiddenInput) hiddenInput.value = entityId || '';
+
+      // Show selected entity
+      const selectedDiv = document.getElementById(`${modalId}-relation-selected`);
+      const selectedName = document.getElementById(`${modalId}-relation-selected-name`);
+      if (selectedDiv && selectedName) {
+        selectedDiv.style.display = 'block';
+        selectedName.textContent = `✓ ${entityType}: ${entityName}`;
+      }
+
+      // Highlight selected item
+      entityList.querySelectorAll('.relation-entity-item').forEach((i) => {
+        (i as HTMLElement).style.background = '';
+      });
+      (item as HTMLElement).style.background = `${MYIO_PURPLE}20`;
+    });
+  });
+}
+
+// ============================================================================
 // Customer/Device Filtering
 // ============================================================================
 
@@ -3011,13 +3679,12 @@ function filterCustomerList(
   const sortedCustomers = sort ? sortCustomers(customers, sort.field, sort.order) : customers;
 
   const items = listContainer.querySelectorAll('[data-customer-id]');
-  items.forEach(item => {
+  items.forEach((item) => {
     const id = item.getAttribute('data-customer-id');
-    const customer = sortedCustomers.find(c => c.id?.id === id);
+    const customer = sortedCustomers.find((c) => c.id?.id === id);
     const customerName = customer?.name || customer?.title || '';
-    const matches = customerName.toLowerCase().includes(search) ||
-                    customer?.cnpj?.includes(search) ||
-                    id?.includes(search);
+    const matches =
+      customerName.toLowerCase().includes(search) || customer?.cnpj?.includes(search) || id?.includes(search);
     (item as HTMLElement).style.display = matches ? 'flex' : 'none';
   });
 }
@@ -3033,24 +3700,30 @@ function filterDeviceListVisual(
   if (!listContainer) return;
 
   // Filter and sort devices
-  let filtered = devices.filter(d => {
+  let filtered = devices.filter((d) => {
     if (filters.types.length > 0 && !filters.types.includes(d.type || '')) return false;
-    if (filters.deviceTypes.length > 0 && !filters.deviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
-    if (filters.deviceProfiles.length > 0 && !filters.deviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+    if (filters.deviceTypes.length > 0 && !filters.deviceTypes.includes(d.serverAttrs?.deviceType || ''))
+      return false;
+    if (
+      filters.deviceProfiles.length > 0 &&
+      !filters.deviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
+    )
+      return false;
     return true;
   });
 
   filtered = sortDevices(filtered, sort.field, sort.order);
 
   const items = listContainer.querySelectorAll('[data-device-id]');
-  items.forEach(item => {
+  items.forEach((item) => {
     const id = item.getAttribute('data-device-id');
-    const device = filtered.find(d => d.id?.id === id);
+    const device = filtered.find((d) => d.id?.id === id);
     if (!device) {
       (item as HTMLElement).style.display = 'none';
       return;
     }
-    const matchesSearch = !search ||
+    const matchesSearch =
+      !search ||
       device.name?.toLowerCase().includes(search) ||
       device.label?.toLowerCase().includes(search) ||
       device.type?.toLowerCase().includes(search) ||
@@ -3141,6 +3814,23 @@ async function createRelation(
   fromEntityId: string
 ): Promise<void> {
   const deviceId = getEntityId(device);
+
+  // Verify that the FROM entity exists before creating the relation
+  try {
+    if (fromEntityType === 'ASSET') {
+      await tbFetch(state, `/api/asset/${fromEntityId}`);
+      console.log('[UpsellModal] Verified asset exists:', fromEntityId);
+    } else if (fromEntityType === 'CUSTOMER') {
+      await tbFetch(state, `/api/customer/${fromEntityId}`);
+      console.log('[UpsellModal] Verified customer exists:', fromEntityId);
+    }
+  } catch (error) {
+    console.error('[UpsellModal] FROM entity does not exist:', fromEntityType, fromEntityId, error);
+    throw new Error(
+      `${fromEntityType} com ID ${fromEntityId} não foi encontrado. Verifique se a entidade existe no ThingsBoard.`
+    );
+  }
+
   // ASSET/CUSTOMER is the FROM (container), DEVICE is the TO (contained)
   const relation = {
     from: { entityType: fromEntityType, id: fromEntityId },
@@ -3149,15 +3839,18 @@ async function createRelation(
     typeGroup: 'COMMON',
   };
   console.log('[UpsellModal] Creating relation:', relation);
-  await tbPost(state, '/api/relation', relation);
+
+  try {
+    await tbPost(state, '/api/relation', relation);
+    console.log('[UpsellModal] Relation created successfully');
+  } catch (error) {
+    console.error('[UpsellModal] Failed to create relation:', error);
+    throw new Error(`Erro ao criar relação: ${(error as Error).message}`);
+  }
 }
 
 // Delete relation: Entity (FROM) -> DEVICE (TO)
-async function deleteRelation(
-  state: ModalState,
-  device: Device,
-  relation: DeviceRelation
-): Promise<void> {
+async function deleteRelation(state: ModalState, device: Device, relation: DeviceRelation): Promise<void> {
   const deviceId = getEntityId(device);
   // relation stores the FROM entity info (what contains this device)
   const params = new URLSearchParams({
@@ -3180,7 +3873,7 @@ async function fetchDeviceProfiles(state: ModalState): Promise<Array<{ id: strin
       '/api/deviceProfile/names?activeOnly=true'
     );
     console.log('[UpsellModal] Fetched device profiles:', profiles.length);
-    return profiles.map(p => ({ id: p.id.id, name: p.name }));
+    return profiles.map((p) => ({ id: p.id.id, name: p.name }));
   } catch (error) {
     console.error('[UpsellModal] Error fetching device profiles:', error);
     return [];
@@ -3199,7 +3892,7 @@ async function fetchCustomerAssets(
     );
     const assets = response.data || [];
     console.log('[UpsellModal] Fetched customer assets:', assets.length);
-    return assets.map(a => ({ id: a.id.id, name: a.name, type: a.type }));
+    return assets.map((a) => ({ id: a.id.id, name: a.name, type: a.type }));
   } catch (error) {
     console.error('[UpsellModal] Error fetching customer assets:', error);
     return [];
@@ -3251,7 +3944,7 @@ async function changeDeviceProfile(
       if (errorMessage.includes('409') && attempt < maxRetries) {
         console.warn(`[UpsellModal] 409 Conflict on attempt ${attempt}, retrying...`);
         // Small delay before retry
-        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
         continue;
       }
 
@@ -3274,7 +3967,7 @@ async function loadCustomers(
 
     // Build customer name map for parent lookup
     state.customerNameMap.clear();
-    state.customers.forEach(c => {
+    state.customers.forEach((c) => {
       const id = c.id?.id;
       const name = c.name || c.title || '';
       if (id && name) {
@@ -3337,7 +4030,7 @@ async function loadDeviceAttrsInBatch(
   const devicesToLoad = filteredDevices || state.devices;
   if (devicesToLoad.length === 0) return;
 
-  const deviceIds = devicesToLoad.map(d => getEntityId(d));
+  const deviceIds = devicesToLoad.map((d) => getEntityId(d));
   const BATCH_SIZE = 5;
   const BATCH_DELAY_MS = 1500;
 
@@ -3362,7 +4055,7 @@ async function loadDeviceAttrsInBatch(
       const results = await Promise.all(promises);
 
       results.forEach(({ deviceId, attrs }) => {
-        const device = state.devices.find(d => getEntityId(d) === deviceId);
+        const device = state.devices.find((d) => getEntityId(d) === deviceId);
         if (device) {
           device.serverAttrs = {};
           attrs.forEach((a: { key: string; value: unknown }) => {
@@ -3386,7 +4079,7 @@ async function loadDeviceAttrsInBatch(
 
       // Delay before next batch (if not last batch)
       if (i + BATCH_SIZE < deviceIds.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
     }
 
@@ -3418,7 +4111,7 @@ async function loadDeviceTelemetryInBatch(
   const devicesToLoad = filteredDevices || state.devices;
   if (devicesToLoad.length === 0) return;
 
-  const deviceIds = devicesToLoad.map(d => getEntityId(d));
+  const deviceIds = devicesToLoad.map((d) => getEntityId(d));
   const BATCH_SIZE = 5;
   const BATCH_DELAY_MS = 1500;
   const telemetryKeys = 'pulses,consumption,temperature,connectionStatus';
@@ -3444,7 +4137,7 @@ async function loadDeviceTelemetryInBatch(
       const results = await Promise.all(promises);
 
       results.forEach(({ deviceId, telemetry }) => {
-        const device = state.devices.find(d => getEntityId(d) === deviceId);
+        const device = state.devices.find((d) => getEntityId(d) === deviceId);
         if (device) {
           device.latestTelemetry = {};
           if (telemetry.pulses?.[0]) {
@@ -3488,7 +4181,7 @@ async function loadDeviceTelemetryInBatch(
 
       // Delay before next batch (if not last batch)
       if (i + BATCH_SIZE < deviceIds.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
     }
 
@@ -3525,7 +4218,7 @@ async function loadValidationData(
     );
 
     state.deviceAttributes = {};
-    attrs.forEach(a => {
+    attrs.forEach((a) => {
       state.deviceAttributes[a.key as keyof DeviceAttributes] = a.value as string;
     });
 
@@ -3556,7 +4249,10 @@ async function loadValidationData(
           const asset = await tbFetch<{ name: string }>(state, `/api/asset/${fromEntityId}`);
           entityName = asset.name;
         } else if (fromEntityType === 'CUSTOMER') {
-          const customer = await tbFetch<{ name?: string; title?: string }>(state, `/api/customer/${fromEntityId}`);
+          const customer = await tbFetch<{ name?: string; title?: string }>(
+            state,
+            `/api/customer/${fromEntityId}`
+          );
           entityName = customer.name || customer.title || '';
         } else if (fromEntityType === 'DEVICE') {
           const device = await tbFetch<{ name: string }>(state, `/api/device/${fromEntityId}`);
@@ -3602,7 +4298,7 @@ async function saveChanges(
 
   // Collect values from inputs
   const fields = ['centralName', 'deviceType', 'deviceProfile', 'identifier', 'ingestionId'];
-  fields.forEach(field => {
+  fields.forEach((field) => {
     const input = document.getElementById(`${modalId}-${field}`) as HTMLInputElement | HTMLSelectElement;
     if (input && input.value) {
       attrs[field] = input.value;
@@ -3686,8 +4382,8 @@ async function saveBulkAttribute(
   } else {
     alert(
       `Atributo salvo para ${successCount} dispositivos.\n` +
-      `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
-      (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+        `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+        (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );
   }
 
@@ -3720,7 +4416,7 @@ async function saveBulkProfile(
   }
 
   // Get profile name for display
-  const profile = state.deviceProfiles.find(p => p.id === selectedProfileId);
+  const profile = state.deviceProfiles.find((p) => p.id === selectedProfileId);
   const profileName = profile?.name || selectedProfileId;
 
   // Update modal state to show saving
@@ -3769,8 +4465,8 @@ async function saveBulkProfile(
   } else {
     alert(
       `Profile alterado para ${successCount} dispositivos.\n` +
-      `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
-      (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+        `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+        (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );
   }
 
