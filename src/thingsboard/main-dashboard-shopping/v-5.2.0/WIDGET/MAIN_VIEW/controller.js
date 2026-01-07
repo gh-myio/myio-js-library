@@ -446,6 +446,9 @@ let widgetSettings = {
 // Config object (populated in onInit from widgetSettings)
 let config = null;
 
+// RFC-0111: Added throttle to max 15 calls
+let _onDataUpdatedCallCount = 0;
+
 // ============================================================================
 // RFC-0106: Device Classification (moved from TELEMETRY)
 // Centralized classification logic for device categorization
@@ -1302,6 +1305,13 @@ Object.assign(window.MyIOUtils, {
   // This must be in onDataUpdated because onInit runs before data is available
   self.onDataUpdated = function () {
     const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+    // RFC-0111: Limit calls to handle captured attributes
+    if (_onDataUpdatedCallCount >= RETRY_CONFIG.maxRetries) {
+      return;
+    }
+    _onDataUpdatedCallCount++;
+
     for (const row of ctxDataRows) {
       // Look for customer datasource (aliasName = 'customer')
       const aliasName = (row?.datasource?.aliasName || row?.datasource?.name || '').toLowerCase();
@@ -5092,6 +5102,7 @@ const MyIOOrchestrator = (() => {
   // Widget registration system for priority management
   /**
    * Registra widget com prioridade baseada na ordem de inicialização
+   * RFC-0130: Prover dados do cache imediatamente ao registrar tardiamente
    */
   function registerWidget(widgetId, domain) {
     if (!OrchestratorState.widgetPriority.includes(widgetId)) {
@@ -5109,6 +5120,39 @@ const MyIOOrchestrator = (() => {
       LogHelper.log(
         `[Orchestrator] 📝 Widget registered: ${widgetId} (domain: ${domain}, priority: ${priority})`
       );
+
+      // RFC-0130: Se já temos dados em cache para este domínio, fornecer imediatamente ao widget "atrasado"
+      const cached = window.MyIOOrchestratorData?.[domain];
+      if (cached && cached.items && cached.items.length > 0) {
+        const age = Date.now() - cached.timestamp;
+        if (age < 120000) {
+          // Aumentado para 2 minutos para maior resiliência em transições lentas
+          LogHelper.log(
+            `[Orchestrator] 🚀 Prover dados do cache (${Math.round(
+              age / 1000
+            )}s) para widget recém registrado: ${widgetId}`
+          );
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent('myio:telemetry:provide-data', {
+                detail: {
+                  domain,
+                  periodKey: cached.periodKey,
+                  items: cached.items,
+                  isFromCache: true,
+                  widgetId: widgetId,
+                },
+              })
+            );
+          }, 150); // Pequeno delay para garantir que o widget terminou de processar seu listener
+        } else {
+          LogHelper.log(
+            `[Orchestrator] ⏭️ Cache stale (${Math.round(
+              age / 1000
+            )}s) para ${domain}, não enviando para ${widgetId}`
+          );
+        }
+      }
     }
   }
 
@@ -5158,11 +5202,16 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
+    if (!tab) return;
+
     try {
       hideGlobalBusy(tab);
     } catch (_e) {
       // Silently ignore - busy indicator may not exist yet
     }
+
+    // RFC-0130: Detect logic switch
+    const stateChanged = visibleTab !== tab;
     visibleTab = tab;
 
     // RFC-0130: Check if cached data for this domain has 0 items (failed previous load)
@@ -5176,6 +5225,19 @@ const MyIOOrchestrator = (() => {
     }
 
     if (visibleTab && currentPeriod) {
+      // RFC-0130: Se trocou de tab e já temos dados em cache fresco, emitir imediatamente para atualizar UI antes de hidratar
+      if (stateChanged && cachedData && cachedData.items && cachedData.items.length > 0) {
+        const age = Date.now() - (cachedData.timestamp || 0);
+        if (age < 120000) {
+          LogHelper.log(
+            `[Orchestrator] ⚡ Emitindo dados do cache fresco (${Math.round(
+              age / 1000
+            )}s) para tab ${visibleTab}`
+          );
+          emitProvide(visibleTab, cachedData.periodKey, cachedData.items);
+        }
+      }
+
       LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
     } else if (visibleTab && !currentPeriod) {

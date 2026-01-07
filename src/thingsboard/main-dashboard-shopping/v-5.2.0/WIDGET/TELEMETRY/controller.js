@@ -2593,6 +2593,24 @@ function bindModal() {
   });
 }
 
+/**
+ * RFC-0130: Robust widget registration
+ */
+function registerWithOrchestrator() {
+  const widgetId =
+    self.ctx.widget?.id || `telemetry-${WIDGET_DOMAIN}-${Math.random().toString(36).slice(2, 7)}`;
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📝 Registering widget ${widgetId}...`);
+
+  window.dispatchEvent(
+    new CustomEvent('myio:widget:register', {
+      detail: {
+        widgetId: widgetId,
+        domain: WIDGET_DOMAIN,
+      },
+    })
+  );
+}
+
 function syncChecklistSelectionVisual() {
   $modal()
     .find('.check-item')
@@ -3347,15 +3365,15 @@ self.onInit = async function () {
   );
 
   // RFC-0042: Request data from orchestrator (defined early for use in handlers)
-  function requestDataFromOrchestrator() {
+  function requestDataFromOrchestrator(isRetry = false) {
     const hasDateRange = self.ctx.scope?.startDateISO && self.ctx.scope?.endDateISO;
 
     if (!hasDateRange) {
-      LogHelper.warn('[TELEMETRY] No date range set');
+      LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] No date range set`);
 
       // For energy/water domains, still render UI to enable buttons (skip API call)
       if (WIDGET_DOMAIN === 'energy' || WIDGET_DOMAIN === 'water') {
-        LogHelper.log('[TELEMETRY] Energy/Water domain - rendering UI without data fetch');
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Energy/Water domain - rendering UI without data fetch`);
         if (typeof hydrateAndRender === 'function') {
           hydrateAndRender();
         }
@@ -3372,14 +3390,36 @@ self.onInit = async function () {
       tz: 'America/Sao_Paulo',
     };
 
-    LogHelper.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Requesting data${isRetry ? ' (RETRY)' : ''} period:`, period);
 
     // RFC-0053: Single window context - emit to current window only
     window.dispatchEvent(
       new CustomEvent('myio:telemetry:request-data', {
-        detail: { domain: WIDGET_DOMAIN, period },
+        detail: {
+          domain: WIDGET_DOMAIN,
+          period,
+          isRetry,
+          widgetId: self.ctx.widget?.id,
+        },
       })
     );
+
+    // RFC-0130: Setup timeout fallback if data doesn't arrive in 8s
+    if (busyTimeoutId) clearTimeout(busyTimeoutId);
+    busyTimeoutId = setTimeout(() => {
+      if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
+        // Check if busy is showing (either local or global)
+        const isBusy =
+          window.busyInProgress ||
+          (window.MyIOOrchestrator?.getBusyState && window.MyIOOrchestrator.getBusyState().isVisible);
+
+        if (isBusy) {
+          LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] 🕒 Timeout waiting for data, retrying request...`);
+          // Somente tenta de novo se ainda estamos "busy" e sem dados
+          requestDataFromOrchestrator(true);
+        }
+      }
+    }, 8000);
   }
 
   // Listener com modal: evento externo de mudança de data
@@ -3477,6 +3517,32 @@ self.onInit = async function () {
   LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
   window.addEventListener('myio:update-date', dateUpdateHandler);
   LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
+
+  // RFC-0130: Listen for dashboard state changes to react active visible domain
+  const dashboardStateHandler = function (ev) {
+    const { tab } = ev.detail;
+    if (tab === WIDGET_DOMAIN) {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🎯 My tab became active!`);
+
+      // Se estamos sem dados, tentar carregar do cache ou pedir nova carga
+      if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
+        const cachedData = window.MyIOOrchestratorData?.[WIDGET_DOMAIN];
+        if (cachedData && cachedData.items && cachedData.items.length > 0) {
+          const age = Date.now() - cachedData.timestamp;
+          if (age < 60000) {
+            LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚡ Found fresh data in cache on tab switch`);
+            dataProvideHandler({ detail: cachedData });
+            return;
+          }
+        }
+
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Active but no data - requesting fresh dataset`);
+        showBusy();
+        requestDataFromOrchestrator();
+      }
+    }
+  };
+  window.addEventListener('myio:dashboard-state', dashboardStateHandler);
 
   // RFC-0042: Listen for clear event from HEADER (when user clicks "Limpar" button)
   window.addEventListener('myio:telemetry:clear', (ev) => {
@@ -3791,6 +3857,9 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
+  // RFC-0130: Register widget with orchestrator
+  registerWithOrchestrator();
+
   // RFC-0056 FIX v1.1: Listen for request_refresh from TELEMETRY_INFO
   let requestRefreshHandler = function (ev) {
     const { type, domain, periodKey } = ev.detail || {};
@@ -3864,6 +3933,37 @@ self.onInit = async function () {
     // If no stored data AND we haven't requested yet, request fresh data
     if (!hasRequestedInitialData) {
       // For temperature domain, use hydrateAndRender directly (no orchestrator needed)
+      // RFC-0130: Pre-check cache immediately if we have dates
+      const orchestratorData = window.MyIOOrchestratorData;
+      const currentCustomerId = window.MyIOUtils?.customerTB_ID;
+
+      if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
+        const storedData = orchestratorData[WIDGET_DOMAIN];
+        const age = Date.now() - storedData.timestamp;
+
+        // Validate customer match
+        const cachedPeriodKey = storedData.periodKey || '';
+        const cachedCustomerId = cachedPeriodKey.split(':')[0];
+
+        if (
+          (!currentCustomerId || cachedCustomerId === currentCustomerId) &&
+          age < 60000 &&
+          storedData.items?.length > 0
+        ) {
+          LogHelper.log(
+            `[TELEMETRY ${WIDGET_DOMAIN}] 🚀 Initial load from fresh cache (${Math.round(age / 1000)}s)`
+          );
+          dataProvideHandler({
+            detail: {
+              domain: WIDGET_DOMAIN,
+              periodKey: storedData.periodKey,
+              items: storedData.items,
+            },
+          });
+          hasRequestedInitialData = true;
+        }
+      }
+
       if (WIDGET_DOMAIN === 'temperature') {
         LogHelper.log(
           `[TELEMETRY ${WIDGET_DOMAIN}] 📡 Temperature domain - calling hydrateAndRender directly...`
@@ -4040,6 +4140,9 @@ self.onDestroy = function () {
   if (dataProvideHandler) {
     window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
     LogHelper.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
+  }
+  if (dashboardStateHandler) {
+    window.removeEventListener('myio:dashboard-state', dashboardStateHandler);
   }
   // RFC-0056 FIX v1.1: Remove request_refresh listener
   if (requestRefreshHandler) {

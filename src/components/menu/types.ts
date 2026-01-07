@@ -340,7 +340,7 @@ export const DEFAULT_TABS: TabConfig[] = [
         icon: '🏬',
       },
       {
-        id: 'general',
+        id: 'energy_general',
         target: 'content_energy',
         title: 'Geral (Energia)',
         description: 'Visao geral de energia',
