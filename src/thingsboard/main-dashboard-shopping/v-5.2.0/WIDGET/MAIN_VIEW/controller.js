@@ -3306,9 +3306,10 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] ⏳ Waiting for period, attempt ${attempt}/${maxRetries}...`);
 
         // Force click no elemento energia
-        const energiaElement = document.querySelector('a[id="link0"][data-icon="⚡"]');
+        const energiaElement = document.querySelector('a.menu-item.active[id="link0"][data-icon="⚡"]');
         if (energiaElement) {
           energiaElement.click();
+          LogHelper.log(`[Orchestrator] 🖱️ Force clicked energia element on attempt ${attempt}`);
         }
 
         if (MyIOToast) {

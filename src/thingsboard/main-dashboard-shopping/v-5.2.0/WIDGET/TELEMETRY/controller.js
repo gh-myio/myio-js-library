@@ -3692,8 +3692,63 @@ self.onInit = async function () {
     // If period not set yet, store event for later processing
     // RFC-0106 FIX: Skip period check for temperature domain (uses real-time readings, no period needed)
     if (domain !== 'temperature' && (!myPeriod.startISO || !myPeriod.endISO)) {
-      LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`);
-      pendingProvideData = { domain, periodKey };
+      LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event...`);
+      pendingProvideData = { domain, periodKey, items: ev.detail.items };
+
+      // AUTO-PROCESS após 2 segundos se o período ainda não chegou
+      setTimeout(() => {
+        if (pendingProvideData && (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO)) {
+          LogHelper.log(`[TELEMETRY] 🔄 Auto-processing pending data (period still not set)`);
+          const pending = pendingProvideData;
+          pendingProvideData = null;
+          // Process mesmo sem período (para water/lojas é aceitável)
+          lastProcessedPeriodKey = pending.periodKey;
+          const stateItems = getItemsFromState(pending.domain, self.ctx.settings?.labelWidget || '');
+
+          if (stateItems && stateItems.length > 0) {
+            // Build itemsBase from state items
+            STATE.itemsBase = stateItems.map((item) => {
+              const temp = Number(item.value || 0);
+              const deviceStatus = item.deviceStatus || 'no_info';
+              const connectionStatus = item.connectionStatus || 'unknown';
+
+              return {
+                id: item.tbId || item.id,
+                tbId: item.tbId || item.id,
+                ingestionId: item.ingestionId || null,
+                identifier: item.identifier || item.id,
+                label: item.label || item.name || item.identifier || item.id,
+                entityLabel: item.entityLabel || item.label || item.name || '',
+                value: temp,
+                perc: 0,
+                deviceType: item.deviceType || WIDGET_DOMAIN,
+                deviceProfile: item.deviceProfile || null,
+                effectiveDeviceType:
+                  item.effectiveDeviceType || item.deviceProfile || item.deviceType || null,
+                slaveId: item.slaveId || null,
+                centralId: item.centralId || null,
+                centralName: item.centralName || null,
+                customerName: item.customerName || null,
+                deviceStatus: deviceStatus,
+                connectionStatus: connectionStatus,
+                labelWidget: item.labelWidget || self.ctx.settings?.labelWidget,
+                log_annotations: item.log_annotations || null,
+              };
+            });
+
+            window._telemetryAuthoritativeItems = STATE.itemsBase;
+            STATE.itemsEnriched = STATE.itemsBase.map((item) => ({ ...item }));
+
+            LogHelper.log(`[TELEMETRY] 📊 Auto-processed pending data: ${STATE.itemsEnriched.length} items`);
+
+            emitTelemetryUpdate();
+            reflowFromState();
+            hideBusy();
+          } else {
+            LogHelper.warn(`[TELEMETRY] ⚠️ Auto-process failed: no state items found`);
+          }
+        }
+      }, 2000);
       return;
     }
 
