@@ -825,3 +825,7 @@ export type {
   WaterPanelInstance,
   WaterPanelState,
 } from './components/water-panel';
+
+
+// RFC-0135: Telegram Notification Queue
+export * from './thingsboard/alarm-queue-setup/index.js';
