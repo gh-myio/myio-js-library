@@ -178,15 +178,22 @@ export class TelemetryGridView {
       },
     });
 
-    // Setup search input listener
-    this.searchInput = this.headerController?.getSearchInput() || null;
-    if (this.searchInput) {
-      this.searchInput.addEventListener('input', (e) => {
-        const target = e.target as HTMLInputElement;
-        this.controller.setSearchTerm(target.value || '');
-        this.emit('search-change', target.value);
-      });
-    }
+    // RFC-0140 FIX: Setup search input listener after a short delay
+    // to ensure the DOM is ready (buildHeaderDevicesGrid uses setTimeout internally)
+    setTimeout(() => {
+      this.searchInput = this.headerController?.getSearchInput() || null;
+      this.log('Search input element:', this.searchInput ? 'found' : 'not found');
+
+      if (this.searchInput) {
+        this.searchInput.addEventListener('input', (e) => {
+          const target = e.target as HTMLInputElement;
+          this.log('Search input changed:', target.value);
+          this.controller.setSearchTerm(target.value || '');
+          this.emit('search-change', target.value);
+        });
+        this.log('Search input listener attached');
+      }
+    }, 50);
 
     // Update header with initial data
     if (this.headerController) {
