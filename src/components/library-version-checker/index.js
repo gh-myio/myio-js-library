@@ -29,11 +29,16 @@ const TOOLTIP_STYLE_ID = 'myio-lib-version-tooltip-styles';
  */
 
 /**
+ * @typedef {'dark' | 'light'} Theme
+ */
+
+/**
  * @typedef {Object} LibraryVersionCheckerOptions
  * @property {string} packageName - npm package name to check
  * @property {string} currentVersion - Currently installed version
  * @property {number} [cacheTtlMs] - Cache TTL in milliseconds (default: 5 minutes)
  * @property {number} [toastIntervalMs] - Toast warning interval in milliseconds (default: 60 seconds)
+ * @property {Theme} [theme] - Color theme: 'dark' (default) or 'light'
  * @property {(status: VersionStatus, currentVersion: string, latestVersion: string | null) => void} [onStatusChange] - Callback when status changes
  */
 
@@ -55,11 +60,28 @@ function injectStyles(doc) {
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
 
-    .myio-lib-version__text {
+    /* Dark theme (default) */
+    .myio-lib-version--dark .myio-lib-version__text {
       font-size: 12px;
       color: #9CA3AF;
       opacity: 0.8;
       letter-spacing: 0.3px;
+    }
+
+    .myio-lib-version--dark .myio-lib-version__refresh {
+      color: #9CA3AF;
+    }
+
+    /* Light theme */
+    .myio-lib-version--light .myio-lib-version__text {
+      font-size: 12px;
+      color: #4B5563;
+      opacity: 0.9;
+      letter-spacing: 0.3px;
+    }
+
+    .myio-lib-version--light .myio-lib-version__refresh {
+      color: #6B7280;
     }
 
     .myio-lib-version__status {
@@ -94,7 +116,6 @@ function injectStyles(doc) {
     .myio-lib-version__refresh {
       font-size: 12px;
       cursor: pointer;
-      color: #9CA3AF;
       opacity: 0.6;
       transition: opacity 0.2s ease, transform 0.2s ease;
       line-height: 1;
@@ -142,10 +163,106 @@ function injectTooltipStyles(doc) {
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
 
-    .myio-ver-tooltip {
+    /* Light theme tooltip (default) */
+    .myio-ver-tooltip-container--light .myio-ver-tooltip {
       background: #fff;
-      border-radius: 12px;
       box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__row {
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__label {
+      color: #6B7280;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__value {
+      color: #1F2937;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__help {
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__help-title {
+      color: #374151;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__os-section {
+      background: #F9FAFB;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__os-label {
+      color: #374151;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__help-item {
+      color: #4B5563;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__kbd {
+      background: #fff;
+      border: 1px solid #D1D5DB;
+      color: #374151;
+    }
+
+    .myio-ver-tooltip-container--light .myio-ver-tooltip__help-note {
+      background: #F0F9FF;
+      color: #0369A1;
+    }
+
+    /* Dark theme tooltip */
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip {
+      background: #1E293B;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__row {
+      border-bottom: 1px solid #334155;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__label {
+      color: #94A3B8;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__value {
+      color: #F1F5F9;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__help {
+      border-top: 1px solid #334155;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__help-title {
+      color: #E2E8F0;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__os-section {
+      background: #0F172A;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__os-label {
+      color: #E2E8F0;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__help-item {
+      color: #CBD5E1;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__kbd {
+      background: #334155;
+      border: 1px solid #475569;
+      color: #E2E8F0;
+    }
+
+    .myio-ver-tooltip-container--dark .myio-ver-tooltip__help-note {
+      background: #0C4A6E;
+      color: #7DD3FC;
+    }
+
+    .myio-ver-tooltip {
+      border-radius: 12px;
       overflow: hidden;
       min-width: 320px;
       max-width: 400px;
@@ -183,7 +300,6 @@ function injectTooltipStyles(doc) {
       justify-content: space-between;
       align-items: center;
       padding: 8px 0;
-      border-bottom: 1px solid #f3f4f6;
     }
 
     .myio-ver-tooltip__row:last-of-type {
@@ -191,22 +307,20 @@ function injectTooltipStyles(doc) {
     }
 
     .myio-ver-tooltip__label {
-      color: #6B7280;
       font-size: 13px;
     }
 
     .myio-ver-tooltip__value {
       font-weight: 600;
       font-size: 13px;
-      color: #1F2937;
     }
 
     .myio-ver-tooltip__value--outdated {
-      color: #DC2626;
+      color: #DC2626 !important;
     }
 
     .myio-ver-tooltip__value--new {
-      color: #059669;
+      color: #059669 !important;
     }
 
     .myio-ver-tooltip__status {
@@ -230,27 +344,23 @@ function injectTooltipStyles(doc) {
     .myio-ver-tooltip__help {
       margin-top: 16px;
       padding-top: 16px;
-      border-top: 1px solid #E5E7EB;
     }
 
     .myio-ver-tooltip__help-title {
       font-weight: 600;
       font-size: 13px;
-      color: #374151;
       margin-bottom: 10px;
     }
 
     .myio-ver-tooltip__os-section {
       margin-bottom: 12px;
       padding: 10px 12px;
-      background: #F9FAFB;
       border-radius: 8px;
     }
 
     .myio-ver-tooltip__os-label {
       font-weight: 600;
       font-size: 12px;
-      color: #374151;
       margin-bottom: 6px;
     }
 
@@ -259,29 +369,23 @@ function injectTooltipStyles(doc) {
       align-items: center;
       gap: 8px;
       font-size: 12px;
-      color: #4B5563;
     }
 
     .myio-ver-tooltip__kbd {
       display: inline-block;
       padding: 4px 8px;
-      background: #fff;
-      border: 1px solid #D1D5DB;
       border-radius: 6px;
       font-family: monospace;
       font-size: 11px;
       font-weight: 500;
-      color: #374151;
       box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
     .myio-ver-tooltip__help-note {
       margin-top: 12px;
       padding: 10px;
-      background: #F0F9FF;
       border-radius: 8px;
       font-size: 11px;
-      color: #0369A1;
       line-height: 1.4;
     }
   `;
@@ -330,8 +434,9 @@ function getRefreshShortcuts() {
  * @param {string} currentVer - Current version
  * @param {string} latestVer - Latest version from npm
  * @param {boolean} isUpToDate - Whether version is up to date
+ * @param {Theme} theme - Color theme
  */
-function showVersionTooltip(anchor, currentVer, latestVer, isUpToDate) {
+function showVersionTooltip(anchor, currentVer, latestVer, isUpToDate, theme = 'dark') {
   // Use top-level document for modal
   const topWin = window.top || window;
   let topDoc;
@@ -349,6 +454,7 @@ function showVersionTooltip(anchor, currentVer, latestVer, isUpToDate) {
   if (existingTooltip) existingTooltip.remove();
 
   const shortcuts = getRefreshShortcuts();
+  const tooltipTheme = theme === 'light' ? 'light' : 'dark';
 
   // Build tooltip content
   const tooltipHTML = isUpToDate
@@ -423,7 +529,7 @@ function showVersionTooltip(anchor, currentVer, latestVer, isUpToDate) {
   // Create tooltip container
   const container = topDoc.createElement('div');
   container.id = 'myio-version-tooltip';
-  container.className = 'myio-ver-tooltip-container';
+  container.className = `myio-ver-tooltip-container myio-ver-tooltip-container--${tooltipTheme}`;
   container.innerHTML = tooltipHTML;
 
   // Position near anchor
@@ -473,7 +579,7 @@ function showVersionTooltip(anchor, currentVer, latestVer, isUpToDate) {
  *
  * @param {HTMLElement} container - Container element to append the component to
  * @param {LibraryVersionCheckerOptions} options - Configuration options
- * @returns {{ destroy: () => void, refresh: () => Promise<void> }} Component instance
+ * @returns {{ destroy: () => void, refresh: () => Promise<void>, getStatus: () => { status: VersionStatus, currentVersion: string, latestVersion: string | null }, setTheme: (theme: Theme) => void, getTheme: () => Theme }} Component instance
  */
 export function createLibraryVersionChecker(container, options) {
   const {
@@ -481,15 +587,19 @@ export function createLibraryVersionChecker(container, options) {
     currentVersion,
     cacheTtlMs = CACHE_TTL_MS,
     toastIntervalMs = DEFAULT_TOAST_INTERVAL_MS,
+    theme = 'dark',
     onStatusChange,
   } = options;
 
   // Inject styles
   injectStyles(document);
 
+  // Mutable theme state for dynamic updates
+  let currentTheme = theme;
+
   // Create DOM structure
   const wrapper = document.createElement('div');
-  wrapper.className = 'myio-lib-version';
+  wrapper.className = `myio-lib-version myio-lib-version--${currentTheme}`;
 
   const versionText = document.createElement('span');
   versionText.className = 'myio-lib-version__text';
@@ -601,7 +711,7 @@ export function createLibraryVersionChecker(container, options) {
         statusIcon.title = 'Biblioteca atualizada!';
         clickHandler = (e) => {
           e.stopPropagation();
-          showVersionTooltip(statusIcon, currentVersion, latestVersion, true);
+          showVersionTooltip(statusIcon, currentVersion, latestVersion, true, currentTheme);
         };
         statusIcon.addEventListener('click', clickHandler);
         break;
@@ -612,7 +722,7 @@ export function createLibraryVersionChecker(container, options) {
         statusIcon.title = `Atualização disponível: v${latest}`;
         clickHandler = (e) => {
           e.stopPropagation();
-          showVersionTooltip(statusIcon, currentVersion, latestVersion, false);
+          showVersionTooltip(statusIcon, currentVersion, latestVersion, false, currentTheme);
         };
         statusIcon.addEventListener('click', clickHandler);
 
@@ -800,6 +910,46 @@ export function createLibraryVersionChecker(container, options) {
      */
     getStatus() {
       return { status, currentVersion, latestVersion };
+    },
+
+    /**
+     * Update the theme dynamically
+     * @param {Theme} newTheme - The new theme ('dark' or 'light')
+     */
+    setTheme(newTheme) {
+      if (newTheme !== 'dark' && newTheme !== 'light') {
+        console.warn(`[LibraryVersionChecker] Invalid theme: ${newTheme}. Using 'dark'.`);
+        newTheme = 'dark';
+      }
+
+      if (newTheme === currentTheme) return;
+
+      currentTheme = newTheme;
+      wrapper.className = `myio-lib-version myio-lib-version--${currentTheme}`;
+
+      // Update existing tooltip if visible
+      const topWin = window.top || window;
+      let topDoc;
+      try {
+        topDoc = topWin.document;
+      } catch {
+        topDoc = document;
+      }
+
+      const existingTooltip = topDoc.getElementById('myio-version-tooltip');
+      if (existingTooltip) {
+        existingTooltip.className = `myio-ver-tooltip-container myio-ver-tooltip-container--${currentTheme}`;
+      }
+
+      console.log(`[LibraryVersionChecker] Theme updated to: ${currentTheme}`);
+    },
+
+    /**
+     * Get current theme
+     * @returns {Theme}
+     */
+    getTheme() {
+      return currentTheme;
     },
   };
 }

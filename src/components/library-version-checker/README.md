@@ -100,6 +100,25 @@ const { status, currentVersion, latestVersion } = checker.getStatus();
 // status: 'checking' | 'up-to-date' | 'outdated' | 'error'
 ```
 
+### `setTheme(theme)`
+
+Atualiza o tema do componente dinamicamente.
+
+```javascript
+checker.setTheme('light'); // ou 'dark'
+```
+
+Util quando o MAIN widget muda o tema global e precisa sincronizar o LibraryVersionChecker.
+
+### `getTheme()`
+
+Retorna o tema atual do componente.
+
+```javascript
+const theme = checker.getTheme();
+// theme: 'dark' | 'light'
+```
+
 ## Toast Warning
 
 Quando o status e `outdated`, o componente:
@@ -148,6 +167,51 @@ Ao clicar no icone de status, um tooltip premium aparece com:
     });
   }
 })();
+```
+
+## Sincronizacao de Tema com MAIN Widget
+
+Para sincronizar o tema quando MAIN muda o tema global:
+
+```javascript
+// MENU/controller.js
+let versionChecker = null;
+
+(function initLibraryVersionChecker() {
+  const container = document.getElementById('lib-version-display');
+  if (!container) return;
+
+  const MyIOLib = window.MyIOLibrary;
+  if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
+    versionChecker = MyIOLib.createLibraryVersionChecker(container, {
+      packageName: 'myio-js-library',
+      currentVersion: MyIOLib.version || 'unknown',
+      theme: 'dark', // tema inicial
+    });
+  }
+})();
+
+// Listener para mudanca de tema do MAIN
+window.addEventListener('myio:theme-changed', (e) => {
+  const { theme } = e.detail; // 'dark' ou 'light'
+  if (versionChecker) {
+    versionChecker.setTheme(theme);
+  }
+});
+```
+
+O evento `myio:theme-changed` deve ser emitido pelo MAIN quando o usuario muda o tema:
+
+```javascript
+// MAIN/controller.js
+function changeTheme(newTheme) {
+  // ... aplicar tema internamente ...
+
+  // Notificar outros componentes
+  window.dispatchEvent(new CustomEvent('myio:theme-changed', {
+    detail: { theme: newTheme }
+  }));
+}
 ```
 
 ## Cache

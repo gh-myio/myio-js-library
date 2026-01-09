@@ -1,7 +1,7 @@
 # RFC-0138: Header Date Sync on Domain Switch
 
 ## Status
-Implemented
+Implemented (v2 - with self.__range fix)
 
 ## Problem
 
@@ -30,13 +30,43 @@ Apos a primeira emissao, trocas subsequentes de dominio nao re-emitiam as datas 
 
 ## Solution
 
+### Fix 1: Emitir datas em toda troca de dominio
+
 Remover a condicao `!hasEmittedInitialPeriod` para emitir as datas **sempre** que o dominio mudar para energy ou water:
 
 ```javascript
+// ANTES (bug)
+if (!hasEmittedInitialPeriod && (tab === 'energy' || tab === 'water')) { ... }
+
 // DEPOIS (fix)
 if (tab === 'energy' || tab === 'water') {
   hasEmittedInitialPeriod = true;
   // emitir datas SEMPRE
+}
+```
+
+### Fix 2: Atualizar self.__range no onApply do DateRangePicker
+
+O problema persistiu porque `self.__range` nao era atualizado quando o usuario selecionava novas datas no DateRangePicker. O callback `onApply` so atualizava `self.ctx.$scope.startTs/endTs`, mas o codigo do RFC-0138 le de `self.__range`.
+
+```javascript
+// ANTES (bug) - onApply nao atualizava self.__range
+onApply: function (result) {
+  self.ctx.$scope.startTs = result.startISO;
+  self.ctx.$scope.endTs = result.endISO;
+  // self.__range continuava com datas antigas!
+}
+
+// DEPOIS (fix) - onApply atualiza self.__range
+onApply: function (result) {
+  self.ctx.$scope.startTs = result.startISO;
+  self.ctx.$scope.endTs = result.endISO;
+
+  // RFC-0138 FIX: Update self.__range
+  if (result.startISO && result.endISO) {
+    self.__range.start = moment(result.startISO);
+    self.__range.end = moment(result.endISO);
+  }
 }
 ```
 
@@ -64,7 +94,9 @@ TELEMETRY:
 
 ## Files Changed
 
-- `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/HEADER/controller.js` (lines 500-537)
+- `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/HEADER/controller.js`:
+  - Lines 500-537: myio:dashboard-state listener (Fix 1)
+  - Lines 306-325: onApply callback do DateRangePicker (Fix 2)
 
 ## Testing
 

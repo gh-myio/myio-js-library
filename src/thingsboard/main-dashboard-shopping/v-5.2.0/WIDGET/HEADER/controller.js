@@ -310,6 +310,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       self.ctx.$scope.startTs = result.startISO;
       self.ctx.$scope.endTs = result.endISO;
 
+      // RFC-0138 FIX: Update self.__range so domain switch emits correct dates
+      // Convert ISO strings back to moment objects
+      if (result.startISO && result.endISO && window.moment) {
+        self.__range.start = window.moment(result.startISO);
+        self.__range.end = window.moment(result.endISO);
+        LogHelper.log('[DateRangePicker] Updated self.__range:', {
+          start: self.__range.start.format('YYYY-MM-DD'),
+          end: self.__range.end.format('YYYY-MM-DD'),
+        });
+      }
+
       // The input display is automatically handled by the component
     },
   })

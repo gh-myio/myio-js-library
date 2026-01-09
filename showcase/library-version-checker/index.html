@@ -404,6 +404,11 @@
         <div class="version-input-group">
           <label>Simular versao instalada:</label>
           <input type="text" id="simulatedVersion" value="0.1.320" placeholder="ex: 0.1.320" />
+          <label style="margin-left:16px;">Tema:</label>
+          <select id="themeSelect" style="padding:8px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#f1f5f9;font-size:14px;">
+            <option value="dark">Dark (default)</option>
+            <option value="light">Light</option>
+          </select>
           <button class="primary" onclick="recreateWithVersion()">Recriar Componente</button>
         </div>
 
@@ -590,8 +595,9 @@
       }
 
       // Initialize components
-      function initComponents(version) {
+      function initComponents(version, themeOverride) {
         const currentVersion = version || MyIOLibrary?.version || '0.1.327';
+        const theme = themeOverride || document.getElementById('themeSelect')?.value || 'dark';
 
         // Destroy existing instances
         if (standaloneInstance) {
@@ -606,6 +612,12 @@
         // Clear containers
         document.getElementById('standalone-demo').innerHTML = '';
         document.getElementById('menu-version-demo').innerHTML = '';
+
+        // Update demo box backgrounds based on theme
+        const standaloneContent = document.querySelector('#standalone-demo')?.closest('.demo-box__content');
+        if (standaloneContent) {
+          standaloneContent.style.background = theme === 'light' ? '#f1f5f9' : '#1e293b';
+        }
 
         // Status change callback
         const onStatusChange = (status, current, latest) => {
@@ -625,31 +637,54 @@
           {
             packageName: 'myio-js-library',
             currentVersion: currentVersion,
+            theme: theme,
             onStatusChange: onStatusChange,
           }
         );
-        log(`Componente standalone criado (versao simulada: ${currentVersion})`, 'success');
+        log(`Componente standalone criado (versao: ${currentVersion}, tema: ${theme})`, 'success');
 
-        // Create menu instance
+        // Create menu instance (always dark since menu background is dark)
         menuInstance = MyIOLibrary.createLibraryVersionChecker(
           document.getElementById('menu-version-demo'),
           {
             packageName: 'myio-js-library',
             currentVersion: currentVersion,
+            theme: 'dark', // Menu is always dark
             onStatusChange: (status, current, latest) => {
               // Silent for menu, already logged by standalone
             },
           }
         );
-        log('Componente do menu criado', 'success');
+        log('Componente do menu criado (tema: dark)', 'success');
       }
 
       // Recreate with custom version
       function recreateWithVersion() {
         const version = document.getElementById('simulatedVersion').value.trim() || '0.1.320';
-        log(`Recriando componentes com versao simulada: ${version}`, 'info');
-        initComponents(version);
+        const theme = document.getElementById('themeSelect').value;
+        log(`Recriando componentes com versao: ${version}, tema: ${theme}`, 'info');
+        initComponents(version, theme);
       }
+
+      // Theme change handler - uses setTheme for dynamic update (no recreation)
+      document.getElementById('themeSelect')?.addEventListener('change', (e) => {
+        const newTheme = e.target.value;
+        log(`Tema alterado para: ${newTheme} (usando setTheme dinamico)`, 'info');
+
+        // Use setTheme to update theme dynamically without recreating
+        if (standaloneInstance) {
+          standaloneInstance.setTheme(newTheme);
+          log(`Standalone: tema atualizado para ${standaloneInstance.getTheme()}`, 'success');
+        }
+
+        // Update demo box background based on theme
+        const standaloneContent = document.querySelector('#standalone-demo')?.closest('.demo-box__content');
+        if (standaloneContent) {
+          standaloneContent.style.background = newTheme === 'light' ? '#f1f5f9' : '#1e293b';
+        }
+
+        // Menu always stays dark (menu background is dark)
+      });
 
       // Force refresh check
       function refreshCheck() {

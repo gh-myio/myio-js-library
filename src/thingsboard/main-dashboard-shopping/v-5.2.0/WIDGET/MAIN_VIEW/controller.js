@@ -61,6 +61,54 @@ Object.assign(window.MyIOUtils, {
   // Populated by detectSuperAdmin() in onInit
   SuperAdmin: false,
 
+  // RFC-0139: Global theme state management
+  // Default theme is 'light', MAIN is the single source of truth
+  currentTheme: 'light',
+
+  /**
+   * RFC-0139: Set global theme and notify all listeners
+   * @param {'light' | 'dark'} theme - Theme to set
+   */
+  setTheme: (theme) => {
+    if (theme !== 'light' && theme !== 'dark') {
+      LogHelper.warn(`[MyIOUtils] RFC-0139: Invalid theme: ${theme}. Using 'light'.`);
+      theme = 'light';
+    }
+
+    if (window.MyIOUtils.currentTheme === theme) {
+      LogHelper.log(`[MyIOUtils] RFC-0139: Theme already set to ${theme}`);
+      return;
+    }
+
+    window.MyIOUtils.currentTheme = theme;
+    LogHelper.log(`[MyIOUtils] RFC-0139: Theme changed to ${theme}`);
+
+    // Emit event to notify all theme-aware components (MENU, etc.)
+    window.dispatchEvent(
+      new CustomEvent('myio:theme-changed', {
+        detail: { theme },
+      })
+    );
+  },
+
+  /**
+   * RFC-0139: Get current theme
+   * @returns {'light' | 'dark'} Current theme
+   */
+  getTheme: () => {
+    return window.MyIOUtils.currentTheme || 'light';
+  },
+
+  /**
+   * RFC-0139: Toggle theme between light and dark
+   * @returns {'light' | 'dark'} New theme after toggle
+   */
+  toggleTheme: () => {
+    const newTheme = window.MyIOUtils.currentTheme === 'dark' ? 'light' : 'dark';
+    window.MyIOUtils.setTheme(newTheme);
+    return newTheme;
+  },
+
   // RFC-0108: Measurement display settings (units, decimal places)
   // Default values - can be overridden by user via MeasurementSetupModal
   measurementSettings: {
