@@ -91,6 +91,28 @@ function injectStyles(doc) {
       color: #6B7280;
     }
 
+    .myio-lib-version__refresh {
+      font-size: 12px;
+      cursor: pointer;
+      color: #9CA3AF;
+      opacity: 0.6;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      line-height: 1;
+      padding: 2px;
+      border-radius: 4px;
+    }
+
+    .myio-lib-version__refresh:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    .myio-lib-version__refresh--spinning {
+      animation: myio-spin 0.8s linear infinite;
+      opacity: 1;
+      color: #3B82F6;
+    }
+
     @keyframes myio-pulse-warning {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
@@ -478,8 +500,14 @@ export function createLibraryVersionChecker(container, options) {
   statusIcon.textContent = '⟳';
   statusIcon.title = 'Verificando versão...';
 
+  const refreshBtn = document.createElement('span');
+  refreshBtn.className = 'myio-lib-version__refresh';
+  refreshBtn.textContent = '↻';
+  refreshBtn.title = 'Verificar atualizações';
+
   wrapper.appendChild(versionText);
   wrapper.appendChild(statusIcon);
+  wrapper.appendChild(refreshBtn);
   container.appendChild(wrapper);
 
   // State
@@ -487,6 +515,7 @@ export function createLibraryVersionChecker(container, options) {
   let status = 'checking';
   let clickHandler = null;
   let toastIntervalId = null;
+  let isRefreshing = false;
 
   /**
    * Show toast warning about outdated library
@@ -677,6 +706,71 @@ export function createLibraryVersionChecker(container, options) {
     }
   }
 
+  /**
+   * Get MyIOToast instance
+   */
+  function getToast() {
+    return window.MyIOLibrary?.MyIOToast || window.MyIOToast;
+  }
+
+  /**
+   * Force refresh - clear cache and check npm
+   */
+  async function forceRefresh() {
+    if (isRefreshing) return;
+    isRefreshing = true;
+
+    const MyIOToast = getToast();
+
+    // Toast info - starting check (longer duration so user can read it)
+    if (MyIOToast?.info) {
+      MyIOToast.info('Verificando última versão da biblioteca no npm...', 5000);
+    }
+
+    // Visual feedback - spinning button
+    refreshBtn.classList.add('myio-lib-version__refresh--spinning');
+    refreshBtn.title = 'Verificando...';
+
+    // Clear cache
+    const cacheKey = `${CACHE_KEY_PREFIX}${packageName}`;
+    try {
+      localStorage.removeItem(cacheKey);
+      console.log('[LibraryVersionChecker] Cache cleared for forced refresh');
+    } catch {
+      // Ignore
+    }
+
+    // Small delay so user sees the "checking" state
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    await checkNpmVersion();
+
+    // Reset button state
+    refreshBtn.classList.remove('myio-lib-version__refresh--spinning');
+    refreshBtn.title = 'Verificar atualizações';
+    isRefreshing = false;
+
+    // Small delay before showing result toast
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Toast success/warning based on result
+    if (MyIOToast) {
+      if (status === 'up-to-date') {
+        MyIOToast.success(`Biblioteca atualizada! Você está usando a versão mais recente (v${currentVersion}).`, 5000);
+      } else if (status === 'outdated') {
+        MyIOToast.warning(`Atualização disponível! v${currentVersion} → v${latestVersion}`, 6000);
+      } else if (status === 'error') {
+        MyIOToast.error('Não foi possível verificar atualizações. Tente novamente.', 5000);
+      }
+    }
+  }
+
+  // Bind refresh button click
+  refreshBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    forceRefresh();
+  });
+
   // Start checking immediately
   checkNpmVersion();
 
@@ -694,17 +788,10 @@ export function createLibraryVersionChecker(container, options) {
     },
 
     /**
-     * Manually refresh version check
+     * Manually refresh version check (clears cache)
      */
     async refresh() {
-      // Clear cache
-      const cacheKey = `${CACHE_KEY_PREFIX}${packageName}`;
-      try {
-        localStorage.removeItem(cacheKey);
-      } catch {
-        // Ignore
-      }
-      await checkNpmVersion();
+      await forceRefresh();
     },
 
     /**
