@@ -1307,33 +1307,28 @@ self.onInit = function () {
     };
   })();
 
-  // RFC-0137: Display and log library version
-  (function displayLibraryVersion() {
-    // Try multiple ways to get the version (UMD vs ESM exports)
+  // RFC-0137: Initialize LibraryVersionChecker component
+  (function initLibraryVersionChecker() {
+    const container = document.getElementById('lib-version-display');
+    if (!container) {
+      LogHelper.warn('[MENU] RFC-0137: lib-version-display container not found');
+      return;
+    }
+
     const MyIOLib = window.MyIOLibrary;
-    let version = 'unknown';
-
-    if (MyIOLib) {
-      // Try direct property (from export const version)
-      if (typeof MyIOLib.version === 'string') {
-        version = MyIOLib.version;
-      }
-      // Try VERSION constant
-      else if (typeof MyIOLib.VERSION === 'string') {
-        version = MyIOLib.VERSION;
-      }
-      // Try getVersion function
-      else if (typeof MyIOLib.getVersion === 'function') {
-        version = MyIOLib.getVersion();
-      }
+    if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
+      MyIOLib.createLibraryVersionChecker(container, {
+        packageName: 'myio-js-library',
+        currentVersion: MyIOLib.version || 'unknown',
+        onStatusChange: (status, currentVer, latestVer) => {
+          LogHelper.log(`[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`);
+        },
+      });
+    } else {
+      LogHelper.warn('[MENU] RFC-0137: createLibraryVersionChecker not available in MyIOLibrary');
+      // Fallback: show version only
+      const version = MyIOLib?.version || 'unknown';
+      container.innerHTML = `<span style="font-size:12px;color:#9CA3AF;opacity:0.8;">v${version}</span>`;
     }
-
-    const versionEl = document.querySelector('#lib-version-display .lib-version-text');
-
-    if (versionEl) {
-      versionEl.textContent = `v${version}`;
-    }
-
-    LogHelper.log(`[MENU] RFC-0137: MyIO Library version: ${version}`);
   })();
 };

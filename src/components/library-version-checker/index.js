@@ -1,0 +1,720 @@
+/**
+ * RFC-0137: LibraryVersionChecker Component
+ *
+ * A reusable component that displays the current library version and checks
+ * npm registry for updates. Shows visual indicators and provides helpful
+ * instructions when updates are available.
+ *
+ * @example
+ * import { createLibraryVersionChecker } from 'myio-js-library';
+ *
+ * const container = document.getElementById('version-display');
+ * createLibraryVersionChecker(container, {
+ *   packageName: 'myio-js-library',
+ *   currentVersion: '0.1.327',
+ *   onStatusChange: (status, current, latest) => console.log(status)
+ * });
+ */
+
+// Constants
+const NPM_REGISTRY_BASE = 'https://registry.npmjs.org';
+const CACHE_KEY_PREFIX = 'myio:npm-version-cache:';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_TOAST_INTERVAL_MS = 60 * 1000; // 60 seconds
+const STYLE_ID = 'myio-lib-version-checker-styles';
+const TOOLTIP_STYLE_ID = 'myio-lib-version-tooltip-styles';
+
+/**
+ * @typedef {'checking' | 'up-to-date' | 'outdated' | 'error'} VersionStatus
+ */
+
+/**
+ * @typedef {Object} LibraryVersionCheckerOptions
+ * @property {string} packageName - npm package name to check
+ * @property {string} currentVersion - Currently installed version
+ * @property {number} [cacheTtlMs] - Cache TTL in milliseconds (default: 5 minutes)
+ * @property {number} [toastIntervalMs] - Toast warning interval in milliseconds (default: 60 seconds)
+ * @property {(status: VersionStatus, currentVersion: string, latestVersion: string | null) => void} [onStatusChange] - Callback when status changes
+ */
+
+/**
+ * Injects component styles into the document
+ * @param {Document} doc - Document to inject styles into
+ */
+function injectStyles(doc) {
+  if (doc.getElementById(STYLE_ID)) return;
+
+  const style = doc.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    .myio-lib-version {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    .myio-lib-version__text {
+      font-size: 12px;
+      color: #9CA3AF;
+      opacity: 0.8;
+      letter-spacing: 0.3px;
+    }
+
+    .myio-lib-version__status {
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      line-height: 1;
+    }
+
+    .myio-lib-version__status:hover {
+      transform: scale(1.2);
+    }
+
+    .myio-lib-version__status--checking {
+      color: #6B7280;
+      animation: myio-spin 1s linear infinite;
+    }
+
+    .myio-lib-version__status--up-to-date {
+      color: #10B981;
+    }
+
+    .myio-lib-version__status--outdated {
+      color: #F59E0B;
+      animation: myio-pulse-warning 2s infinite;
+    }
+
+    .myio-lib-version__status--error {
+      color: #6B7280;
+    }
+
+    @keyframes myio-pulse-warning {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes myio-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
+/**
+ * Injects tooltip styles into the document
+ * @param {Document} doc - Document to inject styles into
+ */
+function injectTooltipStyles(doc) {
+  if (doc.getElementById(TOOLTIP_STYLE_ID)) return;
+
+  const style = doc.createElement('style');
+  style.id = TOOLTIP_STYLE_ID;
+  style.textContent = `
+    .myio-ver-tooltip-container {
+      position: fixed;
+      z-index: 999999;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    .myio-ver-tooltip {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+      min-width: 320px;
+      max-width: 400px;
+    }
+
+    .myio-ver-tooltip__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .myio-ver-tooltip__header--success {
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: #fff;
+    }
+
+    .myio-ver-tooltip__header--warning {
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      color: #fff;
+    }
+
+    .myio-ver-tooltip__icon {
+      font-size: 18px;
+    }
+
+    .myio-ver-tooltip__body {
+      padding: 16px;
+    }
+
+    .myio-ver-tooltip__row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .myio-ver-tooltip__row:last-of-type {
+      border-bottom: none;
+    }
+
+    .myio-ver-tooltip__label {
+      color: #6B7280;
+      font-size: 13px;
+    }
+
+    .myio-ver-tooltip__value {
+      font-weight: 600;
+      font-size: 13px;
+      color: #1F2937;
+    }
+
+    .myio-ver-tooltip__value--outdated {
+      color: #DC2626;
+    }
+
+    .myio-ver-tooltip__value--new {
+      color: #059669;
+    }
+
+    .myio-ver-tooltip__status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .myio-ver-tooltip__status--success {
+      background: #D1FAE5;
+      color: #065F46;
+    }
+
+    .myio-ver-tooltip__status--warning {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+
+    .myio-ver-tooltip__help {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .myio-ver-tooltip__help-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+
+    .myio-ver-tooltip__os-section {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #F9FAFB;
+      border-radius: 8px;
+    }
+
+    .myio-ver-tooltip__os-label {
+      font-weight: 600;
+      font-size: 12px;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    .myio-ver-tooltip__help-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #4B5563;
+    }
+
+    .myio-ver-tooltip__kbd {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #fff;
+      border: 1px solid #D1D5DB;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: #374151;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .myio-ver-tooltip__help-note {
+      margin-top: 12px;
+      padding: 10px;
+      background: #F0F9FF;
+      border-radius: 8px;
+      font-size: 11px;
+      color: #0369A1;
+      line-height: 1.4;
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
+/**
+ * Compare semantic versions
+ * @param {string} a - First version
+ * @param {string} b - Second version
+ * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
+ */
+function compareVersions(a, b) {
+  const partsA = a.split('.').map(Number);
+  const partsB = b.split('.').map(Number);
+
+  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+    const numA = partsA[i] || 0;
+    const numB = partsB[i] || 0;
+    if (numA > numB) return 1;
+    if (numA < numB) return -1;
+  }
+  return 0;
+}
+
+/**
+ * Get keyboard shortcuts for all OS
+ * @returns {{ windows: { primary: string, alt: string }, mac: { primary: string, alt: string } }}
+ */
+function getRefreshShortcuts() {
+  return {
+    windows: {
+      primary: 'Ctrl + Shift + R',
+      alt: 'Ctrl + F5',
+    },
+    mac: {
+      primary: '⌘ + Shift + R',
+      alt: '⌘ + Option + R',
+    },
+  };
+}
+
+/**
+ * Show premium tooltip with version status details
+ * @param {HTMLElement} anchor - Element to anchor tooltip to
+ * @param {string} currentVer - Current version
+ * @param {string} latestVer - Latest version from npm
+ * @param {boolean} isUpToDate - Whether version is up to date
+ */
+function showVersionTooltip(anchor, currentVer, latestVer, isUpToDate) {
+  // Use top-level document for modal
+  const topWin = window.top || window;
+  let topDoc;
+  try {
+    topDoc = topWin.document;
+  } catch {
+    topDoc = document;
+  }
+
+  // Inject tooltip styles
+  injectTooltipStyles(topDoc);
+
+  // Remove existing tooltip
+  const existingTooltip = topDoc.getElementById('myio-version-tooltip');
+  if (existingTooltip) existingTooltip.remove();
+
+  const shortcuts = getRefreshShortcuts();
+
+  // Build tooltip content
+  const tooltipHTML = isUpToDate
+    ? `
+      <div class="myio-ver-tooltip">
+        <div class="myio-ver-tooltip__header myio-ver-tooltip__header--success">
+          <span class="myio-ver-tooltip__icon">✓</span>
+          <span>Biblioteca Atualizada</span>
+        </div>
+        <div class="myio-ver-tooltip__body">
+          <div class="myio-ver-tooltip__row">
+            <span class="myio-ver-tooltip__label">Versão instalada na sua máquina:</span>
+            <span class="myio-ver-tooltip__value">v${currentVer}</span>
+          </div>
+          <div class="myio-ver-tooltip__row">
+            <span class="myio-ver-tooltip__label">Última versão disponível:</span>
+            <span class="myio-ver-tooltip__value">v${latestVer}</span>
+          </div>
+          <div class="myio-ver-tooltip__status myio-ver-tooltip__status--success">
+            Voce esta usando a versao mais recente da biblioteca MyIO!
+          </div>
+        </div>
+      </div>
+    `
+    : `
+      <div class="myio-ver-tooltip">
+        <div class="myio-ver-tooltip__header myio-ver-tooltip__header--warning">
+          <span class="myio-ver-tooltip__icon">⚠️</span>
+          <span>Atualizacao Disponivel</span>
+        </div>
+        <div class="myio-ver-tooltip__body">
+          <div class="myio-ver-tooltip__row">
+            <span class="myio-ver-tooltip__label">Versão instalada na sua máquina:</span>
+            <span class="myio-ver-tooltip__value myio-ver-tooltip__value--outdated">v${currentVer}</span>
+          </div>
+          <div class="myio-ver-tooltip__row">
+            <span class="myio-ver-tooltip__label">Última versão disponível:</span>
+            <span class="myio-ver-tooltip__value myio-ver-tooltip__value--new">v${latestVer}</span>
+          </div>
+          <div class="myio-ver-tooltip__status myio-ver-tooltip__status--warning">
+            ⚠️ Uma nova versão da biblioteca está disponível!
+          </div>
+          <div class="myio-ver-tooltip__help">
+            <div class="myio-ver-tooltip__help-title">Como atualizar:</div>
+
+            <div class="myio-ver-tooltip__os-section">
+              <div class="myio-ver-tooltip__os-label">🪟 Windows:</div>
+              <div class="myio-ver-tooltip__help-item">
+                <span class="myio-ver-tooltip__kbd">${shortcuts.windows.primary}</span>
+                <span>ou</span>
+                <span class="myio-ver-tooltip__kbd">${shortcuts.windows.alt}</span>
+              </div>
+            </div>
+
+            <div class="myio-ver-tooltip__os-section">
+              <div class="myio-ver-tooltip__os-label">🍎 Mac:</div>
+              <div class="myio-ver-tooltip__help-item">
+                <span class="myio-ver-tooltip__kbd">${shortcuts.mac.primary}</span>
+                <span>ou</span>
+                <span class="myio-ver-tooltip__kbd">${shortcuts.mac.alt}</span>
+              </div>
+            </div>
+
+            <div class="myio-ver-tooltip__help-note">
+              💡 Se o problema persistir, limpe o cache do navegador ou aguarde alguns minutos para a CDN atualizar.
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+  // Create tooltip container
+  const container = topDoc.createElement('div');
+  container.id = 'myio-version-tooltip';
+  container.className = 'myio-ver-tooltip-container';
+  container.innerHTML = tooltipHTML;
+
+  // Position near anchor
+  topDoc.body.appendChild(container);
+
+  const anchorRect = anchor.getBoundingClientRect();
+  const tooltipRect = container.getBoundingClientRect();
+
+  // Position above the anchor, centered
+  let left = anchorRect.left + anchorRect.width / 2 - tooltipRect.width / 2;
+  let top = anchorRect.top - tooltipRect.height - 10;
+
+  // Ensure tooltip stays within viewport
+  if (left < 10) left = 10;
+  if (left + tooltipRect.width > window.innerWidth - 10) {
+    left = window.innerWidth - tooltipRect.width - 10;
+  }
+  if (top < 10) {
+    // Show below instead
+    top = anchorRect.bottom + 10;
+  }
+
+  container.style.left = `${left}px`;
+  container.style.top = `${top}px`;
+
+  // Close on click outside
+  const closeHandler = (e) => {
+    if (!container.contains(e.target) && e.target !== anchor) {
+      container.remove();
+      topDoc.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => topDoc.addEventListener('click', closeHandler), 100);
+
+  // Close on Escape
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      container.remove();
+      topDoc.removeEventListener('keydown', escHandler);
+    }
+  };
+  topDoc.addEventListener('keydown', escHandler);
+}
+
+/**
+ * Creates a LibraryVersionChecker component and appends it to the container
+ *
+ * @param {HTMLElement} container - Container element to append the component to
+ * @param {LibraryVersionCheckerOptions} options - Configuration options
+ * @returns {{ destroy: () => void, refresh: () => Promise<void> }} Component instance
+ */
+export function createLibraryVersionChecker(container, options) {
+  const {
+    packageName,
+    currentVersion,
+    cacheTtlMs = CACHE_TTL_MS,
+    toastIntervalMs = DEFAULT_TOAST_INTERVAL_MS,
+    onStatusChange,
+  } = options;
+
+  // Inject styles
+  injectStyles(document);
+
+  // Create DOM structure
+  const wrapper = document.createElement('div');
+  wrapper.className = 'myio-lib-version';
+
+  const versionText = document.createElement('span');
+  versionText.className = 'myio-lib-version__text';
+  versionText.textContent = `v${currentVersion}`;
+
+  const statusIcon = document.createElement('span');
+  statusIcon.className = 'myio-lib-version__status myio-lib-version__status--checking';
+  statusIcon.textContent = '⟳';
+  statusIcon.title = 'Verificando versão...';
+
+  wrapper.appendChild(versionText);
+  wrapper.appendChild(statusIcon);
+  container.appendChild(wrapper);
+
+  // State
+  let latestVersion = null;
+  let status = 'checking';
+  let clickHandler = null;
+  let toastIntervalId = null;
+
+  /**
+   * Show toast warning about outdated library
+   * @param {string} latest - Latest version available
+   */
+  function showOutdatedToast(latest) {
+    // Try to get MyIOToast from global MyIOLibrary or window
+    const MyIOToast = window.MyIOLibrary?.MyIOToast || window.MyIOToast;
+
+    if (MyIOToast && typeof MyIOToast.warning === 'function') {
+      MyIOToast.warning(
+        `Biblioteca MyIO desatualizada! Versão atual: v${currentVersion} → Disponível: v${latest}. Clique no ícone ⚠ no MENU para instruções.`,
+        8000
+      );
+      console.log(
+        `[LibraryVersionChecker] Toast warning shown (current: ${currentVersion}, latest: ${latest})`
+      );
+    } else {
+      console.warn('[LibraryVersionChecker] MyIOToast not available for warning notification');
+    }
+  }
+
+  /**
+   * Start toast warning interval
+   * @param {string} latest - Latest version available
+   */
+  function startToastWarningInterval(latest) {
+    // Clear any existing interval
+    stopToastWarningInterval();
+
+    // Show toast immediately
+    showOutdatedToast(latest);
+
+    // Set interval to show toast
+    toastIntervalId = setInterval(() => {
+      showOutdatedToast(latest);
+    }, toastIntervalMs);
+
+    console.log(`[LibraryVersionChecker] Toast warning interval started (every ${toastIntervalMs / 1000}s)`);
+  }
+
+  /**
+   * Stop toast warning interval
+   */
+  function stopToastWarningInterval() {
+    if (toastIntervalId) {
+      clearInterval(toastIntervalId);
+      toastIntervalId = null;
+      console.log('[LibraryVersionChecker] Toast warning interval stopped');
+    }
+  }
+
+  /**
+   * Update status UI
+   * @param {VersionStatus} newStatus
+   * @param {string | null} latest
+   */
+  function updateStatus(newStatus, latest) {
+    status = newStatus;
+    latestVersion = latest;
+
+    // Remove previous click handler
+    if (clickHandler) {
+      statusIcon.removeEventListener('click', clickHandler);
+      clickHandler = null;
+    }
+
+    // Stop toast interval if status changes from outdated
+    if (newStatus !== 'outdated') {
+      stopToastWarningInterval();
+    }
+
+    switch (newStatus) {
+      case 'checking':
+        statusIcon.textContent = '⟳';
+        statusIcon.className = 'myio-lib-version__status myio-lib-version__status--checking';
+        statusIcon.title = 'Verificando versão...';
+        break;
+
+      case 'up-to-date':
+        statusIcon.textContent = '✓';
+        statusIcon.className = 'myio-lib-version__status myio-lib-version__status--up-to-date';
+        statusIcon.title = 'Biblioteca atualizada!';
+        clickHandler = (e) => {
+          e.stopPropagation();
+          showVersionTooltip(statusIcon, currentVersion, latestVersion, true);
+        };
+        statusIcon.addEventListener('click', clickHandler);
+        break;
+
+      case 'outdated':
+        statusIcon.textContent = '⚠';
+        statusIcon.className = 'myio-lib-version__status myio-lib-version__status--outdated';
+        statusIcon.title = `Atualização disponível: v${latest}`;
+        clickHandler = (e) => {
+          e.stopPropagation();
+          showVersionTooltip(statusIcon, currentVersion, latestVersion, false);
+        };
+        statusIcon.addEventListener('click', clickHandler);
+
+        // Start toast warning interval for outdated status
+        startToastWarningInterval(latest);
+        break;
+
+      case 'error':
+        statusIcon.textContent = '?';
+        statusIcon.className = 'myio-lib-version__status myio-lib-version__status--error';
+        statusIcon.title = 'Não foi possível verificar atualizações';
+        break;
+    }
+
+    // Callback
+    if (onStatusChange) {
+      onStatusChange(newStatus, currentVersion, latest);
+    }
+  }
+
+  /**
+   * Check npm registry for latest version
+   */
+  async function checkNpmVersion() {
+    const cacheKey = `${CACHE_KEY_PREFIX}${packageName}`;
+    const npmUrl = `${NPM_REGISTRY_BASE}/${packageName}/latest`;
+
+    updateStatus('checking', null);
+
+    try {
+      // Check cache first
+      let latest = null;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { version, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < cacheTtlMs) {
+            latest = version;
+            console.log(`[LibraryVersionChecker] Using cached npm version: ${latest}`);
+          }
+        }
+      } catch {
+        // Ignore cache errors
+      }
+
+      // Fetch from npm if not cached
+      if (!latest) {
+        const response = await fetch(npmUrl, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+
+        if (!response.ok) {
+          throw new Error(`npm registry returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        latest = data.version;
+
+        // Cache the result
+        try {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              version: latest,
+              timestamp: Date.now(),
+            })
+          );
+        } catch {
+          // Ignore cache write errors
+        }
+
+        console.log(`[LibraryVersionChecker] Latest npm version: ${latest}`);
+      }
+
+      // Compare versions
+      const isUpToDate = compareVersions(currentVersion, latest) >= 0;
+
+      if (isUpToDate) {
+        updateStatus('up-to-date', latest);
+        console.log(`[LibraryVersionChecker] Library is up to date (${currentVersion} >= ${latest})`);
+      } else {
+        updateStatus('outdated', latest);
+        console.warn(
+          `[LibraryVersionChecker] Library outdated! Current: ${currentVersion}, Latest: ${latest}`
+        );
+      }
+    } catch (err) {
+      console.warn(`[LibraryVersionChecker] Failed to check npm version:`, err.message);
+      updateStatus('error', null);
+    }
+  }
+
+  // Start checking immediately
+  checkNpmVersion();
+
+  // Return instance with methods
+  return {
+    /**
+     * Destroy the component and clean up
+     */
+    destroy() {
+      stopToastWarningInterval();
+      if (clickHandler) {
+        statusIcon.removeEventListener('click', clickHandler);
+      }
+      wrapper.remove();
+    },
+
+    /**
+     * Manually refresh version check
+     */
+    async refresh() {
+      // Clear cache
+      const cacheKey = `${CACHE_KEY_PREFIX}${packageName}`;
+      try {
+        localStorage.removeItem(cacheKey);
+      } catch {
+        // Ignore
+      }
+      await checkNpmVersion();
+    },
+
+    /**
+     * Get current status
+     * @returns {{ status: VersionStatus, currentVersion: string, latestVersion: string | null }}
+     */
+    getStatus() {
+      return { status, currentVersion, latestVersion };
+    },
+  };
+}
+
+export default createLibraryVersionChecker;

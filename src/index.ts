@@ -240,6 +240,9 @@ export { MyIOToast } from './components/MyIOToast.js';
 // RFC-0131: Loading Spinner Component
 export { createLoadingSpinner, LoadingSpinner } from './components/loading-spinner';
 
+// RFC-0137: Library Version Checker Component
+export { createLibraryVersionChecker } from './components/library-version-checker';
+
 // RFC-0084: Real-Time Telemetry Modal
 export { openRealTimeTelemetryModal } from './components/RealTimeTelemetryModal';
 export type { RealTimeTelemetryParams, RealTimeTelemetryInstance } from './components/RealTimeTelemetryModal';
