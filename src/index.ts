@@ -232,6 +232,9 @@ export { MyIODraggableCard } from './components/DraggableCard.js';
 export { MyIOChartModal } from './components/ChartModal.js';
 export { MyIOToast } from './components/MyIOToast.js';
 
+// RFC-0131: Loading Spinner Component
+export { createLoadingSpinner, LoadingSpinner } from './components/loading-spinner';
+
 // RFC-0084: Real-Time Telemetry Modal
 export { openRealTimeTelemetryModal } from './components/RealTimeTelemetryModal';
 export type { RealTimeTelemetryParams, RealTimeTelemetryInstance } from './components/RealTimeTelemetryModal';

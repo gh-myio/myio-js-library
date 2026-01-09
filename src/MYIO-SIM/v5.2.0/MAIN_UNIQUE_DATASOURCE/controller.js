@@ -3206,6 +3206,9 @@ body.filter-modal-open { overflow: hidden !important; }
       const devices =
         window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
       telemetryGridInstance.updateDevices(devices);
+      if (devices.length > 0) {
+        hideMenuBusy();
+      }
     }
   });
 
@@ -3559,6 +3562,215 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // === HELPER FUNCTIONS ===
 
+  // RFC-0137: LoadingSpinner integration for MAIN_UNIQUE_DATASOURCE
+  // Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+  const MENU_BUSY_OVERLAY_ID = 'myio-main-unique-busy-overlay';
+  let menuBusyTimeoutId = null;
+  let menuBusyVisible = false;
+
+  // RFC-0137: Configurable delay before hiding spinner after data is confirmed loaded
+  const SPINNER_HIDE_DELAY_MS = 2000; // 2 seconds delay after data confirmed
+
+  // RFC-0137: LoadingSpinner instance (lazy initialized)
+  let _loadingSpinnerInstance = null;
+  let _pendingHideTimeoutId = null;
+
+  /**
+   * RFC-0137: Get or create LoadingSpinner instance
+   * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+   */
+  function getLoadingSpinner() {
+    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+
+    // Try to use new LoadingSpinner from myio-js-library
+    const MyIOLibrary = window.MyIOLibrary;
+    if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
+      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+        minDisplayTime: 800, // Minimum 800ms to avoid flash
+        maxTimeout: 25000, // 25 seconds max
+        message: 'Carregando dados...',
+        spinnerType: 'double',
+        theme: 'dark',
+        showTimer: false, // Set to true for debugging
+        onTimeout: () => {
+          console.warn('[MAIN_UNIQUE] RFC-0137: LoadingSpinner max timeout reached');
+          menuBusyVisible = false;
+        },
+        onComplete: () => {
+          console.log('[MAIN_UNIQUE] RFC-0137: LoadingSpinner hidden');
+          menuBusyVisible = false;
+        },
+      });
+      console.log('[MAIN_UNIQUE] RFC-0137: LoadingSpinner initialized from MyIOLibrary');
+    } else {
+      console.warn(
+        '[MAIN_UNIQUE] RFC-0137: MyIOLibrary.createLoadingSpinner not available, using legacy overlay'
+      );
+    }
+
+    return _loadingSpinnerInstance;
+  }
+
+  // Legacy busy overlay DOM (fallback when LoadingSpinner not available)
+  function ensureMenuBusyDOM() {
+    let el = document.getElementById(MENU_BUSY_OVERLAY_ID);
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = MENU_BUSY_OVERLAY_ID;
+    el.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'display:none',
+      'align-items:center',
+      'justify-content:center',
+      'background:rgba(15,23,42,0.35)',
+      'backdrop-filter:blur(2px)',
+      'z-index:999999',
+    ].join(';');
+
+    el.innerHTML = `
+      <div style="
+        background:#0f172a;
+        color:#e2e8f0;
+        border:1px solid rgba(148,163,184,0.3);
+        border-radius:14px;
+        padding:18px 22px;
+        min-width:260px;
+        box-shadow:0 18px 50px rgba(0,0,0,0.45);
+        font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="myio-menu-busy-spinner" style="
+            width:20px;height:20px;border-radius:50%;
+            border:3px solid rgba(226,232,240,0.35);
+            border-top-color:#e2e8f0;animation:myioMenuSpin .9s linear infinite;">
+          </div>
+          <div id="${MENU_BUSY_OVERLAY_ID}-message" style="font-weight:600; font-size:14px;">
+            Carregando dados...
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (!document.getElementById('myio-menu-busy-style')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'myio-menu-busy-style';
+      styleEl.textContent = '@keyframes myioMenuSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
+      document.head.appendChild(styleEl);
+    }
+
+    document.body.appendChild(el);
+    return el;
+  }
+
+  /**
+   * RFC-0137: Show busy overlay using LoadingSpinner component
+   * Falls back to legacy overlay if LoadingSpinner not available
+   */
+  function showMenuBusy(_domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
+    // RFC-0137: Try to use new LoadingSpinner component
+    const spinner = getLoadingSpinner();
+
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
+    }
+
+    if (spinner) {
+      // Use new LoadingSpinner component
+      if (!menuBusyVisible) {
+        spinner.show(message || 'Carregando dados...');
+        menuBusyVisible = true;
+        console.log(`[MAIN_UNIQUE] 🔄 RFC-0137: LoadingSpinner shown`);
+      } else {
+        // Update message if already showing
+        spinner.updateMessage(message || 'Carregando dados...');
+        console.log(`[MAIN_UNIQUE] 🔄 RFC-0137: LoadingSpinner message updated`);
+      }
+    } else {
+      // Fallback to legacy overlay
+      const el = ensureMenuBusyDOM();
+      const messageEl = el.querySelector(`#${MENU_BUSY_OVERLAY_ID}-message`);
+      if (messageEl) {
+        messageEl.textContent = message || 'Carregando dados...';
+      }
+
+      if (!menuBusyVisible) {
+        el.style.display = 'flex';
+        menuBusyVisible = true;
+      }
+    }
+
+    // Clear existing timeout
+    if (menuBusyTimeoutId) {
+      clearTimeout(menuBusyTimeoutId);
+      menuBusyTimeoutId = null;
+    }
+
+    // Safety timeout (only for legacy overlay, LoadingSpinner has its own)
+    if (!spinner) {
+      menuBusyTimeoutId = setTimeout(() => {
+        hideMenuBusy({ immediate: true });
+      }, timeoutMs);
+    }
+  }
+
+  /**
+   * RFC-0137: Hide busy overlay with optional delay
+   * Shows "Dados carregados!" message before hiding
+   */
+  function hideMenuBusy(options = {}) {
+    const { immediate = false, skipDelay = false } = options;
+
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
+    }
+
+    const spinner = getLoadingSpinner();
+
+    // Function to actually perform the hide
+    const performHide = () => {
+      if (spinner && spinner.isShowing()) {
+        spinner.hide();
+        console.log(`[MAIN_UNIQUE] ✅ RFC-0137: LoadingSpinner hidden`);
+      }
+
+      // Also hide legacy overlay if exists
+      const el = document.getElementById(MENU_BUSY_OVERLAY_ID);
+      if (el) {
+        el.style.display = 'none';
+      }
+
+      menuBusyVisible = false;
+
+      if (menuBusyTimeoutId) {
+        clearTimeout(menuBusyTimeoutId);
+        menuBusyTimeoutId = null;
+      }
+    };
+
+    // RFC-0137: Apply delay before hiding (unless immediate or skipDelay)
+    if (immediate || skipDelay) {
+      performHide();
+    } else {
+      // Show "Dados carregados!" message briefly before hiding
+      if (spinner && spinner.isShowing()) {
+        spinner.updateMessage('Dados carregados!');
+        console.log(
+          `[MAIN_UNIQUE] ✅ RFC-0137: Data confirmed, waiting ${SPINNER_HIDE_DELAY_MS}ms before hiding`
+        );
+      }
+
+      _pendingHideTimeoutId = setTimeout(() => {
+        performHide();
+        _pendingHideTimeoutId = null;
+      }, SPINNER_HIDE_DELAY_MS);
+    }
+  }
+
   function applyGlobalTheme(themeMode) {
     const wrap = document.getElementById('mainUniqueWrap');
     if (wrap) {
@@ -3593,20 +3805,25 @@ body.filter-modal-open { overflow: hidden !important; }
   function handleContextChange(tabId, contextId, target) {
     const telemetryContainer = document.getElementById('telemetryGridContainer');
 
+    showMenuBusy(tabId, 'Carregando dados...');
+
     // RFC-0132/RFC-0133: Check if this is a panel view request
     if (contextId === 'energy_general') {
       // Show Energy Panel in telemetryGridContainer
       LogHelper.log('[MAIN_UNIQUE] Switching to Energy Panel view');
       switchToEnergyPanel(telemetryContainer);
       currentViewMode = 'energy-panel';
+      hideMenuBusy();
     } else if (contextId === 'water_summary') {
       // Show Water Panel in telemetryGridContainer
       LogHelper.log('[MAIN_UNIQUE] Switching to Water Panel view');
       switchToWaterPanel(telemetryContainer);
       currentViewMode = 'water-panel';
+      hideMenuBusy();
     } else if (contextId === 'temperature_summary' || contextId === 'temperature_comparison') {
       // Temperature panels still use modal for now
       handlePanelModalRequest(tabId, 'summary');
+      hideMenuBusy();
     } else {
       // Show Telemetry Grid (default view)
       switchToTelemetryGrid(telemetryContainer, tabId, contextId, target);
@@ -3813,6 +4030,9 @@ body.filter-modal-open { overflow: hidden !important; }
       });
 
       LogHelper.log('[MAIN_UNIQUE] TelemetryGrid recreated for context:', classifiedContext);
+      if (devices.length > 0) {
+        hideMenuBusy();
+      }
     } else if (telemetryGridInstance) {
       // Update existing telemetry grid
       const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
@@ -3821,6 +4041,9 @@ body.filter-modal-open { overflow: hidden !important; }
       );
       telemetryGridInstance.updateConfig(tabId, classifiedContext);
       telemetryGridInstance.updateDevices(devices);
+      if (devices.length > 0) {
+        hideMenuBusy();
+      }
     }
   }
 

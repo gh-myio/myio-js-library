@@ -2630,7 +2630,53 @@ const SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS = 60;
 
 const MyIOOrchestrator = (() => {
   // ========== PHASE 1: BUSY OVERLAY MANAGEMENT (RFC-0044/RFC-0054) ==========
-  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
+  // RFC-0137: Using LoadingSpinner component instead of custom busy overlay
+  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay'; // Kept for backwards compatibility
+
+  // RFC-0137: LoadingSpinner instance (lazy initialized)
+  let _loadingSpinnerInstance = null;
+
+  /**
+   * RFC-0137: Get or create LoadingSpinner instance
+   * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+   */
+  function getLoadingSpinner() {
+    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+
+    // Try to use new LoadingSpinner from myio-js-library
+    const MyIOLibrary = window.MyIOLibrary;
+    if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
+      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+        minDisplayTime: 800, // Minimum 800ms to avoid flash
+        maxTimeout: 25000, // 25 seconds max (matches existing timeout)
+        message: 'Carregando dados...',
+        spinnerType: 'double',
+        theme: 'dark',
+        showTimer: false, // Set to true for debugging
+        onTimeout: () => {
+          LogHelper.warn('[Orchestrator] RFC-0137: LoadingSpinner max timeout reached');
+          // Emit recovery event for other widgets to handle
+          window.dispatchEvent(
+            new CustomEvent('myio:busy-timeout-recovery', {
+              detail: { domain: globalBusyState.currentDomain, duration: 25000 },
+            })
+          );
+          showRecoveryNotification();
+        },
+        onComplete: () => {
+          LogHelper.log('[Orchestrator] RFC-0137: LoadingSpinner hidden');
+        },
+      });
+      LogHelper.log('[Orchestrator] RFC-0137: LoadingSpinner initialized from MyIOLibrary');
+    } else {
+      LogHelper.warn(
+        '[Orchestrator] RFC-0137: MyIOLibrary.createLoadingSpinner not available, using legacy overlay'
+      );
+    }
+
+    return _loadingSpinnerInstance;
+  }
+
   let globalBusyState = {
     isVisible: false,
     timeoutId: null,
@@ -2639,7 +2685,7 @@ const MyIOOrchestrator = (() => {
     requestCount: 0,
   };
 
-  // RFC-0054: contador por dom�nio e cooldown p�s-provide
+  // RFC-0054: contador por domínio e cooldown pós-provide
   const activeRequests = new Map(); // domain -> count
   const lastProvide = new Map(); // domain -> { periodKey, at }
 
@@ -3059,27 +3105,60 @@ const MyIOOrchestrator = (() => {
     }
   }
 
+  // RFC-0137: Configurable delay before hiding spinner after data is confirmed loaded
+  const SPINNER_HIDE_DELAY_MS = 2000; // 2 seconds delay after data confirmed
+
   // PHASE 1: Centralized busy management with extended timeout
+  // RFC-0137: Now uses LoadingSpinner component from myio-js-library
   function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
-    // RFC-0054: cooldown - n�o reabrir modal se acabou de prover dados
+    // RFC-0054: cooldown - não reabrir modal se acabou de prover dados
     const lp = lastProvide.get(domain);
     if (lp && Date.now() - lp.at < 30000) {
-      LogHelper.log(`[Orchestrator] ?? Cooldown active for ${domain}, skipping showGlobalBusy()`);
+      LogHelper.log(`[Orchestrator] ⏸️ Cooldown active for ${domain}, skipping showGlobalBusy()`);
       return;
     }
     const totalBefore = getActiveTotal();
     const prev = activeRequests.get(domain) || 0;
     activeRequests.set(domain, prev + 1);
     LogHelper.log(
-      `[Orchestrator] ?? Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
+      `[Orchestrator] 📊 Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
     );
 
-    const el = ensureOrchestratorBusyDOM();
-    const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+    // RFC-0137: Try to use new LoadingSpinner component
+    const spinner = getLoadingSpinner();
 
-    if (messageEl) {
-      // Mensagem gen�rica para evitar r�tulo incorreto ao alternar abas
-      messageEl.textContent = 'Carregando dados...';
+    if (spinner) {
+      // Use new LoadingSpinner component
+      if (totalBefore === 0) {
+        globalBusyState.isVisible = true;
+        globalBusyState.currentDomain = domain;
+        globalBusyState.startTime = Date.now();
+        globalBusyState.requestCount++;
+
+        // Show spinner with Portuguese message
+        spinner.show(message || 'Carregando dados...');
+        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner shown for ${domain}`);
+      } else {
+        // Update message if already showing
+        spinner.updateMessage(message || 'Carregando dados...');
+        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner message updated (already showing)`);
+      }
+    } else {
+      // Fallback to legacy busy overlay
+      const el = ensureOrchestratorBusyDOM();
+      const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+
+      if (messageEl) {
+        messageEl.textContent = message || 'Carregando dados...';
+      }
+
+      if (totalBefore === 0) {
+        globalBusyState.isVisible = true;
+        globalBusyState.currentDomain = domain;
+        globalBusyState.startTime = Date.now();
+        globalBusyState.requestCount++;
+        el.style.display = 'flex';
+      }
     }
 
     // Clear existing timeout
@@ -3088,67 +3167,59 @@ const MyIOOrchestrator = (() => {
       globalBusyState.timeoutId = null;
     }
 
-    // Mostrar overlay apenas quando saiu de 0 ? 1
-    if (totalBefore === 0) {
-      globalBusyState.isVisible = true;
-      globalBusyState.currentDomain = domain;
-      globalBusyState.startTime = Date.now();
-      globalBusyState.requestCount++;
-      el.style.display = 'flex';
-    }
-
     // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
-    // This is defined later in the orchestrator initialization
     if (window.MyIOOrchestrator?.widgetBusyMonitor) {
       window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
     }
 
     // PHASE 1: Extended timeout (25s instead of 10s)
-    globalBusyState.timeoutId = setTimeout(() => {
-      LogHelper.warn(`[Orchestrator] ?? BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
+    // Note: LoadingSpinner has its own maxTimeout, this is backup for legacy overlay
+    if (!spinner) {
+      globalBusyState.timeoutId = setTimeout(() => {
+        LogHelper.warn(`[Orchestrator] ⏰ BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
 
-      // Check if still actually busy
-      if (globalBusyState.isVisible && el.style.display !== 'none') {
-        // PHASE 3: Circuit breaker pattern - try graceful recovery
-        try {
-          // Emit recovery event
-          window.dispatchEvent(
-            new CustomEvent('myio:busy-timeout-recovery', {
-              detail: { domain, duration: Date.now() - globalBusyState.startTime },
-            })
-          );
-
-          // Hide busy and show user-friendly message
-          hideGlobalBusy(domain);
-
-          // Non-intrusive notification
-          showRecoveryNotification();
-        } catch (err) {
-          LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
-          hideGlobalBusy(domain);
+        const el = document.getElementById(BUSY_OVERLAY_ID);
+        if (globalBusyState.isVisible && el && el.style.display !== 'none') {
+          try {
+            window.dispatchEvent(
+              new CustomEvent('myio:busy-timeout-recovery', {
+                detail: { domain, duration: Date.now() - globalBusyState.startTime },
+              })
+            );
+            hideGlobalBusy(domain);
+            showRecoveryNotification();
+          } catch (err) {
+            LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
+            hideGlobalBusy(domain);
+          }
         }
-      }
-
-      globalBusyState.timeoutId = null;
-    }, timeoutMs); // 25 seconds (Phase 1 requirement)
+        globalBusyState.timeoutId = null;
+      }, timeoutMs);
+    }
 
     if (totalBefore === 0) {
-      LogHelper.log(`[Orchestrator] ? Global busy shown (domain=${domain})`);
+      LogHelper.log(`[Orchestrator] 🔄 Global busy shown (domain=${domain})`);
     } else {
-      LogHelper.log(`[Orchestrator] ?? Busy already visible (domain=${domain})`);
+      LogHelper.log(`[Orchestrator] ⏳ Busy already visible (domain=${domain})`);
     }
   }
 
-  function hideGlobalBusy(domain = null) {
-    // RFC-0054: decremento por dom�nio; se domain for nulo, for�a limpeza
+  // RFC-0137: Track pending hide timeout for delayed hide
+  let _pendingHideTimeoutId = null;
+
+  function hideGlobalBusy(domain = null, options = {}) {
+    // RFC-0137: Options for controlling hide behavior
+    const { immediate = false, skipDelay = false } = options;
+
+    // RFC-0054: decremento por domínio; se domain for nulo, força limpeza
     if (domain) {
       const prev = activeRequests.get(domain) || 0;
       const next = Math.max(0, prev - 1);
       activeRequests.set(domain, next);
       LogHelper.log(
-        `[Orchestrator] ? hideGlobalBusy(${domain}) -> ${prev}?${next}, total=${getActiveTotal()}`
+        `[Orchestrator] ✅ hideGlobalBusy(${domain}) -> ${prev}→${next}, total=${getActiveTotal()}`
       );
-      if (getActiveTotal() > 0) return; // mant�m overlay enquanto houver ativas
+      if (getActiveTotal() > 0) return; // mantém overlay enquanto houver ativas
     } else {
       activeRequests.clear();
     }
@@ -3158,23 +3229,59 @@ const MyIOOrchestrator = (() => {
       window.MyIOOrchestrator.widgetBusyMonitor.stopAll();
     }
 
-    const el = document.getElementById(BUSY_OVERLAY_ID);
-    if (el) {
-      el.style.display = 'none';
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
     }
 
-    // Clear timeout
-    if (globalBusyState.timeoutId) {
-      clearTimeout(globalBusyState.timeoutId);
-      globalBusyState.timeoutId = null;
+    // RFC-0137: Use LoadingSpinner if available
+    const spinner = getLoadingSpinner();
+
+    // Function to actually perform the hide
+    const performHide = () => {
+      if (spinner && spinner.isShowing()) {
+        spinner.hide();
+        LogHelper.log(`[Orchestrator] ✅ RFC-0137: LoadingSpinner hidden`);
+      }
+
+      // Also hide legacy overlay if exists
+      const el = document.getElementById(BUSY_OVERLAY_ID);
+      if (el) {
+        el.style.display = 'none';
+      }
+
+      // Clear timeout
+      if (globalBusyState.timeoutId) {
+        clearTimeout(globalBusyState.timeoutId);
+        globalBusyState.timeoutId = null;
+      }
+
+      // Update state
+      globalBusyState.isVisible = false;
+      globalBusyState.currentDomain = null;
+      globalBusyState.startTime = null;
+
+      LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
+    };
+
+    // RFC-0137: Apply delay before hiding (unless immediate or skipDelay)
+    if (immediate || skipDelay) {
+      performHide();
+    } else {
+      // Show "Dados carregados!" message briefly before hiding
+      if (spinner && spinner.isShowing()) {
+        spinner.updateMessage('Dados carregados!');
+        LogHelper.log(
+          `[Orchestrator] ✅ RFC-0137: Data confirmed, waiting ${SPINNER_HIDE_DELAY_MS}ms before hiding`
+        );
+      }
+
+      _pendingHideTimeoutId = setTimeout(() => {
+        performHide();
+        _pendingHideTimeoutId = null;
+      }, SPINNER_HIDE_DELAY_MS);
     }
-
-    // Update state
-    globalBusyState.isVisible = false;
-    globalBusyState.currentDomain = null;
-    globalBusyState.startTime = null;
-
-    LogHelper.log(`[Orchestrator] ? Global busy hidden`);
   }
 
   // PHASE 4: Non-intrusive recovery notification
@@ -3289,7 +3396,7 @@ const MyIOOrchestrator = (() => {
       if (currentPeriod) {
         LogHelper.log(`[Orchestrator] ✅ Period available on attempt ${attempt}:`, currentPeriod);
         if (attempt > 1 && MyIOToast) {
-          MyIOToast.success(`Período definido (tentativa ${attempt})`, 2000);
+          MyIOToast.success(`Dados carregados com suesso (tentativa ${attempt})`, 2000);
         }
         return currentPeriod;
       }
@@ -5170,6 +5277,69 @@ const MyIOOrchestrator = (() => {
   window.addEventListener('myio:widget:register', (ev) => {
     const { widgetId, domain } = ev.detail;
     registerWidget(widgetId, domain);
+  });
+
+  /**
+   * RFC-0136: Listener for late-arriving widgets that are ready to receive data
+   * When a widget signals it's ready, re-emit provide-data if we have cached data
+   * This solves the race condition where widgets miss the initial provide-data event
+   */
+  window.addEventListener('myio:widget:ready', (ev) => {
+    const { widgetId, domain, labelWidget, timestamp } = ev.detail;
+
+    LogHelper.log(
+      `[Orchestrator] 📡 RFC-0136: Widget ready - ${widgetId} (domain: ${domain}, labelWidget: ${labelWidget})`
+    );
+
+    // Check if we have cached data for this domain
+    const cachedData = window.MyIOOrchestratorData?.[domain];
+    if (!cachedData || !cachedData.items || cachedData.items.length === 0) {
+      LogHelper.log(
+        `[Orchestrator] ℹ️ RFC-0136: No cached data for ${domain}, widget will wait for fresh fetch`
+      );
+      return;
+    }
+
+    // Validate cache freshness (60 seconds max)
+    const age = Date.now() - (cachedData.timestamp || 0);
+    if (age > 60000) {
+      LogHelper.log(
+        `[Orchestrator] ⚠️ RFC-0136: Cached data for ${domain} is stale (${Math.round(age / 1000)}s), not re-emitting`
+      );
+      return;
+    }
+
+    // Validate customer match
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
+    const cachedPeriodKey = cachedData.periodKey || '';
+    const cachedCustomerId = cachedPeriodKey.split(':')[0];
+
+    if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+      LogHelper.warn(
+        `[Orchestrator] 🚫 RFC-0136: Customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId})`
+      );
+      return;
+    }
+
+    // Re-emit provide-data event for this specific widget
+    // Small delay to ensure widget's event listener is fully registered
+    setTimeout(() => {
+      LogHelper.log(
+        `[Orchestrator] 📡 RFC-0136: Re-emitting provide-data for ${domain} (${cachedData.items.length} items) - triggered by ${widgetId}`
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:telemetry:provide-data', {
+          detail: {
+            domain: domain,
+            periodKey: cachedData.periodKey,
+            items: cachedData.items,
+            _reemit: true, // Flag to indicate this is a re-emission
+            _triggeredBy: widgetId,
+          },
+        })
+      );
+    }, 50); // 50ms delay to ensure listener is ready
   });
 
   // Event listeners

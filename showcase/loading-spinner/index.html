@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0131: LoadingSpinner Component Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px 24px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      .control-group select,
+      .control-group input,
+      .control-group button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .control-group input[type='number'] {
+        width: 100px;
+      }
+
+      .control-group input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+      }
+
+      .control-group select:hover,
+      .control-group input:hover,
+      .control-group button:hover {
+        border-color: #60a5fa;
+      }
+
+      .control-group button {
+        background: #3b82f6;
+        border-color: #3b82f6;
+      }
+
+      .control-group button:hover {
+        background: #2563eb;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .section {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #334155;
+      }
+
+      .section h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      .section-desc {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+      }
+
+      .section-desc code {
+        background: #0f172a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #60a5fa;
+      }
+
+      /* Test Buttons Grid */
+      .test-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+      }
+
+      .test-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .test-btn small {
+        font-size: 11px;
+        opacity: 0.8;
+        font-weight: 400;
+      }
+
+      .test-btn.primary {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .test-btn.primary:hover {
+        background: #2563eb;
+        transform: translateY(-2px);
+      }
+
+      .test-btn.success {
+        background: #10b981;
+        color: white;
+      }
+
+      .test-btn.success:hover {
+        background: #059669;
+        transform: translateY(-2px);
+      }
+
+      .test-btn.danger {
+        background: #ef4444;
+        color: white;
+      }
+
+      .test-btn.danger:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+      }
+
+      .test-btn.secondary {
+        background: #475569;
+        color: white;
+      }
+
+      .test-btn.secondary:hover {
+        background: #64748b;
+        transform: translateY(-2px);
+      }
+
+      /* Log Panel */
+      .log-panel {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 16px;
+        min-height: 200px;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        color: #94a3b8;
+        border: 1px solid #334155;
+      }
+
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+
+      .log-time {
+        color: #64748b;
+      }
+
+      .log-info {
+        color: #60a5fa;
+      }
+
+      .log-success {
+        color: #34d399;
+      }
+
+      .log-error {
+        color: #f87171;
+      }
+
+      .log-warn {
+        color: #fbbf24;
+      }
+
+      /* Manual Control Section */
+      .manual-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .manual-controls button {
+        padding: 10px 20px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .manual-controls button:hover {
+        border-color: #3b82f6;
+        background: #1e293b;
+      }
+
+      .manual-controls button.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+      }
+
+      /* Stats Bar */
+      .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 12px 24px;
+        background: rgba(59, 130, 246, 0.1);
+        border-bottom: 1px solid #334155;
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .stat-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+
+      /* Light mode */
+      body.light-mode {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+
+      body.light-mode .showcase-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .showcase-header p {
+        color: #64748b;
+      }
+
+      body.light-mode .controls-bar {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .control-group select,
+      body.light-mode .control-group input,
+      body.light-mode .control-group button {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+
+      body.light-mode .section {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .section h2 {
+        color: #1e293b;
+      }
+
+      body.light-mode .section-desc {
+        color: #64748b;
+      }
+
+      body.light-mode .log-panel {
+        background: #f1f5f9;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .stats-bar {
+        background: rgba(59, 130, 246, 0.05);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .stat-value {
+        color: #1e293b;
+      }
+
+      body.light-mode .stat-label {
+        color: #64748b;
+      }
+
+      body.light-mode .manual-controls button {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0131: LoadingSpinner Component</h1>
+      <p>Global busy overlay with timing control, minimum display time, and safety timeout</p>
+    </header>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Min Display (ms):</label>
+        <input type="number" id="minDisplayTime" value="800" min="0" max="5000" step="100" />
+      </div>
+
+      <div class="control-group">
+        <label>Max Timeout (ms):</label>
+        <input type="number" id="maxTimeout" value="6000" min="1000" max="30000" step="1000" />
+      </div>
+
+      <div class="control-group">
+        <label>Spinner Type:</label>
+        <select id="spinnerType">
+          <option value="double">Double (Default)</option>
+          <option value="single">Single</option>
+          <option value="dots">Dots</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Theme:</label>
+        <select id="themeSelect">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Show Timer:</label>
+        <input type="checkbox" id="showTimer" checked />
+      </div>
+
+      <div class="control-group">
+        <button id="initBtn">Init Spinner</button>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-value" id="statShowCount">0</span>
+        <span class="stat-label">Show calls</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statHideCount">0</span>
+        <span class="stat-label">Hide calls</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statTimeoutCount">0</span>
+        <span class="stat-label">Timeouts</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statCurrentStatus">Idle</span>
+        <span class="stat-label">Status</span>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- Automated Tests Section -->
+      <section class="section">
+        <h2>Automated Tests (Simulations)</h2>
+        <p class="section-desc">
+          Execute simulations to test key timing scenarios. The "operation time" simulates how long your actual code
+          takes before calling <code>spinner.hide()</code>. The spinner guarantees minimum display time to avoid
+          "flash" effect.
+        </p>
+
+        <div class="test-buttons">
+          <button class="test-btn primary" onclick="simulateFastLoad()">
+            Fast Load (200ms op)
+            <small>Waits for minDisplayTime (800ms)</small>
+          </button>
+
+          <button class="test-btn success" onclick="simulateSlowLoad()">
+            Slow Load (2s op)
+            <small>Hides immediately when done</small>
+          </button>
+
+          <button class="test-btn danger" onclick="simulateTimeout()">
+            Timeout Test
+            <small>Never calls hide() - triggers timeout</small>
+          </button>
+
+          <button class="test-btn secondary" onclick="simulateError()">
+            Error Simulation (1.2s)
+            <small>Simulates error handling</small>
+          </button>
+        </div>
+      </section>
+
+      <!-- Manual Control Section -->
+      <section class="section">
+        <h2>Manual Control</h2>
+        <p class="section-desc">
+          Control the spinner manually to test specific scenarios. Use <code>show()</code> to display,
+          <code>hide()</code> to dismiss (respecting minDisplayTime), and <code>updateMessage()</code> to change the
+          text while showing.
+        </p>
+
+        <div class="manual-controls">
+          <button onclick="manualShow()">Show Spinner</button>
+          <button onclick="manualHide()">Hide Spinner</button>
+          <button onclick="manualUpdateMessage()">Update Message</button>
+          <button onclick="manualDestroy()">Destroy Instance</button>
+        </div>
+      </section>
+
+      <!-- Event Log Section -->
+      <section class="section">
+        <h2>Event Log</h2>
+        <div class="log-panel" id="logPanel">
+          <div class="log-entry">
+            <span class="log-time">[--:--:--]</span>
+            <span class="log-info">Showcase initialized. Click "Init Spinner" to start.</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!--
+    To run this showcase:
+    1. Run: npm run build (to generate dist/myio-js-library.umd.min.js)
+    2. Run: start-server.bat (Windows) or start-server.sh (Linux/macOS)
+    3. Open: http://localhost:3333/showcase/loading-spinner/
+  -->
+
+    <!-- Load UMD build which works without module system -->
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
+    <script>
+      // MyIOLibrary is exposed globally by UMD build
+
+      // State
+      let spinnerInstance = null;
+      let operationTimeout = null;
+      let stats = {
+        showCount: 0,
+        hideCount: 0,
+        timeoutCount: 0,
+      };
+
+      // Log helper
+      function log(message, type = 'info') {
+        const panel = document.getElementById('logPanel');
+        const time = new Date().toLocaleTimeString('pt-BR');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+        panel.appendChild(entry);
+        panel.scrollTop = panel.scrollHeight;
+
+        // Also log to console
+        const consoleMethod = type === 'error' ? 'error' : type === 'warn' ? 'warn' : 'log';
+        console[consoleMethod](`[LoadingSpinner] ${message}`);
+      }
+
+      // Update stats display
+      function updateStats() {
+        document.getElementById('statShowCount').textContent = stats.showCount;
+        document.getElementById('statHideCount').textContent = stats.hideCount;
+        document.getElementById('statTimeoutCount').textContent = stats.timeoutCount;
+        document.getElementById('statCurrentStatus').textContent =
+          spinnerInstance && spinnerInstance.isShowing() ? 'Showing' : 'Idle';
+      }
+
+      // Get config from form
+      function getConfig() {
+        return {
+          minDisplayTime: parseInt(document.getElementById('minDisplayTime').value) || 800,
+          maxTimeout: parseInt(document.getElementById('maxTimeout').value) || 6000,
+          spinnerType: document.getElementById('spinnerType').value,
+          theme: document.getElementById('themeSelect').value,
+          showTimer: document.getElementById('showTimer').checked,
+          onTimeout: () => {
+            stats.timeoutCount++;
+            log('Max timeout reached! Spinner auto-hidden.', 'warn');
+            updateStats();
+            if (operationTimeout) {
+              clearTimeout(operationTimeout);
+              operationTimeout = null;
+            }
+          },
+          onComplete: () => {
+            stats.hideCount++;
+            log('Spinner hidden (onComplete callback)', 'success');
+            updateStats();
+          },
+        };
+      }
+
+      // Initialize spinner
+      function initSpinner() {
+        if (spinnerInstance) {
+          spinnerInstance.destroy();
+          spinnerInstance = null;
+          log('Previous instance destroyed', 'info');
+        }
+
+        const config = getConfig();
+        spinnerInstance = MyIOLibrary.createLoadingSpinner(config);
+        log(`Spinner initialized with config: ${JSON.stringify(config, null, 0)}`, 'success');
+        updateStats();
+      }
+
+      // Theme change
+      document.getElementById('themeSelect').addEventListener('change', (e) => {
+        const isLight = e.target.value === 'light';
+        document.body.classList.toggle('light-mode', isLight);
+        log(`Page theme changed to: ${e.target.value}`, 'info');
+      });
+
+      // Init button
+      document.getElementById('initBtn').addEventListener('click', initSpinner);
+
+      // ==================
+      // SIMULATION TESTS
+      // ==================
+
+      function simulateFastLoad() {
+        if (!spinnerInstance) initSpinner();
+
+        stats.showCount++;
+        spinnerInstance.show('Fast loading (200ms)...');
+        log('Started FAST load simulation (200ms operation)', 'info');
+        updateStats();
+
+        // Simulate fast operation (less than minDisplayTime)
+        operationTimeout = setTimeout(() => {
+          spinnerInstance.hide();
+          log('Fast operation complete - spinner will wait for minDisplayTime', 'info');
+          operationTimeout = null;
+        }, 200);
+      }
+
+      function simulateSlowLoad() {
+        if (!spinnerInstance) initSpinner();
+
+        stats.showCount++;
+        spinnerInstance.show('Slow loading (2s)...');
+        log('Started SLOW load simulation (2000ms operation)', 'info');
+        updateStats();
+
+        // Simulate slow operation (more than minDisplayTime)
+        operationTimeout = setTimeout(() => {
+          spinnerInstance.hide();
+          log('Slow operation complete - spinner hides immediately', 'info');
+          operationTimeout = null;
+        }, 2000);
+      }
+
+      function simulateTimeout() {
+        if (!spinnerInstance) initSpinner();
+
+        stats.showCount++;
+        spinnerInstance.show('Waiting for timeout...');
+        log('Started TIMEOUT simulation - NOT calling hide()', 'warn');
+        log(`Timeout will trigger in ${getConfig().maxTimeout}ms`, 'warn');
+        updateStats();
+
+        // Note: We intentionally don't call hide() to test the timeout mechanism
+      }
+
+      function simulateError() {
+        if (!spinnerInstance) initSpinner();
+
+        stats.showCount++;
+        spinnerInstance.show('Processing...');
+        log('Started ERROR simulation (1200ms operation)', 'info');
+        updateStats();
+
+        operationTimeout = setTimeout(() => {
+          spinnerInstance.updateMessage('Error occurred!');
+          log('Error detected! Updated message.', 'error');
+
+          setTimeout(() => {
+            spinnerInstance.hide();
+            log('Error handling complete - hiding spinner', 'error');
+            operationTimeout = null;
+          }, 500);
+        }, 1200);
+      }
+
+      // ==================
+      // MANUAL CONTROLS
+      // ==================
+
+      function manualShow() {
+        if (!spinnerInstance) {
+          log('No spinner instance - initializing first...', 'warn');
+          initSpinner();
+        }
+
+        stats.showCount++;
+        spinnerInstance.show('Manual show at ' + new Date().toLocaleTimeString());
+        log('Manual show() called', 'info');
+        updateStats();
+      }
+
+      function manualHide() {
+        if (!spinnerInstance) {
+          log('No spinner instance to hide', 'error');
+          return;
+        }
+
+        spinnerInstance.hide();
+        log('Manual hide() called - will respect minDisplayTime', 'info');
+      }
+
+      function manualUpdateMessage() {
+        if (!spinnerInstance) {
+          log('No spinner instance', 'error');
+          return;
+        }
+
+        const messages = [
+          'Loading data...',
+          'Processing request...',
+          'Almost done...',
+          'Fetching results...',
+          'Please wait...',
+        ];
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        spinnerInstance.updateMessage(randomMsg);
+        log(`Message updated to: "${randomMsg}"`, 'info');
+      }
+
+      function manualDestroy() {
+        if (!spinnerInstance) {
+          log('No spinner instance to destroy', 'error');
+          return;
+        }
+
+        spinnerInstance.destroy();
+        spinnerInstance = null;
+        log('Spinner instance destroyed', 'warn');
+        updateStats();
+      }
+
+      // ==================
+      // INITIALIZATION
+      // ==================
+
+      // Check if library loaded
+      if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createLoadingSpinner) {
+        log('MyIOLibrary.createLoadingSpinner available', 'success');
+      } else {
+        log('ERROR: MyIOLibrary.createLoadingSpinner not found! Did you run npm run build?', 'error');
+      }
+    </script>
+  </body>
+</html>
