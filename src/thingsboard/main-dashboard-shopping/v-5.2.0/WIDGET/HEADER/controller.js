@@ -499,14 +499,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
-      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab} (previous: ${currentDomain.value})`);
+      const previousDomain = currentDomain.value;
+      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab} (previous: ${previousDomain})`);
       currentDomain.value = tab;
       LogHelper.log(`[HEADER] currentDomain is now: ${currentDomain.value}`);
       updateControlsState(tab);
 
-      // RFC-0045 FIX: Emit initial period when domain is set for the first time
-      // This ensures orchestrator has currentPeriod set immediately
-      if (!hasEmittedInitialPeriod && (tab === 'energy' || tab === 'water')) {
+      // RFC-0045 FIX: Emit period when domain changes to energy or water
+      // RFC-0138 FIX: Always re-emit dates on domain switch to ensure sync
+      // This ensures orchestrator has currentPeriod set correctly when switching domains
+      if (tab === 'energy' || tab === 'water') {
         hasEmittedInitialPeriod = true;
 
         // Wait for dateRangePicker to be ready
@@ -515,7 +517,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
             const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
 
-            const initialPeriod = {
+            const currentPeriod = {
               startISO,
               endISO,
               granularity: calcGranularity(startISO, endISO),
@@ -523,12 +525,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             };
 
             // RFC-0130: Store period globally for retry mechanism
-            window.__myioInitialPeriod = initialPeriod;
+            window.__myioInitialPeriod = currentPeriod;
 
-            LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${tab}:`, initialPeriod);
-            emitToAllContexts('myio:update-date', { period: initialPeriod });
+            LogHelper.log(`[HEADER] 🚀 RFC-0138: Emitting current period for domain ${tab}:`, currentPeriod);
+            emitToAllContexts('myio:update-date', { period: currentPeriod });
           } else {
-            LogHelper.warn(`[HEADER] ⚠️ Cannot emit initial period - dateRangePicker not ready yet`);
+            LogHelper.warn(`[HEADER] ⚠️ Cannot emit period - dateRangePicker not ready yet`);
           }
         }, 300); // Small delay to ensure dateRangePicker is initialized
       }
