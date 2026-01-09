@@ -45,6 +45,369 @@ A **queued, priority-aware, rate-limited notification pipeline** for sending Tel
 └─────────────────────────────┘
 ```
 
+## Understanding the Rule Chain Process
+
+The Telegram Queue system integrates with ThingsBoard through **three separate Rule Chain flows**. Each flow serves a specific purpose and runs independently.
+
+### Flow 1: Message Enqueue (Event-Driven)
+
+**Trigger**: Device alarm or telemetry event
+**Frequency**: On-demand (whenever an event occurs)
+**Purpose**: Capture notification requests and add them to the queue
+
+```
+┌─────────────────┐
+│ Device Event    │ ← Alarm triggers, telemetry updates, etc.
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ MESSAGE ORIGINATOR                                  │
+│ (Root Rule Chain: Alarm notification logic)         │
+│ - Filters events (e.g., only critical alarms)       │
+│ - Enriches with device metadata                     │
+└────────┬────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ TRANSFORMATION NODE                                 │
+│ Purpose: Build Telegram message payload             │
+│                                                      │
+│ Input:  Device alarm/telemetry data                 │
+│ Output: Formatted message object                    │
+│                                                      │
+│ Example Script:                                     │
+│ ```javascript                                       │
+│ var deviceName = msg.deviceName || "Unknown";      │
+│ var alarmType = msg.alarmType || "Alert";          │
+│ var severity = metadata.ss_severity || "INFO";     │
+│                                                      │
+│ var text = "⚠️ " + severity + " - " + deviceName;  │
+│ text += "\n" + alarmType;                          │
+│ text += "\nTime: " + new Date().toLocaleString(); │
+│                                                      │
+│ return {                                            │
+│   msg: { text: text },                             │
+│   metadata: {                                       │
+│     deviceType: msg.deviceType,                    │
+│     deviceName: deviceName,                        │
+│     deviceId: metadata.deviceId,                   │
+│     customerId: metadata.customerId,               │
+│     ts: Date.now().toString()                      │
+│   },                                                │
+│   msgType: "POST_TELEMETRY_REQUEST"                │
+│ };                                                  │
+│ ```                                                 │
+└────────┬────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ FUNCTION NODE: Enqueue                              │
+│ Purpose: Add message to priority queue              │
+│                                                      │
+│ What it does:                                       │
+│ 1. Normalizes payload structure                    │
+│ 2. Resolves priority based on device profile       │
+│    - Checks device overrides (highest priority)    │
+│    - Checks device profile rules                   │
+│    - Falls back to customer global default         │
+│    - Falls back to system default (3=Medium)       │
+│ 3. Generates unique queue ID                       │
+│ 4. Saves to ThingsBoard SERVER_SCOPE attributes:   │
+│    - telegram_queue_entry_{queueId}                │
+│    - telegram_queue_index_priority_{1-4}           │
+│ 5. Returns success with queueId                    │
+│                                                      │
+│ Code:                                               │
+│ ```javascript                                       │
+│ return (async function() {                         │
+│   const { enqueueFunction } = await import(       │
+│     'myio-js-library'                              │
+│   );                                                │
+│   return await enqueueFunction(                    │
+│     msg, metadata, msgType                         │
+│   );                                                │
+│ })();                                               │
+│ ```                                                 │
+│                                                      │
+│ Output: { queueId, status: "PENDING", priority }   │
+└─────────────────────────────────────────────────────┘
+```
+
+**Storage After Enqueue**:
+```json
+// Customer attribute: telegram_queue_entry_{queueId}
+{
+  "queueId": "a1b2c3d4-...",
+  "customerId": "customer-uuid",
+  "deviceId": "device-uuid",
+  "deviceProfile": "3F_MEDIDOR",
+  "priority": 2,
+  "payload": {
+    "text": "⚠️ HIGH - Medidor Loja 101\nConsumo elevado\n..."
+  },
+  "status": "PENDING",
+  "retryCount": 0,
+  "maxRetries": 3,
+  "createdAt": 1767878649180,
+  "lastAttemptAt": null
+}
+
+// Customer attribute: telegram_queue_index_priority_2
+["a1b2c3d4-...", "e5f6g7h8-...", ...]
+```
+
+---
+
+### Flow 2: Message Dispatch (Scheduled)
+
+**Trigger**: Generator Node (timer)
+**Frequency**: Every 60 seconds
+**Purpose**: Process queue and send messages to Telegram
+
+```
+┌─────────────────┐
+│ GENERATOR NODE  │ ← Triggers every 60 seconds
+│ Period: 60s     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ FUNCTION NODE: Dispatcher                           │
+│ Purpose: Batch process and send queued messages     │
+│                                                      │
+│ Step 1: CHECK MUTEX                                 │
+│ - Prevents concurrent dispatch runs                 │
+│ - Uses module-level _isDispatching flag            │
+│ - Returns early if already dispatching             │
+│                                                      │
+│ Step 2: LOAD CUSTOMER CONFIG                        │
+│ - Reads telegram_queue_config attribute            │
+│ - Extracts rateControl settings                    │
+│ - Extracts Telegram bot credentials                │
+│                                                      │
+│ Step 3: CHECK RATE LIMIT                            │
+│ - Reads telegram_queue_ratelimit_{customerId}      │
+│ - Compares time since last dispatch                │
+│ - If too soon: exit and wait for next cycle        │
+│ - If ready: proceed to dequeue                     │
+│                                                      │
+│ Step 4: DEQUEUE BATCH                               │
+│ - Reads index attributes by priority:              │
+│   1. telegram_queue_index_priority_1 (Critical)    │
+│   2. telegram_queue_index_priority_2 (High)        │
+│   3. telegram_queue_index_priority_3 (Medium)      │
+│   4. telegram_queue_index_priority_4 (Low)         │
+│ - Takes up to batchSize entries (e.g., 5)          │
+│ - Fetches full entry for each queue ID             │
+│ - Filters for PENDING and RETRY status             │
+│ - Checks retry delay for RETRY entries             │
+│                                                      │
+│ Step 5: SEND TO TELEGRAM                            │
+│ For each entry in batch:                           │
+│   a. Update status → SENDING                       │
+│   b. POST to Telegram Bot API:                     │
+│      https://api.telegram.org/bot{token}/sendMessage│
+│   c. Handle response:                               │
+│      • 200 OK → Update to SENT, record sentAt     │
+│      • 429 Rate Limit → Update to RETRY, backoff  │
+│      • 400 Bad Request → Update to FAILED         │
+│      • 5xx Server Error → Update to RETRY         │
+│      • Network Error → Update to RETRY            │
+│   d. If RETRY: Check retryCount < maxRetries      │
+│      • If yes: status = RETRY, increment count    │
+│      • If no: status = FAILED (permanent)         │
+│   e. Remove from priority index if SENT/FAILED    │
+│                                                      │
+│ Step 6: RECORD BATCH DISPATCH                       │
+│ - Update telegram_queue_ratelimit_{customerId}:    │
+│   {                                                 │
+│     lastDispatchAt: Date.now(),                    │
+│     batchCount: previous + 1                       │
+│   }                                                 │
+│                                                      │
+│ Step 7: RETURN SUMMARY                              │
+│ - sentCount, failedCount, retryCount               │
+│ - Logged for monitoring                            │
+│                                                      │
+│ Code:                                               │
+│ ```javascript                                       │
+│ return (async function() {                         │
+│   const { dispatchFunction } = await import(      │
+│     'myio-js-library'                              │
+│   );                                                │
+│   return await dispatchFunction(                   │
+│     msg, metadata, msgType                         │
+│   );                                                │
+│ })();                                               │
+│ ```                                                 │
+└─────────────────────────────────────────────────────┘
+```
+
+**Rate Limiting Example**:
+```javascript
+// Customer config: delayBetweenBatchesSeconds = 60
+// Last dispatch: 2024-01-08 10:00:00 (sent 5 messages)
+// Current time:  2024-01-08 10:00:45 (45 seconds later)
+
+// Check: 45 < 60 → Wait 15 more seconds
+// Dispatcher exits, will retry next cycle (60s from now)
+
+// Next cycle:    2024-01-08 10:01:00
+// Check: 60 >= 60 → Can send!
+// Dequeue next batch and dispatch
+```
+
+**Retry Backoff Examples**:
+
+**Exponential** (default):
+```
+Retry 0: Wait 10s  (10 * 2^0)
+Retry 1: Wait 20s  (10 * 2^1)
+Retry 2: Wait 40s  (10 * 2^2)
+Retry 3: Wait 80s  (10 * 2^3) → Then mark FAILED
+```
+
+**Linear**:
+```
+Retry 0: Wait 10s  (10 * 1)
+Retry 1: Wait 20s  (10 * 2)
+Retry 2: Wait 30s  (10 * 3)
+Retry 3: Wait 40s  (10 * 4) → Then mark FAILED
+```
+
+---
+
+### Flow 3: Queue Monitoring (Scheduled)
+
+**Trigger**: Generator Node (timer)
+**Frequency**: Every 5 minutes
+**Purpose**: Collect metrics for dashboard visualization
+
+```
+┌─────────────────┐
+│ GENERATOR NODE  │ ← Triggers every 300 seconds (5 min)
+│ Period: 300s    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ FUNCTION NODE: Monitor                              │
+│ Purpose: Collect queue statistics                   │
+│                                                      │
+│ What it does:                                       │
+│ 1. Reads all queue index attributes:                │
+│    - telegram_queue_index_priority_1/2/3/4         │
+│    - Counts entries in each                        │
+│                                                      │
+│ 2. Scans queue entries to calculate:               │
+│    - pendingCount (status = PENDING)               │
+│    - retryCount (status = RETRY)                   │
+│    - failedCount (status = FAILED)                 │
+│    - sentCount (recent, last hour)                 │
+│                                                      │
+│ 3. Calculates average dispatch delay:              │
+│    - (sentAt - createdAt) for recently sent msgs   │
+│                                                      │
+│ 4. Reads rate limit state:                         │
+│    - telegram_queue_ratelimit_{customerId}         │
+│    - timeSinceLastDispatch                         │
+│    - canSendNow (boolean)                          │
+│    - waitTimeSeconds                               │
+│                                                      │
+│ 5. Returns telemetry object                        │
+│                                                      │
+│ Code:                                               │
+│ ```javascript                                       │
+│ return (async function() {                         │
+│   const { monitorFunction } = await import(       │
+│     'myio-js-library'                              │
+│   );                                                │
+│   return await monitorFunction(                    │
+│     msg, metadata, msgType                         │
+│   );                                                │
+│ })();                                               │
+│ ```                                                 │
+└────────┬────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ SAVE TELEMETRY NODE                                 │
+│ Target: Virtual device "telegram-queue-monitor"     │
+│                                                      │
+│ Telemetry data:                                     │
+│ {                                                    │
+│   "queue_depth_priority_1": 2,                     │
+│   "queue_depth_priority_2": 5,                     │
+│   "queue_depth_priority_3": 12,                    │
+│   "queue_depth_priority_4": 8,                     │
+│   "pending_count": 27,                             │
+│   "failed_count": 3,                               │
+│   "retry_count": 5,                                │
+│   "sent_count": 120,                               │
+│   "average_dispatch_delay_seconds": 45,            │
+│   "time_since_last_dispatch_seconds": 30,          │
+│   "can_send_now": 0,                               │
+│   "wait_time_seconds": 30,                         │
+│   "total_queue_depth": 27,                         │
+│   "timestamp": 1767878649180                       │
+│ }                                                    │
+└────────┬────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│ DASHBOARD WIDGETS                                   │
+│ - Line chart: total_queue_depth over time          │
+│ - Bar chart: queue depth by priority               │
+│ - Gauge: average_dispatch_delay_seconds            │
+│ - Status indicator: can_send_now                   │
+│ - Counter: failed_count, sent_count                │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+### Complete Rule Chain Setup
+
+**Rule Chain 1: Enqueue Flow**
+```
+[Device] → [Message Type Switch] → [Transformation] → [Enqueue Function]
+                                                              │
+                                                              ▼
+                                                     [Log Success/Error]
+```
+
+**Rule Chain 2: Dispatcher Flow**
+```
+[Generator 60s] → [Dispatch Function] → [Log Results]
+```
+
+**Rule Chain 3: Monitor Flow**
+```
+[Generator 300s] → [Monitor Function] → [Save Telemetry] → [Virtual Device]
+```
+
+**Visual in ThingsBoard UI**:
+```
+Enqueue Rule Chain:
+┌──────────┐     ┌─────────────┐     ┌────────────┐
+│  Alarm   │────▶│ Transform   │────▶│  Enqueue   │
+│ Trigger  │     │   Message   │     │  Function  │
+└──────────┘     └─────────────┘     └────────────┘
+
+Dispatch Rule Chain:
+┌──────────┐     ┌────────────┐
+│Generator │────▶│  Dispatch  │
+│  (60s)   │     │  Function  │
+└──────────┘     └────────────┘
+
+Monitor Rule Chain:
+┌──────────┐     ┌────────────┐     ┌──────────┐
+│Generator │────▶│  Monitor   │────▶│   Save   │
+│ (300s)   │     │  Function  │     │Telemetry │
+└──────────┘     └────────────┘     └──────────┘
+```
+
 ## Installation
 
 ```bash

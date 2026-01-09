@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * RFC-0135: Telegram Notification Queue - Monitor Function
  *
