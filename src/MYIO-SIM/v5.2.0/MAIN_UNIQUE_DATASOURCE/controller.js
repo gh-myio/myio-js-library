@@ -858,16 +858,25 @@ body.filter-modal-open { overflow: hidden !important; }
         devices.forEach((device) => {
           let consumption = 0;
 
-          if (cache && device.ingestionId) {
+          // RFC-0138 FIX: Use correct field names for consumption lookup
+          // Priority: device fields from API enrichment > cache lookup
+          // NEVER fallback to ThingsBoard values (val/value/lastValue) when not from API
+
+          // First, check if device was enriched with API data
+          if (device.apiEnriched || device._hasApiData) {
+            consumption = Number(device.consumption) || Number(device.val) || Number(device.value) || 0;
+          }
+          // Otherwise, try to get from cache using ingestionId
+          else if (cache && device.ingestionId) {
             const cached = cache.get(device.ingestionId);
             if (cached) {
-              consumption = Number(cached.total_value) || 0;
+              // Use consumption/val/value fields, NOT total_value (which is API response field)
+              consumption = Number(cached.consumption) || Number(cached.val) || Number(cached.value) || 0;
             }
           }
 
-          if (consumption === 0) {
-            consumption = Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
-          }
+          // NOTE: Removed fallback to device.val/value/lastValue from ThingsBoard
+          // Data should ONLY come from ingestion API. If no API data, consumption stays 0.
 
           totalConsumption += consumption;
           if (consumption === 0) zeroCount++;
@@ -906,6 +915,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
     return controller;
   };
+
+  // RFC-0140 FIX: Expose buildHeaderDevicesGrid globally for TelemetryGrid component
+  window.MyIOUtils.buildHeaderDevicesGrid = buildHeaderDevicesGrid;
 
   /**
    * RFC-0090: Create a centralized filter modal for device grids
@@ -4171,6 +4183,13 @@ body.filter-modal-open { overflow: hidden !important; }
   // Start data processing after a short delay
   setTimeout(() => processDataWithRetry(), 100);
 
+  // RFC-0140: Start API enrichment after data processing has had time to classify devices
+  // This must be called from within onInit to ensure LogHelper is initialized
+  setTimeout(() => {
+    LogHelper.log('[MAIN_UNIQUE] RFC-0140: Starting API enrichment from onInit');
+    triggerApiEnrichment();
+  }, 3000);
+
   LogHelper.log('[MAIN_UNIQUE] onInit complete');
 };
 
@@ -5193,7 +5212,11 @@ function extractDeviceMetadataFromRows(rows) {
   // No name-based inference - deviceType must be properly configured in ThingsBoard
   const deviceType = dataKeyValues['deviceType'] || 'SEM_DEVICE_TYPE';
   const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
-  const consumptionValue = dataKeyValues['consumption'] || null;
+
+  // RFC-0140 FIX: ThingsBoard 'consumption' is INSTANTANEOUS POWER (kW), NOT accumulated consumption (kWh)
+  // consumption/val/value for cards should ONLY come from ingestion API enrichment
+  // Here we only extract it for instantaneousPower display
+  const instantaneousPowerFromTB = dataKeyValues['consumption'] || dataKeyValues['consumption_power'] || null;
   const deviceIdentifier = String(dataKeyValues['identifier'] || 'SEM IDENTIFICADOR').trim();
   const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
   const connectionStatus = window.MyIOLibrary.mapConnectionStatus(rawConnectionStatus);
@@ -5274,14 +5297,25 @@ function extractDeviceMetadataFromRows(rows) {
     lastConnectTime: dataKeyValues['lastConnectTime'],
     lastDisconnectTime: dataKeyValues['lastDisconnectTime'],
 
-    // Telemetry values - include both formats for compatibility
-    consumption: consumptionValue,
-    consumptionPower: consumptionValue, // RFC-0111 FIX: Alias for EQUIPMENTS
-    val: consumptionValue, // RFC-0111: Card component expects val
-    value: consumptionValue, // RFC-0111 FIX: Another alias used by some components
+    // RFC-0140 FIX: Consumption values should ONLY come from ingestion API enrichment
+    // ThingsBoard 'consumption' is actually instantaneous power (kW), NOT consumption (kWh)
+    // Set to null initially - will be populated by enrichDevicesWithConsumption()
+    consumption: null, // Will be set by API enrichment
+    val: null, // Will be set by API enrichment - Card component expects val
+    value: null, // Will be set by API enrichment
+    apiEnriched: false, // Flag to indicate data has NOT been enriched yet
+
+    // Water and temperature telemetry (these come directly from ThingsBoard)
     pulses: dataKeyValues['pulses'],
     temperature: dataKeyValues[DOMAIN_TEMPERATURE],
     water_level: dataKeyValues['water_level'],
+
+    // RFC-0140: Real-time instantaneous power from ThingsBoard (this IS valid from TB)
+    // This is the real-time power reading (kW) for display in cards
+    instantaneousPower: instantaneousPowerFromTB,
+    consumption_power: instantaneousPowerFromTB, // Alias for card component
+    consumptionPower: instantaneousPowerFromTB, // Alias for EQUIPMENTS
+    operationHours: dataKeyValues['operationHours'] || dataKeyValues['operation_hours'] || null,
 
     // RFC-0111 FIX: Power limits for EQUIPMENTS status calculation
     deviceMapInstaneousPower: deviceMapInstaneousPower,
@@ -5298,6 +5332,10 @@ function extractDeviceMetadataFromRows(rows) {
     temperatureTs: temperatureTs,
     waterLevelTs: waterLevelTs,
     telemetryTimestamp: telemetryTimestamp, // Domain-specific timestamp used for status
+    // RFC-0140: Timestamp for instantaneous power (used for stale value detection)
+    // Note: ThingsBoard 'consumption' dataKey contains instantaneous power, so its timestamp is correct for power
+    instantaneousPowerTs: dataKeyTimestamps['consumption'] || dataKeyTimestamps['consumption_power'] || null,
+    consumption_powerTs: dataKeyTimestamps['consumption'] || dataKeyTimestamps['consumption_power'] || null,
 
     // Domain
     domain: domain,
@@ -5632,13 +5670,16 @@ async function enrichDevicesWithConsumption(classified) {
 
   let period = window.MyIOLibrary.getDefaultPeriodCurrentMonthSoFar();
   const scopeStartDateISO = self.ctx.$scope.startDateISO;
-  const scopeEndDateISO = self.ctx.$scope.startDateISO;
+  const scopeEndDateISO = self.ctx.$scope.endDateISO; // RFC-0140 FIX: Was incorrectly using startDateISO
 
   if (scopeStartDateISO && scopeEndDateISO) {
     period = {
       startISO: scopeStartDateISO,
       endISO: scopeEndDateISO,
     };
+    LogHelper.log('[enrichDevicesWithConsumption] Using scope dates:', period);
+  } else {
+    LogHelper.log('[enrichDevicesWithConsumption] Using default period:', period);
   }
 
   // Build ingestionId maps for each domain (for quick lookup)
@@ -5867,7 +5908,11 @@ function useCachedEnrichedData(enriched) {
  */
 async function triggerApiEnrichment() {
   // Guard: LogHelper not ready yet (onInit not complete)
-  if (!LogHelper) return;
+  // RFC-0140: This function should only be called from onInit where LogHelper is available
+  if (!LogHelper) {
+    console.warn('[MAIN_UNIQUE] triggerApiEnrichment: LogHelper not available - this should not happen');
+    return;
+  }
 
   // Guard: Only run once
   if (_apiEnrichmentDone || _apiEnrichmentInProgress) {
@@ -5923,17 +5968,18 @@ async function triggerApiEnrichment() {
     return;
   }
 
-  // Set in-progress flag
-  _apiEnrichmentInProgress = true;
-  LogHelper.log('Credentials available, starting API enrichment');
-
-  // Get current classified data
+  // Get current classified data - must exist before we can enrich
   const classified = window.MyIOOrchestratorData?.classified;
   if (!classified) {
-    LogHelper.log('No classified data available for enrichment');
-    _apiEnrichmentInProgress = false;
+    LogHelper.log('No classified data available for enrichment, retrying in 1s...');
+    // RFC-0140 FIX: Retry if classified data not ready yet
+    setTimeout(triggerApiEnrichment, 1000);
     return;
   }
+
+  // Set in-progress flag (only after classified is available)
+  _apiEnrichmentInProgress = true;
+  LogHelper.log('Credentials available, starting API enrichment');
 
   try {
     // ===================================================================
@@ -6177,8 +6223,8 @@ async function triggerApiEnrichment() {
   }
 }
 
-// Start API enrichment after a short delay (to allow credentials to load)
-setTimeout(triggerApiEnrichment, 2000);
+// RFC-0140 FIX: Removed module-level setTimeout - triggerApiEnrichment is now called from onInit
+// This ensures LogHelper is initialized before the function runs
 
 self.onDestroy = function () {
   // Cleanup

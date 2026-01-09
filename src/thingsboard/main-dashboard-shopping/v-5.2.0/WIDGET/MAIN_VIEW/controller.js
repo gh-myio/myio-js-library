@@ -561,6 +561,49 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
 );
 
 /**
+ * RFC-0142: Patterns that indicate device should be hidden (ocultos)
+ * These devices are archived, inactive, or have no data
+ */
+const OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
+
+/**
+ * RFC-0142: Check if device should be classified as "ocultos" (hidden)
+ * Devices with these patterns in deviceProfile should go to a separate hidden group:
+ * - ARQUIVADO (archived devices)
+ * - SEM_DADOS (devices without data)
+ * - DESATIVADO (deactivated devices)
+ * - REMOVIDO (removed devices)
+ * - INATIVO (inactive devices)
+ *
+ * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile property, or deviceProfile string directly
+ * @returns {boolean} True if device should be in the "ocultos" group
+ */
+function isOcultosDevice(itemOrDeviceProfile) {
+  let deviceProfile;
+
+  if (typeof itemOrDeviceProfile === 'string') {
+    deviceProfile = itemOrDeviceProfile;
+  } else if (itemOrDeviceProfile && typeof itemOrDeviceProfile === 'object') {
+    deviceProfile = itemOrDeviceProfile.deviceProfile;
+  } else {
+    return false;
+  }
+
+  const profile = String(deviceProfile || '').toUpperCase();
+
+  for (const pattern of OCULTOS_PATTERNS) {
+    if (profile.includes(pattern)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// RFC-0142: Alias for backwards compatibility
+const shouldExcludeDevice = isOcultosDevice;
+
+/**
  * RFC-0106: Check if device is a store (loja)
  * Centralized logic: deviceProfile === '3F_MEDIDOR'
  *
@@ -745,6 +788,7 @@ function categoryToLabelWidget(category) {
  * Classification based on BOTH deviceType and deviceProfile from ThingsBoard datasource
  *
  * Rules (priority order):
+ * RFC-0142: 0. OCULTOS - archived/inactive devices go to hidden group
  * 1. LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * 2. ENTRADA: deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
  * 3. For other categories, check deviceProfile first, then deviceType:
@@ -758,6 +802,11 @@ function categoryToLabelWidget(category) {
  * @returns {string} labelWidget for widget filtering
  */
 function inferLabelWidget(row) {
+  // RFC-0142: RULE 0 - Classify archived/inactive devices as "Ocultos"
+  if (isOcultosDevice(row)) {
+    return 'Ocultos';
+  }
+
   // First try groupType from API (takes precedence)
   const groupType = row.groupType || row.group_type || '';
   if (groupType) {
@@ -873,12 +922,16 @@ function inferLabelWidget(row) {
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
   DEVICE_CLASSIFICATION_CONFIG,
+  // RFC-0142: Expose ocultos detection for child widgets
+  OCULTOS_PATTERNS,
+  isOcultosDevice,
+  shouldExcludeDevice, // Alias for backwards compatibility
+  isStoreDevice,
   classifyDevice,
   classifyDeviceByDeviceType,
   classifyDeviceByIdentifier,
   categoryToLabelWidget,
   inferLabelWidget,
-  isStoreDevice,
   EQUIPMENT_EXCLUSION_PATTERN,
 });
 
@@ -1836,8 +1889,9 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
 }
 
 /**
- * Categorize items into 3 groups: lojas, entrada, areacomum
+ * Categorize items into 4 groups: lojas, entrada, areacomum, ocultos
  * Rules:
+ * - RFC-0142: OCULTOS - devices with ARQUIVADO, SEM_DADOS, etc. in deviceProfile (hidden group)
  * - LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * - ENTRADA: (deviceType = '3F_MEDIDOR' AND deviceProfile in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO])
  *            OR deviceType in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO]
@@ -1850,6 +1904,7 @@ function categorizeItemsByGroup(items) {
   const lojas = [];
   const entrada = [];
   const areacomum = [];
+  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
 
   // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
@@ -1857,6 +1912,12 @@ function categorizeItemsByGroup(items) {
   for (const item of items) {
     const deviceType = toStr(item.deviceType);
     const deviceProfile = toStr(item.deviceProfile);
+
+    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    if (isOcultosDevice(item)) {
+      ocultos.push(item);
+      continue;
+    }
 
     // Rule 1: LOJAS - use centralized isStoreDevice
     if (isStoreDevice(item)) {
@@ -1876,13 +1937,20 @@ function categorizeItemsByGroup(items) {
     areacomum.push(item);
   }
 
-  return { lojas, entrada, areacomum };
+  // RFC-0142: Log ocultos devices for debugging
+  if (ocultos.length > 0) {
+    LogHelper.log(`[RFC-0142] Classified ${ocultos.length} devices as "ocultos" (hidden):`,
+      ocultos.map(d => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5));
+  }
+
+  return { lojas, entrada, areacomum, ocultos };
 }
 
 /**
- * RFC-0106: Categorize water items into 4 groups: entrada, lojas, banheiros, areacomum
+ * RFC-0106: Categorize water items into 5 groups: entrada, lojas, banheiros, areacomum, ocultos
  *
  * RULE ORDER:
+ * RFC-0142: 0. OCULTOS - devices with ARQUIVADO, SEM_DADOS, etc. in deviceProfile (hidden group)
  * 1. ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
  * 2. AREACOMUM: deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
  *    NOTE: Banheiros with HIDROMETRO_AREA_COMUM go here - they are extracted by TELEMETRY widget for TELEMETRY_INFO
@@ -1902,11 +1970,18 @@ function categorizeItemsByGroupWater(items) {
   const banheiros = [];
   const areacomum = [];
   const caixadagua = []; // RFC-0107: Category for tanks
+  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
 
   // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
+    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    if (isOcultosDevice(item)) {
+      ocultos.push(item);
+      continue;
+    }
+
     const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
     const identifier = toStr(item.identifier);
@@ -1965,7 +2040,13 @@ function categorizeItemsByGroupWater(items) {
     areacomum.push(item);
   }
 
-  return { entrada, lojas, banheiros, areacomum, caixadagua };
+  // RFC-0142: Log ocultos devices for debugging
+  if (ocultos.length > 0) {
+    LogHelper.log(`[RFC-0142] Classified ${ocultos.length} water devices as "ocultos" (hidden):`,
+      ocultos.map(d => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5));
+  }
+
+  return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
 }
 
 /**

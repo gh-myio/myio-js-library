@@ -597,6 +597,7 @@ function recomputePercentages(visible) {
 /**
  * Update water stores statistics header (Conectividade, Total, etc)
  * RFC-0094: Aligned with STORES/EQUIPMENTS logic for consistent stats
+ * RFC-0140: All stores are shown as online (no status calculation)
  * @param {Array} stores - Array of store items to calculate stats from
  */
 function updateWaterStoresStats(stores) {
@@ -612,39 +613,15 @@ function updateWaterStoresStats(stores) {
     return;
   }
 
-  // RFC-0110: Calculate connectivity using MASTER RULES (same as card rendering)
-  let onlineCount = 0;
-  let offlineCount = 0;
-  let notInstalledCount = 0;
+  // RFC-0140: All stores are considered online (no status calculation)
+  const onlineCount = stores.length;
   let totalConsumption = 0;
   let zeroConsumptionCount = 0;
 
   stores.forEach((store) => {
-    // RFC-0110: Get telemetry timestamp for status calculation
-    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = store.pulsesTs || store.waterVolumeTs || null;
-    const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
-
-    // RFC-0110: Calculate device status using MASTER RULES (same as card rendering)
-    const deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24h threshold for stale telemetry
-      domain: 'water',
-    });
-
-    // RFC-0110: Count by calculated deviceStatus
-    if (deviceStatus === 'not_installed') {
-      notInstalledCount++;
-    } else if (deviceStatus === 'offline' || deviceStatus === 'no_info') {
-      offlineCount++;
-    } else {
-      onlineCount++;
-    }
-
-    // Consumption calculation - RFC-0110: Clear for offline devices
-    const rawConsumption = Number(store.value) || Number(store.val) || 0;
-    const consumption = clearValueIfOffline(rawConsumption, deviceStatus) || 0;
+    // RFC-0140: No status calculation for stores - all are online
+    // Use consumption value directly without clearing
+    const consumption = Number(store.value) || Number(store.val) || 0;
     totalConsumption += consumption;
 
     if (consumption === 0) {
@@ -691,22 +668,13 @@ async function renderList(visible) {
 
     const valNum = Number(it.value || 0);
 
-    // RFC-0110: Get telemetry timestamp for water domain
-    // For water, use pulsesTs, waterVolumeTs, or timeVal/lastActivityTime as fallback
-    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = it.pulsesTs || it.waterVolumeTs || null;
+    // RFC-0140: WATER_STORES represents store allocation, not physical meters
+    // All stores should show as "online" - status calculation doesn't make sense for store meters
+    // This matches the behavior in EQUIPMENTS for store-type devices
+    const deviceStatus = 'online';
 
-    // RFC-0110: Calculate device status using MASTER RULES
-    const mappedConnectionStatus = mapConnectionStatus(it.connectionStatus || 'offline');
-    let deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedConnectionStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24h threshold for stale telemetry
-      domain: 'water',
-    });
-
-    // RFC-0110: Clear value for offline devices
-    const finalValue = clearValueIfOffline(valNum, deviceStatus);
+    // RFC-0140: Do NOT clear value for stores - they are always considered online
+    const finalValue = valNum;
 
     // RFC-0094: Resolve TB id
     let resolvedTbId = it.tbId;
@@ -742,6 +710,7 @@ async function renderList(visible) {
     }
 
     // RFC-0094: Build entity object following STORES pattern
+    // RFC-0140: Ensure consumption value is available in multiple properties for card rendering
     const entityObject = {
       // Identificadores
       entityId: resolvedTbId,
@@ -755,10 +724,13 @@ async function renderList(visible) {
       deviceIdentifier: deviceIdentifierToDisplay,
 
       // Valores e Tipos - RFC-0094: Water domain uses M³
-      // RFC-0110: Use finalValue (cleared for offline devices)
+      // RFC-0140: Do NOT clear value for stores - all are online
+      // RFC-0140: Set consumption in multiple properties for card component compatibility
       val: finalValue,
       value: finalValue,
       lastValue: finalValue,
+      consumption: finalValue, // RFC-0140: Explicit consumption property for card rendering
+      consumptionValue: finalValue, // RFC-0140: Alternative consumption property
       valType: 'volume_m3',
       unit: 'm³',
       icon: 'water',
@@ -968,21 +940,11 @@ function getStoreConsumption(store) {
 }
 
 // Helper function to get store status (for filter tabs)
-// RFC-0110: Calculate deviceStatus using MASTER RULES for consistent filtering
+// RFC-0140: Stores are ALWAYS online - no status calculation
 function getStoreStatus(store) {
-  // If deviceStatus is already calculated (from updateFromDevices), use it
-  if (store.deviceStatus) {
-    return store.deviceStatus.toLowerCase();
-  }
-  // Otherwise, calculate it using RFC-0110 rules
-  const telemetryTimestamp = store.pulsesTs || store.waterVolumeTs || store.timeVal || store.lastActivityTime || null;
-  const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
-  return calculateDeviceStatusMasterRules({
-    connectionStatus: mappedStatus,
-    telemetryTimestamp: telemetryTimestamp,
-    delayMins: 1440, // 24h threshold for stale telemetry
-    domain: 'water',
-  });
+  // RFC-0140: Stores represent allocation, not physical meters
+  // All stores are considered online for filtering purposes
+  return 'online';
 }
 
 // Filter modal instance (lazy initialized)
@@ -1074,20 +1036,9 @@ function openFilterModal() {
   const items =
     STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
-  // RFC-0110: Calculate deviceStatus for each item before opening modal
-  // This ensures getStoreStatus() will have deviceStatus available
+  // RFC-0140: All stores are online - no status calculation needed
   const itemsWithDeviceStatus = items.map((item) => {
-    if (item.deviceStatus) return item; // Already calculated
-    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
-    const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-    const deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440,
-      domain: 'water',
-    });
-    return { ...item, deviceStatus };
+    return { ...item, deviceStatus: 'online' };
   });
 
   // Open with current stores and state
@@ -1118,20 +1069,11 @@ async function filterAndRender() {
   await renderList(withPerc);
 
   // RFC-0094: Update stats header via centralized controller
-  // RFC-0110: Calculate deviceStatus for each item before passing to updateFromDevices
+  // RFC-0140: All stores are online - no status calculation needed
   if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
-    // RFC-0110: Map items with calculated deviceStatus for accurate stats
+    // RFC-0140: Map items with deviceStatus = 'online' for all stores
     const itemsWithDeviceStatus = STATE.itemsEnriched.map((item) => {
-      // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
-      const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-      const deviceStatus = calculateDeviceStatusMasterRules({
-        connectionStatus: mappedStatus,
-        telemetryTimestamp: telemetryTimestamp,
-        delayMins: 1440, // 24h threshold for stale telemetry
-        domain: 'water',
-      });
-      return { ...item, deviceStatus };
+      return { ...item, deviceStatus: 'online' };
     });
 
     if (waterStoresHeaderController) {
@@ -1654,36 +1596,44 @@ self.onInit = async function () {
       LogHelper.log(`[WATER_STORES] Classification breakdown: ${JSON.stringify(classification || {})}`);
 
       // RFC-0109/RFC-0131: Use items directly from MAIN (already classified as loja)
+      // RFC-0140: Ensure consumption value is properly copied from MAIN's enriched data
       // Copy ALL telemetry fields for proper status calculation and card rendering
-      STATE.itemsBase = stores.items.map((item) => ({
-        id: item.tbId || item.ingestionId,
-        tbId: item.tbId,
-        ingestionId: item.ingestionId,
-        identifier: item.identifier,
-        label: item.label,
-        slaveId: item.slaveId || null,
-        centralId: item.centralId || null,
-        centralName: item.centralName || null,
-        deviceType: item.deviceType || 'HIDROMETRO',
-        deviceProfile: item.deviceProfile || 'HIDROMETRO',
-        updatedIdentifiers: {},
-        connectionStatusTime: item.lastConnectTime || null,
-        timeVal: item.lastActivityTime || null,
-        lastDisconnectTime: item.lastDisconnectTime || null,
-        lastConnectTime: item.lastConnectTime || item.lastActivityTime || null,
-        lastActivityTime: item.lastActivityTime || null,
-        deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
-        customerId: item.customerId || null,
-        connectionStatus: item.connectionStatus || 'offline',
-        // RFC-0131: Copy telemetry fields for status calculation
-        pulses: item.pulses || item.consumption || 0,
-        pulsesTs: item.pulsesTs || item.lastActivityTime || null,
-        waterVolumeTs: item.waterVolumeTs || item.lastActivityTime || null,
-        consumption: item.consumption || item.value || 0,
-        ownerName: item.ownerName || null,
-        // RFC-0131: Copy the actual value
-        value: item.value || item.consumption || 0,
-      }));
+      STATE.itemsBase = stores.items.map((item) => {
+        // RFC-0140: Prioritize API-enriched value over TB pulses
+        const consumptionValue = item.value || item.consumption || item.pulses || 0;
+        LogHelper.log(`[WATER_STORES] Building item: ${item.label}, value=${item.value}, consumption=${item.consumption}, pulses=${item.pulses}, final=${consumptionValue}`);
+
+        return {
+          id: item.tbId || item.ingestionId,
+          tbId: item.tbId,
+          ingestionId: item.ingestionId,
+          identifier: item.identifier,
+          label: item.label,
+          slaveId: item.slaveId || null,
+          centralId: item.centralId || null,
+          centralName: item.centralName || null,
+          deviceType: item.deviceType || 'HIDROMETRO',
+          deviceProfile: item.deviceProfile || 'HIDROMETRO',
+          updatedIdentifiers: {},
+          connectionStatusTime: item.lastConnectTime || null,
+          timeVal: item.lastActivityTime || null,
+          lastDisconnectTime: item.lastDisconnectTime || null,
+          lastConnectTime: item.lastConnectTime || item.lastActivityTime || null,
+          lastActivityTime: item.lastActivityTime || null,
+          deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+          customerId: item.customerId || null,
+          connectionStatus: item.connectionStatus || 'offline',
+          // RFC-0131: Copy telemetry fields for status calculation
+          pulses: item.pulses || item.consumption || 0,
+          pulsesTs: item.pulsesTs || item.lastActivityTime || null,
+          waterVolumeTs: item.waterVolumeTs || item.lastActivityTime || null,
+          // RFC-0140: Ensure consumption is properly set from MAIN's enriched data
+          consumption: consumptionValue,
+          ownerName: item.ownerName || null,
+          // RFC-0140: Use the resolved consumption value
+          value: consumptionValue,
+        };
+      });
 
       // RFC-0131: Enrich with MAIN values first (pulses from TB are fine)
       STATE.itemsEnriched = STATE.itemsBase.map((item) => {

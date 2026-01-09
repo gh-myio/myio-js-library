@@ -663,9 +663,9 @@ function updateWaterCommonAreaStats(items) {
       onlineCount++;
     }
 
-    // Consumption calculation - RFC-0110: Clear for offline devices
-    const rawConsumption = Number(item.value) || Number(item.val) || 0;
-    const consumption = clearValueIfOffline(rawConsumption, deviceStatus) || 0;
+    // Consumption calculation - RFC-0140: Do NOT clear for water domain
+    // API provides accumulated totals that are valid regardless of current connection status
+    const consumption = Number(item.value) || Number(item.val) || 0;
     totalConsumption += consumption;
 
     if (consumption === 0) {
@@ -726,8 +726,11 @@ async function renderList(visible) {
       domain: 'water',
     });
 
-    // RFC-0110: Clear value for offline devices
-    const finalValue = clearValueIfOffline(valNum, deviceStatus);
+    // RFC-0140: Do NOT clear consumption value for water domain
+    // API provides accumulated totals that are valid regardless of current connection status
+    // This matches EQUIPMENTS behavior which also doesn't clear consumption values
+    // The device status is still shown for informational purposes
+    const finalValue = valNum;
 
     // RFC-0094: Resolve TB id
     let resolvedTbId = it.tbId;
@@ -762,6 +765,7 @@ async function renderList(visible) {
     }
 
     // RFC-0094: Build entity object following WATER_STORES pattern
+    // RFC-0140: Ensure consumption value is available in multiple properties for card rendering
     const entityObject = {
       // Identificadores
       entityId: resolvedTbId,
@@ -776,9 +780,12 @@ async function renderList(visible) {
 
       // Valores e Tipos - RFC-0094: Water domain uses M³
       // RFC-0110: Use finalValue (cleared for offline devices)
+      // RFC-0140: Set consumption in multiple properties for card component compatibility
       val: finalValue,
       value: finalValue,
       lastValue: finalValue,
+      consumption: finalValue, // RFC-0140: Explicit consumption property for card rendering
+      consumptionValue: finalValue, // RFC-0140: Alternative consumption property
       valType: 'volume_m3',
       unit: 'm³',
       icon: 'water',
@@ -1680,36 +1687,44 @@ self.onInit = async function () {
       LogHelper.log(`[WATER_COMMON_AREA] Classification breakdown: ${JSON.stringify(classification || {})}`);
 
       // RFC-0109/RFC-0131: Use items directly from MAIN (already classified as areacomum)
+      // RFC-0140: Ensure consumption value is properly copied from MAIN's enriched data
       // Copy ALL telemetry fields for proper status calculation and card rendering
-      STATE.itemsBase = commonArea.items.map((item) => ({
-        id: item.tbId || item.ingestionId,
-        tbId: item.tbId,
-        ingestionId: item.ingestionId,
-        identifier: item.identifier,
-        label: item.label,
-        slaveId: item.slaveId || null,
-        centralId: item.centralId || null,
-        centralName: item.centralName || null,
-        deviceType: item.deviceType || 'HIDROMETRO_AREA_COMUM',
-        deviceProfile: item.deviceProfile || 'HIDROMETRO_AREA_COMUM',
-        updatedIdentifiers: {},
-        connectionStatusTime: item.lastConnectTime || null,
-        timeVal: item.lastActivityTime || null,
-        lastDisconnectTime: item.lastDisconnectTime || null,
-        lastConnectTime: item.lastConnectTime || item.lastActivityTime || null,
-        lastActivityTime: item.lastActivityTime || null,
-        deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
-        customerId: item.customerId || null,
-        connectionStatus: item.connectionStatus || 'offline',
-        // RFC-0131: Copy telemetry fields for status calculation
-        pulses: item.pulses || item.consumption || 0,
-        pulsesTs: item.pulsesTs || item.lastActivityTime || null,
-        waterVolumeTs: item.waterVolumeTs || item.lastActivityTime || null,
-        consumption: item.consumption || item.value || 0,
-        ownerName: item.ownerName || null,
-        // RFC-0131: Copy the actual value
-        value: item.value || item.consumption || 0,
-      }));
+      STATE.itemsBase = commonArea.items.map((item) => {
+        // RFC-0140: Prioritize API-enriched value over TB pulses
+        const consumptionValue = item.value || item.consumption || item.pulses || 0;
+        LogHelper.log(`[WATER_COMMON_AREA] Building item: ${item.label}, value=${item.value}, consumption=${item.consumption}, pulses=${item.pulses}, final=${consumptionValue}`);
+
+        return {
+          id: item.tbId || item.ingestionId,
+          tbId: item.tbId,
+          ingestionId: item.ingestionId,
+          identifier: item.identifier,
+          label: item.label,
+          slaveId: item.slaveId || null,
+          centralId: item.centralId || null,
+          centralName: item.centralName || null,
+          deviceType: item.deviceType || 'HIDROMETRO_AREA_COMUM',
+          deviceProfile: item.deviceProfile || 'HIDROMETRO_AREA_COMUM',
+          updatedIdentifiers: {},
+          connectionStatusTime: item.lastConnectTime || null,
+          timeVal: item.lastActivityTime || null,
+          lastDisconnectTime: item.lastDisconnectTime || null,
+          lastConnectTime: item.lastConnectTime || item.lastActivityTime || null,
+          lastActivityTime: item.lastActivityTime || null,
+          deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+          customerId: item.customerId || null,
+          connectionStatus: item.connectionStatus || 'offline',
+          // RFC-0131: Copy telemetry fields for status calculation
+          pulses: item.pulses || item.consumption || 0,
+          pulsesTs: item.pulsesTs || item.lastActivityTime || null,
+          waterVolumeTs: item.waterVolumeTs || item.lastActivityTime || null,
+          // RFC-0140: Ensure consumption is properly set from MAIN's enriched data
+          consumption: consumptionValue,
+          ownerName: item.ownerName || null,
+          // RFC-0140: Use the resolved consumption value
+          value: consumptionValue,
+        };
+      });
 
       LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from MAIN classified data`);
       STATE.dataFromMain = true; // RFC-0109: Mark that data came from MAIN

@@ -758,12 +758,15 @@ let MyIO = null;
 // RFC-0106: Map labelWidget to window.STATE group
 // lojas = 'Lojas'
 // entrada = 'Entrada'
+// ocultos = 'Ocultos' (RFC-0142: archived/inactive devices)
 // areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
 function mapLabelWidgetToStateGroup(labelWidget) {
   if (!labelWidget) return null;
   const lw = labelWidget.toLowerCase().trim();
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
+  // RFC-0142: Ocultos group for archived/inactive devices - should NOT be displayed
+  if (lw === 'ocultos') return 'ocultos';
   // RFC-0107: Add caixadagua for water tanks
   if (lw === "caixa d'água" || lw === 'caixadagua' || lw === 'caixa dagua') return 'caixadagua';
   // Everything else maps to areacomum
