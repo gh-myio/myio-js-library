@@ -3110,12 +3110,22 @@ const MyIOOrchestrator = (() => {
 
   // PHASE 1: Centralized busy management with extended timeout
   // RFC-0137: Now uses LoadingSpinner component from myio-js-library
-  function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
+  function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000, options = {}) {
+    // RFC-0137: Support force flag to bypass cooldown (for user-initiated actions)
+    const { force = false } = options;
+
     // RFC-0054: cooldown - não reabrir modal se acabou de prover dados
-    const lp = lastProvide.get(domain);
-    if (lp && Date.now() - lp.at < 30000) {
-      LogHelper.log(`[Orchestrator] ⏸️ Cooldown active for ${domain}, skipping showGlobalBusy()`);
-      return;
+    // RFC-0137: Skip cooldown check if force=true (user clicked "Carregar")
+    if (!force) {
+      const lp = lastProvide.get(domain);
+      if (lp && Date.now() - lp.at < 30000) {
+        LogHelper.log(`[Orchestrator] ⏸️ Cooldown active for ${domain}, skipping showGlobalBusy()`);
+        return;
+      }
+    } else {
+      LogHelper.log(`[Orchestrator] 🔓 RFC-0137: Force flag set, bypassing cooldown for ${domain}`);
+      // Clear lastProvide to reset cooldown state
+      lastProvide.delete(domain);
     }
     const totalBefore = getActiveTotal();
     const prev = activeRequests.get(domain) || 0;

@@ -660,11 +660,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       LogHelper.log('[HEADER] Emitting standardized period:', period);
 
       // RFC-0130: Show busy overlay when loading data
+      // RFC-0137: Use force=true to bypass cooldown when user explicitly clicks "Carregar"
       try {
         const orchestrator = window.MyIOOrchestrator;
         if (orchestrator?.showGlobalBusy) {
-          orchestrator.showGlobalBusy(currentDomain.value, 'Carregando dados...');
-          LogHelper.log(`[HEADER] RFC-0130: Showing busy overlay for ${currentDomain.value}`);
+          orchestrator.showGlobalBusy(currentDomain.value, 'Carregando dados...', 25000, { force: true });
+          LogHelper.log(`[HEADER] RFC-0137: Showing busy overlay for ${currentDomain.value} (force=true)`);
         }
       } catch (busyErr) {
         LogHelper.warn('[HEADER] Failed to show busy overlay:', busyErr);

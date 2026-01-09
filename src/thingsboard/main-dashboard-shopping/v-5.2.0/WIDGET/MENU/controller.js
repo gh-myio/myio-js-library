@@ -1306,4 +1306,34 @@ self.onInit = function () {
       if (typeof oldDestroy === 'function') oldDestroy();
     };
   })();
+
+  // RFC-0137: Display and log library version
+  (function displayLibraryVersion() {
+    // Try multiple ways to get the version (UMD vs ESM exports)
+    const MyIOLib = window.MyIOLibrary;
+    let version = 'unknown';
+
+    if (MyIOLib) {
+      // Try direct property (from export const version)
+      if (typeof MyIOLib.version === 'string') {
+        version = MyIOLib.version;
+      }
+      // Try VERSION constant
+      else if (typeof MyIOLib.VERSION === 'string') {
+        version = MyIOLib.VERSION;
+      }
+      // Try getVersion function
+      else if (typeof MyIOLib.getVersion === 'function') {
+        version = MyIOLib.getVersion();
+      }
+    }
+
+    const versionEl = document.querySelector('#lib-version-display .lib-version-text');
+
+    if (versionEl) {
+      versionEl.textContent = `v${version}`;
+    }
+
+    LogHelper.log(`[MENU] RFC-0137: MyIO Library version: ${version}`);
+  })();
 };

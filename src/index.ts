@@ -1,3 +1,8 @@
+// RFC-0137: Export library version from package.json
+// @ts-ignore - package.json import
+import pkg from '../package.json';
+export const version: string = pkg.version || '0.0.0';
+
 // Format utilities
 export { formatEnergy, formatAllInSameUnit } from './format/energy';
 export { fmtPerc } from './format/percentage';
