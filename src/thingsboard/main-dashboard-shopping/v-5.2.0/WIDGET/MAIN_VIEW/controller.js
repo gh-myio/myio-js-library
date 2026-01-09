@@ -4196,9 +4196,12 @@ const MyIOOrchestrator = (() => {
   /**
    * RFC-0106: Wait for ctx.data to be populated with datasources
    * This prevents the timing issue where API is called before ThingsBoard loads datasources
+   * RFC-0138: Now also validates period when checking cache
    */
-  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200, domain = null) {
+  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200, domain = null, period = null) {
     const startTime = Date.now();
+    // RFC-0138: Compute expected period key for cache validation
+    const expectedPeriodKey = domain && period ? periodKey(domain, period) : null;
 
     while (Date.now() - startTime < maxWaitMs) {
       const datasources = Array.isArray(self?.ctx?.datasources) ? self.ctx.datasources : [];
@@ -4213,16 +4216,23 @@ const MyIOOrchestrator = (() => {
       }
 
       // RFC-0106 FIX: Check if another call already fetched data for this domain
-      // This prevents duplicate waiting when data is already available
+      // RFC-0138 FIX: Also verify period matches before returning cached data
       if (domain) {
         const cachedData = window.MyIOOrchestratorData?.[domain];
         if (cachedData && cachedData.items && cachedData.items.length > 0) {
           const cacheAge = Date.now() - (cachedData.timestamp || 0);
-          if (cacheAge < 30000) {
+          const periodMatches = !expectedPeriodKey || cachedData.periodKey === expectedPeriodKey;
+
+          if (cacheAge < 30000 && periodMatches) {
             LogHelper.log(
-              `[Orchestrator] ✅ Data already available in cache for ${domain} (${cachedData.items.length} items, age: ${cacheAge}ms) - exiting wait`
+              `[Orchestrator] ✅ Data already available in cache for ${domain} (${cachedData.items.length} items, age: ${cacheAge}ms, period: matched) - exiting wait`
             );
             return 'cached'; // Special return to indicate cached data is available
+          } else if (cacheAge < 30000 && !periodMatches) {
+            LogHelper.log(
+              `[Orchestrator] 🔄 RFC-0138: Cache exists but period mismatch in waitForCtxData - will fetch fresh data`
+            );
+            // Don't return cached, continue waiting for ctx.data or timeout
           }
         }
       }
@@ -4242,13 +4252,21 @@ const MyIOOrchestrator = (() => {
     }
 
     // Timeout - check one more time if cache is available before failing
+    // RFC-0138: Also verify period matches
     if (domain) {
       const cachedData = window.MyIOOrchestratorData?.[domain];
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
-        LogHelper.log(
-          `[Orchestrator] ✅ Timeout but cache available for ${domain} (${cachedData.items.length} items)`
-        );
-        return 'cached';
+        const periodMatches = !expectedPeriodKey || cachedData.periodKey === expectedPeriodKey;
+        if (periodMatches) {
+          LogHelper.log(
+            `[Orchestrator] ✅ Timeout but cache available for ${domain} (${cachedData.items.length} items, period: matched)`
+          );
+          return 'cached';
+        } else {
+          LogHelper.log(
+            `[Orchestrator] 🔄 RFC-0138: Timeout, cache exists but period mismatch for ${domain}`
+          );
+        }
       }
     }
 
@@ -4295,13 +4313,17 @@ const MyIOOrchestrator = (() => {
       // RFC-0106 FIX: Check if fresh data is already available in MyIOOrchestratorData
       // This prevents duplicate hydrateDomain calls (with different keys) from waiting for ctx.data
       // when data was already successfully fetched by another call
+      // RFC-0138 FIX: Also verify periodKey matches to avoid returning stale data for different period
       const cachedData = window.MyIOOrchestratorData?.[domain];
+      const currentPeriodKey = periodKey(domain, period);
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
-        // Use cache if less than 30 seconds old
-        if (cacheAge < 30000) {
+        const periodMatches = cachedData.periodKey === currentPeriodKey;
+
+        // Use cache if less than 30 seconds old AND period matches
+        if (cacheAge < 30000 && periodMatches) {
           LogHelper.log(
-            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms)`
+            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms, period: matched)`
           );
 
           // RFC-0108 DEBUG: Analyze cached data for ingestionId issues (water domain)
@@ -4353,6 +4375,12 @@ const MyIOOrchestrator = (() => {
           }
 
           return cachedData.items;
+        } else if (cachedData && !periodMatches) {
+          // RFC-0138: Cache exists but period doesn't match - will fetch fresh data
+          LogHelper.log(
+            `[Orchestrator] 🔄 RFC-0138: Cache period mismatch for ${domain}, fetching fresh data`,
+            { cachedPeriod: cachedData.periodKey, requestedPeriod: currentPeriodKey }
+          );
         }
       }
 
@@ -4361,7 +4389,8 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 🌡️ Temperature domain - using ctx.data directly (no API)`);
 
         // Wait for ctx.data to be populated (pass domain to check cache during wait)
-        const ctxDataReady = await waitForCtxData(20000, 200, domain);
+        // RFC-0138: Pass period to validate cache
+        const ctxDataReady = await waitForCtxData(20000, 200, domain, period);
 
         // If cached data is available, return it directly
         if (ctxDataReady === 'cached') {
@@ -4424,9 +4453,11 @@ const MyIOOrchestrator = (() => {
       lastFetchDomain = domain;
       lastFetchPeriod = period;
 
-      const ctxDataReady = await waitForCtxData(20000, 200, domain);
+      // RFC-0138: Pass period to validate cache
+      const ctxDataReady = await waitForCtxData(20000, 200, domain, period);
 
       // If cached data is available, return it directly (another call already fetched)
+      // RFC-0138: This is now safe because waitForCtxData validates period
       if (ctxDataReady === 'cached') {
         const cachedData = window.MyIOOrchestratorData?.[domain];
         LogHelper.log(
@@ -5073,11 +5104,13 @@ const MyIOOrchestrator = (() => {
   }
 
   // Fetch data for a domain and period
-  async function hydrateDomain(domain, period) {
+  // RFC-0138: Added options.force to bypass cooldown when switching domains via MENU
+  async function hydrateDomain(domain, period, options = {}) {
+    const { force = false } = options;
     const key = periodKey(domain, period);
     const startTime = Date.now();
 
-    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
+    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key), force });
 
     // Coalesce duplicate requests
     if (inFlight.has(key)) {
@@ -5085,8 +5118,8 @@ const MyIOOrchestrator = (() => {
       return inFlight.get(key);
     }
 
-    // Show busy overlay
-    showGlobalBusy(domain, 'Carregando dados...');
+    // Show busy overlay - pass force flag to bypass cooldown
+    showGlobalBusy(domain, 'Carregando dados...', 25000, { force });
 
     // Set mutex for coordination
     sharedWidgetState.mutexMap.set(domain, true);
@@ -5431,8 +5464,10 @@ const MyIOOrchestrator = (() => {
     // No need to re-emit here as it creates infinite loop
 
     if (visibleTab && currentPeriod) {
-      LogHelper.log(`[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab})`);
-      hydrateDomain(visibleTab, currentPeriod);
+      // RFC-0138: Pass force=true when period changed to bypass cooldown and show spinner
+      const shouldForce = periodChanged;
+      LogHelper.log(`[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab}, force=${shouldForce})`);
+      hydrateDomain(visibleTab, currentPeriod, { force: shouldForce });
     }
   });
 
@@ -5474,8 +5509,9 @@ const MyIOOrchestrator = (() => {
         }
       }
 
-      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab})`);
-      hydrateDomain(visibleTab, currentPeriod);
+      // RFC-0138: Pass force=true to bypass cooldown and show spinner when switching domains via MENU
+      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab}, force=true)`);
+      hydrateDomain(visibleTab, currentPeriod, { force: true });
     } else if (visibleTab && !currentPeriod) {
       // RFC-0130: No period yet - start retry loop to wait for period
       LogHelper.log(

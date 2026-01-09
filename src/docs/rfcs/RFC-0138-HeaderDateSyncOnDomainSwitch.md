@@ -1,7 +1,7 @@
 # RFC-0138: Header Date Sync on Domain Switch
 
 ## Status
-Implemented (v2 - with self.__range fix)
+Implemented (v4 - with waitForCtxData period validation)
 
 ## Problem
 
@@ -92,11 +92,74 @@ TELEMETRY:
   3. Carrega dados de agua com periodo correto
 ```
 
+### Fix 3: fetchAndEnrich verifica periodKey no cache
+
+O cache de dados (`MyIOOrchestratorData`) so verificava idade do cache, nao o periodo. Isso fazia com que dados do periodo antigo fossem retornados.
+
+```javascript
+// ANTES (bug) - retornava cache sem verificar periodo
+const cachedData = window.MyIOOrchestratorData?.[domain];
+if (cachedData && cachedData.items.length > 0 && cacheAge < 30000) {
+  return cachedData.items; // Retorna dados de qualquer periodo!
+}
+
+// DEPOIS (fix) - verifica se periodo corresponde
+const currentPeriodKey = periodKey(domain, period);
+const periodMatches = cachedData.periodKey === currentPeriodKey;
+if (cacheAge < 30000 && periodMatches) {
+  return cachedData.items; // So retorna se periodo corresponder
+}
+```
+
+### Fix 4: hydrateDomain passa force flag para spinner
+
+O spinner de carregamento nao aparecia ao trocar de dominio por causa do cooldown de 30 segundos. Agora `hydrateDomain` aceita `options.force` para ignorar cooldown.
+
+```javascript
+// ANTES (bug) - spinner nao aparecia se cooldown ativo
+showGlobalBusy(domain, 'Carregando dados...');
+
+// DEPOIS (fix) - passa force para ignorar cooldown
+hydrateDomain(domain, period, { force: true });
+// que internamente chama:
+showGlobalBusy(domain, 'Carregando dados...', 25000, { force: true });
+```
+
+### Fix 5: waitForCtxData verifica periodo antes de retornar cache
+
+A funcao `waitForCtxData` retornava 'cached' sem verificar se o periodo correspondia. Isso fazia com que dados de um periodo antigo fossem usados.
+
+```javascript
+// ANTES (bug) - waitForCtxData ignorava periodo
+async function waitForCtxData(maxWaitMs, checkIntervalMs, domain) {
+  if (cachedData && cacheAge < 30000) {
+    return 'cached'; // Retorna sem verificar periodo!
+  }
+}
+
+// DEPOIS (fix) - waitForCtxData valida periodo
+async function waitForCtxData(maxWaitMs, checkIntervalMs, domain, period) {
+  const expectedPeriodKey = periodKey(domain, period);
+  const periodMatches = cachedData.periodKey === expectedPeriodKey;
+  if (cacheAge < 30000 && periodMatches) {
+    return 'cached'; // So retorna se periodo corresponder
+  } else if (!periodMatches) {
+    // Continua esperando ctx.data ou timeout
+  }
+}
+```
+
 ## Files Changed
 
 - `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/HEADER/controller.js`:
   - Lines 500-537: myio:dashboard-state listener (Fix 1)
   - Lines 306-325: onApply callback do DateRangePicker (Fix 2)
+- `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js`:
+  - fetchAndEnrich: Cache period validation (Fix 3)
+  - hydrateDomain: Added options.force parameter (Fix 4)
+  - waitForCtxData: Added period parameter and validation (Fix 5)
+  - myio:dashboard-state listener: Passes force=true
+  - myio:update-date listener: Passes force=true when period changed
 
 ## Testing
 
