@@ -1,92 +1,76 @@
 # RFC-0135: Telegram Notification Queue for ThingsBoard
 
-A **visual node-based queue system** for sending prioritized, rate-limited Telegram notifications from ThingsBoard Rule Chains.
+A **hybrid queue system** for gradually migrating from direct Telegram sends to a prioritized, rate-limited queue using ThingsBoard Rule Chains.
 
-**Version:** 2.0.0 (Rule Chain Native Implementation)
+**Version:** 2.0.0 (Hybrid Integration)
 
 ---
 
 ## 🎯 What This System Does
 
-Imagine you have hundreds of devices (energy meters, water sensors, temperature controls) generating alarms in ThingsBoard. Instead of sending each alarm immediately to Telegram (which would hit API rate limits and spam your chat), this system:
+Instead of sending every alarm immediately to Telegram (risking rate limits and spam), this queue system:
 
 1. **Queues** messages with priority levels (Critical, High, Medium, Low)
 2. **Processes** them in batches (e.g., 5 messages every 60 seconds)
-3. **Retries** failed sends automatically with smart backoff
+3. **Retries** failed sends automatically with exponential backoff
 4. **Monitors** queue health with real-time metrics
+5. **Coexists** with your current direct-send setup (gradual migration!)
 
-All using **ThingsBoard's visual Rule Chain editor** - no external databases or servers needed!
+All using **ThingsBoard Attributes** for storage - no external databases needed.
 
 ---
 
 ## 🏗️ Architecture Overview
 
-### The Big Picture
+### Hybrid Approach
 
 ```
-📱 DEVICE ALARMS
-        ↓
-┌─────────────────────────┐
-│ 1. ENQUEUE FLOW         │ ← Captures each alarm and adds to priority queue
-│    (Event-Driven)        │
-└─────────────────────────┘
-        ↓ (Stores in ThingsBoard Attributes)
-        ↓
-┌─────────────────────────┐
-│ 2. DISPATCHER FLOW      │ ← Processes queue every 60s, sends to Telegram
-│    (Every 60 seconds)    │
-└─────────────────────────┘
-        ↓
-┌─────────────────────────┐
-│ 3. MONITOR FLOW         │ ← Collects metrics every 5 minutes
-│    (Every 5 minutes)     │
-└─────────────────────────┘
-        ↓
-📊 DASHBOARD METRICS
+┌─────────────────────────────────────────────────────┐
+│  ALARM TRIGGER                                      │
+│          ↓                                          │
+│  [Filter: Check Customer Queue Enabled?]            │
+│          ├─── FAILURE (false) → Direct Send (Old)  │
+│          └─── SUCCESS (true) → Enqueue (New)       │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Why Three Separate Flows?
-
-- **Enqueue**: Runs instantly when an alarm happens (event-driven)
-- **Dispatcher**: Runs on a timer to batch-send messages (scheduled)
-- **Monitor**: Runs on a timer to track queue health (scheduled)
-
-They work independently but share data through **ThingsBoard Attributes** (think of it as a shared database).
+**Key Benefit:** Each customer can be migrated independently. No downtime, easy rollback.
 
 ---
 
-## 🚀 Quick Start Guide
+## 📋 Prerequisites: Customer Configuration
 
-### Step 1: Understand ThingsBoard Script Node Limitations
+Before integrating the queue into your Rule Chain, configure ThingsBoard for each customer.
 
-**CRITICAL:** ThingsBoard Script Nodes are **NOT** JavaScript environments. They:
+### Step 1: Add Queue Enable Flag (Per Customer)
 
-- ❌ **Cannot use `async/await`** - Must return immediately
-- ❌ **Cannot use `fetch`** - No HTTP requests in scripts
-- ❌ **Cannot use external libraries** - No `import` or `require`
-- ✅ **CAN do pure logic** - Math, string manipulation, data transformation
+Go to: **Customers** → Select customer → **Attributes** tab → **SERVER_SCOPE** → Add:
 
-**Solution:** We use **visual nodes** for I/O (REST API Nodes, Enrichment Nodes) and **scripts for logic only**.
+**For customers NOT yet migrated:**
+```json
+{
+  "key": "telegram_queue_enabled",
+  "value": false
+}
+```
+
+**For customers ready to use queue:**
+```json
+{
+  "key": "telegram_queue_enabled",
+  "value": true
+}
+```
 
 ---
 
-### Step 2: Configure ThingsBoard
+### Step 2: Add Queue Configuration (Only for Enabled Customers)
 
-#### 2.1 Create Service Account
+For customers with `telegram_queue_enabled: true`, add:
 
-ThingsBoard User → Add new user:
-- **Username**: `telegram-queue-service@myio.com.br`
-- **Password**: (set securely - write it down!)
-- **Role**: Customer User
-- **Permissions**: Read/write customer attributes
+**Attribute Name:** `telegram_queue_config`
 
-#### 2.2 Add Customer Configuration Attribute
-
-Go to: **Customers** → Select your customer → **Attributes** tab → **SERVER_SCOPE** → Add:
-
-**Attribute Name**: `telegram_queue_config`
-
-**Value** (JSON):
+**Value (JSON):**
 ```json
 {
   "enabled": true,
@@ -94,6 +78,8 @@ Go to: **Customers** → Select your customer → **Attributes** tab → **SERVE
     "deviceProfiles": {
       "ENTRADA": 1,
       "RELOGIO": 1,
+      "TRAFO": 1,
+      "SUBESTACAO": 1,
       "3F_MEDIDOR": 2,
       "HIDROMETRO": 2,
       "TERMOSTATO": 4
@@ -115,165 +101,340 @@ Go to: **Customers** → Select your customer → **Attributes** tab → **SERVE
 ```
 
 **How to get Telegram credentials:**
-1. Talk to **@BotFather** on Telegram, create a bot, get `botToken`
+1. Talk to **@BotFather** on Telegram → Create bot → Get `botToken`
 2. Add bot to your group/channel
-3. Get `chatId` using this URL: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+3. Get `chatId`: Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` and look for `"chat":{"id":-100123456789}`
 
-#### 2.3 Create Virtual Device for Monitoring
+**Configuration Explained:**
+
+| Field | Description | Example Values |
+|-------|-------------|----------------|
+| `priorityRules.deviceProfiles` | Map device type to priority (1=Critical, 2=High, 3=Medium, 4=Low) | `"ENTRADA": 1` |
+| `priorityRules.deviceOverrides` | Override priority for specific devices | `"device-uuid-123": 1` |
+| `priorityRules.globalDefault` | Fallback priority if no rule matches | `3` (Medium) |
+| `rateControl.batchSize` | Messages per batch | `5` |
+| `rateControl.delayBetweenBatchesSeconds` | Wait time between batches | `60` (1 minute) |
+| `rateControl.maxRetries` | Max retry attempts for failed sends | `3` |
+| `rateControl.retryBackoff` | Retry delay strategy | `"exponential"` or `"linear"` |
+
+---
+
+### Step 3: Create Virtual Device for Monitoring (Optional)
 
 **Devices** → **Add Device**:
 - **Name**: `telegram-queue-monitor`
 - **Type**: Generic
-- **Purpose**: Stores queue metrics for dashboards
+- **Purpose**: Stores queue metrics for dashboard widgets
 
 ---
 
-### Step 3: Build the Three Rule Chains
+## 🔄 Hybrid Integration with Existing Rule Chains
 
-We'll build these step-by-step. Each uses **visual nodes** (drag-and-drop) and **script snippets** (copy-paste from `/rule-chain/scripts/`).
+Now let's modify your existing Rule Chain to support both queue and direct send.
+
+### Current Flow (Direct Send - Example)
+
+Your existing Rule Chain probably looks like this:
+
+```
+[Alarm]
+  ↓
+[Transform: Build Message Text]
+  ↓
+[Enrichment: Get telegramGroup]
+  ↓
+[REST API: Send to Telegram]
+```
+
+### New Hybrid Flow
+
+We'll add a **routing Filter** that checks if queue is enabled:
+
+```
+[Alarm]
+  ↓
+[Transform: Build Message Text]
+  ↓
+[Enrichment: Get telegram_queue_enabled + telegram_queue_config + telegramGroup]
+  ↓
+[Filter: Check telegram_queue_enabled]
+  ├─── FAILURE (false) → [Your existing direct send nodes - UNCHANGED]
+  │                           ↓
+  │                      [REST API: Direct Telegram Send]
+  │
+  └─── SUCCESS (true) → [Queue Path - NEW]
+                             ↓
+                        [Script: Normalize for Queue]
+                             ↓
+                        [Script: Resolve Priority]
+                             ↓
+                        [Script: Prepare Save]
+                             ↓
+                        [Save Attributes: Enqueue]
+```
 
 ---
 
-## 📥 FLOW 1: Enqueue (Event-Driven)
+## 🛠️ Step-by-Step Node Configuration
 
-**Purpose:** When a device alarm fires, capture it and add to the priority queue.
+### Node 1: Transform - Build Message Text
 
-### Visual Node Flow
+**Node Type:** Script (Transformation)
 
-```
-[Alarm Trigger]
-      ↓
-[Filter: Only Critical Alarms] (optional)
-      ↓
-[Script 1: Build Message Text]
-      ↓
-[Script 2: Generate UUID & Normalize]
-      ↓
-[Enrichment: Get telegram_queue_config]
-      ↓
-[Script 3: Resolve Priority]
-      ↓
-[Switch: Check enabled=true]
-      ↓ (if true)
-[Script 4: Prepare Save]
-      ↓
-[Save Attributes: Save Entry + Update Index]
-      ↓
-[Log: Success]
-```
-
-### Step-by-Step Node Configuration
-
-#### Node 1.1: Script - Build Message Text
-
-**Purpose:** Format the alarm into human-readable Telegram text
+**Purpose:** Format alarm into human-readable text
 
 **Script:**
 ```javascript
-var deviceName = msg.deviceName || metadata.deviceName || "Unknown Device";
-var alarmType = msg.alarmType || msg.type || "Alert";
-var severity = metadata.ss_severity || "INFO";
+// Extract alarm details from ThingsBoard context
+var deviceName = metadata.deviceName || 'Unknown Device';
+var alarmType = metadata.alarmType || 'Alert';
 
-// Build message
-var text = "⚠️ " + severity + " - " + deviceName;
-text += "\n" + alarmType;
-text += "\nTime: " + new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'});
+// ThingsBoard alarm severity (CRITICAL, MAJOR, MINOR, WARNING, INDETERMINATE)
+// Available in metadata.severity after alarm node processing
+var severity = metadata.severity || 'INFO';
 
+// Build Telegram message text
+var text = '⚠️ ' + severity + ' - ' + deviceName;
+text += '\n' + alarmType;
+text += '\nTime: ' + new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'});
+
+// Store in msg.text for next nodes
 return {
-  msg: { text: text },
-  metadata: {
-    deviceType: msg.deviceType || metadata.deviceType || 'unknown',
-    deviceName: deviceName,
-    deviceId: metadata.deviceId,
-    customerId: metadata.customerId
+  msg: {
+    text: text,
+    alarmType: alarmType,
+    severity: severity
   },
-  msgType: "POST_ATTRIBUTES_REQUEST"
+  metadata: metadata,
+  msgType: msgType
 };
 ```
 
-**Connect to:** Node 1.2
+**Where does `metadata.severity` come from?**
+- ThingsBoard **Alarm nodes** automatically add alarm metadata to the message context
+- When an alarm is created/updated, ThingsBoard populates these metadata fields:
+  - `metadata.severity` - Alarm severity (CRITICAL, MAJOR, MINOR, WARNING, INDETERMINATE)
+  - `metadata.alarmType` - Type of alarm (e.g., "High Temperature", "Power Loss")
+  - `metadata.deviceName` - Name of the device that triggered the alarm
+  - `metadata.deviceType` - Device profile/type
+  - `metadata.deviceId` - UUID of the device
+  - `metadata.customerId` - UUID of the customer
+
+**Important:** This node should come AFTER an alarm processing node (e.g., "Create Alarm", "Clear Alarm", or "Alarm Rule" node) in your Rule Chain so these metadata fields are populated.
+
+**Connect to:** Node 2
 
 ---
 
-#### Node 1.2: Script - Generate UUID & Normalize
-
-**Purpose:** Create unique ID and structure the queue entry
-
-**Script:** Copy entire content from [`rule-chain/scripts/enqueue-normalize.js`](rule-chain/scripts/enqueue-normalize.js)
-
-**What it does:**
-- Generates UUID like `a1b2c3d4-e5f6-7890...`
-- Extracts `deviceId`, `customerId`, `deviceProfile` from metadata
-- Creates timestamp
-- Returns structured object
-
-**Connect to:** Node 1.3
-
----
-
-#### Node 1.3: Enrichment - Get Queue Config
+### Node 2: Enrichment - Get Attributes
 
 **Node Type:** Customer Attributes (Enrichment)
 
-**Configuration:**
-- **Source:** Server attributes
-- **Fetch these attributes:**
-  - `telegram_queue_config` → store as `telegram_queue_config` in metadata
+**Purpose:** Load queue configuration and existing telegram settings
 
-**Purpose:** Loads the configuration you set in Step 2.2 so the next script can use it.
+**Configuration - Fetch these attributes:**
+- `telegram_queue_enabled` → Store as `telegram_queue_enabled`
+- `telegram_queue_config` → Store as `telegram_queue_config`
+- `telegramGroup` → Store as `telegramGroup` (for direct send fallback - if you have this)
 
-**Connect to:** Node 1.4
+**Why all three?**
+- `telegram_queue_enabled` - Determines routing (queue vs direct)
+- `telegram_queue_config` - Used by queue path for priority/rate limiting
+- `telegramGroup` - Used by direct send path (your old system)
 
----
-
-#### Node 1.4: Script - Resolve Priority
-
-**Purpose:** Decide if this message is Critical (1), High (2), Medium (3), or Low (4)
-
-**Script:** Copy entire content from [`rule-chain/scripts/enqueue-priority.js`](rule-chain/scripts/enqueue-priority.js)
-
-**How priority is decided (cascade):**
-1. **Device Override** (highest priority) - Check if `deviceId` is in `deviceOverrides`
-2. **Device Profile Rule** - Check if `deviceProfile` (like "ENTRADA") matches `deviceProfiles`
-3. **Customer Global Default** - Use customer's `globalDefault`
-4. **System Fallback** - Default to 3 (Medium)
-
-**Example:**
-- Device: `3F_MEDIDOR` → Priority 2 (High) because config says `"3F_MEDIDOR": 2`
-- Device: `ENTRADA` → Priority 1 (Critical) because config says `"ENTRADA": 1`
-- Device: `UNKNOWN_TYPE` → Priority 3 (Medium) because no rule matches
-
-**Connect to:** Node 1.5
+**Connect to:** Node 3
 
 ---
 
-#### Node 1.5: Switch - Check If Enabled
+### Node 3: Filter - Route Based on Queue Enabled
 
-**Node Type:** Switch
+**Node Type:** Check Message Script (Filter)
 
-**Configuration:**
+**Purpose:** Route to queue (new) or direct send (old) based on customer flag
+
+**Script:**
 ```javascript
-return msg.enabled === true;
+// Parse the flag (might be string "true"/"false" or boolean true/false)
+var queueEnabled = metadata.telegram_queue_enabled;
+
+// Convert string to boolean if needed
+if (typeof queueEnabled === 'string') {
+  queueEnabled = (queueEnabled.toLowerCase() === 'true');
+} else if (typeof queueEnabled !== 'boolean') {
+  queueEnabled = false; // Default to false (direct send) if undefined
+}
+
+// Return true to route to SUCCESS path (queue), false to FAILURE path (direct send)
+return queueEnabled === true;
 ```
 
-**Purpose:** Only proceed if `enabled: true` in config. Allows you to pause the queue without deleting Rule Chains.
+**Configuration:**
+- **Node Type:** Check Message Script (under "Filter" nodes category)
+- **Script language:** JavaScript (TBEL)
 
 **Connections:**
-- **True** → Node 1.6
-- **False** → Log "Queue Disabled"
+- **Success** relation → Connect to Node 4 (Queue Path - Normalize)
+- **Failure** relation → Connect to your existing direct send nodes (UNCHANGED)
+
+**What happens:**
+- Returns `true` → Message goes to SUCCESS output → Queue path
+- Returns `false` → Message goes to FAILURE output → Direct send path
 
 ---
 
-#### Node 1.6: Script - Prepare Save
+## 🆕 Queue Path Nodes (New)
 
-**Purpose:** Format the entry and index update for ThingsBoard Attributes
+These nodes only run when `telegram_queue_enabled: true`.
+
+### Node 4: Script - Normalize for Queue
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Convert message to queue entry format
+
+**Script:**
+```javascript
+// Extract message text from previous transformation
+var text = msg.text || msg.message || '';
+
+// Extract alarm details
+var alarmType = msg.alarmType || metadata.alarmType || 'Alarm';
+var severity = msg.severity || metadata.severity || 'INFO';
+
+// Generate queue ID (simple UUID v4)
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    var v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+var queueId = generateUUID();
+var now = Date.now();
+
+// Extract metadata from ThingsBoard context
+var customerId = metadata.customerId;
+var deviceId = metadata.deviceId || metadata.originatorId;
+var deviceName = metadata.deviceName || 'Unknown';
+var deviceProfile = metadata.deviceType || metadata.deviceProfile || 'unknown';
+
+// Create normalized queue entry
+var normalizedEntry = {
+  queueId: queueId,
+  customerId: customerId,
+  deviceId: deviceId,
+  deviceProfile: deviceProfile,
+  deviceName: deviceName,
+  payload: {
+    text: text,
+    alarmType: alarmType,
+    severity: severity
+  },
+  status: 'PENDING',
+  retryCount: 0,
+  createdAt: now,
+  sentAt: null,
+  lastAttemptAt: null,
+  errorMessage: null
+};
+
+return {
+  msg: {
+    entry: normalizedEntry,
+    deviceProfile: deviceProfile,
+    deviceId: deviceId,
+    customerId: customerId
+  },
+  metadata: metadata,
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
+```
+
+**Connect to:** Node 5
+
+---
+
+### Node 5: Script - Resolve Priority
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Determine message priority (1=Critical, 2=High, 3=Medium, 4=Low)
+
+**Script:**
+```javascript
+var entry = msg.entry;
+var deviceProfile = entry.deviceProfile;
+var deviceId = entry.deviceId;
+var customerId = entry.customerId;
+
+// Parse queue config from metadata
+var config = metadata.telegram_queue_config;
+if (typeof config === 'string') {
+  try {
+    config = JSON.parse(config);
+  } catch (e) {
+    config = null;
+  }
+}
+
+var priority = 3; // Default: Medium
+var prioritySource = 'systemDefault';
+
+// Priority resolution cascade (highest priority first)
+if (config && config.priorityRules) {
+  var rules = config.priorityRules;
+
+  // 1. Check device override (specific device UUID)
+  if (rules.deviceOverrides && rules.deviceOverrides[deviceId]) {
+    priority = rules.deviceOverrides[deviceId];
+    prioritySource = 'deviceOverride';
+  }
+  // 2. Check device profile rule (device type/profile)
+  else if (rules.deviceProfiles && rules.deviceProfiles[deviceProfile]) {
+    priority = rules.deviceProfiles[deviceProfile];
+    prioritySource = 'deviceProfile';
+  }
+  // 3. Check customer global default
+  else if (rules.globalDefault) {
+    priority = rules.globalDefault;
+    prioritySource = 'customerGlobal';
+  }
+}
+
+// Ensure priority is 1-4
+if (priority < 1) priority = 1;
+if (priority > 4) priority = 4;
+
+// Add priority to entry
+entry.priority = priority;
+entry.prioritySource = prioritySource;
+
+return {
+  msg: {
+    entry: entry
+  },
+  metadata: metadata,
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
+```
+
+**Connect to:** Node 6
+
+---
+
+### Node 6: Script - Prepare Save
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Format entry and priority index for ThingsBoard Attributes
 
 **Script:**
 ```javascript
 var entry = msg.entry;
 var priority = entry.priority;
 
-// Get existing priority index
+// Get existing priority index from metadata
 var indexKey = 'telegram_queue_index_priority_' + priority;
 var existingIndex = metadata[indexKey];
 
@@ -296,7 +457,11 @@ existingIndex.push(entry.queueId);
 
 // Prepare attributes to save
 var attributes = {};
+
+// Save queue entry
 attributes['telegram_queue_entry_' + entry.queueId] = JSON.stringify(entry);
+
+// Update priority index
 attributes[indexKey] = JSON.stringify(existingIndex);
 
 return {
@@ -309,158 +474,179 @@ return {
 };
 ```
 
-**What this creates:**
-- `telegram_queue_entry_a1b2c3...`: The full message details
-- `telegram_queue_index_priority_2`: Array of queue IDs `["a1b2c3...", "e5f6g7..."]`
-
-**Connect to:** Node 1.7
+**Connect to:** Node 7
 
 ---
 
-#### Node 1.7: Save Attributes
+### Node 7: Save Attributes - Enqueue
 
 **Node Type:** Save Attributes
+
+**Purpose:** Persist queue entry to ThingsBoard
 
 **Configuration:**
 - **Entity:** Customer (use `${msg.customerId}`)
 - **Scope:** SERVER_SCOPE
-- **Attributes:** Use output from Node 1.6 (`msg.attributes`)
+- **Attributes:** Use `${msg.attributes}` (from previous node)
 
-**Purpose:** Persist the queue entry and update the priority index in ThingsBoard's database.
+**What gets saved:**
+- `telegram_queue_entry_<queueId>` - The full message entry
+- `telegram_queue_index_priority_<1-4>` - Updated array of queue IDs for this priority
 
-**Connect to:** Log Success Node
+**Connect to:** Log Success (optional)
 
 ---
 
-## 🚀 FLOW 2: Dispatcher (Every 60 seconds)
+## 🔁 Keep Direct Send Path Unchanged
 
-**Purpose:** Process the queue, send messages to Telegram, respect rate limits.
-
-### Visual Node Flow
+Your existing nodes after the **Failure** branch of Node 3 remain **exactly as they are**:
 
 ```
-[Generator: 60s Timer]
-      ↓
-[Enrichment: Get Config + Indexes + Rate Limit State]
-      ↓
-[Script 1: Check Rate Limit & Build Batch]
-      ↓
-[Switch: Can Send?]
-      ├─ NO → [Log: Rate Limited] → [End]
-      └─ YES ↓
-[Switch: Empty Queue?]
-      ├─ YES → [Log: Queue Empty] → [End]
-      └─ NO ↓
-[Split Array: Split Batch]
-      ↓ (for each queue ID)
-[Script 2: Build Attribute Key]
-      ↓
-[Enrichment: Get Queue Entry]
-      ↓
-[Script 3: Extract Entry Data]
-      ↓
-[REST API: POST to Telegram]
-      ↓
-[Switch: HTTP Status]
-      ├─ 200 → [Script: Mark SENT]
-      ├─ 429/5xx → [Script: Mark RETRY]
-      └─ 400/401/403 → [Script: Mark FAILED]
-      ↓
-[Script 4: Prepare Index Update]
-      ↓
-[Save Attributes: Update Entry + Remove from Index]
-      ↓
-[Save Attributes: Update Rate Limit State]
+[Filter: FAILURE]
+  ↓
+[Your existing transformation scripts] (no changes)
+  ↓
+[REST API Call with bot token] (no changes)
+  ↓
+[Log success] (no changes)
 ```
 
-### Step-by-Step Node Configuration
+**This is critical:** Customers with `telegram_queue_enabled: false` continue working normally with zero changes to their notification flow.
 
-#### Node 2.1: Generator - 60s Timer
+---
+
+## 🚀 Dispatcher Rule Chain (Processes Queue)
+
+After messages are enqueued via Node 7, you need a **separate Rule Chain** that runs on a timer to process the queue and send messages to Telegram.
+
+### What You Need to Create:
+
+**Create NEW Rule Chain:** "Telegram Queue Dispatcher"
+
+**Trigger:** Timer Generator - Every 60 seconds
+
+**Purpose:** Fetch pending messages, send to Telegram in batches, respect rate limits
+
+---
+
+### Dispatcher Node 1: Generator - Timer Trigger
 
 **Node Type:** Generator
 
 **Configuration:**
 - **Period:** 60 seconds
-- **Originator:** `telegram-queue-dispatcher`
-- **Message:** `{}`
-- **Metadata:** Set `customerId` to your customer ID
+- **Originator:** Select a customer entity (or use system originator)
+- **Message count:** 1
+- **Message:** `{}` (empty JSON object)
+- **Metadata:**
+  ```json
+  {
+    "customerId": "YOUR_CUSTOMER_UUID_HERE"
+  }
+  ```
 
-**Purpose:** Triggers the dispatcher every minute.
+**Purpose:** Triggers the dispatcher every 60 seconds to check the queue
 
-**Connect to:** Node 2.2
+**Note:** You'll need one Dispatcher Rule Chain **per customer** OR use a Switch node to route by customer.
+
+**Connect to:** Dispatcher Node 2
 
 ---
 
-#### Node 2.2: Enrichment - Get Everything
+### Dispatcher Node 2: Enrichment - Fetch Queue Data
 
 **Node Type:** Customer Attributes (Enrichment)
 
 **Configuration - Fetch these attributes:**
-- `telegram_queue_config`
-- `telegram_queue_ratelimit`
-- `telegram_queue_index_priority_1`
-- `telegram_queue_index_priority_2`
-- `telegram_queue_index_priority_3`
-- `telegram_queue_index_priority_4`
+- `telegram_queue_config` → Store as `telegram_queue_config`
+- `telegram_queue_ratelimit` → Store as `telegram_queue_ratelimit`
+- `telegram_queue_index_priority_1` → Store as `telegram_queue_index_priority_1`
+- `telegram_queue_index_priority_2` → Store as `telegram_queue_index_priority_2`
+- `telegram_queue_index_priority_3` → Store as `telegram_queue_index_priority_3`
+- `telegram_queue_index_priority_4` → Store as `telegram_queue_index_priority_4`
 
-**Purpose:** Load all data needed for rate limiting and batch building.
+**Purpose:** Load all data needed for rate limiting and batch building
 
-**Connect to:** Node 2.3
+**Connect to:** Dispatcher Node 3
 
 ---
 
-#### Node 2.3: Script - Check Rate Limit & Build Batch
+### Dispatcher Node 3: Script - Check Rate Limit & Build Batch
 
-**Purpose:** Synchronous math to check if enough time passed, extract batch of queue IDs
+**Node Type:** Script (Transformation)
+
+**Purpose:** Synchronous math to check if enough time passed + extract queue IDs
 
 **Script:** Copy entire content from [`rule-chain/scripts/dispatch-rate-limit.js`](rule-chain/scripts/dispatch-rate-limit.js)
 
 **What it does:**
-1. Parse config → Get `delayBetweenBatchesSeconds` (e.g., 60)
-2. Parse rate limit state → Get `lastDispatchAt` timestamp
+1. Parse `telegram_queue_config` → Get `batchSize` (e.g., 5) and `delayBetweenBatchesSeconds` (e.g., 60)
+2. Parse `telegram_queue_ratelimit` → Get `lastDispatchAt` timestamp
 3. Calculate: `now - lastDispatchAt >= 60 seconds?`
-4. **If NO** → Return `{rateLimited: true, waitTimeSeconds: 15}`
+4. **If NO (rate limited)** → Return `{rateLimited: true, waitTimeSeconds: 15}`
 5. **If YES** → Build batch from priority indexes (Critical first, then High, Medium, Low)
-6. Return `{rateLimited: false, batchIds: ["a1b2c3...", "e5f6g7..."], batchSize: 5}`
+6. **If queue empty** → Return `{emptyQueue: true, batchIds: []}`
+7. **If has messages** → Return `{rateLimited: false, batchIds: ["uuid1", "uuid2", ...], batchSize: 5}`
 
-**Connect to:** Node 2.4
+**Connect to:** Dispatcher Node 4
 
 ---
 
-#### Node 2.4: Switch - Can Send?
+### Dispatcher Node 4: Filter - Can Send Batch?
 
-**Node Type:** Switch
+**Node Type:** Check Message Script (Filter)
 
-**Configuration:**
+**Purpose:** Route based on rate limit status and queue state
+
+**Script:**
 ```javascript
+// Skip if rate limited or queue empty
 return msg.rateLimited === false && msg.emptyQueue === false;
 ```
 
 **Connections:**
-- **True** → Node 2.5 (proceed to send)
-- **False** → Log "Rate Limited" or "Queue Empty" → End
+- **Success** relation → Connect to Dispatcher Node 5 (has messages to send)
+- **Failure** relation → Connect to Log Node "Skipped: Rate Limited or Empty" (end flow)
 
 ---
 
-#### Node 2.5: Split Array - Split Batch
+### Dispatcher Node 5: Change Originator - Set to Customer
 
-**Node Type:** Split Array Msg (under "transformation")
+**Node Type:** Change Originator
+
+**Purpose:** Switch message originator to customer entity for next enrichment
+
+**Configuration:**
+- **Originator source:** Customer
+- **Customer ID pattern:** `${metadata.customerId}` OR `${msg.customerId}`
+
+**Why needed:** Next node (Split Array) needs customer context to fetch queue entries
+
+**Connect to:** Dispatcher Node 6
+
+---
+
+### Dispatcher Node 6: Split Array - Split Batch into Messages
+
+**Node Type:** Split Array Msg (under "Transformation" category)
 
 **Configuration:**
 - **Array field:** `batchIds`
 - **Output field:** `queueId`
 
-**Purpose:** Takes `["id1", "id2", "id3"]` and creates 3 separate messages, one per ID.
+**Purpose:** Takes `["uuid1", "uuid2", "uuid3"]` and creates 3 separate message flows
 
-**What happens:** If batch has 5 IDs, this node fires 5 times - once for each message.
+**What happens:** If batch has 5 queue IDs, this node fires 5 times - once per message. Each subsequent node runs 5 times in parallel.
 
-**Connect to:** Node 2.6
+**Connect to:** Dispatcher Node 7
 
 ---
 
-#### Node 2.6: Script - Build Attribute Key
+### Dispatcher Node 7: Script - Build Queue Entry Attribute Key
 
-**Purpose:** Construct the attribute key name dynamically
+**Node Type:** Script (Transformation)
+
+**Purpose:** Construct attribute key dynamically from queue ID
 
 **Script:**
 ```javascript
@@ -477,67 +663,78 @@ return {
 };
 ```
 
-**Connect to:** Node 2.7
+**Connect to:** Dispatcher Node 8
 
 ---
 
-#### Node 2.7: Enrichment - Get Queue Entry
+### Dispatcher Node 8: Enrichment - Fetch Queue Entry
 
 **Node Type:** Customer Attributes (Enrichment)
 
 **Configuration:**
-- **Attribute:** `${msg.attributeKey}` (dynamic - uses value from previous node)
+- **Attribute:** Use `${msg.attributeKey}` (dynamic - gets value from previous node)
 - **Store as:** `queueEntry` in metadata
 
-**Purpose:** Fetch the full entry details: `{queueId, payload: {text: "..."}, priority: 2, ...}`
+**Purpose:** Fetch the full entry: `{queueId, payload: {text: "..."}, priority: 2, status: "PENDING", ...}`
 
-**Connect to:** Node 2.8
+**Connect to:** Dispatcher Node 9
 
 ---
 
-#### Node 2.8: Script - Extract Entry Data
+### Dispatcher Node 9: Script - Parse Entry & Prepare Telegram Request
 
-**Purpose:** Parse the entry and prepare for Telegram API
+**Node Type:** Script (Transformation)
+
+**Purpose:** Extract data from entry and config for Telegram API call
 
 **Script:**
 ```javascript
+// Parse queue entry
 var entryJson = metadata.queueEntry;
 var entry = {};
 
-// Parse if string
 if (typeof entryJson === 'string') {
   try {
     entry = JSON.parse(entryJson);
   } catch (e) {
-    return {msg: {error: true}, metadata: metadata, msgType: 'POST_TELEMETRY_REQUEST'};
+    return {msg: {error: true, reason: 'Invalid entry JSON'}, metadata: metadata, msgType: msgType};
   }
 } else {
   entry = entryJson;
 }
 
-// Get Telegram config
+// Parse config
 var config = metadata.telegram_queue_config;
 if (typeof config === 'string') {
-  config = JSON.parse(config);
+  try {
+    config = JSON.parse(config);
+  } catch (e) {
+    return {msg: {error: true, reason: 'Invalid config JSON'}, metadata: metadata, msgType: msgType};
+  }
 }
+
+// Extract Telegram credentials
+var botToken = config.telegram.botToken;
+var chatId = config.telegram.chatId;
+var text = entry.payload.text;
 
 return {
   msg: {
     entry: entry,
-    telegramText: entry.payload.text,
-    botToken: config.telegram.botToken,
-    chatId: config.telegram.chatId
+    text: text,
+    chatId: chatId,
+    botToken: botToken
   },
   metadata: metadata,
   msgType: 'POST_TELEMETRY_REQUEST'
 };
 ```
 
-**Connect to:** Node 2.9
+**Connect to:** Dispatcher Node 10
 
 ---
 
-#### Node 2.9: REST API Call - Send to Telegram
+### Dispatcher Node 10: REST API Call - Send to Telegram
 
 **Node Type:** REST API Call
 
@@ -552,76 +749,119 @@ return {
   ```json
   {
     "chat_id": "${msg.chatId}",
-    "text": "${msg.telegramText}",
+    "text": "${msg.text}",
     "parse_mode": "HTML"
   }
   ```
 
 **Purpose:** Actually send the message to Telegram!
 
-**Connections (by HTTP status):**
-- **Success (200-299)** → Node 2.10a (Mark SENT)
-- **Client Error (400-499)** → Node 2.10b (Mark FAILED)
-- **Server Error (500-599)** → Node 2.10c (Mark RETRY)
-- **Timeout** → Node 2.10c (Mark RETRY)
+**Connections (by HTTP response):**
+- **Success (200-299)** → Dispatcher Node 11a (Mark SENT)
+- **Client Error (400-499)** → Dispatcher Node 11b (Mark FAILED)
+- **Server Error (500-599)** → Dispatcher Node 11c (Mark RETRY)
+- **Timeout/Network Error** → Dispatcher Node 11c (Mark RETRY)
 
 ---
 
-#### Node 2.10: Script - Mark Status (3 versions)
+### Dispatcher Node 11: Script - Mark Entry Status (3 versions)
 
-**Purpose:** Update entry status based on Telegram response
+**Node Type:** Script (Transformation) - Create 3 COPIES with different status logic
 
-**Script:** Copy entire content from [`rule-chain/scripts/dispatch-mark-status.js`](rule-chain/scripts/dispatch-mark-status.js)
+**Purpose:** Update entry status based on Telegram API response
 
-**Use 3 copies of this script with different inputs:**
-
-**2.10a (Success path):** Add this script before Node 2.10:
+**11a: Success Path (200-299) - Mark SENT**
 ```javascript
-// Set HTTP status for success
-metadata.httpStatus = 200;
-return {msg: msg, metadata: metadata, msgType: msgType};
+var entry = msg.entry;
+entry.status = 'SENT';
+entry.sentAt = Date.now();
+entry.lastAttemptAt = Date.now();
+
+return {
+  msg: {entry: entry},
+  metadata: metadata,
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
 ```
 
-**2.10b (Failed path):** Add this script before Node 2.10:
+**11b: Client Error Path (400-499) - Mark FAILED**
 ```javascript
-// Set HTTP status for client error
-metadata.httpStatus = metadata.statusCode || 400;
-return {msg: msg, metadata: metadata, msgType: msgType};
+var entry = msg.entry;
+entry.status = 'FAILED';
+entry.lastAttemptAt = Date.now();
+entry.errorMessage = 'Client error: ' + (metadata.statusCode || 400);
+
+return {
+  msg: {entry: entry},
+  metadata: metadata,
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
 ```
 
-**2.10c (Retry path):** Add this script before Node 2.10:
+**11c: Retry Path (500-599 or timeout) - Mark RETRY or FAILED**
 ```javascript
-// Set HTTP status for server error
-metadata.httpStatus = metadata.statusCode || 500;
-return {msg: msg, metadata: metadata, msgType: msgType};
+var entry = msg.entry;
+
+// Parse config for maxRetries
+var config = metadata.telegram_queue_config;
+if (typeof config === 'string') {
+  config = JSON.parse(config);
+}
+var maxRetries = config.rateControl.maxRetries || 3;
+
+// Increment retry count
+entry.retryCount = (entry.retryCount || 0) + 1;
+entry.lastAttemptAt = Date.now();
+
+// Check if max retries exceeded
+if (entry.retryCount >= maxRetries) {
+  entry.status = 'FAILED';
+  entry.errorMessage = 'Max retries exceeded';
+} else {
+  entry.status = 'RETRY';
+  entry.errorMessage = 'Retryable error: ' + (metadata.statusCode || 'timeout');
+}
+
+return {
+  msg: {entry: entry},
+  metadata: metadata,
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
 ```
 
-**What it does:**
-- If `httpStatus = 200` → Set `status = 'SENT'`, record `sentAt` timestamp
-- If `httpStatus = 429 or 5xx` → Increment `retryCount`, set `status = 'RETRY'` (unless maxRetries exceeded → 'FAILED')
-- If `httpStatus = 400-499` → Set `status = 'FAILED'` (permanent - bad config)
-
-**All paths connect to:** Node 2.11
+**All three paths connect to:** Dispatcher Node 12
 
 ---
 
-#### Node 2.11: Script - Prepare Index Update
+### Dispatcher Node 12: Script - Prepare Index Update
 
-**Purpose:** Remove entry from priority index if SENT or FAILED
+**Node Type:** Script (Transformation)
+
+**Purpose:** Remove entry from priority index if SENT or FAILED (done), keep if RETRY
 
 **Script:**
 ```javascript
 var entry = msg.entry;
 var needsRemoval = (entry.status === 'SENT' || entry.status === 'FAILED');
 
+var attributes = {};
+
+// Always update the entry
+attributes['telegram_queue_entry_' + entry.queueId] = JSON.stringify(entry);
+
 if (needsRemoval) {
+  // Remove from priority index
   var priority = entry.priority;
   var indexKey = 'telegram_queue_index_priority_' + priority;
   var existingIndex = metadata[indexKey];
 
-  // Parse if string
+  // Parse index
   if (typeof existingIndex === 'string') {
-    existingIndex = JSON.parse(existingIndex);
+    try {
+      existingIndex = JSON.parse(existingIndex);
+    } catch (e) {
+      existingIndex = [];
+    }
   }
   if (!Array.isArray(existingIndex)) {
     existingIndex = [];
@@ -635,49 +875,41 @@ if (needsRemoval) {
     }
   }
 
-  // Prepare attributes
-  var attributes = {};
-  attributes['telegram_queue_entry_' + entry.queueId] = JSON.stringify(entry);
   attributes[indexKey] = JSON.stringify(newIndex);
-
-  return {
-    msg: {attributes: attributes, needsRateLimitUpdate: true},
-    metadata: metadata,
-    msgType: 'POST_ATTRIBUTES_REQUEST'
-  };
-} else {
-  // Just update entry (still in RETRY state)
-  var attributes = {};
-  attributes['telegram_queue_entry_' + entry.queueId] = JSON.stringify(entry);
-
-  return {
-    msg: {attributes: attributes, needsRateLimitUpdate: true},
-    metadata: metadata,
-    msgType: 'POST_ATTRIBUTES_REQUEST'
-  };
 }
+
+return {
+  msg: {
+    attributes: attributes,
+    customerId: entry.customerId
+  },
+  metadata: metadata,
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
 ```
 
-**Connect to:** Node 2.12
+**Connect to:** Dispatcher Node 13
 
 ---
 
-#### Node 2.12: Save Attributes - Update Entry
+### Dispatcher Node 13: Save Attributes - Update Entry & Index
 
 **Node Type:** Save Attributes
 
 **Configuration:**
-- **Entity:** Customer
+- **Entity:** Customer (use `${msg.customerId}`)
 - **Scope:** SERVER_SCOPE
-- **Attributes:** From `msg.attributes`
+- **Attributes:** `${msg.attributes}`
 
-**Purpose:** Save the updated entry status (SENT/RETRY/FAILED) and updated index.
+**Purpose:** Persist updated entry status and modified priority index
 
-**Connect to:** Node 2.13
+**Connect to:** Dispatcher Node 14
 
 ---
 
-#### Node 2.13: Script - Update Rate Limit State
+### Dispatcher Node 14: Script - Update Rate Limit State
+
+**Node Type:** Script (Transformation)
 
 **Purpose:** Record that we just dispatched a batch
 
@@ -687,13 +919,17 @@ var rateLimitState = metadata.telegram_queue_ratelimit;
 
 // Parse if string
 if (typeof rateLimitState === 'string') {
-  rateLimitState = JSON.parse(rateLimitState);
+  try {
+    rateLimitState = JSON.parse(rateLimitState);
+  } catch (e) {
+    rateLimitState = {};
+  }
 }
 if (!rateLimitState) {
   rateLimitState = {};
 }
 
-// Update state
+// Update timestamp
 rateLimitState.lastDispatchAt = Date.now();
 rateLimitState.batchCount = (rateLimitState.batchCount || 0) + 1;
 
@@ -701,185 +937,155 @@ var attributes = {};
 attributes['telegram_queue_ratelimit'] = JSON.stringify(rateLimitState);
 
 return {
-  msg: {attributes: attributes},
+  msg: {attributes: attributes, customerId: metadata.customerId},
   metadata: metadata,
   msgType: 'POST_ATTRIBUTES_REQUEST'
 };
 ```
 
-**Connect to:** Node 2.14
+**Connect to:** Dispatcher Node 15
 
 ---
 
-#### Node 2.14: Save Attributes - Update Rate Limit
+### Dispatcher Node 15: Save Attributes - Update Rate Limit
 
 **Node Type:** Save Attributes
 
 **Configuration:**
-- **Entity:** Customer
+- **Entity:** Customer (use `${msg.customerId}`)
 - **Scope:** SERVER_SCOPE
-- **Attributes:** From `msg.attributes`
+- **Attributes:** `${msg.attributes}`
 
-**Purpose:** Save the rate limit timestamp so next cycle knows when we last sent.
+**Purpose:** Save the rate limit timestamp so next cycle knows when we last sent
 
-**Connect to:** Log Success
+**Connect to:** Log Success (optional, end of flow)
 
 ---
 
-## 📊 FLOW 3: Monitor (Every 5 minutes)
+## 📊 Monitor Rule Chain (Collects Metrics)
 
-**Purpose:** Collect queue metrics for dashboard visualization.
+After the Dispatcher is running, optionally create a Monitor Rule Chain for dashboard visibility.
 
-### Visual Node Flow
+### What You Need to Create:
 
-```
-[Generator: 300s Timer]
-      ↓
-[Enrichment: Get Config + Indexes + Rate Limit State]
-      ↓
-[Script: Calculate Metrics]
-      ↓
-[Save Telemetry: Virtual Device]
-```
+**Create NEW Rule Chain:** "Telegram Queue Monitor"
 
-### Step-by-Step Node Configuration
+**Trigger:** Timer Generator - Every 300 seconds (5 minutes)
 
-#### Node 3.1: Generator - 300s Timer
+**Purpose:** Calculate queue statistics for dashboard widgets
+
+---
+
+### Monitor Node 1: Generator - Timer Trigger
 
 **Node Type:** Generator
 
 **Configuration:**
 - **Period:** 300 seconds (5 minutes)
-- **Originator:** `telegram-queue-monitor`
+- **Originator:** Select the `telegram-queue-monitor` device you created earlier
+- **Message count:** 1
 - **Message:** `{}`
-- **Metadata:** Set `customerId`
+- **Metadata:**
+  ```json
+  {
+    "customerId": "YOUR_CUSTOMER_UUID_HERE"
+  }
+  ```
 
-**Connect to:** Node 3.2
+**Connect to:** Monitor Node 2
 
 ---
 
-#### Node 3.2: Enrichment - Get Everything
+### Monitor Node 2: Enrichment - Fetch Queue Data
 
 **Node Type:** Customer Attributes (Enrichment)
 
-**Configuration:** Same as Node 2.2 (get config, indexes, rate limit state)
+**Configuration - Fetch these attributes:**
+- `telegram_queue_config`
+- `telegram_queue_ratelimit`
+- `telegram_queue_index_priority_1`
+- `telegram_queue_index_priority_2`
+- `telegram_queue_index_priority_3`
+- `telegram_queue_index_priority_4`
 
-**Connect to:** Node 3.3
+**Connect to:** Monitor Node 3
 
 ---
 
-#### Node 3.3: Script - Calculate Metrics
+### Monitor Node 3: Script - Calculate Metrics
+
+**Node Type:** Script (Transformation)
 
 **Purpose:** Count queue depths, calculate wait times
 
 **Script:** Copy entire content from [`rule-chain/scripts/monitor-calculate.js`](rule-chain/scripts/monitor-calculate.js)
 
 **What it calculates:**
-- `queue_depth_priority_1`: Count of Critical messages
-- `queue_depth_priority_2`: Count of High messages
-- `queue_depth_priority_3`: Count of Medium messages
-- `queue_depth_priority_4`: Count of Low messages
-- `total_queue_depth`: Sum of all
-- `time_since_last_dispatch_seconds`: How long since last send
-- `can_send_now`: 1 if ready to send, 0 if rate limited
-- `wait_time_seconds`: How many seconds until can send
+```javascript
+{
+  "queue_depth_priority_1": 5,     // Count of Critical messages
+  "queue_depth_priority_2": 12,    // Count of High messages
+  "queue_depth_priority_3": 23,    // Count of Medium messages
+  "queue_depth_priority_4": 8,     // Count of Low messages
+  "total_queue_depth": 48,          // Sum of all priorities
+  "time_since_last_dispatch_seconds": 45,  // How long since last send
+  "can_send_now": 0,                // 1 if ready, 0 if rate limited
+  "wait_time_seconds": 15           // How many seconds until can send
+}
+```
 
-**Connect to:** Node 3.4
+**Connect to:** Monitor Node 4
 
 ---
 
-#### Node 3.4: Save Telemetry
+### Monitor Node 4: Save Telemetry
 
 **Node Type:** Save Telemetry
 
 **Configuration:**
-- **Entity:** Device `telegram-queue-monitor` (created in Step 2.3)
-- **Telemetry:** All fields from `msg` (output of Node 3.3)
+- **Entity:** Device `telegram-queue-monitor` (originator from Node 1)
+- **Telemetry:** All fields from `msg` (output of Node 3)
+- **TTL:** 0 (keep forever) or set retention period
 
-**Purpose:** Store metrics so you can build dashboard widgets (line charts, gauges, etc.)
+**Purpose:** Store metrics so you can build ThingsBoard dashboard widgets:
+- Line chart: `total_queue_depth` over time
+- Gauge: `wait_time_seconds`
+- Counter: Total messages processed
 
-**Connect to:** Log Success
-
----
-
-## 📋 Configuration Reference
-
-### Priority Levels Explained
-
-| Priority | Level | When to Use | Example Devices |
-|----------|-------|-------------|-----------------|
-| **1** | Critical | Infrastructure failures, power loss | ENTRADA, RELOGIO, TRAFO, SUBESTACAO |
-| **2** | High | Revenue-impacting issues | 3F_MEDIDOR, HIDROMETRO stores |
-| **3** | Medium | Normal monitoring | General equipment, common areas |
-| **4** | Low | Informational | TERMOSTATO, comfort settings |
-
-### Rate Control Settings Explained
-
-**`batchSize`**: How many messages to send per cycle
-- **Small (3-5)**: Conservative, safer for public Telegram groups
-- **Large (10-20)**: Aggressive, for private internal chats
-
-**`delayBetweenBatchesSeconds`**: Minimum time between batches
-- **60s**: Standard, prevents spam
-- **30s**: Faster, for urgent monitoring
-- **120s**: Slower, for low-priority notifications
-
-**`maxRetries`**: How many times to retry failed sends
-- **3**: Standard
-- **5**: For unreliable networks
-- **1**: For testing (fail fast)
-
-**`retryBackoff`**: How retry delays increase
-- **exponential**: 10s → 20s → 40s → 80s (doubles each time)
-- **linear**: 10s → 20s → 30s → 40s (adds 10s each time)
+**Connect to:** Log Success (end of flow)
 
 ---
 
-## 🎯 Testing Your Setup
+## 📊 Migration Strategy
 
-### Step 1: Test Configuration
+### Pre-Migration (Prepare)
 
-Go to **Rule Chains** → Create test chain:
+- [ ] Deploy Dispatcher Rule Chain (process queue every 60s)
+- [ ] Deploy Monitor Rule Chain (collect metrics every 5 minutes)
+- [ ] Create `telegram-queue-monitor` virtual device
+- [ ] Test with 1 internal customer
 
-```javascript
-// Test script to verify config loads
-var config = metadata.telegram_queue_config;
-if (typeof config === 'string') {
-  config = JSON.parse(config);
-}
+### Per-Customer Migration
 
-return {
-  msg: {
-    enabled: config.enabled,
-    botToken: config.telegram.botToken.substring(0, 10) + '***',
-    chatId: config.telegram.chatId,
-    priorityRules: config.priorityRules
-  },
-  metadata: metadata,
-  msgType: 'POST_TELEMETRY_REQUEST'
-};
-```
+- [ ] Add `telegram_queue_config` attribute (see Prerequisites)
+- [ ] Set `telegram_queue_enabled: false` initially (keeps direct send)
+- [ ] Modify your alarm Rule Chain to include hybrid routing (Nodes 2-7 above)
+- [ ] Test: Trigger alarm, confirm direct send still works
+- [ ] Set `telegram_queue_enabled: true` to switch to queue
+- [ ] Monitor for 24 hours:
+  - [ ] Check `telegram-queue-monitor` metrics
+  - [ ] Verify messages arriving in Telegram
+  - [ ] Check for duplicates (both queue AND direct sending)
+- [ ] Customer confirms working
+- [ ] Mark as migrated
 
-### Step 2: Test Single Enqueue
+### Rollback Plan
 
-Trigger an alarm on a test device → Check **Customers** → **Attributes**:
-- Should see `telegram_queue_entry_<some-uuid>`
-- Should see `telegram_queue_index_priority_<number>` with one ID
-
-### Step 3: Test Dispatcher
-
-Wait 60 seconds → Check Telegram chat:
-- Should receive the message!
-
-Check Attributes:
-- Entry status should change from `PENDING` to `SENT`
-- Entry should be removed from priority index
-- `telegram_queue_ratelimit` should have `lastDispatchAt` updated
-
-### Step 4: Test Monitoring
-
-Wait 5 minutes → Check device `telegram-queue-monitor` telemetry:
-- Should see `total_queue_depth`, `can_send_now`, etc.
+If issues occur:
+- [ ] Set `telegram_queue_enabled: false` immediately
+- [ ] Customer reverts to direct send instantly (no downtime!)
+- [ ] Investigate queue issues offline
+- [ ] Fix and retry migration later
 
 ---
 
@@ -888,42 +1094,42 @@ Wait 5 minutes → Check device `telegram-queue-monitor` telemetry:
 ### Problem: Messages Not Enqueueing
 
 **Check:**
-1. Rule Chain connected correctly? (Device → Transformation → Enqueue nodes)
-2. Script errors? (Look at ThingsBoard Events log)
-3. Config exists? (Check customer attributes for `telegram_queue_config`)
-4. `enabled: true`? (Check config JSON)
+1. Filter node routing correctly? (Node 3 should output to SUCCESS for queue path)
+2. `telegram_queue_enabled` attribute set to `true`?
+3. Script errors? (ThingsBoard Events log)
+4. `telegram_queue_config` attribute exists and valid JSON?
 
-**Debug:** Add Log Nodes after each script to see output.
+**Debug:** Add Log Node after each script to inspect `msg` and `metadata`.
 
 ---
 
-### Problem: Messages Not Sending
+### Problem: Messages Not Sending from Queue
 
 **Check:**
-1. Dispatcher Generator running? (Should trigger every 60s)
-2. Rate limited? (Check `wait_time_seconds` metric - might need to wait)
-3. Bot token correct? (Test manually: `curl https://api.telegram.org/bot<TOKEN>/getMe`)
-4. Chat ID correct? (Bot must be added to the chat/group)
+1. Dispatcher Rule Chain deployed and active?
+2. Generator node triggering every 60s?
+3. Rate limited? (Check `time_since_last_dispatch_seconds` metric - must be ≥ 60s)
+4. Bot token correct in `telegram_queue_config.telegram.botToken`?
+5. Chat ID correct in `telegram_queue_config.telegram.chatId`?
 
-**Debug:** Add Log Node after Node 2.3 to see `rateLimited` value.
+**Debug:** Add Log Node in Dispatcher after rate limit check to see if batches are being built.
+
+---
+
+### Problem: Duplicate Messages (Queue AND Direct)
+
+**Cause:** Filter node not routing correctly
+
+**Fix:** Check Node 3 script - ensure it returns `true` for queue path, `false` for direct path. Verify Success/Failure relations are connected correctly.
 
 ---
 
 ### Problem: Queue Growing Too Large
 
 **Solutions:**
-1. Increase `batchSize` (e.g., 5 → 10)
+1. Increase `batchSize` in config (e.g., 5 → 10)
 2. Decrease `delayBetweenBatchesSeconds` (e.g., 60 → 30)
-3. Filter alarms before enqueue (add Switch node to skip low-priority)
-
----
-
-### Problem: Too Many Messages / Spam
-
-**Solutions:**
-1. Decrease `batchSize` (e.g., 10 → 3)
-2. Increase `delayBetweenBatchesSeconds` (e.g., 60 → 120)
-3. Raise priority thresholds (change device profiles to priority 3 or 4)
+3. Add pre-filtering before enqueue (skip low-priority alarms)
 
 ---
 
@@ -931,471 +1137,56 @@ Wait 5 minutes → Check device `telegram-queue-monitor` telemetry:
 
 ```
 alarm-queue-setup/
-├── README.md (this file)
+├── README.md (this file - hybrid integration guide)
 ├── docs/
-│   └── RFC-0135-TelegramNotificationQueue.md (specification)
-├── index.js (library exports for external use)
+│   └── RFC-0135-TelegramNotificationQueue.md (full specification)
+├── index.js (exports script paths and schemas)
 └── rule-chain/
     ├── README.md (technical details)
     ├── scripts/
-    │   ├── enqueue-normalize.js
-    │   ├── enqueue-priority.js
-    │   ├── dispatch-rate-limit.js
-    │   ├── dispatch-mark-status.js
-    │   └── monitor-calculate.js
+    │   ├── enqueue-normalize.js (Node 4 script - full version)
+    │   ├── enqueue-priority.js (Node 5 script - full version)
+    │   ├── dispatch-rate-limit.js (Dispatcher: rate limit check)
+    │   ├── dispatch-mark-status.js (Dispatcher: update status)
+    │   └── monitor-calculate.js (Monitor: calculate metrics)
     └── helpers/
         └── node-config-examples.md (advanced configuration)
 ```
 
 ---
 
-## 🎓 Understanding Key Concepts
+## 🎓 Key Concepts
 
-### What is a "Queue"?
+### Priority Resolution Cascade
 
-Think of it like a line at a coffee shop:
-- **Enqueue** = Person joins the line
-- **Dequeue** = Barista serves the next person
-- **Priority** = VIP members skip to front of line
-- **Rate Limit** = Barista serves max 5 people per minute
+Priority is determined in this order:
 
-### What are "Attributes" in ThingsBoard?
+1. **Device Override** (highest priority) - Specific device UUID in `deviceOverrides`
+2. **Device Profile Rule** - Device type/profile in `deviceProfiles`
+3. **Customer Global Default** - Fallback in `globalDefault`
+4. **System Default** - 3 (Medium) if nothing configured
 
-Attributes are like a shared spreadsheet that Rule Chains can read/write:
-- **Server Scope** = Only visible to administrators (secure for tokens)
-- **Shared Scope** = Visible to customer users
-- **Client Scope** = Set by devices
+Example:
+- Device `uuid-123` with profile `3F_MEDIDOR`
+- Config: `deviceOverrides: {"uuid-123": 1}`, `deviceProfiles: {"3F_MEDIDOR": 2}`
+- Result: Priority = 1 (device override wins)
 
-We use **Server Scope** to store queue data because it's:
-- ✅ Persistent (survives server restarts)
-- ✅ Secure (not visible to devices)
-- ✅ Accessible from all Rule Chains
+### Rate Limiting
 
-### Why "Visual Nodes" Instead of Code?
+Prevents spamming Telegram:
+- **Batch Size:** Send max N messages per cycle (e.g., 5)
+- **Delay:** Wait M seconds between batches (e.g., 60s)
+- **Enforcement:** Dispatcher checks `lastDispatchAt` timestamp, skips if `now - lastDispatchAt < delayBetweenBatchesSeconds`
 
-ThingsBoard Rule Chains are like flowcharts:
-- Each **box** = One operation (fetch data, transform, save, etc.)
-- Each **arrow** = Data flows from one box to the next
-- **Scripts** = Only for pure logic (no I/O)
+### Retry Logic
 
-This design:
-- ✅ Makes debugging visual (see data at each step)
-- ✅ Handles parallelization automatically
-- ✅ Prevents blocking operations
-
----
-
-## 🚀 What's Next?
-
-Once you have the basic setup working:
-
-1. **Add Dashboard Widgets**
-   - Line chart: `total_queue_depth` over time
-   - Gauge: `wait_time_seconds`
-   - Counter: `batch_count_total`
-
-2. **Customize Message Formatting**
-   - Add device photos to messages
-   - Include dashboard links
-   - Format with Telegram HTML/Markdown
-
-3. **Add Advanced Features**
-   - Different chat IDs per priority level
-   - Scheduled quiet hours (pause at night)
-   - Message deduplication (prevent duplicates)
-
-4. **Scale to Multiple Customers**
-   - Duplicate Rule Chains per customer
-   - Use customer-specific configurations
-   - Monitor aggregate metrics
-
----
-
-## 🔄 Migration Guide: Hybrid Integration with Existing Rule Chains
-
-### Overview: Why Hybrid?
-
-If you already have a working Telegram notification system (like direct REST API calls), you don't have to replace it all at once! This guide shows how to:
-
-1. **Keep existing behavior** for customers not yet migrated
-2. **Gradually enable queue** per customer using a simple attribute flag
-3. **Coexist** direct send and queue approaches in the same Rule Chain
-
-### Backward Compatibility Strategy
-
-```
-┌─────────────────────────────────────────┐
-│  ALARM TRIGGER                          │
-│          ↓                              │
-│  [Check Customer: Queue Enabled?]       │
-│          ├─── NO → Direct Send (Old Way)│
-│          └─── YES → Enqueue (New Way)   │
-└─────────────────────────────────────────┘
-```
-
-### Step 1: Add Queue Flag to Customer Attributes
-
-For customers **NOT yet using queue**, add:
-
-**Attribute:** `telegram_queue_enabled`
-**Value:** `false`
-
-For customers **ready to use queue**, set:
-
-**Attribute:** `telegram_queue_enabled`
-**Value:** `true`
-
-**AND** add full configuration:
-
-**Attribute:** `telegram_queue_config`
-**Value:** (see Step 2.2 above)
-
----
-
-### Step 2: Modify Existing Rule Chain (Example: Obramax)
-
-Let's adapt an existing Rule Chain that currently does direct Telegram send. We'll add a **routing node** that checks the queue flag.
-
-#### Current Flow (Direct Send)
-
-```
-[Alarm] → [Build Message] → [Get telegramGroup] → [REST API: Send to Telegram]
-```
-
-#### New Hybrid Flow
-
-```
-[Alarm]
-  ↓
-[Build Message]
-  ↓
-[Enrichment: Get telegram_queue_enabled + telegram_queue_config + telegramGroup]
-  ↓
-[Switch: Check telegram_queue_enabled]
-  ├─── FALSE → [Direct Send Path (Original)]
-  │                 ↓
-  │            [Use telegramGroup attribute]
-  │                 ↓
-  │            [REST API: Direct Telegram Send]
-  │
-  └─── TRUE → [Queue Path (New)]
-                    ↓
-               [Script: Normalize for Queue]
-                    ↓
-               [Script: Resolve Priority]
-                    ↓
-               [Script: Prepare Save]
-                    ↓
-               [Save Attributes: Enqueue]
-```
-
----
-
-### Step 3: Implementation Details
-
-#### Node 3.1: Enrichment - Get Flags and Config
-
-**Replace your existing "Get telegramGroup" enrichment node** with:
-
-**Node Type:** Customer Attributes (Enrichment)
-
-**Configuration - Fetch these attributes:**
-- `telegram_queue_enabled` → Store as `telegram_queue_enabled`
-- `telegram_queue_config` → Store as `telegram_queue_config`
-- `telegramGroup` → Store as `telegramGroup` (for direct send fallback)
-
-**Purpose:** Load both old and new configurations so the Switch node can decide.
-
-**Connect to:** Node 3.2
-
----
-
-#### Node 3.2: Switch - Check Queue Enabled
-
-**Node Type:** Switch
-
-**Configuration:**
-```javascript
-// Parse the flag (might be string or boolean)
-var queueEnabled = metadata.telegram_queue_enabled;
-
-if (typeof queueEnabled === 'string') {
-  queueEnabled = (queueEnabled.toLowerCase() === 'true');
-}
-
-return queueEnabled === true;
-```
-
-**Connections:**
-- **True** → Node 3.3 (Queue Path)
-- **False** → Your existing direct send nodes (unchanged)
-
----
-
-#### Node 3.3: Script - Normalize for Queue
-
-**Purpose:** Convert your existing message format to queue entry format
-
-**Script:**
-```javascript
-// Your existing message text (adjust field names as needed)
-var text = msg.text || msg.alarmText || metadata.messageText;
-
-// Generate queue ID (simple UUID v4)
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0;
-    var v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-var queueId = generateUUID();
-var now = Date.now();
-
-// Extract metadata
-var customerId = metadata.customerId;
-var deviceId = metadata.deviceId || metadata.originatorId;
-var deviceName = metadata.deviceName || msg.deviceName || 'Unknown';
-var deviceProfile = metadata.deviceType || metadata.deviceProfile || 'unknown';
-
-// Create normalized entry
-var normalizedEntry = {
-  queueId: queueId,
-  customerId: customerId,
-  deviceId: deviceId,
-  deviceProfile: deviceProfile,
-  deviceName: deviceName,
-  payload: {
-    text: text,
-    alarmType: msg.alarmType || metadata.alarmType,
-    severity: metadata.ss_severity || 'INFO'
-  },
-  status: 'PENDING',
-  retryCount: 0,
-  createdAt: now,
-  sentAt: null,
-  lastAttemptAt: null,
-  errorMessage: null
-};
-
-return {
-  msg: {
-    entry: normalizedEntry,
-    deviceProfile: deviceProfile,
-    deviceId: deviceId,
-    customerId: customerId
-  },
-  metadata: metadata,
-  msgType: 'POST_ATTRIBUTES_REQUEST'
-};
-```
-
-**Connect to:** Node 3.4
-
----
-
-#### Node 3.4: Script - Resolve Priority
-
-**Purpose:** Same as Node 1.4 from Flow 1
-
-**Script:** Copy entire content from [`rule-chain/scripts/enqueue-priority.js`](rule-chain/scripts/enqueue-priority.js)
-
-**Connect to:** Node 3.5
-
----
-
-#### Node 3.5: Script - Prepare Save
-
-**Purpose:** Same as Node 1.6 from Flow 1
-
-**Script:** (Same as Flow 1, Node 1.6 - see above)
-
-**Connect to:** Node 3.6
-
----
-
-#### Node 3.6: Save Attributes - Enqueue
-
-**Purpose:** Same as Node 1.7 from Flow 1
-
-**Node Type:** Save Attributes
-
-**Configuration:**
-- **Entity:** Customer
-- **Scope:** SERVER_SCOPE
-- **Attributes:** From `msg.attributes`
-
-**Connect to:** Log Success
-
----
-
-### Step 4: Keep Direct Send Path Unchanged
-
-Your existing nodes after the **False** branch of the Switch remain **exactly as they are**:
-
-```
-[Switch: FALSE]
-  ↓
-[Your existing transformation scripts]
-  ↓
-[REST API Call with hardcoded token]
-  ↓
-[Log success]
-```
-
-**No changes needed!** This ensures customers without `telegram_queue_enabled: true` continue working exactly as before.
-
----
-
-### Step 5: Migration Checklist
-
-Use this checklist to migrate customers gradually:
-
-#### Pre-Migration (Prepare)
-- [ ] Deploy the three queue Rule Chains (Enqueue, Dispatcher, Monitor) - see main setup above
-- [ ] Create service account `telegram-queue-service@myio.com.br`
-- [ ] Create virtual device `telegram-queue-monitor`
-- [ ] Test queue system with ONE pilot customer
-
-#### Per-Customer Migration
-- [ ] Customer agrees to pilot the queue system
-- [ ] Add `telegram_queue_config` attribute to customer (see Step 2.2)
-- [ ] Set `telegram_queue_enabled: true` attribute
-- [ ] Monitor for 24 hours:
-  - [ ] Messages enqueueing correctly?
-  - [ ] Dispatcher sending messages?
-  - [ ] No duplicate sends (queue AND direct)?
-- [ ] Customer confirms messages working correctly
-- [ ] Mark as migrated in spreadsheet
-
-#### Rollback Plan (If Issues)
-- [ ] Set `telegram_queue_enabled: false` immediately
-- [ ] Customer reverts to direct send (no downtime!)
-- [ ] Investigate queue issues offline
-- [ ] Fix and retry migration later
-
----
-
-### Step 6: Special Cases
-
-#### Case 1: Different Telegram Chats Per Customer
-
-**Old Way:** Each customer has `telegramGroup` attribute with different chat ID
-
-**Queue Way:** Each customer has `telegram_queue_config.telegram.chatId`
-
-**Migration:** When you add `telegram_queue_config`, copy the existing `telegramGroup` value:
-
-```json
-{
-  "telegram": {
-    "botToken": "SHARED_BOT_TOKEN",
-    "chatId": "<value from telegramGroup attribute>"
-  }
-}
-```
-
----
-
-#### Case 2: Special Filtering Rules (e.g., Generator/Pump Alarms)
-
-**Old Way:** You have a Switch node checking `msg.isSpecialGroup` or alarm type
-
-**Queue Way:** Keep the filter BEFORE the queue/direct split:
-
-```
-[Alarm]
-  ↓
-[Filter: isSpecialGroup]
-  ├─ TRUE → [Special handling]
-  └─ FALSE → [Switch: Queue Enabled?]
-                ├─ TRUE → Queue
-                └─ FALSE → Direct
-```
-
----
-
-#### Case 3: Multiple Bot Tokens (Different Customers Use Different Bots)
-
-**Queue Way:** Each customer's `telegram_queue_config` has their own `botToken`:
-
-```json
-{
-  "telegram": {
-    "botToken": "1234567890:AAH...",  // Customer A's bot
-    "chatId": "-100123456789"
-  }
-}
-```
-
-```json
-{
-  "telegram": {
-    "botToken": "9876543210:BBG...",  // Customer B's bot
-    "chatId": "-100987654321"
-  }
-}
-```
-
-The Dispatcher will use each customer's bot token from their config.
-
----
-
-### Step 7: Monitoring Hybrid Deployment
-
-#### Metrics to Track
-
-| Metric | Where to Find | Expected Value |
-|--------|---------------|----------------|
-| Customers using direct send | Count customers with `telegram_queue_enabled: false` | Decreases over time |
-| Customers using queue | Count customers with `telegram_queue_enabled: true` | Increases over time |
-| Queue depth per customer | Device telemetry `total_queue_depth` | < 50 (healthy) |
-| Failed sends | Queue entries with `status: FAILED` | < 5% of total |
-
-#### Dashboard Widget (Optional)
-
-Create a ThingsBoard widget that shows migration progress:
-
-**Datasource:** Virtual device `telegram-queue-monitor`
-**Metric:** `customers_migrated_count` (you can add this to monitor script)
-
-**Visual:** Progress bar showing "45 out of 100 customers migrated"
-
----
-
-### Step 8: Full Migration Timeline Example
-
-**Week 1: Prepare**
-- Deploy queue Rule Chains
-- Test with 1 internal customer
-- Train support team
-
-**Week 2-4: Pilot (10 customers)**
-- Migrate 2-3 customers per week
-- Monitor closely for issues
-- Gather feedback
-
-**Week 5-8: Gradual Rollout (50 customers)**
-- Migrate 10-15 customers per week
-- Automated monitoring alerts
-- Confidence builds
-
-**Week 9-12: Final Push (40 customers)**
-- Migrate remaining customers
-- Decommission old direct send nodes
-- Full queue deployment complete
-
----
-
-### Step 9: Post-Migration Cleanup
-
-Once ALL customers migrated to queue:
-
-1. **Remove Switch Node** - No longer need queue enabled check
-2. **Delete Direct Send Nodes** - Old REST API call nodes no longer used
-3. **Remove Old Attributes** - Delete `telegramGroup` attributes (now using `telegram_queue_config.telegram.chatId`)
-4. **Simplify Rule Chain** - Alarm → Normalize → Enqueue (much cleaner!)
+Failed sends are retried automatically:
+- **Retryable errors:** 429 (rate limit), 5xx (server error), 0 (network)
+- **Non-retryable:** 400-499 (client error - bad config)
+- **Backoff:**
+  - Exponential: 10s → 20s → 40s → 80s
+  - Linear: 10s → 20s → 30s → 40s
+- **Max retries:** Configurable (default: 3), then marked FAILED
 
 ---
 
@@ -1403,33 +1194,13 @@ Once ALL customers migrated to queue:
 
 | Feature | Direct Send (Old) | Queue System (New) |
 |---------|-------------------|---------------------|
-| **Rate Limiting** | ❌ No - Telegram may block | ✅ Yes - Configurable batches |
+| **Rate Limiting** | ❌ No - Telegram may block | ✅ Yes - Configurable |
 | **Priority** | ❌ No - All equal | ✅ Yes - 4 levels |
 | **Retry** | ❌ No - Lost on failure | ✅ Yes - Exponential backoff |
-| **Monitoring** | ❌ No metrics | ✅ Yes - Dashboard metrics |
-| **Scalability** | ⚠️ Poor - Spams on many alarms | ✅ Good - Batches automatically |
-| **Configuration** | ⚠️ Hardcoded in Rule Chain | ✅ Per-customer attributes |
-| **Migration Effort** | N/A | ✅ Gradual, low risk |
-
----
-
-## 🎓 Understanding the Hybrid Approach
-
-### Why Not Replace Everything at Once?
-
-**Risk Management:**
-- 100 customers × direct replacement = **high risk** (all fail if bug exists)
-- 5 customers × gradual migration = **low risk** (rollback easily)
-
-**Business Continuity:**
-- Direct send keeps working during migration
-- No notification downtime
-- Customer confidence maintained
-
-**Testing in Production:**
-- Real-world validation with small group
-- Discover edge cases early
-- Fix issues before wide rollout
+| **Monitoring** | ❌ No metrics | ✅ Yes - Dashboard ready |
+| **Scalability** | ⚠️ Poor - Spams | ✅ Good - Batches |
+| **Configuration** | ⚠️ Hardcoded | ✅ Per-customer attributes |
+| **Migration** | N/A | ✅ Gradual, zero downtime |
 
 ---
 
@@ -1437,9 +1208,9 @@ Once ALL customers migrated to queue:
 
 - **Issues**: File in project repository
 - **Questions**: Contact MYIO Platform Team
-- **Documentation**: See [`rule-chain/README.md`](rule-chain/README.md) for technical details
-- **Migration Help**: Refer to this Hybrid Integration section
+- **Full Specification**: See `docs/RFC-0135-TelegramNotificationQueue.md`
+- **Technical Details**: See `rule-chain/README.md`
 
 ---
 
-**RFC-0135 v2.0.0** | ThingsBoard Rule Chain Native | © 2026 MYIO Platform
+**RFC-0135 v2.0.0** | Hybrid Integration Guide | © 2026 MYIO Platform
