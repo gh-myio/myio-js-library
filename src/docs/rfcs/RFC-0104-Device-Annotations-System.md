@@ -824,6 +824,87 @@ const dateFilter = createDateRangePicker({
 5. **Export**: Should there be bulk export functionality for annotations?
 6. **Retention Policy**: Should old archived annotations be automatically purged?
 
+## Onboarding Tour (RFC-0144)
+
+The Annotations feature includes a built-in guided tour following the principles defined in RFC-0144.
+
+### First-Run Experience
+
+When a user accesses the Annotations tab for the first time, a welcome modal appears:
+
+```
+┌─────────────────────────────────────────────┐
+│              📝                             │
+│     Bem-vindo às Anotações!                 │
+│                                             │
+│  Este é seu primeiro acesso ao sistema      │
+│  de anotações. Gostaria de fazer um tour    │
+│  rápido para conhecer as funcionalidades?   │
+│                                             │
+│      [Depois]         [Iniciar Tour]        │
+└─────────────────────────────────────────────┘
+```
+
+### Tour Steps
+
+The guided tour highlights key UI elements sequentially:
+
+| Step | Target | Icon | Title | Description |
+|------|--------|------|-------|-------------|
+| 1 | `.annotations-create-btn` | ➕ | Criar Nova Anotação | Click + button to create a new annotation |
+| 2 | `.annotations-filters` | 🔍 | Filtros | Filter annotations by status, type, importance, or date range |
+| 3 | `.annotations-grid` | 📋 | Lista de Anotações | View all registered annotations |
+| 4 | `.annotations-grid__help` | ❓ | Ajuda Rápida | Quick access to action help |
+| 5 | `.annotation-card__actions` | 🎯 | Ações Disponíveis | Introduction to action buttons |
+| 6 | `.annotation-card__btn--edit` | ✏️ | Editar Anotação | Modify content, type, importance, or due date |
+| 7 | `.annotation-card__btn--archive` | ⬇️ | Arquivar Anotação | Archive completed or irrelevant annotations |
+| 8 | `.annotation-card__btn--approve` | ✓ | Aprovar Anotação | Approve an annotation with optional comment |
+| 9 | `.annotation-card__btn--reject` | ✗ | Rejeitar Anotação | Reject an annotation with required reason |
+| 10 | `.annotation-card__btn--comment` | 💬 | Adicionar Comentário | Add comments for discussions |
+| 11 | `.annotation-card__btn--history` | 📜 | Ver Histórico | View complete audit trail of changes |
+
+### Tour Navigation
+
+Each tour step includes:
+- **Progress indicator**: Dots showing current position
+- **Step counter**: "5/11" format
+- **Navigation buttons**: Previous, Next/Finish, Skip
+
+### Version-Aware Tours
+
+The tour state is stored per-device in localStorage:
+
+```typescript
+interface TourState {
+  version: string;        // Tour version (e.g., "1.1.0")
+  completedAt: string;    // ISO 8601 timestamp
+  userId: string;         // User who completed the tour
+}
+```
+
+When the tour version changes, users are prompted to see new features.
+
+**Version History:**
+| Version | Changes |
+|---------|---------|
+| 1.0.0 | Initial tour with 6 steps |
+| 1.1.0 | Expanded to 12 steps with individual action button explanations |
+| 1.2.0 | Fixed to 11 steps targeting visible elements (create button, filters, grid, actions) |
+
+### Manual Tour Access
+
+Users can restart the tour at any time via the "🎓 Tour" button in the header.
+
+### API
+
+```typescript
+// Start the tour programmatically
+annotationsTab.startTour();
+
+// Reset tour state (for testing)
+annotationsTab.resetTour();
+```
+
 ## Future possibilities
 
 1. **Cross-Device Annotations**: Link annotations across related devices
@@ -861,6 +942,16 @@ const dateFilter = createDateRangePicker({
 - [ ] Mock data for development testing
 - [ ] Performance optimization
 - [ ] Documentation
+
+### Phase 6: Onboarding Tour (RFC-0144)
+- [x] Add tour CSS styles (popover, highlight, welcome modal)
+- [x] Implement tour step definitions
+- [x] Add first-run detection with localStorage
+- [x] Implement welcome modal for new users
+- [x] Implement step-by-step tour with navigation
+- [x] Add "Tour" button to header for manual access
+- [x] Version-aware tour triggering
+- [x] Update RFC documentation
 
 ## Showcase
 

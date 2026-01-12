@@ -1,4 +1,8 @@
-## Plano: Showcase de Simulação MAIN_UNIQUE_DATASOURCE Widget
+## RFC-0134: Showcase de Simulação MAIN_UNIQUE_DATASOURCE Widget
+
+**Status:** IMPLEMENTED
+**Date:** 2026-01-11
+**Location:** `showcase/main-unique-datasource/`
 
 Analisando o showcase existente `energy-panel` e o widget `MAIN_UNIQUE_DATASOURCE`, aqui está o plano para criar um showcase completo de simulação do ambiente ThingsBoard:
 
@@ -336,3 +340,71 @@ Antes de implementar, preciso confirmar:
 3. **API Mocking**: Precisa mockar as chamadas à API de ingestão (`/api/v1/telemetry/...`) ou apenas dados estáticos do ThingsBoard?
 
 4. **Nível de Controle**: Quer controles granulares (editar cada device) ou apenas presets de alto nível?
+
+---
+
+## IMPLEMENTATION (2026-01-11)
+
+### Files Created
+
+```
+showcase/main-unique-datasource/
+├── index.html          # Main showcase page with ThingsBoard mock
+├── start-server.bat    # Windows server script (port 3333)
+├── start-server.sh     # Linux/macOS server script
+├── stop-server.bat     # Windows stop script
+└── stop-server.sh      # Linux/macOS stop script
+```
+
+### Features Implemented
+
+1. **ThingsBoard Context Mock (`self.ctx`)**
+   - `ctx.settings` - Full settingsSchema.json mock
+   - `ctx.data` - Mock devices with ThingsBoard datasource format
+   - `ctx.datasources` - AllDevices alias configuration
+   - `ctx.$injector` - Mock authService with getJwtToken
+   - `ctx.$scope` - Date range (startDateISO, endDateISO)
+
+2. **Lifecycle Controls**
+   - `onInit` button - Calls real `self.onInit()` from controller.js
+   - `onDataUpdated` button - Calls real `self.onDataUpdated()`
+   - `onDestroy` button - Calls real `self.onDestroy()`
+
+3. **Mock Data Generator**
+   - Presets: Full (6 shoppings), Partial (3), Single (1), Empty, Large (150+)
+   - Domain filters: All, Energy, Water, Temperature
+   - Random data generation
+
+4. **Real Controller Integration**
+   - Loads actual `src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js`
+   - Uses real `styles.css` from widget
+   - Same HTML template structure as `template.html`
+
+5. **Debugging Tools**
+   - Event log (console interception for [MAIN_UNIQUE] logs)
+   - State inspector (ctx state visualization)
+   - Custom event listener (myio:data-ready, etc.)
+
+### How to Use
+
+```bash
+# 1. Build the library
+npm run build
+
+# 2. Start server
+cd showcase/main-unique-datasource
+start-server.bat   # Windows
+./start-server.sh  # Linux/macOS
+
+# 3. Open browser
+http://localhost:3333/showcase/main-unique-datasource/
+
+# 4. Click "onInit" to start the widget
+```
+
+### Decisions Made
+
+- **Data**: Uses real shopping names from DEFAULT_SHOPPING_CARDS
+- **Components**: Loads real controller.js (not simulated components)
+- **API Mocking**: Static mock data only (no API calls)
+- **Controls**: High-level presets (not granular device editing)
