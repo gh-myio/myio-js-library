@@ -64,26 +64,66 @@ export class EnergyPanelView {
 
   private buildCardsHTML(state: EnergyPanelState): string {
     const summary = state.summary;
-    const storesValue = summary?.storesTotal ?? 0;
-    const equipmentsValue = summary?.equipmentsTotal ?? 0;
+    const byCategory = summary?.byCategory;
+
+    // Calculate values with fallbacks
+    const entradaValue = byCategory?.entrada?.total ?? summary?.entradaTotal ?? 0;
+    const lojasValue = byCategory?.lojas?.total ?? summary?.storesTotal ?? 0;
+    const climatizacaoValue = byCategory?.climatizacao?.total ?? 0;
+    const escadasValue = byCategory?.escadas?.total ?? 0;
+    const elevadoresValue = byCategory?.elevadores?.total ?? 0;
+    const outrosValue = byCategory?.outros?.total ?? 0;
+    const areaComumValue = byCategory?.areaComum?.total ?? summary?.areaComumTotal ?? 0;
+    const consumidoresValue = summary?.consumidoresTotal ?? (lojasValue + climatizacaoValue + elevadoresValue + escadasValue + outrosValue);
+
+    // Calculate percentages (based on entrada as 100%)
+    const calcPerc = (value: number) => entradaValue > 0 ? ((value / entradaValue) * 100).toFixed(1) : '0';
 
     return `
       <div class="energy-panel__cards">
-        <div class="energy-panel__card" data-type="stores">
-          <div class="energy-panel__card-icon">&#127968;</div>
-          <div class="energy-panel__card-content">
-            <div class="energy-panel__card-label">Consumo Lojas</div>
-            <div class="energy-panel__card-value">${this.formatEnergy(storesValue)}</div>
-            <div class="energy-panel__card-count">${summary?.byCategory?.lojas?.count || 0} medidores</div>
-          </div>
+        <!-- ROW 1: Entrada + Lojas -->
+        ${this.buildCardHTML('entrada', '📥', 'Entrada', entradaValue, null)}
+        ${this.buildCardHTML('lojas', '🏪', 'Lojas', lojasValue, calcPerc(lojasValue))}
+
+        <!-- ROW 2: Climatização + Elevadores -->
+        ${this.buildCardHTML('climatizacao', '❄️', 'Climatização', climatizacaoValue, calcPerc(climatizacaoValue), 'Climatização = CAG + Fancoils + Chillers + Bombas')}
+        ${this.buildCardHTML('elevadores', '🛗', 'Elevadores', elevadoresValue, calcPerc(elevadoresValue))}
+
+        <!-- ROW 3: Esc. Rolantes + Outros -->
+        ${this.buildCardHTML('escadas', '🎢', 'Esc. Rolantes', escadasValue, calcPerc(escadasValue))}
+        ${this.buildCardHTML('outros', '⚙️', 'Outros Equipamentos', outrosValue, calcPerc(outrosValue), 'Equipamentos não classificados nas categorias principais')}
+
+        <!-- ROW 4: Área Comum + Total Consumidores -->
+        ${this.buildCardHTML('areaComum', '🏢', 'Área Comum', areaComumValue, calcPerc(areaComumValue), 'Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)')}
+        ${this.buildCardHTML('total', '📊', 'Total Consumidores', consumidoresValue, calcPerc(consumidoresValue))}
+      </div>
+    `;
+  }
+
+  /**
+   * Build a single card HTML with the TELEMETRY_INFO-inspired layout
+   */
+  private buildCardHTML(
+    type: string,
+    icon: string,
+    title: string,
+    value: number,
+    percentage: string | null,
+    tooltip?: string
+  ): string {
+    const percDisplay = percentage !== null ? `(${percentage}%)` : '';
+    const tooltipHTML = tooltip ? `<span class="energy-panel__card-tooltip" title="${tooltip}">ℹ️</span>` : '';
+
+    return `
+      <div class="energy-panel__card" data-type="${type}">
+        <div class="energy-panel__card-header">
+          <span class="energy-panel__card-icon">${icon}</span>
+          <h3 class="energy-panel__card-title">${title}</h3>
+          ${tooltipHTML}
         </div>
-        <div class="energy-panel__card" data-type="equipments">
-          <div class="energy-panel__card-icon">&#x2699;&#xfe0f;</div>
-          <div class="energy-panel__card-content">
-            <div class="energy-panel__card-label">Consumo Equipamentos</div>
-            <div class="energy-panel__card-value">${this.formatEnergy(equipmentsValue)}</div>
-            <div class="energy-panel__card-count">${this.getEquipmentCount(summary)} equipamentos</div>
-          </div>
+        <div class="energy-panel__card-body">
+          <span class="energy-panel__card-value">${this.formatEnergy(value)}</span>
+          ${percDisplay ? `<span class="energy-panel__card-perc">${percDisplay}</span>` : ''}
         </div>
       </div>
     `;
@@ -120,11 +160,18 @@ export class EnergyPanelView {
     return `${value.toFixed(1)} kWh`;
   }
 
-  private getEquipmentCount(summary: any): number {
-    if (!summary?.byCategory) return 0;
-    const { climatizacao, elevadores, escadas, outros } = summary.byCategory;
+  /**
+   * Calculate total consumers (sum of all categories except entrada and areaComum)
+   */
+  private getConsumidoresTotal(summary: any): number {
+    if (!summary?.byCategory) return summary?.consumidoresTotal ?? 0;
+    const { lojas, climatizacao, elevadores, escadas, outros } = summary.byCategory;
     return (
-      (climatizacao?.count || 0) + (elevadores?.count || 0) + (escadas?.count || 0) + (outros?.count || 0)
+      (lojas?.total || 0) +
+      (climatizacao?.total || 0) +
+      (elevadores?.total || 0) +
+      (escadas?.total || 0) +
+      (outros?.total || 0)
     );
   }
 
@@ -440,15 +487,47 @@ export class EnergyPanelView {
     const summary = state.summary;
     if (!summary || !this.root) return;
 
-    const storesCard = this.root.querySelector('[data-type="stores"] .energy-panel__card-value');
-    const equipmentsCard = this.root.querySelector('[data-type="equipments"] .energy-panel__card-value');
+    const byCategory = summary.byCategory;
 
-    if (storesCard) {
-      storesCard.textContent = this.formatEnergy(summary.storesTotal);
-    }
-    if (equipmentsCard) {
-      equipmentsCard.textContent = this.formatEnergy(summary.equipmentsTotal);
-    }
+    // Calculate all values
+    const entradaValue = byCategory?.entrada?.total ?? summary.entradaTotal ?? 0;
+    const lojasValue = byCategory?.lojas?.total ?? summary.storesTotal ?? 0;
+    const climatizacaoValue = byCategory?.climatizacao?.total ?? 0;
+    const escadasValue = byCategory?.escadas?.total ?? 0;
+    const elevadoresValue = byCategory?.elevadores?.total ?? 0;
+    const outrosValue = byCategory?.outros?.total ?? 0;
+    const areaComumValue = byCategory?.areaComum?.total ?? summary.areaComumTotal ?? 0;
+    const consumidoresValue = summary.consumidoresTotal ?? this.getConsumidoresTotal(summary);
+
+    // Calculate percentage helper
+    const calcPerc = (value: number) => entradaValue > 0 ? ((value / entradaValue) * 100).toFixed(1) : '0';
+
+    // Update each card
+    const cardTypes = [
+      { type: 'entrada', value: entradaValue, perc: null },
+      { type: 'lojas', value: lojasValue, perc: calcPerc(lojasValue) },
+      { type: 'climatizacao', value: climatizacaoValue, perc: calcPerc(climatizacaoValue) },
+      { type: 'elevadores', value: elevadoresValue, perc: calcPerc(elevadoresValue) },
+      { type: 'escadas', value: escadasValue, perc: calcPerc(escadasValue) },
+      { type: 'outros', value: outrosValue, perc: calcPerc(outrosValue) },
+      { type: 'areaComum', value: areaComumValue, perc: calcPerc(areaComumValue) },
+      { type: 'total', value: consumidoresValue, perc: calcPerc(consumidoresValue) },
+    ];
+
+    cardTypes.forEach(({ type, value, perc }) => {
+      const card = this.root?.querySelector(`[data-type="${type}"]`);
+      if (!card) return;
+
+      const valueEl = card.querySelector('.energy-panel__card-value');
+      const percEl = card.querySelector('.energy-panel__card-perc');
+
+      if (valueEl) {
+        valueEl.textContent = this.formatEnergy(value);
+      }
+      if (percEl && perc !== null) {
+        percEl.textContent = `(${perc}%)`;
+      }
+    });
   }
 
   /**

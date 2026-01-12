@@ -652,11 +652,61 @@ async function initializeDistributionChartWidget() {
   LogHelper.log(' [RFC-0102] Initializing distribution chart widget...');
 
   // Calculate distribution data for water using REAL data from orchestrator
+  // FIX: Now respects customer filter from MENU (myio:filter-applied)
   const calculateWaterDistribution = async (mode) => {
     const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
+    // FIX: Get selected shopping IDs to filter data
+    const selectedShoppingIds = getSelectedShoppingIds();
+    const hasFilter = selectedShoppingIds.length > 0;
+
     if (mode === 'groups') {
-      // Lojas vs Área Comum - get from waterClassified data first
+      // Lojas vs Área Comum
+      // FIX: When filter is active, recalculate from waterCache filtering by selected customers
+      if (hasFilter) {
+        LogHelper.log(' [RFC-0102] Distribution groups mode with filter:', selectedShoppingIds.length, 'shoppings');
+
+        if (!orchestrator || typeof orchestrator.getWaterCache !== 'function') {
+          LogHelper.warn(' Orchestrator not available for filtered distribution calculation');
+          return null;
+        }
+
+        const waterCache = orchestrator.getWaterCache();
+        const waterValidIds = orchestrator.getWaterValidIds?.() || { stores: new Set(), commonArea: new Set() };
+
+        if (!waterCache || waterCache.size === 0) {
+          LogHelper.warn(' Water cache is empty');
+          return null;
+        }
+
+        let storesTotal = 0;
+        let commonAreaTotal = 0;
+
+        waterCache.forEach((deviceData, ingestionId) => {
+          const customerId = deviceData.customerId;
+
+          // FIX: Filter by selected shopping IDs
+          if (!selectedShoppingIds.includes(customerId)) {
+            return;
+          }
+
+          const consumption = Number(deviceData.value) || Number(deviceData.total_value) || 0;
+
+          if (waterValidIds.stores?.has(ingestionId)) {
+            storesTotal += consumption;
+          } else if (waterValidIds.commonArea?.has(ingestionId)) {
+            commonAreaTotal += consumption;
+          }
+        });
+
+        LogHelper.log(' [RFC-0102] Distribution (filtered):', { stores: storesTotal, commonArea: commonAreaTotal });
+        return {
+          Lojas: storesTotal,
+          'Área Comum': commonAreaTotal,
+        };
+      }
+
+      // No filter - use pre-aggregated data
       const waterClassified = window.MyIOOrchestratorData?.waterClassified || window.parent?.MyIOOrchestratorData?.waterClassified;
       if (waterClassified) {
         const storesTotal = waterClassified.stores?.total || 0;
@@ -692,7 +742,7 @@ async function initializeDistributionChartWidget() {
       // Select the target category based on mode
       const targetIds = mode === 'stores' ? waterValidIds.stores : waterValidIds.commonArea;
 
-      console.log(`[WATER] Calculating distribution for mode: ${mode}, valid IDs: ${targetIds.size}`);
+      console.log(`[WATER] Calculating distribution for mode: ${mode}, valid IDs: ${targetIds.size}, filter active: ${hasFilter}`);
 
       // Aggregate by shopping (customerId)
       const shoppingDistribution = {};
@@ -703,9 +753,15 @@ async function initializeDistributionChartWidget() {
           return;
         }
 
+        const customerId = deviceData.customerId;
+
+        // FIX: Filter by selected shopping IDs when filter is active
+        if (hasFilter && !selectedShoppingIds.includes(customerId)) {
+          return;
+        }
+
         // RFC-0131: waterClassified items use 'value', not 'total_value'
         const consumption = Number(deviceData.value) || Number(deviceData.total_value) || 0;
-        const customerId = deviceData.customerId;
         const shoppingName = deviceData.ownerName || getShoppingNameForFilter(customerId);
 
         shoppingDistribution[shoppingName] = (shoppingDistribution[shoppingName] || 0) + consumption;
@@ -1481,6 +1537,64 @@ self.onInit = function () {
     }
     if (distributionChartInstance?.refresh) {
       await distributionChartInstance.refresh();
+    }
+
+    // FIX: Also recalculate and update consumption cards when filter changes
+    const selectedShoppingIds = getSelectedShoppingIds();
+    const hasFilter = selectedShoppingIds.length > 0;
+
+    if (hasFilter) {
+      // Recalculate totals from waterCache filtering by selected customers
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      if (orchestrator && typeof orchestrator.getWaterCache === 'function') {
+        const waterCache = orchestrator.getWaterCache();
+        const waterValidIds = orchestrator.getWaterValidIds?.() || { stores: new Set(), commonArea: new Set() };
+
+        if (waterCache && waterCache.size > 0) {
+          let filteredStoresTotal = 0;
+          let filteredCommonAreaTotal = 0;
+
+          waterCache.forEach((deviceData, ingestionId) => {
+            const customerId = deviceData.customerId;
+
+            // Filter by selected shopping IDs
+            if (!selectedShoppingIds.includes(customerId)) {
+              return;
+            }
+
+            const consumption = Number(deviceData.value) || Number(deviceData.total_value) || 0;
+
+            if (waterValidIds.stores?.has(ingestionId)) {
+              filteredStoresTotal += consumption;
+            } else if (waterValidIds.commonArea?.has(ingestionId)) {
+              filteredCommonAreaTotal += consumption;
+            }
+          });
+
+          const filteredData = {
+            storesTotal: filteredStoresTotal,
+            commonAreaTotal: filteredCommonAreaTotal,
+            totalGeral: filteredStoresTotal + filteredCommonAreaTotal,
+          };
+
+          LogHelper.log('Filter applied - updating cards with filtered totals:', filteredData);
+          cacheTotalConsumption(filteredStoresTotal, filteredCommonAreaTotal, filteredData.totalGeral);
+          updateAllCards(filteredData);
+        }
+      }
+    } else {
+      // No filter - request fresh data from orchestrator
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      if (orchestrator?.requestWaterSummary) {
+        orchestrator.requestWaterSummary();
+      } else if (orchestrator?.getWaterTotals) {
+        const totals = orchestrator.getWaterTotals();
+        if (totals?.total > 0) {
+          const data = { storesTotal: totals.stores, commonAreaTotal: totals.commonArea, totalGeral: totals.total };
+          cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
+          updateAllCards(data);
+        }
+      }
     }
   }));
 

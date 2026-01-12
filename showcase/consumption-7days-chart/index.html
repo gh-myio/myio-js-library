@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0098: Consumption7DaysChart Component Showcase</title>
+    <!-- Chart.js is required for this component -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- chartjs-plugin-annotation for ideal range and threshold lines -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px 24px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      .control-group select,
+      .control-group input,
+      .control-group button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .control-group select:hover,
+      .control-group input:hover,
+      .control-group button:hover {
+        border-color: #60a5fa;
+      }
+
+      .control-group button {
+        background: #3b82f6;
+        border-color: #3b82f6;
+      }
+
+      .control-group button:hover {
+        background: #2563eb;
+      }
+
+      .control-group input[type="number"] {
+        width: 70px;
+      }
+
+      .control-group input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+      }
+
+      .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 12px 24px;
+        background: rgba(59, 130, 246, 0.1);
+        border-bottom: 1px solid #334155;
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .stat-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+
+      .chart-container {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .chart-card {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #334155;
+      }
+
+      .chart-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .chart-card-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+
+      .chart-card-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .chart-card-actions button {
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .chart-card-actions button:hover {
+        background: #334155;
+        color: #f1f5f9;
+        border-color: #60a5fa;
+      }
+
+      .chart-card-actions button.active {
+        background: #3b82f6;
+        color: #fff;
+        border-color: #3b82f6;
+      }
+
+      .chart-wrap {
+        position: relative;
+        height: 350px;
+      }
+
+      .chart-wrap canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      /* Ideal Range Controls */
+      .ideal-range-controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 16px;
+        background: rgba(34, 197, 94, 0.1);
+        border-radius: 8px;
+        margin-top: 16px;
+      }
+
+      .ideal-range-controls label {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+
+      .ideal-range-controls input[type="number"] {
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        width: 80px;
+      }
+
+      /* Light mode */
+      body.light-mode {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+
+      body.light-mode .showcase-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .showcase-header p {
+        color: #64748b;
+      }
+
+      body.light-mode .controls-bar {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .control-group select,
+      body.light-mode .control-group input,
+      body.light-mode .control-group button {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+
+      body.light-mode .stats-bar {
+        background: rgba(59, 130, 246, 0.05);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .stat-value {
+        color: #1e293b;
+      }
+
+      body.light-mode .stat-label {
+        color: #64748b;
+      }
+
+      body.light-mode .chart-card {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .chart-card-title {
+        color: #1e293b;
+      }
+
+      body.light-mode .chart-card-actions button {
+        border-color: #cbd5e1;
+        color: #64748b;
+      }
+
+      body.light-mode .chart-card-actions button:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+      }
+
+      body.light-mode .ideal-range-controls {
+        background: rgba(34, 197, 94, 0.05);
+      }
+
+      body.light-mode .ideal-range-controls input[type="number"] {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+
+      /* Multiple charts layout */
+      .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0098: Consumption7DaysChart Component</h1>
+      <p>Reusable consumption chart component for energy, water, gas, and temperature domains</p>
+    </header>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Domain:</label>
+        <select id="domainSelect">
+          <option value="energy" selected>Energy</option>
+          <option value="water">Water</option>
+          <option value="gas">Gas</option>
+          <option value="temperature">Temperature</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Period:</label>
+        <select id="periodSelect">
+          <option value="7" selected>7 days</option>
+          <option value="15">15 days</option>
+          <option value="30">30 days</option>
+          <option value="90">90 days</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Chart Type:</label>
+        <select id="chartTypeSelect">
+          <option value="line" selected>Line</option>
+          <option value="bar">Bar</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Viz Mode:</label>
+        <select id="vizModeSelect">
+          <option value="total" selected>Total</option>
+          <option value="separate">Per Shopping</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Theme:</label>
+        <select id="themeSelect">
+          <option value="dark" selected>Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Shoppings:</label>
+        <select id="shoppingCountSelect">
+          <option value="1">1 shopping</option>
+          <option value="3" selected>3 shoppings</option>
+          <option value="5">5 shoppings</option>
+          <option value="10">10 shoppings</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <button id="refreshBtn">Refresh Data</button>
+      </div>
+
+      <div class="control-group">
+        <button id="exportBtn">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-item">
+        <span class="stat-value" id="statTotal">0</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statAverage">0</span>
+        <span class="stat-label">Average/Day</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statMax">0</span>
+        <span class="stat-label">Max</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statMin">0</span>
+        <span class="stat-label">Min</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statPeriod">7 days</span>
+        <span class="stat-label">Period</span>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <div class="charts-grid">
+        <!-- Main Chart -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-card-title" id="chartTitle">Consumo dos ultimos 7 dias</span>
+            <div class="chart-card-actions">
+              <button id="btnLine" class="active">Line</button>
+              <button id="btnBar">Bar</button>
+              <button id="btnSettings">Settings</button>
+              <button id="btnMaximize">Maximize</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="mainChart"></canvas>
+          </div>
+
+          <!-- Ideal Range Controls -->
+          <div class="ideal-range-controls">
+            <label>
+              <input type="checkbox" id="idealRangeEnabled" checked />
+              Show Ideal Range
+            </label>
+            <label>Min:</label>
+            <input type="number" id="idealRangeMin" value="0" step="10" />
+            <label>Max:</label>
+            <input type="number" id="idealRangeMax" value="500" step="10" />
+            <button id="applyIdealRange">Apply Range</button>
+          </div>
+        </div>
+
+        <!-- Secondary Chart (Temperature Example) -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-card-title">Temperature Example</span>
+            <div class="chart-card-actions">
+              <button id="btnTempLine" class="active">Line</button>
+              <button id="btnTempBar">Bar</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="temperatureChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!--
+    To run this showcase:
+    1. Run start-server.bat (Windows) or start-server.sh (Linux/macOS)
+    2. Open: http://localhost:3334/showcase/consumption-7days-chart/
+  -->
+
+    <!-- Load UMD build which works without module system -->
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
+    <script>
+      // MyIOLibrary is exposed globally by UMD build
+      console.log('[Showcase] MyIOLibrary loaded:', !!window.MyIOLibrary);
+      console.log('[Showcase] createConsumption7DaysChart available:', !!window.MyIOLibrary?.createConsumption7DaysChart);
+
+      // ============================================
+      // MOCK DATA GENERATOR
+      // ============================================
+
+      const DOMAIN_CONFIG = {
+        energy: {
+          unit: 'kWh',
+          unitLarge: 'MWh',
+          thresholdForLargeUnit: 1000,
+          baseValue: 200,
+          variance: 100,
+        },
+        water: {
+          unit: 'm3',
+          unitLarge: null,
+          thresholdForLargeUnit: null,
+          baseValue: 50,
+          variance: 30,
+        },
+        gas: {
+          unit: 'm3',
+          unitLarge: null,
+          thresholdForLargeUnit: null,
+          baseValue: 30,
+          variance: 15,
+        },
+        temperature: {
+          unit: 'C',
+          unitLarge: null,
+          thresholdForLargeUnit: null,
+          baseValue: 22,
+          variance: 5,
+        },
+      };
+
+      const SHOPPING_NAMES = [
+        'Shopping Aricanduva',
+        'Shopping Morumbi',
+        'Shopping Eldorado',
+        'Shopping Center Norte',
+        'Shopping Vila Olimpia',
+        'Shopping Patio Paulista',
+        'Shopping Ibirapuera',
+        'Shopping JK Iguatemi',
+        'Shopping Cidade Jardim',
+        'Shopping Market Place',
+      ];
+
+      function generateMockData(domain, period, shoppingCount) {
+        const config = DOMAIN_CONFIG[domain];
+        const labels = [];
+        const dailyTotals = [];
+        const shoppingData = {};
+        const shoppingNames = {};
+
+        // Generate labels (past N days)
+        const today = new Date();
+        for (let i = period - 1; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          labels.push(date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+        }
+
+        // Generate shopping data
+        for (let s = 0; s < shoppingCount; s++) {
+          const shoppingId = `shopping-${s + 1}`;
+          shoppingNames[shoppingId] = SHOPPING_NAMES[s % SHOPPING_NAMES.length];
+          shoppingData[shoppingId] = [];
+
+          for (let d = 0; d < period; d++) {
+            // Random value with some variance
+            const value = Math.max(0, config.baseValue + (Math.random() - 0.5) * 2 * config.variance);
+            shoppingData[shoppingId].push(Number(value.toFixed(2)));
+          }
+        }
+
+        // Calculate daily totals
+        for (let d = 0; d < period; d++) {
+          let dayTotal = 0;
+          for (const shoppingId of Object.keys(shoppingData)) {
+            dayTotal += shoppingData[shoppingId][d];
+          }
+          dailyTotals.push(Number(dayTotal.toFixed(2)));
+        }
+
+        return {
+          labels,
+          dailyTotals,
+          shoppingData,
+          shoppingNames,
+          fetchTimestamp: Date.now(),
+        };
+      }
+
+      function generateTemperatureData(period) {
+        const labels = [];
+        const dailyTotals = [];
+
+        const today = new Date();
+        for (let i = period - 1; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          labels.push(date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+
+          // Temperature varies between 18-28 C
+          const temp = 22 + (Math.random() - 0.5) * 10;
+          dailyTotals.push(Number(temp.toFixed(1)));
+        }
+
+        return {
+          labels,
+          dailyTotals,
+          fetchTimestamp: Date.now(),
+        };
+      }
+
+      // ============================================
+      // STATE
+      // ============================================
+
+      let mainChartInstance = null;
+      let temperatureChartInstance = null;
+      let currentDomain = 'energy';
+      let currentPeriod = 7;
+      let currentChartType = 'line';
+      let currentVizMode = 'total';
+      let currentTheme = 'dark';
+      let currentShoppingCount = 3;
+
+      // ============================================
+      // STATS UPDATE
+      // ============================================
+
+      function updateStatsDisplay(data, domain) {
+        const config = DOMAIN_CONFIG[domain];
+        const total = data.dailyTotals.reduce((sum, v) => sum + v, 0);
+        const avg = total / data.dailyTotals.length;
+        const max = Math.max(...data.dailyTotals);
+        const min = Math.min(...data.dailyTotals);
+
+        // Format value with unit
+        const formatValue = (value) => {
+          if (config.unitLarge && config.thresholdForLargeUnit && value >= config.thresholdForLargeUnit) {
+            return `${(value / config.thresholdForLargeUnit).toFixed(2)} ${config.unitLarge}`;
+          }
+          return `${value.toFixed(2)} ${config.unit}`;
+        };
+
+        document.getElementById('statTotal').textContent = formatValue(total);
+        document.getElementById('statAverage').textContent = formatValue(avg);
+        document.getElementById('statMax').textContent = formatValue(max);
+        document.getElementById('statMin').textContent = formatValue(min);
+        document.getElementById('statPeriod').textContent = `${currentPeriod} days`;
+      }
+
+      // ============================================
+      // CHART INITIALIZATION
+      // ============================================
+
+      function initMainChart() {
+        if (mainChartInstance) {
+          mainChartInstance.destroy();
+          mainChartInstance = null;
+        }
+
+        const config = DOMAIN_CONFIG[currentDomain];
+
+        // Get ideal range values
+        const idealRangeEnabled = document.getElementById('idealRangeEnabled').checked;
+        const idealRangeMin = parseFloat(document.getElementById('idealRangeMin').value) || 0;
+        const idealRangeMax = parseFloat(document.getElementById('idealRangeMax').value) || 500;
+
+        mainChartInstance = MyIOLibrary.createConsumption7DaysChart({
+          domain: currentDomain,
+          containerId: 'mainChart',
+          unit: config.unit,
+          unitLarge: config.unitLarge,
+          thresholdForLargeUnit: config.thresholdForLargeUnit,
+          theme: currentTheme,
+          defaultPeriod: currentPeriod,
+          defaultChartType: currentChartType,
+          defaultVizMode: currentVizMode,
+          showLegend: currentVizMode === 'separate',
+
+          // Ideal range configuration
+          idealRange: idealRangeEnabled
+            ? {
+                min: idealRangeMin,
+                max: idealRangeMax,
+                enabled: true,
+                label: 'Meta de Consumo',
+              }
+            : null,
+
+          // Mock data fetcher
+          fetchData: async (period) => {
+            console.log(`[Showcase] Fetching ${period} days of ${currentDomain} data...`);
+            // Simulate API delay
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            return generateMockData(currentDomain, period, currentShoppingCount);
+          },
+
+          // Callbacks
+          onDataLoaded: (data) => {
+            console.log('[Showcase] Data loaded:', data);
+            updateStatsDisplay(data, currentDomain);
+          },
+
+          onError: (error) => {
+            console.error('[Showcase] Chart error:', error);
+            alert(`Error: ${error.message}`);
+          },
+
+          onSettingsClick: () => {
+            console.log('[Showcase] Settings clicked');
+            alert('Settings modal would open here');
+          },
+
+          onMaximizeClick: () => {
+            console.log('[Showcase] Maximize clicked');
+            alert('Chart would go fullscreen here');
+          },
+
+          settingsButtonId: 'btnSettings',
+          maximizeButtonId: 'btnMaximize',
+          titleElementId: 'chartTitle',
+        });
+
+        // Render the chart
+        mainChartInstance.render();
+      }
+
+      function initTemperatureChart() {
+        if (temperatureChartInstance) {
+          temperatureChartInstance.destroy();
+          temperatureChartInstance = null;
+        }
+
+        temperatureChartInstance = MyIOLibrary.createConsumption7DaysChart({
+          domain: 'temperature',
+          containerId: 'temperatureChart',
+          unit: 'C',
+          theme: currentTheme,
+          defaultPeriod: 7,
+          defaultChartType: 'line',
+
+          // Temperature-specific config
+          temperatureConfig: {
+            minThreshold: {
+              value: 18,
+              label: 'Min 18C',
+              color: '#3b82f6',
+              lineStyle: 'dashed',
+            },
+            maxThreshold: {
+              value: 26,
+              label: 'Max 26C',
+              color: '#ef4444',
+              lineStyle: 'dashed',
+            },
+            idealRange: {
+              min: 20,
+              max: 24,
+              color: 'rgba(34, 197, 94, 0.15)',
+              label: 'Ideal',
+            },
+          },
+
+          // Colors for temperature
+          colors: {
+            primary: '#dc2626',
+            background: 'rgba(220, 38, 38, 0.1)',
+          },
+
+          // Mock data fetcher
+          fetchData: async (period) => {
+            console.log(`[Showcase] Fetching ${period} days of temperature data...`);
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            return generateTemperatureData(period);
+          },
+
+          onDataLoaded: (data) => {
+            console.log('[Showcase] Temperature data loaded:', data);
+          },
+        });
+
+        temperatureChartInstance.render();
+      }
+
+      // ============================================
+      // EVENT HANDLERS
+      // ============================================
+
+      document.getElementById('domainSelect').addEventListener('change', (e) => {
+        currentDomain = e.target.value;
+
+        // Update ideal range defaults based on domain
+        const defaults = {
+          energy: { min: 0, max: 500 },
+          water: { min: 0, max: 100 },
+          gas: { min: 0, max: 50 },
+          temperature: { min: 20, max: 24 },
+        };
+
+        document.getElementById('idealRangeMin').value = defaults[currentDomain].min;
+        document.getElementById('idealRangeMax').value = defaults[currentDomain].max;
+
+        initMainChart();
+      });
+
+      document.getElementById('periodSelect').addEventListener('change', (e) => {
+        currentPeriod = parseInt(e.target.value, 10);
+        if (mainChartInstance) {
+          mainChartInstance.setPeriod(currentPeriod);
+        }
+      });
+
+      document.getElementById('chartTypeSelect').addEventListener('change', (e) => {
+        currentChartType = e.target.value;
+        if (mainChartInstance) {
+          mainChartInstance.setChartType(currentChartType);
+        }
+
+        // Update buttons
+        document.getElementById('btnLine').classList.toggle('active', currentChartType === 'line');
+        document.getElementById('btnBar').classList.toggle('active', currentChartType === 'bar');
+      });
+
+      document.getElementById('vizModeSelect').addEventListener('change', (e) => {
+        currentVizMode = e.target.value;
+        if (mainChartInstance) {
+          mainChartInstance.setVizMode(currentVizMode);
+        }
+      });
+
+      document.getElementById('themeSelect').addEventListener('change', (e) => {
+        currentTheme = e.target.value;
+        document.body.classList.toggle('light-mode', currentTheme === 'light');
+
+        if (mainChartInstance) {
+          mainChartInstance.setTheme(currentTheme);
+        }
+        if (temperatureChartInstance) {
+          temperatureChartInstance.setTheme(currentTheme);
+        }
+      });
+
+      document.getElementById('shoppingCountSelect').addEventListener('change', (e) => {
+        currentShoppingCount = parseInt(e.target.value, 10);
+        initMainChart();
+      });
+
+      document.getElementById('refreshBtn').addEventListener('click', () => {
+        if (mainChartInstance) {
+          mainChartInstance.refresh(true);
+        }
+        if (temperatureChartInstance) {
+          temperatureChartInstance.refresh(true);
+        }
+      });
+
+      document.getElementById('exportBtn').addEventListener('click', () => {
+        if (mainChartInstance) {
+          mainChartInstance.exportCSV();
+        }
+      });
+
+      // Chart type buttons
+      document.getElementById('btnLine').addEventListener('click', () => {
+        currentChartType = 'line';
+        document.getElementById('chartTypeSelect').value = 'line';
+        document.getElementById('btnLine').classList.add('active');
+        document.getElementById('btnBar').classList.remove('active');
+        if (mainChartInstance) {
+          mainChartInstance.setChartType('line');
+        }
+      });
+
+      document.getElementById('btnBar').addEventListener('click', () => {
+        currentChartType = 'bar';
+        document.getElementById('chartTypeSelect').value = 'bar';
+        document.getElementById('btnBar').classList.add('active');
+        document.getElementById('btnLine').classList.remove('active');
+        if (mainChartInstance) {
+          mainChartInstance.setChartType('bar');
+        }
+      });
+
+      // Temperature chart type buttons
+      document.getElementById('btnTempLine').addEventListener('click', () => {
+        document.getElementById('btnTempLine').classList.add('active');
+        document.getElementById('btnTempBar').classList.remove('active');
+        if (temperatureChartInstance) {
+          temperatureChartInstance.setChartType('line');
+        }
+      });
+
+      document.getElementById('btnTempBar').addEventListener('click', () => {
+        document.getElementById('btnTempBar').classList.add('active');
+        document.getElementById('btnTempLine').classList.remove('active');
+        if (temperatureChartInstance) {
+          temperatureChartInstance.setChartType('bar');
+        }
+      });
+
+      // Ideal range controls
+      document.getElementById('applyIdealRange').addEventListener('click', () => {
+        if (mainChartInstance) {
+          const enabled = document.getElementById('idealRangeEnabled').checked;
+          const min = parseFloat(document.getElementById('idealRangeMin').value) || 0;
+          const max = parseFloat(document.getElementById('idealRangeMax').value) || 500;
+
+          mainChartInstance.setIdealRange(
+            enabled
+              ? {
+                  min,
+                  max,
+                  enabled: true,
+                  label: 'Meta de Consumo',
+                }
+              : null
+          );
+        }
+      });
+
+      // ============================================
+      // INITIALIZE ON LOAD
+      // ============================================
+
+      initMainChart();
+      initTemperatureChart();
+
+      console.log('[Showcase] Consumption7DaysChart showcase initialized');
+    </script>
+  </body>
+</html>

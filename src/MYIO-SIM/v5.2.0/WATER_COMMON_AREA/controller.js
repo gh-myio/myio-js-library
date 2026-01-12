@@ -1672,15 +1672,48 @@ self.onInit = async function () {
 
   window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
 
+  // FIX: Listen for myio:water-summary-ready event from MAIN (this event is actually emitted!)
+  // When this event fires, the classified data is already in the cache
+  let waterSummaryHandler = null;
+  waterSummaryHandler = () => {
+    const cachedWater = window.MyIOOrchestratorData?.classified?.water;
+    if (cachedWater?.hidrometro_area_comum?.length > 0 && STATE.itemsBase.length === 0) {
+      LogHelper.log(`[WATER_COMMON_AREA] 📡 water-summary-ready received, loading from cache...`);
+      waterTbDataHandler({ detail: { classified: { water: cachedWater } } });
+    }
+  };
+  window.addEventListener('myio:water-summary-ready', waterSummaryHandler);
+
   // RFC-0109: Listener para dados classificados do MAIN (items já classificados por deviceType/deviceProfile)
+  // FIX: MAIN stores data in window.MyIOOrchestratorData.classified.water.hidrometro_area_comum
   waterTbDataHandler = (ev) => {
     LogHelper.log(`[WATER_COMMON_AREA] 📨 waterTbDataHandler called with event:`, ev?.detail ? 'has detail' : 'no detail');
-    const { commonArea, classification } = ev.detail || {};
 
-    LogHelper.log(`[WATER_COMMON_AREA] 📦 Event detail: commonArea=${commonArea?.items?.length || 0} items, classification=${JSON.stringify(classification || {})}`);
+    // FIX: Support both formats - old (commonArea) and new (classified.water)
+    let commonAreaItems = [];
+    let classification = ev.detail?.classification || {};
+
+    // Try new format first (from classified.water)
+    if (ev.detail?.classified?.water?.hidrometro_area_comum) {
+      commonAreaItems = ev.detail.classified.water.hidrometro_area_comum;
+      LogHelper.log(`[WATER_COMMON_AREA] Using new format: classified.water.hidrometro_area_comum`);
+    }
+    // Fallback to old format (commonArea)
+    else if (ev.detail?.commonArea?.items) {
+      commonAreaItems = ev.detail.commonArea.items;
+      LogHelper.log(`[WATER_COMMON_AREA] Using old format: commonArea.items`);
+    }
+    // Try getting from global cache
+    else if (window.MyIOOrchestratorData?.classified?.water?.hidrometro_area_comum) {
+      commonAreaItems = window.MyIOOrchestratorData.classified.water.hidrometro_area_comum;
+      LogHelper.log(`[WATER_COMMON_AREA] Using global cache: MyIOOrchestratorData.classified.water.hidrometro_area_comum`);
+    }
+
+    LogHelper.log(`[WATER_COMMON_AREA] 📦 Found ${commonAreaItems.length} items`);
 
     // RFC-0109: Use items already classified by MAIN
-    if (commonArea && commonArea.items && commonArea.items.length > 0) {
+    if (commonAreaItems && commonAreaItems.length > 0) {
+      const commonArea = { items: commonAreaItems, total: commonAreaItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0) };
       LogHelper.log(
         `[WATER_COMMON_AREA] Received classified data from MAIN: ${commonArea.items.length} items, total: ${commonArea.total?.toFixed(2) || 0} m³`
       );
@@ -1752,40 +1785,43 @@ self.onInit = async function () {
   window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
 
   // RFC-0109: Check for cached classified data (event may have fired before widget loaded)
-  LogHelper.log(`[WATER_COMMON_AREA] 🔍 Checking for cached waterClassified data...`);
-  const cachedClassified = window.MyIOOrchestratorData?.waterClassified;
+  // FIX: MAIN stores data in window.MyIOOrchestratorData.classified.water (not waterClassified)
+  LogHelper.log(`[WATER_COMMON_AREA] 🔍 Checking for cached classified data...`);
+  const cachedClassified = window.MyIOOrchestratorData?.classified?.water;
+  const cachedTimestamp = window.MyIOOrchestratorData?.apiEnrichedAt || window.MyIOOrchestratorData?.classified?.timestamp;
 
   if (!window.MyIOOrchestratorData) {
     LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ window.MyIOOrchestratorData is not available`);
   } else if (!cachedClassified) {
-    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ waterClassified not found in MyIOOrchestratorData. Available keys: ${Object.keys(window.MyIOOrchestratorData).join(', ')}`);
+    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ classified.water not found in MyIOOrchestratorData. Available keys: ${Object.keys(window.MyIOOrchestratorData).join(', ')}`);
   } else {
-    LogHelper.log(`[WATER_COMMON_AREA] 📦 Found waterClassified: commonArea=${cachedClassified.commonArea?.count || 0}, stores=${cachedClassified.stores?.count || 0}, all=${cachedClassified.all?.count || 0}`);
+    LogHelper.log(`[WATER_COMMON_AREA] 📦 Found classified.water: hidrometro_area_comum=${cachedClassified.hidrometro_area_comum?.length || 0}, hidrometro=${cachedClassified.hidrometro?.length || 0}`);
   }
 
-  if (cachedClassified?.commonArea?.items?.length > 0) {
-    const cacheAge = Date.now() - (cachedClassified.timestamp || 0);
+  if (cachedClassified?.hidrometro_area_comum?.length > 0) {
+    const cacheAge = Date.now() - (cachedTimestamp || 0);
     LogHelper.log(`[WATER_COMMON_AREA] 🕐 Cache age: ${cacheAge}ms (threshold: 60000ms)`);
     if (cacheAge < 60000) { // Use cache if less than 60 seconds old
-      LogHelper.log(`[WATER_COMMON_AREA] ✅ Found cached classified data (${cachedClassified.commonArea.items.length} items, age: ${cacheAge}ms) - using it!`);
-      // Simulate event with cached data
-      waterTbDataHandler({ detail: cachedClassified });
+      LogHelper.log(`[WATER_COMMON_AREA] ✅ Found cached classified data (${cachedClassified.hidrometro_area_comum.length} items, age: ${cacheAge}ms) - using it!`);
+      // Simulate event with cached data in new format
+      waterTbDataHandler({ detail: { classified: { water: cachedClassified } } });
     } else {
       LogHelper.warn(`[WATER_COMMON_AREA] ⏰ Cache too old (${cacheAge}ms > 60000ms), waiting for fresh data`);
     }
   } else if (cachedClassified) {
-    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ Cache exists but commonArea.items is empty or missing`);
+    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ Cache exists but hidrometro_area_comum is empty or missing`);
   }
 
   // RFC-0109: Fallback - retry cache check after 2s in case of timing issues
-  if (!cachedClassified || !cachedClassified.commonArea?.items?.length) {
+  if (!cachedClassified || !cachedClassified?.hidrometro_area_comum?.length) {
     setTimeout(() => {
-      const retryCache = window.MyIOOrchestratorData?.waterClassified;
-      if (retryCache?.commonArea?.items?.length > 0 && STATE.itemsBase.length === 0) {
-        const cacheAge = Date.now() - (retryCache.timestamp || 0);
+      const retryCache = window.MyIOOrchestratorData?.classified?.water;
+      const retryTimestamp = window.MyIOOrchestratorData?.apiEnrichedAt || Date.now();
+      if (retryCache?.hidrometro_area_comum?.length > 0 && STATE.itemsBase.length === 0) {
+        const cacheAge = Date.now() - retryTimestamp;
         if (cacheAge < 120000) { // Extended threshold for retry
-          LogHelper.log(`[WATER_COMMON_AREA] 🔄 Retry found cached data (${retryCache.commonArea.items.length} items, age: ${cacheAge}ms)`);
-          waterTbDataHandler({ detail: retryCache });
+          LogHelper.log(`[WATER_COMMON_AREA] 🔄 Retry found cached data (${retryCache.hidrometro_area_comum.length} items, age: ${cacheAge}ms)`);
+          waterTbDataHandler({ detail: { classified: { water: retryCache } } });
         }
       }
     }, 2000);
@@ -1930,6 +1966,10 @@ self.onDestroy = function () {
     window.removeEventListener('myio:water-tb-data-ready', waterTbDataHandler);
     LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:water-tb-data-ready' removido.");
   }
+
+  // FIX: Remove water-summary-ready listener (added for cache sync)
+  window.removeEventListener('myio:water-summary-ready', () => {});
+  LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:water-summary-ready' removido.");
 
   // RFC-0094: Cleanup header controller
   if (waterCommonAreaHeaderController) {

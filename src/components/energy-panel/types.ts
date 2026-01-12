@@ -13,14 +13,19 @@ export interface EnergyCategoryData {
 export interface EnergySummaryData {
   storesTotal: number;
   equipmentsTotal: number;
+  entradaTotal: number;
+  areaComumTotal: number;
+  consumidoresTotal: number; // Total Consumidores = Lojas + Climatização + Elevadores + Esc. Rolantes + Outros
   total: number;
   deviceCount: number;
   byCategory: {
+    entrada: EnergyCategoryData;
     lojas: EnergyCategoryData;
     climatizacao: EnergyCategoryData;
     elevadores: EnergyCategoryData;
     escadas: EnergyCategoryData;
     outros: EnergyCategoryData;
+    areaComum: EnergyCategoryData; // Área Comum = Entrada - Consumidores
   };
   byStatus?: {
     online: number;

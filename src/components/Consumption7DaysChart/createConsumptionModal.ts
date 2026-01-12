@@ -474,6 +474,9 @@ export function createConsumptionModal(config: ConsumptionModalConfig): Consumpt
           document.removeEventListener('keydown', handleKeydown);
         }
 
+        // RFC-0098: Call onClose BEFORE destroying chart so caller can access final state
+        config.onClose?.();
+
         // Destroy chart
         chartInstance?.destroy();
         chartInstance = null;
@@ -481,9 +484,6 @@ export function createConsumptionModal(config: ConsumptionModalConfig): Consumpt
         // Remove modal
         modalElement.remove();
         modalElement = null;
-
-        // Callback
-        config.onClose?.();
       }
     },
 

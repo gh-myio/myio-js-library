@@ -84,6 +84,14 @@ export interface ConsumptionWidgetInstance {
   getChartInstance: () => any | null;
   /** Gets the cached data */
   getCachedData: () => Consumption7DaysData | null;
+  /** Gets the current state (chartType, vizMode, period, theme) */
+  getState: () => {
+    period: number;
+    chartType: ChartType;
+    vizMode: VizMode;
+    theme: ThemeMode;
+    isRendered: boolean;
+  };
   /** Exports data to CSV */
   exportCSV: (filename?: string) => void;
   /** Destroys the widget */
@@ -1807,6 +1815,16 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
 
     getCachedData() {
       return chartInstance?.getCachedData() ?? null;
+    },
+
+    getState() {
+      return {
+        period: currentPeriod,
+        chartType: currentChartType,
+        vizMode: currentVizMode,
+        theme: currentTheme,
+        isRendered: !!chartInstance,
+      };
     },
 
     exportCSV(filename?: string): void {

@@ -556,6 +556,7 @@ function recomputePercentages(visible) {
 /**
  * Update stores statistics header (Conectividade, Total de Lojas, etc)
  * RFC-0093: Aligned with EQUIPMENTS/MAIN logic for consistent stats
+ * RFC-0140: All stores are shown as online (no status calculation)
  * @param {Array} stores - Array of store items to calculate stats from
  */
 function updateStoresStats(stores) {
@@ -572,37 +573,15 @@ function updateStoresStats(stores) {
   }
 
   // RFC-0110: Calculate connectivity using MASTER RULES (same as card rendering)
-  let onlineCount = 0;
-  let offlineCount = 0;
-  let notInstalledCount = 0;
+  // RFC-0140: All stores are considered online (no status calculation)
+  const onlineCount = stores.length;
   let totalConsumption = 0;
   let zeroConsumptionCount = 0;
 
   stores.forEach((store) => {
-    // RFC-0110: Get telemetry timestamp for status calculation
-    const telemetryTimestamp = store.consumptionTs || store.timeVal || store.lastActivityTime || null;
-    const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
-
-    // RFC-0110: Calculate device status using MASTER RULES (same as card rendering)
-    const deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: DELAY_IN_MINS_TO_STORES,
-      domain: 'energy',
-    });
-
-    // RFC-0110: Count by calculated deviceStatus
-    if (deviceStatus === 'not_installed') {
-      notInstalledCount++;
-    } else if (deviceStatus === 'offline' || deviceStatus === 'no_info') {
-      offlineCount++;
-    } else {
-      onlineCount++;
-    }
-
-    // Consumption calculation - RFC-0110: Clear for offline devices
-    const rawConsumption = Number(store.value) || Number(store.val) || 0;
-    const consumption = clearValueIfOffline(rawConsumption, deviceStatus) || 0;
+    // RFC-0140: No status calculation for stores - all are online
+    // Use consumption value directly without clearing
+    const consumption = Number(store.value) || Number(store.val) || 0;
     totalConsumption += consumption;
 
     if (consumption === 0) {
@@ -700,19 +679,11 @@ async function renderList(visible) {
 
     const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
 
-    // RFC-0110: Get telemetry timestamp for status calculation
-    // For energy domain, use ONLY consumptionTs - NOT lastActivityTime as fallback!
-    // lastActivityTime is updated by ThingsBoard communication, not actual energy telemetry
-    // If consumptionTs is missing/stale, device should be considered offline
-    const telemetryTimestamp = it.consumptionTs || null;
-
-    // RFC-0110: Calculate initial deviceStatus using MASTER RULES
-    let deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedConnectionStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: DELAY_IN_MINS_TO_STORES,
-      domain: 'energy',
-    });
+    // RFC-0140: STORES represents store allocation, not physical meters
+    // All stores should show as "online" - status calculation doesn't make sense for store meters
+    // This matches the behavior in WATER_STORES
+    const telemetryTimestamp = it.consumptionTs || it.lastActivityTime || null;
+    const deviceStatus = 'online';
 
     // Parse deviceMapInstaneousPower if available (TIER 0 - highest priority)
     let deviceMapLimits = null;
@@ -738,10 +709,9 @@ async function renderList(visible) {
       operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
     }
 
-    // RFC-0110: Calculate deviceStatus using ranges ONLY if device is online
-    // If RFC-0110 already determined device is offline/not_installed, don't override
+    // RFC-0140: Stores are always online, but we still calculate ranges for tooltip visualization
     let rangesWithSource = null;
-    const isOnlineForRanges = deviceStatus === 'online' || deviceStatus === 'power_on';
+    const isOnlineForRanges = true; // RFC-0140: Stores are always online
 
     if (
       isOnlineForRanges &&
@@ -765,29 +735,16 @@ async function renderList(visible) {
         }
 
         // Calculate device status using range-based calculation
-        const parsedInstantaneousPower = Number(instantaneousPower);
-        const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower) ? null : parsedInstantaneousPower;
-
-        deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
-          connectionStatus: mappedConnectionStatus,
-          lastConsumptionValue,
-          ranges: {
-            standbyRange: rangesWithSource.standbyRange,
-            normalRange: rangesWithSource.normalRange,
-            alertRange: rangesWithSource.alertRange,
-            failureRange: rangesWithSource.failureRange,
-          },
-          // RFC-0110: Pass telemetry info for proper status calculation
-          telemetryTimestamp: telemetryTimestamp,
-          delayTimeConnectionInMins: DELAY_IN_MINS_TO_STORES,
-        });
+        // RFC-0140: Ranges are calculated for tooltip visualization only
+        // deviceStatus remains 'online' for stores - no reassignment needed
+        // (parsedInstantaneousPower and lastConsumptionValue removed - not needed when deviceStatus is always 'online')
       } catch (e) {
-        LogHelper.warn(`[RFC-0091] Failed to calculate deviceStatus for ${resolvedTbId}:`, e.message);
+        LogHelper.warn(`[RFC-0091] Failed to calculate ranges for ${resolvedTbId}:`, e.message);
       }
     }
 
-    // RFC-0110: Clear instantaneous power for offline/not_installed devices
-    const finalInstantaneousPower = clearValueIfOffline(instantaneousPower, deviceStatus);
+    // RFC-0140: Do NOT clear instantaneous power for stores - they are always online
+    const finalInstantaneousPower = instantaneousPower;
 
     // 3. Montagem do Objeto idêntico ao widget de Equipamentos
     const entityObject = {
@@ -800,7 +757,7 @@ async function renderList(visible) {
       name: it.label,
       customerName: customerName,
       centralName: it.centralName || 'N/A',
-      deviceIdentifier: 'power_on', //deviceIdentifierToDisplay,
+      deviceIdentifier: deviceIdentifierToDisplay, // RFC-0140 FIX: Was hardcoded to 'power_on'
 
       // Valores e Tipos
       val: valNum,
@@ -1046,22 +1003,11 @@ function getStoreConsumption(store) {
 }
 
 // Helper function to get store status (for filter tabs)
-// RFC-0110: Calculate deviceStatus using MASTER RULES for consistent filtering
+// RFC-0140: Stores are ALWAYS online - no status calculation
 function getStoreStatus(store) {
-  // If deviceStatus is already calculated (from updateFromDevices), use it
-  if (store.deviceStatus) {
-    return store.deviceStatus.toLowerCase();
-  }
-  // Otherwise, calculate it using RFC-0110 rules
-  // Use ONLY consumptionTs for energy domain - NOT lastActivityTime!
-  const telemetryTimestamp = store.consumptionTs || null;
-  const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
-  return calculateDeviceStatusMasterRules({
-    connectionStatus: mappedStatus,
-    telemetryTimestamp: telemetryTimestamp,
-    delayMins: DELAY_IN_MINS_TO_STORES,
-    domain: 'energy',
-  });
+  // RFC-0140: Stores represent allocation, not physical meters
+  // All stores are considered online for filtering purposes
+  return 'online';
 }
 
 // Filter modal instance (lazy initialized)
@@ -1157,20 +1103,9 @@ function openFilterModal() {
   const items =
     STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
-  // RFC-0110: Calculate deviceStatus for each item before opening modal
-  // This ensures getStoreStatus() will have deviceStatus available
-  // Use ONLY consumptionTs for energy domain - NOT lastActivityTime!
+  // RFC-0140: All stores are online - no status calculation needed
   const itemsWithDeviceStatus = items.map((item) => {
-    if (item.deviceStatus) return item; // Already calculated
-    const telemetryTimestamp = item.consumptionTs || null;
-    const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-    const deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: DELAY_IN_MINS_TO_STORES,
-      domain: 'energy',
-    });
-    return { ...item, deviceStatus };
+    return { ...item, deviceStatus: 'online' };
   });
 
   // Open with current stores and state
@@ -1771,20 +1706,11 @@ async function reflowFromState() {
 
   // RFC-0093: Update stats header via centralized controller
   // Use all enriched items for stats, not just visible/filtered ones
-  // RFC-0110: Calculate deviceStatus for each item before passing to updateFromDevices
+  // RFC-0140: All stores are online - no status calculation needed
   if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
-    // RFC-0110: Map items with calculated deviceStatus for accurate stats
-    // Use ONLY consumptionTs for energy domain - NOT lastActivityTime!
+    // RFC-0140: Map items with deviceStatus = 'online' for all stores
     const itemsWithDeviceStatus = STATE.itemsEnriched.map((item) => {
-      const telemetryTimestamp = item.consumptionTs || null;
-      const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-      const deviceStatus = calculateDeviceStatusMasterRules({
-        connectionStatus: mappedStatus,
-        telemetryTimestamp: telemetryTimestamp,
-        delayMins: DELAY_IN_MINS_TO_STORES,
-        domain: 'energy',
-      });
-      return { ...item, deviceStatus };
+      return { ...item, deviceStatus: 'online' };
     });
 
     // RFC-0110 DEBUG: Log deviceStatus distribution

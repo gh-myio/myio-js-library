@@ -1042,6 +1042,11 @@ export class SettingsModalView {
           overflow: hidden;
           display: flex;
           flex-direction: column;
+          box-sizing: border-box;
+        }
+
+        .myio-settings-modal * {
+          box-sizing: border-box;
         }
         
         .modal-header {
@@ -1864,6 +1869,160 @@ export class SettingsModalView {
           .btn-copy-global,
           .btn-clear-overrides {
             width: 100%;
+          }
+        }
+
+        /* Mobile-specific responsive styles (< 480px) */
+        @media (max-width: 480px) {
+          .myio-settings-modal-overlay {
+            padding: 8px;
+            overflow-x: hidden;
+          }
+
+          .myio-settings-modal {
+            width: calc(100% - 16px) !important;
+            max-width: calc(100vw - 16px);
+            height: auto;
+            max-height: calc(100vh - 16px);
+            margin: 0 auto;
+            border-radius: 8px;
+            box-sizing: border-box;
+          }
+
+          .modal-header {
+            padding: 12px 16px;
+          }
+
+          .modal-header h3 {
+            font-size: 16px;
+          }
+
+          .close-btn {
+            width: 36px;
+            height: 36px;
+            font-size: 28px;
+          }
+
+          /* Tabs - horizontal scroll */
+          .modal-tabs {
+            padding: 0 12px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .modal-tab {
+            padding: 10px 14px;
+            font-size: 13px;
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+
+          .modal-tab svg {
+            width: 14px;
+            height: 14px;
+          }
+
+          .modal-body {
+            padding: 12px;
+          }
+
+          .tab-content {
+            min-height: auto;
+          }
+
+          .form-card {
+            padding: 12px;
+          }
+
+          .section-title {
+            font-size: 14px;
+            margin-bottom: 14px;
+          }
+
+          .form-group label {
+            font-size: 13px;
+          }
+
+          .form-group input {
+            padding: 12px;
+            font-size: 16px; /* Prevents zoom on iOS */
+          }
+
+          /* Customer info row */
+          .customer-info-row {
+            flex-direction: column;
+            text-align: center;
+            gap: 12px;
+          }
+
+          .device-type-icon-wrapper {
+            width: 40px;
+            height: 40px;
+          }
+
+          .customer-name-text {
+            font-size: 14px;
+          }
+
+          /* Connection info */
+          .info-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+          }
+
+          .info-value {
+            text-align: left;
+            margin-left: 0;
+          }
+
+          /* Modal footer */
+          .modal-footer {
+            padding: 12px 16px;
+            flex-direction: column-reverse;
+            gap: 8px;
+          }
+
+          .modal-footer button {
+            width: 100%;
+            padding: 12px 20px;
+          }
+
+          /* Global reference grid */
+          .global-values-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+
+          .global-value-item {
+            padding: 4px 6px;
+          }
+
+          .g-status {
+            font-size: 10px;
+          }
+
+          .g-range {
+            font-size: 11px;
+          }
+
+          /* Power limits table */
+          .power-limits-table th,
+          .power-limits-table td {
+            padding: 6px;
+          }
+
+          .status-label {
+            font-size: 12px;
+          }
+
+          .status-icon {
+            font-size: 14px;
+          }
+
+          .limit-input {
+            padding: 10px 8px;
+            font-size: 16px; /* Prevents zoom on iOS */
           }
         }
       </style>

@@ -16,6 +16,8 @@ import type {
   UserInfo,
   AuditEntry,
   AnnotationsTabConfig,
+  AnnotationResponse,
+  ResponseType,
 } from './types';
 
 import {
@@ -25,11 +27,15 @@ import {
   IMPORTANCE_COLORS,
   STATUS_LABELS,
   STATUS_COLORS,
+  RESPONSE_TYPE_LABELS,
+  RESPONSE_TYPE_COLORS,
+  RESPONSE_TYPE_ICONS,
 } from './types';
 
 import { canModifyAnnotation } from '../../../../utils/superAdminUtils';
 import { MyIOToast } from '../../../../components/MyIOToast';
 import { createDateRangePicker, type DateRangeControl } from '../../../../components/createDateRangePicker';
+import { ModalHeader } from '../../../../utils/ModalHeader';
 
 // ============================================
 // UUID GENERATOR
@@ -272,12 +278,14 @@ const ANNOTATIONS_STYLES = `
 /* Importance Selector */
 .importance-selector {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .importance-option {
-  width: 34px;
-  height: 34px;
+  flex: 1;
+  min-width: 70px;
+  padding: 8px 12px;
   border: 2px solid #e9ecef;
   border-radius: 8px;
   display: flex;
@@ -285,9 +293,11 @@ const ANNOTATIONS_STYLES = `
   justify-content: center;
   cursor: pointer;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
   transition: all 0.2s;
   background: #fff;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .importance-option:hover {
@@ -703,6 +713,26 @@ const ANNOTATIONS_STYLES = `
   gap: 8px;
 }
 
+.annotations-grid__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.annotations-grid__help:hover {
+  background: #5b4cdb;
+  transform: scale(1.1);
+}
+
 .annotations-grid__count {
   font-size: 12px;
   color: #6c757d;
@@ -730,6 +760,7 @@ const ANNOTATIONS_STYLES = `
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .annotation-card:hover {
@@ -772,6 +803,16 @@ const ANNOTATIONS_STYLES = `
 .annotation-card__ack {
   background: #d4edda;
   color: #155724;
+}
+
+.annotation-card__ack--approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.annotation-card__ack--rejected {
+  background: #f8d7da;
+  color: #721c24;
 }
 
 .annotation-card__overdue-badge {
@@ -832,41 +873,418 @@ const ANNOTATIONS_STYLES = `
 
 .annotation-card__actions {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 4px;
   padding-top: 10px;
   border-top: 1px solid #e9ecef;
+  width: 100%;
 }
 
 .annotation-card__btn {
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12px;
   font-weight: 500;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
   background: #f1f3f5;
   color: #495057;
+  flex: 1;
+  text-align: center;
 }
 
-.annotation-card__btn:hover {
+.annotation-card__btn:hover:not(:disabled) {
   background: #e9ecef;
 }
 
-.annotation-card__btn--edit:hover {
+.annotation-card__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.annotation-card__btn--edit:hover:not(:disabled) {
   background: #e8f4fd;
   color: #0984e3;
 }
 
-.annotation-card__btn--archive:hover {
+.annotation-card__btn--archive:hover:not(:disabled) {
   background: #fff3cd;
   color: #856404;
 }
 
-.annotation-card__btn--ack:hover {
-  background: #d4edda;
-  color: #155724;
+.annotation-card__btn--history {
+  position: relative;
+}
+
+.annotation-card__btn--history:hover:not(:disabled) {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.annotation-card__btn--comment {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.annotation-card__btn--comment:hover:not(:disabled) {
+  background: #bae6fd;
+  color: #0369a1;
+  border-color: #7dd3fc;
+}
+
+/* History count badge */
+.annotation-card__btn-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* RFC-0104 Amendment: Approve/Reject buttons */
+.annotation-card__btn--approve {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.annotation-card__btn--approve:hover:not(:disabled) {
+  background: #a7f3d0;
+  color: #047857;
+  border-color: #6ee7b7;
+}
+
+.annotation-card__btn--reject {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.annotation-card__btn--reject:hover:not(:disabled) {
+  background: #fecaca;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* Response Modal Styles */
+.response-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.response-modal-overlay--visible {
+  opacity: 1;
+}
+
+.response-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transform: scale(0.9);
+  transition: transform 0.2s;
+}
+
+.response-modal-overlay--visible .response-modal {
+  transform: scale(1);
+}
+
+.response-modal__header {
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.response-modal__header--approve {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.response-modal__header--reject {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.response-modal__header--comment {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+}
+
+.response-modal__header--archive {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.response-modal__icon {
+  font-size: 24px;
+}
+
+.response-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.response-modal__body {
+  padding: 20px;
+}
+
+.response-modal__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.response-modal__label--required::after {
+  content: ' *';
+  color: #dc2626;
+}
+
+.response-modal__textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.response-modal__textarea:focus {
+  outline: none;
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+.response-modal__char-count {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.response-modal__char-count--warning {
+  color: #f59e0b;
+}
+
+.response-modal__char-count--error {
+  color: #dc2626;
+}
+
+.response-modal__footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.response-modal__btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.response-modal__btn--cancel {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.response-modal__btn--cancel:hover {
+  background: #d1d5db;
+}
+
+.response-modal__btn--approve {
+  background: #10b981;
+  color: #fff;
+}
+
+.response-modal__btn--approve:hover {
+  background: #059669;
+}
+
+.response-modal__btn--reject {
+  background: #ef4444;
+  color: #fff;
+}
+
+.response-modal__btn--reject:hover {
+  background: #dc2626;
+}
+
+.response-modal__btn--comment {
+  background: #0284c7;
+  color: #fff;
+}
+
+.response-modal__btn--comment:hover {
+  background: #0369a1;
+}
+
+.response-modal__btn--archive-modal {
+  background: #6b7280;
+  color: #fff;
+}
+
+.response-modal__btn--archive-modal:hover {
+  background: #4b5563;
+}
+
+.response-modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Help Tooltip */
+.annotation-help-tooltip {
+  position: fixed;
+  z-index: 100001;
+  background: #1e293b;
+  color: #f1f5f9;
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 360px;
+  min-width: 320px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.annotation-help-tooltip__title {
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.annotation-help-tooltip__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.annotation-help-tooltip__item:last-child {
+  margin-bottom: 0;
+}
+
+.annotation-help-tooltip__icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.annotation-help-tooltip__icon--approve {
+  color: #10b981;
+}
+
+.annotation-help-tooltip__icon--reject {
+  color: #ef4444;
+}
+
+.annotation-help-tooltip__section {
+  margin-bottom: 12px;
+}
+
+.annotation-help-tooltip__section:last-child {
+  margin-bottom: 0;
+}
+
+.annotation-help-tooltip__section-title {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #334155;
+}
+
+.annotation-help-tooltip__rule {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.annotation-help-tooltip__rule:last-child {
+  margin-bottom: 0;
+}
+
+/* Response Display in Card */
+.annotation-card__responses {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.annotation-card__response {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.annotation-card__response:last-child {
+  margin-bottom: 0;
+}
+
+.annotation-card__response--approved {
+  background: #ecfdf5;
+  border-left: 3px solid #10b981;
+}
+
+.annotation-card__response--rejected {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+}
+
+.annotation-card__response-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.annotation-card__response-content {
+  flex: 1;
+}
+
+.annotation-card__response-text {
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.annotation-card__response-meta {
+  color: #9ca3af;
+  font-size: 11px;
 }
 
 .annotation-card__btn--history:hover {
@@ -1044,83 +1462,128 @@ const ANNOTATIONS_STYLES = `
   align-items: center;
   justify-content: center;
   z-index: 10001;
+  backdrop-filter: blur(2px);
 }
 
 .annotation-detail-modal {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 10px;
   width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
+  max-width: 600px;
+  max-height: 85vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
 }
 
-.annotation-detail__header {
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
-  color: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.annotation-detail__title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.annotation-detail__close {
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-  line-height: 1;
+.annotation-detail-modal * {
+  box-sizing: border-box;
 }
 
 .annotation-detail__content {
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   flex: 1;
 }
 
-.annotation-detail__field {
+/* Badge Row - Tipo, Importância, Status */
+.annotation-detail__badges-row {
+  display: flex;
+  gap: 10px;
   margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e9ecef;
 }
 
-.annotation-detail__label {
-  font-size: 11px;
+.annotation-detail__badge-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.annotation-detail__badge-label {
+  font-size: 9px;
   font-weight: 600;
   color: #6c757d;
   text-transform: uppercase;
-  margin-bottom: 4px;
+}
+
+.annotation-detail__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.annotation-detail__field {
+  margin-bottom: 12px;
+}
+
+.annotation-detail__label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
 .annotation-detail__value {
-  font-size: 14px;
+  font-size: 12px;
   color: #212529;
+  line-height: 1.4;
+}
+
+.annotation-detail__description {
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #212529;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .annotation-detail__history {
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid #e9ecef;
 }
 
 .annotation-detail__history-title {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: #6c757d;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
 }
 
 .annotation-detail__history-item {
-  font-size: 11px;
+  font-size: 10px;
   color: #6c757d;
-  padding: 6px 0;
+  padding: 4px 0;
   border-bottom: 1px solid #f1f3f4;
+}
+
+/* Response boxes (approved/rejected/archived) */
+.annotation-detail__response-box {
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.annotation-detail__response-box .annotation-detail__label {
+  font-size: 9px;
+}
+
+.annotation-detail__response-box .annotation-detail__value {
+  font-size: 11px;
 }
 
 .annotation-detail__footer {
@@ -1164,6 +1627,79 @@ const ANNOTATIONS_STYLES = `
 
 .annotation-detail__btn--danger:hover {
   background: #c82333;
+}
+
+/* Responsive badges - stack on small screens */
+@media (max-width: 480px) {
+  .annotation-detail-overlay {
+    padding: 8px;
+    box-sizing: border-box;
+  }
+
+  .annotation-detail-modal {
+    width: calc(100% - 16px) !important;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  .annotation-detail-modal * {
+    box-sizing: border-box;
+  }
+
+  .annotation-detail__content {
+    padding: 12px;
+  }
+
+  .annotation-detail__badges-row {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  .annotation-detail__badge-group {
+    flex: none;
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+  }
+
+  .annotation-detail__badge-label {
+    font-size: 10px;
+    margin-bottom: 0;
+  }
+
+  .annotation-detail__field {
+    margin-bottom: 10px;
+  }
+
+  .annotation-detail__description {
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .annotation-detail__history {
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+
+  .annotation-detail__footer {
+    padding: 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .annotation-detail__btn {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
 }
 `;
 
@@ -1574,6 +2110,372 @@ export class AnnotationsTab {
   }
 
   // ============================================
+  // RFC-0104 AMENDMENT: APPROVE/REJECT RESPONSES
+  // ============================================
+
+  /**
+   * Render responses (approve/reject) for an annotation
+   */
+  private renderResponses(annotation: Annotation): string {
+    const responses = annotation.responses || [];
+    if (responses.length === 0) return '';
+
+    return `
+      <div class="annotation-card__responses">
+        ${responses.map(response => `
+          <div class="annotation-card__response annotation-card__response--${response.type}">
+            <span class="annotation-card__response-icon">${RESPONSE_TYPE_ICONS[response.type]}</span>
+            <div class="annotation-card__response-content">
+              ${response.text ? `<div class="annotation-card__response-text">${response.text}</div>` : ''}
+              <div class="annotation-card__response-meta">
+                ${RESPONSE_TYPE_LABELS[response.type]} por ${response.createdBy.name} em ${this.formatDate(response.createdAt)}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * Open modal for approve/reject response
+   */
+  private openResponseModal(annotationId: string, type: ResponseType): void {
+    const annotation = this.annotations.find(a => a.id === annotationId);
+    if (!annotation) return;
+
+    const isApprove = type === 'approved';
+    const isReject = type === 'rejected';
+    const isComment = type === 'comment';
+
+    // Configure modal based on type
+    let title: string;
+    let icon: string;
+    let headerClass: string;
+    let btnClass: string;
+    let labelText: string;
+    let labelClass: string;
+    let placeholder: string;
+    let confirmText: string;
+    let isRequired: boolean;
+
+    if (isApprove) {
+      title = 'Aprovar Anotação';
+      icon = '✓';
+      headerClass = 'response-modal__header--approve';
+      btnClass = 'response-modal__btn--approve';
+      labelText = 'Observação (opcional)';
+      labelClass = '';
+      placeholder = 'Adicione uma observação se desejar...';
+      confirmText = 'Aprovar';
+      isRequired = false;
+    } else if (isReject) {
+      title = 'Rejeitar Anotação';
+      icon = '✗';
+      headerClass = 'response-modal__header--reject';
+      btnClass = 'response-modal__btn--reject';
+      labelText = 'Justificativa';
+      labelClass = 'response-modal__label--required';
+      placeholder = 'Explique o motivo da rejeição (obrigatório)';
+      confirmText = 'Rejeitar';
+      isRequired = true;
+    } else if (isComment) {
+      // Comment
+      title = 'Adicionar Comentário';
+      icon = '💬';
+      headerClass = 'response-modal__header--comment';
+      btnClass = 'response-modal__btn--comment';
+      labelText = 'Comentário';
+      labelClass = 'response-modal__label--required';
+      placeholder = 'Digite seu comentário...';
+      confirmText = 'Comentar';
+      isRequired = true;
+    } else {
+      // Archived
+      title = 'Arquivar Anotação';
+      icon = '⬇️';
+      headerClass = 'response-modal__header--archive';
+      btnClass = 'response-modal__btn--archive-modal';
+      labelText = 'Justificativa';
+      labelClass = 'response-modal__label--required';
+      placeholder = 'Explique o motivo do arquivamento (obrigatório)';
+      confirmText = 'Arquivar';
+      isRequired = true;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'response-modal-overlay';
+    overlay.innerHTML = `
+      <div class="response-modal">
+        <div class="response-modal__header ${headerClass}">
+          <span class="response-modal__icon">${icon}</span>
+          <span class="response-modal__title">${title}</span>
+        </div>
+        <div class="response-modal__body">
+          <label class="response-modal__label ${labelClass}">${labelText}</label>
+          <textarea
+            class="response-modal__textarea"
+            id="response-text"
+            maxlength="255"
+            placeholder="${placeholder}"
+          ></textarea>
+          <div class="response-modal__char-count">
+            <span id="char-count">0</span>/255
+          </div>
+        </div>
+        <div class="response-modal__footer">
+          <button class="response-modal__btn response-modal__btn--cancel" data-action="cancel">Cancelar</button>
+          <button class="response-modal__btn ${btnClass}" data-action="confirm" ${isRequired ? 'disabled' : ''}>
+            ${confirmText}
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Add to document body (to escape any modal stacking context)
+    document.body.appendChild(overlay);
+
+    // Animate in
+    requestAnimationFrame(() => {
+      overlay.classList.add('response-modal-overlay--visible');
+    });
+
+    // Get elements
+    const textarea = overlay.querySelector('#response-text') as HTMLTextAreaElement;
+    const charCount = overlay.querySelector('#char-count') as HTMLSpanElement;
+    const confirmBtn = overlay.querySelector('[data-action="confirm"]') as HTMLButtonElement;
+    const cancelBtn = overlay.querySelector('[data-action="cancel"]') as HTMLButtonElement;
+
+    // Character count and validation
+    textarea.addEventListener('input', () => {
+      const len = textarea.value.length;
+      charCount.textContent = String(len);
+
+      const countContainer = charCount.parentElement;
+      if (countContainer) {
+        countContainer.classList.remove('response-modal__char-count--warning', 'response-modal__char-count--error');
+        if (len > 240) {
+          countContainer.classList.add('response-modal__char-count--error');
+        } else if (len > 200) {
+          countContainer.classList.add('response-modal__char-count--warning');
+        }
+      }
+
+      // For reject and comment, require text
+      if (isRequired) {
+        confirmBtn.disabled = len === 0;
+      }
+    });
+
+    // Cancel handler
+    cancelBtn.addEventListener('click', () => {
+      overlay.classList.remove('response-modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 200);
+    });
+
+    // Confirm handler
+    confirmBtn.addEventListener('click', async () => {
+      const text = textarea.value.trim();
+
+      // Validate for reject
+      if (!isApprove && !text) {
+        MyIOToast.show('Justificativa é obrigatória para rejeição.', 'error');
+        return;
+      }
+
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Salvando...';
+
+      await this.addResponse(annotationId, type, text);
+
+      overlay.classList.remove('response-modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 200);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('response-modal-overlay--visible');
+        setTimeout(() => overlay.remove(), 200);
+      }
+    });
+
+    // Close on Escape
+    const escHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        overlay.classList.remove('response-modal-overlay--visible');
+        setTimeout(() => overlay.remove(), 200);
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Focus textarea
+    setTimeout(() => textarea.focus(), 100);
+  }
+
+  /**
+   * Add a response to an annotation
+   */
+  private async addResponse(annotationId: string, type: ResponseType, text: string): Promise<void> {
+    const index = this.annotations.findIndex(a => a.id === annotationId);
+    if (index === -1) return;
+
+    const annotation = this.annotations[index];
+    const now = new Date().toISOString();
+
+    const response: AnnotationResponse = {
+      id: generateUUID(),
+      annotationId,
+      type,
+      text,
+      createdAt: now,
+      createdBy: this.currentUser,
+    };
+
+    // Map response type to audit action
+    const auditAction = type === 'comment' ? 'commented' : type;
+
+    const auditEntry: AuditEntry = {
+      timestamp: now,
+      userId: this.currentUser.id,
+      userName: this.currentUser.name,
+      userEmail: this.currentUser.email,
+      action: auditAction as AuditAction,
+      previousVersion: annotation.version,
+    };
+
+    // For archive type, also set status to archived
+    const newStatus = type === 'archived' ? 'archived' : annotation.status;
+
+    // Only mark as acknowledged for approve/reject (finalizing actions)
+    const shouldMarkAcknowledged = type === 'approved' || type === 'rejected';
+
+    const updatedAnnotation: Annotation = {
+      ...annotation,
+      version: annotation.version + 1,
+      status: newStatus,
+      acknowledged: shouldMarkAcknowledged ? true : annotation.acknowledged,
+      acknowledgedBy: shouldMarkAcknowledged ? this.currentUser : annotation.acknowledgedBy,
+      acknowledgedAt: shouldMarkAcknowledged ? now : annotation.acknowledgedAt,
+      responses: [...(annotation.responses || []), response],
+      history: [...annotation.history, auditEntry],
+    };
+
+    this.annotations[index] = updatedAnnotation;
+    const success = await this.saveAnnotations();
+
+    if (success) {
+      const actionLabels: Record<ResponseType, string> = {
+        approved: 'aprovada',
+        rejected: 'rejeitada',
+        comment: 'comentário adicionado',
+        archived: 'arquivada',
+      };
+      MyIOToast.show(`Anotação ${actionLabels[type]} com sucesso!`, 'success');
+      this.render();
+    } else {
+      this.annotations[index] = annotation;
+      MyIOToast.show('Erro ao salvar resposta. Tente novamente.', 'error');
+    }
+  }
+
+  /**
+   * Show help tooltip for approve/reject actions
+   */
+  private showHelpTooltip(anchor: HTMLElement): void {
+    // Remove existing tooltip
+    const existing = document.querySelector('.annotation-help-tooltip');
+    if (existing) {
+      existing.remove();
+      return; // Toggle off if clicking again
+    }
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'annotation-help-tooltip';
+    tooltip.innerHTML = `
+      <div class="annotation-help-tooltip__title">
+        <span>ℹ️</span>
+        <span>Ajuda - Ações da Anotação</span>
+      </div>
+      <div class="annotation-help-tooltip__section">
+        <div class="annotation-help-tooltip__section-title">Botões de Ação:</div>
+        <div class="annotation-help-tooltip__item">
+          <span class="annotation-help-tooltip__icon">✏️</span>
+          <div><strong>Editar:</strong> Modifica o texto da anotação</div>
+        </div>
+        <div class="annotation-help-tooltip__item">
+          <span class="annotation-help-tooltip__icon">⬇️</span>
+          <div><strong>Arquivar:</strong> Move para histórico de arquivados</div>
+        </div>
+        <div class="annotation-help-tooltip__item">
+          <span class="annotation-help-tooltip__icon annotation-help-tooltip__icon--approve">✓</span>
+          <div><strong>Aprovar:</strong> Confirma revisão (observação opcional)</div>
+        </div>
+        <div class="annotation-help-tooltip__item">
+          <span class="annotation-help-tooltip__icon annotation-help-tooltip__icon--reject">✗</span>
+          <div><strong>Rejeitar:</strong> Indica problema (justificativa obrigatória)</div>
+        </div>
+        <div class="annotation-help-tooltip__item">
+          <span class="annotation-help-tooltip__icon">📜</span>
+          <div><strong>Histórico:</strong> Ver detalhes e observações</div>
+        </div>
+      </div>
+      <div class="annotation-help-tooltip__section">
+        <div class="annotation-help-tooltip__section-title">Regras de Estado:</div>
+        <div class="annotation-help-tooltip__rule">
+          • Após <strong>aprovar</strong> ou <strong>rejeitar</strong>, a anotação é finalizada
+        </div>
+        <div class="annotation-help-tooltip__rule">
+          • Anotações finalizadas não podem ser editadas ou arquivadas
+        </div>
+        <div class="annotation-help-tooltip__rule">
+          • Observações/justificativas ficam visíveis no histórico
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(tooltip);
+
+    // Position near anchor
+    const rect = anchor.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+
+    let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+    let top = rect.bottom + 10;
+
+    // Keep within viewport
+    if (left < 10) left = 10;
+    if (left + tooltipRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - tooltipRect.width - 10;
+    }
+    if (top + tooltipRect.height > window.innerHeight - 10) {
+      top = rect.top - tooltipRect.height - 10;
+    }
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+
+    // Close on click outside
+    const closeHandler = (e: MouseEvent) => {
+      if (!tooltip.contains(e.target as Node) && e.target !== anchor) {
+        tooltip.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler), 100);
+
+    // Close on Escape
+    const escHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        tooltip.remove();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+  }
+
+  // ============================================
   // FILTERING AND PAGINATION
   // ============================================
 
@@ -1747,11 +2649,11 @@ export class AnnotationsTab {
           <div class="annotations-form__field">
             <label class="annotations-form__label">Importância</label>
             <div class="importance-selector" id="importance-selector">
-              <div class="importance-option importance-option--1" data-importance="1" title="Muito Baixa">1</div>
-              <div class="importance-option importance-option--2" data-importance="2" title="Baixa">2</div>
-              <div class="importance-option importance-option--3 selected" data-importance="3" title="Média">3</div>
-              <div class="importance-option importance-option--4" data-importance="4" title="Alta">4</div>
-              <div class="importance-option importance-option--5" data-importance="5" title="Muito Alta">5</div>
+              <div class="importance-option importance-option--1" data-importance="1" title="1 - Muito Baixa">${IMPORTANCE_LABELS[1]}</div>
+              <div class="importance-option importance-option--2" data-importance="2" title="2 - Baixa">${IMPORTANCE_LABELS[2]}</div>
+              <div class="importance-option importance-option--3 selected" data-importance="3" title="3 - Normal">${IMPORTANCE_LABELS[3]}</div>
+              <div class="importance-option importance-option--4" data-importance="4" title="4 - Alta">${IMPORTANCE_LABELS[4]}</div>
+              <div class="importance-option importance-option--5" data-importance="5" title="5 - Muito Alta">${IMPORTANCE_LABELS[5]}</div>
             </div>
           </div>
           <div class="annotations-form__field">
@@ -2006,7 +2908,10 @@ export class AnnotationsTab {
     return `
       <div class="annotations-grid">
         <div class="annotations-grid__header">
-          <span class="annotations-grid__title">📋 Anotações Registradas</span>
+          <span class="annotations-grid__title">
+            📋 Anotações Registradas
+            <span class="annotations-grid__help" data-action="grid-help" title="Ajuda sobre ações">?</span>
+          </span>
           <span class="annotations-grid__count">${this.pagination.totalItems} registro(s)</span>
         </div>
         <div class="annotations-grid__list">
@@ -2050,12 +2955,26 @@ export class AnnotationsTab {
     const importanceColor = IMPORTANCE_COLORS[annotation.importance];
     const overdue = this.isOverdue(annotation);
     const authorInitial = annotation.createdBy.name.charAt(0).toUpperCase();
+    // RFC-0104: Hide approve/reject buttons if annotation already has a response
+    const hasResponse = annotation.responses && annotation.responses.length > 0;
+    const lastResponse = hasResponse ? annotation.responses[annotation.responses.length - 1] : null;
+    const responseStatus = lastResponse?.type as ResponseType | null;
 
     const cardClasses = [
       'annotation-card',
       annotation.status === 'archived' ? 'annotation-card--archived' : '',
       overdue ? 'annotation-card--overdue' : '',
     ].filter(Boolean).join(' ');
+
+    // Determine which buttons should be disabled
+    const isArchived = annotation.status === 'archived';
+    const isFinalized = responseStatus === 'approved' || responseStatus === 'rejected';
+    const cannotModify = !canModify || isArchived || isFinalized;
+    const cannotRespond = isArchived || isFinalized;
+    const cannotComment = isArchived || isFinalized;
+
+    // Count for history badge (history events + responses)
+    const historyCount = (annotation.history?.length || 0) + (annotation.responses?.length || 0);
 
     return `
       <div class="${cardClasses}" data-id="${annotation.id}">
@@ -2066,7 +2985,8 @@ export class AnnotationsTab {
           <div class="annotation-card__importance" style="background: ${importanceColor}">
             ${IMPORTANCE_LABELS[annotation.importance]}
           </div>
-          ${annotation.acknowledged ? '<div class="annotation-card__ack">✓ Reconhecida</div>' : ''}
+          ${responseStatus === 'approved' ? '<div class="annotation-card__ack annotation-card__ack--approved">✓ Aprovada</div>' : ''}
+          ${responseStatus === 'rejected' ? '<div class="annotation-card__ack annotation-card__ack--rejected">✗ Rejeitada</div>' : ''}
           ${overdue ? '<div class="annotation-card__overdue-badge">⚠️ Vencida</div>' : ''}
         </div>
 
@@ -2087,14 +3007,15 @@ export class AnnotationsTab {
         ` : ''}
 
         <div class="annotation-card__actions">
-          ${canModify && annotation.status !== 'archived' ? `
-            <button class="annotation-card__btn annotation-card__btn--edit" data-action="edit">✏️ Editar</button>
-            <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive">📦 Arquivar</button>
-          ` : ''}
-          ${!annotation.acknowledged ? `
-            <button class="annotation-card__btn annotation-card__btn--ack" data-action="acknowledge">✓ Reconhecer</button>
-          ` : ''}
-          <button class="annotation-card__btn annotation-card__btn--history" data-action="details">📜 Histórico</button>
+          <button class="annotation-card__btn annotation-card__btn--edit" data-action="edit" title="Editar anotação" ${cannotModify ? 'disabled' : ''}>✏️</button>
+          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotModify ? 'disabled' : ''}>⬇️</button>
+          <button class="annotation-card__btn annotation-card__btn--approve" data-action="approve" title="Aprovar anotação" ${cannotRespond ? 'disabled' : ''}>✓</button>
+          <button class="annotation-card__btn annotation-card__btn--reject" data-action="reject" title="Rejeitar anotação" ${cannotRespond ? 'disabled' : ''}>✗</button>
+          <button class="annotation-card__btn annotation-card__btn--comment" data-action="comment" title="Adicionar comentário" ${cannotComment ? 'disabled' : ''}>💬</button>
+          <button class="annotation-card__btn annotation-card__btn--history" data-action="details" title="Ver histórico (${historyCount})">
+            📜
+            ${historyCount > 0 ? `<span class="annotation-card__btn-badge">${historyCount}</span>` : ''}
+          </button>
         </div>
       </div>
     `;
@@ -2255,15 +3176,37 @@ export class AnnotationsTab {
         this.showDetailModal(id);
       });
 
-      card.querySelector('[data-action="archive"]')?.addEventListener('click', async () => {
-        if (await this.showConfirmation('Tem certeza que deseja arquivar esta anotação?', 'Arquivar Anotação')) {
-          this.archiveAnnotation(id);
-        }
+      card.querySelector('[data-action="archive"]')?.addEventListener('click', (e) => {
+        if ((e.target as HTMLButtonElement).disabled) return;
+        this.openResponseModal(id, 'archived');
       });
 
-      card.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
+      card.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+        if ((e.target as HTMLButtonElement).disabled) return;
         this.showEditModal(id);
       });
+
+      // RFC-0104 Amendment: Approve/Reject handlers
+      card.querySelector('[data-action="approve"]')?.addEventListener('click', (e) => {
+        if ((e.target as HTMLButtonElement).disabled) return;
+        this.openResponseModal(id, 'approved');
+      });
+
+      card.querySelector('[data-action="reject"]')?.addEventListener('click', (e) => {
+        if ((e.target as HTMLButtonElement).disabled) return;
+        this.openResponseModal(id, 'rejected');
+      });
+
+      card.querySelector('[data-action="comment"]')?.addEventListener('click', (e) => {
+        if ((e.target as HTMLButtonElement).disabled) return;
+        this.openResponseModal(id, 'comment');
+      });
+
+    });
+
+    // Grid header help button
+    this.container.querySelector('[data-action="grid-help"]')?.addEventListener('click', (e) => {
+      this.showHelpTooltip(e.target as HTMLElement);
     });
 
     // Legacy row action events (kept for compatibility)
@@ -2279,10 +3222,8 @@ export class AnnotationsTab {
         this.showDetailModal(id);
       });
 
-      row.querySelector('[data-action="archive"]')?.addEventListener('click', async () => {
-        if (await this.showConfirmation('Tem certeza que deseja arquivar esta anotação?', 'Arquivar Anotação')) {
-          this.archiveAnnotation(id);
-        }
+      row.querySelector('[data-action="archive"]')?.addEventListener('click', () => {
+        this.openResponseModal(id, 'archived');
       });
     });
   }
@@ -2469,11 +3410,11 @@ export class AnnotationsTab {
           <div class="annotations-form__field" style="margin-bottom: 16px;">
             <label class="annotations-form__label">Importância</label>
             <div class="importance-selector" id="new-annotation-importance-selector">
-              <div class="importance-option importance-option--1" data-importance="1" title="Muito Baixa">1</div>
-              <div class="importance-option importance-option--2" data-importance="2" title="Baixa">2</div>
-              <div class="importance-option importance-option--3 selected" data-importance="3" title="Média">3</div>
-              <div class="importance-option importance-option--4" data-importance="4" title="Alta">4</div>
-              <div class="importance-option importance-option--5" data-importance="5" title="Muito Alta">5</div>
+              <div class="importance-option importance-option--1" data-importance="1" title="1 - Muito Baixa">${IMPORTANCE_LABELS[1]}</div>
+              <div class="importance-option importance-option--2" data-importance="2" title="2 - Baixa">${IMPORTANCE_LABELS[2]}</div>
+              <div class="importance-option importance-option--3 selected" data-importance="3" title="3 - Normal">${IMPORTANCE_LABELS[3]}</div>
+              <div class="importance-option importance-option--4" data-importance="4" title="4 - Alta">${IMPORTANCE_LABELS[4]}</div>
+              <div class="importance-option importance-option--5" data-importance="5" title="5 - Muito Alta">${IMPORTANCE_LABELS[5]}</div>
             </div>
           </div>
 
@@ -2810,41 +3751,56 @@ export class AnnotationsTab {
     const annotation = this.annotations.find((a) => a.id === id);
     if (!annotation) return;
 
+    const modalId = `annotation-detail-${Date.now()}`;
     const canModify = canModifyAnnotation(annotation, this.permissions);
+    const hasResponse = annotation.responses && annotation.responses.length > 0;
+    const lastResponse = hasResponse ? annotation.responses[annotation.responses.length - 1] : null;
+    const responseStatus = lastResponse?.type as ResponseType | null;
     const overlay = document.createElement('div');
     overlay.className = 'annotation-detail-overlay';
 
+    // Get colors for badges
+    const typeColor = ANNOTATION_TYPE_COLORS[annotation.type];
+    const importanceColor = IMPORTANCE_COLORS[annotation.importance];
+    const statusColor = STATUS_COLORS[annotation.status];
+
     overlay.innerHTML = `
       <div class="annotation-detail-modal">
-        <div class="annotation-detail__header">
-          <span class="annotation-detail__title">Detalhes da Anotação</span>
-          <button class="annotation-detail__close">&times;</button>
-        </div>
+        ${ModalHeader.generateInlineHTML({
+          icon: '📝',
+          title: 'Detalhes da Anotação',
+          modalId,
+          theme: 'dark',
+          isMaximized: false,
+          showThemeToggle: false,
+          showMaximize: false,
+          showClose: true,
+          primaryColor: '#6c5ce7',
+          borderRadius: '10px 10px 0 0',
+        })}
         <div class="annotation-detail__content">
-          <div class="annotation-detail__field">
-            <div class="annotation-detail__label">Tipo</div>
-            <div class="annotation-detail__value">
-              <span style="color: ${ANNOTATION_TYPE_COLORS[annotation.type]}">
+          <!-- Badges Row: Tipo, Importância, Status -->
+          <div class="annotation-detail__badges-row">
+            <div class="annotation-detail__badge-group">
+              <span class="annotation-detail__badge-label">Tipo</span>
+              <span class="annotation-detail__badge" style="background: ${typeColor}20; color: ${typeColor}; border: 1px solid ${typeColor}40;">
                 ${ANNOTATION_TYPE_LABELS[annotation.type]}
               </span>
             </div>
-          </div>
-          <div class="annotation-detail__field">
-            <div class="annotation-detail__label">Importância</div>
-            <div class="annotation-detail__value">
-              <span style="color: ${IMPORTANCE_COLORS[annotation.importance]}">
+            <div class="annotation-detail__badge-group">
+              <span class="annotation-detail__badge-label">Importância</span>
+              <span class="annotation-detail__badge" style="background: ${importanceColor}; color: #fff;">
                 ${IMPORTANCE_LABELS[annotation.importance]}
               </span>
             </div>
-          </div>
-          <div class="annotation-detail__field">
-            <div class="annotation-detail__label">Status</div>
-            <div class="annotation-detail__value">
-              <span style="color: ${STATUS_COLORS[annotation.status]}">
+            <div class="annotation-detail__badge-group">
+              <span class="annotation-detail__badge-label">Status</span>
+              <span class="annotation-detail__badge" style="background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40;">
                 ${STATUS_LABELS[annotation.status]}
               </span>
             </div>
           </div>
+
           <div class="annotation-detail__field">
             <div class="annotation-detail__label">Criado por</div>
             <div class="annotation-detail__value">${annotation.createdBy.name} (${annotation.createdBy.email})</div>
@@ -2860,15 +3816,41 @@ export class AnnotationsTab {
             </div>
           ` : ''}
           <div class="annotation-detail__field">
-            <div class="annotation-detail__label">Texto</div>
-            <div class="annotation-detail__value">${annotation.text}</div>
+            <div class="annotation-detail__label">Descrição</div>
+            <div class="annotation-detail__description">${annotation.text}</div>
           </div>
-          ${annotation.acknowledged ? `
-            <div class="annotation-detail__field">
-              <div class="annotation-detail__label">Reconhecido por</div>
-              <div class="annotation-detail__value">
-                ${annotation.acknowledgedBy?.name} em ${this.formatDate(annotation.acknowledgedAt || '')}
+          ${responseStatus === 'approved' ? `
+            <div class="annotation-detail__field annotation-detail__response-box" style="background: #d4edda;">
+              <div class="annotation-detail__label" style="color: #155724;">✓ Aprovado por</div>
+              <div class="annotation-detail__value" style="margin-bottom: 6px;">
+                ${lastResponse?.createdBy?.name} em ${this.formatDate(lastResponse?.createdAt || '')}
               </div>
+              ${lastResponse?.text ? `
+                <div class="annotation-detail__label" style="color: #155724; margin-top: 6px;">Observação:</div>
+                <div class="annotation-detail__value" style="font-style: italic;">${lastResponse.text}</div>
+              ` : ''}
+            </div>
+          ` : ''}
+          ${responseStatus === 'rejected' ? `
+            <div class="annotation-detail__field annotation-detail__response-box" style="background: #f8d7da;">
+              <div class="annotation-detail__label" style="color: #721c24;">✗ Rejeitado por</div>
+              <div class="annotation-detail__value" style="margin-bottom: 6px;">
+                ${lastResponse?.createdBy?.name} em ${this.formatDate(lastResponse?.createdAt || '')}
+              </div>
+              ${lastResponse?.text ? `
+                <div class="annotation-detail__label" style="color: #721c24; margin-top: 6px;">Justificativa:</div>
+                <div class="annotation-detail__value" style="font-style: italic;">${lastResponse.text}</div>
+              ` : ''}
+            </div>
+          ` : ''}
+          ${responseStatus === 'archived' && lastResponse?.text ? `
+            <div class="annotation-detail__field annotation-detail__response-box" style="background: #e9ecef;">
+              <div class="annotation-detail__label" style="color: #495057;">⬇️ Arquivado por</div>
+              <div class="annotation-detail__value" style="margin-bottom: 6px;">
+                ${lastResponse?.createdBy?.name} em ${this.formatDate(lastResponse?.createdAt || '')}
+              </div>
+              <div class="annotation-detail__label" style="color: #495057; margin-top: 6px;">Justificativa:</div>
+              <div class="annotation-detail__value" style="font-style: italic;">${lastResponse.text}</div>
             </div>
           ` : ''}
           <div class="annotation-detail__history">
@@ -2881,9 +3863,9 @@ export class AnnotationsTab {
           </div>
         </div>
         <div class="annotation-detail__footer">
-          ${canModify && annotation.status !== 'archived' ? `
+          ${canModify && annotation.status !== 'archived' && !hasResponse ? `
             <button class="annotation-detail__btn annotation-detail__btn--danger" data-action="archive">
-              Arquivar
+              ⬇️ Arquivar
             </button>
           ` : ''}
           <button class="annotation-detail__btn annotation-detail__btn--secondary" data-action="close">
@@ -2895,14 +3877,15 @@ export class AnnotationsTab {
 
     document.body.appendChild(overlay);
 
-    // Event listeners
-    overlay.querySelector('.annotation-detail__close')?.addEventListener('click', () => overlay.remove());
+    // Event listeners - use ModalHeader setupHandlers for close button
+    ModalHeader.setupHandlers({
+      modalId,
+      onClose: () => overlay.remove(),
+    });
     overlay.querySelector('[data-action="close"]')?.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('[data-action="archive"]')?.addEventListener('click', async () => {
-      if (await this.showConfirmation('Tem certeza que deseja arquivar esta anotação?', 'Arquivar Anotação')) {
-        overlay.remove();
-        await this.archiveAnnotation(id);
-      }
+    overlay.querySelector('[data-action="archive"]')?.addEventListener('click', () => {
+      overlay.remove();
+      this.openResponseModal(id, 'archived');
     });
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.remove();

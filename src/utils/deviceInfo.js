@@ -119,21 +119,28 @@ export function detectContext(device, domain) {
     }
 
     // Priority 2: BANHEIROS (identifier = 'BANHEIROS' with HIDROMETRO_AREA_COMUM profile)
-    if (deviceProfile.includes('HIDROMETRO_AREA_COMUM') && identifier === 'BANHEIROS') {
+    // FIX: Use EXACT match for deviceProfile
+    if (deviceProfile === 'HIDROMETRO_AREA_COMUM' && identifier === 'BANHEIROS') {
       return ContextType.BANHEIROS;
     }
 
     // Priority 3: HIDROMETRO_AREA_COMUM (common area without bathroom identifier)
-    if (deviceProfile.includes('HIDROMETRO_AREA_COMUM') || deviceType.includes('HIDROMETRO_AREA_COMUM')) {
+    // FIX: Use EXACT match for deviceProfile - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+    if (deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO_AREA_COMUM') {
       return ContextType.HIDROMETRO_AREA_COMUM;
     }
 
     // Priority 4: deviceType = HIDROMETRO and deviceProfile = HIDROMETRO → store (lojas)
-    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO')) {
+    // FIX: Use EXACT match - both must be exactly 'HIDROMETRO'
+    if (deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO') {
       return ContextType.HIDROMETRO;
     }
 
-    // Default for water: hidrometro (store)
+    // Default for water: hidrometro (store) - fallback for devices with HIDROMETRO in deviceType
+    if (deviceType.includes('HIDROMETRO')) {
+      return ContextType.HIDROMETRO;
+    }
+
     return ContextType.HIDROMETRO;
   }
 

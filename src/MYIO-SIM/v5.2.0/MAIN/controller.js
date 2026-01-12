@@ -7912,9 +7912,22 @@ const MyIOOrchestrator = (() => {
     const energyData = window.MyIOOrchestratorData?.energy;
     if (energyData?.items?.length) {
       const allItems = energyData.items;
+
+      // RFC-0131: Build set of selected shopping names from selection array for matching
+      const selectedEnergyShoppingNames = new Set(selection.map((s) => (s.name || '').toLowerCase()).filter(Boolean));
+
+      // RFC-0131: Filter by shopping - match customerId OR ownerName against selection
       const filteredItems = isFiltered
-        ? allItems.filter((item) => item.customerId && selectedIds.includes(item.customerId))
+        ? allItems.filter((item) => {
+            const customerId = item.customerId || item.ingestionId || '';
+            const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
+            return selectedIds.includes(customerId) || selectedEnergyShoppingNames.has(ownerName);
+          })
         : allItems;
+
+      LogHelper.log(
+        `[Orchestrator] 📊 Energy filter: ${allItems.length} total → ${filteredItems.length} filtered (${selectedEnergyShoppingNames.size} shopping names)`
+      );
 
       const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const filteredTotal = filteredItems.reduce(

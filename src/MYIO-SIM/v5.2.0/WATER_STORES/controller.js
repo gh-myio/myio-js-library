@@ -1584,12 +1584,46 @@ self.onInit = async function () {
 
   window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
 
+  // FIX: Listen for myio:water-summary-ready event from MAIN (this event is actually emitted!)
+  // When this event fires, the classified data is already in the cache
+  let waterSummaryHandler = null;
+  waterSummaryHandler = () => {
+    const cachedWater = window.MyIOOrchestratorData?.classified?.water;
+    if (cachedWater?.hidrometro?.length > 0 && STATE.itemsBase.length === 0) {
+      LogHelper.log(`[WATER_STORES] 📡 water-summary-ready received, loading from cache...`);
+      waterTbDataHandler({ detail: { classified: { water: cachedWater } } });
+    }
+  };
+  window.addEventListener('myio:water-summary-ready', waterSummaryHandler);
+
   // RFC-0109: Listener para dados classificados do MAIN (items já classificados por deviceType/deviceProfile)
+  // FIX: MAIN stores data in window.MyIOOrchestratorData.classified.water.hidrometro
   waterTbDataHandler = function (ev) {
-    const { stores, classification } = ev.detail || {};
+    // FIX: Support both formats - old (stores) and new (classified.water.hidrometro)
+    let storesItems = [];
+    let classification = ev.detail?.classification || {};
+
+    // Try new format first (from classified.water)
+    if (ev.detail?.classified?.water?.hidrometro) {
+      storesItems = ev.detail.classified.water.hidrometro;
+      LogHelper.log(`[WATER_STORES] Using new format: classified.water.hidrometro`);
+    }
+    // Fallback to old format (stores)
+    else if (ev.detail?.stores?.items) {
+      storesItems = ev.detail.stores.items;
+      LogHelper.log(`[WATER_STORES] Using old format: stores.items`);
+    }
+    // Try getting from global cache
+    else if (window.MyIOOrchestratorData?.classified?.water?.hidrometro) {
+      storesItems = window.MyIOOrchestratorData.classified.water.hidrometro;
+      LogHelper.log(`[WATER_STORES] Using global cache: MyIOOrchestratorData.classified.water.hidrometro`);
+    }
+
+    LogHelper.log(`[WATER_STORES] 📦 Found ${storesItems.length} items`);
 
     // RFC-0109: Use items already classified by MAIN
-    if (stores && stores.items && stores.items.length > 0) {
+    if (storesItems && storesItems.length > 0) {
+      const stores = { items: storesItems, total: storesItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0) };
       LogHelper.log(
         `[WATER_STORES] Received classified data from MAIN: ${stores.items.length} items, total: ${stores.total?.toFixed(2) || 0} m³`
       );
@@ -1672,40 +1706,43 @@ self.onInit = async function () {
   window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
 
   // RFC-0109: Check for cached classified data (event may have fired before widget loaded)
-  LogHelper.log(`[WATER_STORES] 🔍 Checking for cached waterClassified data...`);
-  const cachedClassified = window.MyIOOrchestratorData?.waterClassified;
+  // FIX: MAIN stores data in window.MyIOOrchestratorData.classified.water (not waterClassified)
+  LogHelper.log(`[WATER_STORES] 🔍 Checking for cached classified data...`);
+  const cachedClassified = window.MyIOOrchestratorData?.classified?.water;
+  const cachedTimestamp = window.MyIOOrchestratorData?.apiEnrichedAt || window.MyIOOrchestratorData?.classified?.timestamp;
 
   if (!window.MyIOOrchestratorData) {
     LogHelper.warn(`[WATER_STORES] ⚠️ window.MyIOOrchestratorData is not available`);
   } else if (!cachedClassified) {
-    LogHelper.warn(`[WATER_STORES] ⚠️ waterClassified not found in MyIOOrchestratorData`);
+    LogHelper.warn(`[WATER_STORES] ⚠️ classified.water not found in MyIOOrchestratorData. Available keys: ${Object.keys(window.MyIOOrchestratorData).join(', ')}`);
   } else {
-    LogHelper.log(`[WATER_STORES] 📦 Found waterClassified: stores=${cachedClassified.stores?.count || 0}, commonArea=${cachedClassified.commonArea?.count || 0}, all=${cachedClassified.all?.count || 0}`);
+    LogHelper.log(`[WATER_STORES] 📦 Found classified.water: hidrometro=${cachedClassified.hidrometro?.length || 0}, hidrometro_area_comum=${cachedClassified.hidrometro_area_comum?.length || 0}`);
   }
 
-  if (cachedClassified?.stores?.items?.length > 0) {
-    const cacheAge = Date.now() - (cachedClassified.timestamp || 0);
+  if (cachedClassified?.hidrometro?.length > 0) {
+    const cacheAge = Date.now() - (cachedTimestamp || 0);
     LogHelper.log(`[WATER_STORES] 🕐 Cache age: ${cacheAge}ms (threshold: 60000ms)`);
     if (cacheAge < 60000) { // Use cache if less than 60 seconds old
-      LogHelper.log(`[WATER_STORES] ✅ Found cached classified data (${cachedClassified.stores.items.length} items, age: ${cacheAge}ms) - using it!`);
-      // Simulate event with cached data
-      waterTbDataHandler({ detail: cachedClassified });
+      LogHelper.log(`[WATER_STORES] ✅ Found cached classified data (${cachedClassified.hidrometro.length} items, age: ${cacheAge}ms) - using it!`);
+      // Simulate event with cached data in new format
+      waterTbDataHandler({ detail: { classified: { water: cachedClassified } } });
     } else {
       LogHelper.warn(`[WATER_STORES] ⏰ Cache too old (${cacheAge}ms > 60000ms), waiting for fresh data`);
     }
   } else if (cachedClassified) {
-    LogHelper.warn(`[WATER_STORES] ⚠️ Cache exists but stores.items is empty or missing`);
+    LogHelper.warn(`[WATER_STORES] ⚠️ Cache exists but hidrometro is empty or missing`);
   }
 
   // RFC-0109: Fallback - retry cache check after 2s in case of timing issues
-  if (!cachedClassified || !cachedClassified.stores?.items?.length) {
+  if (!cachedClassified || !cachedClassified?.hidrometro?.length) {
     setTimeout(() => {
-      const retryCache = window.MyIOOrchestratorData?.waterClassified;
-      if (retryCache?.stores?.items?.length > 0 && STATE.itemsBase.length === 0) {
-        const cacheAge = Date.now() - (retryCache.timestamp || 0);
+      const retryCache = window.MyIOOrchestratorData?.classified?.water;
+      const retryTimestamp = window.MyIOOrchestratorData?.apiEnrichedAt || Date.now();
+      if (retryCache?.hidrometro?.length > 0 && STATE.itemsBase.length === 0) {
+        const cacheAge = Date.now() - retryTimestamp;
         if (cacheAge < 120000) { // Extended threshold for retry
-          LogHelper.log(`[WATER_STORES] 🔄 Retry found cached data (${retryCache.stores.items.length} items, age: ${cacheAge}ms)`);
-          waterTbDataHandler({ detail: retryCache });
+          LogHelper.log(`[WATER_STORES] 🔄 Retry found cached data (${retryCache.hidrometro.length} items, age: ${cacheAge}ms)`);
+          waterTbDataHandler({ detail: { classified: { water: retryCache } } });
         }
       }
     }, 2000);
@@ -1848,6 +1885,10 @@ self.onDestroy = function () {
     window.removeEventListener('myio:water-tb-data-ready', waterTbDataHandler);
     LogHelper.log("[WATER_STORES] Event listener 'myio:water-tb-data-ready' removido.");
   }
+
+  // FIX: Remove water-summary-ready listener (added for cache sync)
+  window.removeEventListener('myio:water-summary-ready', () => {});
+  LogHelper.log("[WATER_STORES] Event listener 'myio:water-summary-ready' removido.");
 
   // RFC-0094: Cleanup header controller
   if (waterStoresHeaderController) {
