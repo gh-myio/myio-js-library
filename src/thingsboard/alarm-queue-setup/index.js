@@ -196,7 +196,7 @@ export const FLOWS = {
     name: 'FLOW 2: Dispatcher',
     trigger: 'Timer-based (every 60 seconds)',
     purpose: 'Process queue and send messages to Telegram',
-    nodes: 14,
+    nodes: 17,
     scripts: ['dispatch-rate-limit.js', 'dispatch-mark-status.js']
   },
   monitor: {

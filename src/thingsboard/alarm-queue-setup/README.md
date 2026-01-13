@@ -531,6 +531,9 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 
 ### Dispatcher Node 1: Generator - Timer Trigger
 
+**Previous Node:** None (starting node)
+**Next Node:** Dispatcher Node 2
+
 **Node Type:** Generator
 
 **Configuration:**
@@ -549,11 +552,14 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 
 **Note:** You'll need one Dispatcher Rule Chain **per customer** OR use a Switch node to route by customer.
 
-**Connect to:** Dispatcher Node 2
+**Connection:** Success relation → Dispatcher Node 2
 
 ---
 
 ### Dispatcher Node 2: Enrichment - Fetch Queue Data
+
+**Previous Node:** Dispatcher Node 1
+**Next Node:** Dispatcher Node 3
 
 **Node Type:** Customer Attributes (Enrichment)
 
@@ -567,11 +573,14 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 
 **Purpose:** Load all data needed for rate limiting and batch building
 
-**Connect to:** Dispatcher Node 3
+**Connection:** Success relation → Dispatcher Node 3
 
 ---
 
 ### Dispatcher Node 3: Script - Check Rate Limit & Build Batch
+
+**Previous Node:** Dispatcher Node 2
+**Next Node:** Dispatcher Node 4
 
 **Node Type:** Script (Transformation)
 
@@ -588,11 +597,14 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 6. **If queue empty** → Return `{emptyQueue: true, batchIds: []}`
 7. **If has messages** → Return `{rateLimited: false, batchIds: ["uuid1", "uuid2", ...], batchSize: 5}`
 
-**Connect to:** Dispatcher Node 4
+**Connection:** Success relation → Dispatcher Node 4
 
 ---
 
 ### Dispatcher Node 4: Filter - Can Send Batch?
+
+**Previous Node:** Dispatcher Node 3
+**Next Nodes:** Dispatcher Node 5 (if has messages) OR Log Node (if rate limited/empty)
 
 **Node Type:** Check Message Script (Filter)
 
@@ -605,12 +617,15 @@ return msg.rateLimited === false && msg.emptyQueue === false;
 ```
 
 **Connections:**
-- **Success** relation → Connect to Dispatcher Node 5 (has messages to send)
-- **Failure** relation → Connect to Log Node "Skipped: Rate Limited or Empty" (end flow)
+- **Success** relation → Dispatcher Node 5 (has messages to send)
+- **Failure** relation → Log Node "Skipped: Rate Limited or Empty" (end flow)
 
 ---
 
 ### Dispatcher Node 5: Change Originator - Set to Customer
+
+**Previous Node:** Dispatcher Node 4 (Success path)
+**Next Node:** Dispatcher Node 6
 
 **Node Type:** Change Originator
 
@@ -620,29 +635,62 @@ return msg.rateLimited === false && msg.emptyQueue === false;
 - **Originator source:** Customer
 - **Customer ID pattern:** `${metadata.customerId}` OR `${msg.customerId}`
 
-**Why needed:** Next node (Split Array) needs customer context to fetch queue entries
+**Why needed:** Next node needs customer context to fetch queue entries
 
-**Connect to:** Dispatcher Node 6
+**Connection:** Success relation → Dispatcher Node 6
 
 ---
 
-### Dispatcher Node 6: Split Array - Split Batch into Messages
+### Dispatcher Node 6: Script - Extract Batch Array
+
+**Previous Node:** Dispatcher Node 5
+**Next Node:** Dispatcher Node 7
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Extract raw array from msg object for Split Array node
+
+**Why needed:** ThingsBoard's "Split Array Msg" node expects `msg` to BE an array `["id1", "id2"]`, not an object containing an array `{batchIds: ["id1", "id2"]}`. This script converts the format.
+
+**Script:**
+```javascript
+// Extract the batch IDs array from msg object
+var batchIds = msg.batchIds || [];
+
+// Return the array as the root msg (required for Split Array node)
+return {
+  msg: batchIds,  // Now msg IS the array: ["uuid1", "uuid2", ...]
+  metadata: metadata,
+  msgType: msgType
+};
+```
+
+**Connection:** Success relation → Dispatcher Node 7
+
+---
+
+### Dispatcher Node 7: Split Array - Split Batch into Messages
+
+**Previous Node:** Dispatcher Node 6
+**Next Node:** Dispatcher Node 8 (runs multiple times - once per queue ID)
 
 **Node Type:** Split Array Msg (under "Transformation" category)
 
 **Configuration:**
-- **Array field:** `batchIds`
-- **Output field:** `queueId`
+- **No configuration needed** - The standard "Split Array Msg" node automatically iterates over the root `msg` array
 
-**Purpose:** Takes `["uuid1", "uuid2", "uuid3"]` and creates 3 separate message flows
+**Purpose:** Takes `["uuid1", "uuid2", "uuid3"]` array and creates 3 separate message flows
 
-**What happens:** If batch has 5 queue IDs, this node fires 5 times - once per message. Each subsequent node runs 5 times in parallel.
+**What happens:** If batch has 5 queue IDs, this node fires 5 times - once per message. Each subsequent node runs 5 times in parallel. Each iteration receives one string (the queue ID) as `msg`.
 
-**Connect to:** Dispatcher Node 7
+**Connection:** Success relation → Dispatcher Node 8
 
 ---
 
-### Dispatcher Node 7: Script - Build Queue Entry Attribute Key
+### Dispatcher Node 8: Script - Build Queue Entry Attribute Key
+
+**Previous Node:** Dispatcher Node 7
+**Next Node:** Dispatcher Node 9
 
 **Node Type:** Script (Transformation)
 
@@ -663,11 +711,14 @@ return {
 };
 ```
 
-**Connect to:** Dispatcher Node 8
+**Connection:** Success relation → Dispatcher Node 9
 
 ---
 
-### Dispatcher Node 8: Enrichment - Fetch Queue Entry
+### Dispatcher Node 9: Enrichment - Fetch Queue Entry
+
+**Previous Node:** Dispatcher Node 8
+**Next Node:** Dispatcher Node 10
 
 **Node Type:** Customer Attributes (Enrichment)
 
@@ -677,11 +728,14 @@ return {
 
 **Purpose:** Fetch the full entry: `{queueId, payload: {text: "..."}, priority: 2, status: "PENDING", ...}`
 
-**Connect to:** Dispatcher Node 9
+**Connection:** Success relation → Dispatcher Node 10
 
 ---
 
-### Dispatcher Node 9: Script - Parse Entry & Prepare Telegram Request
+### Dispatcher Node 10: Script - Parse Entry & Prepare Telegram Request
+
+**Previous Node:** Dispatcher Node 9
+**Next Node:** Dispatcher Node 11
 
 **Node Type:** Script (Transformation)
 
@@ -730,11 +784,14 @@ return {
 };
 ```
 
-**Connect to:** Dispatcher Node 10
+**Connection:** Success relation → Dispatcher Node 11
 
 ---
 
-### Dispatcher Node 10: REST API Call - Send to Telegram
+### Dispatcher Node 11: REST API Call - Send to Telegram
+
+**Previous Node:** Dispatcher Node 10
+**Next Nodes:** Dispatcher Node 12a/12b/12c (depending on HTTP response)
 
 **Node Type:** REST API Call
 
@@ -757,20 +814,73 @@ return {
 **Purpose:** Actually send the message to Telegram!
 
 **Connections (by HTTP response):**
-- **Success (200-299)** → Dispatcher Node 11a (Mark SENT)
-- **Client Error (400-499)** → Dispatcher Node 11b (Mark FAILED)
-- **Server Error (500-599)** → Dispatcher Node 11c (Mark RETRY)
-- **Timeout/Network Error** → Dispatcher Node 11c (Mark RETRY)
+- **Success (200-299)** → Dispatcher Node 12 (Switch/Router)
+- **Client Error (400-499)** → Dispatcher Node 12 (Switch/Router)
+- **Server Error (500-599)** → Dispatcher Node 12 (Switch/Router)
+- **Timeout/Network Error** → Dispatcher Node 12 (Switch/Router)
+
+**Important:** Connect ALL output relations from the REST API node to the same Switch node (Node 12). The Switch will route based on status code.
 
 ---
 
-### Dispatcher Node 11: Script - Mark Entry Status (3 versions)
+### Dispatcher Node 12: Switch - Route by Status Code
 
-**Node Type:** Script (Transformation) - Create 3 COPIES with different status logic
+**Previous Node:** Dispatcher Node 11 (all response types)
+**Next Nodes:** Node 13a, 13b, or 13c (depending on status code)
+
+**Node Type:** Switch (under "Filter" category)
+
+**Purpose:** Route message to correct status update script based on Telegram API response
+
+**Visual Flow:**
+```
+[Node 11: REST API Call]
+         ↓ (all responses)
+[Node 12: SWITCH - Check statusCode]
+         ├─ Success (200-299) ──→ [Node 13a: Mark SENT]
+         ├─ ClientError (400-499) ──→ [Node 13b: Mark FAILED]
+         └─ Retry (500+ or unknown) ──→ [Node 13c: Mark RETRY/FAILED]
+                                              ↓
+                                              ↓ (all merge here)
+                                              ↓
+                                        [Node 14: Prepare Index Update]
+```
+
+**Script:**
+```javascript
+// Check the HTTP status code returned by Telegram
+var status = metadata.statusCode ? parseInt(metadata.statusCode) : 0;
+
+if (status >= 200 && status < 300) {
+    return ['Success']; // Route to Node 13a (Mark SENT)
+} else if (status >= 400 && status < 500) {
+    return ['ClientError']; // Route to Node 13b (Mark FAILED)
+} else {
+    return ['Retry']; // Route to Node 13c (Mark RETRY - for 500+ or unknown)
+}
+```
+
+**Connections - Create these custom relations:**
+
+In ThingsBoard, after creating the Switch node:
+1. Click "Add" to create a new relation named **"Success"** → Connect to Node 13a
+2. Click "Add" to create a new relation named **"ClientError"** → Connect to Node 13b
+3. Click "Add" to create a new relation named **"Retry"** → Connect to Node 13c
+
+The relation names MUST match exactly what the script returns: `['Success']`, `['ClientError']`, `['Retry']`
+
+---
+
+### Dispatcher Node 13: Script - Mark Entry Status (3 versions)
+
+**Previous Node:** Dispatcher Node 12 (Switch)
+**Next Node:** Dispatcher Node 14
+
+**Node Type:** Script (Transformation) - Create 3 SEPARATE nodes with different status logic
 
 **Purpose:** Update entry status based on Telegram API response
 
-**11a: Success Path (200-299) - Mark SENT**
+**13a: Success Path (200-299) - Mark SENT**
 ```javascript
 var entry = msg.entry;
 entry.status = 'SENT';
@@ -784,7 +894,7 @@ return {
 };
 ```
 
-**11b: Client Error Path (400-499) - Mark FAILED**
+**13b: Client Error Path (400-499) - Mark FAILED**
 ```javascript
 var entry = msg.entry;
 entry.status = 'FAILED';
@@ -798,7 +908,7 @@ return {
 };
 ```
 
-**11c: Retry Path (500-599 or timeout) - Mark RETRY or FAILED**
+**13c: Retry Path (500-599 or timeout) - Mark RETRY or FAILED**
 ```javascript
 var entry = msg.entry;
 
@@ -829,11 +939,14 @@ return {
 };
 ```
 
-**All three paths connect to:** Dispatcher Node 12
+**Connection:** All three scripts (13a, 13b, 13c) connect via Success relation → Dispatcher Node 14
 
 ---
 
-### Dispatcher Node 12: Script - Prepare Index Update
+### Dispatcher Node 14: Script - Prepare Index Update
+
+**Previous Node:** Dispatcher Node 13 (any of the 3 versions: 13a, 13b, or 13c)
+**Next Node:** Dispatcher Node 15
 
 **Node Type:** Script (Transformation)
 
@@ -888,11 +1001,14 @@ return {
 };
 ```
 
-**Connect to:** Dispatcher Node 13
+**Connection:** Success relation → Dispatcher Node 15
 
 ---
 
-### Dispatcher Node 13: Save Attributes - Update Entry & Index
+### Dispatcher Node 15: Save Attributes - Update Entry & Index
+
+**Previous Node:** Dispatcher Node 14
+**Next Node:** Dispatcher Node 16
 
 **Node Type:** Save Attributes
 
@@ -903,11 +1019,14 @@ return {
 
 **Purpose:** Persist updated entry status and modified priority index
 
-**Connect to:** Dispatcher Node 14
+**Connection:** Success relation → Dispatcher Node 16
 
 ---
 
-### Dispatcher Node 14: Script - Update Rate Limit State
+### Dispatcher Node 16: Script - Update Rate Limit State
+
+**Previous Node:** Dispatcher Node 15
+**Next Node:** Dispatcher Node 17
 
 **Node Type:** Script (Transformation)
 
@@ -943,11 +1062,14 @@ return {
 };
 ```
 
-**Connect to:** Dispatcher Node 15
+**Connection:** Success relation → Dispatcher Node 17
 
 ---
 
-### Dispatcher Node 15: Save Attributes - Update Rate Limit
+### Dispatcher Node 17: Save Attributes - Update Rate Limit
+
+**Previous Node:** Dispatcher Node 16
+**Next Node:** None (end of flow)
 
 **Node Type:** Save Attributes
 
@@ -958,7 +1080,7 @@ return {
 
 **Purpose:** Save the rate limit timestamp so next cycle knows when we last sent
 
-**Connect to:** Log Success (optional, end of flow)
+**Connection:** Success relation → Log Success (optional, end of flow)
 
 ---
 
@@ -978,6 +1100,9 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 
 ### Monitor Node 1: Generator - Timer Trigger
 
+**Previous Node:** None (starting node)
+**Next Node:** Monitor Node 2
+
 **Node Type:** Generator
 
 **Configuration:**
@@ -992,11 +1117,14 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
   }
   ```
 
-**Connect to:** Monitor Node 2
+**Connection:** Success relation → Monitor Node 2
 
 ---
 
 ### Monitor Node 2: Enrichment - Fetch Queue Data
+
+**Previous Node:** Monitor Node 1
+**Next Node:** Monitor Node 3
 
 **Node Type:** Customer Attributes (Enrichment)
 
@@ -1008,11 +1136,14 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 - `telegram_queue_index_priority_3`
 - `telegram_queue_index_priority_4`
 
-**Connect to:** Monitor Node 3
+**Connection:** Success relation → Monitor Node 3
 
 ---
 
 ### Monitor Node 3: Script - Calculate Metrics
+
+**Previous Node:** Monitor Node 2
+**Next Node:** Monitor Node 4
 
 **Node Type:** Script (Transformation)
 
@@ -1034,11 +1165,14 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 }
 ```
 
-**Connect to:** Monitor Node 4
+**Connection:** Success relation → Monitor Node 4
 
 ---
 
 ### Monitor Node 4: Save Telemetry
+
+**Previous Node:** Monitor Node 3
+**Next Node:** None (end of flow)
 
 **Node Type:** Save Telemetry
 
@@ -1052,7 +1186,7 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 - Gauge: `wait_time_seconds`
 - Counter: Total messages processed
 
-**Connect to:** Log Success (end of flow)
+**Connection:** Success relation → Log Success (optional, end of flow)
 
 ---
 
