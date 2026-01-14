@@ -32,6 +32,7 @@ const LogHelper = {
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
 const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
@@ -279,7 +280,7 @@ Object.assign(window.MyIOUtils, {
       return {};
     }
 
-    const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
+    const url = `${THINGSBOARD_URL}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
 
     try {
       LogHelper.log(`[MyIOUtils] Fetching SERVER_SCOPE attributes for customer: ${customerId}`);
@@ -3708,7 +3709,8 @@ Object.assign(window.MyIOUtils, {
     }
 
     try {
-      const response = await fetch('/api/auth/user', {
+      const urlAuthUserThingsboard = `${THINGSBOARD_URL}/api/auth/user`;
+      const response = await fetch(urlAuthUserThingsboard, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -4036,7 +4038,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: 'https://api.data.apps.myio-bas.com',
+            dataApiHost: DATA_API_HOST,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -4358,7 +4360,7 @@ async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
     return null;
   }
 
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const url = `${THINGSBOARD_URL}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -7536,7 +7538,9 @@ const MyIOOrchestrator = (() => {
               }
 
               // Fetch water API totals
-              const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`);
+              const url = new URL(
+                `${DATA_API_HOST}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`
+              );
               url.searchParams.set('startTime', startISO);
               url.searchParams.set('endTime', endISO);
               url.searchParams.set('deep', '1');
@@ -7623,7 +7627,9 @@ const MyIOOrchestrator = (() => {
               );
 
               LogHelper.log(
-                `[Orchestrator] 💧 RFC-0131: Re-emitted myio:water-tb-data-ready with API values (total: ${newWaterTotal.toFixed(2)} m³, stores: ${newStoresTotal.toFixed(2)}, commonArea: ${newCommonAreaTotal.toFixed(2)})`
+                `[Orchestrator] 💧 RFC-0131: Re-emitted myio:water-tb-data-ready with API values (total: ${newWaterTotal.toFixed(
+                  2
+                )} m³, stores: ${newStoresTotal.toFixed(2)}, commonArea: ${newCommonAreaTotal.toFixed(2)})`
               );
 
               // Also update water-summary-ready
@@ -7636,8 +7642,9 @@ const MyIOOrchestrator = (() => {
                 stores: newStoresTotal,
                 apiEnriched: true,
               };
-              window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: enrichedWaterSummary }));
-
+              window.dispatchEvent(
+                new CustomEvent('myio:water-summary-ready', { detail: enrichedWaterSummary })
+              );
             } catch (err) {
               LogHelper.warn(`[Orchestrator] 💧 RFC-0131: API enrichment failed: ${err.message}`);
             }
@@ -7914,7 +7921,9 @@ const MyIOOrchestrator = (() => {
       const allItems = energyData.items;
 
       // RFC-0131: Build set of selected shopping names from selection array for matching
-      const selectedEnergyShoppingNames = new Set(selection.map((s) => (s.name || '').toLowerCase()).filter(Boolean));
+      const selectedEnergyShoppingNames = new Set(
+        selection.map((s) => (s.name || '').toLowerCase()).filter(Boolean)
+      );
 
       // RFC-0131: Filter by shopping - match customerId OR ownerName against selection
       const filteredItems = isFiltered
@@ -8592,7 +8601,7 @@ const MyIOOrchestrator = (() => {
         // Fast path: use pre-calculated totals from waterClassified
         const stores = waterClassified.stores?.total || 0;
         const commonArea = waterClassified.commonArea?.total || 0;
-        const total = waterClassified.all?.total || (stores + commonArea);
+        const total = waterClassified.all?.total || stores + commonArea;
         const deviceCount = waterClassified.all?.count || 0;
 
         const waterSummary = {
@@ -8606,7 +8615,11 @@ const MyIOOrchestrator = (() => {
         };
 
         window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
-        LogHelper.log(`[Orchestrator] requestWaterSummary: emitted from waterClassified (total: ${total.toFixed(2)} m³, stores: ${stores.toFixed(2)}, commonArea: ${commonArea.toFixed(2)})`);
+        LogHelper.log(
+          `[Orchestrator] requestWaterSummary: emitted from waterClassified (total: ${total.toFixed(
+            2
+          )} m³, stores: ${stores.toFixed(2)}, commonArea: ${commonArea.toFixed(2)})`
+        );
         return;
       }
 
@@ -8666,9 +8679,9 @@ const MyIOOrchestrator = (() => {
       };
 
       LogHelper.log(
-        `[Orchestrator] 💧 requestWaterSummary: emitted (total: ${total.toFixed(2)} m³, area: ${commonArea.toFixed(
+        `[Orchestrator] 💧 requestWaterSummary: emitted (total: ${total.toFixed(
           2
-        )}, lojas: ${stores.toFixed(2)})`
+        )} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`
       );
 
       window.dispatchEvent(
@@ -8945,3 +8958,25 @@ function finalizeContractValidation(expectedCounts) {
     closeBtn.style.cursor = 'pointer';
   }
 }
+
+// ============================================================================
+// RFC-0143: Device Grid Widget Factory
+// Re-export from MyIOLibrary for child widgets (EQUIPMENTS, STORES, etc.)
+// ============================================================================
+(function () {
+  // Re-export DeviceGridWidgetFactory from MyIOLibrary
+  if (window.MyIOLibrary?.DeviceGridWidgetFactory) {
+    window.DeviceGridWidgetFactory = window.MyIOLibrary.DeviceGridWidgetFactory;
+
+    // Also expose via MyIOUtils for backwards compatibility
+    if (window.MyIOUtils) {
+      window.MyIOUtils.DeviceGridWidgetFactory = window.DeviceGridWidgetFactory;
+    }
+
+    LogHelper.log('[RFC-0143] DeviceGridWidgetFactory loaded from MyIOLibrary');
+  } else {
+    LogHelper.warn(
+      '[RFC-0143] DeviceGridWidgetFactory not found in MyIOLibrary - ensure library is loaded first'
+    );
+  }
+})();
