@@ -29,8 +29,8 @@ All using **ThingsBoard Attributes** for storage - no external databases needed.
 │  ALARM TRIGGER                                      │
 │          ↓                                          │
 │  [Filter: Check Customer Queue Enabled?]            │
-│          ├─── FAILURE (false) → Direct Send (Old)  │
-│          └─── SUCCESS (true) → Enqueue (New)       │
+│          ├─── FAILURE (false) → Direct Send (Old)   │
+│          └─── SUCCESS (true) → Enqueue (New)        │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -40,13 +40,39 @@ All using **ThingsBoard Attributes** for storage - no external databases needed.
 
 ## 📋 Prerequisites: Customer Configuration
 
-Before integrating the queue into your Rule Chain, configure ThingsBoard for each customer.
+Each customer needs 2 attributes in ThingsBoard. Think of these as "settings" stored on the customer's profile.
 
-### Step 1: Add Queue Enable Flag (Per Customer)
+### Where to Add Attributes
 
-Go to: **Customers** → Select customer → **Attributes** tab → **SERVER_SCOPE** → Add:
+In ThingsBoard UI:
+1. Go to **Customers** menu
+2. Click on a customer
+3. Click **Attributes** tab
+4. Select **SERVER_SCOPE** (not Shared or Client)
+5. Click **"+"** button to add new attribute
 
-**For customers NOT yet migrated:**
+---
+
+### Attribute 1: Enable/Disable Queue (REQUIRED for all customers)
+
+**Why:** This controls whether THIS customer uses the queue or direct send
+
+**Attribute Details:**
+- **Key:** `telegram_queue_enabled`
+- **Value Type:** Boolean
+- **Value:** `true` or `false`
+
+**When to use `false`:**
+- Customer still using old direct-send method
+- You haven't tested queue with this customer yet
+- Temporary rollback if issues occur
+
+**When to use `true`:**
+- Customer is ready for the queue system
+- You've added Attribute 2 (configuration) below
+- You want batch processing and rate limiting
+
+**JSON Format:**
 ```json
 {
   "key": "telegram_queue_enabled",
@@ -54,26 +80,22 @@ Go to: **Customers** → Select customer → **Attributes** tab → **SERVER_SCO
 }
 ```
 
-**For customers ready to use queue:**
-```json
-{
-  "key": "telegram_queue_enabled",
-  "value": true
-}
-```
+Change to `true` when ready!
 
 ---
 
-### Step 2: Add Queue Configuration (Only for Enabled Customers)
+### Attribute 2: Queue Configuration (ONLY for customers with `telegram_queue_enabled: true`)
 
-For customers with `telegram_queue_enabled: true`, add:
+**Why:** This tells the queue HOW to behave - priorities, rate limits, and Telegram credentials
 
-**Attribute Name:** `telegram_queue_config`
+**Attribute Details:**
+- **Key:** `telegram_queue_config`
+- **Value Type:** JSON
+- **Value:** Copy and customize the template below
 
-**Value (JSON):**
+**Template to Copy:**
 ```json
 {
-  "enabled": true,
   "priorityRules": {
     "deviceProfiles": {
       "ENTRADA": 1,
@@ -90,41 +112,63 @@ For customers with `telegram_queue_enabled: true`, add:
   "rateControl": {
     "batchSize": 5,
     "delayBetweenBatchesSeconds": 60,
-    "maxRetries": 3,
-    "retryBackoff": "exponential"
+    "maxRetries": 3
   },
   "telegram": {
-    "botToken": "YOUR_BOT_TOKEN_FROM_BOTFATHER",
-    "chatId": "YOUR_CHAT_ID"
+    "botToken": "YOUR_BOT_TOKEN_HERE",
+    "chatId": "YOUR_CHAT_ID_HERE"
   }
 }
 ```
 
-**How to get Telegram credentials:**
-1. Talk to **@BotFather** on Telegram → Create bot → Get `botToken`
-2. Add bot to your group/channel
-3. Get `chatId`: Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` and look for `"chat":{"id":-100123456789}`
+**What Each Part Means:**
 
-**Configuration Explained:**
+#### Priority Rules
+Determines which alarms are sent first:
 
-| Field | Description | Example Values |
-|-------|-------------|----------------|
-| `priorityRules.deviceProfiles` | Map device type to priority (1=Critical, 2=High, 3=Medium, 4=Low) | `"ENTRADA": 1` |
-| `priorityRules.deviceOverrides` | Override priority for specific devices | `"device-uuid-123": 1` |
-| `priorityRules.globalDefault` | Fallback priority if no rule matches | `3` (Medium) |
-| `rateControl.batchSize` | Messages per batch | `5` |
-| `rateControl.delayBetweenBatchesSeconds` | Wait time between batches | `60` (1 minute) |
-| `rateControl.maxRetries` | Max retry attempts for failed sends | `3` |
-| `rateControl.retryBackoff` | Retry delay strategy | `"exponential"` or `"linear"` |
+| Priority | Meaning | Number | Which Devices |
+|----------|---------|--------|---------------|
+| Critical | SEND FIRST | 1 | ENTRADA, RELOGIO, TRAFO, SUBESTACAO |
+| High | Send second | 2 | 3F_MEDIDOR, HIDROMETRO |
+| Medium | Send third | 3 | (Anything not listed - the default) |
+| Low | Send last | 4 | TERMOSTATO |
+
+**`deviceProfiles`**: Matches by device type name
+**`deviceOverrides`**: Matches by specific device UUID (leave empty `{}` if not needed)
+**`globalDefault`**: Used when device doesn't match any rule (recommended: `3`)
+
+#### Rate Control
+Prevents Telegram from blocking you:
+
+| Setting | What It Does | Recommended Value |
+|---------|--------------|-------------------|
+| `batchSize` | How many messages to send at once | `5` |
+| `delayBetweenBatchesSeconds` | Seconds to wait between batches | `60` (1 minute) |
+| `maxRetries` | How many times to retry failed sends | `3` |
+
+**Example:** With `batchSize: 5` and `delay: 60`, you send 5 messages per minute max.
+
+#### Telegram Credentials
+Where to send messages:
+
+| Field | Where to Get It |
+|-------|-----------------|
+| `botToken` | Chat with **@BotFather** on Telegram → `/newbot` → Copy token |
+| `chatId` | 1. Add bot to your Telegram group<br>2. Visit: `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`<br>3. Look for `"chat":{"id":-100123456789}` |
 
 ---
 
-### Step 3: Create Virtual Device for Monitoring (Optional)
+### Quick Setup Checklist
 
-**Devices** → **Add Device**:
-- **Name**: `telegram-queue-monitor`
-- **Type**: Generic
-- **Purpose**: Stores queue metrics for dashboard widgets
+For **each customer** you want to migrate:
+
+- [ ] Add `telegram_queue_enabled: false` (start with false!)
+- [ ] Add `telegram_queue_config` with their Telegram bot token and chat ID
+- [ ] Test by changing `telegram_queue_enabled: true`
+- [ ] Verify messages appear in their Telegram
+- [ ] If issues occur, flip back to `false` (instant rollback!)
+
+**Important:** Each customer can have DIFFERENT Telegram bots/groups. Just use different `botToken` and `chatId` in their config.
 
 ---
 
@@ -538,28 +582,118 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 
 **Configuration:**
 - **Period:** 60 seconds
-- **Originator:** Select a customer entity (or use system originator)
+- **Originator:** System (or Tenant entity)
 - **Message count:** 1
 - **Message:** `{}` (empty JSON object)
-- **Metadata:**
-  ```json
-  {
-    "customerId": "YOUR_CUSTOMER_UUID_HERE"
-  }
-  ```
+- **Metadata:** Leave empty
 
-**Purpose:** Triggers the dispatcher every 60 seconds to check the queue
-
-**Note:** You'll need one Dispatcher Rule Chain **per customer** OR use a Switch node to route by customer.
+**Purpose:** Triggers the dispatcher every 60 seconds for ALL customers
 
 **Connection:** Success relation → Dispatcher Node 2
 
 ---
 
-### Dispatcher Node 2: Enrichment - Fetch Queue Data
+### Dispatcher Node 2: Script - Build Customer List
 
 **Previous Node:** Dispatcher Node 1
 **Next Node:** Dispatcher Node 3
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Provide list of customer UUIDs to process
+
+**Script:**
+```javascript
+// CONFIGURE THIS: Add your customer UUIDs here
+var customers = [
+  "CUSTOMER_UUID_1",
+  "CUSTOMER_UUID_2",
+  "CUSTOMER_UUID_3"
+  // Add more customer IDs as needed
+];
+
+// Return array for Split Array node
+return {
+  msg: customers,
+  metadata: metadata,
+  msgType: msgType
+};
+```
+
+**Note:** Update this script whenever you add/remove customers. Each customer with `telegram_queue_enabled: true` should be in this list.
+
+**Connection:** Success relation → Dispatcher Node 3
+
+---
+
+### Dispatcher Node 3: Split Array - Process Each Customer
+
+**Previous Node:** Dispatcher Node 2
+**Next Node:** Dispatcher Node 4
+
+**Node Type:** Split Array Msg
+
+**Configuration:**
+- **No configuration needed** - Automatically iterates over customer UUID array
+
+**Purpose:** Create separate parallel message flow for each customer
+
+**What happens:** If you have 10 customers in the list, Nodes 4-22 will run 10 times in parallel
+
+**Connection:** Success relation → Dispatcher Node 4
+
+---
+
+### Dispatcher Node 4: Script - Build Customer Context
+
+**Previous Node:** Dispatcher Node 3
+**Next Node:** Dispatcher Node 5
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Convert customer UUID string to metadata object
+
+**Script:**
+```javascript
+// msg is now a single customer UUID string (from Split Array)
+var customerId = msg;
+
+return {
+  msg: {},
+  metadata: {
+    customerId: customerId
+  },
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
+```
+
+**Connection:** Success relation → Dispatcher Node 5
+
+---
+
+### Dispatcher Node 5: Change Originator - Set to Customer
+
+**Previous Node:** Dispatcher Node 4
+**Next Node:** Dispatcher Node 6
+
+**Node Type:** Change Originator
+
+**Purpose:** Switch message originator to customer entity for enrichment
+
+**Configuration:**
+- **Originator source:** Customer
+- **Customer ID pattern:** `${metadata.customerId}`
+
+**Why needed:** Next node needs customer context to fetch customer attributes
+
+**Connection:** Success relation → Dispatcher Node 6
+
+---
+
+### Dispatcher Node 6: Enrichment - Fetch Queue Data
+
+**Previous Node:** Dispatcher Node 5
+**Next Node:** Dispatcher Node 7
 
 **Node Type:** Customer Attributes (Enrichment)
 
@@ -573,14 +707,14 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 
 **Purpose:** Load all data needed for rate limiting and batch building
 
-**Connection:** Success relation → Dispatcher Node 3
+**Connection:** Success relation → Dispatcher Node 7
 
 ---
 
-### Dispatcher Node 3: Script - Check Rate Limit & Build Batch
+### Dispatcher Node 7:
 
-**Previous Node:** Dispatcher Node 2
-**Next Node:** Dispatcher Node 4
+**Previous Node:** Dispatcher Node 6
+**Next Node:** Dispatcher Node 8
 
 **Node Type:** Script (Transformation)
 
@@ -597,14 +731,14 @@ After messages are enqueued via Node 7, you need a **separate Rule Chain** that 
 6. **If queue empty** → Return `{emptyQueue: true, batchIds: []}`
 7. **If has messages** → Return `{rateLimited: false, batchIds: ["uuid1", "uuid2", ...], batchSize: 5}`
 
-**Connection:** Success relation → Dispatcher Node 4
+**Connection:** Success relation → Dispatcher Node 8
 
 ---
 
-### Dispatcher Node 4: Filter - Can Send Batch?
+### Dispatcher Node 8:
 
-**Previous Node:** Dispatcher Node 3
-**Next Nodes:** Dispatcher Node 5 (if has messages) OR Log Node (if rate limited/empty)
+**Previous Node:** Dispatcher Node 7
+**Next Nodes:** Dispatcher Node 9 (if has messages) OR Log Node (if rate limited/empty)
 
 **Node Type:** Check Message Script (Filter)
 
@@ -617,15 +751,15 @@ return msg.rateLimited === false && msg.emptyQueue === false;
 ```
 
 **Connections:**
-- **Success** relation → Dispatcher Node 5 (has messages to send)
+- **Success** relation → Dispatcher Node 9 (has messages to send)
 - **Failure** relation → Log Node "Skipped: Rate Limited or Empty" (end flow)
 
 ---
 
-### Dispatcher Node 5: Change Originator - Set to Customer
+### Dispatcher Node 9:
 
-**Previous Node:** Dispatcher Node 4 (Success path)
-**Next Node:** Dispatcher Node 6
+**Previous Node:** Dispatcher Node 8 (Success path)
+**Next Node:** Dispatcher Node 10
 
 **Node Type:** Change Originator
 
@@ -637,14 +771,14 @@ return msg.rateLimited === false && msg.emptyQueue === false;
 
 **Why needed:** Next node needs customer context to fetch queue entries
 
-**Connection:** Success relation → Dispatcher Node 6
+**Connection:** Success relation → Dispatcher Node 10
 
 ---
 
-### Dispatcher Node 6: Script - Extract Batch Array
+### Dispatcher Node 10:
 
-**Previous Node:** Dispatcher Node 5
-**Next Node:** Dispatcher Node 7
+**Previous Node:** Dispatcher Node 9
+**Next Node:** Dispatcher Node 11
 
 **Node Type:** Script (Transformation)
 
@@ -665,14 +799,14 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 7
+**Connection:** Success relation → Dispatcher Node 11
 
 ---
 
-### Dispatcher Node 7: Split Array - Split Batch into Messages
+### Dispatcher Node 11:
 
-**Previous Node:** Dispatcher Node 6
-**Next Node:** Dispatcher Node 8 (runs multiple times - once per queue ID)
+**Previous Node:** Dispatcher Node 10
+**Next Node:** Dispatcher Node 12 (runs multiple times - once per queue ID)
 
 **Node Type:** Split Array Msg (under "Transformation" category)
 
@@ -683,14 +817,14 @@ return {
 
 **What happens:** If batch has 5 queue IDs, this node fires 5 times - once per message. Each subsequent node runs 5 times in parallel. Each iteration receives one string (the queue ID) as `msg`.
 
-**Connection:** Success relation → Dispatcher Node 8
+**Connection:** Success relation → Dispatcher Node 12
 
 ---
 
-### Dispatcher Node 8: Script - Build Queue Entry Attribute Key
+### Dispatcher Node 12:
 
-**Previous Node:** Dispatcher Node 7
-**Next Node:** Dispatcher Node 9
+**Previous Node:** Dispatcher Node 11
+**Next Node:** Dispatcher Node 13
 
 **Node Type:** Script (Transformation)
 
@@ -711,14 +845,14 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 9
+**Connection:** Success relation → Dispatcher Node 13
 
 ---
 
-### Dispatcher Node 9: Enrichment - Fetch Queue Entry
+### Dispatcher Node 13:
 
-**Previous Node:** Dispatcher Node 8
-**Next Node:** Dispatcher Node 10
+**Previous Node:** Dispatcher Node 12
+**Next Node:** Dispatcher Node 14
 
 **Node Type:** Customer Attributes (Enrichment)
 
@@ -728,14 +862,14 @@ return {
 
 **Purpose:** Fetch the full entry: `{queueId, payload: {text: "..."}, priority: 2, status: "PENDING", ...}`
 
-**Connection:** Success relation → Dispatcher Node 10
+**Connection:** Success relation → Dispatcher Node 14
 
 ---
 
-### Dispatcher Node 10: Script - Parse Entry & Prepare Telegram Request
+### Dispatcher Node 14:
 
-**Previous Node:** Dispatcher Node 9
-**Next Node:** Dispatcher Node 11
+**Previous Node:** Dispatcher Node 13
+**Next Node:** Dispatcher Node 15
 
 **Node Type:** Script (Transformation)
 
@@ -784,14 +918,14 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 11
+**Connection:** Success relation → Dispatcher Node 15
 
 ---
 
-### Dispatcher Node 11: REST API Call - Send to Telegram
+### Dispatcher Node 15:
 
-**Previous Node:** Dispatcher Node 10
-**Next Nodes:** Dispatcher Node 12a/12b/12c (depending on HTTP response)
+**Previous Node:** Dispatcher Node 14
+**Next Nodes:** Dispatcher Node 16a/12b/12c (depending on HTTP response)
 
 **Node Type:** REST API Call
 
@@ -814,19 +948,19 @@ return {
 **Purpose:** Actually send the message to Telegram!
 
 **Connections (by HTTP response):**
-- **Success (200-299)** → Dispatcher Node 12 (Switch/Router)
-- **Client Error (400-499)** → Dispatcher Node 12 (Switch/Router)
-- **Server Error (500-599)** → Dispatcher Node 12 (Switch/Router)
-- **Timeout/Network Error** → Dispatcher Node 12 (Switch/Router)
+- **Success (200-299)** → Dispatcher Node 16 (Switch/Router)
+- **Client Error (400-499)** → Dispatcher Node 16 (Switch/Router)
+- **Server Error (500-599)** → Dispatcher Node 16 (Switch/Router)
+- **Timeout/Network Error** → Dispatcher Node 16 (Switch/Router)
 
 **Important:** Connect ALL output relations from the REST API node to the same Switch node (Node 12). The Switch will route based on status code.
 
 ---
 
-### Dispatcher Node 12: Switch - Route by Status Code
+### Dispatcher Node 16:
 
-**Previous Node:** Dispatcher Node 11 (all response types)
-**Next Nodes:** Node 13a, 13b, or 13c (depending on status code)
+**Previous Node:** Dispatcher Node 15 (all response types)
+**Next Nodes:** Node 17a, 13b, or 13c (depending on status code)
 
 **Node Type:** Switch (under "Filter" category)
 
@@ -837,9 +971,9 @@ return {
 [Node 11: REST API Call]
          ↓ (all responses)
 [Node 12: SWITCH - Check statusCode]
-         ├─ Success (200-299) ──→ [Node 13a: Mark SENT]
-         ├─ ClientError (400-499) ──→ [Node 13b: Mark FAILED]
-         └─ Retry (500+ or unknown) ──→ [Node 13c: Mark RETRY/FAILED]
+         ├─ Success (200-299) ──→ [Node 17a: Mark SENT]
+         ├─ ClientError (400-499) ──→ [Node 17b: Mark FAILED]
+         └─ Retry (500+ or unknown) ──→ [Node 17c: Mark RETRY/FAILED]
                                               ↓
                                               ↓ (all merge here)
                                               ↓
@@ -852,29 +986,29 @@ return {
 var status = metadata.statusCode ? parseInt(metadata.statusCode) : 0;
 
 if (status >= 200 && status < 300) {
-    return ['Success']; // Route to Node 13a (Mark SENT)
+    return ['Success']; // Route to Node 17a (Mark SENT)
 } else if (status >= 400 && status < 500) {
-    return ['ClientError']; // Route to Node 13b (Mark FAILED)
+    return ['ClientError']; // Route to Node 17b (Mark FAILED)
 } else {
-    return ['Retry']; // Route to Node 13c (Mark RETRY - for 500+ or unknown)
+    return ['Retry']; // Route to Node 17c (Mark RETRY - for 500+ or unknown)
 }
 ```
 
 **Connections - Create these custom relations:**
 
 In ThingsBoard, after creating the Switch node:
-1. Click "Add" to create a new relation named **"Success"** → Connect to Node 13a
-2. Click "Add" to create a new relation named **"ClientError"** → Connect to Node 13b
-3. Click "Add" to create a new relation named **"Retry"** → Connect to Node 13c
+1. Click "Add" to create a new relation named **"Success"** → Connect to Node 17a
+2. Click "Add" to create a new relation named **"ClientError"** → Connect to Node 17b
+3. Click "Add" to create a new relation named **"Retry"** → Connect to Node 17c
 
 The relation names MUST match exactly what the script returns: `['Success']`, `['ClientError']`, `['Retry']`
 
 ---
 
-### Dispatcher Node 13: Script - Mark Entry Status (3 versions)
+### Dispatcher Node 17:
 
-**Previous Node:** Dispatcher Node 12 (Switch)
-**Next Node:** Dispatcher Node 14
+**Previous Node:** Dispatcher Node 16 (Switch)
+**Next Node:** Dispatcher Node 18
 
 **Node Type:** Script (Transformation) - Create 3 SEPARATE nodes with different status logic
 
@@ -939,14 +1073,14 @@ return {
 };
 ```
 
-**Connection:** All three scripts (13a, 13b, 13c) connect via Success relation → Dispatcher Node 14
+**Connection:** All three scripts (13a, 13b, 13c) connect via Success relation → Dispatcher Node 18
 
 ---
 
-### Dispatcher Node 14: Script - Prepare Index Update
+### Dispatcher Node 18:
 
-**Previous Node:** Dispatcher Node 13 (any of the 3 versions: 13a, 13b, or 13c)
-**Next Node:** Dispatcher Node 15
+**Previous Node:** Dispatcher Node 17 (any of the 3 versions: 13a, 13b, or 13c)
+**Next Node:** Dispatcher Node 19
 
 **Node Type:** Script (Transformation)
 
@@ -1001,14 +1135,14 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 15
+**Connection:** Success relation → Dispatcher Node 19
 
 ---
 
-### Dispatcher Node 15: Save Attributes - Update Entry & Index
+### Dispatcher Node 19:
 
-**Previous Node:** Dispatcher Node 14
-**Next Node:** Dispatcher Node 16
+**Previous Node:** Dispatcher Node 18
+**Next Node:** Dispatcher Node 60
 
 **Node Type:** Save Attributes
 
@@ -1019,14 +1153,14 @@ return {
 
 **Purpose:** Persist updated entry status and modified priority index
 
-**Connection:** Success relation → Dispatcher Node 16
+**Connection:** Success relation → Dispatcher Node 60
 
 ---
 
-### Dispatcher Node 16: Script - Update Rate Limit State
+### Dispatcher Node 20:
 
-**Previous Node:** Dispatcher Node 15
-**Next Node:** Dispatcher Node 17
+**Previous Node:** Dispatcher Node 19
+**Next Node:** Dispatcher Node 61
 
 **Node Type:** Script (Transformation)
 
@@ -1062,13 +1196,13 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 17
+**Connection:** Success relation → Dispatcher Node 61
 
 ---
 
-### Dispatcher Node 17: Save Attributes - Update Rate Limit
+### Dispatcher Node 21:
 
-**Previous Node:** Dispatcher Node 16
+**Previous Node:** Dispatcher Node 60
 **Next Node:** None (end of flow)
 
 **Node Type:** Save Attributes
@@ -1107,24 +1241,116 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 
 **Configuration:**
 - **Period:** 300 seconds (5 minutes)
-- **Originator:** Select the `telegram-queue-monitor` device you created earlier
+- **Originator:** System (or Tenant entity)
 - **Message count:** 1
 - **Message:** `{}`
-- **Metadata:**
-  ```json
-  {
-    "customerId": "YOUR_CUSTOMER_UUID_HERE"
-  }
-  ```
+- **Metadata:** Leave empty
+
+**Purpose:** Triggers the monitor every 5 minutes for ALL customers
 
 **Connection:** Success relation → Monitor Node 2
 
 ---
 
-### Monitor Node 2: Enrichment - Fetch Queue Data
+### Monitor Node 2: Script - Build Customer List
 
 **Previous Node:** Monitor Node 1
 **Next Node:** Monitor Node 3
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Provide list of customer UUIDs to monitor
+
+**Script:**
+```javascript
+// CONFIGURE THIS: Same customer list as Dispatcher Node 2
+var customers = [
+  "CUSTOMER_UUID_1",
+  "CUSTOMER_UUID_2",
+  "CUSTOMER_UUID_3"
+  // Add more customer IDs as needed
+];
+
+// Return array for Split Array node
+return {
+  msg: customers,
+  metadata: metadata,
+  msgType: msgType
+};
+```
+
+**Note:** Keep this synchronized with Dispatcher Node 2
+
+**Connection:** Success relation → Monitor Node 3
+
+---
+
+### Monitor Node 3: Split Array - Process Each Customer
+
+**Previous Node:** Monitor Node 2
+**Next Node:** Monitor Node 4
+
+**Node Type:** Split Array Msg
+
+**Configuration:**
+- **No configuration needed** - Automatically iterates over customer UUID array
+
+**Purpose:** Create separate parallel message flow for each customer
+
+**What happens:** If you have 10 customers, Nodes 4-7 will run 10 times in parallel
+
+**Connection:** Success relation → Monitor Node 4
+
+---
+
+### Monitor Node 4: Script - Build Customer Context
+
+**Previous Node:** Monitor Node 3
+**Next Node:** Monitor Node 5
+
+**Node Type:** Script (Transformation)
+
+**Purpose:** Convert customer UUID string to metadata object
+
+**Script:**
+```javascript
+// msg is now a single customer UUID string (from Split Array)
+var customerId = msg;
+
+return {
+  msg: {},
+  metadata: {
+    customerId: customerId
+  },
+  msgType: 'POST_ATTRIBUTES_REQUEST'
+};
+```
+
+**Connection:** Success relation → Monitor Node 5
+
+---
+
+### Monitor Node 5: Change Originator - Set to Customer
+
+**Previous Node:** Monitor Node 4
+**Next Node:** Monitor Node 6
+
+**Node Type:** Change Originator
+
+**Purpose:** Switch message originator to customer entity for enrichment
+
+**Configuration:**
+- **Originator source:** Customer
+- **Customer ID pattern:** `${metadata.customerId}`
+
+**Connection:** Success relation → Monitor Node 6
+
+---
+
+### Monitor Node 6: Enrichment - Fetch Queue Data
+
+**Previous Node:** Monitor Node 5
+**Next Node:** Monitor Node 7
 
 **Node Type:** Customer Attributes (Enrichment)
 
@@ -1136,14 +1362,14 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 - `telegram_queue_index_priority_3`
 - `telegram_queue_index_priority_4`
 
-**Connection:** Success relation → Monitor Node 3
+**Connection:** Success relation → Monitor Node 7
 
 ---
 
-### Monitor Node 3: Script - Calculate Metrics
+### Monitor Node 7: Script - Calculate Metrics
 
-**Previous Node:** Monitor Node 2
-**Next Node:** Monitor Node 4
+**Previous Node:** Monitor Node 6
+**Next Node:** Monitor Node 8
 
 **Node Type:** Script (Transformation)
 
@@ -1165,26 +1391,31 @@ After the Dispatcher is running, optionally create a Monitor Rule Chain for dash
 }
 ```
 
-**Connection:** Success relation → Monitor Node 4
+**Connection:** Success relation → Monitor Node 8
 
 ---
 
-### Monitor Node 4: Save Telemetry
+### Monitor Node 8: Save Telemetry
 
-**Previous Node:** Monitor Node 3
+**Previous Node:** Monitor Node 7
 **Next Node:** None (end of flow)
 
 **Node Type:** Save Telemetry
 
 **Configuration:**
-- **Entity:** Device `telegram-queue-monitor` (originator from Node 1)
-- **Telemetry:** All fields from `msg` (output of Node 3)
+- **Entity:** Customer (originator - the customer whose metrics we're saving)
+- **Telemetry:** All fields from `msg` (output of Node 7)
 - **TTL:** 0 (keep forever) or set retention period
 
-**Purpose:** Store metrics so you can build ThingsBoard dashboard widgets:
-- Line chart: `total_queue_depth` over time
-- Gauge: `wait_time_seconds`
-- Counter: Total messages processed
+**Purpose:** Store metrics per customer so you can build ThingsBoard dashboard widgets
+
+**Important:** Each customer will have their own telemetry saved to their Customer entity. This allows you to:
+- Build customer-specific dashboards showing their queue metrics
+- Monitor individual customer queue health
+- Track queue performance per customer
+
+**Alternative Approach:**
+If you want centralized monitoring, create one device per customer named `telegram-queue-monitor-{customerId}` and change originator in Node 5 to that device instead of the customer entity.
 
 **Connection:** Success relation → Log Success (optional, end of flow)
 

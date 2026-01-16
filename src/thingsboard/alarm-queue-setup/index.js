@@ -195,15 +195,15 @@ export const FLOWS = {
   dispatcher: {
     name: 'FLOW 2: Dispatcher',
     trigger: 'Timer-based (every 60 seconds)',
-    purpose: 'Process queue and send messages to Telegram',
-    nodes: 17,
+    purpose: 'Process queue and send messages to Telegram - ALL customers',
+    nodes: 21,
     scripts: ['dispatch-rate-limit.js', 'dispatch-mark-status.js']
   },
   monitor: {
     name: 'FLOW 3: Monitor',
     trigger: 'Timer-based (every 300 seconds)',
-    purpose: 'Collect queue metrics for dashboard monitoring',
-    nodes: 4,
+    purpose: 'Collect queue metrics for dashboard monitoring - ALL customers',
+    nodes: 8,
     scripts: ['monitor-calculate.js']
   }
 };
