@@ -20,7 +20,13 @@ const $id = (id) => window.MyIOUtils?.$id?.(self.ctx, id) || document.getElement
 // RFC-0131: Cleanup functions registry
 let cleanupFns = [];
 function cleanupAll() {
-  cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+  cleanupFns.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      /* ignore */
+    }
+  });
   cleanupFns = [];
 }
 
@@ -69,7 +75,7 @@ function renderTotalConsumptionStoresUI(energyData, valueEl, trendEl, infoEl) {
   const totalGeral = energyData.customerTotal || 0;
   // RFC-0131: Use lojasTotal directly from summary (MAIN provides this field)
   // Fallback to difference calculation if lojasTotal not provided
-  const lojasTotal = energyData.lojasTotal ?? (totalGeral - (energyData.equipmentsTotal || 0));
+  const lojasTotal = energyData.lojasTotal ?? totalGeral - (energyData.equipmentsTotal || 0);
 
   const lojasPercentage = totalGeral > 0 ? (lojasTotal / totalGeral) * 100 : 0;
   const lojasFormatted = MyIOLibrary.formatEnergy(lojasTotal);
@@ -878,7 +884,7 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
           const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, day.startTs, day.endTs);
           return {
             total: result?.total || 0,
-            byCustomer: result?.byCustomer || {}
+            byCustomer: result?.byCustomer || {},
           };
         } catch (dayError) {
           LogHelper.warn(`[ENERGY] [RFC-0097] Error fetching day ${day.label}:`, dayError);
@@ -907,7 +913,7 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
     LogHelper.error('[ENERGY] Error fetching period consumption:', error);
     return {
       dailyTotals: new Array(dayBoundaries.length).fill(0),
-      byCustomerPerDay: new Array(dayBoundaries.length).fill({})
+      byCustomerPerDay: new Array(dayBoundaries.length).fill({}),
     };
   }
 }
@@ -1104,7 +1110,7 @@ async function calculateDistributionByMode(mode) {
 
       // Check by ownerName against selected shopping names
       if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
-        const selectedNames = window.custumersSelected.map(s => (s.name || '').toLowerCase());
+        const selectedNames = window.custumersSelected.map((s) => (s.name || '').toLowerCase());
         if (ownerName && selectedNames.includes(ownerName)) return true;
       }
 
@@ -1118,7 +1124,10 @@ async function calculateDistributionByMode(mode) {
     const areacomumItems = (energyState.areacomum?.items || []).filter(itemMatchesFilter);
 
     if (isFiltered) {
-      LogHelper.log('[ENERGY] [RFC-0131] Filtering distribution by selected shoppings:', selectedShoppingIds.length);
+      LogHelper.log(
+        '[ENERGY] [RFC-0131] Filtering distribution by selected shoppings:',
+        selectedShoppingIds.length
+      );
     }
 
     LogHelper.log(`[ENERGY] [RFC-0130] Lojas total: ${lojasTotal.toFixed(2)} kWh`);
@@ -1219,7 +1228,9 @@ function getShoppingName(customerId) {
 
   // Priority 1: Tentar buscar dos customers carregados
   if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find((c) => c.value === customerId || c.ingestionId === customerId);
+    const shopping = window.custumersSelected.find(
+      (c) => c.value === customerId || c.ingestionId === customerId
+    );
     if (shopping) return shopping.name;
   }
 
@@ -1568,7 +1579,12 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
     ? Array.from(allCustomerIds).filter((custId) => customerIds.includes(custId))
     : Array.from(allCustomerIds);
 
-  LogHelper.log('[ENERGY] [RFC-0130] Customers from API:', allCustomerIds.size, 'filtered to:', filteredCustomerIds.length);
+  LogHelper.log(
+    '[ENERGY] [RFC-0130] Customers from API:',
+    allCustomerIds.size,
+    'filtered to:',
+    filteredCustomerIds.length
+  );
 
   // Initialize shoppingData arrays for each customer (only filtered ones)
   filteredCustomerIds.forEach((custId) => {
@@ -1695,53 +1711,63 @@ self.onInit = async function () {
   initializeTotalConsumptionEquipmentsCard();
 
   // 2. RFC-0131: Register event listeners using addListenerBoth (auto-cleanup)
-  const addListener = window.MyIOUtils?.addListenerBoth || ((ev, handler) => {
-    window.addEventListener(ev, handler);
-    return () => window.removeEventListener(ev, handler);
-  });
+  const addListener =
+    window.MyIOUtils?.addListenerBoth ||
+    ((ev, handler) => {
+      window.addEventListener(ev, handler);
+      return () => window.removeEventListener(ev, handler);
+    });
 
   // Listen for energy summary from orchestrator
-  cleanupFns.push(addListener('myio:energy-summary-ready', async (ev) => {
-    LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
-    updateTotalConsumptionStoresCard(ev.detail);
-    updateTotalConsumptionEquipmentsCard(ev.detail);
+  cleanupFns.push(
+    addListener('myio:energy-summary-ready', async (ev) => {
+      LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
+      updateTotalConsumptionStoresCard(ev.detail);
+      updateTotalConsumptionEquipmentsCard(ev.detail);
 
-    // Refresh distribution chart when energy data is ready
-    if (distributionChartInstance) {
-      try {
-        await distributionChartInstance.refresh();
-      } catch (error) {
-        LogHelper.error('[ENERGY] Error refreshing distribution chart:', error);
+      // Refresh distribution chart when energy data is ready
+      if (distributionChartInstance) {
+        try {
+          await distributionChartInstance.refresh();
+        } catch (error) {
+          LogHelper.error('[ENERGY] Error refreshing distribution chart:', error);
+        }
       }
-    }
-  }));
+    })
+  );
 
   // Listen to shopping filter changes and update charts
-  cleanupFns.push(addListener('myio:filter-applied', async (ev) => {
-    LogHelper.log('[ENERGY] Shopping filter applied, updating charts...', ev.detail);
-    cachedChartData = null;
+  cleanupFns.push(
+    addListener('myio:filter-applied', async (ev) => {
+      LogHelper.log('[ENERGY] Shopping filter applied, updating charts...', ev.detail);
+      cachedChartData = null;
 
-    if (distributionChartInstance) {
-      await distributionChartInstance.refresh();
-    }
-    if (consumptionChartInstance?.refresh) {
-      await consumptionChartInstance.refresh(true);
-    }
-  }));
+      if (distributionChartInstance) {
+        await distributionChartInstance.refresh();
+      }
+      if (consumptionChartInstance?.refresh) {
+        await consumptionChartInstance.refresh(true);
+      }
+    })
+  );
 
   // Listen to equipment metadata enrichment
-  cleanupFns.push(addListener('myio:equipment-metadata-enriched', async (ev) => {
-    LogHelper.log('[ENERGY] Equipment metadata enriched! Refreshing chart...', ev.detail);
-    if (distributionChartInstance) {
-      await distributionChartInstance.refresh();
-    }
-  }));
+  cleanupFns.push(
+    addListener('myio:equipment-metadata-enriched', async (ev) => {
+      LogHelper.log('[ENERGY] Equipment metadata enriched! Refreshing chart...', ev.detail);
+      if (distributionChartInstance) {
+        await distributionChartInstance.refresh();
+      }
+    })
+  );
 
   // Listen for cache clear
-  cleanupFns.push(addListener('myio:telemetry:clear', () => {
-    LogHelper.log('[ENERGY] Cache clear event received.');
-    initializeTotalConsumptionCard();
-  }));
+  cleanupFns.push(
+    addListener('myio:telemetry:clear', () => {
+      LogHelper.log('[ENERGY] Cache clear event received.');
+      initializeTotalConsumptionCard();
+    })
+  );
 
   // RFC-0131: Mark widget as initialized
   energyWidgetInitialized = true;
@@ -1749,10 +1775,15 @@ self.onInit = async function () {
   // 3. RFC-0131: Wait for orchestrator using onOrchestratorReady (no polling)
   const onReady = window.MyIOUtils?.onOrchestratorReady;
   if (onReady) {
-    cleanupFns.push(onReady((orch) => {
-      LogHelper.log('[ENERGY] [RFC-0131] Orchestrator ready, requesting summary...');
-      orch.requestSummary?.();
-    }, { timeoutMs: 10000 }));
+    cleanupFns.push(
+      onReady(
+        (orch) => {
+          LogHelper.log('[ENERGY] [RFC-0131] Orchestrator ready, requesting summary...');
+          orch.requestSummary?.();
+        },
+        { timeoutMs: 10000 }
+      )
+    );
   } else {
     // Fallback: simple retry with toast warning
     LogHelper.warn('[ENERGY] MyIOUtils.onOrchestratorReady not available, using fallback');

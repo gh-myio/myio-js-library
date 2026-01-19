@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TelemetryInfoShoppingComponent Showcase - RFC-0148</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* MyIO Design System */
+      --myio-bg: #F5F5F5;
+      --myio-card-bg: #FFFFFF;
+      --myio-card-border: #E0E0E0;
+      --myio-text-primary: #222222;
+      --myio-text-secondary: #666666;
+      --myio-text-muted: #999999;
+      --myio-accent: #00C896;
+      --myio-primary: #5B2EBC;
+
+      /* Category colors */
+      --myio-color-entrada: #2196F3;
+      --myio-color-climatizacao: #00C896;
+      --myio-color-elevadores: #5B2EBC;
+      --myio-color-escadas: #FF6B6B;
+      --myio-color-lojas: #FFC107;
+      --myio-color-outros: #9C27B0;
+      --myio-color-area-comum: #4CAF50;
+      --myio-color-total: #607D8B;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--myio-bg);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .showcase-header {
+      background: var(--myio-card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .showcase-header h1 {
+      color: var(--myio-text-primary);
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .showcase-header p {
+      color: var(--myio-text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .controls button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--myio-primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #4a25a0;
+    }
+
+    .btn-secondary {
+      background: var(--myio-card-border);
+      color: var(--myio-text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+
+    .btn-accent {
+      background: var(--myio-accent);
+      color: white;
+    }
+
+    .btn-accent:hover {
+      background: #00a77d;
+    }
+
+    /* Telemetry Info Container */
+    .telemetry-info-container {
+      background: var(--myio-card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Widget Header */
+    .info-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--myio-card-border);
+    }
+
+    .info-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--myio-text-primary);
+    }
+
+    .expand-btn {
+      background: transparent;
+      border: 1px solid var(--myio-card-border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--myio-text-secondary);
+      transition: all 0.2s;
+    }
+
+    .expand-btn:hover {
+      background: var(--myio-bg);
+      color: var(--myio-text-primary);
+    }
+
+    /* Grid Layout */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1200px) {
+      .telemetry-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .telemetry-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Category Cards */
+    .category-card {
+      background: var(--myio-bg);
+      border-radius: 10px;
+      padding: 16px;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+
+    .category-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .category-card.entrada-card {
+      border-left: 4px solid var(--myio-color-entrada);
+    }
+
+    .category-card.climatizacao-card {
+      border-left: 4px solid var(--myio-color-climatizacao);
+    }
+
+    .category-card.elevadores-card {
+      border-left: 4px solid var(--myio-color-elevadores);
+    }
+
+    .category-card.escadas-card {
+      border-left: 4px solid var(--myio-color-escadas);
+    }
+
+    .category-card.lojas-card {
+      border-left: 4px solid var(--myio-color-lojas);
+    }
+
+    .category-card.outros-card {
+      border-left: 4px solid var(--myio-color-outros);
+    }
+
+    .category-card.area-comum-card {
+      border-left: 4px solid var(--myio-color-area-comum);
+    }
+
+    .category-card.total-card {
+      border-left: 4px solid var(--myio-color-total);
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .card-icon {
+      font-size: 1.2rem;
+    }
+
+    .card-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--myio-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .card-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--myio-text-primary);
+      margin-bottom: 4px;
+    }
+
+    .card-percentage {
+      font-size: 0.85rem;
+      color: var(--myio-text-muted);
+    }
+
+    /* Chart Section */
+    .chart-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--myio-card-border);
+    }
+
+    @media (max-width: 768px) {
+      .chart-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-container {
+      position: relative;
+      height: 280px;
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .legend-label {
+      font-size: 0.9rem;
+      color: var(--myio-text-secondary);
+      flex: 1;
+    }
+
+    .legend-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--myio-text-primary);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 2147483647;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--myio-card-bg);
+      border-radius: 16px;
+      padding: 30px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--myio-text-primary);
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--myio-text-muted);
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      color: var(--myio-text-primary);
+    }
+
+    .modal-chart-container {
+      height: 400px;
+      margin-bottom: 24px;
+    }
+
+    .modal-legend {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .modal-legend {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Domain Toggle */
+    .domain-toggle {
+      display: flex;
+      gap: 8px;
+      background: var(--myio-bg);
+      padding: 4px;
+      border-radius: 8px;
+    }
+
+    .domain-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: transparent;
+      color: var(--myio-text-secondary);
+      transition: all 0.2s;
+    }
+
+    .domain-btn.active {
+      background: var(--myio-card-bg);
+      color: var(--myio-primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Event Log */
+    .event-log {
+      margin-top: 20px;
+      background: var(--myio-card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .event-log h3 {
+      font-size: 0.9rem;
+      color: var(--myio-text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .log-entries {
+      font-family: 'Consolas', monospace;
+      font-size: 0.8rem;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: #6a9955;
+    }
+
+    .log-event {
+      color: #dcdcaa;
+    }
+
+    .log-data {
+      color: #9cdcfe;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="showcase-header">
+    <h1>TelemetryInfoShoppingComponent Showcase</h1>
+    <p>RFC-0148 - Componente de informacoes de telemetria com grafico de pizza para distribuicao de consumo</p>
+
+    <div class="controls">
+      <div class="domain-toggle">
+        <button class="domain-btn active" data-domain="energy">Energia</button>
+        <button class="domain-btn" data-domain="water">Agua</button>
+      </div>
+
+      <button class="btn-primary" id="btn-load-data">Carregar Dados</button>
+      <button class="btn-secondary" id="btn-clear-data">Limpar</button>
+      <button class="btn-accent" id="btn-random-data">Dados Aleatorios</button>
+      <button class="btn-secondary" id="btn-expand">Expandir Modal</button>
+    </div>
+  </div>
+
+  <!-- Telemetry Info Component -->
+  <div class="telemetry-info-container">
+    <div class="info-header">
+      <span class="info-title" id="widget-title">Informacoes de Energia</span>
+      <button class="expand-btn" id="expand-btn-inline">Expandir</button>
+    </div>
+
+    <div class="telemetry-grid" id="telemetry-grid">
+      <!-- Cards will be rendered here -->
+    </div>
+
+    <div class="chart-section">
+      <div class="chart-container">
+        <canvas id="consumptionPieChart"></canvas>
+      </div>
+      <div class="chart-legend" id="chartLegend">
+        <!-- Legend will be rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalExpanded">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Distribuicao de Consumo de Energia</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-chart-container">
+        <canvas id="modalConsumptionPieChart"></canvas>
+      </div>
+      <div class="modal-legend" id="modalChartLegend">
+        <!-- Modal legend will be rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Log -->
+  <div class="event-log">
+    <h3>Event Log</h3>
+    <div class="log-entries" id="log-entries">
+      <!-- Log entries will be appended here -->
+    </div>
+  </div>
+
+  <script>
+    // ===================== STATE =====================
+
+    let currentDomain = 'energy';
+    let pieChartInstance = null;
+    let modalPieChartInstance = null;
+
+    const CHART_COLORS = {
+      climatizacao: '#00C896',
+      elevadores: '#5B2EBC',
+      escadasRolantes: '#FF6B6B',
+      lojas: '#FFC107',
+      outros: '#9C27B0',
+      areaComum: '#4CAF50',
+      // Water specific
+      banheiros: '#2196F3',
+      pontosNaoMapeados: '#FF9800'
+    };
+
+    const STATE = {
+      entrada: { total: 0, perc: 100 },
+      consumidores: {
+        climatizacao: { total: 0, perc: 0 },
+        elevadores: { total: 0, perc: 0 },
+        escadasRolantes: { total: 0, perc: 0 },
+        lojas: { total: 0, perc: 0 },
+        outros: { total: 0, perc: 0 },
+        areaComum: { total: 0, perc: 0 },
+        totalGeral: 0
+      },
+      grandTotal: 0
+    };
+
+    const STATE_WATER = {
+      entrada: { total: 0, perc: 100 },
+      lojas: { total: 0, perc: 0 },
+      banheiros: { total: 0, perc: 0 },
+      areaComum: { total: 0, perc: 0 },
+      pontosNaoMapeados: { total: 0, perc: 0, hasInconsistency: false },
+      grandTotal: 0
+    };
+
+    // ===================== HELPERS =====================
+
+    function formatEnergy(value) {
+      if (typeof value !== 'number' || isNaN(value)) return '0,00 kWh';
+      return value.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + ' kWh';
+    }
+
+    function formatWater(value) {
+      if (typeof value !== 'number' || isNaN(value)) return '0,000 m3';
+      return value.toLocaleString('pt-BR', {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3
+      }) + ' m3';
+    }
+
+    function formatValue(value) {
+      return currentDomain === 'water' ? formatWater(value) : formatEnergy(value);
+    }
+
+    function logEvent(event, data) {
+      const logEntries = document.getElementById('log-entries');
+      const time = new Date().toLocaleTimeString('pt-BR');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-event">${event}</span>: <span class="log-data">${JSON.stringify(data)}</span>`;
+      logEntries.insertBefore(entry, logEntries.firstChild);
+
+      // Keep only last 20 entries
+      while (logEntries.children.length > 20) {
+        logEntries.removeChild(logEntries.lastChild);
+      }
+    }
+
+    // ===================== RENDERING =====================
+
+    function renderEnergyCards() {
+      const grid = document.getElementById('telemetry-grid');
+      grid.innerHTML = `
+        <div class="category-card entrada-card" data-category="entrada">
+          <div class="card-header">
+            <span class="card-icon">&#128313;</span>
+            <span class="card-label">Entrada</span>
+          </div>
+          <div class="card-value" id="entradaTotal">${formatEnergy(STATE.entrada.total)}</div>
+          <div class="card-percentage">(100%)</div>
+        </div>
+
+        <div class="category-card climatizacao-card" data-category="climatizacao">
+          <div class="card-header">
+            <span class="card-icon">&#10052;</span>
+            <span class="card-label">Climatizacao</span>
+          </div>
+          <div class="card-value" id="climatizacaoTotal">${formatEnergy(STATE.consumidores.climatizacao.total)}</div>
+          <div class="card-percentage" id="climatizacaoPerc">(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card elevadores-card" data-category="elevadores">
+          <div class="card-header">
+            <span class="card-icon">&#128715;</span>
+            <span class="card-label">Elevadores</span>
+          </div>
+          <div class="card-value" id="elevadoresTotal">${formatEnergy(STATE.consumidores.elevadores.total)}</div>
+          <div class="card-percentage" id="elevadoresPerc">(${STATE.consumidores.elevadores.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card escadas-card" data-category="escadasRolantes">
+          <div class="card-header">
+            <span class="card-icon">&#127922;</span>
+            <span class="card-label">Esc. Rolantes</span>
+          </div>
+          <div class="card-value" id="escadasRolantesTotal">${formatEnergy(STATE.consumidores.escadasRolantes.total)}</div>
+          <div class="card-percentage" id="escadasRolantesPerc">(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card lojas-card" data-category="lojas">
+          <div class="card-header">
+            <span class="card-icon">&#127978;</span>
+            <span class="card-label">Lojas</span>
+          </div>
+          <div class="card-value" id="lojasTotal">${formatEnergy(STATE.consumidores.lojas.total)}</div>
+          <div class="card-percentage" id="lojasPerc">(${STATE.consumidores.lojas.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card outros-card" data-category="outros">
+          <div class="card-header">
+            <span class="card-icon">&#9881;</span>
+            <span class="card-label">Outros</span>
+          </div>
+          <div class="card-value" id="outrosTotal">${formatEnergy(STATE.consumidores.outros.total)}</div>
+          <div class="card-percentage" id="outrosPerc">(${STATE.consumidores.outros.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card area-comum-card" data-category="areaComum">
+          <div class="card-header">
+            <span class="card-icon">&#127970;</span>
+            <span class="card-label">Area Comum</span>
+          </div>
+          <div class="card-value" id="areaComumTotal">${formatEnergy(STATE.consumidores.areaComum.total)}</div>
+          <div class="card-percentage" id="areaComumPerc">(${STATE.consumidores.areaComum.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card total-card" data-category="total">
+          <div class="card-header">
+            <span class="card-icon">&#128200;</span>
+            <span class="card-label">Total Consumidores</span>
+          </div>
+          <div class="card-value" id="consumidoresTotal">${formatEnergy(STATE.consumidores.totalGeral)}</div>
+          <div class="card-percentage">(100%)</div>
+        </div>
+      `;
+
+      // Add click handlers
+      grid.querySelectorAll('.category-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const category = card.dataset.category;
+          logEvent('category-click', { category, domain: currentDomain });
+        });
+      });
+    }
+
+    function renderWaterCards() {
+      const grid = document.getElementById('telemetry-grid');
+      grid.innerHTML = `
+        <div class="category-card entrada-card" data-category="entrada">
+          <div class="card-header">
+            <span class="card-icon">&#128167;</span>
+            <span class="card-label">Entrada</span>
+          </div>
+          <div class="card-value">${formatWater(STATE_WATER.entrada.total)}</div>
+          <div class="card-percentage">(100%)</div>
+        </div>
+
+        <div class="category-card lojas-card" data-category="lojas">
+          <div class="card-header">
+            <span class="card-icon">&#127978;</span>
+            <span class="card-label">Lojas</span>
+          </div>
+          <div class="card-value">${formatWater(STATE_WATER.lojas.total)}</div>
+          <div class="card-percentage">(${STATE_WATER.lojas.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card" data-category="banheiros" style="border-left: 4px solid ${CHART_COLORS.banheiros};">
+          <div class="card-header">
+            <span class="card-icon">&#128701;</span>
+            <span class="card-label">Banheiros</span>
+          </div>
+          <div class="card-value">${formatWater(STATE_WATER.banheiros.total)}</div>
+          <div class="card-percentage">(${STATE_WATER.banheiros.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card area-comum-card" data-category="areaComum">
+          <div class="card-header">
+            <span class="card-icon">&#127970;</span>
+            <span class="card-label">Area Comum</span>
+          </div>
+          <div class="card-value">${formatWater(STATE_WATER.areaComum.total)}</div>
+          <div class="card-percentage">(${STATE_WATER.areaComum.perc.toFixed(1)}%)</div>
+        </div>
+
+        <div class="category-card" data-category="pontosNaoMapeados" style="border-left: 4px solid ${CHART_COLORS.pontosNaoMapeados};">
+          <div class="card-header">
+            <span class="card-icon">&#10067;</span>
+            <span class="card-label">Nao Mapeados</span>
+          </div>
+          <div class="card-value">${formatWater(STATE_WATER.pontosNaoMapeados.total)}</div>
+          <div class="card-percentage">(${STATE_WATER.pontosNaoMapeados.perc.toFixed(1)}%)${STATE_WATER.pontosNaoMapeados.hasInconsistency ? ' &#9888;' : ''}</div>
+        </div>
+      `;
+
+      // Add click handlers
+      grid.querySelectorAll('.category-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const category = card.dataset.category;
+          logEvent('category-click', { category, domain: currentDomain });
+        });
+      });
+    }
+
+    function renderCards() {
+      if (currentDomain === 'water') {
+        renderWaterCards();
+      } else {
+        renderEnergyCards();
+      }
+    }
+
+    function renderPieChart() {
+      const canvas = document.getElementById('consumptionPieChart');
+      if (!canvas) return;
+
+      if (pieChartInstance) {
+        pieChartInstance.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+
+      let labels, data, colors;
+
+      if (currentDomain === 'water') {
+        labels = ['Lojas', 'Banheiros', 'Area Comum', 'Nao Mapeados'];
+        data = [
+          STATE_WATER.lojas.total,
+          STATE_WATER.banheiros.total,
+          STATE_WATER.areaComum.total,
+          STATE_WATER.pontosNaoMapeados.total
+        ];
+        colors = [
+          CHART_COLORS.lojas,
+          CHART_COLORS.banheiros,
+          CHART_COLORS.areaComum,
+          CHART_COLORS.pontosNaoMapeados
+        ];
+      } else {
+        labels = ['Climatizacao', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Area Comum'];
+        data = [
+          STATE.consumidores.climatizacao.total,
+          STATE.consumidores.elevadores.total,
+          STATE.consumidores.escadasRolantes.total,
+          STATE.consumidores.lojas.total,
+          STATE.consumidores.outros.total,
+          STATE.consumidores.areaComum.total
+        ];
+        colors = [
+          CHART_COLORS.climatizacao,
+          CHART_COLORS.elevadores,
+          CHART_COLORS.escadasRolantes,
+          CHART_COLORS.lojas,
+          CHART_COLORS.outros,
+          CHART_COLORS.areaComum
+        ];
+      }
+
+      pieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors,
+            borderColor: '#FFFFFF',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#FFFFFF',
+              borderColor: '#E0E0E0',
+              borderWidth: 1,
+              titleColor: '#222222',
+              bodyColor: '#666666',
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  return `${label}: ${formatValue(value)} (${perc}%)`;
+                }
+              }
+            }
+          },
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 800
+          }
+        }
+      });
+
+      renderChartLegend(labels, data, colors);
+    }
+
+    function renderChartLegend(labels, data, colors) {
+      const legend = document.getElementById('chartLegend');
+      const total = data.reduce((a, b) => a + b, 0);
+
+      legend.innerHTML = labels.map((label, i) => {
+        const perc = total > 0 ? ((data[i] / total) * 100).toFixed(1) : 0;
+        return `
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${colors[i]};"></div>
+            <span class="legend-label">${label}:</span>
+            <span class="legend-value">${formatValue(data[i])} (${perc}%)</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderModalChart() {
+      const canvas = document.getElementById('modalConsumptionPieChart');
+      if (!canvas) return;
+
+      if (modalPieChartInstance) {
+        modalPieChartInstance.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+
+      let labels, data, colors;
+
+      if (currentDomain === 'water') {
+        labels = ['Lojas', 'Banheiros', 'Area Comum', 'Nao Mapeados'];
+        data = [
+          STATE_WATER.lojas.total,
+          STATE_WATER.banheiros.total,
+          STATE_WATER.areaComum.total,
+          STATE_WATER.pontosNaoMapeados.total
+        ];
+        colors = [
+          CHART_COLORS.lojas,
+          CHART_COLORS.banheiros,
+          CHART_COLORS.areaComum,
+          CHART_COLORS.pontosNaoMapeados
+        ];
+      } else {
+        labels = ['Climatizacao', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Area Comum'];
+        data = [
+          STATE.consumidores.climatizacao.total,
+          STATE.consumidores.elevadores.total,
+          STATE.consumidores.escadasRolantes.total,
+          STATE.consumidores.lojas.total,
+          STATE.consumidores.outros.total,
+          STATE.consumidores.areaComum.total
+        ];
+        colors = [
+          CHART_COLORS.climatizacao,
+          CHART_COLORS.elevadores,
+          CHART_COLORS.escadasRolantes,
+          CHART_COLORS.lojas,
+          CHART_COLORS.outros,
+          CHART_COLORS.areaComum
+        ];
+      }
+
+      modalPieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors,
+            borderColor: '#FFFFFF',
+            borderWidth: 3,
+            hoverOffset: 12
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#FFFFFF',
+              bodyColor: '#FFFFFF',
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  return `${label}: ${formatValue(value)} (${perc}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      renderModalLegend(labels, data, colors);
+    }
+
+    function renderModalLegend(labels, data, colors) {
+      const legend = document.getElementById('modalChartLegend');
+      const total = data.reduce((a, b) => a + b, 0);
+
+      legend.innerHTML = labels.map((label, i) => {
+        const perc = total > 0 ? ((data[i] / total) * 100).toFixed(1) : 0;
+        return `
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${colors[i]};"></div>
+            <span class="legend-label">${label}:</span>
+            <span class="legend-value">${formatValue(data[i])}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateDisplay() {
+      renderCards();
+      renderPieChart();
+    }
+
+    // ===================== MODAL =====================
+
+    function openModal() {
+      const modal = document.getElementById('modalExpanded');
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      renderModalChart();
+      logEvent('modal-opened', { domain: currentDomain });
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('modalExpanded');
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+      if (modalPieChartInstance) {
+        modalPieChartInstance.destroy();
+        modalPieChartInstance = null;
+      }
+      logEvent('modal-closed', { domain: currentDomain });
+    }
+
+    // ===================== DATA LOADING =====================
+
+    function loadMockEnergyData() {
+      const entrada = 15000;
+      const climatizacao = 4500;
+      const elevadores = 1500;
+      const escadasRolantes = 750;
+      const lojas = 5000;
+      const outros = 1250;
+      const areaComum = entrada - (climatizacao + elevadores + escadasRolantes + lojas + outros);
+
+      STATE.entrada.total = entrada;
+      STATE.consumidores.climatizacao = { total: climatizacao, perc: (climatizacao / entrada) * 100 };
+      STATE.consumidores.elevadores = { total: elevadores, perc: (elevadores / entrada) * 100 };
+      STATE.consumidores.escadasRolantes = { total: escadasRolantes, perc: (escadasRolantes / entrada) * 100 };
+      STATE.consumidores.lojas = { total: lojas, perc: (lojas / entrada) * 100 };
+      STATE.consumidores.outros = { total: outros, perc: (outros / entrada) * 100 };
+      STATE.consumidores.areaComum = { total: Math.max(0, areaComum), perc: Math.max(0, (areaComum / entrada) * 100) };
+      STATE.consumidores.totalGeral = climatizacao + elevadores + escadasRolantes + lojas + outros + Math.max(0, areaComum);
+      STATE.grandTotal = entrada;
+
+      logEvent('data-loaded', { domain: 'energy', entrada, lojas, climatizacao });
+    }
+
+    function loadMockWaterData() {
+      const entrada = 1500;
+      const lojas = 450;
+      const banheiros = 350;
+      const areaComum = 200;
+      const pontosNaoMapeados = entrada - (lojas + banheiros + areaComum);
+
+      STATE_WATER.entrada.total = entrada;
+      STATE_WATER.lojas = { total: lojas, perc: (lojas / entrada) * 100 };
+      STATE_WATER.banheiros = { total: banheiros, perc: (banheiros / entrada) * 100 };
+      STATE_WATER.areaComum = { total: areaComum, perc: (areaComum / entrada) * 100 };
+      STATE_WATER.pontosNaoMapeados = {
+        total: Math.max(0, pontosNaoMapeados),
+        perc: Math.max(0, (pontosNaoMapeados / entrada) * 100),
+        hasInconsistency: pontosNaoMapeados > entrada * 0.1
+      };
+      STATE_WATER.grandTotal = entrada;
+
+      logEvent('data-loaded', { domain: 'water', entrada, lojas, banheiros });
+    }
+
+    function loadRandomData() {
+      if (currentDomain === 'water') {
+        const entrada = Math.random() * 2000 + 500;
+        const lojas = Math.random() * entrada * 0.4;
+        const banheiros = Math.random() * entrada * 0.3;
+        const areaComum = Math.random() * entrada * 0.2;
+        const pontosNaoMapeados = entrada - (lojas + banheiros + areaComum);
+
+        STATE_WATER.entrada.total = entrada;
+        STATE_WATER.lojas = { total: lojas, perc: (lojas / entrada) * 100 };
+        STATE_WATER.banheiros = { total: banheiros, perc: (banheiros / entrada) * 100 };
+        STATE_WATER.areaComum = { total: areaComum, perc: (areaComum / entrada) * 100 };
+        STATE_WATER.pontosNaoMapeados = {
+          total: Math.max(0, pontosNaoMapeados),
+          perc: Math.max(0, (pontosNaoMapeados / entrada) * 100),
+          hasInconsistency: pontosNaoMapeados < 0
+        };
+        STATE_WATER.grandTotal = entrada;
+      } else {
+        const entrada = Math.random() * 20000 + 5000;
+        const climatizacao = Math.random() * entrada * 0.35;
+        const elevadores = Math.random() * entrada * 0.15;
+        const escadasRolantes = Math.random() * entrada * 0.08;
+        const lojas = Math.random() * entrada * 0.30;
+        const outros = Math.random() * entrada * 0.10;
+        const areaComum = entrada - (climatizacao + elevadores + escadasRolantes + lojas + outros);
+
+        STATE.entrada.total = entrada;
+        STATE.consumidores.climatizacao = { total: climatizacao, perc: (climatizacao / entrada) * 100 };
+        STATE.consumidores.elevadores = { total: elevadores, perc: (elevadores / entrada) * 100 };
+        STATE.consumidores.escadasRolantes = { total: escadasRolantes, perc: (escadasRolantes / entrada) * 100 };
+        STATE.consumidores.lojas = { total: lojas, perc: (lojas / entrada) * 100 };
+        STATE.consumidores.outros = { total: outros, perc: (outros / entrada) * 100 };
+        STATE.consumidores.areaComum = { total: Math.max(0, areaComum), perc: Math.max(0, (areaComum / entrada) * 100) };
+        STATE.consumidores.totalGeral = climatizacao + elevadores + escadasRolantes + lojas + outros + Math.max(0, areaComum);
+        STATE.grandTotal = entrada;
+      }
+
+      logEvent('random-data-generated', { domain: currentDomain });
+      updateDisplay();
+    }
+
+    function clearData() {
+      if (currentDomain === 'water') {
+        STATE_WATER.entrada.total = 0;
+        STATE_WATER.lojas = { total: 0, perc: 0 };
+        STATE_WATER.banheiros = { total: 0, perc: 0 };
+        STATE_WATER.areaComum = { total: 0, perc: 0 };
+        STATE_WATER.pontosNaoMapeados = { total: 0, perc: 0, hasInconsistency: false };
+        STATE_WATER.grandTotal = 0;
+      } else {
+        STATE.entrada.total = 0;
+        STATE.consumidores.climatizacao = { total: 0, perc: 0 };
+        STATE.consumidores.elevadores = { total: 0, perc: 0 };
+        STATE.consumidores.escadasRolantes = { total: 0, perc: 0 };
+        STATE.consumidores.lojas = { total: 0, perc: 0 };
+        STATE.consumidores.outros = { total: 0, perc: 0 };
+        STATE.consumidores.areaComum = { total: 0, perc: 0 };
+        STATE.consumidores.totalGeral = 0;
+        STATE.grandTotal = 0;
+      }
+
+      logEvent('data-cleared', { domain: currentDomain });
+      updateDisplay();
+    }
+
+    // ===================== EVENT HANDLERS =====================
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Domain toggle
+      document.querySelectorAll('.domain-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.domain-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentDomain = btn.dataset.domain;
+
+          // Update titles
+          const titleText = currentDomain === 'water' ? 'Informacoes de Agua' : 'Informacoes de Energia';
+          const modalTitleText = currentDomain === 'water' ? 'Distribuicao de Consumo de Agua' : 'Distribuicao de Consumo de Energia';
+          document.getElementById('widget-title').textContent = titleText;
+          document.getElementById('modalTitle').textContent = modalTitleText;
+
+          logEvent('domain-changed', { domain: currentDomain });
+          updateDisplay();
+        });
+      });
+
+      // Control buttons
+      document.getElementById('btn-load-data').addEventListener('click', () => {
+        if (currentDomain === 'water') {
+          loadMockWaterData();
+        } else {
+          loadMockEnergyData();
+        }
+        updateDisplay();
+      });
+
+      document.getElementById('btn-clear-data').addEventListener('click', clearData);
+      document.getElementById('btn-random-data').addEventListener('click', loadRandomData);
+      document.getElementById('btn-expand').addEventListener('click', openModal);
+      document.getElementById('expand-btn-inline').addEventListener('click', openModal);
+
+      // Modal
+      document.getElementById('modal-close').addEventListener('click', closeModal);
+      document.getElementById('modalExpanded').addEventListener('click', (e) => {
+        if (e.target.id === 'modalExpanded') {
+          closeModal();
+        }
+      });
+
+      // Keyboard
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal();
+        }
+      });
+
+      // Initial render
+      logEvent('showcase-initialized', { domain: currentDomain });
+      updateDisplay();
+    });
+  </script>
+</body>
+</html>

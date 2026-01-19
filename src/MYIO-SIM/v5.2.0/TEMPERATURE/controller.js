@@ -476,7 +476,11 @@ async function fetchTemperatureData() {
     if (orchestrator && typeof orchestrator.getTemperatureCache === 'function') {
       const tempCache = orchestrator.getTemperatureCache();
       if (tempCache && tempCache.allShoppingsData && tempCache.allShoppingsData.length > 0) {
-        LogHelper.log('[TEMPERATURE] Using data from orchestrator:', tempCache.allShoppingsData.length, 'shoppings');
+        LogHelper.log(
+          '[TEMPERATURE] Using data from orchestrator:',
+          tempCache.allShoppingsData.length,
+          'shoppings'
+        );
 
         // Transform orchestrator data to shoppingSeries format
         const shoppingSeries = tempCache.allShoppingsData.map((shop) => ({
@@ -620,7 +624,11 @@ async function fetch7DaysTemperature(period = 7) {
     try {
       const data = await orchestrator.fetchTemperatureDayAverages(startTs, endTs);
       if (data && data.labels && data.labels.length > 0) {
-        LogHelper.log('[TEMPERATURE] [RFC-0098] Got real data from orchestrator:', data.labels.length, 'days');
+        LogHelper.log(
+          '[TEMPERATURE] [RFC-0098] Got real data from orchestrator:',
+          data.labels.length,
+          'days'
+        );
         return data;
       }
     } catch (err) {

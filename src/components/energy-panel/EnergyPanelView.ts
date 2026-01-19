@@ -81,19 +81,12 @@ export class EnergyPanelView {
 
     return `
       <div class="energy-panel__cards">
-        <!-- ROW 1: Entrada + Lojas -->
         ${this.buildCardHTML('entrada', '📥', 'Entrada', entradaValue, null)}
         ${this.buildCardHTML('lojas', '🏪', 'Lojas', lojasValue, calcPerc(lojasValue))}
-
-        <!-- ROW 2: Climatização + Elevadores -->
         ${this.buildCardHTML('climatizacao', '❄️', 'Climatização', climatizacaoValue, calcPerc(climatizacaoValue), 'Climatização = CAG + Fancoils + Chillers + Bombas')}
         ${this.buildCardHTML('elevadores', '🛗', 'Elevadores', elevadoresValue, calcPerc(elevadoresValue))}
-
-        <!-- ROW 3: Esc. Rolantes + Outros -->
         ${this.buildCardHTML('escadas', '🎢', 'Esc. Rolantes', escadasValue, calcPerc(escadasValue))}
         ${this.buildCardHTML('outros', '⚙️', 'Outros Equipamentos', outrosValue, calcPerc(outrosValue), 'Equipamentos não classificados nas categorias principais')}
-
-        <!-- ROW 4: Área Comum + Total Consumidores -->
         ${this.buildCardHTML('areaComum', '🏢', 'Área Comum', areaComumValue, calcPerc(areaComumValue), 'Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)')}
         ${this.buildCardHTML('total', '📊', 'Total Consumidores', consumidoresValue, calcPerc(consumidoresValue))}
       </div>

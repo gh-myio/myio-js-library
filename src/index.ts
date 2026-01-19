@@ -137,6 +137,21 @@ export {
   isEntradaDevice,
 } from './utils/equipmentCategory.js';
 
+// RFC-0143: Device Grid Widget Factory
+export {
+  DeviceGridWidgetFactory,
+  createWidgetController,
+  createState as createDeviceGridState,
+  applyFilters as applyDeviceGridFilters,
+  recomputePercentages as recomputeDeviceGridPercentages,
+  buildEntityObject as buildDeviceGridEntityObject,
+  renderList as renderDeviceGridList,
+  updateStats as updateDeviceGridStats,
+  createBusyModal as createDeviceGridBusyModal,
+  getCachedData as getDeviceGridCachedData,
+  sortDevices as sortDeviceGridDevices,
+} from './utils/DeviceGridWidgetFactory.js';
+
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
 export {
@@ -836,3 +851,109 @@ export type {
   WaterPanelInstance,
   WaterPanelState,
 } from './components/water-panel';
+
+// RFC-0144: Onboard Modal Component (MYIO Academy)
+export {
+  openOnboardModal,
+  openTutorialModal,
+  openHelpModal,
+  OnboardModalView,
+} from './components/onboard';
+
+export type {
+  OnboardModalConfig,
+  OnboardModalHandle,
+  OnboardFooterLink,
+} from './components/onboard';
+
+// RFC-0139: HeaderShopping Component (Shopping Dashboard toolbar)
+export { createHeaderShoppingComponent } from './components/header-shopping';
+export { HeaderShoppingView, injectHeaderShoppingStyles } from './components/header-shopping';
+
+export type {
+  HeaderShoppingDomainType,
+  HeaderShoppingPeriod,
+  HeaderShoppingContractState,
+  HeaderShoppingConfigTemplate,
+  HeaderShoppingParams,
+  HeaderShoppingInstance,
+  HeaderShoppingEventType,
+  HeaderShoppingEventHandler,
+} from './components/header-shopping';
+
+export {
+  HEADER_SHOPPING_CSS_PREFIX,
+  DEFAULT_HEADER_SHOPPING_CONFIG,
+} from './components/header-shopping';
+
+// RFC-0140: MenuShopping Component (Shopping Dashboard menu navigation)
+export { createMenuShoppingComponent } from './components/menu-shopping';
+export { MenuShoppingView, injectMenuShoppingStyles } from './components/menu-shopping';
+
+export type {
+  MenuShoppingDomainType,
+  MenuShoppingTab,
+  MenuShoppingUserInfo,
+  MenuShoppingSettings,
+  MenuShoppingDashboardStateEvent,
+  MenuShoppingConfigTemplate,
+  MenuShoppingParams,
+  MenuShoppingInstance,
+  MenuShoppingEventType,
+  MenuShoppingEventHandler,
+} from './components/menu-shopping';
+
+export {
+  MENU_SHOPPING_CSS_PREFIX,
+  DEFAULT_MENU_SHOPPING_CONFIG,
+} from './components/menu-shopping';
+
+// RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
+export { createTelemetryGridShoppingComponent } from './components/telemetry-grid-shopping';
+
+export type {
+  TelemetryGridShoppingParams,
+  TelemetryGridShoppingInstance,
+  TelemetryDevice as TelemetryGridShoppingDevice,
+  TelemetryDomain as TelemetryGridShoppingDomain,
+  TelemetryContext as TelemetryGridShoppingContext,
+  ThemeMode as TelemetryGridShoppingThemeMode,
+  SortMode as TelemetryGridShoppingSortMode,
+  FilterState as TelemetryGridShoppingFilterState,
+  TelemetryStats as TelemetryGridShoppingStats,
+  CardAction as TelemetryGridShoppingCardAction,
+} from './components/telemetry-grid-shopping';
+
+export {
+  DOMAIN_CONFIG as TELEMETRY_GRID_SHOPPING_DOMAIN_CONFIG,
+  CONTEXT_CONFIG as TELEMETRY_GRID_SHOPPING_CONTEXT_CONFIG,
+  ONLINE_STATUSES,
+  OFFLINE_STATUSES,
+  WAITING_STATUSES,
+  getDeviceStatusCategory,
+} from './components/telemetry-grid-shopping';
+
+// RFC-0148: TelemetryInfoShopping Component (Shopping Dashboard info panel)
+export { createTelemetryInfoShoppingComponent } from './components/telemetry-info-shopping';
+
+export type {
+  TelemetryInfoShoppingParams,
+  TelemetryInfoShoppingInstance,
+  TelemetryDomain as TelemetryInfoShoppingDomain,
+  ThemeMode as TelemetryInfoShoppingThemeMode,
+  EnergySummary as TelemetryInfoEnergySummary,
+  WaterSummary as TelemetryInfoWaterSummary,
+  EnergyState as TelemetryInfoEnergyState,
+  WaterState as TelemetryInfoWaterState,
+  CategoryType as TelemetryInfoCategoryType,
+  ChartColors as TelemetryInfoChartColors,
+} from './components/telemetry-info-shopping';
+
+export {
+  DEFAULT_CHART_COLORS as TELEMETRY_INFO_DEFAULT_CHART_COLORS,
+  ENERGY_CATEGORY_CONFIG as TELEMETRY_INFO_ENERGY_CATEGORY_CONFIG,
+  WATER_CATEGORY_CONFIG as TELEMETRY_INFO_WATER_CATEGORY_CONFIG,
+  formatEnergy as telemetryInfoFormatEnergy,
+  formatWater as telemetryInfoFormatWater,
+  formatPercentage as telemetryInfoFormatPercentage,
+} from './components/telemetry-info-shopping';

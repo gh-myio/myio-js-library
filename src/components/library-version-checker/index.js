@@ -1,3 +1,5 @@
+/* global document, window, localStorage */
+
 /**
  * RFC-0137: LibraryVersionChecker Component
  *
@@ -866,7 +868,10 @@ export function createLibraryVersionChecker(container, options) {
     // Toast success/warning based on result
     if (MyIOToast) {
       if (status === 'up-to-date') {
-        MyIOToast.success(`Biblioteca atualizada! Você está usando a versão mais recente (v${currentVersion}).`, 5000);
+        MyIOToast.success(
+          `Biblioteca atualizada! Você está usando a versão mais recente (v${currentVersion}).`,
+          5000
+        );
       } else if (status === 'outdated') {
         MyIOToast.warning(`Atualização disponível! v${currentVersion} → v${latestVersion}`, 6000);
       } else if (status === 'error') {

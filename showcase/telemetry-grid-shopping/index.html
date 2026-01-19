@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0145: TelemetryGridShopping Component Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --myio-purple: #3e1a7d;
+        --myio-purple-light: rgba(62, 26, 125, 0.1);
+        --myio-purple-border: rgba(62, 26, 125, 0.2);
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #a78bfa;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px 24px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      .control-group select,
+      .control-group input,
+      .control-group button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .control-group select:hover,
+      .control-group input:hover,
+      .control-group button:hover {
+        border-color: #a78bfa;
+      }
+
+      .control-group button {
+        background: var(--myio-purple);
+        border-color: var(--myio-purple);
+      }
+
+      .control-group button:hover {
+        background: #2f1460;
+      }
+
+      .control-group button.secondary {
+        background: #475569;
+        border-color: #475569;
+      }
+
+      .control-group button.secondary:hover {
+        background: #64748b;
+      }
+
+      .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 12px 24px;
+        background: var(--myio-purple-light);
+        border-bottom: 1px solid #334155;
+        flex-wrap: wrap;
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .stat-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+
+      .stat-item.online .stat-value {
+        color: #22c55e;
+      }
+
+      .stat-item.offline .stat-value {
+        color: #ef4444;
+      }
+
+      .stat-item.consumption .stat-value {
+        color: #a78bfa;
+      }
+
+      .telemetry-container {
+        height: calc(100vh - 260px);
+        overflow: hidden;
+        padding: 0;
+      }
+
+      /* Light mode */
+      body.light-mode {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+
+      body.light-mode .showcase-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .showcase-header h1 {
+        color: var(--myio-purple);
+      }
+
+      body.light-mode .showcase-header p {
+        color: #64748b;
+      }
+
+      body.light-mode .controls-bar {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .control-group select,
+      body.light-mode .control-group input,
+      body.light-mode .control-group button.secondary {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+
+      body.light-mode .stats-bar {
+        background: var(--myio-purple-light);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .stat-value {
+        color: #1e293b;
+      }
+
+      body.light-mode .stat-label {
+        color: #64748b;
+      }
+
+      /* Log panel */
+      .log-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 200px;
+        background: #1e293b;
+        border-top: 1px solid #334155;
+        display: none;
+        flex-direction: column;
+        z-index: 1000;
+      }
+
+      .log-panel.visible {
+        display: flex;
+      }
+
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        background: #0f172a;
+        border-bottom: 1px solid #334155;
+      }
+
+      .log-header h3 {
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .log-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 16px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+      }
+
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid #334155;
+      }
+
+      .log-entry.info {
+        color: #60a5fa;
+      }
+
+      .log-entry.success {
+        color: #22c55e;
+      }
+
+      .log-entry.warn {
+        color: #fbbf24;
+      }
+
+      .log-entry.error {
+        color: #ef4444;
+      }
+
+      .log-time {
+        color: #64748b;
+        margin-right: 8px;
+      }
+
+      .log-tag {
+        background: #475569;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-right: 8px;
+        font-size: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0145: TelemetryGridShopping Component</h1>
+      <p>
+        Showcase for the TelemetryGridShopping component - migrated from ThingsBoard TELEMETRY widget
+        (Shopping Dashboard)
+      </p>
+    </header>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Domain:</label>
+        <select id="domainSelect">
+          <option value="energy" selected>Energy</option>
+          <option value="water">Water</option>
+          <option value="temperature">Temperature</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Context:</label>
+        <select id="contextSelect">
+          <option value="stores" selected>Lojas</option>
+          <option value="equipments">Equipamentos</option>
+          <option value="entrada">Entrada</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Devices:</label>
+        <select id="deviceCountSelect">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <button id="refreshBtn">Refresh Data</button>
+      </div>
+
+      <div class="control-group">
+        <button id="themeBtn" class="secondary">Toggle Theme</button>
+      </div>
+
+      <div class="control-group">
+        <button id="logBtn" class="secondary">Toggle Log</button>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-value" id="statTotal">0</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-item online">
+        <span class="stat-value" id="statOnline">0</span>
+        <span class="stat-label">Online</span>
+      </div>
+      <div class="stat-item offline">
+        <span class="stat-value" id="statOffline">0</span>
+        <span class="stat-label">Offline</span>
+      </div>
+      <div class="stat-item consumption">
+        <span class="stat-value" id="statConsumption">0.00</span>
+        <span class="stat-label" id="statUnit">kWh</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statFiltered">0</span>
+        <span class="stat-label">Filtered</span>
+      </div>
+    </div>
+
+    <div class="telemetry-container" id="telemetryContainer">
+      <!-- TelemetryGridShopping component will be rendered here -->
+      <section class="shops-root">
+        <header class="shops-header">
+          <div class="shops-header-left">
+            <h2 class="shops-title" id="labelWidget">Lojas</h2>
+            <span class="shops-count" id="shopsCount">(0)</span>
+          </div>
+          <div class="shops-header-actions">
+            <div class="search-wrap" id="searchWrap">
+              <input type="text" id="shopsSearch" placeholder="Buscar..." autocomplete="off" />
+            </div>
+            <button class="icon-btn" id="btnSearch" title="Buscar">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path
+                  d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"
+                />
+              </svg>
+            </button>
+            <button class="icon-btn" id="btnFilter" title="Filtros">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
+              </svg>
+            </button>
+            <a class="shops-total" id="shopsTotal">0,00</a>
+          </div>
+        </header>
+        <section id="shopsList" class="shops-list"></section>
+      </section>
+    </div>
+
+    <!-- Log Panel -->
+    <div class="log-panel" id="logPanel">
+      <div class="log-header">
+        <h3>Event Log</h3>
+        <button onclick="clearLog()" style="padding: 4px 8px; font-size: 11px;">Clear</button>
+      </div>
+      <div class="log-content" id="logContent"></div>
+    </div>
+
+    <!-- Load MyIO Library -->
+    <script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.js"></script>
+
+    <!-- Embedded styles from TELEMETRY widget -->
+    <style>
+      /* ============ Vars & base ============ */
+      .shops-root {
+        --ink-1: #1c2743;
+        --ink-2: #6b7a90;
+        --bd: #e8eef4;
+        --bd-2: #d6e1ec;
+        --card: #fff;
+        --accent: #1f6fb5;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        --brand: #1f6fb5;
+        --brand-ghost: rgba(31, 111, 181, 0.08);
+        --bg-soft: #f7fbff;
+        --font-ui: Inter, 'Inter var', 'Plus Jakarta Sans', system-ui, sans-serif;
+      }
+
+      .shops-root,
+      .shops-root * {
+        font-family: var(--font-ui);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .shops-root {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #0f172a;
+      }
+
+      body.light-mode .shops-root {
+        background: #f8fafc;
+      }
+
+      .shops-root .shops-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 8px 12px;
+        margin: 8px 10px 10px;
+        box-shadow: var(--shadow);
+      }
+
+      body.light-mode .shops-root .shops-header {
+        background: linear-gradient(180deg, #fff 0, #f7fbff 100%);
+        border-color: var(--bd);
+      }
+
+      .shops-root .shops-header-left {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+      }
+
+      .shops-root .shops-title {
+        margin: 0;
+        font: 800 14px/1.2 var(--font-ui);
+        color: #a78bfa;
+        letter-spacing: 0.3px;
+      }
+
+      body.light-mode .shops-root .shops-title {
+        color: #3e1a7d;
+      }
+
+      .shops-root .shops-count {
+        font: 700 11px/1 var(--font-ui);
+        color: #a78bfa;
+        padding: 3px 6px;
+      }
+
+      body.light-mode .shops-root .shops-count {
+        color: #3e1a7d;
+      }
+
+      .shops-root .shops-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .shops-root .icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #475569;
+        background: #1e293b;
+        border-radius: 10px;
+        padding: 6px;
+        cursor: pointer;
+      }
+
+      body.light-mode .shops-root .icon-btn {
+        border-color: var(--bd);
+        background: #fff;
+      }
+
+      .shops-root .icon-btn:hover {
+        transform: translateY(-1px);
+        border-color: #a78bfa;
+      }
+
+      .shops-root .icon-btn svg {
+        fill: #94a3b8;
+        display: block;
+        width: 14px;
+        height: 14px;
+      }
+
+      body.light-mode .shops-root .icon-btn svg {
+        fill: #44506b;
+      }
+
+      .shops-root .search-wrap {
+        width: 0;
+        overflow: hidden;
+        transition: width 0.25s ease;
+      }
+
+      .shops-root .search-wrap.active {
+        width: 180px;
+      }
+
+      .shops-root #shopsSearch {
+        width: 100%;
+        border: 1px solid #475569;
+        border-radius: 8px;
+        padding: 6px 8px;
+        outline: 0;
+        font: 500 12px/1.2 var(--font-ui);
+        background: #0f172a;
+        color: #f1f5f9;
+      }
+
+      body.light-mode .shops-root #shopsSearch {
+        border-color: var(--bd);
+        background: #fff;
+        color: #1e293b;
+      }
+
+      .shops-root .shops-total {
+        font: 800 13px/1 var(--font-ui);
+        color: #a78bfa;
+        text-decoration: none;
+        background: rgba(167, 139, 250, 0.1);
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(167, 139, 250, 0.3);
+      }
+
+      body.light-mode .shops-root .shops-total {
+        color: #3e1a7d;
+        background: rgba(62, 26, 125, 0.08);
+        border-color: rgba(62, 26, 125, 0.2);
+      }
+
+      .shops-root .shops-list {
+        flex: 1 1 0;
+        min-height: 0;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 16px 10px 48px 10px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 12px;
+        align-content: start;
+        justify-items: center;
+      }
+
+      .shops-root .shops-list::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .shops-root .shops-list::-webkit-scrollbar-thumb {
+        background: #475569;
+        border-radius: 6px;
+      }
+
+      body.light-mode .shops-root .shops-list::-webkit-scrollbar-thumb {
+        background: #c9d4e2;
+      }
+
+      /* Card wrapper */
+      .shops-root .card-wrapper {
+        width: 100%;
+        min-height: 140px;
+        display: flex;
+        justify-content: center;
+      }
+    </style>
+
+    <script>
+      // ===== LOGGING =====
+      function logEvent(tag, message, type = 'info') {
+        const logContent = document.getElementById('logContent');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        const time = new Date().toLocaleTimeString();
+        entry.innerHTML = `<span class="log-time">${time}</span><span class="log-tag">${tag}</span>${message}`;
+        logContent.appendChild(entry);
+        logContent.scrollTop = logContent.scrollHeight;
+        console.log(`[${tag}] ${message}`);
+      }
+
+      function clearLog() {
+        document.getElementById('logContent').innerHTML = '';
+      }
+
+      // ===== MOCK DATA GENERATION =====
+      const STORE_NAMES = [
+        'Loja Alpha',
+        'Loja Beta',
+        'Loja Gamma',
+        'Loja Delta',
+        'Loja Epsilon',
+        'Loja Zeta',
+        'Loja Eta',
+        'Loja Theta',
+        'Loja Iota',
+        'Loja Kappa',
+        'Loja Lambda',
+        'Loja Mu',
+        'Loja Nu',
+        'Loja Xi',
+        'Loja Omicron',
+        'Loja Pi',
+        'Loja Rho',
+        'Loja Sigma',
+        'Loja Tau',
+        'Loja Upsilon',
+      ];
+
+      const EQUIPMENT_NAMES = [
+        'Chiller 01',
+        'Chiller 02',
+        'Fancoil 01',
+        'Fancoil 02',
+        'Elevador 01',
+        'Elevador 02',
+        'Escada Rolante 01',
+        'Escada Rolante 02',
+        'Bomba CAG 01',
+        'Bomba CAG 02',
+      ];
+
+      const STATUS_OPTIONS = ['power_on', 'offline', 'not_installed', 'no_info'];
+      const STATUS_WEIGHTS = [0.6, 0.2, 0.1, 0.1];
+
+      function weightedRandom(options, weights) {
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        let random = Math.random() * totalWeight;
+        for (let i = 0; i < options.length; i++) {
+          random -= weights[i];
+          if (random <= 0) return options[i];
+        }
+        return options[options.length - 1];
+      }
+
+      function generateMockDevices(count, domain, context) {
+        const devices = [];
+        const names = context === 'equipments' ? EQUIPMENT_NAMES : STORE_NAMES;
+
+        const unitMap = {
+          energy: 'kWh',
+          water: 'm³',
+          temperature: '°C',
+        };
+
+        const maxValueMap = {
+          energy: 5000,
+          water: 500,
+          temperature: 35,
+        };
+
+        for (let i = 0; i < count; i++) {
+          const status = weightedRandom(STATUS_OPTIONS, STATUS_WEIGHTS);
+          const isOnline = status === 'power_on';
+          const val = isOnline ? Math.random() * maxValueMap[domain] : 0;
+
+          devices.push({
+            entityId: `device-${i + 1}`,
+            ingestionId: `ing-${i + 1}`,
+            labelOrName: names[i % names.length] + (i >= names.length ? ` ${Math.floor(i / names.length) + 1}` : ''),
+            name: `Device ${i + 1}`,
+            deviceIdentifier: `DEV-${String(i + 1).padStart(3, '0')}`,
+            deviceType: context === 'equipments' ? 'CHILLER' : '3F_MEDIDOR',
+            deviceProfile: '3F_MEDIDOR',
+            deviceStatus: status,
+            connectionStatus: isOnline ? 'connected' : 'disconnected',
+            customerId: `cust-${(i % 5) + 1}`,
+            customerName: `Shopping ${(i % 5) + 1}`,
+            centralName: `Central ${(i % 3) + 1}`,
+            val: val,
+            perc: 0,
+            unit: unitMap[domain],
+          });
+        }
+
+        // Calculate percentages
+        const totalConsumption = devices.reduce((sum, d) => sum + (d.val || 0), 0);
+        devices.forEach((d) => {
+          d.perc = totalConsumption > 0 ? ((d.val || 0) / totalConsumption) * 100 : 0;
+        });
+
+        return devices;
+      }
+
+      // ===== STATS UPDATE =====
+      function updateStats(devices) {
+        const stats = {
+          total: devices.length,
+          online: 0,
+          offline: 0,
+          totalConsumption: 0,
+        };
+
+        devices.forEach((d) => {
+          if (d.deviceStatus === 'power_on') stats.online++;
+          else if (d.deviceStatus === 'offline') stats.offline++;
+          stats.totalConsumption += d.val || 0;
+        });
+
+        document.getElementById('statTotal').textContent = stats.total;
+        document.getElementById('statOnline').textContent = stats.online;
+        document.getElementById('statOffline').textContent = stats.offline;
+        document.getElementById('statConsumption').textContent = stats.totalConsumption.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        document.getElementById('statFiltered').textContent = stats.total;
+
+        // Update unit label
+        const domain = document.getElementById('domainSelect').value;
+        const unitMap = { energy: 'kWh', water: 'm³', temperature: '°C' };
+        document.getElementById('statUnit').textContent = unitMap[domain];
+
+        // Update widget header
+        document.getElementById('shopsCount').textContent = `(${stats.total})`;
+        document.getElementById('shopsTotal').textContent = stats.totalConsumption.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+
+        logEvent('STATS', `Updated: ${stats.total} devices, ${stats.online} online, ${stats.totalConsumption.toFixed(2)} total`, 'info');
+      }
+
+      // ===== RENDER CARDS =====
+      function renderCards(devices) {
+        const container = document.getElementById('shopsList');
+        container.innerHTML = '';
+
+        if (!window.MyIOLibrary?.renderCardComponentV5) {
+          logEvent('ERROR', 'MyIOLibrary.renderCardComponentV5 not available', 'error');
+          container.innerHTML = '<p style="color: #ef4444; padding: 20px;">renderCardComponentV5 not available</p>';
+          return;
+        }
+
+        devices.forEach((device, index) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'card-wrapper';
+          wrapper.id = `card-${device.entityId}`;
+          container.appendChild(wrapper);
+
+          try {
+            const instance = window.MyIOLibrary.renderCardComponentV5({
+              entityObject: device,
+              handleActionDashboard: (entity) => {
+                logEvent('CARD', `Dashboard action: ${entity.labelOrName}`, 'info');
+              },
+              handleActionReport: (entity) => {
+                logEvent('CARD', `Report action: ${entity.labelOrName}`, 'info');
+              },
+              handleActionSettings: (entity) => {
+                logEvent('CARD', `Settings action: ${entity.labelOrName}`, 'info');
+              },
+              handleSelect: (checked, entity) => {
+                logEvent('CARD', `Select ${checked ? 'ON' : 'OFF'}: ${entity.labelOrName}`, 'info');
+              },
+              handleClickCard: (entity) => {
+                logEvent('CARD', `Click: ${entity.labelOrName}`, 'info');
+              },
+              enableSelection: true,
+              enableDragDrop: false,
+            });
+
+            if (instance?.element) {
+              wrapper.appendChild(instance.element);
+            }
+          } catch (err) {
+            logEvent('ERROR', `Failed to render card ${device.labelOrName}: ${err.message}`, 'error');
+          }
+        });
+
+        updateStats(devices);
+        logEvent('RENDER', `Rendered ${devices.length} cards`, 'success');
+      }
+
+      // ===== CONTEXT OPTIONS UPDATE =====
+      function updateContextOptions() {
+        const domain = document.getElementById('domainSelect').value;
+        const contextSelect = document.getElementById('contextSelect');
+
+        const contextMap = {
+          energy: [
+            { value: 'stores', label: 'Lojas' },
+            { value: 'equipments', label: 'Equipamentos' },
+            { value: 'entrada', label: 'Entrada' },
+          ],
+          water: [
+            { value: 'hidrometro', label: 'Hidrômetros Lojas' },
+            { value: 'hidrometro_area_comum', label: 'Hidrômetros Area Comum' },
+            { value: 'hidrometro_entrada', label: 'Hidrômetro Entrada' },
+          ],
+          temperature: [
+            { value: 'termostato', label: 'Termostatos' },
+            { value: 'termostato_external', label: 'Termostatos Externos' },
+          ],
+        };
+
+        const labelMap = {
+          energy: { stores: 'Lojas', equipments: 'Equipamentos', entrada: 'Entrada' },
+          water: { hidrometro: 'Hidrômetros', hidrometro_area_comum: 'Area Comum', hidrometro_entrada: 'Entrada' },
+          temperature: { termostato: 'Termostatos', termostato_external: 'Externos' },
+        };
+
+        contextSelect.innerHTML = contextMap[domain]
+          .map((opt) => `<option value="${opt.value}">${opt.label}</option>`)
+          .join('');
+
+        // Update widget label
+        const context = contextSelect.value;
+        document.getElementById('labelWidget').textContent = labelMap[domain][context] || 'Devices';
+      }
+
+      // ===== REFRESH DATA =====
+      function refreshData() {
+        const domain = document.getElementById('domainSelect').value;
+        const context = document.getElementById('contextSelect').value;
+        const count = parseInt(document.getElementById('deviceCountSelect').value);
+
+        logEvent('DATA', `Generating ${count} mock devices for ${domain}/${context}`, 'info');
+        const devices = generateMockDevices(count, domain, context);
+        renderCards(devices);
+      }
+
+      // ===== SEARCH TOGGLE =====
+      function setupSearch() {
+        const btnSearch = document.getElementById('btnSearch');
+        const searchWrap = document.getElementById('searchWrap');
+        const searchInput = document.getElementById('shopsSearch');
+
+        btnSearch.addEventListener('click', () => {
+          searchWrap.classList.toggle('active');
+          if (searchWrap.classList.contains('active')) {
+            searchInput.focus();
+          }
+        });
+
+        searchInput.addEventListener('input', (e) => {
+          const term = e.target.value.toLowerCase();
+          logEvent('SEARCH', `Searching: "${term}"`, 'info');
+
+          const cards = document.querySelectorAll('.card-wrapper');
+          let visibleCount = 0;
+          cards.forEach((card) => {
+            const name = card.querySelector('.device-name-text, .device-label')?.textContent?.toLowerCase() || '';
+            const visible = !term || name.includes(term);
+            card.style.display = visible ? '' : 'none';
+            if (visible) visibleCount++;
+          });
+
+          document.getElementById('statFiltered').textContent = visibleCount;
+        });
+      }
+
+      // ===== FILTER MODAL =====
+      function setupFilterButton() {
+        const btnFilter = document.getElementById('btnFilter');
+        btnFilter.addEventListener('click', () => {
+          logEvent('FILTER', 'Filter button clicked - modal not implemented in showcase', 'warn');
+          alert('Filter modal will be implemented as part of the component');
+        });
+      }
+
+      // ===== INIT =====
+      document.addEventListener('DOMContentLoaded', () => {
+        logEvent('INIT', 'Showcase loaded', 'success');
+
+        // Setup controls
+        document.getElementById('domainSelect').addEventListener('change', () => {
+          updateContextOptions();
+          refreshData();
+        });
+
+        document.getElementById('contextSelect').addEventListener('change', () => {
+          const domain = document.getElementById('domainSelect').value;
+          const context = document.getElementById('contextSelect').value;
+          const labelMap = {
+            energy: { stores: 'Lojas', equipments: 'Equipamentos', entrada: 'Entrada' },
+            water: { hidrometro: 'Hidrômetros', hidrometro_area_comum: 'Area Comum', hidrometro_entrada: 'Entrada' },
+            temperature: { termostato: 'Termostatos', termostato_external: 'Externos' },
+          };
+          document.getElementById('labelWidget').textContent = labelMap[domain][context] || 'Devices';
+          refreshData();
+        });
+
+        document.getElementById('deviceCountSelect').addEventListener('change', refreshData);
+        document.getElementById('refreshBtn').addEventListener('click', refreshData);
+
+        document.getElementById('themeBtn').addEventListener('click', () => {
+          document.body.classList.toggle('light-mode');
+          logEvent('THEME', `Switched to ${document.body.classList.contains('light-mode') ? 'light' : 'dark'} mode`, 'info');
+        });
+
+        document.getElementById('logBtn').addEventListener('click', () => {
+          document.getElementById('logPanel').classList.toggle('visible');
+        });
+
+        setupSearch();
+        setupFilterButton();
+
+        // Initial render
+        updateContextOptions();
+        refreshData();
+
+        logEvent('INIT', 'Showcase ready', 'success');
+      });
+    </script>
+  </body>
+</html>

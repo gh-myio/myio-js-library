@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0146: HeaderShopping Component Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --myio-purple: #3e1a7d;
+        --myio-blue: #1989ff;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #a78bfa;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px 24px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      .control-group select,
+      .control-group button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .control-group button {
+        background: var(--myio-purple);
+        border-color: var(--myio-purple);
+      }
+
+      .control-group button.secondary {
+        background: #475569;
+        border-color: #475569;
+      }
+
+      /* Header Container */
+      .header-container {
+        padding: 24px;
+        background: #1e293b;
+        margin: 24px;
+        border-radius: 12px;
+        border: 1px solid #334155;
+      }
+
+      /* Embedded HEADER widget styles */
+      .tbx-toolbar {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        color: #f1f5f9;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      body.light-mode .tbx-toolbar {
+        color: #1f2937;
+      }
+
+      .tbx-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .tbx-contract-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: rgba(45, 20, 88, 0.9);
+        border-radius: 8px;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        font-size: 13px;
+        color: #fff;
+        transition: all 0.2s ease;
+      }
+
+      .tbx-contract-status:hover {
+        background: rgba(45, 20, 88, 1);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      .tbx-contract-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+      }
+
+      .tbx-contract-icon.valid {
+        background: rgba(76, 175, 80, 0.3);
+        color: #81c784;
+      }
+
+      .tbx-contract-icon.invalid {
+        background: rgba(244, 67, 54, 0.3);
+        color: #ef5350;
+      }
+
+      .tbx-field {
+        display: inline-flex;
+        height: 36px;
+        align-items: center;
+        background: #0f172a;
+        border: 1px solid #475569;
+        border-radius: 6px;
+        padding: 0 10px;
+        min-width: 280px;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+      }
+
+      body.light-mode .tbx-field {
+        background: #fff;
+        border-color: #dbe2ea;
+      }
+
+      .tbx-field input {
+        border: none;
+        outline: 0;
+        height: 100%;
+        cursor: pointer;
+        font-size: 14px;
+        background: transparent;
+        color: #f1f5f9;
+        text-align: center;
+        width: 100%;
+      }
+
+      body.light-mode .tbx-field input {
+        color: #1f2937;
+      }
+
+      .tbx-ico {
+        margin-right: 8px;
+      }
+
+      .tbx-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        height: 36px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.15s ease;
+      }
+
+      .tbx-btn-primary {
+        background: #1989ff;
+        color: #fff;
+      }
+
+      .tbx-btn-primary:hover {
+        background: #0f78e6;
+      }
+
+      .tbx-btn-secondary {
+        background: var(--myio-purple);
+        color: #fff;
+      }
+
+      .tbx-btn-secondary:hover {
+        background: #2d1458;
+      }
+
+      .tbx-btn:disabled {
+        background: #374151 !important;
+        color: #6b7280 !important;
+        cursor: not-allowed !important;
+        opacity: 0.6;
+      }
+
+      /* Log panel */
+      .log-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 200px;
+        background: #1e293b;
+        border-top: 1px solid #334155;
+        display: none;
+        flex-direction: column;
+        z-index: 1000;
+      }
+
+      .log-panel.visible {
+        display: flex;
+      }
+
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        background: #0f172a;
+        border-bottom: 1px solid #334155;
+      }
+
+      .log-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 16px;
+        font-family: 'Consolas', monospace;
+        font-size: 12px;
+      }
+
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid #334155;
+      }
+
+      .log-entry.info {
+        color: #60a5fa;
+      }
+
+      .log-entry.success {
+        color: #22c55e;
+      }
+
+      .log-entry.warn {
+        color: #fbbf24;
+      }
+
+      .log-entry.error {
+        color: #ef4444;
+      }
+
+      .log-time {
+        color: #64748b;
+        margin-right: 8px;
+      }
+
+      .log-tag {
+        background: #475569;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-right: 8px;
+        font-size: 10px;
+      }
+
+      /* Light mode */
+      body.light-mode {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+
+      body.light-mode .showcase-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .showcase-header h1 {
+        color: var(--myio-purple);
+      }
+
+      body.light-mode .controls-bar,
+      body.light-mode .header-container {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+
+      body.light-mode .control-group select,
+      body.light-mode .control-group button.secondary {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0146: HeaderShopping Component</h1>
+      <p>Showcase for the HeaderShopping component - date range selection and data loading controls</p>
+    </header>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Domain:</label>
+        <select id="domainSelect">
+          <option value="">-- Select --</option>
+          <option value="energy">Energy</option>
+          <option value="water">Water</option>
+          <option value="temperature">Temperature</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Contract:</label>
+        <select id="contractSelect">
+          <option value="valid">Valid (80 devices)</option>
+          <option value="invalid">Invalid (50 devices)</option>
+          <option value="hidden">Hidden</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <button id="themeBtn" class="secondary">Toggle Theme</button>
+      </div>
+
+      <div class="control-group">
+        <button id="logBtn" class="secondary">Toggle Log</button>
+      </div>
+    </div>
+
+    <!-- Header Component Container -->
+    <div class="header-container" id="headerContainer">
+      <section class="tbx-toolbar">
+        <div class="tbx-row">
+          <!-- Contract Status -->
+          <div id="tbx-contract-status" class="tbx-contract-status" style="display: none">
+            <span class="tbx-contract-icon valid" id="contractIcon">✓</span>
+            <span class="tbx-contract-count" id="contractCount">-- disp.</span>
+          </div>
+
+          <!-- Date Range -->
+          <label class="tbx-field" id="dateRangeField">
+            <span class="tbx-ico">📅</span>
+            <input
+              type="text"
+              id="dateRangeInput"
+              placeholder="Selecione o período"
+              readonly
+              title="Clique para alterar o período"
+            />
+          </label>
+
+          <!-- Load Button -->
+          <button class="tbx-btn tbx-btn-primary" id="btnLoad" disabled>
+            <span class="tbx-ico">⟲</span>
+            <span>Carregar</span>
+          </button>
+
+          <!-- Force Refresh Button -->
+          <button class="tbx-btn tbx-btn-secondary" id="btnForceRefresh" disabled>
+            <span class="tbx-ico">🔄</span>
+            <span>Limpar</span>
+          </button>
+
+          <!-- Report Button -->
+          <button class="tbx-btn tbx-btn-primary" id="btnReport" disabled>
+            <span class="tbx-ico">🧾</span>
+            <span id="btnReportText">Relatório Consumo Geral</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Log Panel -->
+    <div class="log-panel" id="logPanel">
+      <div class="log-header">
+        <h3>Event Log</h3>
+        <button onclick="clearLog()" style="padding: 4px 8px; font-size: 11px">Clear</button>
+      </div>
+      <div class="log-content" id="logContent"></div>
+    </div>
+
+    <!-- Load MyIO Library (local build for development) -->
+    <script>
+      // Try to load local build first, fallback to CDN
+      const localScript = document.createElement('script');
+      localScript.src = '/dist/myio-js-library.umd.js?v=' + Date.now();
+      localScript.onerror = () => {
+        console.log('Local build not found, loading from CDN...');
+        const cdnScript = document.createElement('script');
+        cdnScript.src = 'https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.js';
+        document.head.appendChild(cdnScript);
+      };
+      document.head.appendChild(localScript);
+    </script>
+
+    <script>
+      // ===== LOGGING =====
+      function logEvent(tag, message, type = 'info') {
+        const logContent = document.getElementById('logContent');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        const time = new Date().toLocaleTimeString();
+        entry.innerHTML = `<span class="log-time">${time}</span><span class="log-tag">${tag}</span>${message}`;
+        logContent.appendChild(entry);
+        logContent.scrollTop = logContent.scrollHeight;
+        console.log(`[${tag}] ${message}`);
+      }
+
+      function clearLog() {
+        document.getElementById('logContent').innerHTML = '';
+      }
+
+      // ===== STATE =====
+      let currentDomain = null;
+      let currentPeriod = {
+        startISO: null,
+        endISO: null,
+        granularity: 'day',
+        tz: 'America/Sao_Paulo',
+      };
+
+      // ===== DATE HELPERS =====
+      function formatDate(date) {
+        return date.toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+      }
+
+      function formatDateTime(date) {
+        return date.toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+
+      function toISO(date) {
+        const offset = -date.getTimezoneOffset();
+        const offsetHours = Math.floor(Math.abs(offset) / 60);
+        const offsetMins = Math.abs(offset) % 60;
+        const offsetStr = `${offset >= 0 ? '+' : '-'}${String(offsetHours).padStart(2, '0')}:${String(offsetMins).padStart(2, '0')}`;
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        const second = String(date.getSeconds()).padStart(2, '0');
+
+        return `${year}-${month}-${day}T${hour}:${minute}:${second}${offsetStr}`;
+      }
+
+      function calcGranularity(startISO, endISO) {
+        const start = new Date(startISO);
+        const end = new Date(endISO);
+        const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+        if (diffDays > 92) return 'month';
+        if (diffDays > 3) return 'day';
+        return 'hour';
+      }
+
+      // ===== INITIALIZE DEFAULT PERIOD =====
+      function initDefaultPeriod() {
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+        const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
+
+        currentPeriod.startISO = toISO(startDate);
+        currentPeriod.endISO = toISO(endDate);
+        currentPeriod.granularity = calcGranularity(currentPeriod.startISO, currentPeriod.endISO);
+
+        // Update display
+        document.getElementById('dateRangeInput').value = `📅 ${formatDateTime(startDate)} - ${formatDateTime(endDate)}`;
+
+        logEvent('INIT', `Default period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 'info');
+      }
+
+      // ===== UPDATE CONTROLS STATE =====
+      function updateControlsState(domain) {
+        const isSupported = domain === 'energy' || domain === 'water';
+
+        document.getElementById('btnLoad').disabled = !isSupported;
+        document.getElementById('btnForceRefresh').disabled = !isSupported;
+        document.getElementById('btnReport').disabled = !isSupported;
+        document.getElementById('dateRangeField').style.opacity = isSupported ? '1' : '0.5';
+        document.getElementById('dateRangeField').style.pointerEvents = isSupported ? 'auto' : 'none';
+
+        // Update report button text
+        const reportText = document.getElementById('btnReportText');
+        if (domain === 'energy') {
+          reportText.textContent = 'Relatório Consumo Geral de Energia';
+        } else if (domain === 'water') {
+          reportText.textContent = 'Relatório Consumo Geral de Água';
+        } else {
+          reportText.textContent = 'Relatório Consumo Geral';
+        }
+
+        logEvent('CONTROLS', `Controls ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain || 'none'}`, 'info');
+      }
+
+      // ===== UPDATE CONTRACT STATUS =====
+      function updateContractStatus(type) {
+        const container = document.getElementById('tbx-contract-status');
+        const icon = document.getElementById('contractIcon');
+        const count = document.getElementById('contractCount');
+
+        if (type === 'hidden') {
+          container.style.display = 'none';
+          return;
+        }
+
+        container.style.display = 'flex';
+
+        if (type === 'valid') {
+          icon.textContent = '✓';
+          icon.className = 'tbx-contract-icon valid';
+          count.textContent = '80 disp.';
+          count.style.color = '#81c784';
+        } else {
+          icon.textContent = '!';
+          icon.className = 'tbx-contract-icon invalid';
+          count.textContent = '50 disp.';
+          count.style.color = '#ef5350';
+        }
+
+        logEvent('CONTRACT', `Contract status: ${type}`, 'info');
+      }
+
+      // ===== EVENT HANDLERS =====
+      function setupEventHandlers() {
+        // Domain select
+        document.getElementById('domainSelect').addEventListener('change', (e) => {
+          currentDomain = e.target.value || null;
+          updateControlsState(currentDomain);
+
+          // Emit domain change event
+          if (currentDomain) {
+            window.dispatchEvent(
+              new CustomEvent('myio:dashboard-state', {
+                detail: { tab: currentDomain },
+              })
+            );
+          }
+        });
+
+        // Contract select
+        document.getElementById('contractSelect').addEventListener('change', (e) => {
+          updateContractStatus(e.target.value);
+        });
+
+        // Load button
+        document.getElementById('btnLoad').addEventListener('click', () => {
+          logEvent('ACTION', 'Load button clicked', 'success');
+          logEvent('PERIOD', `Period: ${currentPeriod.startISO} - ${currentPeriod.endISO}`, 'info');
+
+          // Emit update-date event
+          window.dispatchEvent(
+            new CustomEvent('myio:update-date', {
+              detail: { period: currentPeriod },
+            })
+          );
+        });
+
+        // Force refresh button
+        document.getElementById('btnForceRefresh').addEventListener('click', () => {
+          const confirmed = confirm('Isso vai limpar todo o cache e recarregar os dados. Continuar?');
+          if (confirmed) {
+            logEvent('ACTION', 'Force refresh - cache cleared', 'warn');
+
+            // Emit clear event
+            window.dispatchEvent(
+              new CustomEvent('myio:telemetry:clear', {
+                detail: { domain: currentDomain },
+              })
+            );
+          }
+        });
+
+        // Report button
+        document.getElementById('btnReport').addEventListener('click', () => {
+          logEvent('ACTION', `Report clicked for domain: ${currentDomain}`, 'success');
+          alert(`Opening report for ${currentDomain}...`);
+        });
+
+        // Date range field
+        document.getElementById('dateRangeField').addEventListener('click', () => {
+          if (currentDomain === 'energy' || currentDomain === 'water') {
+            logEvent('ACTION', 'Date range field clicked - DateRangePicker would open', 'info');
+
+            // Try to use library DateRangePicker if available
+            if (window.MyIOLibrary?.createDateRangePicker) {
+              logEvent('INFO', 'DateRangePicker available in library', 'info');
+            } else {
+              alert('DateRangePicker component not implemented in this showcase.\nIn production, this opens the date picker.');
+            }
+          }
+        });
+
+        // Contract status click
+        document.getElementById('tbx-contract-status').addEventListener('click', () => {
+          logEvent('ACTION', 'Contract status clicked - would show ContractSummaryTooltip', 'info');
+          alert('ContractSummaryTooltip would show here with contract details.');
+        });
+
+        // Theme toggle
+        document.getElementById('themeBtn').addEventListener('click', () => {
+          document.body.classList.toggle('light-mode');
+          logEvent('THEME', `Switched to ${document.body.classList.contains('light-mode') ? 'light' : 'dark'} mode`, 'info');
+        });
+
+        // Log toggle
+        document.getElementById('logBtn').addEventListener('click', () => {
+          document.getElementById('logPanel').classList.toggle('visible');
+        });
+      }
+
+      // ===== INIT =====
+      document.addEventListener('DOMContentLoaded', () => {
+        logEvent('INIT', 'HeaderShopping Showcase loaded', 'success');
+
+        initDefaultPeriod();
+        updateContractStatus('valid');
+        setupEventHandlers();
+
+        // Check if real component is available after library loads
+        setTimeout(() => {
+          if (window.MyIOLibrary?.createHeaderShoppingComponent) {
+            logEvent('COMPONENT', 'createHeaderShoppingComponent is available in library!', 'success');
+            logEvent('INFO', 'To use the real component, replace the static HTML with component mount', 'info');
+          } else {
+            logEvent('COMPONENT', 'createHeaderShoppingComponent not found - using static mockup', 'warn');
+            logEvent('INFO', 'Run "npm run build" to include the new component in the library', 'info');
+          }
+        }, 1000);
+
+        logEvent('INIT', 'Showcase ready - select a domain to enable controls', 'success');
+      });
+    </script>
+  </body>
+</html>

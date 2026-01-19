@@ -130,6 +130,11 @@ export class SettingsModalView {
     // Update footer buttons visibility (only show Save on General tab)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
+
+    // RFC-0144: Trigger onboarding when Annotations tab becomes active
+    if (tab === 'annotations' && this.annotationsTab) {
+      this.annotationsTab.onTabActivated();
+    }
   }
 
   close(): void {
@@ -276,11 +281,15 @@ export class SettingsModalView {
   }
 
   private getModalHTML(): string {
-    const width = typeof this.config.width === 'number' ? `${this.config.width}px` : this.config.width;
+    // Width is controlled by CSS (.myio-settings-modal { width: 1700px })
+    // Config width can override if explicitly provided
+    const widthStyle = this.config.width
+      ? `style="width: ${typeof this.config.width === 'number' ? `${this.config.width}px` : this.config.width}"`
+      : '';
 
     return `
       <div class="myio-settings-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="myio-settings-modal" style="width: ${width}">
+        <div class="myio-settings-modal" ${widthStyle}>
           <div class="modal-header">
             <h3 id="modal-title">Configurações</h3>
             <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
@@ -1038,7 +1047,7 @@ export class SettingsModalView {
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
           max-width: 95vw;
           max-height: 90vh;
-          width: 1300px;
+          width: 1700px;
           overflow: hidden;
           display: flex;
           flex-direction: column;
@@ -1423,15 +1432,9 @@ export class SettingsModalView {
       }
         
         /* Responsive design */
-        @media (max-width: 1700px) {
-          .myio-settings-modal {
-            width: 95vw !important;
-          }
-        }
-        
         @media (max-width: 1024px) {
           .myio-settings-modal {
-            width: 90vw !important;
+            width: 95vw !important;
           }
           
           .form-columns {

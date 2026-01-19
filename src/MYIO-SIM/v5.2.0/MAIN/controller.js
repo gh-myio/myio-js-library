@@ -7354,24 +7354,63 @@ const MyIOOrchestrator = (() => {
         );
 
         // RFC-0109: Water meter classification
-        // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
-        // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-        // AREA_COMUM: everything else
+        // FIX: Use aliasName as PRIMARY classification (more reliable than deviceType/deviceProfile)
+        // Fallback to deviceType/deviceProfile if aliasName doesn't match
+        let classificationDebugLog = { byAlias: {}, byType: {}, defaults: [] };
         const classifyWaterMeter = (device) => {
+          const aliasName = String(device._aliasName || '').toLowerCase();
+
+          // PRIMARY: Classification by aliasName (from ThingsBoard alias)
+          // 'todos hidrometros lojas' or similar -> loja
+          if (aliasName.includes('loja')) {
+            classificationDebugLog.byAlias['loja'] = (classificationDebugLog.byAlias['loja'] || 0) + 1;
+            return 'loja';
+          }
+          // 'hidrometros entrada' or 'hidrometro shopping' -> entrada
+          if (aliasName.includes('entrada') || aliasName.includes('shopping')) {
+            classificationDebugLog.byAlias['entrada'] = (classificationDebugLog.byAlias['entrada'] || 0) + 1;
+            return 'entrada';
+          }
+          // 'hidrometros area comum' -> areacomum
+          if (aliasName.includes('area') || aliasName.includes('comum')) {
+            classificationDebugLog.byAlias['areacomum'] = (classificationDebugLog.byAlias['areacomum'] || 0) + 1;
+            return 'areacomum';
+          }
+
+          // FALLBACK: Classification by deviceType/deviceProfile (if aliasName didn't match)
           const dt = String(device.deviceType || '').toUpperCase();
           const dp = String(device.deviceProfile || '').toUpperCase();
 
           // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
           if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
+            classificationDebugLog.byType['loja'] = (classificationDebugLog.byType['loja'] || 0) + 1;
             return 'loja';
           }
 
           // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
           if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+            classificationDebugLog.byType['entrada'] = (classificationDebugLog.byType['entrada'] || 0) + 1;
             return 'entrada';
           }
 
-          // AREA_COMUM: todo o resto
+          // AREA_COMUM: Check for explicit HIDROMETRO_AREA_COMUM types
+          if (dt.includes('AREA_COMUM') || dp.includes('AREA_COMUM')) {
+            classificationDebugLog.byType['areacomum_explicit'] = (classificationDebugLog.byType['areacomum_explicit'] || 0) + 1;
+            return 'areacomum';
+          }
+
+          // DEBUG: Log the first 5 devices that fall through to default
+          if (classificationDebugLog.defaults.length < 5) {
+            classificationDebugLog.defaults.push({
+              label: device.label,
+              aliasName: device._aliasName,
+              dt: dt || 'NULL',
+              dp: dp || 'NULL',
+            });
+          }
+
+          // DEFAULT: areacomum (devices with unknown type/profile)
+          classificationDebugLog.byType['default_areacomum'] = (classificationDebugLog.byType['default_areacomum'] || 0) + 1;
           return 'areacomum';
         };
 
@@ -7398,6 +7437,10 @@ const MyIOOrchestrator = (() => {
           return acc;
         }, {});
         LogHelper.log(`[Orchestrator] 💧 Classification breakdown: ${JSON.stringify(classificationCounts)}`);
+        LogHelper.log(`[Orchestrator] 💧 Classification DEBUG: byAlias=${JSON.stringify(classificationDebugLog.byAlias)}, byType=${JSON.stringify(classificationDebugLog.byType)}`);
+        if (classificationDebugLog.defaults.length > 0) {
+          LogHelper.log(`[Orchestrator] 💧 DEFAULT samples (first 5): ${JSON.stringify(classificationDebugLog.defaults)}`);
+        }
 
         if (waterItems.length > 0) {
           const storeWaterItems = waterItems.filter((item) => item._classification === 'loja');

@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>MAIN_VIEW Shopping Dashboard - Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS Variables (normally from ThingsBoard theme) -->
+  <style>
+    :root {
+      --myio-bg: #0f172a;
+      --myio-panel: #1e293b;
+      --myio-border: #334155;
+      --myio-text: #f1f5f9;
+      --myio-muted: #94a3b8;
+      --myio-primary: #00c896;
+      --myio-accent: #7A2FF7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      --myio-bg: #f8fafc;
+      --myio-panel: #ffffff;
+      --myio-border: #e2e8f0;
+      --myio-text: #1e293b;
+      --myio-muted: #64748b;
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ===== SHOWCASE LAYOUT ===== */
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    .showcase-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 10px 20px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    body.light-mode .showcase-header {
+      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+      border-color: #e2e8f0;
+    }
+
+    .showcase-header h1 { font-size: 16px; font-weight: 700; }
+    body.light-mode .showcase-header h1 { color: #1e293b; }
+    .showcase-header p { color: #94a3b8; font-size: 11px; margin-top: 2px; }
+
+    .header-status { display: flex; align-items: center; gap: 12px; }
+
+    .status-badge {
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.ready { background: #166534; color: #86efac; }
+    .status-badge.running { background: #1d4ed8; color: #93c5fd; }
+    .status-badge.error { background: #7f1d1d; color: #fca5a5; }
+    .status-badge.stopped { background: #475569; color: #cbd5e1; }
+
+    /* ===== WIDGET AREA ===== */
+    .widget-area {
+      position: relative;
+      overflow: hidden;
+      background: var(--myio-bg);
+    }
+
+    .widget-mount {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .showcase-sidebar {
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    body.light-mode .showcase-sidebar { background: #ffffff; border-color: #e2e8f0; }
+
+    .controls-panel {
+      padding: 12px;
+      border-bottom: 1px solid #334155;
+    }
+    body.light-mode .controls-panel { border-color: #e2e8f0; }
+
+    .controls-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .controls-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    .ctrl-btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid transparent;
+    }
+    .ctrl-btn.primary { background: #3b82f6; color: white; }
+    .ctrl-btn.primary:hover { background: #2563eb; }
+    .ctrl-btn.success { background: #16a34a; color: white; }
+    .ctrl-btn.success:hover { background: #15803d; }
+    .ctrl-btn.warning { background: #d97706; color: white; }
+    .ctrl-btn.warning:hover { background: #b45309; }
+    .ctrl-btn.danger { background: #dc2626; color: white; }
+    .ctrl-btn.danger:hover { background: #b91c1c; }
+    .ctrl-btn.secondary { background: transparent; color: #e2e8f0; border-color: #475569; }
+    .ctrl-btn.secondary:hover { background: #334155; }
+    .ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    body.light-mode .ctrl-btn.secondary { color: #475569; border-color: #cbd5e1; }
+
+    .ctrl-select {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    body.light-mode .ctrl-select { background: #f8fafc; border-color: #cbd5e1; color: #1e293b; }
+
+    .ctrl-label { font-size: 10px; color: #94a3b8; margin-bottom: 4px; display: block; }
+    .ctrl-group { margin-bottom: 6px; }
+
+    /* ===== EVENT LOG ===== */
+    .event-log-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px;
+    }
+    .event-log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .event-log-header h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+    .event-log-clear { font-size: 10px; color: #64748b; cursor: pointer; padding: 3px 6px; border-radius: 4px; background: transparent; border: none; }
+    .event-log-clear:hover { background: #334155; color: #e2e8f0; }
+
+    .event-log {
+      flex: 1;
+      background: #0f172a;
+      border-radius: 6px;
+      padding: 6px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 10px;
+    }
+    body.light-mode .event-log { background: #f8fafc; border: 1px solid #e2e8f0; }
+
+    .log-entry { padding: 3px 6px; border-radius: 3px; margin-bottom: 2px; display: flex; gap: 6px; align-items: flex-start; }
+    .log-entry:hover { background: #1e293b; }
+    body.light-mode .log-entry:hover { background: #e2e8f0; }
+    .log-time { color: #64748b; min-width: 55px; flex-shrink: 0; }
+    .log-event { color: #22c55e; min-width: 100px; font-weight: 500; flex-shrink: 0; }
+    .log-entry.error .log-event { color: #f87171; }
+    .log-entry.warn .log-event { color: #fbbf24; }
+    .log-entry.info .log-event { color: #60a5fa; }
+    .log-data { color: #94a3b8; word-break: break-all; flex: 1; }
+
+    /* State Panel */
+    .state-panel { border-top: 1px solid #334155; max-height: 160px; overflow: hidden; display: flex; flex-direction: column; }
+    body.light-mode .state-panel { border-color: #e2e8f0; }
+    .state-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; background: #0f172a; }
+    body.light-mode .state-header { background: #f1f5f9; }
+    .state-header h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+    .state-toggle { font-size: 11px; color: #64748b; }
+    .state-content { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+    .state-content pre { font-family: 'Fira Code', 'Consolas', monospace; font-size: 9px; color: #94a3b8; white-space: pre-wrap; word-break: break-all; }
+
+    @media (max-width: 900px) {
+      .showcase-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+      .showcase-sidebar { border-left: none; border-top: 1px solid #334155; max-height: 280px; }
+    }
+
+    /* ===== PLACEHOLDER COMPONENTS ===== */
+    .placeholder-component {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(91, 46, 188, 0.05);
+      border: 1px dashed rgba(91, 46, 188, 0.3);
+      border-radius: 8px;
+      color: var(--myio-muted);
+      font-size: 12px;
+      height: 100%;
+      min-height: 60px;
+    }
+    .placeholder-component.active {
+      background: rgba(0, 200, 150, 0.05);
+      border-color: rgba(0, 200, 150, 0.3);
+    }
+
+    /* ===== TELEMETRY SHOPPING LAYOUT (RFC-0145/0148) ===== */
+    /* 4-column layout: 3 grids + 1 info panel */
+    .telemetry-shopping-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) 380px;
+      gap: 12px;
+      padding: 12px;
+      height: 100%;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+
+    .telemetry-grid-wrapper,
+    .telemetry-info-wrapper {
+      background: var(--myio-panel);
+      border: 1px solid var(--myio-border);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 400px;
+      height: 100%;
+    }
+
+    .telemetry-info-wrapper {
+      min-width: 350px;
+    }
+
+    @media (max-width: 1400px) {
+      .telemetry-shopping-layout {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: auto auto;
+      }
+      .telemetry-info-wrapper {
+        grid-column: 2;
+        grid-row: 1 / 3;
+      }
+    }
+
+    @media (max-width: 1000px) {
+      .telemetry-shopping-layout {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .telemetry-shopping-layout {
+        grid-template-columns: 1fr;
+      }
+      .telemetry-info-wrapper {
+        grid-column: auto;
+        grid-row: auto;
+      }
+    }
+  </style>
+
+  <!-- Widget Styles from MAIN_VIEW -->
+  <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/styles.css">
+</head>
+<body>
+  <div class="showcase-layout">
+    <!-- Showcase Header -->
+    <header class="showcase-header">
+      <div>
+        <h1>MAIN_VIEW Shopping Dashboard - Showcase</h1>
+        <p>src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js</p>
+      </div>
+      <div class="header-status">
+        <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme">
+          <span id="themeIcon">&#x2600;&#xfe0f;</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Widget Mount Area -->
+    <!-- Structure matches MAIN_VIEW/template.html -->
+    <main class="widget-area">
+      <div class="widget-mount" id="widgetMount">
+        <!-- MAIN_VIEW Grid Layout -->
+        <section id="myio-root" class="myio-grid">
+          <aside class="myio-sidebar">
+            <!-- RFC-0147: Menu component container -->
+            <section id="menuContainer" class="myio-menu-section">
+              <div class="placeholder-component" id="menuPlaceholder">Menu Component</div>
+            </section>
+          </aside>
+
+          <header class="myio-header">
+            <!-- RFC-0146: Header component container -->
+            <section id="headerContainer" class="myio-header-section">
+              <div class="placeholder-component" id="headerPlaceholder">Header Component</div>
+            </section>
+          </header>
+
+          <main class="myio-content">
+            <!-- RFC-0053: Content states with show/hide logic -->
+            <div data-content-state="telemetry_content" style="display: block; height: 100%; min-height: 400px">
+              <section id="telemetryContentContainer" class="myio-telemetry-section">
+                <!-- RFC-0145/0148: Energy domain layout - 3 grids + 1 info panel (4 columns) -->
+                <div class="telemetry-shopping-layout">
+                  <!-- Grid 1: Entrada -->
+                  <div id="gridEntradaContainer" class="telemetry-grid-wrapper">
+                    <div class="placeholder-component active">Grid: Entrada</div>
+                  </div>
+                  <!-- Grid 2: Área Comum -->
+                  <div id="gridAreaComumContainer" class="telemetry-grid-wrapper">
+                    <div class="placeholder-component active">Grid: Área Comum</div>
+                  </div>
+                  <!-- Grid 3: Lojas -->
+                  <div id="gridLojasContainer" class="telemetry-grid-wrapper">
+                    <div class="placeholder-component active">Grid: Lojas</div>
+                  </div>
+                  <!-- Info Panel: Categorias -->
+                  <div id="telemetryInfoContainer" class="telemetry-info-wrapper">
+                    <div class="placeholder-component active">Info: Categorias</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <div data-content-state="water_content" style="display: none; height: 100%; min-height: 400px">
+              <section id="waterContentContainer" class="myio-water-section">
+                <div class="placeholder-component" id="waterPlaceholder">Telemetry Grid (Water)</div>
+              </section>
+            </div>
+            <div data-content-state="temperature_content" style="display: none; height: 100%; min-height: 400px">
+              <section id="temperatureContentContainer" class="myio-temperature-section">
+                <div class="placeholder-component" id="temperaturePlaceholder">Telemetry Grid (Temperature)</div>
+              </section>
+            </div>
+            <div data-content-state="alarm_content" style="display: none; height: 100%; min-height: 400px">
+              <section id="alarmContentContainer" class="myio-alarm-section">
+                <div class="placeholder-component" id="alarmPlaceholder">Alarm Panel</div>
+              </section>
+            </div>
+          </main>
+
+          <footer class="myio-footer">
+            <!-- RFC-0149: Footer component container -->
+            <section id="footerContainer" class="myio-footer-section">
+              <div class="placeholder-component" id="footerPlaceholder">Footer Component</div>
+            </section>
+          </footer>
+
+          <!-- Modal containers -->
+          <div id="panelModalContainer"></div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Sidebar Controls -->
+    <aside class="showcase-sidebar">
+      <!-- Lifecycle Controls -->
+      <div class="controls-panel">
+        <h3>Widget Lifecycle</h3>
+        <div class="controls-grid cols-3">
+          <button class="ctrl-btn primary" id="btnOnInit" onclick="triggerOnInit()">&#x25B6; onInit</button>
+          <button class="ctrl-btn warning" id="btnOnDataUpdated" onclick="triggerOnDataUpdated()" disabled>&#x1F504; Update</button>
+          <button class="ctrl-btn danger" id="btnOnDestroy" onclick="triggerOnDestroy()" disabled>&#x23F9; Destroy</button>
+        </div>
+      </div>
+
+      <!-- Domain Tabs -->
+      <div class="controls-panel">
+        <h3>Dashboard State (Tab)</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="switchTab('energy')">&#9889; Energy</button>
+          <button class="ctrl-btn secondary" onclick="switchTab('water')">&#128167; Water</button>
+          <button class="ctrl-btn secondary" onclick="switchTab('temperature')">&#127777; Temp</button>
+          <button class="ctrl-btn secondary" onclick="switchTab('alarms')">&#128276; Alarms</button>
+        </div>
+      </div>
+
+      <!-- Mock Data Controls -->
+      <div class="controls-panel">
+        <h3>Mock ctx.data</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Data Preset</label>
+          <select class="ctrl-select" id="dataPreset" onchange="updateMockData()">
+            <option value="full">Full (60 devices)</option>
+            <option value="partial">Partial (30 devices)</option>
+            <option value="empty">Empty</option>
+            <option value="large">Large (120 devices)</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="generateRandomData()">&#x1F3B2; Random</button>
+          <button class="ctrl-btn secondary" onclick="dispatchDataEvent()">&#x1F4E1; Dispatch</button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="controls-panel">
+        <h3>ctx.settings</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Theme</label>
+          <select class="ctrl-select" id="settingsTheme" onchange="updateSettings()">
+            <option value="dark">dark</option>
+            <option value="light">light</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Debug Mode</label>
+          <select class="ctrl-select" id="settingsDebug" onchange="updateSettings()">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Authentication -->
+      <div class="controls-panel">
+        <h3>Ghost Auth (ThingsBoard)</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Customer: Mestre Alvaro</label>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="authenticateGhost().then(t => t && logEvent('RE-AUTH', 'Token refreshed'))">
+            &#x1F511; Re-Auth
+          </button>
+          <button class="ctrl-btn secondary" onclick="navigator.clipboard.writeText(localStorage.getItem('jwt_token')); logEvent('COPY', 'JWT copied')">
+            &#x1F4CB; Copy JWT
+          </button>
+        </div>
+      </div>
+
+      <!-- Component Creation -->
+      <div class="controls-panel">
+        <h3>Components</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="createComponents()">&#x2728; Create All</button>
+          <button class="ctrl-btn secondary" onclick="destroyComponents()">&#x1F5D1; Destroy</button>
+        </div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="event-log-panel">
+        <div class="event-log-header">
+          <h3>Event Log</h3>
+          <button class="event-log-clear" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="event-log" id="eventLog">
+          <div class="log-entry info">
+            <span class="log-time">--:--:--</span>
+            <span class="log-event">READY</span>
+            <span class="log-data">Ghost auth on load, click onInit to start</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- State Inspector -->
+      <div class="state-panel">
+        <div class="state-header" onclick="toggleStatePanel()">
+          <h3>ctx State</h3>
+          <span class="state-toggle" id="stateToggle">&#x25BC;</span>
+        </div>
+        <div class="state-content" id="stateContent">
+          <pre id="stateDisplay">{ "status": "not_initialized" }</pre>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!--
+    Instructions:
+    1. Run: npm run build (generate dist/myio-js-library.umd.js)
+    2. Run: start-server.bat (port 3339)
+    3. Open: http://localhost:3339/showcase/main-view-shopping/
+  -->
+
+  <!-- jQuery (required by controller.js) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- MyIO Library UMD Bundle - with cache-busting -->
+  <script>
+    document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
+  </script>
+
+  <script>
+    // =========================================================================
+    // MAIN_VIEW Shopping Dashboard - Showcase
+    // Simulates ThingsBoard widget environment for MAIN_VIEW controller.js
+    // =========================================================================
+
+    // ===== REAL CREDENTIALS (Mestre Alvaro Shopping) =====
+    // Using underscore prefix to avoid conflicts with controller.js constants
+    const _TB_URL = 'https://dashboard.myio-bas.com';
+    const _SERVICE_USER = 'alarmes@myio.com.br';
+    const _SERVICE_PASS = 'hubmyio@2025!';
+
+    // Customer and Ingestion credentials
+    const _CUSTOMER_TB_ID = '20b93da0-9011-11f0-a06d-e9509531b1d5';
+    const _CUSTOMER_ING_ID = 'e01bdd22-3be6-4b75-9dae-442c8b8c186e';
+    const _CLIENT_ID = 'mestreal_mfh4e642_4flnuh';
+    const _CLIENT_SECRET = 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
+    const _DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+
+    const DEVICE_TYPES = {
+      energy: ['3F_MEDIDOR', 'AC_3F', 'ENTRADA', 'RELOGIO', 'CHILLER', 'ELEVADOR'],
+      water: ['HIDROMETRO', 'HIDROMETRO_ENTRADA', 'HIDROMETRO_AREA_COMUM'],
+      temperature: ['TERMOSTATO', 'TERMOSTATO_EXTERNAL'],
+    };
+    const STATUS_OPTIONS = ['power_on', 'power_on', 'power_on', 'offline', 'waiting'];
+
+    let widgetInitialized = false;
+    let currentTab = 'energy';
+    let ghostAuthToken = null;
+    let componentInstances = {};
+
+    // ===== GHOST AUTHENTICATION =====
+    async function authenticateGhost() {
+      console.log('[Showcase] Authenticating with service account...');
+      try {
+        const response = await fetch(`${_TB_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: _SERVICE_USER,
+            password: _SERVICE_PASS,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Auth failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.token) {
+          throw new Error('No token in response');
+        }
+
+        ghostAuthToken = data.token;
+        localStorage.setItem('jwt_token', data.token);
+        if (data.refreshToken) {
+          localStorage.setItem('refresh_token', data.refreshToken);
+        }
+
+        console.log('[Showcase] Ghost authentication successful');
+        logEvent('AUTH', 'Ghost authentication successful', 'info');
+        return data.token;
+      } catch (error) {
+        console.error('[Showcase] Ghost authentication failed:', error);
+        logEvent('AUTH_ERROR', error.message, 'error');
+        return null;
+      }
+    }
+
+    // ===== self.ctx (ThingsBoard widget context with REAL credentials) =====
+    window.self = window.self || {};
+    window.self.ctx = {
+      settings: {
+        customerTB_ID: _CUSTOMER_TB_ID,
+        dataApiHost: _DATA_API_HOST,
+        debugMode: true,
+        enableDebugMode: true,
+        domainsEnabled: { energy: true, water: true, temperature: true },
+        excludeDevicesAtCountSubtotalCAG: [],
+        delayTimeConnectionInMinsToStore: 86400,
+        delayTimeConnectionInMinsToEquipment: 1440,
+        delayTimeConnectionInMinsToWater: 2880,
+        delayTimeConnectionInMinsToTemperature: 1440,
+      },
+      data: [],
+      datasources: [{
+        type: 'entity',
+        name: 'AllDevices',
+        aliasName: 'all3fs',
+      }],
+      $injector: {
+        get: (serviceName) => {
+          if (serviceName === 'authService') {
+            return {
+              getJwtToken: () => localStorage.getItem('jwt_token') || ghostAuthToken,
+            };
+          }
+          return null;
+        },
+      },
+      $scope: {
+        startDateISO: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        endDateISO: new Date().toISOString(),
+      },
+      detectChanges: () => {},
+      updateWidgetParams: () => {},
+    };
+
+    // ===== Override MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage =====
+    // Return real credentials instead of fetching from ThingsBoard
+    if (typeof MyIOLibrary !== 'undefined') {
+      MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage = async (customerId, jwt) => {
+        console.log('[Showcase] fetchThingsboardCustomerAttrsFromStorage called - returning real credentials');
+        logEvent('CREDS', 'Returning real credentials', 'info');
+        return {
+          client_id: _CLIENT_ID,
+          client_secret: _CLIENT_SECRET,
+          ingestionId: _CUSTOMER_ING_ID,
+        };
+      };
+    }
+
+    // ===== PRE-CREATE MyIOOrchestrator STUB =====
+    // The controller.js creates MyIOOrchestrator at module load time.
+    // The controller's IIFE looks for window.__myioInitialPeriod to set the period.
+    // We pre-create the period so the controller finds it immediately.
+    const _startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const _endDate = new Date();
+
+    // RFC-0130: Set the initial period that the controller will find
+    // Controller expects startISO/endISO (not startDateISO/endDateISO)
+    window.__myioInitialPeriod = {
+      startISO: _startDate.toISOString(),
+      endISO: _endDate.toISOString(),
+      // Also include these for compatibility
+      startDateISO: _startDate.toISOString(),
+      endDateISO: _endDate.toISOString(),
+      startTs: _startDate.getTime(),
+      endTs: _endDate.getTime(),
+    };
+
+    // Also set isReady=false so controller merges with our stub (RFC-0051.2 at line 5903)
+    // PRE-SET credentials so controller doesn't timeout waiting
+    // CRITICAL: The controller merges this stub into its own orchestrator
+    // We need to set credentials ASAP before data fetch starts
+    window.MyIOOrchestrator = {
+      isReady: false,
+      credentialsSet: true, // Pre-set to true so controller doesn't wait
+      CUSTOMER_ING_ID: _CUSTOMER_ING_ID,
+      CLIENT_ID: _CLIENT_ID,
+      CLIENT_SECRET: _CLIENT_SECRET,
+      getCurrentPeriod: () => window.__myioInitialPeriod,
+      getCredentials: () => ({
+        CUSTOMER_ING_ID: _CUSTOMER_ING_ID,
+        CLIENT_ID: _CLIENT_ID,
+        CLIENT_SECRET: _CLIENT_SECRET,
+      }),
+      setCredentials: (customerId, clientId, clientSecret) => {
+        window.MyIOOrchestrator.CUSTOMER_ING_ID = customerId;
+        window.MyIOOrchestrator.CLIENT_ID = clientId;
+        window.MyIOOrchestrator.CLIENT_SECRET = clientSecret;
+        window.MyIOOrchestrator.credentialsSet = true;
+        console.log('[Showcase] setCredentials called (stub):', { customerId, clientId });
+      },
+    };
+
+    // RFC-0130: Listen for orchestrator:ready and immediately set credentials
+    window.addEventListener('myio:orchestrator:ready', () => {
+      console.log('[Showcase] 🎯 Orchestrator ready event received, setting credentials...');
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.setCredentials === 'function') {
+        window.MyIOOrchestrator.setCredentials(_CUSTOMER_ING_ID, _CLIENT_ID, _CLIENT_SECRET);
+        console.log('[Showcase] ✅ Credentials set via setCredentials() on orchestrator:ready');
+      }
+    });
+
+    console.log('[Showcase] Period set via __myioInitialPeriod:', _startDate.toISOString(), 'to', _endDate.toISOString());
+    console.log('[Showcase] Credentials PRE-SET in MyIOOrchestrator stub');
+
+    // ===== PRE-POPULATE ctx.data BEFORE controller loads =====
+    // The controller auto-starts and waits for ctx.data, so we must have data ready
+    (function prePopulateCtxData() {
+      const DEVICE_TYPES_INIT = {
+        energy: ['3F_MEDIDOR', 'AC_3F', 'ENTRADA', 'RELOGIO', 'CHILLER', 'ELEVADOR'],
+        water: ['HIDROMETRO', 'HIDROMETRO_ENTRADA', 'HIDROMETRO_AREA_COMUM'],
+        temperature: ['TERMOSTATO', 'TERMOSTATO_EXTERNAL'],
+      };
+      const STATUS_INIT = ['power_on', 'power_on', 'power_on', 'offline', 'waiting'];
+      const counts = { energy: 30, water: 15, temperature: 15 };
+      const devices = [];
+      let deviceIndex = 0;
+      const now = Date.now();
+
+      Object.keys(counts).forEach(domain => {
+        const types = DEVICE_TYPES_INIT[domain];
+        for (let i = 0; i < counts[domain]; i++) {
+          deviceIndex++;
+          const deviceType = types[Math.floor(Math.random() * types.length)];
+          const status = STATUS_INIT[Math.floor(Math.random() * STATUS_INIT.length)];
+          const isOnline = status === 'power_on';
+          let consumption = isOnline ? (domain === 'energy' ? Math.random() * 500 : domain === 'water' ? Math.random() * 100 : Math.random() * 10 + 18) : 0;
+
+          const entityName = `${deviceType}_${String(deviceIndex).padStart(3, '0')}`;
+          const entityId = `device-${deviceIndex}`;
+          const ingestionId = `ing-${deviceIndex}-${_CUSTOMER_ING_ID.substring(0, 8)}`;
+          const baseDatasource = { type: 'entity', entityId, entityName, entityLabel: entityName, aliasName: 'all3fs' };
+
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'consumption', type: 'timeseries' }, data: [[now, consumption]] });
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'deviceType', type: 'attribute' }, data: [[now, deviceType]] });
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'deviceProfile', type: 'attribute' }, data: [[now, deviceType]] });
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'ingestionId', type: 'attribute' }, data: [[now, ingestionId]] });
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'connectionStatus', type: 'attribute' }, data: [[now, status]] });
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'lastActivityTime', type: 'attribute' }, data: [[now, now - Math.random() * 3600000]] });
+          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'identifier', type: 'attribute' }, data: [[now, entityName]] });
+        }
+      });
+
+      self.ctx.data = devices;
+      console.log(`[Showcase] PRE-POPULATED ctx.data with ${devices.length} rows (${deviceIndex} devices) BEFORE controller loads`);
+    })();
+
+    // ===== MOCK DATA GENERATOR =====
+    // ThingsBoard ctx.data structure: each dataKey subscription is a separate row
+    // So a device with N attributes has N rows in ctx.data, all sharing the same entityId
+    // The orchestrator's buildMetadataMapFromCtxData merges these by entityId
+    function generateMockDevices(options = {}) {
+      const { preset = 'full' } = options;
+      const devices = [];
+      let counts = { energy: 30, water: 15, temperature: 15 };
+
+      if (preset === 'partial') counts = { energy: 15, water: 10, temperature: 5 };
+      if (preset === 'empty') return [];
+      if (preset === 'large') counts = { energy: 60, water: 30, temperature: 30 };
+
+      let deviceIndex = 0;
+      const now = Date.now();
+
+      Object.keys(counts).forEach(domain => {
+        const types = DEVICE_TYPES[domain];
+        for (let i = 0; i < counts[domain]; i++) {
+          deviceIndex++;
+          const deviceType = types[Math.floor(Math.random() * types.length)];
+          const status = STATUS_OPTIONS[Math.floor(Math.random() * STATUS_OPTIONS.length)];
+          const isOnline = status === 'power_on';
+
+          let consumption = 0;
+          if (isOnline) {
+            if (domain === 'energy') consumption = Math.random() * 500 + 10;
+            else if (domain === 'water') consumption = Math.random() * 100 + 5;
+            else consumption = Math.random() * 10 + 18;
+          }
+
+          const paddedIndex = String(deviceIndex).padStart(3, '0');
+          const entityName = `${deviceType}_${paddedIndex}`;
+          const entityId = `device-${deviceIndex}`; // MUST be same for all rows of this device
+          const ingestionId = `ing-${deviceIndex}-${_CUSTOMER_ING_ID.substring(0, 8)}`;
+
+          // Base datasource info - SAME object reference for all dataKeys of this device
+          // The entityId is the key used by orchestrator to group rows
+          const baseDatasource = {
+            type: 'entity',
+            entityId: entityId,
+            entityName: entityName,
+            entityLabel: entityName,
+            aliasName: 'all3fs',
+          };
+
+          // Add multiple dataKey rows for each device (like ThingsBoard does)
+          // Each row has the SAME entityId but different dataKey.name
+          // The orchestrator merges all dataKeys with same entityId into one entity
+
+          // 1. consumption (timeseries) - main telemetry value
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'consumption', type: 'timeseries', label: 'Consumption' },
+            data: [[now, consumption]],
+          });
+
+          // 2. deviceType (attribute) - CRITICAL for domain classification
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'deviceType', type: 'attribute', label: 'Device Type' },
+            data: [[now, deviceType]],
+          });
+
+          // 3. deviceProfile (attribute)
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'deviceProfile', type: 'attribute', label: 'Device Profile' },
+            data: [[now, deviceType]],
+          });
+
+          // 4. ingestionId (attribute) - for API enrichment matching
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'ingestionId', type: 'attribute', label: 'Ingestion ID' },
+            data: [[now, ingestionId]],
+          });
+
+          // 5. connectionStatus (attribute) - for status display
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'connectionStatus', type: 'attribute', label: 'Connection Status' },
+            data: [[now, status]],
+          });
+
+          // 6. lastActivityTime (attribute) - for offline detection
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'lastActivityTime', type: 'attribute', label: 'Last Activity' },
+            data: [[now, now - Math.random() * 3600000]],
+          });
+
+          // 7. identifier (attribute) - device identifier/label
+          devices.push({
+            datasource: { ...baseDatasource },
+            dataKey: { name: 'identifier', type: 'attribute', label: 'Identifier' },
+            data: [[now, entityName]],
+          });
+        }
+      });
+
+      console.log(`[Showcase] Generated ${devices.length} rows (${deviceIndex} devices × ~7 dataKeys each)`);
+      console.log('[Showcase] Sample row:', devices[0]);
+      console.log('[Showcase] DataKeys per first device:',
+        devices.filter(d => d.datasource.entityId === 'device-1').map(d => d.dataKey.name));
+
+      return devices;
+    }
+
+    // ===== EVENT LOGGING =====
+    function logEvent(eventName, data, type = 'default') {
+      const logEl = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString('pt-BR');
+      const dataStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
+
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-event">${eventName}</span>
+        <span class="log-data">${dataStr.substring(0, 60)}${dataStr.length > 60 ? '...' : ''}</span>
+      `;
+      logEl.insertBefore(entry, logEl.firstChild);
+      while (logEl.children.length > 80) logEl.removeChild(logEl.lastChild);
+      console.log(`[Showcase] ${eventName}:`, data);
+    }
+
+    function clearLog() {
+      document.getElementById('eventLog').innerHTML = '';
+      logEvent('LOG_CLEARED', '-');
+    }
+
+    function updateStatus(status) {
+      const badge = document.getElementById('widgetStatus');
+      badge.textContent = status.toUpperCase();
+      badge.className = 'status-badge ' + status.toLowerCase();
+    }
+
+    function updateStateDisplay() {
+      const rows = self.ctx.data || [];
+      const uniqueDevices = new Set(rows.map(r => r?.datasource?.entityId)).size;
+      const dataKeys = [...new Set(rows.map(r => r?.dataKey?.name).filter(Boolean))];
+
+      document.getElementById('stateDisplay').textContent = JSON.stringify({
+        initialized: widgetInitialized,
+        tab: currentTab,
+        data: {
+          rows: rows.length,
+          devices: uniqueDevices,
+          dataKeys: dataKeys,
+        },
+        orchestrator: !!window.MyIOOrchestrator,
+        orchestratorReady: window.MyIOOrchestrator?.isReady,
+        components: Object.keys(componentInstances),
+        settings: {
+          customerTB_ID: self.ctx.settings.customerTB_ID,
+          debugMode: self.ctx.settings.debugMode,
+        },
+      }, null, 2);
+    }
+
+    function toggleStatePanel() {
+      const content = document.getElementById('stateContent');
+      const toggle = document.getElementById('stateToggle');
+      const isHidden = content.style.display === 'none';
+      content.style.display = isHidden ? 'block' : 'none';
+      toggle.innerHTML = isHidden ? '&#x25BC;' : '&#x25B2;';
+    }
+
+    // ===== TAB SWITCHING =====
+    function switchTab(tab) {
+      currentTab = tab;
+
+      // Map tab names to content-state names
+      const stateMap = {
+        'energy': 'telemetry_content',
+        'water': 'water_content',
+        'temperature': 'temperature_content',
+        'alarms': 'alarm_content',
+      };
+
+      // Hide all, show selected
+      document.querySelectorAll('[data-content-state]').forEach(el => {
+        el.style.display = 'none';
+        el.querySelector('.placeholder-component')?.classList.remove('active');
+      });
+
+      const targetState = stateMap[tab] || 'telemetry_content';
+      const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
+      if (targetEl) {
+        targetEl.style.display = 'block';
+        targetEl.querySelector('.placeholder-component')?.classList.add('active');
+      }
+
+      // Dispatch event (controller.js listens to this)
+      window.dispatchEvent(new CustomEvent('myio:dashboard-state', { detail: { tab } }));
+      logEvent('TAB_CHANGED', tab);
+      updateStateDisplay();
+    }
+
+    // ===== COMPONENT CREATION (after orchestrator is ready) =====
+    async function createComponents() {
+      if (!window.MyIOLibrary) {
+        logEvent('ERROR', 'MyIOLibrary not loaded', 'error');
+        return;
+      }
+
+      logEvent('COMPONENTS', 'Creating components...', 'info');
+
+      try {
+        // Create MenuShopping Component (RFC-0140)
+        const menuContainer = document.getElementById('menuContainer');
+        if (menuContainer && MyIOLibrary.createMenuShoppingComponent) {
+          const placeholder = menuContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          componentInstances.menu = MyIOLibrary.createMenuShoppingComponent({
+            container: menuContainer,
+            userInfo: {
+              name: 'Admin User',
+              email: 'admin@myio.com.br',
+              isAdmin: true,
+            },
+            configTemplate: {
+              initialDomain: 'energy',
+              collapsed: false,
+              showUserInfo: true,
+              showSettingsButton: true,
+              showShoppingSelector: true,
+              showLogoutButton: true,
+              showLibraryVersion: true,
+              showHamburgerToggle: true,
+            },
+            onTabChange: (domain, tabId) => {
+              logEvent('MENU', `Tab changed: ${domain} (${tabId})`, 'info');
+              switchTab(domain);
+            },
+            onSettingsClick: () => {
+              logEvent('MENU', 'Settings clicked', 'info');
+              alert('Settings modal would open here');
+            },
+            onShoppingSelectorClick: () => {
+              logEvent('MENU', 'Shopping selector clicked', 'info');
+              alert('Shopping selector would open here');
+            },
+            onLogoutClick: () => {
+              logEvent('MENU', 'Logout clicked', 'warn');
+              if (confirm('Deseja sair?')) {
+                logEvent('AUTH', 'User logged out', 'warn');
+              }
+            },
+          });
+          logEvent('MENU', 'MenuShopping created (RFC-0140)', 'info');
+        } else if (menuContainer && MyIOLibrary.createMenuComponent) {
+          // Fallback to legacy menu component
+          const placeholder = menuContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+          componentInstances.menu = MyIOLibrary.createMenuComponent({
+            container: menuContainer,
+            theme: 'light',
+            shoppings: [],
+          });
+          logEvent('MENU', 'Created (legacy fallback)', 'warn');
+        }
+
+        // Create HeaderShopping Component (RFC-0139)
+        const headerContainer = document.getElementById('headerContainer');
+        if (headerContainer && MyIOLibrary.createHeaderShoppingComponent) {
+          const placeholder = headerContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          // Initialize with default period
+          const now = new Date();
+          const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+          const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
+
+          componentInstances.header = MyIOLibrary.createHeaderShoppingComponent({
+            container: headerContainer,
+            themeMode: 'light',
+            configTemplate: {
+              showDatePicker: true,
+              showLoadButton: true,
+              showClearButton: true,
+              showReportButton: true,
+              showContractStatus: true,
+              initialDomain: currentTab,
+            },
+            period: {
+              startISO: startDate.toISOString(),
+              endISO: endDate.toISOString(),
+            },
+            onPeriodChange: (period) => {
+              logEvent('HEADER', `Period changed: ${period.startISO} - ${period.endISO}`, 'info');
+              window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period } }));
+            },
+            onLoadClick: () => {
+              logEvent('HEADER', 'Load button clicked', 'info');
+            },
+            onClearClick: () => {
+              logEvent('HEADER', 'Clear button clicked', 'warn');
+            },
+            onReportClick: (domain) => {
+              logEvent('HEADER', `Report clicked for domain: ${domain}`, 'info');
+              alert(`Opening report for ${domain}...`);
+            },
+          });
+          logEvent('HEADER', 'HeaderShopping created (RFC-0139)', 'info');
+        } else if (headerContainer && MyIOLibrary.createHeaderComponent) {
+          // Fallback to legacy header component
+          const placeholder = headerContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+          componentInstances.header = MyIOLibrary.createHeaderComponent({
+            container: headerContainer,
+            theme: 'light',
+            showSearch: true,
+            showFilter: true,
+          });
+          logEvent('HEADER', 'Created (legacy fallback)', 'warn');
+        }
+
+        // =====================================================================
+        // RFC-0145: TelemetryGridShopping Components (Energy Domain)
+        // Creates 3 grid components: Entrada, Área Comum, Lojas
+        // =====================================================================
+        const themeMode = document.getElementById('settingsTheme')?.value || 'light';
+
+        // Grid 1: Entrada (entrada context)
+        const gridEntradaContainer = document.getElementById('gridEntradaContainer');
+        if (gridEntradaContainer && MyIOLibrary.createTelemetryGridShoppingComponent) {
+          const placeholder = gridEntradaContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          componentInstances.gridEntrada = MyIOLibrary.createTelemetryGridShoppingComponent({
+            container: gridEntradaContainer,
+            domain: 'energy',
+            context: 'entrada',
+            labelWidget: 'Entrada de Energia',
+            themeMode: themeMode,
+            onCardAction: (action, device) => {
+              logEvent('GRID_ENTRADA', `${action}: ${device?.entityName || 'unknown'}`, 'info');
+            },
+            onStatsUpdate: (stats) => {
+              logEvent('GRID_ENTRADA_STATS', `online: ${stats.online}, offline: ${stats.offline}`, 'info');
+            },
+          });
+          logEvent('TELEMETRY_GRID', 'Entrada created (RFC-0145)', 'info');
+        }
+
+        // Grid 2: Área Comum (equipments context - non-stores)
+        const gridAreaComumContainer = document.getElementById('gridAreaComumContainer');
+        if (gridAreaComumContainer && MyIOLibrary.createTelemetryGridShoppingComponent) {
+          const placeholder = gridAreaComumContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          componentInstances.gridAreaComum = MyIOLibrary.createTelemetryGridShoppingComponent({
+            container: gridAreaComumContainer,
+            domain: 'energy',
+            context: 'equipments',
+            labelWidget: 'Área Comum',
+            themeMode: themeMode,
+            onCardAction: (action, device) => {
+              logEvent('GRID_AREA_COMUM', `${action}: ${device?.entityName || 'unknown'}`, 'info');
+            },
+            onStatsUpdate: (stats) => {
+              logEvent('GRID_AREA_COMUM_STATS', `online: ${stats.online}, offline: ${stats.offline}`, 'info');
+            },
+          });
+          logEvent('TELEMETRY_GRID', 'Área Comum created (RFC-0145)', 'info');
+        }
+
+        // Grid 3: Lojas (stores context)
+        const gridLojasContainer = document.getElementById('gridLojasContainer');
+        if (gridLojasContainer && MyIOLibrary.createTelemetryGridShoppingComponent) {
+          const placeholder = gridLojasContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          componentInstances.gridLojas = MyIOLibrary.createTelemetryGridShoppingComponent({
+            container: gridLojasContainer,
+            domain: 'energy',
+            context: 'stores',
+            labelWidget: 'Lojas',
+            themeMode: themeMode,
+            onCardAction: (action, device) => {
+              logEvent('GRID_LOJAS', `${action}: ${device?.entityName || 'unknown'}`, 'info');
+            },
+            onStatsUpdate: (stats) => {
+              logEvent('GRID_LOJAS_STATS', `online: ${stats.online}, offline: ${stats.offline}`, 'info');
+            },
+          });
+          logEvent('TELEMETRY_GRID', 'Lojas created (RFC-0145)', 'info');
+        }
+
+        // =====================================================================
+        // RFC-0148: TelemetryInfoShopping Component (Energy Domain)
+        // Category breakdown panel with pie chart
+        // =====================================================================
+        const telemetryInfoContainer = document.getElementById('telemetryInfoContainer');
+        if (telemetryInfoContainer && MyIOLibrary.createTelemetryInfoShoppingComponent) {
+          const placeholder = telemetryInfoContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          componentInstances.telemetryInfo = MyIOLibrary.createTelemetryInfoShoppingComponent({
+            container: telemetryInfoContainer,
+            domain: 'energy',
+            themeMode: themeMode,
+            showChart: true,
+            showExpandButton: true,
+            labelWidget: 'Consumo por Categoria',
+            onCategoryClick: (category) => {
+              logEvent('TELEMETRY_INFO', `Category clicked: ${category}`, 'info');
+            },
+          });
+          logEvent('TELEMETRY_INFO', 'Created (RFC-0148)', 'info');
+
+          // Set sample data for the info panel
+          componentInstances.telemetryInfo.setEnergyData({
+            entrada: { total: 15000 },
+            lojas: { total: 5000 },
+            climatizacao: { total: 4500 },
+            elevadores: { total: 1500 },
+            escadasRolantes: { total: 750 },
+            outros: { total: 1250 },
+          });
+          logEvent('TELEMETRY_INFO', 'Sample energy data set', 'info');
+        }
+
+        // Create Footer Component
+        const footerContainer = document.getElementById('footerContainer');
+        if (footerContainer && MyIOLibrary.createFooterComponent) {
+          const placeholder = footerContainer.querySelector('.placeholder-component');
+          if (placeholder) placeholder.remove();
+
+          componentInstances.footer = MyIOLibrary.createFooterComponent({
+            container: footerContainer,
+            theme: 'light',
+          });
+          logEvent('FOOTER', 'Created', 'info');
+        }
+
+        logEvent('COMPONENTS', `Created ${Object.keys(componentInstances).length} components`, 'info');
+        updateStateDisplay();
+
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+        console.error('[Showcase] Component creation error:', error);
+      }
+    }
+
+    function destroyComponents() {
+      Object.keys(componentInstances).forEach(key => {
+        const instance = componentInstances[key];
+        if (instance && typeof instance.destroy === 'function') {
+          instance.destroy();
+        }
+      });
+      componentInstances = {};
+      logEvent('COMPONENTS', 'Destroyed all components', 'warn');
+      updateStateDisplay();
+    }
+
+    // ===== LIFECYCLE CONTROLS =====
+    async function triggerOnInit() {
+      if (widgetInitialized) {
+        logEvent('WARN', 'Widget already initialized', 'warn');
+        return;
+      }
+
+      logEvent('onInit', 'Starting...', 'info');
+      updateStatus('running');
+
+      // Pre-populate data
+      updateMockData();
+
+      // RFC-0130: Ensure period is set in $scope (stub was pre-created at script load)
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const endDate = new Date();
+      self.ctx.$scope.startDateISO = startDate.toISOString();
+      self.ctx.$scope.endDateISO = endDate.toISOString();
+      logEvent('PERIOD', `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`, 'info');
+
+      // Ensure orchestrator's getCurrentPeriod returns valid period
+      if (window.MyIOOrchestrator) {
+        const originalGetPeriod = window.MyIOOrchestrator.getCurrentPeriod;
+        window.MyIOOrchestrator.getCurrentPeriod = () => {
+          const result = originalGetPeriod ? originalGetPeriod() : null;
+          if (result && result.startDateISO) return result;
+          // Fallback to $scope
+          return {
+            startDateISO: self.ctx.$scope.startDateISO,
+            endDateISO: self.ctx.$scope.endDateISO,
+          };
+        };
+        logEvent('ORCHESTRATOR', 'getCurrentPeriod patched with fallback', 'info');
+      }
+
+      try {
+        if (typeof self.onInit === 'function') {
+          await self.onInit();
+          logEvent('onInit', 'controller.js onInit() executed', 'info');
+        } else {
+          logEvent('ERROR', 'self.onInit not found. Is controller.js loaded?', 'error');
+          updateStatus('error');
+          return;
+        }
+
+        widgetInitialized = true;
+        document.getElementById('btnOnInit').disabled = true;
+        document.getElementById('btnOnDataUpdated').disabled = false;
+        document.getElementById('btnOnDestroy').disabled = false;
+        updateStatus('ready');
+
+        // Check if orchestrator was created and set up period
+        if (window.MyIOOrchestrator) {
+          logEvent('ORCHESTRATOR', 'MyIOOrchestrator available', 'info');
+
+          // RFC-0130: Set the period in orchestrator so it doesn't wait forever
+          const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const endDate = new Date();
+
+          // Patch getCurrentPeriod if not returning valid data
+          if (typeof MyIOOrchestrator.getCurrentPeriod === 'function') {
+            const existingPeriod = MyIOOrchestrator.getCurrentPeriod();
+            if (!existingPeriod || !existingPeriod.startDateISO) {
+              logEvent('ORCHESTRATOR', 'Patching getCurrentPeriod with showcase dates', 'warn');
+              MyIOOrchestrator.getCurrentPeriod = () => ({
+                startDateISO: startDate.toISOString(),
+                endDateISO: endDate.toISOString(),
+              });
+            }
+          }
+
+          // Also update $scope for any code that reads directly from it
+          self.ctx.$scope.startDateISO = startDate.toISOString();
+          self.ctx.$scope.endDateISO = endDate.toISOString();
+        }
+
+        updateStateDisplay();
+
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+        console.error('[Showcase] onInit error:', error);
+        updateStatus('error');
+      }
+    }
+
+    function triggerOnDataUpdated() {
+      if (!widgetInitialized) return;
+      logEvent('onDataUpdated', `${self.ctx.data.length} devices`, 'info');
+      try {
+        if (typeof self.onDataUpdated === 'function') {
+          self.onDataUpdated();
+        }
+        updateStateDisplay();
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+      }
+    }
+
+    function triggerOnDestroy() {
+      if (!widgetInitialized) return;
+      logEvent('onDestroy', 'Destroying...', 'warn');
+      try {
+        if (typeof self.onDestroy === 'function') {
+          self.onDestroy();
+        }
+        destroyComponents();
+        widgetInitialized = false;
+        document.getElementById('btnOnInit').disabled = false;
+        document.getElementById('btnOnDataUpdated').disabled = true;
+        document.getElementById('btnOnDestroy').disabled = true;
+        updateStatus('stopped');
+        updateStateDisplay();
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+      }
+    }
+
+    // ===== DATA CONTROLS =====
+    function updateMockData() {
+      const preset = document.getElementById('dataPreset').value;
+      self.ctx.data = generateMockDevices({ preset });
+
+      // Calculate unique devices from rows
+      const uniqueDevices = new Set(self.ctx.data.map(r => r?.datasource?.entityId)).size;
+
+      // Verify dataKeys are present
+      const dataKeys = new Set(self.ctx.data.map(r => r?.dataKey?.name).filter(Boolean));
+      console.log('[Showcase] DataKeys in ctx.data:', Array.from(dataKeys));
+
+      logEvent('DATA', `Generated ${self.ctx.data.length} rows (${uniqueDevices} devices, ${preset})`);
+      updateStateDisplay();
+    }
+
+    // Fallback: Infer deviceType from entityName if missing
+    // entityName format: ${deviceType}_${index} e.g., "3F_MEDIDOR_001"
+    function inferDeviceTypeFromEntityName(entityName) {
+      if (!entityName) return null;
+      // Split by underscore, take all but last part (the index)
+      const parts = entityName.split('_');
+      if (parts.length >= 2) {
+        // Remove last part (index like "001")
+        parts.pop();
+        return parts.join('_'); // e.g., "3F_MEDIDOR" or "HIDROMETRO_AREA_COMUM"
+      }
+      return entityName;
+    }
+
+    function generateRandomData() {
+      const presets = ['full', 'partial', 'large'];
+      document.getElementById('dataPreset').value = presets[Math.floor(Math.random() * presets.length)];
+      updateMockData();
+      if (widgetInitialized) triggerOnDataUpdated();
+    }
+
+    function dispatchDataEvent() {
+      window.dispatchEvent(new CustomEvent('myio:data-ready', {
+        detail: { devices: self.ctx.data, timestamp: Date.now() }
+      }));
+      logEvent('myio:data-ready', `Dispatched ${self.ctx.data.length} devices`);
+    }
+
+    // ===== SETTINGS =====
+    function updateSettings() {
+      const theme = document.getElementById('settingsTheme').value;
+      const debug = document.getElementById('settingsDebug').value === 'true';
+
+      self.ctx.settings.debugMode = debug;
+      document.body.classList.toggle('light-mode', theme === 'light');
+
+      // Update MyIOUtils theme
+      if (window.MyIOUtils?.setTheme) {
+        window.MyIOUtils.setTheme(theme);
+      }
+
+      logEvent('SETTINGS', { theme, debug });
+      updateStateDisplay();
+    }
+
+    // ===== THEME TOGGLE =====
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const isLight = document.body.classList.contains('light-mode');
+      document.body.classList.toggle('light-mode', !isLight);
+      document.getElementById('settingsTheme').value = isLight ? 'dark' : 'light';
+      document.getElementById('themeIcon').innerHTML = isLight ? '&#x2600;&#xfe0f;' : '&#x1F319;';
+
+      // Update MyIOUtils theme
+      if (window.MyIOUtils?.setTheme) {
+        window.MyIOUtils.setTheme(isLight ? 'dark' : 'light');
+      }
+
+      logEvent('THEME', isLight ? 'dark' : 'light');
+    });
+
+    // ===== EVENT LISTENERS =====
+    ['myio:dashboard-state', 'myio:data-ready', 'myio:theme-changed', 'myio:energy-summary-ready', 'myio:water-summary-ready'].forEach(evt => {
+      window.addEventListener(evt, (e) => logEvent('EVENT', evt, 'info'));
+    });
+
+    // ===== INITIALIZE =====
+    window.addEventListener('DOMContentLoaded', async () => {
+      updateStateDisplay();
+
+      if (typeof MyIOLibrary === 'undefined') {
+        logEvent('ERROR', 'MyIOLibrary not loaded. Run: npm run build', 'error');
+        updateStatus('error');
+        return;
+      }
+
+      logEvent('LIBRARY', `MyIOLibrary loaded (${Object.keys(MyIOLibrary).length} exports)`, 'info');
+
+      // Ghost authentication - get real JWT token
+      logEvent('AUTH', 'Starting ghost authentication...', 'info');
+      updateStatus('running');
+
+      const token = await authenticateGhost();
+      if (token) {
+        logEvent('AUTH', `JWT token saved (${token.substring(0, 20)}...)`, 'info');
+        updateStatus('ready');
+
+        // Update ctx.$injector to return the real token
+        self.ctx.$injector.get = (serviceName) => {
+          if (serviceName === 'authService') {
+            return { getJwtToken: () => token };
+          }
+          return null;
+        };
+      } else {
+        logEvent('AUTH_ERROR', 'Failed to authenticate - using mock mode', 'warn');
+        updateStatus('ready');
+      }
+    });
+
+    window.addEventListener('error', (e) => logEvent('ERROR', e.message, 'error'));
+
+    console.log('[Showcase] MAIN_VIEW Shopping Dashboard Ready');
+    console.log('[Showcase] Customer:', _CUSTOMER_TB_ID);
+    console.log('[Showcase] Ingestion ID:', _CUSTOMER_ING_ID);
+    console.log('[Showcase] Controller: src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js');
+  </script>
+
+  <!-- MAIN_VIEW Controller (Orchestrator) - with cache-busting -->
+  <script>
+    // Cache-busting: dynamically load controller.js
+    const scriptEl = document.createElement('script');
+    scriptEl.src = '../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js?v=' + Date.now();
+    scriptEl.onload = () => {
+      console.log('[Showcase] controller.js loaded (cache-busted)');
+
+      // RFC-0130: Set credentials AFTER controller loads
+      // The controller creates its own MyIOOrchestrator which needs credentials
+      setTimeout(() => {
+        if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.setCredentials === 'function') {
+          window.MyIOOrchestrator.setCredentials(_CUSTOMER_ING_ID, _CLIENT_ID, _CLIENT_SECRET);
+          console.log('[Showcase] ✅ Credentials set via setCredentials()');
+          logEvent('CREDENTIALS', 'Set via MyIOOrchestrator.setCredentials()', 'info');
+        } else {
+          // Fallback: set credentials directly on orchestrator
+          if (window.MyIOOrchestrator) {
+            window.MyIOOrchestrator.CUSTOMER_ING_ID = _CUSTOMER_ING_ID;
+            window.MyIOOrchestrator.CLIENT_ID = _CLIENT_ID;
+            window.MyIOOrchestrator.CLIENT_SECRET = _CLIENT_SECRET;
+            window.MyIOOrchestrator.credentialsSet = true;
+            console.log('[Showcase] ✅ Credentials set directly on orchestrator');
+            logEvent('CREDENTIALS', 'Set directly on MyIOOrchestrator', 'info');
+          }
+        }
+      }, 100); // Small delay to let orchestrator initialize
+    };
+    scriptEl.onerror = (e) => console.error('[Showcase] Failed to load controller.js:', e);
+    document.body.appendChild(scriptEl);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RFC-0134: MAIN_UNIQUE_DATASOURCE Simulation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ===== SHOWCASE LAYOUT ===== */
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .showcase-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 10px 20px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    body.light-mode .showcase-header {
+      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+      border-color: #e2e8f0;
+    }
+
+    .showcase-header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    body.light-mode .showcase-header h1 { color: #1e293b; }
+
+    .showcase-header p {
+      color: #94a3b8;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.ready { background: #166534; color: #86efac; }
+    .status-badge.running { background: #1d4ed8; color: #93c5fd; }
+    .status-badge.error { background: #7f1d1d; color: #fca5a5; }
+    .status-badge.stopped { background: #475569; color: #cbd5e1; }
+
+    /* ===== WIDGET AREA ===== */
+    .widget-area {
+      position: relative;
+      overflow: hidden;
+      background: #0f172a;
+    }
+
+    body.light-mode .widget-area { background: #f8fafc; }
+
+    .widget-mount {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+    }
+
+    /* Widget container styles - match ThingsBoard */
+    .main-unique-wrap {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .main-unique-wrap[data-theme="dark"] {
+      background-color: #0f172a;
+    }
+
+    .main-unique-wrap[data-theme="light"] {
+      background-color: #f8fafc;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .showcase-sidebar {
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body.light-mode .showcase-sidebar {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    /* ===== CONTROLS PANEL ===== */
+    .controls-panel {
+      padding: 12px;
+      border-bottom: 1px solid #334155;
+    }
+
+    body.light-mode .controls-panel { border-color: #e2e8f0; }
+
+    .controls-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .controls-grid.cols-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .ctrl-btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid transparent;
+    }
+
+    .ctrl-btn.primary { background: #3b82f6; color: white; }
+    .ctrl-btn.primary:hover { background: #2563eb; }
+    .ctrl-btn.success { background: #16a34a; color: white; }
+    .ctrl-btn.success:hover { background: #15803d; }
+    .ctrl-btn.warning { background: #d97706; color: white; }
+    .ctrl-btn.warning:hover { background: #b45309; }
+    .ctrl-btn.danger { background: #dc2626; color: white; }
+    .ctrl-btn.danger:hover { background: #b91c1c; }
+    .ctrl-btn.secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border-color: #475569;
+    }
+    .ctrl-btn.secondary:hover { background: #334155; }
+    .ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    body.light-mode .ctrl-btn.secondary {
+      color: #475569;
+      border-color: #cbd5e1;
+    }
+
+    .ctrl-select {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    body.light-mode .ctrl-select {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #1e293b;
+    }
+
+    .ctrl-label {
+      font-size: 10px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .ctrl-group { margin-bottom: 6px; }
+
+    /* ===== EVENT LOG ===== */
+    .event-log-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px;
+    }
+
+    .event-log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .event-log-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .event-log-clear {
+      font-size: 10px;
+      color: #64748b;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: transparent;
+      border: none;
+    }
+    .event-log-clear:hover { background: #334155; color: #e2e8f0; }
+
+    .event-log {
+      flex: 1;
+      background: #0f172a;
+      border-radius: 6px;
+      padding: 6px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 10px;
+    }
+
+    body.light-mode .event-log {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .log-entry {
+      padding: 3px 6px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .log-entry:hover { background: #1e293b; }
+    body.light-mode .log-entry:hover { background: #e2e8f0; }
+
+    .log-time { color: #64748b; min-width: 55px; flex-shrink: 0; }
+    .log-event { color: #22c55e; min-width: 110px; font-weight: 500; flex-shrink: 0; }
+    .log-entry.error .log-event { color: #f87171; }
+    .log-entry.warn .log-event { color: #fbbf24; }
+    .log-entry.info .log-event { color: #60a5fa; }
+    .log-data { color: #94a3b8; word-break: break-all; flex: 1; }
+
+    /* ===== STATE PANEL ===== */
+    .state-panel {
+      border-top: 1px solid #334155;
+      max-height: 180px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.light-mode .state-panel { border-color: #e2e8f0; }
+
+    .state-header {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      background: #0f172a;
+    }
+
+    body.light-mode .state-header { background: #f1f5f9; }
+
+    .state-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .state-toggle { font-size: 11px; color: #64748b; }
+
+    .state-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 12px;
+    }
+
+    .state-content pre {
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 9px;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .showcase-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      .showcase-sidebar {
+        border-left: none;
+        border-top: 1px solid #334155;
+        max-height: 280px;
+      }
+    }
+  </style>
+
+  <!-- Widget Styles from MAIN_UNIQUE_DATASOURCE -->
+  <link rel="stylesheet" href="../../src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/styles.css">
+</head>
+<body>
+  <div class="showcase-layout">
+    <!-- Header -->
+    <header class="showcase-header">
+      <div>
+        <h1>RFC-0134: MAIN_UNIQUE_DATASOURCE Simulation</h1>
+        <p>Simulating src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js</p>
+      </div>
+      <div class="header-status">
+        <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme">
+          <span id="themeIcon">&#x2600;&#xfe0f;</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Widget Mount Area (same structure as template.html) -->
+    <main class="widget-area">
+      <div class="widget-mount" id="widgetMount">
+        <div class="main-unique-wrap" id="mainUniqueWrap" data-theme="dark">
+          <section id="headerContainer" class="myio-header-section" style="height: 145px; min-height: 145px; max-height: 145px"></section>
+          <section id="menuContainer" class="myio-menu-section" style="height: 70px; min-height: 70px; max-height: 70px"></section>
+          <section id="telemetryGridContainer" class="myio-main-view-section" style="flex: 1; overflow: auto"></section>
+          <section id="footerContainer" class="myio-footer-section" style="height: 46px; min-height: 46px; max-height: 46px"></section>
+          <div id="panelModalContainer"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Sidebar -->
+    <aside class="showcase-sidebar">
+      <!-- Lifecycle Controls -->
+      <div class="controls-panel">
+        <h3>Widget Lifecycle</h3>
+        <div class="controls-grid cols-3">
+          <button class="ctrl-btn primary" id="btnOnInit" onclick="triggerOnInit()">
+            &#x25B6; onInit
+          </button>
+          <button class="ctrl-btn warning" id="btnOnDataUpdated" onclick="triggerOnDataUpdated()" disabled>
+            &#x1F504; Update
+          </button>
+          <button class="ctrl-btn danger" id="btnOnDestroy" onclick="triggerOnDestroy()" disabled>
+            &#x23F9; Destroy
+          </button>
+        </div>
+      </div>
+
+      <!-- Data Controls -->
+      <div class="controls-panel">
+        <h3>Mock Data (ctx.data)</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Data Preset</label>
+          <select class="ctrl-select" id="dataPreset" onchange="updateMockData()">
+            <option value="full">6 Shoppings - Full (90 devices)</option>
+            <option value="partial">3 Shoppings - Partial (45 devices)</option>
+            <option value="single">1 Shopping (15 devices)</option>
+            <option value="empty">Empty (0 devices)</option>
+            <option value="large">Large (150+ devices)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Domain Filter</label>
+          <select class="ctrl-select" id="domainFilter" onchange="updateMockData()">
+            <option value="all">All Domains</option>
+            <option value="energy">Energy Only</option>
+            <option value="water">Water Only</option>
+            <option value="temperature">Temperature Only</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="generateRandomData()">
+            &#x1F3B2; Random
+          </button>
+          <button class="ctrl-btn secondary" onclick="dispatchMockDataReadyEvent()">
+            &#x1F4E1; Data Ready
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="controls-panel">
+        <h3>ctx.settings</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">defaultThemeMode</label>
+          <select class="ctrl-select" id="settingsTheme" onchange="updateSettings()">
+            <option value="dark">dark</option>
+            <option value="light">light</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">enableDebugMode</label>
+          <select class="ctrl-select" id="settingsDebug" onchange="updateSettings()">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="event-log-panel">
+        <div class="event-log-header">
+          <h3>Event Log</h3>
+          <button class="event-log-clear" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="event-log" id="eventLog">
+          <div class="log-entry info">
+            <span class="log-time">--:--:--</span>
+            <span class="log-event">READY</span>
+            <span class="log-data">Click "onInit" to start widget</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- State Inspector -->
+      <div class="state-panel">
+        <div class="state-header" onclick="toggleStatePanel()">
+          <h3>ctx State</h3>
+          <span class="state-toggle" id="stateToggle">&#x25BC;</span>
+        </div>
+        <div class="state-content" id="stateContent">
+          <pre id="stateDisplay">{ "status": "not_initialized" }</pre>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!--
+    Instructions:
+    1. Run: npm run build (generate dist/myio-js-library.umd.js)
+    2. Run: start-server.bat (Windows) or ./start-server.sh (Linux/macOS)
+    3. Open: http://localhost:3333/showcase/main-unique-datasource/
+  -->
+
+  <!-- Chart.js (required for charts) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- MyIO Library UMD Bundle -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <script>
+    // =========================================================================
+    // RFC-0134: MAIN_UNIQUE_DATASOURCE Simulation
+    // Simulates ThingsBoard widget environment to test controller.js
+    // =========================================================================
+
+    // ===== SHOPPING DATA (from controller.js DEFAULT_SHOPPING_CARDS) =====
+    // IMPORTANT: 'name' must match the 'title' in DEFAULT_SHOPPING_CARDS for device counts to work
+    const SHOPPING_DATA = [
+      { id: 'cust-mestre-alvaro', name: 'Mestre Álvaro', dashboardId: '6c188a90-b0cc-11f0-9722-210aa9448abc', entityId: '6c188a90-b0cc-11f0-9722-210aa9448abc' },
+      { id: 'cust-mont-serrat', name: 'Mont Serrat', dashboardId: '39e4ca30-b503-11f0-be7f-e760d1498268', entityId: '39e4ca30-b503-11f0-be7f-e760d1498268' },
+      { id: 'cust-moxuara', name: 'Moxuara', dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268', entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268' },
+      { id: 'cust-rio-poty', name: 'Rio Poty', dashboardId: 'd432db90-cee9-11f0-998e-25174baff087', entityId: 'd432db90-cee9-11f0-998e-25174baff087' },
+      { id: 'cust-shopping-ilha', name: 'Shopping da Ilha', dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268', entityId: 'd2754480-b668-11f0-be7f-e760d1498268' },
+      { id: 'cust-metropole-para', name: 'Metrópole Pará', dashboardId: 'aaa21b80-d6e9-11f0-998e-25174baff087', entityId: 'aaa21b80-d6e9-11f0-998e-25174baff087' },
+    ];
+
+    const DEVICE_TYPES = {
+      energy: ['3F_MEDIDOR', 'AC_3F', 'ENTRADA', 'RELOGIO', 'CHILLER', 'ELEVADOR', 'ESCADA_ROLANTE'],
+      water: ['HIDROMETRO', 'HIDROMETRO_ENTRADA', 'HIDROMETRO_AREA_COMUM'],
+      temperature: ['TERMOSTATO', 'TERMOSTATO_EXTERNAL'],
+    };
+
+    const STATUS_OPTIONS = ['power_on', 'power_on', 'power_on', 'power_on', 'offline', 'not_installed', 'waiting'];
+
+    // ===== WIDGET STATE =====
+    let widgetInitialized = false;
+
+    // ===== MOCK self.ctx (ThingsBoard widget context) =====
+    window.self = window.self || {};
+    window.self.ctx = {
+      settings: {
+        enableDebugMode: true,
+        dataApiHost: 'https://api.data.apps.myio-bas.com',
+        customerTB_ID: 'mock-customer-tb-id-12345',
+        defaultThemeMode: 'dark',
+        darkMode: {
+          backgroundType: 'color',
+          backgroundColor: '#0f172a',
+          logoUrl: 'https://dashboard.myio-bas.com/api/images/public/Gi9qaUMi2Z7G2wrdReKzMCZu5epG17lX',
+          primaryColor: '#7A2FF7',
+          secondaryColor: '#5A1FD1',
+          textColor: '#F5F7FA',
+          mutedTextColor: '#B8C2D8',
+        },
+        lightMode: {
+          backgroundType: 'color',
+          backgroundColor: '#f8fafc',
+          logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+          primaryColor: '#7A2FF7',
+          secondaryColor: '#5A1FD1',
+          textColor: '#1a1a2e',
+          mutedTextColor: '#64748b',
+        },
+        defaultHeroTitle: 'Bem-vindo ao MYIO Platform',
+        defaultHeroDescription: 'Gestao inteligente de energia, agua e recursos',
+        defaultPrimaryLabel: 'ACESSAR PAINEL',
+      },
+      data: [], // Will be populated with mock devices
+      datasources: [{
+        type: 'entity',
+        name: 'AllDevices',
+        aliasName: 'AllDevices',
+        entityAliasId: 'mock-alias-id',
+        dataKeys: [
+          { name: 'consumption', type: 'timeseries' },
+          { name: 'deviceType', type: 'attribute' },
+          { name: 'deviceProfile', type: 'attribute' },
+          { name: 'label', type: 'attribute' },
+          { name: 'deviceStatus', type: 'attribute' },
+        ],
+      }],
+      $injector: {
+        get: (serviceName) => {
+          if (serviceName === 'authService') {
+            return {
+              getJwtToken: () => 'mock-jwt-token-' + Date.now(),
+            };
+          }
+          return null;
+        },
+      },
+      $scope: {
+        startDateISO: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        endDateISO: new Date().toISOString(),
+      },
+      detectChanges: () => {},
+      updateWidgetParams: () => {},
+    };
+
+    // ===== MOCK MyIOUtils (exposed by controller.js) =====
+    window.MyIOUtils = window.MyIOUtils || {};
+    window.MyIOUtils.getCustomerNameForDevice = (device) => device?.customerName || device?.ownerName || 'N/A';
+    window.MyIOUtils.CLIENT_ID = 'mock-client-id';
+    window.MyIOUtils.CLIENT_SECRET = 'mock-client-secret';
+    window.MyIOUtils.CUSTOMER_ING_ID = 'mock-customer-ing-id';
+    window.MyIOUtils.getCredentials = () => ({
+      clientId: 'mock-client-id',
+      clientSecret: 'mock-client-secret',
+      customerId: 'mock-customer-ing-id',
+      dataApiHost: 'https://api.data.apps.myio-bas.com',
+    });
+
+    // ===== MOCK MyIOOrchestratorData (used by controller.js to store classified data) =====
+    window.MyIOOrchestratorData = {
+      classified: null,
+      energy: { items: [], timestamp: null },
+      water: { items: [], timestamp: null },
+      temperature: { items: [], timestamp: null },
+    };
+
+    // ===== MOCK DATA GENERATOR =====
+    function generateMockDevices(options = {}) {
+      const { preset = 'full', domainFilter = 'all' } = options;
+      const devices = [];
+
+      let shoppings = [...SHOPPING_DATA];
+      let devicesPerShopping = 15;
+
+      switch (preset) {
+        case 'partial': shoppings = shoppings.slice(0, 3); break;
+        case 'single': shoppings = [shoppings[0]]; devicesPerShopping = 15; break;
+        case 'empty': return [];
+        case 'large': devicesPerShopping = 25; break;
+      }
+
+      let domains = ['energy', 'water', 'temperature'];
+      if (domainFilter !== 'all') domains = [domainFilter];
+
+      let deviceIndex = 0;
+
+      shoppings.forEach((shopping) => {
+        domains.forEach((domain) => {
+          const types = DEVICE_TYPES[domain];
+          const countForDomain = Math.ceil(devicesPerShopping / domains.length);
+
+          for (let i = 0; i < countForDomain; i++) {
+            deviceIndex++;
+            const deviceType = types[Math.floor(Math.random() * types.length)];
+            const status = STATUS_OPTIONS[Math.floor(Math.random() * STATUS_OPTIONS.length)];
+            const isOnline = !['offline', 'not_installed', 'waiting'].includes(status);
+
+            let value = 0;
+            if (isOnline) {
+              if (domain === 'energy') value = Math.random() * 500 + 10;
+              else if (domain === 'water') value = Math.random() * 100 + 5;
+              else if (domain === 'temperature') value = Math.random() * 15 + 18;
+            }
+
+            // ThingsBoard datasource format
+            devices.push({
+              datasource: {
+                type: 'entity',
+                entityId: `device-${deviceIndex}`,
+                entityName: `${deviceType}_${String(deviceIndex).padStart(3, '0')}`,
+                entityLabel: `${domain} Device ${deviceIndex}`,
+                aliasName: 'AllDevices',
+              },
+              dataKey: {
+                name: domain === 'energy' ? 'consumption' : domain === 'water' ? 'pulses' : 'temperature',
+                type: 'timeseries',
+              },
+              data: [[Date.now(), value]],
+              // Extended device attributes
+              entityId: `device-${deviceIndex}`,
+              labelOrName: `${deviceType}_${String(deviceIndex).padStart(3, '0')}`,
+              deviceType: deviceType,
+              deviceProfile: deviceType,
+              deviceStatus: status,
+              deviceIdentifier: `ID-${String(deviceIndex).padStart(5, '0')}`,
+              customerId: shopping.id,
+              customerName: shopping.name,
+              centralName: shopping.name,
+              ownerName: shopping.name, // Must match DEFAULT_SHOPPING_CARDS title for device counts
+              consumption: domain === 'energy' ? value : undefined,
+              pulses: domain === 'water' ? value : undefined,
+              temperature: domain === 'temperature' ? value : undefined,
+              val: value,
+              value: value,
+              domain: domain,
+              lastConnectTime: Date.now() - Math.random() * 86400000,
+              lastActivityTime: Date.now() - Math.random() * 3600000,
+            });
+          }
+        });
+      });
+
+      return devices;
+    }
+
+    // ===== GENERATE MOCK SHOPPING DATASOURCE =====
+    // This creates entries with aliasName='Shopping' that buildShoppingsListFromAlias expects
+    function generateMockShoppingDatasource() {
+      const shoppingRows = [];
+
+      SHOPPING_DATA.forEach(shopping => {
+        // Add ingestionId row for each shopping
+        shoppingRows.push({
+          datasource: {
+            type: 'entity',
+            entityType: 'CUSTOMER',
+            entityId: shopping.entityId,
+            entityName: shopping.name,
+            entityLabel: shopping.name,
+            aliasName: 'Shopping', // This is what buildShoppingsListFromAlias looks for
+          },
+          dataKey: { name: 'ingestionId', type: 'attribute' },
+          data: [[Date.now(), shopping.id]], // Use shopping.id as ingestionId
+        });
+
+        // Add minTemperature row
+        shoppingRows.push({
+          datasource: {
+            type: 'entity',
+            entityType: 'CUSTOMER',
+            entityId: shopping.entityId,
+            entityName: shopping.name,
+            entityLabel: shopping.name,
+            aliasName: 'Shopping',
+          },
+          dataKey: { name: 'minTemperature', type: 'attribute' },
+          data: [[Date.now(), 18]],
+        });
+
+        // Add maxTemperature row
+        shoppingRows.push({
+          datasource: {
+            type: 'entity',
+            entityType: 'CUSTOMER',
+            entityId: shopping.entityId,
+            entityName: shopping.name,
+            entityLabel: shopping.name,
+            aliasName: 'Shopping',
+          },
+          dataKey: { name: 'maxTemperature', type: 'attribute' },
+          data: [[Date.now(), 26]],
+        });
+      });
+
+      return shoppingRows;
+    }
+
+    // ===== CLASSIFY DEVICES (format expected by controller.js) =====
+    function classifyDevicesForController(devices) {
+      // Format: { energy: { equipments: [], stores: [] }, water: { ... }, temperature: { ... } }
+      const classified = {
+        energy: { equipments: [], stores: [], entrada: [] },
+        water: { hidrometro: [], hidrometro_area_comum: [], hidrometro_entrada: [] },
+        temperature: { termostato: [], termostato_external: [] },
+      };
+
+      devices.forEach(device => {
+        const domain = device.domain;
+        const deviceType = (device.deviceType || '').toUpperCase();
+
+        if (domain === 'energy') {
+          if (deviceType.includes('ENTRADA') || deviceType.includes('RELOGIO')) {
+            classified.energy.entrada.push(device);
+          } else if (deviceType === '3F_MEDIDOR') {
+            classified.energy.stores.push(device);
+          } else {
+            classified.energy.equipments.push(device);
+          }
+        } else if (domain === 'water') {
+          if (deviceType.includes('AREA_COMUM')) {
+            classified.water.hidrometro_area_comum.push(device);
+          } else if (deviceType.includes('ENTRADA')) {
+            classified.water.hidrometro_entrada.push(device);
+          } else {
+            classified.water.hidrometro.push(device);
+          }
+        } else if (domain === 'temperature') {
+          if (deviceType.includes('EXTERNAL')) {
+            classified.temperature.termostato_external.push(device);
+          } else {
+            classified.temperature.termostato.push(device);
+          }
+        }
+      });
+
+      return classified;
+    }
+
+    // ===== DISPATCH DATA READY EVENT (simulates controller behavior) =====
+    function dispatchMockDataReadyEvent() {
+      // Filter to only process AllDevices (not Shopping datasource rows)
+      const devices = (self.ctx.data || []).filter(d => d.datasource?.aliasName === 'AllDevices');
+      if (devices.length === 0) {
+        logEvent('WARN', 'No devices to dispatch', 'warn');
+        return;
+      }
+
+      const classified = classifyDevicesForController(devices);
+
+      // Calculate device counts
+      let energyTotal = 0, waterTotal = 0, tempSum = 0, tempCount = 0;
+      devices.forEach(d => {
+        if (d.domain === 'energy') energyTotal += d.consumption || 0;
+        else if (d.domain === 'water') waterTotal += d.pulses || 0;
+        else if (d.domain === 'temperature' && d.temperature != null) {
+          tempSum += d.temperature;
+          tempCount++;
+        }
+      });
+
+      const deviceCounts = {
+        total: devices.length,
+        energyTotal,
+        waterTotal,
+        tempAvg: tempCount > 0 ? tempSum / tempCount : null,
+      };
+
+      // Build shoppings list
+      const shoppings = SHOPPING_DATA.map(s => ({
+        id: s.id,
+        title: s.name,
+        entityId: s.entityId,
+        dashboardId: s.dashboardId,
+      }));
+
+      // Flatten devices for each domain
+      const energyDevices = [...classified.energy.equipments, ...classified.energy.stores, ...classified.energy.entrada];
+      const waterDevices = [...classified.water.hidrometro, ...classified.water.hidrometro_area_comum, ...classified.water.hidrometro_entrada];
+      const tempDevices = [...classified.temperature.termostato, ...classified.temperature.termostato_external];
+
+      // UPDATE MyIOOrchestratorData (controller.js reads from this)
+      window.MyIOOrchestratorData = {
+        classified,
+        apiEnrichedAt: Date.now(),
+        energy: { items: energyDevices, timestamp: Date.now() },
+        water: { items: waterDevices, timestamp: Date.now() },
+        temperature: { items: tempDevices, timestamp: Date.now() },
+      };
+
+      logEvent('ORCHESTRATOR', `MyIOOrchestratorData updated (${energyDevices.length}E, ${waterDevices.length}W, ${tempDevices.length}T)`, 'info');
+
+      // Debug: log unique ownerNames to verify match with DEFAULT_SHOPPING_CARDS
+      const ownerNames = [...new Set(devices.map(d => d.ownerName).filter(Boolean))];
+      logEvent('DEBUG_OWNERS', ownerNames.join(', '), 'info');
+
+      // Dispatch the event that controller.js listens for
+      window.dispatchEvent(new CustomEvent('myio:data-ready', {
+        detail: {
+          classified,
+          deviceCounts,
+          shoppings,
+          timestamp: Date.now(),
+        }
+      }));
+
+      logEvent('myio:data-ready', `classified with ${devices.length} devices`, 'info');
+
+      // Build status breakdown helper
+      function buildStatusFromDevices(devices) {
+        const statuses = {
+          waiting: 0, weakConnection: 0, offline: 0,
+          normal: 0, alert: 0, failure: 0, standby: 0, noConsumption: 0,
+          waitingDevices: [], weakConnectionDevices: [], offlineDevices: [],
+          normalDevices: [], alertDevices: [], failureDevices: [], standbyDevices: [], noConsumptionDevices: [],
+        };
+        devices.forEach(d => {
+          const deviceInfo = { id: d.entityId, label: d.labelOrName || d.deviceType, name: d.labelOrName };
+          const status = d.deviceStatus || 'no_info';
+          const value = d.val || d.value || 0;
+
+          if (status === 'not_installed' || status === 'waiting') {
+            statuses.waiting++;
+            statuses.waitingDevices.push(deviceInfo);
+          } else if (status === 'weak_connection') {
+            statuses.weakConnection++;
+            statuses.weakConnectionDevices.push(deviceInfo);
+          } else if (status === 'offline' || status === 'no_info') {
+            statuses.offline++;
+            statuses.offlineDevices.push(deviceInfo);
+          } else if (value < 0.01) {
+            statuses.noConsumption++;
+            statuses.noConsumptionDevices.push(deviceInfo);
+          } else {
+            statuses.normal++;
+            statuses.normalDevices.push(deviceInfo);
+          }
+        });
+        return statuses;
+      }
+
+      // Helper function to build shopping breakdown for a set of devices
+      function buildCategoryShoppingBreakdown(devices) {
+        const byShoppingMap = {};
+        devices.forEach(d => {
+          const name = d.ownerName || d.customerName || 'Unknown';
+          if (!byShoppingMap[name]) {
+            byShoppingMap[name] = {
+              shoppingId: name.replace(/\s+/g, '-').toLowerCase(),
+              shoppingName: name,
+              deviceCount: 0,
+              consumption: 0
+            };
+          }
+          byShoppingMap[name].deviceCount++;
+          byShoppingMap[name].consumption += d.val || d.value || 0;
+        });
+        return Object.values(byShoppingMap);
+      }
+
+      // Classify energy devices by detailed categories
+      function classifyEnergyByCategory(devices) {
+        const categories = {
+          entrada: [], lojas: [], elevadores: [], escadasRolantes: [],
+          climatizacao: [], areaComum: [], outros: []
+        };
+        devices.forEach(d => {
+          const type = (d.deviceType || '').toUpperCase();
+          if (type.includes('ENTRADA') || type.includes('RELOGIO') || type.includes('TRAFO') || type.includes('SUBESTACAO')) {
+            categories.entrada.push(d);
+          } else if (type === '3F_MEDIDOR') {
+            categories.lojas.push(d);
+          } else if (type.includes('ELEVADOR')) {
+            categories.elevadores.push(d);
+          } else if (type.includes('ESCADA_ROLANTE')) {
+            categories.escadasRolantes.push(d);
+          } else if (type.includes('CHILLER') || type.includes('FANCOIL') || type.includes('HVAC') || type.includes('AR_CONDICIONADO') || type.includes('BOMBA_CAG')) {
+            categories.climatizacao.push(d);
+          } else if (type.includes('AC_3F')) {
+            categories.areaComum.push(d);
+          } else {
+            categories.outros.push(d);
+          }
+        });
+        return categories;
+      }
+
+      // Classify water devices by category
+      function classifyWaterByCategory(devices) {
+        const categories = {
+          entrada: [], lojas: [], banheiros: [], areaComum: [], pontosNaoMapeados: []
+        };
+        devices.forEach(d => {
+          const type = (d.deviceType || '').toUpperCase();
+          if (type.includes('ENTRADA')) {
+            categories.entrada.push(d);
+          } else if (type.includes('AREA_COMUM')) {
+            categories.areaComum.push(d);
+          } else if (type.includes('BANHEIRO')) {
+            categories.banheiros.push(d);
+          } else if (type.includes('HIDROMETRO')) {
+            categories.lojas.push(d);
+          } else {
+            categories.pontosNaoMapeados.push(d);
+          }
+        });
+        return categories;
+      }
+
+      const energyByCategory = classifyEnergyByCategory(energyDevices);
+      const waterByCategory = classifyWaterByCategory(waterDevices);
+
+      // DEBUG: Log classified devices
+      console.log('[Showcase DEBUG] energyDevices sample:', energyDevices.slice(0, 3).map(d => ({
+        deviceType: d.deviceType,
+        ownerName: d.ownerName,
+        customerName: d.customerName,
+        val: d.val
+      })));
+      console.log('[Showcase DEBUG] energyByCategory counts:', {
+        entrada: energyByCategory.entrada.length,
+        lojas: energyByCategory.lojas.length,
+        elevadores: energyByCategory.elevadores.length,
+        escadasRolantes: energyByCategory.escadasRolantes.length,
+        climatizacao: energyByCategory.climatizacao.length,
+        areaComum: energyByCategory.areaComum.length,
+        outros: energyByCategory.outros.length
+      });
+
+      // Build energy categories with byShoppingBreakdown
+      const energyStatus = buildStatusFromDevices(energyDevices);
+      const energyCategories = [
+        {
+          id: 'entrada', name: 'Entrada', icon: '📥',
+          deviceCount: energyByCategory.entrada.length,
+          consumption: energyByCategory.entrada.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 100,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.entrada),
+        },
+        {
+          id: 'lojas', name: 'Lojas', icon: '🏪',
+          deviceCount: energyByCategory.lojas.length,
+          consumption: energyByCategory.lojas.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 35,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.lojas),
+        },
+        {
+          id: 'elevadores', name: 'Elevadores', icon: '🛗',
+          deviceCount: energyByCategory.elevadores.length,
+          consumption: energyByCategory.elevadores.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 8,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.elevadores),
+        },
+        {
+          id: 'escadasRolantes', name: 'Esc. Rolantes', icon: '🎢',
+          deviceCount: energyByCategory.escadasRolantes.length,
+          consumption: energyByCategory.escadasRolantes.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 5,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.escadasRolantes),
+        },
+        {
+          id: 'climatizacao', name: 'Climatização', icon: '❄️',
+          deviceCount: energyByCategory.climatizacao.length,
+          consumption: energyByCategory.climatizacao.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 25,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.climatizacao),
+        },
+        {
+          id: 'areaComum', name: 'Área Comum', icon: '🏢',
+          deviceCount: energyByCategory.areaComum.length,
+          consumption: energyByCategory.areaComum.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 15,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.areaComum),
+        },
+        {
+          id: 'outros', name: 'Outros Equip.', icon: '⚙️',
+          deviceCount: energyByCategory.outros.length,
+          consumption: energyByCategory.outros.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 12,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(energyByCategory.outros),
+        },
+      ].filter(cat => cat.deviceCount > 0); // Only show categories with devices
+
+      // DEBUG: Log energy categories with byShoppingBreakdown
+      console.log('[Showcase DEBUG] energyCategories:', energyCategories.map(c => ({
+        id: c.id,
+        name: c.name,
+        deviceCount: c.deviceCount,
+        byShoppingBreakdownCount: c.byShoppingBreakdown?.length || 0,
+        byShoppingBreakdown: c.byShoppingBreakdown
+      })));
+
+      // Build water categories with byShoppingBreakdown
+      const waterStatus = buildStatusFromDevices(waterDevices);
+      const waterCategories = [
+        {
+          id: 'entrada', name: 'Entrada', icon: '📥',
+          deviceCount: waterByCategory.entrada.length,
+          consumption: waterByCategory.entrada.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 100,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(waterByCategory.entrada),
+        },
+        {
+          id: 'lojas', name: 'Lojas', icon: '🏪',
+          deviceCount: waterByCategory.lojas.length,
+          consumption: waterByCategory.lojas.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 40,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(waterByCategory.lojas),
+        },
+        {
+          id: 'banheiros', name: 'Banheiros', icon: '🚻',
+          deviceCount: waterByCategory.banheiros.length,
+          consumption: waterByCategory.banheiros.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 15,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(waterByCategory.banheiros),
+        },
+        {
+          id: 'areaComum', name: 'Área Comum', icon: '🏢',
+          deviceCount: waterByCategory.areaComum.length,
+          consumption: waterByCategory.areaComum.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 30,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(waterByCategory.areaComum),
+        },
+        {
+          id: 'pontosNaoMapeados', name: 'Pts. não Mapeados', icon: '❓',
+          deviceCount: waterByCategory.pontosNaoMapeados.length,
+          consumption: waterByCategory.pontosNaoMapeados.reduce((s, d) => s + (d.val || 0), 0),
+          percentage: 15,
+          byShoppingBreakdown: buildCategoryShoppingBreakdown(waterByCategory.pontosNaoMapeados),
+        },
+      ].filter(cat => cat.deviceCount > 0); // Only show categories with devices
+
+      // Build byShoppingTotal for "Por Shopping" tab (water - with subcategories)
+      function buildWaterShoppingBreakdown(devices) {
+        const byShoppingMap = {};
+
+        // Water category definitions
+        const WATER_CATEGORIES = [
+          { id: 'entrada', name: 'Entrada', icon: '📥', types: ['HIDROMETRO_ENTRADA'] },
+          { id: 'lojas', name: 'Lojas', icon: '🏪', types: ['HIDROMETRO'] },
+          { id: 'banheiros', name: 'Banheiros', icon: '🚻', types: ['HIDROMETRO_BANHEIRO'] },
+          { id: 'areaComum', name: 'Área Comum', icon: '🏢', types: ['HIDROMETRO_AREA_COMUM'] },
+        ];
+
+        function classifyWaterDevice(deviceType) {
+          const type = (deviceType || '').toUpperCase();
+          // Check specific types first (order matters)
+          if (type.includes('ENTRADA')) return WATER_CATEGORIES.find(c => c.id === 'entrada');
+          if (type.includes('AREA_COMUM')) return WATER_CATEGORIES.find(c => c.id === 'areaComum');
+          if (type.includes('BANHEIRO')) return WATER_CATEGORIES.find(c => c.id === 'banheiros');
+          // Default to lojas for generic HIDROMETRO
+          if (type.includes('HIDROMETRO')) return WATER_CATEGORIES.find(c => c.id === 'lojas');
+          return WATER_CATEGORIES.find(c => c.id === 'lojas'); // Default
+        }
+
+        devices.forEach(d => {
+          const name = d.ownerName || d.customerName || 'Unknown';
+          if (!byShoppingMap[name]) {
+            byShoppingMap[name] = {
+              name,
+              shoppingName: name,
+              shoppingId: name.replace(/\s+/g, '-').toLowerCase(),
+              deviceCount: 0,
+              consumption: 0,
+              byCategory: {}
+            };
+          }
+
+          const shop = byShoppingMap[name];
+          shop.deviceCount++;
+          shop.consumption += d.val || d.value || 0;
+
+          // Classify device into category
+          const category = classifyWaterDevice(d.deviceType);
+          if (category) {
+            if (!shop.byCategory[category.id]) {
+              shop.byCategory[category.id] = {
+                id: category.id,
+                name: category.name,
+                icon: category.icon,
+                deviceCount: 0,
+                consumption: 0
+              };
+            }
+            shop.byCategory[category.id].deviceCount++;
+            shop.byCategory[category.id].consumption += d.val || d.value || 0;
+          }
+        });
+
+        // Convert byCategory from object to array and filter empty categories
+        return Object.values(byShoppingMap).map(shop => ({
+          ...shop,
+          byCategory: Object.values(shop.byCategory).filter(cat => cat.deviceCount > 0)
+        }));
+      }
+
+      // Build byShoppingTotal for "Por Shopping" tab (energy - with subcategories)
+      function buildEnergyShoppingBreakdown(devices) {
+        const byShoppingMap = {};
+
+        // Energy category definitions
+        const ENERGY_CATEGORIES = [
+          { id: 'entrada', name: 'Entrada', icon: '📥', types: ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'] },
+          { id: 'lojas', name: 'Lojas', icon: '🏪', types: ['3F_MEDIDOR'] },
+          { id: 'climatizacao', name: 'Climatização', icon: '❄️', types: ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG'] },
+          { id: 'elevadores', name: 'Elevadores', icon: '🛗', types: ['ELEVADOR'] },
+          { id: 'escadasRolantes', name: 'Esc. Rolantes', icon: '🎢', types: ['ESCADA_ROLANTE'] },
+          { id: 'areaComum', name: 'Área Comum', icon: '🏢', types: ['AC_3F'] },
+          { id: 'outros', name: 'Outros', icon: '⚙️', types: [] }, // Catch-all
+        ];
+
+        function classifyDevice(deviceType) {
+          const type = (deviceType || '').toUpperCase();
+          for (const cat of ENERGY_CATEGORIES) {
+            if (cat.types.length === 0) continue; // Skip "outros" in first pass
+            if (cat.types.some(t => type.includes(t))) {
+              return cat;
+            }
+          }
+          return ENERGY_CATEGORIES.find(c => c.id === 'outros'); // Default to outros
+        }
+
+        devices.forEach(d => {
+          const name = d.ownerName || d.customerName || 'Unknown';
+          if (!byShoppingMap[name]) {
+            byShoppingMap[name] = {
+              name,
+              shoppingName: name,
+              shoppingId: name.replace(/\s+/g, '-').toLowerCase(),
+              deviceCount: 0,
+              consumption: 0,
+              byCategory: {}
+            };
+          }
+
+          const shop = byShoppingMap[name];
+          shop.deviceCount++;
+          shop.consumption += d.val || d.value || 0;
+
+          // Classify device into category
+          const category = classifyDevice(d.deviceType);
+          if (category) {
+            if (!shop.byCategory[category.id]) {
+              shop.byCategory[category.id] = {
+                id: category.id,
+                name: category.name,
+                icon: category.icon,
+                deviceCount: 0,
+                consumption: 0
+              };
+            }
+            shop.byCategory[category.id].deviceCount++;
+            shop.byCategory[category.id].consumption += d.val || d.value || 0;
+          }
+        });
+
+        // Convert byCategory from object to array and filter empty categories
+        return Object.values(byShoppingMap).map(shop => ({
+          ...shop,
+          byCategory: Object.values(shop.byCategory).filter(cat => cat.deviceCount > 0)
+        }));
+      }
+
+      const energyByShoppingTotal = buildEnergyShoppingBreakdown(energyDevices);
+      const waterByShoppingTotal = buildWaterShoppingBreakdown(waterDevices);
+
+      // DEBUG: Log byShoppingTotal with byCategory
+      console.log('[Showcase DEBUG] energyByShoppingTotal:', energyByShoppingTotal.map(s => ({
+        name: s.name || s.shoppingName,
+        deviceCount: s.deviceCount,
+        byCategoryCount: s.byCategory?.length || 0,
+        byCategory: s.byCategory
+      })));
+      console.log('[Showcase DEBUG] waterByShoppingTotal:', waterByShoppingTotal.map(s => ({
+        name: s.name || s.shoppingName,
+        deviceCount: s.deviceCount,
+        byCategoryCount: s.byCategory?.length || 0,
+        byCategory: s.byCategory
+      })));
+
+      // Simulate filter effect: unfilteredTotal is 3.2x more than filtered
+      // This demonstrates the "1,239 MWh (31,18%) / 3,973 MWh" format
+      const energyUnfilteredTotal = energyTotal * 3.2;
+      const waterUnfilteredTotal = waterTotal * 2.5;
+
+      // Dispatch summary events for header with proper tooltip data
+      window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', {
+        detail: {
+          totalDevices: energyDevices.length,
+          totalConsumption: energyTotal,
+          customerTotal: energyTotal,
+          filteredTotal: energyTotal,
+          unfilteredTotal: energyUnfilteredTotal,
+          unit: 'kWh',
+          byCategory: energyCategories,
+          byStatus: energyStatus,
+          byShoppingTotal: energyByShoppingTotal,
+          lastUpdated: new Date().toISOString(),
+        }
+      }));
+
+      window.dispatchEvent(new CustomEvent('myio:water-summary-ready', {
+        detail: {
+          totalDevices: waterDevices.length,
+          totalConsumption: waterTotal,
+          filteredTotal: waterTotal,
+          unfilteredTotal: waterUnfilteredTotal,
+          unit: 'm³',
+          byCategory: waterCategories,
+          byStatus: waterStatus,
+          byShoppingTotal: waterByShoppingTotal,
+          lastUpdated: new Date().toISOString(),
+        }
+      }));
+
+      window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', {
+        detail: {
+          devices: tempDevices,
+          avgTemperature: tempCount > 0 ? tempSum / tempCount : null,
+        }
+      }));
+
+      logEvent('SUMMARY_EVENTS', 'Energy, Water, Temperature summaries dispatched', 'info');
+    }
+
+    // ===== EVENT LOGGING =====
+    function logEvent(eventName, data, type = 'default') {
+      const logEl = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString('pt-BR');
+      const dataStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
+
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-event">${eventName}</span>
+        <span class="log-data">${dataStr.substring(0, 80)}${dataStr.length > 80 ? '...' : ''}</span>
+      `;
+
+      logEl.insertBefore(entry, logEl.firstChild);
+      while (logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+      console.log(`[Showcase] ${eventName}:`, data);
+    }
+
+    function clearLog() {
+      const logEl = document.getElementById('eventLog');
+      logEl.innerHTML = `<div class="log-entry info"><span class="log-time">${new Date().toLocaleTimeString('pt-BR')}</span><span class="log-event">LOG_CLEARED</span><span class="log-data">-</span></div>`;
+    }
+
+    // ===== STATE INSPECTOR =====
+    function updateStateDisplay() {
+      const stateEl = document.getElementById('stateDisplay');
+      // Filter to only count AllDevices (not Shopping datasource rows)
+      const deviceRows = self.ctx.data.filter(d => d.datasource?.aliasName === 'AllDevices');
+      const shoppingRows = self.ctx.data.filter(d => d.datasource?.aliasName === 'Shopping');
+
+      const state = {
+        initialized: widgetInitialized,
+        theme: self.ctx.settings.defaultThemeMode,
+        debug: self.ctx.settings.enableDebugMode,
+        devices: deviceRows.length,
+        shoppingDatasource: shoppingRows.length / 3, // 3 rows per shopping (ingestionId, min, max)
+        shoppingNames: [...new Set(deviceRows.map(d => d.customerName).filter(Boolean))],
+        domains: [...new Set(deviceRows.map(d => d.domain).filter(Boolean))],
+      };
+      stateEl.textContent = JSON.stringify(state, null, 2);
+    }
+
+    function toggleStatePanel() {
+      const content = document.getElementById('stateContent');
+      const toggle = document.getElementById('stateToggle');
+      const isHidden = content.style.display === 'none';
+      content.style.display = isHidden ? 'block' : 'none';
+      toggle.innerHTML = isHidden ? '&#x25BC;' : '&#x25B2;';
+    }
+
+    function updateStatus(status) {
+      const badge = document.getElementById('widgetStatus');
+      badge.textContent = status.toUpperCase();
+      badge.className = 'status-badge ' + status.toLowerCase();
+    }
+
+    // ===== LIFECYCLE CONTROLS =====
+    async function triggerOnInit() {
+      if (widgetInitialized) {
+        logEvent('WARN', 'Widget already initialized. Destroy first.', 'warn');
+        return;
+      }
+
+      logEvent('onInit', 'Starting widget initialization...', 'info');
+      updateStatus('running');
+
+      // Populate ctx.data with mock devices BEFORE onInit
+      updateMockData();
+
+      // IMPORTANT: Pre-populate MyIOOrchestratorData BEFORE onInit
+      // so that buildShoppingsListFromClassified() can find the data
+      prepareOrchestratorData();
+
+      try {
+        // Call the real self.onInit from controller.js
+        if (typeof self.onInit === 'function') {
+          await self.onInit();
+          logEvent('onInit', 'controller.js onInit() executed', 'info');
+        } else {
+          logEvent('ERROR', 'self.onInit not found. Is controller.js loaded?', 'error');
+          updateStatus('error');
+          return;
+        }
+
+        widgetInitialized = true;
+        document.getElementById('btnOnInit').disabled = true;
+        document.getElementById('btnOnDataUpdated').disabled = false;
+        document.getElementById('btnOnDestroy').disabled = false;
+        updateStateDisplay();
+
+        // Dispatch mock data-ready event after a delay to populate WelcomeModal cards
+        // This simulates the real behavior where data arrives after onInit
+        setTimeout(() => {
+          dispatchMockDataReadyEvent();
+        }, 800);
+
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+        console.error('[Showcase] onInit error:', error);
+        updateStatus('error');
+      }
+    }
+
+    // Pre-populate MyIOOrchestratorData before onInit so menu filter works
+    function prepareOrchestratorData() {
+      // Filter to only process AllDevices (not Shopping datasource rows)
+      const devices = (self.ctx.data || []).filter(d => d.datasource?.aliasName === 'AllDevices');
+      if (devices.length === 0) return;
+
+      const classified = classifyDevicesForController(devices);
+      const energyDevices = [...classified.energy.equipments, ...classified.energy.stores, ...classified.energy.entrada];
+      const waterDevices = [...classified.water.hidrometro, ...classified.water.hidrometro_area_comum, ...classified.water.hidrometro_entrada];
+      const tempDevices = [...classified.temperature.termostato, ...classified.temperature.termostato_external];
+
+      window.MyIOOrchestratorData = {
+        classified,
+        apiEnrichedAt: Date.now(),
+        energy: { items: energyDevices, timestamp: Date.now() },
+        water: { items: waterDevices, timestamp: Date.now() },
+        temperature: { items: tempDevices, timestamp: Date.now() },
+      };
+
+      logEvent('PREPARE', `MyIOOrchestratorData pre-populated with ${devices.length} devices`, 'info');
+    }
+
+    function triggerOnDataUpdated() {
+      if (!widgetInitialized) {
+        logEvent('WARN', 'Widget not initialized', 'warn');
+        return;
+      }
+
+      logEvent('onDataUpdated', `Updating with ${self.ctx.data.length} devices`, 'info');
+
+      try {
+        if (typeof self.onDataUpdated === 'function') {
+          self.onDataUpdated();
+          logEvent('onDataUpdated', 'controller.js onDataUpdated() executed', 'info');
+        }
+        updateStateDisplay();
+
+        // Dispatch mock data-ready event to update WelcomeModal cards
+        setTimeout(() => dispatchMockDataReadyEvent(), 300);
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+      }
+    }
+
+    function triggerOnDestroy() {
+      if (!widgetInitialized) {
+        logEvent('WARN', 'Widget not initialized', 'warn');
+        return;
+      }
+
+      logEvent('onDestroy', 'Destroying widget...', 'warn');
+
+      try {
+        if (typeof self.onDestroy === 'function') {
+          self.onDestroy();
+        }
+
+        // Clear containers
+        document.getElementById('headerContainer').innerHTML = '';
+        document.getElementById('menuContainer').innerHTML = '';
+        document.getElementById('telemetryGridContainer').innerHTML = '';
+        document.getElementById('footerContainer').innerHTML = '';
+
+        widgetInitialized = false;
+        document.getElementById('btnOnInit').disabled = false;
+        document.getElementById('btnOnDataUpdated').disabled = true;
+        document.getElementById('btnOnDestroy').disabled = true;
+
+        updateStatus('stopped');
+        updateStateDisplay();
+        logEvent('onDestroy', 'Widget destroyed', 'info');
+
+      } catch (error) {
+        logEvent('ERROR', error.message, 'error');
+      }
+    }
+
+    // ===== DATA CONTROLS =====
+    function updateMockData() {
+      const preset = document.getElementById('dataPreset').value;
+      const domainFilter = document.getElementById('domainFilter').value;
+
+      // Generate device data (AllDevices datasource)
+      const deviceRows = generateMockDevices({ preset, domainFilter });
+
+      // Generate shopping data (Shopping datasource) - required for menu filter
+      const shoppingRows = generateMockShoppingDatasource();
+
+      // Combine both datasources (like real ThingsBoard would)
+      self.ctx.data = [...deviceRows, ...shoppingRows];
+
+      logEvent('DATA', `Generated ${deviceRows.length} devices + ${shoppingRows.length / 3} shoppings`);
+      updateStateDisplay();
+    }
+
+    function generateRandomData() {
+      const presets = ['full', 'partial', 'single', 'large'];
+      const domains = ['all', 'energy', 'water', 'temperature'];
+      document.getElementById('dataPreset').value = presets[Math.floor(Math.random() * presets.length)];
+      document.getElementById('domainFilter').value = domains[Math.floor(Math.random() * domains.length)];
+      updateMockData();
+
+      if (widgetInitialized) triggerOnDataUpdated();
+    }
+
+    function forceRefreshEvent() {
+      logEvent('EVENT', 'Dispatching myio:force-refresh', 'info');
+      window.dispatchEvent(new CustomEvent('myio:force-refresh'));
+    }
+
+    // ===== SETTINGS =====
+    function updateSettings() {
+      const theme = document.getElementById('settingsTheme').value;
+      const debug = document.getElementById('settingsDebug').value === 'true';
+
+      self.ctx.settings.defaultThemeMode = theme;
+      self.ctx.settings.enableDebugMode = debug;
+
+      document.getElementById('mainUniqueWrap').setAttribute('data-theme', theme);
+      document.body.classList.toggle('light-mode', theme === 'light');
+
+      logEvent('SETTINGS', { theme, debug });
+      updateStateDisplay();
+    }
+
+    // ===== THEME TOGGLE =====
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const current = self.ctx.settings.defaultThemeMode;
+      const newTheme = current === 'dark' ? 'light' : 'dark';
+      document.getElementById('settingsTheme').value = newTheme;
+      updateSettings();
+      document.getElementById('themeIcon').innerHTML = newTheme === 'dark' ? '&#x2600;&#xfe0f;' : '&#x1F319;';
+    });
+
+    // ===== INTERCEPT CONSOLE FOR LOGGING =====
+    const originalConsoleLog = console.log;
+    console.log = function(...args) {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+      if (msg.includes('[MAIN_UNIQUE]') || msg.includes('[MyIO')) {
+        logEvent('CONSOLE', msg.substring(0, 100));
+      }
+      originalConsoleLog.apply(console, args);
+    };
+
+    // ===== LISTEN TO CUSTOM EVENTS =====
+    ['myio:data-ready', 'myio:energy-summary-ready', 'myio:water-summary-ready', 'myio:temperature-data-ready', 'myio:filter-applied', 'myio:customers-ready'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => {
+        logEvent('EVENT', eventName, 'info');
+      });
+    });
+
+    // Handle menu requesting shoppings (RFC-0127)
+    // This provides shoppings to the filter modal when it needs them
+    window.addEventListener('myio:request-shoppings', () => {
+      logEvent('EVENT', 'myio:request-shoppings received', 'info');
+
+      // Build shoppings list from mock data
+      const shoppings = buildMockShoppingsList();
+
+      // Try to find menu instance and update it
+      // The controller stores it in _menuInstanceRef but we can't access that
+      // So we dispatch myio:customers-ready which the menu will receive
+      window.dispatchEvent(new CustomEvent('myio:shoppings-response', {
+        detail: { shoppings }
+      }));
+
+      logEvent('SHOPPINGS', `Sent ${shoppings.length} shoppings`, 'info');
+    });
+
+    // Build mock shoppings list in the format expected by MenuView
+    function buildMockShoppingsList() {
+      // Filter to only process AllDevices (not Shopping datasource rows)
+      const devices = (self.ctx.data || []).filter(d => d.datasource?.aliasName === 'AllDevices');
+      const customerMap = new Map();
+
+      devices.forEach(device => {
+        const customerId = device.customerId;
+        const customerName = device.customerName || device.ownerName || '';
+
+        if (customerId && !customerMap.has(customerId)) {
+          customerMap.set(customerId, {
+            name: customerName || 'Unknown',
+            value: customerId, // Use customerId as value for filter
+            customerId: customerId,
+            ingestionId: customerId,
+          });
+        }
+      });
+
+      const result = Array.from(customerMap.values());
+      logEvent('DEBUG_SHOPPINGS', `Built ${result.length} shoppings: ${result.map(s => s.name).join(', ')}`, 'info');
+      return result;
+    }
+
+    // ===== INITIALIZE =====
+    window.addEventListener('DOMContentLoaded', () => {
+      updateStateDisplay();
+
+      if (typeof MyIOLibrary === 'undefined') {
+        logEvent('ERROR', 'MyIOLibrary not loaded. Run: npm run build', 'error');
+        updateStatus('error');
+      } else {
+        logEvent('LIBRARY', `MyIOLibrary loaded (${Object.keys(MyIOLibrary).length} exports)`, 'info');
+        updateStatus('ready');
+      }
+    });
+
+    window.addEventListener('error', (e) => logEvent('ERROR', e.message, 'error'));
+
+    console.log('[Showcase] MAIN_UNIQUE_DATASOURCE Simulation Ready');
+  </script>
+
+  <!-- Load the real controller.js from MAIN_UNIQUE_DATASOURCE -->
+  <script src="../../src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js"></script>
+</body>
+</html>

@@ -10,7 +10,7 @@
 export type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
 export type ImportanceLevel = 1 | 2 | 3 | 4 | 5;
 export type AnnotationStatus = 'created' | 'modified' | 'archived';
-export type AuditAction = 'created' | 'modified' | 'archived' | 'approved' | 'rejected' | 'commented';
+export type AuditAction = 'created' | 'modified' | 'archived' | 'approved' | 'rejected' | 'commented' | 'acknowledged';
 export type ResponseType = 'approved' | 'rejected' | 'comment' | 'archived';
 
 // ============================================

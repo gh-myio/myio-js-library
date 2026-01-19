@@ -252,18 +252,52 @@ async function getIngestionToken(): Promise<string> {
   return ingestionToken;
 }
 
+interface IngestionGateway {
+  id: string;
+  name?: string;
+  customerId?: string;
+  isOnline?: boolean;
+  lastSeen?: string;
+  isRegistered?: boolean;
+  lastEnergyFetchTimestamp?: string | null;
+  lastWaterFetchTimestamp?: string | null;
+  lastTemperatureFetchTimestamp?: string | null;
+  isPaused?: boolean;
+  isDeleted?: boolean;
+  originalId?: string | null;
+  fetchIntervalMs?: number;
+  energyFetchIntervalMs?: number;
+  waterFetchIntervalMs?: number;
+  temperatureFetchIntervalMs?: number;
+  assetId?: string | null;
+  hardwareUuid?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface IngestionCustomer {
+  id: string;
+  name?: string;
+  description?: string;
+  parentId?: string;
+  isActive?: boolean;
+  isDeleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface IngestionDeviceRecord {
   id: string;
   name?: string;
   deviceType?: string;
   slaveId?: number;
   gatewayId?: string; // This is the centralId in ThingsBoard
-  gateway?: {
-    id: string;
-    name?: string;
-    customerId?: string;
-  };
+  gateway?: IngestionGateway;
   customerId?: string;
+  customer?: IngestionCustomer;
+  assetId?: string | null;
+  asset?: unknown | null;
+  profileId?: string;
   isActive?: boolean;
 }
 

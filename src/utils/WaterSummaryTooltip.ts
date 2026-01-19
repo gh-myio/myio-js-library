@@ -22,11 +22,21 @@
 // Types
 // ============================================
 
+export interface ShoppingCategoryBreakdown {
+  id: string;
+  name: string;
+  icon: string;
+  deviceCount: number;
+  consumption: number;
+}
+
 export interface ShoppingBreakdown {
   shoppingId: string;
   shoppingName: string;
   deviceCount: number;
   consumption: number;
+  /** Subcategories breakdown per shopping (entrada, lojas, banheiros, areaComum) */
+  byCategory?: ShoppingCategoryBreakdown[];
 }
 
 export interface WaterCategorySummary {
@@ -83,6 +93,10 @@ export interface DashboardWaterSummary {
   customerName?: string;
   /** Summary breakdown by shopping (for head office view) */
   byShoppingTotal?: ShoppingBreakdown[];
+  /** Filtered total consumption when filter is applied */
+  filteredTotal?: number;
+  /** Total consumption before filtering (unfiltered) */
+  unfilteredTotal?: number;
 }
 
 // ============================================
@@ -263,16 +277,77 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   color: #1e293b;
 }
 
-/* Section Title */
+/* Section Title with Tabs */
+.water-summary-tooltip__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 .water-summary-tooltip__section-title {
   font-weight: 700;
   font-size: 10px;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 12px 0 6px 0;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #e2e8f0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* Grouping Tabs */
+.water-summary-tooltip__grouping-tabs {
+  display: flex;
+  gap: 2px;
+  background: #f1f5f9;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.water-summary-tooltip__grouping-tab {
+  padding: 3px 8px;
+  font-size: 9px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.water-summary-tooltip__grouping-tab:hover {
+  color: #1e293b;
+  background: #e2e8f0;
+}
+
+.water-summary-tooltip__grouping-tab.active {
+  background: #1d4ed8;
+  color: white;
+}
+
+.water-summary-tooltip__grouping-tab.active:hover {
+  background: #1e40af;
+}
+
+/* Shopping view container */
+.water-summary-tooltip__shopping-view {
+  display: none;
+}
+
+.water-summary-tooltip__shopping-view.active {
+  display: block;
+}
+
+.water-summary-tooltip__category-view {
+  display: block;
+}
+
+.water-summary-tooltip__category-view.hidden {
+  display: none;
 }
 
 /* Category Tree */
@@ -390,6 +465,42 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   content: '|—';
   color: #cbd5e1;
   font-size: 10px;
+}
+
+/* Shopping parent row (in Por Shopping view) */
+.water-summary-tooltip__shopping-parent-row {
+  cursor: default;
+}
+
+.water-summary-tooltip__shopping-parent-row[data-expandable="true"] {
+  cursor: pointer;
+}
+
+/* Shopping child rows (subcategories under each shopping) */
+.water-summary-tooltip__shopping-child-row {
+  display: grid;
+  grid-template-columns: 1fr 50px 80px;
+  gap: 8px;
+  padding: 4px 10px 4px 38px;
+  font-size: 11px;
+  color: #64748b;
+  border-left: 2px solid #1d4ed8;
+  margin-left: 18px;
+  background: #eff6ff;
+  transition: background-color 0.15s ease;
+  align-items: center;
+}
+
+.water-summary-tooltip__shopping-child-row:hover {
+  background: #dbeafe;
+}
+
+.water-summary-tooltip__shopping-child-row .water-summary-tooltip__category-name {
+  padding-left: 0;
+}
+
+.water-summary-tooltip__shopping-child-row .water-summary-tooltip__category-icon {
+  font-size: 11px;
 }
 
 /* Hidden children (collapsed state) */
@@ -929,6 +1040,81 @@ export const WaterSummaryTooltip = {
   },
 
   /**
+   * Render shopping view rows (for "Por Shopping" tab)
+   * Shows device count and consumption breakdown by shopping with expandable subcategories
+   */
+  renderShoppingView(shoppings: ShoppingBreakdown[] | undefined, unit: string): string {
+    if (!shoppings || shoppings.length === 0) {
+      return `
+        <div class="water-summary-tooltip__category-row" style="justify-content: center; color: #94a3b8; font-style: italic;">
+          <span>Nenhum shopping disponível</span>
+        </div>
+      `;
+    }
+
+    return shoppings.map((shopping, index) => {
+      // Handle both 'name' and 'shoppingName' from interface
+      const name = (shopping as unknown as { name?: string }).name || shopping.shoppingName || 'Unknown';
+      const shoppingId = shopping.shoppingId || `shopping-${index}`;
+      const hasSubcategories = shopping.byCategory && shopping.byCategory.length > 0;
+
+      // Render subcategories if available
+      const subcategoriesHtml = hasSubcategories ? shopping.byCategory!.map(cat => `
+        <div class="water-summary-tooltip__shopping-child-row" data-parent-water-shopping="${shoppingId}" style="display: none;">
+          <span class="water-summary-tooltip__category-name">
+            <span class="water-summary-tooltip__category-icon">${cat.icon || '📦'}</span>
+            <span>${cat.name}</span>
+          </span>
+          <span class="water-summary-tooltip__category-count">${cat.deviceCount}</span>
+          <span class="water-summary-tooltip__category-consumption">${formatConsumption(cat.consumption, unit)}</span>
+        </div>
+      `).join('') : '';
+
+      return `
+        <div class="water-summary-tooltip__category-row water-summary-tooltip__shopping-parent-row" data-shopping-id="${shoppingId}" data-expandable="${hasSubcategories}">
+          <span class="water-summary-tooltip__category-name">
+            ${hasSubcategories ? `<button class="water-summary-tooltip__expand-toggle" data-expand-water-shopping="${shoppingId}">+</button>` : ''}
+            <span class="water-summary-tooltip__category-icon">🏬</span>
+            <span>${name}</span>
+          </span>
+          <span class="water-summary-tooltip__category-count">${shopping.deviceCount}</span>
+          <span class="water-summary-tooltip__category-consumption">${formatConsumption(shopping.consumption, unit)}</span>
+        </div>
+        ${subcategoriesHtml}
+      `;
+    }).join('');
+  },
+
+  /**
+   * Setup shopping expand/collapse listeners (for "Por Shopping" tab)
+   */
+  _setupShoppingExpandListeners(container: HTMLElement): void {
+    const expandButtons = container.querySelectorAll('[data-expand-water-shopping]');
+    expandButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const shoppingId = (btn as HTMLElement).dataset.expandWaterShopping;
+        if (!shoppingId) return;
+
+        const isExpanded = btn.classList.contains('expanded');
+        const childRows = container.querySelectorAll(`[data-parent-water-shopping="${shoppingId}"]`);
+
+        if (isExpanded) {
+          // Collapse
+          btn.classList.remove('expanded');
+          btn.textContent = '+';
+          childRows.forEach(row => (row as HTMLElement).style.display = 'none');
+        } else {
+          // Expand
+          btn.classList.add('expanded');
+          btn.textContent = '−';
+          childRows.forEach(row => (row as HTMLElement).style.display = 'grid');
+        }
+      });
+    });
+  },
+
+  /**
    * Render full tooltip HTML
    */
   renderHTML(summary: DashboardWaterSummary): string {
@@ -936,7 +1122,6 @@ export const WaterSummaryTooltip = {
     const statusMatrix = this.renderStatusMatrix(summary.byStatus);
     const timestamp = formatTimestamp(summary.lastUpdated);
     const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
-    const shoppingBreakdown = this.renderShoppingBreakdown(summary.byShoppingTotal);
 
     return `
       <div class="water-summary-tooltip__content">
@@ -969,16 +1154,37 @@ export const WaterSummaryTooltip = {
             <span class="water-summary-tooltip__total-devices-label">Total de Medidores</span>
             <span class="water-summary-tooltip__total-devices-value">${summary.totalDevices}</span>
           </div>
-          ${shoppingBreakdown}
 
-          <div class="water-summary-tooltip__section-title">Distribuição por Categoria</div>
-          <div class="water-summary-tooltip__category-tree">
-            <div class="water-summary-tooltip__category-header">
-              <span>Categoria</span>
-              <span>Qtd</span>
-              <span>Consumo</span>
+          <div class="water-summary-tooltip__section-header">
+            <span class="water-summary-tooltip__section-title">Distribuição</span>
+            <div class="water-summary-tooltip__grouping-tabs">
+              <button class="water-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
+              <button class="water-summary-tooltip__grouping-tab" data-view="shopping">Por Shopping</button>
             </div>
-            ${categoryRows}
+          </div>
+
+          <!-- Category View (default) -->
+          <div class="water-summary-tooltip__category-view" data-grouping="category">
+            <div class="water-summary-tooltip__category-tree">
+              <div class="water-summary-tooltip__category-header">
+                <span>Categoria</span>
+                <span>Qtd</span>
+                <span>Consumo</span>
+              </div>
+              ${categoryRows}
+            </div>
+          </div>
+
+          <!-- Shopping View -->
+          <div class="water-summary-tooltip__shopping-view" data-grouping="shopping">
+            <div class="water-summary-tooltip__category-tree">
+              <div class="water-summary-tooltip__category-header">
+                <span>Shopping</span>
+                <span>Qtd</span>
+                <span>Consumo</span>
+              </div>
+              ${this.renderShoppingView(summary.byShoppingTotal, summary.unit)}
+            </div>
           </div>
 
           <div class="water-summary-tooltip__section-title">Status dos Medidores</div>
@@ -988,10 +1194,33 @@ export const WaterSummaryTooltip = {
         </div>
         <div class="water-summary-tooltip__total">
           <span class="water-summary-tooltip__total-label">Consumo Total</span>
-          <span class="water-summary-tooltip__total-value">${formatConsumption(summary.totalConsumption, summary.unit)}</span>
+          <span class="water-summary-tooltip__total-value">${this.formatTotalWithFilter(summary)}</span>
         </div>
       </div>
     `;
+  },
+
+  /**
+   * Format total consumption with filter comparison
+   * Shows "1,239 m³ (31,18%) / 3,973 m³" when filtered
+   * Shows "3,973 m³" when not filtered
+   */
+  formatTotalWithFilter(summary: DashboardWaterSummary): string {
+    const filtered = summary.filteredTotal ?? summary.totalConsumption ?? 0;
+    const unfiltered = summary.unfilteredTotal ?? summary.totalConsumption ?? 0;
+    const unit = summary.unit || 'm³';
+
+    // Check if filtering is active (when unfilteredTotal exists and differs from filteredTotal)
+    const isFiltered = summary.unfilteredTotal !== undefined &&
+                       summary.unfilteredTotal > 0 &&
+                       Math.abs(filtered - unfiltered) > 0.01;
+
+    if (isFiltered && unfiltered > 0) {
+      const percentage = (filtered / unfiltered) * 100;
+      return `${formatConsumption(filtered, unit)} (${percentage.toFixed(2)}%) / ${formatConsumption(unfiltered, unit)}`;
+    }
+
+    return formatConsumption(summary.totalConsumption, unit);
   },
 
   // Timer for delayed hide
@@ -1073,6 +1302,40 @@ export const WaterSummaryTooltip = {
     this._setupDragListeners(container);
     this._setupExpandButtonListeners(container);
     this._setupCategoryExpandListeners(container);
+    this._setupGroupingTabListeners(container);
+    this._setupShoppingExpandListeners(container);
+  },
+
+  /**
+   * Setup grouping tab listeners (Por Categoria / Por Shopping toggle)
+   */
+  _setupGroupingTabListeners(container: HTMLElement): void {
+    const tabs = container.querySelectorAll('.water-summary-tooltip__grouping-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const viewType = (tab as HTMLElement).dataset.view;
+        if (!viewType) return;
+
+        // Update tab active states
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Toggle view visibility
+        const categoryView = container.querySelector('[data-grouping="category"]');
+        const shoppingView = container.querySelector('[data-grouping="shopping"]');
+
+        if (viewType === 'category') {
+          categoryView?.classList.remove('hidden');
+          categoryView?.classList.add('active');
+          shoppingView?.classList.remove('active');
+        } else {
+          categoryView?.classList.add('hidden');
+          categoryView?.classList.remove('active');
+          shoppingView?.classList.add('active');
+        }
+      });
+    });
   },
 
   /**

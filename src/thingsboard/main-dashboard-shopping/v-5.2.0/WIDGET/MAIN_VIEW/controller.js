@@ -10,6 +10,7 @@
 
 // Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
 let DEBUG_ACTIVE = true;
+const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 // RFC-0130: Retry configuration for resilient data loading
 const RETRY_CONFIG = {
@@ -1081,7 +1082,8 @@ Object.assign(window.MyIOUtils, {
     }
 
     try {
-      const response = await fetch('/api/auth/user', {
+      const urlAuthUser = `${THINGSBOARD_URL}/api/auth/user`;
+      const response = await fetch(urlAuthUser, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1332,7 +1334,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: 'https://api.data.apps.myio-bas.com',
+            dataApiHost: DATA_API_HOST,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -1746,7 +1748,7 @@ async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
     return null;
   }
 
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const url = `${THINGSBOARD_URL}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -1939,8 +1941,10 @@ function categorizeItemsByGroup(items) {
 
   // RFC-0142: Log ocultos devices for debugging
   if (ocultos.length > 0) {
-    LogHelper.log(`[RFC-0142] Classified ${ocultos.length} devices as "ocultos" (hidden):`,
-      ocultos.map(d => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5));
+    LogHelper.log(
+      `[RFC-0142] Classified ${ocultos.length} devices as "ocultos" (hidden):`,
+      ocultos.map((d) => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5)
+    );
   }
 
   return { lojas, entrada, areacomum, ocultos };
@@ -2042,8 +2046,10 @@ function categorizeItemsByGroupWater(items) {
 
   // RFC-0142: Log ocultos devices for debugging
   if (ocultos.length > 0) {
-    LogHelper.log(`[RFC-0142] Classified ${ocultos.length} water devices as "ocultos" (hidden):`,
-      ocultos.map(d => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5));
+    LogHelper.log(
+      `[RFC-0142] Classified ${ocultos.length} water devices as "ocultos" (hidden):`,
+      ocultos.map((d) => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5)
+    );
   }
 
   return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
@@ -3239,7 +3245,12 @@ const MyIOOrchestrator = (() => {
 
   // PHASE 1: Centralized busy management with extended timeout
   // RFC-0137: Now uses LoadingSpinner component from myio-js-library
-  function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000, options = {}) {
+  function showGlobalBusy(
+    domain = 'unknown',
+    message = 'Carregando dados...',
+    timeoutMs = 25000,
+    options = {}
+  ) {
     // RFC-0137: Support force flag to bypass cooldown (for user-initiated actions)
     const { force = false } = options;
 
@@ -5191,7 +5202,11 @@ const MyIOOrchestrator = (() => {
     const key = periodKey(domain, period);
     const startTime = Date.now();
 
-    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key), force });
+    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, {
+      key,
+      inFlight: inFlight.has(key),
+      force,
+    });
 
     // Coalesce duplicate requests
     if (inFlight.has(key)) {
@@ -5476,7 +5491,9 @@ const MyIOOrchestrator = (() => {
     const age = Date.now() - (cachedData.timestamp || 0);
     if (age > 60000) {
       LogHelper.log(
-        `[Orchestrator] ⚠️ RFC-0136: Cached data for ${domain} is stale (${Math.round(age / 1000)}s), not re-emitting`
+        `[Orchestrator] ⚠️ RFC-0136: Cached data for ${domain} is stale (${Math.round(
+          age / 1000
+        )}s), not re-emitting`
       );
       return;
     }
@@ -5547,7 +5564,9 @@ const MyIOOrchestrator = (() => {
     if (visibleTab && currentPeriod) {
       // RFC-0138: Pass force=true when period changed to bypass cooldown and show spinner
       const shouldForce = periodChanged;
-      LogHelper.log(`[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab}, force=${shouldForce})`);
+      LogHelper.log(
+        `[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab}, force=${shouldForce})`
+      );
       hydrateDomain(visibleTab, currentPeriod, { force: shouldForce });
     }
   });
@@ -5946,7 +5965,7 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
  * This function is called when the orchestrator becomes ready
  */
 async function initializeContractLoading() {
-  const customerTB_ID = widgetSettings.customerTB_ID;
+  const customerTB_ID = '20b93da0-9011-11f0-a06d-e9509531b1d5'; //TODO REMOVER widgetSettings.customerTB_ID;
   if (!customerTB_ID) {
     LogHelper.warn('[RFC-0107] customerTB_ID not available, skipping contract initialization');
     return;

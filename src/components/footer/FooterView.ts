@@ -52,7 +52,7 @@ export class FooterView {
 
   constructor(private params: FooterComponentParams) {
     this.container = params.container;
-    this.theme = params.theme ?? 'dark';
+    this.theme = params.theme ?? 'light';
     this.configTemplate = params.configTemplate ?? DEFAULT_CONFIG_TEMPLATE;
 
     // Get labels from params or configTemplate
