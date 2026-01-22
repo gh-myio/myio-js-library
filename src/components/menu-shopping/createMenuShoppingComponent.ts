@@ -14,7 +14,9 @@ import {
   MenuShoppingEventType,
   MenuShoppingEventHandler,
   DEFAULT_MENU_SHOPPING_CONFIG,
+  MENU_SHOPPING_CSS_PREFIX,
 } from './types';
+import { createLibraryVersionChecker } from '../library-version-checker';
 
 // Type-safe window access helpers to avoid global declaration conflicts
 const getWindow = (): any => window;
@@ -70,8 +72,12 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
     view.updateUserInfo(userInfo);
   }
 
+  // Version checker instance reference
+  let versionCheckerInstance: { destroy: () => void; setTheme?: (theme: string) => void } | null =
+    null;
+
   // Try to get library version
-  trySetLibraryVersion();
+  trySetLibraryVersionChecker();
 
   // Bind view events to component logic
   bindViewEvents();
@@ -80,16 +86,35 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
   bindGlobalEvents();
 
   /**
-   * Try to set the library version from MyIOLibrary
+   * Initialize the library version checker component
    */
-  function trySetLibraryVersion(): void {
+  function trySetLibraryVersionChecker(): void {
     try {
+      const versionContainer = element.querySelector(`#${MENU_SHOPPING_CSS_PREFIX}-version-container`);
+      if (!versionContainer) {
+        return;
+      }
+
+      const lib = getLib();
+      const currentVersion = lib?.version || 'unknown';
+
+      // Use createLibraryVersionChecker for full version checking functionality
+      versionCheckerInstance = createLibraryVersionChecker(versionContainer as HTMLElement, {
+        packageName: 'myio-js-library',
+        currentVersion,
+        theme: themeMode,
+        onStatusChange: (status: string, current: string, latest: string) => {
+          if (status === 'outdated') {
+            console.log(`[MENU] Library version outdated: ${current} → ${latest}`);
+          }
+        },
+      });
+    } catch (err) {
+      // Fallback: just show version text
       const lib = getLib();
       if (lib?.version) {
         view.setVersion(lib.version);
       }
-    } catch {
-      // Ignore if library not available
     }
   }
 
@@ -149,8 +174,9 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
    * Bind global window events
    */
   function bindGlobalEvents(): void {
-    // Listen for theme changes
+    // Listen for theme changes (both event formats)
     getWindow().addEventListener('myio:theme-changed', handleThemeChange);
+    getWindow().addEventListener('myio:theme-change', handleThemeChange);
 
     // Listen for external domain change requests
     getWindow().addEventListener('myio:set-domain', handleExternalDomainChange);
@@ -160,9 +186,15 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
    * Handle theme change event
    */
   function handleThemeChange(event: CustomEvent): void {
-    const theme = event.detail?.theme;
+    const theme = event.detail?.theme || event.detail?.mode;
     if (theme) {
+      themeMode = theme;
       element.setAttribute('data-theme', theme);
+      view.setThemeMode(theme);
+      // Also update version checker theme
+      if (versionCheckerInstance?.setTheme) {
+        versionCheckerInstance.setTheme(theme);
+      }
     }
   }
 
@@ -206,8 +238,14 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
    */
   function cleanup(): void {
     getWindow().removeEventListener('myio:theme-changed', handleThemeChange);
+    getWindow().removeEventListener('myio:theme-change', handleThemeChange);
     getWindow().removeEventListener('myio:set-domain', handleExternalDomainChange);
     eventHandlers.clear();
+    // Destroy version checker
+    if (versionCheckerInstance?.destroy) {
+      versionCheckerInstance.destroy();
+      versionCheckerInstance = null;
+    }
     view.destroy();
   }
 

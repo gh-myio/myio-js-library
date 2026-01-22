@@ -170,7 +170,7 @@ export class MenuShoppingView {
         showLibraryVersion
           ? `
       <!-- Version display (matches lib-version-display) -->
-      <div class="${PREFIX}-version">v--</div>
+      <div class="${PREFIX}-version" id="${PREFIX}-version-container"></div>
       `
           : ''
       }

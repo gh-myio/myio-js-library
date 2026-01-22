@@ -104,7 +104,7 @@ export const MENU_SHOPPING_STYLES = `
   transition: transform 0.3s ease;
   padding: 8px;
   border-radius: 6px;
-  margin-left: auto;
+  /* Keep on left side - no margin-left: auto */
 }
 
 .${PREFIX}-hamburger:hover {
@@ -340,20 +340,48 @@ export const MENU_SHOPPING_STYLES = `
   padding: 0 8px 10px;
 }
 
+.${PREFIX}-container.collapsed .${PREFIX}-hamburger {
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .${PREFIX}-container.collapsed .${PREFIX}-tab {
-  padding: 12px 8px;
+  padding: 12px 0;
   justify-content: center;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+}
+
+.${PREFIX}-container.collapsed .${PREFIX}-tab-icon {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .${PREFIX}-container.collapsed .${PREFIX}-footer {
-  padding: 16px 8px;
+  padding: 16px 0;
 }
 
 .${PREFIX}-container.collapsed .${PREFIX}-footer-btn {
-  padding: 12px 8px;
+  padding: 12px 0;
   justify-content: center;
+  width: 100%;
+}
+
+.${PREFIX}-container.collapsed .${PREFIX}-footer-btn-icon {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.${PREFIX}-container.collapsed .${PREFIX}-version {
+  text-align: center;
+  padding: 8px 0;
 }
 
 .${PREFIX}-container.collapsed .${PREFIX}-logo {
