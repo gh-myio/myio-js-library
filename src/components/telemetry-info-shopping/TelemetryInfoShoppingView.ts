@@ -83,7 +83,10 @@ export class TelemetryInfoShoppingView {
     this.root.innerHTML = this.buildHTML();
     this.cacheElements();
     this.bindEvents();
-    this.initCharts();
+    // Defer chart init to ensure container has dimensions
+    requestAnimationFrame(() => {
+      setTimeout(() => this.initCharts(), 100);
+    });
     return this.root;
   }
 
@@ -400,91 +403,121 @@ export class TelemetryInfoShoppingView {
   private initCharts(): void {
     const Chart = (window as unknown as { Chart?: ChartConstructor }).Chart;
     if (!Chart) {
-      this.log('Chart.js not available');
+      this.log('Chart.js not available - will retry later');
+      // Retry after a delay if Chart.js is loading
+      setTimeout(() => this.initCharts(), 500);
       return;
     }
 
     // Main chart
     const mainCanvas = this.root.querySelector('#consumptionPieChart') as HTMLCanvasElement;
-    if (mainCanvas) {
-      const ctx = mainCanvas.getContext('2d');
-      if (ctx) {
-        this.mainChart = new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: [],
-            datasets: [{
-              data: [],
-              backgroundColor: [],
-              borderWidth: 0,
-            }],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (context: { label: string; parsed: number }) => {
-                    const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
-                    return `${context.label}: ${formatter(context.parsed)}`;
-                  },
+    if (!mainCanvas) {
+      this.log('Main canvas not found');
+      return;
+    }
+
+    // Destroy existing chart if any
+    if (this.mainChart) {
+      this.mainChart.destroy();
+      this.mainChart = null;
+    }
+
+    const ctx = mainCanvas.getContext('2d');
+    if (ctx) {
+      this.log('Creating main chart');
+      this.mainChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: [],
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context: { label: string; parsed: number }) => {
+                  const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
+                  return `${context.label}: ${formatter(context.parsed)}`;
                 },
               },
             },
           },
-        });
-      }
+        },
+      });
+      this.log('Main chart created successfully');
     }
   }
 
   private initModalChart(): void {
     const Chart = (window as unknown as { Chart?: ChartConstructor }).Chart;
-    if (!Chart) return;
+    if (!Chart) {
+      this.log('Chart.js not available for modal');
+      return;
+    }
 
     const modalCanvas = this.root.querySelector('#modalConsumptionPieChart') as HTMLCanvasElement;
-    if (modalCanvas && !this.modalChart) {
-      const ctx = modalCanvas.getContext('2d');
-      if (ctx) {
-        this.modalChart = new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: [],
-            datasets: [{
-              data: [],
-              backgroundColor: [],
-              borderWidth: 0,
-            }],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (context: { label: string; parsed: number }) => {
-                    const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
-                    return `${context.label}: ${formatter(context.parsed)}`;
-                  },
+    if (!modalCanvas) {
+      this.log('Modal canvas not found');
+      return;
+    }
+
+    // Destroy existing chart if any
+    if (this.modalChart) {
+      this.modalChart.destroy();
+      this.modalChart = null;
+    }
+
+    const ctx = modalCanvas.getContext('2d');
+    if (ctx) {
+      this.log('Creating modal chart');
+      this.modalChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: [],
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context: { label: string; parsed: number }) => {
+                  const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
+                  return `${context.label}: ${formatter(context.parsed)}`;
                 },
               },
             },
           },
-        });
-      }
+        },
+      });
     }
   }
 
   refreshChart(): void {
     const chartData = this.getChartData();
+    this.log('Refreshing chart with data:', chartData);
 
     if (this.mainChart) {
       this.mainChart.data.labels = chartData.labels;
       this.mainChart.data.datasets[0].data = chartData.values;
       this.mainChart.data.datasets[0].backgroundColor = chartData.colors;
       this.mainChart.update();
+      this.log('Main chart updated');
+    } else {
+      this.log('Main chart not initialized yet');
     }
 
     if (this.modalChart) {
@@ -492,6 +525,7 @@ export class TelemetryInfoShoppingView {
       this.modalChart.data.datasets[0].data = chartData.values;
       this.modalChart.data.datasets[0].backgroundColor = chartData.colors;
       this.modalChart.update();
+      this.log('Modal chart updated');
     }
 
     // Update legends
@@ -703,9 +737,13 @@ export class TelemetryInfoShoppingView {
     this.modalEl?.classList.remove('tis-hidden');
     document.body.classList.add('modal-open-telemetry-info');
 
-    // Initialize modal chart if not already
-    this.initModalChart();
-    this.refreshChart();
+    // Initialize modal chart with delay to ensure DOM is ready
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        this.initModalChart();
+        this.refreshChart();
+      }, 50);
+    });
 
     this.params.onExpandClick?.();
   }

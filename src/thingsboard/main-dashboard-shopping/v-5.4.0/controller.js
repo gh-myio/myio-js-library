@@ -151,7 +151,6 @@ function extractDeviceMetadataFromRows(rows) {
     slaveId: dataKeyValues['slaveId'] || '',
     centralId: dataKeyValues['centralId'] || '',
     customerId: dataKeyValues['customerId'] || '',
-    customerName: dataKeyValues['customerName'] || dataKeyValues['ownerName'] || '',
     ownerName: dataKeyValues['ownerName'] || '',
     ingestionId: dataKeyValues['ingestionId'] || '',
     consumption: dataKeyValues['consumption'] || null,

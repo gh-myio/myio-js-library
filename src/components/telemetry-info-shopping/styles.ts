@@ -115,12 +115,13 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
 
 /* ========== CONTENT GRID ========== */
 .telemetry-info-root .tis-grid {
-  display: flex !important;
-  flex-direction: column !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
   gap: 8px !important;
   flex: 1 !important;
   min-height: 0 !important;
   overflow-y: auto !important;
+  align-content: start !important;
 }
 
 /* ========== CARDS ========== */
@@ -142,9 +143,9 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
   box-shadow: 0 2px 8px var(--tis-shadow-hover) !important;
 }
 
-/* Chart card */
+/* Chart card - spans both columns */
 .telemetry-info-root .tis-card.tis-chart-card {
-  flex: 1 !important;
+  grid-column: 1 / -1 !important;
   min-height: 180px !important;
 }
 
@@ -458,10 +459,12 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
 .telemetry-info-root .tis-modal-chart-wrapper {
   width: 100% !important;
   max-width: 500px !important;
-  aspect-ratio: 1 !important;
+  height: 400px !important;
+  min-height: 300px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  position: relative !important;
 }
 
 .telemetry-info-root .tis-modal-chart-wrapper canvas {
@@ -515,6 +518,7 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
   }
 
   .telemetry-info-root .tis-grid {
+    grid-template-columns: 1fr !important;
     gap: 6px !important;
   }
 
