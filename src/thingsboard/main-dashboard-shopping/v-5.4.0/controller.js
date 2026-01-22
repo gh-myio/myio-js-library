@@ -763,9 +763,6 @@ function switchContentState(domain) {
     alarm: 'alarm_content',
   };
 
-  // Flex layout states (energy/water) vs grid layout states (temperature/alarm)
-  const flexStates = ['telemetry_content', 'water_content'];
-
   const targetState = stateMap[domain] || 'telemetry_content';
 
   // Hide all states
@@ -773,10 +770,10 @@ function switchContentState(domain) {
     el.style.display = 'none';
   });
 
-  // Show target state with appropriate display type
+  // Show target state - all use grid display (4col for energy/water, 1col for temp/alarm)
   const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
   if (targetEl) {
-    targetEl.style.display = flexStates.includes(targetState) ? 'flex' : 'grid';
+    targetEl.style.display = 'grid';
   }
 
   LogHelper.log('Switched content state to:', targetState);

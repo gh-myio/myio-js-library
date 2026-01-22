@@ -11,23 +11,19 @@
 
   <main class="myio-content">
     <!-- RFC-0053: Content states with show/hide logic -->
-    <!-- Energy content: 3 grids on top, info below -->
-    <div data-content-state="telemetry_content" class="myio-content-layout" style="display: flex">
-      <div class="myio-grids-row">
-        <section id="energyEntradaContainer" class="myio-grid-column"></section>
-        <section id="energyAreaComumContainer" class="myio-grid-column"></section>
-        <section id="energyLojasContainer" class="myio-grid-column"></section>
-      </div>
-      <section id="energyInfoContainer" class="myio-info-row"></section>
+    <!-- Energy content: 4 columns (3 grids + info on right) -->
+    <div data-content-state="telemetry_content" class="myio-content-4col" style="display: grid">
+      <section id="energyEntradaContainer" class="myio-grid-column"></section>
+      <section id="energyAreaComumContainer" class="myio-grid-column"></section>
+      <section id="energyLojasContainer" class="myio-grid-column"></section>
+      <section id="energyInfoContainer" class="myio-info-column"></section>
     </div>
-    <!-- Water content: 3 grids on top, info below -->
-    <div data-content-state="water_content" class="myio-content-layout" style="display: none">
-      <div class="myio-grids-row">
-        <section id="waterEntradaContainer" class="myio-grid-column"></section>
-        <section id="waterAreaComumContainer" class="myio-grid-column"></section>
-        <section id="waterLojasContainer" class="myio-grid-column"></section>
-      </div>
-      <section id="waterInfoContainer" class="myio-info-row"></section>
+    <!-- Water content: 4 columns (3 grids + info on right) -->
+    <div data-content-state="water_content" class="myio-content-4col" style="display: none">
+      <section id="waterEntradaContainer" class="myio-grid-column"></section>
+      <section id="waterAreaComumContainer" class="myio-grid-column"></section>
+      <section id="waterLojasContainer" class="myio-grid-column"></section>
+      <section id="waterInfoContainer" class="myio-info-column"></section>
     </div>
     <!-- Temperature content -->
     <div data-content-state="temperature_content" class="myio-content-grid" style="display: none">

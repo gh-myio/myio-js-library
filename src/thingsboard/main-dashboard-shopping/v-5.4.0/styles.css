@@ -216,34 +216,25 @@
 }
 
 /* ============================================================================
-   Content Layout - 3 grids row + info row below
+   Content Layout - 4 columns (3 grids + info on right)
    ============================================================================ */
 
-/* Content state containers - vertical flex layout */
-#myio-root .myio-content-layout {
-  display: flex;
-  flex-direction: column;
+/* 4-column grid layout for energy/water content */
+#myio-root .myio-content-4col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 320px;
   gap: 12px;
   width: 100%;
-  height: auto;
+  height: 100%;
   min-height: 100%;
   padding: 12px;
   box-sizing: border-box;
   overflow: auto;
 }
 
-/* Row of 3 TelemetryGrid columns */
-#myio-root .myio-grids-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  width: 100%;
-  min-height: 350px;
-}
-
 /* Each grid column (TelemetryGrid) */
-#myio-root .myio-grids-row .myio-grid-column {
-  min-height: 350px;
+#myio-root .myio-content-4col .myio-grid-column {
+  min-height: 400px;
   height: 100%;
   width: 100%;
   background: var(--myio-panel, #1a1a2e);
@@ -253,32 +244,44 @@
   flex-direction: column;
 }
 
-/* TelemetryInfo row - full width below grids */
-#myio-root .myio-info-row {
+/* TelemetryInfo column - fixed width on right */
+#myio-root .myio-content-4col .myio-info-column {
   width: 100%;
   min-height: 400px;
+  height: 100%;
   background: var(--myio-panel, #1a1a2e);
   border-radius: var(--myio-radius, 12px);
-  overflow: visible;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-/* TelemetryInfo component styling */
-#myio-root .myio-info-row .telemetry-info-root {
-  height: auto;
-  min-height: 380px;
-  padding: 16px;
+/* TelemetryInfo component styling in column */
+#myio-root .myio-info-column .telemetry-info-root {
+  height: 100%;
+  min-height: 400px;
+  padding: 12px;
   border-radius: var(--myio-radius, 12px);
+  display: flex;
+  flex-direction: column;
 }
 
-/* TelemetryInfo keeps its 2-column grid layout */
-#myio-root .myio-info-row .info-grid {
-  grid-template-columns: repeat(2, 1fr);
+/* TelemetryInfo single column layout in sidebar mode */
+#myio-root .myio-info-column .info-grid {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-/* Chart spans full width in info row */
-#myio-root .myio-info-row .info-card.chart-card {
-  grid-column: 1 / -1;
+/* Cards stack vertically */
+#myio-root .myio-info-column .info-card {
+  width: 100%;
+}
+
+/* Chart at the bottom */
+#myio-root .myio-info-column .info-card.chart-card {
+  width: 100%;
+  min-height: 200px;
 }
 
 /* Legacy support for myio-content-grid (temperature/alarm) */
@@ -310,24 +313,27 @@
   width: 100%;
 }
 
-/* Responsive: 2 columns on medium screens */
-@media (max-width: 1200px) {
-  #myio-root .myio-grids-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  #myio-root .myio-info-row .info-grid {
-    grid-template-columns: repeat(2, 1fr);
+/* Responsive: 2 columns + info on medium screens */
+@media (max-width: 1400px) {
+  #myio-root .myio-content-4col {
+    grid-template-columns: repeat(2, 1fr) 280px;
   }
 }
 
-/* Responsive: 1 column on small screens */
+/* Responsive: 1 column + info on smaller screens */
+@media (max-width: 1000px) {
+  #myio-root .myio-content-4col {
+    grid-template-columns: 1fr 260px;
+  }
+}
+
+/* Responsive: stack all on mobile */
 @media (max-width: 768px) {
-  #myio-root .myio-grids-row {
+  #myio-root .myio-content-4col {
     grid-template-columns: 1fr;
   }
 
-  #myio-root .myio-info-row .info-grid {
-    grid-template-columns: 1fr;
+  #myio-root .myio-content-4col .myio-info-column {
+    min-height: 300px;
   }
 }
