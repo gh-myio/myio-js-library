@@ -1,6 +1,7 @@
 /**
  * RFC-0148: TelemetryInfoShopping View
  * Renders category cards and pie chart
+ * All class names use tis- prefix to avoid conflicts
  */
 
 import {
@@ -99,18 +100,18 @@ export class TelemetryInfoShoppingView {
       (this.domain === 'energy' ? 'Informações de Energia' : 'Informações de Água');
 
     return `
-      <header class="info-header">
-        <h2 class="info-title" id="infoTitleHeader">${title}</h2>
+      <header class="tis-header">
+        <h2 class="tis-title" id="infoTitleHeader">${title}</h2>
         ${this.params.showExpandButton !== false ? `
-        <button class="btn-expand" id="btnExpandModal" title="Expandir visualização">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="tis-btn-expand" id="btnExpandModal" title="Expandir visualização">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
           </svg>
         </button>
         ` : ''}
       </header>
 
-      <div class="info-grid" id="infoGrid">
+      <div class="tis-grid" id="infoGrid">
         ${this.domain === 'energy' ? this.buildEnergyCards() : this.buildWaterCards()}
         ${this.params.showChart !== false ? this.buildChartCard() : ''}
       </div>
@@ -123,112 +124,108 @@ export class TelemetryInfoShoppingView {
     const config = ENERGY_CATEGORY_CONFIG;
 
     return `
-      <!-- ROW 1: Entrada + Lojas -->
-      <div class="info-card entrada-card" data-category="entrada">
-        <div class="card-header">
-          <span class="card-icon">${config.entrada.icon}</span>
-          <h3 class="card-title">${config.entrada.label}</h3>
+      <div class="tis-card tis-entrada-card" data-category="entrada">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.entrada.icon}</span>
+          <h3 class="tis-card-title">${config.entrada.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="entradaTotal">0,00 kWh</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="entradaTotal">0,00 kWh</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card lojas-card" data-category="lojas">
-        <div class="card-header">
-          <span class="card-icon">${config.lojas.icon}</span>
-          <h3 class="card-title">${config.lojas.label}</h3>
+      <div class="tis-card tis-lojas-card" data-category="lojas">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.lojas.icon}</span>
+          <h3 class="tis-card-title">${config.lojas.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="lojasTotal">0,00 kWh</span>
-            <span class="stat-perc" id="lojasPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="lojasTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="lojasPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 2: Climatização + Elevadores -->
-      <div class="info-card climatizacao-card" data-category="climatizacao">
-        <div class="card-header">
-          <span class="card-icon">${config.climatizacao.icon}</span>
-          <h3 class="card-title">${config.climatizacao.label}</h3>
-          ${config.climatizacao.tooltip ? `<span class="info-tooltip" title="${config.climatizacao.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-climatizacao-card" data-category="climatizacao">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.climatizacao.icon}</span>
+          <h3 class="tis-card-title">${config.climatizacao.label}</h3>
+          ${config.climatizacao.tooltip ? `<span class="tis-tooltip" title="${config.climatizacao.tooltip}">ℹ️</span>` : ''}
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="climatizacaoTotal">0,00 kWh</span>
-            <span class="stat-perc" id="climatizacaoPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="climatizacaoTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="climatizacaoPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card elevadores-card" data-category="elevadores">
-        <div class="card-header">
-          <span class="card-icon">${config.elevadores.icon}</span>
-          <h3 class="card-title">${config.elevadores.label}</h3>
+      <div class="tis-card tis-elevadores-card" data-category="elevadores">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.elevadores.icon}</span>
+          <h3 class="tis-card-title">${config.elevadores.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="elevadoresTotal">0,00 kWh</span>
-            <span class="stat-perc" id="elevadoresPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="elevadoresTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="elevadoresPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 3: Esc. Rolantes + Outros -->
-      <div class="info-card escadas-card" data-category="escadasRolantes">
-        <div class="card-header">
-          <span class="card-icon">${config.escadasRolantes.icon}</span>
-          <h3 class="card-title">${config.escadasRolantes.label}</h3>
+      <div class="tis-card tis-escadas-card" data-category="escadasRolantes">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.escadasRolantes.icon}</span>
+          <h3 class="tis-card-title">${config.escadasRolantes.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="escadasRolantesTotal">0,00 kWh</span>
-            <span class="stat-perc" id="escadasRolantesPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="escadasRolantesTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="escadasRolantesPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card outros-card" data-category="outros">
-        <div class="card-header">
-          <span class="card-icon">${config.outros.icon}</span>
-          <h3 class="card-title">${config.outros.label}</h3>
-          ${config.outros.tooltip ? `<span class="info-tooltip" title="${config.outros.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-outros-card" data-category="outros">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.outros.icon}</span>
+          <h3 class="tis-card-title">${config.outros.label}</h3>
+          ${config.outros.tooltip ? `<span class="tis-tooltip" title="${config.outros.tooltip}">ℹ️</span>` : ''}
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="outrosTotal">0,00 kWh</span>
-            <span class="stat-perc" id="outrosPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="outrosTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="outrosPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 4: Área Comum + Total -->
-      <div class="info-card area-comum-card" data-category="areaComum">
-        <div class="card-header">
-          <span class="card-icon">${config.areaComum.icon}</span>
-          <h3 class="card-title">${config.areaComum.label}</h3>
-          ${config.areaComum.tooltip ? `<span class="info-tooltip" title="${config.areaComum.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-area-comum-card" data-category="areaComum">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.areaComum.icon}</span>
+          <h3 class="tis-card-title">${config.areaComum.label}</h3>
+          ${config.areaComum.tooltip ? `<span class="tis-tooltip" title="${config.areaComum.tooltip}">ℹ️</span>` : ''}
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="areaComumTotal">0,00 kWh</span>
-            <span class="stat-perc" id="areaComumPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="areaComumTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="areaComumPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card total-card" data-category="total">
-        <div class="card-header">
-          <span class="card-icon">📊</span>
-          <h3 class="card-title">Total Consumidores</h3>
+      <div class="tis-card tis-total-card" data-category="total">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">📊</span>
+          <h3 class="tis-card-title">Total Consumidores</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="consumidoresTotal">0,00 kWh</span>
-            <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="consumidoresTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="consumidoresPerc">(100%)</span>
           </div>
         </div>
       </div>
@@ -239,84 +236,81 @@ export class TelemetryInfoShoppingView {
     const config = WATER_CATEGORY_CONFIG;
 
     return `
-      <!-- ROW 1: Entrada + Lojas -->
-      <div class="info-card entrada-card" data-category="entrada">
-        <div class="card-header">
-          <span class="card-icon">${config.entrada.icon}</span>
-          <h3 class="card-title">${config.entrada.label}</h3>
+      <div class="tis-card tis-entrada-card" data-category="entrada">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.entrada.icon}</span>
+          <h3 class="tis-card-title">${config.entrada.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="entradaTotal">0,000 m³</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="entradaTotal">0,000 m³</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card lojas-card" data-category="lojas">
-        <div class="card-header">
-          <span class="card-icon">${config.lojas.icon}</span>
-          <h3 class="card-title">${config.lojas.label}</h3>
+      <div class="tis-card tis-lojas-card" data-category="lojas">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.lojas.icon}</span>
+          <h3 class="tis-card-title">${config.lojas.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="lojasTotal">0,000 m³</span>
-            <span class="stat-perc" id="lojasPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="lojasTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="lojasPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 2: Banheiros + Área Comum -->
-      <div class="info-card banheiros-card" data-category="banheiros">
-        <div class="card-header">
-          <span class="card-icon">${config.banheiros.icon}</span>
-          <h3 class="card-title">${config.banheiros.label}</h3>
-          ${config.banheiros.tooltip ? `<span class="info-tooltip" title="${config.banheiros.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-banheiros-card" data-category="banheiros">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.banheiros.icon}</span>
+          <h3 class="tis-card-title">${config.banheiros.label}</h3>
+          ${config.banheiros.tooltip ? `<span class="tis-tooltip" title="${config.banheiros.tooltip}">ℹ️</span>` : ''}
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="banheirosTotal">0,000 m³</span>
-            <span class="stat-perc" id="banheirosPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="banheirosTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="banheirosPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card area-comum-card" data-category="areaComum">
-        <div class="card-header">
-          <span class="card-icon">${config.areaComum.icon}</span>
-          <h3 class="card-title">${config.areaComum.label}</h3>
+      <div class="tis-card tis-area-comum-card" data-category="areaComum">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.areaComum.icon}</span>
+          <h3 class="tis-card-title">${config.areaComum.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="areaComumTotal">0,000 m³</span>
-            <span class="stat-perc" id="areaComumPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="areaComumTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="areaComumPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 3: Pontos Não Mapeados + Total -->
-      <div class="info-card nao-mapeados-card" data-category="pontosNaoMapeados">
-        <div class="card-header">
-          <span class="card-icon">${config.pontosNaoMapeados.icon}</span>
-          <h3 class="card-title">${config.pontosNaoMapeados.label}</h3>
-          ${config.pontosNaoMapeados.tooltip ? `<span class="info-tooltip" title="${config.pontosNaoMapeados.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-nao-mapeados-card" data-category="pontosNaoMapeados">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.pontosNaoMapeados.icon}</span>
+          <h3 class="tis-card-title">${config.pontosNaoMapeados.label}</h3>
+          ${config.pontosNaoMapeados.tooltip ? `<span class="tis-tooltip" title="${config.pontosNaoMapeados.tooltip}">ℹ️</span>` : ''}
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="pontosNaoMapeadosTotal">0,000 m³</span>
-            <span class="stat-perc" id="pontosNaoMapeadosPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="pontosNaoMapeadosTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="pontosNaoMapeadosPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card total-card" data-category="total">
-        <div class="card-header">
-          <span class="card-icon">📊</span>
-          <h3 class="card-title">Total</h3>
+      <div class="tis-card tis-total-card" data-category="total">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">📊</span>
+          <h3 class="tis-card-title">Total</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="consumidoresTotal">0,000 m³</span>
-            <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="consumidoresTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="consumidoresPerc">(100%)</span>
           </div>
         </div>
       </div>
@@ -325,15 +319,15 @@ export class TelemetryInfoShoppingView {
 
   private buildChartCard(): string {
     return `
-      <div class="info-card chart-card">
-        <div class="card-header">
-          <h3 class="card-title">Distribuição de Consumo</h3>
+      <div class="tis-card tis-chart-card">
+        <div class="tis-card-header">
+          <h3 class="tis-card-title">Distribuição de Consumo</h3>
         </div>
-        <div class="card-body">
-          <div class="chart-container">
+        <div class="tis-card-body">
+          <div class="tis-chart-container">
             <canvas id="consumptionPieChart"></canvas>
           </div>
-          <div class="chart-legend" id="chartLegend"></div>
+          <div class="tis-chart-legend" id="chartLegend"></div>
         </div>
       </div>
     `;
@@ -345,25 +339,25 @@ export class TelemetryInfoShoppingView {
       : 'Distribuição de Consumo de Água';
 
     return `
-      <div class="modal-overlay hidden" id="modalExpanded">
-        <div class="modal-container">
-          <button class="btn-close-floating" id="btnCloseModal" title="Fechar">
+      <div class="tis-modal-overlay tis-hidden" id="modalExpanded">
+        <div class="tis-modal-container">
+          <button class="tis-btn-close" id="btnCloseModal" title="Fechar">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
 
-          <div class="modal-body-clean">
-            <h2 class="modal-title-clean" id="modalTitleHeader">${title}</h2>
+          <div class="tis-modal-body">
+            <h2 class="tis-modal-title" id="modalTitleHeader">${title}</h2>
 
-            <div class="modal-chart-inner-container">
-              <div class="modal-chart-wrapper">
+            <div class="tis-modal-chart-container">
+              <div class="tis-modal-chart-wrapper">
                 <canvas id="modalConsumptionPieChart"></canvas>
               </div>
             </div>
 
-            <div class="modal-legend-clean" id="modalChartLegend"></div>
+            <div class="tis-modal-legend" id="modalChartLegend"></div>
           </div>
         </div>
       </div>
@@ -385,13 +379,13 @@ export class TelemetryInfoShoppingView {
 
     // Modal backdrop click
     this.modalEl?.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).classList.contains('modal-overlay')) {
+      if ((e.target as HTMLElement).classList.contains('tis-modal-overlay')) {
         this.closeModal();
       }
     });
 
     // Category cards click
-    this.root.querySelectorAll('.info-card[data-category]').forEach((card) => {
+    this.root.querySelectorAll('.tis-card[data-category]').forEach((card) => {
       card.addEventListener('click', () => {
         const category = (card as HTMLElement).dataset.category as CategoryType;
         this.params.onCategoryClick?.(category);
@@ -558,10 +552,10 @@ export class TelemetryInfoShoppingView {
     const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
 
     legendEl.innerHTML = chartData.labels.map((label, i) => `
-      <div class="legend-item">
-        <span class="legend-color" style="background-color: ${chartData.colors[i]}"></span>
-        <span class="legend-label">${label}</span>
-        <span class="legend-value">${formatter(chartData.values[i])}</span>
+      <div class="tis-legend-item">
+        <span class="tis-legend-color" style="background-color: ${chartData.colors[i]}"></span>
+        <span class="tis-legend-label">${label}</span>
+        <span class="tis-legend-value">${formatter(chartData.values[i])}</span>
       </div>
     `).join('');
   }
@@ -684,11 +678,11 @@ export class TelemetryInfoShoppingView {
     this.waterState = null;
 
     // Reset all values to zero
-    this.root.querySelectorAll('.stat-value').forEach((el) => {
+    this.root.querySelectorAll('.tis-stat-value').forEach((el) => {
       const isWater = this.domain === 'water';
       el.textContent = isWater ? '0,000 m³' : '0,00 kWh';
     });
-    this.root.querySelectorAll('.stat-perc').forEach((el) => {
+    this.root.querySelectorAll('.tis-stat-perc').forEach((el) => {
       el.textContent = '(0%)';
     });
 
@@ -706,7 +700,7 @@ export class TelemetryInfoShoppingView {
   openModal(): void {
     this.log('openModal');
     this.modalOpen = true;
-    this.modalEl?.classList.remove('hidden');
+    this.modalEl?.classList.remove('tis-hidden');
     document.body.classList.add('modal-open-telemetry-info');
 
     // Initialize modal chart if not already
@@ -719,7 +713,7 @@ export class TelemetryInfoShoppingView {
   closeModal(): void {
     this.log('closeModal');
     this.modalOpen = false;
-    this.modalEl?.classList.add('hidden');
+    this.modalEl?.classList.add('tis-hidden');
     document.body.classList.remove('modal-open-telemetry-info');
   }
 

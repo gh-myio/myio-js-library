@@ -1,374 +1,379 @@
 /**
  * RFC-0148: TelemetryInfoShopping Component Styles
- * Migrated from TELEMETRY_INFO widget styles.css
+ * All styles are scoped to .telemetry-info-root to prevent conflicts
  */
 
 export const TELEMETRY_INFO_SHOPPING_STYLES = `
-/* ========== CSS VARIABLES (MyIO Design System) ========== */
-/* Light mode (default) */
+/* ========== TELEMETRY INFO SHOPPING - SCOPED STYLES ========== */
+/* All rules prefixed with .telemetry-info-root to avoid conflicts */
+
+/* ========== CSS VARIABLES ========== */
 .telemetry-info-root {
-  --myio-primary: #5B2EBC;
-  --myio-accent: #00C896;
-  --myio-bg: #FFFFFF;
-  --myio-bg-secondary: #F9F9F9;
-  --myio-text: #222222;
-  --myio-text-secondary: #666666;
-  --myio-text-tertiary: #999999;
-  --myio-border: #E0E0E0;
-  --myio-border-light: #F0F0F0;
-  --myio-shadow: rgba(0, 0, 0, 0.05);
-  --myio-shadow-hover: rgba(0, 0, 0, 0.1);
+  --tis-primary: #5B2EBC;
+  --tis-accent: #00C896;
+  --tis-bg: #FFFFFF;
+  --tis-bg-secondary: #F9F9F9;
+  --tis-text: #222222;
+  --tis-text-secondary: #666666;
+  --tis-text-tertiary: #999999;
+  --tis-border: #E0E0E0;
+  --tis-border-light: #F0F0F0;
+  --tis-shadow: rgba(0, 0, 0, 0.05);
+  --tis-shadow-hover: rgba(0, 0, 0, 0.1);
 }
 
-/* Light mode explicit */
 .telemetry-info-root[data-theme="light"] {
-  --myio-primary: #5B2EBC;
-  --myio-accent: #00C896;
-  --myio-bg: #FFFFFF;
-  --myio-bg-secondary: #F9F9F9;
-  --myio-text: #222222;
-  --myio-text-secondary: #666666;
-  --myio-text-tertiary: #999999;
-  --myio-border: #E0E0E0;
-  --myio-border-light: #F0F0F0;
-  --myio-shadow: rgba(0, 0, 0, 0.05);
-  --myio-shadow-hover: rgba(0, 0, 0, 0.1);
+  --tis-primary: #5B2EBC;
+  --tis-accent: #00C896;
+  --tis-bg: #FFFFFF;
+  --tis-bg-secondary: #F9F9F9;
+  --tis-text: #222222;
+  --tis-text-secondary: #666666;
+  --tis-text-tertiary: #999999;
+  --tis-border: #E0E0E0;
+  --tis-border-light: #F0F0F0;
+  --tis-shadow: rgba(0, 0, 0, 0.05);
+  --tis-shadow-hover: rgba(0, 0, 0, 0.1);
 }
 
-/* Dark mode */
 .telemetry-info-root[data-theme="dark"] {
-  --myio-primary: #a78bfa;
-  --myio-accent: #34d399;
-  --myio-bg: #1e293b;
-  --myio-bg-secondary: #334155;
-  --myio-text: #f1f5f9;
-  --myio-text-secondary: #94a3b8;
-  --myio-text-tertiary: #64748b;
-  --myio-border: #475569;
-  --myio-border-light: #334155;
+  --tis-primary: #a78bfa;
+  --tis-accent: #34d399;
+  --tis-bg: #1e293b;
+  --tis-bg-secondary: #334155;
+  --tis-text: #f1f5f9;
+  --tis-text-secondary: #94a3b8;
+  --tis-text-tertiary: #64748b;
+  --tis-border: #475569;
+  --tis-border-light: #334155;
+  --tis-shadow: rgba(0, 0, 0, 0.2);
+  --tis-shadow-hover: rgba(0, 0, 0, 0.3);
 }
 
 /* ========== ROOT CONTAINER ========== */
-
 .telemetry-info-root {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  background: var(--myio-bg);
-  color: var(--myio-text);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 100% !important;
+  padding: 12px !important;
+  background: var(--tis-bg) !important;
+  color: var(--tis-text) !important;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+  overflow: auto !important;
 }
 
-.telemetry-info-root * {
-  box-sizing: border-box;
+.telemetry-info-root *,
+.telemetry-info-root *::before,
+.telemetry-info-root *::after {
+  box-sizing: border-box !important;
 }
 
 /* ========== HEADER ========== */
-
-.info-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+.telemetry-info-root .tis-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 12px !important;
+  flex-shrink: 0 !important;
 }
 
-.info-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--myio-primary);
-  margin: 0;
-  letter-spacing: -0.01em;
+.telemetry-info-root .tis-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--tis-primary) !important;
+  margin: 0 !important;
+  letter-spacing: -0.01em !important;
 }
 
-.btn-expand {
-  background: var(--myio-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px var(--myio-shadow);
+.telemetry-info-root .tis-btn-expand {
+  background: var(--tis-primary) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 6px var(--tis-shadow) !important;
 }
 
-.btn-expand:hover {
-  background: var(--myio-accent);
-  box-shadow: 0 4px 12px var(--myio-shadow-hover);
-  transform: translateY(-2px);
+.telemetry-info-root .tis-btn-expand:hover {
+  background: var(--tis-accent) !important;
+  box-shadow: 0 4px 12px var(--tis-shadow-hover) !important;
+  transform: translateY(-1px) !important;
 }
 
-/* ========== CONTENT GRID (2 Columns) ========== */
+.telemetry-info-root .tis-btn-expand svg {
+  width: 16px !important;
+  height: 16px !important;
+}
 
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+/* ========== CONTENT GRID ========== */
+.telemetry-info-root .tis-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
 }
 
 /* ========== CARDS ========== */
-
-.info-card {
-  background: var(--myio-bg-secondary);
-  border: 1px solid var(--myio-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px var(--myio-shadow);
+.telemetry-info-root .tis-card {
+  background: var(--tis-bg-secondary) !important;
+  border: 1px solid var(--tis-border) !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 4px var(--tis-shadow) !important;
+  flex-shrink: 0 !important;
 }
 
-.info-card:hover {
-  border-color: var(--myio-accent);
-  box-shadow: 0 4px 12px var(--myio-shadow-hover);
-  transform: translateY(-2px);
+.telemetry-info-root .tis-card:hover {
+  border-color: var(--tis-accent) !important;
+  box-shadow: 0 2px 8px var(--tis-shadow-hover) !important;
 }
 
-/* Chart card spans full width */
-.info-card.chart-card {
-  grid-column: 1 / -1;
+/* Chart card */
+.telemetry-info-root .tis-card.tis-chart-card {
+  flex: 1 !important;
+  min-height: 180px !important;
 }
 
 /* Card header */
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+.telemetry-info-root .tis-card-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 4px !important;
 }
 
-.card-icon {
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
+.telemetry-info-root .tis-card-icon {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
 }
 
-.card-title {
-  font-size: 12px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--myio-primary);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  flex: 1;
+.telemetry-info-root .tis-card-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  color: var(--tis-primary) !important;
+  letter-spacing: -0.01em !important;
+  white-space: nowrap !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
-.info-tooltip {
-  font-size: 12px;
-  color: var(--myio-accent);
-  cursor: help;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-  flex-shrink: 0;
-  margin-left: auto;
+.telemetry-info-root .tis-tooltip {
+  font-size: 10px !important;
+  color: var(--tis-accent) !important;
+  cursor: help !important;
+  opacity: 0.7 !important;
+  transition: opacity 0.2s ease !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
 }
 
-.info-tooltip:hover {
-  opacity: 1;
+.telemetry-info-root .tis-tooltip:hover {
+  opacity: 1 !important;
 }
 
 /* Card body */
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.telemetry-info-root .tis-card-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
 }
 
 /* ========== STATS ========== */
-
-.stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  line-height: 1.2;
+.telemetry-info-root .tis-stat-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
 }
 
-.stat-row.main-stat {
-  font-size: 14px;
-  font-weight: 600;
+.telemetry-info-root .tis-stat-row.tis-main-stat {
+  font-size: 13px !important;
+  font-weight: 600 !important;
 }
 
-.stat-value {
-  font-weight: 600;
-  color: var(--myio-text);
-  text-align: left;
-  font-variant-numeric: tabular-nums;
-  flex: 1;
+.telemetry-info-root .tis-stat-value {
+  font-weight: 600 !important;
+  color: var(--tis-text) !important;
+  text-align: left !important;
+  font-variant-numeric: tabular-nums !important;
+  flex: 1 !important;
 }
 
-.stat-perc {
-  color: var(--myio-accent);
-  font-weight: 500;
-  font-size: 11px;
-  text-align: right;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.telemetry-info-root .tis-stat-perc {
+  color: var(--tis-accent) !important;
+  font-weight: 500 !important;
+  font-size: 10px !important;
+  text-align: right !important;
+  flex-shrink: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
 }
 
 /* ========== CHART ========== */
-
-.chart-container {
-  position: relative;
-  height: 200px;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.telemetry-info-root .tis-chart-container {
+  position: relative !important;
+  height: 150px !important;
+  margin-bottom: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.chart-container canvas {
-  max-height: 100%;
-  max-width: 100%;
+.telemetry-info-root .tis-chart-container canvas {
+  max-height: 100% !important;
+  max-width: 100% !important;
 }
 
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-  padding-top: 12px;
-  border-top: 1px solid var(--myio-border-light);
+.telemetry-info-root .tis-chart-legend {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  justify-content: center !important;
+  padding-top: 8px !important;
+  border-top: 1px solid var(--tis-border-light) !important;
 }
 
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
+.telemetry-info-root .tis-legend-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-size: 9px !important;
 }
 
-.legend-color {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px var(--myio-shadow);
+.telemetry-info-root .tis-legend-color {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 3px !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 1px 2px var(--tis-shadow) !important;
 }
 
-.legend-label {
-  color: var(--myio-text-secondary);
+.telemetry-info-root .tis-legend-label {
+  color: var(--tis-text-secondary) !important;
 }
 
-.legend-value {
-  font-weight: 600;
-  color: var(--myio-text);
-  font-variant-numeric: tabular-nums;
+.telemetry-info-root .tis-legend-value {
+  font-weight: 600 !important;
+  color: var(--tis-text) !important;
+  font-variant-numeric: tabular-nums !important;
 }
 
 /* ========== LOADING STATE ========== */
-
-.info-card.loading {
-  opacity: 0.6;
-  pointer-events: none;
-  position: relative;
+.telemetry-info-root .tis-card.tis-loading {
+  opacity: 0.6 !important;
+  pointer-events: none !important;
+  position: relative !important;
 }
 
-.info-card.loading::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 24px;
-  height: 24px;
-  margin: -12px 0 0 -12px;
-  border: 3px solid var(--myio-border);
-  border-top-color: var(--myio-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.telemetry-info-root .tis-card.tis-loading::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: -10px 0 0 -10px !important;
+  border: 2px solid var(--tis-border) !important;
+  border-top-color: var(--tis-accent) !important;
+  border-radius: 50% !important;
+  animation: tis-spin 0.8s linear infinite !important;
 }
 
-@keyframes spin {
+@keyframes tis-spin {
   to { transform: rotate(360deg); }
 }
 
 /* ========== EMPTY STATE ========== */
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  color: var(--myio-text-secondary);
-  text-align: center;
-  gap: 8px;
-  grid-column: 1 / -1;
+.telemetry-info-root .tis-empty-state {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  color: var(--tis-text-secondary) !important;
+  text-align: center !important;
+  gap: 6px !important;
 }
 
-.empty-state-icon {
-  font-size: 48px;
-  opacity: 0.5;
+.telemetry-info-root .tis-empty-icon {
+  font-size: 32px !important;
+  opacity: 0.5 !important;
 }
 
-.empty-state-text {
-  font-size: 14px;
-  color: var(--myio-text-secondary);
+.telemetry-info-root .tis-empty-text {
+  font-size: 12px !important;
+  color: var(--tis-text-secondary) !important;
 }
 
 /* ========== MODAL OVERLAY ========== */
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 2147483647;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  animation: fadeIn 0.3s ease;
-  padding: 3vh 3vw;
-  box-sizing: border-box;
+.telemetry-info-root .tis-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  backdrop-filter: blur(8px) !important;
+  animation: tis-fadeIn 0.3s ease !important;
+  padding: 3vh 3vw !important;
+  box-sizing: border-box !important;
 }
 
-.modal-overlay.hidden {
-  display: none;
+.telemetry-info-root .tis-modal-overlay.tis-hidden {
+  display: none !important;
 }
 
-@keyframes fadeIn {
+@keyframes tis-fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 /* ========== MODAL CONTAINER ========== */
-
-.modal-container {
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
-  border-radius: 24px;
-  width: 100%;
-  height: 100%;
-  max-width: 1200px;
-  max-height: 800px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 50px 100px -20px rgba(50, 50, 93, 0.25);
-  animation: modalAppear 0.4s ease;
-  overflow: hidden;
-  position: relative;
+.telemetry-info-root .tis-modal-container {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%) !important;
+  border-radius: 24px !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 1200px !important;
+  max-height: 800px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 50px 100px -20px rgba(50, 50, 93, 0.25) !important;
+  animation: tis-modalAppear 0.4s ease !important;
+  overflow: hidden !important;
+  position: relative !important;
 }
 
-.telemetry-info-root[data-theme="dark"] .modal-container {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+.telemetry-info-root[data-theme="dark"] .tis-modal-container {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
 }
 
-@keyframes modalAppear {
+@keyframes tis-modalAppear {
   from {
     opacity: 0;
     transform: scale(0.94) translateY(20px);
@@ -380,186 +385,191 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
 }
 
 /* ========== CLOSE BUTTON ========== */
-
-.btn-close-floating {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(91, 46, 188, 0.1);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  color: var(--myio-primary);
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+.telemetry-info-root .tis-btn-close {
+  position: absolute !important;
+  top: 24px !important;
+  right: 24px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(91, 46, 188, 0.1) !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+  color: var(--tis-primary) !important;
+  z-index: 100 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
 }
 
-.telemetry-info-root[data-theme="dark"] .btn-close-floating {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(167, 139, 250, 0.2);
+.telemetry-info-root[data-theme="dark"] .tis-btn-close {
+  background: rgba(30, 41, 59, 0.9) !important;
+  border-color: rgba(167, 139, 250, 0.2) !important;
 }
 
-.btn-close-floating:hover {
-  background: var(--myio-primary);
-  color: white;
-  transform: rotate(90deg) scale(1.05);
-  box-shadow: 0 8px 24px rgba(91, 46, 188, 0.3);
+.telemetry-info-root .tis-btn-close:hover {
+  background: var(--tis-primary) !important;
+  color: white !important;
+  transform: rotate(90deg) scale(1.05) !important;
+  box-shadow: 0 8px 24px rgba(91, 46, 188, 0.3) !important;
 }
 
 /* ========== MODAL BODY ========== */
-
-.modal-body-clean {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 60px 60px 60px;
-  overflow-y: auto;
-  width: 100%;
+.telemetry-info-root .tis-modal-body {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 80px 60px 60px 60px !important;
+  overflow-y: auto !important;
+  width: 100% !important;
 }
 
-.modal-title-clean {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--myio-primary);
-  margin: 0 0 40px 0;
-  text-align: center;
-  letter-spacing: -0.03em;
+.telemetry-info-root .tis-modal-title {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: var(--tis-primary) !important;
+  margin: 0 0 40px 0 !important;
+  text-align: center !important;
+  letter-spacing: -0.03em !important;
 }
 
 /* ========== MODAL CHART ========== */
-
-.modal-chart-inner-container {
-  flex: 1;
-  width: 100%;
-  max-width: 700px;
-  background: var(--myio-bg);
-  border-radius: 20px;
-  padding: 40px;
-  margin: 0 auto 32px auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--myio-border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.telemetry-info-root .tis-modal-chart-container {
+  flex: 1 !important;
+  width: 100% !important;
+  max-width: 700px !important;
+  background: var(--tis-bg) !important;
+  border-radius: 20px !important;
+  padding: 40px !important;
+  margin: 0 auto 32px auto !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid var(--tis-border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.modal-chart-wrapper {
-  width: 100%;
-  max-width: 500px;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.telemetry-info-root .tis-modal-chart-wrapper {
+  width: 100% !important;
+  max-width: 500px !important;
+  aspect-ratio: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.modal-chart-wrapper canvas {
-  max-height: 100%;
-  max-width: 100%;
+.telemetry-info-root .tis-modal-chart-wrapper canvas {
+  max-height: 100% !important;
+  max-width: 100% !important;
 }
 
 /* ========== MODAL LEGEND ========== */
-
-.modal-legend-clean {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  justify-content: center;
-  align-items: center;
-  padding: 24px 32px;
-  background: var(--myio-bg-secondary);
-  border-radius: 16px;
-  border: 1px solid var(--myio-border);
-  max-width: 700px;
-  width: 100%;
+.telemetry-info-root .tis-modal-legend {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 24px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 24px 32px !important;
+  background: var(--tis-bg-secondary) !important;
+  border-radius: 16px !important;
+  border: 1px solid var(--tis-border) !important;
+  max-width: 700px !important;
+  width: 100% !important;
 }
 
-.modal-legend-clean .legend-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 500;
+.telemetry-info-root .tis-modal-legend .tis-legend-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
 }
 
-.modal-legend-clean .legend-color {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+.telemetry-info-root .tis-modal-legend .tis-legend-color {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
 }
 
-.modal-legend-clean .legend-label {
-  color: var(--myio-text);
+.telemetry-info-root .tis-modal-legend .tis-legend-label {
+  color: var(--tis-text) !important;
 }
 
-.modal-legend-clean .legend-value {
-  font-weight: 700;
-  color: var(--myio-primary);
+.telemetry-info-root .tis-modal-legend .tis-legend-value {
+  font-weight: 700 !important;
+  color: var(--tis-primary) !important;
 }
 
 /* ========== RESPONSIVE ========== */
-
 @media (max-width: 768px) {
   .telemetry-info-root {
-    padding: 12px;
+    padding: 10px !important;
   }
 
-  .info-grid {
-    gap: 10px;
+  .telemetry-info-root .tis-grid {
+    gap: 6px !important;
   }
 
-  .info-title {
-    font-size: 14px;
+  .telemetry-info-root .tis-title {
+    font-size: 12px !important;
   }
 
-  .card-title {
-    font-size: 11px;
+  .telemetry-info-root .tis-card {
+    padding: 6px 8px !important;
   }
 
-  .stat-row.main-stat {
-    font-size: 13px;
+  .telemetry-info-root .tis-card-title {
+    font-size: 10px !important;
   }
 
-  .chart-container {
-    height: 180px;
+  .telemetry-info-root .tis-stat-row.tis-main-stat {
+    font-size: 11px !important;
   }
 
-  .modal-body-clean {
-    padding: 40px 24px 24px 24px;
+  .telemetry-info-root .tis-chart-container {
+    height: 120px !important;
   }
 
-  .modal-title-clean {
-    font-size: 22px;
-    margin-bottom: 24px;
+  .telemetry-info-root .tis-modal-body {
+    padding: 40px 24px 24px 24px !important;
   }
 
-  .modal-chart-inner-container {
-    padding: 24px;
+  .telemetry-info-root .tis-modal-title {
+    font-size: 22px !important;
+    margin-bottom: 24px !important;
   }
 
-  .modal-legend-clean {
-    flex-direction: column;
-    gap: 12px;
+  .telemetry-info-root .tis-modal-chart-container {
+    padding: 24px !important;
+  }
+
+  .telemetry-info-root .tis-modal-legend {
+    flex-direction: column !important;
+    gap: 12px !important;
   }
 }
 `;
 
 export function injectStyles(_container?: HTMLElement): void {
-  const styleId = 'telemetry-info-shopping-styles';
+  const styleId = 'telemetry-info-shopping-styles-v2';
 
   // Check if styles already exist in document head
   if (document.getElementById(styleId)) {
     return;
+  }
+
+  // Remove old styles if they exist
+  const oldStyles = document.getElementById('telemetry-info-shopping-styles');
+  if (oldStyles) {
+    oldStyles.remove();
   }
 
   const styleEl = document.createElement('style');
