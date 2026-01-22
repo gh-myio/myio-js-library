@@ -1,4 +1,4 @@
-/* global self, window, document, MyIOLibrary */
+/* global self, window, document, MyIOLibrary, localStorage */
 
 /**
  * RFC-0150: Shopping Dashboard - MAIN Controller (Slim Version)
@@ -124,9 +124,12 @@ function extractDeviceMetadataFromRows(rows) {
   // Calculate device status
   let deviceStatus = 'offline';
   if (window.MyIOLibrary?.calculateDeviceStatusMasterRules) {
-    const telemetryTs = domain === DOMAIN_ENERGY ? dataKeyTimestamps['consumption'] :
-                        domain === DOMAIN_WATER ? dataKeyTimestamps['pulses'] :
-                        dataKeyTimestamps['temperature'];
+    const telemetryTs =
+      domain === DOMAIN_ENERGY
+        ? dataKeyTimestamps['consumption']
+        : domain === DOMAIN_WATER
+        ? dataKeyTimestamps['pulses']
+        : dataKeyTimestamps['temperature'];
     deviceStatus = window.MyIOLibrary.calculateDeviceStatusMasterRules({
       connectionStatus,
       telemetryTimestamp: telemetryTs,
@@ -206,8 +209,14 @@ function classifyAllDevices(data) {
  */
 function buildByStatusFromDevices(devices) {
   const byStatus = {
-    waiting: 0, offline: 0, normal: 0, alert: 0, failure: 0,
-    weakConnection: 0, standby: 0, noConsumption: 0,
+    waiting: 0,
+    offline: 0,
+    normal: 0,
+    alert: 0,
+    failure: 0,
+    weakConnection: 0,
+    standby: 0,
+    noConsumption: 0,
   };
 
   const ONLINE = ['power_on', 'online', 'normal', 'ok', 'running', 'active'];
@@ -271,47 +280,63 @@ function processDataAndDispatchEvents() {
   };
 
   // Build flat arrays
-  const allEnergy = [...classified.energy.equipments, ...classified.energy.stores, ...classified.energy.entrada];
-  const allWater = [...classified.water.hidrometro_entrada, ...classified.water.banheiros,
-                    ...classified.water.hidrometro_area_comum, ...classified.water.hidrometro];
+  const allEnergy = [
+    ...classified.energy.equipments,
+    ...classified.energy.stores,
+    ...classified.energy.entrada,
+  ];
+  const allWater = [
+    ...classified.water.hidrometro_entrada,
+    ...classified.water.banheiros,
+    ...classified.water.hidrometro_area_comum,
+    ...classified.water.hidrometro,
+  ];
   const allTemp = [...classified.temperature.termostato, ...classified.temperature.termostato_external];
 
   // Calculate totals
   const energyTotal = allEnergy.reduce((sum, d) => sum + Number(d.value || 0), 0);
   const waterTotal = allWater.reduce((sum, d) => sum + Number(d.value || 0), 0);
-  const tempValues = allTemp.map(d => Number(d.temperature || 0)).filter(v => v > 0);
+  const tempValues = allTemp.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
   const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
   // Dispatch events
-  window.dispatchEvent(new CustomEvent('myio:data-ready', {
-    detail: { classified, timestamp: Date.now() }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:data-ready', {
+      detail: { classified, timestamp: Date.now() },
+    })
+  );
 
-  window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', {
-    detail: {
-      totalDevices: allEnergy.length,
-      totalConsumption: energyTotal,
-      byStatus: buildByStatusFromDevices(allEnergy),
-    }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:energy-summary-ready', {
+      detail: {
+        totalDevices: allEnergy.length,
+        totalConsumption: energyTotal,
+        byStatus: buildByStatusFromDevices(allEnergy),
+      },
+    })
+  );
 
-  window.dispatchEvent(new CustomEvent('myio:water-summary-ready', {
-    detail: {
-      totalDevices: allWater.length,
-      totalConsumption: waterTotal,
-      byStatus: buildByStatusFromDevices(allWater),
-    }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:water-summary-ready', {
+      detail: {
+        totalDevices: allWater.length,
+        totalConsumption: waterTotal,
+        byStatus: buildByStatusFromDevices(allWater),
+      },
+    })
+  );
 
-  window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', {
-    detail: {
-      totalDevices: allTemp.length,
-      globalAvg: tempAvg,
-      temperatureMin: window.MyIOUtils.temperatureLimits.minTemperature,
-      temperatureMax: window.MyIOUtils.temperatureLimits.maxTemperature,
-      byStatus: buildByStatusFromDevices(allTemp),
-    }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:temperature-data-ready', {
+      detail: {
+        totalDevices: allTemp.length,
+        globalAvg: tempAvg,
+        temperatureMin: window.MyIOUtils.temperatureLimits.minTemperature,
+        temperatureMax: window.MyIOUtils.temperatureLimits.maxTemperature,
+        byStatus: buildByStatusFromDevices(allTemp),
+      },
+    })
+  );
 
   LogHelper.log('Events dispatched');
   _dataProcessedOnce = true;
@@ -332,13 +357,13 @@ async function fetchCredentials(customerTbId) {
   try {
     const url = `${THINGSBOARD_URL}/api/plugins/telemetry/CUSTOMER/${customerTbId}/values/attributes/SERVER_SCOPE`;
     const response = await fetch(url, {
-      headers: { 'X-Authorization': `Bearer ${jwt}` }
+      headers: { 'X-Authorization': `Bearer ${jwt}` },
     });
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const attrs = await response.json();
-    const get = (key) => attrs.find(a => a.key === key)?.value;
+    const get = (key) => attrs.find((a) => a.key === key)?.value;
 
     return {
       clientId: get('clientId') || '',
@@ -348,6 +373,77 @@ async function fetchCredentials(customerTbId) {
   } catch (err) {
     LogHelper.error('Failed to fetch credentials:', err);
     return null;
+  }
+}
+
+// ============================================================================
+// User Info Fetching
+// ============================================================================
+
+/**
+ * Get user info from ThingsBoard context and update menu component
+ */
+async function fetchAndUpdateUserInfo() {
+  // First try to get user from ThingsBoard widget context (fastest)
+  const ctxUser = self.ctx?.currentUser;
+
+  if (ctxUser) {
+    const fullName =
+      `${ctxUser.firstName || ''} ${ctxUser.lastName || ''}`.trim() || ctxUser.name || 'Usuário';
+    const isAdmin = ctxUser.authority === 'TENANT_ADMIN' || window.MyIOUtils.SuperAdmin;
+
+    if (_menuInstance) {
+      _menuInstance.updateUserInfo({
+        name: fullName,
+        email: ctxUser.email || '',
+        isAdmin: isAdmin,
+      });
+      LogHelper.log('Menu user info updated from context');
+    }
+    return;
+  }
+
+  // Fallback: Fetch from API if context not available
+  const jwt = self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
+  if (!jwt) {
+    LogHelper.warn('No JWT token for user info fetch');
+    if (_menuInstance) {
+      _menuInstance.updateUserInfo({ name: 'Usuário', email: '', isAdmin: false });
+    }
+    return;
+  }
+
+  try {
+    const response = await fetch(`${THINGSBOARD_URL}/api/auth/user`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Authorization': `Bearer ${jwt}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const user = await response.json();
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Usuário';
+    const isAdmin = user.authority === 'TENANT_ADMIN' || window.MyIOUtils.SuperAdmin;
+
+    if (_menuInstance) {
+      _menuInstance.updateUserInfo({
+        name: fullName,
+        email: user.email || '',
+        isAdmin: isAdmin,
+      });
+      LogHelper.log('Menu user info updated from API');
+    }
+  } catch (err) {
+    LogHelper.error('Failed to fetch user info:', err);
+    if (_menuInstance) {
+      _menuInstance.updateUserInfo({ name: 'Usuário', email: '', isAdmin: false });
+    }
   }
 }
 
@@ -597,22 +693,24 @@ function switchContentState(domain) {
   const targetState = stateMap[domain] || 'telemetry_content';
 
   // Hide all states
-  document.querySelectorAll('[data-content-state]').forEach(el => {
+  document.querySelectorAll('[data-content-state]').forEach((el) => {
     el.style.display = 'none';
   });
 
-  // Show target state
+  // Show target state with grid display
   const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
   if (targetEl) {
-    targetEl.style.display = 'block';
+    targetEl.style.display = 'grid';
   }
 
   LogHelper.log('Switched content state to:', targetState);
 
   // Dispatch state change event
-  window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
-    detail: { tab: domain }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:dashboard-state', {
+      detail: { tab: domain },
+    })
+  );
 }
 
 // ============================================================================
@@ -647,7 +745,7 @@ function extractCustomerAttributes(data) {
 // ThingsBoard Widget Lifecycle
 // ============================================================================
 
-self.onInit = async function() {
+self.onInit = async function () {
   LogHelper.log('onInit starting...');
 
   const settings = self.ctx?.settings || {};
@@ -656,8 +754,7 @@ self.onInit = async function() {
 
   // Detect SuperAdmin
   const userEmail = self.ctx?.currentUser?.email || '';
-  window.MyIOUtils.SuperAdmin = userEmail.includes('@myio.com.br') &&
-                                !userEmail.includes('alarme');
+  window.MyIOUtils.SuperAdmin = userEmail.includes('@myio.com.br') && !userEmail.includes('alarme');
 
   // Fetch credentials
   if (customerTbId) {
@@ -679,17 +776,22 @@ self.onInit = async function() {
   // Create components
   createComponents();
 
+  // Fetch user info and update menu
+  fetchAndUpdateUserInfo();
+
   // Dispatch initial state
   setTimeout(() => {
-    window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
-      detail: { tab: 'energy' }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('myio:dashboard-state', {
+        detail: { tab: 'energy' },
+      })
+    );
   }, 200);
 
   LogHelper.log('onInit complete');
 };
 
-self.onDataUpdated = function() {
+self.onDataUpdated = function () {
   const data = self.ctx?.data || [];
   if (data.length === 0) return;
 
@@ -702,11 +804,11 @@ self.onDataUpdated = function() {
   }
 };
 
-self.onResize = function() {
+self.onResize = function () {
   // Components handle their own resize
 };
 
-self.onDestroy = function() {
+self.onDestroy = function () {
   LogHelper.log('onDestroy');
 
   // Destroy main components

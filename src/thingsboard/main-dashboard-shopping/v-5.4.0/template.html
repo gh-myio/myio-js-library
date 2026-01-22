@@ -11,29 +11,27 @@
 
   <main class="myio-content">
     <!-- RFC-0053: Content states with show/hide logic -->
-    <!-- Energy content with 3 grids: entrada, areacomum, lojas -->
-    <div data-content-state="telemetry_content" style="display: block; height: auto; min-height: 400px">
-      <section id="energyEntradaContainer" class="myio-telemetry-section myio-grid-section"></section>
-      <section id="energyAreaComumContainer" class="myio-telemetry-section myio-grid-section"></section>
-      <section id="energyLojasContainer" class="myio-telemetry-section myio-grid-section"></section>
-      <!-- RFC-0148: TelemetryInfo component -->
-      <section id="energyInfoContainer" class="myio-info-section"></section>
+    <!-- Energy content: 3 grids + info side by side -->
+    <div data-content-state="telemetry_content" class="myio-content-grid" style="display: grid">
+      <section id="energyEntradaContainer" class="myio-grid-column"></section>
+      <section id="energyAreaComumContainer" class="myio-grid-column"></section>
+      <section id="energyLojasContainer" class="myio-grid-column"></section>
+      <section id="energyInfoContainer" class="myio-info-column"></section>
     </div>
-    <!-- Water content with 3 grids: entrada, areacomum, lojas -->
-    <div data-content-state="water_content" style="display: none; height: auto; min-height: 400px">
-      <section id="waterEntradaContainer" class="myio-telemetry-section myio-grid-section"></section>
-      <section id="waterAreaComumContainer" class="myio-telemetry-section myio-grid-section"></section>
-      <section id="waterLojasContainer" class="myio-telemetry-section myio-grid-section"></section>
-      <!-- RFC-0148: TelemetryInfo component -->
-      <section id="waterInfoContainer" class="myio-info-section"></section>
+    <!-- Water content: 3 grids + info side by side -->
+    <div data-content-state="water_content" class="myio-content-grid" style="display: none">
+      <section id="waterEntradaContainer" class="myio-grid-column"></section>
+      <section id="waterAreaComumContainer" class="myio-grid-column"></section>
+      <section id="waterLojasContainer" class="myio-grid-column"></section>
+      <section id="waterInfoContainer" class="myio-info-column"></section>
     </div>
     <!-- Temperature content -->
-    <div data-content-state="temperature_content" style="display: none; height: auto; min-height: 400px">
-      <section id="temperatureLojasContainer" class="myio-telemetry-section myio-grid-section"></section>
+    <div data-content-state="temperature_content" class="myio-content-grid" style="display: none">
+      <section id="temperatureLojasContainer" class="myio-grid-column myio-grid-full"></section>
     </div>
     <!-- Alarm content -->
-    <div data-content-state="alarm_content" style="display: none; height: auto; min-height: 400px">
-      <section id="alarmContentContainer" class="myio-alarm-section"></section>
+    <div data-content-state="alarm_content" class="myio-content-grid" style="display: none">
+      <section id="alarmContentContainer" class="myio-grid-column myio-grid-full"></section>
     </div>
   </main>
 
