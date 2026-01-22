@@ -17,7 +17,8 @@ type ViewEventType =
   | 'force-refresh-click'
   | 'report-click'
   | 'date-change'
-  | 'contract-click';
+  | 'contract-click'
+  | 'theme-change';
 
 type ViewEventHandler = (...args: unknown[]) => void;
 
@@ -36,6 +37,9 @@ export class HeaderShoppingView {
   private btnForceRefresh: HTMLButtonElement | null = null;
   private btnReport: HTMLButtonElement | null = null;
   private btnReportText: HTMLSpanElement | null = null;
+  private themeSelectorEl: HTMLElement | null = null;
+  private btnThemeLight: HTMLButtonElement | null = null;
+  private btnThemeDark: HTMLButtonElement | null = null;
 
   constructor(configTemplate?: HeaderShoppingConfigTemplate, themeMode?: ThemeMode) {
     this.config = { ...DEFAULT_HEADER_SHOPPING_CONFIG, ...configTemplate };
@@ -57,6 +61,41 @@ export class HeaderShoppingView {
   setThemeMode(mode: ThemeMode): void {
     this.themeMode = mode;
     this.root.setAttribute('data-theme', mode);
+    this.updateThemeSelector();
+  }
+
+  /**
+   * Select a specific theme
+   */
+  selectTheme(mode: ThemeMode): void {
+    if (mode === this.themeMode) return;
+
+    this.setThemeMode(mode);
+    this.emit('theme-change', mode);
+
+    // Dispatch global event for other components
+    window.dispatchEvent(
+      new CustomEvent('myio:theme-change', {
+        detail: { mode },
+      })
+    );
+  }
+
+  /**
+   * Update theme selector active state
+   */
+  private updateThemeSelector(): void {
+    if (this.btnThemeLight && this.btnThemeDark) {
+      this.btnThemeLight.classList.toggle('active', this.themeMode === 'light');
+      this.btnThemeDark.classList.toggle('active', this.themeMode === 'dark');
+    }
+  }
+
+  /**
+   * Get current theme mode
+   */
+  getThemeMode(): ThemeMode {
+    return this.themeMode;
   }
 
   /**
@@ -144,6 +183,26 @@ export class HeaderShoppingView {
           `
               : ''
           }
+
+          <!-- Theme selector tabs -->
+          <div class="tbx-theme-selector" id="tbx-theme-selector">
+            <button
+              class="tbx-theme-tab ${this.themeMode === 'light' ? 'active' : ''}"
+              id="tbx-theme-light"
+              title="Tema claro"
+              data-theme="light"
+            >
+              <span class="tbx-theme-icon">☀️</span>
+            </button>
+            <button
+              class="tbx-theme-tab ${this.themeMode === 'dark' ? 'active' : ''}"
+              id="tbx-theme-dark"
+              title="Tema escuro"
+              data-theme="dark"
+            >
+              <span class="tbx-theme-icon">🌙</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -166,6 +225,9 @@ export class HeaderShoppingView {
     this.btnForceRefresh = this.root.querySelector('#tbx-btn-force-refresh');
     this.btnReport = this.root.querySelector('#tbx-btn-report-general');
     this.btnReportText = this.root.querySelector('#tbx-btn-report-general-text');
+    this.themeSelectorEl = this.root.querySelector('#tbx-theme-selector');
+    this.btnThemeLight = this.root.querySelector('#tbx-theme-light');
+    this.btnThemeDark = this.root.querySelector('#tbx-theme-dark');
   }
 
   /**
@@ -192,6 +254,15 @@ export class HeaderShoppingView {
       e.stopPropagation();
       e.preventDefault();
       this.emit('contract-click');
+    });
+
+    // Theme selector tabs
+    this.btnThemeLight?.addEventListener('click', () => {
+      this.selectTheme('light');
+    });
+
+    this.btnThemeDark?.addEventListener('click', () => {
+      this.selectTheme('dark');
     });
 
     // Setup tooltip for date range input

@@ -8,6 +8,96 @@
         "type": "string",
         "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
       },
+      "defaultThemeMode": {
+        "title": "Default Theme Mode",
+        "type": "string",
+        "enum": ["dark", "light"],
+        "default": "light"
+      },
+      "darkMode": {
+        "type": "object",
+        "title": "Dark Mode Settings",
+        "properties": {
+          "backgroundType": {
+            "title": "Background Type",
+            "type": "string",
+            "enum": ["image", "color", "gradient"],
+            "default": "gradient"
+          },
+          "backgroundUrl": {
+            "title": "Background Image URL",
+            "type": "string",
+            "default": ""
+          },
+          "backgroundColor": {
+            "title": "Background Color",
+            "type": "string",
+            "default": "#0f172a"
+          },
+          "backgroundGradient": {
+            "title": "Background Gradient",
+            "type": "string",
+            "default": "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)"
+          },
+          "panelColor": {
+            "title": "Panel Color",
+            "type": "string",
+            "default": "#1e293b"
+          },
+          "borderColor": {
+            "title": "Border Color",
+            "type": "string",
+            "default": "#334155"
+          },
+          "textColor": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#f1f5f9"
+          }
+        }
+      },
+      "lightMode": {
+        "type": "object",
+        "title": "Light Mode Settings",
+        "properties": {
+          "backgroundType": {
+            "title": "Background Type",
+            "type": "string",
+            "enum": ["image", "color", "gradient"],
+            "default": "gradient"
+          },
+          "backgroundUrl": {
+            "title": "Background Image URL",
+            "type": "string",
+            "default": ""
+          },
+          "backgroundColor": {
+            "title": "Background Color",
+            "type": "string",
+            "default": "#f8fafc"
+          },
+          "backgroundGradient": {
+            "title": "Background Gradient",
+            "type": "string",
+            "default": "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)"
+          },
+          "panelColor": {
+            "title": "Panel Color",
+            "type": "string",
+            "default": "#ffffff"
+          },
+          "borderColor": {
+            "title": "Border Color",
+            "type": "string",
+            "default": "#e2e8f0"
+          },
+          "textColor": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#1e293b"
+          }
+        }
+      },
       "enableCache": {
         "title": "Enable Cache System",
         "type": "boolean",
@@ -72,14 +162,86 @@
   },
   "form": [
     "customerTB_ID",
-    "enableCache",
-    "cacheTtlMinutes",
-    "enableStaleWhileRevalidate",
-    "maxCacheSize",
-    "debugMode",
-    "domainsEnabled.energy",
-    "domainsEnabled.water",
-    "domainsEnabled.temperature",
+    {
+      "key": "defaultThemeMode",
+      "type": "select"
+    },
+    {
+      "type": "fieldset",
+      "title": "Dark Mode Theme",
+      "items": [
+        {
+          "key": "darkMode.backgroundType",
+          "type": "select"
+        },
+        {
+          "key": "darkMode.backgroundColor",
+          "type": "color"
+        },
+        "darkMode.backgroundGradient",
+        "darkMode.backgroundUrl",
+        {
+          "key": "darkMode.panelColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.borderColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.textColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Light Mode Theme",
+      "items": [
+        {
+          "key": "lightMode.backgroundType",
+          "type": "select"
+        },
+        {
+          "key": "lightMode.backgroundColor",
+          "type": "color"
+        },
+        "lightMode.backgroundGradient",
+        "lightMode.backgroundUrl",
+        {
+          "key": "lightMode.panelColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.borderColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.textColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Cache Settings",
+      "items": [
+        "enableCache",
+        "cacheTtlMinutes",
+        "enableStaleWhileRevalidate",
+        "maxCacheSize"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Debug & Domains",
+      "items": [
+        "debugMode",
+        "domainsEnabled.energy",
+        "domainsEnabled.water",
+        "domainsEnabled.temperature"
+      ]
+    },
     "excludeDevicesAtCountSubtotalCAG"
   ]
 }

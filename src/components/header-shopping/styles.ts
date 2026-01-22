@@ -178,6 +178,59 @@ export const HEADER_SHOPPING_STYLES = `
     transform: translateY(1px);
 }
 
+/* Theme selector tabs */
+.tbx-theme-selector {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--tbx-bg-secondary);
+    border: 1px solid var(--tbx-border);
+    border-radius: 8px;
+    padding: 3px;
+    margin-left: 8px;
+}
+
+.tbx-theme-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.tbx-theme-tab:hover {
+    background: var(--tbx-border);
+}
+
+.tbx-theme-tab.active {
+    background: var(--tbx-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.tbx-theme-tab .tbx-theme-icon {
+    font-size: 16px;
+    line-height: 1;
+    filter: grayscale(0.3);
+    opacity: 0.7;
+    transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.tbx-theme-tab.active .tbx-theme-icon {
+    filter: grayscale(0);
+    opacity: 1;
+}
+
+.tbx-theme-tab:hover .tbx-theme-icon {
+    filter: grayscale(0);
+    opacity: 1;
+}
+
 /* Botoes disabled */
 .tbx-btn:disabled,
 .tbx-btn[disabled] {

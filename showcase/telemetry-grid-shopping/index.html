@@ -340,46 +340,20 @@
 
     <div class="telemetry-container" id="telemetryContainer">
       <!-- TelemetryGridShopping component will be rendered here -->
-      <section class="shops-root">
-        <header class="shops-header">
-          <div class="shops-header-left">
-            <h2 class="shops-title" id="labelWidget">Lojas</h2>
-            <span class="shops-count" id="shopsCount">(0)</span>
-          </div>
-          <div class="shops-header-actions">
-            <div class="search-wrap" id="searchWrap">
-              <input type="text" id="shopsSearch" placeholder="Buscar..." autocomplete="off" />
-            </div>
-            <button class="icon-btn" id="btnSearch" title="Buscar">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path
-                  d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"
-                />
-              </svg>
-            </button>
-            <button class="icon-btn" id="btnFilter" title="Filtros">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
-              </svg>
-            </button>
-            <a class="shops-total" id="shopsTotal">0,00</a>
-          </div>
-        </header>
-        <section id="shopsList" class="shops-list"></section>
-      </section>
+      <!-- TelemetryGridShopping component will be rendered here -->
     </div>
 
     <!-- Log Panel -->
     <div class="log-panel" id="logPanel">
       <div class="log-header">
         <h3>Event Log</h3>
-        <button onclick="clearLog()" style="padding: 4px 8px; font-size: 11px;">Clear</button>
+        <button onclick="clearLog()" style="padding: 4px 8px; font-size: 11px">Clear</button>
       </div>
       <div class="log-content" id="logContent"></div>
     </div>
 
     <!-- Load MyIO Library -->
-    <script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.js"></script>
+    <script src="../../dist/myio-js-library.umd.js"></script>
 
     <!-- Embedded styles from TELEMETRY widget -->
     <style>
@@ -669,7 +643,8 @@
           devices.push({
             entityId: `device-${i + 1}`,
             ingestionId: `ing-${i + 1}`,
-            labelOrName: names[i % names.length] + (i >= names.length ? ` ${Math.floor(i / names.length) + 1}` : ''),
+            labelOrName:
+              names[i % names.length] + (i >= names.length ? ` ${Math.floor(i / names.length) + 1}` : ''),
             name: `Device ${i + 1}`,
             deviceIdentifier: `DEV-${String(i + 1).padStart(3, '0')}`,
             deviceType: context === 'equipments' ? 'CHILLER' : '3F_MEDIDOR',
@@ -712,10 +687,13 @@
         document.getElementById('statTotal').textContent = stats.total;
         document.getElementById('statOnline').textContent = stats.online;
         document.getElementById('statOffline').textContent = stats.offline;
-        document.getElementById('statConsumption').textContent = stats.totalConsumption.toLocaleString('pt-BR', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+        document.getElementById('statConsumption').textContent = stats.totalConsumption.toLocaleString(
+          'pt-BR',
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        );
         document.getElementById('statFiltered').textContent = stats.total;
 
         // Update unit label
@@ -730,58 +708,13 @@
           maximumFractionDigits: 2,
         });
 
-        logEvent('STATS', `Updated: ${stats.total} devices, ${stats.online} online, ${stats.totalConsumption.toFixed(2)} total`, 'info');
-      }
-
-      // ===== RENDER CARDS =====
-      function renderCards(devices) {
-        const container = document.getElementById('shopsList');
-        container.innerHTML = '';
-
-        if (!window.MyIOLibrary?.renderCardComponentV5) {
-          logEvent('ERROR', 'MyIOLibrary.renderCardComponentV5 not available', 'error');
-          container.innerHTML = '<p style="color: #ef4444; padding: 20px;">renderCardComponentV5 not available</p>';
-          return;
-        }
-
-        devices.forEach((device, index) => {
-          const wrapper = document.createElement('div');
-          wrapper.className = 'card-wrapper';
-          wrapper.id = `card-${device.entityId}`;
-          container.appendChild(wrapper);
-
-          try {
-            const instance = window.MyIOLibrary.renderCardComponentV5({
-              entityObject: device,
-              handleActionDashboard: (entity) => {
-                logEvent('CARD', `Dashboard action: ${entity.labelOrName}`, 'info');
-              },
-              handleActionReport: (entity) => {
-                logEvent('CARD', `Report action: ${entity.labelOrName}`, 'info');
-              },
-              handleActionSettings: (entity) => {
-                logEvent('CARD', `Settings action: ${entity.labelOrName}`, 'info');
-              },
-              handleSelect: (checked, entity) => {
-                logEvent('CARD', `Select ${checked ? 'ON' : 'OFF'}: ${entity.labelOrName}`, 'info');
-              },
-              handleClickCard: (entity) => {
-                logEvent('CARD', `Click: ${entity.labelOrName}`, 'info');
-              },
-              enableSelection: true,
-              enableDragDrop: false,
-            });
-
-            if (instance?.element) {
-              wrapper.appendChild(instance.element);
-            }
-          } catch (err) {
-            logEvent('ERROR', `Failed to render card ${device.labelOrName}: ${err.message}`, 'error');
-          }
-        });
-
-        updateStats(devices);
-        logEvent('RENDER', `Rendered ${devices.length} cards`, 'success');
+        logEvent(
+          'STATS',
+          `Updated: ${stats.total} devices, ${stats.online} online, ${stats.totalConsumption.toFixed(
+            2
+          )} total`,
+          'info'
+        );
       }
 
       // ===== CONTEXT OPTIONS UPDATE =====
@@ -808,7 +741,11 @@
 
         const labelMap = {
           energy: { stores: 'Lojas', equipments: 'Equipamentos', entrada: 'Entrada' },
-          water: { hidrometro: 'Hidrômetros', hidrometro_area_comum: 'Area Comum', hidrometro_entrada: 'Entrada' },
+          water: {
+            hidrometro: 'Hidrômetros',
+            hidrometro_area_comum: 'Area Comum',
+            hidrometro_entrada: 'Entrada',
+          },
           temperature: { termostato: 'Termostatos', termostato_external: 'Externos' },
         };
 
@@ -823,13 +760,14 @@
 
       // ===== REFRESH DATA =====
       function refreshData() {
+        if (!telemetryGrid) return;
         const domain = document.getElementById('domainSelect').value;
         const context = document.getElementById('contextSelect').value;
         const count = parseInt(document.getElementById('deviceCountSelect').value);
 
         logEvent('DATA', `Generating ${count} mock devices for ${domain}/${context}`, 'info');
         const devices = generateMockDevices(count, domain, context);
-        renderCards(devices);
+        telemetryGrid.updateDevices(devices);
       }
 
       // ===== SEARCH TOGGLE =====
@@ -852,7 +790,8 @@
           const cards = document.querySelectorAll('.card-wrapper');
           let visibleCount = 0;
           cards.forEach((card) => {
-            const name = card.querySelector('.device-name-text, .device-label')?.textContent?.toLowerCase() || '';
+            const name =
+              card.querySelector('.device-name-text, .device-label')?.textContent?.toLowerCase() || '';
             const visible = !term || name.includes(term);
             card.style.display = visible ? '' : 'none';
             if (visible) visibleCount++;
@@ -886,7 +825,11 @@
           const context = document.getElementById('contextSelect').value;
           const labelMap = {
             energy: { stores: 'Lojas', equipments: 'Equipamentos', entrada: 'Entrada' },
-            water: { hidrometro: 'Hidrômetros', hidrometro_area_comum: 'Area Comum', hidrometro_entrada: 'Entrada' },
+            water: {
+              hidrometro: 'Hidrômetros',
+              hidrometro_area_comum: 'Area Comum',
+              hidrometro_entrada: 'Entrada',
+            },
             temperature: { termostato: 'Termostatos', termostato_external: 'Externos' },
           };
           document.getElementById('labelWidget').textContent = labelMap[domain][context] || 'Devices';
@@ -898,19 +841,69 @@
 
         document.getElementById('themeBtn').addEventListener('click', () => {
           document.body.classList.toggle('light-mode');
-          logEvent('THEME', `Switched to ${document.body.classList.contains('light-mode') ? 'light' : 'dark'} mode`, 'info');
+          logEvent(
+            'THEME',
+            `Switched to ${document.body.classList.contains('light-mode') ? 'light' : 'dark'} mode`,
+            'info'
+          );
         });
 
         document.getElementById('logBtn').addEventListener('click', () => {
           document.getElementById('logPanel').classList.toggle('visible');
         });
 
-        setupSearch();
-        setupFilterButton();
+        let telemetryGrid;
+
+        function initializeGrid() {
+          if (telemetryGrid) {
+            telemetryGrid.destroy();
+          }
+          const domain = document.getElementById('domainSelect').value;
+          const context = document.getElementById('contextSelect').value;
+          const count = parseInt(document.getElementById('deviceCountSelect').value);
+          const devices = generateMockDevices(count, domain, context);
+
+          telemetryGrid = window.MyIOLibrary.createTelemetryGridShoppingComponent({
+            container: document.getElementById('telemetryContainer'),
+            domain: domain,
+            context: context,
+            devices: devices,
+            themeMode: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+            onCardAction: (action, device) => {
+              logEvent('GRID', `Card action: ${action} on ${device.labelOrName}`, 'info');
+            },
+            onStatsUpdate: (stats) => {
+              updateStats(stats);
+            },
+          });
+        }
+
+        document.getElementById('domainSelect').addEventListener('change', () => {
+          updateContextOptions();
+          initializeGrid();
+        });
+
+        document.getElementById('contextSelect').addEventListener('change', () => {
+          initializeGrid();
+        });
+
+        document.getElementById('deviceCountSelect').addEventListener('change', initializeGrid);
+        document.getElementById('refreshBtn').addEventListener('click', initializeGrid);
+
+        document.getElementById('themeBtn').addEventListener('click', () => {
+          document.body.classList.toggle('light-mode');
+          const newTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+          telemetryGrid.setThemeMode(newTheme);
+          logEvent('THEME', `Switched to ${newTheme} mode`, 'info');
+        });
+
+        document.getElementById('logBtn').addEventListener('click', () => {
+          document.getElementById('logPanel').classList.toggle('visible');
+        });
 
         // Initial render
         updateContextOptions();
-        refreshData();
+        initializeGrid();
 
         logEvent('INIT', 'Showcase ready', 'success');
       });

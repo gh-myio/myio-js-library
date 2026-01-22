@@ -1,8 +1,42 @@
+/* ============================================================================
+   Theme CSS Variables
+   ============================================================================ */
+
 #myio-root {
   --myio-radius: 16px;
-
   --sidebar-w: 260px;
   --sidebar-w-compact: 72px;
+
+  /* Light mode defaults (levemente roxo) */
+  --myio-bg: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%);
+  --myio-panel: #ffffff;
+  --myio-border: #e2e8f0;
+  --myio-text: #1e293b;
+  --myio-text-muted: #64748b;
+  --myio-primary: #7c3aed;
+  --myio-accent: #8b5cf6;
+}
+
+/* Light mode explicit */
+#myio-root[data-theme="light"] {
+  --myio-bg: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%);
+  --myio-panel: #ffffff;
+  --myio-border: #e2e8f0;
+  --myio-text: #1e293b;
+  --myio-text-muted: #64748b;
+  --myio-primary: #7c3aed;
+  --myio-accent: #8b5cf6;
+}
+
+/* Dark mode */
+#myio-root[data-theme="dark"] {
+  --myio-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+  --myio-panel: #1e293b;
+  --myio-border: #334155;
+  --myio-text: #f1f5f9;
+  --myio-text-muted: #94a3b8;
+  --myio-primary: #a78bfa;
+  --myio-accent: #8b5cf6;
 }
 
 /* root + filhos ocupam 100% */

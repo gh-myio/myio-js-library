@@ -814,6 +814,106 @@ function extractCustomerAttributes(data) {
 }
 
 // ============================================================================
+// Theme & Background Management
+// ============================================================================
+
+let _currentThemeMode = 'light';
+
+/**
+ * Apply background to page based on theme settings
+ */
+function applyBackgroundToPage(themeMode, settings) {
+  const themeSettings = themeMode === 'dark' ? settings.darkMode : settings.lightMode;
+  const backgroundType = themeSettings?.backgroundType || 'gradient';
+
+  let backgroundStyle;
+  if (backgroundType === 'image' && themeSettings?.backgroundUrl) {
+    backgroundStyle = `url('${themeSettings.backgroundUrl}') center center / cover no-repeat fixed`;
+  } else if (backgroundType === 'gradient' && themeSettings?.backgroundGradient) {
+    backgroundStyle = themeSettings.backgroundGradient;
+  } else {
+    // Default to a light purple gradient for light mode, dark purple for dark
+    if (themeMode === 'dark') {
+      backgroundStyle = themeSettings?.backgroundColor || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)';
+    } else {
+      backgroundStyle = themeSettings?.backgroundColor || 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)';
+    }
+  }
+
+  // Apply to body
+  document.body.style.background = backgroundStyle;
+
+  // Apply to ThingsBoard dashboard containers
+  const tbContainers = [
+    '.tb-dashboard-page',
+    '.tb-dashboard-page-content',
+    '.tb-absolute-fill',
+    '.mat-drawer-content',
+    '.mat-sidenav-content',
+    '.tb-dashboard-container',
+    '.tb-widget-container',
+    '.tb-widget',
+    'tb-dashboard-state',
+  ];
+
+  tbContainers.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((el) => {
+      el.style.background = 'transparent';
+      el.style.backgroundColor = 'transparent';
+    });
+  });
+
+  // Apply to #myio-root
+  const myioRoot = document.getElementById('myio-root');
+  if (myioRoot) {
+    myioRoot.style.background = backgroundStyle;
+    myioRoot.setAttribute('data-theme', themeMode);
+
+    // Apply CSS variables from settings
+    if (themeSettings) {
+      if (themeSettings.panelColor) {
+        myioRoot.style.setProperty('--myio-panel', themeSettings.panelColor);
+      }
+      if (themeSettings.borderColor) {
+        myioRoot.style.setProperty('--myio-border', themeSettings.borderColor);
+      }
+      if (themeSettings.textColor) {
+        myioRoot.style.setProperty('--myio-text', themeSettings.textColor);
+      }
+    }
+  }
+
+  LogHelper.log('Background applied:', { themeMode, backgroundType, backgroundStyle });
+}
+
+/**
+ * Toggle theme mode
+ */
+function toggleTheme(settings) {
+  _currentThemeMode = _currentThemeMode === 'light' ? 'dark' : 'light';
+  applyBackgroundToPage(_currentThemeMode, settings);
+
+  // Dispatch event for components to update
+  window.dispatchEvent(
+    new CustomEvent('myio:theme-change', {
+      detail: { mode: _currentThemeMode },
+    })
+  );
+
+  LogHelper.log('Theme toggled to:', _currentThemeMode);
+}
+
+// Listen for theme toggle from header
+window.addEventListener('myio:theme-change', (e) => {
+  const newMode = e.detail?.mode;
+  if (newMode && newMode !== _currentThemeMode) {
+    _currentThemeMode = newMode;
+    const settings = self.ctx?.settings || {};
+    applyBackgroundToPage(_currentThemeMode, settings);
+  }
+});
+
+// ============================================================================
 // ThingsBoard Widget Lifecycle
 // ============================================================================
 
@@ -823,6 +923,11 @@ self.onInit = async function () {
   const settings = self.ctx?.settings || {};
   const customerTbId = settings.customerTB_ID || '';
   window.MyIOUtils.customerTB_ID = customerTbId;
+
+  // Apply initial theme and background
+  _currentThemeMode = settings.defaultThemeMode || 'light';
+  window.MyIOUtils.currentTheme = _currentThemeMode;
+  applyBackgroundToPage(_currentThemeMode, settings);
 
   // Detect SuperAdmin
   const userEmail = self.ctx?.currentUser?.email || '';

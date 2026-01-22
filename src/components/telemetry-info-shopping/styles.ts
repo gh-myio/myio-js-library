@@ -232,7 +232,9 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
 /* ========== CHART ========== */
 .telemetry-info-root .tis-chart-container {
   position: relative !important;
+  width: 100% !important;
   height: 150px !important;
+  min-height: 150px !important;
   margin-bottom: 8px !important;
   display: flex !important;
   align-items: center !important;
@@ -240,8 +242,10 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
 }
 
 .telemetry-info-root .tis-chart-container canvas {
-  max-height: 100% !important;
-  max-width: 100% !important;
+  max-height: 150px !important;
+  max-width: 150px !important;
+  width: 150px !important;
+  height: 150px !important;
 }
 
 .telemetry-info-root .tis-chart-legend {
@@ -509,6 +513,113 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
 .telemetry-info-root .tis-modal-legend .tis-legend-value {
   font-weight: 700 !important;
   color: var(--tis-primary) !important;
+}
+
+/* ========== MAXIMIZE BUTTON ========== */
+.telemetry-info-root .tis-maximize-btn {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  background: var(--tis-primary) !important;
+  color: white !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease !important;
+  z-index: 100 !important;
+  box-shadow: 0 2px 8px var(--tis-shadow) !important;
+}
+
+.telemetry-info-root .tis-maximize-btn:hover {
+  background: var(--tis-accent) !important;
+  transform: scale(1.05) !important;
+}
+
+.telemetry-info-root .tis-maximize-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+/* ========== MAXIMIZED STATE ========== */
+.telemetry-info-root.tis-maximized {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 999999 !important;
+  border-radius: 0 !important;
+  padding: 24px !important;
+  overflow: auto !important;
+  animation: tis-maximizeIn 0.3s ease !important;
+}
+
+@keyframes tis-maximizeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.telemetry-info-root.tis-maximized .tis-maximize-btn {
+  opacity: 1 !important;
+  top: 16px !important;
+  right: 16px !important;
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-header {
+  margin-bottom: 24px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-title {
+  font-size: 24px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-card {
+  padding: 16px 20px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-card-title {
+  font-size: 14px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-stat-row.tis-main-stat {
+  font-size: 18px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-chart-card {
+  min-height: 300px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-chart-container {
+  height: 250px !important;
+  min-height: 250px !important;
+}
+
+.telemetry-info-root.tis-maximized .tis-chart-container canvas {
+  max-height: 250px !important;
+  max-width: 250px !important;
+  width: 250px !important;
+  height: 250px !important;
 }
 
 /* ========== RESPONSIVE ========== */

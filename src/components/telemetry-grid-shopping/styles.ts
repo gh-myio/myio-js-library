@@ -189,12 +189,64 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   padding: 16px 12px 48px 12px;
   scroll-padding-bottom: 48px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 28px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   align-content: start;
   justify-items: stretch;
+}
+
+.shops-root .maximize-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.3s;
+  opacity: 0;
+  z-index: 20;
+}
+
+.shops-root .maximize-btn:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.shops-root .maximize-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: #fff;
+}
+
+.shops-root.maximized {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  z-index: 9998;
+  backdrop-filter: blur(10px);
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+
+.shops-root.maximized::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: -1;
 }
 
 .shops-root .shops-list::-webkit-scrollbar {
@@ -212,9 +264,12 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   box-shadow: none;
   border-radius: 0;
   width: 100%;
-  min-height: 120px;
-  display: block;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
+  overflow: visible;
 }
 
 /* ============ Loading Overlay ============ */

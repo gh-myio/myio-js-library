@@ -38,9 +38,13 @@ export class TelemetryGridShoppingView {
   private searchInputEl: HTMLInputElement | null = null;
   private filterModalEl: HTMLElement | null = null;
   private loadingOverlayEl: HTMLElement | null = null;
+  private maximizeBtnEl: HTMLElement | null = null;
 
   // Card instances for cleanup
   private cardInstances: Map<string, CardInstance> = new Map();
+  private isMaximized = false;
+  private originalParent: HTMLElement | null = null;
+  private originalNextSibling: Node | null = null;
 
   constructor(params: TelemetryGridShoppingParams, controller: TelemetryGridShoppingController) {
     this.params = params;
@@ -66,6 +70,7 @@ export class TelemetryGridShoppingView {
     this.bindEvents();
     this.renderCards();
     this.updateStats();
+    this.renderMaximizeButton();
 
     // Move filter modal to body to escape stacking context issues
     if (this.filterModalEl) {
@@ -85,7 +90,8 @@ export class TelemetryGridShoppingView {
   }
 
   private buildHTML(): string {
-    const labelWidget = this.params.labelWidget || CONTEXT_CONFIG[this.params.context]?.headerLabel || 'Dispositivos';
+    const labelWidget =
+      this.params.labelWidget || CONTEXT_CONFIG[this.params.context]?.headerLabel || 'Dispositivos';
 
     return `
       <!-- Header -->
@@ -194,9 +200,18 @@ export class TelemetryGridShoppingView {
     this.searchInputEl = this.root.querySelector('#shopsSearch');
     this.filterModalEl = this.root.querySelector('#filterModal');
     this.loadingOverlayEl = this.root.querySelector('#loadingOverlay');
+    this.maximizeBtnEl = this.root.querySelector('.maximize-btn');
   }
 
   private bindEvents(): void {
+    this.root.addEventListener('mousemove', this.handleMouseMove.bind(this));
+    this.root.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+
+    // Listen for global theme changes
+    window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
+      this.applyThemeMode(e.detail.mode);
+    }) as EventListener);
+
     // Search toggle
     const btnSearch = this.root.querySelector('#btnSearch');
     btnSearch?.addEventListener('click', () => this.toggleSearch());
@@ -415,7 +430,9 @@ export class TelemetryGridShoppingView {
     }
 
     // Check if MyIOLibrary.renderCardComponentV5 is available
-    const MyIOLibrary = (window as unknown as { MyIOLibrary?: { renderCardComponentV5?: (opts: unknown) => CardInstance } }).MyIOLibrary;
+    const MyIOLibrary = (
+      window as unknown as { MyIOLibrary?: { renderCardComponentV5?: (opts: unknown) => CardInstance } }
+    ).MyIOLibrary;
 
     if (MyIOLibrary?.renderCardComponentV5) {
       devices.forEach((device) => {
@@ -576,5 +593,85 @@ export class TelemetryGridShoppingView {
 
   getElement(): HTMLElement {
     return this.root;
+  }
+
+  private renderMaximizeButton(): void {
+    const maximizeBtnHTML = this.buildMaximizeButtonHTML();
+    this.root.insertAdjacentHTML('beforeend', maximizeBtnHTML);
+    this.maximizeBtnEl = this.root.querySelector('.maximize-btn');
+    this.maximizeBtnEl?.addEventListener('click', this.toggleMaximize.bind(this));
+  }
+
+  private buildMaximizeButtonHTML(): string {
+    return `
+      <button class="maximize-btn" title="Maximizar">
+        <svg viewBox="0 0 24 24">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+      </button>
+    `;
+  }
+
+  private handleMouseMove(event: MouseEvent): void {
+    if (this.isMaximized) return;
+
+    const rect = this.root.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const isNearTopRight = x > rect.width - 100 && y < 100;
+
+    if (isNearTopRight) {
+      this.maximizeBtnEl!.style.opacity = '1';
+    } else {
+      this.maximizeBtnEl!.style.opacity = '0';
+    }
+  }
+
+  private handleMouseLeave(): void {
+    if (this.isMaximized) return;
+    this.maximizeBtnEl!.style.opacity = '0';
+  }
+
+  private toggleMaximize(): void {
+    this.isMaximized = !this.isMaximized;
+
+    if (this.isMaximized) {
+      // Save original position
+      this.originalParent = this.root.parentElement;
+      this.originalNextSibling = this.root.nextSibling;
+
+      // Move to body (like filter modal)
+      document.body.appendChild(this.root);
+      this.root.classList.add('maximized');
+
+      // Keep button visible when maximized
+      if (this.maximizeBtnEl) {
+        this.maximizeBtnEl.style.opacity = '1';
+      }
+    } else {
+      // Restore original position
+      this.root.classList.remove('maximized');
+
+      if (this.originalParent) {
+        if (this.originalNextSibling) {
+          this.originalParent.insertBefore(this.root, this.originalNextSibling);
+        } else {
+          this.originalParent.appendChild(this.root);
+        }
+      }
+
+      // Reset button opacity
+      if (this.maximizeBtnEl) {
+        this.maximizeBtnEl.style.opacity = '0';
+      }
+    }
+
+    // Update icon
+    const icon = this.isMaximized
+      ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+      : '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+
+    this.maximizeBtnEl!.innerHTML = `<svg viewBox="0 0 24 24">${icon}</svg>`;
   }
 }
