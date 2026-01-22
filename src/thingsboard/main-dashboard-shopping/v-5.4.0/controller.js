@@ -17,7 +17,7 @@
 // Configuration
 // ============================================================================
 
-const DEBUG_ACTIVE = false;
+const DEBUG_ACTIVE = true;
 const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 
@@ -338,9 +338,82 @@ function processDataAndDispatchEvents() {
     })
   );
 
+  // Update TelemetryInfo components with category data
+  updateTelemetryInfoComponents(classified);
+
   LogHelper.log('Events dispatched');
   _dataProcessedOnce = true;
   return true;
+}
+
+/**
+ * Update TelemetryInfo components with category breakdown data
+ */
+function updateTelemetryInfoComponents(classified) {
+  const lib = window.MyIOLibrary;
+
+  // Build energy summary for TelemetryInfo
+  if (_energyInfoInstance) {
+    const allEnergyDevices = [
+      ...classified.energy.equipments,
+      ...classified.energy.stores,
+      ...classified.energy.entrada,
+    ];
+
+    // Calculate totals from classified arrays
+    const sumValues = (arr) => arr.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+
+    // Use library's buildEquipmentCategorySummary for detailed breakdown
+    let energySummary;
+    if (lib?.buildEquipmentCategorySummary) {
+      const catSummary = lib.buildEquipmentCategorySummary(allEnergyDevices);
+      LogHelper.log('Category summary from library:', catSummary);
+
+      energySummary = {
+        entrada: { total: catSummary.entrada?.consumption || 0 },
+        lojas: { total: catSummary.lojas?.consumption || 0 },
+        climatizacao: { total: catSummary.climatizacao?.consumption || 0 },
+        elevadores: { total: catSummary.elevadores?.consumption || 0 },
+        escadasRolantes: { total: catSummary.escadas_rolantes?.consumption || 0 },
+        outros: { total: catSummary.outros?.consumption || 0 },
+      };
+    } else {
+      // Fallback: use basic classification
+      const entradaTotal = sumValues(classified.energy.entrada);
+      const lojasTotal = sumValues(classified.energy.stores);
+      const equipTotal = sumValues(classified.energy.equipments);
+
+      energySummary = {
+        entrada: { total: entradaTotal },
+        lojas: { total: lojasTotal },
+        climatizacao: { total: 0 },
+        elevadores: { total: 0 },
+        escadasRolantes: { total: 0 },
+        outros: { total: equipTotal },
+      };
+    }
+
+    LogHelper.log('Energy summary for TelemetryInfo:', energySummary);
+
+    _energyInfoInstance.setEnergyData(energySummary);
+    LogHelper.log('Energy TelemetryInfo updated');
+  }
+
+  // Build water summary for TelemetryInfo
+  if (_waterInfoInstance) {
+    const sumWaterValues = (arr) => arr.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
+
+    const waterSummary = {
+      entrada: { total: sumWaterValues(classified.water.hidrometro_entrada || []) },
+      lojas: { total: sumWaterValues(classified.water.hidrometro || []) },
+      banheiros: { total: sumWaterValues(classified.water.banheiros || []) },
+      areaComum: { total: sumWaterValues(classified.water.hidrometro_area_comum || []) },
+    };
+
+    LogHelper.log('Water summary for TelemetryInfo:', waterSummary);
+    _waterInfoInstance.setWaterData(waterSummary);
+    LogHelper.log('Water TelemetryInfo updated');
+  }
 }
 
 // ============================================================================
@@ -690,6 +763,9 @@ function switchContentState(domain) {
     alarm: 'alarm_content',
   };
 
+  // Flex layout states (energy/water) vs grid layout states (temperature/alarm)
+  const flexStates = ['telemetry_content', 'water_content'];
+
   const targetState = stateMap[domain] || 'telemetry_content';
 
   // Hide all states
@@ -697,10 +773,10 @@ function switchContentState(domain) {
     el.style.display = 'none';
   });
 
-  // Show target state with grid display
+  // Show target state with appropriate display type
   const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
   if (targetEl) {
-    targetEl.style.display = 'grid';
+    targetEl.style.display = flexStates.includes(targetState) ? 'flex' : 'grid';
   }
 
   LogHelper.log('Switched content state to:', targetState);
