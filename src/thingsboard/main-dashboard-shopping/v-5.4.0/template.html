@@ -1,0 +1,47 @@
+<section id="myio-root" class="myio-grid">
+  <aside class="myio-sidebar">
+    <!-- RFC-0147: Menu component container (replaces tb-dashboard-state stateId="menu") -->
+    <section id="menuContainer" class="myio-menu-section"></section>
+  </aside>
+
+  <header class="myio-header">
+    <!-- RFC-0146: Header component container (replaces tb-dashboard-state stateId="header") -->
+    <section id="headerContainer" class="myio-header-section"></section>
+  </header>
+
+  <main class="myio-content">
+    <!-- RFC-0053: Content states with show/hide logic -->
+    <!-- Energy content with 3 grids: entrada, areacomum, lojas -->
+    <div data-content-state="telemetry_content" style="display: block; height: auto; min-height: 400px">
+      <section id="energyEntradaContainer" class="myio-telemetry-section myio-grid-section"></section>
+      <section id="energyAreaComumContainer" class="myio-telemetry-section myio-grid-section"></section>
+      <section id="energyLojasContainer" class="myio-telemetry-section myio-grid-section"></section>
+      <!-- RFC-0148: TelemetryInfo component -->
+      <section id="energyInfoContainer" class="myio-info-section"></section>
+    </div>
+    <!-- Water content with 3 grids: entrada, areacomum, lojas -->
+    <div data-content-state="water_content" style="display: none; height: auto; min-height: 400px">
+      <section id="waterEntradaContainer" class="myio-telemetry-section myio-grid-section"></section>
+      <section id="waterAreaComumContainer" class="myio-telemetry-section myio-grid-section"></section>
+      <section id="waterLojasContainer" class="myio-telemetry-section myio-grid-section"></section>
+      <!-- RFC-0148: TelemetryInfo component -->
+      <section id="waterInfoContainer" class="myio-info-section"></section>
+    </div>
+    <!-- Temperature content -->
+    <div data-content-state="temperature_content" style="display: none; height: auto; min-height: 400px">
+      <section id="temperatureLojasContainer" class="myio-telemetry-section myio-grid-section"></section>
+    </div>
+    <!-- Alarm content -->
+    <div data-content-state="alarm_content" style="display: none; height: auto; min-height: 400px">
+      <section id="alarmContentContainer" class="myio-alarm-section"></section>
+    </div>
+  </main>
+
+  <footer class="myio-footer">
+    <!-- RFC-0149: Footer component container (replaces tb-dashboard-state stateId="footer") -->
+    <section id="footerContainer" class="myio-footer-section"></section>
+  </footer>
+
+  <!-- Modal containers -->
+  <div id="panelModalContainer"></div>
+</section>
