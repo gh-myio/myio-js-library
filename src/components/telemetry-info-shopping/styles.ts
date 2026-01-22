@@ -622,6 +622,11 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
   height: 250px !important;
 }
 
+/* Hide expand button when maximized (use maximize button instead) */
+.telemetry-info-root.tis-maximized .tis-btn-expand {
+  display: none !important;
+}
+
 /* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
   .telemetry-info-root {

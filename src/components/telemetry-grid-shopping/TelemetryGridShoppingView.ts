@@ -224,35 +224,45 @@ export class TelemetryGridShoppingView {
       this.updateStats();
     });
 
-    // Filter button
+    // Filter button (this is in root)
     const btnFilter = this.root.querySelector('#btnFilter');
     btnFilter?.addEventListener('click', () => this.openFilterModal());
 
+    // Bind filter modal events after it's cached but before moving to body
+    this.bindFilterModalEvents();
+  }
+
+  /**
+   * Bind events for the filter modal (called before modal is moved to body)
+   */
+  private bindFilterModalEvents(): void {
+    if (!this.filterModalEl) return;
+
     // Filter modal close
-    const closeFilter = this.root.querySelector('#closeFilter');
+    const closeFilter = this.filterModalEl.querySelector('#closeFilter');
     closeFilter?.addEventListener('click', () => this.closeFilterModal());
 
     // Filter modal backdrop
-    this.filterModalEl?.addEventListener('click', (e) => {
+    this.filterModalEl.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).classList.contains('shops-modal')) {
         this.closeFilterModal();
       }
     });
 
     // Select all / Clear all
-    const selectAll = this.root.querySelector('#selectAll');
+    const selectAll = this.filterModalEl.querySelector('#selectAll');
     selectAll?.addEventListener('click', () => this.selectAllDevices());
 
-    const clearAll = this.root.querySelector('#clearAll');
+    const clearAll = this.filterModalEl.querySelector('#clearAll');
     clearAll?.addEventListener('click', () => this.clearAllDevices());
 
     // Filter device search
-    const filterDeviceSearch = this.root.querySelector('#filterDeviceSearch') as HTMLInputElement;
+    const filterDeviceSearch = this.filterModalEl.querySelector('#filterDeviceSearch') as HTMLInputElement;
     filterDeviceSearch?.addEventListener('input', (e) => {
       this.filterDeviceChecklist((e.target as HTMLInputElement).value);
     });
 
-    const filterDeviceClear = this.root.querySelector('#filterDeviceClear');
+    const filterDeviceClear = this.filterModalEl.querySelector('#filterDeviceClear');
     filterDeviceClear?.addEventListener('click', () => {
       if (filterDeviceSearch) {
         filterDeviceSearch.value = '';
@@ -261,7 +271,7 @@ export class TelemetryGridShoppingView {
     });
 
     // Sort mode
-    const sortRadios = this.root.querySelectorAll('input[name="sortMode"]');
+    const sortRadios = this.filterModalEl.querySelectorAll('input[name="sortMode"]');
     sortRadios.forEach((radio) => {
       radio.addEventListener('change', (e) => {
         const mode = (e.target as HTMLInputElement).value as SortMode;
@@ -270,7 +280,7 @@ export class TelemetryGridShoppingView {
     });
 
     // Apply filters
-    const applyFilters = this.root.querySelector('#applyFilters');
+    const applyFilters = this.filterModalEl.querySelector('#applyFilters');
     applyFilters?.addEventListener('click', () => {
       this.applySelectedFilters();
       this.closeFilterModal();
@@ -279,7 +289,7 @@ export class TelemetryGridShoppingView {
     });
 
     // Reset filters
-    const resetFilters = this.root.querySelector('#resetFilters');
+    const resetFilters = this.filterModalEl.querySelector('#resetFilters');
     resetFilters?.addEventListener('click', () => {
       this.controller.clearFilters();
       this.closeFilterModal();
@@ -322,12 +332,22 @@ export class TelemetryGridShoppingView {
   }
 
   private populateDeviceChecklist(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
-    if (!checklist) return;
+    // Modal is moved to body, so query from filterModalEl instead of root
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
+    if (!checklist) {
+      this.log('deviceChecklist not found in filterModalEl');
+      return;
+    }
 
     const devices = this.controller.getDevices();
+    this.log('populateDeviceChecklist: found', devices.length, 'devices');
     const filterState = this.controller.getFilterState();
     const selectedIds = new Set(filterState.selectedDeviceIds);
+
+    if (devices.length === 0) {
+      checklist.innerHTML = '<div class="empty-checklist">Nenhum dispositivo disponível</div>';
+      return;
+    }
 
     checklist.innerHTML = devices
       .map((d) => {
@@ -351,7 +371,7 @@ export class TelemetryGridShoppingView {
   }
 
   private filterDeviceChecklist(term: string): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     if (!checklist) return;
 
     const items = checklist.querySelectorAll('.check-item');
@@ -364,7 +384,7 @@ export class TelemetryGridShoppingView {
   }
 
   private selectAllDevices(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     checklist?.querySelectorAll('.check-item').forEach((item) => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       if (checkbox && (item as HTMLElement).style.display !== 'none') {
@@ -375,7 +395,7 @@ export class TelemetryGridShoppingView {
   }
 
   private clearAllDevices(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     checklist?.querySelectorAll('.check-item').forEach((item) => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       if (checkbox) {
@@ -386,7 +406,7 @@ export class TelemetryGridShoppingView {
   }
 
   private applySelectedFilters(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     if (!checklist) return;
 
     const selectedIds: string[] = [];

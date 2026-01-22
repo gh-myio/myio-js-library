@@ -553,7 +553,7 @@ function createComponents() {
   if (menuContainer && lib.createMenuShoppingComponent) {
     _menuInstance = lib.createMenuShoppingComponent({
       container: menuContainer,
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       configTemplate: { initialDomain: 'energy' },
       onTabChange: (domain, tabId) => {
         LogHelper.log('Tab changed:', domain);
@@ -562,7 +562,7 @@ function createComponents() {
       },
       onToggleCollapse: handleMenuCollapse,
     });
-    LogHelper.log('Menu created');
+    LogHelper.log('Menu created with theme:', _currentThemeMode);
   }
 
   // Create Header
@@ -570,7 +570,7 @@ function createComponents() {
   if (headerContainer && lib.createHeaderShoppingComponent) {
     _headerInstance = lib.createHeaderShoppingComponent({
       container: headerContainer,
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       credentials: _credentials,
       configTemplate: { timezone: 'America/Sao_Paulo' },
       onLoad: (period) => {
@@ -578,7 +578,7 @@ function createComponents() {
         window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period } }));
       },
     });
-    LogHelper.log('Header created');
+    LogHelper.log('Header created with theme:', _currentThemeMode);
   }
 
   // Create Energy grids (3 groups)
@@ -595,11 +595,11 @@ function createComponents() {
   if (footerContainer && lib.createFooterComponent) {
     _footerInstance = lib.createFooterComponent({
       container: footerContainer,
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       customerTbId,
       credentials: _credentials,
     });
-    LogHelper.log('Footer created');
+    LogHelper.log('Footer created with theme:', _currentThemeMode);
   }
 }
 
@@ -615,7 +615,7 @@ function createEnergyGrids(lib) {
       domain: 'energy',
       context: 'entrada',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Entrada',
       debugActive: DEBUG_ACTIVE,
     });
@@ -630,7 +630,7 @@ function createEnergyGrids(lib) {
       domain: 'energy',
       context: 'equipments',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Área Comum',
       debugActive: DEBUG_ACTIVE,
     });
@@ -645,7 +645,7 @@ function createEnergyGrids(lib) {
       domain: 'energy',
       context: 'stores',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Lojas',
       debugActive: DEBUG_ACTIVE,
     });
@@ -658,7 +658,7 @@ function createEnergyGrids(lib) {
     _energyInfoInstance = lib.createTelemetryInfoShoppingComponent({
       container: infoContainer,
       domain: 'energy',
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       showChart: true,
       showExpandButton: true,
       debugActive: DEBUG_ACTIVE,
@@ -679,7 +679,7 @@ function createWaterGrids(lib) {
       domain: 'water',
       context: 'hidrometro_entrada',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Entrada',
       debugActive: DEBUG_ACTIVE,
     });
@@ -694,7 +694,7 @@ function createWaterGrids(lib) {
       domain: 'water',
       context: 'hidrometro_area_comum',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Área Comum',
       debugActive: DEBUG_ACTIVE,
     });
@@ -709,7 +709,7 @@ function createWaterGrids(lib) {
       domain: 'water',
       context: 'hidrometro',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Lojas',
       debugActive: DEBUG_ACTIVE,
     });
@@ -722,7 +722,7 @@ function createWaterGrids(lib) {
     _waterInfoInstance = lib.createTelemetryInfoShoppingComponent({
       container: infoContainer,
       domain: 'water',
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       showChart: true,
       showExpandButton: true,
       debugActive: DEBUG_ACTIVE,
@@ -742,7 +742,7 @@ function createTemperatureGrids(lib) {
       domain: 'temperature',
       context: 'termostato',
       devices: [],
-      themeMode: 'dark',
+      themeMode: _currentThemeMode,
       labelWidget: 'Termostatos',
       debugActive: DEBUG_ACTIVE,
     });
@@ -927,6 +927,7 @@ self.onInit = async function () {
   // Apply initial theme and background
   _currentThemeMode = settings.defaultThemeMode || 'light';
   window.MyIOUtils.currentTheme = _currentThemeMode;
+  LogHelper.log('Initial theme mode from settings:', _currentThemeMode, '(settings.defaultThemeMode:', settings.defaultThemeMode, ')');
   applyBackgroundToPage(_currentThemeMode, settings);
 
   // Detect SuperAdmin

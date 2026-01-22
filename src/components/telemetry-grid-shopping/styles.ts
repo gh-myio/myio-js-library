@@ -678,6 +678,17 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   text-overflow: ellipsis;
 }
 
+/* Empty checklist message */
+.shops-modal .empty-checklist {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  font: 500 14px/1.4 var(--font-ui);
+  color: var(--ink-2);
+  text-align: center;
+}
+
 /* Buttons */
 .shops-root .btn,
 .shops-root .tiny-btn {
