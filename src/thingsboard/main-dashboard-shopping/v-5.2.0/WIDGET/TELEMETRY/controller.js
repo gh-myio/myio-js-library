@@ -758,12 +758,15 @@ let MyIO = null;
 // RFC-0106: Map labelWidget to window.STATE group
 // lojas = 'Lojas'
 // entrada = 'Entrada'
+// ocultos = 'Ocultos' (RFC-0142: archived/inactive devices)
 // areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
 function mapLabelWidgetToStateGroup(labelWidget) {
   if (!labelWidget) return null;
   const lw = labelWidget.toLowerCase().trim();
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
+  // RFC-0142: Ocultos group for archived/inactive devices - should NOT be displayed
+  if (lw === 'ocultos') return 'ocultos';
   // RFC-0107: Add caixadagua for water tanks
   if (lw === "caixa d'água" || lw === 'caixadagua' || lw === 'caixa dagua') return 'caixadagua';
   // Everything else maps to areacomum
@@ -2595,12 +2598,17 @@ function bindModal() {
 
 /**
  * RFC-0130: Robust widget registration
+ * RFC-0136: Enhanced with widget:ready event for late-arriving widgets
  */
 function registerWithOrchestrator() {
   const widgetId =
     self.ctx.widget?.id || `telemetry-${WIDGET_DOMAIN}-${Math.random().toString(36).slice(2, 7)}`;
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📝 Registering widget ${widgetId}...`);
+  const labelWidget = self.ctx.settings?.labelWidget || '';
+  LogHelper.log(
+    `[TELEMETRY ${WIDGET_DOMAIN}] 📝 Registering widget ${widgetId} (labelWidget: ${labelWidget})...`
+  );
 
+  // Step 1: Register with orchestrator
   window.dispatchEvent(
     new CustomEvent('myio:widget:register', {
       detail: {
@@ -2609,6 +2617,20 @@ function registerWithOrchestrator() {
       },
     })
   );
+
+  // Step 2: RFC-0136 - Signal that widget is ready to receive data
+  // This triggers MAIN_VIEW to re-emit provide-data if cached data exists
+  window.dispatchEvent(
+    new CustomEvent('myio:widget:ready', {
+      detail: {
+        widgetId: widgetId,
+        domain: WIDGET_DOMAIN,
+        labelWidget: labelWidget,
+        timestamp: Date.now(),
+      },
+    })
+  );
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 RFC-0136: Emitted widget:ready for ${widgetId}`);
 }
 
 function syncChecklistSelectionVisual() {
@@ -3936,13 +3958,30 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
-  // Check for stored data from orchestrator (in case we missed the event)
-  setTimeout(() => {
-    // RFC-0053: Direct access to orchestrator data (single window context)
+  // RFC-0136: Intelligent retry with backoff for late-arriving widgets
+  // Instead of single 500ms timeout, use multiple retries with increasing delays
+  const RETRY_INTERVALS = [500, 1000, 2000, 3000, 4000, 5000]; // Backoff: 500ms, 1s, 2s
+  let retryIndex = 0;
+  let dataLoadedSuccessfully = false;
+
+  /**
+   * RFC-0136: Check for stored data and attempt to load
+   * Returns true if data was successfully loaded, false otherwise
+   */
+  function attemptDataLoad(attemptNumber) {
+    if (dataLoadedSuccessfully || (STATE.itemsBase && STATE.itemsBase.length > 0)) {
+      LogHelper.log(
+        `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0136: Data already loaded, skipping retry #${attemptNumber}`
+      );
+      return true;
+    }
+
     const orchestratorData = window.MyIOOrchestratorData;
     const currentCustomerId = window.MyIOUtils?.customerTB_ID;
 
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`);
+    LogHelper.log(
+      `[TELEMETRY ${WIDGET_DOMAIN}] 🔍 RFC-0136: Retry #${attemptNumber} - Checking for stored orchestrator data...`
+    );
 
     // First, try stored data
     if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
@@ -3957,84 +3996,116 @@ self.onInit = async function () {
           `[TELEMETRY ${WIDGET_DOMAIN}] 🚫 Stored data customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`
         );
         delete window.MyIOOrchestratorData[WIDGET_DOMAIN];
-      } else {
-        LogHelper.log(
-          `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
-            storedData.items?.length || 0
-          } items, age: ${age}ms`
-        );
+        return false;
+      }
 
-        // Use stored data if it's less than 30 seconds old AND has items
-        if (age < 30000 && storedData.items && storedData.items.length > 0) {
-          LogHelper.log(
-            `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`
-          );
-          dataProvideHandler({
-            detail: {
-              domain: WIDGET_DOMAIN,
-              periodKey: storedData.periodKey,
-              items: storedData.items,
-            },
-          });
-          return;
-        } else {
-          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
-        }
+      LogHelper.log(
+        `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
+          storedData.items?.length || 0
+        } items, age: ${age}ms`
+      );
+
+      // Use stored data if it's less than 60 seconds old AND has items
+      // RFC-0136: Increased from 30s to 60s to better handle tab switching
+      if (age < 60000 && storedData.items && storedData.items.length > 0) {
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0136: Using stored orchestrator data (retry #${attemptNumber})`
+        );
+        dataProvideHandler({
+          detail: {
+            domain: WIDGET_DOMAIN,
+            periodKey: storedData.periodKey,
+            items: storedData.items,
+          },
+        });
+        dataLoadedSuccessfully = true;
+        return true;
+      } else {
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
       }
     } else {
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
     }
 
-    // If no stored data AND we haven't requested yet, request fresh data
-    if (!hasRequestedInitialData) {
-      // For temperature domain, use hydrateAndRender directly (no orchestrator needed)
-      // RFC-0130: Pre-check cache immediately if we have dates
-      const orchestratorData = window.MyIOOrchestratorData;
-      const currentCustomerId = window.MyIOUtils?.customerTB_ID;
+    // RFC-0136: Also check window.STATE directly as additional fallback
+    if (window.STATE?.isReady && window.STATE.isReady(WIDGET_DOMAIN)) {
+      const myLabelWidget = self.ctx.settings?.labelWidget || '';
+      const stateItems = getItemsFromState(WIDGET_DOMAIN, myLabelWidget);
 
-      if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
-        const storedData = orchestratorData[WIDGET_DOMAIN];
-        const age = Date.now() - storedData.timestamp;
+      if (stateItems && stateItems.length > 0) {
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0136: Found ${stateItems.length} items directly in window.STATE (retry #${attemptNumber})`
+        );
+        // Build a synthetic provide-data event from STATE
+        const periodKey = `${currentCustomerId || 'unknown'}:${WIDGET_DOMAIN}:state-fallback`;
+        dataProvideHandler({
+          detail: {
+            domain: WIDGET_DOMAIN,
+            periodKey: periodKey,
+            items: stateItems,
+          },
+        });
+        dataLoadedSuccessfully = true;
+        return true;
+      }
+    }
 
-        // Validate customer match
-        const cachedPeriodKey = storedData.periodKey || '';
-        const cachedCustomerId = cachedPeriodKey.split(':')[0];
+    return false;
+  }
 
-        if (
-          (!currentCustomerId || cachedCustomerId === currentCustomerId) &&
-          age < 60000 &&
-          storedData.items?.length > 0
-        ) {
+  /**
+   * RFC-0136: Execute retry with backoff
+   */
+  function executeRetryWithBackoff() {
+    if (retryIndex >= RETRY_INTERVALS.length) {
+      LogHelper.warn(
+        `[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ RFC-0136: All ${RETRY_INTERVALS.length} retries exhausted, requesting fresh data...`
+      );
+
+      // Final fallback: request fresh data if we still have nothing
+      if (!hasRequestedInitialData && !dataLoadedSuccessfully) {
+        if (WIDGET_DOMAIN === 'temperature') {
           LogHelper.log(
-            `[TELEMETRY ${WIDGET_DOMAIN}] 🚀 Initial load from fresh cache (${Math.round(age / 1000)}s)`
+            `[TELEMETRY ${WIDGET_DOMAIN}] 📡 Temperature domain - calling hydrateAndRender directly...`
           );
-          dataProvideHandler({
-            detail: {
-              domain: WIDGET_DOMAIN,
-              periodKey: storedData.periodKey,
-              items: storedData.items,
-            },
-          });
           hasRequestedInitialData = true;
+          hydrateAndRender();
+        } else {
+          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
+          requestDataFromOrchestrator();
         }
       }
-
-      if (WIDGET_DOMAIN === 'temperature') {
-        LogHelper.log(
-          `[TELEMETRY ${WIDGET_DOMAIN}] 📡 Temperature domain - calling hydrateAndRender directly...`
-        );
-        hasRequestedInitialData = true;
-        hydrateAndRender();
-      } else {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
-        requestDataFromOrchestrator();
-      }
-    } else {
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`
-      );
+      return;
     }
-  }, 500); // Wait 500ms for widget to fully initialize
+
+    const delay = RETRY_INTERVALS[retryIndex];
+    const attemptNumber = retryIndex + 1;
+
+    setTimeout(() => {
+      // Check if data was loaded by another mechanism (e.g., widget:ready re-emit)
+      if (dataLoadedSuccessfully || (STATE.itemsBase && STATE.itemsBase.length > 0)) {
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0136: Data loaded externally, canceling remaining retries`
+        );
+        return;
+      }
+
+      const success = attemptDataLoad(attemptNumber);
+
+      if (!success) {
+        retryIndex++;
+        executeRetryWithBackoff();
+      }
+    }, delay);
+  }
+
+  // Start the retry mechanism
+  LogHelper.log(
+    `[TELEMETRY ${WIDGET_DOMAIN}] 🔄 RFC-0136: Starting intelligent retry with backoff [${RETRY_INTERVALS.join(
+      'ms, '
+    )}ms]`
+  );
+  executeRetryWithBackoff();
 
   // Auth do cliente/ingestion
   // RFC-0091: Use shared customerTB_ID from MAIN widget via window.MyIOUtils

@@ -12,22 +12,25 @@ export class SettingsController {
   constructor(params: OpenDashboardPopupSettingsParams) {
     this.params = params;
     this.validateParams();
-    
+
     // Initialize dependencies with injection support
     // RFC-0086: Pass deviceType, deviceProfile, and mapInstantaneousPower to persister for JSON structure
     const apiConfigWithDeviceInfo = {
       ...params.api,
       deviceType: params.deviceType,
       deviceProfile: params.deviceProfile, // RFC-0086: For 3F_MEDIDOR → deviceProfile resolution
-      mapInstantaneousPower: params.mapInstantaneousPower
+      mapInstantaneousPower: params.mapInstantaneousPower,
     };
-    this.persister = params.persister as DefaultSettingsPersister || new DefaultSettingsPersister(params.jwtToken, apiConfigWithDeviceInfo);
-    this.fetcher = params.fetcher as DefaultSettingsFetcher || new DefaultSettingsFetcher(params.jwtToken, params.api);
-    
+    this.persister =
+      (params.persister as DefaultSettingsPersister) ||
+      new DefaultSettingsPersister(params.jwtToken, apiConfigWithDeviceInfo);
+    this.fetcher =
+      (params.fetcher as DefaultSettingsFetcher) || new DefaultSettingsFetcher(params.jwtToken, params.api);
+
     // Initialize view
     this.view = new SettingsModalView({
       title: params.ui?.title || `Settings - ${params.label || params.deviceId}`,
-      width: params.ui?.width || 780,
+      width: params.ui?.width || 1300,
       theme: 'light', // Default theme
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
       domain: params.domain || 'energy',
@@ -44,7 +47,7 @@ export class SettingsController {
       onSave: this.handleSave.bind(this),
       onClose: this.handleClose.bind(this),
       mapInstantaneousPower: params.mapInstantaneousPower, // RFC-0077: Pass instantaneous power map for Power Limits feature,
-      deviceMapInstaneousPower: params.deviceMapInstaneousPower
+      deviceMapInstaneousPower: params.deviceMapInstaneousPower,
     });
   }
 
@@ -52,7 +55,7 @@ export class SettingsController {
     console.info('[SettingsModal] Opening modal', {
       deviceId: this.params.deviceId,
       deviceType: this.params.deviceType,
-      deviceProfile: this.params.deviceProfile
+      deviceProfile: this.params.deviceProfile,
     });
 
     this.emitEvent('modal_opened');
@@ -70,7 +73,7 @@ export class SettingsController {
             ...this.params.api,
             deviceType: this.params.deviceType,
             deviceProfile: this.params.deviceProfile, // RFC-0086: For 3F_MEDIDOR → deviceProfile resolution
-            mapInstantaneousPower: globalMap
+            mapInstantaneousPower: globalMap,
           });
 
           // RFC-0080: Update view config with GLOBAL mapInstantaneousPower
@@ -96,7 +99,6 @@ export class SettingsController {
 
         // Sanitize the data
         initialData = DefaultSettingsFetcher.sanitizeFetchedData(initialData);
-
       } catch (error) {
         console.warn('[SettingsModal] Failed to fetch current settings:', error);
         // Continue with empty form or seed data
@@ -104,7 +106,7 @@ export class SettingsController {
           this.params.onError({
             code: 'NETWORK_ERROR',
             message: 'Failed to load current settings',
-            cause: error
+            cause: error,
           });
         }
       }
@@ -138,9 +140,9 @@ export class SettingsController {
       const response = await fetch(url, {
         headers: {
           'X-Authorization': `Bearer ${jwtToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -157,9 +159,8 @@ export class SettingsController {
         return null;
       }
 
-      const value = typeof powerLimitsAttr.value === 'string'
-        ? JSON.parse(powerLimitsAttr.value)
-        : powerLimitsAttr.value;
+      const value =
+        typeof powerLimitsAttr.value === 'string' ? JSON.parse(powerLimitsAttr.value) : powerLimitsAttr.value;
 
       console.log('[SettingsModal] RFC-0080: Loaded GLOBAL mapInstantaneousPower:', value);
       return value;
@@ -181,7 +182,7 @@ export class SettingsController {
 
   private async handleSave(formData: Record<string, any>): Promise<void> {
     console.info('[SettingsModal] Save initiated', { deviceId: this.params.deviceId, formData });
-    
+
     this.emitEvent('save_started', { formData });
     this.view.showLoadingState(true);
 
@@ -191,43 +192,42 @@ export class SettingsController {
       if (result.ok) {
         console.info('[SettingsModal] Settings saved successfully', result);
         this.emitEvent('save_completed', { result });
-        
+
         if (this.params.onSaved) {
           this.params.onSaved(result);
         }
-        
+
         // Close modal on successful save
         setTimeout(() => {
           this.view.close();
         }, 500); // Brief delay to show success state
-        
       } else {
         console.error('[SettingsModal] Save failed:', result);
         this.emitEvent('save_failed', { result });
-        
+
         const errorMessage = this.getErrorMessage(result);
         this.view.showError(errorMessage);
-        
+
         if (this.params.onError) {
           this.params.onError({
             code: 'VALIDATION_ERROR',
             message: errorMessage,
-            cause: result
+            cause: result,
           });
         }
       }
     } catch (error) {
       console.error('[SettingsModal] Save error:', error);
       this.emitEvent('save_failed', { error: error.message });
-      
+
       const errorMessage = 'Network error occurred while saving settings';
       this.view.showError(errorMessage);
-      
+
       if (this.params.onError) {
         this.params.onError({
           code: 'NETWORK_ERROR',
           message: errorMessage,
-          cause: error
+          cause: error,
         });
       }
     } finally {
@@ -236,29 +236,28 @@ export class SettingsController {
   }
 
   private async saveSettings(formData: Record<string, any>): Promise<PersistResult> {
-    const result: PersistResult = { 
+    const result: PersistResult = {
       ok: true,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // 1. Update device label if provided
     if (formData.label) {
       try {
-        const labelResult = await this.persister.saveEntityLabel(
-          this.params.deviceId,
-          formData.label
-        );
-        
+        const labelResult = await this.persister.saveEntityLabel(this.params.deviceId, formData.label);
+
         result.entity = {
           ok: labelResult.ok,
           updated: labelResult.ok ? ['label'] : undefined,
-          error: labelResult.error ? {
-            code: labelResult.error.code,
-            message: labelResult.error.message,
-            cause: labelResult.error.cause
-          } : undefined
+          error: labelResult.error
+            ? {
+                code: labelResult.error.code,
+                message: labelResult.error.message,
+                cause: labelResult.error.cause,
+              }
+            : undefined,
         };
-        
+
         if (!labelResult.ok) {
           result.ok = false;
         }
@@ -268,8 +267,8 @@ export class SettingsController {
           error: {
             code: 'UNKNOWN_ERROR',
             message: error.message || 'Failed to save device label',
-            cause: error
-          }
+            cause: error,
+          },
         };
         result.ok = false;
       }
@@ -283,17 +282,19 @@ export class SettingsController {
           this.params.deviceId,
           attributes
         );
-        
+
         result.serverScope = {
           ok: attributesResult.ok,
           updatedKeys: attributesResult.updatedKeys,
-          error: attributesResult.error ? {
-            code: attributesResult.error.code,
-            message: attributesResult.error.message,
-            cause: attributesResult.error.cause
-          } : undefined
+          error: attributesResult.error
+            ? {
+                code: attributesResult.error.code,
+                message: attributesResult.error.message,
+                cause: attributesResult.error.cause,
+              }
+            : undefined,
         };
-        
+
         if (!attributesResult.ok) {
           result.ok = false;
         }
@@ -303,8 +304,8 @@ export class SettingsController {
           error: {
             code: 'UNKNOWN_ERROR',
             message: error.message || 'Failed to save device attributes',
-            cause: error
-          }
+            cause: error,
+          },
         };
         result.ok = false;
       }
@@ -315,31 +316,29 @@ export class SettingsController {
 
   private extractAttributes(formData: Record<string, any>): Record<string, unknown> {
     const attributes: Record<string, unknown> = {};
-    
+
     // All fields except label go to attributes
     for (const [key, value] of Object.entries(formData)) {
       if (key !== 'label' && value !== undefined && value !== null && value !== '') {
         attributes[key] = value;
       }
     }
-    
+
     return attributes;
   }
 
   private getErrorMessage(result: PersistResult): string {
     const errors: string[] = [];
-    
+
     if (result.entity?.error) {
       errors.push(`Device label: ${result.entity.error.message}`);
     }
-    
+
     if (result.serverScope?.error) {
       errors.push(`Settings: ${result.serverScope.error.message}`);
     }
-    
-    return errors.length > 0 
-      ? errors.join('; ')
-      : 'Failed to save settings';
+
+    return errors.length > 0 ? errors.join('; ') : 'Failed to save settings';
   }
 
   private handleClose(): void {
@@ -360,9 +359,9 @@ export class SettingsController {
         type,
         deviceId: this.params.deviceId,
         timestamp: new Date().toISOString(),
-        data
+        data,
       };
-      
+
       try {
         this.params.onEvent(event);
       } catch (error) {
@@ -386,7 +385,16 @@ export class SettingsController {
     }
 
     // Numeric validation
-    const numericFields = ['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh', 'minTemperature', 'maxTemperature', 'offSetTemperature', 'minWaterLevel', 'maxWaterLevel'];
+    const numericFields = [
+      'maxDailyKwh',
+      'maxNightKwh',
+      'maxBusinessKwh',
+      'minTemperature',
+      'maxTemperature',
+      'offSetTemperature',
+      'minWaterLevel',
+      'maxWaterLevel',
+    ];
     for (const field of numericFields) {
       if (formData[field] !== undefined) {
         const num = Number(formData[field]);
@@ -442,7 +450,7 @@ export class SettingsController {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 

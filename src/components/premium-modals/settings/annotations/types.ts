@@ -10,7 +10,8 @@
 export type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
 export type ImportanceLevel = 1 | 2 | 3 | 4 | 5;
 export type AnnotationStatus = 'created' | 'modified' | 'archived';
-export type AuditAction = 'created' | 'modified' | 'archived' | 'acknowledged';
+export type AuditAction = 'created' | 'modified' | 'archived' | 'approved' | 'rejected' | 'commented' | 'acknowledged';
+export type ResponseType = 'approved' | 'rejected' | 'comment' | 'archived';
 
 // ============================================
 // USER INFO
@@ -37,6 +38,19 @@ export interface AuditEntry {
 }
 
 // ============================================
+// ANNOTATION RESPONSE (Approve/Reject)
+// ============================================
+
+export interface AnnotationResponse {
+  id: string; // UUID v4
+  annotationId: string; // Parent annotation ID
+  type: ResponseType; // 'approved' | 'rejected'
+  text: string; // Max 255 characters (optional for approved, required for rejected)
+  createdAt: string; // ISO 8601 timestamp
+  createdBy: UserInfo;
+}
+
+// ============================================
 // ANNOTATION
 // ============================================
 
@@ -57,10 +71,13 @@ export interface Annotation {
   // User Attribution
   createdBy: UserInfo;
 
-  // Acknowledgment
+  // Acknowledgment (legacy - use responses instead)
   acknowledged: boolean;
   acknowledgedBy?: UserInfo;
   acknowledgedAt?: string;
+
+  // Responses (approve/reject with text)
+  responses: AnnotationResponse[];
 
   // Audit Trail
   history: AuditEntry[];
@@ -264,4 +281,36 @@ export const STATUS_COLORS: Record<AnnotationStatus, string> = {
   created: '#4CAF50', // Green
   modified: '#FF9800', // Orange
   archived: '#9E9E9E', // Gray
+};
+
+// ============================================
+// RESPONSE TYPE LABELS & COLORS
+// ============================================
+
+export const RESPONSE_TYPE_LABELS: Record<ResponseType, string> = {
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+  comment: 'Comentário',
+  archived: 'Arquivado',
+};
+
+export const RESPONSE_TYPE_LABELS_EN: Record<ResponseType, string> = {
+  approved: 'Approved',
+  rejected: 'Rejected',
+  comment: 'Comment',
+  archived: 'Archived',
+};
+
+export const RESPONSE_TYPE_COLORS: Record<ResponseType, string> = {
+  approved: '#10B981', // Green
+  rejected: '#EF4444', // Red
+  comment: '#0284C7', // Blue
+  archived: '#6B7280', // Gray
+};
+
+export const RESPONSE_TYPE_ICONS: Record<ResponseType, string> = {
+  approved: '✓',
+  rejected: '✗',
+  comment: '💬',
+  archived: '⬇️',
 };

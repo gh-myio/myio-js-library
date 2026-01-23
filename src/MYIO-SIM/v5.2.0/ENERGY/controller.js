@@ -20,7 +20,13 @@ const $id = (id) => window.MyIOUtils?.$id?.(self.ctx, id) || document.getElement
 // RFC-0131: Cleanup functions registry
 let cleanupFns = [];
 function cleanupAll() {
-  cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+  cleanupFns.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      /* ignore */
+    }
+  });
   cleanupFns = [];
 }
 
@@ -66,8 +72,10 @@ const CHART_CACHE_TTL = 60 * 1000; // 1 minute cache TTL
 function renderTotalConsumptionStoresUI(energyData, valueEl, trendEl, infoEl) {
   if (!energyData) return;
 
-  const totalGeral = energyData.customerTotal;
-  const lojasTotal = energyData.difference; // Lojas = customerTotal - equipmentsTotal
+  const totalGeral = energyData.customerTotal || 0;
+  // RFC-0131: Use lojasTotal directly from summary (MAIN provides this field)
+  // Fallback to difference calculation if lojasTotal not provided
+  const lojasTotal = energyData.lojasTotal ?? totalGeral - (energyData.equipmentsTotal || 0);
 
   const lojasPercentage = totalGeral > 0 ? (lojasTotal / totalGeral) * 100 : 0;
   const lojasFormatted = MyIOLibrary.formatEnergy(lojasTotal);
@@ -355,6 +363,20 @@ async function openFullscreenModal() {
     LogHelper.log('[ENERGY] [RFC-0098] Using cached data for modal (instant display)');
   }
 
+  // RFC-0098: Get current state from chart widget (preserves user's chart type/viz mode selection)
+  const currentState = consumptionChartInstance?.getState?.() || {};
+  const effectiveChartType = currentState.chartType || chartConfig.chartType || 'line';
+  const effectiveVizMode = currentState.vizMode || chartConfig.vizMode || 'total';
+  const effectivePeriod = currentState.period || chartConfig.period || 7;
+  const effectiveTheme = currentState.theme || 'light';
+
+  LogHelper.log('[ENERGY] [RFC-0098] Modal will use state:', {
+    chartType: effectiveChartType,
+    vizMode: effectiveVizMode,
+    period: effectivePeriod,
+    theme: effectiveTheme,
+  });
+
   fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
     domain: 'energy',
     title: 'Consumo de Energia',
@@ -362,17 +384,34 @@ async function openFullscreenModal() {
     unitLarge: 'MWh',
     thresholdForLargeUnit: 1000,
     decimalPlaces: 1,
-    defaultPeriod: chartConfig.period || 7,
-    defaultChartType: chartConfig.chartType || 'line',
-    defaultVizMode: chartConfig.vizMode || 'total',
-    theme: 'light',
+    defaultPeriod: effectivePeriod,
+    defaultChartType: effectiveChartType,
+    defaultVizMode: effectiveVizMode,
+    theme: effectiveTheme,
     showSettingsButton: false, // Settings configured in widget before maximizing
     fetchData: fetchConsumptionDataAdapter,
     initialData: initialData, // RFC-0098: Pass cached data for instant display
     onClose: () => {
       LogHelper.log('[ENERGY] [RFC-0098] Fullscreen modal closed');
-      fullscreenModalInstance = null;
       isChartFullscreen = false;
+
+      // RFC-0098: Sync state back from modal to main chart (if modal state changed)
+      // This ensures the main chart reflects any changes made in fullscreen
+      // Note: Get modal state BEFORE setting fullscreenModalInstance to null
+      if (consumptionChartInstance && fullscreenModalInstance) {
+        const modalChart = fullscreenModalInstance.getChart?.();
+        const modalState = modalChart?.getState?.();
+        if (modalState) {
+          if (modalState.chartType !== effectiveChartType) {
+            consumptionChartInstance.setChartType?.(modalState.chartType);
+          }
+          if (modalState.vizMode !== effectiveVizMode) {
+            consumptionChartInstance.setVizMode?.(modalState.vizMode);
+          }
+        }
+      }
+
+      fullscreenModalInstance = null;
     },
   });
 
@@ -845,7 +884,7 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
           const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, day.startTs, day.endTs);
           return {
             total: result?.total || 0,
-            byCustomer: result?.byCustomer || {}
+            byCustomer: result?.byCustomer || {},
           };
         } catch (dayError) {
           LogHelper.warn(`[ENERGY] [RFC-0097] Error fetching day ${day.label}:`, dayError);
@@ -874,7 +913,7 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
     LogHelper.error('[ENERGY] Error fetching period consumption:', error);
     return {
       dailyTotals: new Array(dayBoundaries.length).fill(0),
-      byCustomerPerDay: new Array(dayBoundaries.length).fill({})
+      byCustomerPerDay: new Array(dayBoundaries.length).fill({}),
     };
   }
 }
@@ -1040,6 +1079,7 @@ function classifyEquipmentDetailed(device) {
 /**
  * RFC-0130: Calcula distribuição baseada no modo selecionado
  * USA DADOS PRÉ-CATEGORIZADOS DO MAIN (window.STATE.energy)
+ * RFC-0131: Now filters by selected shoppings when filter is active
  * @param {string} mode - Modo de visualização (groups, elevators, escalators, hvac, others, stores)
  * @returns {Object} - Distribuição {label: consumption}
  */
@@ -1055,9 +1095,40 @@ async function calculateDistributionByMode(mode) {
 
     LogHelper.log('[ENERGY] [RFC-0130] Using pre-categorized data from MAIN (window.STATE.energy)');
 
+    // RFC-0131: Get selected shopping IDs for filtering
+    const selectedShoppingIds = window.STATE?.selectedShoppingIds || [];
+    const isFiltered = selectedShoppingIds.length > 0;
+
+    // RFC-0131: Helper to check if item belongs to selected shoppings
+    const itemMatchesFilter = (item) => {
+      if (!isFiltered) return true;
+      const customerId = item.customerId || item.ingestionId || '';
+      const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
+
+      // Check by customerId/ingestionId
+      if (customerId && selectedShoppingIds.includes(customerId)) return true;
+
+      // Check by ownerName against selected shopping names
+      if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+        const selectedNames = window.custumersSelected.map((s) => (s.name || '').toLowerCase());
+        if (ownerName && selectedNames.includes(ownerName)) return true;
+      }
+
+      return false;
+    };
+
     // MAIN provides: lojas, entrada, areacomum
-    const lojasTotal = energyState.lojas?.total || 0;
-    const areacomumItems = energyState.areacomum?.items || [];
+    // RFC-0131: Filter items by selected shoppings
+    const lojasItems = (energyState.lojas?.items || []).filter(itemMatchesFilter);
+    const lojasTotal = lojasItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+    const areacomumItems = (energyState.areacomum?.items || []).filter(itemMatchesFilter);
+
+    if (isFiltered) {
+      LogHelper.log(
+        '[ENERGY] [RFC-0131] Filtering distribution by selected shoppings:',
+        selectedShoppingIds.length
+      );
+    }
 
     LogHelper.log(`[ENERGY] [RFC-0130] Lojas total: ${lojasTotal.toFixed(2)} kWh`);
     LogHelper.log(`[ENERGY] [RFC-0130] Areacomum items: ${areacomumItems.length} devices`);
@@ -1073,7 +1144,7 @@ async function calculateDistributionByMode(mode) {
       };
 
       const deviceCounters = {
-        Lojas: energyState.lojas?.count || 0,
+        Lojas: lojasItems.length, // RFC-0131: Use filtered lojas count
         Elevadores: 0,
         'Escadas Rolantes': 0,
         Climatização: 0,
@@ -1121,8 +1192,7 @@ async function calculateDistributionByMode(mode) {
       const shoppingDistribution = {};
 
       if (equipmentType === 'Lojas') {
-        // Use lojas items from MAIN
-        const lojasItems = energyState.lojas?.items || [];
+        // RFC-0131: Use already filtered lojasItems from above
         lojasItems.forEach((item) => {
           const consumption = Number(item.value) || 0;
           const shoppingName = getShoppingName(item.customerId);
@@ -1158,7 +1228,9 @@ function getShoppingName(customerId) {
 
   // Priority 1: Tentar buscar dos customers carregados
   if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find((c) => c.value === customerId || c.ingestionId === customerId);
+    const shopping = window.custumersSelected.find(
+      (c) => c.value === customerId || c.ingestionId === customerId
+    );
     if (shopping) return shopping.name;
   }
 
@@ -1507,7 +1579,12 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
     ? Array.from(allCustomerIds).filter((custId) => customerIds.includes(custId))
     : Array.from(allCustomerIds);
 
-  LogHelper.log('[ENERGY] [RFC-0130] Customers from API:', allCustomerIds.size, 'filtered to:', filteredCustomerIds.length);
+  LogHelper.log(
+    '[ENERGY] [RFC-0130] Customers from API:',
+    allCustomerIds.size,
+    'filtered to:',
+    filteredCustomerIds.length
+  );
 
   // Initialize shoppingData arrays for each customer (only filtered ones)
   filteredCustomerIds.forEach((custId) => {
@@ -1634,53 +1711,63 @@ self.onInit = async function () {
   initializeTotalConsumptionEquipmentsCard();
 
   // 2. RFC-0131: Register event listeners using addListenerBoth (auto-cleanup)
-  const addListener = window.MyIOUtils?.addListenerBoth || ((ev, handler) => {
-    window.addEventListener(ev, handler);
-    return () => window.removeEventListener(ev, handler);
-  });
+  const addListener =
+    window.MyIOUtils?.addListenerBoth ||
+    ((ev, handler) => {
+      window.addEventListener(ev, handler);
+      return () => window.removeEventListener(ev, handler);
+    });
 
   // Listen for energy summary from orchestrator
-  cleanupFns.push(addListener('myio:energy-summary-ready', async (ev) => {
-    LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
-    updateTotalConsumptionStoresCard(ev.detail);
-    updateTotalConsumptionEquipmentsCard(ev.detail);
+  cleanupFns.push(
+    addListener('myio:energy-summary-ready', async (ev) => {
+      LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
+      updateTotalConsumptionStoresCard(ev.detail);
+      updateTotalConsumptionEquipmentsCard(ev.detail);
 
-    // Refresh distribution chart when energy data is ready
-    if (distributionChartInstance) {
-      try {
-        await distributionChartInstance.refresh();
-      } catch (error) {
-        LogHelper.error('[ENERGY] Error refreshing distribution chart:', error);
+      // Refresh distribution chart when energy data is ready
+      if (distributionChartInstance) {
+        try {
+          await distributionChartInstance.refresh();
+        } catch (error) {
+          LogHelper.error('[ENERGY] Error refreshing distribution chart:', error);
+        }
       }
-    }
-  }));
+    })
+  );
 
   // Listen to shopping filter changes and update charts
-  cleanupFns.push(addListener('myio:filter-applied', async (ev) => {
-    LogHelper.log('[ENERGY] Shopping filter applied, updating charts...', ev.detail);
-    cachedChartData = null;
+  cleanupFns.push(
+    addListener('myio:filter-applied', async (ev) => {
+      LogHelper.log('[ENERGY] Shopping filter applied, updating charts...', ev.detail);
+      cachedChartData = null;
 
-    if (distributionChartInstance) {
-      await distributionChartInstance.refresh();
-    }
-    if (consumptionChartInstance?.refresh) {
-      await consumptionChartInstance.refresh(true);
-    }
-  }));
+      if (distributionChartInstance) {
+        await distributionChartInstance.refresh();
+      }
+      if (consumptionChartInstance?.refresh) {
+        await consumptionChartInstance.refresh(true);
+      }
+    })
+  );
 
   // Listen to equipment metadata enrichment
-  cleanupFns.push(addListener('myio:equipment-metadata-enriched', async (ev) => {
-    LogHelper.log('[ENERGY] Equipment metadata enriched! Refreshing chart...', ev.detail);
-    if (distributionChartInstance) {
-      await distributionChartInstance.refresh();
-    }
-  }));
+  cleanupFns.push(
+    addListener('myio:equipment-metadata-enriched', async (ev) => {
+      LogHelper.log('[ENERGY] Equipment metadata enriched! Refreshing chart...', ev.detail);
+      if (distributionChartInstance) {
+        await distributionChartInstance.refresh();
+      }
+    })
+  );
 
   // Listen for cache clear
-  cleanupFns.push(addListener('myio:telemetry:clear', () => {
-    LogHelper.log('[ENERGY] Cache clear event received.');
-    initializeTotalConsumptionCard();
-  }));
+  cleanupFns.push(
+    addListener('myio:telemetry:clear', () => {
+      LogHelper.log('[ENERGY] Cache clear event received.');
+      initializeTotalConsumptionCard();
+    })
+  );
 
   // RFC-0131: Mark widget as initialized
   energyWidgetInitialized = true;
@@ -1688,10 +1775,15 @@ self.onInit = async function () {
   // 3. RFC-0131: Wait for orchestrator using onOrchestratorReady (no polling)
   const onReady = window.MyIOUtils?.onOrchestratorReady;
   if (onReady) {
-    cleanupFns.push(onReady((orch) => {
-      LogHelper.log('[ENERGY] [RFC-0131] Orchestrator ready, requesting summary...');
-      orch.requestSummary?.();
-    }, { timeoutMs: 10000 }));
+    cleanupFns.push(
+      onReady(
+        (orch) => {
+          LogHelper.log('[ENERGY] [RFC-0131] Orchestrator ready, requesting summary...');
+          orch.requestSummary?.();
+        },
+        { timeoutMs: 10000 }
+      )
+    );
   } else {
     // Fallback: simple retry with toast warning
     LogHelper.warn('[ENERGY] MyIOUtils.onOrchestratorReady not available, using fallback');

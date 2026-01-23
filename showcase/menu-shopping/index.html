@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFC-0140: MenuShopping Component Showcase</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --myio-purple: #3e1a7d; --myio-blue: #1989ff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; display: flex; }
+    .menu-area { width: 240px; min-height: 100vh; background: #1a1a2e; border-right: 1px solid #334155; transition: width 0.3s ease; }
+    .menu-area.collapsed { width: 60px; }
+    .main-area { flex: 1; display: flex; flex-direction: column; }
+    .showcase-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px; border-bottom: 1px solid #334155; }
+    .showcase-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; color: #a78bfa; }
+    .showcase-header p { color: #94a3b8; font-size: 14px; }
+    .controls-bar { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 24px; background: #1e293b; border-bottom: 1px solid #334155; }
+    .control-group { display: flex; align-items: center; gap: 8px; }
+    .control-group label { font-size: 12px; color: #94a3b8; font-weight: 500; }
+    .control-group select, .control-group input, .control-group button { padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9; font-size: 13px; cursor: pointer; }
+    .control-group button { background: var(--myio-purple); border-color: var(--myio-purple); }
+    .control-group button.secondary { background: #475569; border-color: #475569; }
+    .content-area { flex: 1; padding: 24px; overflow-y: auto; }
+    .content-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 24px; margin-bottom: 24px; }
+    .content-card h3 { color: #a78bfa; margin-bottom: 16px; font-size: 16px; }
+    .content-card p { color: #94a3b8; line-height: 1.6; }
+    .event-display { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
+    .event-card { background: #0f172a; border-radius: 8px; padding: 16px; border: 1px solid #475569; }
+    .event-card h4 { color: #a78bfa; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; }
+    .event-card .value { font-size: 18px; font-weight: 600; color: #4fc3f7; }
+    .log-panel { position: fixed; bottom: 0; right: 0; width: calc(100% - 240px); height: 200px; background: #1e293b; border-top: 1px solid #334155; display: none; flex-direction: column; z-index: 1000; }
+    .log-panel.visible { display: flex; }
+    .log-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #0f172a; border-bottom: 1px solid #334155; }
+    .log-content { flex: 1; overflow-y: auto; padding: 8px 16px; font-family: Consolas, monospace; font-size: 12px; }
+    .log-entry { padding: 4px 0; border-bottom: 1px solid #334155; }
+    .log-entry.info { color: #60a5fa; }
+    .log-entry.success { color: #22c55e; }
+    .log-entry.warn { color: #fbbf24; }
+    .log-entry.error { color: #ef4444; }
+    .log-time { color: #64748b; margin-right: 8px; }
+    .log-tag { background: #475569; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-size: 10px; }
+    body.light-mode { background: #f8fafc; color: #1e293b; }
+    body.light-mode .menu-area { background: #ffffff; border-color: #e2e8f0; }
+    body.light-mode .showcase-header { background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); border-color: #e2e8f0; }
+    body.light-mode .showcase-header h1 { color: var(--myio-purple); }
+    body.light-mode .controls-bar, body.light-mode .content-card { background: #ffffff; border-color: #e2e8f0; }
+    body.light-mode .control-group select, body.light-mode .control-group input, body.light-mode .control-group button.secondary { background: #f1f5f9; border-color: #cbd5e1; color: #1e293b; }
+  </style>
+</head>
+<body>
+  <aside class="menu-area" id="menuArea"></aside>
+  <main class="main-area">
+    <header class="showcase-header">
+      <h1>RFC-0140: MenuShopping Component</h1>
+      <p>Navigation menu with domain tabs, user info, and settings</p>
+    </header>
+    <div class="controls-bar">
+      <div class="control-group"><label>User Name:</label><input type="text" id="userName" value="Maria Santos" /></div>
+      <div class="control-group"><label>User Email:</label><input type="text" id="userEmail" value="maria@example.com" /></div>
+      <div class="control-group"><label>Admin:</label><select id="adminSelect"><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div class="control-group"><button id="updateUserBtn">Update User</button></div>
+      <div class="control-group"><button id="themeBtn" class="secondary">Toggle Theme</button></div>
+      <div class="control-group"><button id="logBtn" class="secondary">Toggle Log</button></div>
+    </div>
+    <div class="content-area">
+      <div class="content-card">
+        <h3>Current State</h3>
+        <div class="event-display">
+          <div class="event-card"><h4>Active Domain</h4><div class="value" id="currentDomain">energy</div></div>
+          <div class="event-card"><h4>Menu State</h4><div class="value" id="menuState">expanded</div></div>
+          <div class="event-card"><h4>Last Event</h4><div class="value" id="lastEvent">--</div></div>
+        </div>
+      </div>
+      <div class="content-card">
+        <h3>API Methods</h3>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;">
+          <button style="padding: 8px 16px; background: #475569; border: none; border-radius: 6px; color: #fff; cursor: pointer;" onclick="setDomain('energy')">setActiveDomain('energy')</button>
+          <button style="padding: 8px 16px; background: #475569; border: none; border-radius: 6px; color: #fff; cursor: pointer;" onclick="setDomain('water')">setActiveDomain('water')</button>
+          <button style="padding: 8px 16px; background: #475569; border: none; border-radius: 6px; color: #fff; cursor: pointer;" onclick="setDomain('temperature')">setActiveDomain('temperature')</button>
+          <button style="padding: 8px 16px; background: #475569; border: none; border-radius: 6px; color: #fff; cursor: pointer;" onclick="toggleCollapse()">Toggle Collapse</button>
+        </div>
+      </div>
+    </div>
+    <div class="log-panel" id="logPanel">
+      <div class="log-header"><h3>Event Log</h3><button onclick="clearLog()" style="padding: 4px 8px; font-size: 11px">Clear</button></div>
+      <div class="log-content" id="logContent"></div>
+    </div>
+  </main>
+  <script>
+    var localScript = document.createElement('script');
+    localScript.src = '/dist/myio-js-library.umd.js?v=' + Date.now();
+    localScript.onerror = function() {
+      var cdnScript = document.createElement('script');
+      cdnScript.src = 'https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.js';
+      document.head.appendChild(cdnScript);
+    };
+    document.head.appendChild(localScript);
+  </script>
+  <script>
+    function logEvent(tag, message, type) {
+      type = type || 'info';
+      var el = document.getElementById('logContent');
+      var e = document.createElement('div');
+      e.className = 'log-entry ' + type;
+      e.innerHTML = '<span class="log-time">' + new Date().toLocaleTimeString() + '</span><span class="log-tag">' + tag + '</span>' + message;
+      el.appendChild(e);
+      el.scrollTop = el.scrollHeight;
+      console.log('[' + tag + '] ' + message);
+    }
+
+    function clearLog() { document.getElementById('logContent').innerHTML = ''; }
+
+    var menuInstance = null;
+
+    function updateUI(domain, collapsed) {
+      document.getElementById('currentDomain').textContent = domain || '--';
+      document.getElementById('menuState').textContent = collapsed ? 'collapsed' : 'expanded';
+      var m = document.getElementById('menuArea');
+      if (collapsed) m.classList.add('collapsed');
+      else m.classList.remove('collapsed');
+    }
+
+    function setDomain(domain) {
+      if (menuInstance) {
+        menuInstance.setActiveDomain(domain);
+        logEvent('API', "setActiveDomain('" + domain + "')", 'info');
+      }
+    }
+
+    function toggleCollapse() {
+      if (menuInstance) {
+        var c = !menuInstance.isCollapsed();
+        menuInstance.setCollapsed(c);
+        updateUI(menuInstance.getCurrentDomain(), c);
+        logEvent('API', 'setCollapsed(' + c + ')', 'info');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      logEvent('INIT', 'MenuShopping Showcase loaded', 'success');
+      var check = setInterval(function() {
+        if (window.MyIOLibrary && window.MyIOLibrary.createMenuShoppingComponent) {
+          clearInterval(check);
+          initComponent();
+        }
+      }, 100);
+      setTimeout(function() {
+        clearInterval(check);
+        if (!menuInstance) {
+          logEvent('ERROR', 'Library not loaded - using fallback', 'error');
+          initFallback();
+        }
+      }, 5000);
+      document.getElementById('updateUserBtn').addEventListener('click', function() {
+        if (menuInstance) {
+          var u = {
+            name: document.getElementById('userName').value,
+            email: document.getElementById('userEmail').value,
+            isAdmin: document.getElementById('adminSelect').value === 'true'
+          };
+          menuInstance.updateUserInfo(u);
+          logEvent('API', 'updateUserInfo()', 'info');
+        }
+      });
+      document.getElementById('themeBtn').addEventListener('click', function() {
+        document.body.classList.toggle('light-mode');
+        logEvent('THEME', 'Theme toggled', 'info');
+      });
+      document.getElementById('logBtn').addEventListener('click', function() {
+        document.getElementById('logPanel').classList.toggle('visible');
+      });
+    });
+
+    function initComponent() {
+      logEvent('COMPONENT', 'createMenuShoppingComponent found', 'success');
+      try {
+        menuInstance = window.MyIOLibrary.createMenuShoppingComponent({
+          container: document.getElementById('menuArea'),
+          userInfo: {
+            name: document.getElementById('userName').value,
+            email: document.getElementById('userEmail').value,
+            isAdmin: document.getElementById('adminSelect').value === 'true'
+          },
+          configTemplate: { initialDomain: 'energy', collapsed: false },
+          onTabChange: function(domain, tabId) {
+            logEvent('EVENT', 'Tab: ' + domain, 'success');
+            document.getElementById('lastEvent').textContent = 'tab: ' + domain;
+            updateUI(domain, menuInstance.isCollapsed());
+          },
+          onSettingsClick: function() {
+            logEvent('EVENT', 'Settings clicked', 'info');
+            document.getElementById('lastEvent').textContent = 'settings';
+            alert('Settings modal would open');
+          },
+          onShoppingSelectorClick: function() {
+            logEvent('EVENT', 'Shopping selector clicked', 'info');
+            document.getElementById('lastEvent').textContent = 'shopping';
+            alert('Shopping selector would open');
+          },
+          onLogoutClick: function() {
+            logEvent('EVENT', 'Logout clicked', 'warn');
+            document.getElementById('lastEvent').textContent = 'logout';
+            if (confirm('Logout?')) logEvent('ACTION', 'User logged out', 'warn');
+          },
+          onToggleCollapse: function(c) {
+            logEvent('EVENT', 'Collapsed: ' + c, 'info');
+            document.getElementById('lastEvent').textContent = c ? 'collapse' : 'expand';
+            updateUI(menuInstance.getCurrentDomain(), c);
+          }
+        });
+        logEvent('COMPONENT', 'Component created successfully', 'success');
+        updateUI('energy', false);
+      } catch (e) {
+        logEvent('ERROR', 'Failed: ' + e.message, 'error');
+        initFallback();
+      }
+    }
+
+    function initFallback() {
+      document.getElementById('menuArea').innerHTML = '<nav style="display:flex;flex-direction:column;height:100%;background:#1a1a2e;color:#fff;"><div style="padding:16px;border-bottom:1px solid rgba(255,255,255,0.1);"><div style="font-size:18px;color:#4fc3f7;font-weight:600;">MYIO</div></div><div style="padding:16px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;gap:12px;"><div style="width:40px;height:40px;border-radius:50%;background:#4fc3f7;display:flex;align-items:center;justify-content:center;font-weight:600;color:#1a1a2e;">M</div><div><div style="font-size:14px;font-weight:500;">Maria Santos</div><div style="font-size:12px;color:rgba(255,255,255,0.6);">maria@example.com</div></div></div><div style="flex:1;padding:8px 0;"><button style="width:100%;padding:12px 16px;background:rgba(79,195,247,0.15);border:none;border-left:3px solid #4fc3f7;color:#4fc3f7;text-align:left;display:flex;align-items:center;gap:12px;cursor:pointer;"><span class="material-icons">bolt</span><span>Energia</span></button><button style="width:100%;padding:12px 16px;background:none;border:none;border-left:3px solid transparent;color:#fff;text-align:left;display:flex;align-items:center;gap:12px;cursor:pointer;"><span class="material-icons">water_drop</span><span>Agua</span></button><button style="width:100%;padding:12px 16px;background:none;border:none;border-left:3px solid transparent;color:#fff;text-align:left;display:flex;align-items:center;gap:12px;cursor:pointer;"><span class="material-icons">thermostat</span><span>Temperatura</span></button></div><div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,0.1);"><div style="color:rgba(255,255,255,0.4);font-size:11px;text-align:center;">v0.1.333</div></div></nav>';
+      logEvent('FALLBACK', 'Using static fallback', 'warn');
+    }
+
+    window.addEventListener('myio:dashboard-state', function(e) {
+      logEvent('GLOBAL', 'myio:dashboard-state - ' + (e.detail && e.detail.domain), 'info');
+    });
+  </script>
+</body>
+</html>

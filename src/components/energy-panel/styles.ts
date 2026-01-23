@@ -14,25 +14,29 @@ export const ENERGY_PANEL_STYLES = `
     background-color: #1e293b;
   }
 
+  /* ========== CARDS GRID (2 columns, inspired by TELEMETRY_INFO) ========== */
   .energy-panel__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
     margin-bottom: 20px;
   }
 
   .energy-panel__card {
-    background-color: #ffffff;
-    padding: 16px;
-    border-radius: 12px;
+    background-color: #f9fafb;
+    padding: 10px 12px;
+    border-radius: 10px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     border: 1px solid #e2e8f0;
-    transition: box-shadow 0.2s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   }
 
   .energy-panel__card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #3e1a7d;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
   }
 
   .energy-panel-wrap[data-theme="dark"] .energy-panel__card {
@@ -40,13 +44,106 @@ export const ENERGY_PANEL_STYLES = `
     border-color: #475569;
   }
 
-  .energy-panel__card-icon {
-    font-size: 2.5em;
-    margin-right: 16px;
+  .energy-panel-wrap[data-theme="dark"] .energy-panel__card:hover {
+    border-color: #60a5fa;
   }
 
+  /* Card Header: [Icon][Title]...[Tooltip] */
+  .energy-panel__card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .energy-panel__card-icon {
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .energy-panel__card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3e1a7d;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .energy-panel-wrap[data-theme="dark"] .energy-panel__card-title {
+    color: #a78bfa;
+  }
+
+  .energy-panel__card-tooltip {
+    font-size: 11px;
+    color: #00c896;
+    cursor: help;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .energy-panel__card-tooltip:hover {
+    opacity: 1;
+  }
+
+  /* Card Body: [Value]...[Percentage] */
+  .energy-panel__card-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .energy-panel__card-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .energy-panel-wrap[data-theme="dark"] .energy-panel__card-value {
+    color: #f1f5f9;
+  }
+
+  .energy-panel__card-perc {
+    font-size: 11px;
+    font-weight: 500;
+    color: #00c896;
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Card special types */
+  .energy-panel__card[data-type="entrada"] .energy-panel__card-title {
+    color: #059669;
+  }
+  .energy-panel__card[data-type="total"] .energy-panel__card-title {
+    color: #2563eb;
+  }
+  .energy-panel__card[data-type="total"] .energy-panel__card-value {
+    color: #2563eb;
+  }
+
+  .energy-panel-wrap[data-theme="dark"] .energy-panel__card[data-type="entrada"] .energy-panel__card-title {
+    color: #34d399;
+  }
+  .energy-panel-wrap[data-theme="dark"] .energy-panel__card[data-type="total"] .energy-panel__card-title {
+    color: #60a5fa;
+  }
+  .energy-panel-wrap[data-theme="dark"] .energy-panel__card[data-type="total"] .energy-panel__card-value {
+    color: #60a5fa;
+  }
+
+  /* Legacy card styles for backwards compatibility */
   .energy-panel__card-label {
-    font-size: 13px;
+    font-size: 12px;
     color: #64748b;
     font-weight: 500;
   }
@@ -55,23 +152,32 @@ export const ENERGY_PANEL_STYLES = `
     color: #94a3b8;
   }
 
-  .energy-panel__card-value {
-    font-size: 1.6em;
-    font-weight: 700;
-    color: #2563eb;
-  }
-
-  .energy-panel-wrap[data-theme="dark"] .energy-panel__card-value {
-    color: #60a5fa;
-  }
-
   .energy-panel__card-count {
-    font-size: 12px;
+    font-size: 11px;
     color: #94a3b8;
   }
 
   .energy-panel-wrap[data-theme="dark"] .energy-panel__card-count {
     color: #64748b;
+  }
+
+  /* Responsive: Keep 2 columns on mobile */
+  @media (max-width: 480px) {
+    .energy-panel__cards {
+      gap: 8px;
+    }
+    .energy-panel__card {
+      padding: 8px 10px;
+    }
+    .energy-panel__card-title {
+      font-size: 11px;
+    }
+    .energy-panel__card-value {
+      font-size: 13px;
+    }
+    .energy-panel__card-icon {
+      font-size: 14px;
+    }
   }
 
   .energy-panel__chart-section {

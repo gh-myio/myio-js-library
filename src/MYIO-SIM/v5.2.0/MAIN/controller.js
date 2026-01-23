@@ -32,6 +32,7 @@ const LogHelper = {
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
 const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
@@ -279,7 +280,7 @@ Object.assign(window.MyIOUtils, {
       return {};
     }
 
-    const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
+    const url = `${THINGSBOARD_URL}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
 
     try {
       LogHelper.log(`[MyIOUtils] Fetching SERVER_SCOPE attributes for customer: ${customerId}`);
@@ -3708,7 +3709,8 @@ Object.assign(window.MyIOUtils, {
     }
 
     try {
-      const response = await fetch('/api/auth/user', {
+      const urlAuthUserThingsboard = `${THINGSBOARD_URL}/api/auth/user`;
+      const response = await fetch(urlAuthUserThingsboard, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -4036,7 +4038,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: 'https://api.data.apps.myio-bas.com',
+            dataApiHost: DATA_API_HOST,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -4358,7 +4360,7 @@ async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
     return null;
   }
 
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const url = `${THINGSBOARD_URL}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -5318,7 +5320,53 @@ function periodKey(domain, period) {
 
 const MyIOOrchestrator = (() => {
   // ========== PHASE 1: BUSY OVERLAY MANAGEMENT (RFC-0044/RFC-0054) ==========
-  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
+  // RFC-0137: Using LoadingSpinner component instead of custom busy overlay
+  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay'; // Kept for backwards compatibility
+
+  // RFC-0137: LoadingSpinner instance (lazy initialized)
+  let _loadingSpinnerInstance = null;
+
+  /**
+   * RFC-0137: Get or create LoadingSpinner instance
+   * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+   */
+  function getLoadingSpinner() {
+    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+
+    // Try to use new LoadingSpinner from myio-js-library
+    const MyIOLibrary = window.MyIOLibrary;
+    if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
+      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+        minDisplayTime: 800, // Minimum 800ms to avoid flash
+        maxTimeout: 25000, // 25 seconds max (matches existing timeout)
+        message: 'Carregando dados...',
+        spinnerType: 'double',
+        theme: 'dark',
+        showTimer: false, // Set to true for debugging
+        onTimeout: () => {
+          LogHelper.warn('[Orchestrator] RFC-0137: LoadingSpinner max timeout reached');
+          // Emit recovery event for other widgets to handle
+          window.dispatchEvent(
+            new CustomEvent('myio:busy-timeout-recovery', {
+              detail: { domain: globalBusyState.currentDomain, duration: 25000 },
+            })
+          );
+          showRecoveryNotification();
+        },
+        onComplete: () => {
+          LogHelper.log('[Orchestrator] RFC-0137: LoadingSpinner hidden');
+        },
+      });
+      LogHelper.log('[Orchestrator] RFC-0137: LoadingSpinner initialized from MyIOLibrary');
+    } else {
+      LogHelper.warn(
+        '[Orchestrator] RFC-0137: MyIOLibrary.createLoadingSpinner not available, using legacy overlay'
+      );
+    }
+
+    return _loadingSpinnerInstance;
+  }
+
   let globalBusyState = {
     isVisible: false,
     timeoutId: null,
@@ -5327,7 +5375,7 @@ const MyIOOrchestrator = (() => {
     requestCount: 0,
   };
 
-  // RFC-0054: contador por dom�nio e cooldown p�s-provide
+  // RFC-0054: contador por domínio e cooldown pós-provide
   const activeRequests = new Map(); // domain -> count
   const lastProvide = new Map(); // domain -> { periodKey, at }
 
@@ -5747,27 +5795,60 @@ const MyIOOrchestrator = (() => {
     }
   }
 
+  // RFC-0137: Configurable delay before hiding spinner after data is confirmed loaded
+  const SPINNER_HIDE_DELAY_MS = 2000; // 2 seconds delay after data confirmed
+
   // PHASE 1: Centralized busy management with extended timeout
+  // RFC-0137: Now uses LoadingSpinner component from myio-js-library
   function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
-    // RFC-0054: cooldown - n�o reabrir modal se acabou de prover dados
+    // RFC-0054: cooldown - não reabrir modal se acabou de prover dados
     const lp = lastProvide.get(domain);
     if (lp && Date.now() - lp.at < 30000) {
-      LogHelper.log(`[Orchestrator] ?? Cooldown active for ${domain}, skipping showGlobalBusy()`);
+      LogHelper.log(`[Orchestrator] ⏸️ Cooldown active for ${domain}, skipping showGlobalBusy()`);
       return;
     }
     const totalBefore = getActiveTotal();
     const prev = activeRequests.get(domain) || 0;
     activeRequests.set(domain, prev + 1);
     LogHelper.log(
-      `[Orchestrator] ?? Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
+      `[Orchestrator] 📊 Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
     );
 
-    const el = ensureOrchestratorBusyDOM();
-    const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+    // RFC-0137: Try to use new LoadingSpinner component
+    const spinner = getLoadingSpinner();
 
-    if (messageEl) {
-      // Mensagem gen�rica para evitar r�tulo incorreto ao alternar abas
-      messageEl.textContent = 'Carregando dados...';
+    if (spinner) {
+      // Use new LoadingSpinner component
+      if (totalBefore === 0) {
+        globalBusyState.isVisible = true;
+        globalBusyState.currentDomain = domain;
+        globalBusyState.startTime = Date.now();
+        globalBusyState.requestCount++;
+
+        // Show spinner with Portuguese message
+        spinner.show(message || 'Carregando dados...');
+        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner shown for ${domain}`);
+      } else {
+        // Update message if already showing
+        spinner.updateMessage(message || 'Carregando dados...');
+        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner message updated (already showing)`);
+      }
+    } else {
+      // Fallback to legacy busy overlay
+      const el = ensureOrchestratorBusyDOM();
+      const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+
+      if (messageEl) {
+        messageEl.textContent = message || 'Carregando dados...';
+      }
+
+      if (totalBefore === 0) {
+        globalBusyState.isVisible = true;
+        globalBusyState.currentDomain = domain;
+        globalBusyState.startTime = Date.now();
+        globalBusyState.requestCount++;
+        el.style.display = 'flex';
+      }
     }
 
     // Clear existing timeout
@@ -5776,67 +5857,59 @@ const MyIOOrchestrator = (() => {
       globalBusyState.timeoutId = null;
     }
 
-    // Mostrar overlay apenas quando saiu de 0 ? 1
-    if (totalBefore === 0) {
-      globalBusyState.isVisible = true;
-      globalBusyState.currentDomain = domain;
-      globalBusyState.startTime = Date.now();
-      globalBusyState.requestCount++;
-      el.style.display = 'flex';
-    }
-
     // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
-    // This is defined later in the orchestrator initialization
     if (window.MyIOOrchestrator?.widgetBusyMonitor) {
       window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
     }
 
     // PHASE 1: Extended timeout (25s instead of 10s)
-    globalBusyState.timeoutId = setTimeout(() => {
-      LogHelper.warn(`[Orchestrator] ?? BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
+    // Note: LoadingSpinner has its own maxTimeout, this is backup for legacy overlay
+    if (!spinner) {
+      globalBusyState.timeoutId = setTimeout(() => {
+        LogHelper.warn(`[Orchestrator] ⏰ BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
 
-      // Check if still actually busy
-      if (globalBusyState.isVisible && el.style.display !== 'none') {
-        // PHASE 3: Circuit breaker pattern - try graceful recovery
-        try {
-          // Emit recovery event
-          window.dispatchEvent(
-            new CustomEvent('myio:busy-timeout-recovery', {
-              detail: { domain, duration: Date.now() - globalBusyState.startTime },
-            })
-          );
-
-          // Hide busy and show user-friendly message
-          hideGlobalBusy(domain);
-
-          // Non-intrusive notification
-          showRecoveryNotification();
-        } catch (err) {
-          LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
-          hideGlobalBusy(domain);
+        const el = document.getElementById(BUSY_OVERLAY_ID);
+        if (globalBusyState.isVisible && el && el.style.display !== 'none') {
+          try {
+            window.dispatchEvent(
+              new CustomEvent('myio:busy-timeout-recovery', {
+                detail: { domain, duration: Date.now() - globalBusyState.startTime },
+              })
+            );
+            hideGlobalBusy(domain);
+            showRecoveryNotification();
+          } catch (err) {
+            LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
+            hideGlobalBusy(domain);
+          }
         }
-      }
-
-      globalBusyState.timeoutId = null;
-    }, timeoutMs); // 25 seconds (Phase 1 requirement)
+        globalBusyState.timeoutId = null;
+      }, timeoutMs);
+    }
 
     if (totalBefore === 0) {
-      LogHelper.log(`[Orchestrator] ? Global busy shown (domain=${domain})`);
+      LogHelper.log(`[Orchestrator] 🔄 Global busy shown (domain=${domain})`);
     } else {
-      LogHelper.log(`[Orchestrator] ?? Busy already visible (domain=${domain})`);
+      LogHelper.log(`[Orchestrator] ⏳ Busy already visible (domain=${domain})`);
     }
   }
 
-  function hideGlobalBusy(domain = null) {
-    // RFC-0054: decremento por dom�nio; se domain for nulo, for�a limpeza
+  // RFC-0137: Track pending hide timeout for delayed hide
+  let _pendingHideTimeoutId = null;
+
+  function hideGlobalBusy(domain = null, options = {}) {
+    // RFC-0137: Options for controlling hide behavior
+    const { immediate = false, skipDelay = false } = options;
+
+    // RFC-0054: decremento por domínio; se domain for nulo, força limpeza
     if (domain) {
       const prev = activeRequests.get(domain) || 0;
       const next = Math.max(0, prev - 1);
       activeRequests.set(domain, next);
       LogHelper.log(
-        `[Orchestrator] ? hideGlobalBusy(${domain}) -> ${prev}?${next}, total=${getActiveTotal()}`
+        `[Orchestrator] ✅ hideGlobalBusy(${domain}) -> ${prev}→${next}, total=${getActiveTotal()}`
       );
-      if (getActiveTotal() > 0) return; // mant�m overlay enquanto houver ativas
+      if (getActiveTotal() > 0) return; // mantém overlay enquanto houver ativas
     } else {
       activeRequests.clear();
     }
@@ -5846,23 +5919,59 @@ const MyIOOrchestrator = (() => {
       window.MyIOOrchestrator.widgetBusyMonitor.stopAll();
     }
 
-    const el = document.getElementById(BUSY_OVERLAY_ID);
-    if (el) {
-      el.style.display = 'none';
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
     }
 
-    // Clear timeout
-    if (globalBusyState.timeoutId) {
-      clearTimeout(globalBusyState.timeoutId);
-      globalBusyState.timeoutId = null;
+    // RFC-0137: Use LoadingSpinner if available
+    const spinner = getLoadingSpinner();
+
+    // Function to actually perform the hide
+    const performHide = () => {
+      if (spinner && spinner.isShowing()) {
+        spinner.hide();
+        LogHelper.log(`[Orchestrator] ✅ RFC-0137: LoadingSpinner hidden`);
+      }
+
+      // Also hide legacy overlay if exists
+      const el = document.getElementById(BUSY_OVERLAY_ID);
+      if (el) {
+        el.style.display = 'none';
+      }
+
+      // Clear timeout
+      if (globalBusyState.timeoutId) {
+        clearTimeout(globalBusyState.timeoutId);
+        globalBusyState.timeoutId = null;
+      }
+
+      // Update state
+      globalBusyState.isVisible = false;
+      globalBusyState.currentDomain = null;
+      globalBusyState.startTime = null;
+
+      LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
+    };
+
+    // RFC-0137: Apply delay before hiding (unless immediate or skipDelay)
+    if (immediate || skipDelay) {
+      performHide();
+    } else {
+      // Show "Dados carregados!" message briefly before hiding
+      if (spinner && spinner.isShowing()) {
+        spinner.updateMessage('Dados carregados!');
+        LogHelper.log(
+          `[Orchestrator] ✅ RFC-0137: Data confirmed, waiting ${SPINNER_HIDE_DELAY_MS}ms before hiding`
+        );
+      }
+
+      _pendingHideTimeoutId = setTimeout(() => {
+        performHide();
+        _pendingHideTimeoutId = null;
+      }, SPINNER_HIDE_DELAY_MS);
     }
-
-    // Update state
-    globalBusyState.isVisible = false;
-    globalBusyState.currentDomain = null;
-    globalBusyState.startTime = null;
-
-    LogHelper.log(`[Orchestrator] ? Global busy hidden`);
   }
 
   // PHASE 4: Non-intrusive recovery notification
@@ -7245,24 +7354,63 @@ const MyIOOrchestrator = (() => {
         );
 
         // RFC-0109: Water meter classification
-        // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
-        // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-        // AREA_COMUM: everything else
+        // FIX: Use aliasName as PRIMARY classification (more reliable than deviceType/deviceProfile)
+        // Fallback to deviceType/deviceProfile if aliasName doesn't match
+        let classificationDebugLog = { byAlias: {}, byType: {}, defaults: [] };
         const classifyWaterMeter = (device) => {
+          const aliasName = String(device._aliasName || '').toLowerCase();
+
+          // PRIMARY: Classification by aliasName (from ThingsBoard alias)
+          // 'todos hidrometros lojas' or similar -> loja
+          if (aliasName.includes('loja')) {
+            classificationDebugLog.byAlias['loja'] = (classificationDebugLog.byAlias['loja'] || 0) + 1;
+            return 'loja';
+          }
+          // 'hidrometros entrada' or 'hidrometro shopping' -> entrada
+          if (aliasName.includes('entrada') || aliasName.includes('shopping')) {
+            classificationDebugLog.byAlias['entrada'] = (classificationDebugLog.byAlias['entrada'] || 0) + 1;
+            return 'entrada';
+          }
+          // 'hidrometros area comum' -> areacomum
+          if (aliasName.includes('area') || aliasName.includes('comum')) {
+            classificationDebugLog.byAlias['areacomum'] = (classificationDebugLog.byAlias['areacomum'] || 0) + 1;
+            return 'areacomum';
+          }
+
+          // FALLBACK: Classification by deviceType/deviceProfile (if aliasName didn't match)
           const dt = String(device.deviceType || '').toUpperCase();
           const dp = String(device.deviceProfile || '').toUpperCase();
 
           // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
           if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
+            classificationDebugLog.byType['loja'] = (classificationDebugLog.byType['loja'] || 0) + 1;
             return 'loja';
           }
 
           // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
           if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+            classificationDebugLog.byType['entrada'] = (classificationDebugLog.byType['entrada'] || 0) + 1;
             return 'entrada';
           }
 
-          // AREA_COMUM: todo o resto
+          // AREA_COMUM: Check for explicit HIDROMETRO_AREA_COMUM types
+          if (dt.includes('AREA_COMUM') || dp.includes('AREA_COMUM')) {
+            classificationDebugLog.byType['areacomum_explicit'] = (classificationDebugLog.byType['areacomum_explicit'] || 0) + 1;
+            return 'areacomum';
+          }
+
+          // DEBUG: Log the first 5 devices that fall through to default
+          if (classificationDebugLog.defaults.length < 5) {
+            classificationDebugLog.defaults.push({
+              label: device.label,
+              aliasName: device._aliasName,
+              dt: dt || 'NULL',
+              dp: dp || 'NULL',
+            });
+          }
+
+          // DEFAULT: areacomum (devices with unknown type/profile)
+          classificationDebugLog.byType['default_areacomum'] = (classificationDebugLog.byType['default_areacomum'] || 0) + 1;
           return 'areacomum';
         };
 
@@ -7289,6 +7437,10 @@ const MyIOOrchestrator = (() => {
           return acc;
         }, {});
         LogHelper.log(`[Orchestrator] 💧 Classification breakdown: ${JSON.stringify(classificationCounts)}`);
+        LogHelper.log(`[Orchestrator] 💧 Classification DEBUG: byAlias=${JSON.stringify(classificationDebugLog.byAlias)}, byType=${JSON.stringify(classificationDebugLog.byType)}`);
+        if (classificationDebugLog.defaults.length > 0) {
+          LogHelper.log(`[Orchestrator] 💧 DEFAULT samples (first 5): ${JSON.stringify(classificationDebugLog.defaults)}`);
+        }
 
         if (waterItems.length > 0) {
           const storeWaterItems = waterItems.filter((item) => item._classification === 'loja');
@@ -7429,7 +7581,9 @@ const MyIOOrchestrator = (() => {
               }
 
               // Fetch water API totals
-              const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`);
+              const url = new URL(
+                `${DATA_API_HOST}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`
+              );
               url.searchParams.set('startTime', startISO);
               url.searchParams.set('endTime', endISO);
               url.searchParams.set('deep', '1');
@@ -7516,7 +7670,9 @@ const MyIOOrchestrator = (() => {
               );
 
               LogHelper.log(
-                `[Orchestrator] 💧 RFC-0131: Re-emitted myio:water-tb-data-ready with API values (total: ${newWaterTotal.toFixed(2)} m³, stores: ${newStoresTotal.toFixed(2)}, commonArea: ${newCommonAreaTotal.toFixed(2)})`
+                `[Orchestrator] 💧 RFC-0131: Re-emitted myio:water-tb-data-ready with API values (total: ${newWaterTotal.toFixed(
+                  2
+                )} m³, stores: ${newStoresTotal.toFixed(2)}, commonArea: ${newCommonAreaTotal.toFixed(2)})`
               );
 
               // Also update water-summary-ready
@@ -7529,8 +7685,9 @@ const MyIOOrchestrator = (() => {
                 stores: newStoresTotal,
                 apiEnriched: true,
               };
-              window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: enrichedWaterSummary }));
-
+              window.dispatchEvent(
+                new CustomEvent('myio:water-summary-ready', { detail: enrichedWaterSummary })
+              );
             } catch (err) {
               LogHelper.warn(`[Orchestrator] 💧 RFC-0131: API enrichment failed: ${err.message}`);
             }
@@ -7805,9 +7962,24 @@ const MyIOOrchestrator = (() => {
     const energyData = window.MyIOOrchestratorData?.energy;
     if (energyData?.items?.length) {
       const allItems = energyData.items;
+
+      // RFC-0131: Build set of selected shopping names from selection array for matching
+      const selectedEnergyShoppingNames = new Set(
+        selection.map((s) => (s.name || '').toLowerCase()).filter(Boolean)
+      );
+
+      // RFC-0131: Filter by shopping - match customerId OR ownerName against selection
       const filteredItems = isFiltered
-        ? allItems.filter((item) => item.customerId && selectedIds.includes(item.customerId))
+        ? allItems.filter((item) => {
+            const customerId = item.customerId || item.ingestionId || '';
+            const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
+            return selectedIds.includes(customerId) || selectedEnergyShoppingNames.has(ownerName);
+          })
         : allItems;
+
+      LogHelper.log(
+        `[Orchestrator] 📊 Energy filter: ${allItems.length} total → ${filteredItems.length} filtered (${selectedEnergyShoppingNames.size} shopping names)`
+      );
 
       const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const filteredTotal = filteredItems.reduce(
@@ -8472,7 +8644,7 @@ const MyIOOrchestrator = (() => {
         // Fast path: use pre-calculated totals from waterClassified
         const stores = waterClassified.stores?.total || 0;
         const commonArea = waterClassified.commonArea?.total || 0;
-        const total = waterClassified.all?.total || (stores + commonArea);
+        const total = waterClassified.all?.total || stores + commonArea;
         const deviceCount = waterClassified.all?.count || 0;
 
         const waterSummary = {
@@ -8486,7 +8658,11 @@ const MyIOOrchestrator = (() => {
         };
 
         window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
-        LogHelper.log(`[Orchestrator] requestWaterSummary: emitted from waterClassified (total: ${total.toFixed(2)} m³, stores: ${stores.toFixed(2)}, commonArea: ${commonArea.toFixed(2)})`);
+        LogHelper.log(
+          `[Orchestrator] requestWaterSummary: emitted from waterClassified (total: ${total.toFixed(
+            2
+          )} m³, stores: ${stores.toFixed(2)}, commonArea: ${commonArea.toFixed(2)})`
+        );
         return;
       }
 
@@ -8546,9 +8722,9 @@ const MyIOOrchestrator = (() => {
       };
 
       LogHelper.log(
-        `[Orchestrator] 💧 requestWaterSummary: emitted (total: ${total.toFixed(2)} m³, area: ${commonArea.toFixed(
+        `[Orchestrator] 💧 requestWaterSummary: emitted (total: ${total.toFixed(
           2
-        )}, lojas: ${stores.toFixed(2)})`
+        )} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`
       );
 
       window.dispatchEvent(
@@ -8825,3 +9001,25 @@ function finalizeContractValidation(expectedCounts) {
     closeBtn.style.cursor = 'pointer';
   }
 }
+
+// ============================================================================
+// RFC-0143: Device Grid Widget Factory
+// Re-export from MyIOLibrary for child widgets (EQUIPMENTS, STORES, etc.)
+// ============================================================================
+(function () {
+  // Re-export DeviceGridWidgetFactory from MyIOLibrary
+  if (window.MyIOLibrary?.DeviceGridWidgetFactory) {
+    window.DeviceGridWidgetFactory = window.MyIOLibrary.DeviceGridWidgetFactory;
+
+    // Also expose via MyIOUtils for backwards compatibility
+    if (window.MyIOUtils) {
+      window.MyIOUtils.DeviceGridWidgetFactory = window.DeviceGridWidgetFactory;
+    }
+
+    LogHelper.log('[RFC-0143] DeviceGridWidgetFactory loaded from MyIOLibrary');
+  } else {
+    LogHelper.warn(
+      '[RFC-0143] DeviceGridWidgetFactory not found in MyIOLibrary - ensure library is loaded first'
+    );
+  }
+})();

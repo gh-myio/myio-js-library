@@ -25,20 +25,15 @@ const getCustomerNameForDevice =
 
 // RFC-0110: Centralized functions from MAIN for device status calculation
 const calculateDeviceStatusMasterRules =
-  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
-  (() => 'no_info');
+  window.MyIOUtils?.calculateDeviceStatusMasterRules || (() => 'no_info');
 
 const createStandardFilterTabs =
-  window.MyIOUtils?.createStandardFilterTabs ||
-  (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
+  window.MyIOUtils?.createStandardFilterTabs || (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
 
-const clearValueIfOffline =
-  window.MyIOUtils?.clearValueIfOffline ||
-  ((value, status) => value);
+const clearValueIfOffline = window.MyIOUtils?.clearValueIfOffline || ((value, status) => value);
 
 const calculateOperationTime =
-  window.MyIOUtils?.calculateOperationTime ||
-  ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
+  window.MyIOUtils?.calculateOperationTime || ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
 
 // ============================================
 // TEMPERATURE_SENSORS WIDGET STATE
@@ -161,7 +156,6 @@ function initializeSensorCards(sensors) {
 
     // Verifica se a biblioteca existe
     if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.renderCardComponentHeadOffice) {
-
       // RFC-0110: Get telemetry timestamp for temperature domain
       const telemetryTimestamp = sensor.lastUpdate || sensor.lastActivityTime || null;
       const hasValue = sensor.temperature !== null && sensor.temperature !== undefined;
@@ -175,7 +169,8 @@ function initializeSensorCards(sensors) {
       });
 
       // RFC-0110: Determine if device is online for display purposes
-      const isDeviceOnline = deviceStatus === 'online' || deviceStatus === 'power_on' || deviceStatus === 'running';
+      const isDeviceOnline =
+        deviceStatus === 'online' || deviceStatus === 'power_on' || deviceStatus === 'running';
       const hasValidData = isDeviceOnline && hasValue;
 
       // RFC-0110: Calculate operation time using centralized function

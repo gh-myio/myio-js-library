@@ -545,26 +545,41 @@
       }
     }
 
-    // Generate mock summary data
+    // Generate mock summary data with 8 categories
+    // Entrada, Lojas, Climatização, Elevadores, Esc. Rolantes, Outros, Área Comum, Total Consumidores
     function generateMockSummary() {
-      const storesTotal = Math.random() * 20000;
-      const equipmentsTotal = Math.random() * 15000;
-      const climatizacao = Math.random() * 8000;
-      const elevadores = Math.random() * 3000;
-      const escadas = Math.random() * 2000;
-      const outros = Math.random() * 2000;
+      // Entrada (total from main meter)
+      const entradaTotal = Math.random() * 50000 + 20000;
+
+      // Consumer categories (sum must be less than entrada)
+      const lojas = Math.random() * 15000 + 5000;
+      const climatizacao = Math.random() * 10000 + 3000;
+      const elevadores = Math.random() * 4000 + 1000;
+      const escadas = Math.random() * 3000 + 500;
+      const outros = Math.random() * 3000 + 500;
+
+      // Total consumers
+      const consumidoresTotal = lojas + climatizacao + elevadores + escadas + outros;
+
+      // Área Comum (residual = entrada - consumidores)
+      const areaComum = Math.max(0, entradaTotal - consumidoresTotal);
 
       return {
-        storesTotal: storesTotal,
-        equipmentsTotal: equipmentsTotal,
-        total: storesTotal + equipmentsTotal,
+        storesTotal: lojas,
+        equipmentsTotal: climatizacao + elevadores + escadas + outros,
+        entradaTotal: entradaTotal,
+        areaComumTotal: areaComum,
+        consumidoresTotal: consumidoresTotal,
+        total: entradaTotal,
         deviceCount: Math.floor(Math.random() * 100) + 20,
         byCategory: {
-          lojas: { total: storesTotal, count: Math.floor(Math.random() * 30) + 5 },
+          entrada: { total: entradaTotal, count: Math.floor(Math.random() * 3) + 1 },
+          lojas: { total: lojas, count: Math.floor(Math.random() * 30) + 5 },
           climatizacao: { total: climatizacao, count: Math.floor(Math.random() * 10) + 2 },
           elevadores: { total: elevadores, count: Math.floor(Math.random() * 6) + 1 },
           escadas: { total: escadas, count: Math.floor(Math.random() * 4) + 1 },
           outros: { total: outros, count: Math.floor(Math.random() * 5) + 1 },
+          areaComum: { total: areaComum, count: 0 }, // Calculated, no devices
         },
         byStatus: {
           online: Math.floor(Math.random() * 40) + 10,

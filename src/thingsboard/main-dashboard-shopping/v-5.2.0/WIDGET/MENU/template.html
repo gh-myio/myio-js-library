@@ -1,5 +1,7 @@
 <section class="shops-menu-root">
   <div class="user-info" id="user-info">
+    <!-- RFC-0139: Theme toggle icon (controlled by MAIN via myio:theme-changed event) -->
+    <span id="theme-toggle-icon" class="theme-toggle-icon" title="Tema atual">☀️</span>
     <div class="user-name" id="user-name">Carregando...</div>
     <div class="user-email" id="user-email"></div>
   </div>
@@ -34,4 +36,7 @@
       <span class="logout-text">Sair</span>
     </button>
   </div>
+
+  <!-- RFC-0137: Library version display (content injected by LibraryVersionChecker component) -->
+  <div id="lib-version-display" class="lib-version-display"></div>
 </section>

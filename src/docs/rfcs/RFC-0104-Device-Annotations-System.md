@@ -143,13 +143,238 @@ function canModifyAnnotation(annotation: Annotation, currentUser: User): boolean
 }
 ```
 
-### Acknowledgment Feature
+### Annotation Card Layout
 
-Each annotation row includes a checkbox for "acknowledgment":
-- Any user can acknowledge an annotation (mark as "seen/resolved")
-- Acknowledgment records the user and timestamp
-- Acknowledgments don't change annotation status
-- Useful for tracking that someone has reviewed a pending issue
+Each annotation is displayed as a card with the following structure:
+
+```
++----------------------------------------------------------+
+|  [?] ← Help tooltip (floating top-right)                  |
+|  [Type Badge] [Importance Badge] [Status Badge]           |
+|                                                           |
+|  Annotation text content...                               |
+|                                                           |
+|  👤 Author Name              📅 Date                      |
+|  Prazo: 2025-12-20 (if set)                              |
+|                                                           |
+|  +------------------------------------------------------+ |
+|  |  ✏️  |  ⬇️  |  ✓  |  ✗  |  💬  |  📜(3)  |  ← Actions | |
+|  +------------------------------------------------------+ |
++----------------------------------------------------------+
+```
+
+The (3) next to 📜 represents the badge count showing total events.
+
+#### Action Buttons (Always Visible)
+
+All 6 buttons are always displayed in the footer, distributed evenly (100% width):
+
+| Button | Icon | Tooltip | Description |
+|--------|------|---------|-------------|
+| Edit | ✏️ | "Editar anotação" | Modify annotation text |
+| Archive | ⬇️ | "Arquivar anotação" | Move to archived status (requires justification) |
+| Approve | ✓ (green) | "Aprovar anotação" | Approve with optional observation |
+| Reject | ✗ (red) | "Rejeitar anotação" | Reject with mandatory justification |
+| Comment | 💬 | "Adicionar comentário" | Add a comment/reply to the annotation |
+| History | 📜 | "Ver histórico" | View details, comments and observations |
+
+The History button shows a **badge count** indicating the total number of events (history entries + responses).
+
+#### Button State Rules
+
+Buttons are **disabled** (grayed out, not clickable) based on these rules:
+
+| Condition | Edit | Archive | Approve | Reject | Comment | History |
+|-----------|------|---------|---------|--------|---------|---------|
+| Normal state | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Archived annotation | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| After approve/reject | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| No permission to modify | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ |
+
+**Key Rules:**
+- Once an annotation is **approved** or **rejected**, it becomes "finalized" and cannot be edited, archived, commented on, or responded to again.
+- **Archived** annotations also cannot receive comments or responses.
+
+### Status Badges
+
+After approval or rejection, the card header shows a status badge:
+
+- **✓ Aprovada** (green background) - When annotation was approved
+- **✗ Rejeitada** (red background) - When annotation was rejected
+
+### Approve/Reject Flow
+
+#### Approve Flow (✓)
+1. User clicks the green check button
+2. Modal opens with **optional observation field** (max 255 chars)
+3. On confirm, creates an `AnnotationResponse` with type `approved`
+4. Annotation becomes finalized (edit/archive/approve/reject disabled)
+5. Observation text visible only in History modal
+
+#### Reject Flow (✗)
+1. User clicks the red X button
+2. Modal opens with **mandatory justification field** (max 255 chars)
+3. User **must** provide a reason for rejection
+4. On confirm, creates an `AnnotationResponse` with type `rejected`
+5. Annotation becomes finalized (edit/archive/approve/reject/comment disabled)
+6. Justification text visible only in History modal
+
+#### Archive Flow (⬇️)
+1. User clicks the archive button
+2. Modal opens with **mandatory justification field** (max 255 chars)
+3. User **must** provide a reason for archiving
+4. On confirm, creates an `AnnotationResponse` with type `archived`
+5. Annotation status changes to `archived`
+6. Annotation becomes finalized (all actions except History disabled)
+7. Justification text visible only in History modal
+
+#### Comment Flow (💬)
+1. User clicks the comment button
+2. Modal opens with **mandatory comment field** (max 255 chars)
+3. User writes their comment/reply
+4. On confirm, creates an `AnnotationResponse` with type `comment`
+5. Annotation remains active - can still receive more comments or be approved/rejected
+6. Comment visible in History modal
+
+### Help Tooltip (?)
+
+The (?) icon floats in the **top-right corner** of each card. Clicking it shows a comprehensive tooltip:
+
+```
++------------------------------------------+
+|  ℹ️ Ajuda - Ações da Anotação            |
++------------------------------------------+
+|  BOTÕES DE AÇÃO:                         |
+|  ✏️ Editar: Modifica o texto             |
+|  ⬇️ Arquivar: Move para arquivados       |
+|  ✓ Aprovar: Confirma revisão             |
+|  ✗ Rejeitar: Indica problema             |
+|  💬 Comentar: Adiciona resposta          |
+|  📜 Histórico: Ver detalhes              |
++------------------------------------------+
+|  REGRAS DE ESTADO:                       |
+|  • Após aprovar/rejeitar, anotação       |
+|    é finalizada                          |
+|  • Anotações finalizadas não podem       |
+|    ser editadas, arquivadas ou           |
+|    comentadas                            |
+|  • Arquivar requer justificativa         |
+|  • Observações/justificativas ficam      |
+|    visíveis no histórico                 |
++------------------------------------------+
+```
+
+### Detail Modal
+
+The Detail Modal (📜 history button) displays complete annotation information following the **ModalHeader pattern** (RFC-0121):
+
+```
++----------------------------------------------------------+
+|  📝 Detalhes da Anotação                           [X]   |
++----------------------------------------------------------+
+|                                                           |
+|  TIPO            IMPORTÂNCIA           STATUS            |
+|  [Pendência]     [Alta]                [Criado]          |
+|                                                           |
+|  CRIADO POR                                               |
+|  João Técnico (joao@company.com)                         |
+|                                                           |
+|  DATA DE CRIAÇÃO                                          |
+|  15/12/2025 14:30                                         |
+|                                                           |
+|  DATA LIMITE                                              |
+|  20/12/2025 (if set)                                     |
+|                                                           |
+|  DESCRIÇÃO                                                |
+|  ┌──────────────────────────────────────────────────────┐|
+|  │ Annotation text content here...                      │|
+|  └──────────────────────────────────────────────────────┘|
+|                                                           |
+|  ┌──────────────────────────────────────────────────────┐|
+|  │ ✓ APROVADO POR (green background)                    │|
+|  │ Demo User em 16/12/2025 10:00                        │|
+|  │ Observação: Verificado e aprovado.                   │|
+|  └──────────────────────────────────────────────────────┘|
+|                                                           |
+|  HISTÓRICO (3 eventos)                                    |
+|  • created por João Técnico em 15/12/2025 14:30         |
+|  • modified por Maria em 15/12/2025 16:00               |
+|  • approved por Demo User em 16/12/2025 10:00           |
+|                                                           |
++----------------------------------------------------------+
+|                               [⬇️ Arquivar]  [Fechar]    |
++----------------------------------------------------------+
+```
+
+#### Detail Modal Features
+
+| Feature | Description |
+|---------|-------------|
+| **ModalHeader** | Uses standard `ModalHeader` component with purple theme |
+| **Badge Row** | Type, Importance, Status displayed as colored chips on same line |
+| **Responsive** | On mobile (< 480px): badges become horizontal rows with label left, value right; gray background; modal width 95% |
+| **Description** | Text shown in styled box (was "Texto", renamed to "Descrição") |
+| **Responses** | Colored boxes for approved/rejected/archived/comment |
+| **History** | Complete audit trail with timestamps |
+
+#### Badge Styling (Same as Cards)
+
+The modal uses the same chip/badge styling as the annotation cards:
+
+- **Type**: Colored border and text matching type color
+- **Importance**: Solid background with white text (using IMPORTANCE_LABELS)
+- **Status**: Colored border and text matching status color
+
+### Importance Selector
+
+The importance selector uses **text labels** consistently throughout the system:
+
+```
++----------------------------------------------------------+
+|  IMPORTÂNCIA                                              |
+|  +----------+  +-------+  +--------+  +------+  +-------+ |
+|  |Muito Baixa| |Baixa  | |Normal  | |Alta  | |Muito Alta| |
+|  +----------+  +-------+  +--------+  +------+  +-------+ |
++----------------------------------------------------------+
+```
+
+Each option shows:
+- The full text label (e.g., "Normal", "Alta")
+- Tooltip with number and label (e.g., "3 - Normal")
+- Colored border/background when selected
+
+### History Modal Content
+
+The History modal (📜) shows complete annotation details including:
+
+- **Badge Row**: Type, importance, status as chips (same as card header)
+- **Author & Date**: Creation details
+- **Due Date**: If set, deadline is shown
+- **Description**: Original annotation text (in styled box)
+- **Responses section** (when applicable):
+  - Green box for approved: "✓ Aprovado por [Name] em [Date]" + observation
+  - Red box for rejected: "✗ Rejeitado por [Name] em [Date]" + justification
+  - Gray box for archived: "⬇️ Arquivado por [Name] em [Date]" + justification
+  - Blue box for comments: "💬 Comentário por [Name] em [Date]" + text
+- **Complete audit history**: Timestamped events
+
+### Response Storage
+
+```typescript
+interface AnnotationResponse {
+  id: string;                    // UUID v4
+  annotationId: string;          // Parent annotation ID
+  type: 'approved' | 'rejected' | 'comment' | 'archived';
+  text: string;                  // Observation/Justification/Comment text
+  createdAt: string;             // ISO 8601 timestamp
+  createdBy: UserInfo;
+}
+```
+
+**Notes:**
+- **approve/reject/archived**: Each annotation can only have ONE of these finalizing responses. Once finalized, no further responses are allowed.
+- **comment**: Multiple comments can be added to an annotation as long as it's not finalized or archived.
+- When `type: 'archived'`, the annotation's status is also set to `archived`.
 
 ### Card Indicators
 
@@ -214,10 +439,13 @@ interface Annotation {
   // User Attribution
   createdBy: UserInfo;
 
-  // Acknowledgment
+  // Acknowledgment (legacy - deprecated, use responses instead)
   acknowledged: boolean;
   acknowledgedBy?: UserInfo;
   acknowledgedAt?: string;
+
+  // RFC-0104 Amendment: Responses (approve/reject with optional text)
+  responses: AnnotationResponse[];
 
   // Audit Trail
   history: AuditEntry[];
@@ -234,14 +462,26 @@ interface AuditEntry {
   userId: string;
   userName: string;
   userEmail: string;
-  action: 'created' | 'modified' | 'archived' | 'acknowledged';
+  action: AuditAction;           // See AuditAction type below
   previousVersion?: number;
   changes?: Record<string, { from: any; to: any }>;
+}
+
+// RFC-0104 Amendment: Response to annotation (approve/reject/comment/archive)
+interface AnnotationResponse {
+  id: string;                    // UUID v4
+  annotationId: string;          // Parent annotation ID
+  type: ResponseType;            // Response type
+  text: string;                  // Max 255 characters
+  createdAt: string;             // ISO 8601 timestamp
+  createdBy: UserInfo;
 }
 
 type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
 type ImportanceLevel = 1 | 2 | 3 | 4 | 5;
 type AnnotationStatus = 'created' | 'modified' | 'archived';
+type ResponseType = 'approved' | 'rejected' | 'comment' | 'archived';
+type AuditAction = 'created' | 'modified' | 'archived' | 'approved' | 'rejected' | 'commented';
 ```
 
 #### Storage Structure
@@ -584,6 +824,87 @@ const dateFilter = createDateRangePicker({
 5. **Export**: Should there be bulk export functionality for annotations?
 6. **Retention Policy**: Should old archived annotations be automatically purged?
 
+## Onboarding Tour (RFC-0144)
+
+The Annotations feature includes a built-in guided tour following the principles defined in RFC-0144.
+
+### First-Run Experience
+
+When a user accesses the Annotations tab for the first time, a welcome modal appears:
+
+```
+┌─────────────────────────────────────────────┐
+│              📝                             │
+│     Bem-vindo às Anotações!                 │
+│                                             │
+│  Este é seu primeiro acesso ao sistema      │
+│  de anotações. Gostaria de fazer um tour    │
+│  rápido para conhecer as funcionalidades?   │
+│                                             │
+│      [Depois]         [Iniciar Tour]        │
+└─────────────────────────────────────────────┘
+```
+
+### Tour Steps
+
+The guided tour highlights key UI elements sequentially:
+
+| Step | Target | Icon | Title | Description |
+|------|--------|------|-------|-------------|
+| 1 | `.annotations-create-btn` | ➕ | Criar Nova Anotação | Click + button to create a new annotation |
+| 2 | `.annotations-filters` | 🔍 | Filtros | Filter annotations by status, type, importance, or date range |
+| 3 | `.annotations-grid` | 📋 | Lista de Anotações | View all registered annotations |
+| 4 | `.annotations-grid__help` | ❓ | Ajuda Rápida | Quick access to action help |
+| 5 | `.annotation-card__actions` | 🎯 | Ações Disponíveis | Introduction to action buttons |
+| 6 | `.annotation-card__btn--edit` | ✏️ | Editar Anotação | Modify content, type, importance, or due date |
+| 7 | `.annotation-card__btn--archive` | ⬇️ | Arquivar Anotação | Archive completed or irrelevant annotations |
+| 8 | `.annotation-card__btn--approve` | ✓ | Aprovar Anotação | Approve an annotation with optional comment |
+| 9 | `.annotation-card__btn--reject` | ✗ | Rejeitar Anotação | Reject an annotation with required reason |
+| 10 | `.annotation-card__btn--comment` | 💬 | Adicionar Comentário | Add comments for discussions |
+| 11 | `.annotation-card__btn--history` | 📜 | Ver Histórico | View complete audit trail of changes |
+
+### Tour Navigation
+
+Each tour step includes:
+- **Progress indicator**: Dots showing current position
+- **Step counter**: "5/11" format
+- **Navigation buttons**: Previous, Next/Finish, Skip
+
+### Version-Aware Tours
+
+The tour state is stored per-device in localStorage:
+
+```typescript
+interface TourState {
+  version: string;        // Tour version (e.g., "1.1.0")
+  completedAt: string;    // ISO 8601 timestamp
+  userId: string;         // User who completed the tour
+}
+```
+
+When the tour version changes, users are prompted to see new features.
+
+**Version History:**
+| Version | Changes |
+|---------|---------|
+| 1.0.0 | Initial tour with 6 steps |
+| 1.1.0 | Expanded to 12 steps with individual action button explanations |
+| 1.2.0 | Fixed to 11 steps targeting visible elements (create button, filters, grid, actions) |
+
+### Manual Tour Access
+
+Users can restart the tour at any time via the "🎓 Tour" button in the header.
+
+### API
+
+```typescript
+// Start the tour programmatically
+annotationsTab.startTour();
+
+// Reset tour state (for testing)
+annotationsTab.resetTour();
+```
+
 ## Future possibilities
 
 1. **Cross-Device Annotations**: Link annotations across related devices
@@ -622,42 +943,74 @@ const dateFilter = createDateRangePicker({
 - [ ] Performance optimization
 - [ ] Documentation
 
-## Showcase Examples
+### Phase 6: Onboarding Tour (RFC-0144)
+- [x] Add tour CSS styles (popover, highlight, welcome modal)
+- [x] Implement tour step definitions
+- [x] Add first-run detection with localStorage
+- [x] Implement welcome modal for new users
+- [x] Implement step-by-step tour with navigation
+- [x] Add "Tour" button to header for manual access
+- [x] Version-aware tour triggering
+- [x] Update RFC documentation
 
-```typescript
-// showcase/annotations-demo.ts
+## Showcase
 
-import { openDashboardPopupSettings } from '@myio/js-library';
+A complete showcase is available at `showcase/annotations/`:
 
-// Mock annotation data
-const mockAnnotations: LogAnnotationsAttribute = {
-  schemaVersion: '1.0.0',
-  deviceId: 'mock-device-001',
-  lastModified: new Date().toISOString(),
-  lastModifiedBy: { id: '1', email: 'demo@myio.com.br', name: 'Demo User' },
-  annotations: [
-    {
-      id: 'annot-1',
-      version: 1,
-      text: 'Observed unusual power consumption pattern during night hours.',
-      type: 'observation',
-      importance: 3,
-      status: 'created',
-      createdAt: '2025-12-14T08:00:00.000Z',
-      createdBy: { id: '1', email: 'demo@myio.com.br', name: 'Demo User' },
-      acknowledged: false,
-      history: []
-    },
-    // ... more mock annotations
-  ]
+### Files
+
+```
+showcase/annotations/
+├── index.html          # Main showcase page
+├── start-server.bat    # Windows server script (port 3335)
+├── start-server.sh     # Linux/Mac server script
+├── stop-server.bat     # Windows stop script
+└── stop-server.sh      # Linux/Mac stop script
+```
+
+### Running the Showcase
+
+1. Build the library: `npm run build`
+2. Start the server:
+   - Windows: `showcase\annotations\start-server.bat`
+   - Linux/Mac: `./showcase/annotations/start-server.sh`
+3. Open: http://localhost:3335/showcase/annotations/
+4. Click **"Abrir Settings Modal"**
+5. Click on the **"Anotações"** tab
+
+### Features Demonstrated
+
+- **Mock API**: Intercepts ThingsBoard API calls and uses localStorage for persistence
+- **Pre-populated data**: 3 sample annotations (pending, approved maintenance, observation)
+- **Full functionality**:
+  - Create new annotations
+  - Approve/reject flow with modals
+  - Edit and archive (when permitted)
+  - History modal with response details
+  - Help tooltip with state rules
+- **Event logging**: Shows API calls in real-time
+
+### Controls
+
+| Button | Description |
+|--------|-------------|
+| Abrir Settings Modal | Opens the settings modal with annotations tab |
+| Adicionar Anotação Mock | Adds a random test annotation |
+| Limpar Anotações | Clears all annotations |
+| Resetar "Banco de Dados" | Resets to default sample data |
+
+### Mock User Configuration
+
+```javascript
+const MOCK_USER = {
+  id: 'user-001',
+  email: 'demo@myio.com.br',  // SuperAdmin MYIO
+  name: 'Demo User',
 };
 
-// Demo showcase
-document.getElementById('demo-btn')?.addEventListener('click', () => {
-  openDashboardPopupSettings({
-    deviceId: 'mock-device-001',
-    // ... other params
-    mockAnnotations, // For showcase only
-  });
-});
+const MOCK_PERMISSIONS = {
+  isSuperAdminMyio: true,
+  isSuperAdminHolding: false,
+  currentUser: MOCK_USER,
+};
 ```

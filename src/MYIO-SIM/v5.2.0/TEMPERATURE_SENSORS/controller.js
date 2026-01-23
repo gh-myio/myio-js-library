@@ -25,20 +25,15 @@ const getCustomerNameForDevice =
 
 // RFC-0110: Centralized functions from MAIN
 const calculateDeviceStatusMasterRules =
-  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
-  (() => 'no_info');
+  window.MyIOUtils?.calculateDeviceStatusMasterRules || (() => 'no_info');
 
 const createStandardFilterTabs =
-  window.MyIOUtils?.createStandardFilterTabs ||
-  (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
+  window.MyIOUtils?.createStandardFilterTabs || (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
 
-const clearValueIfOffline =
-  window.MyIOUtils?.clearValueIfOffline ||
-  ((value, status) => value);
+const clearValueIfOffline = window.MyIOUtils?.clearValueIfOffline || ((value, status) => value);
 
 const calculateOperationTime =
-  window.MyIOUtils?.calculateOperationTime ||
-  ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
+  window.MyIOUtils?.calculateOperationTime || ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
 
 // ============================================
 // TEMPERATURE_SENSORS WIDGET STATE
@@ -170,7 +165,6 @@ function initializeSensorCards(sensors) {
     grid.appendChild(container);
 
     if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.renderCardComponentHeadOffice) {
-
       // RFC-0110: Get telemetry timestamp for temperature domain
       const telemetryTimestamp = sensor.lastUpdate || sensor.lastActivityTime || null;
       const hasValue = sensor.temperature !== null && sensor.temperature !== undefined;
@@ -184,7 +178,8 @@ function initializeSensorCards(sensors) {
       });
 
       // RFC-0110: Determine if device is online for display purposes
-      const isDeviceOnline = deviceStatus === 'online' || deviceStatus === 'power_on' || deviceStatus === 'running';
+      const isDeviceOnline =
+        deviceStatus === 'online' || deviceStatus === 'power_on' || deviceStatus === 'running';
       const hasValidData = isDeviceOnline && hasValue;
 
       // RFC-0110: Calculate operation time using centralized function
@@ -203,10 +198,10 @@ function initializeSensorCards(sensors) {
 
       const entityObject = {
         entityId: sensor.id,
-        id: sensor.id, 
-        tbId: sensor.id, 
+        id: sensor.id,
+        tbId: sensor.id,
         labelOrName: sensor.label || sensor.name,
-        name: sensor.label || sensor.name, 
+        name: sensor.label || sensor.name,
         label: sensor.label || sensor.name,
         deviceIdentifier: sensor.identifier || 'TEMP-SENSOR',
 
@@ -214,20 +209,20 @@ function initializeSensorCards(sensors) {
         val: displayValue,
         lastValue: displayValue,
         temperatureC: displayValue,
-        currentTemperature: displayValue, 
-        
+        currentTemperature: displayValue,
+
         // Datas e Tempos
         lastActivityTime: displayDate,
         updated: hasValidData ? formatRelativeTime(sensor.lastUpdate) : '-',
-        
+
         // --- NOVO CAMPO CALCULADO ---
         // Agora a biblioteca recebe o texto pronto (ex: "5h 30m") ou null
         operationHours: displayOperation,
 
         // Outros dados
         valType: 'temperature',
-        unit: '°C', 
-        icon: 'temperature', 
+        unit: '°C',
+        icon: 'temperature',
         deviceType: 'TEMPERATURE_SENSOR',
         customerName: sensor.customerName,
         customerId: sensor.customerId,
@@ -249,32 +244,38 @@ function initializeSensorCards(sensors) {
         debugActive: DEBUG_ACTIVE,
         activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
         delayTimeConnectionInMins: 1440, // RFC-0110: 24h threshold for consistency
-        handleActionDashboard: async () => { openTemperatureModal(sensor); },
-        handleActionSettings: async () => { 
-            const jwt = localStorage.getItem('jwt_token');
-            if (!jwt) return;
-            if (MyIOLibrary.openDashboardPopupSettings) {
-                await MyIOLibrary.openDashboardPopupSettings({
-                    deviceId: sensor.id,
-                    label: sensor.label || sensor.name,
-                    jwtToken: jwt,
-                    domain: WIDGET_DOMAIN,
-                    deviceType: sensor.deviceType || 'TERMOSTATO',
-                    deviceProfile: sensor.deviceProfile || 'TERMOSTATO',
-                    customerId: sensor.customerId,
-                    customerName: sensor.customerName,
-                    temperatureMin: sensor.temperatureMin,
-                    temperatureMax: sensor.temperatureMax,
-                    ui: { title: 'Configurações', width: 900 },
-                    onClose: () => { $('.myio-settings-modal-overlay').remove(); }
-                });
-            }
+        handleActionDashboard: async () => {
+          openTemperatureModal(sensor);
         },
-        handleSelect: (checked, entity) => { 
-            const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-            if (store) checked ? store.add(entity.entityId) : store.remove(entity.entityId);
+        handleActionSettings: async () => {
+          const jwt = localStorage.getItem('jwt_token');
+          if (!jwt) return;
+          if (MyIOLibrary.openDashboardPopupSettings) {
+            await MyIOLibrary.openDashboardPopupSettings({
+              deviceId: sensor.id,
+              label: sensor.label || sensor.name,
+              jwtToken: jwt,
+              domain: WIDGET_DOMAIN,
+              deviceType: sensor.deviceType || 'TERMOSTATO',
+              deviceProfile: sensor.deviceProfile || 'TERMOSTATO',
+              customerId: sensor.customerId,
+              customerName: sensor.customerName,
+              temperatureMin: sensor.temperatureMin,
+              temperatureMax: sensor.temperatureMax,
+              ui: { title: 'Configurações', width: 900 },
+              onClose: () => {
+                $('.myio-settings-modal-overlay').remove();
+              },
+            });
+          }
         },
-        handleClickCard: (ev, entity) => { LogHelper.log(`Click: ${entity.labelOrName}`); },
+        handleSelect: (checked, entity) => {
+          const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+          if (store) checked ? store.add(entity.entityId) : store.remove(entity.entityId);
+        },
+        handleClickCard: (ev, entity) => {
+          LogHelper.log(`Click: ${entity.labelOrName}`);
+        },
         useNewComponents: USE_NEW_COMPONENTS,
         enableSelection: ENABLE_SELECTION,
         hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
@@ -288,27 +289,29 @@ function initializeSensorCards(sensors) {
 
 // Funções auxiliares para manter o código limpo (caso você não as tenha separadas)
 function handleSettingsClick(sensor) {
-    const jwt = localStorage.getItem('jwt_token');
-    if (!jwt) return window.alert('Token não encontrado');
-    
-    // ... Copie o conteúdo original do handleActionSettings aqui ...
-    if (MyIOLibrary.openDashboardPopupSettings) {
-        MyIOLibrary.openDashboardPopupSettings({
-            deviceId: sensor.id,
-            label: sensor.label || sensor.name,
-            jwtToken: jwt,
-            domain: WIDGET_DOMAIN,
-            // ... resto dos parametros
-            onClose: () => { $('.myio-settings-modal-overlay').remove(); }
-        });
-    }
+  const jwt = localStorage.getItem('jwt_token');
+  if (!jwt) return window.alert('Token não encontrado');
+
+  // ... Copie o conteúdo original do handleActionSettings aqui ...
+  if (MyIOLibrary.openDashboardPopupSettings) {
+    MyIOLibrary.openDashboardPopupSettings({
+      deviceId: sensor.id,
+      label: sensor.label || sensor.name,
+      jwtToken: jwt,
+      domain: WIDGET_DOMAIN,
+      // ... resto dos parametros
+      onClose: () => {
+        $('.myio-settings-modal-overlay').remove();
+      },
+    });
+  }
 }
 
 function handleSelectClick(checked, entity) {
-    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-    if (MyIOSelectionStore) {
-        checked ? MyIOSelectionStore.add(entity.entityId) : MyIOSelectionStore.remove(entity.entityId);
-    }
+  const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+  if (MyIOSelectionStore) {
+    checked ? MyIOSelectionStore.add(entity.entityId) : MyIOSelectionStore.remove(entity.entityId);
+  }
 }
 
 function renderCustomSensorCard(container, sensor) {

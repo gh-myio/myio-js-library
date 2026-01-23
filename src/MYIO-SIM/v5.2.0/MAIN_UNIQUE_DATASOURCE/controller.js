@@ -858,16 +858,25 @@ body.filter-modal-open { overflow: hidden !important; }
         devices.forEach((device) => {
           let consumption = 0;
 
-          if (cache && device.ingestionId) {
+          // RFC-0138 FIX: Use correct field names for consumption lookup
+          // Priority: device fields from API enrichment > cache lookup
+          // NEVER fallback to ThingsBoard values (val/value/lastValue) when not from API
+
+          // First, check if device was enriched with API data
+          if (device.apiEnriched || device._hasApiData) {
+            consumption = Number(device.consumption) || Number(device.val) || Number(device.value) || 0;
+          }
+          // Otherwise, try to get from cache using ingestionId
+          else if (cache && device.ingestionId) {
             const cached = cache.get(device.ingestionId);
             if (cached) {
-              consumption = Number(cached.total_value) || 0;
+              // Use consumption/val/value fields, NOT total_value (which is API response field)
+              consumption = Number(cached.consumption) || Number(cached.val) || Number(cached.value) || 0;
             }
           }
 
-          if (consumption === 0) {
-            consumption = Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
-          }
+          // NOTE: Removed fallback to device.val/value/lastValue from ThingsBoard
+          // Data should ONLY come from ingestion API. If no API data, consumption stays 0.
 
           totalConsumption += consumption;
           if (consumption === 0) zeroCount++;
@@ -906,6 +915,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
     return controller;
   };
+
+  // RFC-0140 FIX: Expose buildHeaderDevicesGrid globally for TelemetryGrid component
+  window.MyIOUtils.buildHeaderDevicesGrid = buildHeaderDevicesGrid;
 
   /**
    * RFC-0090: Create a centralized filter modal for device grids
@@ -2657,7 +2669,8 @@ body.filter-modal-open { overflow: hidden !important; }
             totalDevices: allWaterDevices.length,
             totalConsumption: waterTotal,
             byStatus: waterByStatus,
-            byCategory: buildWaterCategoryDataByShopping(classifiedData),
+            byCategory: buildWaterCategoryData(classifiedData),
+            byShoppingTotal: buildWaterCategoryDataByShopping(classifiedData),
             shoppingsWater: buildShoppingsWaterBreakdown(classifiedData),
             lastUpdated: new Date().toISOString(),
           },
@@ -3089,7 +3102,8 @@ body.filter-modal-open { overflow: hidden !important; }
             totalDevices: filteredWater.length,
             totalConsumption: filteredWaterTotal,
             byStatus: waterByStatus,
-            byCategory: buildWaterCategoryDataByShopping(filteredClassified),
+            byCategory: buildWaterCategoryData(filteredClassified),
+            byShoppingTotal: buildWaterCategoryDataByShopping(filteredClassified),
             shoppingsWater: buildShoppingsWaterBreakdown(filteredClassified),
             lastUpdated: new Date().toISOString(),
           },
@@ -3206,6 +3220,9 @@ body.filter-modal-open { overflow: hidden !important; }
       const devices =
         window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
       telemetryGridInstance.updateDevices(devices);
+      if (devices.length > 0) {
+        hideMenuBusy();
+      }
     }
   });
 
@@ -3462,6 +3479,8 @@ body.filter-modal-open { overflow: hidden !important; }
             totalDevices: waterItems.length,
             totalConsumption: waterTotal,
             byStatus: buildTooltipStatusData(waterItems),
+            byCategory: buildWaterCategoryData(enriched),
+            byShoppingTotal: buildWaterCategoryDataByShopping(enriched),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -3559,6 +3578,215 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // === HELPER FUNCTIONS ===
 
+  // RFC-0137: LoadingSpinner integration for MAIN_UNIQUE_DATASOURCE
+  // Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+  const MENU_BUSY_OVERLAY_ID = 'myio-main-unique-busy-overlay';
+  let menuBusyTimeoutId = null;
+  let menuBusyVisible = false;
+
+  // RFC-0137: Configurable delay before hiding spinner after data is confirmed loaded
+  const SPINNER_HIDE_DELAY_MS = 2000; // 2 seconds delay after data confirmed
+
+  // RFC-0137: LoadingSpinner instance (lazy initialized)
+  let _loadingSpinnerInstance = null;
+  let _pendingHideTimeoutId = null;
+
+  /**
+   * RFC-0137: Get or create LoadingSpinner instance
+   * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+   */
+  function getLoadingSpinner() {
+    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+
+    // Try to use new LoadingSpinner from myio-js-library
+    const MyIOLibrary = window.MyIOLibrary;
+    if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
+      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+        minDisplayTime: 800, // Minimum 800ms to avoid flash
+        maxTimeout: 25000, // 25 seconds max
+        message: 'Carregando dados...',
+        spinnerType: 'double',
+        theme: 'dark',
+        showTimer: false, // Set to true for debugging
+        onTimeout: () => {
+          console.warn('[MAIN_UNIQUE] RFC-0137: LoadingSpinner max timeout reached');
+          menuBusyVisible = false;
+        },
+        onComplete: () => {
+          console.log('[MAIN_UNIQUE] RFC-0137: LoadingSpinner hidden');
+          menuBusyVisible = false;
+        },
+      });
+      console.log('[MAIN_UNIQUE] RFC-0137: LoadingSpinner initialized from MyIOLibrary');
+    } else {
+      console.warn(
+        '[MAIN_UNIQUE] RFC-0137: MyIOLibrary.createLoadingSpinner not available, using legacy overlay'
+      );
+    }
+
+    return _loadingSpinnerInstance;
+  }
+
+  // Legacy busy overlay DOM (fallback when LoadingSpinner not available)
+  function ensureMenuBusyDOM() {
+    let el = document.getElementById(MENU_BUSY_OVERLAY_ID);
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = MENU_BUSY_OVERLAY_ID;
+    el.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'display:none',
+      'align-items:center',
+      'justify-content:center',
+      'background:rgba(15,23,42,0.35)',
+      'backdrop-filter:blur(2px)',
+      'z-index:999999',
+    ].join(';');
+
+    el.innerHTML = `
+      <div style="
+        background:#0f172a;
+        color:#e2e8f0;
+        border:1px solid rgba(148,163,184,0.3);
+        border-radius:14px;
+        padding:18px 22px;
+        min-width:260px;
+        box-shadow:0 18px 50px rgba(0,0,0,0.45);
+        font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="myio-menu-busy-spinner" style="
+            width:20px;height:20px;border-radius:50%;
+            border:3px solid rgba(226,232,240,0.35);
+            border-top-color:#e2e8f0;animation:myioMenuSpin .9s linear infinite;">
+          </div>
+          <div id="${MENU_BUSY_OVERLAY_ID}-message" style="font-weight:600; font-size:14px;">
+            Carregando dados...
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (!document.getElementById('myio-menu-busy-style')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'myio-menu-busy-style';
+      styleEl.textContent = '@keyframes myioMenuSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
+      document.head.appendChild(styleEl);
+    }
+
+    document.body.appendChild(el);
+    return el;
+  }
+
+  /**
+   * RFC-0137: Show busy overlay using LoadingSpinner component
+   * Falls back to legacy overlay if LoadingSpinner not available
+   */
+  function showMenuBusy(_domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
+    // RFC-0137: Try to use new LoadingSpinner component
+    const spinner = getLoadingSpinner();
+
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
+    }
+
+    if (spinner) {
+      // Use new LoadingSpinner component
+      if (!menuBusyVisible) {
+        spinner.show(message || 'Carregando dados...');
+        menuBusyVisible = true;
+        console.log(`[MAIN_UNIQUE] 🔄 RFC-0137: LoadingSpinner shown`);
+      } else {
+        // Update message if already showing
+        spinner.updateMessage(message || 'Carregando dados...');
+        console.log(`[MAIN_UNIQUE] 🔄 RFC-0137: LoadingSpinner message updated`);
+      }
+    } else {
+      // Fallback to legacy overlay
+      const el = ensureMenuBusyDOM();
+      const messageEl = el.querySelector(`#${MENU_BUSY_OVERLAY_ID}-message`);
+      if (messageEl) {
+        messageEl.textContent = message || 'Carregando dados...';
+      }
+
+      if (!menuBusyVisible) {
+        el.style.display = 'flex';
+        menuBusyVisible = true;
+      }
+    }
+
+    // Clear existing timeout
+    if (menuBusyTimeoutId) {
+      clearTimeout(menuBusyTimeoutId);
+      menuBusyTimeoutId = null;
+    }
+
+    // Safety timeout (only for legacy overlay, LoadingSpinner has its own)
+    if (!spinner) {
+      menuBusyTimeoutId = setTimeout(() => {
+        hideMenuBusy({ immediate: true });
+      }, timeoutMs);
+    }
+  }
+
+  /**
+   * RFC-0137: Hide busy overlay with optional delay
+   * Shows "Dados carregados!" message before hiding
+   */
+  function hideMenuBusy(options = {}) {
+    const { immediate = false, skipDelay = false } = options;
+
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
+    }
+
+    const spinner = getLoadingSpinner();
+
+    // Function to actually perform the hide
+    const performHide = () => {
+      if (spinner && spinner.isShowing()) {
+        spinner.hide();
+        console.log(`[MAIN_UNIQUE] ✅ RFC-0137: LoadingSpinner hidden`);
+      }
+
+      // Also hide legacy overlay if exists
+      const el = document.getElementById(MENU_BUSY_OVERLAY_ID);
+      if (el) {
+        el.style.display = 'none';
+      }
+
+      menuBusyVisible = false;
+
+      if (menuBusyTimeoutId) {
+        clearTimeout(menuBusyTimeoutId);
+        menuBusyTimeoutId = null;
+      }
+    };
+
+    // RFC-0137: Apply delay before hiding (unless immediate or skipDelay)
+    if (immediate || skipDelay) {
+      performHide();
+    } else {
+      // Show "Dados carregados!" message briefly before hiding
+      if (spinner && spinner.isShowing()) {
+        spinner.updateMessage('Dados carregados!');
+        console.log(
+          `[MAIN_UNIQUE] ✅ RFC-0137: Data confirmed, waiting ${SPINNER_HIDE_DELAY_MS}ms before hiding`
+        );
+      }
+
+      _pendingHideTimeoutId = setTimeout(() => {
+        performHide();
+        _pendingHideTimeoutId = null;
+      }, SPINNER_HIDE_DELAY_MS);
+    }
+  }
+
   function applyGlobalTheme(themeMode) {
     const wrap = document.getElementById('mainUniqueWrap');
     if (wrap) {
@@ -3593,20 +3821,25 @@ body.filter-modal-open { overflow: hidden !important; }
   function handleContextChange(tabId, contextId, target) {
     const telemetryContainer = document.getElementById('telemetryGridContainer');
 
+    showMenuBusy(tabId, 'Carregando dados...');
+
     // RFC-0132/RFC-0133: Check if this is a panel view request
     if (contextId === 'energy_general') {
       // Show Energy Panel in telemetryGridContainer
       LogHelper.log('[MAIN_UNIQUE] Switching to Energy Panel view');
       switchToEnergyPanel(telemetryContainer);
       currentViewMode = 'energy-panel';
+      hideMenuBusy();
     } else if (contextId === 'water_summary') {
       // Show Water Panel in telemetryGridContainer
       LogHelper.log('[MAIN_UNIQUE] Switching to Water Panel view');
       switchToWaterPanel(telemetryContainer);
       currentViewMode = 'water-panel';
+      hideMenuBusy();
     } else if (contextId === 'temperature_summary' || contextId === 'temperature_comparison') {
       // Temperature panels still use modal for now
       handlePanelModalRequest(tabId, 'summary');
+      hideMenuBusy();
     } else {
       // Show Telemetry Grid (default view)
       switchToTelemetryGrid(telemetryContainer, tabId, contextId, target);
@@ -3813,6 +4046,9 @@ body.filter-modal-open { overflow: hidden !important; }
       });
 
       LogHelper.log('[MAIN_UNIQUE] TelemetryGrid recreated for context:', classifiedContext);
+      if (devices.length > 0) {
+        hideMenuBusy();
+      }
     } else if (telemetryGridInstance) {
       // Update existing telemetry grid
       const devices = window.MyIOOrchestrator?.getDevices?.(tabId, classifiedContext) || [];
@@ -3821,6 +4057,9 @@ body.filter-modal-open { overflow: hidden !important; }
       );
       telemetryGridInstance.updateConfig(tabId, classifiedContext);
       telemetryGridInstance.updateDevices(devices);
+      if (devices.length > 0) {
+        hideMenuBusy();
+      }
     }
   }
 
@@ -3947,6 +4186,13 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // Start data processing after a short delay
   setTimeout(() => processDataWithRetry(), 100);
+
+  // RFC-0140: Start API enrichment after data processing has had time to classify devices
+  // This must be called from within onInit to ensure LogHelper is initialized
+  setTimeout(() => {
+    LogHelper.log('[MAIN_UNIQUE] RFC-0140: Starting API enrichment from onInit');
+    triggerApiEnrichment();
+  }, 3000);
 
   LogHelper.log('[MAIN_UNIQUE] onInit complete');
 };
@@ -4078,7 +4324,8 @@ function processDataAndDispatchEvents() {
         totalDevices: allWaterDevices.length,
         totalConsumption: waterTotal,
         byStatus: waterByStatus,
-        byCategory: buildWaterCategoryDataByShopping(classified),
+        byCategory: buildWaterCategoryData(classified),
+        byShoppingTotal: buildWaterCategoryDataByShopping(classified),
         shoppingsWater: buildShoppingsWaterBreakdown(classified),
         lastUpdated: new Date().toISOString(),
       },
@@ -4970,7 +5217,11 @@ function extractDeviceMetadataFromRows(rows) {
   // No name-based inference - deviceType must be properly configured in ThingsBoard
   const deviceType = dataKeyValues['deviceType'] || 'SEM_DEVICE_TYPE';
   const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
-  const consumptionValue = dataKeyValues['consumption'] || null;
+
+  // RFC-0140 FIX: ThingsBoard 'consumption' is INSTANTANEOUS POWER (kW), NOT accumulated consumption (kWh)
+  // consumption/val/value for cards should ONLY come from ingestion API enrichment
+  // Here we only extract it for instantaneousPower display
+  const instantaneousPowerFromTB = dataKeyValues['consumption'] || dataKeyValues['consumption_power'] || null;
   const deviceIdentifier = String(dataKeyValues['identifier'] || 'SEM IDENTIFICADOR').trim();
   const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
   const connectionStatus = window.MyIOLibrary.mapConnectionStatus(rawConnectionStatus);
@@ -5051,14 +5302,25 @@ function extractDeviceMetadataFromRows(rows) {
     lastConnectTime: dataKeyValues['lastConnectTime'],
     lastDisconnectTime: dataKeyValues['lastDisconnectTime'],
 
-    // Telemetry values - include both formats for compatibility
-    consumption: consumptionValue,
-    consumptionPower: consumptionValue, // RFC-0111 FIX: Alias for EQUIPMENTS
-    val: consumptionValue, // RFC-0111: Card component expects val
-    value: consumptionValue, // RFC-0111 FIX: Another alias used by some components
+    // RFC-0140 FIX: Consumption values should ONLY come from ingestion API enrichment
+    // ThingsBoard 'consumption' is actually instantaneous power (kW), NOT consumption (kWh)
+    // Set to null initially - will be populated by enrichDevicesWithConsumption()
+    consumption: null, // Will be set by API enrichment
+    val: null, // Will be set by API enrichment - Card component expects val
+    value: null, // Will be set by API enrichment
+    apiEnriched: false, // Flag to indicate data has NOT been enriched yet
+
+    // Water and temperature telemetry (these come directly from ThingsBoard)
     pulses: dataKeyValues['pulses'],
     temperature: dataKeyValues[DOMAIN_TEMPERATURE],
     water_level: dataKeyValues['water_level'],
+
+    // RFC-0140: Real-time instantaneous power from ThingsBoard (this IS valid from TB)
+    // This is the real-time power reading (kW) for display in cards
+    instantaneousPower: instantaneousPowerFromTB,
+    consumption_power: instantaneousPowerFromTB, // Alias for card component
+    consumptionPower: instantaneousPowerFromTB, // Alias for EQUIPMENTS
+    operationHours: dataKeyValues['operationHours'] || dataKeyValues['operation_hours'] || null,
 
     // RFC-0111 FIX: Power limits for EQUIPMENTS status calculation
     deviceMapInstaneousPower: deviceMapInstaneousPower,
@@ -5075,6 +5337,10 @@ function extractDeviceMetadataFromRows(rows) {
     temperatureTs: temperatureTs,
     waterLevelTs: waterLevelTs,
     telemetryTimestamp: telemetryTimestamp, // Domain-specific timestamp used for status
+    // RFC-0140: Timestamp for instantaneous power (used for stale value detection)
+    // Note: ThingsBoard 'consumption' dataKey contains instantaneous power, so its timestamp is correct for power
+    instantaneousPowerTs: dataKeyTimestamps['consumption'] || dataKeyTimestamps['consumption_power'] || null,
+    consumption_powerTs: dataKeyTimestamps['consumption'] || dataKeyTimestamps['consumption_power'] || null,
 
     // Domain
     domain: domain,
@@ -5409,13 +5675,16 @@ async function enrichDevicesWithConsumption(classified) {
 
   let period = window.MyIOLibrary.getDefaultPeriodCurrentMonthSoFar();
   const scopeStartDateISO = self.ctx.$scope.startDateISO;
-  const scopeEndDateISO = self.ctx.$scope.startDateISO;
+  const scopeEndDateISO = self.ctx.$scope.endDateISO; // RFC-0140 FIX: Was incorrectly using startDateISO
 
   if (scopeStartDateISO && scopeEndDateISO) {
     period = {
       startISO: scopeStartDateISO,
       endISO: scopeEndDateISO,
     };
+    LogHelper.log('[enrichDevicesWithConsumption] Using scope dates:', period);
+  } else {
+    LogHelper.log('[enrichDevicesWithConsumption] Using default period:', period);
   }
 
   // Build ingestionId maps for each domain (for quick lookup)
@@ -5644,7 +5913,11 @@ function useCachedEnrichedData(enriched) {
  */
 async function triggerApiEnrichment() {
   // Guard: LogHelper not ready yet (onInit not complete)
-  if (!LogHelper) return;
+  // RFC-0140: This function should only be called from onInit where LogHelper is available
+  if (!LogHelper) {
+    console.warn('[MAIN_UNIQUE] triggerApiEnrichment: LogHelper not available - this should not happen');
+    return;
+  }
 
   // Guard: Only run once
   if (_apiEnrichmentDone || _apiEnrichmentInProgress) {
@@ -5700,17 +5973,18 @@ async function triggerApiEnrichment() {
     return;
   }
 
-  // Set in-progress flag
-  _apiEnrichmentInProgress = true;
-  LogHelper.log('Credentials available, starting API enrichment');
-
-  // Get current classified data
+  // Get current classified data - must exist before we can enrich
   const classified = window.MyIOOrchestratorData?.classified;
   if (!classified) {
-    LogHelper.log('No classified data available for enrichment');
-    _apiEnrichmentInProgress = false;
+    LogHelper.log('No classified data available for enrichment, retrying in 1s...');
+    // RFC-0140 FIX: Retry if classified data not ready yet
+    setTimeout(triggerApiEnrichment, 1000);
     return;
   }
+
+  // Set in-progress flag (only after classified is available)
+  _apiEnrichmentInProgress = true;
+  LogHelper.log('Credentials available, starting API enrichment');
 
   try {
     // ===================================================================
@@ -5891,7 +6165,8 @@ async function triggerApiEnrichment() {
           totalDevices: allWaterDevicesAfterEnrich.length,
           totalConsumption: waterTotal,
           byStatus: waterByStatusAfterEnrich,
-          byCategory: buildWaterCategoryDataByShopping(enriched),
+          byCategory: buildWaterCategoryData(enriched),
+          byShoppingTotal: buildWaterCategoryDataByShopping(enriched),
           shoppingsWater: buildShoppingsWaterBreakdown(enriched),
           lastUpdated: new Date().toISOString(),
         },
@@ -5954,8 +6229,8 @@ async function triggerApiEnrichment() {
   }
 }
 
-// Start API enrichment after a short delay (to allow credentials to load)
-setTimeout(triggerApiEnrichment, 2000);
+// RFC-0140 FIX: Removed module-level setTimeout - triggerApiEnrichment is now called from onInit
+// This ensures LogHelper is initialized before the function runs
 
 self.onDestroy = function () {
   // Cleanup

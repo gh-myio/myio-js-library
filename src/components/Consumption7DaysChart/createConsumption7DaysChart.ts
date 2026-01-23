@@ -307,11 +307,30 @@ export function createConsumption7DaysChart(
   }
 
   /**
+   * Get the values that will actually be displayed in the chart
+   * For "separate" mode, this is the per-shopping values; for "total" mode, this is dailyTotals
+   */
+  function getDisplayedValues(data: Consumption7DaysData): number[] {
+    if (currentVizMode === 'separate' && data.shoppingData) {
+      // In separate mode, collect all individual shopping values
+      const allValues: number[] = [];
+      Object.values(data.shoppingData).forEach((values) => {
+        allValues.push(...values);
+      });
+      return allValues.length > 0 ? allValues : data.dailyTotals;
+    }
+    return data.dailyTotals;
+  }
+
+  /**
    * Build Chart.js configuration object
    */
   function buildChartConfig(data: Consumption7DaysData): any {
-    const yAxisMax = calculateYAxisMax(data.dailyTotals);
-    const yAxisMin = calculateYAxisMin(data.dailyTotals);
+    // RFC-0130: Calculate Y-axis based on values that will actually be displayed
+    // For "separate" mode, use per-shopping values; for "total" mode, use dailyTotals
+    const displayedValues = getDisplayedValues(data);
+    const yAxisMax = calculateYAxisMax(displayedValues);
+    const yAxisMin = calculateYAxisMin(displayedValues);
     const tension = config.lineTension ?? DEFAULT_CONFIG.lineTension;
     const pointRadius = config.pointRadius ?? DEFAULT_CONFIG.pointRadius;
     const borderWidth = config.borderWidth ?? DEFAULT_CONFIG.borderWidth;

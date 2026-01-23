@@ -1306,4 +1306,73 @@ self.onInit = function () {
       if (typeof oldDestroy === 'function') oldDestroy();
     };
   })();
+
+  // RFC-0139: Theme toggle icon listener
+  // Listen for theme changes from MAIN and update icon
+  // State: 'light' (default) or 'dark'
+  let currentTheme = 'light';
+  let versionCheckerInstance = null;
+
+  (function initThemeToggleListener() {
+    const themeIcon = document.getElementById('theme-toggle-icon');
+    if (!themeIcon) {
+      LogHelper.warn('[MENU] RFC-0139: theme-toggle-icon element not found');
+      return;
+    }
+
+    // Update icon based on theme
+    function updateThemeIcon(theme) {
+      currentTheme = theme;
+      themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+      themeIcon.title = theme === 'dark' ? 'Tema escuro ativo' : 'Tema claro ativo';
+      LogHelper.log(`[MENU] RFC-0139: Theme icon updated to ${theme === 'dark' ? '🌙' : '☀️'}`);
+
+      // RFC-0139: Update LibraryVersionChecker theme if instance exists
+      if (versionCheckerInstance && typeof versionCheckerInstance.setTheme === 'function') {
+        versionCheckerInstance.setTheme(theme);
+        LogHelper.log(`[MENU] RFC-0139: LibraryVersionChecker theme updated to ${theme}`);
+      }
+    }
+
+    // Listen for theme changes from MAIN
+    window.addEventListener('myio:theme-changed', (ev) => {
+      const { theme } = ev.detail || {};
+      if (theme === 'dark' || theme === 'light') {
+        updateThemeIcon(theme);
+      } else {
+        LogHelper.warn(`[MENU] RFC-0139: Invalid theme received: ${theme}`);
+      }
+    });
+
+    // Set initial icon (light is default)
+    updateThemeIcon('light');
+    LogHelper.log('[MENU] RFC-0139: Theme toggle listener initialized');
+  })();
+
+  // RFC-0137: Initialize LibraryVersionChecker component
+  (function initLibraryVersionChecker() {
+    const container = document.getElementById('lib-version-display');
+    if (!container) {
+      LogHelper.warn('[MENU] RFC-0137: lib-version-display container not found');
+      return;
+    }
+
+    const MyIOLib = window.MyIOLibrary;
+    if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
+      // RFC-0139: Store instance for theme updates
+      versionCheckerInstance = MyIOLib.createLibraryVersionChecker(container, {
+        packageName: 'myio-js-library',
+        currentVersion: MyIOLib.version || 'unknown',
+        theme: currentTheme, // Use current theme state
+        onStatusChange: (status, currentVer, latestVer) => {
+          LogHelper.log(`[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`);
+        },
+      });
+    } else {
+      LogHelper.warn('[MENU] RFC-0137: createLibraryVersionChecker not available in MyIOLibrary');
+      // Fallback: show version only
+      const version = MyIOLib?.version || 'unknown';
+      container.innerHTML = `<span style="font-size:12px;color:#9CA3AF;opacity:0.8;">v${version}</span>`;
+    }
+  })();
 };

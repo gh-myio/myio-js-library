@@ -310,6 +310,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       self.ctx.$scope.startTs = result.startISO;
       self.ctx.$scope.endTs = result.endISO;
 
+      // RFC-0138 FIX: Update self.__range so domain switch emits correct dates
+      // Convert ISO strings back to moment objects
+      if (result.startISO && result.endISO && window.moment) {
+        self.__range.start = window.moment(result.startISO);
+        self.__range.end = window.moment(result.endISO);
+        LogHelper.log('[DateRangePicker] Updated self.__range:', {
+          start: self.__range.start.format('YYYY-MM-DD'),
+          end: self.__range.end.format('YYYY-MM-DD'),
+        });
+      }
+
       // The input display is automatically handled by the component
     },
   })
@@ -499,14 +510,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
-      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab} (previous: ${currentDomain.value})`);
+      const previousDomain = currentDomain.value;
+      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab} (previous: ${previousDomain})`);
       currentDomain.value = tab;
       LogHelper.log(`[HEADER] currentDomain is now: ${currentDomain.value}`);
       updateControlsState(tab);
 
-      // RFC-0045 FIX: Emit initial period when domain is set for the first time
-      // This ensures orchestrator has currentPeriod set immediately
-      if (!hasEmittedInitialPeriod && (tab === 'energy' || tab === 'water')) {
+      // RFC-0045 FIX: Emit period when domain changes to energy or water
+      // RFC-0138 FIX: Always re-emit dates on domain switch to ensure sync
+      // This ensures orchestrator has currentPeriod set correctly when switching domains
+      if (tab === 'energy' || tab === 'water') {
         hasEmittedInitialPeriod = true;
 
         // Wait for dateRangePicker to be ready
@@ -515,7 +528,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
             const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
 
-            const initialPeriod = {
+            const currentPeriod = {
               startISO,
               endISO,
               granularity: calcGranularity(startISO, endISO),
@@ -523,12 +536,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             };
 
             // RFC-0130: Store period globally for retry mechanism
-            window.__myioInitialPeriod = initialPeriod;
+            window.__myioInitialPeriod = currentPeriod;
 
-            LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${tab}:`, initialPeriod);
-            emitToAllContexts('myio:update-date', { period: initialPeriod });
+            LogHelper.log(`[HEADER] 🚀 RFC-0138: Emitting current period for domain ${tab}:`, currentPeriod);
+            emitToAllContexts('myio:update-date', { period: currentPeriod });
           } else {
-            LogHelper.warn(`[HEADER] ⚠️ Cannot emit initial period - dateRangePicker not ready yet`);
+            LogHelper.warn(`[HEADER] ⚠️ Cannot emit period - dateRangePicker not ready yet`);
           }
         }, 300); // Small delay to ensure dateRangePicker is initialized
       }
@@ -660,11 +673,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       LogHelper.log('[HEADER] Emitting standardized period:', period);
 
       // RFC-0130: Show busy overlay when loading data
+      // RFC-0137: Use force=true to bypass cooldown when user explicitly clicks "Carregar"
       try {
         const orchestrator = window.MyIOOrchestrator;
         if (orchestrator?.showGlobalBusy) {
-          orchestrator.showGlobalBusy(currentDomain.value, 'Carregando dados...');
-          LogHelper.log(`[HEADER] RFC-0130: Showing busy overlay for ${currentDomain.value}`);
+          orchestrator.showGlobalBusy(currentDomain.value, 'Carregando dados...', 25000, { force: true });
+          LogHelper.log(`[HEADER] RFC-0137: Showing busy overlay for ${currentDomain.value} (force=true)`);
         }
       } catch (busyErr) {
         LogHelper.warn('[HEADER] Failed to show busy overlay:', busyErr);

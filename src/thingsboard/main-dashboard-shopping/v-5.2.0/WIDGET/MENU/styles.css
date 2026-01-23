@@ -333,9 +333,28 @@
 
 /* User info section at the top */
 .user-info {
+  position: relative;
   padding: 12px 16px 16px;
   border-bottom: 1px solid var(--divider);
   margin-bottom: 8px;
+}
+
+/* RFC-0139: Theme toggle icon (floating top-right in user-info) */
+.theme-toggle-icon {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: default;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, transform 0.3s ease;
+  z-index: 1;
+}
+
+.theme-toggle-icon:hover {
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 /* Rodapé do menu: força 1 coluna cheia */
@@ -1383,4 +1402,18 @@
   .shopping-name {
     font-size: 16px;
   }
+}
+
+/* RFC-0137: Library version display - styles injected by component */
+.lib-version-display {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+/* Ensure .shops-menu-root has relative positioning for absolute child */
+.shops-menu-root {
+  position: relative;
 }

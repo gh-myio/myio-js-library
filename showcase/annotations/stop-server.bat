@@ -1,0 +1,18 @@
+@echo off
+REM Annotations Showcase HTTP Server - Stop Script
+REM Kills any existing process on port 3335
+
+set PORT=3335
+
+echo Stopping server on port %PORT%...
+
+REM Kill process on port using PowerShell
+powershell -Command "Get-NetTCPConnection -LocalPort %PORT% -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" 2>nul
+
+REM Alternative: using netstat + taskkill
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT% "') do (
+    taskkill /PID %%a /F 2>nul
+)
+
+echo.
+echo Server stopped.

@@ -10,6 +10,7 @@
 
 // Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
 let DEBUG_ACTIVE = true;
+const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 // RFC-0130: Retry configuration for resilient data loading
 const RETRY_CONFIG = {
@@ -60,6 +61,54 @@ Object.assign(window.MyIOUtils, {
   // RFC-XXXX: SuperAdmin flag - user with @myio.com.br email (except alarme/alarmes)
   // Populated by detectSuperAdmin() in onInit
   SuperAdmin: false,
+
+  // RFC-0139: Global theme state management
+  // Default theme is 'light', MAIN is the single source of truth
+  currentTheme: 'light',
+
+  /**
+   * RFC-0139: Set global theme and notify all listeners
+   * @param {'light' | 'dark'} theme - Theme to set
+   */
+  setTheme: (theme) => {
+    if (theme !== 'light' && theme !== 'dark') {
+      LogHelper.warn(`[MyIOUtils] RFC-0139: Invalid theme: ${theme}. Using 'light'.`);
+      theme = 'light';
+    }
+
+    if (window.MyIOUtils.currentTheme === theme) {
+      LogHelper.log(`[MyIOUtils] RFC-0139: Theme already set to ${theme}`);
+      return;
+    }
+
+    window.MyIOUtils.currentTheme = theme;
+    LogHelper.log(`[MyIOUtils] RFC-0139: Theme changed to ${theme}`);
+
+    // Emit event to notify all theme-aware components (MENU, etc.)
+    window.dispatchEvent(
+      new CustomEvent('myio:theme-changed', {
+        detail: { theme },
+      })
+    );
+  },
+
+  /**
+   * RFC-0139: Get current theme
+   * @returns {'light' | 'dark'} Current theme
+   */
+  getTheme: () => {
+    return window.MyIOUtils.currentTheme || 'light';
+  },
+
+  /**
+   * RFC-0139: Toggle theme between light and dark
+   * @returns {'light' | 'dark'} New theme after toggle
+   */
+  toggleTheme: () => {
+    const newTheme = window.MyIOUtils.currentTheme === 'dark' ? 'light' : 'dark';
+    window.MyIOUtils.setTheme(newTheme);
+    return newTheme;
+  },
 
   // RFC-0108: Measurement display settings (units, decimal places)
   // Default values - can be overridden by user via MeasurementSetupModal
@@ -513,6 +562,49 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
 );
 
 /**
+ * RFC-0142: Patterns that indicate device should be hidden (ocultos)
+ * These devices are archived, inactive, or have no data
+ */
+const OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
+
+/**
+ * RFC-0142: Check if device should be classified as "ocultos" (hidden)
+ * Devices with these patterns in deviceProfile should go to a separate hidden group:
+ * - ARQUIVADO (archived devices)
+ * - SEM_DADOS (devices without data)
+ * - DESATIVADO (deactivated devices)
+ * - REMOVIDO (removed devices)
+ * - INATIVO (inactive devices)
+ *
+ * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile property, or deviceProfile string directly
+ * @returns {boolean} True if device should be in the "ocultos" group
+ */
+function isOcultosDevice(itemOrDeviceProfile) {
+  let deviceProfile;
+
+  if (typeof itemOrDeviceProfile === 'string') {
+    deviceProfile = itemOrDeviceProfile;
+  } else if (itemOrDeviceProfile && typeof itemOrDeviceProfile === 'object') {
+    deviceProfile = itemOrDeviceProfile.deviceProfile;
+  } else {
+    return false;
+  }
+
+  const profile = String(deviceProfile || '').toUpperCase();
+
+  for (const pattern of OCULTOS_PATTERNS) {
+    if (profile.includes(pattern)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// RFC-0142: Alias for backwards compatibility
+const shouldExcludeDevice = isOcultosDevice;
+
+/**
  * RFC-0106: Check if device is a store (loja)
  * Centralized logic: deviceProfile === '3F_MEDIDOR'
  *
@@ -697,6 +789,7 @@ function categoryToLabelWidget(category) {
  * Classification based on BOTH deviceType and deviceProfile from ThingsBoard datasource
  *
  * Rules (priority order):
+ * RFC-0142: 0. OCULTOS - archived/inactive devices go to hidden group
  * 1. LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * 2. ENTRADA: deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
  * 3. For other categories, check deviceProfile first, then deviceType:
@@ -710,6 +803,11 @@ function categoryToLabelWidget(category) {
  * @returns {string} labelWidget for widget filtering
  */
 function inferLabelWidget(row) {
+  // RFC-0142: RULE 0 - Classify archived/inactive devices as "Ocultos"
+  if (isOcultosDevice(row)) {
+    return 'Ocultos';
+  }
+
   // First try groupType from API (takes precedence)
   const groupType = row.groupType || row.group_type || '';
   if (groupType) {
@@ -825,12 +923,16 @@ function inferLabelWidget(row) {
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
   DEVICE_CLASSIFICATION_CONFIG,
+  // RFC-0142: Expose ocultos detection for child widgets
+  OCULTOS_PATTERNS,
+  isOcultosDevice,
+  shouldExcludeDevice, // Alias for backwards compatibility
+  isStoreDevice,
   classifyDevice,
   classifyDeviceByDeviceType,
   classifyDeviceByIdentifier,
   categoryToLabelWidget,
   inferLabelWidget,
-  isStoreDevice,
   EQUIPMENT_EXCLUSION_PATTERN,
 });
 
@@ -980,7 +1082,8 @@ Object.assign(window.MyIOUtils, {
     }
 
     try {
-      const response = await fetch('/api/auth/user', {
+      const urlAuthUser = `${THINGSBOARD_URL}/api/auth/user`;
+      const response = await fetch(urlAuthUser, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1231,7 +1334,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: 'https://api.data.apps.myio-bas.com',
+            dataApiHost: DATA_API_HOST,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -1645,7 +1748,7 @@ async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
     return null;
   }
 
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const url = `${THINGSBOARD_URL}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -1788,8 +1891,9 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
 }
 
 /**
- * Categorize items into 3 groups: lojas, entrada, areacomum
+ * Categorize items into 4 groups: lojas, entrada, areacomum, ocultos
  * Rules:
+ * - RFC-0142: OCULTOS - devices with ARQUIVADO, SEM_DADOS, etc. in deviceProfile (hidden group)
  * - LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * - ENTRADA: (deviceType = '3F_MEDIDOR' AND deviceProfile in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO])
  *            OR deviceType in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO]
@@ -1802,6 +1906,7 @@ function categorizeItemsByGroup(items) {
   const lojas = [];
   const entrada = [];
   const areacomum = [];
+  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
 
   // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
@@ -1809,6 +1914,12 @@ function categorizeItemsByGroup(items) {
   for (const item of items) {
     const deviceType = toStr(item.deviceType);
     const deviceProfile = toStr(item.deviceProfile);
+
+    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    if (isOcultosDevice(item)) {
+      ocultos.push(item);
+      continue;
+    }
 
     // Rule 1: LOJAS - use centralized isStoreDevice
     if (isStoreDevice(item)) {
@@ -1828,13 +1939,22 @@ function categorizeItemsByGroup(items) {
     areacomum.push(item);
   }
 
-  return { lojas, entrada, areacomum };
+  // RFC-0142: Log ocultos devices for debugging
+  if (ocultos.length > 0) {
+    LogHelper.log(
+      `[RFC-0142] Classified ${ocultos.length} devices as "ocultos" (hidden):`,
+      ocultos.map((d) => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5)
+    );
+  }
+
+  return { lojas, entrada, areacomum, ocultos };
 }
 
 /**
- * RFC-0106: Categorize water items into 4 groups: entrada, lojas, banheiros, areacomum
+ * RFC-0106: Categorize water items into 5 groups: entrada, lojas, banheiros, areacomum, ocultos
  *
  * RULE ORDER:
+ * RFC-0142: 0. OCULTOS - devices with ARQUIVADO, SEM_DADOS, etc. in deviceProfile (hidden group)
  * 1. ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
  * 2. AREACOMUM: deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
  *    NOTE: Banheiros with HIDROMETRO_AREA_COMUM go here - they are extracted by TELEMETRY widget for TELEMETRY_INFO
@@ -1854,11 +1974,18 @@ function categorizeItemsByGroupWater(items) {
   const banheiros = [];
   const areacomum = [];
   const caixadagua = []; // RFC-0107: Category for tanks
+  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
 
   // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
+    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    if (isOcultosDevice(item)) {
+      ocultos.push(item);
+      continue;
+    }
+
     const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
     const identifier = toStr(item.identifier);
@@ -1917,7 +2044,15 @@ function categorizeItemsByGroupWater(items) {
     areacomum.push(item);
   }
 
-  return { entrada, lojas, banheiros, areacomum, caixadagua };
+  // RFC-0142: Log ocultos devices for debugging
+  if (ocultos.length > 0) {
+    LogHelper.log(
+      `[RFC-0142] Classified ${ocultos.length} water devices as "ocultos" (hidden):`,
+      ocultos.map((d) => `${d.label || d.name || d.id} (${d.deviceProfile})`).slice(0, 5)
+    );
+  }
+
+  return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
 }
 
 /**
@@ -2630,7 +2765,53 @@ const SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS = 60;
 
 const MyIOOrchestrator = (() => {
   // ========== PHASE 1: BUSY OVERLAY MANAGEMENT (RFC-0044/RFC-0054) ==========
-  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
+  // RFC-0137: Using LoadingSpinner component instead of custom busy overlay
+  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay'; // Kept for backwards compatibility
+
+  // RFC-0137: LoadingSpinner instance (lazy initialized)
+  let _loadingSpinnerInstance = null;
+
+  /**
+   * RFC-0137: Get or create LoadingSpinner instance
+   * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
+   */
+  function getLoadingSpinner() {
+    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+
+    // Try to use new LoadingSpinner from myio-js-library
+    const MyIOLibrary = window.MyIOLibrary;
+    if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
+      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+        minDisplayTime: 800, // Minimum 800ms to avoid flash
+        maxTimeout: 25000, // 25 seconds max (matches existing timeout)
+        message: 'Carregando dados...',
+        spinnerType: 'double',
+        theme: 'dark',
+        showTimer: false, // Set to true for debugging
+        onTimeout: () => {
+          LogHelper.warn('[Orchestrator] RFC-0137: LoadingSpinner max timeout reached');
+          // Emit recovery event for other widgets to handle
+          window.dispatchEvent(
+            new CustomEvent('myio:busy-timeout-recovery', {
+              detail: { domain: globalBusyState.currentDomain, duration: 25000 },
+            })
+          );
+          showRecoveryNotification();
+        },
+        onComplete: () => {
+          LogHelper.log('[Orchestrator] RFC-0137: LoadingSpinner hidden');
+        },
+      });
+      LogHelper.log('[Orchestrator] RFC-0137: LoadingSpinner initialized from MyIOLibrary');
+    } else {
+      LogHelper.warn(
+        '[Orchestrator] RFC-0137: MyIOLibrary.createLoadingSpinner not available, using legacy overlay'
+      );
+    }
+
+    return _loadingSpinnerInstance;
+  }
+
   let globalBusyState = {
     isVisible: false,
     timeoutId: null,
@@ -2639,7 +2820,7 @@ const MyIOOrchestrator = (() => {
     requestCount: 0,
   };
 
-  // RFC-0054: contador por dom�nio e cooldown p�s-provide
+  // RFC-0054: contador por domínio e cooldown pós-provide
   const activeRequests = new Map(); // domain -> count
   const lastProvide = new Map(); // domain -> { periodKey, at }
 
@@ -3059,27 +3240,75 @@ const MyIOOrchestrator = (() => {
     }
   }
 
+  // RFC-0137: Configurable delay before hiding spinner after data is confirmed loaded
+  const SPINNER_HIDE_DELAY_MS = 2000; // 2 seconds delay after data confirmed
+
   // PHASE 1: Centralized busy management with extended timeout
-  function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
-    // RFC-0054: cooldown - n�o reabrir modal se acabou de prover dados
-    const lp = lastProvide.get(domain);
-    if (lp && Date.now() - lp.at < 30000) {
-      LogHelper.log(`[Orchestrator] ?? Cooldown active for ${domain}, skipping showGlobalBusy()`);
-      return;
+  // RFC-0137: Now uses LoadingSpinner component from myio-js-library
+  function showGlobalBusy(
+    domain = 'unknown',
+    message = 'Carregando dados...',
+    timeoutMs = 25000,
+    options = {}
+  ) {
+    // RFC-0137: Support force flag to bypass cooldown (for user-initiated actions)
+    const { force = false } = options;
+
+    // RFC-0054: cooldown - não reabrir modal se acabou de prover dados
+    // RFC-0137: Skip cooldown check if force=true (user clicked "Carregar")
+    if (!force) {
+      const lp = lastProvide.get(domain);
+      if (lp && Date.now() - lp.at < 30000) {
+        LogHelper.log(`[Orchestrator] ⏸️ Cooldown active for ${domain}, skipping showGlobalBusy()`);
+        return;
+      }
+    } else {
+      LogHelper.log(`[Orchestrator] 🔓 RFC-0137: Force flag set, bypassing cooldown for ${domain}`);
+      // Clear lastProvide to reset cooldown state
+      lastProvide.delete(domain);
     }
     const totalBefore = getActiveTotal();
     const prev = activeRequests.get(domain) || 0;
     activeRequests.set(domain, prev + 1);
     LogHelper.log(
-      `[Orchestrator] ?? Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
+      `[Orchestrator] 📊 Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
     );
 
-    const el = ensureOrchestratorBusyDOM();
-    const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+    // RFC-0137: Try to use new LoadingSpinner component
+    const spinner = getLoadingSpinner();
 
-    if (messageEl) {
-      // Mensagem gen�rica para evitar r�tulo incorreto ao alternar abas
-      messageEl.textContent = 'Carregando dados...';
+    if (spinner) {
+      // Use new LoadingSpinner component
+      if (totalBefore === 0) {
+        globalBusyState.isVisible = true;
+        globalBusyState.currentDomain = domain;
+        globalBusyState.startTime = Date.now();
+        globalBusyState.requestCount++;
+
+        // Show spinner with Portuguese message
+        spinner.show(message || 'Carregando dados...');
+        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner shown for ${domain}`);
+      } else {
+        // Update message if already showing
+        spinner.updateMessage(message || 'Carregando dados...');
+        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner message updated (already showing)`);
+      }
+    } else {
+      // Fallback to legacy busy overlay
+      const el = ensureOrchestratorBusyDOM();
+      const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+
+      if (messageEl) {
+        messageEl.textContent = message || 'Carregando dados...';
+      }
+
+      if (totalBefore === 0) {
+        globalBusyState.isVisible = true;
+        globalBusyState.currentDomain = domain;
+        globalBusyState.startTime = Date.now();
+        globalBusyState.requestCount++;
+        el.style.display = 'flex';
+      }
     }
 
     // Clear existing timeout
@@ -3088,67 +3317,59 @@ const MyIOOrchestrator = (() => {
       globalBusyState.timeoutId = null;
     }
 
-    // Mostrar overlay apenas quando saiu de 0 ? 1
-    if (totalBefore === 0) {
-      globalBusyState.isVisible = true;
-      globalBusyState.currentDomain = domain;
-      globalBusyState.startTime = Date.now();
-      globalBusyState.requestCount++;
-      el.style.display = 'flex';
-    }
-
     // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
-    // This is defined later in the orchestrator initialization
     if (window.MyIOOrchestrator?.widgetBusyMonitor) {
       window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
     }
 
     // PHASE 1: Extended timeout (25s instead of 10s)
-    globalBusyState.timeoutId = setTimeout(() => {
-      LogHelper.warn(`[Orchestrator] ?? BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
+    // Note: LoadingSpinner has its own maxTimeout, this is backup for legacy overlay
+    if (!spinner) {
+      globalBusyState.timeoutId = setTimeout(() => {
+        LogHelper.warn(`[Orchestrator] ⏰ BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
 
-      // Check if still actually busy
-      if (globalBusyState.isVisible && el.style.display !== 'none') {
-        // PHASE 3: Circuit breaker pattern - try graceful recovery
-        try {
-          // Emit recovery event
-          window.dispatchEvent(
-            new CustomEvent('myio:busy-timeout-recovery', {
-              detail: { domain, duration: Date.now() - globalBusyState.startTime },
-            })
-          );
-
-          // Hide busy and show user-friendly message
-          hideGlobalBusy(domain);
-
-          // Non-intrusive notification
-          showRecoveryNotification();
-        } catch (err) {
-          LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
-          hideGlobalBusy(domain);
+        const el = document.getElementById(BUSY_OVERLAY_ID);
+        if (globalBusyState.isVisible && el && el.style.display !== 'none') {
+          try {
+            window.dispatchEvent(
+              new CustomEvent('myio:busy-timeout-recovery', {
+                detail: { domain, duration: Date.now() - globalBusyState.startTime },
+              })
+            );
+            hideGlobalBusy(domain);
+            showRecoveryNotification();
+          } catch (err) {
+            LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
+            hideGlobalBusy(domain);
+          }
         }
-      }
-
-      globalBusyState.timeoutId = null;
-    }, timeoutMs); // 25 seconds (Phase 1 requirement)
+        globalBusyState.timeoutId = null;
+      }, timeoutMs);
+    }
 
     if (totalBefore === 0) {
-      LogHelper.log(`[Orchestrator] ? Global busy shown (domain=${domain})`);
+      LogHelper.log(`[Orchestrator] 🔄 Global busy shown (domain=${domain})`);
     } else {
-      LogHelper.log(`[Orchestrator] ?? Busy already visible (domain=${domain})`);
+      LogHelper.log(`[Orchestrator] ⏳ Busy already visible (domain=${domain})`);
     }
   }
 
-  function hideGlobalBusy(domain = null) {
-    // RFC-0054: decremento por dom�nio; se domain for nulo, for�a limpeza
+  // RFC-0137: Track pending hide timeout for delayed hide
+  let _pendingHideTimeoutId = null;
+
+  function hideGlobalBusy(domain = null, options = {}) {
+    // RFC-0137: Options for controlling hide behavior
+    const { immediate = false, skipDelay = false } = options;
+
+    // RFC-0054: decremento por domínio; se domain for nulo, força limpeza
     if (domain) {
       const prev = activeRequests.get(domain) || 0;
       const next = Math.max(0, prev - 1);
       activeRequests.set(domain, next);
       LogHelper.log(
-        `[Orchestrator] ? hideGlobalBusy(${domain}) -> ${prev}?${next}, total=${getActiveTotal()}`
+        `[Orchestrator] ✅ hideGlobalBusy(${domain}) -> ${prev}→${next}, total=${getActiveTotal()}`
       );
-      if (getActiveTotal() > 0) return; // mant�m overlay enquanto houver ativas
+      if (getActiveTotal() > 0) return; // mantém overlay enquanto houver ativas
     } else {
       activeRequests.clear();
     }
@@ -3158,23 +3379,59 @@ const MyIOOrchestrator = (() => {
       window.MyIOOrchestrator.widgetBusyMonitor.stopAll();
     }
 
-    const el = document.getElementById(BUSY_OVERLAY_ID);
-    if (el) {
-      el.style.display = 'none';
+    // Clear any pending hide timeout
+    if (_pendingHideTimeoutId) {
+      clearTimeout(_pendingHideTimeoutId);
+      _pendingHideTimeoutId = null;
     }
 
-    // Clear timeout
-    if (globalBusyState.timeoutId) {
-      clearTimeout(globalBusyState.timeoutId);
-      globalBusyState.timeoutId = null;
+    // RFC-0137: Use LoadingSpinner if available
+    const spinner = getLoadingSpinner();
+
+    // Function to actually perform the hide
+    const performHide = () => {
+      if (spinner && spinner.isShowing()) {
+        spinner.hide();
+        LogHelper.log(`[Orchestrator] ✅ RFC-0137: LoadingSpinner hidden`);
+      }
+
+      // Also hide legacy overlay if exists
+      const el = document.getElementById(BUSY_OVERLAY_ID);
+      if (el) {
+        el.style.display = 'none';
+      }
+
+      // Clear timeout
+      if (globalBusyState.timeoutId) {
+        clearTimeout(globalBusyState.timeoutId);
+        globalBusyState.timeoutId = null;
+      }
+
+      // Update state
+      globalBusyState.isVisible = false;
+      globalBusyState.currentDomain = null;
+      globalBusyState.startTime = null;
+
+      LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
+    };
+
+    // RFC-0137: Apply delay before hiding (unless immediate or skipDelay)
+    if (immediate || skipDelay) {
+      performHide();
+    } else {
+      // Show "Dados carregados!" message briefly before hiding
+      if (spinner && spinner.isShowing()) {
+        spinner.updateMessage('Dados carregados!');
+        LogHelper.log(
+          `[Orchestrator] ✅ RFC-0137: Data confirmed, waiting ${SPINNER_HIDE_DELAY_MS}ms before hiding`
+        );
+      }
+
+      _pendingHideTimeoutId = setTimeout(() => {
+        performHide();
+        _pendingHideTimeoutId = null;
+      }, SPINNER_HIDE_DELAY_MS);
     }
-
-    // Update state
-    globalBusyState.isVisible = false;
-    globalBusyState.currentDomain = null;
-    globalBusyState.startTime = null;
-
-    LogHelper.log(`[Orchestrator] ? Global busy hidden`);
   }
 
   // PHASE 4: Non-intrusive recovery notification
@@ -3289,7 +3546,7 @@ const MyIOOrchestrator = (() => {
       if (currentPeriod) {
         LogHelper.log(`[Orchestrator] ✅ Period available on attempt ${attempt}:`, currentPeriod);
         if (attempt > 1 && MyIOToast) {
-          MyIOToast.success(`Período definido (tentativa ${attempt})`, 2000);
+          MyIOToast.success(`Dados carregados com suesso (tentativa ${attempt})`, 2000);
         }
         return currentPeriod;
       }
@@ -4031,9 +4288,12 @@ const MyIOOrchestrator = (() => {
   /**
    * RFC-0106: Wait for ctx.data to be populated with datasources
    * This prevents the timing issue where API is called before ThingsBoard loads datasources
+   * RFC-0138: Now also validates period when checking cache
    */
-  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200, domain = null) {
+  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200, domain = null, period = null) {
     const startTime = Date.now();
+    // RFC-0138: Compute expected period key for cache validation
+    const expectedPeriodKey = domain && period ? periodKey(domain, period) : null;
 
     while (Date.now() - startTime < maxWaitMs) {
       const datasources = Array.isArray(self?.ctx?.datasources) ? self.ctx.datasources : [];
@@ -4048,16 +4308,23 @@ const MyIOOrchestrator = (() => {
       }
 
       // RFC-0106 FIX: Check if another call already fetched data for this domain
-      // This prevents duplicate waiting when data is already available
+      // RFC-0138 FIX: Also verify period matches before returning cached data
       if (domain) {
         const cachedData = window.MyIOOrchestratorData?.[domain];
         if (cachedData && cachedData.items && cachedData.items.length > 0) {
           const cacheAge = Date.now() - (cachedData.timestamp || 0);
-          if (cacheAge < 30000) {
+          const periodMatches = !expectedPeriodKey || cachedData.periodKey === expectedPeriodKey;
+
+          if (cacheAge < 30000 && periodMatches) {
             LogHelper.log(
-              `[Orchestrator] ✅ Data already available in cache for ${domain} (${cachedData.items.length} items, age: ${cacheAge}ms) - exiting wait`
+              `[Orchestrator] ✅ Data already available in cache for ${domain} (${cachedData.items.length} items, age: ${cacheAge}ms, period: matched) - exiting wait`
             );
             return 'cached'; // Special return to indicate cached data is available
+          } else if (cacheAge < 30000 && !periodMatches) {
+            LogHelper.log(
+              `[Orchestrator] 🔄 RFC-0138: Cache exists but period mismatch in waitForCtxData - will fetch fresh data`
+            );
+            // Don't return cached, continue waiting for ctx.data or timeout
           }
         }
       }
@@ -4077,13 +4344,21 @@ const MyIOOrchestrator = (() => {
     }
 
     // Timeout - check one more time if cache is available before failing
+    // RFC-0138: Also verify period matches
     if (domain) {
       const cachedData = window.MyIOOrchestratorData?.[domain];
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
-        LogHelper.log(
-          `[Orchestrator] ✅ Timeout but cache available for ${domain} (${cachedData.items.length} items)`
-        );
-        return 'cached';
+        const periodMatches = !expectedPeriodKey || cachedData.periodKey === expectedPeriodKey;
+        if (periodMatches) {
+          LogHelper.log(
+            `[Orchestrator] ✅ Timeout but cache available for ${domain} (${cachedData.items.length} items, period: matched)`
+          );
+          return 'cached';
+        } else {
+          LogHelper.log(
+            `[Orchestrator] 🔄 RFC-0138: Timeout, cache exists but period mismatch for ${domain}`
+          );
+        }
       }
     }
 
@@ -4130,13 +4405,17 @@ const MyIOOrchestrator = (() => {
       // RFC-0106 FIX: Check if fresh data is already available in MyIOOrchestratorData
       // This prevents duplicate hydrateDomain calls (with different keys) from waiting for ctx.data
       // when data was already successfully fetched by another call
+      // RFC-0138 FIX: Also verify periodKey matches to avoid returning stale data for different period
       const cachedData = window.MyIOOrchestratorData?.[domain];
+      const currentPeriodKey = periodKey(domain, period);
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
-        // Use cache if less than 30 seconds old
-        if (cacheAge < 30000) {
+        const periodMatches = cachedData.periodKey === currentPeriodKey;
+
+        // Use cache if less than 30 seconds old AND period matches
+        if (cacheAge < 30000 && periodMatches) {
           LogHelper.log(
-            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms)`
+            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms, period: matched)`
           );
 
           // RFC-0108 DEBUG: Analyze cached data for ingestionId issues (water domain)
@@ -4188,6 +4467,12 @@ const MyIOOrchestrator = (() => {
           }
 
           return cachedData.items;
+        } else if (cachedData && !periodMatches) {
+          // RFC-0138: Cache exists but period doesn't match - will fetch fresh data
+          LogHelper.log(
+            `[Orchestrator] 🔄 RFC-0138: Cache period mismatch for ${domain}, fetching fresh data`,
+            { cachedPeriod: cachedData.periodKey, requestedPeriod: currentPeriodKey }
+          );
         }
       }
 
@@ -4196,7 +4481,8 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 🌡️ Temperature domain - using ctx.data directly (no API)`);
 
         // Wait for ctx.data to be populated (pass domain to check cache during wait)
-        const ctxDataReady = await waitForCtxData(20000, 200, domain);
+        // RFC-0138: Pass period to validate cache
+        const ctxDataReady = await waitForCtxData(20000, 200, domain, period);
 
         // If cached data is available, return it directly
         if (ctxDataReady === 'cached') {
@@ -4259,9 +4545,11 @@ const MyIOOrchestrator = (() => {
       lastFetchDomain = domain;
       lastFetchPeriod = period;
 
-      const ctxDataReady = await waitForCtxData(20000, 200, domain);
+      // RFC-0138: Pass period to validate cache
+      const ctxDataReady = await waitForCtxData(20000, 200, domain, period);
 
       // If cached data is available, return it directly (another call already fetched)
+      // RFC-0138: This is now safe because waitForCtxData validates period
       if (ctxDataReady === 'cached') {
         const cachedData = window.MyIOOrchestratorData?.[domain];
         LogHelper.log(
@@ -4908,11 +5196,17 @@ const MyIOOrchestrator = (() => {
   }
 
   // Fetch data for a domain and period
-  async function hydrateDomain(domain, period) {
+  // RFC-0138: Added options.force to bypass cooldown when switching domains via MENU
+  async function hydrateDomain(domain, period, options = {}) {
+    const { force = false } = options;
     const key = periodKey(domain, period);
     const startTime = Date.now();
 
-    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
+    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, {
+      key,
+      inFlight: inFlight.has(key),
+      force,
+    });
 
     // Coalesce duplicate requests
     if (inFlight.has(key)) {
@@ -4920,8 +5214,8 @@ const MyIOOrchestrator = (() => {
       return inFlight.get(key);
     }
 
-    // Show busy overlay
-    showGlobalBusy(domain, 'Carregando dados...');
+    // Show busy overlay - pass force flag to bypass cooldown
+    showGlobalBusy(domain, 'Carregando dados...', 25000, { force });
 
     // Set mutex for coordination
     sharedWidgetState.mutexMap.set(domain, true);
@@ -5172,6 +5466,71 @@ const MyIOOrchestrator = (() => {
     registerWidget(widgetId, domain);
   });
 
+  /**
+   * RFC-0136: Listener for late-arriving widgets that are ready to receive data
+   * When a widget signals it's ready, re-emit provide-data if we have cached data
+   * This solves the race condition where widgets miss the initial provide-data event
+   */
+  window.addEventListener('myio:widget:ready', (ev) => {
+    const { widgetId, domain, labelWidget, timestamp } = ev.detail;
+
+    LogHelper.log(
+      `[Orchestrator] 📡 RFC-0136: Widget ready - ${widgetId} (domain: ${domain}, labelWidget: ${labelWidget})`
+    );
+
+    // Check if we have cached data for this domain
+    const cachedData = window.MyIOOrchestratorData?.[domain];
+    if (!cachedData || !cachedData.items || cachedData.items.length === 0) {
+      LogHelper.log(
+        `[Orchestrator] ℹ️ RFC-0136: No cached data for ${domain}, widget will wait for fresh fetch`
+      );
+      return;
+    }
+
+    // Validate cache freshness (60 seconds max)
+    const age = Date.now() - (cachedData.timestamp || 0);
+    if (age > 60000) {
+      LogHelper.log(
+        `[Orchestrator] ⚠️ RFC-0136: Cached data for ${domain} is stale (${Math.round(
+          age / 1000
+        )}s), not re-emitting`
+      );
+      return;
+    }
+
+    // Validate customer match
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
+    const cachedPeriodKey = cachedData.periodKey || '';
+    const cachedCustomerId = cachedPeriodKey.split(':')[0];
+
+    if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+      LogHelper.warn(
+        `[Orchestrator] 🚫 RFC-0136: Customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId})`
+      );
+      return;
+    }
+
+    // Re-emit provide-data event for this specific widget
+    // Small delay to ensure widget's event listener is fully registered
+    setTimeout(() => {
+      LogHelper.log(
+        `[Orchestrator] 📡 RFC-0136: Re-emitting provide-data for ${domain} (${cachedData.items.length} items) - triggered by ${widgetId}`
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('myio:telemetry:provide-data', {
+          detail: {
+            domain: domain,
+            periodKey: cachedData.periodKey,
+            items: cachedData.items,
+            _reemit: true, // Flag to indicate this is a re-emission
+            _triggeredBy: widgetId,
+          },
+        })
+      );
+    }, 50); // 50ms delay to ensure listener is ready
+  });
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
@@ -5203,8 +5562,12 @@ const MyIOOrchestrator = (() => {
     // No need to re-emit here as it creates infinite loop
 
     if (visibleTab && currentPeriod) {
-      LogHelper.log(`[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab})`);
-      hydrateDomain(visibleTab, currentPeriod);
+      // RFC-0138: Pass force=true when period changed to bypass cooldown and show spinner
+      const shouldForce = periodChanged;
+      LogHelper.log(
+        `[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab}, force=${shouldForce})`
+      );
+      hydrateDomain(visibleTab, currentPeriod, { force: shouldForce });
     }
   });
 
@@ -5246,8 +5609,9 @@ const MyIOOrchestrator = (() => {
         }
       }
 
-      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab})`);
-      hydrateDomain(visibleTab, currentPeriod);
+      // RFC-0138: Pass force=true to bypass cooldown and show spinner when switching domains via MENU
+      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab}, force=true)`);
+      hydrateDomain(visibleTab, currentPeriod, { force: true });
     } else if (visibleTab && !currentPeriod) {
       // RFC-0130: No period yet - start retry loop to wait for period
       LogHelper.log(
@@ -5601,7 +5965,7 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
  * This function is called when the orchestrator becomes ready
  */
 async function initializeContractLoading() {
-  const customerTB_ID = widgetSettings.customerTB_ID;
+  const customerTB_ID = '20b93da0-9011-11f0-a06d-e9509531b1d5'; //TODO REMOVER widgetSettings.customerTB_ID;
   if (!customerTB_ID) {
     LogHelper.warn('[RFC-0107] customerTB_ID not available, skipping contract initialization');
     return;

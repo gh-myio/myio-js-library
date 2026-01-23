@@ -7,7 +7,8 @@
 
 /* root + filhos ocupam 100% */
 #myio-root.myio-grid,
-#myio-root .tb-child {
+#myio-root .tb-child,
+#myio-root section[id$="Container"] {
   width: 100%;
   height: 100%;
 }
@@ -84,7 +85,9 @@
 
 /* Neutralizador de states internos */
 #myio-root .myio-sidebar .tb-child,
-#myio-root .myio-header .tb-child {
+#myio-root .myio-header .tb-child,
+#myio-root .myio-sidebar section[id$="Container"],
+#myio-root .myio-header section[id$="Container"] {
   width: 100%;
   height: 100%;
   margin: 0 !important;
@@ -96,7 +99,8 @@
 }
 
 /* Widgets de content precisam de scroll - NÃO forçar overflow: visible */
-#myio-root .myio-content .tb-child {
+#myio-root .myio-content .tb-child,
+#myio-root .myio-content section[id$="Container"] {
   width: 100%;
   height: 100%;
   margin: 0 !important;
@@ -115,7 +119,8 @@
   height: 100%;
   min-height: 400px;
 }
-#myio-root .myio-footer .tb-child {
+#myio-root .myio-footer .tb-child,
+#myio-root .myio-footer section[id$="Container"] {
   /* Remove o padding padrão do Gridster */
   padding: 0 !important;
 

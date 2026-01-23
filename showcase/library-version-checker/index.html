@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0137: LibraryVersionChecker Component Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .section {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #334155;
+      }
+
+      .section h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      .section-desc {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 20px;
+        line-height: 1.6;
+      }
+
+      .section-desc code {
+        background: #0f172a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #60a5fa;
+      }
+
+      /* Demo Containers */
+      .demo-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        margin-top: 20px;
+      }
+
+      .demo-box {
+        flex: 1;
+        min-width: 280px;
+        background: #0f172a;
+        border-radius: 12px;
+        padding: 24px;
+        border: 1px solid #334155;
+      }
+
+      .demo-box h3 {
+        font-size: 14px;
+        font-weight: 500;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .demo-box__content {
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1e293b;
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      /* Menu Simulation */
+      .menu-simulation {
+        width: 240px;
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 12px;
+        padding: 16px;
+        position: relative;
+        min-height: 400px;
+      }
+
+      .menu-simulation__header {
+        padding: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 16px;
+      }
+
+      .menu-simulation__user-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+      }
+
+      .menu-simulation__user-email {
+        font-size: 12px;
+        color: #9CA3AF;
+        margin-top: 4px;
+      }
+
+      .menu-simulation__items {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .menu-simulation__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 14px;
+        transition: background 0.2s;
+        cursor: pointer;
+      }
+
+      .menu-simulation__item:hover {
+        background: rgba(255,255,255,0.1);
+      }
+
+      .menu-simulation__item.active {
+        background: rgba(99, 102, 241, 0.2);
+        border-left: 3px solid #6366F1;
+      }
+
+      .menu-simulation__footer {
+        position: absolute;
+        bottom: 50px;
+        left: 16px;
+        right: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+      }
+
+      .menu-simulation__logout-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(239, 68, 68, 0.1);
+        border: none;
+        border-radius: 8px;
+        color: #F87171;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .menu-simulation__logout-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+      }
+
+      .menu-simulation__version {
+        position: absolute;
+        bottom: 10px;
+        left: 0;
+        right: 0;
+      }
+
+      /* Controls */
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .controls button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .controls button.primary {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .controls button.primary:hover {
+        background: #2563eb;
+      }
+
+      .controls button.secondary {
+        background: #475569;
+        color: white;
+      }
+
+      .controls button.secondary:hover {
+        background: #64748b;
+      }
+
+      .controls button.danger {
+        background: #ef4444;
+        color: white;
+      }
+
+      .controls button.danger:hover {
+        background: #dc2626;
+      }
+
+      /* Log Panel */
+      .log-panel {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 16px;
+        min-height: 150px;
+        max-height: 250px;
+        overflow-y: auto;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        margin-top: 16px;
+      }
+
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+
+      .log-time {
+        color: #64748b;
+      }
+
+      .log-info {
+        color: #60a5fa;
+      }
+
+      .log-success {
+        color: #34d399;
+      }
+
+      .log-error {
+        color: #f87171;
+      }
+
+      .log-warn {
+        color: #fbbf24;
+      }
+
+      /* Code Block */
+      .code-block {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 16px;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 13px;
+        color: #e2e8f0;
+        overflow-x: auto;
+        border: 1px solid #334155;
+        margin-top: 16px;
+      }
+
+      .code-block .comment {
+        color: #6b7280;
+      }
+
+      .code-block .keyword {
+        color: #c084fc;
+      }
+
+      .code-block .string {
+        color: #86efac;
+      }
+
+      .code-block .function {
+        color: #60a5fa;
+      }
+
+      /* Version input group */
+      .version-input-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 16px;
+        background: #0f172a;
+        border-radius: 8px;
+      }
+
+      .version-input-group label {
+        font-size: 14px;
+        color: #94a3b8;
+      }
+
+      .version-input-group input {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #1e293b;
+        color: #f1f5f9;
+        font-size: 14px;
+        width: 120px;
+      }
+
+      .version-input-group input:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0137: LibraryVersionChecker Component</h1>
+      <p>Componente que exibe a versao da biblioteca e verifica atualizacoes no npm com tooltip premium</p>
+    </header>
+
+    <div class="container">
+      <!-- Live Demo Section -->
+      <section class="section">
+        <h2>Demonstracao ao Vivo</h2>
+        <p class="section-desc">
+          O componente verifica automaticamente a versao mais recente no npm e exibe um indicador visual.
+          Clique no icone de status para ver o tooltip detalhado com instrucoes de atualizacao.
+        </p>
+
+        <div class="demo-row">
+          <!-- Standalone Demo -->
+          <div class="demo-box">
+            <h3>Componente Standalone</h3>
+            <div class="demo-box__content">
+              <div id="standalone-demo"></div>
+            </div>
+          </div>
+
+          <!-- Menu Simulation -->
+          <div class="demo-box">
+            <h3>Simulacao do Menu</h3>
+            <div class="menu-simulation">
+              <div class="menu-simulation__header">
+                <div class="menu-simulation__user-name">Usuario Teste</div>
+                <div class="menu-simulation__user-email">teste@example.com</div>
+              </div>
+              <div class="menu-simulation__items">
+                <div class="menu-simulation__item active">
+                  <span>⚡</span> Energia
+                </div>
+                <div class="menu-simulation__item">
+                  <span>💧</span> Agua
+                </div>
+                <div class="menu-simulation__item">
+                  <span>🌡️</span> Temperatura
+                </div>
+              </div>
+              <div class="menu-simulation__footer">
+                <button class="menu-simulation__logout-btn">
+                  <span>🚪</span> Sair
+                </button>
+              </div>
+              <div class="menu-simulation__version" id="menu-version-demo"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Test Controls -->
+        <div class="version-input-group">
+          <label>Simular versao instalada:</label>
+          <input type="text" id="simulatedVersion" value="0.1.320" placeholder="ex: 0.1.320" />
+          <label style="margin-left:16px;">Tema:</label>
+          <select id="themeSelect" style="padding:8px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#f1f5f9;font-size:14px;">
+            <option value="dark">Dark (default)</option>
+            <option value="light">Light</option>
+          </select>
+          <button class="primary" onclick="recreateWithVersion()">Recriar Componente</button>
+        </div>
+
+        <div class="controls">
+          <button class="primary" onclick="refreshCheck()">Forcar Verificacao</button>
+          <button class="secondary" onclick="clearCache()">Limpar Cache</button>
+          <button class="danger" onclick="destroyComponents()">Destruir Componentes</button>
+        </div>
+      </section>
+
+      <!-- Test Scenarios Section -->
+      <section class="section">
+        <h2>Cenarios de Teste</h2>
+        <p class="section-desc">
+          Simule diferentes cenarios para testar os toasts e comportamentos do componente.
+          Cada botao recria o componente com uma versao simulada para provocar o resultado desejado.
+        </p>
+
+        <div class="demo-row">
+          <div class="demo-box">
+            <h3>Teste: Success</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">
+              Simula biblioteca atualizada (versao >= npm)
+            </p>
+            <button class="primary" onclick="testSuccess()" style="width:100%;">
+              Testar Success
+            </button>
+          </div>
+
+          <div class="demo-box">
+            <h3>Teste: Warning</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">
+              Simula biblioteca desatualizada (versao < npm)
+            </p>
+            <button class="secondary" onclick="testWarning()" style="width:100%;background:#f59e0b;">
+              Testar Warning
+            </button>
+          </div>
+
+          <div class="demo-box">
+            <h3>Teste: Error</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">
+              Simula falha na comunicacao com npm
+            </p>
+            <button class="danger" onclick="testError()" style="width:100%;">
+              Testar Error
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding:16px;background:#0f172a;border-radius:8px;border:1px solid #334155;">
+          <h4 style="font-size:14px;margin-bottom:12px;color:#f1f5f9;">Fluxo de Toasts Esperado:</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">INFO</span>
+              <span style="color:#94a3b8;">"Verificando ultima versao da biblioteca no npm..."</span>
+            </div>
+            <div style="color:#64748b;padding-left:24px;">↓ aguarda resposta do npm</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">SUCCESS</span>
+              <span style="color:#94a3b8;">"Biblioteca atualizada! Voce esta usando a versao mais recente."</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">WARNING</span>
+              <span style="color:#94a3b8;">"Atualizacao disponivel! vX.X.X → vY.Y.Y"</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="background:#ef4444;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">ERROR</span>
+              <span style="color:#94a3b8;">"Nao foi possivel verificar atualizacoes. Tente novamente."</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Usage Example Section -->
+      <section class="section">
+        <h2>Como Usar</h2>
+        <p class="section-desc">
+          O componente <code>createLibraryVersionChecker</code> injeta todo o conteudo HTML e CSS necessario
+          no container fornecido. Basta passar o elemento container e as opcoes de configuracao.
+        </p>
+
+        <div class="code-block">
+<span class="comment">// No ThingsBoard widget (MENU/controller.js)</span>
+<span class="keyword">const</span> container = <span class="function">document.getElementById</span>(<span class="string">'lib-version-display'</span>);
+
+<span class="keyword">if</span> (MyIOLibrary.<span class="function">createLibraryVersionChecker</span>) {
+  MyIOLibrary.<span class="function">createLibraryVersionChecker</span>(container, {
+    <span class="string">packageName</span>: <span class="string">'myio-js-library'</span>,
+    <span class="string">currentVersion</span>: MyIOLibrary.version || <span class="string">'unknown'</span>,
+    <span class="string">onStatusChange</span>: (status, current, latest) => {
+      <span class="function">console.log</span>(<span class="string">`Status: ${status}`</span>);
+    },
+  });
+}
+        </div>
+      </section>
+
+      <!-- Status Reference Section -->
+      <section class="section">
+        <h2>Referencia de Status</h2>
+        <p class="section-desc">
+          O componente pode estar em um dos seguintes estados:
+        </p>
+
+        <div class="demo-row">
+          <div class="demo-box">
+            <h3>Verificando</h3>
+            <div class="demo-box__content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:12px;color:#9CA3AF;">v0.1.327</span>
+                <span style="animation:spin 1s linear infinite;color:#6B7280;font-size:14px;">⟳</span>
+              </div>
+            </div>
+          </div>
+          <div class="demo-box">
+            <h3>Atualizado</h3>
+            <div class="demo-box__content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:12px;color:#9CA3AF;">v0.1.327</span>
+                <span style="color:#10B981;font-size:14px;cursor:pointer;">✓</span>
+              </div>
+            </div>
+          </div>
+          <div class="demo-box">
+            <h3>Desatualizado</h3>
+            <div class="demo-box__content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:12px;color:#9CA3AF;">v0.1.320</span>
+                <span style="color:#F59E0B;font-size:14px;cursor:pointer;animation:pulse 2s infinite;">⚠</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Event Log Section -->
+      <section class="section">
+        <h2>Log de Eventos</h2>
+        <div class="log-panel" id="logPanel">
+          <div class="log-entry">
+            <span class="log-time">[--:--:--]</span>
+            <span class="log-info">Showcase inicializado. Aguardando biblioteca...</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <style>
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    </style>
+
+    <!--
+    To run this showcase:
+    1. Run: npm run build (to generate dist/myio-js-library.umd.min.js)
+    2. Run: start-server.bat (Windows) or start-server.sh (Linux/macOS)
+    3. Open: http://localhost:3333/showcase/library-version-checker/
+  -->
+
+    <!-- Load UMD build which works without module system -->
+    <script src="../../dist/myio-js-library.umd.js"></script>
+    <script>
+      // State
+      let standaloneInstance = null;
+      let menuInstance = null;
+
+      // Log helper
+      function log(message, type = 'info') {
+        const panel = document.getElementById('logPanel');
+        const time = new Date().toLocaleTimeString('pt-BR');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+        panel.appendChild(entry);
+        panel.scrollTop = panel.scrollHeight;
+        console[type === 'error' ? 'error' : type === 'warn' ? 'warn' : 'log'](`[VersionChecker] ${message}`);
+      }
+
+      // Initialize components
+      function initComponents(version, themeOverride) {
+        const currentVersion = version || MyIOLibrary?.version || '0.1.327';
+        const theme = themeOverride || document.getElementById('themeSelect')?.value || 'dark';
+
+        // Destroy existing instances
+        if (standaloneInstance) {
+          standaloneInstance.destroy();
+          standaloneInstance = null;
+        }
+        if (menuInstance) {
+          menuInstance.destroy();
+          menuInstance = null;
+        }
+
+        // Clear containers
+        document.getElementById('standalone-demo').innerHTML = '';
+        document.getElementById('menu-version-demo').innerHTML = '';
+
+        // Update demo box backgrounds based on theme
+        const standaloneContent = document.querySelector('#standalone-demo')?.closest('.demo-box__content');
+        if (standaloneContent) {
+          standaloneContent.style.background = theme === 'light' ? '#f1f5f9' : '#1e293b';
+        }
+
+        // Status change callback
+        const onStatusChange = (status, current, latest) => {
+          const statusLabels = {
+            'checking': 'Verificando...',
+            'up-to-date': 'Atualizado',
+            'outdated': 'Desatualizado',
+            'error': 'Erro'
+          };
+          const logType = status === 'up-to-date' ? 'success' : status === 'outdated' ? 'warn' : status === 'error' ? 'error' : 'info';
+          log(`Status: ${statusLabels[status]} (Atual: ${current}, NPM: ${latest || 'N/A'})`, logType);
+        };
+
+        // Create standalone instance
+        standaloneInstance = MyIOLibrary.createLibraryVersionChecker(
+          document.getElementById('standalone-demo'),
+          {
+            packageName: 'myio-js-library',
+            currentVersion: currentVersion,
+            theme: theme,
+            onStatusChange: onStatusChange,
+          }
+        );
+        log(`Componente standalone criado (versao: ${currentVersion}, tema: ${theme})`, 'success');
+
+        // Create menu instance (always dark since menu background is dark)
+        menuInstance = MyIOLibrary.createLibraryVersionChecker(
+          document.getElementById('menu-version-demo'),
+          {
+            packageName: 'myio-js-library',
+            currentVersion: currentVersion,
+            theme: 'dark', // Menu is always dark
+            onStatusChange: (status, current, latest) => {
+              // Silent for menu, already logged by standalone
+            },
+          }
+        );
+        log('Componente do menu criado (tema: dark)', 'success');
+      }
+
+      // Recreate with custom version
+      function recreateWithVersion() {
+        const version = document.getElementById('simulatedVersion').value.trim() || '0.1.320';
+        const theme = document.getElementById('themeSelect').value;
+        log(`Recriando componentes com versao: ${version}, tema: ${theme}`, 'info');
+        initComponents(version, theme);
+      }
+
+      // Theme change handler - uses setTheme for dynamic update (no recreation)
+      document.getElementById('themeSelect')?.addEventListener('change', (e) => {
+        const newTheme = e.target.value;
+        log(`Tema alterado para: ${newTheme} (usando setTheme dinamico)`, 'info');
+
+        // Use setTheme to update theme dynamically without recreating
+        if (standaloneInstance) {
+          standaloneInstance.setTheme(newTheme);
+          log(`Standalone: tema atualizado para ${standaloneInstance.getTheme()}`, 'success');
+        }
+
+        // Update demo box background based on theme
+        const standaloneContent = document.querySelector('#standalone-demo')?.closest('.demo-box__content');
+        if (standaloneContent) {
+          standaloneContent.style.background = newTheme === 'light' ? '#f1f5f9' : '#1e293b';
+        }
+
+        // Menu always stays dark (menu background is dark)
+      });
+
+      // Force refresh check
+      function refreshCheck() {
+        if (standaloneInstance) {
+          log('Forcando verificacao de versao...', 'info');
+          standaloneInstance.refresh();
+        } else {
+          log('Nenhum componente inicializado', 'error');
+        }
+      }
+
+      // Clear cache
+      function clearCache() {
+        try {
+          localStorage.removeItem('myio:npm-version-cache:myio-js-library');
+          log('Cache de versao limpo do localStorage', 'success');
+        } catch (e) {
+          log('Erro ao limpar cache: ' + e.message, 'error');
+        }
+      }
+
+      // Destroy components
+      function destroyComponents() {
+        if (standaloneInstance) {
+          standaloneInstance.destroy();
+          standaloneInstance = null;
+        }
+        if (menuInstance) {
+          menuInstance.destroy();
+          menuInstance = null;
+        }
+        document.getElementById('standalone-demo').innerHTML = '<span style="color:#6B7280;font-size:12px;">Destruido</span>';
+        document.getElementById('menu-version-demo').innerHTML = '<span style="color:#6B7280;font-size:12px;">Destruido</span>';
+        log('Componentes destruidos', 'warn');
+      }
+
+      // Test Scenario: Success (up-to-date)
+      async function testSuccess() {
+        log('=== TESTE: SUCCESS (Biblioteca Atualizada) ===', 'info');
+
+        // Use a version >= current npm version to simulate success
+        // We'll fetch the real npm version first, then use it
+        try {
+          const response = await fetch('https://registry.npmjs.org/myio-js-library/latest');
+          const data = await response.json();
+          const npmVersion = data.version;
+
+          log(`Versao no npm: ${npmVersion}. Recriando componente com essa versao...`, 'info');
+          clearCache();
+          initComponents(npmVersion);
+
+          // Wait a bit then trigger refresh to see toasts
+          setTimeout(() => {
+            log('Clicando no botao refresh para ver os toasts...', 'info');
+            if (standaloneInstance) {
+              standaloneInstance.refresh();
+            }
+          }, 500);
+        } catch (e) {
+          log('Erro ao buscar versao npm: ' + e.message, 'error');
+        }
+      }
+
+      // Test Scenario: Warning (outdated)
+      async function testWarning() {
+        log('=== TESTE: WARNING (Biblioteca Desatualizada) ===', 'warn');
+
+        // Use an old version to simulate outdated
+        const oldVersion = '0.0.1';
+        log(`Recriando componente com versao antiga: ${oldVersion}`, 'info');
+        clearCache();
+        initComponents(oldVersion);
+
+        // Wait a bit then trigger refresh to see toasts
+        setTimeout(() => {
+          log('Clicando no botao refresh para ver os toasts...', 'info');
+          if (standaloneInstance) {
+            standaloneInstance.refresh();
+          }
+        }, 500);
+      }
+
+      // Test Scenario: Error (network failure)
+      function testError() {
+        log('=== TESTE: ERROR (Falha na Comunicacao) ===', 'error');
+
+        // Store original fetch
+        const originalFetch = window.fetch;
+
+        // Mock fetch to simulate network error
+        window.fetch = function(url) {
+          if (url.includes('registry.npmjs.org')) {
+            log('Simulando falha de rede...', 'warn');
+            return Promise.reject(new Error('Network error (simulated)'));
+          }
+          return originalFetch.apply(this, arguments);
+        };
+
+        clearCache();
+        initComponents('0.1.329');
+
+        // Wait a bit then trigger refresh to see toasts
+        setTimeout(() => {
+          log('Clicando no botao refresh para ver os toasts...', 'info');
+          if (standaloneInstance) {
+            standaloneInstance.refresh().then(() => {
+              // Restore original fetch after test
+              window.fetch = originalFetch;
+              log('Fetch restaurado ao original', 'info');
+            });
+          }
+        }, 500);
+
+        // Safety: restore fetch after 10 seconds anyway
+        setTimeout(() => {
+          window.fetch = originalFetch;
+        }, 10000);
+      }
+
+      // Initialize on load
+      if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createLibraryVersionChecker) {
+        log('MyIOLibrary.createLibraryVersionChecker disponivel', 'success');
+        log(`Versao real da biblioteca: ${MyIOLibrary.version || 'N/A'}`, 'info');
+        initComponents();
+      } else {
+        log('ERRO: MyIOLibrary.createLibraryVersionChecker nao encontrado! Execute npm run build', 'error');
+      }
+    </script>
+  </body>
+</html>

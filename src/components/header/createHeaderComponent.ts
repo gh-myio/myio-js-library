@@ -167,10 +167,11 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
   /**
    * Normalize energy data to the format expected by EnergySummaryTooltip
    * RFC-0121: Ensures byStatus and byCategory exist with all required properties
+   * RFC-0134: Preserves byShoppingTotal for "Por Shopping" tab and byShoppingBreakdown for expand
    */
   function normalizeEnergyData(data: unknown): unknown {
     const d = data as Record<string, unknown>;
-    // If data already has proper byStatus object, return as-is
+    // If data already has proper byStatus object, return as-is (preserves all properties)
     if (d.byStatus && typeof d.byStatus === 'object') {
       return data;
     }
@@ -196,22 +197,29 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     };
 
     // Create normalized data with default byStatus and byCategory
+    // IMPORTANT: Preserve byShoppingTotal and byShoppingBreakdown for expand functionality
     return {
       totalDevices: d.totalDevices ?? d.deviceCount ?? 0,
       totalConsumption: d.customerTotal ?? d.totalConsumption ?? 0,
       unit: d.unit ?? 'kWh',
       // EnergySummaryTooltip expects byCategory (array) not categories
+      // Categories may contain byShoppingBreakdown for expand in "Por Categoria" view
       byCategory: d.byCategory ?? d.categories ?? [],
       // EnergySummaryTooltip expects byStatus (object) not status
       byStatus: {
         ...defaultStatus,
         ...((d.byStatus as object) || (d.status as object) || {}),
       },
+      // RFC-0134: byShoppingTotal for "Por Shopping" tab (contains byCategory for expand)
+      byShoppingTotal: d.byShoppingTotal,
+      // Pass through filter-related properties
+      filteredTotal: d.filteredTotal,
+      unfilteredTotal: d.unfilteredTotal,
+      lastUpdated: d.lastUpdated,
       // Pass through other properties
       equipmentsTotal: d.equipmentsTotal,
       lojasTotal: d.lojasTotal,
       customerTotal: d.customerTotal,
-      unfilteredTotal: d.unfilteredTotal,
       isFiltered: d.isFiltered,
     };
   }
@@ -219,10 +227,11 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
   /**
    * Normalize water data to the format expected by WaterSummaryTooltip
    * RFC-0121: Ensures byStatus and byCategory exist with all required properties
+   * RFC-0134: Preserves byShoppingTotal for "Por Shopping" tab and byShoppingBreakdown for expand
    */
   function normalizeWaterData(data: unknown): unknown {
     const d = data as Record<string, unknown>;
-    // If data already has proper byStatus object, return as-is
+    // If data already has proper byStatus object, return as-is (preserves all properties)
     if (d.byStatus && typeof d.byStatus === 'object') {
       return data;
     }
@@ -248,20 +257,26 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     };
 
     // Create normalized data with default byStatus and byCategory
+    // IMPORTANT: Preserve byShoppingTotal and byShoppingBreakdown for expand functionality
     return {
       totalDevices: d.totalDevices ?? d.deviceCount ?? 0,
       totalConsumption: d.filteredTotal ?? d.totalConsumption ?? 0,
       unit: d.unit ?? 'm³',
       // WaterSummaryTooltip expects byCategory (array) not categories
+      // Categories may contain byShoppingBreakdown for expand in "Por Categoria" view
       byCategory: d.byCategory ?? d.categories ?? [],
       // WaterSummaryTooltip expects byStatus (object) not status
       byStatus: {
         ...defaultStatus,
         ...((d.byStatus as object) || (d.status as object) || {}),
       },
-      // Pass through other properties
+      // RFC-0134: byShoppingTotal for "Por Shopping" tab (contains byCategory for expand)
+      byShoppingTotal: d.byShoppingTotal,
+      // Pass through filter-related properties
       filteredTotal: d.filteredTotal,
       unfilteredTotal: d.unfilteredTotal,
+      lastUpdated: d.lastUpdated,
+      // Pass through other properties
       commonArea: d.commonArea,
       stores: d.stores,
       isFiltered: d.isFiltered,

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0104: Device Annotations System Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        min-height: 100vh;
+        color: #f1f5f9;
+      }
+
+      .showcase-header {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .showcase-controls {
+        display: flex;
+        gap: 16px;
+        padding: 16px 24px;
+        background: rgba(0, 0, 0, 0.2);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .showcase-controls button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .showcase-controls button.primary {
+        background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+        color: #fff;
+      }
+
+      .showcase-controls button.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+      }
+
+      .showcase-controls button.secondary {
+        background: #334155;
+        color: #f1f5f9;
+      }
+
+      .showcase-controls button.secondary:hover {
+        background: #475569;
+      }
+
+      .showcase-controls button.success {
+        background: #10b981;
+        color: #fff;
+      }
+
+      .showcase-controls button.danger {
+        background: #ef4444;
+        color: #fff;
+      }
+
+      .showcase-info {
+        padding: 12px 24px;
+        background: rgba(59, 130, 246, 0.1);
+        border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+        font-size: 13px;
+        color: #93c5fd;
+      }
+
+      .showcase-container {
+        padding: 24px;
+        display: flex;
+        gap: 24px;
+      }
+
+      .main-panel {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        min-height: 400px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .main-panel h2 {
+        font-size: 20px;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      .main-panel p {
+        color: #94a3b8;
+        text-align: center;
+        line-height: 1.6;
+        margin-bottom: 24px;
+      }
+
+      .main-panel .instructions {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 16px 24px;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+
+      .main-panel .instructions ol {
+        margin-left: 16px;
+      }
+
+      .main-panel .instructions li {
+        margin-bottom: 8px;
+      }
+
+      .mock-info {
+        width: 320px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 20px;
+      }
+
+      .mock-info h3 {
+        font-size: 16px;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      .mock-info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 13px;
+      }
+
+      .mock-info-item:last-child {
+        border-bottom: none;
+      }
+
+      .mock-info-label {
+        color: #94a3b8;
+      }
+
+      .mock-info-value {
+        color: #f1f5f9;
+        font-weight: 500;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .status-badge.admin {
+        background: #10b981;
+        color: #fff;
+      }
+
+      .status-badge.user {
+        background: #3b82f6;
+        color: #fff;
+      }
+
+      .log-panel {
+        margin-top: 20px;
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .log-panel h4 {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+      }
+
+      .log-entry {
+        font-family: monospace;
+        font-size: 11px;
+        color: #22c55e;
+        padding: 2px 0;
+      }
+
+      .log-entry.error {
+        color: #ef4444;
+      }
+
+      .log-entry.info {
+        color: #3b82f6;
+      }
+
+      .log-entry.warn {
+        color: #f59e0b;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0104: Device Annotations System</h1>
+      <p>Sistema de anotacoes para dispositivos com fluxo de aprovacao/rejeicao</p>
+    </header>
+
+    <div class="showcase-controls">
+      <button class="primary" id="btn-open-modal">Abrir Settings Modal</button>
+      <button class="secondary" id="btn-add-mock">Adicionar Anotacao Mock</button>
+      <button class="danger" id="btn-clear">Limpar Anotacoes</button>
+      <button class="secondary" id="btn-reset-db">Resetar "Banco de Dados"</button>
+    </div>
+
+    <div class="showcase-info">
+      Modo: <strong>Showcase</strong> | Device ID: <strong>mock-device-001</strong> |
+      Usuario: <strong>Demo User (demo@myio.com.br)</strong>
+    </div>
+
+    <div class="showcase-container">
+      <div class="main-panel">
+        <h2>Device Annotations Showcase</h2>
+        <p>
+          Este showcase demonstra o sistema de anotacoes de dispositivos RFC-0104.<br />
+          Clique em "Abrir Settings Modal" para abrir a modal de configuracoes,<br />
+          depois clique na aba "Anotacoes" para ver e testar o sistema.
+        </p>
+        <div class="instructions">
+          <ol>
+            <li>Clique em <strong>"Abrir Settings Modal"</strong></li>
+            <li>Na modal que abrir, clique na aba <strong>"Anotacoes"</strong></li>
+            <li>Crie novas anotacoes usando o formulario</li>
+            <li>Teste os botoes de aprovar (check verde) e rejeitar (X vermelho)</li>
+            <li>Use o (?) para ver o tooltip de ajuda</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="mock-info">
+        <h3>Informacoes do Mock</h3>
+
+        <div class="mock-info-item">
+          <span class="mock-info-label">Device ID</span>
+          <span class="mock-info-value">mock-device-001</span>
+        </div>
+
+        <div class="mock-info-item">
+          <span class="mock-info-label">Usuario</span>
+          <span class="mock-info-value">Demo User</span>
+        </div>
+
+        <div class="mock-info-item">
+          <span class="mock-info-label">Email</span>
+          <span class="mock-info-value">demo@myio.com.br</span>
+        </div>
+
+        <div class="mock-info-item">
+          <span class="mock-info-label">Permissao</span>
+          <span class="status-badge admin">SuperAdmin MYIO</span>
+        </div>
+
+        <div class="mock-info-item">
+          <span class="mock-info-label">Anotacoes</span>
+          <span class="mock-info-value" id="annotation-count">0</span>
+        </div>
+
+        <div class="log-panel">
+          <h4>Log de Eventos</h4>
+          <div id="event-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load UMD build -->
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
+    <script>
+      // ============================================
+      // MOCK DATA & STATE
+      // ============================================
+
+      const DB_KEY = 'showcase_annotations_mock_db';
+      const MOCK_DEVICE_ID = 'mock-device-001';
+      const MOCK_CUSTOMER_ID = 'mock-customer-001';
+
+      const MOCK_USER = {
+        id: 'user-001',
+        email: 'demo@myio.com.br',
+        name: 'Demo User',
+      };
+
+      // Load from localStorage or use defaults
+      function loadMockAnnotations() {
+        const stored = localStorage.getItem(DB_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            return parsed.annotations || [];
+          } catch (e) {
+            return getDefaultAnnotations();
+          }
+        }
+        return getDefaultAnnotations();
+      }
+
+      function getDefaultAnnotations() {
+        return [
+          {
+            id: 'annot-001',
+            version: 1,
+            text: 'Equipamento apresentando oscilacao de tensao. Monitorar nas proximas 24h.',
+            type: 'pending',
+            importance: 4,
+            status: 'created',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            dueDate: new Date(Date.now() + 86400000).toISOString(),
+            createdBy: { id: 'user-002', email: 'tecnico@company.com', name: 'Joao Tecnico' },
+            acknowledged: false,
+            responses: [],
+            history: [
+              {
+                timestamp: new Date(Date.now() - 86400000).toISOString(),
+                userId: 'user-002',
+                userName: 'Joao Tecnico',
+                userEmail: 'tecnico@company.com',
+                action: 'created',
+              },
+            ],
+          },
+          {
+            id: 'annot-002',
+            version: 2,
+            text: 'Calibracao concluida com sucesso. Proxima revisao em 6 meses.',
+            type: 'maintenance',
+            importance: 3,
+            status: 'modified',
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+            createdBy: { id: 'user-003', email: 'manutencao@company.com', name: 'Maria Manutencao' },
+            acknowledged: true,
+            acknowledgedBy: MOCK_USER,
+            acknowledgedAt: new Date(Date.now() - 43200000).toISOString(),
+            responses: [
+              {
+                id: 'resp-001',
+                annotationId: 'annot-002',
+                type: 'approved',
+                text: 'Verificado e aprovado. Equipamento funcionando normalmente.',
+                createdAt: new Date(Date.now() - 43200000).toISOString(),
+                createdBy: MOCK_USER,
+              },
+            ],
+            history: [
+              {
+                timestamp: new Date(Date.now() - 172800000).toISOString(),
+                userId: 'user-003',
+                userName: 'Maria Manutencao',
+                userEmail: 'manutencao@company.com',
+                action: 'created',
+              },
+              {
+                timestamp: new Date(Date.now() - 43200000).toISOString(),
+                userId: 'user-001',
+                userName: 'Demo User',
+                userEmail: 'demo@myio.com.br',
+                action: 'approved',
+              },
+            ],
+          },
+          {
+            id: 'annot-003',
+            version: 1,
+            text: 'Observacao: Consumo acima da media nesta semana. Verificar padroes de uso.',
+            type: 'observation',
+            importance: 2,
+            status: 'created',
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+            createdBy: MOCK_USER,
+            acknowledged: false,
+            responses: [],
+            history: [
+              {
+                timestamp: new Date(Date.now() - 3600000).toISOString(),
+                userId: 'user-001',
+                userName: 'Demo User',
+                userEmail: 'demo@myio.com.br',
+                action: 'created',
+              },
+            ],
+          },
+        ];
+      }
+
+      let mockAnnotations = loadMockAnnotations();
+
+      function saveMockAnnotations() {
+        localStorage.setItem(
+          DB_KEY,
+          JSON.stringify({
+            schemaVersion: '1.0.0',
+            deviceId: MOCK_DEVICE_ID,
+            lastModified: new Date().toISOString(),
+            lastModifiedBy: MOCK_USER,
+            annotations: mockAnnotations,
+          })
+        );
+      }
+
+      // ============================================
+      // LOGGING
+      // ============================================
+
+      function log(message, type = 'info') {
+        const logPanel = document.getElementById('event-log');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logPanel.insertBefore(entry, logPanel.firstChild);
+
+        // Keep only last 50 entries
+        while (logPanel.children.length > 50) {
+          logPanel.removeChild(logPanel.lastChild);
+        }
+
+        console.log(`[Showcase] ${message}`);
+      }
+
+      function updateAnnotationCount() {
+        document.getElementById('annotation-count').textContent = mockAnnotations.length;
+      }
+
+      // ============================================
+      // MOCK API INTERCEPTOR
+      // ============================================
+
+      const originalFetch = window.fetch;
+      window.fetch = async function (url, options = {}) {
+        const urlStr = typeof url === 'string' ? url : url.toString();
+
+        // Simulate network delay
+        await new Promise((r) => setTimeout(r, 100));
+
+        // ===== ANNOTATIONS API =====
+
+        // GET telemetry attributes (for log_annotations)
+        if (urlStr.includes('/api/plugins/telemetry/DEVICE/') && urlStr.includes('/values/attributes/')) {
+          log('API: GET device attributes', 'info');
+
+          // Return annotations attribute
+          const attrs = [
+            {
+              key: 'log_annotations',
+              value: {
+                schemaVersion: '1.0.0',
+                deviceId: MOCK_DEVICE_ID,
+                lastModified: new Date().toISOString(),
+                lastModifiedBy: MOCK_USER,
+                annotations: mockAnnotations,
+              },
+            },
+          ];
+
+          return new Response(JSON.stringify(attrs), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        // POST attributes (save annotations)
+        if (urlStr.includes('/api/plugins/telemetry/DEVICE/') && urlStr.includes('/attributes/SERVER_SCOPE') && options.method === 'POST') {
+          log('API: POST save attributes', 'info');
+          try {
+            const body = JSON.parse(options.body);
+            if (body.log_annotations) {
+              mockAnnotations = body.log_annotations.annotations || [];
+              saveMockAnnotations();
+              updateAnnotationCount();
+              log(`Saved ${mockAnnotations.length} annotations to localStorage`, 'info');
+            }
+          } catch (e) {
+            log('Error parsing save request: ' + e.message, 'error');
+          }
+          return new Response(JSON.stringify({ success: true }), { status: 200 });
+        }
+
+        // ===== USER/AUTH API =====
+
+        // GET current user
+        if (urlStr.includes('/api/auth/user')) {
+          log('API: GET current user', 'info');
+          return new Response(
+            JSON.stringify({
+              id: { id: MOCK_USER.id, entityType: 'USER' },
+              email: MOCK_USER.email,
+              firstName: 'Demo',
+              lastName: 'User',
+              authority: 'TENANT_ADMIN',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // ===== CUSTOMER API (for permissions) =====
+
+        // GET customer
+        if (urlStr.includes('/api/customer/')) {
+          log('API: GET customer info', 'info');
+          return new Response(
+            JSON.stringify({
+              id: { id: MOCK_CUSTOMER_ID, entityType: 'CUSTOMER' },
+              name: 'Shopping Demo Center',
+              email: 'contact@shopping.com',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // ===== DEVICE API =====
+
+        // GET device info
+        if (urlStr.includes('/api/device/') && (!options.method || options.method === 'GET')) {
+          log('API: GET device info', 'info');
+          return new Response(
+            JSON.stringify({
+              id: { id: MOCK_DEVICE_ID, entityType: 'DEVICE' },
+              name: 'MEDIDOR-SHOWCASE-001',
+              label: 'Medidor Showcase Principal',
+              type: '3F_MEDIDOR',
+              customerId: { id: MOCK_CUSTOMER_ID, entityType: 'CUSTOMER' },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // POST device update
+        if (urlStr.includes('/api/device') && options.method === 'POST') {
+          log('API: POST device update', 'info');
+          return new Response(JSON.stringify({ success: true }), { status: 200 });
+        }
+
+        // ===== TELEMETRY API =====
+
+        if (urlStr.includes('/timeseries')) {
+          log('API: GET telemetry', 'info');
+          return new Response(
+            JSON.stringify({
+              consumption: [{ value: '12500', ts: Date.now() }],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // ===== FALLBACK: Pass through or 404 =====
+        log(`API: Unknown route ${urlStr.substring(0, 60)}...`, 'warn');
+
+        // Try original fetch for real resources (like scripts)
+        if (!urlStr.includes('/api/')) {
+          return originalFetch(url, options);
+        }
+
+        return new Response(JSON.stringify({ error: 'Mock route not found' }), { status: 404 });
+      };
+
+      // ============================================
+      // SHOWCASE ACTIONS
+      // ============================================
+
+      document.getElementById('btn-open-modal').addEventListener('click', async () => {
+        log('Opening Settings Modal...');
+
+        if (MyIOLibrary && MyIOLibrary.openDashboardPopupSettings) {
+          try {
+            await MyIOLibrary.openDashboardPopupSettings({
+              deviceId: MOCK_DEVICE_ID,
+              jwtToken: 'mock-jwt-token-showcase',
+              customerId: MOCK_CUSTOMER_ID,
+              customerName: 'Shopping Demo Center',
+              label: 'Medidor Showcase Principal',
+              domain: 'energy',
+              deviceType: '3F_MEDIDOR',
+              deviceProfile: 'ELEVADOR',
+              seed: {
+                label: 'Medidor Showcase Principal',
+                floor: '1o Andar',
+              },
+              onSaved: (result) => {
+                log(`Settings saved: ${result.ok ? 'success' : 'failed'}`);
+              },
+              onError: (error) => {
+                log(`Settings error: ${error.message}`, 'error');
+              },
+            });
+            log('Settings Modal opened - click "Anotacoes" tab to see annotations');
+          } catch (error) {
+            log(`Error opening modal: ${error.message}`, 'error');
+          }
+        } else {
+          log('openDashboardPopupSettings not found in MyIOLibrary', 'error');
+          alert('Erro: MyIOLibrary.openDashboardPopupSettings nao encontrado. Verifique se o build foi executado.');
+        }
+      });
+
+      document.getElementById('btn-add-mock').addEventListener('click', () => {
+        const types = ['observation', 'pending', 'maintenance', 'activity'];
+        const newAnnotation = {
+          id: `annot-${Date.now()}`,
+          version: 1,
+          text: `Anotacao de teste criada em ${new Date().toLocaleString()}`,
+          type: types[Math.floor(Math.random() * types.length)],
+          importance: Math.floor(Math.random() * 5) + 1,
+          status: 'created',
+          createdAt: new Date().toISOString(),
+          createdBy: MOCK_USER,
+          acknowledged: false,
+          responses: [],
+          history: [
+            {
+              timestamp: new Date().toISOString(),
+              userId: MOCK_USER.id,
+              userName: MOCK_USER.name,
+              userEmail: MOCK_USER.email,
+              action: 'created',
+            },
+          ],
+        };
+
+        mockAnnotations.unshift(newAnnotation);
+        saveMockAnnotations();
+        updateAnnotationCount();
+        log(`Added mock annotation: ${newAnnotation.id} (type: ${newAnnotation.type})`);
+        log('Reopen modal to see new annotation');
+      });
+
+      document.getElementById('btn-clear').addEventListener('click', () => {
+        mockAnnotations = [];
+        saveMockAnnotations();
+        updateAnnotationCount();
+        log('Cleared all annotations');
+        log('Reopen modal to see empty state');
+      });
+
+      document.getElementById('btn-reset-db').addEventListener('click', () => {
+        localStorage.removeItem(DB_KEY);
+        mockAnnotations = getDefaultAnnotations();
+        updateAnnotationCount();
+        log('Reset database to default annotations');
+      });
+
+      // Initialize
+      updateAnnotationCount();
+      log('Showcase initialized');
+      log(`MyIOLibrary loaded: ${!!window.MyIOLibrary}`);
+      log(`openDashboardPopupSettings available: ${!!(window.MyIOLibrary && window.MyIOLibrary.openDashboardPopupSettings)}`);
+    </script>
+  </body>
+</html>

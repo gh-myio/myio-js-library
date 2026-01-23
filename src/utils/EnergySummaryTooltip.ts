@@ -22,11 +22,21 @@
 // Types
 // ============================================
 
+export interface ShoppingCategoryBreakdown {
+  id: string;
+  name: string;
+  icon: string;
+  deviceCount: number;
+  consumption: number;
+}
+
 export interface ShoppingBreakdown {
   shoppingId: string;
   shoppingName: string;
   deviceCount: number;
   consumption: number;
+  /** Subcategories breakdown per shopping (entrada, lojas, climatizacao, elevadores, escadasRolantes, areaComum, outros) */
+  byCategory?: ShoppingCategoryBreakdown[];
 }
 
 export interface CategorySummary {
@@ -89,6 +99,10 @@ export interface DashboardEnergySummary {
   customerName?: string;
   /** Summary breakdown by shopping (for head office view) */
   byShoppingTotal?: ShoppingBreakdown[];
+  /** Filtered total consumption when filter is applied */
+  filteredTotal?: number;
+  /** Total consumption before filtering (unfiltered) */
+  unfilteredTotal?: number;
 }
 
 // ============================================
@@ -269,16 +283,77 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   color: #1e293b;
 }
 
-/* Section Title */
+/* Section Title with Tabs */
+.energy-summary-tooltip__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 .energy-summary-tooltip__section-title {
   font-weight: 700;
   font-size: 10px;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 12px 0 6px 0;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #e2e8f0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* Grouping Tabs */
+.energy-summary-tooltip__grouping-tabs {
+  display: flex;
+  gap: 2px;
+  background: #f1f5f9;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.energy-summary-tooltip__grouping-tab {
+  padding: 3px 8px;
+  font-size: 9px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.energy-summary-tooltip__grouping-tab:hover {
+  color: #1e293b;
+  background: #e2e8f0;
+}
+
+.energy-summary-tooltip__grouping-tab.active {
+  background: #047857;
+  color: white;
+}
+
+.energy-summary-tooltip__grouping-tab.active:hover {
+  background: #065f46;
+}
+
+/* Shopping view container */
+.energy-summary-tooltip__shopping-view {
+  display: none;
+}
+
+.energy-summary-tooltip__shopping-view.active {
+  display: block;
+}
+
+.energy-summary-tooltip__category-view {
+  display: block;
+}
+
+.energy-summary-tooltip__category-view.hidden {
+  display: none;
 }
 
 /* Category Tree */
@@ -390,6 +465,42 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Shopping parent row (in Por Shopping view) */
+.energy-summary-tooltip__shopping-parent-row {
+  cursor: default;
+}
+
+.energy-summary-tooltip__shopping-parent-row[data-expandable="true"] {
+  cursor: pointer;
+}
+
+/* Shopping child rows (subcategories under each shopping) */
+.energy-summary-tooltip__shopping-child-row {
+  display: grid;
+  grid-template-columns: 1fr 50px 80px;
+  gap: 8px;
+  padding: 4px 10px 4px 38px;
+  font-size: 11px;
+  color: #64748b;
+  border-left: 2px solid #047857;
+  margin-left: 18px;
+  background: #f0fdf4;
+  transition: background-color 0.15s ease;
+  align-items: center;
+}
+
+.energy-summary-tooltip__shopping-child-row:hover {
+  background: #dcfce7;
+}
+
+.energy-summary-tooltip__shopping-child-row .energy-summary-tooltip__category-name {
+  padding-left: 0;
+}
+
+.energy-summary-tooltip__shopping-child-row .energy-summary-tooltip__category-icon {
+  font-size: 11px;
 }
 
 .energy-summary-tooltip__shopping-name::before {
@@ -850,8 +961,20 @@ export const EnergySummaryTooltip = {
 
     // FIX: Guard against undefined/null categories
     if (!categories || !Array.isArray(categories)) {
+      console.log('[EnergySummaryTooltip] renderCategoryTree: No categories provided');
       return html;
     }
+
+    // DEBUG: Log categories data to verify byShoppingBreakdown exists
+    console.log('[EnergySummaryTooltip] renderCategoryTree:', {
+      categoriesCount: categories.length,
+      categories: categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        hasShoppingBreakdown: !!(c.byShoppingBreakdown && c.byShoppingBreakdown.length > 0),
+        breakdownCount: c.byShoppingBreakdown?.length || 0,
+      })),
+    });
 
     categories.forEach((cat, catIndex) => {
       const icon = CATEGORY_ICONS[cat.id] || CATEGORY_ICONS.outros;
@@ -1045,6 +1168,114 @@ export const EnergySummaryTooltip = {
   },
 
   /**
+   * Format total consumption with filter comparison
+   * Shows "1,239 MWh (31,18%) / 3,973 MWh" when filtered
+   * Shows "3,973 MWh" when not filtered
+   */
+  formatTotalWithFilter(summary: DashboardEnergySummary): string {
+    const filtered = summary.filteredTotal ?? summary.totalConsumption ?? 0;
+    const unfiltered = summary.unfilteredTotal ?? summary.totalConsumption ?? 0;
+    const unit = summary.unit || 'kWh';
+
+    // Check if filtering is active (when unfilteredTotal exists and differs from filteredTotal)
+    const isFiltered = summary.unfilteredTotal !== undefined &&
+                       summary.unfilteredTotal > 0 &&
+                       Math.abs(filtered - unfiltered) > 0.01;
+
+    if (isFiltered && unfiltered > 0) {
+      const percentage = (filtered / unfiltered) * 100;
+      return `${formatConsumption(filtered, unit)} (${percentage.toFixed(2)}%) / ${formatConsumption(unfiltered, unit)}`;
+    }
+
+    return formatConsumption(summary.totalConsumption, unit);
+  },
+
+  /**
+   * Render shopping view rows (for "Por Shopping" tab)
+   * Shows device count and consumption breakdown by shopping with expandable subcategories
+   */
+  renderShoppingView(shoppings: ShoppingBreakdown[] | undefined, unit: string): string {
+    // DEBUG: Log shoppings data to verify byCategory exists
+    console.log('[EnergySummaryTooltip] renderShoppingView:', {
+      shoppingsCount: shoppings?.length || 0,
+      shoppings: shoppings?.map(s => ({
+        name: (s as unknown as { name?: string }).name || s.shoppingName,
+        hasSubcategories: !!(s.byCategory && s.byCategory.length > 0),
+        subcategoriesCount: s.byCategory?.length || 0,
+      })),
+    });
+
+    if (!shoppings || shoppings.length === 0) {
+      return `
+        <div class="energy-summary-tooltip__category-row" style="justify-content: center; color: #94a3b8; font-style: italic;">
+          <span>Nenhum shopping disponível</span>
+        </div>
+      `;
+    }
+
+    return shoppings.map((shopping, index) => {
+      // Handle both 'name' and 'shoppingName' from interface
+      const name = (shopping as unknown as { name?: string }).name || shopping.shoppingName || 'Unknown';
+      const shoppingId = shopping.shoppingId || `shopping-${index}`;
+      const hasSubcategories = shopping.byCategory && shopping.byCategory.length > 0;
+
+      // Render subcategories if available
+      const subcategoriesHtml = hasSubcategories ? shopping.byCategory!.map(cat => `
+        <div class="energy-summary-tooltip__shopping-child-row" data-parent-energy-shopping="${shoppingId}" style="display: none;">
+          <span class="energy-summary-tooltip__category-name">
+            <span class="energy-summary-tooltip__category-icon">${cat.icon || '📦'}</span>
+            <span>${cat.name}</span>
+          </span>
+          <span class="energy-summary-tooltip__category-count">${cat.deviceCount}</span>
+          <span class="energy-summary-tooltip__category-consumption">${formatConsumption(cat.consumption, unit)}</span>
+        </div>
+      `).join('') : '';
+
+      return `
+        <div class="energy-summary-tooltip__category-row energy-summary-tooltip__shopping-parent-row" data-shopping-id="${shoppingId}" data-expandable="${hasSubcategories}">
+          <span class="energy-summary-tooltip__category-name">
+            ${hasSubcategories ? `<button class="energy-summary-tooltip__expand-toggle" data-expand-energy-shopping="${shoppingId}">+</button>` : ''}
+            <span class="energy-summary-tooltip__category-icon">🏬</span>
+            <span>${name}</span>
+          </span>
+          <span class="energy-summary-tooltip__category-count">${shopping.deviceCount}</span>
+          <span class="energy-summary-tooltip__category-consumption">${formatConsumption(shopping.consumption, unit)}</span>
+        </div>
+        ${subcategoriesHtml}
+      `;
+    }).join('');
+  },
+
+  /**
+   * Setup shopping expand/collapse listeners (for "Por Shopping" tab)
+   */
+  _setupShoppingExpandListeners(container: HTMLElement): void {
+    const expandButtons = container.querySelectorAll('[data-expand-energy-shopping]');
+    expandButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const shoppingId = (btn as HTMLElement).dataset.expandEnergyShopping;
+        if (!shoppingId) return;
+
+        const isExpanded = btn.classList.contains('expanded');
+        const childRows = container.querySelectorAll(`[data-parent-energy-shopping="${shoppingId}"]`);
+
+        if (isExpanded) {
+          // Collapse
+          btn.classList.remove('expanded');
+          btn.textContent = '+';
+          childRows.forEach(row => (row as HTMLElement).style.display = 'none');
+        } else {
+          // Expand
+          btn.classList.add('expanded');
+          btn.textContent = '−';
+          childRows.forEach(row => (row as HTMLElement).style.display = 'grid');
+        }
+      });
+    });
+  },
+
+  /**
    * Render full tooltip HTML
    */
   renderHTML(summary: DashboardEnergySummary): string {
@@ -1053,7 +1284,6 @@ export const EnergySummaryTooltip = {
     const timestamp = formatTimestamp(summary.lastUpdated);
     const excludedNotice = this.renderExcludedNotice(summary.excludedFromCAG, summary.unit);
     const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
-    const shoppingBreakdown = this.renderShoppingBreakdown(summary.byShoppingTotal);
 
     return `
       <div class="energy-summary-tooltip__content">
@@ -1086,16 +1316,36 @@ export const EnergySummaryTooltip = {
             <span class="energy-summary-tooltip__total-devices-label">Total de Dispositivos</span>
             <span class="energy-summary-tooltip__total-devices-value">${summary.totalDevices}</span>
           </div>
-          ${shoppingBreakdown}
-
-          <div class="energy-summary-tooltip__section-title">Distribuicao por Categoria</div>
-          <div class="energy-summary-tooltip__category-tree">
-            <div class="energy-summary-tooltip__category-header">
-              <span>Categoria</span>
-              <span>Qtd</span>
-              <span>Consumo</span>
+          <div class="energy-summary-tooltip__section-header">
+            <span class="energy-summary-tooltip__section-title">Distribuição</span>
+            <div class="energy-summary-tooltip__grouping-tabs">
+              <button class="energy-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
+              <button class="energy-summary-tooltip__grouping-tab" data-view="shopping">Por Shopping</button>
             </div>
-            ${categoryRows}
+          </div>
+
+          <!-- Category View (default) -->
+          <div class="energy-summary-tooltip__category-view" data-grouping="category">
+            <div class="energy-summary-tooltip__category-tree">
+              <div class="energy-summary-tooltip__category-header">
+                <span>Categoria</span>
+                <span>Qtd</span>
+                <span>Consumo</span>
+              </div>
+              ${categoryRows}
+            </div>
+          </div>
+
+          <!-- Shopping View -->
+          <div class="energy-summary-tooltip__shopping-view" data-grouping="shopping">
+            <div class="energy-summary-tooltip__category-tree">
+              <div class="energy-summary-tooltip__category-header">
+                <span>Shopping</span>
+                <span>Qtd</span>
+                <span>Consumo</span>
+              </div>
+              ${this.renderShoppingView(summary.byShoppingTotal, summary.unit)}
+            </div>
           </div>
 
           <div class="energy-summary-tooltip__section-title">Status dos Dispositivos</div>
@@ -1106,7 +1356,7 @@ export const EnergySummaryTooltip = {
         </div>
         <div class="energy-summary-tooltip__total">
           <span class="energy-summary-tooltip__total-label">Consumo Total</span>
-          <span class="energy-summary-tooltip__total-value">${formatConsumption(summary.totalConsumption, summary.unit)}</span>
+          <span class="energy-summary-tooltip__total-value">${this.formatTotalWithFilter(summary)}</span>
         </div>
       </div>
     `;
@@ -1132,6 +1382,15 @@ export const EnergySummaryTooltip = {
    * Show tooltip for an element
    */
   show(triggerElement: HTMLElement, summary: DashboardEnergySummary, event?: MouseEvent): void {
+    // DEBUG: Log the summary data received
+    console.log('[EnergySummaryTooltip] show() called with summary:', {
+      totalDevices: summary.totalDevices,
+      hasByCategory: !!(summary.byCategory && summary.byCategory.length > 0),
+      categoriesCount: summary.byCategory?.length || 0,
+      hasByShoppingTotal: !!(summary.byShoppingTotal && summary.byShoppingTotal.length > 0),
+      shoppingsCount: summary.byShoppingTotal?.length || 0,
+    });
+
     // Cancel any pending hide
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
@@ -1192,6 +1451,40 @@ export const EnergySummaryTooltip = {
     this._setupDragListeners(container);
     this._setupExpandButtonListeners(container);
     this._setupCategoryExpandListeners(container);
+    this._setupGroupingTabListeners(container);
+    this._setupShoppingExpandListeners(container);
+  },
+
+  /**
+   * Setup grouping tab listeners (Por Categoria / Por Shopping toggle)
+   */
+  _setupGroupingTabListeners(container: HTMLElement): void {
+    const tabs = container.querySelectorAll('.energy-summary-tooltip__grouping-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const viewType = (tab as HTMLElement).dataset.view;
+        if (!viewType) return;
+
+        // Update tab active states
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Toggle view visibility
+        const categoryView = container.querySelector('[data-grouping="category"]');
+        const shoppingView = container.querySelector('[data-grouping="shopping"]');
+
+        if (viewType === 'category') {
+          categoryView?.classList.remove('hidden');
+          categoryView?.classList.add('active');
+          shoppingView?.classList.remove('active');
+        } else {
+          categoryView?.classList.add('hidden');
+          categoryView?.classList.remove('active');
+          shoppingView?.classList.add('active');
+        }
+      });
+    });
   },
 
   /**
