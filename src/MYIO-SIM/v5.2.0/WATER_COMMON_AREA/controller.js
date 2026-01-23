@@ -463,12 +463,40 @@ function buildAuthoritativeItems() {
     };
   });
 
-  LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Built ${mapped.length} water meter items`);
+  // RFC-0140 FIX: Filter to include ONLY area comum devices
+  // Rules:
+  // - deviceType = HIDROMETRO_AREA_COMUM (any deviceProfile)
+  // - OR deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+  // This excludes HIDROMETRO + HIDROMETRO (lojas) from appearing in WATER_COMMON_AREA
+  const filtered = mapped.filter((item) => {
+    const dt = String(item.deviceType || '').toUpperCase();
+    const dp = String(item.deviceProfile || '').toUpperCase();
+
+    // Accept if deviceType is explicitly HIDROMETRO_AREA_COMUM
+    if (dt === 'HIDROMETRO_AREA_COMUM' || dt.includes('AREA_COMUM')) {
+      return true;
+    }
+
+    // Accept if deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+    if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO_AREA_COMUM' || dp.includes('AREA_COMUM'))) {
+      return true;
+    }
+
+    // Reject everything else (including HIDROMETRO + HIDROMETRO which are lojas)
+    LogHelper.log(
+      `[WATER_COMMON_AREA] Filtering out device: ${item.label} (deviceType=${dt}, deviceProfile=${dp})`
+    );
+    return false;
+  });
+
+  LogHelper.log(
+    `[WATER_COMMON_AREA] buildAuthoritativeItems: Built ${mapped.length} items, filtered to ${filtered.length} area comum devices`
+  );
 
   // NOTA: O registro de IDs no Orchestrator agora é feito pelo MAIN
   // que centraliza os datasources HidrometrosAreaComum e Todos Hidrometros Lojas
 
-  return mapped;
+  return filtered;
 }
 
 function enrichItemsWithTotals(items, apiMap) {
@@ -1745,7 +1773,7 @@ self.onInit = async function () {
       // RFC-0109/RFC-0131: Use items directly from MAIN (already classified as areacomum)
       // RFC-0140: Ensure consumption value is properly copied from MAIN's enriched data
       // Copy ALL telemetry fields for proper status calculation and card rendering
-      STATE.itemsBase = commonArea.items.map((item) => {
+      const mappedItems = commonArea.items.map((item) => {
         // RFC-0140: Prioritize API-enriched value over TB pulses
         const consumptionValue = item.value || item.consumption || item.pulses || 0;
         LogHelper.log(
@@ -1784,7 +1812,32 @@ self.onInit = async function () {
         };
       });
 
-      LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from MAIN classified data`);
+      // RFC-0140 FIX: Filter to include ONLY area comum devices (same logic as buildAuthoritativeItems)
+      // This ensures consistency even when data comes from MAIN
+      STATE.itemsBase = mappedItems.filter((item) => {
+        const dt = String(item.deviceType || '').toUpperCase();
+        const dp = String(item.deviceProfile || '').toUpperCase();
+
+        // Accept if deviceType is explicitly HIDROMETRO_AREA_COMUM
+        if (dt === 'HIDROMETRO_AREA_COMUM' || dt.includes('AREA_COMUM')) {
+          return true;
+        }
+
+        // Accept if deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+        if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO_AREA_COMUM' || dp.includes('AREA_COMUM'))) {
+          return true;
+        }
+
+        // Reject everything else (including HIDROMETRO + HIDROMETRO which are lojas)
+        LogHelper.log(
+          `[WATER_COMMON_AREA] Filtering out MAIN item: ${item.label} (deviceType=${dt}, deviceProfile=${dp})`
+        );
+        return false;
+      });
+
+      LogHelper.log(
+        `[WATER_COMMON_AREA] Built ${mappedItems.length} items from MAIN, filtered to ${STATE.itemsBase.length} area comum devices`
+      );
       STATE.dataFromMain = true; // RFC-0109: Mark that data came from MAIN
 
       // RFC-0131: MAIN now enriches water data with API values before emitting

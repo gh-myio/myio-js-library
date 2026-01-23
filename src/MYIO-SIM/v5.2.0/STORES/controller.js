@@ -680,10 +680,11 @@ async function renderList(visible) {
     const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
 
     // RFC-0140: STORES represents store allocation, not physical meters
-    // All stores should show as "online" - status calculation doesn't make sense for store meters
+    // All stores should show as "normal" - status calculation doesn't make sense for store meters
     // This matches the behavior in WATER_STORES
+    // Note: 'normal' is a valid status in getStatusInfo() and shows "Normal" chip with green color
     const telemetryTimestamp = it.consumptionTs || it.lastActivityTime || null;
-    const deviceStatus = 'online';
+    const deviceStatus = 'normal';
 
     // Parse deviceMapInstaneousPower if available (TIER 0 - highest priority)
     let deviceMapLimits = null;
@@ -783,6 +784,8 @@ async function renderList(visible) {
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
+      // RFC-0140: Force connectionStatus to 'online' for STORES - they represent store allocations, not physical connections
+      connectionStatus: 'online',
 
       // RFC-0091: Additional data for Settings modal and card display
       // RFC-0110 FIX: Use lastActivityTime as fallback for lastConnectTime/lastDisconnectTime
