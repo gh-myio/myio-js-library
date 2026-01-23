@@ -54,7 +54,13 @@ function formatWaterValue(value) {
 // FILTER TABS: Standard tabs for filtering devices
 // ============================================================================
 function getConsumption(device) {
-  return Number(device?.value) || Number(device?.consumption) || Number(device?.pulses) || Number(device?.total_value) || 0;
+  return (
+    Number(device?.value) ||
+    Number(device?.consumption) ||
+    Number(device?.pulses) ||
+    Number(device?.total_value) ||
+    0
+  );
 }
 
 const WATER_STORES_FILTER_TABS = [
@@ -131,9 +137,10 @@ self.onInit = async function () {
   });
 
   // Get factory from MyIOLibrary
-  const DeviceGridWidgetFactory = window.MyIOLibrary?.DeviceGridWidgetFactory ||
-                                   window.DeviceGridWidgetFactory ||
-                                   window.MyIOUtils?.DeviceGridWidgetFactory;
+  const DeviceGridWidgetFactory =
+    window.MyIOLibrary?.DeviceGridWidgetFactory ||
+    window.DeviceGridWidgetFactory ||
+    window.MyIOUtils?.DeviceGridWidgetFactory;
 
   if (!DeviceGridWidgetFactory) {
     LogHelper.error('[WATER_STORES] DeviceGridWidgetFactory not available - ensure MyIOLibrary is loaded');

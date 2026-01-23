@@ -1508,14 +1508,18 @@ function buildTemperatureTooltipContent(data) {
         <div class="myio-info-tooltip__section-title">
           <span>✅</span> Dentro da Faixa (${shoppingsInRange.length})
         </div>
-        ${shoppingsInRange.map((s) => {
-          const rangeText = s.min != null && s.max != null ? `(${s.min}–${s.max}°C)` : '';
-          return `
+        ${shoppingsInRange
+          .map((s) => {
+            const rangeText = s.min != null && s.max != null ? `(${s.min}–${s.max}°C)` : '';
+            return `
           <div class="myio-info-tooltip__row">
-            <span class="myio-info-tooltip__label">✔ ${s.name} <span style="color:#94a3b8;font-size:10px;">${rangeText}</span></span>
+            <span class="myio-info-tooltip__label">✔ ${
+              s.name
+            } <span style="color:#94a3b8;font-size:10px;">${rangeText}</span></span>
             <span class="myio-info-tooltip__value" style="color:#22c55e;">${s.avg?.toFixed(1)}°C</span>
           </div>`;
-        }).join('')}
+          })
+          .join('')}
       </div>
     `;
   }
@@ -1526,14 +1530,18 @@ function buildTemperatureTooltipContent(data) {
         <div class="myio-info-tooltip__section-title">
           <span>⚠️</span> Fora da Faixa (${shoppingsOutOfRange.length})
         </div>
-        ${shoppingsOutOfRange.map((s) => {
-          const rangeText = s.min != null && s.max != null ? `(${s.min}–${s.max}°C)` : '';
-          return `
+        ${shoppingsOutOfRange
+          .map((s) => {
+            const rangeText = s.min != null && s.max != null ? `(${s.min}–${s.max}°C)` : '';
+            return `
           <div class="myio-info-tooltip__row">
-            <span class="myio-info-tooltip__label">⚠ ${s.name} <span style="color:#94a3b8;font-size:10px;">${rangeText}</span></span>
+            <span class="myio-info-tooltip__label">⚠ ${
+              s.name
+            } <span style="color:#94a3b8;font-size:10px;">${rangeText}</span></span>
             <span class="myio-info-tooltip__value" style="color:#f59e0b;">${s.avg?.toFixed(1)}°C</span>
           </div>`;
-        }).join('')}
+          })
+          .join('')}
       </div>
     `;
   }
@@ -1544,12 +1552,18 @@ function buildTemperatureTooltipContent(data) {
         <div class="myio-info-tooltip__section-title">
           <span>❓</span> Faixa Não Definida (${shoppingsUnknownRange.length})
         </div>
-        ${shoppingsUnknownRange.map((s) => `
+        ${shoppingsUnknownRange
+          .map(
+            (s) => `
           <div class="myio-info-tooltip__row">
-            <span class="myio-info-tooltip__label">? ${s.name} <span style="color:#94a3b8;font-size:10px;">(sem configuração)</span></span>
+            <span class="myio-info-tooltip__label">? ${
+              s.name
+            } <span style="color:#94a3b8;font-size:10px;">(sem configuração)</span></span>
             <span class="myio-info-tooltip__value" style="color:#6b7280;">${s.avg?.toFixed(1)}°C</span>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `;
   }
@@ -1572,19 +1586,27 @@ function buildTemperatureTooltipContent(data) {
           <span style="background:#dcfce7;color:#15803d;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;">
             ✅ ${okCount} OK (${okPerc}%)
           </span>
-          ${warnCount > 0 ? `<span style="background:#fef3c7;color:#b45309;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;">
+          ${
+            warnCount > 0
+              ? `<span style="background:#fef3c7;color:#b45309;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;">
             ⚠️ ${warnCount} Alerta (${warnPerc}%)
-          </span>` : ''}
-          ${unknownCount > 0 ? `<span style="background:#f3f4f6;color:#6b7280;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;">
+          </span>`
+              : ''
+          }
+          ${
+            unknownCount > 0
+              ? `<span style="background:#f3f4f6;color:#6b7280;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;">
             ❓ ${unknownCount} N/D (${unknownPerc}%)
-          </span>` : ''}
+          </span>`
+              : ''
+          }
         </div>
       </div>
     `;
   }
 
   // Averages section
-  const avgValue = isFiltered ? (filteredAvg || globalAvg || '--') : (globalAvg || '--');
+  const avgValue = isFiltered ? filteredAvg || globalAvg || '--' : globalAvg || '--';
   const avgLabel = isFiltered ? 'Média Filtrada' : 'Média Geral';
   const avgFormatted = typeof avgValue === 'number' ? avgValue.toFixed(1) + '°C' : avgValue;
 
@@ -1627,7 +1649,7 @@ function showTemperatureTooltip(triggerElement, data) {
   InfoTooltip.show(triggerElement, {
     icon: '🌡️',
     title: 'Temperatura - Visão Geral',
-    content: content
+    content: content,
   });
 }
 
@@ -1668,12 +1690,17 @@ function buildEnergyTooltipContent(data) {
   if (shoppingsEnergy && shoppingsEnergy.length > 0) {
     const rows = shoppingsEnergy
       .sort((a, b) => (b.equipamentos || 0) + (b.lojas || 0) - ((a.equipamentos || 0) + (a.lojas || 0)))
-      .map((s) => `
+      .map(
+        (s) => `
         <div class="myio-info-tooltip__row" style="font-size:11px;">
           <span class="myio-info-tooltip__label">${s.name}</span>
-          <span class="myio-info-tooltip__value">${formatEnergy((s.equipamentos || 0) + (s.lojas || 0))}</span>
+          <span class="myio-info-tooltip__value">${formatEnergy(
+            (s.equipamentos || 0) + (s.lojas || 0)
+          )}</span>
         </div>
-      `).join('');
+      `
+      )
+      .join('');
 
     shoppingTableHtml = `
       <div class="myio-info-tooltip__section">
@@ -1692,7 +1719,9 @@ function buildEnergyTooltipContent(data) {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Consumo Total:</span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(customerTotal)}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
+          customerTotal
+        )}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Equipamentos:</span>
@@ -1733,7 +1762,7 @@ function showEnergyTooltip(triggerElement, data) {
   InfoTooltip.show(triggerElement, {
     icon: '⚡',
     title: 'Detalhes de Consumo de Energia',
-    content: content
+    content: content,
   });
 }
 
@@ -1771,12 +1800,15 @@ function buildWaterTooltipContent(data) {
   if (shoppingsWater && shoppingsWater.length > 0) {
     const rows = shoppingsWater
       .sort((a, b) => (b.areaComum || 0) + (b.lojas || 0) - ((a.areaComum || 0) + (a.lojas || 0)))
-      .map((s) => `
+      .map(
+        (s) => `
         <div class="myio-info-tooltip__row" style="font-size:11px;">
           <span class="myio-info-tooltip__label">${s.name}</span>
           <span class="myio-info-tooltip__value">${formatWater((s.areaComum || 0) + (s.lojas || 0))}</span>
         </div>
-      `).join('');
+      `
+      )
+      .join('');
 
     shoppingListHtml = `
       <div class="myio-info-tooltip__section">
@@ -1795,7 +1827,9 @@ function buildWaterTooltipContent(data) {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Consumo Total:</span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatWater(filteredTotal)}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatWater(
+          filteredTotal
+        )}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Área Comum:</span>
@@ -1836,7 +1870,7 @@ function showWaterTooltip(triggerElement, data) {
   InfoTooltip.show(triggerElement, {
     icon: '💧',
     title: 'Detalhes de Consumo de Água',
-    content: content
+    content: content,
   });
 }
 
@@ -1887,7 +1921,9 @@ function buildEquipmentTooltipContent(data) {
         const percentText = !allShoppingsSelected ? ` (${percentage}%)` : '';
 
         categoriesHtml += `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${colors.bg};border-radius:8px;margin-bottom:8px;border-left:3px solid ${colors.border};">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${
+            colors.bg
+          };border-radius:8px;margin-bottom:8px;border-left:3px solid ${colors.border};">
             <span style="font-size:16px;">${cat.icon}</span>
             <div style="flex:1;">
               <div style="font-weight:600;color:#334155;font-size:12px;">${cat.label}</div>
@@ -1917,22 +1953,30 @@ function buildEquipmentTooltipContent(data) {
         <span class="myio-info-tooltip__label">Total de Equipamentos:</span>
         <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${summaryDisplay}</span>
       </div>
-      ${!allShoppingsSelected ? `
+      ${
+        !allShoppingsSelected
+          ? `
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Percentual Filtrado:</span>
         <span class="myio-info-tooltip__value">${percentageTotal}%</span>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
 
-    ${categoriesHtml ? `
+    ${
+      categoriesHtml
+        ? `
     <div class="myio-info-tooltip__section">
       <div class="myio-info-tooltip__section-title">
         <span>📋</span> Por Categoria
       </div>
       ${categoriesHtml}
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">ℹ️</span>
@@ -1959,7 +2003,7 @@ function showEquipmentTooltip(triggerElement, data) {
   InfoTooltip.show(triggerElement, {
     icon: '⚙️',
     title: 'Detalhes de Equipamentos',
-    content: content
+    content: content,
   });
 }
 

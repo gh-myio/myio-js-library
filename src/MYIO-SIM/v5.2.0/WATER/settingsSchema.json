@@ -3,14 +3,12 @@
     "type": "object",
     "title": "Water Summary Widget Settings",
     "properties": {
-        "labelWidget":{
-            "type":"string",
-            "title": "Widget Label",
-            "default": "Resumo de água"
-        }
+      "labelWidget": {
+        "type": "string",
+        "title": "Widget Label",
+        "default": "Resumo de água"
+      }
     }
   },
-  "form": [
-    "labelWidget"
-  ]
+  "form": ["labelWidget"]
 }

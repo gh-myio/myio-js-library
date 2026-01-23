@@ -3,36 +3,36 @@
     "type": "object",
     "title": "Equipments Widget Settings",
     "properties": {
-        "useNewComponents":{
-            "type":"boolean",
-            "title": "Use New Components",
-            "default": true
-        },
-        "enableSelection":{
-            "type":"boolean",
-            "title": "Enable Selection",
-            "default": true
-        },
-        "enableDragDrop":{
-            "type":"boolean",
-            "title": "Enable Drag Drop",
-            "default": true
-        },
-        "hideInfoMenuItem":{
-            "type":"boolean",
-            "title": "Hide Info Menu Item",
-            "default": true
-        },
-        "debugActive":{
-            "type":"boolean",
-            "title": "Debug Active",
-            "default": false
-        },
-        "activeTooltipDebug":{
-            "type":"boolean",
-            "title": "Active Tooltip Debug",
-            "default": false
-        }
+      "useNewComponents": {
+        "type": "boolean",
+        "title": "Use New Components",
+        "default": true
+      },
+      "enableSelection": {
+        "type": "boolean",
+        "title": "Enable Selection",
+        "default": true
+      },
+      "enableDragDrop": {
+        "type": "boolean",
+        "title": "Enable Drag Drop",
+        "default": true
+      },
+      "hideInfoMenuItem": {
+        "type": "boolean",
+        "title": "Hide Info Menu Item",
+        "default": true
+      },
+      "debugActive": {
+        "type": "boolean",
+        "title": "Debug Active",
+        "default": false
+      },
+      "activeTooltipDebug": {
+        "type": "boolean",
+        "title": "Active Tooltip Debug",
+        "default": false
+      }
     }
   },
   "form": [

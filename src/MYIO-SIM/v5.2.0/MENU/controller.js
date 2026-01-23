@@ -1889,7 +1889,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC-0087: Water states for tab highlighting
   const waterStates = ['content_water', 'content_water_common_area', 'content_water_stores'];
   // RFC-0092: Temperature states for tab highlighting
-  const temperatureStates = ['content_temperature', 'content_temperature_sensors', 'content_temperature_sensors_external'];
+  const temperatureStates = [
+    'content_temperature',
+    'content_temperature_sensors',
+    'content_temperature_sensors_external',
+  ];
 
   window.addEventListener('myio:switch-main-state', (ev) => {
     const targetId = ev.detail?.targetStateId;

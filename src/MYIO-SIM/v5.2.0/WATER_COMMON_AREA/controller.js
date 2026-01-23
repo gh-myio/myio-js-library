@@ -404,9 +404,7 @@ function buildAuthoritativeItems() {
 
   // FIX: ALWAYS filter by aliasName = 'HidrometrosAreaComum' (ThingsBoard pre-filtered)
   // This is the ONLY reliable way to ensure only area comum devices are shown
-  filteredDatasources = (self.ctx.datasources || []).filter(
-    (ds) => ds.aliasName === 'HidrometrosAreaComum'
-  );
+  filteredDatasources = (self.ctx.datasources || []).filter((ds) => ds.aliasName === 'HidrometrosAreaComum');
   filteredData = (self.ctx.data || []).filter((d) => d?.datasource?.aliasName === 'HidrometrosAreaComum');
 
   LogHelper.log(

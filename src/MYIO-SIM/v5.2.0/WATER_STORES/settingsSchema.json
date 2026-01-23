@@ -3,41 +3,41 @@
     "type": "object",
     "title": "Water Stores Widget Settings",
     "properties": {
-        "labelWidget":{
-            "type":"string",
-            "title": "Widget Label",
-            "default": "Hidrômetros de Lojas"
-        },
-        "useNewComponents":{
-            "type":"boolean",
-            "title": "Use New Components",
-            "default": true
-        },
-        "enableSelection":{
-            "type":"boolean",
-            "title": "Enable Selection",
-            "default": true
-        },
-        "enableDragDrop":{
-            "type":"boolean",
-            "title": "Enable Drag Drop",
-            "default": true
-        },
-        "hideInfoMenuItem":{
-            "type":"boolean",
-            "title": "Hide Info Menu Item",
-            "default": true
-        },
-        "debugActive":{
-            "type":"boolean",
-            "title": "Debug Active",
-            "default": false
-        },
-        "activeTooltipDebug":{
-            "type":"boolean",
-            "title": "Active Tooltip Debug",
-            "default": false
-        }
+      "labelWidget": {
+        "type": "string",
+        "title": "Widget Label",
+        "default": "Hidrômetros de Lojas"
+      },
+      "useNewComponents": {
+        "type": "boolean",
+        "title": "Use New Components",
+        "default": true
+      },
+      "enableSelection": {
+        "type": "boolean",
+        "title": "Enable Selection",
+        "default": true
+      },
+      "enableDragDrop": {
+        "type": "boolean",
+        "title": "Enable Drag Drop",
+        "default": true
+      },
+      "hideInfoMenuItem": {
+        "type": "boolean",
+        "title": "Hide Info Menu Item",
+        "default": true
+      },
+      "debugActive": {
+        "type": "boolean",
+        "title": "Debug Active",
+        "default": false
+      },
+      "activeTooltipDebug": {
+        "type": "boolean",
+        "title": "Active Tooltip Debug",
+        "default": false
+      }
     }
   },
   "form": [

@@ -1191,7 +1191,8 @@ const footerController = {
 
       // RFC-0108: Get ingestion token from MyIOOrchestrator (set by MAIN widget)
       // No more hardcoded fallback credentials - MAIN must set the token
-      const tokenIngestionDashBoardComparison = window.MyIOOrchestrator?.tokenManager?.getToken?.('ingestionToken');
+      const tokenIngestionDashBoardComparison =
+        window.MyIOOrchestrator?.tokenManager?.getToken?.('ingestionToken');
 
       if (!tokenIngestionDashBoardComparison) {
         LogHelper.error('[MyIO Footer] ❌ Ingestion token not available from MyIOOrchestrator');

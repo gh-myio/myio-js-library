@@ -633,9 +633,9 @@
 }
 
 .power-limits-btn:hover {
-  border-color: #4A148C;
+  border-color: #4a148c;
   background: linear-gradient(180deg, #f3e8ff 0%, #ede9fe 100%);
-  color: #4A148C;
+  color: #4a148c;
 }
 
 .power-limits-btn:active {

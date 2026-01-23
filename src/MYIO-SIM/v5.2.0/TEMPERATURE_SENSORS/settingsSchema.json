@@ -3,38 +3,32 @@
     "type": "object",
     "title": "Temperature Sensors Widget Settings",
     "properties": {
-        "useNewComponents":{
-            "type":"boolean",
-            "title": "Use New Components",
-            "default": true
-        },
-        "enableSelection":{
-            "type":"boolean",
-            "title": "Enable Selection",
-            "default": true
-        },
-        "hideInfoMenuItem":{
-            "type":"boolean",
-            "title": "Hide Info Menu Item",
-            "default": true
-        },
-        "debugActive":{
-            "type":"boolean",
-            "title": "Debug Active",
-            "default": false
-        },
-        "activeTooltipDebug":{
-            "type":"boolean",
-            "title": "Active Tooltip Debug",
-            "default": false
-        }
+      "useNewComponents": {
+        "type": "boolean",
+        "title": "Use New Components",
+        "default": true
+      },
+      "enableSelection": {
+        "type": "boolean",
+        "title": "Enable Selection",
+        "default": true
+      },
+      "hideInfoMenuItem": {
+        "type": "boolean",
+        "title": "Hide Info Menu Item",
+        "default": true
+      },
+      "debugActive": {
+        "type": "boolean",
+        "title": "Debug Active",
+        "default": false
+      },
+      "activeTooltipDebug": {
+        "type": "boolean",
+        "title": "Active Tooltip Debug",
+        "default": false
+      }
     }
   },
-  "form": [
-    "useNewComponents",
-    "enableSelection",
-    "hideInfoMenuItem",
-    "debugActive",
-    "activeTooltipDebug"
-  ]
+  "form": ["useNewComponents", "enableSelection", "hideInfoMenuItem", "debugActive", "activeTooltipDebug"]
 }

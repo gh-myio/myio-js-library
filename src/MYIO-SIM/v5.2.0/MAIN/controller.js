@@ -7373,7 +7373,8 @@ const MyIOOrchestrator = (() => {
           }
           // 'hidrometros area comum' -> areacomum
           if (aliasName.includes('area') || aliasName.includes('comum')) {
-            classificationDebugLog.byAlias['areacomum'] = (classificationDebugLog.byAlias['areacomum'] || 0) + 1;
+            classificationDebugLog.byAlias['areacomum'] =
+              (classificationDebugLog.byAlias['areacomum'] || 0) + 1;
             return 'areacomum';
           }
 
@@ -7395,7 +7396,8 @@ const MyIOOrchestrator = (() => {
 
           // AREA_COMUM: Check for explicit HIDROMETRO_AREA_COMUM types
           if (dt.includes('AREA_COMUM') || dp.includes('AREA_COMUM')) {
-            classificationDebugLog.byType['areacomum_explicit'] = (classificationDebugLog.byType['areacomum_explicit'] || 0) + 1;
+            classificationDebugLog.byType['areacomum_explicit'] =
+              (classificationDebugLog.byType['areacomum_explicit'] || 0) + 1;
             return 'areacomum';
           }
 
@@ -7410,7 +7412,8 @@ const MyIOOrchestrator = (() => {
           }
 
           // DEFAULT: areacomum (devices with unknown type/profile)
-          classificationDebugLog.byType['default_areacomum'] = (classificationDebugLog.byType['default_areacomum'] || 0) + 1;
+          classificationDebugLog.byType['default_areacomum'] =
+            (classificationDebugLog.byType['default_areacomum'] || 0) + 1;
           return 'areacomum';
         };
 
@@ -7437,9 +7440,15 @@ const MyIOOrchestrator = (() => {
           return acc;
         }, {});
         LogHelper.log(`[Orchestrator] 💧 Classification breakdown: ${JSON.stringify(classificationCounts)}`);
-        LogHelper.log(`[Orchestrator] 💧 Classification DEBUG: byAlias=${JSON.stringify(classificationDebugLog.byAlias)}, byType=${JSON.stringify(classificationDebugLog.byType)}`);
+        LogHelper.log(
+          `[Orchestrator] 💧 Classification DEBUG: byAlias=${JSON.stringify(
+            classificationDebugLog.byAlias
+          )}, byType=${JSON.stringify(classificationDebugLog.byType)}`
+        );
         if (classificationDebugLog.defaults.length > 0) {
-          LogHelper.log(`[Orchestrator] 💧 DEFAULT samples (first 5): ${JSON.stringify(classificationDebugLog.defaults)}`);
+          LogHelper.log(
+            `[Orchestrator] 💧 DEFAULT samples (first 5): ${JSON.stringify(classificationDebugLog.defaults)}`
+          );
         }
 
         if (waterItems.length > 0) {
