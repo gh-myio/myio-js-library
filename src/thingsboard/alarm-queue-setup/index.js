@@ -193,11 +193,11 @@ export const FLOWS = {
     scripts: ['enqueue-normalize.js', 'enqueue-priority.js']
   },
   dispatcher: {
-    name: 'FLOW 2: Dispatcher',
+    name: 'FLOW 2: Dispatcher (v9 - Zombie Killer)',
     trigger: 'Timer-based (every 60 seconds)',
-    purpose: 'Process queue and send messages to Telegram - ALL customers',
-    nodes: 21,
-    scripts: ['dispatch-rate-limit.js', 'dispatch-mark-status.js']
+    purpose: 'Process queue and send messages to Telegram - ALL customers with dynamic routing',
+    nodes: 22,
+    scripts: ['dispatch-rate-limit.js', 'dispatch-parse-v9.js', 'dispatch-mark-status.js']
   },
   monitor: {
     name: 'FLOW 3: Monitor',
@@ -211,7 +211,7 @@ export const FLOWS = {
 /**
  * Version information
  */
-export const VERSION = '2.0.0';
+export const VERSION = '2.2.0';
 export const RFC = 'RFC-0135';
 
 /**

@@ -1,8 +1,8 @@
 # RFC-0135: Telegram Notification Queue for ThingsBoard
 
-A **hybrid queue system** for gradually migrating from direct Telegram sends to a prioritized, rate-limited queue using ThingsBoard Rule Chains.
+A **Dynamic, Context-Aware Hybrid System** for gradually migrating from direct Telegram sends to a prioritized, rate-limited queue using ThingsBoard Rule Chains.
 
-**Version:** 2.0.0 (Hybrid Integration)
+**Version:** 2.2.0 (Dynamic Routing + Zombie Killer)
 
 ---
 
@@ -15,8 +15,50 @@ Instead of sending every alarm immediately to Telegram (risking rate limits and 
 3. **Retries** failed sends automatically with exponential backoff
 4. **Monitors** queue health with real-time metrics
 5. **Coexists** with your current direct-send setup (gradual migration!)
+6. **Routes dynamically** to different Telegram groups based on device/alarm context *(NEW in v2.2)*
+7. **Auto-heals** corrupted queue entries ("Zombie Killer") *(NEW in v2.2)*
 
 All using **ThingsBoard Attributes** for storage - no external databases needed.
+
+---
+
+## 🆕 What's New in v2.2.0
+
+### Key Architectural Changes
+
+| Feature | Before (v1.0) | Now (v2.2.0) |
+|---------|---------------|--------------|
+| **Routing** | Static (1 Group per Customer) | Dynamic (Per-Device/Alarm Logic) |
+| **Data Integrity** | Vulnerable to config changes | Immutable (Destination locked at enqueue) |
+| **Error Handling** | Could loop on corrupted data | Auto-heals (Removes bad entries) |
+| **Asset Flow** | Context often lost | Context preserved via Re-Fetch |
+
+### 1. Dynamic Chat ID Routing (Context-Aware)
+
+**Old Behavior:** All messages for a customer went to a single `chatId` defined in `telegram_queue_config`.
+
+**New Behavior:** The system checks for a specific `telegramGroup` in the metadata (set by your "Special Group" logic).
+
+**Priority Logic:** `metadata.telegramGroup` (Specific) > `config.chatId` (Default/Fallback)
+
+**Benefit:** Route critical infrastructure alarms to an **Engineering Group** while keeping general alarms in a **Customer Service Group**.
+
+### 2. Immutable Destination "Stamping"
+
+The Resolve Priority node now injects the resolved `targetChatId` directly inside the queue entry **before saving it to the database**.
+
+**Why:** Even if the configuration changes later, the queued message is delivered to the destination that was valid **at the time of the alarm**.
+
+### 3. Dispatcher v9 (Robustness & "Zombie" Killer)
+
+**Features:**
+- **Dynamic Read:** Reads the `targetChatId` stamped inside the queue entry
+- **Zombie Cleanup:** Automatically detects queue entries that exist in the index but have null/corrupted data. Removes them to prevent infinite processing loops.
+- **Empty String Protection:** Prevents `400 Bad Request` errors from Telegram by ensuring no empty text is sent.
+
+### 4. Asset Propagation Flow Fix
+
+The "Duplicate to Related" node (used for propagating alarms to Assets) now connects directly to "Fetch Queue Data". This ensures that when an alarm moves from a Device to an Asset, the Asset's queue configuration and tokens are immediately loaded.
 
 ---
 
@@ -155,6 +197,8 @@ Where to send messages:
 |-------|-----------------|
 | `botToken` | Chat with **@BotFather** on Telegram → `/newbot` → Copy token |
 | `chatId` | 1. Add bot to your Telegram group<br>2. Visit: `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`<br>3. Look for `"chat":{"id":-100123456789}` |
+
+**Important (v2.2.0):** The `chatId` in config is now treated as a **FALLBACK**. If your Rule Chain sets `metadata.telegramGroup` (e.g., via device-specific logic), that value takes priority. This enables dynamic routing to different groups per device or alarm type.
 
 ---
 
@@ -454,6 +498,12 @@ if (priority > 4) priority = 4;
 entry.priority = priority;
 entry.prioritySource = prioritySource;
 
+// ===== NEW in v2.2.0: Immutable Destination Stamping =====
+// Freeze the target chat ID at enqueue time
+// Priority: metadata.telegramGroup (specific) > config.telegram.chatId (fallback)
+var targetChatId = metadata.telegramGroup || (config && config.telegram ? config.telegram.chatId : null);
+entry.targetChatId = targetChatId; // Saved to DB - won't change even if config changes later
+
 return {
   msg: {
     entry: entry
@@ -462,6 +512,8 @@ return {
   msgType: 'POST_ATTRIBUTES_REQUEST'
 };
 ```
+
+**Why `targetChatId` stamping?** This ensures the message goes to the correct Telegram group even if the customer's configuration changes between enqueue and dispatch. The destination is "locked" at the moment the alarm occurs.
 
 **Connect to:** Node 6
 
@@ -866,7 +918,7 @@ return {
 
 ---
 
-### Dispatcher Node 14:
+### Dispatcher Node 14: Script - Parse Entry & Prepare Telegram Request (v9)
 
 **Previous Node:** Dispatcher Node 13
 **Next Node:** Dispatcher Node 15
@@ -875,20 +927,41 @@ return {
 
 **Purpose:** Extract data from entry and config for Telegram API call
 
+**v9 Features:**
+- **Dynamic Read:** Reads the `targetChatId` stamped inside the queue entry
+- **Zombie Cleanup:** Detects corrupted entries and marks them for removal
+- **Empty String Protection:** Prevents `400 Bad Request` from Telegram
+
 **Script:**
 ```javascript
+// ===== DISPATCHER PARSE v9 - Zombie Killer =====
+
 // Parse queue entry
 var entryJson = metadata.queueEntry;
-var entry = {};
+var entry = null;
 
 if (typeof entryJson === 'string') {
   try {
     entry = JSON.parse(entryJson);
   } catch (e) {
-    return {msg: {error: true, reason: 'Invalid entry JSON'}, metadata: metadata, msgType: msgType};
+    entry = null;
   }
 } else {
   entry = entryJson;
+}
+
+// ===== ZOMBIE DETECTION =====
+// If entry is null/undefined/corrupted, mark for cleanup
+if (!entry || !entry.queueId) {
+  return {
+    msg: {
+      zombie: true,
+      queueId: msg.queueId, // From previous node
+      reason: 'Entry is null or missing queueId'
+    },
+    metadata: metadata,
+    msgType: 'POST_ATTRIBUTES_REQUEST'
+  };
 }
 
 // Parse config
@@ -897,21 +970,54 @@ if (typeof config === 'string') {
   try {
     config = JSON.parse(config);
   } catch (e) {
-    return {msg: {error: true, reason: 'Invalid config JSON'}, metadata: metadata, msgType: msgType};
+    config = {};
   }
 }
 
-// Extract Telegram credentials
-var botToken = config.telegram.botToken;
-var chatId = config.telegram.chatId;
-var text = entry.payload.text;
+// ===== DYNAMIC CHAT ID (v2.2.0) =====
+// Priority: entry.targetChatId (stamped at enqueue) > config.telegram.chatId (fallback)
+var finalChatId = entry.targetChatId || (config.telegram ? config.telegram.chatId : null);
+
+// Validate we have a chat ID
+if (!finalChatId) {
+  return {
+    msg: {
+      zombie: true,
+      queueId: entry.queueId,
+      reason: 'No chatId available (entry or config)'
+    },
+    metadata: metadata,
+    msgType: 'POST_ATTRIBUTES_REQUEST'
+  };
+}
+
+// Extract bot token
+var botToken = config.telegram ? config.telegram.botToken : null;
+if (!botToken) {
+  return {
+    msg: {
+      zombie: true,
+      queueId: entry.queueId,
+      reason: 'No botToken in config'
+    },
+    metadata: metadata,
+    msgType: 'POST_ATTRIBUTES_REQUEST'
+  };
+}
+
+// ===== EMPTY STRING PROTECTION =====
+var text = entry.payload ? entry.payload.text : '';
+if (!text || text.trim() === '') {
+  text = '[Empty message - Queue ID: ' + entry.queueId + ']';
+}
 
 return {
   msg: {
     entry: entry,
     text: text,
-    chatId: chatId,
-    botToken: botToken
+    chatId: finalChatId,
+    botToken: botToken,
+    zombie: false
   },
   metadata: metadata,
   msgType: 'POST_TELEMETRY_REQUEST'
@@ -922,10 +1028,34 @@ return {
 
 ---
 
-### Dispatcher Node 15:
+### Dispatcher Node 15: Filter - Check for Zombie Entry (v2.2.0)
 
 **Previous Node:** Dispatcher Node 14
-**Next Nodes:** Dispatcher Node 16a/12b/12c (depending on HTTP response)
+**Next Nodes:** Dispatcher Node 16 (normal) OR Dispatcher Node 18 (zombie cleanup)
+
+**Node Type:** Check Message Script (Filter)
+
+**Purpose:** Route zombie/corrupted entries to cleanup instead of Telegram
+
+**Script:**
+```javascript
+// If zombie flag is true, route to FAILURE (cleanup path)
+// If zombie flag is false, route to SUCCESS (normal send path)
+return msg.zombie !== true;
+```
+
+**Connections:**
+- **Success** relation → Dispatcher Node 16 (REST API Call - Send to Telegram)
+- **Failure** relation → Dispatcher Node 18 (Prepare Index Update - removes zombie from queue)
+
+**Why this filter?** The v9 parser detects corrupted entries and marks them as "zombies". Instead of trying to send them to Telegram (which would fail), we skip directly to cleanup. This prevents infinite loops where the same broken entry keeps failing.
+
+---
+
+### Dispatcher Node 16: REST API Call - Send to Telegram
+
+**Previous Node:** Dispatcher Node 15 (Success path)
+**Next Nodes:** Dispatcher Node 17 (Switch/Router)
 
 **Node Type:** REST API Call
 
@@ -948,19 +1078,19 @@ return {
 **Purpose:** Actually send the message to Telegram!
 
 **Connections (by HTTP response):**
-- **Success (200-299)** → Dispatcher Node 16 (Switch/Router)
-- **Client Error (400-499)** → Dispatcher Node 16 (Switch/Router)
-- **Server Error (500-599)** → Dispatcher Node 16 (Switch/Router)
-- **Timeout/Network Error** → Dispatcher Node 16 (Switch/Router)
+- **Success (200-299)** → Dispatcher Node 17 (Switch/Router)
+- **Client Error (400-499)** → Dispatcher Node 17 (Switch/Router)
+- **Server Error (500-599)** → Dispatcher Node 17 (Switch/Router)
+- **Timeout/Network Error** → Dispatcher Node 17 (Switch/Router)
 
-**Important:** Connect ALL output relations from the REST API node to the same Switch node (Node 12). The Switch will route based on status code.
+**Important:** Connect ALL output relations from the REST API node to the same Switch node (Node 17). The Switch will route based on status code.
 
 ---
 
-### Dispatcher Node 16:
+### Dispatcher Node 17: Switch - Route by Status Code
 
-**Previous Node:** Dispatcher Node 15 (all response types)
-**Next Nodes:** Node 17a, 13b, or 13c (depending on status code)
+**Previous Node:** Dispatcher Node 16 (all response types)
+**Next Nodes:** Node 18a, 18b, or 18c (depending on status code)
 
 **Node Type:** Switch (under "Filter" category)
 
@@ -968,16 +1098,16 @@ return {
 
 **Visual Flow:**
 ```
-[Node 11: REST API Call]
+[Node 16: REST API Call]
          ↓ (all responses)
-[Node 12: SWITCH - Check statusCode]
-         ├─ Success (200-299) ──→ [Node 17a: Mark SENT]
-         ├─ ClientError (400-499) ──→ [Node 17b: Mark FAILED]
-         └─ Retry (500+ or unknown) ──→ [Node 17c: Mark RETRY/FAILED]
+[Node 17: SWITCH - Check statusCode]
+         ├─ Success (200-299) ──→ [Node 18a: Mark SENT]
+         ├─ ClientError (400-499) ──→ [Node 18b: Mark FAILED]
+         └─ Retry (500+ or unknown) ──→ [Node 18c: Mark RETRY/FAILED]
                                               ↓
                                               ↓ (all merge here)
                                               ↓
-                                        [Node 14: Prepare Index Update]
+                                        [Node 19: Prepare Index Update]
 ```
 
 **Script:**
@@ -986,35 +1116,35 @@ return {
 var status = metadata.statusCode ? parseInt(metadata.statusCode) : 0;
 
 if (status >= 200 && status < 300) {
-    return ['Success']; // Route to Node 17a (Mark SENT)
+    return ['Success']; // Route to Node 18a (Mark SENT)
 } else if (status >= 400 && status < 500) {
-    return ['ClientError']; // Route to Node 17b (Mark FAILED)
+    return ['ClientError']; // Route to Node 18b (Mark FAILED)
 } else {
-    return ['Retry']; // Route to Node 17c (Mark RETRY - for 500+ or unknown)
+    return ['Retry']; // Route to Node 18c (Mark RETRY - for 500+ or unknown)
 }
 ```
 
 **Connections - Create these custom relations:**
 
 In ThingsBoard, after creating the Switch node:
-1. Click "Add" to create a new relation named **"Success"** → Connect to Node 17a
-2. Click "Add" to create a new relation named **"ClientError"** → Connect to Node 17b
-3. Click "Add" to create a new relation named **"Retry"** → Connect to Node 17c
+1. Click "Add" to create a new relation named **"Success"** → Connect to Node 18a
+2. Click "Add" to create a new relation named **"ClientError"** → Connect to Node 18b
+3. Click "Add" to create a new relation named **"Retry"** → Connect to Node 18c
 
 The relation names MUST match exactly what the script returns: `['Success']`, `['ClientError']`, `['Retry']`
 
 ---
 
-### Dispatcher Node 17:
+### Dispatcher Node 18: Script - Mark Entry Status (3 versions)
 
-**Previous Node:** Dispatcher Node 16 (Switch)
-**Next Node:** Dispatcher Node 18
+**Previous Node:** Dispatcher Node 17 (Switch)
+**Next Node:** Dispatcher Node 19
 
 **Node Type:** Script (Transformation) - Create 3 SEPARATE nodes with different status logic
 
 **Purpose:** Update entry status based on Telegram API response
 
-**13a: Success Path (200-299) - Mark SENT**
+**18a: Success Path (200-299) - Mark SENT**
 ```javascript
 var entry = msg.entry;
 entry.status = 'SENT';
@@ -1028,7 +1158,7 @@ return {
 };
 ```
 
-**13b: Client Error Path (400-499) - Mark FAILED**
+**18b: Client Error Path (400-499) - Mark FAILED**
 ```javascript
 var entry = msg.entry;
 entry.status = 'FAILED';
@@ -1042,7 +1172,7 @@ return {
 };
 ```
 
-**13c: Retry Path (500-599 or timeout) - Mark RETRY or FAILED**
+**18c: Retry Path (500-599 or timeout) - Mark RETRY or FAILED**
 ```javascript
 var entry = msg.entry;
 
@@ -1073,14 +1203,14 @@ return {
 };
 ```
 
-**Connection:** All three scripts (13a, 13b, 13c) connect via Success relation → Dispatcher Node 18
+**Connection:** All three scripts (18a, 18b, 18c) connect via Success relation → Dispatcher Node 19
 
 ---
 
-### Dispatcher Node 18:
+### Dispatcher Node 19: Script - Prepare Index Update
 
-**Previous Node:** Dispatcher Node 17 (any of the 3 versions: 13a, 13b, or 13c)
-**Next Node:** Dispatcher Node 19
+**Previous Node:** Dispatcher Node 18 (any of the 3 versions: 18a, 18b, or 18c) OR Dispatcher Node 15 (Failure path for zombies)
+**Next Node:** Dispatcher Node 20
 
 **Node Type:** Script (Transformation)
 
@@ -1135,14 +1265,14 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 19
+**Connection:** Success relation → Dispatcher Node 20
 
 ---
 
-### Dispatcher Node 19:
+### Dispatcher Node 20: Save Attributes - Update Entry & Index
 
-**Previous Node:** Dispatcher Node 18
-**Next Node:** Dispatcher Node 60
+**Previous Node:** Dispatcher Node 19
+**Next Node:** Dispatcher Node 21
 
 **Node Type:** Save Attributes
 
@@ -1153,14 +1283,14 @@ return {
 
 **Purpose:** Persist updated entry status and modified priority index
 
-**Connection:** Success relation → Dispatcher Node 60
+**Connection:** Success relation → Dispatcher Node 21
 
 ---
 
-### Dispatcher Node 20:
+### Dispatcher Node 21: Script - Update Rate Limit State
 
-**Previous Node:** Dispatcher Node 19
-**Next Node:** Dispatcher Node 61
+**Previous Node:** Dispatcher Node 20
+**Next Node:** Dispatcher Node 22
 
 **Node Type:** Script (Transformation)
 
@@ -1196,13 +1326,13 @@ return {
 };
 ```
 
-**Connection:** Success relation → Dispatcher Node 61
+**Connection:** Success relation → Dispatcher Node 22
 
 ---
 
-### Dispatcher Node 21:
+### Dispatcher Node 22: Save Attributes - Update Rate Limit
 
-**Previous Node:** Dispatcher Node 60
+**Previous Node:** Dispatcher Node 21
 **Next Node:** None (end of flow)
 
 **Node Type:** Save Attributes
