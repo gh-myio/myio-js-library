@@ -31,7 +31,7 @@ self.onInit = function () {
       self.ctx?.dashboard?.configuration?.title ||
       null;
 
-    console.log('self.ctx?.dashboard', self.ctx?.dashboard)
+    console.log('self.ctx?.dashboard', self.ctx?.dashboard);
     console.log('Dashboard title found:', name);
     console.log('Datasources:', self.ctx?.datasources);
 
@@ -739,12 +739,15 @@ self.onInit = function () {
       return;
     }
 
-    const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings ||
-      (window.MyIOUtils?.measurementSettings ? {
-        water: { ...window.MyIOUtils.measurementSettings.water },
-        energy: { ...window.MyIOUtils.measurementSettings.energy },
-        temperature: { ...window.MyIOUtils.measurementSettings.temperature },
-      } : null);
+    const existingSettings =
+      window.MyIOOrchestrator?.measurementDisplaySettings ||
+      (window.MyIOUtils?.measurementSettings
+        ? {
+            water: { ...window.MyIOUtils.measurementSettings.water },
+            energy: { ...window.MyIOUtils.measurementSettings.energy },
+            temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+          }
+        : null);
 
     MyIOLibrary.openMeasurementSetupModal({
       token: jwtToken,
@@ -1046,12 +1049,15 @@ self.onInit = function () {
       LogHelper.log('[MENU] Opening measurement setup modal for customer:', { customerId, customerName });
 
       // RFC-0108: Get existing settings from orchestrator or MyIOUtils defaults
-      const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings ||
-        (window.MyIOUtils?.measurementSettings ? {
-          water: { ...window.MyIOUtils.measurementSettings.water },
-          energy: { ...window.MyIOUtils.measurementSettings.energy },
-          temperature: { ...window.MyIOUtils.measurementSettings.temperature },
-        } : null);
+      const existingSettings =
+        window.MyIOOrchestrator?.measurementDisplaySettings ||
+        (window.MyIOUtils?.measurementSettings
+          ? {
+              water: { ...window.MyIOUtils.measurementSettings.water },
+              energy: { ...window.MyIOUtils.measurementSettings.energy },
+              temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+            }
+          : null);
 
       MyIOLibrary.openMeasurementSetupModal({
         token: jwtToken,
@@ -1365,7 +1371,9 @@ self.onInit = function () {
         currentVersion: MyIOLib.version || 'unknown',
         theme: currentTheme, // Use current theme state
         onStatusChange: (status, currentVer, latestVer) => {
-          LogHelper.log(`[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`);
+          LogHelper.log(
+            `[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`
+          );
         },
       });
     } else {

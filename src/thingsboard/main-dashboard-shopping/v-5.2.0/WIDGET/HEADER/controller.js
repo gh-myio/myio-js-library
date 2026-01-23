@@ -147,7 +147,10 @@ function initContractStatusIcon() {
 
     const ContractSummaryTooltip = window.MyIOLibrary?.ContractSummaryTooltip;
     if (!ContractSummaryTooltip) {
-      LogHelper.error('[HEADER] ContractSummaryTooltip not available in library. Available exports:', Object.keys(window.MyIOLibrary || {}));
+      LogHelper.error(
+        '[HEADER] ContractSummaryTooltip not available in library. Available exports:',
+        Object.keys(window.MyIOLibrary || {})
+      );
       return;
     }
 
@@ -167,7 +170,10 @@ function initContractStatusIcon() {
         ContractSummaryTooltip.show(contractStatusEl, data);
         LogHelper.log('[HEADER] ContractSummaryTooltip.show() called successfully');
       } else {
-        LogHelper.warn('[HEADER] buildFromGlobalState() returned null. CONTRACT_STATE:', window.CONTRACT_STATE);
+        LogHelper.warn(
+          '[HEADER] buildFromGlobalState() returned null. CONTRACT_STATE:',
+          window.CONTRACT_STATE
+        );
       }
     } catch (err) {
       LogHelper.error('[HEADER] Error showing ContractSummaryTooltip:', err);
@@ -550,7 +556,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0096 FIX: Check if domain was already set before listener was registered (race condition fix)
     // MENU may fire myio:dashboard-state before HEADER's onInit completes
     if (currentDomain.value && (currentDomain.value === 'energy' || currentDomain.value === 'water')) {
-      LogHelper.log(`[HEADER] 🔧 Race condition fix: Domain already set to ${currentDomain.value}, enabling controls`);
+      LogHelper.log(
+        `[HEADER] 🔧 Race condition fix: Domain already set to ${currentDomain.value}, enabling controls`
+      );
       updateControlsState(currentDomain.value);
     }
 
@@ -574,7 +582,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     window.addEventListener('myio:data-ready', (ev) => {
       const domain = currentDomain.value;
       if (domain === 'energy' || domain === 'water') {
-        LogHelper.log(`[HEADER] RFC-0130: Data ready event received, ensuring controls are enabled for ${domain}`);
+        LogHelper.log(
+          `[HEADER] RFC-0130: Data ready event received, ensuring controls are enabled for ${domain}`
+        );
         updateControlsState(domain);
       }
     });
@@ -584,7 +594,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     window.addEventListener('myio:telemetry:provide-data', (ev) => {
       const domain = ev.detail?.domain || currentDomain.value;
       if (domain === 'energy' || domain === 'water') {
-        LogHelper.log(`[HEADER] RFC-0130: Telemetry data provided for ${domain}, ensuring controls are enabled`);
+        LogHelper.log(
+          `[HEADER] RFC-0130: Telemetry data provided for ${domain}, ensuring controls are enabled`
+        );
         updateControlsState(domain);
       }
     });
@@ -701,7 +713,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           // Clear MyIOOrchestratorData cache for current domain
           if (window.MyIOOrchestratorData && window.MyIOOrchestratorData[currentDomain.value]) {
             delete window.MyIOOrchestratorData[currentDomain.value];
-            LogHelper.log(`[HEADER] 🔄 RFC-0130: Cleared MyIOOrchestratorData cache for ${currentDomain.value}`);
+            LogHelper.log(
+              `[HEADER] 🔄 RFC-0130: Cleared MyIOOrchestratorData cache for ${currentDomain.value}`
+            );
           }
         }
       } catch (cacheErr) {
@@ -785,7 +799,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         if (!isProgrammatic) {
           const MyIOToast = window.MyIOLibrary?.MyIOToast;
           if (MyIOToast) {
-            MyIOToast.success("Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.", 5000);
+            MyIOToast.success(
+              "Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.",
+              5000
+            );
           }
         }
 

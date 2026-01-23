@@ -3,14 +3,12 @@
     "type": "object",
     "title": "Header Widget Settings",
     "properties": {
-        "labelWidget":{
-            "type":"string",
-            "title": "Widget Label",
-            "default": "Header de Menu dos Shoppings"
-        }
+      "labelWidget": {
+        "type": "string",
+        "title": "Widget Label",
+        "default": "Header de Menu dos Shoppings"
+      }
     }
   },
-  "form": [
-    "labelWidget"
-  ]
+  "form": ["labelWidget"]
 }

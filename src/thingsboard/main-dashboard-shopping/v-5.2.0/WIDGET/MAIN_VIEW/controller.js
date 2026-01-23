@@ -10,7 +10,6 @@
 
 // Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
 let DEBUG_ACTIVE = true;
-const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 // RFC-0130: Retry configuration for resilient data loading
 const RETRY_CONFIG = {
@@ -1082,8 +1081,7 @@ Object.assign(window.MyIOUtils, {
     }
 
     try {
-      const urlAuthUser = `${THINGSBOARD_URL}/api/auth/user`;
-      const response = await fetch(urlAuthUser, {
+      const response = await fetch('/api/auth/user', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1334,7 +1332,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: DATA_API_HOST,
+            dataApiHost: 'https://api.data.apps.myio-bas.com',
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -1748,7 +1746,7 @@ async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
     return null;
   }
 
-  const url = `${THINGSBOARD_URL}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -5965,7 +5963,7 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
  * This function is called when the orchestrator becomes ready
  */
 async function initializeContractLoading() {
-  const customerTB_ID = '20b93da0-9011-11f0-a06d-e9509531b1d5'; //TODO REMOVER widgetSettings.customerTB_ID;
+  const customerTB_ID = widgetSettings.customerTB_ID;
   if (!customerTB_ID) {
     LogHelper.warn('[RFC-0107] customerTB_ID not available, skipping contract initialization');
     return;

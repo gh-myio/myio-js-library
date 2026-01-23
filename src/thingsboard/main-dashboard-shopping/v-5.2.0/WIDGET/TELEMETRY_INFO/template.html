@@ -13,17 +13,17 @@
       class="btn-expand"
       id="btnExpandModal"
       title="Expandir visualização"
-      style="display: none !important; cursor: pointer !important; z-index: 9999 !important;"
-      onclick="console.log('[TELEMETRY_INFO] Button clicked!'); if(window.TELEMETRY_INFO_openModal) { window.TELEMETRY_INFO_openModal(); } else { alert('Function not loaded yet!'); }">
+      style="display: none !important; cursor: pointer !important; z-index: 9999 !important"
+      onclick="console.log('[TELEMETRY_INFO] Button clicked!'); if(window.TELEMETRY_INFO_openModal) { window.TELEMETRY_INFO_openModal(); } else { alert('Function not loaded yet!'); }"
+    >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
       </svg>
     </button>
   </header>
 
   <!-- GRID 2 COLUNAS -->
   <div class="info-grid">
-
     <!-- ========== ROW 1: ENTRADA + LOJAS ========== -->
     <div class="info-card entrada-card">
       <div class="card-header">
@@ -54,7 +54,7 @@
     </div>
 
     <!-- ========== WATER DOMAIN: BANHEIROS (hidden by default) ========== -->
-    <div class="info-card banheiros-card" style="display: none;">
+    <div class="info-card banheiros-card" style="display: none">
       <div class="card-header">
         <span class="card-icon">🚿</span>
         <h3 class="card-title">Banheiros</h3>
@@ -73,7 +73,11 @@
       <div class="card-header">
         <span class="card-icon">❄️</span>
         <h3 class="card-title">Climatização</h3>
-        <span class="info-tooltip" title="Climatização = CAG + Fancoils + Chillers + Bombas (Primárias + Secundárias + Condensadoras)">ℹ️</span>
+        <span
+          class="info-tooltip"
+          title="Climatização = CAG + Fancoils + Chillers + Bombas (Primárias + Secundárias + Condensadoras)"
+          >ℹ️</span
+        >
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
@@ -129,7 +133,11 @@
       <div class="card-header">
         <span class="card-icon">🏢</span>
         <h3 class="card-title">Área Comum</h3>
-        <span class="info-tooltip" title="Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)">ℹ️</span>
+        <span
+          class="info-tooltip"
+          title="Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)"
+          >ℹ️</span
+        >
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
@@ -166,19 +174,32 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- ========== MODAL EXPANDIDA (PREMIUM CLEAN) ========== -->
-  <div class="modal-overlay" id="modalExpanded" style="display: none;" onclick="if(event.target.id === 'modalExpanded') { window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal(); }">
+  <div
+    class="modal-overlay"
+    id="modalExpanded"
+    style="display: none"
+    onclick="if(event.target.id === 'modalExpanded') { window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal(); }"
+  >
     <div class="modal-container">
       <!-- Close Button (Floating) -->
       <button
         class="btn-close-floating"
         id="btnCloseModal"
         title="Fechar"
-        onclick="console.log('[TELEMETRY_INFO] Close button clicked!'); window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal()">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        onclick="console.log('[TELEMETRY_INFO] Close button clicked!'); window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal()"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>

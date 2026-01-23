@@ -69,6 +69,8 @@ export interface TemperatureModalParams {
   granularity?: TemperatureGranularity;
   /** Initial theme */
   theme?: 'dark' | 'light';
+  /** IANA timezone string (e.g., 'America/Sao_Paulo'). Defaults to local timezone. */
+  timezone?: string;
 }
 
 export interface TemperatureModalInstance {
@@ -96,6 +98,7 @@ interface ModalState {
   theme: 'dark' | 'light';
   clampRange: ClampRange;
   locale: string;
+  timezone: string;
   data: TemperatureTelemetry[];
   stats: TemperatureStats;
   isLoading: boolean;
@@ -115,8 +118,11 @@ export async function openTemperatureModal(
 ): Promise<TemperatureModalInstance> {
   const modalId = `myio-temp-modal-${Date.now()}`;
 
-  // Default to "Today So Far" if dates not provided
-  const defaultDateRange = getTodaySoFar();
+  // Default timezone to America/Sao_Paulo if not provided
+  const timezone = params.timezone || 'America/Sao_Paulo';
+
+  // Default to "Today So Far" if dates not provided (respecting timezone)
+  const defaultDateRange = getTodaySoFar(timezone);
   const startTs = params.startDate ? new Date(params.startDate).getTime() : defaultDateRange.startTs;
   const endTs = params.endDate ? new Date(params.endDate).getTime() : defaultDateRange.endTs;
 
@@ -135,6 +141,7 @@ export async function openTemperatureModal(
     theme: params.theme || 'light',
     clampRange: params.clampRange || DEFAULT_CLAMP_RANGE,
     locale: params.locale || 'pt-BR',
+    timezone,
     data: [],
     stats: { avg: 0, min: 0, max: 0, count: 0 },
     isLoading: true,
@@ -543,12 +550,13 @@ function drawChart(modalId: string, state: ModalState): void {
   let chartData: ChartPoint[];
 
   if (state.granularity === 'hour') {
-    // Interpolate to 30-minute intervals
+    // Interpolate to 30-minute intervals (respecting timezone to avoid future data)
     const interpolated = interpolateTemperature(filteredData, {
       intervalMinutes: 30,
       startTs: state.startTs,
       endTs: state.endTs,
-      clampRange: state.clampRange
+      clampRange: state.clampRange,
+      timezone: state.timezone
     });
     // Filter interpolated data by periods again (since interpolation may add points)
     const filteredInterpolated = filterByDayPeriods(interpolated, state.selectedPeriods);

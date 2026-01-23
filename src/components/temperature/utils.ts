@@ -64,15 +64,69 @@ export const DEFAULT_CLAMP_RANGE: ClampRange = { min: 15, max: 40 };
 // ============================================================================
 
 /**
- * Returns "Today So Far" date range: midnight today until now
+ * Gets current timestamp respecting timezone
+ * @param timezone - IANA timezone string (e.g., 'America/Sao_Paulo')
  */
-export function getTodaySoFar(): { startTs: number; endTs: number } {
+export function getCurrentTimestamp(timezone?: string): number {
+  if (!timezone) {
+    return Date.now();
+  }
+
+  // Get current time in the specified timezone
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  return {
-    startTs: startOfDay.getTime(),
-    endTs: now.getTime()
-  };
+  return now.getTime();
+}
+
+/**
+ * Gets start of day timestamp in the specified timezone
+ * @param date - Date to get start of day for
+ * @param timezone - IANA timezone string (e.g., 'America/Sao_Paulo')
+ */
+export function getStartOfDay(date: Date, timezone?: string): number {
+  if (!timezone) {
+    // Use local timezone
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0).getTime();
+  }
+
+  // Format date in target timezone to get the local date parts
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+  const month = parseInt(parts.find(p => p.type === 'month')?.value || '1') - 1;
+  const day = parseInt(parts.find(p => p.type === 'day')?.value || '1');
+
+  // Create date at midnight in the target timezone
+  // We need to find the UTC time that corresponds to midnight in the target timezone
+  const targetDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+
+  // Adjust for timezone offset
+  const tzFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    timeZoneName: 'shortOffset'
+  });
+  const tzString = tzFormatter.format(targetDate);
+  const offsetMatch = tzString.match(/GMT([+-]\d+)/);
+  const offsetHours = offsetMatch ? parseInt(offsetMatch[1]) : 0;
+
+  return targetDate.getTime() - (offsetHours * 60 * 60 * 1000);
+}
+
+/**
+ * Returns "Today So Far" date range: midnight today until now
+ * @param timezone - Optional IANA timezone string (e.g., 'America/Sao_Paulo')
+ */
+export function getTodaySoFar(timezone?: string): { startTs: number; endTs: number } {
+  const now = new Date();
+  const startTs = getStartOfDay(now, timezone);
+  const endTs = now.getTime();
+
+  return { startTs, endTs };
 }
 
 export const CHART_COLORS = [
@@ -164,6 +218,17 @@ export function calculateStats(
 /**
  * Interpolates temperature data to fill gaps with 30-minute intervals
  * Uses 'repeat-last' strategy: if no reading in interval, repeats last known temperature
+ *
+ * IMPORTANT: This function will NOT generate data points in the future.
+ * If endTs is greater than the current time, it will be clamped to the current timestamp.
+ *
+ * @param data - Raw temperature telemetry data
+ * @param options - Interpolation options
+ * @param options.intervalMinutes - Interval between data points in minutes
+ * @param options.startTs - Start timestamp (UTC milliseconds)
+ * @param options.endTs - End timestamp (UTC milliseconds)
+ * @param options.clampRange - Range for clamping outlier values
+ * @param options.timezone - Optional IANA timezone string (e.g., 'America/Sao_Paulo')
  */
 export function interpolateTemperature(
   data: TemperatureTelemetry[],
@@ -172,10 +237,16 @@ export function interpolateTemperature(
     startTs: number;
     endTs: number;
     clampRange?: ClampRange;
+    timezone?: string;
   }
 ): TemperatureTelemetry[] {
-  const { intervalMinutes, startTs, endTs, clampRange = DEFAULT_CLAMP_RANGE } = options;
+  const { intervalMinutes, startTs, clampRange = DEFAULT_CLAMP_RANGE } = options;
   const intervalMs = intervalMinutes * 60 * 1000;
+
+  // BUGFIX: Clamp endTs to current time to avoid generating future data points
+  // Use getCurrentTimestamp which respects timezone if provided
+  const now = getCurrentTimestamp(options.timezone);
+  const endTs = Math.min(options.endTs, now);
 
   if (data.length === 0) {
     return [];
@@ -184,7 +255,7 @@ export function interpolateTemperature(
   // Sort data by timestamp
   const sortedData = [...data].sort((a, b) => a.ts - b.ts);
 
-  // Generate all expected timestamps
+  // Generate all expected timestamps (only up to current time)
   const result: TemperatureTelemetry[] = [];
   let lastKnownValue = clampTemperature(sortedData[0].value, clampRange);
   let dataIndex = 0;

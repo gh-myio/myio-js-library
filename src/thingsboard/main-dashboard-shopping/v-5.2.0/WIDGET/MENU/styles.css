@@ -7,8 +7,8 @@
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s ease;
-  font-family: "Inter", sans-serif;
+  transition: opacity 0.2s ease;
+  font-family: 'Inter', sans-serif;
 }
 
 .shopping-modal.show {
@@ -19,7 +19,7 @@
 .shopping-modal-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(3px);
 }
 
@@ -30,10 +30,10 @@
   width: 400px;
   max-width: 90%;
   border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   transform: translateY(-10px);
-  transition: transform .25s ease;
+  transition: transform 0.25s ease;
 }
 
 .shopping-modal.show .shopping-modal-window {
@@ -44,7 +44,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #5B3CC4;
+  background: #5b3cc4;
   color: #fff;
   padding: 12px 18px;
 }
@@ -60,7 +60,7 @@
   color: #fff;
   font-size: 22px;
   cursor: pointer;
-  transition: transform .2s;
+  transition: transform 0.2s;
 }
 
 .close-btn:hover {
@@ -82,7 +82,7 @@
   border-radius: 10px;
   padding: 10px 14px;
   cursor: pointer;
-  transition: all .2s;
+  transition: all 0.2s;
   background: #fafafa;
 }
 
@@ -123,13 +123,13 @@
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, transform .06s ease, box-shadow .15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease, box-shadow 0.15s ease;
   font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
@@ -138,10 +138,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px; height: 28px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
-  background: #F4F1FF;
-  color: #5B3CC4; /* roxo do seu topo */
+  background: #f4f1ff;
+  color: #5b3cc4; /* roxo do seu topo */
 }
 
 .shopping-selector-btn .menu-label {
@@ -152,31 +153,31 @@
 
 .shopping-selector-btn .menu-kicker {
   font-size: 12px;
-  color: #7C7A8A;
-  background: #F7F7FB;
-  border: 1px solid #EDECF5;
+  color: #7c7a8a;
+  background: #f7f7fb;
+  border: 1px solid #edecf5;
   padding: 3px 6px;
   border-radius: 8px;
 }
 
 /* estados */
 .shopping-selector-btn:hover {
-  background: #F7F4FF;
-  border-color: #D8CEFF;
+  background: #f7f4ff;
+  border-color: #d8ceff;
   box-shadow: 0 4px 18px rgba(91, 60, 196, 0.12);
 }
 .shopping-selector-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(91, 60, 196, 0.10);
+  box-shadow: 0 2px 10px rgba(91, 60, 196, 0.1);
 }
 .shopping-selector-btn:focus-visible {
-  outline: 3px solid rgba(123, 93, 251, .4);
+  outline: 3px solid rgba(123, 93, 251, 0.4);
   outline-offset: 2px;
 }
 
 /* desabilitado (se quiser usar em algum momento) */
 .shopping-selector-btn[disabled] {
-  opacity: .55;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -190,7 +191,8 @@
   display: none;
 }
 .shops-menu-root.collapsed .shopping-selector-btn .menu-icon-wrap {
-  width: 34px; height: 34px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
 }
 /*css do bortão trocar shopping fim */
@@ -203,8 +205,8 @@
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s ease;
-  font-family: "Inter", sans-serif;
+  transition: opacity 0.2s ease;
+  font-family: 'Inter', sans-serif;
 }
 
 .shopping-modal.show {
@@ -215,7 +217,7 @@
 .shopping-modal-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(3px);
 }
 
@@ -226,10 +228,10 @@
   width: 400px;
   max-width: 90%;
   border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   transform: translateY(-10px);
-  transition: transform .25s ease;
+  transition: transform 0.25s ease;
 }
 
 .shopping-modal.show .shopping-modal-window {
@@ -240,7 +242,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #5B3CC4;
+  background: #5b3cc4;
   color: #fff;
   padding: 12px 18px;
 }
@@ -256,7 +258,7 @@
   color: #fff;
   font-size: 22px;
   cursor: pointer;
-  transition: transform .2s;
+  transition: transform 0.2s;
 }
 
 .close-btn:hover {
@@ -278,7 +280,7 @@
   border-radius: 10px;
   padding: 10px 14px;
   cursor: pointer;
-  transition: all .2s;
+  transition: all 0.2s;
   background: #fafafa;
 }
 
@@ -304,23 +306,22 @@
   color: #666;
 }
 
-
-.shops-menu-root{
-  --brand: #3E1A7D;        /* ativo */
-  --ghost: ghostwhite;     /* texto no ativo */
-  --hover-bg: #efe7ff;     /* hover (roxo claro) */
-  --text: #111827;         /* texto padrão */
-  --divider: #e5e7eb;      /* linha divisória */
+.shops-menu-root {
+  --brand: #3e1a7d; /* ativo */
+  --ghost: ghostwhite; /* texto no ativo */
+  --hover-bg: #efe7ff; /* hover (roxo claro) */
+  --text: #111827; /* texto padrão */
+  --divider: #e5e7eb; /* linha divisória */
   --radius: 10px;
 }
 
 /* Escopo local das cores */
 .shops-menu-root {
-  --brand: #3E1A7D;                  /* cor MYIO para ativo */
-  --ghost: ghostwhite;               /* texto no ativo */
-  --hover-bg: #efe7ff;               /* hover suave */
-  --text: #111827;                   /* texto padrão */
-  --user-color: #2d1458;             /* cor sutil para info do usuário */
+  --brand: #3e1a7d; /* cor MYIO para ativo */
+  --ghost: ghostwhite; /* texto no ativo */
+  --hover-bg: #efe7ff; /* hover suave */
+  --text: #111827; /* texto padrão */
+  --user-color: #2d1458; /* cor sutil para info do usuário */
   --radius: 10px;
 
   display: flex;
@@ -359,20 +360,20 @@
 
 /* Rodapé do menu: força 1 coluna cheia */
 .shops-menu-root .menu-footer {
-  display: grid;               /* pode ser flex, mas grid dá menos surpresas */
-  grid-template-columns: 1fr;  /* garante 1 coluna ocupando 100% */
+  display: grid; /* pode ser flex, mas grid dá menos surpresas */
+  grid-template-columns: 1fr; /* garante 1 coluna ocupando 100% */
   gap: 10px;
-  padding: 10px 0px;          /* padding simétrico */
+  padding: 10px 0px; /* padding simétrico */
   box-sizing: border-box;
 }
 
 /* O botão precisa esticar 100% da coluna e zerar margens */
 #shopping-selector-btn.shopping-selector-btn {
-  justify-self: stretch;       /* estica no grid */
+  justify-self: stretch; /* estica no grid */
   align-self: center;
   width: 100%;
   box-sizing: border-box;
-  margin: 0;                   /* evita “puxar” para a direita */
+  margin: 0; /* evita “puxar” para a direita */
 }
 
 /* Conteúdo interno permanece como antes */
@@ -382,22 +383,21 @@
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, transform .06s ease, box-shadow .15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease, box-shadow 0.15s ease;
   font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 /* quando o menu estiver recolhido, continua centrado */
 .shops-menu-root.collapsed #shopping-selector-btn {
-  justify-self: center;        /* centraliza quando colapsado */
-  width: auto;                 /* deixa o botão “compacto” */
+  justify-self: center; /* centraliza quando colapsado */
+  width: auto; /* deixa o botão “compacto” */
 }
-
 
 .user-name {
   color: var(--user-color);
@@ -416,8 +416,11 @@
 }
 
 .menu-header {
-  display: flex; align-items: center; gap: 8px;
-  padding-bottom: 10px; border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
 }
 
 .hamburger-btn {
@@ -437,25 +440,27 @@
 }
 
 /* lista em coluna, com divisores */
-.menu-list{
-  display:flex; flex-direction:column;
-  padding-top:12px; gap:0; /* gap 0 pq o divisor já separa */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+  gap: 0; /* gap 0 pq o divisor já separa */
   flex: 1; /* Takes remaining space, pushing footer to bottom */
   overflow-y: auto; /* Allows scrolling if menu items overflow */
 }
 
 /* cada item ocupa 100% da largura da linha */
-.menu-item{
+.menu-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  width:100%;
-  padding:12px 16px;
-  color:var(--text);
-  text-decoration:none;
-  border-bottom:1px solid var(--divider) !important; /* padroniza divisor */
+  width: 100%;
+  padding: 12px 16px;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--divider) !important; /* padroniza divisor */
   border-radius: var(--radius);
-  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .menu-icon {
@@ -471,28 +476,32 @@
 }
 
 /* texto/ícones herdam a cor do item */
-.menu-item .label{ display:inline-block; }
+.menu-item .label {
+  display: inline-block;
+}
 
 /* se ainda aparecer um traço roxo legado, força remover: */
-.menu-item{ border-image:none !important; }
+.menu-item {
+  border-image: none !important;
+}
 
 /* fundo no hover pega a LINHA TODA */
-.menu-item:hover{
-  background:var(--hover-bg);
+.menu-item:hover {
+  background: var(--hover-bg);
 }
 
 .menu-item.active .label {
-  background: var(--brand, #3E1A7D);
-  color: var(--ghost, #F8F8FF);
-  box-shadow: 0 2px 0 rgba(62, 26, 125, .35);
+  background: var(--brand, #3e1a7d);
+  color: var(--ghost, #f8f8ff);
+  box-shadow: 0 2px 0 rgba(62, 26, 125, 0.35);
 }
 
 /* fundo no ativo pega a LINHA TODA */
 .menu-item.active {
-  background:var(--brand);
-  color:var(--ghost);
+  background: var(--brand);
+  color: var(--ghost);
   border-bottom-color: transparent; /* evita “risco” roxo sob o ativo */
-  box-shadow: 0 1px 0 rgba(62,26,125,.20) inset;
+  box-shadow: 0 1px 0 rgba(62, 26, 125, 0.2) inset;
 }
 
 /* opcional: ícone + texto alinhados, caso adicione ícones no futuro */
@@ -750,19 +759,19 @@
 .shopping-selector-btn {
   width: 100%;
   display: flex;
-  flex-direction: column;        /* organiza em coluna */
-  align-items: flex-start;       /* alinha à esquerda */
+  flex-direction: column; /* organiza em coluna */
+  align-items: flex-start; /* alinha à esquerda */
   justify-content: center;
   gap: 2px;
   padding: 10px 12px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: all .15s ease;
-  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition: all 0.15s ease;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
 /* primeira linha ("Trocar Shopping") */
@@ -775,11 +784,11 @@
 .shopping-selector-btn .current-shopping {
   font-size: 12.5px;
   font-weight: 500;
-  color: #5B3CC4;      /* roxo principal */
+  color: #5b3cc4; /* roxo principal */
   opacity: 0.9;
   text-transform: none;
   line-height: 1.2;
-  margin-left: 26px;   /* alinha com o ícone */
+  margin-left: 26px; /* alinha com o ícone */
 }
 
 /* ícone visualmente equilibrado à esquerda */
@@ -807,11 +816,11 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: .15s;
+  transition: 0.15s;
 }
 
 .menu-btn-content {
@@ -821,8 +830,8 @@
 }
 
 .menu-icon-wrap {
-  background: #F4F1FF;
-  color: #5B3CC4;
+  background: #f4f1ff;
+  color: #5b3cc4;
   padding: 6px;
   border-radius: 8px;
   display: flex;
@@ -844,14 +853,14 @@
 .current-shopping {
   font-size: 12px;
   font-weight: 500;
-  color: #5B3CC4;
-  opacity: .9;
+  color: #5b3cc4;
+  opacity: 0.9;
 }
 
 .menu-kicker {
   font-size: 12px;
-  color: #7C7A8A;
-  background: #F7F7FB;
+  color: #7c7a8a;
+  background: #f7f7fb;
   border-radius: 6px;
   padding: 3px 6px;
 }
@@ -862,96 +871,104 @@
 }
 
 /* container do rodapé */
-.shops-menu-root .menu-footer{
-  display:grid;
+.shops-menu-root .menu-footer {
+  display: grid;
   grid-template-columns: 1fr;
-  gap:10px;
-  padding:10px 12px;
-  box-sizing:border-box;
+  gap: 10px;
+  padding: 10px 12px;
+  box-sizing: border-box;
 }
 
 /* botão */
-#shopping-selector-btn.shopping-selector-btn{
-  width:100%;
-  margin:0;
-  box-sizing:border-box;
-  padding:12px;
-  border-radius:14px;
-  border:1px solid #E6E6EF;
-  background: #FFFFFF;
-  box-shadow: 0 2px 10px rgba(31,28,53,.06);
-  cursor:pointer;
-  transition: transform .06s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+#shopping-selector-btn.shopping-selector-btn {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
+  cursor: pointer;
+  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 /* grade interna: ícone | texto (2 linhas) | atalho */
-#shopping-selector-btn .ssb-grid{
-  display:grid;
+#shopping-selector-btn .ssb-grid {
+  display: grid;
   grid-template-columns: 36px 1fr auto;
-  align-items:center;
-  column-gap:12px;
+  align-items: center;
+  column-gap: 12px;
 }
 
 /* ícone “pílula” */
-#shopping-selector-btn .ssb-icon{
-  width:36px; height:36px;
-  display:flex; align-items:center; justify-content:center;
-  border-radius:10px;
-  background:#F3EEFF;
-  color:#5B3CC4;
-  font-size:18px;
+#shopping-selector-btn .ssb-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f3eeff;
+  color: #5b3cc4;
+  font-size: 18px;
 }
 
 /* bloco de texto */
-#shopping-selector-btn .ssb-text{
-  display:flex; flex-direction:column; min-width:0; line-height:1.15;
+#shopping-selector-btn .ssb-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
 }
-#shopping-selector-btn .ssb-title{
+#shopping-selector-btn .ssb-title {
   font: 600 14px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color:#2F2A3B;
+  color: #2f2a3b;
 }
-#shopping-selector-btn .ssb-sub{
-  margin-top:2px;
+#shopping-selector-btn .ssb-sub {
+  margin-top: 2px;
   font: 500 12.5px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color:#5B3CC4;
-  opacity:.95;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  color: #5b3cc4;
+  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* atalho (keycap) */
-#shopping-selector-btn .ssb-kbd{
+#shopping-selector-btn .ssb-kbd {
   font: 500 12px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color:#7C7A8A;
-  background:#F7F7FB;
-  border:1px solid #EDECF5;
-  padding:4px 6px;
-  border-radius:8px;
-  white-space:nowrap;
+  color: #7c7a8a;
+  background: #f7f7fb;
+  border: 1px solid #edecf5;
+  padding: 4px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
 }
 
 /* estados */
-#shopping-selector-btn:hover{
-  background:#F8F6FF;
-  border-color:#D8CEFF;
-  box-shadow:0 4px 18px rgba(91,60,196,.12);
+#shopping-selector-btn:hover {
+  background: #f8f6ff;
+  border-color: #d8ceff;
+  box-shadow: 0 4px 18px rgba(91, 60, 196, 0.12);
 }
-#shopping-selector-btn:active{
-  transform:translateY(1px);
-  box-shadow:0 2px 10px rgba(91,60,196,.10);
+#shopping-selector-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(91, 60, 196, 0.1);
 }
-#shopping-selector-btn:focus-visible{
-  outline:3px solid rgba(123,93,251,.45);
-  outline-offset:2px;
+#shopping-selector-btn:focus-visible {
+  outline: 3px solid rgba(123, 93, 251, 0.45);
+  outline-offset: 2px;
 }
 
 /* menu recolhido: versão compacta */
 .shops-menu-root.collapsed #shopping-selector-btn .ssb-sub,
-.shops-menu-root.collapsed #shopping-selector-btn .ssb-kbd{
-  display:none;
+.shops-menu-root.collapsed #shopping-selector-btn .ssb-kbd {
+  display: none;
 }
-.shops-menu-root.collapsed #shopping-selector-btn .ssb-grid{
+.shops-menu-root.collapsed #shopping-selector-btn .ssb-grid {
   grid-template-columns: 36px auto;
-  justify-content:center;
+  justify-content: center;
 }
 
 /* Permitir que o nome do shopping quebre linha sem cortar */
@@ -965,13 +982,13 @@
 /* Nome do shopping completo */
 #ssb-current-shopping {
   font-size: 0.82rem;
-  color: #6A5ACD;
+  color: #6a5acd;
   font-weight: 500;
-  white-space: normal;     /* ← remove o truncamento */
+  white-space: normal; /* ← remove o truncamento */
   overflow: visible;
   text-overflow: unset;
-  word-break: break-word;  /* ← quebra para caber bonito */
-  max-width: 140px;        /* ajuste fino para evitar empurrar o teclado */
+  word-break: break-word; /* ← quebra para caber bonito */
+  max-width: 140px; /* ajuste fino para evitar empurrar o teclado */
 }
 
 /* Mantém o layout do botão organizado */
@@ -982,7 +999,6 @@
   gap: 6px;
 }
 
-
 /* RFC-0085: Temperature Settings Button */
 #temp-settings-btn.temp-settings-btn {
   width: 100%;
@@ -991,9 +1007,9 @@
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
   transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
@@ -1009,8 +1025,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #FFF3E0;
-  color: #E65100;
+  background: #fff3e0;
+  color: #e65100;
   font-size: 18px;
   flex-shrink: 0;
 }
@@ -1018,18 +1034,18 @@
 #temp-settings-btn .temp-text {
   font-size: 14px;
   font-weight: 500;
-  color: #2F2A3B;
+  color: #2f2a3b;
 }
 
 #temp-settings-btn:hover {
-  background: #FFF8E1;
-  border-color: #FFE0B2;
+  background: #fff8e1;
+  border-color: #ffe0b2;
   box-shadow: 0 4px 18px rgba(230, 81, 0, 0.12);
 }
 
 #temp-settings-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(230, 81, 0, 0.10);
+  box-shadow: 0 2px 10px rgba(230, 81, 0, 0.1);
 }
 
 #temp-settings-btn:focus-visible {
@@ -1055,9 +1071,9 @@
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
   transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
@@ -1073,8 +1089,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #E8F5E9;
-  color: #2E7D32;
+  background: #e8f5e9;
+  color: #2e7d32;
   font-size: 18px;
   flex-shrink: 0;
 }
@@ -1082,18 +1098,18 @@
 #contract-devices-btn .contract-text {
   font-size: 14px;
   font-weight: 500;
-  color: #2F2A3B;
+  color: #2f2a3b;
 }
 
 #contract-devices-btn:hover {
-  background: #E8F5E9;
-  border-color: #A5D6A7;
+  background: #e8f5e9;
+  border-color: #a5d6a7;
   box-shadow: 0 4px 18px rgba(46, 125, 50, 0.12);
 }
 
 #contract-devices-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(46, 125, 50, 0.10);
+  box-shadow: 0 2px 10px rgba(46, 125, 50, 0.1);
 }
 
 #contract-devices-btn:focus-visible {
@@ -1119,9 +1135,9 @@
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
   transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
@@ -1137,8 +1153,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #EDE7F6;
-  color: #5E35B1;
+  background: #ede7f6;
+  color: #5e35b1;
   font-size: 18px;
   flex-shrink: 0;
 }
@@ -1146,18 +1162,18 @@
 #measurement-setup-btn .measurement-text {
   font-size: 14px;
   font-weight: 500;
-  color: #2F2A3B;
+  color: #2f2a3b;
 }
 
 #measurement-setup-btn:hover {
-  background: #EDE7F6;
-  border-color: #B39DDB;
+  background: #ede7f6;
+  border-color: #b39ddb;
   box-shadow: 0 4px 18px rgba(94, 53, 177, 0.12);
 }
 
 #measurement-setup-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(94, 53, 177, 0.10);
+  box-shadow: 0 2px 10px rgba(94, 53, 177, 0.1);
 }
 
 #measurement-setup-btn:focus-visible {
@@ -1183,9 +1199,9 @@
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid #E6E6EF;
-  background: #FFFFFF;
-  color: #2F2A3B;
+  border: 1px solid #e6e6ef;
+  background: #ffffff;
+  color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
   transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
@@ -1201,8 +1217,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #F3E5F5;
-  color: #7B1FA2;
+  background: #f3e5f5;
+  color: #7b1fa2;
   font-size: 18px;
   flex-shrink: 0;
 }
@@ -1210,18 +1226,18 @@
 #settings-menu-btn .settings-menu-text {
   font-size: 14px;
   font-weight: 500;
-  color: #2F2A3B;
+  color: #2f2a3b;
 }
 
 #settings-menu-btn:hover {
-  background: #F3E5F5;
-  border-color: #CE93D8;
+  background: #f3e5f5;
+  border-color: #ce93d8;
   box-shadow: 0 4px 18px rgba(123, 31, 162, 0.12);
 }
 
 #settings-menu-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(123, 31, 162, 0.10);
+  box-shadow: 0 2px 10px rgba(123, 31, 162, 0.1);
 }
 
 #settings-menu-btn:focus-visible {
@@ -1268,7 +1284,7 @@
 .myio-settings-modal__content {
   position: relative;
   z-index: 2;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   width: min(400px, 90vw);
@@ -1287,7 +1303,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+  background: linear-gradient(135deg, #7b1fa2, #9c27b0);
   color: white;
 }
 
@@ -1328,9 +1344,9 @@
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
-  background: #FAFAFA;
+  background: #fafafa;
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
@@ -1338,8 +1354,8 @@
 }
 
 .myio-settings-option:hover {
-  background: #F3E5F5;
-  border-color: #CE93D8;
+  background: #f3e5f5;
+  border-color: #ce93d8;
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(123, 31, 162, 0.1);
 }
@@ -1371,12 +1387,12 @@
 .myio-settings-option__title {
   font-size: 14px;
   font-weight: 600;
-  color: #1F2937;
+  color: #1f2937;
 }
 
 .myio-settings-option__desc {
   font-size: 12px;
-  color: #6B7280;
+  color: #6b7280;
   line-height: 1.3;
 }
 
