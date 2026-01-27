@@ -433,7 +433,9 @@ function buildAuthoritativeItems() {
     }
 
     const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
-    const deviceProfile = attrs.deviceProfile || 'HIDROMETRO';
+    // RFC-0140 FIX: Default to HIDROMETRO_AREA_COMUM since this is the WATER_COMMON_AREA widget
+    // If deviceProfile is not set in ThingsBoard, assume it's area comum (not lojas)
+    const deviceProfile = attrs.deviceProfile || 'HIDROMETRO_AREA_COMUM';
     let deviceTypeToDisplay = attrs.deviceType || 'HIDROMETRO';
 
     if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
@@ -470,7 +472,8 @@ function buildAuthoritativeItems() {
   // This excludes HIDROMETRO + HIDROMETRO (lojas) from appearing in WATER_COMMON_AREA
   const filtered = mapped.filter((item) => {
     const dt = String(item.deviceType || '').toUpperCase();
-    const dp = String(item.deviceProfile || '').toUpperCase();
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
 
     // Accept if deviceType is explicitly HIDROMETRO_AREA_COMUM
     if (dt === 'HIDROMETRO_AREA_COMUM' || dt.includes('AREA_COMUM')) {
@@ -838,6 +841,24 @@ async function renderList(visible) {
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
     };
 
+    // RFC-0140 FORCE CHECK: Skip rendering if device is NOT area comum
+    // This is the final safety check before rendering
+    const dtCheck = String(it.deviceType || '').toUpperCase();
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const dpCheck = String(it.deviceProfile || it.deviceType || '').toUpperCase();
+    const isAreaComum =
+      dtCheck === 'HIDROMETRO_AREA_COMUM' ||
+      dtCheck.includes('AREA_COMUM') ||
+      (dtCheck === 'HIDROMETRO' && (dpCheck === 'HIDROMETRO_AREA_COMUM' || dpCheck.includes('AREA_COMUM')));
+
+    if (!isAreaComum) {
+      LogHelper.warn(
+        `[WATER_COMMON_AREA] FORCE CHECK: Skipping non-area-comum device: ${it.label} (deviceType=${dtCheck}, deviceProfile=${dpCheck})`
+      );
+      container.remove(); // Remove the empty container
+      continue;
+    }
+
     // RFC-0094: Use renderCardComponentHeadOffice like WATER_STORES
     // RFC-0110: Use 1440 (24h) to match RFC-0110 master rules for consistency
     MyIOLibrary.renderCardComponentHeadOffice(container, {
@@ -1169,9 +1190,10 @@ async function filterAndRender() {
 
   // RFC-0094: Update stats header via centralized controller
   // RFC-0110: Calculate deviceStatus for each item before passing to updateFromDevices
-  if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+  // RFC-0140 FIX: Use 'visible' (filtered items) instead of STATE.itemsEnriched for accurate stats
+  if (visible && visible.length > 0) {
     // RFC-0110: Map items with calculated deviceStatus for accurate stats
-    const itemsWithDeviceStatus = STATE.itemsEnriched.map((item) => {
+    const itemsWithDeviceStatus = visible.map((item) => {
       // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
       const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
       const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
@@ -1187,7 +1209,8 @@ async function filterAndRender() {
     if (waterCommonAreaHeaderController) {
       waterCommonAreaHeaderController.updateFromDevices(itemsWithDeviceStatus, {});
     } else {
-      updateWaterCommonAreaStats(STATE.itemsEnriched);
+      // RFC-0140 FIX: Use 'visible' (filtered items) for accurate stats
+      updateWaterCommonAreaStats(visible);
     }
   }
 }
@@ -1816,7 +1839,8 @@ self.onInit = async function () {
       // This ensures consistency even when data comes from MAIN
       STATE.itemsBase = mappedItems.filter((item) => {
         const dt = String(item.deviceType || '').toUpperCase();
-        const dp = String(item.deviceProfile || '').toUpperCase();
+        // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+        const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
 
         // Accept if deviceType is explicitly HIDROMETRO_AREA_COMUM
         if (dt === 'HIDROMETRO_AREA_COMUM' || dt.includes('AREA_COMUM')) {

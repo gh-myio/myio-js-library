@@ -29,10 +29,12 @@ function isWaterStoreDevice(device) {
   const aliasName = device?.aliasName || device?.datasource?.aliasName || '';
   if (aliasName === 'Todos Hidrometros Lojas') return true;
 
-  // Fallback: Check deviceType contains HIDROMETRO and context indicates store
+  // RFC-0143 FIX: WATER_STORES = deviceType === 'HIDROMETRO' AND deviceProfile === 'HIDROMETRO' (exact match)
+  // This excludes HIDROMETRO_AREA_COMUM devices which have deviceProfile = 'HIDROMETRO_AREA_COMUM'
   const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
-  return deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO');
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = String(device?.deviceProfile || device?.deviceType || '').toUpperCase();
+  return deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO';
 }
 
 // ============================================================================
@@ -127,6 +129,12 @@ let factoryController = null;
 self.onInit = async function () {
   LogHelper.log('[WATER_STORES] RFC-0143 onInit - Using DeviceGridWidgetFactory');
 
+  // RFC-0140 FIX: Check if ctx is available
+  if (!self.ctx || !self.ctx.$container) {
+    LogHelper.error('[WATER_STORES] ctx or $container not available - widget may not be properly initialized');
+    return;
+  }
+
   // Apply container styles
   $(self.ctx.$container).css({
     height: '100%',
@@ -151,8 +159,9 @@ self.onInit = async function () {
     // Create controller from factory
     factoryController = DeviceGridWidgetFactory.createWidgetController(WATER_STORES_CONFIG);
 
-    // Initialize the controller
-    await factoryController.onInit();
+    // Initialize the controller - pass self.ctx for container access
+    // (self is ThingsBoard widget context, not available inside bundled library)
+    await factoryController.onInit(self.ctx);
 
     LogHelper.log('[WATER_STORES] RFC-0143 Factory controller initialized successfully');
   } catch (error) {

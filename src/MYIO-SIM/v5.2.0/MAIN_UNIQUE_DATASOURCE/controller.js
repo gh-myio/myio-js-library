@@ -4884,8 +4884,9 @@ function buildShoppingsEnergyBreakdown(classified) {
     const value = Number(device.value || device.consumption || 0);
 
     // Check if it's a store device (3F_MEDIDOR)
-    const deviceProfile = (device.deviceProfile || '').toUpperCase();
     const deviceType = (device.deviceType || '').toUpperCase();
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const deviceProfile = (device.deviceProfile || device.deviceType || '').toUpperCase();
     const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
 
     if (isStore) {

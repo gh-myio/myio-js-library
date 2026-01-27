@@ -1266,8 +1266,9 @@ function isStoreDevice(itemOrDeviceProfile) {
     return false;
   }
 
-  const deviceProfile = String(itemOrDeviceProfile.deviceProfile || '').toUpperCase();
   const deviceType = String(itemOrDeviceProfile.deviceType || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = String(itemOrDeviceProfile.deviceProfile || itemOrDeviceProfile.deviceType || '').toUpperCase();
 
   // A device is a store only if BOTH deviceType AND deviceProfile are '3F_MEDIDOR'
   return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
@@ -1289,7 +1290,8 @@ function isWaterStoreDevice(item) {
   }
 
   const dt = String(item.deviceType || '').toUpperCase();
-  const dp = String(item.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
 
   // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
   return dt === 'HIDROMETRO' && dp === 'HIDROMETRO';
@@ -1317,7 +1319,8 @@ function classifyWaterMeterDevice(item) {
   }
 
   const dt = String(item.deviceType || '').toUpperCase();
-  const dp = String(item.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
 
   // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
   if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
@@ -1347,7 +1350,8 @@ function isWaterEntradaDevice(item) {
   }
 
   const dt = String(item.deviceType || '').toUpperCase();
-  const dp = String(item.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
 
   // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
   return dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING');
@@ -1367,7 +1371,8 @@ function isWaterEntradaDevice(item) {
 function classifyDeviceByDeviceType(item) {
   if (!item) return 'outros';
 
-  const deviceProfile = String(item.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = String(item.deviceProfile || item.deviceType || '').toUpperCase();
 
   // RFC-0106: Lojas - use centralized isStoreDevice
   if (isStoreDevice(item)) {
@@ -1538,7 +1543,8 @@ function inferLabelWidget(row) {
 
   // Get deviceType and deviceProfile from ThingsBoard datasource
   const deviceType = String(row.deviceType || '').toUpperCase();
-  const deviceProfile = String(row.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = String(row.deviceProfile || row.deviceType || '').toUpperCase();
 
   // ==========================================================================
   // RULE 1: LOJAS - use centralized isStoreDevice
@@ -4523,7 +4529,8 @@ function categorizeItemsByGroup(items) {
 
   for (const item of items) {
     const deviceType = toStr(item.deviceType);
-    const deviceProfile = toStr(item.deviceProfile);
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const deviceProfile = toStr(item.deviceProfile || item.deviceType);
 
     // Rule 1: LOJAS - use centralized isStoreDevice
     if (isStoreDevice(item)) {
@@ -4570,7 +4577,8 @@ function categorizeItemsByGroupWater(items) {
 
   for (const item of items) {
     const dt = toStr(item.deviceType);
-    const dp = toStr(item.deviceProfile);
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const dp = toStr(item.deviceProfile || item.deviceType);
 
     // LOJAS: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
     if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
@@ -4584,8 +4592,25 @@ function categorizeItemsByGroupWater(items) {
       continue;
     }
 
-    // AREACOMUM: todo o resto (includes HIDROMETRO_AREA_COMUM and any other combination)
-    areacomum.push(item);
+    // AREACOMUM: ONLY devices explicitly marked as area comum
+    // - deviceType = HIDROMETRO_AREA_COMUM (any deviceProfile)
+    // - OR deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+    // This prevents unclassified devices from appearing in area comum
+    if (
+      dt === 'HIDROMETRO_AREA_COMUM' ||
+      dt.includes('AREA_COMUM') ||
+      (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO_AREA_COMUM' || dp.includes('AREA_COMUM')))
+    ) {
+      areacomum.push(item);
+      continue;
+    }
+
+    // Devices that don't match any category are NOT added to any group
+    // This prevents HIDROMETRO without deviceProfile from appearing in areacomum
+    // RFC-0140: Log warn for unclassified devices
+    LogHelper.warn(
+      `[categorizeItemsByGroupWater] ⚠️ UNCLASSIFIED water device: "${item.label}" (deviceType=${dt || 'NULL'}, deviceProfile=${dp || 'NULL'})`
+    );
   }
 
   return { entrada, lojas, banheiros, areacomum };
@@ -4662,7 +4687,8 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   for (const item of areacomum) {
     const lw = toStr(item.labelWidget);
     const dt = toStr(item.deviceType);
-    const dp = toStr(item.deviceProfile);
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const dp = toStr(item.deviceProfile || item.deviceType);
     const label = toStr(item.label);
     const combined = `${lw} ${dt} ${dp} ${label}`;
 
@@ -7380,7 +7406,8 @@ const MyIOOrchestrator = (() => {
 
           // FALLBACK: Classification by deviceType/deviceProfile (if aliasName didn't match)
           const dt = String(device.deviceType || '').toUpperCase();
-          const dp = String(device.deviceProfile || '').toUpperCase();
+          // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+          const dp = String(device.deviceProfile || device.deviceType || '').toUpperCase();
 
           // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
           if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
@@ -7401,20 +7428,25 @@ const MyIOOrchestrator = (() => {
             return 'areacomum';
           }
 
-          // DEBUG: Log the first 5 devices that fall through to default
-          if (classificationDebugLog.defaults.length < 5) {
+          // RFC-0140 FIX: Do NOT default to areacomum - unclassified devices should be excluded
+          // This prevents HIDROMETRO without deviceProfile from appearing in area comum
+          classificationDebugLog.byType['unclassified'] =
+            (classificationDebugLog.byType['unclassified'] || 0) + 1;
+
+          // Log warn for unclassified devices (first 10 only to avoid spam)
+          if (classificationDebugLog.defaults.length < 10) {
             classificationDebugLog.defaults.push({
               label: device.label,
               aliasName: device._aliasName,
               dt: dt || 'NULL',
               dp: dp || 'NULL',
             });
+            LogHelper.warn(
+              `[Orchestrator] ⚠️ UNCLASSIFIED water device: "${device.label}" (aliasName=${device._aliasName || 'N/A'}, deviceType=${dt || 'NULL'}, deviceProfile=${dp || 'NULL'})`
+            );
           }
 
-          // DEFAULT: areacomum (devices with unknown type/profile)
-          classificationDebugLog.byType['default_areacomum'] =
-            (classificationDebugLog.byType['default_areacomum'] || 0) + 1;
-          return 'areacomum';
+          return 'unclassified';
         };
 
         // Convert map to array and calculate water value (prefer consumption, fallback to pulses)
@@ -7457,7 +7489,10 @@ const MyIOOrchestrator = (() => {
           const entradaItems = waterItems.filter((item) => item._classification === 'entrada');
 
           // RFC-0109: Exclude entrada items from calculations (no screen for entrada yet)
-          const itemsForCalculation = waterItems.filter((item) => item._classification !== 'entrada');
+          // RFC-0140: Also exclude unclassified items
+          const itemsForCalculation = waterItems.filter(
+            (item) => item._classification !== 'entrada' && item._classification !== 'unclassified'
+          );
           const waterTotal = itemsForCalculation.reduce((sum, item) => sum + (item.value || 0), 0);
           const storesTotal = storeWaterItems.reduce((sum, item) => sum + (item.value || 0), 0);
           const commonAreaTotal = commonAreaItems.reduce((sum, item) => sum + (item.value || 0), 0);
@@ -7554,13 +7589,22 @@ const MyIOOrchestrator = (() => {
 
           // RFC-0131: Enrich water data with API totals (async)
           // This allows child widgets to receive API-enriched data without making their own API calls
-          (async () => {
+          // RFC-0140 FIX: Retry logic if period not available yet
+          const enrichWaterWithApi = async (retryCount = 0) => {
             try {
-              const startISO = self.ctx?.scope?.startDateISO || self.ctx?.$scope?.startDateISO;
-              const endISO = self.ctx?.scope?.endDateISO || self.ctx?.$scope?.endDateISO;
+              // RFC-0140 FIX: Use currentPeriod from orchestrator or fallback to scope
+              const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
+              const startISO = period?.startISO || self.ctx?.scope?.startDateISO || self.ctx?.$scope?.startDateISO;
+              const endISO = period?.endISO || self.ctx?.scope?.endDateISO || self.ctx?.$scope?.endDateISO;
 
               if (!startISO || !endISO) {
-                LogHelper.log('[Orchestrator] 💧 RFC-0131: No date range, skipping API enrichment');
+                // RFC-0140: Retry up to 5 times with 1s delay
+                if (retryCount < 5) {
+                  LogHelper.log(`[Orchestrator] 💧 RFC-0131: No date range yet, retry ${retryCount + 1}/5 in 1s...`);
+                  setTimeout(() => enrichWaterWithApi(retryCount + 1), 1000);
+                  return;
+                }
+                LogHelper.log('[Orchestrator] 💧 RFC-0131: No date range after 5 retries, skipping API enrichment');
                 return;
               }
 
@@ -7624,12 +7668,15 @@ const MyIOOrchestrator = (() => {
               LogHelper.log(`[Orchestrator] 💧 RFC-0131: Got ${apiMap.size} devices from API`);
 
               // Enrich items with API values
+              // RFC-0140 FIX: Also copy customerId and customerName from API for shopping filter
               const enrichItem = (item) => {
                 const apiData = apiMap.get(item.ingestionId);
                 if (apiData) {
                   return {
                     ...item,
                     value: Number(apiData.total_value || apiData.total_volume || 0),
+                    customerId: apiData.customerId || item.customerId || null,
+                    customerName: apiData.customerName || item.customerName || null,
                     apiEnriched: true,
                   };
                 }
@@ -7700,7 +7747,9 @@ const MyIOOrchestrator = (() => {
             } catch (err) {
               LogHelper.warn(`[Orchestrator] 💧 RFC-0131: API enrichment failed: ${err.message}`);
             }
-          })();
+          };
+          // Start the enrichment (with retry if period not available)
+          enrichWaterWithApi();
         }
       } catch (err) {
         LogHelper.warn(`[Orchestrator] Failed to emit initial water-summary-ready: ${err.message}`);
@@ -8604,8 +8653,9 @@ const MyIOOrchestrator = (() => {
         customerTotal += value;
 
         // Check if it's a store device (both deviceType AND deviceProfile are '3F_MEDIDOR')
-        const deviceProfile = String(item.deviceProfile || '').toUpperCase();
         const deviceType = String(item.deviceType || '').toUpperCase();
+        // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+        const deviceProfile = String(item.deviceProfile || item.deviceType || '').toUpperCase();
         const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
 
         if (isStore) {

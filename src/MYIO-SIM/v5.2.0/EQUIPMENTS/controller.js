@@ -1684,13 +1684,15 @@ function reflowCards() {
 // Helper functions for equipment classification
 function isElevator(device) {
   const deviceType = (device.deviceType || '').toUpperCase();
-  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = (device.deviceProfile || device.deviceType || '').toUpperCase();
   return deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
 }
 
 function isEscalator(device) {
   const deviceType = (device.deviceType || '').toUpperCase();
-  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = (device.deviceProfile || device.deviceType || '').toUpperCase();
   return (
     deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE')
   );
@@ -1698,7 +1700,8 @@ function isEscalator(device) {
 
 function isHVAC(device) {
   const deviceType = (device.deviceType || '').toUpperCase();
-  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = (device.deviceProfile || device.deviceType || '').toUpperCase();
   const identifier = (device.deviceIdentifier || '').toUpperCase();
   const hasCAG = identifier.includes('CAG');
 

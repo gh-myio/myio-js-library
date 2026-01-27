@@ -1008,7 +1008,8 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
 function classifyEquipmentDetailed(device) {
   // RFC-0130: Ensure all values are strings before calling toUpperCase()
   let deviceType = String(device.deviceType || '').toUpperCase();
-  const deviceProfile = String(device.deviceProfile || '').toUpperCase();
+  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+  const deviceProfile = String(device.deviceProfile || device.deviceType || '').toUpperCase();
   const identifier = String(device.deviceIdentifier || device.name || '').toUpperCase();
   const labelOrName = String(device.labelOrName || device.label || device.name || '').toUpperCase();
 
