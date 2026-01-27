@@ -304,6 +304,12 @@ Object.assign(window.MyIOUtils, {
   handleDataLoadError: (domain = 'unknown', reason = 'timeout') => {
     LogHelper.error(`[MyIOUtils] Data load error for ${domain}: ${reason}`);
 
+    // Stop retry loop after final error for this domain
+    window._dataLoadRetryLocked = window._dataLoadRetryLocked || {};
+    if (window._dataLoadRetryLocked[domain]) {
+      return;
+    }
+
     // Check if we already have data in window.STATE for this domain
     // If we have cached/existing data, don't reload - just log the error
     const existingData = window.STATE?.[domain];
@@ -377,8 +383,8 @@ Object.assign(window.MyIOUtils, {
     // Max retries exceeded - must reload
     LogHelper.error(`[MyIOUtils] Max retries (${maxRetries}) exceeded for ${domain} - reloading page`);
 
-    // Reset retry counter before reload
-    window._dataLoadRetryAttempts[domain] = 0;
+    // Lock retries for this domain to avoid looping after error
+    window._dataLoadRetryLocked[domain] = true;
 
     const MyIOToast = window.MyIOLibrary?.MyIOToast;
     const message = `Erro ao carregar dados (${domain}). Recarregue a página...`;
@@ -392,9 +398,9 @@ Object.assign(window.MyIOUtils, {
     }
 
     // Reload page after toast displays
-    setTimeout(() => {
-      window.location.reload();
-    }, 6000);
+    //setTimeout(() => {
+      //window.location.reload();
+    //}, 6000);
   },
 
   /**
@@ -4380,6 +4386,30 @@ const MyIOOrchestrator = (() => {
   function checkAndRefetchIfNeeded() {
     if (!ctxDataWasEmpty || !lastFetchDomain || !lastFetchPeriod) return;
 
+    // RFC-0140 FIX: Check if retry is locked for this domain to prevent infinite loop
+    // When metadataMap.size === 0 persists, don't keep retrying
+    if (window._dataLoadRetryLocked?.[lastFetchDomain]) {
+      LogHelper.log(
+        `[Orchestrator] ⏭️ checkAndRefetchIfNeeded: retry locked for ${lastFetchDomain}, stopping`
+      );
+      ctxDataWasEmpty = false;
+      lastFetchDomain = null;
+      lastFetchPeriod = null;
+      return;
+    }
+
+    // RFC-0140 FIX: Also check if data already exists in cache (another call succeeded)
+    const cachedData = window.MyIOOrchestratorData?.[lastFetchDomain];
+    if (cachedData?.items?.length > 0) {
+      LogHelper.log(
+        `[Orchestrator] ✅ checkAndRefetchIfNeeded: data already in cache for ${lastFetchDomain} (${cachedData.items.length} items), skipping re-fetch`
+      );
+      ctxDataWasEmpty = false;
+      lastFetchDomain = null;
+      lastFetchPeriod = null;
+      return;
+    }
+
     const rows = Array.isArray(self?.ctx?.data) ? self.ctx.data : [];
     if (rows.length > 0) {
       LogHelper.log(
@@ -4557,14 +4587,21 @@ const MyIOOrchestrator = (() => {
       }
 
       if (!ctxDataReady) {
-        // Mark that ctx.data was empty - will trigger re-fetch when data arrives
-        ctxDataWasEmpty = true;
-        LogHelper.warn(
-          `[Orchestrator] ⚠️ ctx.data not ready - skipping API call, will auto-refetch when available`
-        );
+        // RFC-0140 FIX: Only mark for re-fetch if not already locked
+        if (!window._dataLoadRetryLocked?.[domain]) {
+          // Mark that ctx.data was empty - will trigger re-fetch when data arrives
+          ctxDataWasEmpty = true;
+          LogHelper.warn(
+            `[Orchestrator] ⚠️ ctx.data not ready - skipping API call, will auto-refetch when available`
+          );
 
-        // RFC-0106: Show toast and reload page when ctx.data fails to load
-        window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
+          // RFC-0106: Show toast and reload page when ctx.data fails to load
+          window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
+        } else {
+          LogHelper.warn(
+            `[Orchestrator] ⚠️ ctx.data not ready but retry locked for ${domain} - not retrying`
+          );
+        }
 
         return []; // DO NOT call API without metadata
       }
@@ -4687,11 +4724,52 @@ const MyIOOrchestrator = (() => {
       const waterDevicesFromCtx = [...tankItems, ...hidrometroItems];
 
       if (metadataMap.size === 0 && waterDevicesFromCtx.length === 0) {
+        // RFC-0140 FIX: Check if we have devices in metadataByEntityId (but without ingestionId)
+        // If so, create basic items without API enrichment instead of failing
+        if (metadataByEntityId.size > 0) {
+          LogHelper.warn(
+            `[Orchestrator] ⚠️ RFC-0140: No devices with ingestionId, but found ${metadataByEntityId.size} devices in ctx.data - creating basic items without API enrichment`
+          );
+
+          // Create basic items from metadataByEntityId
+          const basicItems = [];
+          for (const [entityId, meta] of metadataByEntityId.entries()) {
+            const item = createOrchestratorItem({
+              entityId,
+              meta,
+              apiRow: null, // No API data available
+              overrides: {
+                // RFC-0140: Use "-" (null) for consumption when no API enrichment
+                // This indicates "no data available" instead of showing 0
+                value: null,
+                consumption: null,
+                _noApiEnrich: true, // Flag to indicate no API enrichment
+              },
+            });
+            basicItems.push(item);
+          }
+
+          LogHelper.log(
+            `[Orchestrator] ✅ RFC-0140: Created ${basicItems.length} basic items from ctx.data (no API enrichment)`
+          );
+
+          // Populate state and return
+          const basicPeriodKey = `${domain}:${period.startISO}:${period.endISO}:${period.granularity}:basic`;
+          populateState(domain, basicItems, basicPeriodKey);
+          return basicItems;
+        }
+
         LogHelper.warn(`[Orchestrator] ⚠️ Metadata map is empty - no devices found in ctx.data`);
-        ctxDataWasEmpty = true;
+        // RFC-0140 FIX: Do NOT set ctxDataWasEmpty = true here!
+        // When metadataMap is empty but ctx.data has rows, it means the whitelist/alias
+        // filtering is not finding the expected datasource. Retrying won't help.
+        // Setting ctxDataWasEmpty would cause checkAndRefetchIfNeeded to loop infinitely.
 
         // RFC-0106: Show toast and reload page when metadata map is empty
-        window.MyIOUtils?.handleDataLoadError(domain, 'no devices found in datasource');
+        // RFC-0140 FIX: Only call handleDataLoadError if not already locked
+        if (!window._dataLoadRetryLocked?.[domain]) {
+          window.MyIOUtils?.handleDataLoadError(domain, 'no devices found in datasource');
+        }
 
         return []; // No metadata = no point calling API
       }
