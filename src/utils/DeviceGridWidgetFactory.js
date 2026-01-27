@@ -459,20 +459,98 @@ export function createBusyModal(config, $root) {
 }
 
 /**
- * Get cached data from orchestrator
+ * Get cached data from orchestrator (MAIN v5.2.0 architecture)
+ * Data structures:
+ * - Energy: window.MyIOOrchestratorData[domain].items
+ * - Water: window.MyIOOrchestratorData.waterClassified.{stores|commonArea|entrada}.items
+ * Items are filtered using config.deviceFilter
  * @param {DeviceGridWidgetConfig} config - Widget configuration
  * @returns {Array|null} Cached device data
  */
 export function getCachedData(config) {
   if (typeof window === 'undefined') return null;
 
-  const classified = window.MyIOOrchestratorData?.classified;
-  if (!classified) return null;
+  const orchestratorData = window.MyIOOrchestratorData;
+  if (!orchestratorData) {
+    LogHelper.log(`[${config.widgetName}] getCachedData: MyIOOrchestratorData not available`);
+    return null;
+  }
 
-  const domainData = classified[config.domain];
-  if (!domainData) return null;
+  // Water domain uses waterClassified structure
+  if (config.domain === 'water') {
+    const waterClassified = orchestratorData.waterClassified;
+    if (waterClassified) {
+      // Map context to waterClassified category
+      // hidrometro (stores) -> waterClassified.stores
+      // hidrometro_area_comum -> waterClassified.commonArea
+      let categoryItems = null;
+      if (config.context === 'hidrometro' || config.context === 'stores') {
+        categoryItems = waterClassified.stores?.items;
+        if (categoryItems?.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${categoryItems.length} items via waterClassified.stores`
+          );
+          return categoryItems;
+        }
+      } else if (config.context === 'hidrometro_area_comum' || config.context === 'commonArea') {
+        categoryItems = waterClassified.commonArea?.items;
+        if (categoryItems?.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${categoryItems.length} items via waterClassified.commonArea`
+          );
+          return categoryItems;
+        }
+      } else if (config.context === 'entrada') {
+        categoryItems = waterClassified.entrada?.items;
+        if (categoryItems?.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${categoryItems.length} items via waterClassified.entrada`
+          );
+          return categoryItems;
+        }
+      }
 
-  return domainData[config.context] || null;
+      // Fallback: try 'all' items with deviceFilter
+      const allItems = waterClassified.all?.items;
+      if (allItems && Array.isArray(allItems) && config.deviceFilter) {
+        const filteredItems = allItems.filter(config.deviceFilter);
+        if (filteredItems.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${filteredItems.length} items via waterClassified.all (filtered from ${allItems.length})`
+          );
+          return filteredItems;
+        }
+      }
+
+      LogHelper.log(`[${config.widgetName}] getCachedData: waterClassified exists but no items for context ${config.context}`);
+    } else {
+      LogHelper.log(`[${config.widgetName}] getCachedData: waterClassified not available`);
+    }
+    return null;
+  }
+
+  // Energy/Temperature domain: [domain].items
+  const domainCache = orchestratorData[config.domain];
+  if (domainCache?.items && Array.isArray(domainCache.items)) {
+    // Filter items using the deviceFilter from config
+    const filteredItems = config.deviceFilter
+      ? domainCache.items.filter(config.deviceFilter)
+      : domainCache.items;
+
+    if (filteredItems.length > 0) {
+      LogHelper.log(
+        `[${config.widgetName}] getCachedData: Found ${filteredItems.length} items via ${config.domain}.items (filtered from ${domainCache.items.length})`
+      );
+      return filteredItems;
+    }
+    LogHelper.log(
+      `[${config.widgetName}] getCachedData: ${config.domain}.items has ${domainCache.items.length} items but none matched deviceFilter`
+    );
+  } else {
+    LogHelper.log(`[${config.widgetName}] getCachedData: No cached data found for domain ${config.domain}`);
+  }
+
+  return null;
 }
 
 /**
@@ -567,12 +645,70 @@ export function createWidgetController(config) {
       }
     };
 
+    // RFC-0143 FIX: Also listen to MAIN's provide-data event for compatibility
+    const provideDataHandler = (ev) => {
+      const { domain, items } = ev.detail || {};
+      // Only process if this event is for our domain
+      if (domain !== config.domain) return;
+
+      // Filter items using deviceFilter
+      const filteredItems = config.deviceFilter
+        ? items.filter(config.deviceFilter)
+        : items;
+
+      if (filteredItems && filteredItems.length > 0 && STATE.itemsBase.length === 0) {
+        LogHelper.log(`[${config.widgetName}] Provide-data event: ${filteredItems.length} items (from ${items?.length || 0})`);
+        STATE.itemsBase = filteredItems;
+        STATE.itemsEnriched = filteredItems.map((item) => ({
+          ...item,
+          value: Number(item.value || item.consumption || item.pulses || 0),
+        }));
+        STATE.dataFromMain = true;
+        busyModal.hideBusy();
+        reflow();
+      }
+    };
+
+    // RFC-0143 FIX: Listen to MAIN's water-tb-data-ready event for water domain
+    const waterTbDataReadyHandler = (ev) => {
+      // Only process for water domain widgets
+      if (config.domain !== 'water') return;
+
+      const waterClassified = ev.detail || {};
+      let items = null;
+
+      // Map context to waterClassified category
+      if (config.context === 'hidrometro' || config.context === 'stores') {
+        items = waterClassified.stores?.items;
+      } else if (config.context === 'hidrometro_area_comum' || config.context === 'commonArea') {
+        items = waterClassified.commonArea?.items;
+      } else if (config.context === 'entrada') {
+        items = waterClassified.entrada?.items;
+      }
+
+      if (items && items.length > 0 && STATE.itemsBase.length === 0) {
+        LogHelper.log(`[${config.widgetName}] water-tb-data-ready event: ${items.length} items for context ${config.context}`);
+        STATE.itemsBase = items;
+        STATE.itemsEnriched = items.map((item) => ({
+          ...item,
+          value: Number(item.value || item.consumption || item.pulses || 0),
+        }));
+        STATE.dataFromMain = true;
+        busyModal.hideBusy();
+        reflow();
+      }
+    };
+
     window.addEventListener('myio:data-ready', dataReadyHandler);
+    window.addEventListener('myio:telemetry:provide-data', provideDataHandler);
+    window.addEventListener('myio:water-tb-data-ready', waterTbDataReadyHandler);
     window.addEventListener('myio:filter-applied', filterAppliedHandler);
     window.addEventListener(config.summaryReadyEvent, summaryReadyHandler);
 
     eventHandlers.push(
       { event: 'myio:data-ready', handler: dataReadyHandler },
+      { event: 'myio:telemetry:provide-data', handler: provideDataHandler },
+      { event: 'myio:water-tb-data-ready', handler: waterTbDataReadyHandler },
       { event: 'myio:filter-applied', handler: filterAppliedHandler },
       { event: config.summaryReadyEvent, handler: summaryReadyHandler }
     );
@@ -586,11 +722,17 @@ export function createWidgetController(config) {
   }
 
   return {
-    onInit: async function () {
+    onInit: async function (selfCtx) {
       LogHelper.log(`[${config.widgetName}] RFC-0143 Factory Controller - onInit`);
 
-      // eslint-disable-next-line no-undef
-      $root = () => $(self.ctx.$container[0]);
+      // RFC-0143 FIX: selfCtx is passed from widget controller (self.ctx)
+      // This is needed because 'self' is not available in the bundled library context
+      if (!selfCtx || !selfCtx.$container) {
+        LogHelper.error(`[${config.widgetName}] onInit: selfCtx or $container not provided`);
+        return;
+      }
+
+      $root = () => $(selfCtx.$container[0]);
 
       const busyModal = createBusyModal(config, $root);
 
