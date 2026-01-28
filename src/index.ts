@@ -1125,3 +1125,27 @@ export {
   injectOperationalHeaderDevicesGridStyles,
   removeOperationalHeaderDevicesGridStyles,
 } from './components/operational-header-devices-grid';
+// RFC-0152 Phase 4: Alarms Notifications Panel Component
+export { createAlarmsNotificationsPanelComponent } from './components/AlarmsNotificationsPanel';
+export { AlarmsNotificationsPanelView, AlarmsNotificationsPanelController } from './components/AlarmsNotificationsPanel';
+export { renderAlarmCard, createAlarmCardElement } from './components/AlarmsNotificationsPanel';
+export { renderKPICards, renderTrendChart, renderStateDonutChart, renderSeverityBarChart } from './components/AlarmsNotificationsPanel';
+
+export type {
+  AlarmsNotificationsPanelParams,
+  AlarmsNotificationsPanelInstance,
+  AlarmsTab,
+  AlarmsNotificationsPanelState,
+  AlarmsEventType,
+  AlarmsEventHandler,
+  AlarmCardParams,
+  TrendChartOptions,
+  DonutChartOptions,
+  BarChartOptions,
+} from './components/AlarmsNotificationsPanel';
+
+export {
+  ALARMS_NOTIFICATIONS_PANEL_STYLES,
+  injectAlarmsNotificationsPanelStyles,
+  removeAlarmsNotificationsPanelStyles,
+} from './components/AlarmsNotificationsPanel';
