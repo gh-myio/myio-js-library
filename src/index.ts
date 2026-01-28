@@ -1030,3 +1030,98 @@ export {
   isAlarmActive,
   formatAlarmRelativeTime,
 } from './types/alarm';
+
+// RFC-0152 Phase 4: Device Operational Card Component
+export { createDeviceOperationalCardComponent } from './components/device-operational-card';
+export { DeviceOperationalCardView, DeviceOperationalCardController } from './components/device-operational-card';
+
+export type {
+  DeviceOperationalCardParams,
+  DeviceOperationalCardInstance,
+  ThemeMode as DeviceOperationalCardThemeMode,
+  DeviceOperationalCardState,
+  DeviceOperationalCardFilterState,
+  AlarmSortMode,
+  AlarmAction,
+  OnAlarmClickCallback,
+  OnAlarmActionCallback,
+  OnAlarmFilterChangeCallback,
+  OnAlarmStatsUpdateCallback,
+  DeviceOperationalCardEventType,
+  DeviceOperationalCardEventHandler,
+  AlarmSortOption,
+  AlarmFilterTab,
+} from './components/device-operational-card';
+
+export {
+  ALARM_SORT_OPTIONS,
+  SEVERITY_ORDER,
+  DEFAULT_DEVICE_OPERATIONAL_CARD_FILTER_STATE,
+  DEFAULT_ALARM_FILTER_TABS,
+} from './components/device-operational-card';
+
+export {
+  DEVICE_OPERATIONAL_CARD_STYLES,
+  injectDeviceOperationalCardStyles,
+  removeDeviceOperationalCardStyles,
+} from './components/device-operational-card';
+
+// RFC-0152 Phase 3: Device Operational Card Grid Component
+export { createDeviceOperationalCardGridComponent } from './components/device-operational-card-grid';
+export { DeviceOperationalCardGridView, DeviceOperationalCardGridController } from './components/device-operational-card-grid';
+
+export type {
+  OperationalEquipment,
+  EquipmentType as GridEquipmentType,
+  EquipmentStatus as GridEquipmentStatus,
+  DeviceOperationalCardGridParams,
+  DeviceOperationalCardGridInstance,
+  ThemeMode as DeviceOperationalCardGridThemeMode,
+  SortMode as DeviceOperationalCardGridSortMode,
+  DeviceOperationalCardGridState,
+  DeviceOperationalCardGridFilterState,
+  DeviceOperationalCardGridStats,
+  EquipmentAction,
+  OnEquipmentClickCallback,
+  OnEquipmentActionCallback,
+  OnGridFilterChangeCallback,
+  OnGridStatsUpdateCallback,
+  DeviceOperationalCardGridEventType,
+  DeviceOperationalCardGridEventHandler,
+  GridSortOption,
+  GridFilterTab,
+  CustomerOption as GridCustomerOption,
+} from './components/device-operational-card-grid';
+
+export {
+  GRID_SORT_OPTIONS,
+  DEFAULT_GRID_FILTER_STATE,
+  DEFAULT_GRID_FILTER_TABS,
+  STATUS_CONFIG as EQUIPMENT_STATUS_CONFIG,
+  TYPE_CONFIG as EQUIPMENT_TYPE_CONFIG,
+} from './components/device-operational-card-grid';
+
+export {
+  DEVICE_OPERATIONAL_CARD_GRID_STYLES,
+  injectDeviceOperationalCardGridStyles,
+  removeDeviceOperationalCardGridStyles,
+} from './components/device-operational-card-grid';
+
+// RFC-0152: Operational Header Devices Grid Component (Premium Header)
+export { createOperationalHeaderDevicesGridComponent } from './components/operational-header-devices-grid';
+export { OperationalHeaderDevicesGridView } from './components/operational-header-devices-grid';
+
+export type {
+  OperationalHeaderDevicesGridParams,
+  OperationalHeaderDevicesGridInstance,
+  OperationalHeaderStats,
+  OperationalHeaderThemeMode,
+  OperationalHeaderLabels,
+  CustomerOption,
+} from './components/operational-header-devices-grid';
+
+export {
+  OPERATIONAL_HEADER_DEVICES_GRID_STYLES,
+  injectOperationalHeaderDevicesGridStyles,
+  removeOperationalHeaderDevicesGridStyles,
+} from './components/operational-header-devices-grid';

@@ -2791,6 +2791,7 @@ body.filter-modal-open { overflow: hidden !important; }
   let telemetryGridInstance = null;
   let energyPanelInstance = null; // RFC-0132: Energy panel instance
   let waterPanelInstance = null; // RFC-0133: Water panel instance
+  let operationalGridInstance = null; // RFC-0152 Phase 3: Operational equipment grid instance
   let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
@@ -3872,8 +3873,14 @@ body.filter-modal-open { overflow: hidden !important; }
 
     showMenuBusy(tabId, 'Carregando dados...');
 
-    // RFC-0132/RFC-0133: Check if this is a panel view request
-    if (contextId === 'energy_general') {
+    // RFC-0152 Phase 3: Check if this is an operational domain request
+    if (tabId === 'operational') {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Switching to Operational Grid view, context:', contextId);
+      switchToOperationalGrid(telemetryContainer, contextId, target);
+      currentViewMode = 'operational-grid';
+      hideMenuBusy();
+    } else if (contextId === 'energy_general') {
+      // RFC-0132/RFC-0133: Check if this is a panel view request
       // Show Energy Panel in telemetryGridContainer
       LogHelper.log('[MAIN_UNIQUE] Switching to Energy Panel view');
       switchToEnergyPanel(telemetryContainer);
@@ -3915,6 +3922,11 @@ body.filter-modal-open { overflow: hidden !important; }
     if (waterPanelInstance) {
       waterPanelInstance.destroy?.();
       waterPanelInstance = null;
+    }
+    // RFC-0152: Destroy operational grid if exists
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
     }
 
     // If energy panel already exists, just return
@@ -3982,6 +3994,11 @@ body.filter-modal-open { overflow: hidden !important; }
       energyPanelInstance.destroy?.();
       energyPanelInstance = null;
     }
+    // RFC-0152: Destroy operational grid if exists
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
+    }
 
     // If water panel already exists, just return
     if (waterPanelInstance) {
@@ -4034,6 +4051,129 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   }
 
+  // RFC-0152 Phase 3: Switch to Operational Equipment Grid view
+  function switchToOperationalGrid(container, contextId, target) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: switchToOperationalGrid called, context:', contextId);
+
+    // Destroy other views
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+
+    // If operational grid already exists, just return
+    if (operationalGridInstance) {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Grid already active');
+      return;
+    }
+
+    container.innerHTML = '';
+
+    if (MyIOLibrary.createDeviceOperationalCardGridComponent) {
+      // Generate mock equipment data for now (will be replaced with real API data later)
+      const mockEquipment = generateMockOperationalEquipment();
+
+      operationalGridInstance = MyIOLibrary.createDeviceOperationalCardGridComponent({
+        container: container,
+        themeMode: currentThemeMode,
+        enableDebugMode: settings.enableDebugMode,
+        equipment: mockEquipment,
+        includeSearch: true,
+        includeFilters: true,
+        includeStats: true,
+
+        onEquipmentClick: (equipment) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment clicked:', equipment.name);
+        },
+
+        onEquipmentAction: (action, equipment) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment action:', action, equipment.name);
+        },
+
+        onFilterChange: (filters) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational grid filters changed:', filters);
+        },
+
+        onStatsUpdate: (stats) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational grid stats updated:', stats);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Grid created successfully');
+    } else {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+    }
+  }
+
+  // RFC-0152 Phase 3: Generate mock operational equipment data
+  function generateMockOperationalEquipment() {
+    const shoppingNames = ['Mestre Alvaro', 'Mont Serrat', 'Moxuara', 'Rio Poty', 'Shopping da Ilha', 'Metropole Para'];
+    const types = ['escada', 'elevador'];
+    const statuses = ['online', 'offline', 'maintenance', 'warning'];
+    const locations = ['Piso 1', 'Piso 2', 'Piso 3', 'Torre A', 'Torre B', 'Bloco Central'];
+
+    const equipment = [];
+
+    shoppingNames.forEach((shopping, si) => {
+      // Generate 2-4 escalators per shopping
+      const escCount = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < escCount; i++) {
+        equipment.push({
+          id: `esc-${si}-${i}`,
+          name: `ESC-${String(i + 1).padStart(2, '0')}`,
+          identifier: `ESC-${shopping.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(2, '0')}`,
+          type: 'escada',
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          customerId: `customer-${si}`,
+          customerName: shopping,
+          location: locations[Math.floor(Math.random() * locations.length)],
+          availability: 75 + Math.floor(Math.random() * 25),
+          mtbf: 100 + Math.floor(Math.random() * 400),
+          mttr: 1 + Math.floor(Math.random() * 8),
+          hasReversal: Math.random() < 0.1,
+          recentAlerts: Math.floor(Math.random() * 5),
+          openAlarms: Math.floor(Math.random() * 3),
+        });
+      }
+
+      // Generate 1-3 elevators per shopping
+      const elvCount = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < elvCount; i++) {
+        equipment.push({
+          id: `elv-${si}-${i}`,
+          name: `ELV-${String(i + 1).padStart(2, '0')}`,
+          identifier: `ELV-${shopping.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(2, '0')}`,
+          type: 'elevador',
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          customerId: `customer-${si}`,
+          customerName: shopping,
+          location: locations[Math.floor(Math.random() * locations.length)],
+          availability: 80 + Math.floor(Math.random() * 20),
+          mtbf: 200 + Math.floor(Math.random() * 500),
+          mttr: 2 + Math.floor(Math.random() * 6),
+          hasReversal: false,
+          recentAlerts: Math.floor(Math.random() * 3),
+          openAlarms: Math.floor(Math.random() * 2),
+        });
+      }
+    });
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Generated', equipment.length, 'mock equipment items');
+    return equipment;
+  }
+
   // Switch back to Telemetry Grid view
   function switchToTelemetryGrid(container, tabId, contextId, target) {
     if (!container) return;
@@ -4046,6 +4186,11 @@ body.filter-modal-open { overflow: hidden !important; }
     if (waterPanelInstance) {
       waterPanelInstance.destroy?.();
       waterPanelInstance = null;
+    }
+    // RFC-0152: Destroy operational grid if exists
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
     }
 
     // Issue 8 fix: Map menu context to classified data key
