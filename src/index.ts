@@ -957,3 +957,76 @@ export {
   formatWater as telemetryInfoFormatWater,
   formatPercentage as telemetryInfoFormatPercentage,
 } from './components/telemetry-info-shopping';
+
+// RFC-0152 Phase 3: Operational General List Component
+export { createOperationalGeneralListComponent } from './components/operational-general-list';
+export { OperationalGeneralListView, OperationalGeneralListController } from './components/operational-general-list';
+
+export type {
+  OperationalGeneralListParams,
+  OperationalGeneralListInstance,
+  ThemeMode as OperationalListThemeMode,
+  OperationalGeneralListState,
+  OperationalListEventType,
+  OperationalListEventHandler,
+  StatusConfig as OperationalStatusConfig,
+  EquipmentType,
+  EquipmentStatus,
+  EquipmentCardData,
+  EquipmentStats,
+  EquipmentFilterState,
+} from './components/operational-general-list';
+
+export {
+  STATUS_CONFIG as OPERATIONAL_STATUS_CONFIG,
+  AVAILABILITY_THRESHOLDS as OPERATIONAL_AVAILABILITY_THRESHOLDS,
+  getAvailabilityColorFromThresholds,
+  getStatusColors as getOperationalStatusColors,
+  getAvailabilityColor as getOperationalAvailabilityColor,
+  calculateMTBF,
+  calculateMTTR,
+  calculateAvailability,
+  DEFAULT_EQUIPMENT_STATS,
+  DEFAULT_EQUIPMENT_FILTER_STATE,
+} from './components/operational-general-list';
+
+export {
+  OPERATIONAL_GENERAL_LIST_STYLES,
+  injectOperationalGeneralListStyles,
+  removeOperationalGeneralListStyles,
+} from './components/operational-general-list';
+
+// RFC-0152: Operational Indicators Types (shared across all operational panels)
+export type {
+  OperationalIndicatorsAttributes,
+  DashboardPeriod,
+  DashboardKPIs,
+  DowntimeEntry,
+  TrendDataPoint,
+  OperationalIndicatorsAccessEvent,
+  OperationalContextChangeEvent,
+  OperationalEquipmentReadyEvent,
+  OperationalStore,
+} from './types/operational';
+
+export { DEFAULT_DASHBOARD_KPIS } from './types/operational';
+
+// RFC-0152: Alarm Types (for Phase 4 - Alarms and Notifications Panel)
+export type {
+  AlarmSeverity,
+  AlarmState,
+  Alarm,
+  AlarmStats,
+  AlarmFilters,
+} from './types/alarm';
+
+export {
+  SEVERITY_CONFIG as ALARM_SEVERITY_CONFIG,
+  STATE_CONFIG as ALARM_STATE_CONFIG,
+  DEFAULT_ALARM_STATS,
+  DEFAULT_ALARM_FILTERS,
+  getSeverityConfig as getAlarmSeverityConfig,
+  getStateConfig as getAlarmStateConfig,
+  isAlarmActive,
+  formatAlarmRelativeTime,
+} from './types/alarm';

@@ -410,6 +410,40 @@ export const DEFAULT_TABS: TabConfig[] = [
 ];
 
 /**
+ * RFC-0152: Operational Indicators Tab Configuration
+ * This tab is conditionally shown based on customer attribute 'show-indicators-operational-panels'
+ */
+export const OPERATIONAL_INDICATORS_TAB: TabConfig = {
+  id: 'operational',
+  label: 'Indicadores Operacionais',
+  icon: '📊',
+  contexts: [
+    {
+      id: 'general-list',
+      target: 'operational_general_list',
+      title: 'Lista Geral',
+      description: 'Visao geral dos equipamentos operacionais',
+      icon: '📋',
+    },
+    {
+      id: 'alarms',
+      target: 'operational_alarms',
+      title: 'Alarmes e Notificacoes',
+      description: 'Central de alarmes e alertas',
+      icon: '🔔',
+    },
+    {
+      id: 'dashboard',
+      target: 'operational_dashboard',
+      title: 'Dashboard Gerencial',
+      description: 'KPIs e indicadores de gestao',
+      icon: '📈',
+    },
+  ],
+  defaultContext: 'general-list',
+};
+
+/**
  * Parameters for creating the Menu Component
  */
 export interface MenuComponentParams {

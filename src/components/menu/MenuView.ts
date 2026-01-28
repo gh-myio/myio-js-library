@@ -17,6 +17,7 @@ import {
   DEFAULT_LIGHT_THEME,
   DEFAULT_DARK_THEME,
   DEFAULT_TABS,
+  OPERATIONAL_INDICATORS_TAB,
 } from './types';
 
 import { ModalHeader } from '../../utils/ModalHeader';
@@ -49,6 +50,10 @@ export class MenuView {
   // RFC-0126: State for unified modal when controller fails (same as filter modal)
   private unifiedModalMaximized = false;
   private unifiedModalTheme: 'dark' | 'light' = 'dark';
+
+  // RFC-0152: Operational Indicators tab state
+  private operationalTabEnabled = false;
+  private operationalAccessHandler: ((ev: Event) => void) | null = null;
 
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
@@ -1405,10 +1410,73 @@ export class MenuView {
   color: #e65100;
 }
 
+/* RFC-0152: Operational Indicators Column Styling */
+.myio-unified-column.operational .myio-unified-column-header {
+  background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
+}
+
+.myio-unified-option.operational:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.myio-unified-option.operational.is-active {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: #8b5cf6;
+}
+
+.myio-unified-option.operational .option-check {
+  color: #8b5cf6;
+}
+
+/* RFC-0152: 4-column layout when operational tab is enabled */
+.myio-unified-modal-body.four-columns {
+  min-width: 900px;
+}
+
+.myio-unified-modal-body.four-columns .myio-unified-column {
+  min-width: 220px;
+}
+
 /* Responsive - Stack columns on smaller screens */
+@media (max-width: 900px) {
+  .myio-unified-modal-body.four-columns {
+    flex-wrap: wrap;
+    min-width: auto;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column {
+    flex: 1 1 calc(50% - 1px);
+    min-width: 200px;
+    border-bottom: 1px solid var(--menu-modal-border, #e2e8f0);
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(2) {
+    border-right: none;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(3),
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(4) {
+    border-bottom: none;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(4) {
+    border-right: none;
+  }
+}
+
 @media (max-width: 700px) {
   .myio-unified-modal-body {
     flex-direction: column;
+  }
+
+  .myio-unified-modal-body.four-columns {
+    flex-wrap: nowrap;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column {
+    flex: none;
+    width: 100%;
   }
 
   .myio-unified-column {
@@ -1578,7 +1646,7 @@ export class MenuView {
   }
 
   /**
-   * Build the unified context modal with 3 columns
+   * Build the unified context modal with dynamic columns (3 or 4 with RFC-0152 operational indicators)
    */
   private buildUnifiedContextModalHTML(): string {
     const headerHTML = ModalHeader.generateHTML({
@@ -1593,6 +1661,12 @@ export class MenuView {
       borderRadius: '16px 16px 0 0',
     });
 
+    // RFC-0152: Add four-columns class when operational tab is enabled
+    const bodyClasses = ['myio-unified-modal-body'];
+    if (this.tabs.length >= 4 || this.operationalTabEnabled) {
+      bodyClasses.push('four-columns');
+    }
+
     return `
       <div
         id="menuUnifiedContextModal"
@@ -1603,7 +1677,7 @@ export class MenuView {
       >
         <div class="myio-unified-modal-content">
           ${headerHTML}
-          <div class="myio-unified-modal-body">
+          <div class="${bodyClasses.join(' ')}">
             ${this.tabs.map((tab) => this.buildUnifiedColumnHTML(tab)).join('')}
           </div>
         </div>
@@ -1619,10 +1693,12 @@ export class MenuView {
     const isActiveTab = tab.id === this.activeTabId;
 
     // Define header background colors per domain
+    // RFC-0152: Added operational indicators column color
     const headerColors: Record<string, string> = {
       energy: 'linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%)', // Orange tone
       water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', // Blue tone
       temperature: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', // Reddish tone
+      operational: 'linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%)', // Purple tone
     };
 
     return `
@@ -2170,6 +2246,45 @@ export class MenuView {
       // Also sync on input event
       desktopDateInput.addEventListener('change', syncDates);
     }
+
+    // ==========================================
+    // RFC-0152: Operational Indicators Access
+    // ==========================================
+    this.operationalAccessHandler = (ev: Event) => {
+      const customEv = ev as CustomEvent<{ enabled: boolean }>;
+      const enabled = customEv.detail?.enabled === true;
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] RFC-0152: Operational indicators access event received:', enabled);
+      }
+
+      if (enabled && !this.operationalTabEnabled) {
+        this.operationalTabEnabled = true;
+        // Add operational tab to tabs array
+        if (!this.tabs.find((t) => t.id === 'operational')) {
+          this.tabs = [...this.tabs, OPERATIONAL_INDICATORS_TAB];
+          // Initialize context for the new tab
+          this.contextsByTab.set(
+            OPERATIONAL_INDICATORS_TAB.id,
+            OPERATIONAL_INDICATORS_TAB.defaultContext ?? OPERATIONAL_INDICATORS_TAB.contexts[0]?.id ?? ''
+          );
+        }
+        // Rebuild the unified modal to include the 4th column
+        this.rebuildUnifiedModal();
+      }
+    };
+    window.addEventListener('myio:operational-indicators-access', this.operationalAccessHandler);
+
+    // Check if operational indicators is already enabled (e.g., from cached state)
+    const myioUtils = (window as Window & { MyIOUtils?: { operationalIndicators?: { enabled: boolean } } })
+      .MyIOUtils;
+    if (myioUtils?.operationalIndicators?.enabled) {
+      this.operationalAccessHandler(
+        new CustomEvent('myio:operational-indicators-access', {
+          detail: { enabled: true },
+        })
+      );
+    }
   }
 
   /**
@@ -2281,6 +2396,68 @@ export class MenuView {
         console.log('[MenuView] Unified modal closed');
       }
     }
+  }
+
+  /**
+   * RFC-0152: Rebuild the unified modal to include/exclude operational indicators column
+   * Called when operational indicators access changes
+   */
+  private rebuildUnifiedModal(): void {
+    const existingModal = this.root.querySelector('#menuUnifiedContextModal');
+    if (!existingModal) return;
+
+    // Close the modal first if it's open
+    this.closeUnifiedModal();
+
+    // Clear the header controller to force re-initialization
+    this.unifiedModalHeaderController = null;
+
+    // Generate new modal HTML
+    const newModalHTML = this.buildUnifiedContextModalHTML();
+
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = newModalHTML;
+    const newModal = tempDiv.firstElementChild as HTMLElement;
+
+    if (newModal) {
+      // Replace the existing modal
+      existingModal.replaceWith(newModal);
+
+      // Re-bind events for the new modal
+      this.rebindUnifiedModalEvents();
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] RFC-0152: Unified modal rebuilt with', this.tabs.length, 'columns');
+      }
+    }
+  }
+
+  /**
+   * RFC-0152: Re-bind event listeners for the unified modal after rebuild
+   */
+  private rebindUnifiedModalEvents(): void {
+    // Unified modal backdrop click - close
+    const unifiedModal = this.root.querySelector('#menuUnifiedContextModal');
+    if (unifiedModal) {
+      unifiedModal.addEventListener('click', (e) => {
+        if (e.target === unifiedModal) {
+          this.closeUnifiedModal();
+        }
+      });
+    }
+
+    // Unified option clicks
+    this.root.querySelectorAll('.myio-unified-option').forEach((option) => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const el = option as HTMLElement;
+        const tabId = el.dataset.tabId!;
+        const contextId = el.dataset.contextId!;
+        const target = el.dataset.target!;
+        this.handleUnifiedOptionSelect(tabId, contextId, target);
+      });
+    });
   }
 
   /**
@@ -3439,6 +3616,12 @@ export class MenuView {
 
     this.unifiedModalHeaderController?.destroy();
     this.unifiedModalHeaderController = null;
+
+    // RFC-0152: Cleanup operational indicators event listener
+    if (this.operationalAccessHandler) {
+      window.removeEventListener('myio:operational-indicators-access', this.operationalAccessHandler);
+      this.operationalAccessHandler = null;
+    }
 
     if (this.root.parentNode) {
       this.root.parentNode.removeChild(this.root);

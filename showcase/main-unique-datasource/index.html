@@ -446,6 +446,40 @@
         </div>
       </div>
 
+      <!-- Customer Attributes -->
+      <div class="controls-panel">
+        <h3>Customer Attributes</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">show-indicators-operational-panels</label>
+          <select class="ctrl-select" id="attrShowIndicators" onchange="updateCustomerAttrs()">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Alarms & Notifications -->
+      <div class="controls-panel">
+        <h3>Alarms & Notifications</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Preset</label>
+          <select class="ctrl-select" id="alarmPreset" onchange="updateMockAlarms()">
+            <option value="mixed">Mixed (Critical/High/Medium/Low)</option>
+            <option value="critical">Critical-heavy</option>
+            <option value="quiet">Quiet (few alarms)</option>
+            <option value="storm">Alarm storm</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="generateRandomAlarms()">
+            &#x1F3B2; Random
+          </button>
+          <button class="ctrl-btn secondary" onclick="dispatchAlarmsUpdated()">
+            &#x1F514; Emit
+          </button>
+        </div>
+      </div>
+
       <!-- Event Log -->
       <div class="event-log-panel">
         <div class="event-log-header">
@@ -577,6 +611,14 @@
       updateWidgetParams: () => {},
     };
 
+    // ===== MOCK CUSTOMER SERVER_SCOPE ATTRS =====
+    const MOCK_CUSTOMER_SERVER_SCOPE = {
+      'show-indicators-operational-panels': true,
+      client_id: 'mock-client-id',
+      client_secret: 'mock-client-secret',
+      ingestionId: 'mock-customer-ing-id',
+    };
+
     // ===== MOCK MyIOUtils (exposed by controller.js) =====
     window.MyIOUtils = window.MyIOUtils || {};
     window.MyIOUtils.getCustomerNameForDevice = (device) => device?.customerName || device?.ownerName || 'N/A';
@@ -589,6 +631,26 @@
       customerId: 'mock-customer-ing-id',
       dataApiHost: 'https://api.data.apps.myio-bas.com',
     });
+
+    // ===== OVERRIDE MyIOLibrary ATTR FETCH (simulate SERVER_SCOPE) =====
+    function applyMockLibraryOverrides() {
+      if (!window.MyIOLibrary) return;
+
+      const originalFetch = window.MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage;
+      window.MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage = async function (_customerId, _jwt) {
+        const attrs = {
+          ...MOCK_CUSTOMER_SERVER_SCOPE,
+        };
+        logEvent('ATTRS', attrs, 'info');
+
+        // Preserve optional chaining to original if needed later
+        if (typeof originalFetch === 'function') {
+          // noop: keep reference for debugging if required
+          window.__MYIO_ORIGINAL_FETCH_ATTRS__ = originalFetch;
+        }
+        return attrs;
+      };
+    }
 
     // ===== MOCK MyIOOrchestratorData (used by controller.js to store classified data) =====
     window.MyIOOrchestratorData = {

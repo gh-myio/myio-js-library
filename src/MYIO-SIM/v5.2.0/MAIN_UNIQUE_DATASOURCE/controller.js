@@ -309,6 +309,48 @@ self.onInit = async function () {
     return {};
   };
 
+  // RFC-0152: Fetch Operational Indicators access from customer attributes
+  const fetchOperationalIndicatorsAccess = async () => {
+    const customerTB_ID = getCustomerTB_ID();
+    const jwt = getJwtToken();
+
+    LogHelper.log('RFC-0152: Checking operational indicators access for customer:', customerTB_ID);
+
+    if (!customerTB_ID || !jwt) {
+      LogHelper.warn('RFC-0152: Missing customerTB_ID or JWT token for operational indicators check');
+      return { showOperationalPanels: false };
+    }
+
+    try {
+      if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
+        const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+        const showOperationalPanels = attrs?.['show-indicators-operational-panels'] === true;
+
+        LogHelper.log('RFC-0152: Operational indicators access:', showOperationalPanels);
+
+        // Update MyIOUtils with operational indicators state
+        if (window.MyIOUtils) {
+          window.MyIOUtils.operationalIndicators = {
+            enabled: showOperationalPanels,
+          };
+        }
+
+        // Dispatch event for Menu component to react
+        window.dispatchEvent(
+          new CustomEvent('myio:operational-indicators-access', {
+            detail: { enabled: showOperationalPanels },
+          })
+        );
+
+        return { showOperationalPanels };
+      }
+    } catch (error) {
+      LogHelper.error('RFC-0152: Failed to fetch operational indicators access:', error);
+    }
+
+    return { showOperationalPanels: false };
+  };
+
   // RFC-0093: Centralized Header CSS
   const HEADER_CSS = `
 .equip-stats-header {
@@ -2302,6 +2344,10 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0120: Theme state for child widgets
     currentThemeMode: currentThemeMode,
     getThemeMode: () => currentThemeMode,
+    // RFC-0152: Operational Indicators feature gating
+    operationalIndicators: {
+      enabled: false, // Will be set after attribute check
+    },
   };
 
   // RFC-0121: Helper to apply background to page and all relevant containers
@@ -2385,6 +2431,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // Fetch credentials from ThingsBoard
   await fetchCredentialsFromThingsBoard();
+
+  // RFC-0152: Fetch Operational Indicators access
+  await fetchOperationalIndicatorsAccess();
 
   // === 3. EXTRACT WELCOME CONFIG FROM SETTINGS ===
   const welcomeConfig = {
