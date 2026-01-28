@@ -1230,7 +1230,7 @@ export class MenuView {
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   width: 90%;
-  max-width: 900px;
+  max-width: 1120px;
   max-height: 85vh;
   overflow: hidden;
   display: flex;
@@ -1268,7 +1268,7 @@ export class MenuView {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--menu-modal-border, #e2e8f0);
-  min-width: 0;
+  min-width: 280px;
 }
 
 .myio-unified-column:last-child {
@@ -1431,15 +1431,15 @@ export class MenuView {
 
 /* RFC-0152: 4-column layout when operational tab is enabled */
 .myio-unified-modal-body.four-columns {
-  min-width: 900px;
+  min-width: 1120px;
 }
 
 .myio-unified-modal-body.four-columns .myio-unified-column {
-  min-width: 220px;
+  min-width: 280px;
 }
 
 /* Responsive - Stack columns on smaller screens */
-@media (max-width: 900px) {
+@media (max-width: 1150px) {
   .myio-unified-modal-body.four-columns {
     flex-wrap: wrap;
     min-width: auto;
@@ -1447,7 +1447,7 @@ export class MenuView {
 
   .myio-unified-modal-body.four-columns .myio-unified-column {
     flex: 1 1 calc(50% - 1px);
-    min-width: 200px;
+    min-width: 250px;
     border-bottom: 1px solid var(--menu-modal-border, #e2e8f0);
   }
 
@@ -1462,6 +1462,16 @@ export class MenuView {
 
   .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(4) {
     border-right: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .myio-unified-modal-content {
+    max-width: 95vw;
+  }
+
+  .myio-unified-column {
+    min-width: 200px;
   }
 }
 
