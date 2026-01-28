@@ -632,6 +632,29 @@
       dataApiHost: 'https://api.data.apps.myio-bas.com',
     });
 
+    // ===== UPDATE CUSTOMER ATTRS FROM UI CONTROLS =====
+    function updateCustomerAttrs() {
+      const showIndicatorsSelect = document.getElementById('attrShowIndicators');
+      const showIndicators = showIndicatorsSelect?.value === 'true';
+
+      // Update mock attrs
+      MOCK_CUSTOMER_SERVER_SCOPE['show-indicators-operational-panels'] = showIndicators;
+
+      logEvent('ATTR_UPDATE', `show-indicators-operational-panels = ${showIndicators}`, 'info');
+
+      // Dispatch event for Menu to react (RFC-0152)
+      window.dispatchEvent(
+        new CustomEvent('myio:operational-indicators-access', {
+          detail: { enabled: showIndicators },
+        })
+      );
+
+      // Also update MyIOUtils
+      if (window.MyIOUtils) {
+        window.MyIOUtils.operationalIndicators = { enabled: showIndicators };
+      }
+    }
+
     // ===== OVERRIDE MyIOLibrary ATTR FETCH (simulate SERVER_SCOPE) =====
     function applyMockLibraryOverrides() {
       if (!window.MyIOLibrary) return;
@@ -1625,6 +1648,11 @@
         updateStatus('error');
       } else {
         logEvent('LIBRARY', `MyIOLibrary loaded (${Object.keys(MyIOLibrary).length} exports)`, 'info');
+
+        // RFC-0152: Apply mock overrides for customer attributes (including show-indicators-operational-panels)
+        applyMockLibraryOverrides();
+        logEvent('MOCK_OVERRIDES', 'Applied mock library overrides for customer attributes', 'info');
+
         updateStatus('ready');
       }
     });
