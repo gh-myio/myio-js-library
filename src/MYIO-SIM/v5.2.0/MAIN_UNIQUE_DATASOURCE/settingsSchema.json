@@ -142,6 +142,11 @@
         "type": "string",
         "default": "ACESSAR PAINEL"
       },
+      "defaultShortcutsTitle": {
+        "title": "Shortcuts Section Title",
+        "type": "string",
+        "default": "Acesso Rápido aos Shoppings"
+      },
       "cardEquipamentosBackgroundColor": {
         "title": "Card Equipamentos - Background",
         "type": "string",
@@ -182,6 +187,11 @@
         "type": "string",
         "default": "#F2F2F2"
       },
+      "logoBackgroundColor": {
+        "title": "Logo Card - Background",
+        "type": "string",
+        "default": "#1F3A35"
+      },
       "tabSelecionadoBackgroundColor": {
         "title": "Tab Selecionado - Background",
         "type": "string",
@@ -201,6 +211,17 @@
         "title": "Tab Não Selecionado - Font",
         "type": "string",
         "default": "#1C2743"
+      },
+      "shoppingFilterLabel": {
+        "title": "Shopping Filter Label",
+        "type": "string",
+        "default": "Filtro de Shoppings"
+      },
+      "goalsEntityLabel": {
+        "title": "Goals Panel Entity Label",
+        "type": "string",
+        "default": "Shopping",
+        "description": "Label for entity in Goals Panel (e.g., Shopping, Loja, Escola, Filial)"
       }
     }
   },
@@ -280,7 +301,7 @@
     {
       "type": "fieldset",
       "title": "Welcome Modal Content",
-      "items": ["defaultHeroTitle", "defaultHeroDescription", "defaultPrimaryLabel"]
+      "items": ["defaultHeroTitle", "defaultHeroDescription", "defaultPrimaryLabel", "defaultShortcutsTitle"]
     },
     {
       "type": "fieldset",
@@ -317,6 +338,10 @@
         {
           "key": "cardAguaFontColor",
           "type": "color"
+        },
+        {
+          "key": "logoBackgroundColor",
+          "type": "color"
         }
       ]
     },
@@ -341,6 +366,11 @@
           "type": "color"
         }
       ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Menu Labels",
+      "items": ["shoppingFilterLabel", "goalsEntityLabel"]
     }
   ]
 }

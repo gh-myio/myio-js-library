@@ -2441,6 +2441,7 @@ body.filter-modal-open { overflow: hidden !important; }
     defaultHeroTitle: settings.defaultHeroTitle,
     defaultHeroDescription: settings.defaultHeroDescription,
     defaultPrimaryLabel: settings.defaultPrimaryLabel,
+    defaultShortcutsTitle: settings.defaultShortcutsTitle,
     darkMode: settings.darkMode || {},
     lightMode: settings.lightMode || {},
   };
@@ -2591,6 +2592,9 @@ body.filter-modal-open { overflow: hidden !important; }
       ctx: self.ctx,
       themeMode: currentThemeMode,
       logoUrl: settings.darkMode?.logoUrl || settings.lightMode?.logoUrl,
+      configTemplate: {
+        logoBackgroundColor: settings.logoBackgroundColor,
+      },
       cardColors: {
         equipment: {
           background: settings.cardEquipamentosBackgroundColor,
@@ -2806,6 +2810,7 @@ body.filter-modal-open { overflow: hidden !important; }
         tabSelecionadoFontColor: settings.tabSelecionadoFontColor || '#F2F2F2',
         tabNaoSelecionadoBackgroundColor: settings.tabNaoSelecionadoBackgroundColor || '#FFFFFF',
         tabNaoSelecionadoFontColor: settings.tabNaoSelecionadoFontColor || '#1C2743',
+        shoppingFilterLabel: settings.shoppingFilterLabel,
         enableDebugMode: settings.enableDebugMode,
       },
       initialTab: DOMAIN_ENERGY,
@@ -3600,6 +3605,7 @@ body.filter-modal-open { overflow: hidden !important; }
         },
         shoppingList: shoppingList,
         locale: 'pt-BR',
+        entityLabel: settings.goalsEntityLabel || 'Shopping',
         onSave: async (goalsData) => {
           LogHelper.log('[MAIN_UNIQUE] Goals saved:', goalsData?.version);
           window.dispatchEvent(
