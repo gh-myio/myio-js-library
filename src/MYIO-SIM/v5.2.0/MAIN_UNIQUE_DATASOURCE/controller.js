@@ -4079,41 +4079,51 @@ body.filter-modal-open { overflow: hidden !important; }
 
     container.innerHTML = '';
 
-    if (MyIOLibrary.createDeviceOperationalCardGridComponent) {
+    if (MyIOLibrary.createOperationalGeneralListComponent) {
       // Generate mock equipment data for now (will be replaced with real API data later)
       const mockEquipment = generateMockOperationalEquipment();
+      const normalizedEquipment = mockEquipment.map((eq) => ({
+        ...eq,
+        status: eq.status === 'warning' ? 'maintenance' : eq.status,
+      }));
 
-      operationalGridInstance = MyIOLibrary.createDeviceOperationalCardGridComponent({
+      const customers = Array.from(
+        normalizedEquipment.reduce((map, eq) => {
+          const id = eq.customerId || eq.customerName;
+          if (id && eq.customerName) {
+            map.set(id, eq.customerName);
+          }
+          return map;
+        }, new Map())
+      ).map(([id, name]) => ({ id, name }));
+
+      operationalGridInstance = MyIOLibrary.createOperationalGeneralListComponent({
         container: container,
         themeMode: currentThemeMode,
         enableDebugMode: settings.enableDebugMode,
-        equipment: mockEquipment,
-        includeSearch: true,
-        includeFilters: true,
-        includeStats: true,
+        equipment: normalizedEquipment,
+        enableSelection: true,
+        enableDragDrop: true,
+        customers: customers,
 
-        onEquipmentClick: (equipment) => {
+        onCardClick: (equipment) => {
           LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment clicked:', equipment.name);
         },
 
-        onEquipmentAction: (action, equipment) => {
-          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment action:', action, equipment.name);
-        },
-
         onFilterChange: (filters) => {
-          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational grid filters changed:', filters);
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational list filters changed:', filters);
         },
 
         onStatsUpdate: (stats) => {
-          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational grid stats updated:', stats);
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational list stats updated:', stats);
         },
       });
 
-      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Grid created successfully');
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational General List created successfully');
     } else {
       container.innerHTML =
-        '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
-      LogHelper.log('[MAIN_UNIQUE] RFC-0152: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">OperationalGeneralList component not available</div>';
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: createOperationalGeneralListComponent not found in MyIOLibrary');
     }
   }
 

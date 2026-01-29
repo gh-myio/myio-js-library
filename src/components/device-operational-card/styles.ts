@@ -256,6 +256,12 @@ export const DEVICE_OPERATIONAL_CARD_STYLES = `
   transform: translateY(-2px);
 }
 
+.myio-alarm-card.is-selected {
+  border: 2px solid #00e09e;
+  box-shadow: 0 10px 28px rgba(0, 224, 158, 0.2);
+  transform: translateY(-2px);
+}
+
 /* Severity Bar */
 .myio-alarm-card .severity-bar {
   position: absolute;
@@ -268,6 +274,55 @@ export const DEVICE_OPERATIONAL_CARD_STYLES = `
 /* Card Content */
 .myio-alarm-card-content {
   padding: 16px 16px 16px 20px;
+}
+
+/* Selection checkbox */
+.myio-alarm-card-select {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.myio-alarm-card-select input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 2px solid rgba(124, 58, 237, 0.5);
+  background: var(--alarms-bg-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.myio-alarm-card-select .alarm-card-checkbox-ui {
+  display: none;
+}
+
+.myio-alarm-card-select input:hover {
+  border-color: #7c3aed;
+}
+
+.myio-alarm-card-select input:checked {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+.myio-alarm-card-select input:checked::after {
+  content: '✓';
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* Card Header */

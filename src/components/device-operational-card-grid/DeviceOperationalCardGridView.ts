@@ -42,6 +42,7 @@ export class DeviceOperationalCardGridView {
   private typeFilter: HTMLSelectElement | null = null;
   private statusFilter: HTMLSelectElement | null = null;
   private sortFilter: HTMLSelectElement | null = null;
+  private selectionCleanups: Array<() => void> = [];
 
   private filterModal: FilterModalController | null = null;
   private filterModalContainerId: string;
@@ -342,6 +343,10 @@ export class DeviceOperationalCardGridView {
   renderGrid(equipment: OperationalEquipment[]): void {
     if (!this.gridContainer) return;
 
+    // Cleanup previous selection listeners
+    this.selectionCleanups.forEach((cleanup) => cleanup());
+    this.selectionCleanups = [];
+
     // Update count
     this.updateCount(equipment.length);
 
@@ -361,6 +366,8 @@ export class DeviceOperationalCardGridView {
 
     // Bind card click events
     this.bindCardEvents();
+    this.bindSelectionEvents();
+    this.bindDragEvents();
 
     this.log('Rendered', equipment.length, 'equipment cards');
     this.emit('cards-rendered', equipment.length);
@@ -370,6 +377,8 @@ export class DeviceOperationalCardGridView {
     const statusConfig = STATUS_CONFIG[equipment.status];
     const typeConfig = TYPE_CONFIG[equipment.type];
     const availabilityColor = this.getAvailabilityColor(equipment.availability);
+    const enableSelection = this.params.enableSelection !== false;
+    const enableDragDrop = this.params.enableDragDrop === true;
 
     // Calculate gauge stroke
     const radius = 32;
@@ -379,7 +388,8 @@ export class DeviceOperationalCardGridView {
     return `
       <article class="myio-equipment-card"
                data-id="${equipment.id}"
-               data-status="${equipment.status}">
+               data-status="${equipment.status}"
+               ${enableDragDrop ? 'draggable="true"' : ''}>
 
         <!-- Status Bar -->
         <div class="status-bar ${equipment.status}"></div>
@@ -392,6 +402,12 @@ export class DeviceOperationalCardGridView {
               <span class="myio-equipment-card-type">${typeConfig.icon} ${typeConfig.label}</span>
               <span class="myio-equipment-card-location">${this.escapeHtml(equipment.location)}</span>
             </div>
+            ${enableSelection ? `
+              <label class="myio-equipment-card-select">
+                <input type="checkbox" class="equipment-card-checkbox" aria-label="Selecionar ${this.escapeHtml(equipment.name)}">
+                <span class="equipment-card-checkbox-ui"></span>
+              </label>
+            ` : ''}
             <span class="myio-equipment-status-badge" style="
               background: ${statusConfig.bg};
               color: ${statusConfig.color};
@@ -475,7 +491,7 @@ export class DeviceOperationalCardGridView {
       card.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
         // Don't trigger card click if clicking on a button
-        if (target.closest('button')) return;
+        if (target.closest('button') || target.closest('.equipment-card-checkbox')) return;
 
         const id = card.getAttribute('data-id');
         if (id) {
@@ -485,6 +501,144 @@ export class DeviceOperationalCardGridView {
             this.params.onEquipmentClick?.(equipment);
             this.emit('equipment-click', equipment);
           }
+        }
+      });
+    });
+  }
+
+  private bindSelectionEvents(): void {
+    if (!this.gridContainer) return;
+    if (this.params.enableSelection === false) return;
+
+    const win = window as unknown as Record<string, any>;
+    const selectionStore = win.MyIOLibrary?.MyIOSelectionStore || win.MyIOSelectionStore;
+    if (!selectionStore) return;
+
+    const cards = this.gridContainer.querySelectorAll('.myio-equipment-card');
+    cards.forEach((card) => {
+      const equipmentId = card.getAttribute('data-id');
+      if (!equipmentId) return;
+
+      const equipment = this.controller.getEquipment().find((eq) => eq.id === equipmentId);
+      if (!equipment) return;
+
+      const severityMap: Record<string, string> = {
+        offline: 'CRITICAL',
+        maintenance: 'HIGH',
+        warning: 'MEDIUM',
+        online: 'INFO',
+      };
+
+      const alarmLike = {
+        id: equipment.id,
+        customerId: equipment.customerId || '',
+        customerName: equipment.customerName || '',
+        source: equipment.name,
+        severity: severityMap[equipment.status] || 'MEDIUM',
+        state: equipment.status === 'online' ? 'CLOSED' : 'OPEN',
+        title: equipment.name,
+        description: `${equipment.type} - ${equipment.location}`,
+        tags: { type: equipment.type, status: equipment.status },
+        firstOccurrence: new Date().toISOString(),
+        lastOccurrence: new Date().toISOString(),
+        occurrenceCount: equipment.openAlarms || equipment.recentAlerts || 0,
+      };
+
+      try {
+        selectionStore.registerEntity({
+          id: equipment.id,
+          name: equipment.name,
+          customerName: equipment.customerName || '',
+          lastValue: equipment.openAlarms || equipment.recentAlerts || 0,
+          unit: 'alarms',
+          icon: 'alarms',
+          domain: 'alarms',
+          alarm: alarmLike,
+          meta: {
+            type: 'equipment',
+            equipment,
+          },
+        });
+      } catch (_err) {
+        // Ignore registration errors to avoid breaking UI
+      }
+
+      const checkbox = card.querySelector('.equipment-card-checkbox') as HTMLInputElement | null;
+      if (!checkbox) return;
+
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const checked = (e.target as HTMLInputElement).checked;
+        if (checked) {
+          selectionStore.add(equipmentId);
+          if (!selectionStore.isSelected(equipmentId)) {
+            checkbox.checked = false;
+          }
+        } else {
+          selectionStore.remove(equipmentId);
+        }
+      });
+
+      const handleSelectionChange = (data: { selectedIds?: string[] }) => {
+        const selected = data?.selectedIds?.includes(equipmentId) || selectionStore.isSelected(equipmentId);
+        checkbox.checked = selected;
+        card.classList.toggle('is-selected', selected);
+      };
+
+      selectionStore.on('selection:change', handleSelectionChange);
+
+      const initiallySelected = selectionStore.isSelected(equipmentId);
+      checkbox.checked = initiallySelected;
+      card.classList.toggle('is-selected', initiallySelected);
+
+      this.selectionCleanups.push(() => {
+        selectionStore.off('selection:change', handleSelectionChange);
+      });
+    });
+  }
+
+  private bindDragEvents(): void {
+    if (!this.gridContainer) return;
+    if (!this.params.enableDragDrop) return;
+
+    const win = window as unknown as Record<string, any>;
+    const selectionStore = win.MyIOLibrary?.MyIOSelectionStore || win.MyIOSelectionStore;
+
+    const cards = this.gridContainer.querySelectorAll('.myio-equipment-card');
+    cards.forEach((card) => {
+      const equipmentId = card.getAttribute('data-id');
+      if (!equipmentId) return;
+
+      const equipment = this.controller.getEquipment().find((eq) => eq.id === equipmentId);
+      if (!equipment) return;
+
+      card.addEventListener('dragstart', (e: DragEvent) => {
+        const payload = {
+          id: equipment.id,
+          name: equipment.name,
+          customerName: equipment.customerName,
+          unit: 'alarms',
+          domain: 'alarms',
+          alarm: {
+            id: equipment.id,
+            customerName: equipment.customerName,
+            title: equipment.name,
+            severity: equipment.status === 'offline' ? 'CRITICAL' : 'MEDIUM',
+            state: equipment.status === 'online' ? 'CLOSED' : 'OPEN',
+            lastOccurrence: new Date().toISOString(),
+            occurrenceCount: equipment.openAlarms || equipment.recentAlerts || 0,
+          },
+          meta: { type: 'equipment', equipment },
+        };
+
+        e.dataTransfer?.setData('text/myio-id', equipmentId);
+        e.dataTransfer?.setData('application/json', JSON.stringify(payload));
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'copy';
+        }
+
+        if (selectionStore?.startDrag) {
+          selectionStore.startDrag(equipmentId);
         }
       });
     });

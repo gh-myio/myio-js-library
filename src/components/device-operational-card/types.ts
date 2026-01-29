@@ -109,6 +109,12 @@ export interface DeviceOperationalCardParams {
   /** Enable debug logging */
   enableDebugMode?: boolean;
 
+  /** Enable selection (checkbox + SelectionStore integration) */
+  enableSelection?: boolean;
+
+  /** Enable drag and drop */
+  enableDragDrop?: boolean;
+
   /** Initial alarms data (optional, can be set via updateAlarms) */
   alarms?: Alarm[];
 

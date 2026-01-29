@@ -154,6 +154,10 @@ export interface EquipmentFilterState {
   typeFilter: EquipmentType | 'all';
   /** Customer IDs filter */
   customerIds: string[];
+  /** Optional selected equipment IDs (premium filter modal) */
+  selectedIds?: Set<string> | null;
+  /** Optional sort mode (premium filter modal) */
+  sortMode?: 'cons_desc' | 'cons_asc' | 'alpha_asc' | 'alpha_desc' | 'status_asc' | 'status_desc' | 'shopping_asc' | 'shopping_desc';
 }
 
 // =====================================================================
@@ -287,6 +291,8 @@ export const DEFAULT_EQUIPMENT_FILTER_STATE: EquipmentFilterState = {
   statusFilter: 'all',
   typeFilter: 'all',
   customerIds: [],
+  selectedIds: null,
+  sortMode: 'cons_desc',
 };
 
 export const DEFAULT_DASHBOARD_KPIS: DashboardKPIs = {

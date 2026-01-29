@@ -548,6 +548,8 @@
 
     // ===== WIDGET STATE =====
     let widgetInitialized = false;
+    let alarmCardInstance = null;
+    let mockAlarms = [];
 
     // ===== MOCK self.ctx (ThingsBoard widget context) =====
     window.self = window.self || {};
@@ -1507,6 +1509,7 @@
         document.getElementById('menuContainer').innerHTML = '';
         document.getElementById('telemetryGridContainer').innerHTML = '';
         document.getElementById('footerContainer').innerHTML = '';
+        destroyAlarmCard();
 
         widgetInitialized = false;
         document.getElementById('btnOnInit').disabled = false;
@@ -1540,6 +1543,107 @@
       updateStateDisplay();
     }
 
+    // ===== ALARMS MOCK =====
+    function buildMockAlarms(preset) {
+      const now = Date.now();
+      const presetConfig = {
+        mixed: { count: 18, bias: 'mixed' },
+        critical: { count: 18, bias: 'critical' },
+        quiet: { count: 6, bias: 'low' },
+        storm: { count: 48, bias: 'mixed' },
+      };
+      const config = presetConfig[preset] || presetConfig.mixed;
+      const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+      const states = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'];
+      const alarms = [];
+
+      function pickSeverity() {
+        if (config.bias === 'critical') return Math.random() < 0.7 ? 'CRITICAL' : 'HIGH';
+        if (config.bias === 'low') return Math.random() < 0.6 ? 'LOW' : 'MEDIUM';
+        return severities[Math.floor(Math.random() * severities.length)];
+      }
+
+      for (let i = 0; i < config.count; i++) {
+        const shopping = SHOPPING_DATA[i % SHOPPING_DATA.length];
+        const severity = pickSeverity();
+        const state = states[Math.floor(Math.random() * states.length)];
+        const firstTs = now - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000;
+        const lastTs = firstTs + Math.floor(Math.random() * 24) * 60 * 60 * 1000;
+        alarms.push({
+          id: `alarm-${preset}-${i}`,
+          customerId: shopping.id,
+          customerName: shopping.name,
+          source: `Device-${String(i + 1).padStart(2, '0')}`,
+          severity,
+          state,
+          title: `${severity} - ${shopping.name}`,
+          description: `Mock alarm ${i + 1} (${severity})`,
+          tags: { group: 'showcase' },
+          firstOccurrence: new Date(firstTs).toISOString(),
+          lastOccurrence: new Date(lastTs).toISOString(),
+          occurrenceCount: 1 + Math.floor(Math.random() * 6),
+        });
+      }
+      return alarms;
+    }
+
+    function ensureAlarmCardMounted() {
+      const container = document.getElementById('telemetryGridContainer');
+      if (!container) return;
+      if (!window.MyIOLibrary?.createDeviceOperationalCardComponent) {
+        logEvent('ERROR', 'createDeviceOperationalCardComponent not found in MyIOLibrary', 'error');
+        return;
+      }
+
+      if (!alarmCardInstance) {
+        container.innerHTML = '';
+        alarmCardInstance = window.MyIOLibrary.createDeviceOperationalCardComponent({
+          container,
+          themeMode: self.ctx.settings.defaultThemeMode,
+          enableDebugMode: self.ctx.settings.enableDebugMode,
+          alarms: mockAlarms,
+          enableSelection: true,
+          enableDragDrop: true,
+          onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
+          onAlarmAction: (action, alarm) => logEvent('ALARM_ACTION', `${action} ${alarm.id}`, 'info'),
+        });
+        logEvent('ALARM_PANEL', 'DeviceOperationalCard mounted', 'info');
+      } else {
+        alarmCardInstance.setThemeMode?.(self.ctx.settings.defaultThemeMode);
+      }
+    }
+
+    function updateMockAlarms() {
+      const preset = document.getElementById('alarmPreset').value;
+      mockAlarms = buildMockAlarms(preset);
+      if (alarmCardInstance) {
+        alarmCardInstance.updateAlarms?.(mockAlarms);
+      }
+      logEvent('ALARMS', `Mock alarms updated (${mockAlarms.length})`, 'info');
+    }
+
+    function generateRandomAlarms() {
+      const presets = ['mixed', 'critical', 'quiet', 'storm'];
+      const preset = presets[Math.floor(Math.random() * presets.length)];
+      document.getElementById('alarmPreset').value = preset;
+      updateMockAlarms();
+    }
+
+    function dispatchAlarmsUpdated() {
+      if (!mockAlarms.length) updateMockAlarms();
+      ensureAlarmCardMounted();
+      if (alarmCardInstance) {
+        alarmCardInstance.updateAlarms?.(mockAlarms);
+      }
+    }
+
+    function destroyAlarmCard() {
+      if (alarmCardInstance) {
+        alarmCardInstance.destroy?.();
+        alarmCardInstance = null;
+      }
+    }
+
     function generateRandomData() {
       const presets = ['full', 'partial', 'single', 'large'];
       const domains = ['all', 'energy', 'water', 'temperature'];
@@ -1565,6 +1669,9 @@
 
       document.getElementById('mainUniqueWrap').setAttribute('data-theme', theme);
       document.body.classList.toggle('light-mode', theme === 'light');
+      if (alarmCardInstance) {
+        alarmCardInstance.setThemeMode?.(theme);
+      }
 
       logEvent('SETTINGS', { theme, debug });
       updateStateDisplay();

@@ -139,6 +139,12 @@ export interface DeviceOperationalCardGridParams {
   /** Enable debug logging */
   enableDebugMode?: boolean;
 
+  /** Enable selection checkboxes */
+  enableSelection?: boolean;
+
+  /** Enable drag and drop to footer */
+  enableDragDrop?: boolean;
+
   /** Initial equipment data */
   equipment?: OperationalEquipment[];
 

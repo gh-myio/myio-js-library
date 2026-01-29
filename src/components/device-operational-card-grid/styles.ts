@@ -204,6 +204,62 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   margin-bottom: 10px;
 }
 
+/* Selection checkbox */
+.myio-equipment-card-select {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.equipment-card-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.equipment-card-checkbox-ui {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--grid-border);
+  background: rgba(15, 23, 42, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.equipment-card-checkbox-ui::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: transparent;
+  transform: scale(0.6);
+  transition: all 0.15s ease;
+}
+
+.equipment-card-checkbox:checked + .equipment-card-checkbox-ui {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.2);
+}
+
+.equipment-card-checkbox:checked + .equipment-card-checkbox-ui::after {
+  background: #7c3aed;
+  transform: scale(1);
+}
+
+.myio-equipment-card.is-selected {
+  border-color: rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.4);
+}
+
 .myio-equipment-card-title-wrap {
   flex: 1;
   min-width: 0;

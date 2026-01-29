@@ -433,6 +433,13 @@ export type {
   ClampRange,
 } from './components/temperature';
 
+// RFC-0153: Alarm Comparison Modal
+export {
+  openAlarmComparisonModal,
+  type AlarmComparisonModalParams,
+  type AlarmComparisonModalInstance,
+} from './components/alarms/AlarmComparisonModal';
+
 // Temperature Range Tooltip (Reusable UI component)
 export { TempRangeTooltip } from './utils/TempRangeTooltip';
 export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempRangeTooltip';

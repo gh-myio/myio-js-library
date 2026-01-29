@@ -11,7 +11,7 @@ export type FooterThemeMode = 'dark' | 'light';
 /**
  * Unit type for devices (used for comparison validation)
  */
-export type UnitType = 'energy' | 'water' | 'tank' | 'temperature';
+export type UnitType = 'energy' | 'water' | 'tank' | 'temperature' | 'alarms';
 
 /**
  * Color palette for the Footer Component
@@ -239,6 +239,10 @@ export interface SelectedEntity {
   temperatureMin?: number;
   /** Temperature max threshold (for temperature devices) */
   temperatureMax?: number;
+  /** Optional metadata for alarm comparisons */
+  meta?: Record<string, unknown> | null;
+  /** Raw alarm object (if selection comes from alarms) */
+  alarm?: Record<string, unknown> | null;
 }
 
 /**
