@@ -163,6 +163,73 @@ const categories = buildEquipmentCategoryDataForTooltip(devices);
 - **Climatizacao**: Chillers, Fancoils, CAG, Bombas Hidraulicas, Outros HVAC
 - **Outros**: Iluminacao, Bombas de Incendio, Geradores/Nobreaks, Geral
 
+### 8. Device Annotation Schema
+
+Annotations are stored per device with full audit trail:
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "deviceId": "48bf3660-9011-11f0-a06d-e9509531b1d5",
+  "lastModified": "2026-01-29T18:15:54.029Z",
+  "lastModifiedBy": {
+    "id": "37e6b1e0-1fb6-11f0-9baa-8137e6ac9d72",
+    "email": "user@example.com",
+    "name": "User Name"
+  },
+  "annotations": [
+    {
+      "id": "c56d772c-075d-4f3c-b0d7-9f24540f627b",
+      "version": 2,
+      "text": "Annotation text",
+      "type": "observation",
+      "importance": 3,
+      "status": "created",
+      "createdAt": "2026-01-29T18:14:42.554Z",
+      "createdBy": { "id": "...", "email": "...", "name": "..." },
+      "acknowledged": true,
+      "acknowledgedBy": { "id": "...", "email": "...", "name": "..." },
+      "acknowledgedAt": "2026-01-29T18:15:54.028Z",
+      "responses": [
+        {
+          "id": "cee5d426-1160-48e2-a22e-438793b832ce",
+          "annotationId": "c56d772c-075d-4f3c-b0d7-9f24540f627b",
+          "type": "approved",
+          "text": "",
+          "createdAt": "2026-01-29T18:15:54.028Z",
+          "createdBy": { "id": "...", "email": "...", "name": "..." }
+        }
+      ],
+      "history": [
+        {
+          "timestamp": "2026-01-29T18:14:42.554Z",
+          "userId": "...",
+          "userName": "User Name",
+          "userEmail": "user@example.com",
+          "action": "created"
+        },
+        {
+          "timestamp": "2026-01-29T18:15:54.028Z",
+          "userId": "...",
+          "userName": "User Name",
+          "userEmail": "user@example.com",
+          "action": "approved",
+          "previousVersion": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Annotation Types**: `observation`, `issue`, `maintenance`, `alert`
+**Response Types**: `approved`, `rejected`, `comment`, `resolved`
+**Actions in History**: `created`, `approved`, `rejected`, `edited`, `deleted`, `archived`
+
+**Business Rules**:
+- Annotations with status `approved` or `rejected` can always be archived
+- Archived annotations are removed from active view but preserved in history
+
 ## Key Files
 
 | File | Description |
@@ -173,6 +240,7 @@ const categories = buildEquipmentCategoryDataForTooltip(devices);
 | `src/components/premium-modals/welcome/WelcomeModalView.ts` | Welcome modal |
 | `src/utils/deviceInfo.js` | Domain/context detection (RFC-0111) |
 | `src/utils/equipmentCategory.js` | Energy equipment subcategorization (RFC-0128) |
+| `src/components/premium-modals/settings/annotations/AnnotationsTab.ts` | Device annotations component |
 
 ## Common Issues & Solutions
 

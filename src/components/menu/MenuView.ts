@@ -81,15 +81,34 @@ export class MenuView {
 
   /**
    * Get the theme config based on current theme mode
+   * Also maps legacy properties (tabSelecionadoBackgroundColor, etc.) for backward compatibility
    */
   private getThemeConfig(): Required<MenuThemeConfig> {
     const defaults = this.themeMode === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
     const userTheme =
       this.themeMode === 'dark' ? this.configTemplate.darkMode : this.configTemplate.lightMode;
 
+    // Map legacy root-level properties to new theme properties
+    const legacyMapped: Partial<MenuThemeConfig> = {};
+    const ct = this.configTemplate as Record<string, unknown>;
+
+    if (ct.tabSelecionadoBackgroundColor) {
+      legacyMapped.tabActiveBackgroundColor = ct.tabSelecionadoBackgroundColor as string;
+    }
+    if (ct.tabSelecionadoFontColor) {
+      legacyMapped.tabActiveFontColor = ct.tabSelecionadoFontColor as string;
+    }
+    if (ct.tabNaoSelecionadoBackgroundColor) {
+      legacyMapped.tabInactiveBackgroundColor = ct.tabNaoSelecionadoBackgroundColor as string;
+    }
+    if (ct.tabNaoSelecionadoFontColor) {
+      legacyMapped.tabInactiveFontColor = ct.tabNaoSelecionadoFontColor as string;
+    }
+
     return {
       ...defaults,
-      ...userTheme,
+      ...legacyMapped, // Legacy properties override defaults
+      ...userTheme, // User theme overrides everything
     } as Required<MenuThemeConfig>;
   }
 
@@ -744,9 +763,9 @@ export class MenuView {
   background: var(--menu-filter-bg);
 }
 
-/* Filter Chips */
+/* Filter Chips - hidden for now (redundant with checklist) */
 .myio-menu-filter-chips {
-  display: flex;
+  display: none; /* TODO: decide if chips should be shown */
   flex-wrap: wrap;
   gap: 8px;
 }
