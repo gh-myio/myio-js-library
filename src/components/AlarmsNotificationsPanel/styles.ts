@@ -401,16 +401,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border-left: 4px solid var(--alarms-border);
   border-radius: var(--alarms-radius);
   box-shadow: var(--alarms-shadow);
-  overflow: visible;
+  overflow: hidden;
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 320px;
+  min-height: 400px;
+  height: 100%;
 }
 
 .alarm-card:hover {
   background: var(--alarms-card-hover);
-  box-shadow: var(--alarms-shadow-lg);
-  transform: translateY(-1px);
 }
 
 /* Severity border colors */
@@ -522,13 +521,13 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 /* Card Body */
 .alarm-card-body {
-  padding: 16px;
-  flex: 1 0 auto;
+  padding: 12px 16px;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .alarm-card-title {
@@ -607,15 +606,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
-  font-size: 13px;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--alarms-text);
   background: var(--alarms-bg-secondary);
   border: 1px solid var(--alarms-border);
   border-radius: 20px;
-  margin: 12px 0;
+  margin: 8px 0;
   flex-shrink: 0;
 }
 
@@ -637,9 +636,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
-  gap: 16px;
-  padding: 16px 12px;
-  margin: 12px 0;
+  gap: 12px;
+  padding: 12px 8px;
+  margin: 8px 0;
   background: var(--alarms-bg-secondary);
   border-radius: var(--alarms-radius);
   width: 100%;
@@ -708,7 +707,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border-top: 1px solid var(--alarms-border-light);
   background: var(--alarms-bg-secondary);
   flex-shrink: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .alarm-card-footer .btn {
@@ -848,14 +847,13 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   }
 
   .alarm-card-footer {
-    flex-wrap: wrap;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
     padding: 10px 12px;
   }
 
   .alarm-card-footer .btn {
-    flex: 1 1 auto;
-    min-width: 80px;
     max-width: none;
     padding: 8px 12px;
     font-size: 12px;
@@ -865,6 +863,11 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
     flex: 0 0 36px;
     min-width: 36px;
     max-width: 36px;
+  }
+
+  /* Make last button span full width if odd count (1 or 3 buttons) */
+  .alarm-card-footer .btn:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 

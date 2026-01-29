@@ -130,6 +130,36 @@
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
     }
 
+    /* Fix footer to bottom of card */
+    .alarm-card {
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .alarm-card-footer {
+      margin-top: auto;
+      flex-wrap: wrap;
+    }
+    
+    /* Mobile layout fix for buttons */
+    @media (max-width: 480px) {
+      .alarm-card-footer {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .alarm-card-footer .btn:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+      }
+    }
+
+    /* Ensure component fills the wrapper */
+    .alarms-wrapper > div {
+      height: 100%;
+      width: 100%;
+    }
+
     .event-log {
       width: 320px;
       background: rgba(0, 0, 0, 0.2);
