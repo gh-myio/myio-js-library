@@ -181,6 +181,17 @@ self.onInit = async function () {
   let currentThemeMode = settings.defaultThemeMode || 'dark';
   DEBUG_ACTIVE = settings.enableDebugMode ?? false;
 
+  // Helper to clean ownerName by removing configured prefix
+  const forceRemovePartialOwnerName = (settings.forceRemovePartialOwnerName || '').trim();
+  const cleanOwnerName = (name) => {
+    if (!name || !forceRemovePartialOwnerName) return name;
+    const trimmed = name.trim();
+    if (trimmed.toLowerCase().startsWith(forceRemovePartialOwnerName.toLowerCase())) {
+      return trimmed.substring(forceRemovePartialOwnerName.length).trim();
+    }
+    return trimmed;
+  };
+
   // RFC-0122: Initialize LogHelper from library
   if (!MyIOLibrary.createLogHelper) {
     showToast('Erro: biblioteca não carregada (createLogHelper)', 'error');
@@ -5505,8 +5516,8 @@ function extractDeviceMetadataFromRows(rows) {
 
     // Customer info
     customerId: dataKeyValues['customerId'] || datasource.entity?.customerId?.id || '',
-    customerName: dataKeyValues['customerName'] || dataKeyValues['ownerName'] || '',
-    ownerName: dataKeyValues['ownerName'] || '', // RFC-0111 FIX: Expose ownerName separately
+    customerName: cleanOwnerName(dataKeyValues['customerName'] || dataKeyValues['ownerName'] || ''),
+    ownerName: cleanOwnerName(dataKeyValues['ownerName'] || ''), // RFC-0111 FIX: Expose ownerName separately
 
     // Timestamps
     lastActivityTime: dataKeyValues['lastActivityTime'],

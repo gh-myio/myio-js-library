@@ -222,6 +222,12 @@
         "type": "string",
         "default": "Shopping",
         "description": "Label for entity in Goals Panel (e.g., Shopping, Loja, Escola, Filial)"
+      },
+      "forceRemovePartialOwnerName": {
+        "title": "Remove Prefix from Owner Name",
+        "type": "string",
+        "default": "",
+        "description": "Prefix to remove from ownerName (e.g., 'Supervia' removes prefix from 'Supervia Deodoro' -> 'Deodoro')"
       }
     }
   },
@@ -371,6 +377,11 @@
       "type": "fieldset",
       "title": "Menu Labels",
       "items": ["shoppingFilterLabel", "goalsEntityLabel"]
+    },
+    {
+      "type": "fieldset",
+      "title": "Data Transformations",
+      "items": ["forceRemovePartialOwnerName"]
     }
   ]
 }
