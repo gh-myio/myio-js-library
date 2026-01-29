@@ -11,6 +11,8 @@ import {
   ComparisonDataSource,
   TemperatureDevice,
 } from './types';
+import type { Alarm } from '../../types/alarm';
+import { openAlarmComparisonModal } from '../alarms/AlarmComparisonModal';
 
 const DEFAULT_CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com';
 
@@ -120,11 +122,72 @@ export class ComparisonHandler {
       throw new Error('Need at least 2 entities for comparison');
     }
 
+    if (unitType === 'alarms') {
+      await this.openAlarmModal(entities);
+      return;
+    }
+
     if (unitType === 'temperature') {
       await this.openTemperatureModal(entities);
     } else {
       await this.openEnergyModal(entities, unitType);
     }
+  }
+
+  /**
+   * Open alarm comparison modal
+   */
+  private async openAlarmModal(entities: SelectedEntity[]): Promise<void> {
+    const { start, end } = this.getDateRange();
+
+    const nowIso = new Date().toISOString();
+    const alarms: Alarm[] = entities.map((entity, index) => {
+      const raw = (entity.alarm as Record<string, unknown> | null)
+        || (entity.meta as Record<string, unknown> | null)
+        || {};
+
+      const severity = (raw.severity as Alarm['severity']) || 'MEDIUM';
+      const state = (raw.state as Alarm['state']) || 'OPEN';
+      const tags = typeof raw.tags === 'object' && raw.tags ? raw.tags as Record<string, string> : {};
+
+      return {
+        id: String(raw.id || entity.id || `alarm-${index}`),
+        customerId: String(raw.customerId || ''),
+        customerName: String(raw.customerName || entity.customerName || ''),
+        source: String(raw.source || raw.originator || raw.deviceName || ''),
+        severity,
+        state,
+        title: String(raw.title || raw.name || entity.name || 'Alarm'),
+        description: String(raw.description || ''),
+        tags,
+        firstOccurrence: String(raw.firstOccurrence || raw.createdTime || raw.createdAt || nowIso),
+        lastOccurrence: String(raw.lastOccurrence || raw.updatedTime || raw.lastUpdate || nowIso),
+        occurrenceCount: Number(raw.occurrenceCount || raw.count || entity.lastValue || 1),
+        acknowledgedAt: raw.acknowledgedAt as string | undefined,
+        acknowledgedBy: raw.acknowledgedBy as string | undefined,
+        snoozedUntil: raw.snoozedUntil as string | undefined,
+        closedAt: raw.closedAt as string | undefined,
+        closedBy: raw.closedBy as string | undefined,
+        closedReason: raw.closedReason as string | undefined,
+      };
+    });
+
+    this.log.log('Opening alarm comparison modal:', {
+      alarms: alarms.length,
+      startDate: start,
+      endDate: end,
+    });
+
+    openAlarmComparisonModal({
+      alarms,
+      startDate: start,
+      endDate: end,
+      theme: this.params.theme ?? 'dark',
+      locale: 'pt-BR',
+      onClose: () => {
+        this.log.log('Alarm comparison modal closed');
+      },
+    });
   }
 
   /**
@@ -270,6 +333,7 @@ export class ComparisonHandler {
       water: 'water',
       tank: 'tank',
       temperature: 'temperature',
+      alarms: 'alarms',
     };
     return mapping[unitType] || 'energy';
   }

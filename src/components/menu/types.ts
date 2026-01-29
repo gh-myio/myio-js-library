@@ -207,6 +207,10 @@ export interface MenuConfigTemplate {
   datePickerBackgroundColor?: string;
   /** Date picker font color (legacy) */
   datePickerFontColor?: string;
+
+  // Labels
+  /** Shopping filter button/modal title label (default: "Filtro de Shoppings") */
+  shoppingFilterLabel?: string;
 }
 
 /**
@@ -309,6 +313,7 @@ export const DEFAULT_CONFIG_TEMPLATE: MenuConfigTemplate = {
   themeMode: 'light',
   darkMode: DEFAULT_DARK_THEME,
   lightMode: DEFAULT_LIGHT_THEME,
+  shoppingFilterLabel: 'Filtro de Shoppings',
 };
 
 // Legacy exports for backwards compatibility

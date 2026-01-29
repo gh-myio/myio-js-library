@@ -153,18 +153,19 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
 }
 
 /* ==========================================
-   EQUIPMENT CARD
+   EQUIPMENT CARD (RFC-157 Enhanced)
    ========================================== */
 
 .myio-equipment-card {
   background: var(--grid-bg-card);
   border: 1px solid var(--grid-border);
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   transition: all 0.2s ease;
   cursor: pointer;
   position: relative;
-  min-height: 220px;
+  /* RFC-157: Reduced min-height for compact layout */
+  min-height: 180px;
 }
 
 .myio-equipment-card:hover {
@@ -173,35 +174,195 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   transform: translateY(-2px);
 }
 
-/* Status Bar */
-.myio-equipment-card .status-bar {
+/* RFC-157: Absolute positioned checkbox in top-right corner */
+.myio-equipment-card-select-absolute {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.myio-equipment-card .status-bar.online { background: #22c55e; }
-.myio-equipment-card .status-bar.offline { background: #ef4444; }
-.myio-equipment-card .status-bar.maintenance { background: #f97316; }
-.myio-equipment-card .status-bar.warning { background: #eab308; }
+.myio-equipment-card-select-absolute .equipment-card-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
 
-/* Card Content */
+.myio-equipment-card-select-absolute .equipment-card-checkbox-ui {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid var(--grid-border);
+  background: var(--grid-bg-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.myio-equipment-card-select-absolute .equipment-card-checkbox-ui::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: transparent;
+  transform: scale(0.5);
+  transition: all 0.15s ease;
+}
+
+.myio-equipment-card-select-absolute .equipment-card-checkbox:checked + .equipment-card-checkbox-ui {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.myio-equipment-card-select-absolute .equipment-card-checkbox:checked + .equipment-card-checkbox-ui::after {
+  background: #7c3aed;
+  transform: scale(1);
+}
+
+.myio-equipment-card-select-absolute:hover .equipment-card-checkbox-ui {
+  border-color: #7c3aed;
+}
+
+/* RFC-157: Cut-out Header Bar (Identity Bar) */
+.myio-equipment-card-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  padding-right: 36px; /* Space for checkbox */
+  background: var(--grid-bg-secondary);
+  border-bottom: 1px solid var(--grid-border);
+  gap: 8px;
+}
+
+/* Status-based header accent */
+.myio-equipment-card-header-bar.online {
+  border-left: 4px solid #22c55e;
+}
+.myio-equipment-card-header-bar.offline {
+  border-left: 4px solid #ef4444;
+}
+.myio-equipment-card-header-bar.maintenance {
+  border-left: 4px solid #f97316;
+}
+.myio-equipment-card-header-bar.warning {
+  border-left: 4px solid #eab308;
+}
+
+.myio-equipment-card-header-bar .header-bar-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.myio-equipment-card-header-bar .myio-equipment-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--grid-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.myio-equipment-card-header-bar .myio-equipment-card-type {
+  display: block;
+  font-size: 10px;
+  color: var(--grid-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* RFC-157: Card Body (Compact) */
+.myio-equipment-card-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Legacy support: Card Content */
 .myio-equipment-card-content {
-  padding: 12px 12px 12px 16px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
-/* Card Header */
+/* Legacy: Card Header */
 .myio-equipment-card-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+/* Selection checkbox */
+.myio-equipment-card-select {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.equipment-card-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.equipment-card-checkbox-ui {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--grid-border);
+  background: rgba(15, 23, 42, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.equipment-card-checkbox-ui::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: transparent;
+  transform: scale(0.6);
+  transition: all 0.15s ease;
+}
+
+.equipment-card-checkbox:checked + .equipment-card-checkbox-ui {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.2);
+}
+
+.equipment-card-checkbox:checked + .equipment-card-checkbox-ui::after {
+  background: #7c3aed;
+  transform: scale(1);
+}
+
+.myio-equipment-card.is-selected {
+  border-color: rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.4);
 }
 
 .myio-equipment-card-title-wrap {
@@ -254,16 +415,16 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   flex-shrink: 0;
 }
 
-/* Reversal Warning */
+/* Reversal Warning (RFC-157: Compact) */
 .myio-equipment-reversal-warning {
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid #f59e0b;
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 5px;
+  padding: 5px 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 5px;
+  margin-bottom: 8px;
   font-size: 10px;
   color: #92400e;
   animation: pulse 2s infinite;
@@ -274,18 +435,18 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   50% { opacity: 0.7; }
 }
 
-/* Availability Gauge */
+/* Availability Gauge (RFC-157: Compact) */
 .myio-equipment-availability {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .myio-equipment-gauge {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
 }
 
@@ -293,18 +454,17 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   width: 100%;
   height: 100%;
   display: block;
-  transform: rotate(-90deg);
 }
 
 .myio-equipment-gauge-bg {
   fill: none;
   stroke: var(--grid-border);
-  stroke-width: 6;
+  stroke-width: 5;
 }
 
 .myio-equipment-gauge-fill {
   fill: none;
-  stroke-width: 6;
+  stroke-width: 5;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s ease;
 }
@@ -320,34 +480,35 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
 }
 
 .myio-equipment-gauge-value .value {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--grid-text-primary);
   line-height: 1;
 }
 
 .myio-equipment-gauge-value .label {
-  font-size: 8px;
+  font-size: 7px;
   color: var(--grid-text-muted);
   line-height: 1;
+  margin-top: 1px;
 }
 
-/* Metrics Row */
+/* Metrics Row (RFC-157: Compact) */
 .myio-equipment-metrics {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .myio-equipment-metric {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .myio-equipment-metric-icon {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .myio-equipment-metric-info {
@@ -356,43 +517,75 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
 }
 
 .myio-equipment-metric-label {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--grid-text-muted);
+  line-height: 1;
 }
 
 .myio-equipment-metric-value {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--grid-text-primary);
+  line-height: 1.2;
 }
 
-/* Alerts Row */
+/* Alerts Row (RFC-157: Compact) */
 .myio-equipment-alerts {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
+  gap: 5px;
+  padding: 4px 8px;
   background: rgba(239, 68, 68, 0.05);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 6px;
-  margin: 4px 0 8px 0;
+  border-radius: 5px;
+  margin-bottom: 6px;
   font-size: 10px;
   color: #dc2626;
 }
 
-/* Customer Badge */
-.myio-equipment-customer {
+/* RFC-157: Footer with Customer + Location */
+.myio-equipment-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--grid-border);
 }
 
+.myio-equipment-footer .myio-equipment-customer {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.myio-equipment-location {
+  font-size: 9px;
+  color: var(--grid-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  text-align: right;
+}
+
+/* Customer Badge (RFC-157: Compact) */
+.myio-equipment-customer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--grid-border);
+  min-width: 0;
+  flex: 1;
+}
+
+/* RFC-157: Compact customer avatar */
 .myio-equipment-customer-avatar {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
   background: var(--grid-accent-light);
   color: var(--grid-accent);
@@ -405,7 +598,7 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
 }
 
 .myio-equipment-customer-name {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--grid-text-secondary);
   white-space: nowrap;
   overflow: hidden;

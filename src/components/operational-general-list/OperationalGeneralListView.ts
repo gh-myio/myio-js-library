@@ -5,7 +5,6 @@
 
 import {
   EquipmentCardData,
-  EquipmentStatus,
 } from '../../types/operational';
 
 import {
@@ -16,8 +15,14 @@ import {
   STATUS_CONFIG,
   getAvailabilityColorFromThresholds,
 } from './types';
+import type { FilterTab, FilterableDevice, SortMode as FilterModalSortMode } from '../filter-modal/types';
+import { FilterModalController } from '../filter-modal/FilterModalController';
 import { OperationalGeneralListController } from './OperationalGeneralListController';
 import { injectOperationalGeneralListStyles } from './styles';
+import {
+  createOperationalHeaderDevicesGridComponent,
+  OperationalHeaderDevicesGridInstance,
+} from '../operational-header-devices-grid';
 
 export class OperationalGeneralListView {
   private container: HTMLElement;
@@ -26,14 +31,16 @@ export class OperationalGeneralListView {
   private controller: OperationalGeneralListController;
   private eventHandlers = new Map<OperationalListEventType, Set<OperationalListEventHandler>>();
 
+  private headerInstance: OperationalHeaderDevicesGridInstance | null = null;
+  private filterModal: FilterModalController | null = null;
+  private filterModalContainerId: string;
+  private selectionCleanups: Array<() => void> = [];
+
   // DOM references
+  private headerContainer: HTMLElement | null = null;
   private gridContainer: HTMLElement | null = null;
   private loadingState: HTMLElement | null = null;
   private emptyState: HTMLElement | null = null;
-  private searchInput: HTMLInputElement | null = null;
-  private statusFilter: HTMLSelectElement | null = null;
-  private typeFilter: HTMLSelectElement | null = null;
-  private equipmentCount: HTMLElement | null = null;
 
   constructor(
     params: OperationalGeneralListParams,
@@ -42,6 +49,7 @@ export class OperationalGeneralListView {
     this.container = params.container;
     this.params = params;
     this.controller = controller;
+    this.filterModalContainerId = `operational-general-filter-${Math.random().toString(36).slice(2, 10)}`;
 
     // Inject styles
     injectOperationalGeneralListStyles();
@@ -64,6 +72,9 @@ export class OperationalGeneralListView {
     // Cache DOM references
     this.cacheReferences();
 
+    // Create premium header
+    this.createPremiumHeader();
+
     // Setup event listeners
     this.setupEventListeners();
 
@@ -78,30 +89,8 @@ export class OperationalGeneralListView {
 
   private buildTemplate(): string {
     return `
-      <!-- Header with filters -->
-      <header class="myio-operational-header">
-        <div class="header-title">
-          <h2>Lista Geral de Equipamentos</h2>
-          <span class="equipment-count" id="equipmentCount">0 equipamentos</span>
-        </div>
-        <div class="header-filters">
-          <div class="search-wrap">
-            <span class="search-icon">&#x1F50D;</span>
-            <input type="text" id="searchInput" placeholder="Buscar equipamento..." />
-          </div>
-          <select id="statusFilter" class="filter-select">
-            <option value="all">Todos os Status</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-            <option value="maintenance">Manutencao</option>
-          </select>
-          <select id="typeFilter" class="filter-select">
-            <option value="all">Todos os Tipos</option>
-            <option value="escada">Escadas Rolantes</option>
-            <option value="elevador">Elevadores</option>
-          </select>
-        </div>
-      </header>
+      <!-- Premium Header Container -->
+      <div class="myio-operational-header-container" id="headerContainer"></div>
 
       <!-- Equipment Grid -->
       <section class="myio-operational-grid" id="equipmentGrid">
@@ -125,41 +114,18 @@ export class OperationalGeneralListView {
   private cacheReferences(): void {
     if (!this.root) return;
 
+    this.headerContainer = this.root.querySelector('#headerContainer');
     this.gridContainer = this.root.querySelector('#equipmentGrid');
     this.loadingState = this.root.querySelector('#loadingState');
     this.emptyState = this.root.querySelector('#emptyState');
-    this.searchInput = this.root.querySelector('#searchInput');
-    this.statusFilter = this.root.querySelector('#statusFilter');
-    this.typeFilter = this.root.querySelector('#typeFilter');
-    this.equipmentCount = this.root.querySelector('#equipmentCount');
   }
 
   private setupEventListeners(): void {
-    // Search input
-    this.searchInput?.addEventListener('input', (e) => {
-      const target = e.target as HTMLInputElement;
-      this.controller.setSearchQuery(target.value);
-      this.emit('search-change', target.value);
-    });
-
-    // Status filter
-    this.statusFilter?.addEventListener('change', (e) => {
-      const target = e.target as HTMLSelectElement;
-      this.controller.setStatusFilter(target.value as EquipmentStatus | 'all');
-      this.emit('status-filter-change', target.value);
-    });
-
-    // Type filter
-    this.typeFilter?.addEventListener('change', (e) => {
-      const target = e.target as HTMLSelectElement;
-      this.controller.setTypeFilter(target.value as 'escada' | 'elevador' | 'all');
-      this.emit('type-filter-change', target.value);
-    });
-
     // Controller state changes trigger re-render
     this.controller.setOnStateChange((state) => {
       this.renderGrid(state.filteredEquipment);
       this.showLoading(state.isLoading);
+      this.updateStats(state.stats);
     });
 
     // Listen for global theme changes
@@ -169,12 +135,147 @@ export class OperationalGeneralListView {
     window.addEventListener('myio:filter-applied', this.handleFilterApplied);
   }
 
+  private createPremiumHeader(): void {
+    if (!this.headerContainer) return;
+
+    const equipment = this.controller.getEquipment();
+    const customers = this.params.customers && this.params.customers.length > 0
+      ? this.params.customers
+      : this.buildCustomerOptions(equipment);
+
+    this.headerInstance = createOperationalHeaderDevicesGridComponent({
+      container: this.headerContainer,
+      themeMode: this.controller.getThemeMode(),
+      includeSearch: true,
+      includeFilter: true,
+      includeCustomerFilter: true,
+      includeMaximize: true,
+      customers,
+      onSearchChange: (query) => {
+        this.controller.setSearchQuery(query);
+        this.emit('search-change', query);
+      },
+      onFilterClick: () => {
+        this.openFilterModal();
+      },
+      onCustomerChange: (customerId) => {
+        if (customerId === 'all') {
+          this.controller.setCustomerFilter([]);
+        } else {
+          this.controller.setCustomerFilter([customerId]);
+        }
+      },
+      onMaximizeClick: (maximized) => {
+        this.emit('filter-change', maximized);
+      },
+    });
+
+    this.updateStats(this.controller.getStats());
+  }
+
+  private buildCustomerOptions(equipment: EquipmentCardData[]): Array<{ id: string; name: string }> {
+    const map = new Map<string, string>();
+    equipment.forEach((eq) => {
+      const id = eq.customerId || eq.customerName;
+      if (id && eq.customerName) {
+        map.set(id, eq.customerName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }
+
+  private buildFilterTabs(): FilterTab[] {
+    return [
+      { id: 'online', label: 'Online', filter: (e) => e.deviceStatus === 'online' },
+      { id: 'offline', label: 'Offline', filter: (e) => e.deviceStatus === 'offline' },
+      { id: 'maintenance', label: 'Manutencao', filter: (e) => e.deviceStatus === 'maintenance' },
+      { id: 'elevators', label: 'Elevadores', filter: (e) => e.deviceType === 'elevador' },
+      { id: 'escalators', label: 'Escadas', filter: (e) => e.deviceType === 'escada' },
+      { id: 'others', label: 'Outros', filter: (e) => e.deviceType === 'other' },
+    ];
+  }
+
+  private mapSortModeToFilterModal(sortMode?: string): FilterModalSortMode {
+    switch (sortMode) {
+      case 'cons_asc':
+        return 'cons_asc';
+      case 'alpha_asc':
+        return 'alpha_asc';
+      case 'alpha_desc':
+        return 'alpha_desc';
+      case 'status_asc':
+        return 'status_asc';
+      case 'status_desc':
+        return 'status_desc';
+      case 'shopping_asc':
+        return 'shopping_asc';
+      case 'shopping_desc':
+        return 'shopping_desc';
+      case 'cons_desc':
+      default:
+        return 'cons_desc';
+    }
+  }
+
+  private mapSortModeFromFilterModal(sortMode: FilterModalSortMode): string {
+    return sortMode;
+  }
+
+  private openFilterModal(): void {
+    if (!this.filterModal) {
+      this.filterModal = new FilterModalController({
+        containerId: this.filterModalContainerId,
+        widgetName: 'OperationalGeneralList',
+        modalClass: 'filter-modal',
+        primaryColor: '#7c3aed',
+        themeMode: this.controller.getThemeMode(),
+        filterTabs: this.buildFilterTabs(),
+        getItemId: (item) => String(item.id || item.entityId || ''),
+        getItemLabel: (item) => item.label || item.name || item.labelOrName || '',
+        getItemSubLabel: (item) => item.customerName || item.ownerName || '',
+        getItemValue: (item) => Number(item.value) || 0,
+        formatValue: (val) => `${Math.round(val)}`,
+        onApply: (filters) => {
+          const sortMode = this.mapSortModeFromFilterModal(filters.sortMode);
+          this.controller.setFilters({
+            selectedIds: filters.selectedIds || null,
+            sortMode: sortMode as any,
+          });
+        },
+      });
+    }
+
+    const items: FilterableDevice[] = this.controller.getEquipment().map((eq) => ({
+      id: eq.id,
+      label: eq.name,
+      name: eq.name,
+      labelOrName: eq.name,
+      deviceStatus: eq.status,
+      customerId: eq.customerId,
+      customerName: eq.customerName,
+      ownerName: eq.customerName,
+      deviceType: eq.type,
+      value: eq.recentAlerts || 0,
+    }));
+
+    const currentFilters = this.controller.getFilters();
+    this.filterModal.setThemeMode(this.controller.getThemeMode());
+    this.filterModal.open(items, {
+      selectedIds: currentFilters.selectedIds || undefined,
+      sortMode: this.mapSortModeToFilterModal(currentFilters.sortMode),
+    });
+  }
+
   // =========================================================================
   // Grid Rendering
   // =========================================================================
 
   renderGrid(equipment: EquipmentCardData[]): void {
     if (!this.gridContainer) return;
+
+    // Cleanup previous selection listeners
+    this.selectionCleanups.forEach((cleanup) => cleanup());
+    this.selectionCleanups = [];
 
     // Update count
     this.updateCount(equipment.length);
@@ -195,6 +296,8 @@ export class OperationalGeneralListView {
 
     // Bind card click events
     this.bindCardEvents();
+    this.bindSelectionEvents();
+    this.bindDragEvents();
 
     this.log('Rendered', equipment.length, 'equipment cards');
     this.emit('cards-rendered', equipment.length);
@@ -203,62 +306,67 @@ export class OperationalGeneralListView {
   private renderCard(data: EquipmentCardData): string {
     const statusConfig = STATUS_CONFIG[data.status];
     const availabilityColor = getAvailabilityColorFromThresholds(data.availability);
+    const enableSelection = this.params.enableSelection !== false;
+    const enableDragDrop = this.params.enableDragDrop === true;
 
     // SVG gauge calculations
-    const radius = 56;
+    const radius = 28;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference * (1 - data.availability / 100);
 
     return `
-      <article class="equipment-card" data-id="${data.id}" data-status="${data.status}">
+      <article class="equipment-card" data-id="${data.id}" data-status="${data.status}" ${enableDragDrop ? 'draggable="true"' : ''}>
         <header class="card-header">
           <div class="card-info">
             <h3 class="card-name">${this.escapeHtml(data.name)}</h3>
             <span class="card-type">${data.type === 'escada' ? 'Escada Rolante' : 'Elevador'}</span>
             <span class="card-location">${this.escapeHtml(data.location)}</span>
           </div>
-          <span class="status-badge" style="
-            background: ${statusConfig.bg};
-            border-color: ${statusConfig.border};
-            color: ${statusConfig.text}
-          ">${statusConfig.label}</span>
+          ${enableSelection ? `
+            <label class="equipment-card-select">
+              <input type="checkbox" class="equipment-card-checkbox" aria-label="Selecionar ${this.escapeHtml(data.name)}">
+              <span class="equipment-card-checkbox-ui"></span>
+            </label>
+          ` : ''}
         </header>
 
         ${data.hasReversal ? `
           <div class="reversal-warning">
-            <span>&#x26A0;&#xFE0F;</span>
+            <span class="warn-icon">&#x26A0;&#xFE0F;</span>
             <span>Reversao detectada</span>
           </div>
         ` : ''}
 
-        <div class="availability-gauge">
-          <svg viewBox="0 0 128 128">
-            <circle cx="64" cy="64" r="${radius}" class="gauge-bg" />
-            <circle cx="64" cy="64" r="${radius}" class="gauge-value"
-              stroke="${availabilityColor}"
-              stroke-dasharray="${circumference}"
-              stroke-dashoffset="${strokeDashoffset}"
-            />
-          </svg>
-          <div class="gauge-label">
-            <span class="value">${data.availability}%</span>
-            <span class="label">Disponibilidade</span>
-          </div>
-        </div>
-
-        <div class="metrics-row">
-          <div class="metric">
-            <span class="metric-icon">&#x23F1;&#xFE0F;</span>
-            <div class="metric-data">
-              <span class="metric-label">MTBF</span>
-              <span class="metric-value">${data.mtbf}h</span>
+        <div class="card-mid">
+          <div class="availability-gauge">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="${radius}" class="gauge-bg" />
+              <circle cx="36" cy="36" r="${radius}" class="gauge-value"
+                stroke="${availabilityColor}"
+                stroke-dasharray="${circumference}"
+                stroke-dashoffset="${strokeDashoffset}"
+              />
+            </svg>
+            <div class="gauge-label">
+              <span class="value">${data.availability}%</span>
+              <span class="label">Disponibilidade</span>
             </div>
           </div>
-          <div class="metric">
-            <span class="metric-icon">&#x1F527;</span>
-            <div class="metric-data">
-              <span class="metric-label">MTTR</span>
-              <span class="metric-value">${data.mttr}h</span>
+
+          <div class="metrics-col">
+            <div class="metric">
+              <span class="metric-icon">&#x23F1;&#xFE0F;</span>
+              <div class="metric-data">
+                <span class="metric-label">MTBF</span>
+                <span class="metric-value">${data.mtbf}h</span>
+              </div>
+            </div>
+            <div class="metric">
+              <span class="metric-icon">&#x1F527;</span>
+              <div class="metric-data">
+                <span class="metric-label">MTTR</span>
+                <span class="metric-value">${data.mttr}h</span>
+              </div>
             </div>
           </div>
         </div>
@@ -272,6 +380,11 @@ export class OperationalGeneralListView {
 
         <footer class="card-footer">
           <span class="customer-badge">${this.escapeHtml(data.customerName)}</span>
+          <span class="status-badge" style="
+            background: ${statusConfig.bg};
+            border-color: ${statusConfig.border};
+            color: ${statusConfig.text}
+          ">${statusConfig.label}</span>
         </footer>
       </article>
     `;
@@ -282,7 +395,9 @@ export class OperationalGeneralListView {
 
     const cards = this.gridContainer.querySelectorAll('.equipment-card');
     cards.forEach((card) => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('.equipment-card-checkbox')) return;
         const id = card.getAttribute('data-id');
         if (id) {
           const equipment = this.controller
@@ -298,13 +413,165 @@ export class OperationalGeneralListView {
     });
   }
 
+  private bindSelectionEvents(): void {
+    if (!this.gridContainer) return;
+    if (this.params.enableSelection === false) return;
+
+    const win = window as unknown as Record<string, any>;
+    const selectionStore = win.MyIOLibrary?.MyIOSelectionStore || win.MyIOSelectionStore;
+    if (!selectionStore) return;
+
+    const cards = this.gridContainer.querySelectorAll('.equipment-card');
+    cards.forEach((card) => {
+      const equipmentId = card.getAttribute('data-id');
+      if (!equipmentId) return;
+
+      const equipment = this.controller.getEquipment().find((eq) => eq.id === equipmentId);
+      if (!equipment) return;
+
+      const severityMap: Record<string, string> = {
+        offline: 'CRITICAL',
+        maintenance: 'HIGH',
+        online: 'INFO',
+      };
+
+      const alarmLike = {
+        id: equipment.id,
+        customerId: equipment.customerId || '',
+        customerName: equipment.customerName || '',
+        source: equipment.name,
+        severity: severityMap[equipment.status] || 'MEDIUM',
+        state: equipment.status === 'online' ? 'CLOSED' : 'OPEN',
+        title: equipment.name,
+        description: `${equipment.type} - ${equipment.location}`,
+        tags: { type: equipment.type, status: equipment.status },
+        firstOccurrence: new Date().toISOString(),
+        lastOccurrence: new Date().toISOString(),
+        occurrenceCount: equipment.recentAlerts || 0,
+      };
+
+      try {
+        selectionStore.registerEntity({
+          id: equipment.id,
+          name: equipment.name,
+          customerName: equipment.customerName || '',
+          lastValue: equipment.recentAlerts || 0,
+          unit: 'alarms',
+          icon: 'alarms',
+          domain: 'alarms',
+          alarm: alarmLike,
+          meta: {
+            type: 'equipment',
+            equipment,
+          },
+        });
+      } catch (_err) {
+        // Ignore registration errors to avoid breaking UI
+      }
+
+      const checkbox = card.querySelector('.equipment-card-checkbox') as HTMLInputElement | null;
+      if (!checkbox) return;
+
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const checked = (e.target as HTMLInputElement).checked;
+        if (checked) {
+          selectionStore.add(equipmentId);
+          if (!selectionStore.isSelected(equipmentId)) {
+            checkbox.checked = false;
+          }
+        } else {
+          selectionStore.remove(equipmentId);
+        }
+      });
+
+      const handleSelectionChange = (data: { selectedIds?: string[] }) => {
+        const selected = data?.selectedIds?.includes(equipmentId) || selectionStore.isSelected(equipmentId);
+        checkbox.checked = selected;
+        card.classList.toggle('is-selected', selected);
+      };
+
+      selectionStore.on('selection:change', handleSelectionChange);
+
+      const initiallySelected = selectionStore.isSelected(equipmentId);
+      checkbox.checked = initiallySelected;
+      card.classList.toggle('is-selected', initiallySelected);
+
+      this.selectionCleanups.push(() => {
+        selectionStore.off('selection:change', handleSelectionChange);
+      });
+    });
+  }
+
+  private bindDragEvents(): void {
+    if (!this.gridContainer) return;
+    if (!this.params.enableDragDrop) return;
+
+    const win = window as unknown as Record<string, any>;
+    const selectionStore = win.MyIOLibrary?.MyIOSelectionStore || win.MyIOSelectionStore;
+
+    const cards = this.gridContainer.querySelectorAll('.equipment-card');
+    cards.forEach((card) => {
+      const equipmentId = card.getAttribute('data-id');
+      if (!equipmentId) return;
+
+      const equipment = this.controller.getEquipment().find((eq) => eq.id === equipmentId);
+      if (!equipment) return;
+
+      card.addEventListener('dragstart', (e: DragEvent) => {
+        const payload = {
+          id: equipment.id,
+          name: equipment.name,
+          customerName: equipment.customerName,
+          unit: 'alarms',
+          domain: 'alarms',
+          alarm: {
+            id: equipment.id,
+            customerName: equipment.customerName,
+            title: equipment.name,
+            severity: equipment.status === 'offline' ? 'CRITICAL' : 'MEDIUM',
+            state: equipment.status === 'online' ? 'CLOSED' : 'OPEN',
+            lastOccurrence: new Date().toISOString(),
+            occurrenceCount: equipment.recentAlerts || 0,
+          },
+          meta: { type: 'equipment', equipment },
+        };
+
+        e.dataTransfer?.setData('text/myio-id', equipmentId);
+        e.dataTransfer?.setData('application/json', JSON.stringify(payload));
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'copy';
+        }
+
+        if (selectionStore?.startDrag) {
+          selectionStore.startDrag(equipmentId);
+        }
+      });
+    });
+  }
+
   // =========================================================================
   // UI State Management
   // =========================================================================
 
   updateCount(count: number): void {
-    if (this.equipmentCount) {
-      this.equipmentCount.textContent = `${count} ${count === 1 ? 'equipamento' : 'equipamentos'}`;
+    if (this.headerInstance) {
+      this.headerInstance.updateStats({ total: count });
+    }
+  }
+
+  updateStats(stats: import('../../types/operational').EquipmentStats): void {
+    if (this.headerInstance) {
+      this.headerInstance.updateStats({
+        online: stats.online,
+        offline: stats.offline,
+        maintenance: stats.maintenance,
+        warning: 0,
+        total: stats.total,
+        avgAvailability: stats.fleetAvailability,
+        avgMtbf: stats.avgMtbf,
+        avgMttr: stats.avgMttr,
+      });
     }
   }
 
@@ -328,6 +595,9 @@ export class OperationalGeneralListView {
     if (this.root) {
       this.root.setAttribute('data-theme', themeMode);
       this.log(`Applied ${themeMode} theme mode`);
+    }
+    if (this.headerInstance) {
+      this.headerInstance.setThemeMode(themeMode);
     }
   }
 
@@ -409,6 +679,14 @@ export class OperationalGeneralListView {
     window.removeEventListener('myio:theme-change', this.handleThemeChange);
     window.removeEventListener('myio:filter-applied', this.handleFilterApplied);
 
+    // Cleanup selection listeners
+    this.selectionCleanups.forEach((cleanup) => cleanup());
+    this.selectionCleanups = [];
+
+    // Destroy header and filter modal
+    this.headerInstance?.destroy?.();
+    this.filterModal?.destroy?.();
+
     // Clear event handlers
     this.eventHandlers.clear();
 
@@ -419,13 +697,12 @@ export class OperationalGeneralListView {
     this.root = null;
 
     // Clear references
+    this.headerContainer = null;
     this.gridContainer = null;
     this.loadingState = null;
     this.emptyState = null;
-    this.searchInput = null;
-    this.statusFilter = null;
-    this.typeFilter = null;
-    this.equipmentCount = null;
+    this.headerInstance = null;
+    this.filterModal = null;
   }
 
   // =========================================================================

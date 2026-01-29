@@ -180,6 +180,37 @@ export class OperationalGeneralListController {
       });
     }
 
+    // Apply selected IDs filter (premium modal)
+    if (this.state.filters.selectedIds && this.state.filters.selectedIds.size > 0) {
+      filtered = filtered.filter((eq) => this.state.filters.selectedIds?.has(eq.id));
+    }
+
+    // Apply sort mode (premium modal)
+    const sortMode = this.state.filters.sortMode;
+    if (sortMode) {
+      filtered = [...filtered].sort((a, b) => {
+        switch (sortMode) {
+          case 'alpha_asc':
+            return a.name.localeCompare(b.name);
+          case 'alpha_desc':
+            return b.name.localeCompare(a.name);
+          case 'status_asc':
+            return String(a.status).localeCompare(String(b.status));
+          case 'status_desc':
+            return String(b.status).localeCompare(String(a.status));
+          case 'shopping_asc':
+            return String(a.customerName).localeCompare(String(b.customerName));
+          case 'shopping_desc':
+            return String(b.customerName).localeCompare(String(a.customerName));
+          case 'cons_asc':
+            return (a.recentAlerts || 0) - (b.recentAlerts || 0);
+          case 'cons_desc':
+          default:
+            return (b.recentAlerts || 0) - (a.recentAlerts || 0);
+        }
+      });
+    }
+
     this.state.filteredEquipment = filtered;
     this.state.stats = this.calculateStats(filtered);
 

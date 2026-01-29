@@ -40,6 +40,7 @@ export class DeviceOperationalCardView {
   private stateFilter: HTMLSelectElement | null = null;
   private sortFilter: HTMLSelectElement | null = null;
   private alarmCount: HTMLElement | null = null;
+  private selectionCleanups: Array<() => void> = [];
 
   constructor(
     params: DeviceOperationalCardParams,
@@ -276,12 +277,15 @@ export class DeviceOperationalCardView {
     const isCritical = alarm.severity === 'CRITICAL' && alarm.state === 'OPEN';
     const severityChipClass = this.getSeverityChipClass(alarm.severity);
     const stateChipClass = this.getStateChipClass(alarm.state);
+    const enableSelection = this.params.enableSelection !== false;
+    const enableDragDrop = this.params.enableDragDrop === true;
 
     return `
       <article class="myio-alarm-card ${isCritical ? 'is-critical' : ''}"
                data-id="${alarm.id}"
                data-severity="${alarm.severity}"
-               data-state="${alarm.state}">
+               data-state="${alarm.state}"
+               ${enableDragDrop ? 'draggable="true"' : ''}>
 
         <!-- Severity Bar -->
         <div class="severity-bar" style="background: ${severityConfig.border}"></div>
@@ -295,6 +299,13 @@ export class DeviceOperationalCardView {
             </div>
             <span class="myio-alarm-card-time">${formatAlarmRelativeTime(alarm.lastOccurrence)}</span>
           </div>
+
+          ${enableSelection ? `
+            <label class="myio-alarm-card-select">
+              <input type="checkbox" class="alarm-card-checkbox" aria-label="Selecionar ${this.escapeHtml(alarm.title)}">
+              <span class="alarm-card-checkbox-ui"></span>
+            </label>
+          ` : ''}
 
           <!-- Title -->
           <h3 class="myio-alarm-card-title">${this.escapeHtml(alarm.title)}</h3>
@@ -355,17 +366,22 @@ export class DeviceOperationalCardView {
   private bindCardEvents(): void {
     if (!this.gridContainer) return;
 
+    // Cleanup previous selection listeners
+    this.selectionCleanups.forEach((cleanup) => cleanup());
+    this.selectionCleanups = [];
+
     const cards = this.gridContainer.querySelectorAll('.myio-alarm-card');
     cards.forEach((card) => {
+      const alarmId = card.getAttribute('data-id') || '';
+
       // Card click
       card.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        // Don't trigger card click if clicking on a button
-        if (target.closest('button')) return;
+        // Don't trigger card click if clicking on a button or checkbox
+        if (target.closest('button') || target.closest('.alarm-card-checkbox')) return;
 
-        const id = card.getAttribute('data-id');
-        if (id) {
-          const alarm = this.controller.getAlarms().find((a) => a.id === id);
+        if (alarmId) {
+          const alarm = this.controller.getAlarms().find((a) => a.id === alarmId);
           if (alarm) {
             this.log('Card clicked:', alarm.title);
             this.params.onAlarmClick?.(alarm);
@@ -390,6 +406,118 @@ export class DeviceOperationalCardView {
             }
           }
         });
+      });
+    });
+
+    this.bindSelectionEvents();
+    this.bindDragEvents();
+  }
+
+  private bindSelectionEvents(): void {
+    if (!this.gridContainer) return;
+    if (this.params.enableSelection === false) return;
+
+    const win = window as unknown as Record<string, any>;
+    const selectionStore = win.MyIOLibrary?.MyIOSelectionStore || win.MyIOSelectionStore;
+    if (!selectionStore) return;
+
+    const cards = this.gridContainer.querySelectorAll('.myio-alarm-card');
+    cards.forEach((card) => {
+      const alarmId = card.getAttribute('data-id');
+      if (!alarmId) return;
+
+      const alarm = this.controller.getAlarms().find((a) => a.id === alarmId);
+      if (!alarm) return;
+
+      // Register entity for footer selection
+      try {
+        selectionStore.registerEntity({
+          id: alarm.id,
+          name: alarm.title,
+          customerName: alarm.customerName || '',
+          lastValue: alarm.occurrenceCount || 0,
+          unit: 'alarms',
+          icon: 'alarms',
+          domain: 'alarms',
+          alarm: alarm,
+          meta: {
+            type: 'alarm',
+            severity: alarm.severity,
+            state: alarm.state,
+            firstOccurrence: alarm.firstOccurrence,
+            lastOccurrence: alarm.lastOccurrence,
+            occurrenceCount: alarm.occurrenceCount,
+            source: alarm.source,
+            tags: alarm.tags,
+          },
+        });
+      } catch (_err) {
+        // Ignore registration errors to avoid breaking UI
+      }
+
+      const checkbox = card.querySelector('.alarm-card-checkbox') as HTMLInputElement | null;
+      if (!checkbox) return;
+
+      // Handle checkbox changes
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const checked = (e.target as HTMLInputElement).checked;
+        if (checked) {
+          selectionStore.add(alarmId);
+          if (!selectionStore.isSelected(alarmId)) {
+            checkbox.checked = false;
+          }
+        } else {
+          selectionStore.remove(alarmId);
+        }
+      });
+
+      // Sync selection state from store
+      const handleSelectionChange = (data: { selectedIds?: string[] }) => {
+        const selected = data?.selectedIds?.includes(alarmId) || selectionStore.isSelected(alarmId);
+        checkbox.checked = selected;
+        card.classList.toggle('is-selected', selected);
+      };
+
+      selectionStore.on('selection:change', handleSelectionChange);
+
+      // Initial state
+      const initiallySelected = selectionStore.isSelected(alarmId);
+      checkbox.checked = initiallySelected;
+      card.classList.toggle('is-selected', initiallySelected);
+
+      // Cleanup
+      this.selectionCleanups.push(() => {
+        selectionStore.off('selection:change', handleSelectionChange);
+      });
+    });
+  }
+
+  private bindDragEvents(): void {
+    if (!this.gridContainer) return;
+    if (!this.params.enableDragDrop) return;
+
+    const win = window as unknown as Record<string, any>;
+    const selectionStore = win.MyIOLibrary?.MyIOSelectionStore || win.MyIOSelectionStore;
+
+    const cards = this.gridContainer.querySelectorAll('.myio-alarm-card');
+    cards.forEach((card) => {
+      const alarmId = card.getAttribute('data-id');
+      if (!alarmId) return;
+
+      const alarm = this.controller.getAlarms().find((a) => a.id === alarmId);
+      if (!alarm) return;
+
+      card.addEventListener('dragstart', (e: DragEvent) => {
+        e.dataTransfer?.setData('text/myio-id', alarmId);
+        e.dataTransfer?.setData('application/json', JSON.stringify(alarm));
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'copy';
+        }
+
+        if (selectionStore?.startDrag) {
+          selectionStore.startDrag(alarmId);
+        }
       });
     });
   }
@@ -555,6 +683,10 @@ export class DeviceOperationalCardView {
     // Remove event listeners
     window.removeEventListener('myio:theme-change', this.handleThemeChange);
     window.removeEventListener('myio:filter-applied', this.handleFilterApplied);
+
+    // Cleanup selection listeners
+    this.selectionCleanups.forEach((cleanup) => cleanup());
+    this.selectionCleanups = [];
 
     // Clear event handlers
     this.eventHandlers.clear();

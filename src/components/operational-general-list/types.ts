@@ -36,6 +36,15 @@ export interface OperationalGeneralListParams {
   /** Enable debug logging */
   enableDebugMode?: boolean;
 
+  /** Enable selection checkboxes */
+  enableSelection?: boolean;
+
+  /** Enable drag and drop to footer */
+  enableDragDrop?: boolean;
+
+  /** Customer list for header filter */
+  customers?: { id: string; name: string }[];
+
   /** Initial equipment data (optional, can be set via updateEquipment) */
   equipment?: import('../../types/operational').EquipmentCardData[];
 

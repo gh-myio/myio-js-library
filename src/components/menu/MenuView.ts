@@ -1882,10 +1882,11 @@ export class MenuView {
    * Build Filter button HTML
    */
   private buildFilterButtonHTML(): string {
+    const filterLabel = this.configTemplate.shoppingFilterLabel || 'Filtro de Shoppings';
     return `
-      <button id="menuFilterBtn" class="myio-toolbar-item myio-toolbar-item--filter" type="button" title="Filtro de Shoppings">
+      <button id="menuFilterBtn" class="myio-toolbar-item myio-toolbar-item--filter" type="button" title="${filterLabel}">
         <span class="ico">🏢</span>
-        <span>Filtro de Shoppings</span>
+        <span>${filterLabel}</span>
       </button>
     `;
   }
@@ -1992,9 +1993,10 @@ export class MenuView {
    * Build Filter Modal HTML
    */
   private buildFilterModalHTML(): string {
+    const filterLabel = this.configTemplate.shoppingFilterLabel || 'Filtro de Shoppings';
     const headerHTML = ModalHeader.generateHTML({
       icon: '🏢',
-      title: 'Filtro de Shoppings',
+      title: filterLabel,
       modalId: 'menuFilter',
       theme: this.getFilterModalDefaultTheme(),
       isMaximized: false,

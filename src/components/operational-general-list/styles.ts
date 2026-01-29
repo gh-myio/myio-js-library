@@ -33,7 +33,7 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   --availability-critical: #ef4444;
 
   /* Common tokens */
-  --fs: 0.94;
+  --fs: 0.75;
   --card-grad: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
   --card-bd: #dde7f1;
   --ink-1: #1c2743;
@@ -184,7 +184,7 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   overflow: auto;
   padding: 24px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 16px;
   align-content: start;
 }
@@ -212,7 +212,7 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
 
 @media (max-width: 1279px) {
   .myio-operational-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
     gap: 14px;
   }
 }
@@ -221,17 +221,18 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
 .equipment-card {
   position: relative;
   background: var(--card-grad);
-  border: 1px solid var(--card-bd);
+  border: 2px solid rgba(139, 92, 246, 0.55);
   border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: var(--shadow);
+  padding: 8px 9px;
+  box-shadow: 0 12px 30px rgba(139, 92, 246, 0.18);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
+  aspect-ratio: 16 / 8.1;
 }
 
 .equipment-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-hover);
+  box-shadow: 0 16px 36px rgba(139, 92, 246, 0.25);
   border-color: var(--operational-accent);
 }
 
@@ -240,7 +241,63 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+/* Selection checkbox */
+.equipment-card-select {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.equipment-card-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.equipment-card-checkbox-ui {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--card-bd);
+  background: rgba(15, 23, 42, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.equipment-card-checkbox-ui::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: transparent;
+  transform: scale(0.6);
+  transition: all 0.15s ease;
+}
+
+.equipment-card-checkbox:checked + .equipment-card-checkbox-ui {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.2);
+}
+
+.equipment-card-checkbox:checked + .equipment-card-checkbox-ui::after {
+  background: #7c3aed;
+  transform: scale(1);
+}
+
+.equipment-card.is-selected {
+  border-color: rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.4);
 }
 
 .equipment-card .card-info {
@@ -262,7 +319,7 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
 }
 
 .equipment-card .card-location {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-2xs);
   color: var(--operational-primary);
   font-weight: 500;
 }
@@ -283,14 +340,18 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid var(--status-maintenance-border);
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  background: rgba(255, 237, 213, 0.6);
+  border: 1px solid #f59e0b;
   border-radius: 8px;
   font-size: var(--fs-sm);
-  color: var(--status-maintenance-text);
+  color: #b45309;
   animation: pulse-warning 2s ease-in-out infinite;
+}
+
+.equipment-card .reversal-warning .warn-icon {
+  font-size: 14px;
 }
 
 @keyframes pulse-warning {
@@ -299,11 +360,19 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
 }
 
 /* Availability Gauge */
+.equipment-card .card-mid {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0 2px 0;
+}
+
 .equipment-card .availability-gauge {
   position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 16px auto;
+  width: 84px;
+  height: 84px;
+  margin: 0;
 }
 
 .equipment-card .availability-gauge svg {
@@ -314,7 +383,7 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
 
 .equipment-card .availability-gauge .gauge-bg {
   fill: none;
-  stroke: var(--card-bd);
+  stroke: rgba(148, 163, 184, 0.25);
   stroke-width: 10;
 }
 
@@ -345,20 +414,17 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   color: var(--ink-2);
 }
 
-/* Metrics Row */
-.equipment-card .metrics-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--card-bd);
-  border-bottom: 1px solid var(--card-bd);
+/* Metrics Column */
+.equipment-card .metrics-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .equipment-card .metric {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .equipment-card .metric-icon {
@@ -388,24 +454,28 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
+  padding: 6px 0;
   font-size: var(--fs-sm);
-  color: var(--status-offline-text);
+  color: #b45309;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 /* Card Footer */
 .equipment-card .card-footer {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--card-bd);
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .equipment-card .customer-badge {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  background: var(--operational-primary-light);
-  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.12);
+  border-radius: 10px;
   font-size: var(--fs-xs);
   color: var(--operational-primary-dark);
   font-weight: 500;

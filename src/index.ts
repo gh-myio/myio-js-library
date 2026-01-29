@@ -433,6 +433,13 @@ export type {
   ClampRange,
 } from './components/temperature';
 
+// RFC-0153: Alarm Comparison Modal
+export {
+  openAlarmComparisonModal,
+  type AlarmComparisonModalParams,
+  type AlarmComparisonModalInstance,
+} from './components/alarms/AlarmComparisonModal';
+
 // Temperature Range Tooltip (Reusable UI component)
 export { TempRangeTooltip } from './utils/TempRangeTooltip';
 export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempRangeTooltip';
@@ -1149,3 +1156,50 @@ export {
   injectAlarmsNotificationsPanelStyles,
   removeAlarmsNotificationsPanelStyles,
 } from './components/AlarmsNotificationsPanel';
+
+// RFC-0152 Phase 5: Operational Dashboard Component
+export { createOperationalDashboardComponent } from './components/operational-dashboard';
+
+export type {
+  OperationalDashboardParams,
+  OperationalDashboardInstance,
+  DashboardKPIs as OperationalDashboardKPIs,
+  TrendDataPoint as OperationalTrendDataPoint,
+  DowntimeEntry as OperationalDowntimeEntry,
+  DashboardPeriod as OperationalDashboardPeriod,
+  DashboardThemeMode as OperationalDashboardThemeMode,
+} from './components/operational-dashboard';
+
+export {
+  DEFAULT_DASHBOARD_KPIS as OPERATIONAL_DASHBOARD_DEFAULT_KPIS,
+  PERIOD_OPTIONS as OPERATIONAL_DASHBOARD_PERIOD_OPTIONS,
+} from './components/operational-dashboard';
+
+export {
+  calculateMTBF as calculateDashboardMTBF,
+  calculateMTTR as calculateDashboardMTTR,
+  calculateAvailability as calculateDashboardAvailability,
+  calculateFleetKPIs,
+  formatHours,
+  formatPercentage as formatDashboardPercentage,
+  formatTrend,
+  getTrendIcon,
+  getTrendClass,
+  getPeriodDateRange,
+  generateMockTrendData,
+  generateMockDowntimeList,
+  generateMockKPIs,
+} from './components/operational-dashboard';
+
+export {
+  renderLineChart,
+  renderDualLineChart,
+  renderStatusDonutChart,
+  renderDowntimeList as renderDashboardDowntimeList,
+} from './components/operational-dashboard';
+
+export {
+  OPERATIONAL_DASHBOARD_STYLES,
+  injectOperationalDashboardStyles,
+  removeOperationalDashboardStyles,
+} from './components/operational-dashboard';

@@ -39,7 +39,8 @@ export function openGoalsPanel(params) {
     onSave = null,
     onClose = null,
     styles = {},
-    locale = 'pt-BR'
+    locale = 'pt-BR',
+    entityLabel = 'Shopping' // Customizable entity label (e.g., "Loja", "Escola", "Filial")
   } = params;
 
   if (!customerId) {
@@ -62,8 +63,8 @@ export function openGoalsPanel(params) {
     zIndex: styles.zIndex || 10000
   };
 
-  // i18n strings
-  const i18n = locale === 'en-US' ? getEnglishStrings() : getPortugueseStrings();
+  // i18n strings (with customizable entity label)
+  const i18n = locale === 'en-US' ? getEnglishStrings(entityLabel) : getPortugueseStrings(entityLabel);
 
   // Modal constants
   const MODAL_ID = 'goals-modal';
@@ -1559,15 +1560,15 @@ export function openGoalsPanel(params) {
   // i18n STRINGS
   // ============================================================================
 
-  function getPortugueseStrings() {
+  function getPortugueseStrings(entityLabel = 'Shopping') {
     return {
       modalTitle: 'Setup de Metas de Consumo',
       close: 'Fechar',
       previousYear: 'Ano anterior',
       nextYear: 'Próximo ano',
-      shoppingTab: 'Shopping (Anual/Mensal)',
+      shoppingTab: `${entityLabel} (Anual/Mensal)`,
       assetsTab: 'Por Asset',
-      selectShopping: 'Selecione o Shopping',
+      selectShopping: `Selecione o ${entityLabel}`,
       annualGoal: 'Meta Anual',
       unit: 'Unidade',
       annualTotal: 'Total Anual',
@@ -1605,15 +1606,15 @@ export function openGoalsPanel(params) {
     };
   }
 
-  function getEnglishStrings() {
+  function getEnglishStrings(entityLabel = 'Shopping') {
     return {
       modalTitle: 'Consumption Goals Setup',
       close: 'Close',
       previousYear: 'Previous year',
       nextYear: 'Next year',
-      shoppingTab: 'Shopping (Annual/Monthly)',
+      shoppingTab: `${entityLabel} (Annual/Monthly)`,
       assetsTab: 'By Asset',
-      selectShopping: 'Select Shopping Center',
+      selectShopping: `Select ${entityLabel}`,
       annualGoal: 'Annual Goal',
       unit: 'Unit',
       annualTotal: 'Annual Total',

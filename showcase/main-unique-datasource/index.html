@@ -115,6 +115,18 @@
       background-color: #f8fafc;
     }
 
+    /* Section padding alignment */
+    .myio-header-section,
+    .myio-menu-section,
+    .myio-main-view-section {
+      padding: 0 12px;
+      box-sizing: border-box;
+    }
+
+    .myio-main-view-section {
+      padding-top: 8px;
+    }
+
     /* ===== SIDEBAR ===== */
     .showcase-sidebar {
       background: #1e293b;
@@ -548,6 +560,11 @@
 
     // ===== WIDGET STATE =====
     let widgetInitialized = false;
+    let alarmCardInstance = null;
+    let operationalDashboardInstance = null;
+    let operationalCardGridInstance = null;
+    let alarmsNotificationsPanelInstance = null;
+    let mockAlarms = [];
 
     // ===== MOCK self.ctx (ThingsBoard widget context) =====
     window.self = window.self || {};
@@ -1507,6 +1524,10 @@
         document.getElementById('menuContainer').innerHTML = '';
         document.getElementById('telemetryGridContainer').innerHTML = '';
         document.getElementById('footerContainer').innerHTML = '';
+        destroyAlarmCard();
+        destroyOperationalDashboard();
+        destroyOperationalCardGrid();
+        destroyAlarmsNotificationsPanel();
 
         widgetInitialized = false;
         document.getElementById('btnOnInit').disabled = false;
@@ -1540,6 +1561,107 @@
       updateStateDisplay();
     }
 
+    // ===== ALARMS MOCK =====
+    function buildMockAlarms(preset) {
+      const now = Date.now();
+      const presetConfig = {
+        mixed: { count: 18, bias: 'mixed' },
+        critical: { count: 18, bias: 'critical' },
+        quiet: { count: 6, bias: 'low' },
+        storm: { count: 48, bias: 'mixed' },
+      };
+      const config = presetConfig[preset] || presetConfig.mixed;
+      const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+      const states = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'];
+      const alarms = [];
+
+      function pickSeverity() {
+        if (config.bias === 'critical') return Math.random() < 0.7 ? 'CRITICAL' : 'HIGH';
+        if (config.bias === 'low') return Math.random() < 0.6 ? 'LOW' : 'MEDIUM';
+        return severities[Math.floor(Math.random() * severities.length)];
+      }
+
+      for (let i = 0; i < config.count; i++) {
+        const shopping = SHOPPING_DATA[i % SHOPPING_DATA.length];
+        const severity = pickSeverity();
+        const state = states[Math.floor(Math.random() * states.length)];
+        const firstTs = now - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000;
+        const lastTs = firstTs + Math.floor(Math.random() * 24) * 60 * 60 * 1000;
+        alarms.push({
+          id: `alarm-${preset}-${i}`,
+          customerId: shopping.id,
+          customerName: shopping.name,
+          source: `Device-${String(i + 1).padStart(2, '0')}`,
+          severity,
+          state,
+          title: `${severity} - ${shopping.name}`,
+          description: `Mock alarm ${i + 1} (${severity})`,
+          tags: { group: 'showcase' },
+          firstOccurrence: new Date(firstTs).toISOString(),
+          lastOccurrence: new Date(lastTs).toISOString(),
+          occurrenceCount: 1 + Math.floor(Math.random() * 6),
+        });
+      }
+      return alarms;
+    }
+
+    function ensureAlarmCardMounted() {
+      const container = document.getElementById('telemetryGridContainer');
+      if (!container) return;
+      if (!window.MyIOLibrary?.createDeviceOperationalCardComponent) {
+        logEvent('ERROR', 'createDeviceOperationalCardComponent not found in MyIOLibrary', 'error');
+        return;
+      }
+
+      if (!alarmCardInstance) {
+        container.innerHTML = '';
+        alarmCardInstance = window.MyIOLibrary.createDeviceOperationalCardComponent({
+          container,
+          themeMode: self.ctx.settings.defaultThemeMode,
+          enableDebugMode: self.ctx.settings.enableDebugMode,
+          alarms: mockAlarms,
+          enableSelection: true,
+          enableDragDrop: true,
+          onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
+          onAlarmAction: (action, alarm) => logEvent('ALARM_ACTION', `${action} ${alarm.id}`, 'info'),
+        });
+        logEvent('ALARM_PANEL', 'DeviceOperationalCard mounted', 'info');
+      } else {
+        alarmCardInstance.setThemeMode?.(self.ctx.settings.defaultThemeMode);
+      }
+    }
+
+    function updateMockAlarms() {
+      const preset = document.getElementById('alarmPreset').value;
+      mockAlarms = buildMockAlarms(preset);
+      if (alarmCardInstance) {
+        alarmCardInstance.updateAlarms?.(mockAlarms);
+      }
+      logEvent('ALARMS', `Mock alarms updated (${mockAlarms.length})`, 'info');
+    }
+
+    function generateRandomAlarms() {
+      const presets = ['mixed', 'critical', 'quiet', 'storm'];
+      const preset = presets[Math.floor(Math.random() * presets.length)];
+      document.getElementById('alarmPreset').value = preset;
+      updateMockAlarms();
+    }
+
+    function dispatchAlarmsUpdated() {
+      if (!mockAlarms.length) updateMockAlarms();
+      ensureAlarmCardMounted();
+      if (alarmCardInstance) {
+        alarmCardInstance.updateAlarms?.(mockAlarms);
+      }
+    }
+
+    function destroyAlarmCard() {
+      if (alarmCardInstance) {
+        alarmCardInstance.destroy?.();
+        alarmCardInstance = null;
+      }
+    }
+
     function generateRandomData() {
       const presets = ['full', 'partial', 'single', 'large'];
       const domains = ['all', 'energy', 'water', 'temperature'];
@@ -1565,6 +1687,18 @@
 
       document.getElementById('mainUniqueWrap').setAttribute('data-theme', theme);
       document.body.classList.toggle('light-mode', theme === 'light');
+      if (alarmCardInstance) {
+        alarmCardInstance.setThemeMode?.(theme);
+      }
+      if (operationalDashboardInstance) {
+        operationalDashboardInstance.setThemeMode?.(theme);
+      }
+      if (operationalCardGridInstance) {
+        operationalCardGridInstance.setThemeMode?.(theme);
+      }
+      if (alarmsNotificationsPanelInstance) {
+        alarmsNotificationsPanelInstance.setThemeMode?.(theme);
+      }
 
       logEvent('SETTINGS', { theme, debug });
       updateStateDisplay();
@@ -1595,6 +1729,232 @@
         logEvent('EVENT', eventName, 'info');
       });
     });
+
+    // ===== RFC-0152: Handle menu navigation to operational panels =====
+    window.addEventListener('myio:switch-main-state', (e) => {
+      // MenuController sends targetStateId, not stateId
+      const stateId = e.detail?.targetStateId || e.detail?.stateId || '';
+      logEvent('SWITCH_STATE', stateId, 'info');
+
+      if (stateId === 'operational_dashboard') {
+        renderOperationalDashboard();
+      } else if (stateId === 'operational_general_list') {
+        renderOperationalGeneralList();
+      } else if (stateId === 'operational_alarms') {
+        renderAlarmsNotificationsPanel();
+      }
+    });
+
+    // ===== RFC-0152 Phase 5: Render Operational Dashboard =====
+    function renderOperationalDashboard() {
+      const container = document.getElementById('telemetryGridContainer');
+      if (!container) return;
+
+      // Destroy other panels if active
+      destroyAlarmCard();
+      destroyOperationalCardGrid();
+      destroyAlarmsNotificationsPanel();
+
+      if (!window.MyIOLibrary?.createOperationalDashboardComponent) {
+        logEvent('ERROR', 'createOperationalDashboardComponent not found in MyIOLibrary', 'error');
+        return;
+      }
+
+      container.innerHTML = '';
+
+      // Generate mock data for the dashboard
+      const mockKPIs = window.MyIOLibrary.generateMockKPIs?.() || {
+        fleetAvailability: 94.7,
+        availabilityTrend: 2.3,
+        avgAvailability: 92.5,
+        activeAlerts: 3,
+        fleetMTBF: 342,
+        fleetMTTR: 4.2,
+        totalEquipment: 48,
+        onlineCount: 42,
+        offlineCount: 3,
+        maintenanceCount: 3,
+      };
+
+      const mockTrendData = window.MyIOLibrary.generateMockTrendData?.('month') || [];
+      const mockDowntimeList = window.MyIOLibrary.generateMockDowntimeList?.() || [
+        { name: 'ESC-02', location: 'Shopping Meier', downtime: 48, percentage: 15 },
+        { name: 'ELV-05', location: 'Shopping Central', downtime: 32, percentage: 10 },
+        { name: 'ESC-08', location: 'Shopping Madureira', downtime: 24, percentage: 7.5 },
+        { name: 'ELV-02', location: 'Shopping Deodoro', downtime: 18, percentage: 5.6 },
+        { name: 'ESC-11', location: 'Shopping Bonsucesso', downtime: 12, percentage: 3.8 },
+      ];
+
+      operationalDashboardInstance = window.MyIOLibrary.createOperationalDashboardComponent({
+        container,
+        themeMode: self.ctx.settings.defaultThemeMode,
+        enableDebugMode: self.ctx.settings.enableDebugMode,
+        initialPeriod: 'month',
+        kpis: mockKPIs,
+        trendData: mockTrendData,
+        downtimeList: mockDowntimeList,
+        onPeriodChange: (period) => {
+          logEvent('DASHBOARD_PERIOD', period, 'info');
+          // Simulate loading and data fetch
+          operationalDashboardInstance?.setLoading(true);
+          setTimeout(() => {
+            const newTrendData = window.MyIOLibrary.generateMockTrendData?.(period) || [];
+            operationalDashboardInstance?.updateTrendData(newTrendData);
+            operationalDashboardInstance?.setLoading(false);
+          }, 800);
+        },
+        onRefresh: () => {
+          logEvent('DASHBOARD_REFRESH', 'Refresh requested', 'info');
+          operationalDashboardInstance?.setLoading(true);
+          setTimeout(() => {
+            const newKPIs = {
+              ...mockKPIs,
+              fleetAvailability: 90 + Math.random() * 10,
+              availabilityTrend: (Math.random() - 0.5) * 6,
+            };
+            operationalDashboardInstance?.updateKPIs(newKPIs);
+            operationalDashboardInstance?.setLoading(false);
+          }, 1000);
+        },
+      });
+
+      logEvent('DASHBOARD', 'Operational Dashboard rendered', 'info');
+    }
+
+    function destroyOperationalDashboard() {
+      if (operationalDashboardInstance) {
+        operationalDashboardInstance.destroy?.();
+        operationalDashboardInstance = null;
+      }
+    }
+
+    // ===== RFC-0152 Phase 3: Render Operational General List (Card Grid) =====
+    function renderOperationalGeneralList() {
+      const container = document.getElementById('telemetryGridContainer');
+      if (!container) return;
+
+      // Destroy other panels if active
+      destroyAlarmCard();
+      destroyOperationalDashboard();
+      destroyAlarmsNotificationsPanel();
+
+      if (!window.MyIOLibrary?.createDeviceOperationalCardGridComponent) {
+        logEvent('ERROR', 'createDeviceOperationalCardGridComponent not found in MyIOLibrary', 'error');
+        return;
+      }
+
+      container.innerHTML = '';
+
+      // Generate mock equipment data
+      const mockEquipment = generateMockOperationalEquipment();
+
+      operationalCardGridInstance = window.MyIOLibrary.createDeviceOperationalCardGridComponent({
+        container,
+        themeMode: self.ctx.settings.defaultThemeMode,
+        enableDebugMode: self.ctx.settings.enableDebugMode,
+        equipment: mockEquipment,
+        customers: SHOPPING_DATA.map(s => ({ id: s.id, name: s.name })),
+        includeSearch: true,
+        includeFilters: true,
+        includeStats: true,
+        enableSelection: true,
+        enableDragDrop: true,
+        onEquipmentClick: (eq) => logEvent('EQUIPMENT_CLICK', eq.name, 'info'),
+        onEquipmentAction: (action, eq) => logEvent('EQUIPMENT_ACTION', `${action} - ${eq.name}`, 'info'),
+      });
+
+      logEvent('GENERAL_LIST', 'Operational General List rendered', 'info');
+    }
+
+    function destroyOperationalCardGrid() {
+      if (operationalCardGridInstance) {
+        operationalCardGridInstance.destroy?.();
+        operationalCardGridInstance = null;
+      }
+    }
+
+    // ===== RFC-0152 Phase 4: Render Alarms & Notifications Panel =====
+    function renderAlarmsNotificationsPanel() {
+      const container = document.getElementById('telemetryGridContainer');
+      if (!container) return;
+
+      // Destroy other panels if active
+      destroyAlarmCard();
+      destroyOperationalDashboard();
+      destroyOperationalCardGrid();
+
+      if (!window.MyIOLibrary?.createAlarmsNotificationsPanelComponent) {
+        logEvent('ERROR', 'createAlarmsNotificationsPanelComponent not found in MyIOLibrary', 'error');
+        return;
+      }
+
+      container.innerHTML = '';
+
+      // Use existing mock alarms or generate new ones
+      if (!mockAlarms.length) {
+        const preset = document.getElementById('alarmPreset').value;
+        mockAlarms = buildMockAlarms(preset);
+      }
+
+      alarmsNotificationsPanelInstance = window.MyIOLibrary.createAlarmsNotificationsPanelComponent({
+        container,
+        themeMode: self.ctx.settings.defaultThemeMode,
+        enableDebugMode: self.ctx.settings.enableDebugMode,
+        alarms: mockAlarms,
+        onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
+        onAlarmAction: (action, alarm) => logEvent('ALARM_ACTION', `${action} - ${alarm.id}`, 'info'),
+        onTabChange: (tab) => logEvent('ALARM_TAB', tab, 'info'),
+      });
+
+      logEvent('ALARMS_PANEL', 'Alarms & Notifications Panel rendered', 'info');
+    }
+
+    function destroyAlarmsNotificationsPanel() {
+      if (alarmsNotificationsPanelInstance) {
+        alarmsNotificationsPanelInstance.destroy?.();
+        alarmsNotificationsPanelInstance = null;
+      }
+    }
+
+    // ===== Generate Mock Operational Equipment =====
+    function generateMockOperationalEquipment() {
+      const equipment = [];
+      const types = ['escada', 'elevador'];
+      const statuses = ['online', 'online', 'online', 'online', 'offline', 'maintenance', 'warning'];
+
+      let idx = 0;
+      SHOPPING_DATA.forEach((shopping) => {
+        // Generate 3-5 equipment per shopping
+        const count = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+          idx++;
+          const type = types[Math.floor(Math.random() * types.length)];
+          const status = statuses[Math.floor(Math.random() * statuses.length)];
+          const availability = status === 'offline' ? 60 + Math.random() * 20 : 85 + Math.random() * 15;
+
+          equipment.push({
+            id: `eq-${idx}`,
+            name: `${type === 'escada' ? 'ESC' : 'ELV'}-${String(idx).padStart(2, '0')}`,
+            identifier: `ID-${String(idx).padStart(5, '0')}`,
+            type,
+            status,
+            customerId: shopping.id,
+            customerName: shopping.name,
+            location: `Piso ${1 + Math.floor(Math.random() * 4)}`,
+            availability: Math.round(availability * 10) / 10,
+            mtbf: 200 + Math.floor(Math.random() * 400),
+            mttr: 1 + Math.round(Math.random() * 8 * 10) / 10,
+            hasReversal: status === 'warning' || Math.random() < 0.1,
+            recentAlerts: status === 'offline' ? 2 + Math.floor(Math.random() * 4) : Math.floor(Math.random() * 2),
+            openAlarms: status === 'offline' ? 1 + Math.floor(Math.random() * 3) : 0,
+            lastActivityTime: Date.now() - Math.random() * 3600000,
+            lastMaintenanceTime: Date.now() - Math.random() * 86400000 * 30,
+          });
+        }
+      });
+
+      return equipment;
+    }
 
     // Handle menu requesting shoppings (RFC-0127)
     // This provides shoppings to the filter modal when it needs them
