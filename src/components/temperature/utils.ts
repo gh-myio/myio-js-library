@@ -59,6 +59,11 @@ export const DAY_PERIODS: DayPeriodConfig[] = [
 
 export const DEFAULT_CLAMP_RANGE: ClampRange = { min: 15, max: 40 };
 
+/**
+ * Default temperature offset (no adjustment)
+ */
+export const DEFAULT_TEMPERATURE_OFFSET = 0;
+
 // ============================================================================
 // Date Helpers
 // ============================================================================
@@ -180,14 +185,23 @@ export async function fetchTemperatureData(
 // ============================================================================
 
 /**
- * Clamps temperature value to avoid outliers
- * Values below min are clamped to min, values above max are clamped to max
+ * Applies temperature offset and clamps value to avoid outliers
+ * Offset is applied first, then values are clamped to range
+ * @param value - Raw temperature value
+ * @param range - Clamp range (default: 15-40°C)
+ * @param offset - Temperature offset to apply (can be positive or negative)
  */
 export function clampTemperature(
   value: number | string,
-  range: ClampRange = DEFAULT_CLAMP_RANGE
+  range: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): number {
-  const num = Number(value || 0);
+  let num = Number(value || 0);
+  // Apply offset first
+  if (offset !== 0) {
+    num = num + offset;
+  }
+  // Then clamp to range
   if (num < range.min) return range.min;
   if (num > range.max) return range.max;
   return num;
@@ -195,16 +209,20 @@ export function clampTemperature(
 
 /**
  * Calculates statistics from temperature data
+ * @param data - Temperature telemetry data
+ * @param clampRange - Clamp range for outliers
+ * @param offset - Temperature offset to apply to all values
  */
 export function calculateStats(
   data: TemperatureTelemetry[],
-  clampRange: ClampRange = DEFAULT_CLAMP_RANGE
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): TemperatureStats {
   if (data.length === 0) {
     return { avg: 0, min: 0, max: 0, count: 0 };
   }
 
-  const values = data.map(item => clampTemperature(item.value, clampRange));
+  const values = data.map(item => clampTemperature(item.value, clampRange, offset));
   const sum = values.reduce((acc, v) => acc + v, 0);
 
   return {
@@ -229,6 +247,7 @@ export function calculateStats(
  * @param options.endTs - End timestamp (UTC milliseconds)
  * @param options.clampRange - Range for clamping outlier values
  * @param options.timezone - Optional IANA timezone string (e.g., 'America/Sao_Paulo')
+ * @param options.offset - Temperature offset to apply to all values
  */
 export function interpolateTemperature(
   data: TemperatureTelemetry[],
@@ -238,9 +257,10 @@ export function interpolateTemperature(
     endTs: number;
     clampRange?: ClampRange;
     timezone?: string;
+    offset?: number;
   }
 ): TemperatureTelemetry[] {
-  const { intervalMinutes, startTs, clampRange = DEFAULT_CLAMP_RANGE } = options;
+  const { intervalMinutes, startTs, clampRange = DEFAULT_CLAMP_RANGE, offset = DEFAULT_TEMPERATURE_OFFSET } = options;
   const intervalMs = intervalMinutes * 60 * 1000;
 
   // BUGFIX: Clamp endTs to current time to avoid generating future data points
@@ -257,7 +277,7 @@ export function interpolateTemperature(
 
   // Generate all expected timestamps (only up to current time)
   const result: TemperatureTelemetry[] = [];
-  let lastKnownValue = clampTemperature(sortedData[0].value, clampRange);
+  let lastKnownValue = clampTemperature(sortedData[0].value, clampRange, offset);
   let dataIndex = 0;
 
   for (let ts = startTs; ts <= endTs; ts += intervalMs) {
@@ -269,7 +289,7 @@ export function interpolateTemperature(
     // Check if we have an exact or close match (within interval)
     const currentData = sortedData[dataIndex];
     if (currentData && Math.abs(currentData.ts - ts) < intervalMs) {
-      lastKnownValue = clampTemperature(currentData.value, clampRange);
+      lastKnownValue = clampTemperature(currentData.value, clampRange, offset);
     }
 
     result.push({
@@ -283,10 +303,14 @@ export function interpolateTemperature(
 
 /**
  * Aggregates temperature data by day, calculating daily statistics
+ * @param data - Temperature telemetry data
+ * @param clampRange - Clamp range for outliers
+ * @param offset - Temperature offset to apply to all values
  */
 export function aggregateByDay(
   data: TemperatureTelemetry[],
-  clampRange: ClampRange = DEFAULT_CLAMP_RANGE
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): DailyTemperatureStats[] {
   if (data.length === 0) {
     return [];
@@ -309,7 +333,7 @@ export function aggregateByDay(
   const result: DailyTemperatureStats[] = [];
 
   dayMap.forEach((dayData, dateKey) => {
-    const values = dayData.map(item => clampTemperature(item.value, clampRange));
+    const values = dayData.map(item => clampTemperature(item.value, clampRange, offset));
     const sum = values.reduce((acc, v) => acc + v, 0);
 
     result.push({

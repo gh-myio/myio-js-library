@@ -4009,6 +4009,9 @@ const MyIOOrchestrator = (() => {
       waterPercentageTs: meta.waterPercentageTs || null,
       temperatureTs: meta.temperatureTs || null,
 
+      // Temperature offset - used to adjust displayed temperature value
+      offSetTemperature: meta.offSetTemperature || 0,
+
       // Annotations
       log_annotations: meta.log_annotations || null,
 
@@ -4211,6 +4214,23 @@ const MyIOOrchestrator = (() => {
         const ts = row?.data?.[0]?.[0];
         meta.temperatureTs = ts && ts > 0 ? ts : null;
       }
+      // Temperature offset field - used to adjust displayed temperature
+      else if (keyName === 'offsettemperature' || keyName === 'offSetTemperature' || keyName === 'offset_temperature') {
+        meta.offSetTemperature = Number(val) || 0;
+        console.warn(`🌡️ [MAIN_VIEW] Found offSetTemperature for device "${meta.label || meta.entityName}": ${meta.offSetTemperature}`);
+      }
+    }
+
+    // DEBUG: Log all unique dataKeys found for temperature domain
+    if (domain === 'temperature') {
+      const allDataKeys = new Set();
+      for (const row of rows) {
+        const aliasName = (row?.datasource?.aliasName || row?.datasource?.name || '').toLowerCase();
+        if (aliasName === allowedAlias) {
+          allDataKeys.add(row?.dataKey?.name || 'unknown');
+        }
+      }
+      console.warn(`🌡️ [MAIN_VIEW DEBUG] All dataKeys found for temperature domain:`, Array.from(allDataKeys));
     }
 
     // Build map by ingestionId
@@ -4542,6 +4562,17 @@ const MyIOOrchestrator = (() => {
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
           const temperatureValue = Number(meta.temperature || 0);
+          const tempOffset = Number(meta.offSetTemperature || 0);
+
+          // Debug: Log if offset is found
+          if (tempOffset !== 0) {
+            console.warn(`🌡️ [MAIN_VIEW] Creating temperature item with offset:`, {
+              label: meta.label || meta.identifier,
+              rawTemperature: temperatureValue,
+              offSetTemperature: tempOffset,
+              adjustedTemperature: temperatureValue + tempOffset,
+            });
+          }
 
           // RFC-0111: Use centralized factory
           items.push(
@@ -4555,6 +4586,7 @@ const MyIOOrchestrator = (() => {
                 value: temperatureValue,
                 temperature: temperatureValue,
                 deviceType: meta.deviceType || 'TERMOSTATO',
+                offSetTemperature: tempOffset, // Pass offset to orchestrator item
               },
             })
           );

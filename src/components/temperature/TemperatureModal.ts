@@ -20,6 +20,7 @@ import {
   filterByDayPeriods,
   getSelectedPeriodsLabel,
   DEFAULT_CLAMP_RANGE,
+  DEFAULT_TEMPERATURE_OFFSET,
   DAY_PERIODS,
   type TemperatureTelemetry,
   type TemperatureStats,
@@ -57,6 +58,8 @@ export interface TemperatureModalParams {
   temperatureMax?: number;
   /** Temperature status indicator */
   temperatureStatus?: 'ok' | 'above' | 'below';
+  /** Temperature offset to apply to all values (can be positive or negative) */
+  temperatureOffset?: number;
   /** Container element or selector */
   container?: HTMLElement | string;
   /** Callback when modal closes */
@@ -92,6 +95,7 @@ interface ModalState {
   temperatureMin: number | null;
   temperatureMax: number | null;
   temperatureStatus: 'ok' | 'above' | 'below' | null;
+  temperatureOffset: number;
   startTs: number;
   endTs: number;
   granularity: TemperatureGranularity;
@@ -135,6 +139,7 @@ export async function openTemperatureModal(
     temperatureMin: params.temperatureMin ?? null,
     temperatureMax: params.temperatureMax ?? null,
     temperatureStatus: params.temperatureStatus ?? null,
+    temperatureOffset: params.temperatureOffset ?? DEFAULT_TEMPERATURE_OFFSET,
     startTs,
     endTs,
     granularity: params.granularity || 'hour',
@@ -148,6 +153,11 @@ export async function openTemperatureModal(
     dateRangePicker: null,
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'] // All periods selected by default
   };
+
+  // Log if offset is applied
+  if (state.temperatureOffset !== 0) {
+    console.log(`[TemperatureModal] Applying temperature offset: ${state.temperatureOffset}°C`);
+  }
 
   // Load saved preferences
   const savedGranularity = localStorage.getItem('myio-temp-modal-granularity') as TemperatureGranularity;
@@ -166,7 +176,7 @@ export async function openTemperatureModal(
   // Fetch initial data
   try {
     state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
-    state.stats = calculateStats(state.data, state.clampRange);
+    state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
     state.isLoading = false;
     renderModal(modalContainer, state, modalId);
     drawChart(modalId, state);
@@ -194,7 +204,7 @@ export async function openTemperatureModal(
 
       try {
         state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
-        state.stats = calculateStats(state.data, state.clampRange);
+        state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
         state.isLoading = false;
         renderModal(modalContainer, state, modalId);
         drawChart(modalId, state);
@@ -556,7 +566,8 @@ function drawChart(modalId: string, state: ModalState): void {
       startTs: state.startTs,
       endTs: state.endTs,
       clampRange: state.clampRange,
-      timezone: state.timezone
+      timezone: state.timezone,
+      offset: state.temperatureOffset
     });
     // Filter interpolated data by periods again (since interpolation may add points)
     const filteredInterpolated = filterByDayPeriods(interpolated, state.selectedPeriods);
@@ -568,7 +579,7 @@ function drawChart(modalId: string, state: ModalState): void {
     }));
   } else {
     // Aggregate by day
-    const daily = aggregateByDay(filteredData, state.clampRange);
+    const daily = aggregateByDay(filteredData, state.clampRange, state.temperatureOffset);
     chartData = daily.map(item => ({
       x: item.dateTs,
       y: item.avg,
@@ -1006,7 +1017,7 @@ async function setupEventListeners(
 
     try {
       state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
-      state.stats = calculateStats(state.data, state.clampRange);
+      state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
       state.isLoading = false;
       renderModal(container, state, modalId);
       drawChart(modalId, state);

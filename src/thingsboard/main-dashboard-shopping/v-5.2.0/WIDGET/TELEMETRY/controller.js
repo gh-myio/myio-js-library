@@ -750,6 +750,45 @@ function getData(dataKeyName) {
   return null;
 }
 
+/**
+ * Get temperature offset for a specific device from ctx.data
+ * Looks for a dataKey named "offSetTemperature" for the given device
+ * @param {string} deviceId - The device TB ID to search for
+ * @returns {number} The offset value (positive or negative), or 0 if not found
+ */
+function getTemperatureOffset(deviceId) {
+  if (!self?.ctx?.data || !deviceId) {
+    return 0;
+  }
+
+  for (const device of self.ctx.data) {
+    const entityId = device.datasource?.entity?.id?.id;
+    if (entityId === deviceId && device.dataKey?.name === 'offSetTemperature') {
+      if (device.data && device.data.length > 0) {
+        const lastDataPoint = device.data[device.data.length - 1];
+        const offset = Number(lastDataPoint[1]) || 0;
+        LogHelper.log(`[getTemperatureOffset] Found offset ${offset} for device ${deviceId}`);
+        return offset;
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Apply temperature offset to a value
+ * @param {number} temperature - The original temperature value
+ * @param {number} offset - The offset to apply (can be positive or negative)
+ * @returns {number} The adjusted temperature
+ */
+function applyTemperatureOffset(temperature, offset) {
+  if (offset === 0) return temperature;
+  const adjusted = temperature + offset;
+  LogHelper.log(`[applyTemperatureOffset] ${temperature} + ${offset} = ${adjusted}`);
+  return adjusted;
+}
+
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
@@ -1971,10 +2010,13 @@ function renderList(visible) {
               window.MyIOUtils?.temperatureLimits?.maxTemperature ??
               null;
             const tempStatus = it.temperatureStatus || entityObject.temperatureStatus;
+            // Temperature offset (can be positive or negative)
+            const tempOffset = it.temperatureOffset ?? it.offSetTemperature ?? entityObject.temperatureOffset ?? 0;
 
             LogHelper.log('[TELEMETRY v5] Temperature range from entity/scope:', {
               tempMinRange,
               tempMaxRange,
+              tempOffset,
             });
 
             // Check if MyIOLibrary.openTemperatureModal is available
@@ -1997,6 +2039,7 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              temperatureOffset: tempOffset,
             });
 
             const modalHandle = MyIOLibrary.openTemperatureModal({
@@ -2009,6 +2052,7 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              temperatureOffset: tempOffset,
               theme: 'dark',
               locale: 'pt-BR',
               granularity: 'hour',
@@ -2211,6 +2255,12 @@ function renderList(visible) {
               identifier: it.identifier,
             });
 
+            // Get temperature offset for this device (will be applied to report values)
+            const reportTempOffset = it.temperatureOffset || getTemperatureOffset(tbId) || 0;
+            if (reportTempOffset !== 0) {
+              LogHelper.log(`[TELEMETRY v5] Temperature report will apply offset: ${reportTempOffset}`);
+            }
+
             // Create custom fetcher for ThingsBoard temperature data
             const temperatureFetcher = async ({ startISO, endISO }) => {
               const startTs = new Date(startISO).getTime();
@@ -2222,6 +2272,7 @@ function renderList(visible) {
                 startTs,
                 endTs,
                 tbId,
+                temperatureOffset: reportTempOffset,
               });
 
               // Fetch temperature data from ThingsBoard with daily aggregation
@@ -2257,10 +2308,14 @@ function renderList(visible) {
                 return [];
               }
 
-              // Helper function to clamp temperature values (avoid outliers)
-              // Values below 15°C are clamped to 15, values above 40°C are clamped to 40
+              // Helper function to apply offset and clamp temperature values (avoid outliers)
+              // Offset is applied first, then values below 15°C are clamped to 15, above 40°C to 40
               const clampTemp = (v) => {
-                const num = Number(v || 0);
+                let num = Number(v || 0);
+                // Apply temperature offset before clamping
+                if (reportTempOffset !== 0) {
+                  num = num + reportTempOffset;
+                }
                 if (num < 15) return 15;
                 if (num > 40) return 40;
                 return num;
@@ -3810,7 +3865,13 @@ self.onInit = async function () {
       let temperatureStatus = null;
       const isTemperatureDomain = domain === 'temperature';
       const isEnergyDomain = domain === 'energy';
-      const temp = Number(item.value || 0);
+      const rawTemp = Number(item.value || 0);
+
+      // Apply temperature offset if available (from dataKey "offSetTemperature")
+      // The offset can be positive or negative and is added to the raw temperature
+      const deviceTbId = item.tbId || item.id;
+      const tempOffset = isTemperatureDomain ? (item.offSetTemperature ?? getTemperatureOffset(deviceTbId)) : 0;
+      const temp = isTemperatureDomain && tempOffset !== 0 ? applyTemperatureOffset(rawTemp, tempOffset) : rawTemp;
 
       if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
         if (temp > globalTempMax) {
@@ -3883,6 +3944,8 @@ self.onInit = async function () {
         consumptionPower: item.consumptionPower || null,
         // Temperature domain specific fields - use global limits from customer
         temperature: isTemperatureDomain ? temp : null,
+        temperatureRaw: isTemperatureDomain ? rawTemp : null, // Original value before offset
+        temperatureOffset: isTemperatureDomain ? tempOffset : null, // Offset applied (can be + or -)
         temperatureMin: isTemperatureDomain ? globalTempMin : null,
         temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
