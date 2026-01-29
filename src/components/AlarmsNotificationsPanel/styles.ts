@@ -401,10 +401,10 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border-left: 4px solid var(--alarms-border);
   border-radius: var(--alarms-radius);
   box-shadow: var(--alarms-shadow);
-  overflow: hidden;
+  overflow: visible;
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 200px;
+  min-height: 320px;
 }
 
 .alarm-card:hover {
@@ -522,40 +522,44 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 /* Card Body */
 .alarm-card-body {
-  padding: 14px 16px;
-  flex: 1;
+  padding: 16px;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
 }
 
 .alarm-card-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--alarms-text);
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   word-break: break-word;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 .alarm-card-id {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--alarms-text-muted);
   font-family: 'SF Mono', Monaco, monospace;
   margin-bottom: 12px;
   flex-shrink: 0;
 }
 
+/* Customer Section */
 .alarm-card-customer {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
+  margin: 12px 0;
+  padding: 8px 12px;
+  background: var(--alarms-bg-secondary);
+  border-radius: var(--alarms-radius);
 }
 
 .alarm-customer-avatar {
@@ -565,22 +569,25 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   width: 36px;
   height: 36px;
   min-width: 36px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--alarms-primary);
   background: var(--alarms-primary-light);
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.alarm-customer-info {
-  flex: 1;
+.alarm-customer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  overflow: hidden;
+  flex: 1;
 }
 
 .alarm-customer-name {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--alarms-text);
   white-space: nowrap;
   overflow: hidden;
@@ -588,9 +595,39 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 .alarm-customer-source {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--alarms-text-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Shopping Chip Badge */
+.alarm-shopping-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--alarms-text);
+  background: var(--alarms-bg-secondary);
+  border: 1px solid var(--alarms-border);
+  border-radius: 20px;
+  margin: 12px 0;
+  flex-shrink: 0;
+}
+
+.alarm-shopping-chip .chip-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.alarm-shopping-chip .chip-text {
+  white-space: nowrap;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -598,40 +635,52 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 /* Card Stats Row */
 .alarm-card-stats {
   display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
   gap: 16px;
-  padding: 10px 0;
-  border-top: 1px solid var(--alarms-border-light);
-  margin-top: auto;
-  flex-wrap: wrap;
+  padding: 16px 12px;
+  margin: 12px 0;
+  background: var(--alarms-bg-secondary);
+  border-radius: var(--alarms-radius);
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .alarm-stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 60px;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  text-align: center;
+}
+
+.alarm-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--alarms-text);
+}
+
+.alarm-stat-value--large {
+  font-size: 22px;
+  font-weight: 800;
 }
 
 .alarm-stat-label {
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--alarms-text-light);
-}
-
-.alarm-stat-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--alarms-text);
+  text-transform: capitalize;
+  color: var(--alarms-text-muted);
 }
 
 /* Card Tags */
 .alarm-card-tags {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 12px;
+  width: 100%;
 }
 
 .alarm-tag {
@@ -653,36 +702,34 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .alarm-card-footer {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--alarms-border-light);
   background: var(--alarms-bg-secondary);
   flex-shrink: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .alarm-card-footer .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 4px;
+  padding: 10px 14px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   border: none;
   border-radius: var(--alarms-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
   white-space: nowrap;
+  flex: 1;
+  max-width: 120px;
 }
 
 .alarm-card-footer .btn-ack {
   color: #fff;
-  background: var(--severity-high);
-}
-
-.alarm-card-footer .btn-ack:hover {
-  background: #ea580c;
+  background: #1d4ed8;
 }
 
 .alarm-card-footer .btn-details {
@@ -690,20 +737,24 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: var(--alarms-border);
 }
 
-.alarm-card-footer .btn-details:hover {
-  background: var(--alarms-text-light);
+.alarm-card-footer .btn-snooze {
+  color: #fff;
+  background: var(--state-snoozed);
+}
+
+.alarm-card-footer .btn-escalate {
+  color: #fff;
+  background: var(--state-escalated);
 }
 
 .alarm-card-footer .btn-more {
-  margin-left: auto;
-  padding: 8px 10px;
+  flex: 0;
+  max-width: 40px;
+  min-width: 40px;
+  padding: 10px;
   color: var(--alarms-text-muted);
-  background: transparent;
-}
-
-.alarm-card-footer .btn-more:hover {
-  color: var(--alarms-text);
   background: var(--alarms-border);
+  border-radius: var(--alarms-radius);
 }
 
 /* =====================================================================
@@ -711,7 +762,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    ===================================================================== */
 @media (max-width: 480px) {
   .alarm-card {
-    min-height: auto;
+    min-height: 280px;
   }
 
   .alarm-card-header {
@@ -734,36 +785,86 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
   .alarm-card-body {
     padding: 12px;
+    gap: 8px;
   }
 
   .alarm-card-title {
     font-size: 14px;
-    -webkit-line-clamp: 3;
+  }
+
+  .alarm-card-customer {
+    gap: 8px;
+    padding: 6px 10px;
   }
 
   .alarm-customer-avatar {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
     font-size: 11px;
   }
 
-  .alarm-card-stats {
-    gap: 12px;
+  .alarm-customer-name {
+    font-size: 12px;
   }
 
-  .alarm-stat {
-    min-width: auto;
-    flex: 1;
+  .alarm-customer-source {
+    font-size: 10px;
+  }
+
+  .alarm-shopping-chip {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .alarm-shopping-chip .chip-text {
+    max-width: 150px;
+  }
+
+  .alarm-card-stats {
+    gap: 10px;
+    padding: 12px 8px;
+  }
+
+  .alarm-stat-value {
+    font-size: 14px;
+  }
+
+  .alarm-stat-value--large {
+    font-size: 18px;
+  }
+
+  .alarm-stat-label {
+    font-size: 9px;
+  }
+
+  .alarm-card-tags {
+    gap: 4px;
+  }
+
+  .alarm-tag {
+    font-size: 10px;
+    padding: 2px 6px;
   }
 
   .alarm-card-footer {
+    flex-wrap: wrap;
+    gap: 6px;
     padding: 10px 12px;
   }
 
   .alarm-card-footer .btn {
-    padding: 6px 10px;
-    font-size: 11px;
+    flex: 1 1 auto;
+    min-width: 80px;
+    max-width: none;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .alarm-card-footer .btn-more {
+    flex: 0 0 36px;
+    min-width: 36px;
+    max-width: 36px;
   }
 }
 

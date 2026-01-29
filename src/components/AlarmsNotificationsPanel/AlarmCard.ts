@@ -25,17 +25,21 @@ function getCustomerInitials(name: string): string {
 }
 
 /**
- * Format date for display
+ * Format relative time for display (e.g., "6d ago", "just now")
  */
-function formatDate(isoString: string): string {
+function formatRelativeTimeShort(isoString: string): string {
   try {
     const date = new Date(isoString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) return `${diffDays}d ago`;
+    if (diffHours > 0) return `${diffHours}h ago`;
+    if (diffMinutes > 0) return `${diffMinutes}m ago`;
+    return 'just now';
   } catch {
     return '-';
   }
@@ -64,6 +68,11 @@ function renderTags(tags: Record<string, string>, maxVisible = 3): string {
 }
 
 /**
+ * Building icon SVG for shopping badge
+ */
+const BUILDING_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chip-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M9 18h6"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 6h6"/></svg>`;
+
+/**
  * Render an alarm card as HTML string
  */
 export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string {
@@ -71,80 +80,53 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
   const stateConfig = STATE_CONFIG[alarm.state];
   const isActive = isAlarmActive(alarm.state);
   const relativeTime = formatAlarmRelativeTime(alarm.lastOccurrence);
+  const firstSeenRelative = formatRelativeTimeShort(alarm.firstOccurrence);
+  const lastSeenRelative = formatRelativeTimeShort(alarm.lastOccurrence);
 
-  return `
-    <article
-      class="alarm-card"
-      data-alarm-id="${alarm.id}"
-      data-severity="${alarm.severity}"
-      data-state="${alarm.state}"
-    >
-      <header class="alarm-card-header">
-        <div class="alarm-card-badges">
-          <span class="alarm-severity-badge" data-severity="${alarm.severity}">
-            <span class="badge-icon">${severityConfig.icon}</span>
-            <span class="badge-label">${severityConfig.label}</span>
-          </span>
-          <span class="alarm-state-badge" data-state="${alarm.state}">
-            ${stateConfig.label}
-          </span>
-        </div>
-        <span class="alarm-card-time">${relativeTime}</span>
-      </header>
+  // Safely escape values
+  const safeTitle = escapeHtml(alarm.title || 'Sem título');
+  const safeCustomerName = escapeHtml(alarm.customerName || 'N/A');
+  const safeSource = escapeHtml(alarm.source || 'N/A');
+  const safeOccurrences = alarm.occurrenceCount || 1;
 
-      <div class="alarm-card-body">
-        <h3 class="alarm-card-title">${escapeHtml(alarm.title)}</h3>
-        <p class="alarm-card-id">${alarm.id}</p>
-
-        <div class="alarm-card-customer">
-          <div class="alarm-customer-avatar">
-            ${getCustomerInitials(alarm.customerName)}
-          </div>
-          <div class="alarm-customer-info">
-            <div class="alarm-customer-name">${escapeHtml(alarm.customerName)}</div>
-            <div class="alarm-customer-source">${escapeHtml(alarm.source)}</div>
-          </div>
-        </div>
-
-        <div class="alarm-card-stats">
-          <div class="alarm-stat">
-            <span class="alarm-stat-label">Ocorrencias</span>
-            <span class="alarm-stat-value">${alarm.occurrenceCount}</span>
-          </div>
-          <div class="alarm-stat">
-            <span class="alarm-stat-label">Primeira</span>
-            <span class="alarm-stat-value">${formatDate(alarm.firstOccurrence)}</span>
-          </div>
-          <div class="alarm-stat">
-            <span class="alarm-stat-label">Ultima</span>
-            <span class="alarm-stat-value">${formatDate(alarm.lastOccurrence)}</span>
-          </div>
-        </div>
-
-        ${renderTags(alarm.tags)}
+  return `<article class="alarm-card" data-alarm-id="${alarm.id}" data-severity="${alarm.severity}" data-state="${alarm.state}">
+  <header class="alarm-card-header">
+    <div class="alarm-card-badges">
+      <span class="alarm-severity-badge" data-severity="${alarm.severity}">
+        <span class="badge-icon">${severityConfig.icon}</span>
+        <span class="badge-label">${severityConfig.label}</span>
+      </span>
+      <span class="alarm-state-badge" data-state="${alarm.state}">${stateConfig.label}</span>
+    </div>
+    <span class="alarm-card-time">${relativeTime}</span>
+  </header>
+  <div class="alarm-card-body">
+    <h3 class="alarm-card-title">${safeTitle}</h3>
+    <p class="alarm-card-id">${alarm.id}</p>
+    <span class="alarm-shopping-chip">${BUILDING_ICON}<span class="chip-text">${safeCustomerName}</span></span>
+    <div class="alarm-card-stats">
+      <div class="alarm-stat">
+        <span class="alarm-stat-value alarm-stat-value--large">${safeOccurrences}</span>
+        <span class="alarm-stat-label">Occurrences</span>
       </div>
-
-      <footer class="alarm-card-footer">
-        ${
-          isActive
-            ? `<button class="btn btn-ack" data-action="acknowledge" data-alarm-id="${alarm.id}">
-                Reconhecer
-              </button>`
-            : ''
-        }
-        <button class="btn btn-details" data-action="details" data-alarm-id="${alarm.id}">
-          Detalhes
-        </button>
-        ${
-          alarm.state !== 'CLOSED'
-            ? `<button class="btn btn-more" data-action="more" data-alarm-id="${alarm.id}">
-                &#8942;
-              </button>`
-            : ''
-        }
-      </footer>
-    </article>
-  `;
+      <div class="alarm-stat">
+        <span class="alarm-stat-value">${firstSeenRelative}</span>
+        <span class="alarm-stat-label">First seen</span>
+      </div>
+      <div class="alarm-stat">
+        <span class="alarm-stat-value">${lastSeenRelative}</span>
+        <span class="alarm-stat-label">Last seen</span>
+      </div>
+    </div>
+    ${renderTags(alarm.tags)}
+  </div>
+  <footer class="alarm-card-footer">
+    ${isActive ? `<button class="btn btn-ack" data-action="acknowledge" data-alarm-id="${alarm.id}">Acknowledge</button>` : ''}
+    ${alarm.state !== 'CLOSED' ? `<button class="btn btn-snooze" data-action="snooze" data-alarm-id="${alarm.id}">Snooze</button>` : ''}
+    ${alarm.state !== 'CLOSED' ? `<button class="btn btn-escalate" data-action="escalate" data-alarm-id="${alarm.id}">Escalate</button>` : ''}
+    <button class="btn btn-details" data-action="details" data-alarm-id="${alarm.id}">Details</button>
+  </footer>
+</article>`;
 }
 
 /**
@@ -184,11 +166,21 @@ export function createAlarmCardElement(
     });
   }
 
-  const moreBtn = card.querySelector('[data-action="more"]');
-  if (moreBtn && params?.onMore) {
-    moreBtn.addEventListener('click', (e) => {
+  const snoozeBtn = card.querySelector('[data-action="snooze"]');
+  if (snoozeBtn) {
+    snoozeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      params.onMore?.(alarm.id, e as MouseEvent);
+      // Emit custom event for snooze action
+      card.dispatchEvent(new CustomEvent('alarm-snooze', { bubbles: true, detail: { alarmId: alarm.id } }));
+    });
+  }
+
+  const escalateBtn = card.querySelector('[data-action="escalate"]');
+  if (escalateBtn) {
+    escalateBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Emit custom event for escalate action
+      card.dispatchEvent(new CustomEvent('alarm-escalate', { bubbles: true, detail: { alarmId: alarm.id } }));
     });
   }
 
