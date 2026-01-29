@@ -724,6 +724,18 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   white-space: nowrap;
   flex: 1;
   max-width: 120px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.alarm-card-footer .btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.alarm-card-footer .btn:active {
+  filter: brightness(0.95);
+  transform: translateY(0);
 }
 
 .alarm-card-footer .btn-ack {
@@ -731,8 +743,24 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: #1d4ed8;
 }
 
+.alarm-card-footer .btn-ack:hover {
+  background: #2563eb;
+}
+
+.alarm-card-footer .btn-ack:active {
+  background: #1e40af;
+}
+
 .alarm-card-footer .btn-details {
   color: var(--alarms-text);
+  background: var(--alarms-border);
+}
+
+.alarm-card-footer .btn-details:hover {
+  background: var(--alarms-text-light);
+}
+
+.alarm-card-footer .btn-details:active {
   background: var(--alarms-border);
 }
 
@@ -741,9 +769,25 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: var(--state-snoozed);
 }
 
+.alarm-card-footer .btn-snooze:hover {
+  background: #7c3aed;
+}
+
+.alarm-card-footer .btn-snooze:active {
+  background: #6d28d9;
+}
+
 .alarm-card-footer .btn-escalate {
   color: #fff;
   background: var(--state-escalated);
+}
+
+.alarm-card-footer .btn-escalate:hover {
+  background: #ef4444;
+}
+
+.alarm-card-footer .btn-escalate:active {
+  background: #b91c1c;
 }
 
 .alarm-card-footer .btn-more {
