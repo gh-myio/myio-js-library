@@ -373,6 +373,13 @@ export class DeviceOperationalCardGridView {
     this.emit('cards-rendered', equipment.length);
   }
 
+  /**
+   * Render equipment card (RFC-157 Enhanced)
+   * - Cut-out header with identity bar
+   * - Checkbox in absolute top-right
+   * - Compact body layout
+   * - Location in footer
+   */
   private renderCard(equipment: OperationalEquipment): string {
     const statusConfig = STATUS_CONFIG[equipment.status];
     const typeConfig = TYPE_CONFIG[equipment.type];
@@ -380,8 +387,8 @@ export class DeviceOperationalCardGridView {
     const enableSelection = this.params.enableSelection !== false;
     const enableDragDrop = this.params.enableDragDrop === true;
 
-    // Calculate gauge stroke
-    const radius = 32;
+    // Calculate gauge stroke (smaller gauge for compact layout)
+    const radius = 28;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference * (1 - equipment.availability / 100);
 
@@ -391,30 +398,29 @@ export class DeviceOperationalCardGridView {
                data-status="${equipment.status}"
                ${enableDragDrop ? 'draggable="true"' : ''}>
 
-        <!-- Status Bar -->
-        <div class="status-bar ${equipment.status}"></div>
+        <!-- RFC-157: Checkbox in absolute top-right corner -->
+        ${enableSelection ? `
+          <label class="myio-equipment-card-select-absolute">
+            <input type="checkbox" class="equipment-card-checkbox" aria-label="Selecionar ${this.escapeHtml(equipment.name)}">
+            <span class="equipment-card-checkbox-ui"></span>
+          </label>
+        ` : ''}
 
-        <div class="myio-equipment-card-content">
-          <!-- Header -->
-          <div class="myio-equipment-card-header">
-            <div class="myio-equipment-card-title-wrap">
-              <h3 class="myio-equipment-card-title">${this.escapeHtml(equipment.name)}</h3>
-              <span class="myio-equipment-card-type">${typeConfig.icon} ${typeConfig.label}</span>
-              <span class="myio-equipment-card-location">${this.escapeHtml(equipment.location)}</span>
-            </div>
-            ${enableSelection ? `
-              <label class="myio-equipment-card-select">
-                <input type="checkbox" class="equipment-card-checkbox" aria-label="Selecionar ${this.escapeHtml(equipment.name)}">
-                <span class="equipment-card-checkbox-ui"></span>
-              </label>
-            ` : ''}
-            <span class="myio-equipment-status-badge" style="
-              background: ${statusConfig.bg};
-              color: ${statusConfig.color};
-              border-color: ${statusConfig.color};
-            ">${statusConfig.icon} ${statusConfig.label}</span>
+        <!-- RFC-157: Cut-out Header (Identity Bar) -->
+        <div class="myio-equipment-card-header-bar ${equipment.status}">
+          <div class="header-bar-content">
+            <h3 class="myio-equipment-card-title">${this.escapeHtml(equipment.name)}</h3>
+            <span class="myio-equipment-card-type">${typeConfig.icon} ${typeConfig.label}</span>
           </div>
+          <span class="myio-equipment-status-badge" style="
+            background: ${statusConfig.bg};
+            color: ${statusConfig.color};
+            border-color: ${statusConfig.color};
+          ">${statusConfig.icon} ${statusConfig.label}</span>
+        </div>
 
+        <!-- Card Body -->
+        <div class="myio-equipment-card-body">
           ${equipment.hasReversal ? `
             <div class="myio-equipment-reversal-warning">
               <span>&#x26A0;</span>
@@ -422,16 +428,16 @@ export class DeviceOperationalCardGridView {
             </div>
           ` : ''}
 
-          <!-- Availability and Metrics -->
+          <!-- Availability and Metrics (Compact) -->
           <div class="myio-equipment-availability">
             <div class="myio-equipment-gauge">
-              <svg viewBox="0 0 80 80" width="80" height="80">
-                <circle class="myio-equipment-gauge-bg" cx="40" cy="40" r="${radius}" />
-                <circle class="myio-equipment-gauge-fill" cx="40" cy="40" r="${radius}"
+              <svg viewBox="0 0 70 70" width="70" height="70">
+                <circle class="myio-equipment-gauge-bg" cx="35" cy="35" r="${radius}" />
+                <circle class="myio-equipment-gauge-fill" cx="35" cy="35" r="${radius}"
                   stroke="${availabilityColor}"
                   stroke-dasharray="${circumference}"
                   stroke-dashoffset="${strokeDashoffset}"
-                  transform="rotate(-90 40 40)" />
+                  transform="rotate(-90 35 35)" />
               </svg>
               <div class="myio-equipment-gauge-value">
                 <span class="value">${equipment.availability}%</span>
@@ -464,12 +470,15 @@ export class DeviceOperationalCardGridView {
             </div>
           ` : ''}
 
-          <!-- Customer Badge -->
-          <div class="myio-equipment-customer">
-            <div class="myio-equipment-customer-avatar">
-              ${equipment.customerName.slice(0, 2).toUpperCase()}
+          <!-- RFC-157: Footer with Customer + Location -->
+          <div class="myio-equipment-footer">
+            <div class="myio-equipment-customer">
+              <div class="myio-equipment-customer-avatar">
+                ${equipment.customerName.slice(0, 2).toUpperCase()}
+              </div>
+              <span class="myio-equipment-customer-name">${this.escapeHtml(equipment.customerName)}</span>
             </div>
-            <span class="myio-equipment-customer-name">${this.escapeHtml(equipment.customerName)}</span>
+            <span class="myio-equipment-location">${this.escapeHtml(equipment.location)}</span>
           </div>
         </div>
       </article>
