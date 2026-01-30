@@ -165,26 +165,6 @@ export class AlarmsNotificationsPanelView {
           </select>
         </div>
 
-        <div class="alarms-filter-group">
-          <label>De</label>
-          <input
-            type="date"
-            class="alarms-filter-date"
-            id="fromDateFilter"
-            value="${state.filters.fromDate || ''}"
-          />
-        </div>
-
-        <div class="alarms-filter-group">
-          <label>Ate</label>
-          <input
-            type="date"
-            class="alarms-filter-date"
-            id="toDateFilter"
-            value="${state.filters.toDate || ''}"
-          />
-        </div>
-
         <button class="alarms-clear-filters" id="clearFiltersBtn">
           Limpar Filtros
         </button>
@@ -241,28 +221,6 @@ export class AlarmsNotificationsPanelView {
       });
     }
 
-    // Date filters
-    const fromDateFilter = this.root.querySelector('#fromDateFilter') as HTMLInputElement;
-    const toDateFilter = this.root.querySelector('#toDateFilter') as HTMLInputElement;
-
-    if (fromDateFilter) {
-      fromDateFilter.addEventListener('change', () => {
-        this.controller.setDateRange(
-          fromDateFilter.value || undefined,
-          toDateFilter?.value || undefined
-        );
-      });
-    }
-
-    if (toDateFilter) {
-      toDateFilter.addEventListener('change', () => {
-        this.controller.setDateRange(
-          fromDateFilter?.value || undefined,
-          toDateFilter.value || undefined
-        );
-      });
-    }
-
     // Clear filters button
     const clearBtn = this.root.querySelector('#clearFiltersBtn');
     if (clearBtn) {
@@ -272,8 +230,6 @@ export class AlarmsNotificationsPanelView {
         if (searchInput) searchInput.value = '';
         if (severityFilter) severityFilter.value = '';
         if (stateFilter) stateFilter.value = '';
-        if (fromDateFilter) fromDateFilter.value = '';
-        if (toDateFilter) toDateFilter.value = '';
       });
     }
   }

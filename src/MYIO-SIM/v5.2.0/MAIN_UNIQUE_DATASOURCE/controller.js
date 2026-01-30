@@ -94,6 +94,18 @@ let _cachedDeviceCounts = null;
 let _menuInstanceRef = null;
 let _welcomeModalRef = null;
 let _headerInstanceRef = null;
+let _currentShoppingCards = null; // Shopping cards from datasource or DEFAULT_SHOPPING_CARDS
+let _forceRemovePartialOwnerName = ''; // Prefix to remove from ownerName
+
+// Helper to clean ownerName by removing configured prefix (module-level for use in buildMetadataMapFromCtxData)
+function cleanOwnerName(name) {
+  if (!name || !_forceRemovePartialOwnerName) return name;
+  const trimmed = name.trim();
+  if (trimmed.toLowerCase().startsWith(_forceRemovePartialOwnerName.toLowerCase())) {
+    return trimmed.substring(_forceRemovePartialOwnerName.length).trim();
+  }
+  return trimmed;
+}
 
 // ===================================================================
 // Data Cache Configuration (5-minute validity)
@@ -181,16 +193,8 @@ self.onInit = async function () {
   let currentThemeMode = settings.defaultThemeMode || 'dark';
   DEBUG_ACTIVE = settings.enableDebugMode ?? false;
 
-  // Helper to clean ownerName by removing configured prefix
-  const forceRemovePartialOwnerName = (settings.forceRemovePartialOwnerName || '').trim();
-  const cleanOwnerName = (name) => {
-    if (!name || !forceRemovePartialOwnerName) return name;
-    const trimmed = name.trim();
-    if (trimmed.toLowerCase().startsWith(forceRemovePartialOwnerName.toLowerCase())) {
-      return trimmed.substring(forceRemovePartialOwnerName.length).trim();
-    }
-    return trimmed;
-  };
+  // Set module-level variable for cleanOwnerName function
+  _forceRemovePartialOwnerName = (settings.forceRemovePartialOwnerName || '').trim();
 
   // RFC-0122: Initialize LogHelper from library
   if (!MyIOLibrary.createLogHelper) {
@@ -335,7 +339,7 @@ self.onInit = async function () {
     try {
       if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
         const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-        const showOperationalPanels = attrs?.['show-indicators-operational-panels'] === true;
+        const showOperationalPanels = attrs?.['show-indicators-operational-panels'] === 'true';
 
         LogHelper.log('RFC-0152: Operational indicators access:', showOperationalPanels);
 
@@ -2240,7 +2244,10 @@ body.filter-modal-open { overflow: hidden !important; }
 
     LogHelper.log('Device stats by ownerName:', Object.fromEntries(statsByOwnerName));
 
-    return DEFAULT_SHOPPING_CARDS.map((card) => {
+    // Use current shopping cards (from datasource) with fallback to defaults
+    const baseCards = _currentShoppingCards || DEFAULT_SHOPPING_CARDS;
+
+    return baseCards.map((card) => {
       if (!card.title) {
         LogHelper.log('Card has no title, skipping');
         return card;
@@ -2472,13 +2479,17 @@ body.filter-modal-open { overflow: hidden !important; }
   const userInfo = userInfoRaw ? { fullName: userInfoRaw.name, email: userInfoRaw.email } : null;
   LogHelper.log('User info fetched:', userInfo);
 
+  // Build shopping cards from datasource with fallback to DEFAULT_SHOPPING_CARDS
+  _currentShoppingCards = buildShoppingCardsFromDatasource(self.ctx.data || []);
+  LogHelper.log('Initial shopping cards:', _currentShoppingCards.length, 'cards');
+
   const welcomeModal = MyIOLibrary.openWelcomeModal({
     ctx: self.ctx,
     themeMode: currentThemeMode,
     showThemeToggle: true,
     showUserMenu: true, // Explicitly enable user menu
     configTemplate: welcomeConfig,
-    shoppingCards: DEFAULT_SHOPPING_CARDS, // Initial with zeros, updated async below
+    shoppingCards: _currentShoppingCards, // From datasource or fallback to defaults
     cardVersion: 'v1', // Use original card style (not Metro UI v2)
     userInfo: userInfo, // Pass user info for display
     ctaLabel: welcomeConfig.defaultPrimaryLabel || 'ACESSAR PAINEL',
@@ -3738,7 +3749,8 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!document.getElementById('myio-menu-busy-style')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'myio-menu-busy-style';
-      styleEl.textContent = '@keyframes myioMenuSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
+      styleEl.textContent =
+        '@keyframes myioMenuSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
       document.head.appendChild(styleEl);
     }
 
@@ -4146,7 +4158,14 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // RFC-0152 Phase 3: Generate mock operational equipment data
   function generateMockOperationalEquipment() {
-    const shoppingNames = ['Mestre Alvaro', 'Mont Serrat', 'Moxuara', 'Rio Poty', 'Shopping da Ilha', 'Metropole Para'];
+    const shoppingNames = [
+      'Mestre Alvaro',
+      'Mont Serrat',
+      'Moxuara',
+      'Rio Poty',
+      'Shopping da Ilha',
+      'Metropole Para',
+    ];
     const types = ['escada', 'elevador'];
     const statuses = ['online', 'offline', 'maintenance', 'warning'];
     const locations = ['Piso 1', 'Piso 2', 'Piso 3', 'Torre A', 'Torre B', 'Bloco Central'];
@@ -5730,6 +5749,75 @@ function buildShoppingsListFromAlias(data) {
 }
 
 /**
+ * Build shopping cards from 'customers' datasource with fallback to DEFAULT_SHOPPING_CARDS
+ * Extracts: title, dashboardId, entityId, entityType, subtitle
+ * Cards without dashboardId are not clickable
+ */
+function buildShoppingCardsFromDatasource(data) {
+  const customerMap = new Map();
+
+  data.forEach((row) => {
+    const aliasName = row?.datasource?.aliasName || '';
+    // Check for 'Shopping' or 'customers' alias
+    if (aliasName === 'Shopping' || aliasName === 'customers') {
+      const entityId = row?.datasource?.entityId || '';
+      const entityLabel = row?.datasource?.entityLabel || '';
+      const entityType = row?.datasource?.entityType || 'CUSTOMER';
+      const dataKey = row?.dataKey?.name || '';
+      const latestValue = row?.data?.[row.data.length - 1]?.[1];
+
+      // Initialize customer card if not exists
+      if (entityId && !customerMap.has(entityId)) {
+        customerMap.set(entityId, {
+          title: entityLabel || 'Unknown',
+          subtitle: 'Dashboard Principal',
+          buttonId: `Shopping${entityLabel?.replace(/\s+/g, '') || entityId}`,
+          dashboardId: null, // Will be populated from dataKey
+          entityId: entityId,
+          entityType: entityType,
+          customerId: entityId,
+          ingestionId: null,
+          clickable: false, // Default false, set to true if dashboardId is found
+          deviceCounts: { energy: null, water: null, temperature: null },
+        });
+      }
+
+      // Update customer card with data key values
+      const card = customerMap.get(entityId);
+      if (card) {
+        if (dataKey === 'dashboardId' && latestValue) {
+          card.dashboardId = latestValue;
+          card.clickable = true; // Has dashboardId, so it's clickable
+        }
+        if (dataKey === 'ingestionId' && latestValue) {
+          card.ingestionId = latestValue;
+        }
+        if (dataKey === 'subtitle' && latestValue) {
+          card.subtitle = latestValue;
+        }
+      }
+    }
+  });
+
+  const cards = Array.from(customerMap.values());
+
+  if (cards.length > 0) {
+    LogHelper.log(
+      '[buildShoppingCardsFromDatasource] Built shopping cards from datasource:',
+      cards.length,
+      'cards'
+    );
+    return cards;
+  }
+
+  // Fallback to DEFAULT_SHOPPING_CARDS
+  LogHelper.log(
+    '[buildShoppingCardsFromDatasource] No customers in datasource, using DEFAULT_SHOPPING_CARDS'
+  );
+  return DEFAULT_SHOPPING_CARDS;
+}
+
+/**
  * RFC-0126: Build shoppings list from classified device data
  * Uses the merged device objects which have complete metadata
  */
@@ -5952,7 +6040,7 @@ async function enrichDevicesWithConsumption(classified) {
 
       if (res.ok) {
         const json = await res.json();
-        const rows = Array.isArray(json) ? json : json?.data ?? [];
+        const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
         LogHelper.log(`Energy API returned ${rows.length} rows`);
 
@@ -5999,7 +6087,7 @@ async function enrichDevicesWithConsumption(classified) {
 
       if (res.ok) {
         const json = await res.json();
-        const rows = Array.isArray(json) ? json : json?.data ?? [];
+        const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
         LogHelper.log(`Water API returned ${rows.length} rows`);
 
