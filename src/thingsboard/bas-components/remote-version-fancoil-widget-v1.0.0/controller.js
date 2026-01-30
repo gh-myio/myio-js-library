@@ -1,0 +1,1 @@
+// Controller for remote-version-fancoil-widget-v1.0.0
