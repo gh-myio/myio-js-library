@@ -1,1 +1,15 @@
 /* Styles for water-level-v2 */
+.tb-liquid-level-widget {
+    height: 90%;
+}
+
+span{
+    width: 100%;
+    height: 10%;
+    display: flex;
+    justify-content: center;
+}
+#divContent{
+    width: 100%;
+    height: 80%;
+}

@@ -1,1 +1,14 @@
 /* Styles for solenoide-sem-on-off-v2.0.1 */
+#valve-container {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#valve-img {
+    height: 80%;
+    max-height: 120px;
+    transition: opacity 0.3s ease;
+}

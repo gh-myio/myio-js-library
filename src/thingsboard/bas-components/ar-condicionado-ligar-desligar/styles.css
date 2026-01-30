@@ -1,1 +1,285 @@
 /* Styles for ar-condicionado-ligar-desligar */
+#title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    background-color: #191B1F;
+    position: relative;
+}
+
+#container {
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 20px 10px;
+}
+
+.SVGdiv {
+    width: 80%;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+svg {
+    width: 100%;
+    height: auto;
+    max-width: 90px;
+}
+
+p{
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: white;
+}
+
+#titulo {
+    font-size: 1.1rem;
+    color: white;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#conteudo{
+    font-size: 1.6rem;
+    font-weight: bold;
+}
+
+#legenda{
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin: 0;
+}
+
+.action-buttons {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.control-button {
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.control-button:nth-child(1) {
+    background-color: #0FC482;
+}
+
+.control-button:nth-child(2) {
+    background-color: #ED4465;
+}
+
+/* Command selector styles */
+.command-selector {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.command-dropdown {
+    width: 100%;
+    max-width: 250px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    color: white;
+    background-color: #242830;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    outline: none;
+}
+
+.command-dropdown:focus {
+    border-color: #0094FF;
+    box-shadow: 0 0 0 2px rgba(0, 148, 255, 0.2);
+}
+
+.command-dropdown option {
+    background-color: #242830;
+    color: white;
+}
+
+.send-button {
+    padding: 8px 20px;
+    min-width: 100px;
+    font-size: 0.9rem;
+    color: white;
+    background-color: #0FC482;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.send-button:hover:not(:disabled) {
+    background-color: #0DAE75;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.send-button:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: none;
+}
+
+.send-button:disabled {
+    background-color: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Animation container styles */
+.animation-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background-color: #191B1F;
+    z-index: 10;
+    animation: fadeIn 0.3s ease;
+}
+
+.spinner-container,
+.success-container,
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+}
+
+/* Loading animation */
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 2.5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Success and error text */
+.success-text, .error-text {
+    font-size: 0.9rem;
+    margin: 15px 0 0 0;
+    padding: 0;
+    text-align: center;
+}
+
+.success-text {
+    color: #0FC482;
+}
+
+.error-text {
+    color: #ED4465;
+}
+
+/* Checkmark animation */
+.checkmark {
+    width: 60px;
+    height: 60px;
+}
+
+.checkmark-circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke: #0FC482;
+    fill: none;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.checkmark-check {
+    stroke-width: 2;
+    stroke: #0FC482;
+    transform-origin: 50% 50%;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+/* Error animation */
+.error-icon {
+    width: 60px;
+    height: 60px;
+}
+
+.error-circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke: #ED4465;
+    fill: none;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.error-x {
+    stroke: #ED4465;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes stroke {
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+.spinner-container p {
+    font-size: 0.85rem;
+    margin-top: 12px;
+    opacity: 0.9;
+}

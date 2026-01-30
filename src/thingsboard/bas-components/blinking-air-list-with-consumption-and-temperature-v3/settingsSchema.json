@@ -1,1 +1,43 @@
-{}
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "self_contained":{
+        "type": "string",
+        "title": "State de Ar Tipo Self Contained",
+        "default": ""
+        },
+        "split":{
+        "type": "string",
+        "title": "State de Ar Tipo Split",
+        "default": ""
+        },
+        "threshold":{
+        "type": "string",
+        "title": "Potencia que configura o start do compressor",
+        "default": ""
+        },
+        "thresholdSplit":{
+        "type": "string",
+        "title": "Potencia que configura o start do compressor do ar split",
+        "default": ""
+        },        
+        "minConsumption":{
+        "type": "string",
+        "title": "Potencia mínima que configura o modo ligado do equipamento",
+        "default": ""
+        },
+        "minConsumptionSplit":{
+        "type": "string",
+        "title": "Potencia mínima que configura o modo ligado do equipamento Split",
+        "default": ""
+        },         
+        "type":{
+        "type": "string",
+        "title": "tipo",
+        "default": ""
+        }
+    }
+  }
+}

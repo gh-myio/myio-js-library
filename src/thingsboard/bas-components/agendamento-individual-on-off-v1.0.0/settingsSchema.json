@@ -1,1 +1,15 @@
-{}
+{
+    "schema": {
+        "type": "object",
+        "title": "Settings",
+        "properties": {
+            "groupDashboardId": {
+                "type": "string",
+                "title": "Id do dashboard de agendamento por grupo"
+            }
+        }
+    },
+    "form": [
+        "groupDashboardId"
+    ]
+}

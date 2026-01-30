@@ -1,1 +1,30 @@
 /* Styles for water-level-v3 */
+.tb-liquid-level-widget {
+    height: 90%;
+}
+
+span {
+    width: 100%;
+    height: 10%;
+    display: flex;
+    justify-content: center;
+}
+
+:host {
+    display: block;
+    height: 100%;
+}
+mat-card {
+    height: 100% !important;
+    width: 100% !important;
+
+}
+
+#divContent {
+    height: 100%;
+}
+#title{
+    position: relative; /* ou absolute */
+   z-index: 9999;
+    color: white;
+}

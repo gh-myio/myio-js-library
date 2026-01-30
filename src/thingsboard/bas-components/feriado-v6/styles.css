@@ -1,1 +1,138 @@
 /* Styles for feriado-v6 */
+#container {
+    overflow-y: auto;
+}
+
+#main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+fieldset {
+    border: none;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 10px;
+    width: auto;
+    padding-left: 10px;
+    font-size: 14px;
+    background-color: #0f0f17;
+    padding-bottom: 5px;
+}
+
+
+#cloneable-fieldset {
+    background-color: #1F2126;
+    border: none;
+}
+
+
+#titulo {
+    font-size: 16px;
+}
+
+.selectDays {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 10px;
+    flex: 1 1 5px;
+
+}
+
+.checkboxDays {
+    width: 100px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    margin: 10px;
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.checkboxRetain {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    margin: 10px;
+    margin-right: 10px;
+    padding-left: 10px;
+    font-size: 16px;
+}
+
+.form-control {
+    width: 100%;
+}
+
+input[type="date"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    color: white;
+    border: none;
+    border-radius: 0;
+    background-color: inherit;
+}
+
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-datetime-edit-ampm-field {
+    /*display: none;*/
+    filter: brightness(0) saturate(100%) invert(100%) sepia(0%) saturate(3091%) hue-rotate(222deg) brightness(110%) contrast(101%);
+}
+
+input[type="date"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+
+
+button {
+    background-color: #673AB5;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 5px;
+    font-size: 16px;
+    border: none;
+}
+
+button:hover {
+    box-shadow: 5px 5px 5px 0px black, 0 10px 20px 0 black;
+
+}
+
+button:active {
+    box-shadow: 2px 2px 2px 0px black, 0 5px 10px 0 black;
+    transform: translateY(2px);
+}
+
+.divButtons {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: fit-content;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    margin: 8px;
+}
+
+.divButtons>button {
+    cursor: pointer;
+}
+
+#element{
+    width: 100%;
+    height: 100%;
+}

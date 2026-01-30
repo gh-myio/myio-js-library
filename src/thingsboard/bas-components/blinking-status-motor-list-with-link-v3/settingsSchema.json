@@ -1,1 +1,13 @@
-{}
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "self_contained":{
+        "type": "string",
+        "title": "State de Ar Tipo Self Contained",
+        "default": ""
+        }
+    }
+  }
+}

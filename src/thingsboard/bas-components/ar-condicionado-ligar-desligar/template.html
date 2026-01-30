@@ -1,1 +1,71 @@
 <!-- Template for ar-condicionado-ligar-desligar -->
+<div id="title" [ngStyle]="{'background-color': '#191B1F' }">
+    <!-- Main Content (shown when not loading/success/error) -->
+    <div *ngIf="!loading && !showSuccess && !showError" class="main-content">
+        <p id="titulo">{{entityName}}</p>
+        
+        <div class="command-selector">
+            <select class="command-dropdown" [(ngModel)]="selectedCommand">
+                <option [ngValue]="null">Selecione um comando</option>
+                <option *ngFor="let command of commands" [ngValue]="command">
+                    {{command.name}}
+                </option>
+            </select>
+            
+            <button class="send-button" [disabled]="!selectedCommand" (click)="sendCommand()">
+                Enviar
+            </button>
+        </div>
+        
+        <div class="SVGdiv">
+          <svg viewBox="0 0 62 56" xmlns="http://www.w3.org/2000/svg">
+            <path d="M61 13V27C61 28.0609 60.5786 29.0783 59.8284 29.8284C59.0783 30.5786 58.0609 31 57 31H55V27C54.9984 26.4701 54.7872 25.9623 54.4125 25.5875C54.0377 25.2128 53.5299 25.0016 53 25H11C10.4701 25.0016 9.96227 25.2128 9.58753 25.5875C9.2128 25.9623 9.00158 26.4701 9 27V31H7C5.93913 31 4.92172 30.5786 4.17157 29.8284C3.42143 29.0783 3 28.0609 3 27V13C3 11.9391 3.42143 10.9217 4.17157 10.1716C4.92172 9.42143 5.93913 9 7 9H57C58.0609 9 59.0783 9.42143 59.8284 10.1716C60.5786 10.9217 61 11.9391 61 13Z" fill="#e6e6e6"/>
+            <path d="M26.293 47.293L24.586 49H23V47.414L24.707 45.707L23.293 44.293L22 45.586L20.707 44.293L19.293 45.707L21 47.414V49H19.414L17.707 47.293L16.293 48.707L17.586 50L16.293 51.293L17.707 52.707L19.414 51H21V52.586L19.293 54.293L20.707 55.707L22 54.414L23.293 55.707L24.707 54.293L23 52.586V51H24.586L26.293 52.707L27.707 51.293L26.414 50L27.707 48.707L26.293 47.293Z" fill="#0094FF"/>
+            <path d="M46.293 47.293L44.586 49H43V47.414L44.707 45.707L43.293 44.293L42 45.586L40.707 44.293L39.293 45.707L41 47.414V49H39.414L37.707 47.293L36.293 48.707L37.586 50L36.293 51.293L37.707 52.707L39.414 51H41V52.586L39.293 54.293L40.707 55.707L42 54.414L43.293 55.707L44.707 54.293L43 52.586V51H44.586L46.293 52.707L47.707 51.293L46.414 50L47.707 48.707L46.293 47.293Z" fill="#0094FF"/>
+            <path d="M57 8H7C5.67392 8 4.40215 8.52678 3.46447 9.46447C2.52678 10.4021 2 11.6739 2 13V27C2 28.3261 2.52678 29.5979 3.46447 30.5355C4.40215 31.4732 5.67392 32 7 32H8V35C8 35.2652 8.10536 35.5196 8.29289 35.7071C8.48043 35.8946 8.73478 36 9 36H55C55.2652 36 55.5196 35.8946 55.7071 35.7071C55.8946 35.5196 56 35.2652 56 35V32H57C58.3261 32 59.5979 31.4732 60.5355 30.5355C61.4732 29.5979 62 28.3261 62 27V13C62 11.6739 61.4732 10.4021 60.5355 9.46447C59.5979 8.52678 58.3261 8 57 8ZM54 34H10V32H54V34ZM54 30H10V27C10 26.7348 10.1054 26.4804 10.2929 26.2929C10.4804 26.1054 10.7348 26 11 26H53C53.2652 26 53.5196 26.1054 53.7071 26.2929C53.8946 26.4804 54 26.7348 54 27V30ZM60 27C59.9976 27.7949 59.6808 28.5566 59.1187 29.1187C58.5566 29.6808 57.7949 29.9976 57 30H56V27C55.9976 26.2051 55.6808 25.4434 55.1187 24.8813C54.5566 24.3192 53.7949 24.0024 53 24H11C10.2051 24.0024 9.4434 24.3192 8.8813 24.8813C8.31921 25.4434 8.00237 26.2051 8 27V30H7C6.20508 29.9976 5.4434 29.6808 4.8813 29.1187C4.31921 28.5566 4.00237 27.7949 4 27V13C4.00237 12.2051 4.31921 11.4434 4.8813 10.8813C5.4434 10.3192 6.20508 10.0024 7 10H57C57.7949 10.0024 58.5566 10.3192 59.1187 10.8813C59.6808 11.4434 59.9976 12.2051 60 13V27Z" fill="white"/>
+            <path d="M33 38H31V42H33V38Z" fill="#0094FF"/>
+            <path d="M43 38H41V42H43V38Z" fill="#0094FF"/>
+            <path d="M23 38H21V42H23V38Z" fill="#0094FF"/>
+            <path d="M38 38H36V40H38V38Z" fill="#0094FF"/>
+            <path d="M53 38H51V42H53V38Z" fill="#0094FF"/>
+            <path d="M48 38H46V40H48V38Z" fill="#0094FF"/>
+            <path d="M28 38H26V40H28V38Z" fill="#0094FF"/>
+            <path d="M13 38H11V42H13V38Z" fill="#0094FF"/>
+            <path d="M18 38H16V40H18V38Z" fill="#0094FF"/>
+            <path d="M56 20H54V22H56V20Z" fill="#0094FF"/>
+            <path d="M51 20H49V22H51V20Z" fill="#0094FF"/>
+            <path d="M46 20H44V22H46V20Z" fill="#0094FF"/>
+          </svg>
+        </div>
+    </div>
+    
+    <!-- Loading Animation -->
+    <div *ngIf="loading" class="animation-container">
+        <div class="spinner-container">
+            <div class="spinner"></div>
+            <p>Enviando comando...</p>
+        </div>
+    </div>
+    
+    <!-- Success Animation -->
+    <div *ngIf="showSuccess" class="animation-container">
+        <div class="success-container">
+            <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+            <p class="success-text">Comando enviado com sucesso!</p>
+        </div>
+    </div>
+    
+    <!-- Error Animation -->
+    <div *ngIf="showError" class="animation-container">
+        <div class="error-container">
+            <svg class="error-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                <circle class="error-circle" cx="26" cy="26" r="25" fill="none"/>
+                <path class="error-x" d="M16 16 L36 36 M36 16 L16 36" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <p class="error-text">Erro ao enviar comando!</p>
+        </div>
+    </div>
+</div>

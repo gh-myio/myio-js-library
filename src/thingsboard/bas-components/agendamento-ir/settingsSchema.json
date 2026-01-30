@@ -1,1 +1,26 @@
-{}
+{
+    "schema": {
+        "type": "object",
+        "title": "Settings",
+        "properties": {
+            "centralId": {
+                "type": "string",
+                "title": "Id da Central"
+            },
+            "groupDashboardId": {
+                "type": "string",
+                "title": "Id do dashboard de agendamento por grupo"
+            },
+            "groupDashboardStateId": {
+                "type": "string",
+                "title": "Id do estado do dashboard de agendamento por grupo"
+            }
+        },
+        "required": ["centralId"]
+    },
+    "form": [
+        "centralId",
+        "groupDashboardId",
+        "groupDashboardStateId"
+    ]
+}

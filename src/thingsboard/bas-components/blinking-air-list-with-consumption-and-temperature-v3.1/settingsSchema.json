@@ -1,1 +1,28 @@
-{}
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "self_contained":{
+        "type": "string",
+        "title": "State de Ar Tipo Self Contained",
+        "default": ""
+        },
+        "split":{
+        "type": "string",
+        "title": "State de Ar Tipo Split",
+        "default": ""
+        },
+        "threshold":{
+        "type": "string",
+        "title": "Potencia que configura o start do compressor",
+        "default": ""
+        },
+        "type":{
+        "type": "string",
+        "title": "tipo",
+        "default": ""
+        }
+    }
+  }
+}

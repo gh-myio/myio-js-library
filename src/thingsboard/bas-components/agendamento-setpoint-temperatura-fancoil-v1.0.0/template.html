@@ -1,1 +1,177 @@
 <!-- Template for agendamento-setpoint-temperatura-fancoil-v1.0.0 -->
+<div id="main" class="loading" *ngIf="loading">
+    <mat-progress-spinner mode="indeterminate" color="accent" style="width: 32px;">
+    </mat-progress-spinner>
+</div>
+
+<div id="main" *ngIf="!loading">
+    <div *ngFor="let schedule of schedules; let i = index" class="schedule-row" [ngClass]="{ 'has-error': schedule.errors.overlap }">
+        <fieldset id="cloneable-fieldset">
+            <legend id="titulo">{{entityName}}</legend>
+            <fieldset class="form-control">
+                <legend for="Inicio">Início</legend>
+                <input type="time" name="Hora"
+                    [(ngModel)]="schedule.startTime"
+                    id="time"
+                    required />
+                <span class="error-message" *ngIf="schedule.errors.startTime">{{ schedule.errors.startTime }}</span>
+            </fieldset>
+
+            <fieldset class="form-control">
+                <legend for="Inicio">Término</legend>
+                <input type="time" name="Hora"
+                    [(ngModel)]="schedule.endTime"
+                    id="time"
+                    required />
+                <span class="error-message" *ngIf="schedule.errors.endTime">{{ schedule.errors.endTime }}</span>
+            </fieldset>
+
+            <fieldset class="form-control">
+                <legend>Dias:</legend>
+                <div class="selectDays">
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.mon"
+                            type="checkbox" id="segunda"
+                            name="daysWeek[]" value="Segunda"
+                            class="custom-checkbox">
+
+                        <label for="segunda">Segunda</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.tue"
+                            type="checkbox" id="terca"
+                            name="daysWeek[]" value="Terça"
+                            class="custom-checkbox">
+
+                        <label for="terca">Terça</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.wed"
+                            type="checkbox" id="quarta"
+                            name="daysWeek[]" value="Quarta"
+                            class="custom-checkbox">
+                        <label for="quarta">Quarta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.thu"
+                            type="checkbox" id="quinta"
+                            name="daysWeek[]" value="Quinta"
+                            class="custom-checkbox">
+
+                        <label for="quinta">Quinta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.fri"
+                            type="checkbox" id="sexta"
+                            name="daysWeek[]" value="Sexta"
+                            class="custom-checkbox">
+
+                        <label for="sexta">Sexta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.sat"
+                            type="checkbox" id="sabado"
+                            name="daysWeek[]" value="Sábado"
+                            class="custom-checkbox">
+
+                        <label for="sabado">Sábado</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.sun"
+                            type="checkbox" id="domingo"
+                            name="daysWeek[]" value="Domingo"
+                            class="custom-checkbox">
+
+                        <label for="domingo">Domingo</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.holiday"
+                            type="checkbox" id="feriado"
+                            name="Feriado" value="Feriado"
+                            class="custom-checkbox">
+
+                        <label for="segunda">Feriado</label>
+                    </div>
+                </div>
+                <span class="error-message" *ngIf="schedule.errors.daysWeek">{{ schedule.errors.daysWeek }}</span>
+            </fieldset>
+
+            <fieldset class="form-control">
+                <legend>Setpoint (°C):</legend>
+                <input type="number" name="setpoint"
+                    [(ngModel)]="schedule.setpoint"
+                    id="setpoint-{{i}}"
+                    min="16" max="26" step="1"
+                    required />
+                <span class="error-message" *ngIf="schedule.errors.setpoint">{{ schedule.errors.setpoint }}</span>
+            </fieldset>
+
+            <span class="error-message overlap-error" *ngIf="schedule.errors.overlap">{{ schedule.errors.overlap }}</span>
+
+            <button type="submit" (click)="remove(schedule)">
+                Remover
+            </button>
+
+        </fieldset>
+    </div>
+
+    <div class="divButtons">
+        <button type="submit" (click)="addSchedule()">+
+            Intervalo</button>
+        <button type="submit"
+            (click)="submit()"
+            [disabled]="loading">Salvar</button>
+    </div>
+</div>
+
+<div class="footer-error" *ngIf="footerError">
+    ⚠️ {{footerError}}
+</div>
+
+
+<style>
+    .error-message {
+        color: red;
+        font-size: 0.8em;
+        display: block; /* Or inline-block */
+    }
+    .schedule-row.has-error {
+      /* Optional: visually indicate rows with overlap errors */
+      /* border: 1px solid red; */
+      /* background-color: #ffebeb; */
+    }
+    .days-week label {
+        margin-right: 5px;
+    }
+    /* Add other styles as needed for layout */
+    .schedule-row > div {
+        margin-bottom: 10px;
+    }
+
+    /* Custom styles for inputs to match dark theme */
+    .form-control input[type="number"] { /* Apply ONLY to number input */
+        background-color: #333; /* Dark background */
+        color: #eee; /* Light text */
+        border: 1px solid #555; /* Subtle border */
+        padding: 5px 8px; /* Adjust padding as needed */
+        border-radius: 4px; /* Optional: rounded corners */
+        /* Resetting default browser appearance (optional, might remove spinners) */
+        /* -webkit-appearance: none; 
+           -moz-appearance: textfield; */
+    }
+
+    /* Style focus state */
+    .form-control input[type="number"]:focus { /* Apply focus ONLY to number input */
+        outline: none;
+        border-color: #777;
+        box-shadow: 0 0 3px rgba(150, 150, 150, 0.5);
+    }
+</style>

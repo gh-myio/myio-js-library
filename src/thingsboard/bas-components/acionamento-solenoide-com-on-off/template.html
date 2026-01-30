@@ -1,1 +1,18 @@
 <!-- Template for acionamento-solenoide-com-on-off -->
+<div id="modal-overlay">
+    <div class="modal">
+        <p>Deseja alterar o estado do solenóide?</p>
+        <div class="botoes">
+            <button (click)=turnOnOff(data) id="sim">Sim</button>
+            <button (click)=closeModal()  id="nao">Não</button>
+        </div>
+    </div>
+</div>
+
+<div id="title" [ngStyle]="{'background-color':(colorbackground)}">
+    <!--<p id="titulo">{{entityName}}</p>-->
+    <div class="SVGdiv">
+        <img id="valve-img" src="" alt="estado do registro" />
+        <div id="button" (click)=openModal() > <img src=""> Aberto </div>
+    </div>
+</div>

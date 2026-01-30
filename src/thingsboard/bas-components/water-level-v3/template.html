@@ -1,1 +1,12 @@
 <!-- Template for water-level-v3 -->
+<mat-card  [ngStyle]="{'background-color':(colorbackground)}">
+  <div id="divContent" style="height: 100%; width: 100%;">
+    <tb-liquid-level-widget
+      style="background-color: transparent; display: block; height: 100%; width: 100%;"
+      [ctx]="ctx"
+      [widgetTitlePanel]="widgetTitlePanel"> 
+        <div [ngStyle]="{'background-color':white}" class="title">titulo</div>
+    </tb-liquid-level-widget>
+    <span style="color: white;">Altura: {{waterLevel}} {{cardTitle}}cm.c.a</span>
+  </div>
+</mat-card>

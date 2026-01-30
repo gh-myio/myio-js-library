@@ -1,1 +1,377 @@
 /* Styles for agendamento-ir */
+#container {
+    overflow-y: auto;
+}
+
+#main.loading {
+    background: rgba(30,30,30,0.3);    
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+fieldset {
+    border: none;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 10px;
+    width: auto;
+    padding-left: 10px;
+    font-size: 14px;
+    background-color: #0f0f17;
+    padding-bottom: 5px;
+}
+
+
+#cloneable-fieldset {
+    background-color: #1F2126;
+    border: none;
+}
+
+
+#titulo {
+    font-size: 16px;
+}
+
+.selectDays {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 10px;
+    flex: 1 1 5px;
+
+}
+
+.checkboxDays {
+    width: 100px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    margin: 10px;
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.checkboxRetain {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    margin: 10px;
+    margin-right: 10px;
+    padding-left: 10px;
+    font-size: 16px;
+}
+
+.form-control {
+    width: 100%;
+}
+
+input[type="checkbox"] {
+    appearance: none;
+    background-color: #191B1F;
+    margin: 0;
+    margin-right: 7px;
+    font: inherit;
+    color: #191B1F;
+    width: 1.2em;
+    height: 1.2em;
+    font-size: 16px;
+    border: 1px solid rgba(192, 192, 192, 0.5);
+    border-radius: 0.15em;
+    transform: translateY(-0.075em);
+    display: grid;
+    place-content: center;
+}
+
+input[type="checkbox"]:hover {
+    background-color: rgba(192, 192, 192, 0.5);
+    cursor: pointer;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 0.65em;
+    height: 0.65em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em white;
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+
+input[type="checkbox"]:checked {
+    background-color: #0FC080;
+
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+
+input[type="time"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    color: white;
+    border: none;
+    border-radius: 0;
+    background-color: inherit;
+}
+
+input[type="time"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-datetime-edit-ampm-field {
+    display: none;
+}
+
+input[type="time"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+
+button {
+    background-color: #673AB5;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 5px;
+    font-size: 16px;
+    border: none;
+}
+
+button:hover {
+    box-shadow: 5px 5px 5px 0px black, 0 10px 20px 0 black;
+
+}
+
+button:active {
+    box-shadow: 2px 2px 2px 0px black, 0 5px 10px 0 black;
+    transform: translateY(2px);
+}
+
+.divButtons {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: fit-content;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    margin: 8px;
+}
+
+.divButtons>button {
+    cursor: pointer;
+}
+
+.ligar{
+    margin-left: 10px;
+}
+.desligar{
+    margin-right: 10px;
+
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.toggle-switch input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-switch-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #ddd;
+  border-radius: 20px;
+  box-shadow: inset 0 0 0 2px #ccc;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.toggle-switch-handle {
+  position: absolute;
+  top:2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease-in-out;
+}
+
+.toggle-switch::before {
+  content: "";
+  position: absolute;
+  top: -25px;
+  right: -35px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #aaa;
+  text-shadow: 1px 1px #fff;
+  transition: color 0.3s ease-in-out;
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-switch-handle {
+  transform: translateX(5px);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2), 0 0 0 3px #0FC080;
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-switch-background {
+  background-color: #0FC080;
+  box-shadow: inset 0 0 0 2px #04b360;
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-switch:before {
+  content: "On";
+  color: #0FC080;
+  right: -5px;
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-switch-background .toggle-switch-handle {
+  transform: translateX(20px);
+}
+
+
+input[type="checkbox"]:disabled {
+    background-color: grey;
+}
+
+
+input[type="time"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    color: white;
+    border: none;
+    border-radius: 0;
+    background-color: inherit;
+}
+
+.warning {
+    color: red;
+}
+
+.group-schedule {
+    font-size: 14px;
+    padding: 8px;
+}
+
+input[type="time"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-datetime-edit-ampm-field {
+    display: none;
+}
+
+input[type="time"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+
+button {
+    background-color: #673AB5;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 5px;
+    font-size: 16px;
+    border: none;
+}
+
+button:hover {
+    box-shadow: 5px 5px 5px 0px black, 0 10px 20px 0 black;
+
+}
+
+button:active {
+    box-shadow: 2px 2px 2px 0px black, 0 5px 10px 0 black;
+    transform: translateY(2px);
+}
+
+.divButtons {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: fit-content;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    margin: 8px;
+}
+
+.divButtons>button {
+    cursor: pointer;
+}
+
+/* Temperature Selector */
+.temperature-select {
+    width: 100%;
+    padding: 10px;
+}
+
+.temperature-selector {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    color: white;
+    background-color: #1F2126;
+    border: 1px solid rgba(192, 192, 192, 0.5);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.temperature-selector:hover {
+    border-color: #0FC080;
+}
+
+.temperature-selector:focus {
+    outline: none;
+    border-color: #0FC080;
+    box-shadow: 0 0 0 2px rgba(15, 192, 128, 0.2);
+}
+
+.temperature-selector option {
+    background-color: #1F2126;
+    color: white;
+    padding: 10px;
+}
+
+.temperature-selector:disabled {
+    background-color: #2F3136;
+    cursor: not-allowed;
+    opacity: 0.7;
+}

@@ -1,1 +1,59 @@
 <!-- Template for remote-version-fancoil-widget-v1.0.0 -->
+<div class="remote-widget">
+  <div class="lcd">
+    <div class="status-bar">
+      <span class="status-label">STATUS</span>
+      <span class="status-chip" 
+          [ngClass]="{'on': status === 'on', 'off': status === 'off', 'offline': status === 'offline'}">
+          {{status?.toUpperCase()}}
+      </span>
+    </div>
+    <div class="mode-toggle">
+      <div [ngClass]="{'mode-active': modo === 'auto'}">AUTO.</div>
+      <div [ngClass]="{'mode-active': modo === 'man'}">MAN.</div>
+    </div>
+    <div class="image-block">
+      <div class="ac-image-wrapper">
+        <img [src]="imgAtual" class="ac-img" />
+      </div>
+      <div class="metrics">
+        <div class="amb-temp">🏠 {{tempAtual}}°C </div>
+        <div class="consumo">⚡ {{consumo}} kW</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="setpoint-grid">
+    <div class="grid-label">Set Point</div>
+    
+    <div class="grid-value">
+      {{ showSetpoint ? (temperature + ' °C') : '🚫' }}
+    </div>
+
+    <button 
+      class="btn power" 
+      [ngClass]="{ 'on power': true, 'power-active': status === 'on' }" 
+      (click)="turnOnOff()">
+      ⏻
+    </button>
+    
+    <div class="btn-group">
+        <button class="btn" 
+                (click)="decreaseTemperature()" 
+                [disabled]="!isOkToSetTheSetpoint"
+                [ngClass]="{ 'on': temperature !== ' - ', 'noData': temperature === ' - ' }"> 
+          ⬇
+        </button>
+        <button class="btn" 
+                (click)="increaseTemperature()" 
+                [disabled]="!isOkToSetTheSetpoint"
+                [ngClass]="{ 'on': temperature !== ' - ', 'noData': temperature === ' - ' }"> 
+          ⬆
+        </button>
+    </div>
+  </div>
+
+  <div class="actions clickable" (click)="setupAction()">
+    ⚙️ & 📅
+  </div>
+</div>

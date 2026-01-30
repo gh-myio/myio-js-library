@@ -1,1 +1,5 @@
 /* Styles for update-multiple-attributes */
+.tb-toast {
+    min-width: 0;
+    font-size: 14px !important;
+}

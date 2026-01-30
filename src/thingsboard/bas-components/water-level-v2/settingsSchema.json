@@ -1,1 +1,16 @@
-{}
+{
+    "schema": {
+        "type": "object",
+        "title": "Settings",
+        "properties": {
+            "cardTitle": {
+                "type": "string",
+                "title": "Título"
+            }
+        },
+        "required": ["cardTitle"]
+    },
+    "form": [
+        "cardTitle"
+    ]
+}

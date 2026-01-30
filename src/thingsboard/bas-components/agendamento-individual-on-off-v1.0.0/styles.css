@@ -1,1 +1,324 @@
 /* Styles for agendamento-individual-on-off-v1.0.0 */
+#container {
+    overflow-y: auto;
+}
+
+#main.loading {
+    background: rgba(30,30,30,0.3);    
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+fieldset {
+    border: none;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 10px;
+    width: auto;
+    padding-left: 10px;
+    font-size: 14px;
+    background-color: #0f0f17;
+    padding-bottom: 5px;
+}
+
+
+#cloneable-fieldset {
+    background-color: #1F2126;
+    border: none;
+}
+
+
+#titulo {
+    font-size: 16px;
+}
+
+.selectDays {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 10px;
+    flex: 1 1 5px;
+
+}
+
+.checkboxDays {
+    width: 100px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    margin: 10px;
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.checkboxRetain {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    margin: 10px;
+    margin-right: 10px;
+    padding-left: 10px;
+    font-size: 16px;
+}
+
+.form-control {
+    width: 100%;
+}
+
+input[type="checkbox"] {
+    appearance: none;
+    background-color: #191B1F;
+    margin: 0;
+    margin-right: 7px;
+    font: inherit;
+    color: #191B1F;
+    width: 1.2em;
+    height: 1.2em;
+    font-size: 16px;
+    border: 1px solid rgba(192, 192, 192, 0.5);
+    border-radius: 0.15em;
+    transform: translateY(-0.075em);
+    display: grid;
+    place-content: center;
+}
+
+input[type="checkbox"]:hover {
+    background-color: rgba(192, 192, 192, 0.5);
+    cursor: pointer;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 0.65em;
+    height: 0.65em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em white;
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+
+input[type="checkbox"]:checked {
+    background-color: #0FC080;
+
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+input[type="checkbox"]:disabled {
+    background-color: grey;
+}
+
+
+input[type="time"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    color: white;
+    border: none;
+    border-radius: 0;
+    background-color: inherit;
+}
+
+.warning {
+    color: red;
+}
+
+.group-schedule {
+    font-size: 14px;
+    padding: 8px;
+}
+
+input[type="time"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-datetime-edit-ampm-field {
+    display: none;
+}
+
+input[type="time"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+
+button {
+    background-color: #673AB5;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 5px;
+    font-size: 16px;
+    border: none;
+}
+
+button:hover {
+    box-shadow: 5px 5px 5px 0px black, 0 10px 20px 0 black;
+
+}
+
+button:active {
+    box-shadow: 2px 2px 2px 0px black, 0 5px 10px 0 black;
+    transform: translateY(2px);
+}
+
+.divButtons {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: fit-content;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    margin: 8px;
+}
+
+.divButtons>button {
+    cursor: pointer;
+}
+
+.custom-modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw; 
+  height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 20vh;
+  justify-content: center;
+  z-index: 2147483647;
+}
+
+.custom-modal-backdrop {
+    position: fixed;
+    z-index: 2147483646;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    top: 0; left: 0;
+}
+
+.custom-modal-content {
+    position: relative;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px 32px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 2147483647;
+    text-align: center;
+    max-width: 360px;
+    width: 100%;
+    font-family: sans-serif;
+    color: #222 !important;
+}
+
+.custom-modal-content h3 {
+    margin: 0 0 12px;
+    font-size: 1.5em;
+    color: inherit;
+}
+
+.custom-modal-content p {
+    font-size: 1.1em;
+    margin-bottom: 24px;
+    color: inherit;
+}
+
+.custom-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.custom-modal-actions button {
+    padding: 8px 16px;
+    border: none;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+}
+
+.custom-modal-actions .btn-cancel {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.custom-modal-actions .btn-confirm {
+    background: #1976d2;
+    color: #fff;
+    transition: background 0.2s ease;
+}
+
+.custom-modal-actions .btn-confirm:hover {
+    background: #1565c0;
+}
+
+.custom-success-modal .custom-modal-backdrop {
+    position: absolute;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.3);
+    top: 0; left: 0;
+}
+
+.custom-success-modal .custom-modal-content {
+    position: relative;
+    background: #e8f5e9;
+    border: 2px solid #4caf50;
+    border-radius: 16px;
+    padding: 24px 32px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 10000;
+    text-align: center;
+    max-width: 360px;
+    width: 100%;
+    font-family: sans-serif;
+    color: #222 !important;
+}
+
+.custom-success-modal .custom-modal-content h3 {
+    margin: 0 0 12px;
+    font-size: 1.5em;
+    color: inherit;
+}
+
+.custom-success-modal .custom-modal-content p {
+    font-size: 1.1em;
+    margin-bottom: 24px;
+    color: inherit;
+}
+
+.custom-success-modal .custom-modal-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.custom-success-modal .btn-close {
+    padding: 8px 16px;
+    border: none;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    background: #4caf50;
+    color: white;
+}

@@ -1,1 +1,242 @@
 <!-- Template for agendamento-ir -->
+<div id="main" class="loading" *ngIf="loading">
+    <mat-progress-spinner mode="indeterminate" color="accent" style="width: 32px;">
+    </mat-progress-spinner>
+</div>
+
+<div id="main" *ngIf="!loading">
+    <div *ngFor="let schedule of schedules;">
+        <fieldset id="cloneable-fieldset">
+            <legend id="titulo">{{entityName}}</legend>
+            <fieldset class="form-control">
+                <legend for="Inicio">Horário</legend>
+                <input type="time" name="Hora"
+                    [(ngModel)]="schedule.time"
+                    id="time" />
+            </fieldset>
+            
+            <fieldset class="form-control">
+                <legend>Comando</legend>
+                <div class="temperature-select">
+                    <select [(ngModel)]="schedule.temperature" class="temperature-selector">
+                        <option [ngValue]="null">Selecione um comando</option>
+                        <option *ngFor="let temp of availableTemperatures" [ngValue]="temp.command_id">
+                            {{temp.temperature}}
+                        </option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <fieldset class="form-control">
+                <legend>Dias:</legend>
+                <div class="selectDays">
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.mon"
+                            type="checkbox" id="segunda"
+                            name="daysWeek[]" value="Segunda"
+                            class="custom-checkbox">
+
+                        <label for="segunda">Segunda</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.tue"
+                            type="checkbox" id="terca"
+                            name="daysWeek[]" value="Terça"
+                            class="custom-checkbox">
+
+                        <label for="terca">Terça</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.wed"
+                            type="checkbox" id="quarta"
+                            name="daysWeek[]" value="Quarta"
+                            class="custom-checkbox">
+                        <label for="quarta">Quarta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.thu"
+                            type="checkbox" id="quinta"
+                            name="daysWeek[]" value="Quinta"
+                            class="custom-checkbox">
+
+                        <label for="quinta">Quinta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.fri"
+                            type="checkbox" id="sexta"
+                            name="daysWeek[]" value="Sexta"
+                            class="custom-checkbox">
+
+                        <label for="sexta">Sexta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.sat"
+                            type="checkbox" id="sabado"
+                            name="daysWeek[]" value="Sábado"
+                            class="custom-checkbox">
+
+                        <label for="sabado">Sábado</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.daysWeek.sun"
+                            type="checkbox" id="domingo"
+                            name="daysWeek[]" value="Domingo"
+                            class="custom-checkbox">
+
+                        <label for="domingo">Domingo</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input
+                            [(ngModel)]="schedule.holiday"
+                            type="checkbox" id="feriado"
+                            name="Feriado" value="Feriado"
+                            class="custom-checkbox">
+
+                        <label for="segunda">Feriado</label>
+                    </div>
+                </div>
+                
+                
+                
+            </fieldset>
+
+            <button type="submit" (click)="remove(schedule)">
+                Remover
+            </button>
+
+        </fieldset>
+    </div>
+    
+     <div *ngFor="let schedule of groupSchedules;">
+        <fieldset id="cloneable-fieldset">
+            <legend id="titulo">{{entityName}}</legend>
+            <fieldset class="form-control">
+                <legend for="Inicio">Horário</legend>
+                <input disabled="true" type="time" name="Hora"
+                    [(ngModel)]="schedule.time"
+                    id="time" />
+            </fieldset>
+            
+            <fieldset class="form-control">
+                <legend>Comando</legend>
+                <div class="temperature-select">
+                    <select disabled="true" [(ngModel)]="schedule.temperature" class="temperature-selector">
+                        <option [ngValue]="null">Selecione um comando</option>
+                        <option *ngFor="let temp of availableTemperatures" [ngValue]="temp.command_id">
+                            {{temp.name}}
+                        </option>
+                    </select>
+                </div>
+            </fieldset>
+            
+            <div class="checkboxRetain">
+                <span class="desligar">Desligar</span>
+
+                <label class="toggle-switch">
+                  <input disabled="true" type="checkbox" [(ngModel)]="schedule.action">
+                  <div class="toggle-switch-background">
+                    <div class="toggle-switch-handle"></div>
+                  </div>
+                </label>
+                <span class="ligar">Ligar</span>
+            </div>
+
+            <fieldset class="form-control">
+                <legend>Dias:</legend>
+                <div class="selectDays">
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.mon"
+                            type="checkbox" id="segunda"
+                            name="daysWeek[]" value="Segunda"
+                            class="custom-checkbox">
+
+                        <label for="segunda">Segunda</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.tue"
+                            type="checkbox" id="terca"
+                            name="daysWeek[]" value="Terça"
+                            class="custom-checkbox">
+
+                        <label for="terca">Terça</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.wed"
+                            type="checkbox" id="quarta"
+                            name="daysWeek[]" value="Quarta"
+                            class="custom-checkbox">
+                        <label for="quarta">Quarta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.thu"
+                            type="checkbox" id="quinta"
+                            name="daysWeek[]" value="Quinta"
+                            class="custom-checkbox">
+
+                        <label for="quinta">Quinta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.fri"
+                            type="checkbox" id="sexta"
+                            name="daysWeek[]" value="Sexta"
+                            class="custom-checkbox">
+
+                        <label for="sexta">Sexta</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.sat"
+                            type="checkbox" id="sabado"
+                            name="daysWeek[]" value="Sábado"
+                            class="custom-checkbox">
+
+                        <label for="sabado">Sábado</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.daysWeek.sun"
+                            type="checkbox" id="domingo"
+                            name="daysWeek[]" value="Domingo"
+                            class="custom-checkbox">
+
+                        <label for="domingo">Domingo</label>
+                    </div>
+                    <div class="checkboxDays">
+                        <input disabled="true"
+                            [(ngModel)]="schedule.holiday"
+                            type="checkbox" id="feriado"
+                            name="Feriado" value="Feriado"
+                            class="custom-checkbox">
+
+                        <label for="segunda">Feriado</label>
+                    </div>
+                </div>
+                
+            </fieldset>
+                <p class="group-schedule"><span
+                    class="warning">Atenção:</span> Esse
+                agendamento foi configurado a partir de um
+                <b>grupo de dispositivos</b>, para altera-lo
+                <a href="#" (click)="goToMultipleSchedulesDetail($event, schedule)">clique aqui</a></p>
+        </fieldset>
+    </div>
+
+    <div class="divButtons">
+        <button type="submit" (click)="addSchedule()">+
+            Intervalo</button>
+        <button type="submit"
+            (click)="submit()">Salvar</button>
+    </div>
+</div>

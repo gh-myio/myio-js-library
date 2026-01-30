@@ -1,1 +1,28 @@
 <!-- Template for feriado-v6 -->
+<div id="main">
+    <fieldset class="form-control-main">
+     <!--<legend id="titulo">{{entityName}}</legend>-->
+    <div *ngFor="let holiday of holidays;">
+        <fieldset id="cloneable-fieldset">
+            
+            <fieldset class="form-control">
+                <legend for="Termino">Data</legend>
+                
+                <input id="date" type="date"  [(ngModel)]="holiday.holidayDates" />    
+            
+            </fieldset>
+            
+      
+            <button type="submit" (click)="remove(holiday)">
+                Remover
+            </button>
+        </fieldset>
+    </div>
+    <div class="divButtons">
+        <button type="submit" (click)="addHolidays()">+
+            Data</button>
+        <button type="submit"
+            (click)="submit()">Salvar</button>
+    </div>
+     </fieldset>
+</div>
