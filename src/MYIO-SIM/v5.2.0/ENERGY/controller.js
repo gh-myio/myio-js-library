@@ -900,6 +900,7 @@ function setupMaximizeButton() {
 /**
  * RFC-0097/RFC-0130: Fetches consumption for a period with ONE API call per day
  * Makes N API calls (one per day) to get accurate daily consumption values
+ * RFC-FIX: Only counts devices that exist in ctx.data (orchestrator cache)
  * @param {string} customerId - Customer ID (holding/parent)
  * @param {number} startTs - Start timestamp (unused, using dayBoundaries)
  * @param {number} endTs - End timestamp (unused, using dayBoundaries)
@@ -910,6 +911,17 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
   try {
     const numDays = dayBoundaries.length;
     LogHelper.log(`[ENERGY] Fetching ${numDays} days with ${numDays} API calls (one per day)...`);
+
+    // RFC-FIX: Get valid device IDs from orchestrator cache (devices that exist in ctx.data)
+    // Only these devices should be counted in the chart totals
+    const orchestratorItems = window.MyIOOrchestratorData?.energy?.items || [];
+    const validIngestionIds = new Set();
+    orchestratorItems.forEach((item) => {
+      if (item.ingestionId) validIngestionIds.add(item.ingestionId);
+      if (item.id) validIngestionIds.add(item.id);
+    });
+
+    LogHelper.log(`[ENERGY] Valid devices from ctx.data: ${validIngestionIds.size}`);
 
     const dailyTotals = [];
     const byCustomerPerDay = [];
@@ -933,9 +945,33 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
         continue;
       }
 
-      const devices = result.devices || [];
-      const dayTotal = result.total || 0;
-      const byCustomer = result.byCustomer || {};
+      const allDevices = result.devices || [];
+
+      // RFC-FIX: Filter devices to only include those that exist in ctx.data
+      const devices = validIngestionIds.size > 0
+        ? allDevices.filter((d) => validIngestionIds.has(d.id))
+        : allDevices;
+
+      const discardedCount = allDevices.length - devices.length;
+      if (discardedCount > 0) {
+        LogHelper.log(`[ENERGY] Day ${day.label}: Filtered out ${discardedCount} devices not in ctx.data`);
+      }
+
+      // Recalculate dayTotal from filtered devices only
+      const dayTotal = devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+
+      // Recalculate byCustomer from filtered devices only
+      const byCustomer = {};
+      devices.forEach((d) => {
+        const custId = d.customerId;
+        if (custId) {
+          if (!byCustomer[custId]) {
+            byCustomer[custId] = { name: d.customerName || custId, total: 0, deviceCount: 0 };
+          }
+          byCustomer[custId].total += d.total_value || 0;
+          byCustomer[custId].deviceCount++;
+        }
+      });
 
       dailyTotals.push(dayTotal);
 

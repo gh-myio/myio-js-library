@@ -322,10 +322,27 @@ export async function renderList(config, STATE, visible, context) {
         handleActionSettings: () => context?.handleActionSettings?.(entityObject, item),
         handleSelect: (checked, entity) => {
           if (!STATE.selectedIds) STATE.selectedIds = new Set();
+
+          // RFC-0144: Notify MyIOSelectionStore for FOOTER integration
+          const MyIOSelectionStore =
+            (typeof window !== 'undefined' && window.MyIOLibrary?.MyIOSelectionStore) ||
+            (typeof window !== 'undefined' && window.MyIOSelectionStore);
+
           if (checked) {
             STATE.selectedIds.add(String(entity.id));
+            // Register and add to selection store for FOOTER
+            if (MyIOSelectionStore) {
+              if (MyIOSelectionStore.registerEntity) {
+                MyIOSelectionStore.registerEntity(entity);
+              }
+              MyIOSelectionStore.add(entity.entityId || entity.id);
+            }
           } else {
             STATE.selectedIds.delete(String(entity.id));
+            // Remove from selection store
+            if (MyIOSelectionStore) {
+              MyIOSelectionStore.remove(entity.entityId || entity.id);
+            }
           }
         },
         useNewComponents: true,
@@ -737,8 +754,10 @@ export function createWidgetController(config) {
       const busyModal = createBusyModal(config, $root);
 
       if (typeof window !== 'undefined' && window.MyIOUtils?.buildHeaderDevicesGrid) {
+        // RFC-0143 FIX: buildHeaderDevicesGrid expects 'container' (DOM element), not '$container' (jQuery)
         context.headerController = window.MyIOUtils.buildHeaderDevicesGrid({
-          $container: $root(),
+          container: $root()[0], // Pass the DOM element, not jQuery object
+          domain: config.domain,
           idPrefix: config.idPrefix,
           labels: config.headerLabels,
           onSortChange: (mode) => {

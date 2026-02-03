@@ -519,14 +519,20 @@ function enrichItemsWithTotals(items, apiMap) {
       cachedCustomerId = row?.customerId || row?.customer_id || null;
     }
 
-    const value = Number(raw || 0);
+    // RFC-0144: Preserve existing non-zero values if API returns 0
+    // This prevents overwriting good data with zeros
+    const currentValue = Number(it.value || 0);
+    const apiValue = Number(raw || 0);
+
+    // Use API value if it's > 0, otherwise keep existing value
+    const finalValue = apiValue > 0 ? apiValue : currentValue;
 
     // 3. [NOVO] Prioriza o ID que já existia (TB), senão usa o do Cache (API)
     const finalCustomerId = it.customerId || cachedCustomerId;
 
     return {
       ...it,
-      value,
+      value: finalValue,
       perc: 0,
       customerId: finalCustomerId, // [NOVO] Atualiza o objeto com o ID encontrado
     };
@@ -654,36 +660,12 @@ function updateWaterCommonAreaStats(items) {
     return;
   }
 
-  // RFC-0110: Calculate connectivity using MASTER RULES (same as card rendering)
-  let onlineCount = 0;
-  let offlineCount = 0;
-  let notInstalledCount = 0;
+  // RFC-0144: Force all devices as online (same as WATER_STORES)
+  // Water meters show accumulated totals, not real-time data
   let totalConsumption = 0;
   let zeroConsumptionCount = 0;
 
   items.forEach((item) => {
-    // RFC-0110: Get telemetry timestamp for status calculation
-    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
-    const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-
-    // RFC-0110: Calculate device status using MASTER RULES (same as card rendering)
-    const deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24h threshold for stale telemetry
-      domain: 'water',
-    });
-
-    // RFC-0110: Count by calculated deviceStatus
-    if (deviceStatus === 'not_installed') {
-      notInstalledCount++;
-    } else if (deviceStatus === 'offline' || deviceStatus === 'no_info') {
-      offlineCount++;
-    } else {
-      onlineCount++;
-    }
-
     // Consumption calculation - RFC-0140: Do NOT clear for water domain
     // API provides accumulated totals that are valid regardless of current connection status
     const consumption = Number(item.value) || Number(item.val) || 0;
@@ -694,6 +676,10 @@ function updateWaterCommonAreaStats(items) {
     }
   });
 
+  // RFC-0144: All devices are considered online for water area comum
+  const onlineCount = items.length;
+  const offlineCount = 0;
+  const notInstalledCount = 0;
   const totalWithStatus = items.length;
 
   // Calculate connectivity percentage
@@ -733,19 +719,10 @@ async function renderList(visible) {
 
     const valNum = Number(it.value || 0);
 
-    // RFC-0110: Get telemetry timestamp for water domain
-    // For water, use pulsesTs, waterVolumeTs, or timeVal/lastActivityTime as fallback
-    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = it.pulsesTs || it.waterVolumeTs || null;
-
-    // RFC-0110: Calculate device status using MASTER RULES
-    const mappedConnectionStatus = mapConnectionStatus(it.connectionStatus || 'offline');
-    let deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedConnectionStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440, // 24h threshold for stale telemetry
-      domain: 'water',
-    });
+    // RFC-0144: Force status to 'online' for WATER_COMMON_AREA (same as WATER_STORES)
+    // Water meters show accumulated totals, not real-time data, so connection status is not relevant
+    // This matches the WATER_STORES behavior which uses statusCalculation: 'always_online'
+    const deviceStatus = 'online';
 
     // RFC-0140: Do NOT clear consumption value for water domain
     // API provides accumulated totals that are valid regardless of current connection status
@@ -1035,22 +1012,11 @@ function getItemConsumption(item) {
 }
 
 // Helper function to get item status (for filter tabs)
-// RFC-0110: Calculate deviceStatus using MASTER RULES for consistent filtering
+// RFC-0144: Force all devices as online for WATER_COMMON_AREA
+// Water meters show accumulated totals, not real-time data, so connection status is not relevant
 function getItemStatus(item) {
-  // If deviceStatus is already calculated (from updateFromDevices), use it
-  if (item.deviceStatus) {
-    return item.deviceStatus.toLowerCase();
-  }
-  // Otherwise, calculate it using RFC-0110 rules
-  const telemetryTimestamp =
-    item.pulsesTs || item.waterVolumeTs || item.timeVal || item.lastActivityTime || null;
-  const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-  return calculateDeviceStatusMasterRules({
-    connectionStatus: mappedStatus,
-    telemetryTimestamp: telemetryTimestamp,
-    delayMins: 1440, // 24h threshold for stale telemetry
-    domain: 'water',
-  });
+  // RFC-0144: Always return 'online' for water area comum devices
+  return 'online';
 }
 
 // Filter modal instance (lazy initialized)
@@ -1146,20 +1112,11 @@ function openFilterModal() {
   const items =
     STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
-  // RFC-0110: Calculate deviceStatus for each item before opening modal
+  // RFC-0144: Force deviceStatus to 'online' for water area comum (always_online like WATER_STORES)
   // This ensures getItemStatus() will have deviceStatus available
   const itemsWithDeviceStatus = items.map((item) => {
-    if (item.deviceStatus) return item; // Already calculated
-    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
-    const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-    const deviceStatus = calculateDeviceStatusMasterRules({
-      connectionStatus: mappedStatus,
-      telemetryTimestamp: telemetryTimestamp,
-      delayMins: 1440,
-      domain: 'water',
-    });
-    return { ...item, deviceStatus };
+    // RFC-0144: Always return 'online' for water area comum devices
+    return { ...item, deviceStatus: 'online' };
   });
 
   // Open with current items and state
@@ -1193,18 +1150,10 @@ async function filterAndRender() {
   // RFC-0110: Calculate deviceStatus for each item before passing to updateFromDevices
   // RFC-0140 FIX: Use 'visible' (filtered items) instead of STATE.itemsEnriched for accurate stats
   if (visible && visible.length > 0) {
-    // RFC-0110: Map items with calculated deviceStatus for accurate stats
+    // RFC-0144: Force deviceStatus to 'online' for water area comum (always_online like WATER_STORES)
     const itemsWithDeviceStatus = visible.map((item) => {
-      // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
-      const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
-      const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
-      const deviceStatus = calculateDeviceStatusMasterRules({
-        connectionStatus: mappedStatus,
-        telemetryTimestamp: telemetryTimestamp,
-        delayMins: 1440, // 24h threshold for stale telemetry
-        domain: 'water',
-      });
-      return { ...item, deviceStatus };
+      // RFC-0144: Always return 'online' for water area comum devices
+      return { ...item, deviceStatus: 'online' };
     });
 
     if (waterCommonAreaHeaderController) {
@@ -1637,18 +1586,32 @@ self.onInit = async function () {
     });
     LogHelper.log(`[WATER_COMMON_AREA] Orchestrator values map size: ${orchestratorValues.size}`);
 
+    // RFC-0144: Only update values if orchestrator has a BETTER (non-zero) value
+    // This prevents provide-data from overwriting good values with zeros
     STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
+      const currentValue = tbItem.value || 0;
+
+      // RFC-0144: Prioritize non-zero values
+      // If orchestrator has a value > 0, use it
+      // If orchestrator value is 0 or undefined, keep existing value
+      let finalValue = currentValue;
+      if (orchestratorValue !== undefined && orchestratorValue > 0) {
+        finalValue = orchestratorValue;
+      } else if (currentValue === 0 && orchestratorValue !== undefined) {
+        // Only use orchestrator's zero if we have no value at all
+        finalValue = orchestratorValue;
+      }
 
       return {
         ...tbItem,
-        value: orchestratorValue !== undefined ? orchestratorValue : tbItem.value || 0,
+        value: finalValue,
         perc: 0,
       };
     });
 
     LogHelper.log(
-      `[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`
+      `[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items with orchestrator values (preserved non-zero values)`
     );
 
     if (STATE.selectedIds && STATE.selectedIds.size) {
@@ -1738,11 +1701,14 @@ self.onInit = async function () {
 
   // FIX: Listen for myio:water-summary-ready event from MAIN (this event is actually emitted!)
   // When this event fires, the classified data is already in the cache
+  // RFC-0144: Always try to enrich when summary is ready, not just when itemsBase is empty
   let waterSummaryHandler = null;
   waterSummaryHandler = () => {
     const cachedWater = window.MyIOOrchestratorData?.classified?.water;
-    if (cachedWater?.hidrometro_area_comum?.length > 0 && STATE.itemsBase.length === 0) {
-      LogHelper.log(`[WATER_COMMON_AREA] 📡 water-summary-ready received, loading from cache...`);
+    if (cachedWater?.hidrometro_area_comum?.length > 0) {
+      LogHelper.log(
+        `[WATER_COMMON_AREA] 📡 water-summary-ready received, enriching with ${cachedWater.hidrometro_area_comum.length} items from cache...`
+      );
       waterTbDataHandler({ detail: { classified: { water: cachedWater } } });
     }
   };
@@ -1780,17 +1746,58 @@ self.onInit = async function () {
 
     LogHelper.log(`[WATER_COMMON_AREA] 📦 Found ${commonAreaItems.length} items from MAIN`);
 
-    // FIX: Do NOT override local datasource data with MAIN's data
-    // MAIN's classification is unreliable - always prefer ThingsBoard's pre-filtered alias
-    if (STATE.itemsBase.length > 0) {
+    // RFC-0144 FIX: When we have local datasource data, ENRICH it with API values from MAIN
+    // instead of ignoring the MAIN data entirely
+    if (STATE.itemsBase.length > 0 && commonAreaItems.length > 0) {
       LogHelper.log(
-        `[WATER_COMMON_AREA] FIX: Ignoring MAIN data - already have ${STATE.itemsBase.length} items from local 'HidrometrosAreaComum' datasource`
+        `[WATER_COMMON_AREA] RFC-0144: Enriching ${STATE.itemsBase.length} local items with API values from MAIN (${commonAreaItems.length} items)`
       );
+
+      // Build a map of MAIN items by ingestionId for quick lookup
+      const mainItemsMap = new Map();
+      commonAreaItems.forEach((item) => {
+        if (item.ingestionId) mainItemsMap.set(item.ingestionId, item);
+        if (item.tbId) mainItemsMap.set(item.tbId, item);
+        if (item.id) mainItemsMap.set(item.id, item);
+      });
+
+      // Enrich local items with API values from MAIN
+      STATE.itemsEnriched = STATE.itemsBase.map((localItem) => {
+        // Try to find matching MAIN item
+        const mainItem =
+          mainItemsMap.get(localItem.ingestionId) ||
+          mainItemsMap.get(localItem.tbId) ||
+          mainItemsMap.get(localItem.id);
+
+        // Get consumption value from MAIN (API-enriched) or fallback to local pulses
+        const consumptionValue = mainItem?.value || mainItem?.consumption || localItem.pulses || localItem.value || 0;
+
+        if (mainItem) {
+          LogHelper.log(
+            `[WATER_COMMON_AREA] RFC-0144: Enriched ${localItem.label}: mainValue=${mainItem?.value}, mainConsumption=${mainItem?.consumption}, localPulses=${localItem.pulses}, final=${consumptionValue}`
+          );
+        }
+
+        return {
+          ...localItem,
+          value: consumptionValue,
+          consumption: consumptionValue,
+          pulses: mainItem?.pulses || localItem.pulses || 0,
+          perc: 0,
+        };
+      });
+
+      LogHelper.log(
+        `[WATER_COMMON_AREA] RFC-0144: Enriched ${STATE.itemsEnriched.length} items, total value: ${STATE.itemsEnriched.reduce((sum, i) => sum + (i.value || 0), 0).toFixed(2)} m³`
+      );
+
+      reflowFromState();
+      hideBusy();
       return;
     }
 
-    // RFC-0109: Only use MAIN data if we have NO local data
-    if (commonAreaItems && commonAreaItems.length > 0) {
+    // RFC-0109: Only use MAIN data structure if we have NO local data
+    if (commonAreaItems && commonAreaItems.length > 0 && STATE.itemsBase.length === 0) {
       const commonArea = {
         items: commonAreaItems,
         total: commonAreaItems.reduce((sum, d) => sum + Number(d.value || d.pulses || 0), 0),
@@ -1940,11 +1947,18 @@ self.onInit = async function () {
   }
 
   // RFC-0109: Fallback - retry cache check after 2s in case of timing issues
-  if (!cachedClassified || !cachedClassified?.hidrometro_area_comum?.length) {
+  // RFC-0144: Also retry when we have items but no enriched values (all zeros)
+  const needsEnrichment =
+    !cachedClassified?.hidrometro_area_comum?.length ||
+    (STATE.itemsEnriched.length > 0 &&
+      STATE.itemsEnriched.every((i) => (i.value || 0) === 0));
+
+  if (needsEnrichment) {
     setTimeout(() => {
       const retryCache = window.MyIOOrchestratorData?.classified?.water;
       const retryTimestamp = window.MyIOOrchestratorData?.apiEnrichedAt || Date.now();
-      if (retryCache?.hidrometro_area_comum?.length > 0 && STATE.itemsBase.length === 0) {
+      // RFC-0144: Always try to enrich if we have cache data (not just when itemsBase is empty)
+      if (retryCache?.hidrometro_area_comum?.length > 0) {
         const cacheAge = Date.now() - retryTimestamp;
         if (cacheAge < 120000) {
           // Extended threshold for retry
@@ -2060,19 +2074,44 @@ self.onInit = async function () {
     // When it receives data, it will set STATE.itemsBase, STATE.dataFromMain=true, and call reflowFromState()
 
     // Also set up a watcher for cached data in case event was missed
+    // RFC-0144: Check if items need enrichment (all values are zero)
     const cacheWatcher = setInterval(() => {
       const retryCache = window.MyIOOrchestratorData?.waterClassified;
-      if (retryCache?.commonArea?.items?.length > 0 && STATE.itemsBase.length === 0) {
+      const classifiedCache = window.MyIOOrchestratorData?.classified?.water;
+
+      // RFC-0144: Check if we need enrichment (no items OR all values are zero)
+      const needsEnrichment =
+        STATE.itemsBase.length === 0 ||
+        (STATE.itemsEnriched.length > 0 && STATE.itemsEnriched.every((i) => (i.value || 0) === 0));
+
+      // Try waterClassified format first
+      if (retryCache?.commonArea?.items?.length > 0 && needsEnrichment) {
         clearInterval(cacheWatcher);
         clearTimeout(waterDataTimeout);
         LogHelper.log(
-          `[WATER_COMMON_AREA] 🔄 CacheWatcher found data: ${retryCache.commonArea.items.length} items`
+          `[WATER_COMMON_AREA] 🔄 CacheWatcher found waterClassified data: ${retryCache.commonArea.items.length} items`
         );
         waterTbDataHandler({ detail: retryCache });
-      } else if (STATE.itemsBase.length > 0) {
+      }
+      // Try classified.water format
+      else if (classifiedCache?.hidrometro_area_comum?.length > 0 && needsEnrichment) {
         clearInterval(cacheWatcher);
         clearTimeout(waterDataTimeout);
-        LogHelper.log(`[WATER_COMMON_AREA] ✅ CacheWatcher: Data already loaded, stopping`);
+        LogHelper.log(
+          `[WATER_COMMON_AREA] 🔄 CacheWatcher found classified.water data: ${classifiedCache.hidrometro_area_comum.length} items`
+        );
+        waterTbDataHandler({ detail: { classified: { water: classifiedCache } } });
+      }
+      // Stop if we have enriched items with actual values
+      else if (
+        STATE.itemsEnriched.length > 0 &&
+        STATE.itemsEnriched.some((i) => (i.value || 0) > 0)
+      ) {
+        clearInterval(cacheWatcher);
+        clearTimeout(waterDataTimeout);
+        LogHelper.log(
+          `[WATER_COMMON_AREA] ✅ CacheWatcher: Data enriched with values, stopping`
+        );
         hideBusy();
       }
     }, 500);
