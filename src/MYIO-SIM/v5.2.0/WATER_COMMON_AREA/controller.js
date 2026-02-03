@@ -461,7 +461,7 @@ function buildAuthoritativeItems() {
       lastConnectTime: attrs.lastConnectTime ?? null,
       deviceMapInstaneousPower: attrs.deviceMapInstaneousPower ?? null,
       customerId: attrs.customerId ?? null,
-      connectionStatus: attrs.connectionStatus ?? 'offline',
+      connectionStatus: 'online', // RFC-0144: Force connectionStatus to 'online' for water area comum (always_online)
       pulses: attrs.pulses ?? null, // FIX: Water meters use pulses (litros instantâneos)
     };
   });
@@ -794,6 +794,7 @@ async function renderList(visible) {
       deviceType: it.deviceType || 'HIDROMETRO',
       deviceProfile: it.deviceProfile || 'HIDROMETRO',
       deviceStatus: deviceStatus,
+      connectionStatus: 'online', // RFC-0144: Force connectionStatus to 'online' for water area comum
       perc: it.perc ?? 0,
 
       // IDs secundários
@@ -1838,7 +1839,7 @@ self.onInit = async function () {
           lastActivityTime: item.lastActivityTime || null,
           deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
           customerId: item.customerId || null,
-          connectionStatus: item.connectionStatus || 'offline',
+          connectionStatus: 'online', // RFC-0144: Force connectionStatus to 'online' for water area comum
           // RFC-0131: Copy telemetry fields for status calculation
           pulses: item.pulses || item.consumption || 0,
           pulsesTs: item.pulsesTs || item.lastActivityTime || null,

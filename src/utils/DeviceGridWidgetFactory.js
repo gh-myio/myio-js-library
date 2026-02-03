@@ -206,9 +206,14 @@ export function buildEntityObject(config, item, context) {
 
   // Status calculation
   let deviceStatus;
+  let connectionStatus;
   if (config.statusCalculation === 'always_online') {
+    // RFC-0144: When always_online, force both deviceStatus AND connectionStatus to 'online'
+    // This prevents the card component from overriding deviceStatus based on connectionStatus
     deviceStatus = 'online';
+    connectionStatus = 'online';
   } else {
+    connectionStatus = mapConnectionStatus(item.connectionStatus);
     const calculateDeviceStatusMasterRules =
       typeof window !== 'undefined' && window.MyIOUtils?.calculateDeviceStatusMasterRules;
     if (calculateDeviceStatusMasterRules) {
@@ -217,7 +222,7 @@ export function buildEntityObject(config, item, context) {
         domain: config.domain,
       });
     } else {
-      deviceStatus = mapConnectionStatus(item.connectionStatus);
+      deviceStatus = connectionStatus;
     }
   }
 
@@ -259,6 +264,7 @@ export function buildEntityObject(config, item, context) {
     deviceType: item.deviceType,
     deviceProfile: item.deviceProfile || 'N/D',
     deviceStatus: deviceStatus,
+    connectionStatus: connectionStatus, // RFC-0144: Include connectionStatus for card component
     perc: item.perc ?? 0,
     slaveId: item.slaveId || 'N/A',
     ingestionId: item.ingestionId || 'N/A',
@@ -826,13 +832,27 @@ export function createWidgetController(config) {
       // Only process if this event is for our domain
       if (domain !== config.domain) return;
 
+      // RFC-0144 FIX: Skip water domain - it has dedicated waterTbDataReadyHandler
+      // The provide-data event items don't have correct deviceType/deviceProfile fields
+      // which causes deviceFilter to fail for water devices
+      if (config.domain === 'water') {
+        LogHelper.log(`[${config.widgetName}] Provide-data event skipped for water domain (use waterTbDataReadyHandler)`);
+        return;
+      }
+
       // Filter items using deviceFilter
       const filteredItems = config.deviceFilter
         ? items.filter(config.deviceFilter)
         : items;
 
-      // RFC-0144 FIX: Always update data, not just the first time
+      // RFC-0144 FIX: Only update if filtered result is better (more items) than current
+      // This prevents bad filtered data from overwriting good cached data
       if (filteredItems && filteredItems.length > 0) {
+        // Skip if we already have more/equal items (don't overwrite good data with worse)
+        if (STATE.itemsBase.length > 0 && filteredItems.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] Provide-data event skipped: current ${STATE.itemsBase.length} items > filtered ${filteredItems.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] Provide-data event: ${filteredItems.length} items (from ${items?.length || 0})`);
         STATE.itemsBase = filteredItems;
         STATE.itemsEnriched = filteredItems.map((item) => ({
