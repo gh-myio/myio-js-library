@@ -1,0 +1,95 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Inventory Panel Settings",
+    "properties": {
+      "title": {
+        "type": "string",
+        "title": "Panel Title",
+        "default": "Inventory Panel"
+      },
+      "defaultTab": {
+        "type": "string",
+        "title": "Default Tab",
+        "enum": ["devices", "dashboard"],
+        "default": "devices"
+      },
+      "defaultGroupBy": {
+        "type": "string",
+        "title": "Default Grouping",
+        "enum": ["customer", "type", "profile", "none"],
+        "default": "customer"
+      },
+      "pageSize": {
+        "type": "number",
+        "title": "API Page Size",
+        "default": 1000,
+        "minimum": 100,
+        "maximum": 5000
+      },
+      "showExportButton": {
+        "type": "boolean",
+        "title": "Show Export Button",
+        "default": true
+      },
+      "refreshInterval": {
+        "type": "number",
+        "title": "Auto-refresh Interval (seconds)",
+        "default": 0,
+        "minimum": 0,
+        "maximum": 3600
+      },
+      "showActiveOnly": {
+        "type": "boolean",
+        "title": "Show Active Devices Only",
+        "default": false
+      },
+      "enableNavigation": {
+        "type": "boolean",
+        "title": "Enable Device Navigation",
+        "default": true
+      }
+    },
+    "required": []
+  },
+  "form": [
+    {
+      "key": "title",
+      "type": "text",
+      "placeholder": "Enter panel title"
+    },
+    {
+      "key": "defaultTab",
+      "type": "rc-select",
+      "multiple": false,
+      "items": [
+        { "value": "devices", "label": "Devices" },
+        { "value": "dashboard", "label": "Dashboard" }
+      ]
+    },
+    {
+      "key": "defaultGroupBy",
+      "type": "rc-select",
+      "multiple": false,
+      "items": [
+        { "value": "customer", "label": "Group by Customer" },
+        { "value": "type", "label": "Group by Type" },
+        { "value": "profile", "label": "Group by Profile" },
+        { "value": "none", "label": "No Grouping (Flat List)" }
+      ]
+    },
+    {
+      "key": "pageSize",
+      "type": "number",
+      "placeholder": "1000"
+    },
+    "showExportButton",
+    {
+      "key": "refreshInterval",
+      "type": "number",
+      "placeholder": "0 = disabled"
+    },
+    "showActiveOnly",
+    "enableNavigation"
+  ]
+}

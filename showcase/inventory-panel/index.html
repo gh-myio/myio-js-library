@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Panel - Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ===== SHOWCASE LAYOUT ===== */
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .showcase-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      padding: 12px 20px;
+      border-bottom: 1px solid #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .showcase-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .showcase-header p {
+      color: #bfdbfe;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.ready { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+    .status-badge.mock { background: rgba(251, 191, 36, 0.2); color: #fde047; }
+
+    .theme-toggle {
+      padding: 8px 14px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* ===== WIDGET AREA ===== */
+    .widget-area {
+      position: relative;
+      overflow: hidden;
+      background: #0f172a;
+    }
+
+    body.light-mode .widget-area { background: #f8fafc; }
+
+    .widget-mount {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .showcase-sidebar {
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body.light-mode .showcase-sidebar {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    /* ===== CONTROLS PANEL ===== */
+    .controls-panel {
+      padding: 16px;
+      border-bottom: 1px solid #334155;
+    }
+
+    body.light-mode .controls-panel { border-color: #e2e8f0; }
+
+    .controls-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+
+    body.light-mode .ctrl-btn {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #475569;
+    }
+
+    .ctrl-btn:hover {
+      background: #334155;
+    }
+
+    body.light-mode .ctrl-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .ctrl-btn.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: white;
+    }
+
+    .ctrl-btn.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .ctrl-btn.danger {
+      background: #7f1d1d;
+      border-color: #991b1b;
+      color: #fca5a5;
+    }
+
+    .ctrl-btn.danger:hover {
+      background: #991b1b;
+    }
+
+    .ctrl-btn.success {
+      background: #166534;
+      border-color: #15803d;
+      color: #86efac;
+    }
+
+    /* ===== STATS PANEL ===== */
+    .stats-panel {
+      padding: 16px;
+      border-bottom: 1px solid #334155;
+    }
+
+    body.light-mode .stats-panel { border-color: #e2e8f0; }
+
+    .stats-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #334155;
+      font-size: 13px;
+    }
+
+    body.light-mode .stat-row { border-color: #f1f5f9; }
+
+    .stat-row:last-child { border-bottom: none; }
+
+    .stat-label { color: #94a3b8; }
+    .stat-value { font-weight: 600; color: #e2e8f0; }
+    body.light-mode .stat-value { color: #1e293b; }
+    .stat-value.active { color: #22c55e; }
+    .stat-value.inactive { color: #ef4444; }
+
+    /* ===== LOG PANEL ===== */
+    .log-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .log-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    body.light-mode .log-header { border-color: #e2e8f0; }
+
+    .log-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .log-clear {
+      font-size: 11px;
+      color: #64748b;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    .log-clear:hover { color: #94a3b8; }
+
+    .log-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    body.light-mode .log-entry { border-color: #f1f5f9; }
+
+    .log-entry.info { color: #60a5fa; }
+    .log-entry.success { color: #4ade80; }
+    .log-entry.warn { color: #fbbf24; }
+    .log-entry.error { color: #f87171; }
+
+    .log-time {
+      color: #64748b;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-layout">
+    <!-- Header -->
+    <header class="showcase-header">
+      <div>
+        <h1>Inventory Panel Widget</h1>
+        <p>RFC-0001 - Device Inventory Management</p>
+      </div>
+      <div class="header-actions">
+        <span class="status-badge mock">Mock Data</span>
+        <span class="status-badge ready">Ready</span>
+        <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+      </div>
+    </header>
+
+    <!-- Widget Area -->
+    <div class="widget-area">
+      <div class="widget-mount" id="inventory-panel-root"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="showcase-sidebar">
+      <!-- Controls -->
+      <div class="controls-panel">
+        <h3>Controls</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn" onclick="setTab('devices')">Devices Tab</button>
+          <button class="ctrl-btn" onclick="setTab('dashboard')">Dashboard Tab</button>
+          <button class="ctrl-btn" onclick="setGroupBy('customer')">Group: Customer</button>
+          <button class="ctrl-btn" onclick="setGroupBy('type')">Group: Type</button>
+          <button class="ctrl-btn" onclick="setGroupBy('profile')">Group: Profile</button>
+          <button class="ctrl-btn" onclick="setGroupBy('none')">Group: None</button>
+          <button class="ctrl-btn full-width success" onclick="refreshData()">Refresh Data</button>
+          <button class="ctrl-btn" onclick="expandAll()">Expand All</button>
+          <button class="ctrl-btn" onclick="collapseAll()">Collapse All</button>
+        </div>
+      </div>
+
+      <!-- Mock Data Controls -->
+      <div class="controls-panel">
+        <h3>Mock Data</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn" onclick="setDeviceCount(50)">50 Devices</button>
+          <button class="ctrl-btn" onclick="setDeviceCount(200)">200 Devices</button>
+          <button class="ctrl-btn" onclick="setDeviceCount(500)">500 Devices</button>
+          <button class="ctrl-btn" onclick="setDeviceCount(1000)">1000 Devices</button>
+          <button class="ctrl-btn full-width" onclick="toggleRandomStatus()">Toggle Random Status</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-panel">
+        <h3>Current Stats</h3>
+        <div class="stat-row">
+          <span class="stat-label">Total Devices</span>
+          <span class="stat-value" id="stat-total">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Active</span>
+          <span class="stat-value active" id="stat-active">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Inactive</span>
+          <span class="stat-value inactive" id="stat-inactive">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Customers</span>
+          <span class="stat-value" id="stat-customers">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Device Types</span>
+          <span class="stat-value" id="stat-types">0</span>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="log-panel">
+        <div class="log-header">
+          <h3>Event Log</h3>
+          <button class="log-clear" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="log-content" id="log-content"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // ============================================================
+    // MOCK DATA GENERATOR
+    // ============================================================
+    const CUSTOMERS = [
+      'Shopping Iguatemi', 'Shopping Eldorado', 'Shopping Morumbi',
+      'Shopping JK', 'Shopping Cidade Jardim', 'Shopping Patio Paulista',
+      'Shopping Higienopolis', 'Shopping Center Norte', 'Shopping Aricanduva'
+    ];
+
+    const DEVICE_TYPES = [
+      '3F_MEDIDOR', 'TERMOSTATO', 'HIDROMETRO', 'CHILLER', 'FANCOIL',
+      'ELEVADOR', 'ESCADA_ROLANTE', 'ENTRADA', 'BOMBA_CAG'
+    ];
+
+    const DEVICE_PROFILES = [
+      '3F_MEDIDOR', 'TERMOSTATO_CARRIER', 'HIDROMETRO_DIGITAL',
+      'CHILLER_TRANE', 'FANCOIL_LG', 'ELEVADOR_OTIS', 'ENTRADA_GERAL'
+    ];
+
+    let mockDeviceCount = 150;
+    let mockDevices = [];
+
+    function generateMockDevices(count) {
+      const devices = [];
+      for (let i = 0; i < count; i++) {
+        const customer = CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)];
+        const type = DEVICE_TYPES[Math.floor(Math.random() * DEVICE_TYPES.length)];
+        const profile = DEVICE_PROFILES[Math.floor(Math.random() * DEVICE_PROFILES.length)];
+
+        devices.push({
+          id: { id: `device-${i.toString().padStart(4, '0')}`, entityType: 'DEVICE' },
+          name: `${type}_${customer.split(' ')[1]}_${i.toString().padStart(3, '0')}`,
+          type: type,
+          label: `Device ${i + 1}`,
+          deviceProfileId: { id: `profile-${profile}`, entityType: 'DEVICE_PROFILE' },
+          deviceProfileName: profile,
+          customerId: { id: `customer-${customer.replace(/\s/g, '-').toLowerCase()}`, entityType: 'CUSTOMER' },
+          customerTitle: customer,
+          active: Math.random() > 0.1, // 90% active
+          createdTime: Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000,
+          additionalInfo: {}
+        });
+      }
+      return devices;
+    }
+
+    function setDeviceCount(count) {
+      mockDeviceCount = count;
+      mockDevices = generateMockDevices(count);
+      log('info', `Generated ${count} mock devices`);
+      loadData();
+    }
+
+    // ============================================================
+    // WIDGET INTEGRATION
+    // ============================================================
+    let state = {
+      loading: false,
+      error: null,
+      activeTab: 'devices',
+      devices: [],
+      customers: [],
+      deviceProfiles: [],
+      groupBy: 'customer',
+      searchText: '',
+      expandedGroups: {},
+      stats: { total: 0, active: 0, inactive: 0, byCustomer: {}, byType: {}, byProfile: {} },
+      showExportModal: false,
+      exportOptions: { includeInactive: true, format: 'csv' },
+      settings: { title: 'Inventory Panel', showExportButton: true }
+    };
+
+    let rootEl = null;
+    let chartInstances = {};
+
+    // Mock API functions
+    async function fetchAllDevices() {
+      await new Promise(r => setTimeout(r, 300));
+      return mockDevices;
+    }
+
+    async function fetchCustomers() {
+      await new Promise(r => setTimeout(r, 100));
+      const uniqueCustomers = [...new Set(mockDevices.map(d => d.customerTitle))];
+      return uniqueCustomers.map(name => ({
+        id: { id: `customer-${name.replace(/\s/g, '-').toLowerCase()}` },
+        title: name
+      }));
+    }
+
+    async function fetchDeviceProfiles() {
+      await new Promise(r => setTimeout(r, 100));
+      const uniqueProfiles = [...new Set(mockDevices.map(d => d.deviceProfileName))];
+      return uniqueProfiles.map(name => ({
+        id: { id: `profile-${name}` },
+        name: name
+      }));
+    }
+
+    // ============================================================
+    // WIDGET CONTROLLER (Simplified from controller.js)
+    // ============================================================
+    function calculateStats(devices) {
+      const stats = {
+        total: devices.length,
+        active: 0,
+        inactive: 0,
+        byCustomer: {},
+        byType: {},
+        byProfile: {}
+      };
+
+      devices.forEach(device => {
+        if (device.active) stats.active++;
+        else stats.inactive++;
+
+        const customerId = device.customerId?.id || 'unassigned';
+        const customerName = device.customerTitle || 'Unassigned';
+        if (!stats.byCustomer[customerId]) {
+          stats.byCustomer[customerId] = { name: customerName, count: 0, active: 0 };
+        }
+        stats.byCustomer[customerId].count++;
+        if (device.active) stats.byCustomer[customerId].active++;
+
+        const type = device.type || 'Unknown';
+        if (!stats.byType[type]) {
+          stats.byType[type] = { count: 0, active: 0 };
+        }
+        stats.byType[type].count++;
+        if (device.active) stats.byType[type].active++;
+
+        const profileId = device.deviceProfileId?.id || 'unknown';
+        const profileName = device.deviceProfileName || 'Unknown';
+        if (!stats.byProfile[profileId]) {
+          stats.byProfile[profileId] = { name: profileName, count: 0, active: 0 };
+        }
+        stats.byProfile[profileId].count++;
+        if (device.active) stats.byProfile[profileId].active++;
+      });
+
+      return stats;
+    }
+
+    function buildTreeData(devices, groupBy) {
+      const groups = {};
+
+      devices.forEach(device => {
+        let key, label;
+        switch (groupBy) {
+          case 'customer':
+            key = device.customerId?.id || 'unassigned';
+            label = device.customerTitle || 'Unassigned';
+            break;
+          case 'type':
+            key = device.type || 'unknown';
+            label = device.type || 'Unknown';
+            break;
+          case 'profile':
+            key = device.deviceProfileId?.id || 'unknown';
+            label = device.deviceProfileName || 'Unknown';
+            break;
+          default:
+            key = 'all';
+            label = 'All Devices';
+        }
+
+        if (!groups[key]) {
+          groups[key] = { key, label, devices: [] };
+        }
+        groups[key].devices.push(device);
+      });
+
+      return Object.values(groups).sort((a, b) => a.label.localeCompare(b.label));
+    }
+
+    function filterDevices(devices, searchText) {
+      if (!searchText?.trim()) return devices;
+      const search = searchText.toLowerCase().trim();
+      return devices.filter(d =>
+        (d.name || '').toLowerCase().includes(search) ||
+        (d.type || '').toLowerCase().includes(search) ||
+        (d.customerTitle || '').toLowerCase().includes(search) ||
+        (d.deviceProfileName || '').toLowerCase().includes(search)
+      );
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ============================================================
+    // RENDER FUNCTIONS
+    // ============================================================
+    function render() {
+      if (!rootEl) return;
+
+      let html = '<div class="ip-root">';
+
+      // Header
+      html += '<div class="ip-header">';
+      html += '<h2 class="ip-title">' + escapeHtml(state.settings.title) + '</h2>';
+      html += '<div class="ip-header-actions">';
+      html += '<button class="ip-btn ip-btn-secondary" onclick="openExportModal()">Export</button>';
+      html += '<button class="ip-btn ip-btn-primary" onclick="refreshData()">Refresh</button>';
+      html += '</div></div>';
+
+      // Tabs
+      html += '<div class="ip-tabs">';
+      html += '<button class="ip-tab' + (state.activeTab === 'devices' ? ' active' : '') + '" onclick="setTab(\'devices\')">Devices</button>';
+      html += '<button class="ip-tab' + (state.activeTab === 'dashboard' ? ' active' : '') + '" onclick="setTab(\'dashboard\')">Dashboard</button>';
+      html += '</div>';
+
+      // Content
+      if (state.loading) {
+        html += '<div class="ip-state"><div class="ip-spinner"></div><div>Loading...</div></div>';
+      } else if (state.activeTab === 'devices') {
+        html += renderDevicesTab();
+      } else {
+        html += renderDashboardTab();
+      }
+
+      html += '</div>';
+      rootEl.innerHTML = html;
+
+      if (state.activeTab === 'dashboard' && !state.loading) {
+        setTimeout(renderCharts, 100);
+      }
+
+      updateSidebarStats();
+    }
+
+    function renderDevicesTab() {
+      const filteredDevices = filterDevices(state.devices, state.searchText);
+      let html = '';
+
+      // Toolbar
+      html += '<div class="ip-toolbar">';
+      html += '<input type="text" class="ip-search" placeholder="Search devices..." value="' + escapeHtml(state.searchText) + '" oninput="searchDevices(this.value)">';
+      html += '<select class="ip-select" onchange="setGroupBy(this.value)">';
+      html += '<option value="customer"' + (state.groupBy === 'customer' ? ' selected' : '') + '>Group by Customer</option>';
+      html += '<option value="type"' + (state.groupBy === 'type' ? ' selected' : '') + '>Group by Type</option>';
+      html += '<option value="profile"' + (state.groupBy === 'profile' ? ' selected' : '') + '>Group by Profile</option>';
+      html += '<option value="none"' + (state.groupBy === 'none' ? ' selected' : '') + '>No Grouping</option>';
+      html += '</select>';
+      html += '<span style="color:#64748b;font-size:13px;">' + filteredDevices.length + ' devices</span>';
+      html += '</div>';
+
+      if (filteredDevices.length === 0) {
+        html += '<div class="ip-empty"><div class="ip-empty-text">No devices found</div></div>';
+        return html;
+      }
+
+      if (state.groupBy === 'none') {
+        html += renderFlatList(filteredDevices);
+      } else {
+        html += renderTreeView(filteredDevices);
+      }
+
+      return html;
+    }
+
+    function renderTreeView(devices) {
+      const tree = buildTreeData(devices, state.groupBy);
+      let html = '<div class="ip-tree">';
+
+      tree.forEach(group => {
+        const isExpanded = state.expandedGroups[group.key];
+        html += '<div class="ip-tree-group">';
+        html += '<div class="ip-tree-header" onclick="toggleGroup(\'' + group.key + '\')">';
+        html += '<div class="ip-tree-arrow' + (isExpanded ? ' expanded' : '') + '">&#9654;</div>';
+        html += '<div class="ip-tree-label">' + escapeHtml(group.label) + '</div>';
+        html += '<div class="ip-tree-count">' + group.devices.length + '</div>';
+        html += '</div>';
+        html += '<div class="ip-tree-items' + (isExpanded ? ' expanded' : '') + '">';
+
+        group.devices.forEach(device => {
+          html += '<div class="ip-device-row">';
+          html += '<span class="ip-device-status ' + (device.active ? 'active' : 'inactive') + '"></span>';
+          html += '<span class="ip-device-name">' + escapeHtml(device.name || 'Unnamed') + '</span>';
+          html += '<span class="ip-device-type">' + escapeHtml(device.type || '') + '</span>';
+          if (state.groupBy !== 'customer') {
+            html += '<span class="ip-device-customer">' + escapeHtml(device.customerTitle || '') + '</span>';
+          }
+          html += '</div>';
+        });
+
+        html += '</div></div>';
+      });
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderFlatList(devices) {
+      let html = '<div class="ip-flat-list">';
+      html += '<div class="ip-flat-header"><div></div><div>Name</div><div>Type</div><div>Customer</div><div>Status</div></div>';
+
+      devices.slice(0, 100).forEach(device => {
+        html += '<div class="ip-flat-row">';
+        html += '<div><span class="ip-device-status ' + (device.active ? 'active' : 'inactive') + '"></span></div>';
+        html += '<div class="ip-device-name">' + escapeHtml(device.name || 'Unnamed') + '</div>';
+        html += '<div class="ip-device-type">' + escapeHtml(device.type || '-') + '</div>';
+        html += '<div>' + escapeHtml(device.customerTitle || '-') + '</div>';
+        html += '<div>' + (device.active ? 'Active' : 'Inactive') + '</div>';
+        html += '</div>';
+      });
+
+      if (devices.length > 100) {
+        html += '<div style="padding:16px;text-align:center;color:#64748b;">Showing first 100 of ' + devices.length + ' devices</div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderDashboardTab() {
+      let html = '<div class="ip-dashboard">';
+
+      // Stats Cards
+      html += '<div class="ip-stats-row">';
+      html += '<div class="ip-stat-card"><div class="ip-stat-value">' + state.stats.total + '</div><div class="ip-stat-label">Total Devices</div></div>';
+      html += '<div class="ip-stat-card"><div class="ip-stat-value active">' + state.stats.active + '</div><div class="ip-stat-label">Active</div></div>';
+      html += '<div class="ip-stat-card"><div class="ip-stat-value inactive">' + state.stats.inactive + '</div><div class="ip-stat-label">Inactive</div></div>';
+      html += '<div class="ip-stat-card"><div class="ip-stat-value">' + Object.keys(state.stats.byCustomer).length + '</div><div class="ip-stat-label">Customers</div></div>';
+      html += '</div>';
+
+      // Charts
+      html += '<div class="ip-charts-row">';
+      html += '<div class="ip-chart-card"><div class="ip-chart-title">Devices by Customer (Top 10)</div><div class="ip-chart-container"><canvas id="ip-chart-customers"></canvas></div></div>';
+      html += '<div class="ip-chart-card"><div class="ip-chart-title">Devices by Type</div><div class="ip-chart-container"><canvas id="ip-chart-types"></canvas></div></div>';
+      html += '</div>';
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderCharts() {
+      Object.values(chartInstances).forEach(c => c?.destroy());
+      chartInstances = {};
+
+      const customerCtx = document.getElementById('ip-chart-customers');
+      if (customerCtx) {
+        const customerData = Object.values(state.stats.byCustomer)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
+
+        chartInstances.customers = new Chart(customerCtx, {
+          type: 'bar',
+          data: {
+            labels: customerData.map(c => c.name.substring(0, 15)),
+            datasets: [{
+              label: 'Devices',
+              data: customerData.map(c => c.count),
+              backgroundColor: '#3b82f6'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      }
+
+      const typeCtx = document.getElementById('ip-chart-types');
+      if (typeCtx) {
+        const typeData = Object.entries(state.stats.byType)
+          .sort((a, b) => b[1].count - a[1].count)
+          .slice(0, 8);
+
+        const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+        chartInstances.types = new Chart(typeCtx, {
+          type: 'doughnut',
+          data: {
+            labels: typeData.map(t => t[0]),
+            datasets: [{
+              data: typeData.map(t => t[1].count),
+              backgroundColor: colors
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } }
+          }
+        });
+      }
+    }
+
+    // ============================================================
+    // ACTIONS
+    // ============================================================
+    function setTab(tab) {
+      state.activeTab = tab;
+      log('info', `Switched to ${tab} tab`);
+      render();
+    }
+
+    function setGroupBy(groupBy) {
+      state.groupBy = groupBy;
+      state.expandedGroups = {};
+      log('info', `Grouping changed to: ${groupBy}`);
+      render();
+    }
+
+    function toggleGroup(key) {
+      state.expandedGroups[key] = !state.expandedGroups[key];
+      render();
+    }
+
+    function searchDevices(text) {
+      state.searchText = text;
+      render();
+    }
+
+    function expandAll() {
+      const tree = buildTreeData(state.devices, state.groupBy);
+      tree.forEach(g => state.expandedGroups[g.key] = true);
+      log('info', 'Expanded all groups');
+      render();
+    }
+
+    function collapseAll() {
+      state.expandedGroups = {};
+      log('info', 'Collapsed all groups');
+      render();
+    }
+
+    function openExportModal() {
+      log('info', 'Export modal would open here');
+      alert('Export functionality available in full widget');
+    }
+
+    function toggleRandomStatus() {
+      mockDevices.forEach(d => {
+        if (Math.random() > 0.9) {
+          d.active = !d.active;
+        }
+      });
+      state.devices = [...mockDevices];
+      state.stats = calculateStats(state.devices);
+      log('warn', 'Toggled random device statuses');
+      render();
+    }
+
+    async function loadData() {
+      state.loading = true;
+      render();
+
+      try {
+        const [devices, customers, profiles] = await Promise.all([
+          fetchAllDevices(),
+          fetchCustomers(),
+          fetchDeviceProfiles()
+        ]);
+
+        state.devices = devices;
+        state.customers = customers;
+        state.deviceProfiles = profiles;
+        state.stats = calculateStats(devices);
+        state.loading = false;
+
+        log('success', `Loaded ${devices.length} devices, ${customers.length} customers`);
+      } catch (err) {
+        state.error = err.message;
+        state.loading = false;
+        log('error', 'Failed to load data: ' + err.message);
+      }
+
+      render();
+    }
+
+    function refreshData() {
+      log('info', 'Refreshing data...');
+      loadData();
+    }
+
+    function updateSidebarStats() {
+      document.getElementById('stat-total').textContent = state.stats.total;
+      document.getElementById('stat-active').textContent = state.stats.active;
+      document.getElementById('stat-inactive').textContent = state.stats.inactive;
+      document.getElementById('stat-customers').textContent = Object.keys(state.stats.byCustomer).length;
+      document.getElementById('stat-types').textContent = Object.keys(state.stats.byType).length;
+    }
+
+    // ============================================================
+    // THEME & LOG
+    // ============================================================
+    function toggleTheme() {
+      document.body.classList.toggle('light-mode');
+      log('info', 'Theme toggled');
+    }
+
+    function log(type, message) {
+      const logContent = document.getElementById('log-content');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + type;
+      entry.innerHTML = '<span class="log-time">' + time + '</span>' + escapeHtml(message);
+      logContent.insertBefore(entry, logContent.firstChild);
+    }
+
+    function clearLog() {
+      document.getElementById('log-content').innerHTML = '';
+    }
+
+    // ============================================================
+    // INJECT WIDGET STYLES
+    // ============================================================
+    function injectStyles() {
+      const css = `
+        .ip-root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 16px; background: #f8fafc; min-height: 100%; }
+        body:not(.light-mode) .ip-root { background: #1e293b; }
+        .ip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+        body:not(.light-mode) .ip-header { border-color: #334155; }
+        .ip-title { margin: 0; font-size: 20px; font-weight: 600; color: #1e293b; }
+        body:not(.light-mode) .ip-title { color: #f1f5f9; }
+        .ip-header-actions { display: flex; gap: 8px; }
+        .ip-btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .ip-btn-primary { background: #3b82f6; color: white; }
+        .ip-btn-primary:hover { background: #2563eb; }
+        .ip-btn-secondary { background: #e2e8f0; color: #475569; }
+        body:not(.light-mode) .ip-btn-secondary { background: #334155; color: #e2e8f0; }
+        .ip-tabs { display: flex; gap: 4px; margin-bottom: 16px; background: #e2e8f0; padding: 4px; border-radius: 8px; width: fit-content; }
+        body:not(.light-mode) .ip-tabs { background: #334155; }
+        .ip-tab { padding: 8px 20px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: #64748b; }
+        .ip-tab.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        body:not(.light-mode) .ip-tab.active { background: #1e293b; color: #f1f5f9; }
+        .ip-state { padding: 60px; text-align: center; color: #64748b; }
+        .ip-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: ip-spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes ip-spin { to { transform: rotate(360deg); } }
+        .ip-toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+        .ip-search { flex: 1; min-width: 200px; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; background: white; }
+        body:not(.light-mode) .ip-search { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+        .ip-select { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; background: white; }
+        body:not(.light-mode) .ip-select { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+        .ip-tree { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+        body:not(.light-mode) .ip-tree { background: #1e293b; border-color: #334155; }
+        .ip-tree-group { border-bottom: 1px solid #e2e8f0; }
+        body:not(.light-mode) .ip-tree-group { border-color: #334155; }
+        .ip-tree-group:last-child { border-bottom: none; }
+        .ip-tree-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; background: #f8fafc; }
+        body:not(.light-mode) .ip-tree-header { background: #0f172a; }
+        .ip-tree-header:hover { background: #f1f5f9; }
+        body:not(.light-mode) .ip-tree-header:hover { background: #1e293b; }
+        .ip-tree-arrow { width: 20px; margin-right: 8px; transition: transform 0.2s; color: #64748b; }
+        .ip-tree-arrow.expanded { transform: rotate(90deg); }
+        .ip-tree-label { font-weight: 500; color: #1e293b; flex: 1; }
+        body:not(.light-mode) .ip-tree-label { color: #f1f5f9; }
+        .ip-tree-count { font-size: 12px; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 10px; }
+        body:not(.light-mode) .ip-tree-count { background: #334155; }
+        .ip-tree-items { display: none; }
+        .ip-tree-items.expanded { display: block; }
+        .ip-device-row { display: flex; align-items: center; padding: 10px 16px 10px 44px; border-top: 1px solid #f1f5f9; }
+        body:not(.light-mode) .ip-device-row { border-color: #334155; }
+        .ip-device-status { width: 8px; height: 8px; border-radius: 50%; margin-right: 12px; }
+        .ip-device-status.active { background: #22c55e; }
+        .ip-device-status.inactive { background: #ef4444; }
+        .ip-device-name { flex: 1; font-weight: 500; color: #1e293b; }
+        body:not(.light-mode) .ip-device-name { color: #f1f5f9; }
+        .ip-device-type { font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; margin-left: 12px; }
+        body:not(.light-mode) .ip-device-type { background: #334155; }
+        .ip-device-customer { font-size: 12px; color: #64748b; margin-left: 12px; }
+        .ip-flat-list { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+        body:not(.light-mode) .ip-flat-list { background: #1e293b; border-color: #334155; }
+        .ip-flat-header { display: grid; grid-template-columns: 40px 1fr 120px 150px 100px; padding: 12px 16px; background: #f8fafc; font-weight: 600; font-size: 12px; color: #64748b; text-transform: uppercase; }
+        body:not(.light-mode) .ip-flat-header { background: #0f172a; }
+        .ip-flat-row { display: grid; grid-template-columns: 40px 1fr 120px 150px 100px; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; align-items: center; }
+        body:not(.light-mode) .ip-flat-row { border-color: #334155; }
+        .ip-dashboard { display: grid; gap: 16px; }
+        .ip-stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+        .ip-stat-card { background: white; border-radius: 8px; padding: 20px; border: 1px solid #e2e8f0; text-align: center; }
+        body:not(.light-mode) .ip-stat-card { background: #1e293b; border-color: #334155; }
+        .ip-stat-value { font-size: 32px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+        body:not(.light-mode) .ip-stat-value { color: #f1f5f9; }
+        .ip-stat-value.active { color: #22c55e; }
+        .ip-stat-value.inactive { color: #ef4444; }
+        .ip-stat-label { font-size: 13px; color: #64748b; }
+        .ip-charts-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+        .ip-chart-card { background: white; border-radius: 8px; padding: 20px; border: 1px solid #e2e8f0; }
+        body:not(.light-mode) .ip-chart-card { background: #1e293b; border-color: #334155; }
+        .ip-chart-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 16px; }
+        body:not(.light-mode) .ip-chart-title { color: #f1f5f9; }
+        .ip-chart-container { position: relative; height: 250px; }
+        .ip-empty { padding: 60px; text-align: center; color: #64748b; }
+        .ip-empty-text { font-size: 16px; }
+      `;
+      const style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      rootEl = document.getElementById('inventory-panel-root');
+      injectStyles();
+      mockDevices = generateMockDevices(mockDeviceCount);
+      log('info', 'Showcase initialized');
+      loadData();
+    });
+  </script>
+</body>
+</html>
