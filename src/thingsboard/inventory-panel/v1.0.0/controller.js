@@ -163,7 +163,7 @@ function injectStyles() {
   if (document.getElementById('inventory-panel-styles')) return;
 
   var css = `
-    .ip-root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 16px; background: #f8fafc; min-height: 100%; }
+    .ip-root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 16px; background: #f8fafc; height: 100%; overflow: auto; display: flex; flex-direction: column; }
     .ip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
     .ip-title { margin: 0; font-size: 20px; font-weight: 600; color: #1e293b; }
     .ip-header-actions { display: flex; gap: 8px; }
@@ -219,7 +219,7 @@ function injectStyles() {
     .ip-filter-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99; }
 
     /* Tree View */
-    .ip-tree { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .ip-tree { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: auto; flex: 1; min-height: 0; }
     .ip-tree-group { border-bottom: 1px solid #e2e8f0; }
     .ip-tree-group:last-child { border-bottom: none; }
     .ip-tree-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; background: #f8fafc; transition: background 0.2s; }
@@ -269,7 +269,7 @@ function injectStyles() {
     .ip-modal-footer { display: flex; justify-content: flex-end; gap: 12px; }
 
     /* Flat List Mode */
-    .ip-flat-list { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .ip-flat-list { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: auto; flex: 1; min-height: 0; }
     .ip-flat-header { display: grid; grid-template-columns: 40px 1fr 120px 150px 100px; padding: 12px 16px; background: #f8fafc; font-weight: 600; font-size: 12px; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; }
     .ip-flat-row { display: grid; grid-template-columns: 40px 1fr 120px 150px 100px; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; align-items: center; }
     .ip-flat-row:last-child { border-bottom: none; }
@@ -1089,7 +1089,10 @@ function renderDevicesTab() {
 function renderStatusFilterDropdown() {
   var html = '<div class="ip-filter-dropdown" onclick="event.stopPropagation()">';
   html += '<div class="ip-filter-header"><span class="ip-filter-title">Filter by Status</span>';
-  html += '<button class="ip-filter-clear" onclick="window.ipSelectAllFilter(\'status\')">Select All</button></div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<button class="ip-filter-clear" onclick="window.ipSelectAllFilter(\'status\')">Select All</button>';
+  html += '<button class="ip-filter-clear" onclick="window.ipUnselectAllFilter(\'status\')" style="color:#ef4444;">Unselect All</button>';
+  html += '</div></div>';
   html += '<div class="ip-filter-options">';
 
   var statuses = [
@@ -1098,11 +1101,13 @@ function renderStatusFilterDropdown() {
   ];
 
   // Empty array = all selected (showing all)
+  // ['__NONE__'] = none selected
   var isShowingAll = state.filters.status.length === 0;
+  var isShowingNone = state.filters.status.length === 1 && state.filters.status[0] === '__NONE__';
 
   statuses.forEach(function (status) {
-    // If filter is empty, all are selected; otherwise check if in array
-    var isSelected = isShowingAll || state.filters.status.includes(status.id);
+    // If filter is empty, all are selected; if __NONE__, none selected; otherwise check if in array
+    var isSelected = isShowingAll || (!isShowingNone && state.filters.status.includes(status.id));
     html += '<div class="ip-filter-option' + (isSelected ? ' selected' : '') + '" onclick="window.ipToggleFilter(\'status\', \'' + status.id + '\', [\'active\', \'inactive\'])">';
     html += '<div class="ip-filter-checkbox"></div>';
     html += '<span class="ip-filter-label">' + escapeHtml(status.name) + '</span>';
@@ -1117,19 +1122,24 @@ function renderStatusFilterDropdown() {
 function renderCustomerFilterDropdown(customers) {
   var html = '<div class="ip-filter-dropdown" onclick="event.stopPropagation()">';
   html += '<div class="ip-filter-header"><span class="ip-filter-title">Filter by Customer</span>';
-  html += '<button class="ip-filter-clear" onclick="window.ipSelectAllFilter(\'customers\')">Select All</button></div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<button class="ip-filter-clear" onclick="window.ipSelectAllFilter(\'customers\')">Select All</button>';
+  html += '<button class="ip-filter-clear" onclick="window.ipUnselectAllFilter(\'customers\')" style="color:#ef4444;">Unselect All</button>';
+  html += '</div></div>';
   html += '<div class="ip-filter-options">';
 
   if (customers.length === 0) {
     html += '<div class="ip-filter-empty">No customers found</div>';
   } else {
     // Empty array = all selected (showing all)
+    // ['__NONE__'] = none selected
     var isShowingAll = state.filters.customers.length === 0;
+    var isShowingNone = state.filters.customers.length === 1 && state.filters.customers[0] === '__NONE__';
     // Store all customer IDs for toggle logic
     var allCustomerIds = customers.map(function(c) { return c.id; });
 
     customers.forEach(function (customer) {
-      var isSelected = isShowingAll || state.filters.customers.includes(customer.id);
+      var isSelected = isShowingAll || (!isShowingNone && state.filters.customers.includes(customer.id));
       html += '<div class="ip-filter-option' + (isSelected ? ' selected' : '') + '" onclick="window.ipToggleFilter(\'customers\', \'' + escapeHtml(customer.id) + '\')">';
       html += '<div class="ip-filter-checkbox"></div>';
       html += '<span class="ip-filter-label">' + escapeHtml(customer.name) + '</span>';
@@ -1145,17 +1155,22 @@ function renderCustomerFilterDropdown(customers) {
 function renderTypeFilterDropdown(types) {
   var html = '<div class="ip-filter-dropdown" onclick="event.stopPropagation()">';
   html += '<div class="ip-filter-header"><span class="ip-filter-title">Filter by Type</span>';
-  html += '<button class="ip-filter-clear" onclick="window.ipSelectAllFilter(\'types\')">Select All</button></div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<button class="ip-filter-clear" onclick="window.ipSelectAllFilter(\'types\')">Select All</button>';
+  html += '<button class="ip-filter-clear" onclick="window.ipUnselectAllFilter(\'types\')" style="color:#ef4444;">Unselect All</button>';
+  html += '</div></div>';
   html += '<div class="ip-filter-options">';
 
   if (types.length === 0) {
     html += '<div class="ip-filter-empty">No types found</div>';
   } else {
     // Empty array = all selected (showing all)
+    // ['__NONE__'] = none selected
     var isShowingAll = state.filters.types.length === 0;
+    var isShowingNone = state.filters.types.length === 1 && state.filters.types[0] === '__NONE__';
 
     types.forEach(function (type) {
-      var isSelected = isShowingAll || state.filters.types.includes(type.id);
+      var isSelected = isShowingAll || (!isShowingNone && state.filters.types.includes(type.id));
       html += '<div class="ip-filter-option' + (isSelected ? ' selected' : '') + '" onclick="window.ipToggleFilter(\'types\', \'' + escapeHtml(type.id) + '\')">';
       html += '<div class="ip-filter-checkbox"></div>';
       html += '<span class="ip-filter-label">' + escapeHtml(type.name) + '</span>';
@@ -1479,6 +1494,14 @@ function getAllFilterOptions(filterType) {
 
 window.ipToggleFilter = function (filterType, value) {
   var filters = state.filters[filterType];
+  var isShowingNone = filters.length === 1 && filters[0] === '__NONE__';
+
+  // If filter is ['__NONE__'] (showing none), clicking should SELECT only the clicked item
+  if (isShowingNone) {
+    state.filters[filterType] = [value];
+    render();
+    return;
+  }
 
   // If filter is empty (showing all), clicking should DESELECT the clicked item
   // This means: populate with all items EXCEPT the clicked one
@@ -1501,12 +1524,9 @@ window.ipToggleFilter = function (filterType, value) {
     } else {
       // Remove from selection
       filters.splice(index, 1);
-      // If nothing selected, this would show nothing - prevent this by showing all
+      // If nothing selected, set to __NONE__ to show empty state
       if (filters.length === 0) {
-        // Keep at least one - don't allow empty selection after manual deselect
-        // Actually, empty means "show all", so this case shouldn't happen
-        // But if user deselects all, we should reset to "show all"
-        state.filters[filterType] = [];
+        state.filters[filterType] = ['__NONE__'];
       }
     }
   }
@@ -1516,6 +1536,12 @@ window.ipToggleFilter = function (filterType, value) {
 // Select all = reset filter to empty (which means show all)
 window.ipSelectAllFilter = function (filterType) {
   state.filters[filterType] = [];
+  render();
+};
+
+// Unselect all = set filter to special value that matches nothing
+window.ipUnselectAllFilter = function (filterType) {
+  state.filters[filterType] = ['__NONE__'];
   render();
 };
 
