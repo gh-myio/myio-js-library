@@ -585,6 +585,10 @@ interface ModalState {
     selectedProfileId: string;
     saving: boolean;
   };
+  bulkOwnerModal: {
+    open: boolean;
+    saving: boolean;
+  };
   columnWidths: ColumnWidths;
   deviceAttrsLoaded: boolean;
   attrsLoading: boolean;
@@ -708,6 +712,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
+    bulkOwnerModal: { open: false, saving: false },
     columnWidths: {
       label: 280,
       type: 180,
@@ -892,6 +897,12 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">🏷️ Forçar Profile (${state.selectedDevices.length})</button>
+              <button id="${modalId}-bulk-owner" style="
+                background: #10b981; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>👤 Atribuir Owner (${state.selectedDevices.length})</button>
             `
                 : ''
             }
@@ -1148,6 +1159,86 @@ function renderModal(
             `
                 : ''
             }
+          </div>
+        </div>
+      </div>
+    `
+        : ''
+    }
+
+    ${
+      state.bulkOwnerModal.open
+        ? `
+      <!-- Bulk Owner Modal -->
+      <div class="myio-bulk-owner-overlay" style="
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 10001;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <div style="
+          background: ${colors.surface}; border-radius: 12px; padding: 24px;
+          max-width: 450px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        ">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">
+              👤 Atribuir Owner em Lote
+            </h3>
+            <button id="${modalId}-bulk-owner-close" style="
+              background: none; border: none; font-size: 20px; cursor: pointer;
+              color: ${colors.textMuted}; padding: 4px;
+            ">✕</button>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.surface
+          }; border-radius: 8px; border: 1px solid ${colors.border};">
+            <div style="font-size: 12px; color: ${
+              colors.textMuted
+            }; margin-bottom: 4px;">Devices selecionados:</div>
+            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${
+            state.selectedDevices.length
+          } dispositivos</div>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.success
+          }20; border-radius: 8px; border: 1px solid ${colors.success}40;">
+            <div style="font-size: 12px; color: ${
+              colors.textMuted
+            }; margin-bottom: 4px;">Novo Owner (Customer):</div>
+            <div style="font-size: 14px; color: ${colors.success}; font-weight: 600;">${
+            state.selectedCustomer?.name || state.selectedCustomer?.title || 'Não selecionado'
+          }</div>
+            <div style="font-size: 11px; color: ${colors.textMuted}; margin-top: 4px;">
+              ID: ${state.selectedCustomer?.id?.id || 'N/A'}
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.warning
+          }20; border-radius: 8px; border: 1px solid ${colors.warning}40;">
+            <div style="font-size: 12px; color: ${colors.warning}; font-weight: 500;">
+              ⚠️ Atenção: Esta ação irá atribuir todos os ${state.selectedDevices.length} devices selecionados ao customer "${state.selectedCustomer?.name || state.selectedCustomer?.title}".
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button id="${modalId}-bulk-owner-cancel" style="
+              background: ${colors.surface}; color: ${colors.text};
+              border: 1px solid ${colors.border}; padding: 10px 20px;
+              border-radius: 6px; cursor: pointer; font-size: 14px;
+            ">Cancelar</button>
+            <button id="${modalId}-bulk-owner-save" style="
+              background: #10b981; color: white; border: none;
+              padding: 10px 20px; border-radius: 6px; cursor: pointer;
+              font-size: 14px; font-weight: 500;
+            " ${state.bulkOwnerModal.saving || !state.selectedCustomer ? 'disabled' : ''}>
+              ${
+                state.bulkOwnerModal.saving
+                  ? 'Salvando...'
+                  : 'Atribuir Owner para ' + state.selectedDevices.length + ' devices'
+              }
+            </button>
           </div>
         </div>
       </div>
@@ -3151,6 +3242,40 @@ function setupEventListeners(
   });
 
   // ========================
+  // Bulk Owner Modal Handlers
+  // ========================
+
+  // Open bulk owner modal
+  document.getElementById(`${modalId}-bulk-owner`)?.addEventListener('click', () => {
+    if (!state.selectedCustomer) {
+      alert('Selecione um Customer primeiro no Step 1');
+      return;
+    }
+    state.bulkOwnerModal.open = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Close bulk owner modal (X button)
+  document.getElementById(`${modalId}-bulk-owner-close`)?.addEventListener('click', () => {
+    state.bulkOwnerModal.open = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Cancel bulk owner modal
+  document.getElementById(`${modalId}-bulk-owner-cancel`)?.addEventListener('click', () => {
+    state.bulkOwnerModal.open = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Save bulk owner
+  document.getElementById(`${modalId}-bulk-owner-save`)?.addEventListener('click', async () => {
+    await saveBulkOwner(state, container, modalId, t, onClose);
+  });
+
+  // ========================
   // Step 3: Owner & Relation Handlers
   // ========================
 
@@ -4499,6 +4624,84 @@ async function saveBulkProfile(
   } else {
     alert(
       `Profile alterado para ${successCount} dispositivos.\n` +
+        `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+        (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+    );
+  }
+
+  // Clear selection and re-render
+  state.selectedDevices = [];
+  renderModal(container, state, modalId, t);
+}
+
+/**
+ * Save owner (customer) to multiple devices in bulk
+ */
+async function saveBulkOwner(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  const devices = state.selectedDevices;
+  const newCustomerId = state.selectedCustomer?.id?.id;
+  const customerName = state.selectedCustomer?.name || state.selectedCustomer?.title || 'Unknown';
+
+  if (!newCustomerId) {
+    alert('Por favor, selecione um Customer no Step 1 primeiro.');
+    return;
+  }
+
+  if (devices.length === 0) {
+    alert('Nenhum dispositivo selecionado.');
+    return;
+  }
+
+  // Update modal state to show saving
+  state.bulkOwnerModal.saving = true;
+  renderModal(container, state, modalId, t);
+
+  // Show progress modal
+  showBusyProgress(`Atribuindo Owner "${customerName}"...`, devices.length);
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
+
+  // Change owner for each device
+  for (let i = 0; i < devices.length; i++) {
+    const device = devices[i];
+
+    try {
+      await changeDeviceOwner(state, device, newCustomerId);
+      successCount++;
+
+      // Update device in local state
+      device.customerId = { entityType: 'CUSTOMER', id: newCustomerId };
+    } catch (error) {
+      errorCount++;
+      errors.push(`${device.name}: ${(error as Error).message}`);
+      console.error(`[UpsellModal] Error changing owner for device ${device.name}:`, error);
+    }
+
+    // Update progress modal
+    updateBusyProgress(i + 1);
+  }
+
+  // Hide progress modal
+  hideBusyProgress();
+
+  // Reset modal state
+  state.bulkOwnerModal.saving = false;
+  state.bulkOwnerModal.open = false;
+
+  // Show result message
+  if (errorCount === 0) {
+    alert(`Owner alterado para "${customerName}" em ${successCount} dispositivos!`);
+  } else {
+    alert(
+      `Owner alterado para ${successCount} dispositivos.\n` +
         `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
         (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );
