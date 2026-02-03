@@ -667,10 +667,10 @@ async function renderList(visible) {
 
     const valNum = Number(it.value || 0);
 
-    // RFC-0144: Force status to 'online' for WATER_COMMON_AREA (same as WATER_STORES)
+    // RFC-0144: Force status to 'power_on' for WATER_COMMON_AREA
     // Water meters show accumulated totals, not real-time data, so connection status is not relevant
-    // This matches the WATER_STORES behavior which uses statusCalculation: 'always_online'
-    const deviceStatus = 'online';
+    // Using 'power_on' as it's a valid DeviceStatusType that maps to "Em operação" for water domain
+    const deviceStatus = 'power_on';
 
     // RFC-0140: Do NOT clear consumption value for water domain
     // API provides accumulated totals that are valid regardless of current connection status

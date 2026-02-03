@@ -271,7 +271,33 @@ function initializeSensorCards(sensors) {
         },
         handleSelect: (checked, entity) => {
           const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-          if (store) checked ? store.add(entity.entityId) : store.remove(entity.entityId);
+          if (!store) return;
+
+          if (checked) {
+            // RFC-FIX: Register entity with full metadata BEFORE adding to selection
+            // This is required for FOOTER to display the device correctly
+            store.registerEntity({
+              id: entity.entityId,
+              entityId: entity.entityId,
+              name: entity.labelOrName || entity.name || entity.label,
+              labelOrName: entity.labelOrName || entity.name || entity.label,
+              icon: 'temperature',
+              domain: 'temperature',
+              lastValue: entity.temperatureC || entity.val || entity.lastValue,
+              unit: '°C',
+              ingestionId: entity.tbId || entity.id || entity.entityId,
+              tbId: entity.tbId || entity.id,
+              customerName: entity.customerName,
+              deviceStatus: entity.deviceStatus,
+              temperatureMin: entity.temperatureMin,
+              temperatureMax: entity.temperatureMax,
+            });
+            store.add(entity.entityId);
+            LogHelper.log('[TEMPERATURE_SENSORS] Entity registered and added to selection:', entity.labelOrName);
+          } else {
+            store.remove(entity.entityId);
+            LogHelper.log('[TEMPERATURE_SENSORS] Entity removed from selection:', entity.labelOrName);
+          }
         },
         handleClickCard: (ev, entity) => {
           LogHelper.log(`Click: ${entity.labelOrName}`);
