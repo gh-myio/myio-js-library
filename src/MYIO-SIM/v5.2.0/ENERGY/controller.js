@@ -898,111 +898,69 @@ function setupMaximizeButton() {
 }
 
 /**
- * RFC-0097/RFC-0130/RFC-FIX: Fetches consumption for a period with SINGLE API call
- * OPTIMIZED: Makes 1 API call for entire period instead of N calls per day
- * The API with granularity=1d returns aggregated totals per device
- * We distribute the total across days based on available data or evenly
+ * RFC-0097/RFC-0130: Fetches consumption for a period with ONE API call per day
+ * Makes N API calls (one per day) to get accurate daily consumption values
  * @param {string} customerId - Customer ID (holding/parent)
- * @param {number} startTs - Start timestamp
- * @param {number} endTs - End timestamp
+ * @param {number} startTs - Start timestamp (unused, using dayBoundaries)
+ * @param {number} endTs - End timestamp (unused, using dayBoundaries)
  * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
  * @returns {Promise<{dailyTotals: number[], byCustomerPerDay: Object[]}>}
  */
 async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
     const numDays = dayBoundaries.length;
-    LogHelper.log(`[ENERGY] [RFC-FIX] Fetching ${numDays} days with SINGLE API call...`);
+    LogHelper.log(`[ENERGY] Fetching ${numDays} days with ${numDays} API calls (one per day)...`);
 
-    // RFC-FIX: Single API call for entire period
-    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs, '1d');
+    const dailyTotals = [];
+    const byCustomerPerDay = [];
 
-    if (!result || !result.devices) {
-      LogHelper.warn('[ENERGY] [RFC-FIX] No data returned from API');
-      return {
-        dailyTotals: new Array(numDays).fill(0),
-        byCustomerPerDay: new Array(numDays).fill({}),
-      };
-    }
+    // Make one API call per day for accurate daily breakdown
+    for (let i = 0; i < numDays; i++) {
+      const day = dayBoundaries[i];
+      LogHelper.log(`[ENERGY] Fetching day ${i + 1}/${numDays}: ${day.label}`);
 
-    const devices = result.devices || [];
-    const totalValue = result.total || 0;
-    const byCustomer = result.byCustomer || {};
+      const result = await window.MyIOUtils.fetchEnergyDayConsumption(
+        customerId,
+        day.startTs,
+        day.endTs,
+        '1d'
+      );
 
-    LogHelper.log(
-      `[ENERGY] [RFC-FIX] Single API call returned: ${devices.length} devices, total: ${totalValue.toFixed(2)} kWh`
-    );
+      if (!result || !result.devices) {
+        LogHelper.warn(`[ENERGY] No data for day ${day.label}`);
+        dailyTotals.push(0);
+        byCustomerPerDay.push({});
+        continue;
+      }
 
-    // RFC-FIX: Check if devices have daily consumption breakdown (consumption array)
-    const hasConsumptionArray = devices.some((d) => Array.isArray(d.consumption) && d.consumption.length > 0);
+      const devices = result.devices || [];
+      const dayTotal = result.total || 0;
+      const byCustomer = result.byCustomer || {};
 
-    let dailyTotals = [];
-    let byCustomerPerDay = [];
+      dailyTotals.push(dayTotal);
 
-    if (hasConsumptionArray) {
-      // API returned daily breakdown in consumption array - use it
-      LogHelper.log('[ENERGY] [RFC-FIX] Using consumption array for daily breakdown');
-
-      // Initialize arrays
-      dailyTotals = new Array(numDays).fill(0);
-      byCustomerPerDay = dayBoundaries.map(() => ({}));
-
-      // Process each device's consumption array
-      devices.forEach((device) => {
-        const custId = device.customerId;
-        const custName = device.customerName || custId;
-
-        if (Array.isArray(device.consumption)) {
-          device.consumption.forEach((entry) => {
-            const entryTs = new Date(entry.timestamp).getTime();
-            const value = Number(entry.value) || 0;
-
-            // Find which day this entry belongs to
-            const dayIndex = dayBoundaries.findIndex(
-              (day) => entryTs >= day.startTs && entryTs <= day.endTs
-            );
-
-            if (dayIndex >= 0) {
-              dailyTotals[dayIndex] += value;
-
-              if (!byCustomerPerDay[dayIndex][custId]) {
-                byCustomerPerDay[dayIndex][custId] = { name: custName, total: 0, deviceCount: 0 };
-              }
-              byCustomerPerDay[dayIndex][custId].total += value;
-              byCustomerPerDay[dayIndex][custId].deviceCount++;
-            }
-          });
-        }
+      // Build byCustomerPerDay for this day
+      const dayByCustomer = {};
+      Object.entries(byCustomer).forEach(([custId, data]) => {
+        dayByCustomer[custId] = {
+          name: data.name,
+          total: data.total,
+          deviceCount: data.deviceCount,
+        };
       });
-    } else {
-      // API returned only total_value per device - distribute evenly across days
-      // This is acceptable for the chart as it shows the average daily consumption
-      LogHelper.log('[ENERGY] [RFC-FIX] No daily breakdown - using total per device');
+      byCustomerPerDay.push(dayByCustomer);
 
-      const avgDailyTotal = totalValue / numDays;
-      dailyTotals = new Array(numDays).fill(avgDailyTotal);
-
-      // Build byCustomerPerDay with distributed values
-      byCustomerPerDay = dayBoundaries.map(() => {
-        const dayByCustomer = {};
-        Object.entries(byCustomer).forEach(([custId, data]) => {
-          dayByCustomer[custId] = {
-            name: data.name,
-            total: data.total / numDays,
-            deviceCount: data.deviceCount,
-          };
-        });
-        return dayByCustomer;
-      });
+      LogHelper.log(`[ENERGY] Day ${day.label}: ${dayTotal.toFixed(2)} kWh (${devices.length} devices)`);
     }
 
     LogHelper.log(
-      `[ENERGY] [RFC-FIX] Period consumption (${numDays} days):`,
+      `[ENERGY] Period consumption (${numDays} days):`,
       dailyTotals.map((v) => v.toFixed(0)).join(', ')
     );
 
     return { dailyTotals, byCustomerPerDay };
   } catch (error) {
-    LogHelper.error('[ENERGY] [RFC-FIX] Error fetching period consumption:', error);
+    LogHelper.error('[ENERGY] Error fetching period consumption:', error);
     return {
       dailyTotals: new Array(dayBoundaries.length).fill(0),
       byCustomerPerDay: new Array(dayBoundaries.length).fill({}),

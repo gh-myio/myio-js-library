@@ -1068,6 +1068,40 @@ function isStoreDevice(itemOrDeviceProfile) {
 }
 
 /**
+ * RFC-FIX: Check if device is an ENTRADA device (main meters, transformers)
+ * These devices should be excluded from the customerTotal calculation in the header
+ * because they represent total building consumption, not individual stores/equipment
+ *
+ * Rule: deviceProfile = 'ENTRADA' OR name contains: Trafo, Entrada, Geral (case insensitive)
+ *
+ * @param {Object} item - Device item with deviceProfile, name, label properties
+ * @returns {boolean} True if device is an ENTRADA device
+ */
+function isEntradaDevice(item) {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  // Check deviceProfile = 'ENTRADA'
+  const deviceProfile = String(item.deviceProfile || '').toUpperCase();
+  if (deviceProfile === 'ENTRADA') {
+    return true;
+  }
+
+  // Check name/label for entrada patterns (case insensitive)
+  const name = String(item.name || item.label || item.entityLabel || '').toUpperCase();
+  const entradaPatterns = ['TRAFO', 'ENTRADA', 'GERAL'];
+
+  for (const pattern of entradaPatterns) {
+    if (name.includes(pattern)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * RFC-0109: Simplified water meter classification
  *
  * New rule:
@@ -7007,20 +7041,34 @@ const MyIOOrchestrator = (() => {
       LogHelper.log(`[Orchestrator] 📢 Emitted myio:devices-classified (${items.length} items)`);
 
       // RFC-0103: Emit energy-summary-ready for HEADER widget with breakdown
-      const customerTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      // RFC-FIX: Exclude ENTRADA devices (main meters, transformers) from customerTotal
+      // These devices represent total building consumption, not individual stores/equipment
+      const entradaItems = items.filter((item) => isEntradaDevice(item));
+      const nonEntradaItems = items.filter((item) => !isEntradaDevice(item));
+      const entradaTotal = entradaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      if (entradaItems.length > 0) {
+        LogHelper.log(
+          `[Orchestrator] ⚡ Excluding ${entradaItems.length} ENTRADA devices from customerTotal (${entradaTotal.toFixed(2)} kWh)`
+        );
+      }
+
+      // Calculate customerTotal from non-ENTRADA items only
+      const customerTotal = nonEntradaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
       // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
-      const lojaItems = items.filter((item) => isStoreDevice(item));
-      const equipmentItems = items.filter((item) => !isStoreDevice(item) && isAllowedEquipmentProfile(item));
+      const lojaItems = nonEntradaItems.filter((item) => isStoreDevice(item));
+      const equipmentItems = nonEntradaItems.filter((item) => !isStoreDevice(item) && isAllowedEquipmentProfile(item));
       const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const equipmentsTotal = equipmentItems.reduce(
         (sum, item) => sum + (item.value || item.total_value || 0),
         0
       );
 
-      // Calculate breakdown by shopping using customerId or ownerName
+      // Calculate breakdown by shopping using customerId or ownerName (excluding ENTRADA)
       const shoppingMap = new Map();
       const customerList = window.custumersSelected || window.customersList || [];
-      items.forEach((item) => {
+      nonEntradaItems.forEach((item) => {
         // Use customerId if available, otherwise try to match by ownerName
         const customerId = item.customerId;
         const ownerName = item.ownerName || item.customerName;
@@ -7894,7 +7942,8 @@ const MyIOOrchestrator = (() => {
     // Get energy data and calculate filtered/unfiltered totals
     const energyData = window.MyIOOrchestratorData?.energy;
     if (energyData?.items?.length) {
-      const allItems = energyData.items;
+      // RFC-FIX: First exclude ENTRADA devices from all calculations
+      const allItems = energyData.items.filter((item) => !isEntradaDevice(item));
 
       // RFC-0131: Build set of selected shopping names from selection array for matching
       const selectedEnergyShoppingNames = new Set(
@@ -7912,7 +7961,7 @@ const MyIOOrchestrator = (() => {
         : allItems;
 
       LogHelper.log(
-        `[Orchestrator] 📊 Energy filter: ${allItems.length} total → ${filteredItems.length} filtered (${selectedEnergyShoppingNames.size} shopping names)`
+        `[Orchestrator] 📊 Energy filter: ${allItems.length} total (excl. ENTRADA) → ${filteredItems.length} filtered (${selectedEnergyShoppingNames.size} shopping names)`
       );
 
       const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
@@ -8536,11 +8585,15 @@ const MyIOOrchestrator = (() => {
       }
 
       const items = cachedData.items;
+
+      // RFC-FIX: Exclude ENTRADA devices from customerTotal calculation
+      const nonEntradaItems = items.filter((item) => !isEntradaDevice(item));
+
       let customerTotal = 0;
       let equipmentsTotal = 0;
       let lojasTotal = 0;
 
-      items.forEach((item) => {
+      nonEntradaItems.forEach((item) => {
         const value = Number(item.value) || Number(item.consumption) || 0;
         customerTotal += value;
 
@@ -8557,7 +8610,7 @@ const MyIOOrchestrator = (() => {
         customerTotal,
         unfilteredTotal: customerTotal,
         isFiltered: false,
-        deviceCount: items.length,
+        deviceCount: nonEntradaItems.length,
         equipmentsTotal,
         lojasTotal,
         difference: lojasTotal, // For backwards compatibility
