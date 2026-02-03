@@ -1203,3 +1203,59 @@ export {
   injectOperationalDashboardStyles,
   removeOperationalDashboardStyles,
 } from './components/operational-dashboard';
+
+// RFC-0158: BAS Dashboard Component (Building Automation System)
+export { createBASDashboard } from './components/bas-dashboard';
+export { BASDashboardView, BASDashboardController } from './components/bas-dashboard';
+
+export type {
+  BASDashboardParams,
+  BASDashboardInstance,
+  BASDashboardData,
+  BASDashboardThemeMode,
+  BASDashboardSettings,
+  WaterDevice as BASWaterDevice,
+  HVACDevice as BASHVACDevice,
+  MotorDevice as BASMotorDevice,
+  WaterDeviceType as BASWaterDeviceType,
+  WaterDeviceStatus as BASWaterDeviceStatus,
+  HVACDeviceStatus as BASHVACDeviceStatus,
+  MotorDeviceStatus as BASMotorDeviceStatus,
+  MotorDeviceType as BASMotorDeviceType,
+  BASDashboardState,
+  BASEventType,
+} from './components/bas-dashboard';
+
+export {
+  DEFAULT_BAS_SETTINGS,
+  BAS_DASHBOARD_CSS_PREFIX,
+  BAS_DASHBOARD_STYLES,
+  injectBASDashboardStyles,
+  removeBASDashboardStyles,
+} from './components/bas-dashboard';
+
+// RFC-0158: Fancoil Remote Control Component
+export {
+  createFancoilRemote,
+  FancoilRemoteController,
+  FancoilRemoteView,
+} from './components/fancoil-remote';
+
+export type {
+  FancoilStatus,
+  FancoilMode,
+  FancoilThemeMode,
+  FancoilRemoteSettings,
+  FancoilState,
+  FancoilRemoteParams,
+  FancoilRemoteInstance,
+} from './components/fancoil-remote';
+
+export {
+  FANCOIL_IMAGES,
+  DEFAULT_FANCOIL_SETTINGS,
+  DEFAULT_FANCOIL_STATE,
+  FANCOIL_REMOTE_CSS_PREFIX,
+  injectFancoilRemoteStyles,
+  getImageByConsumption,
+} from './components/fancoil-remote';

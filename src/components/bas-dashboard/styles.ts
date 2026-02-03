@@ -1,0 +1,594 @@
+/**
+ * RFC-0158: Building Automation System (BAS) Dashboard Styles
+ * Aligned with TARGET design: Dark navy background, high contrast, enterprise-grade
+ */
+
+export const BAS_DASHBOARD_CSS_PREFIX = 'bas-dashboard';
+
+export const BAS_DASHBOARD_STYLES = `
+/* RFC-0158: BAS Dashboard Component Styles - TARGET Aligned */
+
+/* CSS Variables - Dark Theme (Default) */
+.${BAS_DASHBOARD_CSS_PREFIX} {
+  --bas-bg-main: #0B1220;
+  --bas-bg-panel: #101A2B;
+  --bas-bg-card: #FFFFFF;
+  --bas-border-subtle: rgba(255, 255, 255, 0.10);
+  --bas-text-primary: rgba(255, 255, 255, 0.92);
+  --bas-text-muted: rgba(255, 255, 255, 0.60);
+  --bas-text-on-card: #1a1a1a;
+  --bas-text-muted-on-card: #666;
+  --bas-primary-color: #2F5848;
+  --bas-primary-light: #3d7a62;
+  --bas-success-color: #2e7d32;
+  --bas-warning-color: #f57c00;
+  --bas-error-color: #c62828;
+  --bas-hover-bg: rgba(255, 255, 255, 0.05);
+  --bas-active-bg: rgba(47, 88, 72, 0.3);
+
+  /* Spacing system */
+  --bas-space-8: 8px;
+  --bas-space-12: 12px;
+  --bas-space-16: 16px;
+  --bas-space-18: 18px;
+  --bas-space-24: 24px;
+  --bas-gap: 18px;
+
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  overflow: hidden;
+  background: var(--bas-bg-main);
+  color: var(--bas-text-primary);
+}
+
+/* Light theme override */
+.${BAS_DASHBOARD_CSS_PREFIX}--light {
+  --bas-bg-main: #f0f2f5;
+  --bas-bg-panel: #ffffff;
+  --bas-bg-card: #FFFFFF;
+  --bas-border-subtle: rgba(0, 0, 0, 0.08);
+  --bas-text-primary: #1a1a1a;
+  --bas-text-muted: #666;
+  --bas-text-on-card: #1a1a1a;
+  --bas-text-muted-on-card: #666;
+  --bas-hover-bg: rgba(0, 0, 0, 0.04);
+  --bas-active-bg: rgba(47, 88, 72, 0.15);
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--bas-space-16) var(--bas-space-24);
+  background: var(--bas-bg-panel);
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__title {
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--bas-text-primary);
+  margin: 0;
+}
+
+/* ========================================
+   MAIN CONTENT - 3 Column Layout
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  background: var(--bas-bg-main);
+}
+
+/* ========================================
+   SIDEBAR - Floors
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__sidebar {
+  width: 72px;
+  min-width: 72px;
+  background: var(--bas-bg-panel);
+  border-right: 1px solid var(--bas-border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__sidebar-title {
+  padding: var(--bas-space-12) var(--bas-space-8);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--bas-text-muted);
+  text-align: center;
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__floor-btn {
+  padding: var(--bas-space-12) var(--bas-space-8);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--bas-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__floor-btn:hover {
+  background: var(--bas-hover-bg);
+  color: var(--bas-text-primary);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__floor-btn--active {
+  background: var(--bas-active-bg);
+  color: var(--bas-primary-light);
+  font-weight: 600;
+  border-left: 3px solid var(--bas-primary-color);
+}
+
+/* ========================================
+   MAIN AREA
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bas-bg-main);
+}
+
+/* ========================================
+   WATER INFRASTRUCTURE - KPI Cards
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__water-section {
+  padding: var(--bas-space-18) var(--bas-space-24);
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bas-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 var(--bas-space-16) 0;
+  padding-bottom: var(--bas-space-8);
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--bas-gap);
+}
+
+/* Water KPI Cards */
+.${BAS_DASHBOARD_CSS_PREFIX}__water-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bas-space-18);
+  background: var(--bas-bg-card);
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 120px;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-card--offline {
+  opacity: 0.5;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-icon {
+  font-size: 28px;
+  margin-bottom: var(--bas-space-8);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bas-text-muted-on-card);
+  text-align: center;
+  margin-bottom: var(--bas-space-8);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--bas-text-on-card);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--bas-text-muted-on-card);
+  margin-left: 4px;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__water-value--offline {
+  color: var(--bas-text-muted-on-card);
+  font-size: 24px;
+}
+
+/* ========================================
+   CHARTS AREA
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__charts-area {
+  flex: 1;
+  padding: var(--bas-space-18) var(--bas-space-24);
+  overflow-y: auto;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--bas-gap);
+  height: 100%;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__chart-container {
+  background: var(--bas-bg-card);
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  padding: var(--bas-space-18);
+  display: flex;
+  flex-direction: column;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__chart-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bas-text-on-card);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 0 0 var(--bas-space-16) 0;
+  padding-bottom: var(--bas-space-8);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__chart-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bas-text-muted-on-card);
+  font-size: 14px;
+  min-height: 160px;
+}
+
+/* ========================================
+   RIGHT PANEL - Lists (Environments & Motors)
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__right-panel {
+  width: 520px;
+  min-width: 520px;
+  display: flex;
+  flex-direction: row;
+  background: var(--bas-bg-panel);
+  border-left: 1px solid var(--bas-border-subtle);
+  overflow: hidden;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__panel-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__panel-section + .${BAS_DASHBOARD_CSS_PREFIX}__panel-section {
+  border-left: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__panel-header {
+  padding: var(--bas-space-16);
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bas-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__panel-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ========================================
+   HVAC List Items - Row Style
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-item {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 var(--bas-space-16);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-item:hover {
+  background: var(--bas-hover-bg);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: var(--bas-space-12);
+  flex-shrink: 0;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-status--active {
+  background: var(--bas-success-color);
+  box-shadow: 0 0 8px rgba(46, 125, 50, 0.5);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-status--inactive {
+  background: var(--bas-text-muted);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-status--no_reading {
+  background: var(--bas-warning-color);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bas-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-floor {
+  font-size: 11px;
+  color: var(--bas-text-muted);
+  margin-top: 2px;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: var(--bas-space-12);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-temp {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bas-primary-light);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__hvac-consumption {
+  font-size: 11px;
+  color: var(--bas-text-muted);
+  margin-top: 2px;
+}
+
+/* ========================================
+   Motor/Pump List Items - Row Style
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-item {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 var(--bas-space-16);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--bas-border-subtle);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-item:hover {
+  background: var(--bas-hover-bg);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: var(--bas-space-12);
+  flex-shrink: 0;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-status--running {
+  background: var(--bas-success-color);
+  box-shadow: 0 0 8px rgba(46, 125, 50, 0.5);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-status--stopped {
+  background: var(--bas-text-muted);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-status--unknown {
+  background: var(--bas-warning-color);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bas-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-type {
+  font-size: 11px;
+  color: var(--bas-text-muted);
+  text-transform: capitalize;
+  margin-top: 2px;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-consumption {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bas-primary-light);
+  margin-left: var(--bas-space-12);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__motor-consumption--off {
+  color: var(--bas-text-muted);
+  font-weight: 500;
+}
+
+/* ========================================
+   STATES: Empty, Loading
+   ======================================== */
+.${BAS_DASHBOARD_CSS_PREFIX}__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bas-space-24);
+  color: var(--bas-text-muted);
+  font-size: 13px;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bas-space-24);
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--bas-border-subtle);
+  border-top-color: var(--bas-primary-color);
+  border-radius: 50%;
+  animation: bas-spin 0.8s linear infinite;
+}
+
+@keyframes bas-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 1400px) {
+  .${BAS_DASHBOARD_CSS_PREFIX}__right-panel {
+    width: 440px;
+    min-width: 440px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .${BAS_DASHBOARD_CSS_PREFIX}__charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__right-panel {
+    width: 380px;
+    min-width: 380px;
+  }
+}
+
+@media (max-width: 900px) {
+  .${BAS_DASHBOARD_CSS_PREFIX}__content {
+    flex-direction: column;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__sidebar {
+    width: 100%;
+    min-width: unset;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--bas-border-subtle);
+    overflow-x: auto;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__sidebar-title {
+    display: none;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__floor-btn {
+    padding: var(--bas-space-8) var(--bas-space-16);
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__floor-btn--active {
+    border-left: none;
+    border-bottom: 3px solid var(--bas-primary-color);
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__right-panel {
+    width: 100%;
+    min-width: unset;
+    border-left: none;
+    border-top: 1px solid var(--bas-border-subtle);
+    max-height: 280px;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__panel-section {
+    flex: 1;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__panel-section:first-child {
+    border-left: none;
+  }
+
+  .${BAS_DASHBOARD_CSS_PREFIX}__water-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
+`;
+
+let styleInjected = false;
+
+export function injectBASDashboardStyles(): void {
+  if (styleInjected) return;
+
+  const styleElement = document.createElement('style');
+  styleElement.id = 'bas-dashboard-styles';
+  styleElement.textContent = BAS_DASHBOARD_STYLES;
+  document.head.appendChild(styleElement);
+  styleInjected = true;
+}
+
+export function removeBASDashboardStyles(): void {
+  const styleElement = document.getElementById('bas-dashboard-styles');
+  if (styleElement) {
+    styleElement.remove();
+    styleInjected = false;
+  }
+}
