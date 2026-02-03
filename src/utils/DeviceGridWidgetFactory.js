@@ -844,14 +844,6 @@ export function createWidgetController(config) {
       // Only process if this event is for our domain
       if (domain !== config.domain) return;
 
-      // RFC-0144 FIX: Skip water domain - it has dedicated waterTbDataReadyHandler
-      // The provide-data event items don't have correct deviceType/deviceProfile fields
-      // which causes deviceFilter to fail for water devices
-      if (config.domain === 'water') {
-        LogHelper.log(`[${config.widgetName}] Provide-data event skipped for water domain (use waterTbDataReadyHandler)`);
-        return;
-      }
-
       // Filter items using deviceFilter
       const filteredItems = config.deviceFilter
         ? items.filter(config.deviceFilter)

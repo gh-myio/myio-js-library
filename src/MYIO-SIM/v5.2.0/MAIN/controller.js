@@ -6333,7 +6333,7 @@ const MyIOOrchestrator = (() => {
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
         // RFC-FIX: Also validate that the cached data is for the same period
-        const currentPeriodKey = periodKey(domain, period);
+        const currentPeriodKey = periodKey(CUSTOMER_ING_ID, domain, period);
         const cachedPeriodKey = cachedData.periodKey;
         const periodMatches = currentPeriodKey === cachedPeriodKey;
 
@@ -6859,7 +6859,7 @@ const MyIOOrchestrator = (() => {
 
   // Fetch data for a domain and period
   async function hydrateDomain(domain, period) {
-    const key = periodKey(domain, period);
+    const key = periodKey(CUSTOMER_ING_ID, domain, period);
     const startTime = Date.now();
 
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });

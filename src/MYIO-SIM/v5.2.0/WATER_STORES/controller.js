@@ -29,12 +29,18 @@ function isWaterStoreDevice(device) {
   const aliasName = device?.aliasName || device?.datasource?.aliasName || '';
   if (aliasName === 'Todos Hidrometros Lojas') return true;
 
-  // RFC-0143 FIX: WATER_STORES = deviceType === 'HIDROMETRO' AND deviceProfile === 'HIDROMETRO' (exact match)
-  // This excludes HIDROMETRO_AREA_COMUM devices which have deviceProfile = 'HIDROMETRO_AREA_COMUM'
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const deviceProfile = String(device?.deviceProfile || device?.deviceType || '').toUpperCase();
-  return deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO';
+  // RFC-0159 FIX: WATER_STORES = deviceProfile === 'HIDROMETRO' (exact match)
+  // This excludes HIDROMETRO_AREA_COMUM devices
+  // Note: deviceType can be 'HIDROMETRO' or '3F_MEDIDOR' - we only check deviceProfile
+  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
+
+  // Exclude area comum and entrada
+  if (deviceProfile === 'HIDROMETRO_AREA_COMUM') return false;
+  if (deviceProfile.includes('ENTRADA')) return false;
+  if (deviceProfile.includes('ARQUIVADO')) return false;
+
+  // Accept HIDROMETRO profile (stores)
+  return deviceProfile === 'HIDROMETRO';
 }
 
 // ============================================================================
@@ -192,7 +198,15 @@ self.onInit = async function () {
           onFilterClick: () => {
             const filterModal = factoryController?.getFilterModalController?.();
             if (filterModal?.open) {
-              filterModal.open();
+              // RFC-0159: Pass items to filter modal
+              const state = factoryController?.getState();
+              const items = state?.itemsEnriched?.length > 0 ? state.itemsEnriched : state?.itemsBase || [];
+              // Force deviceStatus to 'online' for water stores (always_online)
+              const itemsWithStatus = items.map((item) => ({ ...item, deviceStatus: 'online' }));
+              filterModal.open(itemsWithStatus, {
+                selectedIds: state?.selectedIds,
+                sortMode: state?.sortMode,
+              });
             } else if (filterModal?.show) {
               filterModal.show();
             }
