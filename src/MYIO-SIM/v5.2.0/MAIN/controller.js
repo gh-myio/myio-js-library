@@ -8751,6 +8751,153 @@ const MyIOOrchestrator = (() => {
       );
     },
 
+    /**
+     * RFC-0159: Fetch temperature day averages for 7-day chart
+     * Retrieves historical temperature data from ThingsBoard API
+     * @param {number} startTs - Start timestamp in milliseconds
+     * @param {number} endTs - End timestamp in milliseconds
+     * @returns {Promise<Object>} Chart data with labels, dailyTotals, shoppingData
+     */
+    fetchTemperatureDayAverages: async (startTs, endTs) => {
+      LogHelper.log(`[Orchestrator] 🌡️ fetchTemperatureDayAverages: ${new Date(startTs).toISOString()} to ${new Date(endTs).toISOString()}`);
+
+      try {
+        // Get temperature devices from cache
+        const tempData = window.MyIOOrchestratorData?.temperature || window.STATE?.temperature;
+        const devices = tempData?.items || [];
+
+        if (!devices || devices.length === 0) {
+          LogHelper.warn('[Orchestrator] fetchTemperatureDayAverages: No temperature devices found');
+          return null;
+        }
+
+        LogHelper.log(`[Orchestrator] fetchTemperatureDayAverages: Found ${devices.length} temperature devices`);
+
+        // Get JWT token for ThingsBoard API
+        const token = localStorage.getItem('jwt_token');
+        if (!token) {
+          LogHelper.error('[Orchestrator] fetchTemperatureDayAverages: No JWT token');
+          return null;
+        }
+
+        // Calculate number of days and interval
+        const dayMs = 24 * 60 * 60 * 1000;
+        const numDays = Math.ceil((endTs - startTs) / dayMs);
+        const interval = dayMs; // 1 day aggregation
+
+        // Generate date labels
+        const labels = [];
+        for (let i = 0; i < numDays; i++) {
+          const dayDate = new Date(startTs + i * dayMs);
+          labels.push(dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+        }
+
+        // Group devices by shopping
+        const shoppingDevicesMap = new Map();
+        devices.forEach((device) => {
+          const shoppingName = device.ownerName || device.customerName || 'Desconhecido';
+          const shoppingId = device.ownerId || device.customerId || shoppingName;
+          if (!shoppingDevicesMap.has(shoppingId)) {
+            shoppingDevicesMap.set(shoppingId, {
+              name: shoppingName,
+              devices: [],
+            });
+          }
+          shoppingDevicesMap.get(shoppingId).devices.push(device);
+        });
+
+        LogHelper.log(`[Orchestrator] fetchTemperatureDayAverages: ${shoppingDevicesMap.size} shoppings`);
+
+        // Fetch historical data for each device (batch by shopping to limit API calls)
+        const shoppingData = {};
+        const shoppingNames = {};
+        const globalDailyTotals = new Array(numDays).fill(null);
+        const globalDailyCounts = new Array(numDays).fill(0);
+
+        // Process each shopping
+        for (const [shoppingId, shoppingInfo] of shoppingDevicesMap) {
+          shoppingNames[shoppingId] = shoppingInfo.name;
+          shoppingData[shoppingId] = new Array(numDays).fill(null);
+          const dailySums = new Array(numDays).fill(0);
+          const dailyCounts = new Array(numDays).fill(0);
+
+          // Fetch historical data for up to 5 devices per shopping (to limit API calls)
+          const devicesToFetch = shoppingInfo.devices.slice(0, 5);
+
+          for (const device of devicesToFetch) {
+            const deviceId = device.tbId || device.id;
+            if (!deviceId) continue;
+
+            try {
+              // ThingsBoard timeseries API with daily aggregation
+              const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=temperature&startTs=${startTs}&endTs=${endTs}&agg=AVG&interval=${interval}`;
+
+              const response = await fetch(url, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (!response.ok) {
+                LogHelper.warn(`[Orchestrator] fetchTemperatureDayAverages: Failed to fetch device ${deviceId}`);
+                continue;
+              }
+
+              const data = await response.json();
+              const tempReadings = data?.temperature || [];
+
+              // Process readings into daily buckets
+              tempReadings.forEach((reading) => {
+                const dayIndex = Math.floor((reading.ts - startTs) / dayMs);
+
+                if (dayIndex >= 0 && dayIndex < numDays && reading.value !== null) {
+                  const value = Number(reading.value);
+                  if (!isNaN(value)) {
+                    dailySums[dayIndex] += value;
+                    dailyCounts[dayIndex]++;
+                  }
+                }
+              });
+            } catch (err) {
+              LogHelper.warn(`[Orchestrator] fetchTemperatureDayAverages: Error fetching device ${deviceId}:`, err.message);
+            }
+          }
+
+          // Calculate daily averages for this shopping
+          for (let i = 0; i < numDays; i++) {
+            if (dailyCounts[i] > 0) {
+              const avg = dailySums[i] / dailyCounts[i];
+              shoppingData[shoppingId][i] = Number(avg.toFixed(1));
+              // Accumulate for global average
+              if (globalDailyTotals[i] === null) globalDailyTotals[i] = 0;
+              globalDailyTotals[i] += avg;
+              globalDailyCounts[i]++;
+            }
+          }
+        }
+
+        // Calculate global daily averages
+        const dailyTotals = globalDailyTotals.map((sum, i) => {
+          if (sum === null || globalDailyCounts[i] === 0) return null;
+          return Number((sum / globalDailyCounts[i]).toFixed(1));
+        });
+
+        LogHelper.log(`[Orchestrator] 🌡️ fetchTemperatureDayAverages: Completed - ${labels.length} days, ${Object.keys(shoppingData).length} shoppings`);
+
+        return {
+          labels,
+          dailyTotals,
+          shoppingData,
+          shoppingNames,
+          fetchTimestamp: Date.now(),
+        };
+      } catch (error) {
+        LogHelper.error('[Orchestrator] fetchTemperatureDayAverages: Error:', error);
+        return null;
+      }
+    },
+
     destroy: () => {
       // Abort all in-flight requests
       abortAllInflight();
