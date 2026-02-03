@@ -791,6 +791,11 @@ export function createWidgetController(config) {
     const dataReadyHandler = () => {
       const items = getCachedData(config);
       if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] Data ready skipped: current ${STATE.itemsBase.length} items > cache ${items.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] Data ready event: ${items.length} items`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -814,6 +819,11 @@ export function createWidgetController(config) {
       const items = getCachedData(config);
       // RFC-0144 FIX: Always update data on summary-ready, not just the first time
       if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] Summary ready skipped: current ${STATE.itemsBase.length} items > cache ${items.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] Summary ready, loading from cache: ${items.length} items`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -884,6 +894,11 @@ export function createWidgetController(config) {
 
       // RFC-0144 FIX: Always update data, not just the first time
       if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] water-tb-data-ready skipped: current ${STATE.itemsBase.length} items > event ${items.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] water-tb-data-ready event: ${items.length} items for context ${config.context}`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -933,6 +948,29 @@ export function createWidgetController(config) {
 
       const busyModal = createBusyModal(config, $root);
 
+      // RFC-0144: Initialize filter modal FIRST so we can reference it in header's onFilterClick
+      if (typeof window !== 'undefined' && window.MyIOUtils?.createFilterModal) {
+        context.filterModalController = window.MyIOUtils.createFilterModal({
+          $container: $root(),
+          tabs: config.filterTabs || [{ id: 'all', label: 'Todos', filter: () => true }],
+          onApply: (selectedIds) => {
+            STATE.selectedIds = selectedIds;
+            reflow();
+          },
+        });
+      }
+
+      // RFC-0144: Function to open filter modal (called by header's onFilterClick)
+      function openFilterModal() {
+        if (context.filterModalController?.open) {
+          context.filterModalController.open();
+        } else if (context.filterModalController?.show) {
+          context.filterModalController.show();
+        } else {
+          LogHelper.warn(`[${config.widgetName}] Filter modal controller has no open/show method`);
+        }
+      }
+
       if (typeof window !== 'undefined' && window.MyIOUtils?.buildHeaderDevicesGrid) {
         // RFC-0143 FIX: buildHeaderDevicesGrid expects 'container' (DOM element), not '$container' (jQuery)
         context.headerController = window.MyIOUtils.buildHeaderDevicesGrid({
@@ -949,16 +987,9 @@ export function createWidgetController(config) {
             STATE.searchActive = term.length > 0;
             reflow();
           },
-        });
-      }
-
-      if (typeof window !== 'undefined' && window.MyIOUtils?.createFilterModal) {
-        context.filterModalController = window.MyIOUtils.createFilterModal({
-          $container: $root(),
-          tabs: config.filterTabs || [{ id: 'all', label: 'Todos', filter: () => true }],
-          onApply: (selectedIds) => {
-            STATE.selectedIds = selectedIds;
-            reflow();
+          // RFC-0144: Add onFilterClick callback to open filter modal
+          onFilterClick: () => {
+            openFilterModal();
           },
         });
       }
@@ -992,6 +1023,11 @@ export function createWidgetController(config) {
       // RFC-0144 FIX: Actually refresh data from cache when called
       const items = getCachedData(config);
       if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] onDataUpdated skipped: current ${STATE.itemsBase.length} items > cache ${items.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] onDataUpdated: refreshing from cache with ${items.length} items`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
