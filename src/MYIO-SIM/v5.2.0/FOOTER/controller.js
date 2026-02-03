@@ -1426,16 +1426,103 @@ const footerController = {
 
   /**
    * Manipulador de evento 'drop'
+   * RFC-0144 FIX: Register entity before adding to ensure footer displays properly
    */
   onDrop(e) {
     e.preventDefault();
     const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-    if (MyIOSelectionStore) {
-      const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
-      if (id) {
-        MyIOSelectionStore.add(id);
+    if (!MyIOSelectionStore) return;
+
+    const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
+    if (!id) return;
+
+    LogHelper.log('[MyIO Footer] onDrop: received id =', id);
+
+    // RFC-0144: Try to get entity data from drag transfer
+    const entityJson = e.dataTransfer?.getData('application/json');
+    let entityRegistered = false;
+
+    if (entityJson) {
+      try {
+        const entityData = JSON.parse(entityJson);
+        LogHelper.log('[MyIO Footer] onDrop: parsed entity from JSON =', entityData);
+
+        // Register the entity if it has required fields
+        if (entityData && (entityData.id || entityData.entityId)) {
+          // Normalize entity for registration
+          const entityToRegister = {
+            id: entityData.id || entityData.entityId || id,
+            entityId: entityData.entityId || entityData.id || id,
+            name: entityData.name || entityData.label || entityData.labelOrName || 'Dispositivo',
+            label: entityData.label || entityData.name || entityData.labelOrName || 'Dispositivo',
+            domain: entityData.domain || this.currentUnitType || 'energy',
+            unit: entityData.unit || (entityData.domain === 'water' ? 'm³' : 'kWh'),
+            value: entityData.value || entityData.val || entityData.lastValue || 0,
+            lastValue: entityData.lastValue || entityData.value || entityData.val || 0,
+            customerName: entityData.customerName || entityData.ownerName || '',
+            ingestionId: entityData.ingestionId || entityData.id || id,
+            status: entityData.status || entityData.deviceStatus || 'online',
+            meta: entityData.meta || null,
+            alarm: entityData.alarm || null,
+          };
+
+          if (MyIOSelectionStore.registerEntity) {
+            MyIOSelectionStore.registerEntity(entityToRegister);
+            entityRegistered = true;
+            LogHelper.log('[MyIO Footer] onDrop: entity registered =', entityToRegister.name);
+          }
+        }
+      } catch (err) {
+        LogHelper.warn('[MyIO Footer] onDrop: failed to parse entity JSON', err);
       }
     }
+
+    // RFC-0144: If no JSON data, try to find entity in existing caches
+    if (!entityRegistered) {
+      // Try to find entity in MyIOOrchestratorData caches
+      const orchestratorData = window.MyIOOrchestratorData;
+      let foundEntity = null;
+
+      // Search in energy cache
+      if (orchestratorData?.energy?.items) {
+        foundEntity = orchestratorData.energy.items.find(
+          (item) => item.id === id || item.ingestionId === id || item.tbId === id
+        );
+      }
+
+      // Search in waterClassified cache
+      if (!foundEntity && orchestratorData?.waterClassified) {
+        const allWaterItems = [
+          ...(orchestratorData.waterClassified.stores?.items || []),
+          ...(orchestratorData.waterClassified.commonArea?.items || []),
+          ...(orchestratorData.waterClassified.all?.items || []),
+        ];
+        foundEntity = allWaterItems.find(
+          (item) => item.id === id || item.ingestionId === id || item.tbId === id
+        );
+      }
+
+      if (foundEntity && MyIOSelectionStore.registerEntity) {
+        const entityToRegister = {
+          id: foundEntity.id || foundEntity.ingestionId || id,
+          entityId: foundEntity.tbId || foundEntity.id || id,
+          name: foundEntity.label || foundEntity.name || 'Dispositivo',
+          label: foundEntity.label || foundEntity.name || 'Dispositivo',
+          domain: foundEntity.domain || this.currentUnitType || 'energy',
+          unit: foundEntity.unit || (foundEntity.domain === 'water' ? 'm³' : 'kWh'),
+          value: foundEntity.value || foundEntity.consumption || 0,
+          lastValue: foundEntity.value || foundEntity.consumption || 0,
+          customerName: foundEntity.customerName || foundEntity.ownerName || '',
+          ingestionId: foundEntity.ingestionId || id,
+          status: foundEntity.deviceStatus || foundEntity.connectionStatus || 'online',
+        };
+        MyIOSelectionStore.registerEntity(entityToRegister);
+        LogHelper.log('[MyIO Footer] onDrop: entity found in cache and registered =', entityToRegister.name);
+      }
+    }
+
+    // Now add the ID to the selection
+    MyIOSelectionStore.add(id);
   },
 
   /**
