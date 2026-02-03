@@ -83,6 +83,7 @@ let mainWaterData = {
 };
 
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
+let lastProcessedVersion = null; // Track orchestrator version to allow refresh on same period
 
 // RFC-0094: Widget configuration (from settings) - WATER DOMAIN
 let WIDGET_DOMAIN = 'water';
@@ -1544,10 +1545,13 @@ self.onInit = async function () {
   }, 100);
 
   dataProvideHandler = function (ev) {
+    const eventVersion = window.MyIOOrchestratorData?.[ev.detail?.domain]?.version || null;
     LogHelper.log(
       `[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
         ev.detail.domain
-      }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
+      }, periodKey: ${ev.detail.periodKey}, version: ${eventVersion ?? 'N/A'}, items: ${
+        ev.detail.items?.length || 0
+      }`
     );
     const { domain, periodKey, items } = ev.detail;
 
@@ -1558,8 +1562,12 @@ self.onInit = async function () {
       return;
     }
 
-    if (lastProcessedPeriodKey === periodKey) {
-      LogHelper.log(`[WATER_COMMON_AREA] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
+    if (lastProcessedPeriodKey === periodKey && eventVersion === lastProcessedVersion) {
+      LogHelper.log(
+        `[WATER_COMMON_AREA] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey} (version: ${
+          eventVersion ?? 'N/A'
+        })`
+      );
       return;
     }
 
@@ -1576,6 +1584,7 @@ self.onInit = async function () {
     }
 
     lastProcessedPeriodKey = periodKey;
+    lastProcessedVersion = eventVersion;
 
     LogHelper.log(`[WATER_COMMON_AREA] 🔄 Processing data from orchestrator...`);
     LogHelper.log(

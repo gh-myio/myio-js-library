@@ -1435,10 +1435,12 @@ window.addEventListener('myio:filter-applied', (ev) => {
 window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
   LogHelper.log('[HEADER] 🔄 heard myio:orchestrator-filter-updated:', ev.detail);
 
-  // Update cards with current cache - energy-summary-ready will correct the total later
-  if (window.MyIOOrchestrator?.getEnergyCache) {
-    updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
-  }
+  // RFC-FIX: Energy card is now updated via energy-summary-ready event which includes comparative
+  // Don't call updateEnergyCard here as it would overwrite the comparative display set by energy-summary-ready
+  // The energy-summary-ready event is dispatched BEFORE orchestrator-filter-updated, so calling
+  // updateEnergyCard here would overwrite the correct filtered value with 0 (since getTotalConsumption
+  // may not be available or return the wrong value)
+
   // RFC: Water card is now updated via water-summary-ready event which includes comparative
   // Don't call updateWaterCard here as it would overwrite the comparative display
 });

@@ -1770,6 +1770,23 @@ self.onInit = async function () {
     })
   );
 
+  // Fallback: react to provide-data to refresh charts even when periodKey is the same
+  cleanupFns.push(
+    addListener('myio:telemetry:provide-data', async (ev) => {
+      const detail = ev?.detail || {};
+      if (detail.domain !== 'energy') return;
+      const periodKey = detail.periodKey || 'N/A';
+      LogHelper.log(`[ENERGY] provide-data received (periodKey=${periodKey}). Refreshing charts...`);
+      cachedChartData = null;
+      if (distributionChartInstance) {
+        await distributionChartInstance.refresh();
+      }
+      if (consumptionChartInstance?.refresh) {
+        await consumptionChartInstance.refresh(true);
+      }
+    })
+  );
+
   // RFC-0131: Mark widget as initialized
   energyWidgetInitialized = true;
 

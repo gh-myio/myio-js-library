@@ -245,6 +245,8 @@ function normalizeParams(params) {
     // Debug options
     debugActive: params.debugActive ?? false,
     activeTooltipDebug: params.activeTooltipDebug ?? false,
+    // RFC-FIX: Option to hide value tooltip (for STORES widget where range tooltip is not relevant)
+    hideValueTooltip: params.hideValueTooltip ?? false,
     // LogHelper instance for this card
     LogHelper,
     callbacks: {
@@ -1387,7 +1389,8 @@ function bindEvents(root, state, callbacks) {
 
   // Temperature range tooltip (only for domain=temperature)
   // Uses delayed hide pattern: 1.5s delay before closing, allows hover on tooltip to copy data
-  if (entityObject.domain === 'temperature' && valueElement) {
+  // RFC-FIX: Skip tooltip if hideValueTooltip is set (used by STORES widget)
+  if (entityObject.domain === 'temperature' && valueElement && !state.hideValueTooltip) {
     const showTooltip = (e) => {
       // Cancel any pending hide when re-entering
       if (TempRangeTooltip._hideTimer) {
@@ -1413,7 +1416,8 @@ function bindEvents(root, state, callbacks) {
 
   // Energy range tooltip (only for domain=energy)
   // Uses delayed hide pattern: 1.5s delay before closing, allows hover on tooltip to copy data
-  if (entityObject.domain === 'energy' && valueElement) {
+  // RFC-FIX: Skip tooltip if hideValueTooltip is set (used by STORES widget)
+  if (entityObject.domain === 'energy' && valueElement && !state.hideValueTooltip) {
     const showEnergyTooltip = (e) => {
       // Cancel any pending hide when re-entering
       if (EnergyRangeTooltip._hideTimer) {

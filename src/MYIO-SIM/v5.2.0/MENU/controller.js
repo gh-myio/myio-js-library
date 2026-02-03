@@ -1023,6 +1023,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
 
         // ✅ NOW dispatch event to trigger data fetch
+        // forceRefresh: true ensures MAIN clears cache and fetches fresh data
         window.dispatchEvent(
           new CustomEvent('myio:update-date', {
             detail: {
@@ -1033,6 +1034,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               startMs,
               endMs,
               tz: TZ,
+              forceRefresh: true, // Always fetch fresh data when user clicks "Carregar"
             },
           })
         );

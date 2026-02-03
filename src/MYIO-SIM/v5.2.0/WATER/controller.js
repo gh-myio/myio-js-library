@@ -1552,6 +1552,27 @@ self.onInit = async function () {
   // Listen for water data from MAIN
   cleanupFns.push(addListener('myio:water-data-ready', handleWaterDataReady));
 
+  // Fallback: react to provide-data for water to refresh totals/charts
+  cleanupFns.push(
+    addListener('myio:telemetry:provide-data', (ev) => {
+      const detail = ev?.detail || {};
+      if (detail.domain !== 'water') return;
+      const periodKey = detail.periodKey || 'N/A';
+      const items = Array.isArray(detail.items) ? detail.items : [];
+      LogHelper.log(`[WATER] provide-data received (periodKey=${periodKey}, items=${items.length})`);
+      if (items.length === 0) return;
+
+      const cache = new Map();
+      items.forEach((item) => {
+        if (item.tbId) cache.set(item.tbId, item);
+        if (item.ingestionId && item.ingestionId !== item.tbId) cache.set(item.ingestionId, item);
+        if (!item.tbId && !item.ingestionId && item.id) cache.set(item.id, item);
+      });
+
+      handleWaterDataReady({ detail: { cache, source: 'provide-data' } });
+    })
+  );
+
   // Listen for water totals calculated from valid TB aliases (Orchestrator)
   cleanupFns.push(
     addListener('myio:water-totals-updated', (ev) => {

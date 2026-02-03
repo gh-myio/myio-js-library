@@ -125,6 +125,9 @@ const WATER_STORES_CONFIG = {
 // CREATE CONTROLLER FROM FACTORY
 // ============================================================================
 let factoryController = null;
+let waterStoresSummaryHandler = null;
+let waterStoresTbDataHandler = null;
+let waterStoresProvideHandler = null;
 
 self.onInit = async function () {
   LogHelper.log('[WATER_STORES] RFC-0143 onInit - Using DeviceGridWidgetFactory');
@@ -164,6 +167,26 @@ self.onInit = async function () {
     await factoryController.onInit(self.ctx);
 
     LogHelper.log('[WATER_STORES] RFC-0143 Factory controller initialized successfully');
+
+    // Force refresh on new data emissions (Carregar / period refresh)
+    waterStoresSummaryHandler = (ev) => {
+      LogHelper.log('[WATER_STORES] water-summary-ready received. Refreshing grid...', ev?.detail);
+      factoryController?.onDataUpdated?.();
+    };
+    waterStoresTbDataHandler = (ev) => {
+      LogHelper.log('[WATER_STORES] water-tb-data-ready received. Refreshing grid...', ev?.detail);
+      factoryController?.onDataUpdated?.();
+    };
+    waterStoresProvideHandler = (ev) => {
+      const detail = ev?.detail || {};
+      if (detail.domain !== 'water') return;
+      LogHelper.log('[WATER_STORES] provide-data (water) received. Refreshing grid...', detail);
+      factoryController?.onDataUpdated?.();
+    };
+
+    window.addEventListener('myio:water-summary-ready', waterStoresSummaryHandler);
+    window.addEventListener('myio:water-tb-data-ready', waterStoresTbDataHandler);
+    window.addEventListener('myio:telemetry:provide-data', waterStoresProvideHandler);
   } catch (error) {
     LogHelper.error('[WATER_STORES] Failed to initialize factory controller:', error);
   }
@@ -178,6 +201,19 @@ self.onDataUpdated = function () {
 
 self.onDestroy = function () {
   LogHelper.log('[WATER_STORES] RFC-0143 onDestroy');
+
+  if (waterStoresSummaryHandler) {
+    window.removeEventListener('myio:water-summary-ready', waterStoresSummaryHandler);
+    waterStoresSummaryHandler = null;
+  }
+  if (waterStoresTbDataHandler) {
+    window.removeEventListener('myio:water-tb-data-ready', waterStoresTbDataHandler);
+    waterStoresTbDataHandler = null;
+  }
+  if (waterStoresProvideHandler) {
+    window.removeEventListener('myio:telemetry:provide-data', waterStoresProvideHandler);
+    waterStoresProvideHandler = null;
+  }
 
   if (factoryController?.onDestroy) {
     factoryController.onDestroy();

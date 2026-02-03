@@ -383,6 +383,7 @@ Object.assign(window.MyIOUtils, {
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store', // RFC-0001: Always fetch fresh data
       });
 
       if (!res.ok) {
@@ -487,6 +488,7 @@ Object.assign(window.MyIOUtils, {
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store', // RFC-0001: Always fetch fresh data
       });
 
       if (!res.ok) {
@@ -591,6 +593,7 @@ Object.assign(window.MyIOUtils, {
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store', // RFC-0001: Always fetch fresh data
       });
 
       if (!res.ok) {
@@ -709,6 +712,7 @@ Object.assign(window.MyIOUtils, {
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store', // RFC-0001: Always fetch fresh data
       });
 
       if (!res.ok) {
@@ -1233,6 +1237,17 @@ const CLIMATIZACAO_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climat
 const ELEVADORES_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevadores.identifiers);
 const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifiers);
 
+const ALLOWED_EQUIPMENT_PROFILES_SET = new Set([
+  'CHILLER',
+  'FANCOIL',
+  'ELEVADOR',
+  'ESCADA_ROLANTE',
+  'MOTOR',
+  'BOMBA_HIDRAULICA',
+  'BOMBA_INCENDIO',
+  'BOMBA_CAG',
+]);
+
 // RFC-0097: Regex para excluir equipamentos ao detectar widget "lojas"
 // Construído dinamicamente a partir do config
 const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
@@ -1248,6 +1263,16 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
     .join('|'),
   'i'
 );
+
+function getEffectiveDeviceProfile(item) {
+  if (!item || typeof item !== 'object') return '';
+  return String(item.effectiveDeviceType || item.deviceProfile || item.deviceType || '').toUpperCase();
+}
+
+function isAllowedEquipmentProfile(item) {
+  const profile = getEffectiveDeviceProfile(item);
+  return ALLOWED_EQUIPMENT_PROFILES_SET.has(profile);
+}
 
 /**
  * RFC-0106: Check if device is a store (loja)
@@ -3845,11 +3870,10 @@ Object.assign(window.MyIOUtils, {
         getEquipmentDevices: () => {
           const energyData = window.MyIOOrchestratorData?.energy;
           if (!energyData?.items?.length) return [];
-          // Filter out stores - use effectiveDeviceType (which is deviceProfile || deviceType)
-          // Stores have effectiveDeviceType = '3F_MEDIDOR'
+          // Filter out stores and keep only allowed equipment profiles
           return energyData.items.filter((item) => {
-            const edt = String(item.effectiveDeviceType || item.deviceType || '').toUpperCase();
-            return edt !== '3F_MEDIDOR';
+            const edt = getEffectiveDeviceProfile(item);
+            return edt !== '3F_MEDIDOR' && isAllowedEquipmentProfile(item);
           });
         },
 
@@ -6377,6 +6401,12 @@ const MyIOOrchestrator = (() => {
         meta.temperature = val;
         meta.temperatureTs = ts;
       }
+      // RFC-FIX: Temperature offset - used to adjust displayed temperature value
+      // The offset is added to the raw temperature reading to get the corrected value
+      else if (keyName === 'offsettemperature' || keyName === 'offset_temperature' || keyName === 'offSetTemperature') {
+        meta.offSetTemperature = Number(val) || 0;
+        LogHelper.log(`[Orchestrator] 🌡️ Found offSetTemperature for "${meta.label || meta.entityName}": ${meta.offSetTemperature}`);
+      }
     }
 
     // Build map by ingestionId
@@ -6522,12 +6552,21 @@ const MyIOOrchestrator = (() => {
       const cachedData = window.MyIOOrchestratorData?.[domain];
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
-        // Use cache if less than 30 seconds old
-        if (cacheAge < 30000) {
+        // RFC-FIX: Also validate that the cached data is for the same period
+        const currentPeriodKey = periodKey(domain, period);
+        const cachedPeriodKey = cachedData.periodKey;
+        const periodMatches = currentPeriodKey === cachedPeriodKey;
+
+        // Use cache if less than 30 seconds old AND period matches
+        if (cacheAge < 30000 && periodMatches) {
           LogHelper.log(
-            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms)`
+            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms, periodKey matches)`
           );
           return cachedData.items;
+        } else if (cacheAge < 30000 && !periodMatches) {
+          LogHelper.log(
+            `[Orchestrator] ⚠️ Cache exists but periodKey mismatch: cached=${cachedPeriodKey}, current=${currentPeriodKey} - fetching fresh data`
+          );
         }
       }
 
@@ -6567,7 +6606,17 @@ const MyIOOrchestrator = (() => {
         // Build items directly from metadata (value = temperature reading)
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
-          const temperatureValue = Number(meta.temperature || 0);
+          // RFC-FIX: Apply temperature offset if available
+          // The offset is added to the raw temperature to get the corrected/calibrated value
+          const rawTemperature = Number(meta.temperature || 0);
+          const tempOffset = Number(meta.offSetTemperature || 0);
+          const temperatureValue = rawTemperature + tempOffset;
+
+          // Debug log if offset is applied
+          if (tempOffset !== 0) {
+            LogHelper.log(`[Orchestrator] 🌡️ Applying temperature offset for "${meta.label || meta.identifier}": raw=${rawTemperature}, offset=${tempOffset}, adjusted=${temperatureValue}`);
+          }
+
           // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
           const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
             deviceType: meta.deviceType,
@@ -6586,6 +6635,8 @@ const MyIOOrchestrator = (() => {
             name: meta.label || meta.identifier || 'Sensor',
             value: temperatureValue,
             temperature: temperatureValue,
+            rawTemperature: rawTemperature, // RFC-FIX: Keep raw value for reference
+            offSetTemperature: tempOffset, // RFC-FIX: Keep offset for reference
             deviceType: meta.deviceType || 'TERMOSTATO',
             deviceProfile: meta.deviceProfile || '',
             deviceStatus: deviceStatus,
@@ -6816,6 +6867,7 @@ const MyIOOrchestrator = (() => {
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store', // RFC-0001: Always fetch fresh data
       });
 
       if (!res.ok) {
@@ -7104,6 +7156,15 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
+    // RFC-FIX: Always sort items by consumption value (highest first) regardless of status
+    // This ensures the biggest consumers are always shown first in all widgets
+    const sortedItems = [...items].sort((a, b) => {
+      const valueA = a.value || a.total_value || a.consumption || 0;
+      const valueB = b.value || b.total_value || b.consumption || 0;
+      return valueB - valueA; // Descending order (highest first)
+    });
+    items = sortedItems;
+
     // Prevent duplicate emissions (< 100ms)
     if (OrchestratorState.lastEmission[key]) {
       const timeSinceLastEmit = now - OrchestratorState.lastEmission[key];
@@ -7181,7 +7242,7 @@ const MyIOOrchestrator = (() => {
       const customerTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
       const lojaItems = items.filter((item) => isStoreDevice(item));
-      const equipmentItems = items.filter((item) => !isStoreDevice(item));
+      const equipmentItems = items.filter((item) => !isStoreDevice(item) && isAllowedEquipmentProfile(item));
       const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const equipmentsTotal = equipmentItems.reduce(
         (sum, item) => sum + (item.value || item.total_value || 0),
@@ -7216,7 +7277,12 @@ const MyIOOrchestrator = (() => {
           entry.equipamentos += value;
         }
       });
-      const shoppingsEnergy = Array.from(shoppingMap.values());
+      // RFC-FIX: Sort shoppings by total consumption (highest first)
+      const shoppingsEnergy = Array.from(shoppingMap.values()).sort((a, b) => {
+        const totalA = (a.equipamentos || 0) + (a.lojas || 0);
+        const totalB = (b.equipamentos || 0) + (b.lojas || 0);
+        return totalB - totalA;
+      });
 
       const energySummary = {
         customerTotal,
@@ -7519,7 +7585,12 @@ const MyIOOrchestrator = (() => {
             deviceCount: itemsForCalculation.length, // Exclude entrada from count
             commonArea: commonAreaTotal,
             stores: storesTotal,
-            shoppingsWater: Array.from(waterShoppingMap.values()),
+            // RFC-FIX: Sort shoppings by total consumption (highest first)
+            shoppingsWater: Array.from(waterShoppingMap.values()).sort((a, b) => {
+              const totalA = (a.commonArea || 0) + (a.stores || 0);
+              const totalB = (b.commonArea || 0) + (b.stores || 0);
+              return totalB - totalA;
+            }),
           };
 
           window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
@@ -7644,6 +7715,7 @@ const MyIOOrchestrator = (() => {
               LogHelper.log(`[Orchestrator] 💧 RFC-0131: Fetching water API totals...`);
               const res = await fetch(url.toString(), {
                 headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store', // RFC-0001: Always fetch fresh data
               });
 
               if (!res.ok) {
@@ -7821,7 +7893,12 @@ const MyIOOrchestrator = (() => {
           entry.areaComum += value;
         }
       });
-      const shoppingsWater = Array.from(waterShoppingMap.values());
+      // RFC-FIX: Sort shoppings by total consumption (highest first)
+      const shoppingsWater = Array.from(waterShoppingMap.values()).sort((a, b) => {
+        const totalA = (a.commonArea || 0) + (a.stores || 0);
+        const totalB = (b.commonArea || 0) + (b.stores || 0);
+        return totalB - totalA;
+      });
 
       const waterSummary = {
         filteredTotal,
@@ -7962,6 +8039,27 @@ const MyIOOrchestrator = (() => {
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
 
+    // RFC-FIX: Handle forceRefresh flag from MENU "Carregar" button
+    // When user clicks "Carregar", we must clear cache and fetch fresh data
+    if (ev.detail.forceRefresh) {
+      LogHelper.log('[Orchestrator] 🔄 forceRefresh=true, clearing cache for all domains');
+      // Clear the application-level cache for all domains
+      if (window.MyIOOrchestratorData) {
+        ['energy', 'water', 'temperature'].forEach((domain) => {
+          if (window.MyIOOrchestratorData[domain]) {
+            window.MyIOOrchestratorData[domain] = null;
+            LogHelper.log(`[Orchestrator] 🗑️ Cleared cache for ${domain}`);
+          }
+        });
+      }
+      // Also clear inFlight to allow new fetches
+      inFlight.clear();
+      LogHelper.log('[Orchestrator] 🗑️ Cleared inFlight map');
+      // Clear lastProvide cooldown so the loading modal will show
+      lastProvide.clear();
+      LogHelper.log('[Orchestrator] 🗑️ Cleared lastProvide cooldown - loading modal will show');
+    }
+
     // RFC-0091 FIX: Handle both period object and startDate/endDate format from MENU
     if (ev.detail.period) {
       currentPeriod = ev.detail.period;
@@ -7987,19 +8085,22 @@ const MyIOOrchestrator = (() => {
   });
 
   window.addEventListener('myio:dashboard-state', (ev) => {
-    const tab = ev.detail.tab;
+    // FIX: Accept both 'tab' and 'domain' fields for backwards compatibility
+    // MENU sends 'domain', while internal dispatches use 'tab'
+    const tab = ev.detail.tab || ev.detail.domain;
     try {
       hideGlobalBusy(tab);
     } catch (_e) {
       // Silently ignore - busy indicator may not exist yet
     }
     visibleTab = tab;
+    LogHelper.log(`[Orchestrator] 📊 myio:dashboard-state received: tab=${tab}, visibleTab=${visibleTab}`);
     if (visibleTab && currentPeriod) {
-      LogHelper.log(`[Orchestrator] ?? myio:dashboard-state ? hydrateDomain(${visibleTab})`);
+      LogHelper.log(`[Orchestrator] 📊 myio:dashboard-state → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
     } else {
       LogHelper.log(
-        `[Orchestrator] ?? myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
+        `[Orchestrator] 📊 myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
       );
     }
   });
@@ -8009,8 +8110,14 @@ const MyIOOrchestrator = (() => {
     LogHelper.log('[Orchestrator] 🔥 Received myio:filter-applied:', ev.detail);
 
     const selection = ev.detail?.selection || [];
-    const selectedIds = selection.map((s) => s.value).filter((v) => v);
-    const isFiltered = selectedIds.length > 0;
+    // RFC-FIX: Include both ingestionId (value) AND customerId (ThingsBoard entityId) for matching
+    // The selection has: { name, value (ingestionId), customerId (TB entityId), ingestionId }
+    const selectedIngestionIds = selection.map((s) => s.value).filter((v) => v);
+    const selectedCustomerIds = selection.map((s) => s.customerId).filter((v) => v);
+    const selectedIds = [...new Set([...selectedIngestionIds, ...selectedCustomerIds])]; // Combine and dedupe
+    const isFiltered = selection.length > 0;
+
+    LogHelper.log('[Orchestrator] 🔍 Filter IDs - ingestionIds:', selectedIngestionIds, 'customerIds:', selectedCustomerIds);
 
     // Store in global state for other functions to use
     window.STATE = window.STATE || {};
@@ -8026,12 +8133,13 @@ const MyIOOrchestrator = (() => {
         selection.map((s) => (s.name || '').toLowerCase()).filter(Boolean)
       );
 
-      // RFC-0131: Filter by shopping - match customerId OR ownerName against selection
+      // RFC-0131: Filter by shopping - match customerId OR ingestionId OR ownerName against selection
       const filteredItems = isFiltered
         ? allItems.filter((item) => {
-            const customerId = item.customerId || item.ingestionId || '';
+            const itemCustomerId = item.customerId || '';
+            const itemIngestionId = item.ingestionId || '';
             const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
-            return selectedIds.includes(customerId) || selectedEnergyShoppingNames.has(ownerName);
+            return selectedIds.includes(itemCustomerId) || selectedIds.includes(itemIngestionId) || selectedEnergyShoppingNames.has(ownerName);
           })
         : allItems;
 
@@ -8047,7 +8155,9 @@ const MyIOOrchestrator = (() => {
 
       // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
       const lojaItems = filteredItems.filter((item) => isStoreDevice(item));
-      const equipmentItems = filteredItems.filter((item) => !isStoreDevice(item));
+      const equipmentItems = filteredItems.filter(
+        (item) => !isStoreDevice(item) && isAllowedEquipmentProfile(item)
+      );
       const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const equipmentsTotal = equipmentItems.reduce(
         (sum, item) => sum + (item.value || item.total_value || 0),
@@ -8080,7 +8190,12 @@ const MyIOOrchestrator = (() => {
           entry.equipamentos += value;
         }
       });
-      const shoppingsEnergy = Array.from(shoppingMap.values());
+      // RFC-FIX: Sort shoppings by total consumption (highest first)
+      const shoppingsEnergy = Array.from(shoppingMap.values()).sort((a, b) => {
+        const totalA = (a.equipamentos || 0) + (a.lojas || 0);
+        const totalB = (b.equipamentos || 0) + (b.lojas || 0);
+        return totalB - totalA; // Descending order
+      });
 
       const energySummary = {
         customerTotal: filteredTotal,
@@ -8104,22 +8219,27 @@ const MyIOOrchestrator = (() => {
     }
 
     // Get water data and calculate filtered/unfiltered totals
+    // RFC-FIX: Use waterClassified instead of water - data is stored in waterClassified.all.items
+    const waterClassified = window.MyIOOrchestratorData?.waterClassified;
     const waterData = window.MyIOOrchestratorData?.water;
-    if (waterData?.items?.length) {
-      // RFC-0109: Exclude entrada items from calculations
-      const allItems = waterData.items.filter(
-        (item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada'
-      );
+    // Try waterClassified first (preferred), fallback to water.items
+    const waterItems = waterClassified?.all?.items || waterData?.items;
+    if (waterItems?.length) {
+      // RFC-0109: Exclude entrada items from calculations (waterClassified.all already excludes entrada)
+      const allItems = waterClassified?.all?.items
+        ? waterItems // waterClassified.all already excludes entrada
+        : waterItems.filter((item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada');
 
       // Build set of selected shopping names from selection array for matching
       const selectedWaterShoppingNames = new Set(selection.map((s) => s.name?.toLowerCase()).filter(Boolean));
 
-      // Filter by shopping - match ownerName or customerId against selection
+      // RFC-FIX: Filter by shopping - match ownerName, customerId, or ingestionId against selection
       const filteredItems = isFiltered
         ? allItems.filter((item) => {
             const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
-            const customerId = item.customerId || item.ingestionId || '';
-            return selectedWaterShoppingNames.has(ownerName) || selectedIds.includes(customerId);
+            const itemCustomerId = item.customerId || '';
+            const itemIngestionId = item.ingestionId || '';
+            return selectedWaterShoppingNames.has(ownerName) || selectedIds.includes(itemCustomerId) || selectedIds.includes(itemIngestionId);
           })
         : allItems;
 
@@ -8164,7 +8284,12 @@ const MyIOOrchestrator = (() => {
           entry.areaComum += value;
         }
       });
-      const shoppingsWater = Array.from(waterShoppingMap.values());
+      // RFC-FIX: Sort shoppings by total consumption (highest first)
+      const shoppingsWater = Array.from(waterShoppingMap.values()).sort((a, b) => {
+        const totalA = (a.commonArea || 0) + (a.stores || 0);
+        const totalB = (b.commonArea || 0) + (b.stores || 0);
+        return totalB - totalA;
+      });
 
       const waterSummary = {
         filteredTotal,
@@ -8197,13 +8322,13 @@ const MyIOOrchestrator = (() => {
       // RFC-0108: selection contains { value: ingestionId, name: 'Shopping Name' } (not 'text')
       const selectedShoppingNames = new Set(selection.map((s) => s.name?.toLowerCase()).filter(Boolean));
 
-      // Filter by shopping - match ownerName against selected shopping names
+      // RFC-FIX: Filter by shopping - match ownerName, customerId, or ingestionId against selected shopping
       const filteredItems = isFiltered
         ? allItems.filter((item) => {
             const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
-            // Also try matching by ingestionId in case item has shopping's ingestionId
-            const ingestionId = item.ingestionId || item.customerId || '';
-            return selectedShoppingNames.has(ownerName) || selectedIds.includes(ingestionId);
+            const itemCustomerId = item.customerId || '';
+            const itemIngestionId = item.ingestionId || '';
+            return selectedShoppingNames.has(ownerName) || selectedIds.includes(itemCustomerId) || selectedIds.includes(itemIngestionId);
           })
         : allItems;
 
@@ -8606,11 +8731,10 @@ const MyIOOrchestrator = (() => {
     getEquipmentDevices: () => {
       const energyData = window.MyIOOrchestratorData?.energy;
       if (!energyData?.items?.length) return [];
-      // Filter out stores - use effectiveDeviceType (which is deviceProfile || deviceType)
-      // Stores have effectiveDeviceType = '3F_MEDIDOR'
+      // Filter out stores and keep only allowed equipment profiles
       return energyData.items.filter((item) => {
-        const edt = String(item.effectiveDeviceType || item.deviceType || '').toUpperCase();
-        return edt !== '3F_MEDIDOR';
+        const edt = getEffectiveDeviceProfile(item);
+        return edt !== '3F_MEDIDOR' && isAllowedEquipmentProfile(item);
       });
     },
 
@@ -8652,15 +8776,11 @@ const MyIOOrchestrator = (() => {
         const value = Number(item.value) || Number(item.consumption) || 0;
         customerTotal += value;
 
-        // Check if it's a store device (both deviceType AND deviceProfile are '3F_MEDIDOR')
-        const deviceType = String(item.deviceType || '').toUpperCase();
-        // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-        const deviceProfile = String(item.deviceProfile || item.deviceType || '').toUpperCase();
-        const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+        const isStore = isStoreDevice(item);
 
         if (isStore) {
           lojasTotal += value;
-        } else {
+        } else if (isAllowedEquipmentProfile(item)) {
           equipmentsTotal += value;
         }
       });
@@ -8770,6 +8890,13 @@ const MyIOOrchestrator = (() => {
         }
       });
 
+      // RFC-FIX: Sort shoppings by total consumption (highest first)
+      const shoppingsWater = Array.from(shoppingMap.values()).sort((a, b) => {
+        const totalA = (a.commonArea || 0) + (a.stores || 0);
+        const totalB = (b.commonArea || 0) + (b.stores || 0);
+        return totalB - totalA;
+      });
+
       const waterSummary = {
         filteredTotal: total,
         unfilteredTotal: total,
@@ -8777,7 +8904,7 @@ const MyIOOrchestrator = (() => {
         deviceCount: itemsExcludingEntrada.length,
         commonArea,
         stores,
-        shoppingsWater: Array.from(shoppingMap.values()),
+        shoppingsWater,
       };
 
       LogHelper.log(
