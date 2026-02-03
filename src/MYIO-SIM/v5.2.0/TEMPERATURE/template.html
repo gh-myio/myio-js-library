@@ -72,8 +72,16 @@
 
     <!-- Temperature Comparison Chart -->
     <section class="chart-card chart-card-comparison">
-      <h3 class="chart-title">Temperatura Média por Shopping</h3>
-      <p class="chart-sub">Comparativo da temperatura média atual em cada shopping center</p>
+      <div class="chart-header-row">
+        <div>
+          <h3 class="chart-title">Temperatura Média por Shopping</h3>
+          <p class="chart-sub">Comparativo da temperatura média atual em cada shopping center</p>
+        </div>
+        <div class="chart-tabs-inline" id="comparisonChartTabs">
+          <button class="chart-tab-btn active" data-chart-type="bar">📊 Barras</button>
+          <button class="chart-tab-btn" data-chart-type="line">📈 Linhas</button>
+        </div>
+      </div>
       <div class="chart-container">
         <canvas id="tempChart"></canvas>
       </div>
