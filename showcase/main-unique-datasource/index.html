@@ -2013,6 +2013,14 @@
         applyMockLibraryOverrides();
         logEvent('MOCK_OVERRIDES', 'Applied mock library overrides for customer attributes', 'info');
 
+        // RFC-0152: Pre-configure operational indicators state BEFORE onInit
+        // This ensures MenuView sees the enabled state when it initializes
+        const showIndicatorsSelect = document.getElementById('attrShowIndicators');
+        const showIndicators = showIndicatorsSelect?.value === 'true';
+        window.MyIOUtils = window.MyIOUtils || {};
+        window.MyIOUtils.operationalIndicators = { enabled: showIndicators };
+        logEvent('OPERATIONAL', `Pre-configured operationalIndicators.enabled = ${showIndicators}`, 'info');
+
         updateStatus('ready');
       }
     });

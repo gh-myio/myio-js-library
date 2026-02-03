@@ -2563,9 +2563,17 @@ function createFilterModal(config) {
     const isFiltered = globalSelection.length > 0;
     let itemsProcessing = items.slice();
     if (isFiltered) {
-      const allowedShoppingIds = globalSelection.map((c) => c.value);
+      // RFC-FIX: Use customerId from selection (ThingsBoard UUID), not value (ingestionId)
+      // Shopping interface: value = ingestionId, customerId = ThingsBoard customer UUID
+      const allowedCustomerIds = globalSelection.map((c) => c.customerId).filter(Boolean);
+      const allowedIngestionIds = globalSelection.map((c) => c.value).filter(Boolean);
       itemsProcessing = itemsProcessing.filter(
-        (item) => item.customerId && allowedShoppingIds.includes(item.customerId)
+        (item) => {
+          // Match by ThingsBoard customerId OR by ingestionId for backward compatibility
+          const matchByCustomerId = item.customerId && allowedCustomerIds.includes(item.customerId);
+          const matchByIngestionId = item.ingestionId && allowedIngestionIds.includes(item.ingestionId);
+          return matchByCustomerId || matchByIngestionId;
+        }
       );
     }
 
@@ -6333,7 +6341,8 @@ const MyIOOrchestrator = (() => {
       if (cachedData && cachedData.items && cachedData.items.length > 0) {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
         // RFC-FIX: Also validate that the cached data is for the same period
-        const currentPeriodKey = periodKey(CUSTOMER_ING_ID, domain, period);
+        // Guard: Only call periodKey if CUSTOMER_ING_ID is available
+        const currentPeriodKey = CUSTOMER_ING_ID ? periodKey(CUSTOMER_ING_ID, domain, period) : `${domain}-no-customer`;
         const cachedPeriodKey = cachedData.periodKey;
         const periodMatches = currentPeriodKey === cachedPeriodKey;
 
@@ -6859,7 +6868,8 @@ const MyIOOrchestrator = (() => {
 
   // Fetch data for a domain and period
   async function hydrateDomain(domain, period) {
-    const key = periodKey(CUSTOMER_ING_ID, domain, period);
+    // Guard: Only call periodKey if CUSTOMER_ING_ID is available
+    const key = CUSTOMER_ING_ID ? periodKey(CUSTOMER_ING_ID, domain, period) : `${domain}-${period?.startDate || 'no-period'}`;
     const startTime = Date.now();
 
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });

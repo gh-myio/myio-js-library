@@ -54,6 +54,7 @@ const WIDGET_DOMAIN = 'temperature'; // Will be set in onInit
 // Card rendering options (from settings, with defaults)
 let USE_NEW_COMPONENTS = true;
 let ENABLE_SELECTION = true;
+let ENABLE_DRAG_DROP = true;
 let HIDE_INFO_MENU_ITEM = true;
 let DEBUG_ACTIVE = false;
 let ACTIVE_TOOLTIP_DEBUG = false;
@@ -304,6 +305,7 @@ function initializeSensorCards(sensors) {
         },
         useNewComponents: USE_NEW_COMPONENTS,
         enableSelection: ENABLE_SELECTION,
+        enableDragDrop: ENABLE_DRAG_DROP,
         hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
       });
     } else {
@@ -931,6 +933,7 @@ self.onInit = async function () {
   // Load card rendering options from settings
   USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
   ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
+  ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
   HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
   DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
   ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
