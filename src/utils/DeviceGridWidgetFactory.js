@@ -398,11 +398,12 @@ export function updateStats(config, items, context) {
 
   const connectivityPercentage = total > 0 ? ((onlineCount / total) * 100).toFixed(1) : '0.0';
 
-  if (context?.headerController?.update) {
-    context.headerController.update({
-      connectivity: `${onlineCount}/${total} (${connectivityPercentage}%)`,
+  // RFC-0144 FIX: The header controller method is 'updateStats', not 'update'
+  if (context?.headerController?.updateStats) {
+    context.headerController.updateStats({
+      online: onlineCount,
       total: total,
-      consumption: config.formatValue(totalConsumption),
+      consumption: totalConsumption,
       zeroCount: zeroConsumptionCount,
     });
   }
@@ -624,7 +625,11 @@ export function createWidgetController(config) {
     await renderList(config, STATE, visible, context);
   }
 
+  let busyModalRef = null; // RFC-0144: Store reference for onDataUpdated
+
   function registerEventHandlers(busyModal) {
+    busyModalRef = busyModal; // RFC-0144: Save reference
+
     const dataReadyHandler = () => {
       const items = getCachedData(config);
       if (items && items.length > 0) {
@@ -649,7 +654,8 @@ export function createWidgetController(config) {
 
     const summaryReadyHandler = () => {
       const items = getCachedData(config);
-      if (items && items.length > 0 && STATE.itemsBase.length === 0) {
+      // RFC-0144 FIX: Always update data on summary-ready, not just the first time
+      if (items && items.length > 0) {
         LogHelper.log(`[${config.widgetName}] Summary ready, loading from cache: ${items.length} items`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -673,7 +679,8 @@ export function createWidgetController(config) {
         ? items.filter(config.deviceFilter)
         : items;
 
-      if (filteredItems && filteredItems.length > 0 && STATE.itemsBase.length === 0) {
+      // RFC-0144 FIX: Always update data, not just the first time
+      if (filteredItems && filteredItems.length > 0) {
         LogHelper.log(`[${config.widgetName}] Provide-data event: ${filteredItems.length} items (from ${items?.length || 0})`);
         STATE.itemsBase = filteredItems;
         STATE.itemsEnriched = filteredItems.map((item) => ({
@@ -703,7 +710,8 @@ export function createWidgetController(config) {
         items = waterClassified.entrada?.items;
       }
 
-      if (items && items.length > 0 && STATE.itemsBase.length === 0) {
+      // RFC-0144 FIX: Always update data, not just the first time
+      if (items && items.length > 0) {
         LogHelper.log(`[${config.widgetName}] water-tb-data-ready event: ${items.length} items for context ${config.context}`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -809,7 +817,19 @@ export function createWidgetController(config) {
     },
 
     onDataUpdated: function () {
-      // No-op - data is received via events from MAIN/Orchestrator
+      // RFC-0144 FIX: Actually refresh data from cache when called
+      const items = getCachedData(config);
+      if (items && items.length > 0) {
+        LogHelper.log(`[${config.widgetName}] onDataUpdated: refreshing from cache with ${items.length} items`);
+        STATE.itemsBase = items;
+        STATE.itemsEnriched = items.map((item) => ({
+          ...item,
+          value: Number(item.value || item.consumption || item.pulses || 0),
+        }));
+        STATE.dataFromMain = true;
+        if (busyModalRef) busyModalRef.hideBusy();
+        reflow();
+      }
     },
 
     onDestroy: function () {
