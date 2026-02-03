@@ -371,10 +371,13 @@ Object.assign(window.MyIOUtils, {
       const endISO = new Date(endTs).toISOString();
 
       // Build API URL
+      // RFC-FIX: Add profileIds to filter only 3F_MEDIDOR devices (lojas)
+      const ENERGY_PROFILE_ID = '696be74a-a978-44ce-b50f-5b724e7effb8'; // 3F_MEDIDOR profile
       const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
+      url.searchParams.set('profileIds', ENERGY_PROFILE_ID);
       if (granularity) {
         url.searchParams.set('granularity', granularity);
       }
@@ -476,10 +479,13 @@ Object.assign(window.MyIOUtils, {
       const endISO = new Date(endTs).toISOString();
 
       // Build URL for water API
+      // RFC-FIX: Add profileIds to filter only HIDROMETRO devices
+      const WATER_PROFILE_ID = '526275a7-55cd-4e40-a9b8-0b08b7db6cdc'; // HIDROMETRO profile
       const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
+      url.searchParams.set('profileIds', WATER_PROFILE_ID);
       if (granularity) {
         url.searchParams.set('granularity', granularity);
       }
@@ -532,244 +538,6 @@ Object.assign(window.MyIOUtils, {
     } catch (error) {
       LogHelper.error('[MyIOUtils] fetchWaterDayConsumption error:', error);
       return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-    }
-  },
-
-  /**
-   * RFC-0130: Fetch energy day consumption data with timezone support
-   * Used by ENERGY widget for daily charts with proper timezone handling
-   * @param {string} customerId - Customer ingestion ID
-   * @param {number} startTs - Start timestamp in ms
-   * @param {number} endTs - End timestamp in ms
-   * @param {string} granularity - Granularity ('1h', '1d', etc.) - default '1d'
-   * @returns {Promise<Object>} { devices, total, byCustomer, summary }
-   */
-  fetchEnergyDayConsumptionWithTimezone: async (customerId, startTs, endTs, granularity = '1d') => {
-    try {
-      // Get credentials from orchestrator
-      const creds = window.MyIOOrchestrator?.getCredentials?.();
-      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
-        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: No credentials available');
-        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-      }
-
-      // Build auth client
-      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
-      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
-        LogHelper.error(
-          '[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: MyIOLibrary.buildMyioIngestionAuth not available'
-        );
-        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-      }
-
-      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
-        clientId: creds.CLIENT_ID,
-        clientSecret: creds.CLIENT_SECRET,
-      });
-
-      // Get token
-      const token = await myIOAuth.getToken();
-      if (!token) {
-        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: Failed to get token');
-        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-      }
-
-      // Format timestamps to ISO with timezone
-      const startISO = new Date(startTs).toISOString();
-      const endISO = new Date(endTs).toISOString();
-
-      // Build API URL with timezone support
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
-      url.searchParams.set('startTime', startISO);
-      url.searchParams.set('endTime', endISO);
-      url.searchParams.set('deep', '1');
-      url.searchParams.set('timezone', 'America/Sao_Paulo'); // Always use Sao Paulo timezone
-      if (granularity) {
-        url.searchParams.set('granularity', granularity);
-      }
-
-      LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: ${url.toString()}`);
-
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store', // RFC-0001: Always fetch fresh data
-      });
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          window.MyIOUtils?.handleUnauthorizedError?.('fetchEnergyDayConsumptionWithTimezone');
-        }
-        throw new Error(`API error: ${res.status}`);
-      }
-
-      const json = await res.json();
-      const devices = Array.isArray(json) ? json : json?.data || [];
-      const totalValue =
-        json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
-
-      // RFC-0130: Aggregate by customer for separate view mode
-      const byCustomer = {};
-      devices.forEach((d) => {
-        const custId = d.customerId;
-        if (custId) {
-          if (!byCustomer[custId]) {
-            byCustomer[custId] = {
-              name: d.customerName || custId,
-              total: 0,
-              deviceCount: 0,
-              timezone: 'America/Sao_Paulo',
-            };
-          }
-          byCustomer[custId].total += d.total_value || 0;
-          byCustomer[custId].deviceCount++;
-        }
-      });
-
-      LogHelper.log(
-        `[MyIOUtils] fetchEnergyDayConsumptionWithTimezone: Got ${
-          devices.length
-        } devices, total: ${totalValue.toFixed(2)} kWh in America/Sao_Paulo timezone`
-      );
-
-      return {
-        devices,
-        total: totalValue,
-        byCustomer,
-        summary: {
-          ...json?.summary,
-          timezone: 'America/Sao_Paulo',
-          totalDevices: devices.length,
-          totalValue,
-        },
-      };
-    } catch (error) {
-      LogHelper.error('[MyIOUtils] fetchEnergyDayConsumptionWithTimezone error:', error);
-      return {
-        devices: [],
-        total: 0,
-        byCustomer: {},
-        summary: { totalDevices: 0, totalValue: 0, timezone: 'America/Sao_Paulo' },
-      };
-    }
-  },
-
-  /**
-   * RFC-0130: Fetch water day consumption data with timezone support
-   * Used by WATER widget for daily charts with proper timezone handling
-   * @param {string} customerId - Customer ingestion ID
-   * @param {number} startTs - Start timestamp in ms
-   * @param {number} endTs - End timestamp in ms
-   * @param {string} granularity - Granularity ('1h', '1d', etc.) - default '1d'
-   * @returns {Promise<Object>} { devices, total, byCustomer, summary }
-   */
-  fetchWaterDayConsumptionWithTimezone: async (customerId, startTs, endTs, granularity = '1d') => {
-    try {
-      // Get credentials from orchestrator
-      const creds = window.MyIOOrchestrator?.getCredentials?.();
-      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
-        LogHelper.error('[MyIOUtils] fetchWaterDayConsumptionWithTimezone: No credentials available');
-        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-      }
-
-      // Build auth client
-      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
-      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
-        LogHelper.error(
-          '[MyIOUtils] fetchWaterDayConsumptionWithTimezone: MyIOLibrary.buildMyioIngestionAuth not available'
-        );
-        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-      }
-
-      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
-        clientId: creds.CLIENT_ID,
-        clientSecret: creds.CLIENT_SECRET,
-      });
-
-      // Get token
-      const token = await myIOAuth.getToken();
-      if (!token) {
-        LogHelper.error('[MyIOUtils] fetchWaterDayConsumptionWithTimezone: Failed to get token');
-        return { devices: [], total: 0, byCustomer: {}, summary: { totalDevices: 0, totalValue: 0 } };
-      }
-
-      // Format timestamps to ISO with timezone
-      const startISO = new Date(startTs).toISOString();
-      const endISO = new Date(endTs).toISOString();
-
-      // Build API URL with timezone support
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
-      url.searchParams.set('startTime', startISO);
-      url.searchParams.set('endTime', endISO);
-      url.searchParams.set('deep', '1');
-      url.searchParams.set('timezone', 'America/Sao_Paulo'); // Always use Sao Paulo timezone
-      if (granularity) {
-        url.searchParams.set('granularity', granularity);
-      }
-
-      LogHelper.log(`[MyIOUtils] fetchWaterDayConsumptionWithTimezone: ${url.toString()}`);
-
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store', // RFC-0001: Always fetch fresh data
-      });
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          window.MyIOUtils?.handleUnauthorizedError?.('fetchWaterDayConsumptionWithTimezone');
-        }
-        throw new Error(`API error: ${res.status}`);
-      }
-
-      const json = await res.json();
-      const devices = Array.isArray(json) ? json : json?.data || [];
-      const totalValue =
-        json?.summary?.totalValue || devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
-
-      // RFC-0130: Aggregate by customer for separate view mode
-      const byCustomer = {};
-      devices.forEach((d) => {
-        const custId = d.customerId;
-        if (custId) {
-          if (!byCustomer[custId]) {
-            byCustomer[custId] = {
-              name: d.customerName || custId,
-              total: 0,
-              deviceCount: 0,
-              timezone: 'America/Sao_Paulo',
-            };
-          }
-          byCustomer[custId].total += d.total_value || 0;
-          byCustomer[custId].deviceCount++;
-        }
-      });
-
-      LogHelper.log(
-        `[MyIOUtils] fetchWaterDayConsumptionWithTimezone: Got ${
-          devices.length
-        } devices, total: ${totalValue.toFixed(2)} m³ in America/Sao_Paulo timezone`
-      );
-
-      return {
-        devices,
-        total: totalValue,
-        byCustomer,
-        summary: {
-          ...json?.summary,
-          timezone: 'America/Sao_Paulo',
-          totalDevices: devices.length,
-          totalValue,
-        },
-      };
-    } catch (error) {
-      LogHelper.error('[MyIOUtils] fetchWaterDayConsumptionWithTimezone error:', error);
-      return {
-        devices: [],
-        total: 0,
-        byCustomer: {},
-        summary: { totalDevices: 0, totalValue: 0, timezone: 'America/Sao_Paulo' },
-      };
     }
   },
 

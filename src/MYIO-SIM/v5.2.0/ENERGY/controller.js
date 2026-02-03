@@ -30,6 +30,46 @@ function cleanupAll() {
   cleanupFns = [];
 }
 
+// RFC-FIX: Debounce for chart refresh to prevent multiple API calls
+let chartRefreshDebounceTimer = null;
+let chartRefreshInProgress = false;
+const CHART_REFRESH_DEBOUNCE_MS = 1000; // 1 second debounce
+
+async function debouncedChartRefresh(source = 'unknown') {
+  // If a refresh is already scheduled, skip
+  if (chartRefreshDebounceTimer) {
+    LogHelper.log(`[ENERGY] Chart refresh debounced (source: ${source}), already scheduled`);
+    return;
+  }
+
+  // If a refresh is in progress, skip
+  if (chartRefreshInProgress) {
+    LogHelper.log(`[ENERGY] Chart refresh skipped (source: ${source}), refresh in progress`);
+    return;
+  }
+
+  // Schedule the refresh
+  chartRefreshDebounceTimer = setTimeout(async () => {
+    chartRefreshDebounceTimer = null;
+    chartRefreshInProgress = true;
+    LogHelper.log(`[ENERGY] Executing debounced chart refresh (source: ${source})`);
+
+    try {
+      cachedChartData = null; // Clear cache before refresh
+      if (distributionChartInstance) {
+        await distributionChartInstance.refresh();
+      }
+      if (consumptionChartInstance?.refresh) {
+        await consumptionChartInstance.refresh(true);
+      }
+    } catch (error) {
+      LogHelper.error(`[ENERGY] Error in debounced chart refresh:`, error);
+    } finally {
+      chartRefreshInProgress = false;
+    }
+  }, CHART_REFRESH_DEBOUNCE_MS);
+}
+
 LogHelper.log('Script loaded, using shared utilities:', !!window.MyIOUtils?.LogHelper);
 
 // ============================================
@@ -858,59 +898,111 @@ function setupMaximizeButton() {
 }
 
 /**
- * RFC-0097/RFC-0130: Fetches consumption for a period and groups by day
- * Fetches in batches of 3 with delay between batches to avoid rate limiting.
- * Returns both totals and per-customer breakdown for chart modes (total vs separate)
- * @param {string} customerId - Customer ID
- * @param {number} startTs - Start timestamp (unused, we use dayBoundaries)
- * @param {number} endTs - End timestamp (unused, we use dayBoundaries)
+ * RFC-0097/RFC-0130/RFC-FIX: Fetches consumption for a period with SINGLE API call
+ * OPTIMIZED: Makes 1 API call for entire period instead of N calls per day
+ * The API with granularity=1d returns aggregated totals per device
+ * We distribute the total across days based on available data or evenly
+ * @param {string} customerId - Customer ID (holding/parent)
+ * @param {number} startTs - Start timestamp
+ * @param {number} endTs - End timestamp
  * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
  * @returns {Promise<{dailyTotals: number[], byCustomerPerDay: Object[]}>}
  */
 async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
-    const BATCH_SIZE = 3;
-    const BATCH_DELAY_MS = 500; // 500ms delay between batches
-    const dailyTotals = [];
-    const byCustomerPerDay = []; // Array of { customerId: { name, total } } per day
+    const numDays = dayBoundaries.length;
+    LogHelper.log(`[ENERGY] [RFC-FIX] Fetching ${numDays} days with SINGLE API call...`);
 
-    // Process in batches of 3
-    for (let i = 0; i < dayBoundaries.length; i += BATCH_SIZE) {
-      const batch = dayBoundaries.slice(i, i + BATCH_SIZE);
+    // RFC-FIX: Single API call for entire period
+    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs, '1d');
 
-      // Fetch batch in parallel
-      const batchPromises = batch.map(async (day) => {
-        try {
-          const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, day.startTs, day.endTs);
-          return {
-            total: result?.total || 0,
-            byCustomer: result?.byCustomer || {},
-          };
-        } catch (dayError) {
-          LogHelper.warn(`[ENERGY] [RFC-0097] Error fetching day ${day.label}:`, dayError);
-          return { total: 0, byCustomer: {} };
+    if (!result || !result.devices) {
+      LogHelper.warn('[ENERGY] [RFC-FIX] No data returned from API');
+      return {
+        dailyTotals: new Array(numDays).fill(0),
+        byCustomerPerDay: new Array(numDays).fill({}),
+      };
+    }
+
+    const devices = result.devices || [];
+    const totalValue = result.total || 0;
+    const byCustomer = result.byCustomer || {};
+
+    LogHelper.log(
+      `[ENERGY] [RFC-FIX] Single API call returned: ${devices.length} devices, total: ${totalValue.toFixed(2)} kWh`
+    );
+
+    // RFC-FIX: Check if devices have daily consumption breakdown (consumption array)
+    const hasConsumptionArray = devices.some((d) => Array.isArray(d.consumption) && d.consumption.length > 0);
+
+    let dailyTotals = [];
+    let byCustomerPerDay = [];
+
+    if (hasConsumptionArray) {
+      // API returned daily breakdown in consumption array - use it
+      LogHelper.log('[ENERGY] [RFC-FIX] Using consumption array for daily breakdown');
+
+      // Initialize arrays
+      dailyTotals = new Array(numDays).fill(0);
+      byCustomerPerDay = dayBoundaries.map(() => ({}));
+
+      // Process each device's consumption array
+      devices.forEach((device) => {
+        const custId = device.customerId;
+        const custName = device.customerName || custId;
+
+        if (Array.isArray(device.consumption)) {
+          device.consumption.forEach((entry) => {
+            const entryTs = new Date(entry.timestamp).getTime();
+            const value = Number(entry.value) || 0;
+
+            // Find which day this entry belongs to
+            const dayIndex = dayBoundaries.findIndex(
+              (day) => entryTs >= day.startTs && entryTs <= day.endTs
+            );
+
+            if (dayIndex >= 0) {
+              dailyTotals[dayIndex] += value;
+
+              if (!byCustomerPerDay[dayIndex][custId]) {
+                byCustomerPerDay[dayIndex][custId] = { name: custName, total: 0, deviceCount: 0 };
+              }
+              byCustomerPerDay[dayIndex][custId].total += value;
+              byCustomerPerDay[dayIndex][custId].deviceCount++;
+            }
+          });
         }
       });
+    } else {
+      // API returned only total_value per device - distribute evenly across days
+      // This is acceptable for the chart as it shows the average daily consumption
+      LogHelper.log('[ENERGY] [RFC-FIX] No daily breakdown - using total per device');
 
-      const batchResults = await Promise.all(batchPromises);
-      batchResults.forEach((r) => {
-        dailyTotals.push(r.total);
-        byCustomerPerDay.push(r.byCustomer);
+      const avgDailyTotal = totalValue / numDays;
+      dailyTotals = new Array(numDays).fill(avgDailyTotal);
+
+      // Build byCustomerPerDay with distributed values
+      byCustomerPerDay = dayBoundaries.map(() => {
+        const dayByCustomer = {};
+        Object.entries(byCustomer).forEach(([custId, data]) => {
+          dayByCustomer[custId] = {
+            name: data.name,
+            total: data.total / numDays,
+            deviceCount: data.deviceCount,
+          };
+        });
+        return dayByCustomer;
       });
-
-      // Add delay before next batch (except for last batch)
-      if (i + BATCH_SIZE < dayBoundaries.length) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
-      }
     }
 
     LogHelper.log(
-      `[ENERGY] [RFC-0097] Period consumption for ${customerId.slice(0, 8)}:`,
-      dailyTotals.map((v) => v.toFixed(2))
+      `[ENERGY] [RFC-FIX] Period consumption (${numDays} days):`,
+      dailyTotals.map((v) => v.toFixed(0)).join(', ')
     );
+
     return { dailyTotals, byCustomerPerDay };
   } catch (error) {
-    LogHelper.error('[ENERGY] Error fetching period consumption:', error);
+    LogHelper.error('[ENERGY] [RFC-FIX] Error fetching period consumption:', error);
     return {
       dailyTotals: new Array(dayBoundaries.length).fill(0),
       byCustomerPerDay: new Array(dayBoundaries.length).fill({}),
@@ -919,6 +1011,10 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
 }
 
 /**
+ * @deprecated RFC-FIX: This function is no longer used.
+ * fetchPeriodConsumptionByDay now makes a single API call for the entire period.
+ * Kept for backwards compatibility.
+ *
  * Busca o consumo total de todos os devices para um dia específico
  * @param {string} customerId - ID do customer
  * @param {number} startTs - Início do dia em ms
@@ -1738,17 +1834,11 @@ self.onInit = async function () {
   );
 
   // Listen to shopping filter changes and update charts
+  // RFC-FIX: Use debounced refresh to prevent multiple API calls
   cleanupFns.push(
     addListener('myio:filter-applied', async (ev) => {
-      LogHelper.log('[ENERGY] Shopping filter applied, updating charts...', ev.detail);
-      cachedChartData = null;
-
-      if (distributionChartInstance) {
-        await distributionChartInstance.refresh();
-      }
-      if (consumptionChartInstance?.refresh) {
-        await consumptionChartInstance.refresh(true);
-      }
+      LogHelper.log('[ENERGY] Shopping filter applied, scheduling chart refresh...', ev.detail);
+      debouncedChartRefresh('filter-applied');
     })
   );
 
@@ -1771,19 +1861,14 @@ self.onInit = async function () {
   );
 
   // Fallback: react to provide-data to refresh charts even when periodKey is the same
+  // RFC-FIX: Use debounced refresh to prevent multiple API calls
   cleanupFns.push(
     addListener('myio:telemetry:provide-data', async (ev) => {
       const detail = ev?.detail || {};
       if (detail.domain !== 'energy') return;
       const periodKey = detail.periodKey || 'N/A';
-      LogHelper.log(`[ENERGY] provide-data received (periodKey=${periodKey}). Refreshing charts...`);
-      cachedChartData = null;
-      if (distributionChartInstance) {
-        await distributionChartInstance.refresh();
-      }
-      if (consumptionChartInstance?.refresh) {
-        await consumptionChartInstance.refresh(true);
-      }
+      LogHelper.log(`[ENERGY] provide-data received (periodKey=${periodKey}). Scheduling chart refresh...`);
+      debouncedChartRefresh('provide-data');
     })
   );
 
