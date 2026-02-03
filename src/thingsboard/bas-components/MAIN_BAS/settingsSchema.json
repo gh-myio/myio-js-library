@@ -1,0 +1,165 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "MAIN_BAS Settings",
+    "description": "RFC-0158: Building Automation System (BAS) Dashboard Controller",
+    "properties": {
+      "enableDebugMode": {
+        "title": "Enable Debug Mode",
+        "type": "boolean",
+        "default": false
+      },
+      "defaultThemeMode": {
+        "title": "Default Theme Mode",
+        "type": "string",
+        "enum": ["dark", "light"],
+        "default": "light"
+      },
+      "dashboardTitle": {
+        "title": "Dashboard Title",
+        "type": "string",
+        "default": "DASHBOARD"
+      },
+      "floorsLabel": {
+        "title": "Floors Section Label",
+        "type": "string",
+        "default": "Andares"
+      },
+      "environmentsLabel": {
+        "title": "Environments Section Label",
+        "type": "string",
+        "default": "Ambientes"
+      },
+      "pumpsMotorsLabel": {
+        "title": "Pumps & Motors Section Label",
+        "type": "string",
+        "default": "Bombas e Motores"
+      },
+      "temperatureChartTitle": {
+        "title": "Temperature Chart Title",
+        "type": "string",
+        "default": "Temperatura do dia atual de todos os ambientes"
+      },
+      "consumptionChartTitle": {
+        "title": "Consumption Chart Title",
+        "type": "string",
+        "default": "Consumo do dia atual de todos os ambientes"
+      },
+      "showFloorsSidebar": {
+        "title": "Show Floors Sidebar",
+        "type": "boolean",
+        "default": true
+      },
+      "showWaterInfrastructure": {
+        "title": "Show Water Infrastructure",
+        "type": "boolean",
+        "default": true
+      },
+      "showEnvironments": {
+        "title": "Show Environments (HVAC)",
+        "type": "boolean",
+        "default": true
+      },
+      "showPumpsMotors": {
+        "title": "Show Pumps & Motors",
+        "type": "boolean",
+        "default": true
+      },
+      "showCharts": {
+        "title": "Show Charts",
+        "type": "boolean",
+        "default": true
+      },
+      "primaryColor": {
+        "title": "Primary Color",
+        "type": "string",
+        "default": "#2F5848"
+      },
+      "warningColor": {
+        "title": "Warning Color",
+        "type": "string",
+        "default": "#f57c00"
+      },
+      "errorColor": {
+        "title": "Error Color",
+        "type": "string",
+        "default": "#c62828"
+      },
+      "successColor": {
+        "title": "Success Color",
+        "type": "string",
+        "default": "#2e7d32"
+      }
+    }
+  },
+  "form": [
+    {
+      "key": "enableDebugMode",
+      "type": "checkbox"
+    },
+    {
+      "key": "defaultThemeMode",
+      "type": "select"
+    },
+    {
+      "type": "fieldset",
+      "title": "Labels",
+      "items": [
+        "dashboardTitle",
+        "floorsLabel",
+        "environmentsLabel",
+        "pumpsMotorsLabel",
+        "temperatureChartTitle",
+        "consumptionChartTitle"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Visibility",
+      "items": [
+        {
+          "key": "showFloorsSidebar",
+          "type": "checkbox"
+        },
+        {
+          "key": "showWaterInfrastructure",
+          "type": "checkbox"
+        },
+        {
+          "key": "showEnvironments",
+          "type": "checkbox"
+        },
+        {
+          "key": "showPumpsMotors",
+          "type": "checkbox"
+        },
+        {
+          "key": "showCharts",
+          "type": "checkbox"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Colors",
+      "items": [
+        {
+          "key": "primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "warningColor",
+          "type": "color"
+        },
+        {
+          "key": "errorColor",
+          "type": "color"
+        },
+        {
+          "key": "successColor",
+          "type": "color"
+        }
+      ]
+    }
+  ]
+}
