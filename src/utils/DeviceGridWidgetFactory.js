@@ -35,6 +35,7 @@ const LogHelper = createLogHelper('DeviceGridWidgetFactory');
  * @property {boolean} hasRealTimeMode - Whether widget supports real-time mode
  * @property {string} summaryReadyEvent - Event name for summary data
  * @property {number} delayTimeConnectionInMins - Delay threshold for connection status
+ * @property {Object} [headerController] - Optional pre-built header controller
  */
 
 /**
@@ -766,6 +767,7 @@ export function createWidgetController(config) {
     debugActive: false,
     activeTooltipDebug: false,
     headerController: null,
+    headerControllerExternal: false, // RFC-0159: Flag to indicate if header was provided externally
     filterModalController: null,
     mapInstantaneousPower: null,
     MyIOAuth: null,
@@ -949,8 +951,13 @@ export function createWidgetController(config) {
       const busyModal = createBusyModal(config, $root);
 
       // RFC-0144: Initialize filter modal FIRST so we can reference it in header's onFilterClick
-      if (typeof window !== 'undefined' && window.MyIOUtils?.createFilterModal) {
-        context.filterModalController = window.MyIOUtils.createFilterModal({
+      // RFC-0159: Use config.createFilterModal if provided, otherwise fallback to window.MyIOUtils
+      const createFilterModal =
+        config.createFilterModal ||
+        (typeof window !== 'undefined' && window.MyIOUtils?.createFilterModal);
+
+      if (createFilterModal) {
+        context.filterModalController = createFilterModal({
           $container: $root(),
           tabs: config.filterTabs || [{ id: 'all', label: 'Todos', filter: () => true }],
           onApply: (selectedIds) => {
@@ -971,27 +978,11 @@ export function createWidgetController(config) {
         }
       }
 
-      if (typeof window !== 'undefined' && window.MyIOUtils?.buildHeaderDevicesGrid) {
-        // RFC-0143 FIX: buildHeaderDevicesGrid expects 'container' (DOM element), not '$container' (jQuery)
-        context.headerController = window.MyIOUtils.buildHeaderDevicesGrid({
-          container: $root()[0], // Pass the DOM element, not jQuery object
-          domain: config.domain,
-          idPrefix: config.idPrefix,
-          labels: config.headerLabels,
-          onSortChange: (mode) => {
-            STATE.sortMode = mode;
-            reflow();
-          },
-          onSearchChange: (term) => {
-            STATE.searchTerm = term;
-            STATE.searchActive = term.length > 0;
-            reflow();
-          },
-          // RFC-0144: Add onFilterClick callback to open filter modal
-          onFilterClick: () => {
-            openFilterModal();
-          },
-        });
+      // RFC-0159: Use pre-built headerController if provided
+      if (config.headerController) {
+        context.headerController = config.headerController;
+        context.headerControllerExternal = true; // Don't destroy on cleanup
+        LogHelper.log(`[${config.widgetName}] Using pre-built header controller from config`);
       }
 
       context.handleActionDashboard = config.handleActionDashboard || null;
@@ -1044,7 +1035,10 @@ export function createWidgetController(config) {
       LogHelper.log(`[${config.widgetName}] RFC-0143 Factory Controller - onDestroy`);
       unregisterEventHandlers();
 
-      context.headerController?.destroy?.();
+      // RFC-0159: Only destroy header if it was created internally
+      if (!context.headerControllerExternal) {
+        context.headerController?.destroy?.();
+      }
       context.filterModalController?.destroy?.();
 
       STATE.itemsBase = [];
@@ -1053,6 +1047,8 @@ export function createWidgetController(config) {
     },
 
     getState: () => STATE,
+    getHeaderController: () => context.headerController,
+    getFilterModalController: () => context.filterModalController,
     reflow,
   };
 }

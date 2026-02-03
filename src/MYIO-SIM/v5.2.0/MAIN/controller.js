@@ -29,6 +29,12 @@ const LogHelper = {
   },
 };
 
+// RFC-0144: Use periodKey from myio-js-library (exported in src/utils/periodUtils)
+const periodKey = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.periodKey) || (() => {
+  console.error('[MAIN] periodKey not available from MyIOLibrary - library not loaded correctly');
+  return '';
+});
+
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
 const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
@@ -1061,7 +1067,9 @@ function isStoreDevice(itemOrDeviceProfile) {
 
   const deviceType = String(itemOrDeviceProfile.deviceType || '').toUpperCase();
   // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const deviceProfile = String(itemOrDeviceProfile.deviceProfile || itemOrDeviceProfile.deviceType || '').toUpperCase();
+  const deviceProfile = String(
+    itemOrDeviceProfile.deviceProfile || itemOrDeviceProfile.deviceType || ''
+  ).toUpperCase();
 
   // A device is a store only if BOTH deviceType AND deviceProfile are '3F_MEDIDOR'
   return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
@@ -5127,46 +5135,8 @@ function populateStateTemperature(items) {
 }
 
 /**
- * @typedef {'hour'|'day'|'month'} Granularity
- * @typedef {'energy'|'water'|'temperature'} Domain
- */
-
-/**
- * @typedef {Object} Period
- * @property {string} startISO - ISO 8601 with timezone
- * @property {string} endISO - ISO 8601 with timezone
- * @property {Granularity} granularity - Data aggregation level
- * @property {string} tz - IANA timezone
- */
-
-/**
- * @typedef {Object} EnrichedItem
- * @property {string} id - ThingsBoard entityId (single source of truth)
- * @property {string} tbId - ThingsBoard deviceId
- * @property {string} ingestionId - Data Ingestion API UUID
- * @property {string} identifier - Human-readable ID
- * @property {string} label - Display name
- * @property {number} value - Consumption total
- * @property {number} perc - Percentage of group total
- * @property {string|null} slaveId - Modbus slave ID
- * @property {string|null} centralId - Central unit ID
- * @property {string} deviceType - Device type
- */
-
-// ========== UTILITIES ==========
-
-/**
  * Generates a unique key from domain and period for request deduplication.
  */
-function periodKey(domain, period) {
-  // RFC-0130: Get customerTB_ID from multiple sources with fallback
-  const customerTbId =
-    widgetSettings.customerTB_ID ||
-    window.MyIOOrchestrator?.customerTB_ID ||
-    window.__myioCustomerTB_ID ||
-    'default';
-  return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
-}
 
 // ========== ORCHESTRATOR SINGLETON ==========
 
@@ -5960,19 +5930,19 @@ const MyIOOrchestrator = (() => {
       const domain =
         isTankDevice || isHidrometerDevice ? 'water' : isTemperatureDevice ? 'temperature' : 'energy';
       const telemetryTimestamp = isTankDevice
-        ? options.waterLevelTs ?? options.waterPercentageTs ?? null
+        ? (options.waterLevelTs ?? options.waterPercentageTs ?? null)
         : isHidrometerDevice
-        ? options.pulsesTs ?? null
-        : isTemperatureDevice
-        ? options.temperatureTs ?? null
-        : options.consumptionTs ?? null;
+          ? (options.pulsesTs ?? null)
+          : isTemperatureDevice
+            ? (options.temperatureTs ?? null)
+            : (options.consumptionTs ?? null);
 
       // DEBUG RFC-0110: Log calculation inputs for stale telemetry detection
       if (!window._debugDeviceStatusLogged) window._debugDeviceStatusLogged = 0;
       if (window._debugDeviceStatusLogged < 10) {
         window._debugDeviceStatusLogged++;
         const now = Date.now();
-        const telemetryAgeMs = telemetryTimestamp ? now - telemetryTimestamp : 'N/A';
+        //const telemetryAgeMs = telemetryTimestamp ? now - telemetryTimestamp : 'N/A';
         const telemetryAgeMins = telemetryTimestamp ? Math.round((now - telemetryTimestamp) / 60000) : 'N/A';
         LogHelper.log(
           `[Orchestrator] 🔍 RFC-0110 DEBUG deviceStatus #${window._debugDeviceStatusLogged}: connectionStatus='${connectionStatus}', domain='${domain}', telemetryTimestamp=${telemetryTimestamp}, telemetryAge=${telemetryAgeMins} mins, consumptionTs=${options.consumptionTs}, lastActivityTime=${options.lastActivityTime}, delayMins=${delayMins}`
@@ -6160,8 +6130,10 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'slaveid') meta.slaveId = val;
       else if (keyName === 'centralid') meta.centralId = val;
       else if (keyName === 'centralname') meta.centralName = val;
-      else if (keyName === 'ownername') meta.ownerName = val; // RFC-0102: customerName from ThingsBoard
-      else if (keyName === 'assetname') meta.assetName = val; // RFC-0102: assetName fallback
+      else if (keyName === 'ownername')
+        meta.ownerName = val; // RFC-0102: customerName from ThingsBoard
+      else if (keyName === 'assetname')
+        meta.assetName = val; // RFC-0102: assetName fallback
       else if (keyName === 'connectionstatus') meta.connectionStatus = val;
       else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
@@ -6205,9 +6177,15 @@ const MyIOOrchestrator = (() => {
       }
       // RFC-FIX: Temperature offset - used to adjust displayed temperature value
       // The offset is added to the raw temperature reading to get the corrected value
-      else if (keyName === 'offsettemperature' || keyName === 'offset_temperature' || keyName === 'offSetTemperature') {
+      else if (
+        keyName === 'offsettemperature' ||
+        keyName === 'offset_temperature' ||
+        keyName === 'offSetTemperature'
+      ) {
         meta.offSetTemperature = Number(val) || 0;
-        LogHelper.log(`[Orchestrator] 🌡️ Found offSetTemperature for "${meta.label || meta.entityName}": ${meta.offSetTemperature}`);
+        LogHelper.log(
+          `[Orchestrator] 🌡️ Found offSetTemperature for "${meta.label || meta.entityName}": ${meta.offSetTemperature}`
+        );
       }
     }
 
@@ -6416,7 +6394,9 @@ const MyIOOrchestrator = (() => {
 
           // Debug log if offset is applied
           if (tempOffset !== 0) {
-            LogHelper.log(`[Orchestrator] 🌡️ Applying temperature offset for "${meta.label || meta.identifier}": raw=${rawTemperature}, offset=${tempOffset}, adjusted=${temperatureValue}`);
+            LogHelper.log(
+              `[Orchestrator] 🌡️ Applying temperature offset for "${meta.label || meta.identifier}": raw=${rawTemperature}, offset=${tempOffset}, adjusted=${temperatureValue}`
+            );
           }
 
           // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
@@ -6680,7 +6660,7 @@ const MyIOOrchestrator = (() => {
       }
 
       const json = await res.json();
-      const rows = Array.isArray(json) ? json : json?.data ?? [];
+      const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
       // Debug first row to see available fields
       if (rows.length > 0) {
@@ -7054,11 +7034,16 @@ const MyIOOrchestrator = (() => {
       }
 
       // Calculate customerTotal from non-ENTRADA items only
-      const customerTotal = nonEntradaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const customerTotal = nonEntradaItems.reduce(
+        (sum, item) => sum + (item.value || item.total_value || 0),
+        0
+      );
 
       // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
       const lojaItems = nonEntradaItems.filter((item) => isStoreDevice(item));
-      const equipmentItems = nonEntradaItems.filter((item) => !isStoreDevice(item) && isAllowedEquipmentProfile(item));
+      const equipmentItems = nonEntradaItems.filter(
+        (item) => !isStoreDevice(item) && isAllowedEquipmentProfile(item)
+      );
       const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const equipmentsTotal = equipmentItems.reduce(
         (sum, item) => sum + (item.value || item.total_value || 0),
@@ -7481,17 +7466,22 @@ const MyIOOrchestrator = (() => {
             try {
               // RFC-0140 FIX: Use currentPeriod from orchestrator or fallback to scope
               const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
-              const startISO = period?.startISO || self.ctx?.scope?.startDateISO || self.ctx?.$scope?.startDateISO;
+              const startISO =
+                period?.startISO || self.ctx?.scope?.startDateISO || self.ctx?.$scope?.startDateISO;
               const endISO = period?.endISO || self.ctx?.scope?.endDateISO || self.ctx?.$scope?.endDateISO;
 
               if (!startISO || !endISO) {
                 // RFC-0140: Retry up to 5 times with 1s delay
                 if (retryCount < 5) {
-                  LogHelper.log(`[Orchestrator] 💧 RFC-0131: No date range yet, retry ${retryCount + 1}/5 in 1s...`);
+                  LogHelper.log(
+                    `[Orchestrator] 💧 RFC-0131: No date range yet, retry ${retryCount + 1}/5 in 1s...`
+                  );
                   setTimeout(() => enrichWaterWithApi(retryCount + 1), 1000);
                   return;
                 }
-                LogHelper.log('[Orchestrator] 💧 RFC-0131: No date range after 5 retries, skipping API enrichment');
+                LogHelper.log(
+                  '[Orchestrator] 💧 RFC-0131: No date range after 5 retries, skipping API enrichment'
+                );
                 return;
               }
 
@@ -7933,7 +7923,12 @@ const MyIOOrchestrator = (() => {
     const selectedIds = [...new Set([...selectedIngestionIds, ...selectedCustomerIds])]; // Combine and dedupe
     const isFiltered = selection.length > 0;
 
-    LogHelper.log('[Orchestrator] 🔍 Filter IDs - ingestionIds:', selectedIngestionIds, 'customerIds:', selectedCustomerIds);
+    LogHelper.log(
+      '[Orchestrator] 🔍 Filter IDs - ingestionIds:',
+      selectedIngestionIds,
+      'customerIds:',
+      selectedCustomerIds
+    );
 
     // Store in global state for other functions to use
     window.STATE = window.STATE || {};
@@ -7956,7 +7951,11 @@ const MyIOOrchestrator = (() => {
             const itemCustomerId = item.customerId || '';
             const itemIngestionId = item.ingestionId || '';
             const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
-            return selectedIds.includes(itemCustomerId) || selectedIds.includes(itemIngestionId) || selectedEnergyShoppingNames.has(ownerName);
+            return (
+              selectedIds.includes(itemCustomerId) ||
+              selectedIds.includes(itemIngestionId) ||
+              selectedEnergyShoppingNames.has(ownerName)
+            );
           })
         : allItems;
 
@@ -8056,7 +8055,11 @@ const MyIOOrchestrator = (() => {
             const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
             const itemCustomerId = item.customerId || '';
             const itemIngestionId = item.ingestionId || '';
-            return selectedWaterShoppingNames.has(ownerName) || selectedIds.includes(itemCustomerId) || selectedIds.includes(itemIngestionId);
+            return (
+              selectedWaterShoppingNames.has(ownerName) ||
+              selectedIds.includes(itemCustomerId) ||
+              selectedIds.includes(itemIngestionId)
+            );
           })
         : allItems;
 
@@ -8145,7 +8148,11 @@ const MyIOOrchestrator = (() => {
             const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
             const itemCustomerId = item.customerId || '';
             const itemIngestionId = item.ingestionId || '';
-            return selectedShoppingNames.has(ownerName) || selectedIds.includes(itemCustomerId) || selectedIds.includes(itemIngestionId);
+            return (
+              selectedShoppingNames.has(ownerName) ||
+              selectedIds.includes(itemCustomerId) ||
+              selectedIds.includes(itemIngestionId)
+            );
           })
         : allItems;
 
@@ -8323,13 +8330,16 @@ const MyIOOrchestrator = (() => {
 
   // Telemetry reporting
   if (!config?.debugMode && typeof window.tbClient !== 'undefined') {
-    setInterval(() => {
-      try {
-        window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
-      } catch (e) {
-        LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
-      }
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        try {
+          window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
+        } catch (e) {
+          LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
+        }
+      },
+      5 * 60 * 1000
+    );
   }
 
   // RFC-0048: Widget Busy Monitor - Detects stuck widgets showing busy for too long

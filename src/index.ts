@@ -225,6 +225,9 @@ export { addNamespace } from './utils/namespace';
 export { fmtPerc as fmtPercLegacy, toFixedSafe } from './utils/numbers';
 export { normalizeRecipients } from './utils/strings';
 
+// RFC-XXXX: Period utilities
+export { periodKey, type Period } from './utils/periodUtils';
+
 // Codec utilities
 export { decodePayload } from './codec/decodePayload';
 
@@ -860,18 +863,9 @@ export type {
 } from './components/water-panel';
 
 // RFC-0144: Onboard Modal Component (MYIO Academy)
-export {
-  openOnboardModal,
-  openTutorialModal,
-  openHelpModal,
-  OnboardModalView,
-} from './components/onboard';
+export { openOnboardModal, openTutorialModal, openHelpModal, OnboardModalView } from './components/onboard';
 
-export type {
-  OnboardModalConfig,
-  OnboardModalHandle,
-  OnboardFooterLink,
-} from './components/onboard';
+export type { OnboardModalConfig, OnboardModalHandle, OnboardFooterLink } from './components/onboard';
 
 // RFC-0139: HeaderShopping Component (Shopping Dashboard toolbar)
 export { createHeaderShoppingComponent } from './components/header-shopping';
@@ -888,10 +882,7 @@ export type {
   HeaderShoppingEventHandler,
 } from './components/header-shopping';
 
-export {
-  HEADER_SHOPPING_CSS_PREFIX,
-  DEFAULT_HEADER_SHOPPING_CONFIG,
-} from './components/header-shopping';
+export { HEADER_SHOPPING_CSS_PREFIX, DEFAULT_HEADER_SHOPPING_CONFIG } from './components/header-shopping';
 
 // RFC-0140: MenuShopping Component (Shopping Dashboard menu navigation)
 export { createMenuShoppingComponent } from './components/menu-shopping';
@@ -910,10 +901,7 @@ export type {
   MenuShoppingEventHandler,
 } from './components/menu-shopping';
 
-export {
-  MENU_SHOPPING_CSS_PREFIX,
-  DEFAULT_MENU_SHOPPING_CONFIG,
-} from './components/menu-shopping';
+export { MENU_SHOPPING_CSS_PREFIX, DEFAULT_MENU_SHOPPING_CONFIG } from './components/menu-shopping';
 
 // RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
 export { createTelemetryGridShoppingComponent } from './components/telemetry-grid-shopping';
@@ -967,7 +955,10 @@ export {
 
 // RFC-0152 Phase 3: Operational General List Component
 export { createOperationalGeneralListComponent } from './components/operational-general-list';
-export { OperationalGeneralListView, OperationalGeneralListController } from './components/operational-general-list';
+export {
+  OperationalGeneralListView,
+  OperationalGeneralListController,
+} from './components/operational-general-list';
 
 export type {
   OperationalGeneralListParams,
@@ -1019,13 +1010,7 @@ export type {
 export { DEFAULT_DASHBOARD_KPIS } from './types/operational';
 
 // RFC-0152: Alarm Types (for Phase 4 - Alarms and Notifications Panel)
-export type {
-  AlarmSeverity,
-  AlarmState,
-  Alarm,
-  AlarmStats,
-  AlarmFilters,
-} from './types/alarm';
+export type { AlarmSeverity, AlarmState, Alarm, AlarmStats, AlarmFilters } from './types/alarm';
 
 export {
   SEVERITY_CONFIG as ALARM_SEVERITY_CONFIG,
@@ -1040,7 +1025,10 @@ export {
 
 // RFC-0152 Phase 4: Device Operational Card Component
 export { createDeviceOperationalCardComponent } from './components/device-operational-card';
-export { DeviceOperationalCardView, DeviceOperationalCardController } from './components/device-operational-card';
+export {
+  DeviceOperationalCardView,
+  DeviceOperationalCardController,
+} from './components/device-operational-card';
 
 export type {
   DeviceOperationalCardParams,
@@ -1075,7 +1063,10 @@ export {
 
 // RFC-0152 Phase 3: Device Operational Card Grid Component
 export { createDeviceOperationalCardGridComponent } from './components/device-operational-card-grid';
-export { DeviceOperationalCardGridView, DeviceOperationalCardGridController } from './components/device-operational-card-grid';
+export {
+  DeviceOperationalCardGridView,
+  DeviceOperationalCardGridController,
+} from './components/device-operational-card-grid';
 
 export type {
   OperationalEquipment,
@@ -1134,9 +1125,17 @@ export {
 } from './components/operational-header-devices-grid';
 // RFC-0152 Phase 4: Alarms Notifications Panel Component
 export { createAlarmsNotificationsPanelComponent } from './components/AlarmsNotificationsPanel';
-export { AlarmsNotificationsPanelView, AlarmsNotificationsPanelController } from './components/AlarmsNotificationsPanel';
+export {
+  AlarmsNotificationsPanelView,
+  AlarmsNotificationsPanelController,
+} from './components/AlarmsNotificationsPanel';
 export { renderAlarmCard, createAlarmCardElement } from './components/AlarmsNotificationsPanel';
-export { renderKPICards, renderTrendChart, renderStateDonutChart, renderSeverityBarChart } from './components/AlarmsNotificationsPanel';
+export {
+  renderKPICards,
+  renderTrendChart,
+  renderStateDonutChart,
+  renderSeverityBarChart,
+} from './components/AlarmsNotificationsPanel';
 
 export type {
   AlarmsNotificationsPanelParams,
@@ -1235,11 +1234,7 @@ export {
 } from './components/bas-dashboard';
 
 // RFC-0158: Fancoil Remote Control Component
-export {
-  createFancoilRemote,
-  FancoilRemoteController,
-  FancoilRemoteView,
-} from './components/fancoil-remote';
+export { createFancoilRemote, FancoilRemoteController, FancoilRemoteView } from './components/fancoil-remote';
 
 export type {
   FancoilStatus,

@@ -112,7 +112,7 @@ const WATER_STORES_CONFIG = {
   hasEquipmentCategories: false,
 
   // Timing
-  delayTimeConnectionInMins: 86400, // RFC-0140: 24 hours (essentially always online)
+  delayTimeConnectionInMins: 7776000000, // RFC-0140: 24 hours (essentially always online)
 
   // Event Names
   summaryReadyEvent: 'myio:water-summary-ready',
@@ -125,6 +125,7 @@ const WATER_STORES_CONFIG = {
 // CREATE CONTROLLER FROM FACTORY
 // ============================================================================
 let factoryController = null;
+let waterStoresHeaderController = null;
 let waterStoresSummaryHandler = null;
 let waterStoresTbDataHandler = null;
 let waterStoresProvideHandler = null;
@@ -134,7 +135,9 @@ self.onInit = async function () {
 
   // RFC-0140 FIX: Check if ctx is available
   if (!self.ctx || !self.ctx.$container) {
-    LogHelper.error('[WATER_STORES] ctx or $container not available - widget may not be properly initialized');
+    LogHelper.error(
+      '[WATER_STORES] ctx or $container not available - widget may not be properly initialized'
+    );
     return;
   }
 
@@ -159,11 +162,88 @@ self.onInit = async function () {
   }
 
   try {
+    // RFC-0159: Build header BEFORE factory (like WATER_COMMON_AREA)
+    const $root = () => $(self.ctx.$container[0]);
+    const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
+
+    if (buildHeaderDevicesGrid) {
+      const headerContainerEl = $root().find('#waterStoresHeaderContainer')[0];
+      if (headerContainerEl) {
+        waterStoresHeaderController = buildHeaderDevicesGrid({
+          container: headerContainerEl,
+          domain: 'water',
+          idPrefix: 'waterStores',
+          labels: {
+            total: 'Total de Hidrômetros',
+            consumption: 'Consumo Total (m³)',
+          },
+          includeSearch: true,
+          includeFilter: true,
+          onSearchClick: () => {
+            const state = factoryController?.getState();
+            if (state) {
+              state.searchActive = !state.searchActive;
+              if (state.searchActive) {
+                const input = waterStoresHeaderController?.getSearchInput();
+                if (input) setTimeout(() => input.focus(), 100);
+              }
+            }
+          },
+          onFilterClick: () => {
+            const filterModal = factoryController?.getFilterModalController?.();
+            if (filterModal?.open) {
+              filterModal.open();
+            } else if (filterModal?.show) {
+              filterModal.show();
+            }
+          },
+          onSortChange: (mode) => {
+            const state = factoryController?.getState();
+            if (state) {
+              state.sortMode = mode;
+              factoryController.reflow();
+            }
+          },
+          onSearchChange: (term) => {
+            const state = factoryController?.getState();
+            if (state) {
+              state.searchTerm = term;
+              state.searchActive = term.length > 0;
+              factoryController.reflow();
+            }
+          },
+        });
+
+        // Setup search input listener
+        const searchInput = waterStoresHeaderController?.getSearchInput();
+        if (searchInput) {
+          searchInput.addEventListener('input', (e) => {
+            const state = factoryController?.getState();
+            if (state) {
+              state.searchTerm = e.target.value || '';
+              factoryController.reflow();
+            }
+          });
+        }
+
+        LogHelper.log('[WATER_STORES] RFC-0159 Header controller initialized');
+      } else {
+        LogHelper.warn('[WATER_STORES] Header container element not found');
+      }
+    } else {
+      LogHelper.warn('[WATER_STORES] buildHeaderDevicesGrid not available');
+    }
+
+    // Create factory config with header controller reference
+    const configWithHeader = {
+      ...WATER_STORES_CONFIG,
+      headerController: waterStoresHeaderController,
+    };
+
     // Create controller from factory
-    factoryController = DeviceGridWidgetFactory.createWidgetController(WATER_STORES_CONFIG);
+    factoryController = DeviceGridWidgetFactory.createWidgetController(configWithHeader);
 
     // Initialize the controller - pass self.ctx for container access
-    // (self is ThingsBoard widget context, not available inside bundled library)
     await factoryController.onInit(self.ctx);
 
     LogHelper.log('[WATER_STORES] RFC-0143 Factory controller initialized successfully');
@@ -215,9 +295,14 @@ self.onDestroy = function () {
     waterStoresProvideHandler = null;
   }
 
+  // RFC-0159: Destroy header controller
+  if (waterStoresHeaderController?.destroy) {
+    waterStoresHeaderController.destroy();
+  }
+  waterStoresHeaderController = null;
+
   if (factoryController?.onDestroy) {
     factoryController.onDestroy();
   }
-
   factoryController = null;
 };
