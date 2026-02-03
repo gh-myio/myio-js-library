@@ -285,6 +285,148 @@ export function buildEntityObject(config, item, context) {
 }
 
 /**
+ * RFC-0144: Create default action handlers for device cards
+ * These handlers use window globals to work without direct widget context
+ */
+function createDefaultActionHandlers(config, entityObject, item) {
+  const MyIOLibrary = typeof window !== 'undefined' && window.MyIOLibrary;
+  const MyIOUtils = typeof window !== 'undefined' && window.MyIOUtils;
+  const MyIOAuth = MyIOUtils?.MyIOAuth;
+  const CLIENT_ID = MyIOUtils?.CLIENT_ID;
+  const CLIENT_SECRET = MyIOUtils?.CLIENT_SECRET;
+  const getDataApiHost = MyIOUtils?.getDataApiHost || (() => 'https://api.data.apps.myio-bas.com');
+
+  return {
+    handleActionDashboard: async () => {
+      LogHelper.log(`[${config.widgetName}] Opening dashboard for:`, entityObject.entityId);
+      try {
+        if (typeof MyIOLibrary?.openDashboardPopupEnergy !== 'function') {
+          window.alert('Dashboard component não disponível');
+          return;
+        }
+        // Get dates from window.STATE or MyIOUtils
+        const startDate = window.STATE?.period?.startDateISO || MyIOUtils?.currentPeriod?.startDateISO;
+        const endDate = window.STATE?.period?.endDateISO || MyIOUtils?.currentPeriod?.endDateISO;
+        if (!startDate || !endDate) {
+          window.alert('Período de datas não definido.');
+          return;
+        }
+        if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+          LogHelper.error(`[${config.widgetName}] MyIOAuth not available`);
+          window.alert('Autenticação não disponível. Recarregue a página.');
+          return;
+        }
+        const tokenIngestionDashBoard = await MyIOAuth.getToken();
+        const myTbTokenDashBoard = localStorage.getItem('jwt_token');
+
+        MyIOLibrary.openDashboardPopupEnergy({
+          deviceId: entityObject.entityId,
+          readingType: config.domain, // 'water' or 'energy'
+          startDate,
+          endDate,
+          tbJwtToken: myTbTokenDashBoard,
+          ingestionToken: tokenIngestionDashBoard,
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          onClose: () => {
+            const o = document.querySelector('.myio-modal-overlay');
+            if (o) o.remove();
+          },
+        });
+      } catch (err) {
+        LogHelper.error(`[${config.widgetName}] Error opening dashboard:`, err);
+        window.alert('Erro ao abrir dashboard');
+      }
+    },
+
+    handleActionReport: async () => {
+      LogHelper.log(`[${config.widgetName}] Opening report for:`, item.ingestionId);
+      try {
+        if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+          LogHelper.error(`[${config.widgetName}] MyIOAuth not available for report`);
+          window.alert('Autenticação não disponível. Recarregue a página.');
+          return;
+        }
+        const ingestionToken = await MyIOAuth.getToken();
+        await MyIOLibrary?.openDashboardPopupReport?.({
+          ingestionId: item.ingestionId,
+          identifier: item.identifier,
+          label: item.label,
+          domain: config.domain,
+          api: {
+            dataApiBaseUrl: getDataApiHost(),
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            ingestionToken,
+          },
+        });
+      } catch (err) {
+        LogHelper.error(`[${config.widgetName}] Error opening report:`, err);
+        window.alert('Erro ao abrir relatório');
+      }
+    },
+
+    handleActionSettings: async () => {
+      LogHelper.log(`[${config.widgetName}] Opening settings for:`, entityObject.entityId);
+      const jwt = localStorage.getItem('jwt_token');
+
+      if (!jwt) {
+        LogHelper.error(`[${config.widgetName}] JWT token not found`);
+        window.alert('Token de autenticação não encontrado');
+        return;
+      }
+
+      const tbId = entityObject.entityId;
+      if (!tbId || tbId === item.ingestionId) {
+        window.alert('ID inválido');
+        return;
+      }
+
+      try {
+        await MyIOLibrary?.openDashboardPopupSettings?.({
+          deviceId: tbId,
+          label: item.label,
+          jwtToken: jwt,
+          domain: config.domain,
+          deviceType: entityObject.deviceType,
+          deviceProfile: entityObject.deviceProfile,
+          customerName: entityObject.customerName,
+          connectionData: {
+            centralName: entityObject.centralName,
+            connectionStatusTime: entityObject.connectionStatusTime,
+            timeVal: entityObject.timeVal || new Date('1970-01-01').getTime(),
+            deviceStatus:
+              entityObject.deviceStatus !== 'power_off' && entityObject.deviceStatus !== 'not_installed'
+                ? 'power_on'
+                : 'power_off',
+            lastDisconnectTime: entityObject.lastDisconnectTime || 0,
+          },
+          ui: { title: 'Configurações', width: 900 },
+          mapInstantaneousPower: entityObject.mapInstantaneousPower,
+          onSaved: (payload) => {
+            LogHelper.log(`[${config.widgetName}] Settings saved:`, payload);
+            // Try to show success modal if available
+            if (typeof window.showGlobalSuccessModal === 'function') {
+              window.showGlobalSuccessModal(6);
+            }
+          },
+          onClose: () => {
+            const settingsOverlay = document.querySelector('.myio-settings-modal-overlay');
+            if (settingsOverlay) settingsOverlay.remove();
+            const overlay = document.querySelector('.myio-modal-overlay');
+            if (overlay) overlay.remove();
+            LogHelper.log(`[${config.widgetName}] Settings modal closed`);
+          },
+        });
+      } catch (e) {
+        LogHelper.error(`[${config.widgetName}] Error opening settings:`, e);
+        window.alert('Erro ao abrir configurações');
+      }
+    },
+  };
+}
+
+/**
  * Render device cards list
  * @param {DeviceGridWidgetConfig} config - Widget configuration
  * @param {Object} STATE - Widget state
@@ -308,6 +450,9 @@ export async function renderList(config, STATE, visible, context) {
 
     const entityObject = buildEntityObject(config, item, context);
 
+    // RFC-0144: Create default handlers if none provided in context
+    const defaultHandlers = createDefaultActionHandlers(config, entityObject, item);
+
     if (MyIOLibrary?.renderCardComponentHeadOffice) {
       MyIOLibrary.renderCardComponentHeadOffice(container, {
         entityObject: entityObject,
@@ -317,9 +462,16 @@ export async function renderList(config, STATE, visible, context) {
         handleClickCard: (ev, entity) => {
           LogHelper.log(`[${config.widgetName}] Card clicked: ${entity.name}`);
         },
-        handleActionDashboard: () => context?.handleActionDashboard?.(entityObject, item),
-        handleActionReport: () => context?.handleActionReport?.(entityObject, item),
-        handleActionSettings: () => context?.handleActionSettings?.(entityObject, item),
+        // RFC-0144: Use context handlers if provided, otherwise use defaults
+        handleActionDashboard: context?.handleActionDashboard
+          ? () => context.handleActionDashboard(entityObject, item)
+          : defaultHandlers.handleActionDashboard,
+        handleActionReport: context?.handleActionReport
+          ? () => context.handleActionReport(entityObject, item)
+          : defaultHandlers.handleActionReport,
+        handleActionSettings: context?.handleActionSettings
+          ? () => context.handleActionSettings(entityObject, item)
+          : defaultHandlers.handleActionSettings,
         handleSelect: (checked, entity) => {
           if (!STATE.selectedIds) STATE.selectedIds = new Set();
 
