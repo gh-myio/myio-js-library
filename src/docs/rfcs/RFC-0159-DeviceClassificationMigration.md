@@ -180,15 +180,130 @@ None expected - API remains compatible:
 | `classifyDeviceByIdentifier` | Internal use only | Not exported |
 | `classifyWaterMeterDevice` | `classifyWaterDevice` | Rename for consistency |
 
+## Impact Analysis by Controller
+
+### MAIN/controller.js - FONTE DAS FUNÇÕES
+
+**Funções definidas (linhas ~976-1482):**
+- `DEVICE_CLASSIFICATION_CONFIG` (976-1000)
+- `isStoreDevice` (1058-1076)
+- `isEntradaDevice` (1088-1110)
+- `isWaterStoreDevice` (1122-1133)
+- `classifyWaterMeterDevice` (1151-1173)
+- `isWaterEntradaDevice` (1182-1193)
+- `classifyDeviceByDeviceType` (1206-1257)
+- `classifyDeviceByIdentifier` (1265-1305)
+- `classifyDevice` (1312-1337)
+- `categoryToLabelWidget` (1344-1353)
+- `inferLabelWidget` (1372-1468)
+
+**Uso interno (linhas 4348-8690):**
+- `isStoreDevice`: linhas 4370, 7043, 7045, 7075, 7973, 7975, 8003, 8610
+- `isEntradaDevice`: linhas 7026, 7027, 7941, 8600
+- `isWaterStoreDevice`: linhas 7665, 7667, 7696, 8073, 8074, 8101
+- `isWaterEntradaDevice`: linhas 7658, 8047, 8690
+- `inferLabelWidget`: linha 6717
+
+**Exposição via window.MyIOUtils (linhas 1473-1482):**
+```javascript
+DEVICE_CLASSIFICATION_CONFIG,
+classifyDevice,
+classifyDeviceByDeviceType,
+classifyDeviceByIdentifier,
+categoryToLabelWidget,
+inferLabelWidget,
+isStoreDevice,
+isWaterStoreDevice,
+isWaterEntradaDevice,
+classifyWaterMeterDevice,
+```
+
+**Impacto:** Migrar funções para biblioteca, manter exposição via `window.MyIOUtils` para compatibilidade.
+
+---
+
+### STORES/controller.js - FUNÇÕES LOCAIS DIFERENTES
+
+**Funções definidas LOCALMENTE (linhas 1426-1557):**
+- `classifyDeviceByIdentifier` (1426-1456) - **DIFERENTE de MAIN** (usa patterns específicos para equipamentos)
+- `classifyDeviceByLabel` (1463-1503) - **NÃO EXISTE em MAIN**
+- `classifyDevice` (1510-1557) - **DIFERENTE de MAIN** (combina identifier + label para categorias de equipamentos)
+
+**Propósito:** Classificar equipamentos em subcategorias (climatização, elevadores, escadas_rolantes, outros)
+
+**Uso de funções do MAIN:**
+- `window.MyIOUtils?.isStoreDevice` (linhas 1836, 2254) - usado como fallback
+
+**Impacto:**
+- As funções locais são ESPECÍFICAS para categorização de equipamentos (diferentes das de MAIN)
+- **DECISÃO:** Manter funções locais OU migrar separadamente como `classifyEquipmentSubcategory`
+- Continua usando `isStoreDevice` de `window.MyIOUtils` - sem impacto
+
+---
+
+### WATER_STORES/controller.js - DUPLICAÇÃO
+
+**Funções definidas LOCALMENTE:**
+- `isWaterStoreDevice` (linhas 27-38) - **DUPLICADA de MAIN**
+
+```javascript
+function isWaterStoreDevice(device) {
+  const aliasName = device?.aliasName || device?.datasource?.aliasName || '';
+  if (aliasName === 'Todos Hidrometros Lojas') return true;
+  const deviceType = String(device?.deviceType || '').toUpperCase();
+  const deviceProfile = String(device?.deviceProfile || device?.deviceType || '').toUpperCase();
+  return deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO';
+}
+```
+
+**Impacto:**
+- **PODE REMOVER:** Usar `window.MyIOUtils.isWaterStoreDevice` ou `window.MyIOLibrary.isWaterStoreDevice`
+- Alternativamente: manter para evitar dependência circular
+
+---
+
+### EQUIPMENTS/controller.js - SEM USO DIRETO
+
+Não usa diretamente funções de classificação. Usa o factory.
+
+**Impacto:** Nenhum ajuste necessário.
+
+---
+
+### WATER_COMMON_AREA/controller.js - SEM USO DIRETO
+
+Não usa diretamente funções de classificação. Usa filtro por `deviceProfile === 'HIDROMETRO_AREA_COMUM'`.
+
+**Impacto:** Nenhum ajuste necessário.
+
+---
+
+### Outros Controllers - SEM USO
+
+Os seguintes controllers não usam funções de classificação:
+- ENERGY/controller.js
+- WATER/controller.js
+- MENU/controller.js
+- HEADER/controller.js
+- FOOTER/controller.js
+- WELCOME/controller.js
+- TEMPERATURE/controller.js
+- TEMPERATURE_SENSORS/controller.js
+- TEMPERATURE_WITHOUT_CLIMATE_CONTROL/controller.js
+- TELEMETRY/controller.js
+- MAIN_UNIQUE_DATASOURCE/controller.js
+
 ## Files Affected
 
 - `src/utils/deviceClassification/` (new)
 - `src/index.ts` (exports)
-- `src/MYIO-SIM/v5.2.0/MAIN/controller.js` (remove ~400 lines)
-- `src/MYIO-SIM/v5.2.0/EQUIPMENTS/controller.js` (update imports)
-- `src/MYIO-SIM/v5.2.0/STORES/controller.js` (update imports)
-- `src/MYIO-SIM/v5.2.0/WATER_STORES/controller.js` (update imports)
-- `src/MYIO-SIM/v5.2.0/WATER_COMMON_AREA/controller.js` (update imports)
+- `src/MYIO-SIM/v5.2.0/MAIN/controller.js` (remove ~400 lines, manter exposição via MyIOUtils)
+- `src/MYIO-SIM/v5.2.0/WATER_STORES/controller.js` (opcional: remover `isWaterStoreDevice` duplicada)
+- `src/MYIO-SIM/v5.2.0/STORES/controller.js` (manter funções locais - são diferentes)
+
+**Sem impacto:**
+- `src/MYIO-SIM/v5.2.0/EQUIPMENTS/controller.js`
+- `src/MYIO-SIM/v5.2.0/WATER_COMMON_AREA/controller.js`
 
 ## Estimated Reduction
 
@@ -201,6 +316,8 @@ None expected - API remains compatible:
 1. Should `classifyDeviceByIdentifier` be exported or kept internal?
 2. Should we add a `classifyTemperatureDevice` function?
 3. Should `inferLabelWidget` handle `groupType` from API or be pure classification?
+4. **STORES:** Migrar `classifyDevice`/`classifyDeviceByIdentifier`/`classifyDeviceByLabel` para biblioteca como `classifyEquipmentSubcategory`?
+5. **WATER_STORES:** Remover `isWaterStoreDevice` duplicada e usar de `window.MyIOUtils`?
 
 ## Related RFCs
 
