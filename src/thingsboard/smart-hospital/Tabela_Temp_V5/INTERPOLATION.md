@@ -4,7 +4,7 @@
 
 This document describes the data interpolation system used in the `Tabela_Temp_V5` ThingsBoard widget for temperature report generation. The system fills gaps in telemetry data to provide continuous temperature readings.
 
-## Architecture
+## Architecture (UPDATED 2026-02-04)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -13,9 +13,14 @@ This document describes the data interpolation system used in the `Tabela_Temp_V
 │  1. Divide period into 30-day chunks                                │
 │  2. For each chunk: RPC call → sendRPCTemp()                        │
 │  3. Group readings by device                                         │
-│  4. For each device: interpolateSeries() → fill gaps                │
-│  5. Backfill: expected devices with no data = 100% interpolated     │
-│  6. Clamp values to valid temperature range                         │
+│  4. For each device: interpolateSeries() →                          │
+│     a) Group data by day (YYYY-MM-DD)                               │
+│     b) SKIP days with no real data                                  │
+│     c) For each day WITH data: interpolateDay()                     │
+│        - Fill gaps ≤ 4h (8 slots) with interpolated values          │
+│        - OMIT gaps > 4h (no null values)                            │
+│  5. Backfill: DISABLED (no 100% fake data)                          │
+│  6. Clamp values to valid temperature range (17-25°C)               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -180,34 +185,22 @@ function clampTemperature(val) {
 
 ---
 
-## Backfill Logic
+## Backfill Logic (DESABILITADO)
 
-**Location:** `controller.js:571-612`
+**Status:** ❌ **DESABILITADO** (não gera dados 100% fictícios)
 
-When expected device labels have NO data in the entire period, the system generates 100% interpolated data.
+~~When expected device labels have NO data in the entire period, the system generates 100% interpolated data.~~
+
+**Comportamento atual:**
+- Labels sem dados reais NÃO aparecem no relatório
+- Apenas um log de aviso é gerado para labels esperados sem dados
+- Isso evita gerar relatórios com dados 100% fictícios
 
 ```javascript
-// Check if all expected labels are present in report
-const expectedLabels = self.ctx.$scope.expectedLabels || [];
-const labelsInReport = new Set(allProcessed.map(r => r.deviceName));
-const missingLabels = expectedLabels.filter(label => !labelsInReport.has(label));
-
-// For each missing label, generate fully interpolated series
-for (const missingLabel of missingLabels) {
-  const interpolated = interpolateSeries(
-    [],  // Empty array = 100% interpolated
-    missingLabel,
-    s.toISOString(),
-    e.toISOString()
-  );
-
-  for (const r of interpolated) {
-    allProcessed.push({
-      ...r,
-      interpolated: true,
-      backfilled: true,  // Special flag for backfilled labels
-    });
-  }
+// Labels sem dados reais NÃO são incluídos no relatório
+if (missingLabels.length > 0) {
+  console.warn('[BACKFILL DISABLED] Labels sem dados reais:', missingLabels);
+  // NÃO geramos dados fictícios
 }
 ```
 
@@ -272,6 +265,10 @@ User selects date range
 | **Neighbor Window** | ±4 slots (±2 hours) | Search range |
 | **Chunk Size** | 30 days | RPC request batching |
 | **Cache Duration** | 30 minutes | telemetryCache TTL |
+| **Max Gap Slots** | **8 slots (4 hours)** | Maximum gap size for interpolation |
+| **Allow Cross Midnight** | **false** | Block interpolation across midnight |
+| **Include Missing** | **false** | Omit missing slots from output |
+| **Day-by-Day Processing** | **true** | Only process days with real data |
 
 ---
 
@@ -492,32 +489,47 @@ function getSkipReason(gapInfo, slotDate, maxGapSlots, allowCrossMidnight) {
 }
 ```
 
-### Comparação: Antes vs Depois
+### Comparação: Antes vs Depois (IMPLEMENTADO)
 
 ```
-Período: 01/01 20:00 → 02/01 08:00
+Período selecionado: 01/01 → 20/01
+Dados reais existem: apenas 01/01, 05/01, 10/01, 14/01
 
-Dados reais: [20.1] [--] [--] [--] [--] [--] [--] ... [--] [--] [18.5]
-             20:00  20:30 21:00 21:30 22:00 22:30 23:00 ... 07:30 08:00
+ANTES (interpolação ilimitada):
+- Gerava dados para TODOS os dias de 01/01 a 20/01
+- Dias sem telemetria tinham 100% de dados interpolados/fictícios
+- Resultado: relatório gigante com dados falsos
 
-ANTES (atual):
-[20.1] [19.8] [19.5] [19.2] [18.9] [18.7] [18.5] ... [18.3] [18.5]
-  ✓      ↑      ↑      ↑      ↑      ↑      ↑           ↑      ✓
-       interpolados (todos os 24 slots)
-
-DEPOIS (proposto):
-[20.1] [19.8] [19.5] [19.2] [19.0] [18.8] [null] ... [null] [18.5]
-  ✓      ↑      ↑      ↑      ↑      ↑      ✗           ✗      ✓
-       interpolados (6 slots)      missing (cruza meia-noite + gap > 3h)
+AGORA (interpolação DIA A DIA, somente dias com dados):
+- Processa APENAS os dias que têm dados reais: 01/01, 05/01, 10/01, 14/01
+- Dias sem nenhum dado real: NÃO aparecem no relatório
+- Dentro de cada dia: interpola gaps de até 4h (8 slots)
+- Gaps > 4h ou sem dados: OMITIDOS
 ```
 
-### Configuração Proposta
+**Exemplo para um único dia (14/01):**
+```
+Dados reais 14/01: [--] [--] [20.1] [--] [--] [19.8] [--] ... [--] (último às 11:00)
+                   00:00 00:30 01:00 01:30 02:00 02:30 03:00     11:00
+
+Resultado:         [--] [--] [20.1] [19.9] [19.8] [19.8] [--] ... [19.5]
+                   OMITIDO   ✓ real  ↑ interp      ✓ real         ✓ real
+                   (gap início)
+```
+
+**Regras implementadas:**
+1. Dias sem nenhum dado real → NÃO incluídos no relatório
+2. Dentro de cada dia: interpola gaps ≤ 4h (8 slots)
+3. Gaps > 4h → OMITIDOS (não gera `value: null`)
+4. Não cruza meia-noite (cada dia é processado separadamente)
+
+### Configuração Atual (IMPLEMENTADA)
 
 | Parâmetro | Valor Default | Descrição |
 |-----------|---------------|-----------|
-| `maxGapSlots` | 6 | Máximo de slots consecutivos (6 × 30min = 3h) |
+| `maxGapSlots` | **8** | Máximo de slots consecutivos (8 × 30min = **4h**) |
 | `allowCrossMidnight` | false | Bloquear interpolação que cruza meia-noite |
-| `markMissingAs` | `null` | Valor para slots não interpolados |
+| `includeMissingInOutput` | **false** | Se false, slots missing NÃO são incluídos no relatório |
 
 ### Impacto no Relatório
 
@@ -575,3 +587,4 @@ DEPOIS (proposto):
 |------|--------|
 | 2026-02 | Initial documentation |
 | 2026-02 | RFC: Interpolação limitada (max 3h, mesmo dia) |
+| 2026-02-04 | **IMPLEMENTADO**: Interpolação limitada (max 4h, dia a dia, omit missing, backfill disabled) |

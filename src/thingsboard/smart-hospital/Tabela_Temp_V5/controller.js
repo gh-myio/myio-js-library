@@ -120,8 +120,9 @@ function setCache(centrals, s, e, data) {
  * Configurações de interpolação limitada
  */
 const INTERPOLATION_CONFIG = {
-  maxGapSlots: 6,           // 6 slots × 30min = 3 horas máximo
-  allowCrossMidnight: false // Não interpolar gaps que cruzam meia-noite
+  maxGapSlots: 8,           // 8 slots × 30min = 4 horas máximo (per user request)
+  allowCrossMidnight: false, // Não interpolar gaps que cruzam meia-noite
+  includeMissingInOutput: false // Se false, não adiciona registros missing ao output
 };
 
 /**
@@ -242,23 +243,51 @@ function getSkipReason(gapInfo, maxGapSlots, allowCrossMidnight) {
  * @returns {Array<{time_interval: string, value: number, interpolated?: boolean, missing?: boolean, reason?: string}>}
  */
 function interpolateSeries(sorted, deviceName, startISO, endISO) {
-  const { maxGapSlots, allowCrossMidnight } = INTERPOLATION_CONFIG;
+  const { maxGapSlots, allowCrossMidnight, includeMissingInOutput } = INTERPOLATION_CONFIG;
 
-  // Normaliza início/fim para 00:00 e 23:30 **no fuso local**
-  const start = new Date(startISO);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(endISO);
-  end.setHours(23, 30, 0, 0);
-
-  // Sanidade: garante start <= end
-  if (end.getTime() < start.getTime()) {
-    const tmp = new Date(start);
-    start.setTime(end.getTime());
-    end.setTime(tmp.getTime());
+  // IMPORTANTE: Se não há dados reais, retorna array vazio (não gera dados fictícios)
+  if (!sorted || sorted.length === 0) {
+    console.log(`[Interpolation] Device: ${deviceName} - NO REAL DATA, skipping entirely`);
+    return [];
   }
 
   const HALF_HOUR_MS = 30 * 60 * 1000;
+
+  // Agrupar dados reais por dia (YYYY-MM-DD)
+  const dataByDay = new Map();
+  for (const item of sorted) {
+    const dt = new Date(item.time_interval);
+    const dayKey = dt.toISOString().split('T')[0]; // "2026-01-14"
+    if (!dataByDay.has(dayKey)) {
+      dataByDay.set(dayKey, []);
+    }
+    dataByDay.get(dayKey).push(item);
+  }
+
+  const daysWithData = Array.from(dataByDay.keys()).sort();
+  console.log(`[Interpolation] Device: ${deviceName} - Days with real data: ${daysWithData.length} (${daysWithData[0]} to ${daysWithData[daysWithData.length - 1]})`);
+
+  // Processar APENAS os dias que têm dados reais
+  const allResults = [];
+
+  for (const dayKey of daysWithData) {
+    const dayData = dataByDay.get(dayKey);
+
+    // Normaliza para slots de 30 min (00:00 a 23:30 daquele dia)
+    const start = new Date(dayKey + 'T00:00:00.000Z');
+    const end = new Date(dayKey + 'T23:30:00.000Z');
+
+    const dayResult = interpolateDay(dayData, deviceName, start, end, HALF_HOUR_MS, maxGapSlots, allowCrossMidnight, includeMissingInOutput);
+    allResults.push(...dayResult);
+  }
+
+  return allResults;
+}
+
+/**
+ * Interpola um único dia
+ */
+function interpolateDay(sorted, deviceName, start, end, HALF_HOUR_MS, maxGapSlots, allowCrossMidnight, includeMissingInOutput) {
 
   // "Snap" de qualquer timestamp para o slot de 30min **mais próximo** (tolerante a segundos/offsets).
   // Trabalha em tempo absoluto (epoch), então independe de UTC/local para arredondamento.
@@ -323,14 +352,17 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
         interpolatedCount++;
       } else {
         // Gap muito grande ou cruza meia-noite - marcar como missing
-        const reason = gapInfo ? getSkipReason(gapInfo, maxGapSlots, allowCrossMidnight) : 'no_gap_info';
-        result.push({
-          time_interval: slotISO,
-          value: null,
-          interpolated: false,
-          missing: true,
-          reason: reason,
-        });
+        // Se includeMissingInOutput = false, não adiciona ao resultado (simplesmente pula)
+        if (includeMissingInOutput) {
+          const reason = gapInfo ? getSkipReason(gapInfo, maxGapSlots, allowCrossMidnight) : 'no_gap_info';
+          result.push({
+            time_interval: slotISO,
+            value: null,
+            interpolated: false,
+            missing: true,
+            reason: reason,
+          });
+        }
         missingCount++;
       }
     }
@@ -338,7 +370,8 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
 
   // Log summary
   if (interpolatedCount > 0 || missingCount > 0) {
-    console.log(`[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount}, Real: ${existingBySlot.size}`);
+    const missingAction = includeMissingInOutput ? 'included' : 'skipped';
+    console.log(`[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount} (${missingAction}), Real: ${existingBySlot.size}`);
   }
 
   return result;
@@ -736,50 +769,18 @@ async function getData() {
 
     setPremiumLoading(true, LOADING_STATES.CONSOLIDATING, 75);
 
-    // ⚠️ MELHORIA 2: Verificar se todos os labels esperados estão presentes
+    // ⚠️ NOTA: Backfill de labels DESABILITADO
+    // Labels sem dados reais NÃO aparecem no relatório (não geramos dados 100% fictícios)
     const expectedLabels = self.ctx.$scope.expectedLabels || [];
     if (expectedLabels.length > 0) {
       const labelsInReport = new Set(allProcessed.map((r) => r.deviceName));
       const missingLabels = expectedLabels.filter((label) => !labelsInReport.has(label));
 
       if (missingLabels.length > 0) {
-        console.warn('[BACKFILL LABELS] Labels ausentes no relatório:', missingLabels);
-
-        // Para cada label ausente, fazer backfill com interpolação
-        for (const missingLabel of missingLabels) {
-          console.log(`[BACKFILL] Gerando dados para label ausente: ${missingLabel}`);
-
-          // Gerar série interpolada para todo o período
-          const interpolated = interpolateSeries(
-            [], // Array vazio = 100% interpolado
-            missingLabel,
-            s.toISOString(),
-            e.toISOString()
-          );
-
-          // Adicionar ao relatório
-          for (const r of interpolated) {
-            const { value, clamped } = clampTemperature(r.value);
-            allProcessed.push({
-              centralId: centrals[0] || 'unknown', // Usar primeira central como fallback
-              deviceName: missingLabel,
-              reading_date: brDatetime(r.time_interval),
-              sort_ts: new Date(r.time_interval).getTime(),
-              temperature: value == null ? '-' : value.toFixed(2),
-              interpolated: !!r.interpolated,
-              correctedBelowThreshold: !!clamped,
-              backfilled: true, // ⭐ Flag especial para indicar backfill de label
-              // Novos campos para interpolação limitada
-              missing: !!r.missing,
-              missingReason: r.reason || null,
-              gapSize: r.gapSize || null,
-            });
-          }
-        }
-
-        console.log(`[BACKFILL] Adicionados ${missingLabels.length} labels com dados interpolados`);
+        // Apenas log - NÃO geramos dados fictícios para labels sem telemetria real
+        console.warn('[BACKFILL DISABLED] Labels sem dados reais (NÃO incluídos no relatório):', missingLabels);
       } else {
-        console.log('[BACKFILL] Todos os labels esperados estão presentes no relatório ✓');
+        console.log('[LABELS] Todos os labels esperados têm dados reais no relatório ✓');
       }
     }
 
