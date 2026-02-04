@@ -807,7 +807,7 @@ export class WelcomeModalView {
   padding: 10px 24px 12px 24px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .myio-welcome-shortcuts-header {
@@ -1089,11 +1089,15 @@ export class WelcomeModalView {
 
 .myio-welcome-card-title {
   margin: 0 !important;
-  font-size: calc(22px * var(--wm-font-scale)) !important;
+  font-size: calc(16px * var(--wm-font-scale)) !important;
   font-weight: 700 !important;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .myio-welcome-card-subtitle {
@@ -1903,7 +1907,7 @@ export class WelcomeModalView {
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar shopping...">
+                <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar ${this.params.entityLabel || 'shopping'}...">
                 <button class="myio-welcome-search-clear" id="welcomeSearchClear" title="Limpar">&times;</button>
               </div>
             </div>
@@ -2056,7 +2060,7 @@ export class WelcomeModalView {
         ${bgImage}
         ${metaCountsHTML}
         <div class="myio-welcome-card-content">
-          <h3 class="myio-welcome-card-title">${card.title}</h3>
+          <h3 class="myio-welcome-card-title"${card.title.length > 27 ? ` title="${card.title}"` : ''}>${card.title.length > 27 ? card.title.slice(0, 27) + '...' : card.title}</h3>
         </div>
         ${subtitleHTML}
       </div>
@@ -2128,7 +2132,7 @@ export class WelcomeModalView {
         // Apply to card titles (use setProperty with 'important' to override CSS !important)
         const cardTitles = this.container.querySelectorAll('.myio-welcome-card-title') as NodeListOf<HTMLElement>;
         cardTitles.forEach((el) => {
-          el.style.setProperty('font-size', `${22 * scale}px`, 'important');
+          el.style.setProperty('font-size', `${16 * scale}px`, 'important');
         });
         // Apply to card subtitles
         const cardSubtitles = this.container.querySelectorAll('.myio-welcome-card-subtitle') as NodeListOf<HTMLElement>;
@@ -3039,15 +3043,16 @@ export class WelcomeModalView {
 
     // Show/hide no results message
     let noResultsEl = scrollContainer?.querySelector('.myio-welcome-no-results') as HTMLElement;
+    const entityLabel = this.params.entityLabel || 'shopping';
 
     if (visibleCount === 0 && normalizedQuery) {
       if (!noResultsEl && scrollContainer) {
         noResultsEl = document.createElement('div');
         noResultsEl.className = 'myio-welcome-no-results';
-        noResultsEl.textContent = `Nenhum shopping encontrado para "${query}"`;
+        noResultsEl.textContent = `Nenhum ${entityLabel} encontrado para "${query}"`;
         scrollContainer.appendChild(noResultsEl);
       } else if (noResultsEl) {
-        noResultsEl.textContent = `Nenhum shopping encontrado para "${query}"`;
+        noResultsEl.textContent = `Nenhum ${entityLabel} encontrado para "${query}"`;
         noResultsEl.style.display = 'flex';
       }
     } else if (noResultsEl) {

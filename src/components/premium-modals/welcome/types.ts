@@ -317,6 +317,12 @@ export interface WelcomeModalParams {
   ctaState?: string;
   /** Shortcuts section title (default: "Acesso Rápido aos Shoppings") */
   shortcutsTitle?: string;
+  /**
+   * Entity label for search placeholder (e.g., "shopping", "unidade", "filial")
+   * Used in: "Buscar {entityLabel}..." placeholder text
+   * Default: "shopping"
+   */
+  entityLabel?: string;
 
   // User Menu
   /** Whether to show the user menu (default: true) */

@@ -2501,6 +2501,7 @@ body.filter-modal-open { overflow: hidden !important; }
     showTempValue: false,
     countSizeMultiplier: 2,
     showFontSizeSlider: true,
+    entityLabel: settings.goalsEntityLabel || 'shopping',
     onThemeChange: (newTheme) => {
       currentThemeMode = newTheme;
       applyGlobalTheme(newTheme);
