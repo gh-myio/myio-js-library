@@ -420,14 +420,14 @@ export const DEFAULT_TABS: TabConfig[] = [
  */
 export const OPERATIONAL_INDICATORS_TAB: TabConfig = {
   id: 'operational',
-  label: 'Indicadores Operacionais',
+  label: 'Indicadores',
   icon: '📊',
   contexts: [
     {
       id: 'general-list',
       target: 'operational_general_list',
-      title: 'Lista Geral',
-      description: 'Visao geral dos equipamentos operacionais',
+      title: 'Disp. Equipamentos',
+      description: 'Visao geral da disponibilidade operacional',
       icon: '📋',
     },
     {

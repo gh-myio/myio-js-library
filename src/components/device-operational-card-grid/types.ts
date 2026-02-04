@@ -290,10 +290,17 @@ export const DEFAULT_GRID_FILTER_TABS: GridFilterTab[] = [
 // STATUS CONFIGURATION
 // ============================================
 
+/**
+ * Status configuration using deviceStatus.js icons:
+ * - online → ⚡ (power_on)
+ * - offline → 🔴 (offline)
+ * - maintenance → 🛠️ (maintenance)
+ * - warning → ⚠️ (warning)
+ */
 export const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; bg: string; icon: string }> = {
-  online: { label: 'Online', color: '#166534', bg: '#dcfce7', icon: '🟢' },
+  online: { label: 'Online', color: '#166534', bg: '#dcfce7', icon: '⚡' },
   offline: { label: 'Offline', color: '#991b1b', bg: '#fee2e2', icon: '🔴' },
-  maintenance: { label: 'Manutencao', color: '#92400e', bg: '#fef3c7', icon: '🟠' },
+  maintenance: { label: 'Manutencao', color: '#92400e', bg: '#fef3c7', icon: '🛠️' },
   warning: { label: 'Alerta', color: '#854d0e', bg: '#fef9c3', icon: '⚠️' },
 };
 

@@ -241,20 +241,31 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   background: var(--grid-bg-secondary);
   border-bottom: 1px solid var(--grid-border);
   gap: 8px;
+  position: relative;
 }
 
-/* Status-based header accent */
-.myio-equipment-card-header-bar.online {
-  border-left: 4px solid #22c55e;
+/* Status-based header accent - Full width top line */
+.myio-equipment-card-header-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--grid-border);
 }
-.myio-equipment-card-header-bar.offline {
-  border-left: 4px solid #ef4444;
+
+.myio-equipment-card-header-bar.online::before {
+  background: #22c55e;
 }
-.myio-equipment-card-header-bar.maintenance {
-  border-left: 4px solid #f97316;
+.myio-equipment-card-header-bar.offline::before {
+  background: #ef4444;
 }
-.myio-equipment-card-header-bar.warning {
-  border-left: 4px solid #eab308;
+.myio-equipment-card-header-bar.maintenance::before {
+  background: #f97316;
+}
+.myio-equipment-card-header-bar.warning::before {
+  background: #eab308;
 }
 
 .myio-equipment-card-header-bar .header-bar-content {
@@ -399,7 +410,14 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   text-overflow: ellipsis;
 }
 
-/* Status Badge */
+/* Status Icon (simplified - icon only) */
+.myio-equipment-status-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Legacy: Status Badge */
 .myio-equipment-status-badge {
   display: inline-flex;
   align-items: center;
@@ -435,7 +453,79 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   50% { opacity: 0.7; }
 }
 
-/* Availability Gauge (RFC-157: Compact) */
+/* RFC-157: 3-Column Metrics Row (Disponibilidade | MTBF | MTTR) */
+.myio-equipment-metrics-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.myio-equipment-metric-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 6px;
+  background: var(--grid-bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--grid-border);
+  min-width: 0;
+}
+
+.myio-equipment-metric-block-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--grid-text-primary);
+  line-height: 1;
+}
+
+.myio-equipment-metric-block-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--grid-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+
+/* MTBF Block - Blue accent */
+.myio-equipment-metric-block.mtbf {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.myio-equipment-metric-block.mtbf .myio-equipment-metric-block-value {
+  color: #3b82f6;
+}
+
+/* MTTR Block - Orange accent */
+.myio-equipment-metric-block.mttr {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.myio-equipment-metric-block.mttr .myio-equipment-metric-block-value {
+  color: #f59e0b;
+}
+
+/* Gauge backgrounds (shared) */
+.myio-equipment-gauge-bg {
+  fill: none;
+  stroke: var(--grid-border);
+  stroke-width: 4;
+}
+
+.myio-equipment-gauge-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Legacy support: Old availability layout */
 .myio-equipment-availability {
   display: flex;
   align-items: center;
@@ -454,19 +544,6 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.myio-equipment-gauge-bg {
-  fill: none;
-  stroke: var(--grid-border);
-  stroke-width: 5;
-}
-
-.myio-equipment-gauge-fill {
-  fill: none;
-  stroke-width: 5;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.5s ease;
 }
 
 .myio-equipment-gauge-value {
@@ -493,7 +570,7 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   margin-top: 1px;
 }
 
-/* Metrics Row (RFC-157: Compact) */
+/* Legacy: Metrics column layout */
 .myio-equipment-metrics {
   flex: 1;
   display: flex;
@@ -543,21 +620,53 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   color: #dc2626;
 }
 
-/* RFC-157: Footer with Customer + Location */
+/* RFC-157: Footer with Customer + Location + Warnings */
 .myio-equipment-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--grid-border);
+}
+
+.myio-equipment-footer-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: auto;
-  padding-top: 6px;
-  border-top: 1px solid var(--grid-border);
 }
 
 .myio-equipment-footer .myio-equipment-customer {
   border-top: none;
   padding-top: 0;
   margin-top: 0;
+}
+
+/* Footer Warnings Row (Reversão + Alertas) */
+.myio-equipment-footer-warnings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.myio-equipment-warning-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--grid-text-secondary);
+  white-space: nowrap;
+}
+
+.myio-equipment-warning-tag.reversal {
+  color: #f59e0b;
+}
+
+.myio-equipment-warning-tag.alerts {
+  color: #ef4444;
 }
 
 .myio-equipment-location {

@@ -387,11 +387,6 @@ export class DeviceOperationalCardGridView {
     const enableSelection = this.params.enableSelection !== false;
     const enableDragDrop = this.params.enableDragDrop === true;
 
-    // Calculate gauge stroke (smaller gauge for compact layout)
-    const radius = 28;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference * (1 - equipment.availability / 100);
-
     return `
       <article class="myio-equipment-card"
                data-id="${equipment.id}"
@@ -412,83 +407,71 @@ export class DeviceOperationalCardGridView {
             <h3 class="myio-equipment-card-title">${this.escapeHtml(equipment.name)}</h3>
             <span class="myio-equipment-card-type">${typeConfig.icon} ${typeConfig.label}</span>
           </div>
-          <span class="myio-equipment-status-badge" style="
-            background: ${statusConfig.bg};
-            color: ${statusConfig.color};
-            border-color: ${statusConfig.color};
-          ">${statusConfig.icon} ${statusConfig.label}</span>
+          <span class="myio-equipment-status-icon">${statusConfig.icon}</span>
         </div>
 
         <!-- Card Body -->
         <div class="myio-equipment-card-body">
-          ${equipment.hasReversal ? `
-            <div class="myio-equipment-reversal-warning">
-              <span>&#x26A0;</span>
-              <span>Reversao detectada</span>
-            </div>
-          ` : ''}
-
-          <!-- Availability and Metrics (Compact) -->
-          <div class="myio-equipment-availability">
-            <div class="myio-equipment-gauge">
-              <svg viewBox="0 0 70 70" width="70" height="70">
-                <circle class="myio-equipment-gauge-bg" cx="35" cy="35" r="${radius}" />
-                <circle class="myio-equipment-gauge-fill" cx="35" cy="35" r="${radius}"
-                  stroke="${availabilityColor}"
-                  stroke-dasharray="${circumference}"
-                  stroke-dashoffset="${strokeDashoffset}"
-                  transform="rotate(-90 35 35)" />
-              </svg>
-              <div class="myio-equipment-gauge-value">
-                <span class="value">${equipment.availability}%</span>
-                <span class="label">Disp.</span>
-              </div>
+          <!-- RFC-157: 3-Column Metrics Layout (Disponibilidade | MTBF | MTTR) -->
+          <div class="myio-equipment-metrics-row">
+            <!-- Block 1: Disponibilidade -->
+            <div class="myio-equipment-metric-block disp" style="background: ${availabilityColor}15; border-color: ${availabilityColor}40;">
+              <span class="myio-equipment-metric-block-value" style="color: ${availabilityColor};">${equipment.availability}%</span>
+              <span class="myio-equipment-metric-block-label">Disp.</span>
             </div>
 
-            <div class="myio-equipment-metrics">
-              <div class="myio-equipment-metric">
-                <span class="myio-equipment-metric-icon">&#x23F1;</span>
-                <div class="myio-equipment-metric-info">
-                  <span class="myio-equipment-metric-label">MTBF</span>
-                  <span class="myio-equipment-metric-value">${equipment.mtbf}h</span>
-                </div>
-              </div>
-              <div class="myio-equipment-metric">
-                <span class="myio-equipment-metric-icon">&#x1F527;</span>
-                <div class="myio-equipment-metric-info">
-                  <span class="myio-equipment-metric-label">MTTR</span>
-                  <span class="myio-equipment-metric-value">${equipment.mttr}h</span>
-                </div>
-              </div>
+            <!-- Block 2: MTBF -->
+            <div class="myio-equipment-metric-block mtbf">
+              <span class="myio-equipment-metric-block-value">${equipment.mtbf}h</span>
+              <span class="myio-equipment-metric-block-label">MTBF</span>
+            </div>
+
+            <!-- Block 3: MTTR -->
+            <div class="myio-equipment-metric-block mttr">
+              <span class="myio-equipment-metric-block-value">${equipment.mttr}h</span>
+              <span class="myio-equipment-metric-block-label">MTTR</span>
             </div>
           </div>
 
-          ${equipment.recentAlerts > 0 || equipment.openAlarms > 0 ? `
-            <div class="myio-equipment-alerts">
-              <span>&#x1F514;</span>
-              <span>${equipment.recentAlerts + equipment.openAlarms} ${(equipment.recentAlerts + equipment.openAlarms) === 1 ? 'alerta' : 'alertas'}</span>
-            </div>
-          ` : ''}
-
-          <!-- RFC-157: Footer with Customer + Location -->
+          <!-- Footer with Customer + Location + Warnings -->
           <div class="myio-equipment-footer">
-            <div class="myio-equipment-customer">
-              <div class="myio-equipment-customer-avatar">
-                ${equipment.customerName.slice(0, 2).toUpperCase()}
+            <div class="myio-equipment-footer-top">
+              <div class="myio-equipment-customer">
+                <div class="myio-equipment-customer-avatar">
+                  ${equipment.customerName.slice(0, 2).toUpperCase()}
+                </div>
+                <span class="myio-equipment-customer-name">${this.escapeHtml(equipment.customerName)}</span>
               </div>
-              <span class="myio-equipment-customer-name">${this.escapeHtml(equipment.customerName)}</span>
+              <span class="myio-equipment-location">${this.escapeHtml(equipment.location)}</span>
             </div>
-            <span class="myio-equipment-location">${this.escapeHtml(equipment.location)}</span>
+            ${equipment.hasReversal || equipment.recentAlerts > 0 || equipment.openAlarms > 0 ? `
+              <div class="myio-equipment-footer-warnings">
+                ${equipment.hasReversal ? `<span class="myio-equipment-warning-tag reversal">⚠️ Reversão</span>` : ''}
+                ${equipment.recentAlerts + equipment.openAlarms > 0 ? `<span class="myio-equipment-warning-tag alerts">🔔 ${equipment.recentAlerts + equipment.openAlarms} ${(equipment.recentAlerts + equipment.openAlarms) === 1 ? 'alerta' : 'alertas'}</span>` : ''}
+              </div>
+            ` : ''}
           </div>
         </div>
       </article>
     `;
   }
 
+  /**
+   * RFC-157: Color scale for availability percentage
+   * - >= 98%: Dark green (excellent)
+   * - >= 95%: Green (great)
+   * - >= 90%: Lime (good)
+   * - >= 80%: Yellow/amber (moderate)
+   * - >= 70%: Orange (attention)
+   * - < 70%: Red (critical)
+   */
   private getAvailabilityColor(availability: number): string {
-    if (availability >= 95) return '#22c55e';
-    if (availability >= 80) return '#f59e0b';
-    return '#ef4444';
+    if (availability >= 98) return '#15803d'; // Dark green - excellent
+    if (availability >= 95) return '#22c55e'; // Green - great
+    if (availability >= 90) return '#84cc16'; // Lime - good
+    if (availability >= 80) return '#eab308'; // Yellow - moderate
+    if (availability >= 70) return '#f97316'; // Orange - attention
+    return '#ef4444'; // Red - critical
   }
 
   private bindCardEvents(): void {
@@ -531,38 +514,23 @@ export class DeviceOperationalCardGridView {
       const equipment = this.controller.getEquipment().find((eq) => eq.id === equipmentId);
       if (!equipment) return;
 
-      const severityMap: Record<string, string> = {
-        offline: 'CRITICAL',
-        maintenance: 'HIGH',
-        warning: 'MEDIUM',
-        online: 'INFO',
-      };
-
-      const alarmLike = {
-        id: equipment.id,
-        customerId: equipment.customerId || '',
-        customerName: equipment.customerName || '',
-        source: equipment.name,
-        severity: severityMap[equipment.status] || 'MEDIUM',
-        state: equipment.status === 'online' ? 'CLOSED' : 'OPEN',
-        title: equipment.name,
-        description: `${equipment.type} - ${equipment.location}`,
-        tags: { type: equipment.type, status: equipment.status },
-        firstOccurrence: new Date().toISOString(),
-        lastOccurrence: new Date().toISOString(),
-        occurrenceCount: equipment.openAlarms || equipment.recentAlerts || 0,
-      };
-
+      // RFC-0157: Register as operational entity for operational comparison modal
       try {
         selectionStore.registerEntity({
           id: equipment.id,
           name: equipment.name,
           customerName: equipment.customerName || '',
-          lastValue: equipment.openAlarms || equipment.recentAlerts || 0,
-          unit: 'alarms',
-          icon: 'alarms',
-          domain: 'alarms',
-          alarm: alarmLike,
+          lastValue: equipment.availability || 0,
+          unit: '%',
+          icon: 'operational',
+          domain: 'operational',
+          ingestionId: equipment.id,
+          // Operational metrics for comparison modal
+          availability: equipment.availability || 0,
+          mtbf: equipment.mtbf || 0,
+          mttr: equipment.mttr || 0,
+          status: equipment.status,
+          equipmentType: equipment.type,
           meta: {
             type: 'equipment',
             equipment,
@@ -621,22 +589,20 @@ export class DeviceOperationalCardGridView {
       const equipment = this.controller.getEquipment().find((eq) => eq.id === equipmentId);
       if (!equipment) return;
 
+      // RFC-0157: Drag payload with operational data
       card.addEventListener('dragstart', (e: DragEvent) => {
         const payload = {
           id: equipment.id,
           name: equipment.name,
           customerName: equipment.customerName,
-          unit: 'alarms',
-          domain: 'alarms',
-          alarm: {
-            id: equipment.id,
-            customerName: equipment.customerName,
-            title: equipment.name,
-            severity: equipment.status === 'offline' ? 'CRITICAL' : 'MEDIUM',
-            state: equipment.status === 'online' ? 'CLOSED' : 'OPEN',
-            lastOccurrence: new Date().toISOString(),
-            occurrenceCount: equipment.openAlarms || equipment.recentAlerts || 0,
-          },
+          unit: '%',
+          icon: 'operational',
+          domain: 'operational',
+          availability: equipment.availability || 0,
+          mtbf: equipment.mtbf || 0,
+          mttr: equipment.mttr || 0,
+          status: equipment.status,
+          equipmentType: equipment.type,
           meta: { type: 'equipment', equipment },
         };
 

@@ -443,6 +443,14 @@ export {
   type AlarmComparisonModalInstance,
 } from './components/alarms/AlarmComparisonModal';
 
+// RFC-0157: Operational Comparison Modal
+export {
+  openOperationalComparisonModal,
+  type OperationalComparisonModalParams,
+  type OperationalComparisonModalInstance,
+  type OperationalDevice,
+} from './components/operational-comparison-modal';
+
 // Temperature Range Tooltip (Reusable UI component)
 export { TempRangeTooltip } from './utils/TempRangeTooltip';
 export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempRangeTooltip';
