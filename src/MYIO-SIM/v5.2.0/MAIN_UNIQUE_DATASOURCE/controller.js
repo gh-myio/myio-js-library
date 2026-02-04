@@ -2818,7 +2818,9 @@ body.filter-modal-open { overflow: hidden !important; }
   let energyPanelInstance = null; // RFC-0132: Energy panel instance
   let waterPanelInstance = null; // RFC-0133: Water panel instance
   let operationalGridInstance = null; // RFC-0152 Phase 3: Operational equipment grid instance
-  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel'
+  let operationalDashboardInstance = null; // RFC-0152 Phase 5: Operational dashboard instance
+  let alarmsNotificationsPanelInstance = null; // RFC-0152 Phase 4: Alarms notifications panel instance
+  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel' | 'operational-grid' | 'operational-dashboard' | 'alarms-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
 
@@ -3341,6 +3343,31 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0132/RFC-0133: Update panel themes
     if (energyPanelInstance) energyPanelInstance.setTheme?.(themeMode);
     if (waterPanelInstance) waterPanelInstance.setTheme?.(themeMode);
+    // RFC-0152: Update operational component themes
+    if (operationalDashboardInstance) operationalDashboardInstance.setThemeMode?.(themeMode);
+    if (alarmsNotificationsPanelInstance) alarmsNotificationsPanelInstance.setThemeMode?.(themeMode);
+    if (operationalGridInstance) operationalGridInstance.setThemeMode?.(themeMode);
+  });
+
+  // === RFC-0152: LISTEN FOR MENU NAVIGATION TO OPERATIONAL PANELS ===
+  window.addEventListener('myio:switch-main-state', (e) => {
+    // MenuController sends targetStateId, not stateId
+    const stateId = e.detail?.targetStateId || e.detail?.stateId || '';
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: switch-main-state received:', stateId);
+
+    const telemetryContainer = document.getElementById('telemetryGridContainer');
+    if (!telemetryContainer) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: telemetryGridContainer not found');
+      return;
+    }
+
+    if (stateId === 'operational_dashboard') {
+      renderOperationalDashboard(telemetryContainer);
+    } else if (stateId === 'operational_general_list') {
+      renderOperationalGeneralList(telemetryContainer);
+    } else if (stateId === 'operational_alarms') {
+      renderAlarmsNotificationsPanel(telemetryContainer);
+    }
   });
 
   // === 12. Issue 6 fix: LISTEN FOR CARD ACTIONS (dashboard/report/settings) ===
@@ -4220,6 +4247,247 @@ body.filter-modal-open { overflow: hidden !important; }
     return equipment;
   }
 
+  // RFC-0152 Phase 5: Render Operational Dashboard
+  function renderOperationalDashboard(container) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: renderOperationalDashboard called');
+
+    // Destroy other views
+    destroyAllPanels();
+
+    if (!MyIOLibrary?.createOperationalDashboardComponent) {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">OperationalDashboard component not available</div>';
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: createOperationalDashboardComponent not found in MyIOLibrary');
+      return;
+    }
+
+    container.innerHTML = '';
+    currentViewMode = 'operational-dashboard';
+
+    // Generate mock KPIs and data
+    const mockKPIs = MyIOLibrary.generateMockKPIs?.() || {
+      fleetAvailability: 94.7,
+      availabilityTrend: 2.3,
+      avgAvailability: 92.5,
+      activeAlerts: 3,
+      fleetMTBF: 342,
+      fleetMTTR: 4.2,
+      totalEquipment: 48,
+      onlineCount: 42,
+      offlineCount: 3,
+      maintenanceCount: 3,
+    };
+
+    const mockTrendData = MyIOLibrary.generateMockTrendData?.('month') || [];
+    const mockDowntimeList = MyIOLibrary.generateMockDowntimeList?.() || [
+      { name: 'ESC-02', location: 'Shopping Meier', downtime: 48, percentage: 15 },
+      { name: 'ELV-05', location: 'Shopping Central', downtime: 32, percentage: 10 },
+      { name: 'ESC-08', location: 'Shopping Madureira', downtime: 24, percentage: 7.5 },
+      { name: 'ELV-02', location: 'Shopping Deodoro', downtime: 18, percentage: 5.6 },
+      { name: 'ESC-11', location: 'Shopping Bonsucesso', downtime: 12, percentage: 3.8 },
+    ];
+
+    operationalDashboardInstance = MyIOLibrary.createOperationalDashboardComponent({
+      container,
+      themeMode: currentThemeMode,
+      enableDebugMode: settings.enableDebugMode,
+      initialPeriod: 'month',
+      kpis: mockKPIs,
+      trendData: mockTrendData,
+      downtimeList: mockDowntimeList,
+      onPeriodChange: (period) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Dashboard period changed:', period);
+        operationalDashboardInstance?.setLoading?.(true);
+        setTimeout(() => {
+          const newTrendData = MyIOLibrary.generateMockTrendData?.(period) || [];
+          operationalDashboardInstance?.updateTrendData?.(newTrendData);
+          operationalDashboardInstance?.setLoading?.(false);
+        }, 800);
+      },
+      onRefresh: () => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Dashboard refresh requested');
+        operationalDashboardInstance?.setLoading?.(true);
+        setTimeout(() => {
+          const newKPIs = {
+            ...mockKPIs,
+            fleetAvailability: 90 + Math.random() * 10,
+            availabilityTrend: (Math.random() - 0.5) * 6,
+          };
+          operationalDashboardInstance?.updateKPIs?.(newKPIs);
+          operationalDashboardInstance?.setLoading?.(false);
+        }, 1000);
+      },
+    });
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Dashboard rendered');
+  }
+
+  // RFC-0152 Phase 3: Render Operational General List (Card Grid)
+  function renderOperationalGeneralList(container) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: renderOperationalGeneralList called');
+
+    // Destroy other views
+    destroyAllPanels();
+
+    if (!MyIOLibrary?.createDeviceOperationalCardGridComponent) {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+      return;
+    }
+
+    container.innerHTML = '';
+    currentViewMode = 'operational-grid';
+
+    // Generate mock equipment data
+    const mockEquipment = generateMockOperationalEquipment();
+
+    // Build customers list from equipment
+    const customers = Array.from(
+      mockEquipment.reduce((map, eq) => {
+        const id = eq.customerId || eq.customerName;
+        if (id && eq.customerName) {
+          map.set(id, eq.customerName);
+        }
+        return map;
+      }, new Map())
+    ).map(([id, name]) => ({ id, name }));
+
+    operationalGridInstance = MyIOLibrary.createDeviceOperationalCardGridComponent({
+      container,
+      themeMode: currentThemeMode,
+      enableDebugMode: settings.enableDebugMode,
+      equipment: mockEquipment,
+      customers: customers,
+      includeSearch: true,
+      includeFilters: true,
+      includeStats: true,
+      enableSelection: true,
+      enableDragDrop: true,
+      onEquipmentClick: (eq) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment clicked:', eq.name);
+      },
+      onEquipmentAction: (action, eq) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment action:', action, eq.name);
+      },
+    });
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational General List rendered');
+  }
+
+  // RFC-0152 Phase 4: Render Alarms & Notifications Panel
+  function renderAlarmsNotificationsPanel(container) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: renderAlarmsNotificationsPanel called');
+
+    // Destroy other views
+    destroyAllPanels();
+
+    if (!MyIOLibrary?.createAlarmsNotificationsPanelComponent) {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">AlarmsNotificationsPanel component not available</div>';
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: createAlarmsNotificationsPanelComponent not found in MyIOLibrary');
+      return;
+    }
+
+    container.innerHTML = '';
+    currentViewMode = 'alarms-panel';
+
+    // Generate mock alarms data
+    const mockAlarms = generateMockAlarms();
+
+    alarmsNotificationsPanelInstance = MyIOLibrary.createAlarmsNotificationsPanelComponent({
+      container,
+      themeMode: currentThemeMode,
+      enableDebugMode: settings.enableDebugMode,
+      alarms: mockAlarms,
+      onAlarmClick: (alarm) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarm clicked:', alarm.title || alarm.id);
+      },
+      onAlarmAction: (action, alarm) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarm action:', action, alarm.id);
+      },
+      onTabChange: (tab) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarm tab changed:', tab);
+      },
+    });
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarms & Notifications Panel rendered');
+  }
+
+  // RFC-0152: Generate mock alarms data
+  function generateMockAlarms() {
+    const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const states = ['OPEN', 'ACKNOWLEDGED', 'SNOOZED'];
+    const shoppingNames = ['Mestre Alvaro', 'Mont Serrat', 'Moxuara', 'Rio Poty', 'Shopping da Ilha'];
+    const alarmTitles = [
+      'Falha no motor',
+      'Temperatura elevada',
+      'Vibração anormal',
+      'Erro de comunicação',
+      'Manutenção necessária',
+      'Sobrecarga detectada',
+      'Reversão inesperada',
+    ];
+
+    const alarms = [];
+    const count = 10 + Math.floor(Math.random() * 10);
+
+    for (let i = 0; i < count; i++) {
+      const now = Date.now();
+      const createdAt = new Date(now - Math.random() * 7 * 24 * 60 * 60 * 1000);
+
+      alarms.push({
+        id: `alarm-${i}`,
+        title: alarmTitles[Math.floor(Math.random() * alarmTitles.length)],
+        description: 'Detalhes do alarme detectado pelo sistema de monitoramento.',
+        severity: severities[Math.floor(Math.random() * severities.length)],
+        state: states[Math.floor(Math.random() * states.length)],
+        source: `${Math.random() < 0.5 ? 'ESC' : 'ELV'}-${String(Math.floor(Math.random() * 20) + 1).padStart(2, '0')}`,
+        customerName: shoppingNames[Math.floor(Math.random() * shoppingNames.length)],
+        firstOccurrence: createdAt.toISOString(),
+        lastOccurrence: new Date(createdAt.getTime() + Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+        occurrenceCount: 1 + Math.floor(Math.random() * 10),
+      });
+    }
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Generated', alarms.length, 'mock alarms');
+    return alarms;
+  }
+
+  // RFC-0152: Destroy all panels helper
+  function destroyAllPanels() {
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
+    }
+    if (operationalDashboardInstance) {
+      operationalDashboardInstance.destroy?.();
+      operationalDashboardInstance = null;
+    }
+    if (alarmsNotificationsPanelInstance) {
+      alarmsNotificationsPanelInstance.destroy?.();
+      alarmsNotificationsPanelInstance = null;
+    }
+  }
+
   // Switch back to Telemetry Grid view
   function switchToTelemetryGrid(container, tabId, contextId, target) {
     if (!container) return;
@@ -4237,6 +4505,16 @@ body.filter-modal-open { overflow: hidden !important; }
     if (operationalGridInstance) {
       operationalGridInstance.destroy?.();
       operationalGridInstance = null;
+    }
+    // RFC-0152: Destroy operational dashboard if exists
+    if (operationalDashboardInstance) {
+      operationalDashboardInstance.destroy?.();
+      operationalDashboardInstance = null;
+    }
+    // RFC-0152: Destroy alarms panel if exists
+    if (alarmsNotificationsPanelInstance) {
+      alarmsNotificationsPanelInstance.destroy?.();
+      alarmsNotificationsPanelInstance = null;
     }
 
     // Issue 8 fix: Map menu context to classified data key

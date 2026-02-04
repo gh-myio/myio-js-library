@@ -2301,9 +2301,22 @@
       window.addEventListener('error', (e) => logEvent('ERROR', e.message, 'error'));
 
       console.log('[Showcase] MAIN_UNIQUE_DATASOURCE Simulation Ready');
-    </script>
 
-    <!-- Load the real controller.js from MAIN_UNIQUE_DATASOURCE -->
-    <script src="../../src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js"></script>
+      // Load controller.js dynamically with cache busting
+      // This ensures we always get the latest version during development
+      (function loadController() {
+        const scriptEl = document.createElement('script');
+        scriptEl.src = '../../src/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js?v=' + Date.now();
+        scriptEl.onload = function() {
+          console.log('[Showcase] controller.js loaded dynamically');
+          logEvent('CONTROLLER', 'controller.js loaded with cache busting', 'info');
+        };
+        scriptEl.onerror = function() {
+          console.error('[Showcase] Failed to load controller.js');
+          logEvent('ERROR', 'Failed to load controller.js', 'error');
+        };
+        document.body.appendChild(scriptEl);
+      })();
+    </script>
   </body>
 </html>

@@ -113,7 +113,6 @@ function render(
   const stats = buildStats(state.devices);
 
   const isMax = state.isMaximized;
-  const contentRadius = isMax ? '0' : '12px';
 
   // Sort devices by availability for comparison chart
   const sortedByAvailability = [...state.devices].sort((a, b) => b.availability - a.availability);
@@ -122,10 +121,7 @@ function render(
 
   container.innerHTML = `
     <div class="myio-op-compare-overlay">
-      <div class="myio-op-compare-content" style="
-        background: ${colors.surface};
-        border-radius: ${contentRadius};
-      ">
+      <div class="myio-op-compare-content ${isMax ? 'maximized' : ''}" style="background: ${colors.surface};">
         <div class="myio-op-compare-header">
           <div class="title">
             📊 Comparação Operacional (${state.devices.length} equipamentos)
@@ -228,24 +224,44 @@ function render(
     </div>
     <style>
       #${modalId} .myio-op-compare-overlay {
-        position: fixed; inset: 0; z-index: 9998;
+        position: fixed; inset: 0; z-index: 999999;
         display: flex; align-items: center; justify-content: center;
-        background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+        animation: myioOpCompareModalFadeIn 0.2s ease-in;
+      }
+      @keyframes myioOpCompareModalFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       #${modalId} .myio-op-compare-content {
-        width: ${state.isMaximized ? '100%' : '94%'};
-        max-width: ${state.isMaximized ? '100%' : '1400px'};
-        height: ${state.isMaximized ? '100%' : 'auto'};
-        max-height: ${state.isMaximized ? '100%' : '92vh'};
+        width: 94%;
+        max-width: 1400px;
+        height: auto;
+        max-height: 92vh;
         display: flex; flex-direction: column; overflow: hidden;
         border: 1px solid ${colors.border};
+        border-radius: 12px;
         font-family: 'Roboto', Arial, sans-serif;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      #${modalId} .myio-op-compare-content.maximized {
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+      }
+      #${modalId} .myio-op-compare-content.maximized .myio-op-compare-header {
+        border-radius: 0;
       }
       #${modalId} .myio-op-compare-header {
         background: linear-gradient(135deg, #3e1a7d, #5a2cb8);
         color: white;
         display: flex; align-items: center; justify-content: space-between;
         padding: 10px 16px;
+        border-radius: 12px 12px 0 0;
       }
       #${modalId} .myio-op-compare-header .title {
         font-size: 16px; font-weight: 600;
