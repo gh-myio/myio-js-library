@@ -563,6 +563,8 @@ export class WelcomeModalView {
     0 25px 80px rgba(0, 0, 0, 0.5),
     0 0 60px rgba(122, 47, 247, 0.15);
   overflow: hidden;
+  /* Ensure flex children can handle their own overflow */
+  min-height: 0;
 }
 
 /* Hero Container */
@@ -807,6 +809,7 @@ export class WelcomeModalView {
   padding: 10px 24px 12px 24px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
   min-height: 0;
+  /* Allow internal scroll by not clipping - children handle their own overflow */
   overflow: visible;
 }
 
@@ -898,6 +901,9 @@ export class WelcomeModalView {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.3) transparent;
   padding: 4px 0;
+  /* Ensure proper flex overflow behavior */
+  min-width: 0;
+  width: 100%;
 }
 
 .myio-welcome-cards-scroll::-webkit-scrollbar {
@@ -1031,9 +1037,14 @@ export class WelcomeModalView {
   background: var(--wm-card-bg);
   border: 1px solid var(--wm-card-border);
   border-radius: 14px !important;
-  cursor: pointer;
+  cursor: default;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, height 0.2s ease;
   overflow: hidden;
+}
+
+/* Clickable cards (with dashboardId) */
+.myio-welcome-card--clickable {
+  cursor: pointer;
 }
 
 .myio-welcome-card::before {
@@ -1045,7 +1056,8 @@ export class WelcomeModalView {
   transition: opacity 0.25s ease;
 }
 
-.myio-welcome-card:hover {
+/* Hover effects only for clickable cards */
+.myio-welcome-card--clickable:hover {
   transform: scale(1.03);
   border-color: rgba(122, 47, 247, 0.5);
   box-shadow:
@@ -1054,11 +1066,40 @@ export class WelcomeModalView {
     0 0 30px rgba(122, 47, 247, 0.15);
 }
 
-.myio-welcome-card:focus {
+.myio-welcome-card--clickable:focus {
   outline: none;
   box-shadow:
     0 0 0 3px rgba(122, 47, 247, 0.5),
     0 12px 40px rgba(0,0,0,0.4);
+}
+
+/* Click tooltip for truncated titles */
+.myio-welcome-click-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  max-width: 280px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: tooltipFadeIn 0.2s ease;
+  pointer-events: none;
+}
+
+.myio-welcome-click-tooltip.fade-out {
+  animation: tooltipFadeOut 0.3s ease forwards;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translate(-50%, -90%); }
+  to { opacity: 1; transform: translate(-50%, -100%); }
+}
+
+@keyframes tooltipFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .myio-welcome-card-bg {
@@ -1297,17 +1338,18 @@ export class WelcomeModalView {
     font-size: 10px;
   }
 
+  /* Keep horizontal scroll on smaller screens, just adjust card size */
   .myio-welcome-cards-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-columns: calc(200px * var(--wm-card-scale, 1));
     gap: 10px;
   }
 
-  .myio-welcome-card {
-    min-height: 100px;
+  .myio-welcome-cards-grid .myio-welcome-card {
+    min-height: calc(100px * var(--wm-card-scale, 1));
   }
 
   .myio-welcome-card-title {
-    font-size: calc(16px * var(--wm-font-scale)) !important;
+    font-size: calc(14px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-counts {
@@ -1384,18 +1426,19 @@ export class WelcomeModalView {
     margin-bottom: 10px;
   }
 
+  /* Keep horizontal scroll on mobile, just adjust card size */
   .myio-welcome-cards-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-columns: calc(180px * var(--wm-card-scale, 1));
     gap: 8px;
   }
 
-  .myio-welcome-card {
-    min-height: 80px;
+  .myio-welcome-cards-grid .myio-welcome-card {
+    min-height: calc(80px * var(--wm-card-scale, 1));
     padding: 10px;
   }
 
   .myio-welcome-card-title {
-    font-size: calc(14px * var(--wm-font-scale)) !important;
+    font-size: calc(13px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-counts {
@@ -2048,19 +2091,23 @@ export class WelcomeModalView {
       subtitleHTML = `<p class="myio-welcome-card-subtitle">${card.subtitle || 'Dashboard Principal'}</p>`;
     }
 
+    // Card is clickable only if it has a dashboardId (navigation target)
+    const isClickable = !!card.dashboardId;
+    const truncatedTitle = card.title.length > 27 ? card.title.slice(0, 27) + '...' : card.title;
+    const needsTooltip = card.title.length > 27;
+
     return `
-      <div class="myio-welcome-card"
-           tabindex="0"
-           role="button"
-           aria-label="Acessar ${card.title}"
+      <div class="myio-welcome-card${isClickable ? ' myio-welcome-card--clickable' : ''}"
+           ${isClickable ? 'tabindex="0" role="button"' : ''}
+           ${isClickable ? `aria-label="Acessar ${card.title}"` : ''}
            data-card-index="${index}"
-           data-dashboard-id="${card.dashboardId}"
+           data-dashboard-id="${card.dashboardId || ''}"
            data-entity-id="${card.entityId}"
            data-entity-type="${card.entityType || 'ASSET'}">
         ${bgImage}
         ${metaCountsHTML}
         <div class="myio-welcome-card-content">
-          <h3 class="myio-welcome-card-title"${card.title.length > 27 ? ` title="${card.title}"` : ''}>${card.title.length > 27 ? card.title.slice(0, 27) + '...' : card.title}</h3>
+          <h3 class="myio-welcome-card-title"${needsTooltip ? ` data-full-title="${card.title}"` : ''}>${truncatedTitle}</h3>
         </div>
         ${subtitleHTML}
       </div>
@@ -2095,30 +2142,48 @@ export class WelcomeModalView {
       });
     }
 
-    // Shopping card clicks
+    // Shopping card clicks - only for clickable cards (with dashboardId)
     const cards = this.container.querySelectorAll('.myio-welcome-card');
     cards.forEach((card, index) => {
       const shoppingCard = this.params.shoppingCards?.[index];
       if (!shoppingCard) return;
 
-      // Click handler
-      card.addEventListener('click', (e: Event) => {
-        // Don't trigger card click if clicking on device count (tooltip trigger)
-        const target = e.target as HTMLElement;
-        if (target.closest('.myio-welcome-card-device-count')) {
-          return;
-        }
-        this.emit('card-click', shoppingCard);
-      });
-
-      // Keyboard support (Enter and Space)
-      card.addEventListener('keydown', (e: Event) => {
-        const keyEvent = e as KeyboardEvent;
-        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-          e.preventDefault();
+      // Only add click handlers if card has dashboardId (is clickable)
+      if (shoppingCard.dashboardId) {
+        // Click handler
+        card.addEventListener('click', (e: Event) => {
+          // Don't trigger card click if clicking on device count (tooltip trigger)
+          const target = e.target as HTMLElement;
+          if (target.closest('.myio-welcome-card-device-count')) {
+            return;
+          }
+          // Don't trigger card click if clicking on title (tooltip trigger)
+          if (target.closest('.myio-welcome-card-title[data-full-title]')) {
+            return;
+          }
           this.emit('card-click', shoppingCard);
-        }
-      });
+        });
+
+        // Keyboard support (Enter and Space)
+        card.addEventListener('keydown', (e: Event) => {
+          const keyEvent = e as KeyboardEvent;
+          if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+            e.preventDefault();
+            this.emit('card-click', shoppingCard);
+          }
+        });
+      }
+
+      // Click-based tooltip for truncated titles
+      const titleEl = card.querySelector('.myio-welcome-card-title[data-full-title]') as HTMLElement;
+      if (titleEl) {
+        titleEl.style.cursor = 'help';
+        titleEl.addEventListener('click', (e: Event) => {
+          e.stopPropagation();
+          const fullTitle = titleEl.getAttribute('data-full-title') || '';
+          this.showClickTooltip(titleEl, fullTitle);
+        });
+      }
     });
 
     // Font size slider - directly scales card text elements and card dimensions
@@ -2869,7 +2934,7 @@ export class WelcomeModalView {
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar shopping...">
+              <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar ${this.params.entityLabel || 'shopping'}...">
               <button class="myio-welcome-search-clear" id="welcomeSearchClear" title="Limpar">&times;</button>
             </div>
           </div>
@@ -2891,7 +2956,7 @@ export class WelcomeModalView {
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar shopping...">
+              <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar ${this.params.entityLabel || 'shopping'}...">
               <button class="myio-welcome-search-clear" id="welcomeSearchClear" title="Limpar">&times;</button>
             </div>
           </div>
@@ -2950,6 +3015,47 @@ export class WelcomeModalView {
 
     // Re-bind tooltip events
     this.bindTooltipEvents();
+  }
+
+  /**
+   * Show a click-based tooltip for truncated card titles
+   */
+  private showClickTooltip(targetEl: HTMLElement, text: string): void {
+    // Remove any existing click tooltip
+    const existingTooltip = this.container.querySelector('.myio-welcome-click-tooltip');
+    if (existingTooltip) {
+      existingTooltip.remove();
+    }
+
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'myio-welcome-click-tooltip';
+    tooltip.textContent = text;
+    this.container.appendChild(tooltip);
+
+    // Position tooltip above the target element
+    const rect = targetEl.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+
+    tooltip.style.position = 'absolute';
+    tooltip.style.left = `${rect.left - containerRect.left + rect.width / 2}px`;
+    tooltip.style.top = `${rect.top - containerRect.top - 8}px`;
+    tooltip.style.transform = 'translate(-50%, -100%)';
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      tooltip.classList.add('fade-out');
+      setTimeout(() => tooltip.remove(), 300);
+    }, 3000);
+
+    // Remove on click outside
+    const removeOnClick = (e: Event) => {
+      if (!tooltip.contains(e.target as Node)) {
+        tooltip.remove();
+        document.removeEventListener('click', removeOnClick);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', removeOnClick), 100);
   }
 
   /**
