@@ -90,54 +90,6 @@ export const BAS_DASHBOARD_STYLES = `
 }
 
 /* ========================================
-   SIDEBAR - Floors
-   ======================================== */
-.${BAS_DASHBOARD_CSS_PREFIX}__sidebar {
-  width: 72px;
-  min-width: 72px;
-  background: var(--bas-bg-panel);
-  border-right: 1px solid var(--bas-border-subtle);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__sidebar-title {
-  padding: var(--bas-space-12) var(--bas-space-8);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--bas-text-muted);
-  text-align: center;
-  border-bottom: 1px solid var(--bas-border-subtle);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__floor-btn {
-  padding: var(--bas-space-12) var(--bas-space-8);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--bas-text-muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__floor-btn:hover {
-  background: var(--bas-hover-bg);
-  color: var(--bas-text-primary);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__floor-btn--active {
-  background: var(--bas-active-bg);
-  color: var(--bas-primary-light);
-  font-weight: 600;
-  border-left: 3px solid var(--bas-primary-color);
-}
-
-/* ========================================
    MAIN AREA
    ======================================== */
 .${BAS_DASHBOARD_CSS_PREFIX}__main {
@@ -146,134 +98,6 @@ export const BAS_DASHBOARD_STYLES = `
   flex-direction: column;
   overflow: hidden;
   background: var(--bas-bg-main);
-}
-
-/* ========================================
-   WATER INFRASTRUCTURE - KPI Cards
-   ======================================== */
-.${BAS_DASHBOARD_CSS_PREFIX}__water-section {
-  padding: var(--bas-space-18) var(--bas-space-24);
-  border-bottom: 1px solid var(--bas-border-subtle);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--bas-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 var(--bas-space-16) 0;
-  padding-bottom: var(--bas-space-8);
-  border-bottom: 1px solid var(--bas-border-subtle);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--bas-gap);
-}
-
-/* Water KPI Cards */
-.${BAS_DASHBOARD_CSS_PREFIX}__water-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--bas-space-18);
-  background: var(--bas-bg-card);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  min-height: 120px;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-card--offline {
-  opacity: 0.5;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-icon {
-  font-size: 28px;
-  margin-bottom: var(--bas-space-8);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-name {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--bas-text-muted-on-card);
-  text-align: center;
-  margin-bottom: var(--bas-space-8);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--bas-text-on-card);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-unit {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--bas-text-muted-on-card);
-  margin-left: 4px;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__water-value--offline {
-  color: var(--bas-text-muted-on-card);
-  font-size: 24px;
-}
-
-/* ========================================
-   CHARTS AREA
-   ======================================== */
-.${BAS_DASHBOARD_CSS_PREFIX}__charts-area {
-  flex: 1;
-  padding: var(--bas-space-18) var(--bas-space-24);
-  overflow-y: auto;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__charts-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--bas-gap);
-  height: 100%;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__chart-container {
-  background: var(--bas-bg-card);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  padding: var(--bas-space-18);
-  display: flex;
-  flex-direction: column;
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__chart-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--bas-text-on-card);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin: 0 0 var(--bas-space-16) 0;
-  padding-bottom: var(--bas-space-8);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.${BAS_DASHBOARD_CSS_PREFIX}__chart-placeholder {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--bas-text-muted-on-card);
-  font-size: 14px;
-  min-height: 160px;
 }
 
 /* ========================================
@@ -526,31 +350,6 @@ export const BAS_DASHBOARD_STYLES = `
     flex-direction: column;
   }
 
-  .${BAS_DASHBOARD_CSS_PREFIX}__sidebar {
-    width: 100%;
-    min-width: unset;
-    flex-direction: row;
-    border-right: none;
-    border-bottom: 1px solid var(--bas-border-subtle);
-    overflow-x: auto;
-  }
-
-  .${BAS_DASHBOARD_CSS_PREFIX}__sidebar-title {
-    display: none;
-  }
-
-  .${BAS_DASHBOARD_CSS_PREFIX}__floor-btn {
-    padding: var(--bas-space-8) var(--bas-space-16);
-    white-space: nowrap;
-    border-left: none;
-    border-bottom: 3px solid transparent;
-  }
-
-  .${BAS_DASHBOARD_CSS_PREFIX}__floor-btn--active {
-    border-left: none;
-    border-bottom: 3px solid var(--bas-primary-color);
-  }
-
   .${BAS_DASHBOARD_CSS_PREFIX}__right-panel {
     width: 100%;
     min-width: unset;
@@ -565,10 +364,6 @@ export const BAS_DASHBOARD_STYLES = `
 
   .${BAS_DASHBOARD_CSS_PREFIX}__panel-section:first-child {
     border-left: none;
-  }
-
-  .${BAS_DASHBOARD_CSS_PREFIX}__water-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
 }
 `;

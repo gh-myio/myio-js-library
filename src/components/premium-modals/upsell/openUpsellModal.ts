@@ -3270,13 +3270,29 @@ function setupEventListeners(
       return true;
     });
     state.selectedDevices = [...filteredDevices];
+
+    // Save scroll position before re-render
+    const listEl = document.getElementById(`${modalId}-device-list`);
+    const savedScroll = listEl ? listEl.scrollTop : 0;
     renderModal(container, state, modalId, t);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`${modalId}-device-list`);
+      if (el) el.scrollTop = savedScroll;
+    });
   });
 
   // Clear Selection button
   document.getElementById(`${modalId}-clear-selection`)?.addEventListener('click', () => {
     state.selectedDevices = [];
+
+    // Save scroll position before re-render
+    const listEl = document.getElementById(`${modalId}-device-list`);
+    const savedScroll = listEl ? listEl.scrollTop : 0;
     renderModal(container, state, modalId, t);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`${modalId}-device-list`);
+      if (el) el.scrollTop = savedScroll;
+    });
   });
 
   // Checkbox handlers for multi-select
@@ -3306,9 +3322,19 @@ function setupEventListeners(
           state.selectedDevices = state.selectedDevices.filter((d) => d.id?.id !== deviceId);
         }
 
+        // Save scroll position before re-render
+        const listEl = document.getElementById(`${modalId}-device-list`);
+        const savedScroll = listEl ? listEl.scrollTop : 0;
+
         // Re-render and re-setup
         renderModal(container, state, modalId, t);
         setupEventListeners(container, state, modalId, t, onClose);
+
+        // Restore scroll position after re-render
+        requestAnimationFrame(() => {
+          const el = document.getElementById(`${modalId}-device-list`);
+          if (el) el.scrollTop = savedScroll;
+        });
       }, 0);
     };
   });

@@ -40,6 +40,14 @@ export interface MotorDevice {
   type: MotorDeviceType;
 }
 
+export interface CardCustomStyle {
+  fontSize?: string;
+  backgroundColor?: string;
+  fontColor?: string;
+  width?: string;
+  height?: string;
+}
+
 export interface BASDashboardSettings {
   enableDebugMode?: boolean;
   defaultThemeMode?: BASDashboardThemeMode;
@@ -58,6 +66,8 @@ export interface BASDashboardSettings {
   warningColor?: string;
   errorColor?: string;
   successColor?: string;
+  cardCustomStyle?: CardCustomStyle;
+  sidebarBackgroundImage?: string;
 }
 
 export interface BASDashboardParams {
@@ -126,4 +136,6 @@ export const DEFAULT_BAS_SETTINGS: Required<BASDashboardSettings> = {
   warningColor: '#f57c00',
   errorColor: '#c62828',
   successColor: '#2e7d32',
+  cardCustomStyle: undefined,
+  sidebarBackgroundImage: undefined,
 };

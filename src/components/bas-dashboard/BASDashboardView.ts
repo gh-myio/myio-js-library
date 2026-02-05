@@ -5,33 +5,17 @@
 import type {
   BASDashboardThemeMode,
   BASDashboardSettings,
-  WaterDevice,
   HVACDevice,
   MotorDevice,
 } from './types';
 import { DEFAULT_BAS_SETTINGS } from './types';
 import { BAS_DASHBOARD_CSS_PREFIX, injectBASDashboardStyles } from './styles';
-import { renderCardComponentV5 } from '../../thingsboard/main-dashboard-shopping/v-5.2.0/card/template-card-v5.js';
-
-// Device type mappings for renderCardComponentV5
-const WATER_TYPE_MAP: Record<string, string> = {
-  hydrometer: 'HIDROMETRO',
-  cistern: 'CAIXA_DAGUA',
-  tank: 'TANK',
-  solenoid: 'BOMBA_HIDRAULICA',
-};
+import { renderCardComponentV6 } from '../../components/template-card-v6/template-card-v6.js';
 
 const MOTOR_TYPE_MAP: Record<string, string> = {
   pump: 'BOMBA_HIDRAULICA',
   motor: 'MOTOR',
   other: 'MOTOR',
-};
-
-// Status mappings
-const WATER_STATUS_MAP: Record<string, string> = {
-  online: 'online',
-  offline: 'offline',
-  unknown: 'no_info',
 };
 
 const HVAC_STATUS_MAP: Record<string, string> = {
@@ -51,25 +35,7 @@ export interface BASDashboardViewOptions {
   settings?: BASDashboardSettings;
   themeMode?: BASDashboardThemeMode;
   onFloorSelect?: (floor: string | null) => void;
-  onDeviceClick?: (device: WaterDevice | HVACDevice | MotorDevice) => void;
-}
-
-// Adapter functions to convert BAS device types to renderCardComponentV5 entityObject format
-function waterDeviceToEntityObject(device: WaterDevice): Record<string, unknown> {
-  const deviceType = WATER_TYPE_MAP[device.type] || 'HIDROMETRO';
-  const deviceStatus = WATER_STATUS_MAP[device.status] || 'no_info';
-
-  return {
-    entityId: device.id,
-    labelOrName: device.name,
-    deviceIdentifier: device.id,
-    deviceType,
-    val: device.value,
-    deviceStatus,
-    perc: 0, // Will be calculated by parent if needed
-    waterLevel: device.type === 'tank' ? device.value : undefined,
-    waterPercentage: device.type === 'tank' ? device.value / 100 : undefined,
-  };
+  onDeviceClick?: (device: HVACDevice | MotorDevice) => void;
 }
 
 function hvacDeviceToEntityObject(device: HVACDevice): Record<string, unknown> {
@@ -112,13 +78,12 @@ export class BASDashboardView {
   private root: HTMLElement;
 
   private selectedFloor: string | null = null;
-  private waterDevices: WaterDevice[] = [];
   private hvacDevices: HVACDevice[] = [];
   private motorDevices: MotorDevice[] = [];
   private floors: string[] = [];
 
   private onFloorSelect?: (floor: string | null) => void;
-  private onDeviceClick?: (device: WaterDevice | HVACDevice | MotorDevice) => void;
+  private onDeviceClick?: (device: HVACDevice | MotorDevice) => void;
 
   constructor(options: BASDashboardViewOptions) {
     this.container = options.container;
@@ -159,26 +124,17 @@ export class BASDashboardView {
         <h1 class="${BAS_DASHBOARD_CSS_PREFIX}__title">${this.escapeHtml(this.settings.dashboardTitle)}</h1>
       </div>
       <div class="${BAS_DASHBOARD_CSS_PREFIX}__content">
-        ${this.settings.showFloorsSidebar ? this.renderFloorsSidebar() : ''}
         <div class="${BAS_DASHBOARD_CSS_PREFIX}__main">
-          ${this.settings.showWaterInfrastructure ? this.renderWaterSection() : ''}
           ${this.settings.showCharts ? this.renderChartsArea() : ''}
         </div>
         ${(this.settings.showEnvironments || this.settings.showPumpsMotors) ? this.renderRightPanel() : ''}
       </div>
     `;
 
-    // Populate card grids after DOM is created
     this.populateCardGrids();
-    this.bindEvents();
   }
 
   private populateCardGrids(): void {
-    const waterGrid = this.root.querySelector('[data-water-grid]') as HTMLElement;
-    if (waterGrid) {
-      this.renderWaterCards(waterGrid);
-    }
-
     const hvacList = this.root.querySelector('[data-hvac-list]') as HTMLElement;
     if (hvacList) {
       this.renderHVACList(hvacList);
@@ -188,88 +144,6 @@ export class BASDashboardView {
     if (motorsList) {
       this.renderMotorsList(motorsList);
     }
-  }
-
-  private renderFloorsSidebar(): string {
-    return `
-      <div class="${BAS_DASHBOARD_CSS_PREFIX}__sidebar">
-        <div class="${BAS_DASHBOARD_CSS_PREFIX}__sidebar-title">${this.escapeHtml(this.settings.floorsLabel)}</div>
-        <div class="${BAS_DASHBOARD_CSS_PREFIX}__floors-list" data-floors-list>
-          ${this.renderFloorButtons()}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderFloorButtons(): string {
-    if (this.floors.length === 0) {
-      return `<div class="${BAS_DASHBOARD_CSS_PREFIX}__empty">Nenhum andar</div>`;
-    }
-
-    const allBtn = `
-      <button
-        class="${BAS_DASHBOARD_CSS_PREFIX}__floor-btn ${this.selectedFloor === null ? `${BAS_DASHBOARD_CSS_PREFIX}__floor-btn--active` : ''}"
-        data-floor="all"
-      >
-        Todos
-      </button>
-    `;
-
-    const floorBtns = this.floors.map(floor => `
-      <button
-        class="${BAS_DASHBOARD_CSS_PREFIX}__floor-btn ${this.selectedFloor === floor ? `${BAS_DASHBOARD_CSS_PREFIX}__floor-btn--active` : ''}"
-        data-floor="${this.escapeHtml(floor)}"
-      >
-        ${this.escapeHtml(floor)}º
-      </button>
-    `).join('');
-
-    return allBtn + floorBtns;
-  }
-
-  private renderWaterSection(): string {
-    return `
-      <div class="${BAS_DASHBOARD_CSS_PREFIX}__water-section">
-        <h2 class="${BAS_DASHBOARD_CSS_PREFIX}__section-title">Infraestrutura Hidrica</h2>
-        <div class="${BAS_DASHBOARD_CSS_PREFIX}__water-grid" data-water-grid></div>
-      </div>
-    `;
-  }
-
-  private renderWaterCards(container: HTMLElement): void {
-    const filtered = this.getFilteredWaterDevices();
-
-    if (filtered.length === 0) {
-      container.innerHTML = `<div class="${BAS_DASHBOARD_CSS_PREFIX}__empty">Nenhum dispositivo</div>`;
-      return;
-    }
-
-    container.innerHTML = '';
-    filtered.forEach(device => {
-      const entityObject = waterDeviceToEntityObject(device);
-      const cardResult = renderCardComponentV5({
-        entityObject,
-        handleActionDashboard: undefined,
-        handleActionReport: undefined,
-        handleActionSettings: undefined,
-        handleSelect: undefined,
-        handInfo: undefined,
-        handleClickCard: () => {
-          this.onDeviceClick?.(device);
-        },
-        enableSelection: false,
-        enableDragDrop: false,
-        useNewComponents: true,
-      });
-
-      if (cardResult && cardResult[0]) {
-        const wrapper = document.createElement('div');
-        wrapper.className = `${BAS_DASHBOARD_CSS_PREFIX}__card-wrapper`;
-        wrapper.dataset.waterDevice = device.id;
-        wrapper.appendChild(cardResult[0]);
-        container.appendChild(wrapper);
-      }
-    });
   }
 
   private renderChartsArea(): string {
@@ -320,7 +194,7 @@ export class BASDashboardView {
     container.innerHTML = '';
     filtered.forEach(device => {
       const entityObject = hvacDeviceToEntityObject(device);
-      const cardResult = renderCardComponentV5({
+      const cardResult = renderCardComponentV6({
         entityObject,
         handleActionDashboard: undefined,
         handleActionReport: undefined,
@@ -334,6 +208,7 @@ export class BASDashboardView {
         enableDragDrop: false,
         useNewComponents: true,
         showTempRangeTooltip: true,
+        customStyle: this.settings.cardCustomStyle || undefined,
       });
 
       if (cardResult && cardResult[0]) {
@@ -368,7 +243,7 @@ export class BASDashboardView {
     container.innerHTML = '';
     filtered.forEach(device => {
       const entityObject = motorDeviceToEntityObject(device);
-      const cardResult = renderCardComponentV5({
+      const cardResult = renderCardComponentV6({
         entityObject,
         handleActionDashboard: undefined,
         handleActionReport: undefined,
@@ -381,6 +256,7 @@ export class BASDashboardView {
         enableSelection: false,
         enableDragDrop: false,
         useNewComponents: true,
+        customStyle: this.settings.cardCustomStyle || undefined,
       });
 
       if (cardResult && cardResult[0]) {
@@ -393,11 +269,6 @@ export class BASDashboardView {
     });
   }
 
-  private getFilteredWaterDevices(): WaterDevice[] {
-    if (!this.selectedFloor) return this.waterDevices;
-    return this.waterDevices.filter(d => d.floor === this.selectedFloor);
-  }
-
   private getFilteredHVACDevices(): HVACDevice[] {
     if (!this.selectedFloor) return this.hvacDevices;
     return this.hvacDevices.filter(d => d.floor === this.selectedFloor);
@@ -406,19 +277,6 @@ export class BASDashboardView {
   private getFilteredMotorDevices(): MotorDevice[] {
     if (!this.selectedFloor) return this.motorDevices;
     return this.motorDevices.filter(d => d.floor === this.selectedFloor);
-  }
-
-  private bindEvents(): void {
-    // Floor selection only - device clicks are handled by renderCardComponentV5
-    this.root.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      const floorBtn = target.closest('[data-floor]') as HTMLElement;
-      if (floorBtn) {
-        const floor = floorBtn.dataset.floor;
-        this.setSelectedFloor(floor === 'all' ? null : floor || null);
-        this.onFloorSelect?.(this.selectedFloor);
-      }
-    });
   }
 
   private escapeHtml(text: string): string {
@@ -435,8 +293,6 @@ export class BASDashboardView {
 
   public setSelectedFloor(floor: string | null): void {
     this.selectedFloor = floor;
-    this.updateFloorButtons();
-    this.updateWaterGrid();
     this.updateHVACList();
     this.updateMotorsList();
   }
@@ -459,11 +315,6 @@ export class BASDashboardView {
     this.updateFloorButtons();
   }
 
-  public updateWaterDevices(devices: WaterDevice[]): void {
-    this.waterDevices = devices;
-    this.updateWaterGrid();
-  }
-
   public updateHVACDevices(devices: HVACDevice[]): void {
     this.hvacDevices = devices;
     this.updateHVACList();
@@ -475,17 +326,7 @@ export class BASDashboardView {
   }
 
   private updateFloorButtons(): void {
-    const container = this.root.querySelector('[data-floors-list]');
-    if (container) {
-      container.innerHTML = this.renderFloorButtons();
-    }
-  }
-
-  private updateWaterGrid(): void {
-    const container = this.root.querySelector('[data-water-grid]') as HTMLElement;
-    if (container) {
-      this.renderWaterCards(container);
-    }
+    // Floor list is managed externally by the controller via EntityListPanel
   }
 
   private updateHVACList(): void {

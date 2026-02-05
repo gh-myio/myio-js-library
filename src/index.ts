@@ -248,6 +248,18 @@ export {
   renderCardComponent as renderCardComponentV5,
   renderCardComponentV5 as renderCardV5,
 } from './thingsboard/main-dashboard-shopping/v-5.2.0/card/template-card-v5.js';
+export {
+  renderCardComponentV6,
+  renderCardComponent as renderCardComponentV6Alias,
+} from './components/template-card-v6/template-card-v6.js';
+
+// EntityListPanel — Reusable sidebar list component
+export { EntityListPanel } from './components/entity-list-panel/index';
+export type { EntityListItem, EntityListPanelOptions } from './components/entity-list-panel/index';
+
+// CardGridPanel — Reusable card grid panel component
+export { CardGridPanel } from './components/card-grid-panel/index';
+export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions } from './components/card-grid-panel/index';
 
 // MYIO Components - Drag-to-Footer Dock Implementation
 export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';

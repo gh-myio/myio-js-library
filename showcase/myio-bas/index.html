@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RFC-0158: MAIN_BAS Dashboard Simulation</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- MAIN_BAS widget styles (layout skeleton) -->
+  <link rel="stylesheet" href="../../src/thingsboard/bas-components/MAIN_BAS/styles.css">
   <style>
     * {
       margin: 0;
@@ -365,7 +367,18 @@
     <!-- Widget Mount Area -->
     <main class="widget-area">
       <div class="widget-mount" id="widgetMount">
-        <div id="bas-dashboard-root"></div>
+        <!-- Matches MAIN_BAS/template.html layout -->
+        <div id="bas-dashboard-root" class="bas-dashboard-container">
+          <div class="bas-header" id="bas-header"></div>
+          <div class="bas-content-layout">
+            <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
+            <div class="bas-main-slot">
+              <div class="bas-water-slot" id="bas-water-host"></div>
+              <div class="bas-charts-slot" id="bas-charts-host"></div>
+              <div class="bas-dashboard-slot" id="bas-main-content"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -494,8 +507,26 @@
     </aside>
   </div>
 
+  <!-- Chart.js (required for Consumption7DaysChart) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
   <!-- Load MyIO Library -->
   <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <!-- Load MAIN_BAS controller.js dynamically with cache busting -->
+  <script>
+    (function loadController() {
+      const scriptEl = document.createElement('script');
+      scriptEl.src = '../../src/thingsboard/bas-components/MAIN_BAS/controller.js?v=' + Date.now();
+      scriptEl.onload = function() {
+        console.log('[Showcase] MAIN_BAS controller.js loaded dynamically');
+      };
+      scriptEl.onerror = function() {
+        console.error('[Showcase] Failed to load MAIN_BAS controller.js');
+      };
+      document.body.appendChild(scriptEl);
+    })();
+  </script>
 
   <script>
     // =========================================================================
@@ -667,6 +698,128 @@
     // =========================================================================
 
     let basInstance = null;
+    let floorListPanel = null;
+    let waterPanel = null;
+    let chartInstance = null;
+    let currentChartDomain = 'energy';
+
+    const CHART_DOMAIN_CONFIG = {
+      energy: { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia' },
+      water: { unit: 'L', unitLarge: 'm\u00B3', threshold: 1000, label: '\u00C1gua' },
+      temperature: { unit: '\u00B0C', unitLarge: '\u00B0C', threshold: 999, label: 'Temperatura' },
+    };
+
+    function createMockFetchData(domain) {
+      return function fetchData(period) {
+        const labels = [];
+        const values = [];
+        const now = new Date();
+        for (let i = period - 1; i >= 0; i--) {
+          const d = new Date(now);
+          d.setDate(d.getDate() - i);
+          labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+          if (domain === 'energy') values.push(Math.random() * 800 + 200);
+          else if (domain === 'water') values.push(Math.random() * 50 + 10);
+          else values.push(Math.random() * 8 + 18);
+        }
+        return Promise.resolve({
+          labels,
+          datasets: [{ label: CHART_DOMAIN_CONFIG[domain].label, data: values }],
+        });
+      };
+    }
+
+    function switchShowcaseChartDomain(domain, chartCard) {
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
+      currentChartDomain = domain;
+      chartCard.innerHTML = '';
+      const canvas = document.createElement('canvas');
+      canvas.id = 'bas-chart-canvas';
+      chartCard.appendChild(canvas);
+
+      const cfg = CHART_DOMAIN_CONFIG[domain];
+      if (!cfg || !MyIOLibrary.createConsumption7DaysChart) return;
+
+      const settings = getSettings();
+      chartInstance = MyIOLibrary.createConsumption7DaysChart({
+        domain,
+        containerId: 'bas-chart-canvas',
+        unit: cfg.unit,
+        unitLarge: cfg.unitLarge,
+        thresholdForLargeUnit: cfg.threshold,
+        fetchData: createMockFetchData(domain),
+        defaultPeriod: 7,
+        defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+        theme: settings.defaultThemeMode,
+        showLegend: true,
+        fill: domain === 'temperature',
+      });
+      chartInstance.render();
+      log('info', 'Chart', `Switched to ${cfg.label} (${domain})`);
+    }
+
+    function mountShowcaseChartPanel(hostEl) {
+      if (!hostEl) return;
+      hostEl.innerHTML = '';
+
+      const domains = ['energy', 'water', 'temperature'];
+      const tabBar = document.createElement('div');
+      tabBar.className = 'bas-chart-tabs';
+
+      const chartCard = document.createElement('div');
+      chartCard.className = 'bas-chart-card';
+
+      domains.forEach(domain => {
+        const btn = document.createElement('button');
+        btn.className = 'bas-chart-tab' + (domain === currentChartDomain ? ' bas-chart-tab--active' : '');
+        btn.textContent = CHART_DOMAIN_CONFIG[domain].label;
+        btn.dataset.domain = domain;
+        btn.addEventListener('click', () => {
+          tabBar.querySelectorAll('.bas-chart-tab').forEach(t => t.classList.remove('bas-chart-tab--active'));
+          btn.classList.add('bas-chart-tab--active');
+          switchShowcaseChartDomain(domain, chartCard);
+        });
+        tabBar.appendChild(btn);
+      });
+
+      hostEl.appendChild(tabBar);
+      hostEl.appendChild(chartCard);
+      switchShowcaseChartDomain(currentChartDomain, chartCard);
+    }
+
+    // Water device conversion maps
+    const WATER_TYPE_MAP = { hydrometer: 'HIDROMETRO', cistern: 'CAIXA_DAGUA', tank: 'TANK', solenoid: 'BOMBA_HIDRAULICA' };
+    const WATER_STATUS_MAP = { online: 'online', offline: 'offline', unknown: 'no_info' };
+
+    function waterDeviceToEntityObject(device) {
+      return {
+        entityId: device.id,
+        labelOrName: device.name,
+        deviceIdentifier: device.id,
+        deviceType: WATER_TYPE_MAP[device.type] || 'HIDROMETRO',
+        val: device.value,
+        deviceStatus: WATER_STATUS_MAP[device.status] || 'no_info',
+        perc: 0,
+        waterLevel: device.type === 'tank' ? device.value : undefined,
+        waterPercentage: device.type === 'tank' ? device.value / 100 : undefined,
+      };
+    }
+
+    function buildWaterCardItems(waterDevices, selectedFloor) {
+      let filtered = waterDevices;
+      if (selectedFloor) {
+        filtered = waterDevices.filter(d => d.floor === selectedFloor);
+      }
+      return filtered.map(device => ({
+        id: device.id,
+        entityObject: waterDeviceToEntityObject(device),
+        source: device,
+      }));
+    }
+
     let currentState = {
       isInitialized: false,
       selectedFloor: null,
@@ -701,7 +854,9 @@
     function triggerOnInit() {
       log('info', 'onInit', 'Initializing BAS Dashboard...');
 
-      const container = document.getElementById('bas-dashboard-root');
+      const sidebarHost = document.getElementById('bas-sidebar-host');
+      const waterHost = document.getElementById('bas-water-host');
+      const mainContent = document.getElementById('bas-main-content');
       const mockData = generateMockData();
       const settings = getSettings();
 
@@ -709,15 +864,87 @@
       currentState.themeMode = settings.defaultThemeMode;
 
       try {
-        basInstance = MyIOLibrary.createBASDashboard(container, {
-          settings,
+        // Mount EntityListPanel into #bas-sidebar-host
+        if (settings.showFloorsSidebar && sidebarHost && MyIOLibrary.EntityListPanel) {
+          sidebarHost.innerHTML = '';
+          sidebarHost.style.display = '';
+
+          const floorItems = mockData.floors.map(f => ({ id: f, label: f + '\u00B0 andar' }));
+
+          floorListPanel = new MyIOLibrary.EntityListPanel({
+            title: settings.floorsLabel,
+            subtitle: 'Nome do andar \u2191',
+            items: floorItems,
+            searchPlaceholder: 'Buscar andar...',
+            selectedId: null,
+            showAllOption: true,
+            allLabel: 'Todos',
+            handleClickAll: () => {
+              currentState.selectedFloor = null;
+              if (basInstance && basInstance.setSelectedFloor) basInstance.setSelectedFloor(null);
+              if (waterPanel) waterPanel.setItems(buildWaterCardItems(currentState.data.waterDevices, null));
+              if (floorListPanel) floorListPanel.setSelectedId(null);
+              log('event', 'bas:floor-changed', 'Floor: All');
+              updateStateDisplay();
+            },
+            handleClickItem: (item) => {
+              currentState.selectedFloor = item.id;
+              if (basInstance && basInstance.setSelectedFloor) basInstance.setSelectedFloor(item.id);
+              if (waterPanel) waterPanel.setItems(buildWaterCardItems(currentState.data.waterDevices, item.id));
+              if (floorListPanel) floorListPanel.setSelectedId(item.id);
+              log('event', 'bas:floor-changed', `Floor: ${item.id}`);
+              updateStateDisplay();
+            },
+          });
+
+          sidebarHost.appendChild(floorListPanel.getElement());
+          log('info', 'Sidebar', `EntityListPanel mounted with ${mockData.floors.length} floors`);
+        } else if (sidebarHost) {
+          sidebarHost.style.display = 'none';
+        }
+
+        // Mount CardGridPanel (water) into #bas-water-host
+        if (settings.showWaterInfrastructure && waterHost && MyIOLibrary.CardGridPanel) {
+          waterHost.innerHTML = '';
+          waterHost.style.display = '';
+
+          waterPanel = new MyIOLibrary.CardGridPanel({
+            title: 'Infraestrutura Hidrica',
+            items: buildWaterCardItems(mockData.waterDevices, null),
+            cardCustomStyle: settings.cardCustomStyle || undefined,
+            gridMinCardWidth: '140px',
+            emptyMessage: 'Nenhum dispositivo',
+            handleClickCard: (item) => {
+              log('event', 'bas:device-clicked', `Water device: ${item.source?.name} (${item.id})`);
+            },
+          });
+
+          waterHost.appendChild(waterPanel.getElement());
+          log('info', 'Water Panel', `CardGridPanel mounted with ${mockData.waterDevices.length} devices`);
+        } else if (waterHost) {
+          waterHost.style.display = 'none';
+        }
+
+        // Mount chart panel into #bas-charts-host
+        const chartsHost = document.getElementById('bas-charts-host');
+        if (settings.showCharts && chartsHost) {
+          mountShowcaseChartPanel(chartsHost);
+          log('info', 'Charts', `Chart panel mounted (domain: ${currentChartDomain})`);
+        } else if (chartsHost) {
+          chartsHost.style.display = 'none';
+        }
+
+        // Mount BASDashboardView into #bas-main-content (without sidebar/water/charts)
+        mainContent.innerHTML = '';
+        basInstance = MyIOLibrary.createBASDashboard(mainContent, {
+          settings: { ...settings, showFloorsSidebar: false, showWaterInfrastructure: false, showCharts: false },
           themeMode: settings.defaultThemeMode,
-          waterDevices: mockData.waterDevices,
           hvacDevices: mockData.hvacDevices,
           motorDevices: mockData.motorDevices,
           floors: mockData.floors,
           onFloorSelect: (floor) => {
             currentState.selectedFloor = floor;
+            if (floorListPanel) floorListPanel.setSelectedId(floor);
             log('event', 'bas:floor-changed', `Floor: ${floor || 'All'}`);
             updateStateDisplay();
           },
@@ -751,8 +978,18 @@
       const mockData = generateMockData();
       currentState.data = mockData;
 
+      // Update floor list panel
+      if (floorListPanel) {
+        const floorItems = mockData.floors.map(f => ({ id: f, label: f + '\u00B0 andar' }));
+        floorListPanel.setItems(floorItems);
+      }
+
+      // Update water panel
+      if (waterPanel) {
+        waterPanel.setItems(buildWaterCardItems(mockData.waterDevices, currentState.selectedFloor));
+      }
+
       basInstance.updateData({
-        waterDevices: mockData.waterDevices,
         hvacDevices: mockData.hvacDevices,
         motorDevices: mockData.motorDevices,
         floors: mockData.floors
@@ -768,11 +1005,41 @@
         return;
       }
 
+      // Destroy chart
+      if (chartInstance && chartInstance.destroy) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
+      currentChartDomain = 'energy';
+      const chartsHostEl = document.getElementById('bas-charts-host');
+      if (chartsHostEl) chartsHostEl.innerHTML = '';
+
+      // Destroy sidebar panel
+      if (floorListPanel && floorListPanel.destroy) {
+        floorListPanel.destroy();
+        floorListPanel = null;
+      }
+      const sidebarHost = document.getElementById('bas-sidebar-host');
+      if (sidebarHost) sidebarHost.innerHTML = '';
+
+      // Destroy water panel
+      if (waterPanel && waterPanel.destroy) {
+        waterPanel.destroy();
+        waterPanel = null;
+      }
+      const waterHost = document.getElementById('bas-water-host');
+      if (waterHost) waterHost.innerHTML = '';
+
+      // Destroy main dashboard
       basInstance.destroy();
       basInstance = null;
       currentState.isInitialized = false;
       currentState.selectedFloor = null;
       currentState.data = null;
+
+      // Clear main content slot
+      const mainContent = document.getElementById('bas-main-content');
+      if (mainContent) mainContent.innerHTML = '';
 
       updateWidgetStatus('stopped');
       log('info', 'onDestroy', 'Dashboard destroyed');

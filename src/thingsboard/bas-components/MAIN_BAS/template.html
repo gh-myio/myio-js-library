@@ -1,1 +1,20 @@
-<div id="bas-dashboard-root" class="bas-dashboard-container"></div>
+<div id="bas-dashboard-root" class="bas-dashboard-container">
+  <!-- Header -->
+  <div class="bas-header" id="bas-header"></div>
+
+  <!-- Content: sidebar + main -->
+  <div class="bas-content-layout">
+    <!-- Sidebar: EntityListPanel mounts here -->
+    <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
+
+    <!-- Main area: water panel + dashboard -->
+    <div class="bas-main-slot">
+      <!-- Water Infrastructure: CardGridPanel mounts here -->
+      <div class="bas-water-slot" id="bas-water-host"></div>
+      <!-- Charts: Tab bar + Consumption7DaysChart mounts here -->
+      <div class="bas-charts-slot" id="bas-charts-host"></div>
+      <!-- Remaining dashboard: BASDashboardView mounts here -->
+      <div class="bas-dashboard-slot" id="bas-main-content"></div>
+    </div>
+  </div>
+</div>

@@ -1,42 +1,46 @@
 @echo off
-REM RFC-0158: MAIN_BAS Showcase Server
-REM Starts a local HTTP server to serve the BAS dashboard showcase
+REM RFC-0158: MAIN_BAS Showcase HTTP Server
+REM Kills any existing process on port 8080 and starts a new server
+
+set PORT=8080
 
 echo ============================================
-echo  RFC-0158: MAIN_BAS Dashboard Showcase
+echo  MAIN_BAS Dashboard Showcase Server
+echo  RFC-0158: BAS Dashboard Simulation
 echo ============================================
 echo.
 
-REM Check if Python is available
-python --version >nul 2>&1
-if %errorlevel% equ 0 (
-    echo Starting Python HTTP server on port 8080...
-    echo.
-    echo Open in browser: http://localhost:8080/showcase/myio-bas/
-    echo.
-    echo Press Ctrl+C to stop the server
-    echo.
-    cd /d "%~dp0..\.."
-    python -m http.server 8080
-    goto :eof
+echo Stopping any existing server on port %PORT%...
+
+REM Kill process on port using PowerShell
+powershell -Command "Get-NetTCPConnection -LocalPort %PORT% -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" 2>nul
+
+REM Alternative: using netstat + taskkill
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT% "') do (
+    taskkill /PID %%a /F 2>nul
 )
 
-REM Check if Node.js is available
-node --version >nul 2>&1
-if %errorlevel% equ 0 (
-    echo Starting Node.js HTTP server on port 8080...
-    echo.
-    echo Open in browser: http://localhost:8080/showcase/myio-bas/
-    echo.
-    echo Press Ctrl+C to stop the server
-    echo.
-    cd /d "%~dp0..\.."
-    npx http-server -p 8080 -c-1
-    goto :eof
-)
+echo Starting HTTP server on port %PORT%...
 
-echo ERROR: Neither Python nor Node.js found.
-echo Please install Python or Node.js to run the local server.
+REM Navigate to project root (two levels up from showcase\myio-bas)
+cd /d "%~dp0..\.."
+
+REM Start server in background
+start "" npx serve . -p %PORT%
+
+timeout /t 2 /nobreak >nul
+
 echo.
-echo Alternatively, you can use any HTTP server pointing to the project root.
-pause
+echo ============================================
+echo  Server running at: http://localhost:%PORT%
+echo ============================================
+echo.
+echo  Showcase URL:
+echo  http://localhost:%PORT%/showcase/myio-bas/
+echo.
+echo  Prerequisites:
+echo  - Run 'npm run build' to generate UMD bundle
+echo.
+echo ============================================
+
+start "" "http://localhost:%PORT%/showcase/myio-bas/"

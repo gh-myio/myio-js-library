@@ -4,10 +4,8 @@
 
 import type {
   BASDashboardParams,
-  BASDashboardInstance,
   BASDashboardData,
   BASDashboardThemeMode,
-  WaterDevice,
   HVACDevice,
   MotorDevice,
 } from './types';
@@ -16,7 +14,7 @@ import { BASDashboardView } from './BASDashboardView';
 export class BASDashboardController {
   private view: BASDashboardView;
   private onFloorSelect?: (floor: string | null) => void;
-  private onDeviceClick?: (device: WaterDevice | HVACDevice | MotorDevice) => void;
+  private onDeviceClick?: (device: HVACDevice | MotorDevice) => void;
 
   constructor(container: HTMLElement, params: BASDashboardParams) {
     this.onFloorSelect = params.onFloorSelect;
@@ -38,9 +36,6 @@ export class BASDashboardController {
     if (params.floors) {
       this.view.updateFloors(params.floors);
     }
-    if (params.waterDevices) {
-      this.view.updateWaterDevices(params.waterDevices);
-    }
     if (params.hvacDevices) {
       this.view.updateHVACDevices(params.hvacDevices);
     }
@@ -56,9 +51,6 @@ export class BASDashboardController {
   public updateData(data: Partial<BASDashboardData>): void {
     if (data.floors) {
       this.view.updateFloors(data.floors);
-    }
-    if (data.waterDevices) {
-      this.view.updateWaterDevices(data.waterDevices);
     }
     if (data.hvacDevices) {
       this.view.updateHVACDevices(data.hvacDevices);
