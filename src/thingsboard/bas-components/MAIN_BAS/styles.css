@@ -1,5 +1,14 @@
 /* MAIN_BAS Widget Styles */
 /* Layout skeleton for template.html — component styles managed by MyIOLibrary */
+/*
+ * Grid layout (target.design.txt):
+ *
+ *   col:  20%          40%            20%           20%
+ *  row 1  EntityList  | Water cards  | Ambientes   | Bombas e Motores
+ *         50%h        | 50%h         | 100%h       | 100%h
+ *  row 2  Chart (spans col 1–2)     | (continues) | (continues)
+ *         50%h  60%w                 |             |
+ */
 
 /* ========================================
    ROOT CONTAINER
@@ -22,27 +31,32 @@
 }
 
 /* ========================================
-   CONTENT LAYOUT (sidebar + main)
+   CONTENT LAYOUT — CSS Grid 4 cols × 2 rows
    ======================================== */
 .bas-content-layout {
-  display: flex;
   flex: 1;
+  display: grid;
+  grid-template-columns: 20% 40% 20% 20%;
+  grid-template-rows: 50% 50%;
   overflow: hidden;
   min-height: 0;
 }
 
 /* ========================================
    SIDEBAR SLOT — EntityListPanel host
+   col 1, row 1  (20% × 50%)
    ======================================== */
 .bas-sidebar-slot {
-  width: 220px;
-  min-width: 220px;
-  flex-shrink: 0;
+  grid-column: 1;
+  grid-row: 1;
   overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: 0;
   box-sizing: border-box;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Make the EntityListPanel fill the slot */
@@ -52,50 +66,51 @@
 }
 
 /* ========================================
-   MAIN SLOT — Water panel + Dashboard host
-   ======================================== */
-.bas-main-slot {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/* ========================================
    WATER SLOT — CardGridPanel host
+   col 2, row 1  (40% × 50%)
    ======================================== */
 .bas-water-slot {
-  flex-shrink: 0;
-  padding: 12px 18px;
+  grid-column: 2;
+  grid-row: 1;
+  padding: 12px;
   box-sizing: border-box;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Make CardGridPanel fill the water slot */
 .bas-water-slot > .myio-cgp {
-  max-height: 260px;
+  height: 100%;
 }
 
 /* ========================================
-   CHARTS SLOT — Tab bar + chart host
+   CHARTS SLOT — Tab bar + chart
+   col 1–2, row 2  (60% × 50%)
    ======================================== */
 .bas-charts-slot {
-  flex-shrink: 0;
-  padding: 0 18px 12px;
+  grid-column: 1 / 3;
+  grid-row: 2;
+  padding: 8px 12px 12px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Tab bar */
 .bas-chart-tabs {
   display: flex;
   gap: 0;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .bas-chart-tab {
-  padding: 8px 20px;
-  font-size: 13px;
+  padding: 7px 16px;
+  font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.50);
   cursor: pointer;
@@ -130,30 +145,62 @@
 /* Chart card container */
 .bas-chart-card {
   background: #FFFFFF;
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  padding: 18px;
-  min-height: 280px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  padding: 14px;
+  flex: 1;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 .bas-chart-card canvas {
   width: 100% !important;
-  max-height: 260px;
+  height: 100% !important;
 }
 
 /* ========================================
-   DASHBOARD SLOT — BASDashboardView host
+   AMBIENTES SLOT — CardGridPanel host (HVAC)
+   col 3, row 1–2  (20% × 100%)
    ======================================== */
-.bas-dashboard-slot {
-  flex: 1;
+.bas-ambientes-slot {
+  grid-column: 3;
+  grid-row: 1 / 3;
   overflow: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-sizing: border-box;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Make CardGridPanel fill the ambientes slot */
+.bas-ambientes-slot > .myio-cgp {
+  flex: 1;
   min-height: 0;
 }
 
-/* Make BASDashboardView fill the slot */
-.bas-dashboard-slot > .bas-dashboard {
-  height: 100%;
+/* ========================================
+   MOTORS SLOT — CardGridPanel host (Bombas e Motores)
+   col 4, row 1–2  (20% × 100%)
+   ======================================== */
+.bas-motors-slot {
+  grid-column: 4;
+  grid-row: 1 / 3;
+  overflow: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Make DeviceGridV6 (or CardGridPanel fallback) fill the motors slot */
+.bas-motors-slot > .myio-dgv6,
+.bas-motors-slot > .myio-cgp {
+  flex: 1;
+  min-height: 0;
 }
 
 /* ========================================
@@ -213,13 +260,40 @@
    ======================================== */
 @media (max-width: 900px) {
   .bas-content-layout {
-    flex-direction: column;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
   }
 
   .bas-sidebar-slot {
-    width: 100%;
-    min-width: unset;
-    max-height: 280px;
-    padding: 8px;
+    grid-column: 1;
+    grid-row: 1;
+    max-height: 220px;
+  }
+
+  .bas-water-slot {
+    grid-column: 2;
+    grid-row: 1;
+    max-height: 220px;
+    border-right: none;
+  }
+
+  .bas-charts-slot {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    max-height: 300px;
+    border-right: none;
+  }
+
+  .bas-ambientes-slot {
+    grid-column: 1;
+    grid-row: 3;
+    min-height: 280px;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .bas-motors-slot {
+    grid-column: 2;
+    grid-row: 3;
+    min-height: 280px;
   }
 }

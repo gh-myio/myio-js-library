@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Action Button - Showcase</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #2F5848;
+      --bg-dark: #0B1220;
+      --card-dark: #1a2332;
+      --text-dark: #e0e0e0;
+      --border: rgba(255,255,255,0.08);
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .showcase-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .showcase-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .showcase-header p {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      padding: 16px;
+      background: var(--card-dark);
+      border-radius: 12px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #aaa;
+    }
+
+    .control-group select,
+    .control-group input[type="text"] {
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #1a2332;
+      color: #e0e0e0;
+      font-size: 12px;
+      width: 120px;
+    }
+
+    .control-group input[type="color"] {
+      width: 32px;
+      height: 28px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: none;
+      cursor: pointer;
+    }
+
+    .control-group input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
+    .ctrl-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .ctrl-btn.primary { background: var(--primary); color: white; }
+    .ctrl-btn.primary:hover { filter: brightness(1.15); }
+
+    /* Demo sections */
+    .section {
+      max-width: 900px;
+      margin: 0 auto 32px;
+    }
+
+    .section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .demo-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .demo-row .demo-label {
+      font-size: 12px;
+      color: #666;
+      width: 80px;
+      flex-shrink: 0;
+    }
+
+    .demo-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* Interactive playground */
+    .playground {
+      background: var(--card-dark);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .playground-preview {
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .event-log {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-dark);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .event-log h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #aaa;
+    }
+
+    .event-log-content {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      color: #8bc34a;
+      max-height: 160px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="showcase-header">
+    <h1>Action Button Component</h1>
+    <p>RFC-0158 &mdash; Migrated from action-button widget</p>
+  </div>
+
+  <!-- Static examples -->
+  <div class="section">
+    <h2>Variants</h2>
+    <div class="demo-row">
+      <span class="demo-label">Filled</span>
+      <div class="demo-buttons" id="demo-filled"></div>
+    </div>
+    <div class="demo-row">
+      <span class="demo-label">Outlined</span>
+      <div class="demo-buttons" id="demo-outlined"></div>
+    </div>
+    <div class="demo-row">
+      <span class="demo-label">Text</span>
+      <div class="demo-buttons" id="demo-text"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Sizes</h2>
+    <div class="demo-row">
+      <div class="demo-buttons" id="demo-sizes"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>States</h2>
+    <div class="demo-row">
+      <div class="demo-buttons" id="demo-states"></div>
+    </div>
+  </div>
+
+  <!-- Interactive playground -->
+  <div class="section">
+    <h2>Playground Interativo</h2>
+    <div class="controls-bar" style="margin-bottom: 0; border-radius: 12px 12px 0 0;">
+      <div class="control-group">
+        <label>Label:</label>
+        <input type="text" id="inputLabel" value="Abrir Relatorio" />
+      </div>
+      <div class="control-group">
+        <label>Icon:</label>
+        <input type="text" id="inputIcon" value="" style="width: 50px;" />
+      </div>
+      <div class="control-group">
+        <label>Variant:</label>
+        <select id="selectVariant">
+          <option value="filled">Filled</option>
+          <option value="outlined">Outlined</option>
+          <option value="text">Text</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Size:</label>
+        <select id="selectSize">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Color:</label>
+        <input type="color" id="inputColor" value="#2F5848" />
+      </div>
+      <div class="control-group">
+        <label>Theme:</label>
+        <select id="selectTheme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Full width:</label>
+        <input type="checkbox" id="checkFullWidth" />
+      </div>
+      <div class="control-group">
+        <label>Disabled:</label>
+        <input type="checkbox" id="checkDisabled" />
+      </div>
+      <button class="ctrl-btn primary" onclick="rebuildPlayground()">Aplicar</button>
+    </div>
+    <div class="playground" style="border-radius: 0 0 12px 12px;">
+      <div class="playground-preview" id="playground-host"></div>
+    </div>
+  </div>
+
+  <div class="event-log">
+    <h3>Event Log</h3>
+    <div class="event-log-content" id="eventLog">Aguardando eventos...</div>
+  </div>
+
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    const allInstances = [];
+    let playgroundInstance = null;
+
+    function logEvent(msg) {
+      const ts = new Date().toLocaleTimeString('pt-BR');
+      const el = document.getElementById('eventLog');
+      el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    }
+
+    function createDemo(containerId, configs) {
+      const container = document.getElementById(containerId);
+      configs.forEach(cfg => {
+        const inst = MyIOLibrary.createActionButton(container, {
+          settings: { themeMode: 'dark', ...cfg },
+          onClick: () => logEvent(`Click: "${cfg.label}" (${cfg.variant || 'filled'}, ${cfg.size || 'medium'})`),
+        });
+        allInstances.push(inst);
+      });
+    }
+
+    // Variants demo
+    const colors = [
+      { label: 'Default', color: '#2F5848' },
+      { label: 'Azul', color: '#1976d2' },
+      { label: 'Vermelho', color: '#c62828' },
+      { label: 'Com Icone', color: '#6a1b9a', icon: '\u2B50' },
+    ];
+
+    createDemo('demo-filled', colors.map(c => ({ ...c, variant: 'filled' })));
+    createDemo('demo-outlined', colors.map(c => ({ ...c, variant: 'outlined' })));
+    createDemo('demo-text', colors.map(c => ({ ...c, variant: 'text' })));
+
+    // Sizes demo
+    createDemo('demo-sizes', [
+      { label: 'Small', size: 'small', color: '#2F5848', variant: 'filled' },
+      { label: 'Medium', size: 'medium', color: '#2F5848', variant: 'filled' },
+      { label: 'Large', size: 'large', color: '#2F5848', variant: 'filled' },
+    ]);
+
+    // States demo
+    createDemo('demo-states', [
+      { label: 'Normal', color: '#2F5848', variant: 'filled' },
+      { label: 'Disabled', color: '#2F5848', variant: 'filled', disabled: true },
+      { label: 'Com Tooltip', color: '#1976d2', variant: 'outlined', tooltip: 'Tooltip de exemplo' },
+    ]);
+
+    // Playground
+    function rebuildPlayground() {
+      if (playgroundInstance) {
+        playgroundInstance.destroy();
+        playgroundInstance = null;
+      }
+      const host = document.getElementById('playground-host');
+      host.innerHTML = '';
+
+      const settings = {
+        label: document.getElementById('inputLabel').value,
+        icon: document.getElementById('inputIcon').value,
+        variant: document.getElementById('selectVariant').value,
+        size: document.getElementById('selectSize').value,
+        color: document.getElementById('inputColor').value,
+        themeMode: document.getElementById('selectTheme').value,
+        fullWidth: document.getElementById('checkFullWidth').checked,
+        disabled: document.getElementById('checkDisabled').checked,
+      };
+
+      playgroundInstance = MyIOLibrary.createActionButton(host, {
+        settings,
+        onClick: () => logEvent(`Playground click: "${settings.label}"`),
+      });
+
+      logEvent(`Playground recriado: variant=${settings.variant}, size=${settings.size}`);
+    }
+
+    rebuildPlayground();
+    logEvent('Showcase inicializado');
+  </script>
+</body>
+</html>

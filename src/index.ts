@@ -1274,3 +1274,174 @@ export {
   injectFancoilRemoteStyles,
   getImageByConsumption,
 } from './components/fancoil-remote';
+
+// RFC-0158: Solenoid Control Component
+export { createSolenoidControl, SolenoidControlController, SolenoidControlView } from './components/solenoid-control';
+
+export type {
+  SolenoidStatus,
+  SolenoidThemeMode,
+  SolenoidControlSettings,
+  SolenoidState,
+  SolenoidControlParams,
+  SolenoidControlInstance,
+} from './components/solenoid-control';
+
+export {
+  SOLENOID_IMAGES,
+  DEFAULT_SOLENOID_SETTINGS,
+  DEFAULT_SOLENOID_STATE,
+  SOLENOID_CONTROL_CSS_PREFIX,
+  injectSolenoidControlStyles,
+} from './components/solenoid-control';
+
+// RFC-0158: Action Button Component
+export { createActionButton, ActionButtonController, ActionButtonView } from './components/action-button';
+
+export type {
+  ActionButtonThemeMode,
+  ActionButtonVariant,
+  ActionButtonSize,
+  ActionButtonSettings,
+  ActionButtonParams,
+  ActionButtonInstance,
+} from './components/action-button';
+
+export {
+  DEFAULT_ACTION_BUTTON_SETTINGS,
+  ACTION_BUTTON_CSS_PREFIX,
+  injectActionButtonStyles,
+} from './components/action-button';
+
+// Scheduling Shared Module
+export {
+  DEFAULT_DAYS_WEEK,
+  DAY_LABELS,
+  DAY_LABELS_FULL,
+  SCHED_CSS_PREFIX,
+  injectSchedulingSharedStyles,
+  removeSchedulingSharedStyles,
+  // View helpers
+  escapeHtml as schedEscapeHtml,
+  createDaysGrid,
+  createTimeInput as schedCreateTimeInput,
+  createNumberInput as schedCreateNumberInput,
+  createDateInput as schedCreateDateInput,
+  createScheduleCard,
+  createGroupScheduleCard,
+  showConfirmModal as schedShowConfirmModal,
+  showNotificationModal as schedShowNotificationModal,
+  createErrorSpan,
+  createToggleSwitch,
+  createButtonBar,
+  createSelect as schedCreateSelect,
+  // Validation
+  timeToMinutes,
+  isValidTimeFormat,
+  isEndAfterStart,
+  doSchedulesOverlap,
+  hasSelectedDays,
+  isInRange,
+} from './components/scheduling-shared';
+
+export type {
+  SchedulingThemeMode,
+  DaysWeek,
+  ScheduleEntryBase,
+  SchedulingBaseSettings,
+  NotifyFn as SchedulingNotifyFn,
+  ConfirmFn as SchedulingConfirmFn,
+} from './components/scheduling-shared';
+
+// Schedule On/Off Component
+export { createScheduleOnOff, ScheduleOnOffController, ScheduleOnOffView } from './components/schedule-on-off';
+
+export type {
+  OnOffScheduleEntry,
+  OnOffGroupScheduleEntry,
+  ScheduleOnOffSettings,
+  ScheduleOnOffState,
+  ScheduleOnOffParams,
+  ScheduleOnOffInstance,
+} from './components/schedule-on-off';
+
+export {
+  DEFAULT_ON_OFF_SCHEDULE,
+  DEFAULT_ON_OFF_STATE,
+  DEFAULT_ON_OFF_SETTINGS,
+  SCHEDULE_ON_OFF_CSS_PREFIX,
+  injectScheduleOnOffStyles,
+} from './components/schedule-on-off';
+
+// Schedule IR Component
+export { createScheduleIR, ScheduleIRController, ScheduleIRView } from './components/schedule-ir';
+
+export type {
+  IRCommand,
+  IRScheduleEntry,
+  IRGroupScheduleEntry,
+  ScheduleIRSettings,
+  ScheduleIRState,
+  ScheduleIRParams,
+  ScheduleIRInstance,
+} from './components/schedule-ir';
+
+export {
+  DEFAULT_IR_SCHEDULE,
+  DEFAULT_IR_STATE,
+  DEFAULT_IR_SETTINGS,
+  SCHEDULE_IR_CSS_PREFIX,
+  injectScheduleIRStyles,
+} from './components/schedule-ir';
+
+// Schedule Setpoint Component
+export { createScheduleSetpoint, ScheduleSetpointController, ScheduleSetpointView } from './components/schedule-setpoint';
+
+export type {
+  SetpointScheduleEntry,
+  ScheduleSetpointSettings,
+  ScheduleSetpointDevices,
+  ScheduleSetpointState,
+  ScheduleSetpointParams,
+  ScheduleSetpointInstance,
+} from './components/schedule-setpoint';
+
+export {
+  DEFAULT_SETPOINT_SCHEDULE,
+  DEFAULT_SETPOINT_STATE,
+  DEFAULT_SETPOINT_SETTINGS,
+  SCHEDULE_SETPOINT_CSS_PREFIX,
+  injectScheduleSetpointStyles,
+} from './components/schedule-setpoint';
+
+// DeviceGridV6 — Simplified device grid for BAS dashboard panels
+export { createDeviceGridV6 } from './components/device-grid-v6';
+export { DeviceGridV6View, DeviceGridV6Controller } from './components/device-grid-v6';
+export { injectDeviceGridV6Styles, getDeviceGridV6StatusCategory } from './components/device-grid-v6';
+
+export type {
+  DeviceGridV6Item,
+  DeviceGridV6CustomStyle,
+  DeviceGridV6SortMode,
+  DeviceGridV6Stats,
+  DeviceGridV6Params,
+  DeviceGridV6Instance,
+} from './components/device-grid-v6';
+
+// Schedule Holiday Component
+export { createScheduleHoliday, ScheduleHolidayController, ScheduleHolidayView } from './components/schedule-holiday';
+
+export type {
+  HolidayEntry,
+  ScheduleHolidaySettings,
+  ScheduleHolidayState,
+  ScheduleHolidayParams,
+  ScheduleHolidayInstance,
+} from './components/schedule-holiday';
+
+export {
+  DEFAULT_HOLIDAY_STATE,
+  DEFAULT_HOLIDAY_SETTINGS,
+  SCHEDULE_HOLIDAY_CSS_PREFIX,
+  injectScheduleHolidayStyles,
+} from './components/schedule-holiday';

@@ -118,18 +118,33 @@ export class BASDashboardView {
     this.root.style.setProperty('--bas-success-color', this.settings.successColor);
   }
 
+  private isPanelsOnly(): boolean {
+    return !this.settings.showCharts
+      && !this.settings.showFloorsSidebar
+      && !this.settings.showWaterInfrastructure;
+  }
+
   private render(): void {
-    this.root.innerHTML = `
-      <div class="${BAS_DASHBOARD_CSS_PREFIX}__header">
-        <h1 class="${BAS_DASHBOARD_CSS_PREFIX}__title">${this.escapeHtml(this.settings.dashboardTitle)}</h1>
-      </div>
-      <div class="${BAS_DASHBOARD_CSS_PREFIX}__content">
-        <div class="${BAS_DASHBOARD_CSS_PREFIX}__main">
-          ${this.settings.showCharts ? this.renderChartsArea() : ''}
+    if (this.isPanelsOnly()) {
+      // Panels-only mode: skip header and main area, render panels filling full space
+      this.root.innerHTML = `
+        <div class="${BAS_DASHBOARD_CSS_PREFIX}__content ${BAS_DASHBOARD_CSS_PREFIX}__content--panels-only">
+          ${(this.settings.showEnvironments || this.settings.showPumpsMotors) ? this.renderRightPanel() : ''}
         </div>
-        ${(this.settings.showEnvironments || this.settings.showPumpsMotors) ? this.renderRightPanel() : ''}
-      </div>
-    `;
+      `;
+    } else {
+      this.root.innerHTML = `
+        <div class="${BAS_DASHBOARD_CSS_PREFIX}__header">
+          <h1 class="${BAS_DASHBOARD_CSS_PREFIX}__title">${this.escapeHtml(this.settings.dashboardTitle)}</h1>
+        </div>
+        <div class="${BAS_DASHBOARD_CSS_PREFIX}__content">
+          <div class="${BAS_DASHBOARD_CSS_PREFIX}__main">
+            ${this.settings.showCharts ? this.renderChartsArea() : ''}
+          </div>
+          ${(this.settings.showEnvironments || this.settings.showPumpsMotors) ? this.renderRightPanel() : ''}
+        </div>
+      `;
+    }
 
     this.populateCardGrids();
   }

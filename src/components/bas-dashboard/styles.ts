@@ -113,6 +113,17 @@ export const BAS_DASHBOARD_STYLES = `
   overflow: hidden;
 }
 
+/* Panels-only mode: right panel fills entire container */
+.${BAS_DASHBOARD_CSS_PREFIX}__content--panels-only {
+  flex: 1;
+}
+
+.${BAS_DASHBOARD_CSS_PREFIX}__content--panels-only .${BAS_DASHBOARD_CSS_PREFIX}__right-panel {
+  width: 100%;
+  min-width: unset;
+  border-left: none;
+}
+
 .${BAS_DASHBOARD_CSS_PREFIX}__panel-section {
   flex: 1;
   display: flex;

@@ -3,27 +3,38 @@
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
  *
- * Template layout (template.html):
+ * Template layout (template.html) — CSS Grid 4 cols × 2 rows:
+ *
+ *   col:  20%          40%            20%           20%
+ *  row 1  EntityList  | Water cards  | Ambientes   | Bombas e Motores
+ *         50%h        | 50%h         | 100%h       | 100%h
+ *  row 2  Chart (spans col 1–2)     | (continues) | (continues)
+ *         50%h  60%w                 |             |
+ *
  *   #bas-dashboard-root
  *     #bas-header
- *     .bas-content-layout
- *       #bas-sidebar-host   ← EntityListPanel mounted here by controller
- *       .bas-main-slot
- *         #bas-water-host   ← CardGridPanel (water) mounted here by controller
- *         #bas-charts-host  ← Chart tab bar + Consumption7DaysChart mounted here by controller
- *         #bas-main-content ← BASDashboardView mounted here by createBASDashboard
+ *     .bas-content-layout (CSS Grid)
+ *       #bas-sidebar-host    (col 1,   row 1)   ← EntityListPanel
+ *       #bas-water-host      (col 2,   row 1)   ← CardGridPanel (water)
+ *       #bas-charts-host     (col 1–2, row 2)   ← Tab bar + Consumption7DaysChart
+ *       #bas-ambientes-host  (col 3,   row 1–2) ← CardGridPanel (HVAC)
+ *       #bas-motors-host     (col 4,   row 1–2) ← CardGridPanel (motores)
  */
 
 // Module-level references
-let _basInstance = null;
 let _floorListPanel = null;
 let _waterPanel = null;
+let _ambientesPanel = null;
+let _motorsPanel = null;
 let _chartInstance = null;
 let _currentChartDomain = 'energy';
+let _selectedFloor = null;
 let _ctx = null;
 let _settings = null;
 let _currentFloors = [];
 let _currentWaterDevices = [];
+let _currentHVACDevices = [];
+let _currentMotorDevices = [];
 
 // Chart domain configuration
 var CHART_DOMAIN_CONFIG = {
@@ -193,7 +204,10 @@ function buildFloorItems(floors) {
   });
 }
 
-// Water device type/status mappings for renderCardComponentV6 entityObject
+// ============================================================================
+// Water device type/status mappings
+// ============================================================================
+
 var WATER_TYPE_MAP = {
   hydrometer: 'HIDROMETRO',
   cistern: 'CAIXA_DAGUA',
@@ -247,6 +261,115 @@ function buildWaterCardItems(waterDevices, selectedFloor) {
   });
 }
 
+// ============================================================================
+// HVAC device type/status mappings
+// ============================================================================
+
+var HVAC_STATUS_MAP = {
+  active: 'online',
+  inactive: 'offline',
+  no_reading: 'no_info',
+};
+
+/**
+ * Convert an HVAC device to an entityObject for renderCardComponentV6
+ */
+function hvacDeviceToEntityObject(device) {
+  var deviceStatus = HVAC_STATUS_MAP[device.status] || 'no_info';
+
+  return {
+    entityId: device.id,
+    labelOrName: device.name,
+    deviceIdentifier: device.id,
+    deviceType: 'TERMOSTATO',
+    val: device.temperature != null ? device.temperature : 0,
+    deviceStatus: deviceStatus,
+    perc: 0,
+    temperature: device.temperature,
+    temperatureMin: device.setpoint ? device.setpoint - 2 : 18,
+    temperatureMax: device.setpoint ? device.setpoint + 2 : 26,
+    consumption: device.consumption,
+  };
+}
+
+/**
+ * Build CardGridPanel items from HVAC devices
+ */
+function buildHVACCardItems(hvacDevices, selectedFloor) {
+  var filtered = hvacDevices;
+  if (selectedFloor) {
+    filtered = hvacDevices.filter(function (d) {
+      return d.floor === selectedFloor;
+    });
+  }
+
+  return filtered.map(function (device) {
+    return {
+      id: device.id,
+      entityObject: hvacDeviceToEntityObject(device),
+      source: device,
+    };
+  });
+}
+
+// ============================================================================
+// Motor device type/status mappings
+// ============================================================================
+
+var MOTOR_TYPE_MAP = {
+  pump: 'BOMBA_HIDRAULICA',
+  motor: 'MOTOR',
+  other: 'MOTOR',
+};
+
+var MOTOR_STATUS_MAP = {
+  running: 'online',
+  stopped: 'offline',
+  unknown: 'no_info',
+};
+
+/**
+ * Convert a motor device to an entityObject for renderCardComponentV6
+ */
+function motorDeviceToEntityObject(device) {
+  var deviceType = MOTOR_TYPE_MAP[device.type] || 'MOTOR';
+  var deviceStatus = MOTOR_STATUS_MAP[device.status] || 'no_info';
+
+  return {
+    entityId: device.id,
+    labelOrName: device.name,
+    deviceIdentifier: device.id,
+    deviceType: deviceType,
+    val: device.consumption,
+    deviceStatus: deviceStatus,
+    perc: 0,
+  };
+}
+
+/**
+ * Build CardGridPanel items from motor devices
+ */
+function buildMotorCardItems(motorDevices, selectedFloor) {
+  var filtered = motorDevices;
+  if (selectedFloor) {
+    filtered = motorDevices.filter(function (d) {
+      return d.floor === selectedFloor;
+    });
+  }
+
+  return filtered.map(function (device) {
+    return {
+      id: device.id,
+      entityObject: motorDeviceToEntityObject(device),
+      source: device,
+    };
+  });
+}
+
+// ============================================================================
+// Panel mount functions
+// ============================================================================
+
 /**
  * Mount CardGridPanel into #bas-water-host
  */
@@ -277,6 +400,65 @@ function mountWaterPanel(waterHost, settings, waterDevices) {
 }
 
 /**
+ * Mount CardGridPanel into #bas-ambientes-host (HVAC devices)
+ */
+function mountAmbientesPanel(host, settings, hvacDevices) {
+  if (!MyIOLibrary.CardGridPanel) {
+    if (settings.enableDebugMode) {
+      console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
+    }
+    return null;
+  }
+
+  var panel = new MyIOLibrary.CardGridPanel({
+    title: settings.environmentsLabel,
+    items: buildHVACCardItems(hvacDevices, null),
+    cardCustomStyle: settings.cardCustomStyle || undefined,
+    gridMinCardWidth: '140px',
+    emptyMessage: 'Nenhum ambiente',
+    handleClickCard: function (item) {
+      if (settings.enableDebugMode) {
+        console.log('[MAIN_BAS] HVAC device clicked:', item.source);
+      }
+      window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+    },
+  });
+
+  host.appendChild(panel.getElement());
+  return panel;
+}
+
+/**
+ * Mount DeviceGridV6 into #bas-motors-host (pumps & motors)
+ */
+function mountMotorsPanel(host, settings, motorDevices) {
+  if (!MyIOLibrary.createDeviceGridV6) {
+    if (settings.enableDebugMode) {
+      console.warn('[MAIN_BAS] MyIOLibrary.createDeviceGridV6 not available');
+    }
+    return null;
+  }
+
+  var panel = MyIOLibrary.createDeviceGridV6({
+    container: host,
+    title: settings.pumpsMotorsLabel,
+    items: buildMotorCardItems(motorDevices, null),
+    cardCustomStyle: settings.cardCustomStyle || undefined,
+    gridMinCardWidth: '140px',
+    emptyMessage: 'Nenhum equipamento',
+    debugActive: settings.enableDebugMode,
+    handleClickCard: function (item) {
+      if (settings.enableDebugMode) {
+        console.log('[MAIN_BAS] Motor device clicked:', item.source);
+      }
+      window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+    },
+  });
+
+  return panel;
+}
+
+/**
  * Mount EntityListPanel into #bas-sidebar-host
  */
 function mountSidebarPanel(sidebarHost, settings, floors) {
@@ -300,11 +482,15 @@ function mountSidebarPanel(sidebarHost, settings, floors) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Floor selected: all');
       }
-      if (_basInstance && _basInstance.setSelectedFloor) {
-        _basInstance.setSelectedFloor(null);
-      }
+      _selectedFloor = null;
       if (_waterPanel) {
         _waterPanel.setItems(buildWaterCardItems(_currentWaterDevices, null));
+      }
+      if (_ambientesPanel) {
+        _ambientesPanel.setItems(buildHVACCardItems(_currentHVACDevices, null));
+      }
+      if (_motorsPanel) {
+        _motorsPanel.updateItems(buildMotorCardItems(_currentMotorDevices, null));
       }
       if (panel) panel.setSelectedId(null);
       window.dispatchEvent(new CustomEvent('bas:floor-changed', { detail: { floor: null } }));
@@ -313,11 +499,15 @@ function mountSidebarPanel(sidebarHost, settings, floors) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Floor selected:', item.id);
       }
-      if (_basInstance && _basInstance.setSelectedFloor) {
-        _basInstance.setSelectedFloor(item.id);
-      }
+      _selectedFloor = item.id;
       if (_waterPanel) {
         _waterPanel.setItems(buildWaterCardItems(_currentWaterDevices, item.id));
+      }
+      if (_ambientesPanel) {
+        _ambientesPanel.setItems(buildHVACCardItems(_currentHVACDevices, item.id));
+      }
+      if (_motorsPanel) {
+        _motorsPanel.updateItems(buildMotorCardItems(_currentMotorDevices, item.id));
       }
       if (panel) panel.setSelectedId(item.id);
       window.dispatchEvent(new CustomEvent('bas:floor-changed', { detail: { floor: item.id } }));
@@ -327,6 +517,10 @@ function mountSidebarPanel(sidebarHost, settings, floors) {
   sidebarHost.appendChild(panel.getElement());
   return panel;
 }
+
+// ============================================================================
+// Chart functions
+// ============================================================================
 
 /**
  * Generate mock fetchData for a given chart domain
@@ -353,7 +547,7 @@ function createMockFetchData(domain) {
 
     return Promise.resolve({
       labels: labels,
-      datasets: [{ label: CHART_DOMAIN_CONFIG[domain].label, data: values }],
+      dailyTotals: values,
     });
   };
 }
@@ -445,13 +639,9 @@ function mountChartPanel(hostEl) {
   switchChartDomain(_currentChartDomain, chartCard);
 }
 
-/**
- * Show loading state in the main content area
- */
-function showLoading(container) {
-  container.innerHTML =
-    '<div class="bas-dashboard-loading"><div class="spinner"></div><span>Carregando dashboard...</span></div>';
-}
+// ============================================================================
+// Dashboard initialization
+// ============================================================================
 
 /**
  * Show error state
@@ -464,14 +654,14 @@ function showError(container, message) {
 }
 
 /**
- * Initialize the BAS dashboard
+ * Initialize the BAS dashboard — mounts all 5 panels into their grid slots
  */
-async function initializeDashboard(ctx, mainContent, sidebarHost, waterHost, chartsHost, settings) {
+async function initializeDashboard(ctx, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, settings) {
   try {
     // Check if MyIOLibrary is available
-    if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createBASDashboard) {
+    if (typeof MyIOLibrary === 'undefined') {
       throw new Error(
-        'MyIOLibrary.createBASDashboard nao esta disponivel. Verifique se a biblioteca foi carregada.'
+        'MyIOLibrary nao esta disponivel. Verifique se a biblioteca foi carregada.'
       );
     }
 
@@ -479,14 +669,14 @@ async function initializeDashboard(ctx, mainContent, sidebarHost, waterHost, cha
     const devices = parseDevicesFromData(ctx.data);
     _currentFloors = devices.floors;
 
-    // Mount sidebar EntityListPanel into pre-formatted slot
+    // Mount sidebar EntityListPanel (col 1, row 1)
     if (settings.showFloorsSidebar && sidebarHost) {
       _floorListPanel = mountSidebarPanel(sidebarHost, settings, devices.floors);
     } else if (sidebarHost) {
       sidebarHost.style.display = 'none';
     }
 
-    // Mount water CardGridPanel into pre-formatted slot
+    // Mount water CardGridPanel (col 2, row 1)
     _currentWaterDevices = devices.waterDevices;
     if (settings.showWaterInfrastructure && waterHost) {
       _waterPanel = mountWaterPanel(waterHost, settings, devices.waterDevices);
@@ -494,45 +684,28 @@ async function initializeDashboard(ctx, mainContent, sidebarHost, waterHost, cha
       waterHost.style.display = 'none';
     }
 
-    // Mount chart panel into #bas-charts-host
+    // Mount chart panel (col 1–2, row 2)
     if (settings.showCharts && chartsHost) {
       mountChartPanel(chartsHost);
     } else if (chartsHost) {
       chartsHost.style.display = 'none';
     }
 
-    // Clear loading state
-    mainContent.innerHTML = '';
+    // Mount ambientes CardGridPanel (col 3, row 1–2)
+    _currentHVACDevices = devices.hvacDevices;
+    if (settings.showEnvironments && ambientesHost) {
+      _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, devices.hvacDevices);
+    } else if (ambientesHost) {
+      ambientesHost.style.display = 'none';
+    }
 
-    // Create the dashboard in #bas-main-content (without sidebar/water/charts — managed by controller)
-    _basInstance = MyIOLibrary.createBASDashboard(mainContent, {
-      settings: {
-        ...settings,
-        showFloorsSidebar: false, // Sidebar is managed by the controller in #bas-sidebar-host
-        showWaterInfrastructure: false, // Water is managed by the controller in #bas-water-host
-        showCharts: false, // Charts are managed by the controller in #bas-charts-host
-      },
-      hvacDevices: devices.hvacDevices,
-      motorDevices: devices.motorDevices,
-      floors: devices.floors,
-      themeMode: settings.defaultThemeMode,
-      onFloorSelect: function (floor) {
-        // Sync sidebar panel if floor changes from inside the dashboard
-        if (_floorListPanel) {
-          _floorListPanel.setSelectedId(floor);
-        }
-        if (settings.enableDebugMode) {
-          console.log('[MAIN_BAS] Floor selected (from dashboard):', floor);
-        }
-        window.dispatchEvent(new CustomEvent('bas:floor-changed', { detail: { floor: floor } }));
-      },
-      onDeviceClick: function (device) {
-        if (settings.enableDebugMode) {
-          console.log('[MAIN_BAS] Device clicked:', device);
-        }
-        window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: device } }));
-      },
-    });
+    // Mount motors CardGridPanel (col 4, row 1–2)
+    _currentMotorDevices = devices.motorDevices;
+    if (settings.showPumpsMotors && motorsHost) {
+      _motorsPanel = mountMotorsPanel(motorsHost, settings, devices.motorDevices);
+    } else if (motorsHost) {
+      motorsHost.style.display = 'none';
+    }
 
     if (settings.enableDebugMode) {
       console.log('[MAIN_BAS] Dashboard initialized with:', {
@@ -542,13 +715,19 @@ async function initializeDashboard(ctx, mainContent, sidebarHost, waterHost, cha
         floors: devices.floors,
         sidebarMounted: !!_floorListPanel,
         waterPanelMounted: !!_waterPanel,
+        ambientesPanelMounted: !!_ambientesPanel,
+        motorsPanelMounted: !!_motorsPanel,
         chartMounted: !!_chartInstance,
         chartDomain: _currentChartDomain,
       });
     }
   } catch (error) {
     console.error('[MAIN_BAS] Error initializing dashboard:', error);
-    showError(mainContent, error.message);
+    // Show error in the first available container
+    var errorHost = ambientesHost || motorsHost || waterHost;
+    if (errorHost) {
+      showError(errorHost, error.message);
+    }
   }
 }
 
@@ -569,12 +748,8 @@ self.onInit = async function () {
   var sidebarHost = root.querySelector('#bas-sidebar-host');
   var waterHost = root.querySelector('#bas-water-host');
   var chartsHost = root.querySelector('#bas-charts-host');
-  var mainContent = root.querySelector('#bas-main-content');
-
-  if (!mainContent) {
-    console.error('[MAIN_BAS] Container #bas-main-content not found');
-    return;
-  }
+  var ambientesHost = root.querySelector('#bas-ambientes-host');
+  var motorsHost = root.querySelector('#bas-motors-host');
 
   if (_settings.enableDebugMode) {
     console.log('[MAIN_BAS] onInit - Settings:', _settings);
@@ -582,19 +757,17 @@ self.onInit = async function () {
       sidebarHost: !!sidebarHost,
       waterHost: !!waterHost,
       chartsHost: !!chartsHost,
-      mainContent: !!mainContent,
+      ambientesHost: !!ambientesHost,
+      motorsHost: !!motorsHost,
     });
   }
 
-  // Show loading in main slot
-  showLoading(mainContent);
-
-  // Initialize dashboard
-  await initializeDashboard(_ctx, mainContent, sidebarHost, waterHost, chartsHost, _settings);
+  // Initialize all panels
+  await initializeDashboard(_ctx, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, _settings);
 };
 
 self.onDataUpdated = function () {
-  if (!_basInstance || !_ctx) return;
+  if (!_ctx) return;
 
   var devices = parseDevicesFromData(_ctx.data);
 
@@ -613,30 +786,26 @@ self.onDataUpdated = function () {
   }
 
   // Update water panel
+  _currentWaterDevices = devices.waterDevices;
   if (_waterPanel) {
-    _currentWaterDevices = devices.waterDevices;
-    _waterPanel.setItems(
-      buildWaterCardItems(
-        devices.waterDevices,
-        _basInstance.getSelectedFloor ? _basInstance.getSelectedFloor() : null
-      )
-    );
+    _waterPanel.setItems(buildWaterCardItems(devices.waterDevices, _selectedFloor));
   }
 
-  // Update the dashboard with new data (no water — managed by controller)
-  if (_basInstance.updateData) {
-    _basInstance.updateData({
-      hvacDevices: devices.hvacDevices,
-      motorDevices: devices.motorDevices,
-      floors: devices.floors,
-    });
+  // Update ambientes panel
+  _currentHVACDevices = devices.hvacDevices;
+  if (_ambientesPanel) {
+    _ambientesPanel.setItems(buildHVACCardItems(devices.hvacDevices, _selectedFloor));
+  }
+
+  // Update motors panel
+  _currentMotorDevices = devices.motorDevices;
+  if (_motorsPanel) {
+    _motorsPanel.updateItems(buildMotorCardItems(devices.motorDevices, _selectedFloor));
   }
 };
 
 self.onResize = function () {
-  if (_basInstance && _basInstance.resize) {
-    _basInstance.resize();
-  }
+  // CardGridPanel handles its own resize
 };
 
 self.onDestroy = function () {
@@ -649,18 +818,25 @@ self.onDestroy = function () {
   if (_waterPanel && _waterPanel.destroy) {
     _waterPanel.destroy();
   }
-  if (_basInstance && _basInstance.destroy) {
-    _basInstance.destroy();
+  if (_ambientesPanel && _ambientesPanel.destroy) {
+    _ambientesPanel.destroy();
+  }
+  if (_motorsPanel && _motorsPanel.destroy) {
+    _motorsPanel.destroy();
   }
   _chartInstance = null;
   _currentChartDomain = 'energy';
   _floorListPanel = null;
   _waterPanel = null;
-  _basInstance = null;
+  _ambientesPanel = null;
+  _motorsPanel = null;
+  _selectedFloor = null;
   _ctx = null;
   _settings = null;
   _currentFloors = [];
   _currentWaterDevices = [];
+  _currentHVACDevices = [];
+  _currentMotorDevices = [];
 };
 
 self.typeParameters = function () {

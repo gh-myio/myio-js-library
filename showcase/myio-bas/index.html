@@ -367,16 +367,20 @@
     <!-- Widget Mount Area -->
     <main class="widget-area">
       <div class="widget-mount" id="widgetMount">
-        <!-- Matches MAIN_BAS/template.html layout -->
+        <!-- Matches MAIN_BAS/template.html — CSS Grid 4 cols × 2 rows -->
         <div id="bas-dashboard-root" class="bas-dashboard-container">
           <div class="bas-header" id="bas-header"></div>
           <div class="bas-content-layout">
+            <!-- col 1, row 1: EntityListPanel — 20% × 50% -->
             <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
-            <div class="bas-main-slot">
-              <div class="bas-water-slot" id="bas-water-host"></div>
-              <div class="bas-charts-slot" id="bas-charts-host"></div>
-              <div class="bas-dashboard-slot" id="bas-main-content"></div>
-            </div>
+            <!-- col 2, row 1: Water cards — 40% × 50% -->
+            <div class="bas-water-slot" id="bas-water-host"></div>
+            <!-- col 1–2, row 2: Chart tabs + chart — 60% × 50% -->
+            <div class="bas-charts-slot" id="bas-charts-host"></div>
+            <!-- col 3, row 1–2: Ambientes (HVAC) — 20% × 100% -->
+            <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+            <!-- col 4, row 1–2: Bombas e Motores — 20% × 100% -->
+            <div class="bas-motors-slot" id="bas-motors-host"></div>
           </div>
         </div>
       </div>
@@ -697,9 +701,10 @@
     // WIDGET STATE & INSTANCE
     // =========================================================================
 
-    let basInstance = null;
     let floorListPanel = null;
     let waterPanel = null;
+    let ambientesPanel = null;
+    let motorsPanel = null;
     let chartInstance = null;
     let currentChartDomain = 'energy';
 
@@ -724,7 +729,7 @@
         }
         return Promise.resolve({
           labels,
-          datasets: [{ label: CHART_DOMAIN_CONFIG[domain].label, data: values }],
+          dailyTotals: values,
         });
       };
     }
@@ -820,6 +825,57 @@
       }));
     }
 
+    // HVAC device conversion (matches controller.js hvacDeviceToEntityObject)
+    const HVAC_STATUS_MAP = { active: 'online', inactive: 'offline', no_reading: 'no_info' };
+
+    function hvacDeviceToEntityObject(device) {
+      return {
+        entityId: device.id,
+        labelOrName: device.name,
+        deviceIdentifier: device.id,
+        deviceType: 'TERMOSTATO',
+        val: device.temperature,
+        deviceStatus: HVAC_STATUS_MAP[device.status] || 'no_info',
+        perc: 0,
+      };
+    }
+
+    function buildHVACCardItems(hvacDevices, selectedFloor) {
+      var filtered = hvacDevices;
+      if (selectedFloor) {
+        filtered = hvacDevices.filter(function(d) { return d.floor === selectedFloor; });
+      }
+      return filtered.map(function(device) {
+        return { id: device.id, entityObject: hvacDeviceToEntityObject(device), source: device };
+      });
+    }
+
+    // Motor device conversion (matches controller.js motorDeviceToEntityObject)
+    const MOTOR_TYPE_MAP = { pump: 'BOMBA_HIDRAULICA', motor: 'MOTOR', other: 'MOTOR' };
+    const MOTOR_STATUS_MAP = { running: 'online', stopped: 'offline', unknown: 'no_info' };
+
+    function motorDeviceToEntityObject(device) {
+      return {
+        entityId: device.id,
+        labelOrName: device.name,
+        deviceIdentifier: device.id,
+        deviceType: MOTOR_TYPE_MAP[device.type] || 'MOTOR',
+        val: device.consumption,
+        deviceStatus: MOTOR_STATUS_MAP[device.status] || 'no_info',
+        perc: 0,
+      };
+    }
+
+    function buildMotorCardItems(motorDevices, selectedFloor) {
+      var filtered = motorDevices;
+      if (selectedFloor) {
+        filtered = motorDevices.filter(function(d) { return d.floor === selectedFloor; });
+      }
+      return filtered.map(function(device) {
+        return { id: device.id, entityObject: motorDeviceToEntityObject(device), source: device };
+      });
+    }
+
     let currentState = {
       isInitialized: false,
       selectedFloor: null,
@@ -856,7 +912,8 @@
 
       const sidebarHost = document.getElementById('bas-sidebar-host');
       const waterHost = document.getElementById('bas-water-host');
-      const mainContent = document.getElementById('bas-main-content');
+      const ambientesHost = document.getElementById('bas-ambientes-host');
+      const motorsHost = document.getElementById('bas-motors-host');
       const mockData = generateMockData();
       const settings = getSettings();
 
@@ -864,7 +921,7 @@
       currentState.themeMode = settings.defaultThemeMode;
 
       try {
-        // Mount EntityListPanel into #bas-sidebar-host
+        // Mount EntityListPanel into #bas-sidebar-host (same as controller.js)
         if (settings.showFloorsSidebar && sidebarHost && MyIOLibrary.EntityListPanel) {
           sidebarHost.innerHTML = '';
           sidebarHost.style.display = '';
@@ -881,16 +938,18 @@
             allLabel: 'Todos',
             handleClickAll: () => {
               currentState.selectedFloor = null;
-              if (basInstance && basInstance.setSelectedFloor) basInstance.setSelectedFloor(null);
               if (waterPanel) waterPanel.setItems(buildWaterCardItems(currentState.data.waterDevices, null));
+              if (ambientesPanel) ambientesPanel.setItems(buildHVACCardItems(currentState.data.hvacDevices, null));
+              if (motorsPanel) motorsPanel.updateItems(buildMotorCardItems(currentState.data.motorDevices, null));
               if (floorListPanel) floorListPanel.setSelectedId(null);
               log('event', 'bas:floor-changed', 'Floor: All');
               updateStateDisplay();
             },
             handleClickItem: (item) => {
               currentState.selectedFloor = item.id;
-              if (basInstance && basInstance.setSelectedFloor) basInstance.setSelectedFloor(item.id);
               if (waterPanel) waterPanel.setItems(buildWaterCardItems(currentState.data.waterDevices, item.id));
+              if (ambientesPanel) ambientesPanel.setItems(buildHVACCardItems(currentState.data.hvacDevices, item.id));
+              if (motorsPanel) motorsPanel.updateItems(buildMotorCardItems(currentState.data.motorDevices, item.id));
               if (floorListPanel) floorListPanel.setSelectedId(item.id);
               log('event', 'bas:floor-changed', `Floor: ${item.id}`);
               updateStateDisplay();
@@ -934,24 +993,50 @@
           chartsHost.style.display = 'none';
         }
 
-        // Mount BASDashboardView into #bas-main-content (without sidebar/water/charts)
-        mainContent.innerHTML = '';
-        basInstance = MyIOLibrary.createBASDashboard(mainContent, {
-          settings: { ...settings, showFloorsSidebar: false, showWaterInfrastructure: false, showCharts: false },
-          themeMode: settings.defaultThemeMode,
-          hvacDevices: mockData.hvacDevices,
-          motorDevices: mockData.motorDevices,
-          floors: mockData.floors,
-          onFloorSelect: (floor) => {
-            currentState.selectedFloor = floor;
-            if (floorListPanel) floorListPanel.setSelectedId(floor);
-            log('event', 'bas:floor-changed', `Floor: ${floor || 'All'}`);
-            updateStateDisplay();
-          },
-          onDeviceClick: (device) => {
-            log('event', 'bas:device-clicked', `Device: ${device.name} (${device.id})`);
-          }
-        });
+        // Mount CardGridPanel (HVAC) into #bas-ambientes-host (same as controller.js)
+        if (settings.showEnvironments && ambientesHost && MyIOLibrary.CardGridPanel) {
+          ambientesHost.innerHTML = '';
+          ambientesHost.style.display = '';
+
+          ambientesPanel = new MyIOLibrary.CardGridPanel({
+            title: settings.environmentsLabel,
+            items: buildHVACCardItems(mockData.hvacDevices, null),
+            cardCustomStyle: settings.cardCustomStyle || undefined,
+            gridMinCardWidth: '140px',
+            emptyMessage: 'Nenhum ambiente',
+            handleClickCard: (item) => {
+              log('event', 'bas:device-clicked', `HVAC device: ${item.source?.name} (${item.id})`);
+            },
+          });
+
+          ambientesHost.appendChild(ambientesPanel.getElement());
+          log('info', 'Ambientes', `CardGridPanel mounted with ${mockData.hvacDevices.length} HVAC devices`);
+        } else if (ambientesHost) {
+          ambientesHost.style.display = 'none';
+        }
+
+        // Mount DeviceGridV6 (motors) into #bas-motors-host (same as controller.js)
+        if (settings.showPumpsMotors && motorsHost && MyIOLibrary.createDeviceGridV6) {
+          motorsHost.innerHTML = '';
+          motorsHost.style.display = '';
+
+          motorsPanel = MyIOLibrary.createDeviceGridV6({
+            container: motorsHost,
+            title: settings.pumpsMotorsLabel,
+            items: buildMotorCardItems(mockData.motorDevices, null),
+            cardCustomStyle: settings.cardCustomStyle || undefined,
+            gridMinCardWidth: '140px',
+            emptyMessage: 'Nenhum equipamento',
+            debugActive: settings.enableDebugMode,
+            handleClickCard: (item) => {
+              log('event', 'bas:device-clicked', `Motor device: ${item.source?.name} (${item.id})`);
+            },
+          });
+
+          log('info', 'Motors', `DeviceGridV6 mounted with ${mockData.motorDevices.length} motor devices`);
+        } else if (motorsHost) {
+          motorsHost.style.display = 'none';
+        }
 
         currentState.isInitialized = true;
         updateWidgetStatus('running');
@@ -970,7 +1055,7 @@
     }
 
     function triggerOnDataUpdated() {
-      if (!basInstance) {
+      if (!currentState.isInitialized) {
         log('warn', 'onDataUpdated', 'Dashboard not initialized');
         return;
       }
@@ -989,18 +1074,22 @@
         waterPanel.setItems(buildWaterCardItems(mockData.waterDevices, currentState.selectedFloor));
       }
 
-      basInstance.updateData({
-        hvacDevices: mockData.hvacDevices,
-        motorDevices: mockData.motorDevices,
-        floors: mockData.floors
-      });
+      // Update HVAC panel
+      if (ambientesPanel) {
+        ambientesPanel.setItems(buildHVACCardItems(mockData.hvacDevices, currentState.selectedFloor));
+      }
+
+      // Update motors panel
+      if (motorsPanel) {
+        motorsPanel.updateItems(buildMotorCardItems(mockData.motorDevices, currentState.selectedFloor));
+      }
 
       log('info', 'onDataUpdated', `Updated with ${mockData.waterDevices.length + mockData.hvacDevices.length + mockData.motorDevices.length} devices`);
       updateStateDisplay();
     }
 
     function triggerOnDestroy() {
-      if (!basInstance) {
+      if (!currentState.isInitialized) {
         log('warn', 'onDestroy', 'Dashboard not initialized');
         return;
       }
@@ -1030,16 +1119,25 @@
       const waterHost = document.getElementById('bas-water-host');
       if (waterHost) waterHost.innerHTML = '';
 
-      // Destroy main dashboard
-      basInstance.destroy();
-      basInstance = null;
+      // Destroy ambientes panel
+      if (ambientesPanel && ambientesPanel.destroy) {
+        ambientesPanel.destroy();
+        ambientesPanel = null;
+      }
+      const ambientesHost = document.getElementById('bas-ambientes-host');
+      if (ambientesHost) ambientesHost.innerHTML = '';
+
+      // Destroy motors panel
+      if (motorsPanel && motorsPanel.destroy) {
+        motorsPanel.destroy();
+        motorsPanel = null;
+      }
+      const motorsHost = document.getElementById('bas-motors-host');
+      if (motorsHost) motorsHost.innerHTML = '';
+
       currentState.isInitialized = false;
       currentState.selectedFloor = null;
       currentState.data = null;
-
-      // Clear main content slot
-      const mainContent = document.getElementById('bas-main-content');
-      if (mainContent) mainContent.innerHTML = '';
 
       updateWidgetStatus('stopped');
       log('info', 'onDestroy', 'Dashboard destroyed');
@@ -1056,7 +1154,7 @@
     // =========================================================================
 
     function updateMockData() {
-      if (basInstance) {
+      if (currentState.isInitialized) {
         triggerOnDataUpdated();
       }
     }
@@ -1070,7 +1168,7 @@
       const floors = ['3', '5', '10'];
       document.getElementById('floorCount').value = floors[Math.floor(Math.random() * floors.length)];
 
-      if (basInstance) {
+      if (currentState.isInitialized) {
         triggerOnDataUpdated();
       }
 
@@ -1078,7 +1176,7 @@
     }
 
     function simulateDataUpdate() {
-      if (!basInstance) {
+      if (!currentState.isInitialized) {
         log('warn', 'Simulate', 'Dashboard not initialized');
         return;
       }
@@ -1106,20 +1204,22 @@
           }
         });
 
-        basInstance.updateData(currentState.data);
+        // Update all panels
+        if (waterPanel) waterPanel.setItems(buildWaterCardItems(currentState.data.waterDevices, currentState.selectedFloor));
+        if (ambientesPanel) ambientesPanel.setItems(buildHVACCardItems(currentState.data.hvacDevices, currentState.selectedFloor));
+        if (motorsPanel) motorsPanel.updateItems(buildMotorCardItems(currentState.data.motorDevices, currentState.selectedFloor));
+
         log('info', 'Simulate', 'Simulated real-time data update');
         updateStateDisplay();
       }
     }
 
     function updateSettings() {
-      if (!basInstance) return;
+      if (!currentState.isInitialized) return;
 
       const settings = getSettings();
-      basInstance.setThemeMode(settings.defaultThemeMode);
       currentState.themeMode = settings.defaultThemeMode;
 
-      // For full settings update, need to recreate
       log('info', 'Settings', `Theme: ${settings.defaultThemeMode}, Debug: ${settings.enableDebugMode}`);
       updateStateDisplay();
     }
@@ -1139,8 +1239,7 @@
         settingsTheme.value = 'light';
       }
 
-      if (basInstance) {
-        basInstance.setThemeMode(settingsTheme.value);
+      if (currentState.isInitialized) {
         currentState.themeMode = settingsTheme.value;
         updateStateDisplay();
       }

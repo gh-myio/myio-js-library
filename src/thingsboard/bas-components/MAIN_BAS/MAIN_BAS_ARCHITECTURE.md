@@ -8,27 +8,27 @@ O `MAIN_BAS` e o widget controlador do dashboard de automacao predial que:
 - Recebe dados do ThingsBoard via datasources multiplas (agua, HVAC, motores)
 - Classifica dispositivos por tipo (hidrometro, cisterna, tanque, solenoide, HVAC, motor/bomba)
 - Gerencia tres paineis independentes: Sidebar (andares), Water (infraestrutura hidrica), Charts (graficos por dominio)
-- Delega renderizacao HVAC/Motores ao componente `BASDashboardView` da MyIOLibrary
+- Delega renderizacao HVAC/Motores ao componente `BASDashboardView` da MyIOLibrary (modo panels-only)
 - Utiliza `renderCardComponentV6` para renderizacao de cards com `customStyle`
 - Suporta temas (dark/light) e filtro por andar com sincronizacao entre paineis
 
 ### Localizacao
 ```
 src/thingsboard/bas-components/MAIN_BAS/
-├── controller.js              # Logica principal (679 linhas)
-├── template.html              # Template HTML com 5 host slots (20 linhas)
-├── styles.css                 # Layout skeleton + loading/error states (226 linhas)
+├── controller.js              # Logica principal (681 linhas)
+├── template.html              # Template HTML — CSS Grid com 4 slots (19 linhas)
+├── styles.css                 # Layout CSS Grid + chart tabs + loading/error + responsivo (266 linhas)
 ├── settingsSchema.json        # Schema de configuracao do widget (165 linhas)
 ├── MAIN_BAS_ARCHITECTURE.md   # Este documento
 ├── BAS_Dashboard_UI_Alignment.md  # Alinhamento de UI (dark theme target)
 └── feedback.md                # Notas de feedback
 
 src/components/bas-dashboard/
-├── index.ts                   # Factory function createBASDashboard() (114 linhas)
-├── types.ts                   # Interfaces e tipos TypeScript (142 linhas)
-├── BASDashboardController.ts  # Controller MVC (87 linhas)
-├── BASDashboardView.ts        # View — renderiza HVAC + Motores com cards v6 (354 linhas)
-└── styles.ts                  # CSS do dashboard injetado via JS (390 linhas)
+├── index.ts                   # Factory function createBASDashboard() (113 linhas)
+├── types.ts                   # Interfaces e tipos TypeScript (141 linhas)
+├── BASDashboardController.ts  # Controller MVC (86 linhas)
+├── BASDashboardView.ts        # View — renderiza HVAC + Motores com cards v6 + panels-only mode (368 linhas)
+└── styles.ts                  # CSS do dashboard injetado via JS (400 linhas)
 ```
 
 ---
@@ -38,38 +38,48 @@ src/components/bas-dashboard/
 ```
 MAIN_BAS (ThingsBoard Widget — controller.js)
 │
-├─ template.html (layout skeleton)
+├─ template.html (layout skeleton — CSS Grid 4 cols × 2 rows)
 │  │
 │  ├─ #bas-header            (reservado, vazio por enquanto)
 │  │
-│  └─ .bas-content-layout    (flexbox horizontal)
+│  └─ .bas-content-layout    (CSS Grid: 20% | 40% | 20% | 20%)
 │     │
-│     ├─ #bas-sidebar-host   ← EntityListPanel (andares)
+│     ├─ #bas-sidebar-host   (col 1, row 1)     ← EntityListPanel (andares)
 │     │  ├─ Botao "Todos"
 │     │  └─ Botao por andar (01o, 02o, ...)
 │     │
-│     └─ .bas-main-slot      (flexbox vertical)
+│     ├─ #bas-water-host     (col 2, row 1)     ← CardGridPanel (dispositivos de agua)
+│     │  └─ Grid de cards v6 (hidrometros, cisternas, tanques, solenoides)
+│     │
+│     ├─ #bas-charts-host    (col 1–2, row 2)   ← Tab bar + Consumption7DaysChart
+│     │  ├─ Tab: Energia (bar chart, kWh/MWh)
+│     │  ├─ Tab: Agua (bar chart, L/m3)
+│     │  └─ Tab: Temperatura (line chart preenchido, oC)
+│     │
+│     └─ #bas-main-content   (col 3–4, row 1–2) ← BASDashboardView (panels-only mode)
 │        │
-│        ├─ #bas-water-host  ← CardGridPanel (dispositivos de agua)
-│        │  └─ Grid de cards v6 (hidrometros, cisternas, tanques, solenoides)
-│        │
-│        ├─ #bas-charts-host ← Chart Tab Bar + Consumption7DaysChart
-│        │  ├─ Tab: Energia (bar chart, kWh/MWh)
-│        │  ├─ Tab: Agua (bar chart, L/m3)
-│        │  └─ Tab: Temperatura (line chart preenchido, oC)
-│        │
-│        └─ #bas-main-content ← BASDashboardView (HVAC + Motores)
+│        └─ Right Panel (100% width — panels-only mode removes header/main area)
+│           ├─ Ambientes (HVAC)
+│           │  └─ Lista de cards v6 (termostatos com tooltip de range)
 │           │
-│           ├─ Right Panel
-│           │  ├─ Ambientes (HVAC)
-│           │  │  └─ Lista de cards v6 (termostatos com tooltip de range)
-│           │  │
-│           │  └─ Bombas e Motores
-│           │     └─ Lista de cards v6 (bombas, motores)
-│           │
-│           └─ [Cada card usa renderCardComponentV6 com customStyle]
+│           └─ Bombas e Motores
+│              └─ Lista de cards v6 (bombas, motores)
 │
 └─ Eventos globais (bas:floor-changed, bas:device-clicked)
+```
+
+### Layout Visual (target.design.txt)
+
+```
+  ┌────────────────────────┬────────────────────────┬───────────────┬──────────────┐
+  │ EntityList             │ Water cards            │               │              │
+  │ (50% height 20% width) │ (50% height 40% width) │ Ambientes     │ Bombas e     │
+  ├────────────────────────┤────────────────────────│ (100% height  │ Motores      │
+  │ [E] [A] [T]                                     │  20% width)   │ (100% height │
+  │ Chart                                           │               │  20% width)  │
+  │ (50% height 60% width)                          │               │              │
+  └─────────────────────────────────────────────────┴───────────────┴──────────────┘
+  |  20% width             |       40%              |      20%      |      20%     |
 ```
 
 ### Separacao de Responsabilidades
@@ -83,7 +93,7 @@ O controller.js gerencia **tres paineis independentes** e delega apenas HVAC/Mot
 | Graficos | `#bas-charts-host` | `Consumption7DaysChart` | controller.js |
 | HVAC + Motores | `#bas-main-content` | `BASDashboardView` | MyIOLibrary |
 
-> **Nota**: O `createBASDashboard()` recebe `showFloorsSidebar: false`, `showWaterInfrastructure: false`, `showCharts: false` para evitar duplicacao — esses paineis ja estao gerenciados pelo controller.
+> **Nota**: O `createBASDashboard()` recebe `showFloorsSidebar: false`, `showWaterInfrastructure: false`, `showCharts: false` para evitar duplicacao — esses paineis ja estao gerenciados pelo controller. Isso ativa o **panels-only mode** do BASDashboardView (ver secao 15).
 
 ### Secoes Configuraveis
 Cada secao pode ser ligada/desligada via widget settings:
@@ -110,12 +120,12 @@ Cada secao pode ser ligada/desligada via widget settings:
   └─ Extrai configuracoes do widget (labels, cores, visibilidade, cardCustomStyle, sidebarBackgroundImage)
          │
          ▼
-[Busca containers no DOM]
+[Busca containers no DOM via CSS Grid slots]
   ├─ #bas-dashboard-root
-  ├─ #bas-sidebar-host
-  ├─ #bas-water-host
-  ├─ #bas-charts-host
-  └─ #bas-main-content
+  ├─ #bas-sidebar-host   (col 1, row 1)
+  ├─ #bas-water-host     (col 2, row 1)
+  ├─ #bas-charts-host    (col 1–2, row 2)
+  └─ #bas-main-content   (col 3–4, row 1–2)
          │
          ▼
 [showLoading(mainContent)]
@@ -138,8 +148,11 @@ Cada secao pode ser ligada/desligada via widget settings:
   │  ├─ Tab bar (Energia | Agua | Temperatura)
   │  └─ switchChartDomain('energy') → createConsumption7DaysChart()
   │
-  └─ MyIOLibrary.createBASDashboard(mainContent, { settings, hvacDevices, motorDevices, floors })
-     └─ BASDashboardController → BASDashboardView → renderCardComponentV6
+  └─ MyIOLibrary.createBASDashboard(mainContent, {
+       settings: { ...settings, showFloorsSidebar: false, showWaterInfrastructure: false, showCharts: false },
+       hvacDevices, motorDevices, floors
+     })
+     └─ BASDashboardController → BASDashboardView (panels-only mode) → renderCardComponentV6
 ```
 
 ### 3.2 Atualizacao de Dados (onDataUpdated)
@@ -251,7 +264,7 @@ A `BASDashboardView` e o `waterDeviceToEntityObject` convertem dispositivos BAS 
 
 ## 5. Graficos (Chart Management)
 
-O controller.js gerencia graficos independentemente do BASDashboardView, montando-os diretamente no `#bas-charts-host`.
+O controller.js gerencia graficos independentemente do BASDashboardView, montando-os diretamente no `#bas-charts-host` (col 1–2, row 2 do CSS Grid).
 
 ### 5.1 Configuracao por Dominio
 
@@ -278,6 +291,20 @@ CHART_DOMAIN_CONFIG = {
 | `energy` | bar | false | 7 dias |
 | `water` | bar | false | 7 dias |
 | `temperature` | line | true | 7 dias |
+
+### 5.3 Formato de Dados (fetchData)
+
+O componente `createConsumption7DaysChart` espera que `fetchData` retorne o formato `Consumption7DaysData`:
+
+```javascript
+// Formato CORRETO — usado pelo componente internamente via data.dailyTotals
+{
+  labels: ['01/02', '02/02', '03/02', ...],  // string[]
+  dailyTotals: [450.2, 320.1, 510.8, ...],   // number[]
+}
+```
+
+> **IMPORTANTE**: O campo correto e `dailyTotals` (nao `datasets`). O componente acessa `data.dailyTotals` diretamente em `buildChartConfig()` e `getDisplayedValues()`.
 
 > **Nota**: Atualmente usa `createMockFetchData()` com dados aleatorios. Substituir por fetch real quando API estiver disponivel.
 
@@ -369,12 +396,12 @@ interface MotorDevice {
 
 ```
 1. Salva referencia do contexto (_ctx) e settings (_settings)
-2. Busca containers no DOM:
+2. Busca containers no DOM (CSS Grid slots):
    - #bas-dashboard-root (raiz)
-   - #bas-sidebar-host (sidebar)
-   - #bas-water-host (agua)
-   - #bas-charts-host (graficos)
-   - #bas-main-content (HVAC + motores)
+   - #bas-sidebar-host (col 1, row 1)
+   - #bas-water-host (col 2, row 1)
+   - #bas-charts-host (col 1–2, row 2)
+   - #bas-main-content (col 3–4, row 1–2)
 3. Mostra loading spinner em #bas-main-content
 4. Chama initializeDashboard():
    a. Verifica MyIOLibrary.createBASDashboard disponivel
@@ -382,7 +409,7 @@ interface MotorDevice {
    c. Monta EntityListPanel (sidebar)
    d. Monta CardGridPanel (agua)
    e. Monta chart tab bar + chart (graficos)
-   f. Cria BASDashboard (HVAC + motores) com settings ajustados
+   f. Cria BASDashboard (HVAC + motores) com settings ajustados (panels-only)
    g. Salva referencia em _basInstance
 ```
 
@@ -509,41 +536,79 @@ window.addEventListener('bas:device-clicked', (e) => {
 
 ---
 
-## 12. Layout CSS (styles.css)
+## 12. Layout CSS (styles.css) — CSS Grid
 
 ### 12.1 Estrutura de Layout
 
+O layout utiliza **CSS Grid** com 4 colunas e 2 linhas, conforme especificado em `logs/target.design.txt`:
+
 ```
-.bas-dashboard-container (flex column, 100% x 100%, bg: #0B1220)
+.bas-dashboard-container (flex column, 100% × 100%, bg: #0B1220)
 │
-├─ .bas-header (flex-shrink: 0)
+├─ .bas-header (flex-shrink: 0, reservado)
 │
-└─ .bas-content-layout (flex row, flex: 1)
+└─ .bas-content-layout (CSS Grid)
+   │  grid-template-columns: 20% 40% 20% 20%
+   │  grid-template-rows: 50% 50%
    │
-   ├─ .bas-sidebar-slot (width: 220px, flex-shrink: 0, padding: 12px)
+   ├─ .bas-sidebar-slot (col 1, row 1 — 20% × 50%)
    │  └─ .myio-elp (flex: 1, EntityListPanel fills slot)
+   │  └─ border-right + border-bottom: subtle separators
    │
-   └─ .bas-main-slot (flex: 1, flex column)
-      │
-      ├─ .bas-water-slot (flex-shrink: 0, padding: 12px 18px)
-      │  └─ .myio-cgp (max-height: 260px)
-      │
-      ├─ .bas-charts-slot (flex-shrink: 0, padding: 0 18px 12px)
-      │  ├─ .bas-chart-tabs (flex row, tab bar)
-      │  │  └─ .bas-chart-tab / .bas-chart-tab--active
-      │  └─ .bas-chart-card (bg: #FFF, border-radius: 16px, min-height: 280px)
-      │     └─ canvas (100% width, max-height: 260px)
-      │
-      └─ .bas-dashboard-slot (flex: 1, overflow: hidden)
-         └─ .bas-dashboard (height: 100%)
+   ├─ .bas-water-slot (col 2, row 1 — 40% × 50%)
+   │  └─ .myio-cgp (height: 100%, CardGridPanel fills slot)
+   │  └─ padding: 12px, border-right + border-bottom
+   │
+   ├─ .bas-charts-slot (col 1–2, row 2 — 60% × 50%)
+   │  ├─ .bas-chart-tabs (flex row, tab bar)
+   │  │  └─ .bas-chart-tab / .bas-chart-tab--active
+   │  │     └─ active: underline 2px #3d7a62, color #3d7a62
+   │  └─ .bas-chart-card (bg: #FFF, border-radius: 12px, flex: 1)
+   │     └─ canvas (100% width/height)
+   │  └─ border-right: subtle separator
+   │
+   └─ .bas-dashboard-slot (col 3–4, row 1–2 — 40% × 100%)
+      └─ .bas-dashboard (height: 100%)
+         └─ BASDashboardView (panels-only mode, 100% width)
 ```
 
-### 12.2 Responsivo
+### 12.2 CSS Grid Definition
+
+```css
+.bas-content-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 20% 40% 20% 20%;
+  grid-template-rows: 50% 50%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.bas-sidebar-slot  { grid-column: 1;     grid-row: 1;     }
+.bas-water-slot    { grid-column: 2;     grid-row: 1;     }
+.bas-charts-slot   { grid-column: 1 / 3; grid-row: 2;     }
+.bas-dashboard-slot { grid-column: 3 / 5; grid-row: 1 / 3; }
+```
+
+### 12.3 Responsivo
 
 | Breakpoint | Comportamento |
 |------------|--------------|
-| > 900px | Layout horizontal: sidebar (220px) + main slot |
-| <= 900px | Layout vertical: sidebar em cima (max-height: 280px), main slot abaixo |
+| > 900px | CSS Grid: 4 colunas (20% 40% 20% 20%) × 2 linhas (50% 50%) |
+| <= 900px | 2 colunas (1fr 1fr) × 3 linhas auto: sidebar+water (row 1), charts (row 2), dashboard (row 3) |
+
+```css
+@media (max-width: 900px) {
+  .bas-content-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .bas-sidebar-slot   { grid-column: 1;     grid-row: 1; max-height: 220px; }
+  .bas-water-slot     { grid-column: 2;     grid-row: 1; max-height: 220px; }
+  .bas-charts-slot    { grid-column: 1 / 3; grid-row: 2; max-height: 300px; }
+  .bas-dashboard-slot { grid-column: 1 / 3; grid-row: 3; min-height: 280px; }
+}
+```
 
 ---
 
@@ -555,11 +620,11 @@ window.addEventListener('bas:device-clicked', (e) => {
 |---------------|-------|-----------|
 | `createBASDashboard()` | `src/components/bas-dashboard/index.ts` | Factory do dashboard (HVAC + Motores) |
 | `BASDashboardController` | `src/components/bas-dashboard/BASDashboardController.ts` | Controller MVC |
-| `BASDashboardView` | `src/components/bas-dashboard/BASDashboardView.ts` | View — renderiza HVAC + Motores |
+| `BASDashboardView` | `src/components/bas-dashboard/BASDashboardView.ts` | View — renderiza HVAC + Motores (panels-only mode) |
 | `renderCardComponentV6()` | `src/components/template-card-v6/template-card-v6.js` | Renderizacao de cards com customStyle |
 | `EntityListPanel` | `src/components/entity-list-panel/` | Sidebar de andares com busca e selecao |
 | `CardGridPanel` | `src/components/card-grid-panel/` | Grid responsivo de cards para agua |
-| `createConsumption7DaysChart()` | `src/components/charts/` | Grafico de consumo 7 dias |
+| `createConsumption7DaysChart()` | `src/components/Consumption7DaysChart/` | Grafico de consumo 7 dias (Chart.js) |
 
 ### 13.2 Cadeia de Dependencia
 
@@ -574,10 +639,11 @@ controller.js
   │
   ├─ MyIOLibrary.createConsumption7DaysChart
   │  └─ Chart.js (bar/line por dominio)
+  │     └─ fetchData → { labels: string[], dailyTotals: number[] }
   │
   └─ MyIOLibrary.createBASDashboard()
        └─ BASDashboardController
-            └─ BASDashboardView
+            └─ BASDashboardView (panels-only mode)
                  └─ renderCardComponentV6()
                       └─ renderCardComponentV5()  (delegacao interna)
                            ├─ MyIOSelectionStore
@@ -625,12 +691,18 @@ controller.js
 
 7. **Tres paineis gerenciados separadamente**
    - Sidebar, Water e Charts sao gerenciados pelo controller.js
-   - BASDashboardView so gerencia HVAC e Motores
+   - BASDashboardView so gerencia HVAC e Motores (panels-only mode)
    - O `createBASDashboard` recebe flags `false` para evitar duplicacao
 
 8. **Dados de graficos sao mock**
    - `createMockFetchData()` gera dados aleatorios
+   - Retorna `{ labels, dailyTotals }` (formato `Consumption7DaysData`)
    - Deve ser substituido por fetch real quando API estiver disponivel
+
+9. **CSS Grid layout depende de 4 slots flat**
+   - Template tem 4 filhos diretos dentro de `.bas-content-layout` (sem wrapper divs)
+   - Grid spanning: charts ocupa col 1–2, dashboard ocupa col 3–4 e row 1–2
+   - Wrapper divs adicionais quebraria o grid placement
 
 ### 14.2 Padroes Recomendados
 
@@ -659,23 +731,65 @@ if (_basInstance && _basInstance.updateData) {
 
 ---
 
-## 15. Referencia de Arquivos
+## 15. BASDashboardView — Panels-Only Mode
 
-| Arquivo | Linhas | Descricao |
-|---------|--------|-----------|
-| `controller.js` | 679 | Widget controller — lifecycle + parsing + panels + charts |
-| `template.html` | 20 | Layout com 5 host slots (header, sidebar, water, charts, main) |
-| `styles.css` | 226 | Layout skeleton, chart tabs, loading/error states, responsivo |
-| `settingsSchema.json` | 165 | Schema de configuracao do ThingsBoard (4 grupos) |
-| `BASDashboardController.ts` | 87 | MVC Controller — delega para View |
-| `BASDashboardView.ts` | 354 | MVC View — renderiza HVAC + Motores com cards v6 |
-| `types.ts` | 142 | Interfaces TypeScript (WaterDevice, HVACDevice, MotorDevice, etc) |
-| `styles.ts` | 390 | CSS do dashboard injetado via JS (dark/light themes, responsivo) |
-| `index.ts` | 114 | Factory function createBASDashboard() + type exports |
+Quando o controller.js passa `showCharts: false`, `showFloorsSidebar: false`, e `showWaterInfrastructure: false` para o `createBASDashboard()`, o `BASDashboardView` entra em **panels-only mode**.
+
+### Deteccao
+
+```typescript
+// BASDashboardView.ts — linha 121
+private isPanelsOnly(): boolean {
+  return !this.settings.showCharts
+    && !this.settings.showFloorsSidebar
+    && !this.settings.showWaterInfrastructure;
+}
+```
+
+### Comportamento
+
+| Modo | Header | Main Area | Right Panel |
+|------|--------|-----------|-------------|
+| Normal | Visivel (titulo) | Charts area | Lateral (largura fixa) |
+| Panels-only | Oculto | Oculto | 100% width (preenche todo o container) |
+
+### CSS
+
+```css
+/* styles.ts */
+.bas-dashboard__content--panels-only {
+  flex: 1;
+}
+.bas-dashboard__content--panels-only .bas-dashboard__right-panel {
+  width: 100%;
+  min-width: unset;
+  border-left: none;
+}
+```
+
+### Uso no MAIN_BAS
+
+O `#bas-main-content` (grid slot col 3–4, row 1–2) recebe o BASDashboardView em panels-only mode, que renderiza os paineis de Ambientes e Bombas e Motores preenchendo 100% do espaco disponivel (40% da largura total × 100% da altura).
 
 ---
 
-## 16. Referencias
+## 16. Referencia de Arquivos
+
+| Arquivo | Linhas | Descricao |
+|---------|--------|-----------|
+| `controller.js` | 681 | Widget controller — lifecycle + parsing + panels + charts |
+| `template.html` | 19 | Layout com 4 CSS Grid slots (header, sidebar, water, charts, dashboard) |
+| `styles.css` | 266 | CSS Grid layout (20%\|40%\|20%\|20%), chart tabs, loading/error, responsivo |
+| `settingsSchema.json` | 165 | Schema de configuracao do ThingsBoard (4 grupos) |
+| `BASDashboardController.ts` | 86 | MVC Controller — delega para View |
+| `BASDashboardView.ts` | 368 | MVC View — renderiza HVAC + Motores (panels-only mode) |
+| `types.ts` | 141 | Interfaces TypeScript (WaterDevice, HVACDevice, MotorDevice, etc) |
+| `styles.ts` | 400 | CSS do dashboard injetado via JS (dark/light themes, panels-only, responsivo) |
+| `index.ts` | 113 | Factory function createBASDashboard() + type exports |
+
+---
+
+## 17. Referencias
 
 | RFC | Descricao |
 |-----|-----------|
@@ -687,4 +801,4 @@ if (_basInstance && _basInstance.updateData) {
 ---
 
 *Documento atualizado em: 2026-02-05*
-*Versao: v6.1.0 (template-card-v6 com customStyle + chart tabs + 5-slot template)*
+*Versao: v7.0.0 (CSS Grid layout fiel ao target.design.txt + panels-only mode + dailyTotals format)*

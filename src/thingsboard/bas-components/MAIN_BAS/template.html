@@ -2,19 +2,21 @@
   <!-- Header -->
   <div class="bas-header" id="bas-header"></div>
 
-  <!-- Content: sidebar + main -->
+  <!-- Content: 4-column × 2-row CSS Grid -->
   <div class="bas-content-layout">
-    <!-- Sidebar: EntityListPanel mounts here -->
+    <!-- (col 1, row 1) Sidebar: EntityListPanel — 20% × 50% -->
     <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
 
-    <!-- Main area: water panel + dashboard -->
-    <div class="bas-main-slot">
-      <!-- Water Infrastructure: CardGridPanel mounts here -->
-      <div class="bas-water-slot" id="bas-water-host"></div>
-      <!-- Charts: Tab bar + Consumption7DaysChart mounts here -->
-      <div class="bas-charts-slot" id="bas-charts-host"></div>
-      <!-- Remaining dashboard: BASDashboardView mounts here -->
-      <div class="bas-dashboard-slot" id="bas-main-content"></div>
-    </div>
+    <!-- (col 2, row 1) Water Infrastructure: CardGridPanel — 40% × 50% -->
+    <div class="bas-water-slot" id="bas-water-host"></div>
+
+    <!-- (col 1–2, row 2) Charts: Tab bar + chart — 60% × 50% -->
+    <div class="bas-charts-slot" id="bas-charts-host"></div>
+
+    <!-- (col 3, row 1–2) Ambientes (HVAC): CardGridPanel — 20% × 100% -->
+    <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+
+    <!-- (col 4, row 1–2) Bombas e Motores: CardGridPanel — 20% × 100% -->
+    <div class="bas-motors-slot" id="bas-motors-host"></div>
   </div>
 </div>
