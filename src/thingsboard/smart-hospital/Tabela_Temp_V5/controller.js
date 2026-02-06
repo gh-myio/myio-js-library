@@ -273,9 +273,15 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
   for (const dayKey of daysWithData) {
     const dayData = dataByDay.get(dayKey);
 
-    // Normaliza para slots de 30 min (00:00 a 23:30 daquele dia)
+    // Normaliza para slots de 30 min (00:00 até o limite do dia)
     const start = new Date(dayKey + 'T00:00:00.000Z');
-    const end = new Date(dayKey + 'T23:30:00.000Z');
+    let end = new Date(dayKey + 'T23:30:00.000Z');
+    // Não gerar slots além do endISO (evita dados futuros interpolados)
+    const endCap = new Date(endISO);
+    if (end > endCap) {
+      const snapped = Math.floor(endCap.getTime() / HALF_HOUR_MS) * HALF_HOUR_MS;
+      end = new Date(snapped);
+    }
 
     const dayResult = interpolateDay(dayData, deviceName, start, end, HALF_HOUR_MS, maxGapSlots, allowCrossMidnight, includeMissingInOutput);
     allResults.push(...dayResult);
@@ -633,6 +639,12 @@ async function getData() {
   s.setUTCHours(0, 0, 0, 0);
   const e = new Date(endDate);
   e.setUTCHours(23, 59, 59, 999);
+  // Se o fim do dia cai no futuro, limitar ao momento atual
+  // para não gerar slots interpolados de horários que ainda não ocorreram
+  const now = new Date();
+  if (e > now) {
+    e.setTime(now.getTime());
+  }
   const keyStart = s.toISOString();
   const keyEnd = e.toISOString();
   const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}`;
