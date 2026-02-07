@@ -1,4 +1,4 @@
-/* global self, window, MyIOLibrary */
+/* global self, window, MyIOLibrary, document */
 /**
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
@@ -656,13 +656,19 @@ function showError(container, message) {
 /**
  * Initialize the BAS dashboard — mounts all 5 panels into their grid slots
  */
-async function initializeDashboard(ctx, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, settings) {
+async function initializeDashboard(
+  ctx,
+  sidebarHost,
+  waterHost,
+  chartsHost,
+  ambientesHost,
+  motorsHost,
+  settings
+) {
   try {
     // Check if MyIOLibrary is available
     if (typeof MyIOLibrary === 'undefined') {
-      throw new Error(
-        'MyIOLibrary nao esta disponivel. Verifique se a biblioteca foi carregada.'
-      );
+      throw new Error('MyIOLibrary nao esta disponivel. Verifique se a biblioteca foi carregada.');
     }
 
     // Parse initial data
