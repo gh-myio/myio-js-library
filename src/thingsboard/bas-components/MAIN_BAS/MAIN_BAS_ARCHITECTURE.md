@@ -5,6 +5,7 @@
 ## 1. Visao Geral
 
 O `MAIN_BAS` e o widget controlador do dashboard de automacao predial que:
+
 - Recebe dados do ThingsBoard via datasources multiplas (agua, HVAC, motores)
 - Classifica dispositivos por tipo (hidrometro, cisterna, tanque, solenoide, HVAC, motor/bomba)
 - Gerencia tres paineis independentes: Sidebar (andares), Water (infraestrutura hidrica), Charts (graficos por dominio)
@@ -13,6 +14,7 @@ O `MAIN_BAS` e o widget controlador do dashboard de automacao predial que:
 - Suporta temas (dark/light) e filtro por andar com sincronizacao entre paineis
 
 ### Localizacao
+
 ```
 src/thingsboard/bas-components/MAIN_BAS/
 ├── controller.js              # Logica principal (681 linhas)
@@ -82,29 +84,56 @@ MAIN_BAS (ThingsBoard Widget — controller.js)
   |  20% width             |       40%              |      20%      |      20%     |
 ```
 
+### Expected Layout
+
+```
+┌─────────────────┬─────────────────────────┬───────────────┬───────────────┐
+│ Ambientes       │ INFRAESTRUTURA HIDRICA  │ Ambientes     │ Bombas e      │
+│ ───────────     │ ─────────────────────   │ (HVAC)        │ Motores       │
+│ Nome ↑          │ ┌─────┐ ┌─────┐ ┌─────┐ │ ───────────   │ ───────────   │
+│                 │ │Hidr.│ │Hidr.│ │Hidr.│ │ ┌─────┐       │ ┌─────┐       │
+│ ○ Água          │ │Reuso│ │Pipa │ │Irrig│ │ │Temp.│       │ │DM4  │       │
+│ ○ Auditório     │ └─────┘ └─────┘ └─────┘ │ │RJ 1 │       │ │B7R  │       │
+│ ○ Bombas        │ ┌─────┐                 │ └─────┘       │ └─────┘       │
+│ ○ Configuração  │ │Hidr.│                 │ ┌─────┐       │ ┌─────┐       │
+│ ○ Deck          │ │Sabes│                 │ │Temp.│       │ │DM3  │       │
+│ ○ Integrações   │ └─────┘                 │ │RJ 2 │       │ │B7   │       │
+│ ○ Sala Nobreak  │                         │ └─────┘       │ └─────┘       │
+│ ○ Staff RJ      │                         │               │               │
+├─────────────────┴─────────────────────────┤               │               │
+│ [Energia] [Água] [Temperatura]            │               │               │
+│ ┌───────────────────────────────────────┐ │               │               │
+│ │         📊 Chart (7 dias)             │ │               │               │
+│ │         Bar chart kWh                 │ │               │               │
+│ └───────────────────────────────────────┘ │               │               │
+└───────────────────────────────────────────┴───────────────┴───────────────┘
+  20% width           40% width               20% width       20% width
+```
+
 ### Separacao de Responsabilidades
 
 O controller.js gerencia **tres paineis independentes** e delega apenas HVAC/Motores para o BASDashboardView:
 
-| Painel | Host | Componente | Gerenciado por |
-|--------|------|------------|----------------|
-| Sidebar (andares) | `#bas-sidebar-host` | `EntityListPanel` | controller.js |
-| Agua | `#bas-water-host` | `CardGridPanel` | controller.js |
-| Graficos | `#bas-charts-host` | `Consumption7DaysChart` | controller.js |
-| HVAC + Motores | `#bas-main-content` | `BASDashboardView` | MyIOLibrary |
+| Painel            | Host                | Componente              | Gerenciado por |
+| ----------------- | ------------------- | ----------------------- | -------------- |
+| Sidebar (andares) | `#bas-sidebar-host` | `EntityListPanel`       | controller.js  |
+| Agua              | `#bas-water-host`   | `CardGridPanel`         | controller.js  |
+| Graficos          | `#bas-charts-host`  | `Consumption7DaysChart` | controller.js  |
+| HVAC + Motores    | `#bas-main-content` | `BASDashboardView`      | MyIOLibrary    |
 
 > **Nota**: O `createBASDashboard()` recebe `showFloorsSidebar: false`, `showWaterInfrastructure: false`, `showCharts: false` para evitar duplicacao — esses paineis ja estao gerenciados pelo controller. Isso ativa o **panels-only mode** do BASDashboardView (ver secao 15).
 
 ### Secoes Configuraveis
+
 Cada secao pode ser ligada/desligada via widget settings:
 
-| Setting | Secao | Default |
-|---------|-------|---------|
-| `showFloorsSidebar` | Sidebar de andares | `true` |
-| `showWaterInfrastructure` | Grid de dispositivos de agua | `true` |
-| `showEnvironments` | Painel de ambientes HVAC | `true` |
-| `showPumpsMotors` | Painel de bombas e motores | `true` |
-| `showCharts` | Area de graficos com tabs | `true` |
+| Setting                   | Secao                        | Default |
+| ------------------------- | ---------------------------- | ------- |
+| `showFloorsSidebar`       | Sidebar de andares           | `true`  |
+| `showWaterInfrastructure` | Grid de dispositivos de agua | `true`  |
+| `showEnvironments`        | Painel de ambientes HVAC     | `true`  |
+| `showPumpsMotors`         | Painel de bombas e motores   | `true`  |
+| `showCharts`              | Area de graficos com tabs    | `true`  |
 
 ---
 
@@ -227,14 +256,14 @@ Cada secao pode ser ligada/desligada via widget settings:
 
 O controller.js classifica dispositivos pelo `aliasName` da datasource:
 
-| Alias Pattern | Tipo Resultante | Categoria | Telemetry Keys |
-|---------------|----------------|-----------|----------------|
-| `hidrometro`, `water_meter` | `hydrometer` | Water | `consumption`, `value`, `active` |
-| `cisterna`, `cistern` | `cistern` | Water | `level`, `percentage`, `active` |
-| `caixa`, `tank` | `tank` | Water | `level`, `percentage`, `active` |
-| `solenoide`, `solenoid` | `solenoid` | Water | `state`, `status` |
-| `hvac`, `air`, `ambiente` | HVAC | HVAC | `temperature`, `consumption`, `power`, `active`, `setpoint` |
-| `motor`, `pump`, `bomba` | `motor` ou `pump` | Motor | `consumption`, `power` |
+| Alias Pattern               | Tipo Resultante   | Categoria | Telemetry Keys                                              |
+| --------------------------- | ----------------- | --------- | ----------------------------------------------------------- |
+| `hidrometro`, `water_meter` | `hydrometer`      | Water     | `consumption`, `value`, `active`                            |
+| `cisterna`, `cistern`       | `cistern`         | Water     | `level`, `percentage`, `active`                             |
+| `caixa`, `tank`             | `tank`            | Water     | `level`, `percentage`, `active`                             |
+| `solenoide`, `solenoid`     | `solenoid`        | Water     | `state`, `status`                                           |
+| `hvac`, `air`, `ambiente`   | HVAC              | HVAC      | `temperature`, `consumption`, `power`, `active`, `setpoint` |
+| `motor`, `pump`, `bomba`    | `motor` ou `pump` | Motor     | `consumption`, `power`                                      |
 
 > **Nota**: O `floor` e extraido do telemetry key `floor` ou do label do dispositivo via regex.
 
@@ -242,23 +271,23 @@ O controller.js classifica dispositivos pelo `aliasName` da datasource:
 
 A `BASDashboardView` e o `waterDeviceToEntityObject` convertem dispositivos BAS para o formato `entityObject` do card v6:
 
-| BAS Type | Card deviceType | Card Category |
-|----------|----------------|---------------|
-| `hydrometer` | `HIDROMETRO` | Water |
-| `cistern` | `CAIXA_DAGUA` | Water |
-| `tank` | `TANK` | Tank |
-| `solenoid` | `BOMBA_HIDRAULICA` | Water |
-| HVAC | `TERMOSTATO` | Temperature |
-| `pump` | `BOMBA_HIDRAULICA` | Energy |
-| `motor` | `MOTOR` | Energy |
+| BAS Type     | Card deviceType    | Card Category |
+| ------------ | ------------------ | ------------- |
+| `hydrometer` | `HIDROMETRO`       | Water         |
+| `cistern`    | `CAIXA_DAGUA`      | Water         |
+| `tank`       | `TANK`             | Tank          |
+| `solenoid`   | `BOMBA_HIDRAULICA` | Water         |
+| HVAC         | `TERMOSTATO`       | Temperature   |
+| `pump`       | `BOMBA_HIDRAULICA` | Energy        |
+| `motor`      | `MOTOR`            | Energy        |
 
 ### 4.3 Status Mapping
 
-| BAS Status | Card Status (DeviceStatusType) |
-|------------|-------------------------------|
-| `online` / `active` / `running` | `online` (water) / `power_on` (HVAC, motor) |
-| `offline` / `inactive` / `stopped` | `offline` |
-| `unknown` / `no_reading` | `no_info` |
+| BAS Status                         | Card Status (DeviceStatusType)              |
+| ---------------------------------- | ------------------------------------------- |
+| `online` / `active` / `running`    | `online` (water) / `power_on` (HVAC, motor) |
+| `offline` / `inactive` / `stopped` | `offline`                                   |
+| `unknown` / `no_reading`           | `no_info`                                   |
 
 ---
 
@@ -270,9 +299,9 @@ O controller.js gerencia graficos independentemente do BASDashboardView, montand
 
 ```javascript
 CHART_DOMAIN_CONFIG = {
-  energy:      { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia' },
-  water:       { unit: 'L',   unitLarge: 'm3',  threshold: 1000,  label: 'Agua' },
-  temperature: { unit: 'oC',  unitLarge: 'oC',  threshold: 999,   label: 'Temperatura' },
+  energy: { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia' },
+  water: { unit: 'L', unitLarge: 'm3', threshold: 1000, label: 'Agua' },
+  temperature: { unit: 'oC', unitLarge: 'oC', threshold: 999, label: 'Temperatura' },
 };
 ```
 
@@ -286,11 +315,11 @@ CHART_DOMAIN_CONFIG = {
 5. Chama .render()
 ```
 
-| Dominio | Tipo de Chart | Fill | Periodo Default |
-|---------|--------------|------|-----------------|
-| `energy` | bar | false | 7 dias |
-| `water` | bar | false | 7 dias |
-| `temperature` | line | true | 7 dias |
+| Dominio       | Tipo de Chart | Fill  | Periodo Default |
+| ------------- | ------------- | ----- | --------------- |
+| `energy`      | bar           | false | 7 dias          |
+| `water`       | bar           | false | 7 dias          |
+| `temperature` | line          | true  | 7 dias          |
 
 ### 5.3 Formato de Dados (fetchData)
 
@@ -332,13 +361,13 @@ renderCardComponentV6({
 
 ### Propriedades do customStyle
 
-| Propriedade | Alvo | Exemplo |
-|-------------|------|---------|
-| `fontSize` | Titulo, subtitulo, valor, badge (escala proporcional) | `'14px'`, `'0.9rem'` |
-| `backgroundColor` | Background do card (sobrescreve gradiente) | `'#1e293b'` |
-| `fontColor` | Titulo, subtitulo, valor, badge de porcentagem | `'#fff'` |
-| `width` | Container externo + card interno | `'300px'`, `'100%'` |
-| `height` | Container + min-height do card | `'180px'` |
+| Propriedade       | Alvo                                                  | Exemplo              |
+| ----------------- | ----------------------------------------------------- | -------------------- |
+| `fontSize`        | Titulo, subtitulo, valor, badge (escala proporcional) | `'14px'`, `'0.9rem'` |
+| `backgroundColor` | Background do card (sobrescreve gradiente)            | `'#1e293b'`          |
+| `fontColor`       | Titulo, subtitulo, valor, badge de porcentagem        | `'#fff'`             |
+| `width`           | Container externo + card interno                      | `'300px'`, `'100%'`  |
+| `height`          | Container + min-height do card                        | `'180px'`            |
 
 O `cardCustomStyle` e configuravel via `widgetSettings.cardCustomStyle` no ThingsBoard.
 
@@ -354,8 +383,8 @@ interface WaterDevice {
   name: string;
   type: 'hydrometer' | 'cistern' | 'tank' | 'solenoid';
   floor?: string | null;
-  value: number;       // consumo (m3), nivel (%), ou estado (0|1)
-  unit: string;        // 'm3', '%', ''
+  value: number; // consumo (m3), nivel (%), ou estado (0|1)
+  unit: string; // 'm3', '%', ''
   status: 'online' | 'offline' | 'unknown';
   lastUpdate: number;
 }
@@ -462,15 +491,15 @@ interface MotorDevice {
 ## 9. Variaveis Module-Level
 
 ```javascript
-_basInstance            // BASDashboardController instance
-_floorListPanel         // EntityListPanel (floors sidebar)
-_waterPanel             // CardGridPanel (water devices)
-_chartInstance          // Consumption7DaysChart (chart ativo)
-_currentChartDomain     // 'energy' | 'water' | 'temperature' (default: 'energy')
-_ctx                    // ThingsBoard context
-_settings               // Widget configuration (getSettings result)
-_currentFloors          // Array<string> — lista de andares atuais
-_currentWaterDevices    // Array<WaterDevice> — dispositivos de agua atuais
+_basInstance; // BASDashboardController instance
+_floorListPanel; // EntityListPanel (floors sidebar)
+_waterPanel; // CardGridPanel (water devices)
+_chartInstance; // Consumption7DaysChart (chart ativo)
+_currentChartDomain; // 'energy' | 'water' | 'temperature' (default: 'energy')
+_ctx; // ThingsBoard context
+_settings; // Widget configuration (getSettings result)
+_currentFloors; // Array<string> — lista de andares atuais
+_currentWaterDevices; // Array<WaterDevice> — dispositivos de agua atuais
 ```
 
 ---
@@ -479,31 +508,33 @@ _currentWaterDevices    // Array<WaterDevice> — dispositivos de agua atuais
 
 ### 10.1 Grupos de Configuracao
 
-| Grupo | Settings |
-|-------|----------|
-| **Geral** | `enableDebugMode`, `defaultThemeMode` |
-| **Labels** | `dashboardTitle`, `floorsLabel`, `environmentsLabel`, `pumpsMotorsLabel`, `temperatureChartTitle`, `consumptionChartTitle` |
-| **Visibilidade** | `showFloorsSidebar`, `showWaterInfrastructure`, `showEnvironments`, `showPumpsMotors`, `showCharts` |
-| **Cores** | `primaryColor`, `warningColor`, `errorColor`, `successColor` |
-| **Cards** | `cardCustomStyle` (fontSize, backgroundColor, fontColor, width, height) |
-| **Extra** | `sidebarBackgroundImage` (imagem de fundo da sidebar) |
+| Grupo            | Settings                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Geral**        | `enableDebugMode`, `defaultThemeMode`                                                                                      |
+| **Labels**       | `dashboardTitle`, `floorsLabel`, `environmentsLabel`, `pumpsMotorsLabel`, `temperatureChartTitle`, `consumptionChartTitle` |
+| **Visibilidade** | `showFloorsSidebar`, `showWaterInfrastructure`, `showEnvironments`, `showPumpsMotors`, `showCharts`                        |
+| **Cores**        | `primaryColor`, `warningColor`, `errorColor`, `successColor`                                                               |
+| **Cards**        | `cardCustomStyle` (fontSize, backgroundColor, fontColor, width, height)                                                    |
+| **Extra**        | `sidebarBackgroundImage` (imagem de fundo da sidebar)                                                                      |
 
 ### 10.2 Temas
 
 O dashboard suporta dois temas via CSS classes:
+
 - **Dark** (padrao visual): `bas-dashboard` (sem modificador)
 - **Light**: `bas-dashboard--light`
 
 Cores tematicas sao aplicadas via CSS custom properties:
+
 ```css
 /* Dark theme (default) */
---bas-bg-main: #0B1220;
---bas-bg-panel: #101A2B;
---bas-bg-card: #FFFFFF;
---bas-border-subtle: rgba(255, 255, 255, 0.10);
+--bas-bg-main: #0b1220;
+--bas-bg-panel: #101a2b;
+--bas-bg-card: #ffffff;
+--bas-border-subtle: rgba(255, 255, 255, 0.1);
 --bas-text-primary: rgba(255, 255, 255, 0.92);
---bas-text-muted: rgba(255, 255, 255, 0.60);
---bas-primary-color: #2F5848;
+--bas-text-muted: rgba(255, 255, 255, 0.6);
+--bas-primary-color: #2f5848;
 --bas-warning-color: #f57c00;
 --bas-error-color: #c62828;
 --bas-success-color: #2e7d32;
@@ -515,9 +546,9 @@ Cores tematicas sao aplicadas via CSS custom properties:
 
 ### 11.1 Eventos Emitidos
 
-| Evento | Disparado Por | Payload |
-|--------|--------------|---------|
-| `bas:floor-changed` | Selecao de andar (sidebar ou dashboard) | `{ floor: string \| null }` |
+| Evento               | Disparado Por                                    | Payload                                                |
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------ |
+| `bas:floor-changed`  | Selecao de andar (sidebar ou dashboard)          | `{ floor: string \| null }`                            |
 | `bas:device-clicked` | Click em card de dispositivo (agua, HVAC, motor) | `{ device: WaterDevice \| HVACDevice \| MotorDevice }` |
 
 ### 11.2 Uso por Widgets Externos
@@ -584,18 +615,30 @@ O layout utiliza **CSS Grid** com 4 colunas e 2 linhas, conforme especificado em
   min-height: 0;
 }
 
-.bas-sidebar-slot  { grid-column: 1;     grid-row: 1;     }
-.bas-water-slot    { grid-column: 2;     grid-row: 1;     }
-.bas-charts-slot   { grid-column: 1 / 3; grid-row: 2;     }
-.bas-dashboard-slot { grid-column: 3 / 5; grid-row: 1 / 3; }
+.bas-sidebar-slot {
+  grid-column: 1;
+  grid-row: 1;
+}
+.bas-water-slot {
+  grid-column: 2;
+  grid-row: 1;
+}
+.bas-charts-slot {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
+.bas-dashboard-slot {
+  grid-column: 3 / 5;
+  grid-row: 1 / 3;
+}
 ```
 
 ### 12.3 Responsivo
 
-| Breakpoint | Comportamento |
-|------------|--------------|
-| > 900px | CSS Grid: 4 colunas (20% 40% 20% 20%) × 2 linhas (50% 50%) |
-| <= 900px | 2 colunas (1fr 1fr) × 3 linhas auto: sidebar+water (row 1), charts (row 2), dashboard (row 3) |
+| Breakpoint | Comportamento                                                                                 |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| > 900px    | CSS Grid: 4 colunas (20% 40% 20% 20%) × 2 linhas (50% 50%)                                    |
+| <= 900px   | 2 colunas (1fr 1fr) × 3 linhas auto: sidebar+water (row 1), charts (row 2), dashboard (row 3) |
 
 ```css
 @media (max-width: 900px) {
@@ -603,10 +646,26 @@ O layout utiliza **CSS Grid** com 4 colunas e 2 linhas, conforme especificado em
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto auto;
   }
-  .bas-sidebar-slot   { grid-column: 1;     grid-row: 1; max-height: 220px; }
-  .bas-water-slot     { grid-column: 2;     grid-row: 1; max-height: 220px; }
-  .bas-charts-slot    { grid-column: 1 / 3; grid-row: 2; max-height: 300px; }
-  .bas-dashboard-slot { grid-column: 1 / 3; grid-row: 3; min-height: 280px; }
+  .bas-sidebar-slot {
+    grid-column: 1;
+    grid-row: 1;
+    max-height: 220px;
+  }
+  .bas-water-slot {
+    grid-column: 2;
+    grid-row: 1;
+    max-height: 220px;
+  }
+  .bas-charts-slot {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    max-height: 300px;
+  }
+  .bas-dashboard-slot {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    min-height: 280px;
+  }
 }
 ```
 
@@ -616,15 +675,15 @@ O layout utiliza **CSS Grid** com 4 colunas e 2 linhas, conforme especificado em
 
 ### 13.1 Componentes Utilizados
 
-| Funcao/Classe | Fonte | Proposito |
-|---------------|-------|-----------|
-| `createBASDashboard()` | `src/components/bas-dashboard/index.ts` | Factory do dashboard (HVAC + Motores) |
-| `BASDashboardController` | `src/components/bas-dashboard/BASDashboardController.ts` | Controller MVC |
-| `BASDashboardView` | `src/components/bas-dashboard/BASDashboardView.ts` | View — renderiza HVAC + Motores (panels-only mode) |
-| `renderCardComponentV6()` | `src/components/template-card-v6/template-card-v6.js` | Renderizacao de cards com customStyle |
-| `EntityListPanel` | `src/components/entity-list-panel/` | Sidebar de andares com busca e selecao |
-| `CardGridPanel` | `src/components/card-grid-panel/` | Grid responsivo de cards para agua |
-| `createConsumption7DaysChart()` | `src/components/Consumption7DaysChart/` | Grafico de consumo 7 dias (Chart.js) |
+| Funcao/Classe                   | Fonte                                                    | Proposito                                          |
+| ------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| `createBASDashboard()`          | `src/components/bas-dashboard/index.ts`                  | Factory do dashboard (HVAC + Motores)              |
+| `BASDashboardController`        | `src/components/bas-dashboard/BASDashboardController.ts` | Controller MVC                                     |
+| `BASDashboardView`              | `src/components/bas-dashboard/BASDashboardView.ts`       | View — renderiza HVAC + Motores (panels-only mode) |
+| `renderCardComponentV6()`       | `src/components/template-card-v6/template-card-v6.js`    | Renderizacao de cards com customStyle              |
+| `EntityListPanel`               | `src/components/entity-list-panel/`                      | Sidebar de andares com busca e selecao             |
+| `CardGridPanel`                 | `src/components/card-grid-panel/`                        | Grid responsivo de cards para agua                 |
+| `createConsumption7DaysChart()` | `src/components/Consumption7DaysChart/`                  | Grafico de consumo 7 dias (Chart.js)               |
 
 ### 13.2 Cadeia de Dependencia
 
@@ -748,10 +807,10 @@ private isPanelsOnly(): boolean {
 
 ### Comportamento
 
-| Modo | Header | Main Area | Right Panel |
-|------|--------|-----------|-------------|
-| Normal | Visivel (titulo) | Charts area | Lateral (largura fixa) |
-| Panels-only | Oculto | Oculto | 100% width (preenche todo o container) |
+| Modo        | Header           | Main Area   | Right Panel                            |
+| ----------- | ---------------- | ----------- | -------------------------------------- |
+| Normal      | Visivel (titulo) | Charts area | Lateral (largura fixa)                 |
+| Panels-only | Oculto           | Oculto      | 100% width (preenche todo o container) |
 
 ### CSS
 
@@ -775,30 +834,30 @@ O `#bas-main-content` (grid slot col 3–4, row 1–2) recebe o BASDashboardView
 
 ## 16. Referencia de Arquivos
 
-| Arquivo | Linhas | Descricao |
-|---------|--------|-----------|
-| `controller.js` | 681 | Widget controller — lifecycle + parsing + panels + charts |
-| `template.html` | 19 | Layout com 4 CSS Grid slots (header, sidebar, water, charts, dashboard) |
-| `styles.css` | 266 | CSS Grid layout (20%\|40%\|20%\|20%), chart tabs, loading/error, responsivo |
-| `settingsSchema.json` | 165 | Schema de configuracao do ThingsBoard (4 grupos) |
-| `BASDashboardController.ts` | 86 | MVC Controller — delega para View |
-| `BASDashboardView.ts` | 368 | MVC View — renderiza HVAC + Motores (panels-only mode) |
-| `types.ts` | 141 | Interfaces TypeScript (WaterDevice, HVACDevice, MotorDevice, etc) |
-| `styles.ts` | 400 | CSS do dashboard injetado via JS (dark/light themes, panels-only, responsivo) |
-| `index.ts` | 113 | Factory function createBASDashboard() + type exports |
+| Arquivo                     | Linhas | Descricao                                                                     |
+| --------------------------- | ------ | ----------------------------------------------------------------------------- |
+| `controller.js`             | 681    | Widget controller — lifecycle + parsing + panels + charts                     |
+| `template.html`             | 19     | Layout com 4 CSS Grid slots (header, sidebar, water, charts, dashboard)       |
+| `styles.css`                | 266    | CSS Grid layout (20%\|40%\|20%\|20%), chart tabs, loading/error, responsivo   |
+| `settingsSchema.json`       | 165    | Schema de configuracao do ThingsBoard (4 grupos)                              |
+| `BASDashboardController.ts` | 86     | MVC Controller — delega para View                                             |
+| `BASDashboardView.ts`       | 368    | MVC View — renderiza HVAC + Motores (panels-only mode)                        |
+| `types.ts`                  | 141    | Interfaces TypeScript (WaterDevice, HVACDevice, MotorDevice, etc)             |
+| `styles.ts`                 | 400    | CSS do dashboard injetado via JS (dark/light themes, panels-only, responsivo) |
+| `index.ts`                  | 113    | Factory function createBASDashboard() + type exports                          |
 
 ---
 
 ## 17. Referencias
 
-| RFC | Descricao |
-|-----|-----------|
-| RFC-0158 | Building Automation System (BAS) Dashboard |
-| RFC-0130 | Tooltips de range (temperatura, energia, comparacao) |
+| RFC      | Descricao                                               |
+| -------- | ------------------------------------------------------- |
+| RFC-0158 | Building Automation System (BAS) Dashboard              |
+| RFC-0130 | Tooltips de range (temperatura, energia, comparacao)    |
 | RFC-0108 | Formatacao inteligente (MyIOUtils measurement settings) |
-| RFC-0111 | Classificacao de dominio/contexto de dispositivos |
+| RFC-0111 | Classificacao de dominio/contexto de dispositivos       |
 
 ---
 
-*Documento atualizado em: 2026-02-05*
-*Versao: v7.0.0 (CSS Grid layout fiel ao target.design.txt + panels-only mode + dailyTotals format)*
+_Documento atualizado em: 2026-02-05_
+_Versao: v7.0.0 (CSS Grid layout fiel ao target.design.txt + panels-only mode + dailyTotals format)_

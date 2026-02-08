@@ -4,19 +4,109 @@
 
   <!-- Content: 4-column × 2-row CSS Grid -->
   <div class="bas-content-layout">
-    <!-- (col 1, row 1) Sidebar: EntityListPanel — 20% × 50% -->
-    <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
 
-    <!-- (col 2, row 1) Water Infrastructure: CardGridPanel — 40% × 50% -->
-    <div class="bas-water-slot" id="bas-water-host"></div>
+    <!-- (col 1, row 1) Sidebar — 20% × 50% -->
+    <div class="bas-sidebar-slot" id="bas-sidebar-host-DISABLED">
+      <div style="background: #faf8f1; padding: 16px; box-sizing: border-box; overflow-y: auto;">
+        <h3 style="margin: 0 0 8px; color: #333;">Ambientes</h3>
+        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Nome ↑</div>
+        <div style="padding: 8px; background: rgba(47,88,72,0.1); margin-bottom: 4px; border-radius: 4px;">Todos</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Água</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Auditório</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Bombas</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Configuração</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Deck</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Integrações</div>
+        <div style="padding: 8px; margin-bottom: 4px;">Sala Nobreak</div>
+      </div>
+    </div>
 
-    <!-- (col 1–2, row 2) Charts: Tab bar + chart — 60% × 50% -->
-    <div class="bas-charts-slot" id="bas-charts-host"></div>
+    <!-- (col 2, row 1) Water — 40% × 50% -->
+    <div class="bas-water-slot" id="bas-water-host-DISABLED">
+      <div style="background: #faf8f1; padding: 16px; box-sizing: border-box; overflow-y: auto;">
+        <h3 style="margin: 0 0 16px; color: #333;">INFRAESTRUTURA HIDRICA</h3>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <div style="width: 120px; height: 80px; background: #fff; border: 2px solid #c62828; border-radius: 8px; padding: 8px; box-sizing: border-box;">
+            <div style="font-size: 11px; color: #333;">Hidr. Reuso</div>
+          </div>
+          <div style="width: 120px; height: 80px; background: #fff; border: 2px solid #c62828; border-radius: 8px; padding: 8px; box-sizing: border-box;">
+            <div style="font-size: 11px; color: #333;">Hidr. Pipa</div>
+          </div>
+          <div style="width: 120px; height: 80px; background: #fff; border: 2px solid #c62828; border-radius: 8px; padding: 8px; box-sizing: border-box;">
+            <div style="font-size: 11px; color: #333;">Hidr. Irrigação</div>
+          </div>
+          <div style="width: 120px; height: 80px; background: #fff; border: 2px solid #c62828; border-radius: 8px; padding: 8px; box-sizing: border-box;">
+            <div style="font-size: 11px; color: #333;">Hidr. Sabesp</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- (col 3, row 1–2) Ambientes (HVAC): CardGridPanel — 20% × 100% -->
-    <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+    <!-- (col 1-2, row 2) Charts — 60% × 50% -->
+    <div class="bas-charts-slot" id="bas-charts-host-DISABLED">
+      <div class="bas-chart-tabs">
+        <button class="bas-chart-tab bas-chart-tab--active">Energia</button>
+        <button class="bas-chart-tab">Água</button>
+        <button class="bas-chart-tab">Temperatura</button>
+      </div>
+      <div class="bas-chart-card">
+        <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 100%; padding: 20px;">
+          <div style="width: 40px; height: 60%; background: #4285f4;"></div>
+          <div style="width: 40px; height: 40%; background: #4285f4;"></div>
+          <div style="width: 40px; height: 80%; background: #4285f4;"></div>
+          <div style="width: 40px; height: 30%; background: #4285f4;"></div>
+          <div style="width: 40px; height: 50%; background: #4285f4;"></div>
+          <div style="width: 40px; height: 70%; background: #4285f4;"></div>
+          <div style="width: 40px; height: 45%; background: #4285f4;"></div>
+        </div>
+      </div>
+    </div>
 
-    <!-- (col 4, row 1–2) Bombas e Motores: CardGridPanel — 20% × 100% -->
-    <div class="bas-motors-slot" id="bas-motors-host"></div>
+    <!-- (col 3, row 1-2) Ambientes HVAC — 20% × 100% -->
+    <div class="bas-ambientes-slot" id="bas-ambientes-host-DISABLED">
+      <div style="background: #1a2332; padding: 12px; box-sizing: border-box; overflow-y: auto;">
+        <h3 style="margin: 0 0 12px; color: #fff; font-size: 14px;">Ambientes</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">Temp. RJ 1</div>
+            <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">24°C</div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">Temp. RJ 2</div>
+            <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">23°C</div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">Temp. RJ 3</div>
+            <div style="font-size: 18px; font-weight: bold; color: #f57c00;">26°C</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- (col 4, row 1-2) Bombas e Motores — 20% × 100% -->
+    <div class="bas-motors-slot" id="bas-motors-host-DISABLED">
+      <div style="background: #1a2332; padding: 12px; box-sizing: border-box; overflow-y: auto;">
+        <h3 style="margin: 0 0 12px; color: #fff; font-size: 14px;">Bombas e Motores</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">DM1 B6 Reuso</div>
+            <div style="font-size: 14px; color: #2e7d32;">● Online</div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">DM2 B6R Reserva</div>
+            <div style="font-size: 14px; color: #999;">○ Offline</div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">DM3 B7 Potável</div>
+            <div style="font-size: 14px; color: #2e7d32;">● Online</div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 12px; color: #333;">DM4 B7R Reserva</div>
+            <div style="font-size: 14px; color: #999;">○ Offline</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>

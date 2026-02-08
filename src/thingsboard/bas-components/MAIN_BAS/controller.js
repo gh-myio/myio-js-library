@@ -741,10 +741,9 @@ function buildMotorCardItems(classified, selectedAmbienteId) {
  * Mount CardGridPanel into #bas-water-host
  */
 function mountWaterPanel(waterHost, settings, classified) {
+  console.log('[MAIN_BAS] mountWaterPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
   if (!MyIOLibrary.CardGridPanel) {
-    if (settings.enableDebugMode) {
-      console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
-    }
+    console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
@@ -770,10 +769,9 @@ function mountWaterPanel(waterHost, settings, classified) {
  * Mount CardGridPanel into #bas-ambientes-host (HVAC devices)
  */
 function mountAmbientesPanel(host, settings, classified) {
+  console.log('[MAIN_BAS] mountAmbientesPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
   if (!MyIOLibrary.CardGridPanel) {
-    if (settings.enableDebugMode) {
-      console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
-    }
+    console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
@@ -799,10 +797,9 @@ function mountAmbientesPanel(host, settings, classified) {
  * Mount DeviceGridV6 into #bas-motors-host (pumps & motors)
  */
 function mountMotorsPanel(host, settings, classified) {
+  console.log('[MAIN_BAS] mountMotorsPanel called, createDeviceGridV6 available:', !!MyIOLibrary.createDeviceGridV6);
   if (!MyIOLibrary.createDeviceGridV6) {
-    if (settings.enableDebugMode) {
-      console.warn('[MAIN_BAS] MyIOLibrary.createDeviceGridV6 not available');
-    }
+    console.warn('[MAIN_BAS] MyIOLibrary.createDeviceGridV6 not available');
     return null;
   }
 
@@ -1110,29 +1107,37 @@ async function initializeDashboard(
     }
 
     // Mount water CardGridPanel (col 2, row 1)
+    console.log('[MAIN_BAS] Mounting water panel:', { show: settings.showWaterInfrastructure, hostExists: !!waterHost });
     if (settings.showWaterInfrastructure && waterHost) {
       _waterPanel = mountWaterPanel(waterHost, settings, _currentClassified);
+      console.log('[MAIN_BAS] Water panel mounted:', !!_waterPanel);
     } else if (waterHost) {
       waterHost.style.display = 'none';
     }
 
     // Mount chart panel (col 1–2, row 2)
+    console.log('[MAIN_BAS] Mounting chart panel:', { show: settings.showCharts, hostExists: !!chartsHost });
     if (settings.showCharts && chartsHost) {
       mountChartPanel(chartsHost);
+      console.log('[MAIN_BAS] Chart panel mounted');
     } else if (chartsHost) {
       chartsHost.style.display = 'none';
     }
 
     // Mount ambientes CardGridPanel (col 3, row 1–2)
+    console.log('[MAIN_BAS] Mounting ambientes panel:', { show: settings.showEnvironments, hostExists: !!ambientesHost });
     if (settings.showEnvironments && ambientesHost) {
       _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, _currentClassified);
+      console.log('[MAIN_BAS] Ambientes panel mounted:', !!_ambientesPanel);
     } else if (ambientesHost) {
       ambientesHost.style.display = 'none';
     }
 
     // Mount motors CardGridPanel (col 4, row 1–2)
+    console.log('[MAIN_BAS] Mounting motors panel:', { show: settings.showPumpsMotors, hostExists: !!motorsHost });
     if (settings.showPumpsMotors && motorsHost) {
       _motorsPanel = mountMotorsPanel(motorsHost, settings, _currentClassified);
+      console.log('[MAIN_BAS] Motors panel mounted:', !!_motorsPanel);
     } else if (motorsHost) {
       motorsHost.style.display = 'none';
     }
@@ -1187,15 +1192,24 @@ self.onInit = async function () {
   var ambientesHost = root.querySelector('#bas-ambientes-host');
   var motorsHost = root.querySelector('#bas-motors-host');
 
+  // Always log layout containers for debugging
+  console.log('[MAIN_BAS] Layout containers:', {
+    sidebarHost: !!sidebarHost,
+    waterHost: !!waterHost,
+    chartsHost: !!chartsHost,
+    ambientesHost: !!ambientesHost,
+    motorsHost: !!motorsHost,
+  });
+  console.log('[MAIN_BAS] Settings visibility:', {
+    showSidebar: _settings.showSidebar,
+    showWaterInfrastructure: _settings.showWaterInfrastructure,
+    showCharts: _settings.showCharts,
+    showEnvironments: _settings.showEnvironments,
+    showPumpsMotors: _settings.showPumpsMotors,
+  });
+
   if (_settings.enableDebugMode) {
-    console.log('[MAIN_BAS] onInit - Settings:', _settings);
-    console.log('[MAIN_BAS] Layout containers:', {
-      sidebarHost: !!sidebarHost,
-      waterHost: !!waterHost,
-      chartsHost: !!chartsHost,
-      ambientesHost: !!ambientesHost,
-      motorsHost: !!motorsHost,
-    });
+    console.log('[MAIN_BAS] onInit - Full Settings:', _settings);
   }
 
   // Initialize all panels
