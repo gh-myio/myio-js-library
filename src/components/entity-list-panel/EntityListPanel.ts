@@ -44,6 +44,24 @@ export interface EntityListPanelOptions {
   allLabel?: string;
   /** Callback when "All" is clicked */
   handleClickAll?: () => void;
+  /**
+   * Sort order for items. Default: 'none' (preserve source order)
+   * - 'asc': A-Z ascending (by normalized display label)
+   * - 'desc': Z-A descending (by normalized display label)
+   * - 'none': No sorting (backward compatible)
+   */
+  sortOrder?: 'asc' | 'desc' | 'none';
+  /**
+   * Regex pattern to remove from labels for display purposes.
+   * Original label preserved for ID/search matching.
+   * Example: '^\(\d{3}\)-\s*' removes '(001)-' prefix
+   */
+  excludePartOfLabel?: string;
+  /**
+   * Regex flags for excludePartOfLabel. Default: ''
+   * Example: 'i' for case-insensitive matching
+   */
+  excludePartOfLabelFlags?: string;
 }
 
 // ────────────────────────────────────────────
@@ -420,10 +438,17 @@ export class EntityListPanel {
       list.appendChild(allItem);
     }
 
-    // Filter
+    // Sort items first (before filtering) so the display order is consistent
+    const sortedItems = this.sortItems(items);
+
+    // Filter by original label OR normalized label (user may type either)
     const filtered = this.filterText
-      ? items.filter(it => it.label.toLowerCase().includes(this.filterText))
-      : items;
+      ? sortedItems.filter(it => {
+          const originalMatch = it.label.toLowerCase().includes(this.filterText);
+          const normalizedMatch = this.normalizeLabel(it.label).toLowerCase().includes(this.filterText);
+          return originalMatch || normalizedMatch;
+        })
+      : sortedItems;
 
     if (filtered.length === 0) {
       const empty = document.createElement('li');
@@ -434,10 +459,12 @@ export class EntityListPanel {
     }
 
     filtered.forEach(item => {
+      // Display normalized label, but keep original for tooltip/ID
+      const displayLabel = this.normalizeLabel(item.label);
       const li = document.createElement('li');
       li.className = `myio-elp__item${item.id === selectedId ? ' myio-elp__item--selected' : ''}`;
       li.innerHTML = `
-        <span class="myio-elp__item-label" title="${this.escapeHtml(item.label)}">${this.escapeHtml(item.label)}</span>
+        <span class="myio-elp__item-label" title="${this.escapeHtml(item.label)}">${this.escapeHtml(displayLabel)}</span>
         <span class="myio-elp__item-arrow">${ICON_ARROW}</span>
       `;
       li.addEventListener('click', () => {
@@ -481,5 +508,38 @@ export class EntityListPanel {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Normalize a label by removing prefix patterns defined in excludePartOfLabel.
+   * Returns the cleaned display label while preserving the original for ID/search.
+   */
+  private normalizeLabel(raw: string): string {
+    if (!this.options.excludePartOfLabel) return raw;
+    const flags = this.options.excludePartOfLabelFlags || '';
+    try {
+      const regex = new RegExp(this.options.excludePartOfLabel, flags);
+      return raw.replace(regex, '').trim();
+    } catch (e) {
+      console.warn('[EntityListPanel] Invalid excludePartOfLabel regex:', e);
+      return raw;
+    }
+  }
+
+  /**
+   * Sort items by normalized display label.
+   * Returns a new array without mutating the original.
+   */
+  private sortItems(items: EntityListItem[]): EntityListItem[] {
+    if (!this.options.sortOrder || this.options.sortOrder === 'none') {
+      return items; // No sorting - backward compatible
+    }
+
+    return [...items].sort((a, b) => {
+      const labelA = this.normalizeLabel(a.label);
+      const labelB = this.normalizeLabel(b.label);
+      const comparison = labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
+      return this.options.sortOrder === 'desc' ? -comparison : comparison;
+    });
   }
 }

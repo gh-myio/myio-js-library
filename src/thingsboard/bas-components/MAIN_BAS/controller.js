@@ -3,6 +3,13 @@
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
  *
+ * Datasources:
+ *   1. "Ambientes" → Lista lateral (EntityListPanel) - Assets que representam ambientes
+ *   2. "AllDevices" → Dispositivos em árvore (Assets → Assets → Devices)
+ *                     Assets são containers, Devices são classificados por domain
+ *
+ * Classification: By deviceProfile and deviceType attributes
+ *
  * Template layout (template.html) — CSS Grid 4 cols × 2 rows:
  *
  *   col:  20%          40%            20%           20%
@@ -14,27 +21,46 @@
  *   #bas-dashboard-root
  *     #bas-header
  *     .bas-content-layout (CSS Grid)
- *       #bas-sidebar-host    (col 1,   row 1)   ← EntityListPanel
+ *       #bas-sidebar-host    (col 1,   row 1)   ← EntityListPanel (Ambientes list)
  *       #bas-water-host      (col 2,   row 1)   ← CardGridPanel (water)
- *       #bas-charts-host     (col 1–2, row 2)   ← Tab bar + Consumption7DaysChart
- *       #bas-ambientes-host  (col 3,   row 1–2) ← CardGridPanel (HVAC)
- *       #bas-motors-host     (col 4,   row 1–2) ← CardGridPanel (motores)
+ *       #bas-charts-host     (col 1-2, row 2)   ← Tab bar + Consumption7DaysChart
+ *       #bas-ambientes-host  (col 3,   row 1-2) ← CardGridPanel (HVAC)
+ *       #bas-motors-host     (col 4,   row 1-2) ← CardGridPanel (motores)
+ *
+ * Datakeys Required:
+ *   Attributes: deviceType, deviceProfile, identifier, active
+ *   Timeseries: consumption, temperature, setpoint, level, state
  */
 
+// ============================================================================
+// Classification Constants (RFC-0142)
+// ============================================================================
+
+var OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
+
+var ENTRADA_TYPES = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
+
+var MOTOR_TYPES = ['BOMBA', 'MOTOR', 'BOMBA_HIDRAULICA', 'BOMBA_INCENDIO', 'BOMBA_CAG'];
+
+var HVAC_TYPES = ['TERMOSTATO', 'CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO'];
+
+var WATER_TYPES = ['HIDROMETRO', 'CAIXA_DAGUA', 'SOLENOIDE', 'TANQUE'];
+
+// ============================================================================
 // Module-level references
-let _floorListPanel = null;
+// ============================================================================
+
+let _ambientesListPanel = null;
 let _waterPanel = null;
 let _ambientesPanel = null;
 let _motorsPanel = null;
 let _chartInstance = null;
 let _currentChartDomain = 'energy';
-let _selectedFloor = null;
+let _selectedAmbiente = null;
 let _ctx = null;
 let _settings = null;
-let _currentFloors = [];
-let _currentWaterDevices = [];
-let _currentHVACDevices = [];
-let _currentMotorDevices = [];
+let _currentAmbientes = [];
+let _currentClassified = null;
 
 // Chart domain configuration
 var CHART_DOMAIN_CONFIG = {
@@ -53,14 +79,14 @@ function getSettings(ctx) {
     enableDebugMode: widgetSettings.enableDebugMode ?? false,
     defaultThemeMode: widgetSettings.defaultThemeMode ?? 'light',
     dashboardTitle: widgetSettings.dashboardTitle ?? 'DASHBOARD',
-    floorsLabel: widgetSettings.floorsLabel ?? 'Andares',
+    sidebarLabel: widgetSettings.sidebarLabel ?? 'Ambientes',
     environmentsLabel: widgetSettings.environmentsLabel ?? 'Ambientes',
     pumpsMotorsLabel: widgetSettings.pumpsMotorsLabel ?? 'Bombas e Motores',
     temperatureChartTitle:
       widgetSettings.temperatureChartTitle ?? 'Temperatura do dia atual de todos os ambientes',
     consumptionChartTitle:
       widgetSettings.consumptionChartTitle ?? 'Consumo do dia atual de todos os ambientes',
-    showFloorsSidebar: widgetSettings.showFloorsSidebar ?? true,
+    showSidebar: widgetSettings.showSidebar ?? true,
     showWaterInfrastructure: widgetSettings.showWaterInfrastructure ?? true,
     showEnvironments: widgetSettings.showEnvironments ?? true,
     showPumpsMotors: widgetSettings.showPumpsMotors ?? true,
@@ -74,133 +100,431 @@ function getSettings(ctx) {
   };
 }
 
+// ============================================================================
+// Classification Functions
+// ============================================================================
+
 /**
- * Parse datasource data into device arrays
+ * Check if device is "ocultos" (hidden/archived)
  */
-function parseDevicesFromData(data) {
-  const waterDevices = [];
-  const hvacDevices = [];
-  const motorDevices = [];
-  const floors = new Set();
-
-  if (!data || !Array.isArray(data)) {
-    return { waterDevices, hvacDevices, motorDevices, floors: [] };
-  }
-
-  data.forEach((row) => {
-    const aliasName = row?.datasource?.aliasName || '';
-    const entityId = row?.datasource?.entityId || '';
-    const entityLabel = row?.datasource?.entityLabel || row?.datasource?.name || '';
-
-    // Extract telemetry values
-    const dataKeys = row?.data || {};
-    const getValue = (key) => {
-      const arr = dataKeys[key];
-      if (Array.isArray(arr) && arr.length > 0) {
-        return arr[arr.length - 1][1];
-      }
-      return null;
-    };
-
-    // Extract floor from device attributes or label
-    const floor = getValue('floor') || extractFloorFromLabel(entityLabel);
-    if (floor) floors.add(floor);
-
-    // Classify device by alias or type
-    if (aliasName.includes('hidrometro') || aliasName.includes('water_meter')) {
-      waterDevices.push({
-        id: entityId,
-        name: entityLabel,
-        type: 'hydrometer',
-        floor: floor,
-        value: parseFloat(getValue('consumption') || getValue('value') || 0),
-        unit: 'm3',
-        status: getValue('active') ? 'online' : 'offline',
-        lastUpdate: Date.now(),
-      });
-    } else if (aliasName.includes('cisterna') || aliasName.includes('cistern')) {
-      waterDevices.push({
-        id: entityId,
-        name: entityLabel,
-        type: 'cistern',
-        floor: floor,
-        value: parseFloat(getValue('level') || getValue('percentage') || 0),
-        unit: '%',
-        status: getValue('active') ? 'online' : 'offline',
-        lastUpdate: Date.now(),
-      });
-    } else if (aliasName.includes('caixa') || aliasName.includes('tank')) {
-      waterDevices.push({
-        id: entityId,
-        name: entityLabel,
-        type: 'tank',
-        floor: floor,
-        value: parseFloat(getValue('level') || getValue('percentage') || 0),
-        unit: '%',
-        status: getValue('active') ? 'online' : 'offline',
-        lastUpdate: Date.now(),
-      });
-    } else if (aliasName.includes('solenoide') || aliasName.includes('solenoid')) {
-      const state = getValue('state') || getValue('status');
-      waterDevices.push({
-        id: entityId,
-        name: entityLabel,
-        type: 'solenoid',
-        floor: floor,
-        value: state === 'on' || state === true ? 1 : 0,
-        unit: '',
-        status: state === 'on' || state === true ? 'online' : 'offline',
-        lastUpdate: Date.now(),
-      });
-    } else if (aliasName.includes('hvac') || aliasName.includes('air') || aliasName.includes('ambiente')) {
-      hvacDevices.push({
-        id: entityId,
-        name: entityLabel,
-        floor: floor || 'N/A',
-        temperature: parseFloat(getValue('temperature') || 0) || null,
-        consumption: parseFloat(getValue('consumption') || getValue('power') || 0) || null,
-        status: getValue('active') ? 'active' : 'inactive',
-        setpoint: parseFloat(getValue('setpoint') || 0) || null,
-      });
-    } else if (aliasName.includes('motor') || aliasName.includes('pump') || aliasName.includes('bomba')) {
-      const consumption = parseFloat(getValue('consumption') || getValue('power') || 0);
-      motorDevices.push({
-        id: entityId,
-        name: entityLabel,
-        floor: floor,
-        consumption: consumption,
-        status: consumption > 0 ? 'running' : 'stopped',
-        type: aliasName.includes('pump') || aliasName.includes('bomba') ? 'pump' : 'motor',
-      });
+function isOcultosDevice(deviceProfile) {
+  var profile = String(deviceProfile || '').toUpperCase();
+  for (var i = 0; i < OCULTOS_PATTERNS.length; i++) {
+    if (profile.includes(OCULTOS_PATTERNS[i])) {
+      return true;
     }
-  });
-
-  return {
-    waterDevices,
-    hvacDevices,
-    motorDevices,
-    floors: Array.from(floors).sort(),
-  };
+  }
+  return false;
 }
 
 /**
- * Extract floor number from device label
+ * Detect domain from deviceType
+ * Order matters: Check water types FIRST, then HVAC/temperature, then motors
  */
-function extractFloorFromLabel(label) {
-  if (!label) return null;
-  const match = label.match(/(\d+)|andar\s*(\d+)|floor\s*(\d+)/i);
-  if (match) {
-    return match[1] || match[2] || match[3];
+function detectDomain(deviceType) {
+  var dt = String(deviceType || '').toUpperCase();
+  var i;
+
+  // Check water types FIRST (before energy default)
+  for (i = 0; i < WATER_TYPES.length; i++) {
+    if (dt.includes(WATER_TYPES[i])) {
+      return 'water';
+    }
+  }
+
+  // Check HVAC/temperature types
+  for (i = 0; i < HVAC_TYPES.length; i++) {
+    if (dt.includes(HVAC_TYPES[i])) {
+      return 'temperature';
+    }
+  }
+
+  // Check for motor types
+  for (i = 0; i < MOTOR_TYPES.length; i++) {
+    if (dt.includes(MOTOR_TYPES[i])) {
+      return 'motor';
+    }
+  }
+
+  return 'energy';
+}
+
+/**
+ * Detect context within domain
+ */
+function detectContext(deviceType, deviceProfile, identifier, domain) {
+  var dt = String(deviceType || '').toUpperCase();
+  var dp = String(deviceProfile || '').toUpperCase();
+  var id = String(identifier || '').toUpperCase();
+
+  if (domain === 'water') {
+    if (dt.includes('HIDROMETRO_SHOPPING') || dp.includes('HIDROMETRO_SHOPPING')) {
+      return 'hidrometro_entrada';
+    }
+    if (dp === 'HIDROMETRO_AREA_COMUM' && id === 'BANHEIROS') {
+      return 'banheiros';
+    }
+    if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_AREA_COMUM') {
+      return 'hidrometro_area_comum';
+    }
+    if (dt.includes('CAIXA_DAGUA')) {
+      return 'caixadagua';
+    }
+    if (dt.includes('SOLENOIDE')) {
+      return 'solenoide';
+    }
+    return 'hidrometro';
+  }
+
+  if (domain === 'temperature') {
+    if (dt.includes('TERMOSTATO_EXTERNAL') || dp.includes('EXTERNAL')) {
+      return 'termostato_external';
+    }
+    return 'termostato';
+  }
+
+  if (domain === 'motor') {
+    if (dt.includes('BOMBA') || dp.includes('BOMBA')) {
+      return 'bomba';
+    }
+    return 'motor';
+  }
+
+  // Energy domain
+  for (var i = 0; i < ENTRADA_TYPES.length; i++) {
+    if (dt.includes(ENTRADA_TYPES[i]) || dp.includes(ENTRADA_TYPES[i])) {
+      return 'entrada';
+    }
+  }
+  if (dt === '3F_MEDIDOR' && dp === '3F_MEDIDOR') {
+    return 'stores';
+  }
+  return 'equipments';
+}
+
+/**
+ * Get last value from dataKey array
+ */
+function getLastValue(dataKeys, key) {
+  var arr = dataKeys[key];
+  if (Array.isArray(arr) && arr.length > 0) {
+    return arr[arr.length - 1][1];
   }
   return null;
 }
 
 /**
- * Build EntityListPanel items from floor strings
+ * Get the first available value from row.data
+ *
+ * ThingsBoard widget data format (observed from logs):
+ *   row.data['0'] = [timestamp, actualValue, [ts, ts]]
+ *
+ * The actual value is at position [1], not in nested arrays.
  */
-function buildFloorItems(floors) {
-  return floors.map(function (floor) {
-    return { id: floor, label: floor + '\u00B0 andar' };
+function getFirstDataValue(rowData) {
+  if (!rowData) return null;
+  var keys = Object.keys(rowData);
+  if (keys.length === 0) return null;
+  var entry = rowData[keys[0]];
+
+  // Format: [timestamp, actualValue, [ts, ts]]
+  if (Array.isArray(entry) && entry.length >= 2) {
+    return entry[1]; // The actual value is at position [1]
+  }
+
+  // Fallback: direct value
+  return entry;
+}
+
+/**
+ * Parse datasource data into classified structure
+ *
+ * ThingsBoard Data Format:
+ *   - Each row represents ONE dataKey for ONE entity
+ *   - datasource.dataKeys[0].name = the key name (e.g., 'deviceType', 'temperature')
+ *   - row.data['0'] or row.data[keyName] = [[timestamp, value], ...]
+ *   - Must group rows by entityId to collect all dataKey values
+ *
+ * Datasources:
+ *   1. "Ambientes" → Lista lateral (EntityListPanel)
+ *   2. "AllDevices" → Dispositivos em árvore (Assets → Assets → Devices)
+ */
+function parseDevicesFromData(data) {
+  var classified = {
+    water: {
+      hidrometro_entrada: [],
+      banheiros: [],
+      hidrometro_area_comum: [],
+      hidrometro: [],
+      caixadagua: [],
+      solenoide: [],
+    },
+    temperature: {
+      termostato: [],
+      termostato_external: [],
+    },
+    motor: {
+      bomba: [],
+      motor: [],
+    },
+    energy: {
+      entrada: [],
+      stores: [],
+      equipments: [],
+    },
+    ocultos: [],
+  };
+
+  var ambientes = [];
+  var devices = [];
+
+  if (!data || !Array.isArray(data)) {
+    return { classified: classified, ambientes: [], devices: [] };
+  }
+
+  console.log('[MAIN_BAS] ============ PARSING DATA ============');
+  console.log('[MAIN_BAS] Total rows:', data.length);
+
+  // Phase 1: Group rows by entityId and collect all dataKey values
+  // Maps: entityId -> { datasource, collectedData: { keyName: value } }
+  //
+  // ThingsBoard data format: Each row = ONE dataKey for ONE entity
+  // For an entity with 6 dataKeys, it appears in 6 consecutive rows.
+  // The dataKey index is determined by tracking occurrence count per entity.
+  var ambientesMap = {};
+  var devicesMap = {};
+  var entityOccurrenceCount = {}; // Track how many times we've seen each entity
+
+  data.forEach(function (row, index) {
+    var datasource = row?.datasource || {};
+    var aliasName = datasource.aliasName || datasource.name || '';
+    var entityType = datasource.entityType || '';
+    var entityId = datasource.entityId || '';
+    var entityLabel = datasource.entityLabel || datasource.entityName || datasource.name || '';
+    var rowData = row?.data || {};
+
+    // Track occurrence count for this entity
+    var mapKey = aliasName + ':' + entityId;
+    if (!entityOccurrenceCount[mapKey]) {
+      entityOccurrenceCount[mapKey] = 0;
+    }
+    var occurrenceIndex = entityOccurrenceCount[mapKey];
+    entityOccurrenceCount[mapKey]++;
+
+    // Get the dataKey name for this row based on occurrence index
+    // Each consecutive row for same entity represents the next dataKey
+    var dataKeysArray = datasource.dataKeys || [];
+    var dataKeyDef = dataKeysArray[occurrenceIndex];
+    var keyName = dataKeyDef?.name || dataKeyDef?.label || null;
+
+    // Get the value from row.data (usually under '0' or the keyName)
+    var value = getFirstDataValue(rowData);
+
+    // DEBUG: Log first few rows with full structure, and also DEVICE rows
+    var isDevice = entityType === 'DEVICE';
+    if (index < 15 || (isDevice && index < 150)) {
+      // Also log raw data structure for devices
+      var rawDataKeys = Object.keys(rowData);
+      var rawFirstEntry = rawDataKeys.length > 0 ? rowData[rawDataKeys[0]] : null;
+
+      console.log('[MAIN_BAS] Row ' + index + ': ' + JSON.stringify({
+        aliasName: aliasName,
+        entityType: entityType,
+        entityId: entityId.substring(0, 8) + '...',
+        entityLabel: entityLabel,
+        occurrenceIndex: occurrenceIndex,
+        dataKeyName: keyName,
+        value: value,
+        totalDataKeys: dataKeysArray.length,
+        rawDataKeys: rawDataKeys,
+        rawFirstEntry: rawFirstEntry,
+      }));
+    }
+
+    // ========================================
+    // DATASOURCE: Ambientes (for sidebar list)
+    // ========================================
+    if (aliasName === 'Ambientes' || aliasName.toLowerCase().includes('ambiente')) {
+      if (!ambientesMap[entityId]) {
+        ambientesMap[entityId] = {
+          datasource: datasource,
+          entityId: entityId,
+          entityLabel: entityLabel,
+          entityType: entityType,
+          aliasName: aliasName,
+          collectedData: {},
+        };
+      }
+      if (keyName) {
+        ambientesMap[entityId].collectedData[keyName] = value;
+      }
+      return;
+    }
+
+    // ========================================
+    // DATASOURCE: AllDevices (tree structure)
+    // ========================================
+    if (aliasName === 'AllDevices' || aliasName.toLowerCase().includes('device')) {
+      // Skip ASSETs - they are containers, not displayed as cards
+      if (entityType === 'ASSET') {
+        return;
+      }
+
+      // Process DEVICEs
+      if (entityType === 'DEVICE') {
+        if (!devicesMap[entityId]) {
+          devicesMap[entityId] = {
+            datasource: datasource,
+            entityId: entityId,
+            entityLabel: entityLabel,
+            entityType: entityType,
+            aliasName: aliasName,
+            collectedData: {},
+          };
+        }
+        if (keyName) {
+          devicesMap[entityId].collectedData[keyName] = value;
+        }
+      }
+    }
+  });
+
+  console.log('[MAIN_BAS] Phase 1 complete:');
+  console.log('[MAIN_BAS]   Unique Ambientes:', Object.keys(ambientesMap).length);
+  console.log('[MAIN_BAS]   Unique Devices:', Object.keys(devicesMap).length);
+
+  // Phase 2: Process grouped Ambientes
+  Object.keys(ambientesMap).forEach(function(entityId) {
+    var entity = ambientesMap[entityId];
+    ambientes.push({
+      id: entityId,
+      name: entity.entityLabel,
+      entityType: entity.entityType,
+      aliasName: entity.aliasName,
+      data: entity.collectedData,
+    });
+  });
+
+  console.log('[MAIN_BAS] Ambientes processed:', ambientes.map(function(a) { return a.name; }));
+
+  // Phase 3: Process grouped Devices with classification
+  Object.keys(devicesMap).forEach(function(entityId) {
+    var entity = devicesMap[entityId];
+    var cd = entity.collectedData;
+
+    // Get classification attributes from collected data
+    var deviceType = cd.deviceType || cd.type || '';
+    var deviceProfile = cd.deviceProfile || cd.profile || '';
+    var identifier = cd.identifier || cd.id || '';
+    var active = cd.active;
+
+    console.log('[MAIN_BAS] Device "' + entity.entityLabel + '": ' + JSON.stringify({
+      deviceType: deviceType,
+      deviceProfile: deviceProfile,
+      identifier: identifier,
+      active: active,
+      allKeys: Object.keys(cd),
+    }));
+
+    // Check if device is hidden/archived (RFC-0142)
+    if (isOcultosDevice(deviceProfile)) {
+      classified.ocultos.push({
+        id: entityId,
+        name: entity.entityLabel,
+        deviceType: deviceType,
+        deviceProfile: deviceProfile,
+      });
+      return;
+    }
+
+    // Detect domain and context
+    var domain = detectDomain(deviceType);
+    var context = detectContext(deviceType, deviceProfile, identifier, domain);
+
+    // Build device object based on domain
+    var device = {
+      id: entityId,
+      name: entity.entityLabel,
+      deviceType: deviceType,
+      deviceProfile: deviceProfile,
+      domain: domain,
+      context: context,
+      status: active ? 'online' : 'offline',
+      lastUpdate: Date.now(),
+      rawData: cd, // Keep collected data for reference
+    };
+
+    // Add domain-specific properties
+    if (domain === 'water') {
+      if (context === 'caixadagua') {
+        device.value = parseFloat(cd.level || cd.waterLevel || 0);
+        device.unit = '%';
+        device.type = 'tank';
+      } else if (context === 'solenoide') {
+        var state = cd.state || cd.status;
+        device.value = state === 'on' || state === true ? 1 : 0;
+        device.unit = '';
+        device.type = 'solenoid';
+        device.status = state === 'on' || state === true ? 'online' : 'offline';
+      } else {
+        device.value = parseFloat(cd.consumption || cd.volume || cd.totalVolume || 0);
+        device.unit = 'm3';
+        device.type = 'hydrometer';
+      }
+    } else if (domain === 'temperature') {
+      device.temperature = parseFloat(cd.temperature || cd.temp || 0) || null;
+      device.setpoint = parseFloat(cd.setpoint || cd.setPoint || 0) || null;
+      device.consumption = parseFloat(cd.consumption || 0) || null;
+      device.status = active ? 'active' : 'inactive';
+    } else if (domain === 'motor') {
+      device.consumption = parseFloat(cd.consumption || cd.power || 0);
+      device.status = device.consumption > 0 ? 'running' : 'stopped';
+      device.type = context === 'bomba' ? 'pump' : 'motor';
+    } else {
+      // Energy
+      device.consumption = parseFloat(cd.consumption || cd.energy || cd.power || 0);
+    }
+
+    // Add device to devices list
+    devices.push(device);
+    console.log('[MAIN_BAS] Added:', device.name, '| domain:', domain, '| context:', context);
+
+    // Add to classified structure
+    if (classified[domain] && classified[domain][context]) {
+      classified[domain][context].push(device);
+    } else {
+      console.log('[MAIN_BAS] WARNING: No bucket for domain:', domain, 'context:', context);
+    }
+  });
+
+  console.log('[MAIN_BAS] ============ PARSE COMPLETE ============');
+  console.log('[MAIN_BAS] Ambientes:', ambientes.length);
+  console.log('[MAIN_BAS] Devices:', devices.length);
+  console.log('[MAIN_BAS] Classification:', {
+    water: Object.keys(classified.water).map(function(k) { return k + ':' + classified.water[k].length; }),
+    temperature: Object.keys(classified.temperature).map(function(k) { return k + ':' + classified.temperature[k].length; }),
+    motor: Object.keys(classified.motor).map(function(k) { return k + ':' + classified.motor[k].length; }),
+    energy: Object.keys(classified.energy).map(function(k) { return k + ':' + classified.energy[k].length; }),
+    ocultos: classified.ocultos.length,
+  });
+
+  return {
+    classified: classified,
+    ambientes: ambientes,
+    devices: devices,
+  };
+}
+
+/**
+ * Build EntityListPanel items from ambiente devices
+ * Each device in the "Ambientes" datasource becomes a list item
+ */
+function buildAmbienteItems(ambientes) {
+  return ambientes.map(function (ambiente) {
+    return {
+      id: ambiente.id,
+      label: ambiente.name || ambiente.label || ambiente.id,
+    };
   });
 }
 
@@ -242,13 +566,50 @@ function waterDeviceToEntityObject(device) {
 }
 
 /**
- * Build CardGridPanel items from water devices
+ * Get all water devices from classified structure
  */
-function buildWaterCardItems(waterDevices, selectedFloor) {
+function getWaterDevicesFromClassified(classified) {
+  if (!classified || !classified.water) return [];
+  var water = classified.water;
+  return [].concat(
+    water.hidrometro_entrada || [],
+    water.banheiros || [],
+    water.hidrometro_area_comum || [],
+    water.hidrometro || [],
+    water.caixadagua || [],
+    water.solenoide || []
+  );
+}
+
+/**
+ * Get all HVAC devices from classified structure
+ */
+function getHVACDevicesFromClassified(classified) {
+  if (!classified || !classified.temperature) return [];
+  var temp = classified.temperature;
+  return [].concat(temp.termostato || [], temp.termostato_external || []);
+}
+
+/**
+ * Get all motor devices from classified structure
+ */
+function getMotorDevicesFromClassified(classified) {
+  if (!classified || !classified.motor) return [];
+  var motor = classified.motor;
+  return [].concat(motor.bomba || [], motor.motor || []);
+}
+
+/**
+ * Build CardGridPanel items from water devices
+ * @param {Object} classified - Classified device structure
+ * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
+ */
+function buildWaterCardItems(classified, selectedAmbienteId) {
+  var waterDevices = getWaterDevicesFromClassified(classified);
   var filtered = waterDevices;
-  if (selectedFloor) {
+  if (selectedAmbienteId) {
     filtered = waterDevices.filter(function (d) {
-      return d.floor === selectedFloor;
+      return d.id === selectedAmbienteId;
     });
   }
 
@@ -294,12 +655,15 @@ function hvacDeviceToEntityObject(device) {
 
 /**
  * Build CardGridPanel items from HVAC devices
+ * @param {Object} classified - Classified device structure
+ * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
  */
-function buildHVACCardItems(hvacDevices, selectedFloor) {
+function buildHVACCardItems(classified, selectedAmbienteId) {
+  var hvacDevices = getHVACDevicesFromClassified(classified);
   var filtered = hvacDevices;
-  if (selectedFloor) {
+  if (selectedAmbienteId) {
     filtered = hvacDevices.filter(function (d) {
-      return d.floor === selectedFloor;
+      return d.id === selectedAmbienteId;
     });
   }
 
@@ -348,12 +712,15 @@ function motorDeviceToEntityObject(device) {
 
 /**
  * Build CardGridPanel items from motor devices
+ * @param {Object} classified - Classified device structure
+ * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
  */
-function buildMotorCardItems(motorDevices, selectedFloor) {
+function buildMotorCardItems(classified, selectedAmbienteId) {
+  var motorDevices = getMotorDevicesFromClassified(classified);
   var filtered = motorDevices;
-  if (selectedFloor) {
+  if (selectedAmbienteId) {
     filtered = motorDevices.filter(function (d) {
-      return d.floor === selectedFloor;
+      return d.id === selectedAmbienteId;
     });
   }
 
@@ -373,7 +740,7 @@ function buildMotorCardItems(motorDevices, selectedFloor) {
 /**
  * Mount CardGridPanel into #bas-water-host
  */
-function mountWaterPanel(waterHost, settings, waterDevices) {
+function mountWaterPanel(waterHost, settings, classified) {
   if (!MyIOLibrary.CardGridPanel) {
     if (settings.enableDebugMode) {
       console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
@@ -383,7 +750,7 @@ function mountWaterPanel(waterHost, settings, waterDevices) {
 
   var panel = new MyIOLibrary.CardGridPanel({
     title: 'Infraestrutura Hidrica',
-    items: buildWaterCardItems(waterDevices, null),
+    items: buildWaterCardItems(classified, null),
     cardCustomStyle: settings.cardCustomStyle || undefined,
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum dispositivo',
@@ -402,7 +769,7 @@ function mountWaterPanel(waterHost, settings, waterDevices) {
 /**
  * Mount CardGridPanel into #bas-ambientes-host (HVAC devices)
  */
-function mountAmbientesPanel(host, settings, hvacDevices) {
+function mountAmbientesPanel(host, settings, classified) {
   if (!MyIOLibrary.CardGridPanel) {
     if (settings.enableDebugMode) {
       console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
@@ -412,7 +779,7 @@ function mountAmbientesPanel(host, settings, hvacDevices) {
 
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.environmentsLabel,
-    items: buildHVACCardItems(hvacDevices, null),
+    items: buildHVACCardItems(classified, null),
     cardCustomStyle: settings.cardCustomStyle || undefined,
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum ambiente',
@@ -431,7 +798,7 @@ function mountAmbientesPanel(host, settings, hvacDevices) {
 /**
  * Mount DeviceGridV6 into #bas-motors-host (pumps & motors)
  */
-function mountMotorsPanel(host, settings, motorDevices) {
+function mountMotorsPanel(host, settings, classified) {
   if (!MyIOLibrary.createDeviceGridV6) {
     if (settings.enableDebugMode) {
       console.warn('[MAIN_BAS] MyIOLibrary.createDeviceGridV6 not available');
@@ -442,7 +809,7 @@ function mountMotorsPanel(host, settings, motorDevices) {
   var panel = MyIOLibrary.createDeviceGridV6({
     container: host,
     title: settings.pumpsMotorsLabel,
-    items: buildMotorCardItems(motorDevices, null),
+    items: buildMotorCardItems(classified, null),
     cardCustomStyle: settings.cardCustomStyle || undefined,
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum equipamento',
@@ -460,61 +827,94 @@ function mountMotorsPanel(host, settings, motorDevices) {
 
 /**
  * Mount EntityListPanel into #bas-sidebar-host
+ * Displays list of ambientes from datasource
  */
-function mountSidebarPanel(sidebarHost, settings, floors) {
+function mountSidebarPanel(sidebarHost, settings, ambientes) {
+  // DEBUG: Log sidebar host dimensions
+  console.log('[MAIN_BAS] mountSidebarPanel called');
+  console.log('[MAIN_BAS] sidebarHost element:', sidebarHost);
+  console.log('[MAIN_BAS] sidebarHost dimensions:', {
+    offsetHeight: sidebarHost?.offsetHeight,
+    offsetWidth: sidebarHost?.offsetWidth,
+    clientHeight: sidebarHost?.clientHeight,
+    clientWidth: sidebarHost?.clientWidth,
+    style: sidebarHost?.style?.cssText,
+    computedHeight: sidebarHost ? window.getComputedStyle(sidebarHost).height : null,
+    computedGridRow: sidebarHost ? window.getComputedStyle(sidebarHost).gridRow : null,
+  });
+  console.log('[MAIN_BAS] ambientes count:', ambientes?.length);
+  console.log('[MAIN_BAS] ambientes data:', ambientes);
+
   if (!MyIOLibrary.EntityListPanel) {
-    if (settings.enableDebugMode) {
-      console.warn('[MAIN_BAS] MyIOLibrary.EntityListPanel not available');
-    }
+    console.warn('[MAIN_BAS] MyIOLibrary.EntityListPanel not available');
     return null;
   }
 
+  var items = buildAmbienteItems(ambientes);
+  console.log('[MAIN_BAS] Built ambiente items:', items);
+
   var panel = new MyIOLibrary.EntityListPanel({
-    title: settings.floorsLabel,
-    subtitle: 'Nome do andar \u2191',
-    items: buildFloorItems(floors),
+    title: settings.sidebarLabel,
+    subtitle: 'Nome \u2191',
+    items: items,
     backgroundImage: settings.sidebarBackgroundImage || undefined,
-    searchPlaceholder: 'Buscar andar...',
+    searchPlaceholder: 'Buscar...',
     selectedId: null,
     showAllOption: true,
     allLabel: 'Todos',
+    sortOrder: 'asc',
+    excludePartOfLabel: '^\\(\\d{3}\\)-\\s*',  // Remove (001)- prefix from labels
     handleClickAll: function () {
-      if (settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Floor selected: all');
-      }
-      _selectedFloor = null;
+      console.log('[MAIN_BAS] Ambiente selected: all');
+      _selectedAmbiente = null;
       if (_waterPanel) {
-        _waterPanel.setItems(buildWaterCardItems(_currentWaterDevices, null));
+        _waterPanel.setItems(buildWaterCardItems(_currentClassified, null));
       }
       if (_ambientesPanel) {
-        _ambientesPanel.setItems(buildHVACCardItems(_currentHVACDevices, null));
+        _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, null));
       }
       if (_motorsPanel) {
-        _motorsPanel.updateItems(buildMotorCardItems(_currentMotorDevices, null));
+        _motorsPanel.updateItems(buildMotorCardItems(_currentClassified, null));
       }
       if (panel) panel.setSelectedId(null);
-      window.dispatchEvent(new CustomEvent('bas:floor-changed', { detail: { floor: null } }));
+      window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: null } }));
     },
     handleClickItem: function (item) {
-      if (settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Floor selected:', item.id);
-      }
-      _selectedFloor = item.id;
+      console.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
+      _selectedAmbiente = item.id;
       if (_waterPanel) {
-        _waterPanel.setItems(buildWaterCardItems(_currentWaterDevices, item.id));
+        _waterPanel.setItems(buildWaterCardItems(_currentClassified, item.id));
       }
       if (_ambientesPanel) {
-        _ambientesPanel.setItems(buildHVACCardItems(_currentHVACDevices, item.id));
+        _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, item.id));
       }
       if (_motorsPanel) {
-        _motorsPanel.updateItems(buildMotorCardItems(_currentMotorDevices, item.id));
+        _motorsPanel.updateItems(buildMotorCardItems(_currentClassified, item.id));
       }
       if (panel) panel.setSelectedId(item.id);
-      window.dispatchEvent(new CustomEvent('bas:floor-changed', { detail: { floor: item.id } }));
+      window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: item.id } }));
     },
   });
 
-  sidebarHost.appendChild(panel.getElement());
+  var panelElement = panel.getElement();
+  console.log('[MAIN_BAS] Panel element created:', panelElement);
+
+  sidebarHost.appendChild(panelElement);
+
+  // DEBUG: Log after append
+  setTimeout(function() {
+    console.log('[MAIN_BAS] After append - sidebarHost dimensions:', {
+      offsetHeight: sidebarHost?.offsetHeight,
+      offsetWidth: sidebarHost?.offsetWidth,
+      scrollHeight: sidebarHost?.scrollHeight,
+    });
+    console.log('[MAIN_BAS] After append - panelElement dimensions:', {
+      offsetHeight: panelElement?.offsetHeight,
+      offsetWidth: panelElement?.offsetWidth,
+      scrollHeight: panelElement?.scrollHeight,
+    });
+  }, 100);
+
   return panel;
 }
 
@@ -666,26 +1066,52 @@ async function initializeDashboard(
   settings
 ) {
   try {
+    // DEBUG: Log raw data from ThingsBoard
+    console.log('[MAIN_BAS] ============ INIT START ============');
+    console.log('[MAIN_BAS] ctx.data (raw):', ctx.data);
+    console.log('[MAIN_BAS] ctx.data length:', ctx.data?.length);
+
+    // Log each datasource row
+    if (ctx.data && Array.isArray(ctx.data)) {
+      ctx.data.forEach(function(row, index) {
+        console.log('[MAIN_BAS] Row ' + index + ':', {
+          aliasName: row?.datasource?.aliasName,
+          entityId: row?.datasource?.entityId,
+          entityLabel: row?.datasource?.entityLabel,
+          dataKeys: Object.keys(row?.data || {}),
+        });
+      });
+    }
+
     // Check if MyIOLibrary is available
     if (typeof MyIOLibrary === 'undefined') {
       throw new Error('MyIOLibrary nao esta disponivel. Verifique se a biblioteca foi carregada.');
     }
 
-    // Parse initial data
-    const devices = parseDevicesFromData(ctx.data);
-    _currentFloors = devices.floors;
+    // Parse initial data using datasource "Ambientes" with classification
+    var parsed = parseDevicesFromData(ctx.data);
+    _currentClassified = parsed.classified;
+    _currentAmbientes = parsed.ambientes;
 
-    // Mount sidebar EntityListPanel (col 1, row 1)
-    if (settings.showFloorsSidebar && sidebarHost) {
-      _floorListPanel = mountSidebarPanel(sidebarHost, settings, devices.floors);
+    console.log('[MAIN_BAS] Parsed result:', {
+      ambientesCount: parsed.ambientes?.length,
+      ambientes: parsed.ambientes,
+      classified: parsed.classified,
+    });
+
+    // Mount sidebar EntityListPanel (col 1, row 1-2 full height)
+    console.log('[MAIN_BAS] settings.showSidebar:', settings.showSidebar);
+    console.log('[MAIN_BAS] sidebarHost exists:', !!sidebarHost);
+
+    if (settings.showSidebar && sidebarHost) {
+      _ambientesListPanel = mountSidebarPanel(sidebarHost, settings, parsed.ambientes);
     } else if (sidebarHost) {
       sidebarHost.style.display = 'none';
     }
 
     // Mount water CardGridPanel (col 2, row 1)
-    _currentWaterDevices = devices.waterDevices;
     if (settings.showWaterInfrastructure && waterHost) {
-      _waterPanel = mountWaterPanel(waterHost, settings, devices.waterDevices);
+      _waterPanel = mountWaterPanel(waterHost, settings, _currentClassified);
     } else if (waterHost) {
       waterHost.style.display = 'none';
     }
@@ -698,28 +1124,32 @@ async function initializeDashboard(
     }
 
     // Mount ambientes CardGridPanel (col 3, row 1–2)
-    _currentHVACDevices = devices.hvacDevices;
     if (settings.showEnvironments && ambientesHost) {
-      _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, devices.hvacDevices);
+      _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, _currentClassified);
     } else if (ambientesHost) {
       ambientesHost.style.display = 'none';
     }
 
     // Mount motors CardGridPanel (col 4, row 1–2)
-    _currentMotorDevices = devices.motorDevices;
     if (settings.showPumpsMotors && motorsHost) {
-      _motorsPanel = mountMotorsPanel(motorsHost, settings, devices.motorDevices);
+      _motorsPanel = mountMotorsPanel(motorsHost, settings, _currentClassified);
     } else if (motorsHost) {
       motorsHost.style.display = 'none';
     }
 
     if (settings.enableDebugMode) {
+      var waterDevices = getWaterDevicesFromClassified(_currentClassified);
+      var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
+      var motorDevices = getMotorDevicesFromClassified(_currentClassified);
+
       console.log('[MAIN_BAS] Dashboard initialized with:', {
-        waterDevices: devices.waterDevices.length,
-        hvacDevices: devices.hvacDevices.length,
-        motorDevices: devices.motorDevices.length,
-        floors: devices.floors,
-        sidebarMounted: !!_floorListPanel,
+        ambientes: parsed.ambientes.length,
+        waterDevices: waterDevices.length,
+        hvacDevices: hvacDevices.length,
+        motorDevices: motorDevices.length,
+        ocultosDevices: _currentClassified.ocultos.length,
+        classified: _currentClassified,
+        sidebarMounted: !!_ambientesListPanel,
         waterPanelMounted: !!_waterPanel,
         ambientesPanelMounted: !!_ambientesPanel,
         motorsPanelMounted: !!_motorsPanel,
@@ -775,38 +1205,42 @@ self.onInit = async function () {
 self.onDataUpdated = function () {
   if (!_ctx) return;
 
-  var devices = parseDevicesFromData(_ctx.data);
+  var parsed = parseDevicesFromData(_ctx.data);
+  _currentClassified = parsed.classified;
 
   if (_settings && _settings.enableDebugMode) {
+    var waterDevices = getWaterDevicesFromClassified(_currentClassified);
+    var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
+    var motorDevices = getMotorDevicesFromClassified(_currentClassified);
+
     console.log('[MAIN_BAS] onDataUpdated - Devices:', {
-      water: devices.waterDevices.length,
-      hvac: devices.hvacDevices.length,
-      motors: devices.motorDevices.length,
+      ambientes: parsed.ambientes.length,
+      water: waterDevices.length,
+      hvac: hvacDevices.length,
+      motors: motorDevices.length,
+      ocultos: _currentClassified.ocultos.length,
     });
   }
 
-  // Update floor list if floors changed
-  if (_floorListPanel && JSON.stringify(devices.floors) !== JSON.stringify(_currentFloors)) {
-    _currentFloors = devices.floors;
-    _floorListPanel.setItems(buildFloorItems(devices.floors));
+  // Update ambientes list if changed
+  if (_ambientesListPanel && JSON.stringify(parsed.ambientes.map(function(a) { return a.id; })) !== JSON.stringify(_currentAmbientes.map(function(a) { return a.id; }))) {
+    _currentAmbientes = parsed.ambientes;
+    _ambientesListPanel.setItems(buildAmbienteItems(parsed.ambientes));
   }
 
   // Update water panel
-  _currentWaterDevices = devices.waterDevices;
   if (_waterPanel) {
-    _waterPanel.setItems(buildWaterCardItems(devices.waterDevices, _selectedFloor));
+    _waterPanel.setItems(buildWaterCardItems(_currentClassified, _selectedAmbiente));
   }
 
-  // Update ambientes panel
-  _currentHVACDevices = devices.hvacDevices;
+  // Update ambientes panel (HVAC cards)
   if (_ambientesPanel) {
-    _ambientesPanel.setItems(buildHVACCardItems(devices.hvacDevices, _selectedFloor));
+    _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, _selectedAmbiente));
   }
 
   // Update motors panel
-  _currentMotorDevices = devices.motorDevices;
   if (_motorsPanel) {
-    _motorsPanel.updateItems(buildMotorCardItems(devices.motorDevices, _selectedFloor));
+    _motorsPanel.updateItems(buildMotorCardItems(_currentClassified, _selectedAmbiente));
   }
 };
 
@@ -818,8 +1252,8 @@ self.onDestroy = function () {
   if (_chartInstance && _chartInstance.destroy) {
     _chartInstance.destroy();
   }
-  if (_floorListPanel && _floorListPanel.destroy) {
-    _floorListPanel.destroy();
+  if (_ambientesListPanel && _ambientesListPanel.destroy) {
+    _ambientesListPanel.destroy();
   }
   if (_waterPanel && _waterPanel.destroy) {
     _waterPanel.destroy();
@@ -832,17 +1266,15 @@ self.onDestroy = function () {
   }
   _chartInstance = null;
   _currentChartDomain = 'energy';
-  _floorListPanel = null;
+  _ambientesListPanel = null;
   _waterPanel = null;
   _ambientesPanel = null;
   _motorsPanel = null;
-  _selectedFloor = null;
+  _selectedAmbiente = null;
   _ctx = null;
   _settings = null;
-  _currentFloors = [];
-  _currentWaterDevices = [];
-  _currentHVACDevices = [];
-  _currentMotorDevices = [];
+  _currentAmbientes = [];
+  _currentClassified = null;
 };
 
 self.typeParameters = function () {
