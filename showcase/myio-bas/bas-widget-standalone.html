@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BAS Widget Standalone</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Load 100% of MAIN_BAS styles -->
+  <link rel="stylesheet" href="../../src/thingsboard/bas-components/MAIN_BAS/styles.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <!-- Template from MAIN_BAS/template.html -->
+  <div id="bas-dashboard-root" class="bas-dashboard-container">
+    <div class="bas-header" id="bas-header"></div>
+    <div class="bas-content-layout">
+      <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
+      <div class="bas-water-slot" id="bas-water-host"></div>
+      <div class="bas-charts-slot" id="bas-charts-host"></div>
+      <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+      <div class="bas-motors-slot" id="bas-motors-host"></div>
+    </div>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- MyIO Library -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <script>
+    // Listen for messages from parent window
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'BAS_INIT') {
+        initDashboard(e.data.config || {});
+      }
+    });
+
+    // Auto-init if loaded directly (not in iframe)
+    if (window === window.parent) {
+      document.addEventListener('DOMContentLoaded', function() {
+        initDashboard({});
+      });
+    }
+
+    function initDashboard(config) {
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO) {
+        console.error('[BAS] MyIOLibrary not loaded');
+        return;
+      }
+
+      // Mount EntityListPanel
+      const sidebarHost = document.getElementById('bas-sidebar-host');
+      if (sidebarHost && MyIO.EntityListPanel) {
+        const floors = ['01', '02', '03', '04', '05'];
+        const panel = new MyIO.EntityListPanel({
+          title: 'Andares',
+          subtitle: 'Nome',
+          items: floors.map(f => ({ id: f, label: f + 'º andar' })),
+          showAllOption: true,
+          allLabel: 'Todos',
+          handleClickAll: () => console.log('All clicked'),
+          handleClickItem: (item) => console.log('Floor clicked:', item.id),
+        });
+        sidebarHost.appendChild(panel.getElement());
+      }
+
+      // Mount Water CardGridPanel
+      const waterHost = document.getElementById('bas-water-host');
+      if (waterHost && MyIO.CardGridPanel) {
+        const items = [
+          { id: '1', entityObject: { labelOrName: 'Hidr. Reuso', val: 125, deviceStatus: 'online' } },
+          { id: '2', entityObject: { labelOrName: 'Hidr. Pipa', val: 89, deviceStatus: 'offline' } },
+          { id: '3', entityObject: { labelOrName: 'Hidr. Irrigação', val: 200, deviceStatus: 'online' } },
+          { id: '4', entityObject: { labelOrName: 'Hidr. Sabesp', val: 450, deviceStatus: 'online' } },
+        ];
+        const panel = new MyIO.CardGridPanel({
+          title: 'Infraestrutura Hidrica',
+          items: items,
+          emptyMessage: 'Nenhum dispositivo',
+        });
+        waterHost.appendChild(panel.getElement());
+      }
+
+      // Mount Chart
+      const chartsHost = document.getElementById('bas-charts-host');
+      if (chartsHost && MyIO.createConsumption7DaysChart) {
+        const tabBar = document.createElement('div');
+        tabBar.className = 'bas-chart-tabs';
+        ['Energia', 'Água', 'Temperatura'].forEach((label, i) => {
+          const btn = document.createElement('button');
+          btn.className = 'bas-chart-tab' + (i === 0 ? ' bas-chart-tab--active' : '');
+          btn.textContent = label;
+          tabBar.appendChild(btn);
+        });
+
+        const chartCard = document.createElement('div');
+        chartCard.className = 'bas-chart-card';
+        const canvas = document.createElement('canvas');
+        canvas.id = 'bas-chart';
+        chartCard.appendChild(canvas);
+
+        chartsHost.appendChild(tabBar);
+        chartsHost.appendChild(chartCard);
+
+        MyIO.createConsumption7DaysChart({
+          domain: 'energy',
+          containerId: 'bas-chart',
+          unit: 'kWh',
+          fetchData: (period) => {
+            const labels = [];
+            const values = [];
+            for (let i = period - 1; i >= 0; i--) {
+              const d = new Date();
+              d.setDate(d.getDate() - i);
+              labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+              values.push(Math.random() * 800 + 200);
+            }
+            return Promise.resolve({ labels, dailyTotals: values });
+          },
+          defaultPeriod: 7,
+        }).render();
+      }
+
+      // Mount Ambientes CardGridPanel
+      const ambientesHost = document.getElementById('bas-ambientes-host');
+      if (ambientesHost && MyIO.CardGridPanel) {
+        const items = Array.from({ length: 10 }, (_, i) => ({
+          id: `hvac-${i + 1}`,
+          entityObject: {
+            labelOrName: `Temp. RJ ${i + 1}`,
+            val: 22 + Math.floor(Math.random() * 5),
+            deviceStatus: Math.random() > 0.2 ? 'online' : 'offline'
+          }
+        }));
+        const panel = new MyIO.CardGridPanel({
+          title: 'Ambientes',
+          items: items,
+          emptyMessage: 'Nenhum ambiente',
+        });
+        ambientesHost.appendChild(panel.getElement());
+      }
+
+      // Mount Motors CardGridPanel (same style as Ambientes)
+      const motorsHost = document.getElementById('bas-motors-host');
+      if (motorsHost && MyIO.CardGridPanel) {
+        const items = Array.from({ length: 8 }, (_, i) => ({
+          id: `motor-${i + 1}`,
+          entityObject: {
+            labelOrName: `DM${i + 1} B${6 + Math.floor(i / 2)} ${i % 2 === 0 ? 'Operante' : 'Reserva'}`,
+            val: Math.random() * 10,
+            deviceStatus: i % 2 === 0 ? 'online' : 'offline'
+          }
+        }));
+        const panel = new MyIO.CardGridPanel({
+          title: 'Bombas e Motores',
+          items: items,
+          emptyMessage: 'Nenhum equipamento',
+        });
+        motorsHost.appendChild(panel.getElement());
+      }
+
+      console.log('[BAS] Dashboard initialized');
+    }
+  </script>
+</body>
+</html>
