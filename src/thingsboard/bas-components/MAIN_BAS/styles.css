@@ -39,9 +39,6 @@
   display: grid;
   grid-template-columns: 20% 40% 20% 20%;
   grid-template-rows: 1fr 1fr;
-  grid-template-areas:
-    "sidebar water   ambientes motors"
-    "charts  charts  ambientes motors";
   gap: 0;
   overflow: hidden;
   min-height: 0;
@@ -52,9 +49,10 @@
    col 1, row 1  (20% Ã— 50%)
    ======================================== */
 .bas-sidebar-slot {
-  grid-area: sidebar;
-  height: 100%;
+  grid-column: 1;
+  grid-row: 1;
   overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -68,6 +66,7 @@
 .bas-sidebar-slot > * {
   flex: 1;
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
 }
 
@@ -76,11 +75,11 @@
    col 2, row 1  (40% Ã— 50%)
    ======================================== */
 .bas-water-slot {
-  grid-area: water;
-  height: 100%;
+  grid-column: 2;
+  grid-row: 1;
   padding: 12px;
   box-sizing: border-box;
-  display: flex;\n  flex-direction: column;\ndisplay: flex;
+  display: flex;
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -92,6 +91,8 @@
 .bas-water-slot > * {
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* ========================================
@@ -99,8 +100,8 @@
    col 1-2, row 2  (60% Ã— 50%)
    ======================================== */
 .bas-charts-slot {
-  grid-area: charts;
-  height: 100%;
+  grid-column: 1 / 3;
+  grid-row: 2;
   padding: 8px 12px 12px;
   box-sizing: border-box;
   display: flex;
@@ -169,15 +170,16 @@
   width: 100% !important;
   height: 100% !important;
 }
-\n/* Ensure charts host children can stretch */\n.bas-charts-slot > * {\n  width: 100%;\n}\n
+
 /* ========================================
    AMBIENTES SLOT â€” CardGridPanel host (HVAC)
    col 3, row 1â€“2  (20% Ã— 100%)
    ======================================== */
 .bas-ambientes-slot {
-  grid-area: ambientes;
-  height: 100%;
+  grid-column: 3;
+  grid-row: 1 / 3;
   overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -190,6 +192,8 @@
 .bas-ambientes-slot > * {
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* ========================================
@@ -197,9 +201,10 @@
    col 4, row 1â€“2  (20% Ã— 100%)
    ======================================== */
 .bas-motors-slot {
-  grid-area: motors;
-  height: 100%;
+  grid-column: 4;
+  grid-row: 1 / 3;
   overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -211,6 +216,8 @@
 .bas-motors-slot > * {
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* ========================================
@@ -272,32 +279,38 @@
   .bas-content-layout {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "sidebar   water"
-      "charts    charts"
-      "ambientes motors";
   }
 
   .bas-sidebar-slot {
+    grid-column: 1;
+    grid-row: 1;
     max-height: 220px;
   }
 
   .bas-water-slot {
+    grid-column: 2;
+    grid-row: 1;
     max-height: 220px;
     border-right: none;
   }
 
   .bas-charts-slot {
+    grid-column: 1 / 3;
+    grid-row: 2;
     max-height: 300px;
     border-right: none;
   }
 
   .bas-ambientes-slot {
+    grid-column: 1;
+    grid-row: 3;
     min-height: 280px;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .bas-motors-slot {
+    grid-column: 2;
+    grid-row: 3;
     min-height: 280px;
   }
 }
