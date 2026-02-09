@@ -1772,6 +1772,28 @@ function mountWaterPanel(waterHost, settings, classified) {
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
 
+  // Use premium green header style from library
+  var waterHeaderStyle = MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN || {
+    height: '36px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+    topBorderColor: 'transparent',
+    bottomBorderColor: 'transparent',
+    iconColor: '#a7d4c0',
+    quantityBackground: 'rgba(255, 255, 255, 0.2)',
+    quantityColor: '#ffffff',
+    buttonColor: 'rgba(255, 255, 255, 0.7)',
+    buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+    buttonHoverColor: '#ffffff',
+    searchBackground: 'rgba(255, 255, 255, 0.15)',
+    searchColor: '#ffffff',
+    searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+  };
+
   var panel = new MyIOLibrary.CardGridPanel({
     title: 'Infraestrutura Hidrica',
     icon: '💧',
@@ -1779,12 +1801,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     items: waterItems,
     panelBackground: settings.waterPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
-    titleStyle: {
-      fontSize: '0.7rem',
-      fontWeight: '600',
-      padding: '8px 12px 6px 12px',
-      letterSpacing: '0.5px',
-    },
+    titleStyle: waterHeaderStyle,
     gridMinCardWidth: settings.waterCardMinWidth || '160px',
     gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum dispositivo',
@@ -1853,6 +1870,28 @@ function mountAmbientesPanel(host, settings, classified) {
   var hvacDevices = getHVACDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
 
+  // Use premium green header style from library
+  var headerStyle = MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN || {
+    height: '36px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+    topBorderColor: 'transparent',
+    bottomBorderColor: 'transparent',
+    iconColor: '#a7d4c0',
+    quantityBackground: 'rgba(255, 255, 255, 0.2)',
+    quantityColor: '#ffffff',
+    buttonColor: 'rgba(255, 255, 255, 0.7)',
+    buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+    buttonHoverColor: '#ffffff',
+    searchBackground: 'rgba(255, 255, 255, 0.15)',
+    searchColor: '#ffffff',
+    searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+  };
+
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.environmentsLabel,
     icon: '🌡️',
@@ -1861,12 +1900,7 @@ function mountAmbientesPanel(host, settings, classified) {
     cardType: 'ambiente',
     panelBackground: settings.environmentsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
-    titleStyle: {
-      fontSize: '0.7rem',
-      fontWeight: '600',
-      padding: '8px 12px 6px 12px',
-      letterSpacing: '0.5px',
-    },
+    titleStyle: headerStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum ambiente',
@@ -1942,6 +1976,28 @@ function mountEnergyPanel(host, settings, classified) {
     panelLabel = 'Energia';
   }
 
+  // Use premium green header style from library
+  var energyHeaderStyle = MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN || {
+    height: '36px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+    topBorderColor: 'transparent',
+    bottomBorderColor: 'transparent',
+    iconColor: '#a7d4c0',
+    quantityBackground: 'rgba(255, 255, 255, 0.2)',
+    quantityColor: '#ffffff',
+    buttonColor: 'rgba(255, 255, 255, 0.7)',
+    buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+    buttonHoverColor: '#ffffff',
+    searchBackground: 'rgba(255, 255, 255, 0.15)',
+    searchColor: '#ffffff',
+    searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+  };
+
   var panel = new MyIOLibrary.CardGridPanel({
     title: panelLabel,
     icon: '⚡',
@@ -1949,12 +2005,7 @@ function mountEnergyPanel(host, settings, classified) {
     items: energyItems,
     panelBackground: settings.motorsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
-    titleStyle: {
-      fontSize: '0.7rem',
-      fontWeight: '600',
-      padding: '8px 12px 6px 12px',
-      letterSpacing: '0.5px',
-    },
+    titleStyle: energyHeaderStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum equipamento',
@@ -2048,6 +2099,28 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
   }
   LogHelper.log('[MAIN_BAS] Built ambiente items:', items);
 
+  // Use premium green header style from library
+  var sidebarHeaderStyle = MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN || {
+    height: '36px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+    topBorderColor: 'transparent',
+    bottomBorderColor: 'transparent',
+    iconColor: '#a7d4c0',
+    quantityBackground: 'rgba(255, 255, 255, 0.2)',
+    quantityColor: '#ffffff',
+    buttonColor: 'rgba(255, 255, 255, 0.7)',
+    buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+    buttonHoverColor: '#ffffff',
+    searchBackground: 'rgba(255, 255, 255, 0.15)',
+    searchColor: '#ffffff',
+    searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+  };
+
   var panel = new MyIOLibrary.EntityListPanel({
     title: settings.sidebarLabel,
     icon: '📍',
@@ -2062,7 +2135,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     allLabel: 'HOME',
     sortOrder: 'asc',
     excludePartOfLabel: hierarchyAvailable ? undefined : '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels (datasource only)
-    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 0 12px', letterSpacing: '0.5px' },
+    titleStyle: sidebarHeaderStyle,
     showFilter: true,
     showMaximize: true,
     onMaximizeToggle: function (isMaximized) {

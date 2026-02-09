@@ -257,7 +257,7 @@ export {
 export { renderCardAmbienteV6 } from './components/template-card-ambiente-v6/template-card-ambiente-v6.js';
 
 // HeaderPanelComponent — Reusable header component for panels
-export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK } from './components/header-panel/index';
+export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK, HEADER_STYLE_PREMIUM_GREEN } from './components/header-panel/index';
 export type { HeaderPanelStyle, HeaderPanelOptions } from './components/header-panel/index';
 
 // EntityListPanel — Reusable sidebar list component

@@ -31,12 +31,30 @@ export interface HeaderPanelStyle {
   letterSpacing?: string;
   /** Text transform (default: 'uppercase') */
   textTransform?: string;
-  /** Background color (default: 'transparent') */
+  /** Background color or gradient (default: 'transparent') */
   backgroundColor?: string;
   /** Top border color (default: 'rgba(47, 88, 72, 0.3)') */
   topBorderColor?: string;
   /** Bottom border color (default: '#e8e4d9') */
   bottomBorderColor?: string;
+  /** Icon color (default: '#2F5848') */
+  iconColor?: string;
+  /** Quantity badge background (default: 'rgba(0, 0, 0, 0.06)') */
+  quantityBackground?: string;
+  /** Quantity badge text color (default: '#666') */
+  quantityColor?: string;
+  /** Action button color (default: '#666') */
+  buttonColor?: string;
+  /** Action button hover background (default: 'rgba(0, 0, 0, 0.06)') */
+  buttonHoverBackground?: string;
+  /** Action button hover color (default: '#333') */
+  buttonHoverColor?: string;
+  /** Search input background (default: 'rgba(0, 0, 0, 0.04)') */
+  searchBackground?: string;
+  /** Search input text color (default: '#333') */
+  searchColor?: string;
+  /** Search placeholder color (default: '#999') */
+  searchPlaceholderColor?: string;
 }
 
 export interface HeaderPanelOptions {
@@ -312,6 +330,15 @@ export const HEADER_STYLE_DEFAULT: HeaderPanelStyle = {
   backgroundColor: 'transparent',
   topBorderColor: 'rgba(47, 88, 72, 0.3)',
   bottomBorderColor: '#e8e4d9',
+  iconColor: '#2F5848',
+  quantityBackground: 'rgba(0, 0, 0, 0.06)',
+  quantityColor: '#666',
+  buttonColor: '#666',
+  buttonHoverBackground: 'rgba(0, 0, 0, 0.06)',
+  buttonHoverColor: '#333',
+  searchBackground: 'rgba(0, 0, 0, 0.04)',
+  searchColor: '#333',
+  searchPlaceholderColor: '#999',
 };
 
 export const HEADER_STYLE_SLIM: HeaderPanelStyle = {
@@ -325,6 +352,37 @@ export const HEADER_STYLE_DARK: HeaderPanelStyle = {
   backgroundColor: '#1e293b',
   topBorderColor: 'rgba(61, 122, 98, 0.5)',
   bottomBorderColor: '#334155',
+  iconColor: '#a7d4c0',
+  quantityBackground: 'rgba(255, 255, 255, 0.1)',
+  quantityColor: '#e2e8f0',
+  buttonColor: 'rgba(255, 255, 255, 0.7)',
+  buttonHoverBackground: 'rgba(255, 255, 255, 0.1)',
+  buttonHoverColor: '#ffffff',
+  searchBackground: 'rgba(255, 255, 255, 0.1)',
+  searchColor: '#e2e8f0',
+  searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+};
+
+/** Premium green gradient header style */
+export const HEADER_STYLE_PREMIUM_GREEN: HeaderPanelStyle = {
+  height: '36px',
+  fontSize: '0.7rem',
+  fontWeight: '600',
+  color: '#ffffff',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+  topBorderColor: 'transparent',
+  bottomBorderColor: 'transparent',
+  iconColor: '#a7d4c0',
+  quantityBackground: 'rgba(255, 255, 255, 0.2)',
+  quantityColor: '#ffffff',
+  buttonColor: 'rgba(255, 255, 255, 0.7)',
+  buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+  buttonHoverColor: '#ffffff',
+  searchBackground: 'rgba(255, 255, 255, 0.15)',
+  searchColor: '#ffffff',
+  searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
 };
 
 // ────────────────────────────────────────────
@@ -401,22 +459,29 @@ export class HeaderPanelComponent {
   private applyBorders(): void {
     const { showTopBorder = true, showBottomBorder = true, style } = this.options;
 
-    if (showTopBorder) {
+    // Handle top border - skip if transparent
+    if (showTopBorder && style?.topBorderColor !== 'transparent') {
       this.root.classList.add('myio-hp--top-border');
       if (style?.topBorderColor) {
         this.root.style.borderTopColor = style.topBorderColor;
       }
     }
 
-    if (showBottomBorder) {
+    // Handle bottom border - skip if transparent
+    if (showBottomBorder && style?.bottomBorderColor !== 'transparent') {
       this.root.classList.add('myio-hp--bottom-border');
       if (style?.bottomBorderColor) {
         this.root.style.borderBottomColor = style.bottomBorderColor;
       }
     }
 
+    // Handle background - support both color and gradient
     if (style?.backgroundColor) {
-      this.root.style.backgroundColor = style.backgroundColor;
+      if (style.backgroundColor.includes('gradient')) {
+        this.root.style.background = style.backgroundColor;
+      } else {
+        this.root.style.backgroundColor = style.backgroundColor;
+      }
     }
   }
 
@@ -450,6 +515,7 @@ export class HeaderPanelComponent {
       const iconEl = document.createElement('span');
       iconEl.className = 'myio-hp__icon';
       iconEl.innerHTML = icon;
+      if (style?.iconColor) iconEl.style.color = style.iconColor;
       left.appendChild(iconEl);
     }
 
@@ -467,6 +533,8 @@ export class HeaderPanelComponent {
       const qtyEl = document.createElement('span');
       qtyEl.className = 'myio-hp__quantity';
       qtyEl.textContent = `(${quantity})`;
+      if (style?.quantityBackground) qtyEl.style.background = style.quantityBackground;
+      if (style?.quantityColor) qtyEl.style.color = style.quantityColor;
       left.appendChild(qtyEl);
     }
 
@@ -476,11 +544,25 @@ export class HeaderPanelComponent {
     const actions = document.createElement('div');
     actions.className = 'myio-hp__actions';
 
+    // Helper to apply button styles with hover
+    const applyButtonStyle = (btn: HTMLButtonElement) => {
+      if (style?.buttonColor) btn.style.color = style.buttonColor;
+      btn.addEventListener('mouseenter', () => {
+        if (style?.buttonHoverBackground) btn.style.background = style.buttonHoverBackground;
+        if (style?.buttonHoverColor) btn.style.color = style.buttonHoverColor;
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = '';
+        if (style?.buttonColor) btn.style.color = style.buttonColor;
+      });
+    };
+
     if (showSearch) {
       const searchBtn = document.createElement('button');
       searchBtn.className = 'myio-hp__btn';
       searchBtn.innerHTML = ICON_SEARCH;
       searchBtn.title = 'Buscar';
+      applyButtonStyle(searchBtn);
       searchBtn.addEventListener('click', () => this.toggleSearch(searchBtn));
       actions.appendChild(searchBtn);
     }
@@ -490,6 +572,7 @@ export class HeaderPanelComponent {
       filterBtn.className = 'myio-hp__btn';
       filterBtn.innerHTML = ICON_FILTER;
       filterBtn.title = 'Filtrar';
+      applyButtonStyle(filterBtn);
       filterBtn.addEventListener('click', () => {
         this.options.handleActionFilter?.();
       });
@@ -501,6 +584,7 @@ export class HeaderPanelComponent {
       maxBtn.className = 'myio-hp__btn';
       maxBtn.innerHTML = this.isMaximized ? ICON_MINIMIZE : ICON_MAXIMIZE;
       maxBtn.title = this.isMaximized ? 'Minimizar' : 'Maximizar';
+      applyButtonStyle(maxBtn);
       maxBtn.addEventListener('click', () => this.toggleMaximize(maxBtn));
       actions.appendChild(maxBtn);
     }
@@ -512,6 +596,7 @@ export class HeaderPanelComponent {
       customBtn.className = 'myio-hp__btn';
       customBtn.innerHTML = actionButton.icon;
       customBtn.title = actionButton.title;
+      applyButtonStyle(customBtn);
       customBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         actionButton.onClick();
@@ -538,18 +623,26 @@ export class HeaderPanelComponent {
     if (showSearch) {
       const searchRow = document.createElement('div');
       searchRow.className = 'myio-hp__search-row';
+      // Apply gradient background to search row if header has gradient
+      if (style?.backgroundColor?.includes('gradient')) {
+        searchRow.style.background = 'linear-gradient(135deg, #245040 0%, #2F5848 100%)';
+        searchRow.style.paddingBottom = '8px';
+      }
 
       const inputWrapper = document.createElement('div');
       inputWrapper.className = 'myio-hp__search-input-wrapper';
+      if (style?.searchBackground) inputWrapper.style.background = style.searchBackground;
 
       const searchIcon = document.createElement('span');
       searchIcon.innerHTML = ICON_SEARCH;
+      if (style?.searchPlaceholderColor) searchIcon.style.color = style.searchPlaceholderColor;
       inputWrapper.appendChild(searchIcon);
 
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'myio-hp__search-input';
       input.placeholder = searchPlaceholder || 'Buscar...';
+      if (style?.searchColor) input.style.color = style.searchColor;
       input.addEventListener('input', () => {
         this.searchText = input.value.trim();
         this.updateClearButton(input.value.length > 0);
@@ -561,6 +654,7 @@ export class HeaderPanelComponent {
       clearBtn.className = 'myio-hp__search-clear';
       clearBtn.innerHTML = ICON_CLOSE;
       clearBtn.title = 'Limpar';
+      if (style?.searchPlaceholderColor) clearBtn.style.color = style.searchPlaceholderColor;
       clearBtn.addEventListener('click', () => {
         input.value = '';
         this.searchText = '';

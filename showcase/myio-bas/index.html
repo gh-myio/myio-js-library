@@ -698,6 +698,54 @@
     let motorsPanel = null;
     let chartInstance = null;
     let currentChartDomain = 'energy';
+    let maximizedPanel = null; // Track which panel is maximized
+
+    // =========================================================================
+    // MAXIMIZE PANEL LOGIC
+    // =========================================================================
+    function maximizePanel(panelHostId, isMaximized) {
+      const allSlots = ['bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'];
+      const contentLayout = document.querySelector('.bas-content-layout');
+
+      if (isMaximized) {
+        maximizedPanel = panelHostId;
+        // Hide all other panels and expand the maximized one
+        allSlots.forEach(slotId => {
+          const slot = document.getElementById(slotId);
+          if (slot) {
+            if (slotId === panelHostId) {
+              slot.style.gridColumn = '1 / -1';
+              slot.style.gridRow = '1 / -1';
+              slot.style.zIndex = '10';
+            } else {
+              slot.style.display = 'none';
+            }
+          }
+        });
+        // Force single column layout for maximized panel
+        if (contentLayout) {
+          contentLayout.style.gridTemplateColumns = '1fr';
+          contentLayout.style.gridTemplateRows = '1fr';
+        }
+      } else {
+        maximizedPanel = null;
+        // Restore all panels to original layout
+        allSlots.forEach(slotId => {
+          const slot = document.getElementById(slotId);
+          if (slot) {
+            slot.style.display = '';
+            slot.style.gridColumn = '';
+            slot.style.gridRow = '';
+            slot.style.zIndex = '';
+          }
+        });
+        // Restore grid layout
+        if (contentLayout) {
+          contentLayout.style.gridTemplateColumns = '';
+          contentLayout.style.gridTemplateRows = '';
+        }
+      }
+    }
 
     const CHART_CONFIG = {
       energy: { unit: 'kWh', label: 'Energia' },
@@ -825,20 +873,42 @@
           allLabel: 'HOME',
           sortOrder: 'asc',
           excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from display
-          titleStyle: { fontSize: '0.7rem', fontWeight: '600', letterSpacing: '0.5px' },
+          titleStyle: MyIO.HEADER_STYLE_PREMIUM_GREEN || { fontSize: '0.7rem', fontWeight: '600', letterSpacing: '0.5px', color: '#ffffff', backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)' },
           // HeaderPanelComponent features
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Open filter modal'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => { log('event', 'Maximize', isMax ? 'Maximized' : 'Minimized'); },
+          onMaximizeToggle: (isMax) => {
+            log('event', 'Sidebar Maximize', isMax ? 'Maximized' : 'Minimized');
+            maximizePanel('bas-sidebar-host', isMax);
+          },
           handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Ambiente', 'HOME'); },
           handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Ambiente', item.label); }
         });
         sidebarHost.appendChild(floorListPanel.getElement());
       }
 
-      // Slim title style for all panels
-      const slimTitleStyle = { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' };
+      // Premium green header style for all panels
+      const premiumGreenStyle = MyIO.HEADER_STYLE_PREMIUM_GREEN || {
+        height: '36px',
+        fontSize: '0.7rem',
+        fontWeight: '600',
+        color: '#ffffff',
+        letterSpacing: '0.5px',
+        textTransform: 'uppercase',
+        backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+        topBorderColor: 'transparent',
+        bottomBorderColor: 'transparent',
+        iconColor: '#a7d4c0',
+        quantityBackground: 'rgba(255, 255, 255, 0.2)',
+        quantityColor: '#ffffff',
+        buttonColor: 'rgba(255, 255, 255, 0.7)',
+        buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+        buttonHoverColor: '#ffffff',
+        searchBackground: 'rgba(255, 255, 255, 0.15)',
+        searchColor: '#ffffff',
+        searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+      };
       const cardStyle = { height: '120px' };
 
       // Water
@@ -851,8 +921,8 @@
           quantity: waterItems.length,
           items: waterItems,
           cardCustomStyle: cardStyle,
-          titleStyle: slimTitleStyle,
-          panelBackground: '#e8f4fc', // Light blue background (can also be image URL)
+          titleStyle: premiumGreenStyle,
+          panelBackground: '#f8f9fa',
           emptyMessage: 'Nenhum dispositivo',
           // HeaderPanelComponent features
           showSearch: true,
@@ -861,7 +931,10 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => { log('event', 'Water Maximize', isMax ? 'Maximized' : 'Minimized'); }
+          onMaximizeToggle: (isMax) => {
+            log('event', 'Water Maximize', isMax ? 'Maximized' : 'Minimized');
+            maximizePanel('bas-water-host', isMax);
+          }
         });
         waterHost.appendChild(waterPanel.getElement());
       }
@@ -928,7 +1001,7 @@
           quantity: hvacItems.length,
           items: hvacItems,
           cardCustomStyle: cardStyle,
-          titleStyle: slimTitleStyle,
+          titleStyle: premiumGreenStyle,
           emptyMessage: 'Nenhum ambiente',
           showSearch: true,
           searchPlaceholder: 'Buscar ambiente...',
@@ -936,7 +1009,10 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'HVAC filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => { log('event', 'HVAC Maximize', isMax ? 'Maximized' : 'Minimized'); }
+          onMaximizeToggle: (isMax) => {
+            log('event', 'HVAC Maximize', isMax ? 'Maximized' : 'Minimized');
+            maximizePanel('bas-ambientes-host', isMax);
+          }
         });
         ambientesHost.appendChild(ambientesPanel.getElement());
       }
@@ -951,7 +1027,7 @@
           quantity: motorItems.length,
           items: motorItems,
           cardCustomStyle: cardStyle,
-          titleStyle: slimTitleStyle,
+          titleStyle: premiumGreenStyle,
           emptyMessage: 'Nenhum equipamento',
           // HeaderPanelComponent features
           showSearch: true,
@@ -960,7 +1036,10 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => { log('event', 'Motors Maximize', isMax ? 'Maximized' : 'Minimized'); }
+          onMaximizeToggle: (isMax) => {
+            log('event', 'Motors Maximize', isMax ? 'Maximized' : 'Minimized');
+            maximizePanel('bas-motors-host', isMax);
+          }
         });
         motorsHost.appendChild(motorsPanel.getElement());
       }
