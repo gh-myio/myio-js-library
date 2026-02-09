@@ -8,7 +8,9 @@ import { openRealTimeTelemetryModal } from '../../RealTimeTelemetryModal';
 import {
   EnergyViewConfig,
   EnergyData,
-  DEFAULT_I18N
+  DEFAULT_I18N,
+  BASDeviceData,
+  BASDeviceTelemetry
 } from './types';
 import {
   formatNumber,
@@ -16,6 +18,7 @@ import {
   classifyDevice,
   getDeviceIcon
 } from './utils';
+import { BASControlPanel } from './BASControlPanel';
 
 export class EnergyModalView {
   private modal: any;
@@ -29,6 +32,8 @@ export class EnergyModalView {
   private currentBarMode: 'stacked' | 'grouped' = 'stacked';
   // RFC-0097: Granularity selector state (only 1h and 1d supported)
   private currentGranularity: '1h' | '1d' = '1d';
+  // RFC-0165: BAS Control Panel reference
+  private basControlPanel: BASControlPanel | null = null;
 
   constructor(modal: any, config: EnergyViewConfig) {
     this.modal = modal;
@@ -351,6 +356,12 @@ export class EnergyModalView {
    * Creates the main modal content structure
    */
   private createModalContent(): HTMLElement {
+    // RFC-0165: Check for BAS mode
+    const basMode = this.config.params.basMode === true;
+    if (basMode) {
+      return this.createBASModeContent();
+    }
+
     const container = document.createElement('div');
     container.className = 'myio-energy-modal-scope';
 
@@ -516,8 +527,172 @@ export class EnergyModalView {
 
     this.container = container;
     this.chartContainer = container.querySelector('#energy-chart-container') as HTMLElement;
-    
+
     return container;
+  }
+
+  /**
+   * RFC-0165: Creates BAS mode content with split layout (30% control, 70% chart)
+   */
+  private createBASModeContent(): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'myio-energy-modal-scope myio-energy-modal--bas';
+
+    const basDevice = this.config.params.basDevice;
+    const deviceLabel = basDevice?.label || this.config.context.device.label || 'Dispositivo';
+
+    container.innerHTML = `
+      <style>
+        ${this.getModalStyles()}
+        ${this.getBASModeStyles()}
+      </style>
+      <div class="myio-modal-scope" style="height: 100%; display: flex; flex-direction: column;">
+        <!-- Controls Section -->
+        <div style="margin-bottom: 16px; flex-shrink: 0;">
+          <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px; flex-wrap: wrap;">
+            <div class="myio-form-group" style="margin-bottom: 0;">
+              <label class="myio-label" for="date-range">Periodo</label>
+              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o periodo" style="width: 300px;">
+            </div>
+            <button id="load-btn" class="myio-btn myio-btn-primary">
+              <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
+              Carregar
+            </button>
+            <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
+              Exportar CSV
+            </button>
+            <button id="theme-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar tema (claro/escuro)" style="
+              position: relative;
+              width: 40px;
+              height: 40px;
+              padding: 0;
+              overflow: hidden;
+            ">
+              <svg class="myio-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-90deg) scale(0);
+                width: 18px;
+                height: 18px;
+                opacity: 0;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              ">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <svg class="myio-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(0deg) scale(1);
+                width: 18px;
+                height: 18px;
+                opacity: 1;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              ">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
+            <button id="close-btn" class="myio-btn myio-btn-secondary">
+              Fechar
+            </button>
+          </div>
+        </div>
+
+        <!-- Error Container -->
+        <div id="energy-error" class="myio-energy-error" style="display: none; flex-shrink: 0;">
+          <!-- Error messages will be displayed here -->
+        </div>
+
+        <!-- RFC-0165: BAS Split Layout -->
+        <div class="myio-energy-bas-layout">
+          <!-- Left: Control Panel (30%) -->
+          <div id="bas-control-panel" class="myio-energy-bas-control"></div>
+
+          <!-- Right: Chart (70%) -->
+          <div id="energy-chart-container" class="myio-energy-chart-container myio-energy-bas-chart">
+            <div class="myio-loading-state">
+              <div class="myio-spinner"></div>
+              <p>${this.getI18nText('loading')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.container = container;
+    this.chartContainer = container.querySelector('#energy-chart-container') as HTMLElement;
+
+    // Initialize BAS Control Panel if device provided
+    if (basDevice) {
+      const panelHost = container.querySelector('#bas-control-panel') as HTMLElement;
+      if (panelHost) {
+        this.basControlPanel = new BASControlPanel({
+          device: basDevice,
+          onRemoteCommand: this.config.params.onRemoteCommand,
+          onTelemetryRefresh: this.config.params.onTelemetryRefresh,
+          refreshInterval: this.config.params.telemetryRefreshInterval || 10000,
+          theme: this.currentTheme
+        });
+        panelHost.appendChild(this.basControlPanel.getElement());
+      }
+    }
+
+    return container;
+  }
+
+  /**
+   * RFC-0165: Gets BAS mode specific styles
+   */
+  private getBASModeStyles(): string {
+    return `
+      .myio-energy-modal--bas .myio-energy-bas-layout {
+        display: flex;
+        flex: 1;
+        gap: 16px;
+        min-height: 0;
+      }
+
+      .myio-energy-bas-control {
+        width: 30%;
+        min-width: 280px;
+        max-width: 360px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .myio-energy-bas-chart {
+        flex: 1;
+        min-width: 0;
+        width: 70% !important;
+      }
+
+      @media (max-width: 900px) {
+        .myio-energy-modal--bas .myio-energy-bas-layout {
+          flex-direction: column;
+        }
+
+        .myio-energy-bas-control {
+          width: 100%;
+          max-width: none;
+          max-height: 300px;
+          overflow-y: auto;
+        }
+
+        .myio-energy-bas-chart {
+          width: 100% !important;
+          min-height: 300px;
+        }
+      }
+    `;
   }
 
   /**
@@ -1577,6 +1752,12 @@ export class EnergyModalView {
     if (this.dateRangePicker) {
       this.dateRangePicker.destroy();
       this.dateRangePicker = null;
+    }
+
+    // RFC-0165: Cleanup BAS Control Panel
+    if (this.basControlPanel) {
+      this.basControlPanel.destroy();
+      this.basControlPanel = null;
     }
 
     // Clear chart container

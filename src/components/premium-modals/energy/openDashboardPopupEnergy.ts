@@ -84,10 +84,13 @@ export async function openDashboardPopupEnergy(
 }
 
 // Re-export types for convenience
-export type { 
+export type {
   OpenDashboardPopupEnergyOptions,
   EnergyModalContext,
   EnergyModalI18n,
   EnergyModalStyleOverrides,
-  EnergyModalError
+  EnergyModalError,
+  // RFC-0165: BAS Mode types
+  BASDeviceData,
+  BASDeviceTelemetry
 } from './types';
