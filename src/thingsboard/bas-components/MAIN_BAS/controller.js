@@ -36,25 +36,14 @@
 // Debug Configuration
 // ============================================================================
 
-var DEBUG_ACTIVE = false; // Set to true to enable logging
+var DEBUG_ACTIVE = true; // Default true, controlled by settings.enableDebugMode
 
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      LogHelper.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      LogHelper.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      LogHelper.error(...args);
-    }
-  },
+// LogHelper instance - created in onInit using MyIOLibrary.createLogHelper
+// Fallback for early calls before onInit completes
+var LogHelper = {
+  log: function (...args) { if (DEBUG_ACTIVE) console.log('[MAIN_BAS]', ...args); },
+  warn: function (...args) { if (DEBUG_ACTIVE) console.warn('[MAIN_BAS]', ...args); },
+  error: function (...args) { if (DEBUG_ACTIVE) console.error('[MAIN_BAS]', ...args); },
 };
 
 // ============================================================================
@@ -63,11 +52,6 @@ const LogHelper = {
 // ============================================================================
 
 var OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
-
-var ENTRADA_TYPES = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
-
-// Motor/pump types are ENERGY domain, context 'bomba' or 'motor'
-var MOTOR_TYPES = ['BOMBA', 'MOTOR', 'BOMBA_HIDRAULICA', 'BOMBA_INCENDIO', 'BOMBA_CAG'];
 
 // ============================================================================
 // Module-level references
@@ -165,56 +149,6 @@ function isOcultosDevice(deviceProfile) {
     }
   }
   return false;
-}
-
-/**
- * Detect context within domain
- * Uses MyIOLibrary.detectContext for standard contexts,
- * with additional BAS-specific handling for motors (bomba/motor) and water (caixadagua, solenoide)
- *
- * Domains: energy | water | temperature
- * Motors/pumps are energy domain with context 'bomba' or 'motor'
- */
-function detectContextForBAS(deviceType, deviceProfile, identifier, domain) {
-  var dt = String(deviceType || '').toUpperCase();
-  var dp = String(deviceProfile || '').toUpperCase();
-
-  // Water domain: check BAS-specific contexts first (caixadagua, solenoide)
-  if (domain === 'water') {
-    if (dt.includes('CAIXA_DAGUA')) {
-      return 'caixadagua';
-    }
-    if (dt.includes('SOLENOIDE')) {
-      return 'solenoide';
-    }
-  }
-
-  // Energy domain: check for motor/pump types (BAS-specific contexts)
-  if (domain === 'energy') {
-    // Check if it's a motor/pump type
-    for (var i = 0; i < MOTOR_TYPES.length; i++) {
-      if (dt.includes(MOTOR_TYPES[i]) || dp.includes(MOTOR_TYPES[i])) {
-        // Specific pump types
-        if (dt.includes('BOMBA') || dp.includes('BOMBA')) {
-          return 'bomba';
-        }
-        return 'motor';
-      }
-    }
-  }
-
-  // Use library for standard water/temperature/energy contexts
-  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.detectContext) {
-    var deviceObj = {
-      deviceType: deviceType,
-      deviceProfile: deviceProfile,
-      identifier: identifier,
-    };
-    return MyIOLibrary.detectContext(deviceObj, domain);
-  }
-
-  // Fallback if library not available
-  return 'equipments';
 }
 
 /**
@@ -470,9 +404,12 @@ function parseDevicesFromData(data) {
       return;
     }
 
-    // Detect domain (using library function per RFC-0111)
+    // Detect domain and context (using library functions per RFC-0111)
     var domain = window.MyIOLibrary.getDomainFromDeviceType(deviceType);
-    var context = detectContextForBAS(deviceType, deviceProfile, identifier, domain);
+    var context = window.MyIOLibrary.detectContext(
+      { deviceType: deviceType, deviceProfile: deviceProfile, identifier: identifier },
+      domain
+    );
 
     // Build device object based on domain
     var device = {
@@ -2098,8 +2035,14 @@ function fixContainerHeights(root) {
 self.onInit = async function () {
   _ctx = self.ctx;
 
-  // Enable debug mode from settings (first thing)
-  DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode || false;
+  // Enable debug mode from settings (default: true, set false to disable)
+  DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode !== false;
+
+  // Create LogHelper instance using library function
+  LogHelper = window.MyIOLibrary.createLogHelper({
+    debugActive: DEBUG_ACTIVE,
+    config: { widget: 'MAIN_BAS' },
+  });
 
   // Load customer TB ID from settings
   MAP_CUSTOMER_CREDENTIALS.customer_TB_Id = self.ctx.settings?.customerTB_ID || null;

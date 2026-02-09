@@ -12,7 +12,7 @@
       "enableDebugMode": {
         "title": "Enable Debug Mode",
         "type": "boolean",
-        "default": false
+        "default": true
       },
       "defaultThemeMode": {
         "title": "Default Theme Mode",

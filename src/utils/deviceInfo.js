@@ -27,12 +27,16 @@ export const ContextType = {
   EQUIPMENTS: 'equipments',
   STORES: 'stores',
   ENTRADA: 'entrada',
+  BOMBA: 'bomba', // Pumps (BAS)
+  MOTOR: 'motor', // Motors (BAS)
 
   // Water contexts
   HIDROMETRO: 'hidrometro', // Lojas (stores)
   HIDROMETRO_AREA_COMUM: 'hidrometro_area_comum', // Área comum (exceto banheiros)
   BANHEIROS: 'banheiros', // Banheiros (identifier = 'BANHEIROS')
   HIDROMETRO_ENTRADA: 'hidrometro_entrada', // Entrada do shopping
+  CAIXA_DAGUA: 'caixadagua', // Water tank (BAS)
+  SOLENOIDE: 'solenoide', // Solenoid valve (BAS)
 
   // Temperature contexts
   TERMOSTATO: 'termostato',
@@ -86,25 +90,32 @@ export function detectContext(device, domain) {
   const isEntrada = entradaTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t));
 
   if (domain === DomainType.WATER) {
+    // BAS: CAIXA_DAGUA (water tank)
+    if (deviceType.includes('CAIXA_DAGUA') || deviceProfile.includes('CAIXA_DAGUA')) {
+      return ContextType.CAIXA_DAGUA;
+    }
+
+    // BAS: SOLENOIDE (solenoid valve)
+    if (deviceType.includes('SOLENOIDE') || deviceProfile.includes('SOLENOIDE')) {
+      return ContextType.SOLENOIDE;
+    }
+
     // Priority 1: HIDROMETRO_SHOPPING → ENTRADA (main water meter for shopping)
     if (deviceType.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('HIDROMETRO_SHOPPING')) {
       return ContextType.HIDROMETRO_ENTRADA;
     }
 
     // Priority 2: BANHEIROS (identifier = 'BANHEIROS' with HIDROMETRO_AREA_COMUM profile)
-    // FIX: Use EXACT match for deviceProfile
     if (deviceProfile === 'HIDROMETRO_AREA_COMUM' && identifier === 'BANHEIROS') {
       return ContextType.BANHEIROS;
     }
 
     // Priority 3: HIDROMETRO_AREA_COMUM (common area without bathroom identifier)
-    // FIX: Use EXACT match for deviceProfile - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
     if (deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO_AREA_COMUM') {
       return ContextType.HIDROMETRO_AREA_COMUM;
     }
 
     // Priority 4: deviceType = HIDROMETRO and deviceProfile = HIDROMETRO → store (lojas)
-    // FIX: Use EXACT match - both must be exactly 'HIDROMETRO'
     if (deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO') {
       return ContextType.HIDROMETRO;
     }
@@ -122,6 +133,17 @@ export function detectContext(device, domain) {
     if (isEntrada) {
       return ContextType.ENTRADA;
     }
+
+    // BAS: BOMBA (pumps) - check before generic motor
+    if (deviceType.includes('BOMBA') || deviceProfile.includes('BOMBA')) {
+      return ContextType.BOMBA;
+    }
+
+    // BAS: MOTOR (motors)
+    if (deviceType.includes('MOTOR') || deviceProfile.includes('MOTOR')) {
+      return ContextType.MOTOR;
+    }
+
     // RFC-0111: deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
     if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
       return ContextType.STORES;
