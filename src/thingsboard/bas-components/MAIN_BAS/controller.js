@@ -2030,6 +2030,16 @@ function openBASDeviceModal(device, settings) {
 
   LogHelper.log('[MAIN_BAS] Opening BAS modal for device:', basDevice);
 
+  // Get JWT token from localStorage or widget context
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) {
+    jwtToken = _ctx.http.token;
+  }
+
+  if (!jwtToken) {
+    LogHelper.warn('[MAIN_BAS] No JWT token available for BAS modal');
+  }
+
   // Open modal in BAS mode
   MyIOLibrary.openDashboardPopupEnergy({
     basMode: true,
@@ -2038,6 +2048,7 @@ function openBASDeviceModal(device, settings) {
     deviceLabel: basDevice.label,
     startDate: startDateStr,
     endDate: endDateStr,
+    tbJwtToken: jwtToken,
     readingType: 'energy',
     granularity: '1d',
     theme: 'dark',
