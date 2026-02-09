@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RFC-0160: MAIN_BAS Dashboard Simulation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Load 100% of MAIN_BAS styles -->
+  <link rel="stylesheet" href="../../src/thingsboard/bas-components/MAIN_BAS/styles.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ===== SHOWCASE LAYOUT ===== */
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .showcase-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #2F5848 0%, #1e3a2f 100%);
+      padding: 10px 20px;
+      border-bottom: 1px solid #3d7a62;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    body.light-mode .showcase-header {
+      background: linear-gradient(135deg, #2F5848 0%, #3d7a62 100%);
+      border-color: #1e3a2f;
+    }
+
+    .showcase-header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .showcase-header p {
+      color: #a7d4c0;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.ready { background: #166534; color: #86efac; }
+    .status-badge.running { background: #1d4ed8; color: #93c5fd; }
+    .status-badge.error { background: #7f1d1d; color: #fca5a5; }
+    .status-badge.stopped { background: #475569; color: #cbd5e1; }
+
+    /* ===== WIDGET AREA ===== */
+    .widget-area {
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .showcase-sidebar {
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body.light-mode .showcase-sidebar {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    /* ===== CONTROLS PANEL ===== */
+    .controls-panel {
+      padding: 12px;
+      border-bottom: 1px solid #334155;
+    }
+
+    body.light-mode .controls-panel { border-color: #e2e8f0; }
+
+    .controls-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .controls-grid.cols-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .ctrl-btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid transparent;
+    }
+
+    .ctrl-btn.primary { background: #2F5848; color: white; }
+    .ctrl-btn.primary:hover { background: #3d7a62; }
+    .ctrl-btn.success { background: #16a34a; color: white; }
+    .ctrl-btn.success:hover { background: #15803d; }
+    .ctrl-btn.warning { background: #d97706; color: white; }
+    .ctrl-btn.warning:hover { background: #b45309; }
+    .ctrl-btn.danger { background: #dc2626; color: white; }
+    .ctrl-btn.danger:hover { background: #b91c1c; }
+    .ctrl-btn.secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border-color: #475569;
+    }
+    .ctrl-btn.secondary:hover { background: #334155; }
+    .ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    body.light-mode .ctrl-btn.secondary {
+      color: #475569;
+      border-color: #cbd5e1;
+    }
+
+    .ctrl-select {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    body.light-mode .ctrl-select {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #1e293b;
+    }
+
+    .ctrl-label {
+      font-size: 10px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .ctrl-group { margin-bottom: 6px; }
+
+    .ctrl-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+
+    body.light-mode .ctrl-checkbox { color: #1e293b; }
+
+    .ctrl-checkbox input {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* ===== EVENT LOG ===== */
+    .event-log-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px;
+    }
+
+    .event-log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .event-log-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .event-log-clear {
+      font-size: 10px;
+      color: #64748b;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: transparent;
+      border: none;
+    }
+    .event-log-clear:hover { background: #334155; color: #e2e8f0; }
+
+    .event-log {
+      flex: 1;
+      background: #0f172a;
+      border-radius: 6px;
+      padding: 6px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 10px;
+    }
+
+    body.light-mode .event-log {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .log-entry {
+      padding: 3px 6px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .log-entry:hover { background: #1e293b; }
+    body.light-mode .log-entry:hover { background: #e2e8f0; }
+
+    .log-time { color: #64748b; min-width: 55px; flex-shrink: 0; }
+    .log-event { color: #22c55e; min-width: 110px; font-weight: 500; flex-shrink: 0; }
+    .log-entry.error .log-event { color: #f87171; }
+    .log-entry.warn .log-event { color: #fbbf24; }
+    .log-entry.info .log-event { color: #60a5fa; }
+    .log-data { color: #94a3b8; word-break: break-all; flex: 1; }
+
+    /* ===== STATE PANEL ===== */
+    .state-panel {
+      border-top: 1px solid #334155;
+      max-height: 180px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.light-mode .state-panel { border-color: #e2e8f0; }
+
+    .state-header {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      background: #0f172a;
+    }
+
+    body.light-mode .state-header { background: #f1f5f9; }
+
+    .state-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .state-toggle { font-size: 11px; color: #64748b; }
+
+    .state-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 12px;
+    }
+
+    .state-content pre {
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 9px;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .showcase-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      .showcase-sidebar {
+        border-left: none;
+        border-top: 1px solid #334155;
+        max-height: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-layout">
+    <!-- Header -->
+    <header class="showcase-header">
+      <div>
+        <h1>RFC-0160: MAIN_BAS Dashboard Simulation</h1>
+        <p>BAS - Card V6, Card Ambiente V6, EntityListPanel, CardGridPanel, HeaderPanelComponent</p>
+      </div>
+      <div class="header-status">
+        <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme" onclick="toggleTheme()">
+          <span id="themeIcon">&#x2600;&#xfe0f;</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Widget Mount Area - Template from MAIN_BAS/template.html -->
+    <main class="widget-area">
+      <div id="bas-dashboard-root" class="bas-dashboard-container">
+        <div class="bas-header" id="bas-header"></div>
+        <div class="bas-content-layout">
+          <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
+          <div class="bas-water-slot" id="bas-water-host"></div>
+          <div class="bas-charts-slot" id="bas-charts-host"></div>
+          <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+          <div class="bas-motors-slot" id="bas-motors-host"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Sidebar -->
+    <aside class="showcase-sidebar">
+      <!-- Lifecycle Controls -->
+      <div class="controls-panel">
+        <h3>Widget Lifecycle</h3>
+        <div class="controls-grid cols-3">
+          <button class="ctrl-btn primary" id="btnOnInit" onclick="triggerOnInit()">
+            &#x25B6; onInit
+          </button>
+          <button class="ctrl-btn warning" id="btnOnDataUpdated" onclick="triggerOnDataUpdated()" disabled>
+            &#x1F504; Update
+          </button>
+          <button class="ctrl-btn danger" id="btnOnDestroy" onclick="triggerOnDestroy()" disabled>
+            &#x23F9; Destroy
+          </button>
+        </div>
+      </div>
+
+      <!-- Data Controls -->
+      <div class="controls-panel">
+        <h3>Mock Data</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Data Preset</label>
+          <select class="ctrl-select" id="dataPreset" onchange="updateMockData()">
+            <option value="full">Full Building (All devices)</option>
+            <option value="partial">Partial (Some devices)</option>
+            <option value="water-only">Water Infrastructure Only</option>
+            <option value="hvac-only">HVAC Environments Only</option>
+            <option value="motors-only">Pumps & Motors Only</option>
+            <option value="empty">Empty (No devices)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Number of Floors</label>
+          <select class="ctrl-select" id="floorCount" onchange="updateMockData()">
+            <option value="3">3 Floors</option>
+            <option value="5" selected>5 Floors</option>
+            <option value="10">10 Floors</option>
+            <option value="20">20 Floors</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="generateRandomData()">
+            &#x1F3B2; Random
+          </button>
+          <button class="ctrl-btn secondary" onclick="simulateDataUpdate()">
+            &#x1F4E1; Simulate
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="controls-panel">
+        <h3>Dashboard Settings</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowFloors" checked onchange="updateSettings()">
+            Show Ambientes Sidebar
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowWater" checked onchange="updateSettings()">
+            Show Water Infrastructure
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowHVAC" checked onchange="updateSettings()">
+            Show HVAC Environments
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowMotors" checked onchange="updateSettings()">
+            Show Pumps & Motors
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowCharts" checked onchange="updateSettings()">
+            Show Charts
+          </label>
+        </div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="event-log-panel">
+        <div class="event-log-header">
+          <h3>Event Log</h3>
+          <button class="event-log-clear" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="event-log" id="eventLog"></div>
+      </div>
+
+      <!-- State Panel -->
+      <div class="state-panel">
+        <div class="state-header" onclick="toggleStatePanel()">
+          <h3>Current State</h3>
+          <span class="state-toggle" id="stateToggle">&#x25BC;</span>
+        </div>
+        <div class="state-content" id="stateContent">
+          <pre id="stateJson">{}</pre>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- MyIO Library -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+  <!-- Load MAIN_BAS controller.js dynamically -->
+  <script>
+    (function loadController() {
+      const scriptEl = document.createElement('script');
+      scriptEl.src = '../../src/thingsboard/bas-components/MAIN_BAS/controller.js?v=' + Date.now();
+      scriptEl.onload = function() {
+        console.log('[Showcase] MAIN_BAS controller.js loaded');
+      };
+      scriptEl.onerror = function() {
+        console.error('[Showcase] Failed to load MAIN_BAS controller.js');
+      };
+      document.body.appendChild(scriptEl);
+    })();
+  </script>
+
+  <script>
+  (function() { // IIFE to avoid conflicts with controller.js globals
+    // =========================================================================
+    // MOCK DATA GENERATORS
+    // =========================================================================
+
+    const WATER_DEVICE_NAMES = {
+      hydrometer: ['Hidr. Entrada Geral', 'Hidr. Torre', 'Hidr. Agua Refrigerada', 'Hidr. Piscina'],
+      cistern: ['Cisterna 01', 'Cisterna 02', 'Cisterna Principal'],
+      tank: ['Caixa Torre', 'Caixa Reservatorio', 'Tanque Elevado'],
+      solenoid: ['Solenoide 01', 'Solenoide 02', 'Valvula Principal']
+    };
+
+    // Ambiente names matching controller.js pattern
+    const AMBIENTE_NAMES = [
+      { id: '001', name: 'Deck' },
+      { id: '002', name: 'Sala do Nobreak' },
+      { id: '003', name: 'Auditório' },
+      { id: '004', name: 'Staff Rio de Janeiro' },
+      { id: '005', name: 'Bombas' },
+      { id: '006', name: 'Água' },
+      { id: '007', name: 'Configuração' },
+      { id: '008', name: 'Integrações' },
+    ];
+
+    const HVAC_NAMES = ['Escritorio', 'Sala de Reunioes', 'Recepcao', 'Auditorio', 'CPD', 'Refeitorio', 'Laboratorio', 'Almoxarifado'];
+
+    const MOTOR_NAMES = {
+      pump: ['Bomba Agua Fria 01', 'Bomba Agua Fria 02', 'Bomba CAG 01', 'Bomba Incendio', 'Bomba Recalque'],
+      motor: ['Motor Ventilador 01', 'Motor Exaustor', 'Motor Portao', 'Motor Elevador']
+    };
+
+    function generateFloors(count) {
+      return Array.from({ length: count }, (_, i) => String(i + 1).padStart(2, '0'));
+    }
+
+    function generateWaterDevices(floors, preset) {
+      if (preset === 'hvac-only' || preset === 'motors-only' || preset === 'empty') return [];
+      const devices = [];
+      let id = 1;
+
+      WATER_DEVICE_NAMES.hydrometer.slice(0, 2).forEach(name => {
+        devices.push({ id: `water-${id++}`, name, type: 'hydrometer', floor: null, value: Math.random() * 500 + 100, status: Math.random() > 0.1 ? 'online' : 'offline' });
+      });
+
+      WATER_DEVICE_NAMES.cistern.slice(0, 2).forEach(name => {
+        devices.push({ id: `water-${id++}`, name, type: 'cistern', floor: null, value: Math.random() * 100, status: Math.random() > 0.1 ? 'online' : 'offline' });
+      });
+
+      devices.push({ id: `water-${id++}`, name: WATER_DEVICE_NAMES.tank[0], type: 'tank', floor: null, value: Math.random() * 100, status: Math.random() > 0.1 ? 'online' : 'offline' });
+
+      if (preset !== 'partial') {
+        floors.slice(0, 3).forEach(floor => {
+          devices.push({ id: `water-${id++}`, name: `Solenoide ${floor}`, type: 'solenoid', floor, value: Math.random() > 0.5 ? 1 : 0, status: Math.random() > 0.1 ? 'online' : 'offline' });
+        });
+      }
+      return devices;
+    }
+
+    function generateHVACDevices(floors, preset) {
+      if (preset === 'water-only' || preset === 'motors-only' || preset === 'empty') return [];
+      const devices = [];
+      let id = 1;
+
+      floors.forEach(floor => {
+        const count = preset === 'partial' ? 2 : Math.floor(Math.random() * 3) + 2;
+        const names = [...HVAC_NAMES].sort(() => Math.random() - 0.5).slice(0, count);
+        names.forEach(name => {
+          const isActive = Math.random() > 0.3;
+          devices.push({ id: `hvac-${id++}`, name: `${name} - ${floor}`, floor, temperature: isActive ? Math.random() * 10 + 18 : null, status: isActive ? 'active' : 'inactive' });
+        });
+      });
+      return devices;
+    }
+
+    function generateMotorDevices(floors, preset) {
+      if (preset === 'water-only' || preset === 'hvac-only' || preset === 'empty') return [];
+      const devices = [];
+      let id = 1;
+
+      MOTOR_NAMES.pump.forEach(name => {
+        const isRunning = Math.random() > 0.4;
+        devices.push({ id: `motor-${id++}`, name, floor: null, consumption: isRunning ? Math.random() * 15 + 2 : 0, status: isRunning ? 'running' : 'stopped', type: 'pump' });
+      });
+
+      if (preset !== 'partial') {
+        floors.slice(0, 3).forEach(floor => {
+          const isRunning = Math.random() > 0.5;
+          devices.push({ id: `motor-${id++}`, name: `Ventilador ${floor}`, floor, consumption: isRunning ? Math.random() * 3 + 0.5 : 0, status: isRunning ? 'running' : 'stopped', type: 'motor' });
+        });
+      }
+      return devices;
+    }
+
+    function generateMockData() {
+      const preset = document.getElementById('dataPreset').value;
+      const floorCount = parseInt(document.getElementById('floorCount').value);
+      const floors = generateFloors(floorCount);
+      return { floors, waterDevices: generateWaterDevices(floors, preset), hvacDevices: generateHVACDevices(floors, preset), motorDevices: generateMotorDevices(floors, preset) };
+    }
+
+    // =========================================================================
+    // ENTITY CONVERTERS
+    // =========================================================================
+    const WATER_TYPE_MAP = { hydrometer: 'HIDROMETRO', cistern: 'CAIXA_DAGUA', tank: 'TANK', solenoid: 'BOMBA_HIDRAULICA' };
+    const WATER_STATUS_MAP = { online: 'online', offline: 'offline' };
+    const HVAC_STATUS_MAP = { active: 'online', inactive: 'offline' };
+    const MOTOR_STATUS_MAP = { running: 'online', stopped: 'offline' };
+
+    // =========================================================================
+    // CARD V6 ENTITY CONVERTERS
+    // Using renderCardComponentV6 for individual device cards
+    // =========================================================================
+    function waterToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `WAT-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: WATER_TYPE_MAP[d.type] || 'HIDROMETRO',
+        val: d.value,
+        perc: d.type === 'cistern' || d.type === 'tank' ? d.value : 0,
+        deviceStatus: WATER_STATUS_MAP[d.status] || 'no_info',
+        waterLevel: d.type === 'tank' ? d.value : null,
+        waterPercentage: d.type === 'cistern' ? d.value : null,
+      };
+    }
+
+    function hvacToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `HVAC-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: 'TERMOSTATO',
+        val: d.temperature,
+        temperature: d.temperature,
+        temperatureMin: d.temperature ? d.temperature - 2 : null,
+        temperatureMax: d.temperature ? d.temperature + 2 : null,
+        deviceStatus: HVAC_STATUS_MAP[d.status] || 'no_info',
+        temperatureStatus: d.status === 'active' ? 'normal' : 'off',
+      };
+    }
+
+    function motorToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `MOT-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: d.type === 'pump' ? 'BOMBA_HIDRAULICA' : 'MOTOR',
+        val: d.consumption,
+        perc: d.consumption > 0 ? Math.min(100, (d.consumption / 20) * 100) : 0,
+        deviceStatus: MOTOR_STATUS_MAP[d.status] || 'no_info',
+      };
+    }
+
+    // =========================================================================
+    // AMBIENTE V6 DATA CONVERTERS
+    // Using renderCardAmbienteV6 for ambiente cards with aggregated data
+    // =========================================================================
+    function buildAmbienteData(ambiente, hvacDevices) {
+      // Get HVAC devices for this ambiente
+      const ambienteHvac = hvacDevices.filter(d => d.floor === ambiente.id);
+      const temps = ambienteHvac.filter(d => d.temperature !== null).map(d => d.temperature);
+      const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
+      const totalConsumption = ambienteHvac.reduce((sum, d) => sum + (d.consumption || Math.random() * 2), 0);
+      const hasOnline = ambienteHvac.some(d => d.status === 'active');
+      const hasRemote = ambienteHvac.length > 0;
+
+      return {
+        id: ambiente.id,
+        label: ambiente.name,
+        identifier: `AMB-${ambiente.id}`,
+        temperature: avgTemp,
+        consumption: totalConsumption > 0 ? totalConsumption : null,
+        isOn: hasRemote && Math.random() > 0.3,
+        hasRemote: hasRemote,
+        status: hasOnline ? 'online' : 'offline',
+        devices: ambienteHvac.map(d => ({
+          id: d.id,
+          type: 'temperature',
+          deviceType: 'TERMOSTATO',
+          status: d.status === 'active' ? 'online' : 'offline',
+          value: d.temperature,
+        })),
+      };
+    }
+
+    function buildWaterItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: waterToEntity(d), source: d })); }
+    function buildHVACItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: hvacToEntity(d), source: d })); }
+    function buildMotorItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: motorToEntity(d), source: d })); }
+
+    // Build ambiente items using renderCardAmbienteV6
+    function buildAmbienteItems(ambientes, hvacDevices) {
+      return ambientes.map(a => buildAmbienteData(a, hvacDevices));
+    }
+
+    // =========================================================================
+    // WIDGET STATE & INSTANCES
+    // =========================================================================
+    let floorListPanel = null;
+    let waterPanel = null;
+    let ambientesPanel = null;
+    let motorsPanel = null;
+    let chartInstance = null;
+    let currentChartDomain = 'energy';
+
+    const CHART_CONFIG = {
+      energy: { unit: 'kWh', label: 'Energia' },
+      water: { unit: 'L', label: 'Agua' },
+      temperature: { unit: '\u00B0C', label: 'Temperatura' }
+    };
+
+    let currentState = { isInitialized: false, selectedFloor: null, data: null };
+
+    function getSettings() {
+      return {
+        showFloorsSidebar: document.getElementById('settingsShowFloors').checked,
+        showWaterInfrastructure: document.getElementById('settingsShowWater').checked,
+        showEnvironments: document.getElementById('settingsShowHVAC').checked,
+        showPumpsMotors: document.getElementById('settingsShowMotors').checked,
+        showCharts: document.getElementById('settingsShowCharts').checked
+      };
+    }
+
+    // =========================================================================
+    // CHART FUNCTIONS
+    // =========================================================================
+    function createFetchData(domain) {
+      return function(period) {
+        const labels = [], values = [], now = new Date();
+        for (let i = period - 1; i >= 0; i--) {
+          const d = new Date(now); d.setDate(d.getDate() - i);
+          labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+          values.push(domain === 'energy' ? Math.random() * 800 + 200 : domain === 'water' ? Math.random() * 50 + 10 : Math.random() * 8 + 18);
+        }
+        return Promise.resolve({ labels, dailyTotals: values });
+      };
+    }
+
+    function switchChartDomain(domain, chartCard) {
+      if (!MyIOLibrary.createConsumption7DaysChart) return;
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      currentChartDomain = domain;
+      chartCard.innerHTML = '';
+      const canvas = document.createElement('canvas'); canvas.id = 'bas-chart-canvas'; chartCard.appendChild(canvas);
+      const cfg = CHART_CONFIG[domain];
+      chartInstance = MyIOLibrary.createConsumption7DaysChart({ domain, containerId: 'bas-chart-canvas', unit: cfg.unit, fetchData: createFetchData(domain), defaultPeriod: 7, defaultChartType: domain === 'temperature' ? 'line' : 'bar', theme: 'dark', showLegend: true, fill: domain === 'temperature' });
+      chartInstance.render();
+      log('info', 'Chart', `Switched to ${cfg.label}`);
+    }
+
+    function mountChartPanel(hostEl) {
+      if (!hostEl) return;
+      hostEl.innerHTML = '';
+      const domains = ['energy', 'water', 'temperature'];
+      const tabBar = document.createElement('div'); tabBar.className = 'bas-chart-tabs';
+      const chartCard = document.createElement('div'); chartCard.className = 'bas-chart-card';
+
+      domains.forEach(domain => {
+        const btn = document.createElement('button');
+        btn.className = 'bas-chart-tab' + (domain === currentChartDomain ? ' bas-chart-tab--active' : '');
+        btn.textContent = CHART_CONFIG[domain].label;
+        btn.addEventListener('click', () => {
+          tabBar.querySelectorAll('.bas-chart-tab').forEach(t => t.classList.remove('bas-chart-tab--active'));
+          btn.classList.add('bas-chart-tab--active');
+          switchChartDomain(domain, chartCard);
+        });
+        tabBar.appendChild(btn);
+      });
+
+      hostEl.appendChild(tabBar);
+      hostEl.appendChild(chartCard);
+      switchChartDomain(currentChartDomain, chartCard);
+    }
+
+    // =========================================================================
+    // LIFECYCLE FUNCTIONS
+    // =========================================================================
+    function triggerOnInit() {
+      log('info', 'onInit', 'Initializing BAS Dashboard...');
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO) { log('error', 'onInit', 'MyIOLibrary not loaded'); return; }
+
+      const settings = getSettings();
+      const mockData = generateMockData();
+      currentState.data = mockData;
+
+      const sidebarHost = document.getElementById('bas-sidebar-host');
+      const waterHost = document.getElementById('bas-water-host');
+      const chartsHost = document.getElementById('bas-charts-host');
+      const ambientesHost = document.getElementById('bas-ambientes-host');
+      const motorsHost = document.getElementById('bas-motors-host');
+
+      // Sidebar - using ambiente names with prefix pattern like controller.js
+      // Including new icon and notification features
+      if (settings.showFloorsSidebar && sidebarHost && MyIO.EntityListPanel) {
+        sidebarHost.innerHTML = '';
+        const AMBIENTE_ICONS = {
+          '001': '🌊', // Deck
+          '002': '⚡', // Sala do Nobreak
+          '003': '🎤', // Auditório
+          '004': '👥', // Staff Rio de Janeiro
+          '005': '💧', // Bombas
+          '006': '🚰', // Água
+          '007': '⚙️', // Configuração
+          '008': '🔗', // Integrações
+        };
+        const ambienteItems = AMBIENTE_NAMES.map((a, index) => ({
+          id: a.id,
+          label: `(${a.id})-${a.name}`,
+          icon: AMBIENTE_ICONS[a.id] || '📍',
+          // Simulate notification for some items (e.g., items with alerts)
+          notification: index === 2 || index === 5 ? {
+            show: true,
+            blink: index === 5, // Água has blinking notification
+            tooltip: index === 5 ? 'Alerta de vazamento!' : 'Atenção necessária'
+          } : undefined,
+          handleActionClick: () => {
+            log('event', 'Action', `Navigate to: ${a.name}`);
+            // In real app: self.ctx.stateController.openState(a.name.toLowerCase(), { entityId: a.id });
+          }
+        }));
+        floorListPanel = new MyIO.EntityListPanel({
+          title: 'Ambientes',
+          subtitle: 'Nome ↑',
+          icon: '🏢',
+          quantity: ambienteItems.length,
+          items: ambienteItems,
+          showAllOption: true,
+          allLabel: 'HOME',
+          sortOrder: 'asc',
+          excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from display
+          titleStyle: { fontSize: '0.7rem', fontWeight: '600', letterSpacing: '0.5px' },
+          // HeaderPanelComponent features
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Open filter modal'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(floorListPanel.getElement(), 'Ambientes', floorListPanel); else closeMaximizeOverlay(); },
+          handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Ambiente', 'HOME'); },
+          handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Ambiente', item.label); }
+        });
+        sidebarHost.appendChild(floorListPanel.getElement());
+      }
+
+      // Slim title style for all panels
+      const slimTitleStyle = { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' };
+      const cardStyle = { height: '120px' };
+
+      // Water
+      if (settings.showWaterInfrastructure && waterHost && MyIO.CardGridPanel) {
+        waterHost.innerHTML = '';
+        const waterItems = buildWaterItems(mockData.waterDevices, null);
+        waterPanel = new MyIO.CardGridPanel({
+          title: 'Infraestrutura Hidrica',
+          icon: '💧',
+          quantity: waterItems.length,
+          items: waterItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: slimTitleStyle,
+          panelBackground: '#e8f4fc', // Light blue background (can also be image URL)
+          emptyMessage: 'Nenhum dispositivo',
+          // HeaderPanelComponent features
+          showSearch: true,
+          searchPlaceholder: 'Buscar dispositivo...',
+          onSearchChange: (text) => { log('event', 'Search Water', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Water', waterPanel); else closeMaximizeOverlay(); }
+        });
+        waterHost.appendChild(waterPanel.getElement());
+      }
+
+      // Charts
+      if (settings.showCharts && chartsHost) { mountChartPanel(chartsHost); }
+
+      // Ambientes - Using Card Ambiente V6 for aggregated ambiente data
+      if (settings.showEnvironments && ambientesHost && MyIO.renderCardAmbienteV6) {
+        ambientesHost.innerHTML = '';
+
+        // Create container with header
+        const ambientesContainer = document.createElement('div');
+        ambientesContainer.className = 'bas-panel-container';
+        ambientesContainer.style.cssText = 'height: 100%; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 8px; overflow: hidden;';
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = 'padding: 8px 12px; background: linear-gradient(135deg, #2F5848, #3d7a62); color: white; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;';
+        header.innerHTML = '<span>❄️</span><span>AMBIENTES HVAC (Card Ambiente V6)</span>';
+        ambientesContainer.appendChild(header);
+
+        // Cards grid
+        const cardsGrid = document.createElement('div');
+        cardsGrid.style.cssText = 'flex: 1; overflow-y: auto; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; align-content: start;';
+
+        // Build ambiente data from AMBIENTE_NAMES + hvacDevices
+        const ambienteDataList = buildAmbienteItems(AMBIENTE_NAMES, mockData.hvacDevices);
+
+        ambienteDataList.forEach(ambienteData => {
+          const [cardEl, api] = MyIO.renderCardAmbienteV6({
+            ambienteData,
+            handleClickCard: (data) => {
+              log('event', 'Ambiente Click', `${data.label} (${data.id})`);
+              currentState.selectedFloor = data.id;
+              refreshPanels();
+            },
+            handleToggleRemote: (isOn, data) => {
+              log('event', 'Remote Toggle', `${data.label}: ${isOn ? 'ON' : 'OFF'}`);
+            },
+            handleActionSettings: (data) => {
+              log('event', 'Settings', `Open settings for ${data.label}`);
+            },
+            enableSelection: false,
+            enableDragDrop: false,
+            customStyle: {
+              width: '100%',
+              height: '130px',
+            },
+          });
+          cardsGrid.appendChild(cardEl);
+        });
+
+        ambientesContainer.appendChild(cardsGrid);
+        ambientesHost.appendChild(ambientesContainer);
+        log('info', 'Ambientes', `Rendered ${ambienteDataList.length} ambiente cards (V6)`);
+      } else if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
+        // Fallback to CardGridPanel if renderCardAmbienteV6 not available
+        ambientesHost.innerHTML = '';
+        const hvacItems = buildHVACItems(mockData.hvacDevices, null);
+        ambientesPanel = new MyIO.CardGridPanel({
+          title: 'Ambientes HVAC',
+          icon: '❄️',
+          quantity: hvacItems.length,
+          items: hvacItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: slimTitleStyle,
+          emptyMessage: 'Nenhum ambiente',
+          showSearch: true,
+          searchPlaceholder: 'Buscar ambiente...',
+          onSearchChange: (text) => { log('event', 'Search HVAC', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'HVAC filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'HVAC', ambientesPanel); else closeMaximizeOverlay(); }
+        });
+        ambientesHost.appendChild(ambientesPanel.getElement());
+      }
+
+      // Motors
+      if (settings.showPumpsMotors && motorsHost && MyIO.CardGridPanel) {
+        motorsHost.innerHTML = '';
+        const motorItems = buildMotorItems(mockData.motorDevices, null);
+        motorsPanel = new MyIO.CardGridPanel({
+          title: 'Bombas e Motores',
+          icon: '⚙️',
+          quantity: motorItems.length,
+          items: motorItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: slimTitleStyle,
+          emptyMessage: 'Nenhum equipamento',
+          // HeaderPanelComponent features
+          showSearch: true,
+          searchPlaceholder: 'Buscar motor...',
+          onSearchChange: (text) => { log('event', 'Search Motors', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(motorsPanel.getElement(), 'Motors', motorsPanel); else closeMaximizeOverlay(); }
+        });
+        motorsHost.appendChild(motorsPanel.getElement());
+      }
+
+      currentState.isInitialized = true;
+      updateWidgetStatus('running');
+      log('success', 'onInit', `Initialized: ${mockData.floors.length} floors, ${mockData.waterDevices.length} water, ${mockData.hvacDevices.length} HVAC, ${mockData.motorDevices.length} motors`);
+      document.getElementById('btnOnInit').disabled = true;
+      document.getElementById('btnOnDataUpdated').disabled = false;
+      document.getElementById('btnOnDestroy').disabled = false;
+      updateStateDisplay();
+    }
+
+    function refreshPanels() {
+      const floor = currentState.selectedFloor;
+      const data = currentState.data;
+      if (waterPanel) waterPanel.setItems(buildWaterItems(data.waterDevices, floor));
+      if (ambientesPanel) ambientesPanel.setItems(buildHVACItems(data.hvacDevices, floor));
+      if (motorsPanel) motorsPanel.setItems(buildMotorItems(data.motorDevices, floor));
+      if (floorListPanel) floorListPanel.setSelectedId(floor);
+      updateStateDisplay();
+    }
+
+    function triggerOnDataUpdated() {
+      if (!currentState.isInitialized) { log('warn', 'onDataUpdated', 'Not initialized'); return; }
+      const mockData = generateMockData();
+      currentState.data = mockData;
+      // Ambiente items stay the same (static list from AMBIENTE_NAMES)
+      refreshPanels();
+      log('info', 'onDataUpdated', `Updated: ${mockData.waterDevices.length + mockData.hvacDevices.length + mockData.motorDevices.length} devices`);
+    }
+
+    function triggerOnDestroy() {
+      if (!currentState.isInitialized) { log('warn', 'onDestroy', 'Not initialized'); return; }
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      if (floorListPanel?.destroy) { floorListPanel.destroy(); floorListPanel = null; }
+      if (waterPanel?.destroy) { waterPanel.destroy(); waterPanel = null; }
+      if (ambientesPanel?.destroy) { ambientesPanel.destroy(); ambientesPanel = null; }
+      if (motorsPanel?.destroy) { motorsPanel.destroy(); motorsPanel = null; }
+
+      ['bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+
+      currentState = { isInitialized: false, selectedFloor: null, data: null };
+      currentChartDomain = 'energy';
+      updateWidgetStatus('stopped');
+      log('info', 'onDestroy', 'Dashboard destroyed');
+      document.getElementById('btnOnInit').disabled = false;
+      document.getElementById('btnOnDataUpdated').disabled = true;
+      document.getElementById('btnOnDestroy').disabled = true;
+      updateStateDisplay();
+    }
+
+    // =========================================================================
+    // CONTROL HANDLERS
+    // =========================================================================
+    function updateMockData() { if (currentState.isInitialized) triggerOnDataUpdated(); }
+    function generateRandomData() {
+      const presets = ['full', 'partial', 'water-only', 'hvac-only', 'motors-only'];
+      document.getElementById('dataPreset').value = presets[Math.floor(Math.random() * presets.length)];
+      document.getElementById('floorCount').value = ['3', '5', '10'][Math.floor(Math.random() * 3)];
+      if (currentState.isInitialized) triggerOnDataUpdated();
+      log('info', 'Random', 'Generated random config');
+    }
+    function simulateDataUpdate() {
+      if (!currentState.isInitialized || !currentState.data) { log('warn', 'Simulate', 'Not initialized'); return; }
+      currentState.data.waterDevices.forEach(d => { if (d.type === 'hydrometer') d.value += Math.random() * 0.5; });
+      currentState.data.hvacDevices.forEach(d => { if (d.temperature !== null) d.temperature += (Math.random() - 0.5) * 0.5; });
+      currentState.data.motorDevices.forEach(d => { if (d.status === 'running') d.consumption = Math.max(0, d.consumption + (Math.random() - 0.5) * 0.5); });
+      refreshPanels();
+      log('info', 'Simulate', 'Simulated update');
+    }
+    function updateSettings() { if (currentState.isInitialized) { triggerOnDestroy(); setTimeout(triggerOnInit, 100); } }
+    function toggleTheme() {
+      document.body.classList.toggle('light-mode');
+      document.getElementById('themeIcon').innerHTML = document.body.classList.contains('light-mode') ? '&#x1F319;' : '&#x2600;&#xfe0f;';
+      log('info', 'Theme', document.body.classList.contains('light-mode') ? 'Light' : 'Dark');
+    }
+
+    // =========================================================================
+    // MAXIMIZE OVERLAY (for showcase testing)
+    // =========================================================================
+    let _maxOverlay = null;
+    let _maxPanelInstance = null; // Track which panel instance is maximized
+
+    function showMaximizeOverlay(panelElement, title, panelInstance) {
+      closeMaximizeOverlay(); // close any existing
+
+      // Overlay (click outside to close)
+      _maxOverlay = document.createElement('div');
+      _maxOverlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s ease;
+      `;
+      _maxOverlay.addEventListener('click', function(e) { if (e.target === _maxOverlay) closeMaximizeOverlay(); });
+
+      // Panel container
+      var panel = document.createElement('div');
+      panel.style.cssText = `
+        width: 90vw; height: 85vh; max-width: 1400px; max-height: 900px;
+        background: #ffffff; border-radius: 16px;
+        box-shadow: 0 25px 80px rgba(0,0,0,0.3); border: 1px solid #e2e8f0;
+        overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease;
+        position: relative; display: flex; flex-direction: column;
+      `;
+      var clone = panelElement.cloneNode(true);
+      clone.style.width = '100%'; clone.style.height = '100%';
+      clone.style.maxWidth = 'none'; clone.style.maxHeight = 'none';
+      panel.appendChild(clone);
+      _maxOverlay.appendChild(panel);
+
+      // Wire up minimize button in clone (cloneNode doesn't copy event listeners)
+      var minimizeBtn = clone.querySelector('[title="Minimizar"]') || clone.querySelector('[title="Maximizar"]');
+      if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', function(e) { e.stopPropagation(); closeMaximizeOverlay(); });
+      }
+
+      _maxPanelInstance = panelInstance || null;
+      document.body.appendChild(_maxOverlay);
+
+      // Escape key
+      document.addEventListener('keydown', _maxEscHandler);
+
+      // Animate in
+      requestAnimationFrame(function() { _maxOverlay.style.opacity = '1'; panel.style.transform = 'scale(1)'; });
+      log('info', 'Maximize', 'Opened: ' + title);
+    }
+
+    function closeMaximizeOverlay() {
+      // Reset the panel's maximize state so button icon goes back to "maximize"
+      if (_maxPanelInstance && typeof _maxPanelInstance.setMaximized === 'function') {
+        _maxPanelInstance.setMaximized(false);
+      }
+      _maxPanelInstance = null;
+      if (_maxOverlay) { _maxOverlay.remove(); _maxOverlay = null; }
+      document.removeEventListener('keydown', _maxEscHandler);
+    }
+
+    function _maxEscHandler(e) { if (e.key === 'Escape') closeMaximizeOverlay(); }
+
+    // =========================================================================
+    // UI HELPERS
+    // =========================================================================
+    function updateWidgetStatus(status) { const b = document.getElementById('widgetStatus'); b.textContent = status.toUpperCase(); b.className = 'status-badge ' + status; }
+    function log(type, event, data) {
+      const logEl = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+      const entry = document.createElement('div'); entry.className = 'log-entry ' + type;
+      entry.innerHTML = `<span class="log-time">${time}</span><span class="log-event">${event}</span><span class="log-data">${data}</span>`;
+      logEl.insertBefore(entry, logEl.firstChild);
+      while (logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+    }
+    function clearLog() { document.getElementById('eventLog').innerHTML = ''; }
+    function updateStateDisplay() {
+      document.getElementById('stateJson').textContent = JSON.stringify({
+        isInitialized: currentState.isInitialized, selectedFloor: currentState.selectedFloor,
+        deviceCounts: currentState.data ? { water: currentState.data.waterDevices.length, hvac: currentState.data.hvacDevices.length, motors: currentState.data.motorDevices.length, floors: currentState.data.floors.length } : null
+      }, null, 2);
+    }
+    let statePanelOpen = true;
+    function toggleStatePanel() { statePanelOpen = !statePanelOpen; document.getElementById('stateContent').style.display = statePanelOpen ? 'block' : 'none'; document.getElementById('stateToggle').innerHTML = statePanelOpen ? '&#x25BC;' : '&#x25B6;'; }
+
+    // =========================================================================
+    // INIT
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => { log('info', 'Page Ready', 'Click "onInit" to start.'); updateStateDisplay(); });
+
+    // Expose functions to global scope for onclick handlers
+    window.triggerOnInit = triggerOnInit;
+    window.triggerOnDataUpdated = triggerOnDataUpdated;
+    window.triggerOnDestroy = triggerOnDestroy;
+    window.updateMockData = updateMockData;
+    window.generateRandomData = generateRandomData;
+    window.simulateDataUpdate = simulateDataUpdate;
+    window.updateSettings = updateSettings;
+    window.toggleTheme = toggleTheme;
+    window.clearLog = clearLog;
+    window.toggleStatePanel = toggleStatePanel;
+  })(); // End IIFE
+  </script>
+</body>
+</html>

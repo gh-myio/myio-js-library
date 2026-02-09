@@ -13,6 +13,10 @@ import {
 } from './types';
 import type { Alarm } from '../../types/alarm';
 import { openAlarmComparisonModal } from '../alarms/AlarmComparisonModal';
+import {
+  openOperationalComparisonModal,
+  type OperationalDevice,
+} from '../operational-comparison-modal';
 
 const DEFAULT_CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com';
 
@@ -124,6 +128,11 @@ export class ComparisonHandler {
 
     if (unitType === 'alarms') {
       await this.openAlarmModal(entities);
+      return;
+    }
+
+    if (unitType === 'operational') {
+      await this.openOperationalModal(entities);
       return;
     }
 
@@ -325,6 +334,42 @@ export class ComparisonHandler {
   }
 
   /**
+   * Open operational comparison modal (Availability, MTBF, MTTR)
+   */
+  private async openOperationalModal(entities: SelectedEntity[]): Promise<void> {
+    const { start, end } = this.getDateRange();
+
+    // Map entities to operational device format
+    const devices: OperationalDevice[] = entities.map((entity) => ({
+      id: entity.id,
+      name: entity.name,
+      customerName: entity.customerName || '',
+      status: entity.status || 'online',
+      equipmentType: entity.equipmentType,
+      availability: entity.availability ?? 0,
+      mtbf: entity.mtbf ?? 0,
+      mttr: entity.mttr ?? 0,
+    }));
+
+    this.log.log('Opening operational comparison modal:', {
+      devices: devices.length,
+      startDate: start,
+      endDate: end,
+    });
+
+    openOperationalComparisonModal({
+      devices,
+      startDate: start,
+      endDate: end,
+      theme: this.params.theme ?? 'dark',
+      locale: 'pt-BR',
+      onClose: () => {
+        this.log.log('Operational comparison modal closed');
+      },
+    });
+  }
+
+  /**
    * Map unit type to reading type
    */
   private mapUnitTypeToReadingType(unitType: UnitType): string {
@@ -334,6 +379,7 @@ export class ComparisonHandler {
       tank: 'tank',
       temperature: 'temperature',
       alarms: 'alarms',
+      operational: 'operational',
     };
     return mapping[unitType] || 'energy';
   }

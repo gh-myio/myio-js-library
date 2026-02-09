@@ -13,6 +13,11 @@
         "title": "Enable Selection",
         "default": true
       },
+      "enableDragDrop": {
+        "type": "boolean",
+        "title": "Enable Drag & Drop",
+        "default": true
+      },
       "hideInfoMenuItem": {
         "type": "boolean",
         "title": "Hide Info Menu Item",
@@ -30,5 +35,5 @@
       }
     }
   },
-  "form": ["useNewComponents", "enableSelection", "hideInfoMenuItem", "debugActive", "activeTooltipDebug"]
+  "form": ["useNewComponents", "enableSelection", "enableDragDrop", "hideInfoMenuItem", "debugActive", "activeTooltipDebug"]
 }

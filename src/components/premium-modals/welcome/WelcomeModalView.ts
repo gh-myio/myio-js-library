@@ -298,6 +298,7 @@ export class WelcomeModalView {
     }
 
     this.bindEvents();
+    this.bindSearchEvents();
     this.setupLazyLoading();
     this.loadUserInfo();
     this.setupDynamicLayout();
@@ -562,6 +563,8 @@ export class WelcomeModalView {
     0 25px 80px rgba(0, 0, 0, 0.5),
     0 0 60px rgba(122, 47, 247, 0.15);
   overflow: hidden;
+  /* Ensure flex children can handle their own overflow */
+  min-height: 0;
 }
 
 /* Hero Container */
@@ -805,59 +808,224 @@ export class WelcomeModalView {
   flex-direction: column;
   padding: 10px 24px 12px 24px;
   background: linear-gradient(180deg, rgba(15,20,25,0.95) 0%, rgba(15,20,25,1) 100%);
+  min-height: 0;
+  /* Allow internal scroll by not clipping - children handle their own overflow */
+  overflow: visible;
+}
+
+.myio-welcome-shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
 .myio-welcome-shortcuts-title {
-  margin: 0 0 12px 0 !important;
+  margin: 0 !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   color: var(--wm-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  text-align: center;
+  white-space: nowrap;
 }
 
+/* Search input */
+.myio-welcome-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 6px 12px;
+  max-width: 220px;
+  transition: all 0.2s ease;
+}
+
+.myio-welcome-search:focus-within {
+  background: rgba(255,255,255,0.12);
+  border-color: var(--wm-primary);
+  box-shadow: 0 0 0 2px rgba(122, 47, 247, 0.2);
+}
+
+.myio-welcome-search-icon {
+  color: var(--wm-muted);
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.myio-welcome-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--wm-ink);
+  font-size: 12px;
+  min-width: 0;
+}
+
+.myio-welcome-search-input::placeholder {
+  color: var(--wm-muted);
+  opacity: 0.7;
+}
+
+.myio-welcome-search-clear {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--wm-muted);
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.myio-welcome-search-clear:hover {
+  opacity: 1;
+}
+
+.myio-welcome-search-clear.visible {
+  display: block;
+}
+
+/* Horizontal scroll container - 2 rows */
+.myio-welcome-cards-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.3) transparent;
+  padding: 4px 0;
+  /* Ensure proper flex overflow behavior */
+  min-width: 0;
+  width: 100%;
+}
+
+.myio-welcome-cards-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.myio-welcome-cards-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.myio-welcome-cards-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+
+.myio-welcome-cards-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Grid with 2 rows, horizontal scroll */
 .myio-welcome-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  align-content: start;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: calc(260px * var(--wm-card-scale, 1));
   gap: 10px;
-  width: 100%;
+  padding-bottom: 8px;
+  width: max-content;
+  margin: 0 auto;
 }
 
-/* V2 Grid - Metro UI style cards */
+.myio-welcome-cards-grid .myio-welcome-card {
+  width: 100%;
+  min-height: calc(112px * var(--wm-card-scale, 1));
+  transition: min-height 0.2s ease;
+}
+
+/* V2 Grid - Metro UI style cards (2 rows horizontal) */
 .myio-welcome-cards-grid--v2 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: calc(280px * var(--wm-card-scale, 1));
   gap: 12px;
-  width: 100%;
+  padding-bottom: 8px;
+  width: max-content;
+  margin: 0 auto;
 }
 
 .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
-  min-height: 180px;
+  width: 100%;
+  min-height: calc(180px * var(--wm-card-scale, 1));
   border-radius: 8px;
   overflow: hidden;
+  transition: min-height 0.2s ease;
+}
+
+/* No results message */
+.myio-welcome-no-results {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--wm-muted);
+  font-size: 13px;
+  text-align: center;
+  width: 100%;
+}
+
+/* Hidden card (filtered out) */
+.myio-welcome-card.hidden,
+.myio-customer-card-v2.hidden {
+  display: none !important;
 }
 
 @media (max-width: 768px) {
-  .myio-welcome-cards-grid--v2 {
-    grid-template-columns: repeat(2, 1fr);
+  .myio-welcome-shortcuts-header {
+    flex-direction: column;
+    align-items: stretch;
     gap: 10px;
   }
 
+  .myio-welcome-shortcuts-title {
+    text-align: center;
+  }
+
+  .myio-welcome-search {
+    max-width: 100%;
+  }
+
+  .myio-welcome-cards-grid {
+    grid-auto-columns: calc(220px * var(--wm-card-scale, 1));
+  }
+
+  .myio-welcome-cards-grid .myio-welcome-card {
+    min-height: calc(100px * var(--wm-card-scale, 1));
+  }
+
+  .myio-welcome-cards-grid--v2 {
+    grid-auto-columns: calc(240px * var(--wm-card-scale, 1));
+  }
+
   .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
-    min-height: 150px;
+    min-height: calc(150px * var(--wm-card-scale, 1));
   }
 }
 
 @media (max-width: 480px) {
+  .myio-welcome-cards-grid {
+    grid-auto-columns: calc(200px * var(--wm-card-scale, 1));
+  }
+
+  .myio-welcome-cards-grid .myio-welcome-card {
+    min-height: calc(90px * var(--wm-card-scale, 1));
+  }
+
   .myio-welcome-cards-grid--v2 {
-    grid-template-columns: 1fr;
-    gap: 8px;
+    grid-auto-columns: calc(200px * var(--wm-card-scale, 1));
   }
 
   .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
-    min-height: 140px;
+    min-height: calc(140px * var(--wm-card-scale, 1));
   }
 }
 
@@ -869,9 +1037,14 @@ export class WelcomeModalView {
   background: var(--wm-card-bg);
   border: 1px solid var(--wm-card-border);
   border-radius: 14px !important;
-  cursor: pointer;
+  cursor: default;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, height 0.2s ease;
   overflow: hidden;
+}
+
+/* Clickable cards (with dashboardId) */
+.myio-welcome-card--clickable {
+  cursor: pointer;
 }
 
 .myio-welcome-card::before {
@@ -883,7 +1056,8 @@ export class WelcomeModalView {
   transition: opacity 0.25s ease;
 }
 
-.myio-welcome-card:hover {
+/* Hover effects only for clickable cards */
+.myio-welcome-card--clickable:hover {
   transform: scale(1.03);
   border-color: rgba(122, 47, 247, 0.5);
   box-shadow:
@@ -892,11 +1066,40 @@ export class WelcomeModalView {
     0 0 30px rgba(122, 47, 247, 0.15);
 }
 
-.myio-welcome-card:focus {
+.myio-welcome-card--clickable:focus {
   outline: none;
   box-shadow:
     0 0 0 3px rgba(122, 47, 247, 0.5),
     0 12px 40px rgba(0,0,0,0.4);
+}
+
+/* Click tooltip for truncated titles */
+.myio-welcome-click-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  max-width: 280px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: tooltipFadeIn 0.2s ease;
+  pointer-events: none;
+}
+
+.myio-welcome-click-tooltip.fade-out {
+  animation: tooltipFadeOut 0.3s ease forwards;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translate(-50%, -90%); }
+  to { opacity: 1; transform: translate(-50%, -100%); }
+}
+
+@keyframes tooltipFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .myio-welcome-card-bg {
@@ -927,11 +1130,15 @@ export class WelcomeModalView {
 
 .myio-welcome-card-title {
   margin: 0 !important;
-  font-size: calc(22px * var(--wm-font-scale)) !important;
+  font-size: calc(16px * var(--wm-font-scale)) !important;
   font-weight: 700 !important;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .myio-welcome-card-subtitle {
@@ -1131,17 +1338,18 @@ export class WelcomeModalView {
     font-size: 10px;
   }
 
+  /* Keep horizontal scroll on smaller screens, just adjust card size */
   .myio-welcome-cards-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-columns: calc(200px * var(--wm-card-scale, 1));
     gap: 10px;
   }
 
-  .myio-welcome-card {
-    min-height: 100px;
+  .myio-welcome-cards-grid .myio-welcome-card {
+    min-height: calc(100px * var(--wm-card-scale, 1));
   }
 
   .myio-welcome-card-title {
-    font-size: calc(16px * var(--wm-font-scale)) !important;
+    font-size: calc(14px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-counts {
@@ -1218,18 +1426,19 @@ export class WelcomeModalView {
     margin-bottom: 10px;
   }
 
+  /* Keep horizontal scroll on mobile, just adjust card size */
   .myio-welcome-cards-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-columns: calc(180px * var(--wm-card-scale, 1));
     gap: 8px;
   }
 
-  .myio-welcome-card {
-    min-height: 80px;
+  .myio-welcome-cards-grid .myio-welcome-card {
+    min-height: calc(80px * var(--wm-card-scale, 1));
     padding: 10px;
   }
 
   .myio-welcome-card-title {
-    font-size: calc(14px * var(--wm-font-scale)) !important;
+    font-size: calc(13px * var(--wm-font-scale)) !important;
   }
 
   .myio-welcome-card-device-counts {
@@ -1442,6 +1651,44 @@ export class WelcomeModalView {
 
 .myio-welcome-modal--light .myio-welcome-shortcuts-title {
   color: #1f2937;
+}
+
+.myio-welcome-modal--light .myio-welcome-search {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.12);
+}
+
+.myio-welcome-modal--light .myio-welcome-search:focus-within {
+  background: rgba(0,0,0,0.08);
+  border-color: var(--wm-primary);
+}
+
+.myio-welcome-modal--light .myio-welcome-search-icon {
+  color: #6b7280;
+}
+
+.myio-welcome-modal--light .myio-welcome-search-input {
+  color: #1f2937;
+}
+
+.myio-welcome-modal--light .myio-welcome-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.myio-welcome-modal--light .myio-welcome-search-clear {
+  color: #6b7280;
+}
+
+.myio-welcome-modal--light .myio-welcome-cards-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.2);
+}
+
+.myio-welcome-modal--light .myio-welcome-cards-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.35);
+}
+
+.myio-welcome-modal--light .myio-welcome-no-results {
+  color: #6b7280;
 }
 
 .myio-welcome-modal--light .myio-welcome-card {
@@ -1694,17 +1941,29 @@ export class WelcomeModalView {
           shoppingCards.length > 0
             ? `
           <div class="myio-welcome-shortcuts">
-            <h2 class="myio-welcome-shortcuts-title"${
-              shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
-            }>${shortcutsTitle}</h2>
-            <div class="myio-welcome-cards-grid${
-              this.cardVersion === 'v2' ? ' myio-welcome-cards-grid--v2' : ''
-            }" id="welcomeCardsGrid">
-              ${
-                this.cardVersion === 'v1'
-                  ? shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('')
-                  : '<!-- V2 cards rendered via JS -->'
-              }
+            <div class="myio-welcome-shortcuts-header">
+              <h2 class="myio-welcome-shortcuts-title"${
+                shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+              }>${shortcutsTitle}</h2>
+              <div class="myio-welcome-search">
+                <svg class="myio-welcome-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar ${this.params.entityLabel || 'shopping'}...">
+                <button class="myio-welcome-search-clear" id="welcomeSearchClear" title="Limpar">&times;</button>
+              </div>
+            </div>
+            <div class="myio-welcome-cards-scroll">
+              <div class="myio-welcome-cards-grid${
+                this.cardVersion === 'v2' ? ' myio-welcome-cards-grid--v2' : ''
+              }" id="welcomeCardsGrid">
+                ${
+                  this.cardVersion === 'v1'
+                    ? shoppingCards.map((card, index) => this.buildCardHTML(card, index)).join('')
+                    : '<!-- V2 cards rendered via JS -->'
+                }
+              </div>
             </div>
           </div>
         `
@@ -1832,19 +2091,23 @@ export class WelcomeModalView {
       subtitleHTML = `<p class="myio-welcome-card-subtitle">${card.subtitle || 'Dashboard Principal'}</p>`;
     }
 
+    // Card is clickable only if it has a dashboardId (navigation target)
+    const isClickable = !!card.dashboardId;
+    const truncatedTitle = card.title.length > 27 ? card.title.slice(0, 27) + '...' : card.title;
+    const needsTooltip = card.title.length > 27;
+
     return `
-      <div class="myio-welcome-card"
-           tabindex="0"
-           role="button"
-           aria-label="Acessar ${card.title}"
+      <div class="myio-welcome-card${isClickable ? ' myio-welcome-card--clickable' : ''}"
+           ${isClickable ? 'tabindex="0" role="button"' : ''}
+           ${isClickable ? `aria-label="Acessar ${card.title}"` : ''}
            data-card-index="${index}"
-           data-dashboard-id="${card.dashboardId}"
+           data-dashboard-id="${card.dashboardId || ''}"
            data-entity-id="${card.entityId}"
            data-entity-type="${card.entityType || 'ASSET'}">
         ${bgImage}
         ${metaCountsHTML}
         <div class="myio-welcome-card-content">
-          <h3 class="myio-welcome-card-title">${card.title}</h3>
+          <h3 class="myio-welcome-card-title"${needsTooltip ? ` data-full-title="${card.title}"` : ''}>${truncatedTitle}</h3>
         </div>
         ${subtitleHTML}
       </div>
@@ -1879,41 +2142,62 @@ export class WelcomeModalView {
       });
     }
 
-    // Shopping card clicks
+    // Shopping card clicks - only for clickable cards (with dashboardId)
     const cards = this.container.querySelectorAll('.myio-welcome-card');
     cards.forEach((card, index) => {
       const shoppingCard = this.params.shoppingCards?.[index];
       if (!shoppingCard) return;
 
-      // Click handler
-      card.addEventListener('click', (e: Event) => {
-        // Don't trigger card click if clicking on device count (tooltip trigger)
-        const target = e.target as HTMLElement;
-        if (target.closest('.myio-welcome-card-device-count')) {
-          return;
-        }
-        this.emit('card-click', shoppingCard);
-      });
-
-      // Keyboard support (Enter and Space)
-      card.addEventListener('keydown', (e: Event) => {
-        const keyEvent = e as KeyboardEvent;
-        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-          e.preventDefault();
+      // Only add click handlers if card has dashboardId (is clickable)
+      if (shoppingCard.dashboardId) {
+        // Click handler
+        card.addEventListener('click', (e: Event) => {
+          // Don't trigger card click if clicking on device count (tooltip trigger)
+          const target = e.target as HTMLElement;
+          if (target.closest('.myio-welcome-card-device-count')) {
+            return;
+          }
+          // Don't trigger card click if clicking on title (tooltip trigger)
+          if (target.closest('.myio-welcome-card-title[data-full-title]')) {
+            return;
+          }
           this.emit('card-click', shoppingCard);
-        }
-      });
+        });
+
+        // Keyboard support (Enter and Space)
+        card.addEventListener('keydown', (e: Event) => {
+          const keyEvent = e as KeyboardEvent;
+          if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+            e.preventDefault();
+            this.emit('card-click', shoppingCard);
+          }
+        });
+      }
+
+      // Click-based tooltip for truncated titles
+      const titleEl = card.querySelector('.myio-welcome-card-title[data-full-title]') as HTMLElement;
+      if (titleEl) {
+        titleEl.style.cursor = 'help';
+        titleEl.addEventListener('click', (e: Event) => {
+          e.stopPropagation();
+          const fullTitle = titleEl.getAttribute('data-full-title') || '';
+          this.showClickTooltip(titleEl, fullTitle);
+        });
+      }
     });
 
-    // Font size slider - directly scales card text elements
+    // Font size slider - directly scales card text elements and card dimensions
     const fontSizeRange = this.container.querySelector('#fontSizeRange') as HTMLInputElement;
     const fontSizeValue = this.container.querySelector('#fontSizeValue');
     if (fontSizeRange && fontSizeValue) {
       const applyFontScale = (scale: number) => {
+        // Apply CSS variable for card dimensions scaling
+        this.container.style.setProperty('--wm-card-scale', String(scale));
+
         // Apply to card titles (use setProperty with 'important' to override CSS !important)
         const cardTitles = this.container.querySelectorAll('.myio-welcome-card-title') as NodeListOf<HTMLElement>;
         cardTitles.forEach((el) => {
-          el.style.setProperty('font-size', `${22 * scale}px`, 'important');
+          el.style.setProperty('font-size', `${16 * scale}px`, 'important');
         });
         // Apply to card subtitles
         const cardSubtitles = this.container.querySelectorAll('.myio-welcome-card-subtitle') as NodeListOf<HTMLElement>;
@@ -1935,6 +2219,26 @@ export class WelcomeModalView {
         countIcons.forEach((el) => {
           el.style.setProperty('font-size', `${10 * scale}px`, 'important');
         });
+
+        // Apply card dimensions via grid-auto-columns
+        const cardsGrid = this.container.querySelector('.myio-welcome-cards-grid') as HTMLElement;
+        if (cardsGrid) {
+          if (this.cardVersion === 'v2') {
+            cardsGrid.style.setProperty('grid-auto-columns', `${280 * scale}px`);
+            // Apply min-height to V2 cards
+            const v2Cards = this.container.querySelectorAll('.myio-customer-card-v2') as NodeListOf<HTMLElement>;
+            v2Cards.forEach((card) => {
+              card.style.setProperty('min-height', `${180 * scale}px`);
+            });
+          } else {
+            cardsGrid.style.setProperty('grid-auto-columns', `${260 * scale}px`);
+            // Apply min-height to V1 cards
+            const v1Cards = this.container.querySelectorAll('.myio-welcome-card') as NodeListOf<HTMLElement>;
+            v1Cards.forEach((card) => {
+              card.style.setProperty('min-height', `${112 * scale}px`);
+            });
+          }
+        }
       };
 
       fontSizeRange.addEventListener('input', () => {
@@ -2621,27 +2925,54 @@ export class WelcomeModalView {
       // Update shortcuts section content based on card version
       if (this.cardVersion === 'v2') {
         shortcutsSection.innerHTML = `
-          <h2 class="myio-welcome-shortcuts-title"${
-            shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
-          }>${shortcutsTitle}</h2>
-          <div class="myio-welcome-cards-grid myio-welcome-cards-grid--v2" id="welcomeCardsGrid">
+          <div class="myio-welcome-shortcuts-header">
+            <h2 class="myio-welcome-shortcuts-title"${
+              shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+            }>${shortcutsTitle}</h2>
+            <div class="myio-welcome-search">
+              <svg class="myio-welcome-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar ${this.params.entityLabel || 'shopping'}...">
+              <button class="myio-welcome-search-clear" id="welcomeSearchClear" title="Limpar">&times;</button>
+            </div>
+          </div>
+          <div class="myio-welcome-cards-scroll">
+            <div class="myio-welcome-cards-grid myio-welcome-cards-grid--v2" id="welcomeCardsGrid">
+            </div>
           </div>
         `;
         // Render V2 cards
         this.renderCardsV2();
       } else {
         shortcutsSection.innerHTML = `
-          <h2 class="myio-welcome-shortcuts-title"${
-            shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
-          }>${shortcutsTitle}</h2>
-          <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
-            ${cards.map((card, index) => this.buildCardHTML(card, index)).join('')}
+          <div class="myio-welcome-shortcuts-header">
+            <h2 class="myio-welcome-shortcuts-title"${
+              shortcutsTitleColor ? ` style="color: ${shortcutsTitleColor}"` : ''
+            }>${shortcutsTitle}</h2>
+            <div class="myio-welcome-search">
+              <svg class="myio-welcome-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" class="myio-welcome-search-input" id="welcomeSearchInput" placeholder="Buscar ${this.params.entityLabel || 'shopping'}...">
+              <button class="myio-welcome-search-clear" id="welcomeSearchClear" title="Limpar">&times;</button>
+            </div>
+          </div>
+          <div class="myio-welcome-cards-scroll">
+            <div class="myio-welcome-cards-grid" id="welcomeCardsGrid">
+              ${cards.map((card, index) => this.buildCardHTML(card, index)).join('')}
+            </div>
           </div>
         `;
         // Re-bind card events for V1
         this.bindCardEvents();
         this.setupLazyLoading();
       }
+
+      // Bind search events
+      this.bindSearchEvents();
 
       // Recalculate grid layout for new cards
       requestAnimationFrame(() => {
@@ -2684,6 +3015,159 @@ export class WelcomeModalView {
 
     // Re-bind tooltip events
     this.bindTooltipEvents();
+  }
+
+  /**
+   * Show a click-based tooltip for truncated card titles
+   */
+  private showClickTooltip(targetEl: HTMLElement, text: string): void {
+    // Remove any existing click tooltip
+    const existingTooltip = this.container.querySelector('.myio-welcome-click-tooltip');
+    if (existingTooltip) {
+      existingTooltip.remove();
+    }
+
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'myio-welcome-click-tooltip';
+    tooltip.textContent = text;
+    this.container.appendChild(tooltip);
+
+    // Position tooltip above the target element
+    const rect = targetEl.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+
+    tooltip.style.position = 'absolute';
+    tooltip.style.left = `${rect.left - containerRect.left + rect.width / 2}px`;
+    tooltip.style.top = `${rect.top - containerRect.top - 8}px`;
+    tooltip.style.transform = 'translate(-50%, -100%)';
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      tooltip.classList.add('fade-out');
+      setTimeout(() => tooltip.remove(), 300);
+    }, 3000);
+
+    // Remove on click outside
+    const removeOnClick = (e: Event) => {
+      if (!tooltip.contains(e.target as Node)) {
+        tooltip.remove();
+        document.removeEventListener('click', removeOnClick);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', removeOnClick), 100);
+  }
+
+  /**
+   * Bind search input events for filtering shopping cards
+   */
+  private bindSearchEvents(): void {
+    const searchInput = this.container.querySelector('#welcomeSearchInput') as HTMLInputElement;
+    const clearBtn = this.container.querySelector('#welcomeSearchClear') as HTMLButtonElement;
+
+    if (!searchInput) return;
+
+    // Debounce timeout
+    let debounceTimer: ReturnType<typeof setTimeout>;
+
+    // Input handler with debounce
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim();
+
+      // Show/hide clear button
+      if (clearBtn) {
+        clearBtn.classList.toggle('visible', query.length > 0);
+      }
+
+      // Debounce the filtering
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        this.filterCards(query);
+      }, 150);
+    });
+
+    // Clear button handler
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearBtn.classList.remove('visible');
+        this.filterCards('');
+        searchInput.focus();
+      });
+    }
+
+    // Handle Escape key to clear search
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        if (clearBtn) clearBtn.classList.remove('visible');
+        this.filterCards('');
+      }
+    });
+  }
+
+  /**
+   * Filter shopping cards based on search query
+   */
+  private filterCards(query: string): void {
+    const normalizedQuery = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cards = this.params.shoppingCards || [];
+    const cardsGrid = this.container.querySelector('#welcomeCardsGrid');
+    const scrollContainer = this.container.querySelector('.myio-welcome-cards-scroll');
+
+    if (!cardsGrid) return;
+
+    let visibleCount = 0;
+
+    if (this.cardVersion === 'v2') {
+      // Filter V2 cards
+      const cardElements = cardsGrid.querySelectorAll('.myio-customer-card-v2');
+      cardElements.forEach((cardEl, index) => {
+        const card = cards[index];
+        if (!card) return;
+
+        const title = (card.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const matches = !normalizedQuery || title.includes(normalizedQuery);
+
+        cardEl.classList.toggle('hidden', !matches);
+        if (matches) visibleCount++;
+      });
+    } else {
+      // Filter V1 cards
+      const cardElements = cardsGrid.querySelectorAll('.myio-welcome-card');
+      cardElements.forEach((cardEl, index) => {
+        const card = cards[index];
+        if (!card) return;
+
+        const title = (card.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const matches = !normalizedQuery || title.includes(normalizedQuery);
+
+        cardEl.classList.toggle('hidden', !matches);
+        if (matches) visibleCount++;
+      });
+    }
+
+    // Show/hide no results message
+    let noResultsEl = scrollContainer?.querySelector('.myio-welcome-no-results') as HTMLElement;
+    const entityLabel = this.params.entityLabel || 'shopping';
+
+    if (visibleCount === 0 && normalizedQuery) {
+      if (!noResultsEl && scrollContainer) {
+        noResultsEl = document.createElement('div');
+        noResultsEl.className = 'myio-welcome-no-results';
+        noResultsEl.textContent = `Nenhum ${entityLabel} encontrado para "${query}"`;
+        scrollContainer.appendChild(noResultsEl);
+      } else if (noResultsEl) {
+        noResultsEl.textContent = `Nenhum ${entityLabel} encontrado para "${query}"`;
+        noResultsEl.style.display = 'flex';
+      }
+    } else if (noResultsEl) {
+      noResultsEl.style.display = 'none';
+    }
+
+    if (this.config.enableDebugMode) {
+      console.log(`[WelcomeModal] Search filter: "${query}" - ${visibleCount}/${cards.length} visible`);
+    }
   }
 
   /**

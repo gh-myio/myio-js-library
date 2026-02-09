@@ -2309,13 +2309,13 @@ export class MenuView {
     // Check if operational indicators is already enabled (e.g., from cached state)
     const myioUtils = (window as Window & { MyIOUtils?: { operationalIndicators?: { enabled: boolean } } })
       .MyIOUtils;
-    if (myioUtils?.operationalIndicators?.enabled) {
-      this.operationalAccessHandler(
-        new CustomEvent('myio:operational-indicators-access', {
-          detail: { enabled: true },
-        })
-      );
-    }
+    //if (myioUtils?.operationalIndicators?.enabled) {
+    this.operationalAccessHandler(
+      new CustomEvent('myio:operational-indicators-access', {
+        detail: { enabled: true },
+      })
+    );
+    //}
   }
 
   /**
@@ -2644,10 +2644,10 @@ export class MenuView {
       const tabId = col.classList.contains('energy')
         ? 'energy'
         : col.classList.contains('water')
-        ? 'water'
-        : col.classList.contains('temperature')
-        ? 'temperature'
-        : '';
+          ? 'water'
+          : col.classList.contains('temperature')
+            ? 'temperature'
+            : '';
       col.classList.toggle('is-active-column', tabId === this.activeTabId);
     });
   }

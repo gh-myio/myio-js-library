@@ -14,6 +14,14 @@ export interface OperationalHeaderStats {
   avgAvailability: number;
   avgMtbf: number;
   avgMttr: number;
+  // Detailed online sub-statuses
+  onlineStandby?: number;
+  onlineNormal?: number;
+  onlineAlert?: number;
+  onlineFailure?: number;
+  // Detailed maintenance sub-statuses
+  maintenanceOnline?: number;
+  maintenanceOffline?: number;
 }
 
 export interface OperationalHeaderLabels {

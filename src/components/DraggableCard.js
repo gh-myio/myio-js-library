@@ -178,6 +178,24 @@ class MyIODraggableCard {
     // Set drag data
     event.dataTransfer.setData('text/myio-id', this.entity.id);
     event.dataTransfer.setData('text/plain', this.entity.id);
+
+    // RFC-0144: Set full entity data as JSON for footer registration
+    const entityPayload = {
+      id: this.entity.id,
+      entityId: this.entity.entityId || this.entity.id,
+      name: this.entity.name || this.entity.label || this.entity.labelOrName,
+      label: this.entity.label || this.entity.name || this.entity.labelOrName,
+      domain: this.entity.domain || 'energy',
+      unit: this.entity.unit || (this.entity.domain === 'water' ? 'm³' : 'kWh'),
+      value: this.entity.value || this.entity.val || this.entity.lastValue || 0,
+      lastValue: this.entity.lastValue || this.entity.value || this.entity.val || 0,
+      customerName: this.entity.customerName || this.entity.ownerName || '',
+      ingestionId: this.entity.ingestionId || this.entity.id,
+      status: this.entity.status || this.entity.deviceStatus || 'online',
+      deviceType: this.entity.deviceType,
+      deviceProfile: this.entity.deviceProfile,
+    };
+    event.dataTransfer.setData('application/json', JSON.stringify(entityPayload));
     event.dataTransfer.effectAllowed = 'copy';
 
     // Track drag start

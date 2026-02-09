@@ -2439,6 +2439,10 @@ function renderList(visible) {
 
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
 
+          // RFC-FIX: Hide busy overlay BEFORE opening modal to avoid z-index conflict
+          // Busy overlay has z-index: 999999, modal has z-index: 10000
+          hideBusy();
+
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,

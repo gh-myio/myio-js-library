@@ -1173,7 +1173,21 @@ self.onInit = async function () {
 
       // RFC-0102: Classification is done by MAIN's Orchestrator
       // We already called getEquipmentDevices() so all devices are equipment (no lojas)
-      const equipmentDevices = devicesFormatadosParaCards;
+      // Filter by allowed deviceProfile list for EQUIPMENTS rendering
+      const allowedProfiles = new Set([
+        'CHILLER',
+        'FANCOIL',
+        'ELEVADOR',
+        'ESCADA_ROLANTE',
+        'MOTOR',
+        'BOMBA_HIDRAULICA',
+        'BOMBA_INCENDIO',
+        'BOMBA_CAG',
+      ]);
+      const equipmentDevices = devicesFormatadosParaCards.filter((d) => {
+        const profile = String(d.deviceProfile || d.deviceType || '').toUpperCase();
+        return allowedProfiles.has(profile);
+      });
 
       LogHelper.log('[EQUIPMENTS] RFC-0102: Equipment devices from orchestrator:', equipmentDevices.length);
 
@@ -1408,6 +1422,52 @@ self.onInit = async function () {
 
     if (orchestratorInstance) {
       const existingCache = orchestratorInstance.getCache();
+
+      // Listener persistente para atualizações (ex: clique em "Carregar")
+      if (!self._energyDataReadyListenerBound) {
+        self._energyDataReadyListenerBound = true;
+        window.addEventListener('myio:energy-data-ready', async (ev) => {
+          const cache = ev?.detail?.cache;
+          if (!cache || cache.size === 0) {
+            LogHelper.warn('[EQUIPMENTS] Evento myio:energy-data-ready recebido com cache vazio.');
+            return;
+          }
+          const periodKey = ev?.detail?.periodKey || 'N/A';
+          LogHelper.log(
+            `[EQUIPMENTS] Cache atualizado via myio:energy-data-ready (periodKey=${periodKey}). Re-renderizando...`
+          );
+          await processAndRender(cache);
+          reflowCards();
+        });
+      }
+
+      // Fallback: escuta o evento genérico do orchestrator
+      if (!self._telemetryProvideListenerBound) {
+        self._telemetryProvideListenerBound = true;
+        window.addEventListener('myio:telemetry:provide-data', async (ev) => {
+          const detail = ev?.detail || {};
+          if (detail.domain !== 'energy') return;
+          const items = Array.isArray(detail.items) ? detail.items : [];
+          if (items.length === 0) {
+            LogHelper.warn('[EQUIPMENTS] myio:telemetry:provide-data (energy) sem items.');
+            return;
+          }
+
+          const periodKey = detail.periodKey || 'N/A';
+          const cache = new Map();
+          items.forEach((item) => {
+            if (item.tbId) cache.set(item.tbId, item);
+            if (item.ingestionId && item.ingestionId !== item.tbId) cache.set(item.ingestionId, item);
+            if (!item.tbId && !item.ingestionId && item.id) cache.set(item.id, item);
+          });
+
+          LogHelper.log(
+            `[EQUIPMENTS] Recebido myio:telemetry:provide-data (energy, periodKey=${periodKey}). Re-renderizando...`
+          );
+          await processAndRender(cache);
+          reflowCards();
+        });
+      }
 
       if (existingCache && existingCache.size > 0) {
         // CAMINHO 1: (Navegação de volta)

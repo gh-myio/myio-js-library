@@ -1,0 +1,14 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+      "centralId": {
+        "type": "string",
+        "title": "Id da Central"
+      }
+    },
+    "required": ["centralId"]
+  },
+  "form": ["centralId"]
+}

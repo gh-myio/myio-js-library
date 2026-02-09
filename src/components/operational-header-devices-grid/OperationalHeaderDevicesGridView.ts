@@ -35,21 +35,33 @@ export class OperationalHeaderDevicesGridView {
     avgAvailability: 0,
     avgMtbf: 0,
     avgMttr: 0,
+    // New detailed stats
+    onlineStandby: 0,
+    onlineNormal: 0,
+    onlineAlert: 0,
+    onlineFailure: 0,
+    maintenanceOnline: 0,
+    maintenanceOffline: 0,
   };
 
   private ids: {
     header: string;
-    titleCount: string;
-    statOnline: string;
+    statTotal: string;
+    statOnlineStandby: string;
+    statOnlineNormal: string;
+    statOnlineAlert: string;
+    statOnlineFailure: string;
+    statMaintenanceOnline: string;
+    statMaintenanceOffline: string;
     statOffline: string;
-    statMaintenance: string;
+    statMtbf: string;
+    statMttr: string;
     statAvailability: string;
     searchWrap: string;
     searchInput: string;
     btnSearch: string;
     btnFilter: string;
     btnMaximize: string;
-    customerSelect: string;
   };
 
   constructor(params: OperationalHeaderDevicesGridParams) {
@@ -78,17 +90,22 @@ export class OperationalHeaderDevicesGridView {
 
     this.ids = {
       header: `${this.idPrefix}Header`,
-      titleCount: `${this.idPrefix}TitleCount`,
-      statOnline: `${this.idPrefix}StatOnline`,
+      statTotal: `${this.idPrefix}StatTotal`,
+      statOnlineStandby: `${this.idPrefix}StatOnlineStandby`,
+      statOnlineNormal: `${this.idPrefix}StatOnlineNormal`,
+      statOnlineAlert: `${this.idPrefix}StatOnlineAlert`,
+      statOnlineFailure: `${this.idPrefix}StatOnlineFailure`,
+      statMaintenanceOnline: `${this.idPrefix}StatMaintOnline`,
+      statMaintenanceOffline: `${this.idPrefix}StatMaintOffline`,
       statOffline: `${this.idPrefix}StatOffline`,
-      statMaintenance: `${this.idPrefix}StatMaintenance`,
+      statMtbf: `${this.idPrefix}StatMtbf`,
+      statMttr: `${this.idPrefix}StatMttr`,
       statAvailability: `${this.idPrefix}StatAvailability`,
       searchWrap: `${this.idPrefix}SearchWrap`,
       searchInput: `${this.idPrefix}SearchInput`,
       btnSearch: `${this.idPrefix}BtnSearch`,
       btnFilter: `${this.idPrefix}BtnFilter`,
       btnMaximize: `${this.idPrefix}BtnMaximize`,
-      customerSelect: `${this.idPrefix}CustomerSelect`,
     };
 
     this.render();
@@ -97,13 +114,6 @@ export class OperationalHeaderDevicesGridView {
 
   private render(): void {
     const themeClass = this.themeMode === 'light' ? 'ohg-header--light' : '';
-
-    const customerSelectHTML = this.includeCustomerFilter
-      ? `<select class="customer-select" id="${this.ids.customerSelect}">
-          <option value="all">Todos os Clientes</option>
-          ${this.customers.map(c => `<option value="${c.id}">${this.escapeHtml(c.name)}</option>`).join('')}
-        </select>`
-      : '';
 
     const searchButtonHTML = this.includeSearch
       ? `<button class="icon-btn" id="${this.ids.btnSearch}" title="Buscar" aria-label="Buscar">
@@ -133,34 +143,77 @@ export class OperationalHeaderDevicesGridView {
       : '';
 
     const headerHTML = `
-      <div class="ohg-header ${themeClass}" id="${this.ids.header}">
-        <div class="ohg-title-section">
-          <span class="ohg-title">Lista Geral</span>
-          <span class="ohg-count" id="${this.ids.titleCount}">0</span>
+      <div class="ohg-header ohg-header-v2 ${themeClass}" id="${this.ids.header}">
+        <!-- TOTAL -->
+        <div class="ohg-col ohg-col-total">
+          <span class="ohg-col-title">TOTAL</span>
+          <span class="ohg-col-value" id="${this.ids.statTotal}">0</span>
         </div>
 
-        <div class="stat-item online">
-          <span class="stat-label">Online</span>
-          <span class="stat-value" id="${this.ids.statOnline}">0</span>
+        <!-- ONLINE Group -->
+        <div class="ohg-col-group ohg-col-online">
+          <span class="ohg-group-title">ONLINE</span>
+          <div class="ohg-group-items">
+            <div class="ohg-sub-col standby">
+              <span class="ohg-sub-label">Standby</span>
+              <span class="ohg-sub-value" id="${this.ids.statOnlineStandby}">0</span>
+            </div>
+            <div class="ohg-sub-col normal">
+              <span class="ohg-sub-label">Normal</span>
+              <span class="ohg-sub-value" id="${this.ids.statOnlineNormal}">0</span>
+            </div>
+            <div class="ohg-sub-col alert">
+              <span class="ohg-sub-label">Alerta</span>
+              <span class="ohg-sub-value" id="${this.ids.statOnlineAlert}">0</span>
+            </div>
+            <div class="ohg-sub-col failure">
+              <span class="ohg-sub-label">Falha</span>
+              <span class="ohg-sub-value" id="${this.ids.statOnlineFailure}">0</span>
+            </div>
+          </div>
         </div>
 
-        <div class="stat-item offline">
-          <span class="stat-label">Offline</span>
-          <span class="stat-value" id="${this.ids.statOffline}">0</span>
+        <!-- MANUTENÇÃO Group -->
+        <div class="ohg-col-group ohg-col-maintenance">
+          <span class="ohg-group-title">MANUTENÇÃO</span>
+          <div class="ohg-group-items">
+            <div class="ohg-sub-col maint-online">
+              <span class="ohg-sub-label">Online</span>
+              <span class="ohg-sub-value" id="${this.ids.statMaintenanceOnline}">0</span>
+            </div>
+            <div class="ohg-sub-col maint-offline">
+              <span class="ohg-sub-label">Offline</span>
+              <span class="ohg-sub-value" id="${this.ids.statMaintenanceOffline}">0</span>
+            </div>
+          </div>
         </div>
 
-        <div class="stat-item maintenance">
-          <span class="stat-label">Manutencao</span>
-          <span class="stat-value" id="${this.ids.statMaintenance}">0</span>
+        <!-- OFFLINE -->
+        <div class="ohg-col ohg-col-offline">
+          <span class="ohg-col-title">OFFLINE</span>
+          <span class="ohg-col-value" id="${this.ids.statOffline}">0</span>
         </div>
 
-        <div class="stat-item availability">
-          <span class="stat-label">Disponibilidade</span>
-          <span class="stat-value" id="${this.ids.statAvailability}">0%</span>
+        <!-- MTBF MÉDIA -->
+        <div class="ohg-col ohg-col-mtbf">
+          <span class="ohg-col-title">MTBF MÉDIA</span>
+          <span class="ohg-col-value" id="${this.ids.statMtbf}">0h</span>
         </div>
 
-        <div class="filter-actions">
-          ${customerSelectHTML}
+        <!-- MTTR MÉDIA -->
+        <div class="ohg-col ohg-col-mttr">
+          <span class="ohg-col-title">MTTR MÉDIA</span>
+          <span class="ohg-col-value" id="${this.ids.statMttr}">0h</span>
+        </div>
+
+        <!-- DISP. MÉDIA -->
+        <div class="ohg-col ohg-col-availability">
+          <span class="ohg-col-title">DISP. MÉDIA</span>
+          <span class="ohg-col-value" id="${this.ids.statAvailability}">0%</span>
+        </div>
+
+        <!-- Actions -->
+        <div class="ohg-col-actions">
           <div class="search-wrap" id="${this.ids.searchWrap}">
             <input type="text" id="${this.ids.searchInput}" placeholder="Buscar..." autocomplete="off">
           </div>
@@ -209,16 +262,6 @@ export class OperationalHeaderDevicesGridView {
         }
       }
 
-      // Customer select
-      if (this.includeCustomerFilter && this.onCustomerChange) {
-        const customerSelect = document.getElementById(this.ids.customerSelect) as HTMLSelectElement;
-        if (customerSelect) {
-          customerSelect.addEventListener('change', () => {
-            this.onCustomerChange?.(customerSelect.value);
-          });
-        }
-      }
-
       // Maximize button
       if (this.includeMaximize) {
         const btnMaximize = document.getElementById(this.ids.btnMaximize);
@@ -252,17 +295,29 @@ export class OperationalHeaderDevicesGridView {
   public updateStats(stats: Partial<OperationalHeaderStats>): void {
     this.stats = { ...this.stats, ...stats };
 
-    const titleCountEl = document.getElementById(this.ids.titleCount);
-    const onlineEl = document.getElementById(this.ids.statOnline);
+    const totalEl = document.getElementById(this.ids.statTotal);
+    const onlineStandbyEl = document.getElementById(this.ids.statOnlineStandby);
+    const onlineNormalEl = document.getElementById(this.ids.statOnlineNormal);
+    const onlineAlertEl = document.getElementById(this.ids.statOnlineAlert);
+    const onlineFailureEl = document.getElementById(this.ids.statOnlineFailure);
+    const maintOnlineEl = document.getElementById(this.ids.statMaintenanceOnline);
+    const maintOfflineEl = document.getElementById(this.ids.statMaintenanceOffline);
     const offlineEl = document.getElementById(this.ids.statOffline);
-    const maintenanceEl = document.getElementById(this.ids.statMaintenance);
+    const mtbfEl = document.getElementById(this.ids.statMtbf);
+    const mttrEl = document.getElementById(this.ids.statMttr);
     const availabilityEl = document.getElementById(this.ids.statAvailability);
 
-    if (titleCountEl) titleCountEl.textContent = String(this.stats.total);
-    if (onlineEl) onlineEl.textContent = String(this.stats.online);
+    if (totalEl) totalEl.textContent = String(this.stats.total);
+    if (onlineStandbyEl) onlineStandbyEl.textContent = String(this.stats.onlineStandby || 0);
+    if (onlineNormalEl) onlineNormalEl.textContent = String(this.stats.onlineNormal || 0);
+    if (onlineAlertEl) onlineAlertEl.textContent = String(this.stats.onlineAlert || 0);
+    if (onlineFailureEl) onlineFailureEl.textContent = String(this.stats.onlineFailure || 0);
+    if (maintOnlineEl) maintOnlineEl.textContent = String(this.stats.maintenanceOnline || 0);
+    if (maintOfflineEl) maintOfflineEl.textContent = String(this.stats.maintenanceOffline || 0);
     if (offlineEl) offlineEl.textContent = String(this.stats.offline);
-    if (maintenanceEl) maintenanceEl.textContent = String(this.stats.maintenance);
-    if (availabilityEl) availabilityEl.textContent = `${this.stats.avgAvailability.toFixed(1)}%`;
+    if (mtbfEl) mtbfEl.textContent = `${Math.round(this.stats.avgMtbf || 0)}h`;
+    if (mttrEl) mttrEl.textContent = `${(this.stats.avgMttr || 0).toFixed(1)}h`;
+    if (availabilityEl) availabilityEl.textContent = `${(this.stats.avgAvailability || 0).toFixed(0)}%`;
   }
 
   public setThemeMode(mode: OperationalHeaderThemeMode): void {
@@ -274,27 +329,14 @@ export class OperationalHeaderDevicesGridView {
     }
   }
 
-  public updateCustomers(customers: CustomerOption[]): void {
-    this.customers = customers;
-    const customerSelect = document.getElementById(this.ids.customerSelect) as HTMLSelectElement;
-    if (customerSelect) {
-      const currentValue = customerSelect.value;
-      customerSelect.innerHTML = `
-        <option value="all">Todos os Clientes</option>
-        ${customers.map(c => `<option value="${c.id}">${this.escapeHtml(c.name)}</option>`).join('')}
-      `;
-      // Restore selection if still valid
-      if (customers.some(c => c.id === currentValue) || currentValue === 'all') {
-        customerSelect.value = currentValue;
-      }
-    }
+  /** @deprecated Customer filter removed from header */
+  public updateCustomers(_customers: CustomerOption[]): void {
+    // No-op: customer filter removed
   }
 
-  public setSelectedCustomer(customerId: string): void {
-    const customerSelect = document.getElementById(this.ids.customerSelect) as HTMLSelectElement;
-    if (customerSelect) {
-      customerSelect.value = customerId;
-    }
+  /** @deprecated Customer filter removed from header */
+  public setSelectedCustomer(_customerId: string): void {
+    // No-op: customer filter removed
   }
 
   public getSearchInput(): HTMLInputElement | null {

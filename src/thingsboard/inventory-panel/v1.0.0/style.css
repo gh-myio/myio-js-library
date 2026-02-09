@@ -1,0 +1,103 @@
+/* Inventory Panel Widget Styles */
+/* Note: Main styles are injected via controller.js for better encapsulation */
+
+#inventory-panel-root {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+/* Override ThingsBoard default styles if needed */
+.tb-widget {
+  overflow: visible !important;
+}
+
+/* Print styles for PDF export */
+@media print {
+  .ip-btn,
+  .ip-header-actions,
+  .ip-toolbar,
+  .ip-tabs {
+    display: none !important;
+  }
+
+  .ip-root {
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .ip-tree,
+  .ip-flat-list {
+    border: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ip-device-status.active {
+    background: #00ff00 !important;
+  }
+
+  .ip-device-status.inactive {
+    background: #ff0000 !important;
+  }
+
+  .ip-tree-header,
+  .ip-flat-header {
+    border: 2px solid #000 !important;
+  }
+}
+
+/* Dark mode support (when ThingsBoard uses dark theme) */
+.tb-dark-theme .ip-root {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.tb-dark-theme .ip-title {
+  color: #f1f5f9;
+}
+
+.tb-dark-theme .ip-tree,
+.tb-dark-theme .ip-flat-list,
+.tb-dark-theme .ip-stat-card,
+.tb-dark-theme .ip-chart-card,
+.tb-dark-theme .ip-modal {
+  background: #334155;
+  border-color: #475569;
+}
+
+.tb-dark-theme .ip-tree-header,
+.tb-dark-theme .ip-flat-header {
+  background: #1e293b;
+}
+
+.tb-dark-theme .ip-search,
+.tb-dark-theme .ip-select {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.tb-dark-theme .ip-btn-secondary {
+  background: #475569;
+  color: #f1f5f9;
+}
+
+.tb-dark-theme .ip-device-name,
+.tb-dark-theme .ip-tree-label {
+  color: #f1f5f9;
+}
+
+.tb-dark-theme .ip-tabs {
+  background: #334155;
+}
+
+.tb-dark-theme .ip-tab {
+  color: #94a3b8;
+}
+
+.tb-dark-theme .ip-tab.active {
+  background: #475569;
+  color: #f1f5f9;
+}

@@ -105,6 +105,7 @@ let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 let MyIO = null;
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
+let lastProcessedVersion = null; // Track orchestrator version to allow refresh on same period
 let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0042: Widget configuration (from settings)
@@ -830,6 +831,7 @@ async function renderList(visible) {
       debugActive: DEBUG_ACTIVE,
       activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
       delayTimeConnectionInMins: DELAY_IN_MINS_TO_STORES, // RFC-0110: 24h threshold for consistency
+      hideValueTooltip: true, // RFC-FIX: Hide energy range tooltip for STORES (not relevant for store allocation)
 
       // --- DIFERENÇA 2: Callback de clique (mesmo que apenas logue) ---
       // Isso muitas vezes ativa o wrapper interativo do card
@@ -1796,7 +1798,8 @@ async function hydrateAndRender() {
             centralId: device.centralId || device.gatewayId || null,
             centralName: device.centralName || device.ownerName || null,
             customerId: device.customerId || null,
-            customerName: device.customerName || null,
+            customerName: device.customerName || device.ownerName || null,
+            ownerName: device.ownerName || device.customerName || null, // RFC-FIX: Add ownerName for getCustomerNameForDevice
             // From TB metadata - now available!
             connectionStatus: device.connectionStatus || 'online',
             lastConnectTime: device.lastConnectTime || null,
@@ -1877,7 +1880,8 @@ async function hydrateAndRender() {
             lastDisconnectTime: item.lastDisconnectTime || null,
             lastActivityTime: item.lastActivityTime || null,
             centralName: item.centralName || null,
-            ownerName: item.ownerName || null,
+            ownerName: item.ownerName || item.customerName || null,
+            customerName: item.customerName || item.ownerName || null, // RFC-FIX: Add customerName for consistency
             customerId: item.customerId || null,
             deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
             slaveId: item.slaveId || null,
@@ -2192,10 +2196,13 @@ self.onInit = async function () {
 
   // RFC-0042: Listen for data provision from orchestrator
   dataProvideHandler = function (ev) {
+    const eventVersion = window.MyIOOrchestratorData?.[ev.detail?.domain]?.version || null;
     LogHelper.log(
       `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
         ev.detail.domain
-      }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
+      }, periodKey: ${ev.detail.periodKey}, version: ${eventVersion ?? 'N/A'}, items: ${
+        ev.detail.items?.length || 0
+      }`
     );
     const { domain, periodKey, items } = ev.detail;
 
@@ -2209,8 +2216,12 @@ self.onInit = async function () {
 
     // IMPORTANT: Prevent duplicate processing of the same periodKey
     // The Orchestrator retries emission after 1s, so we need to deduplicate
-    if (lastProcessedPeriodKey === periodKey) {
-      LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
+    if (lastProcessedPeriodKey === periodKey && eventVersion === lastProcessedVersion) {
+      LogHelper.log(
+        `[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey} (version: ${
+          eventVersion ?? 'N/A'
+        })`
+      );
       return;
     }
 
@@ -2230,6 +2241,7 @@ self.onInit = async function () {
 
     // Mark this periodKey as processed ONLY when actually processing
     lastProcessedPeriodKey = periodKey;
+    lastProcessedVersion = eventVersion;
 
     // IMPORTANT: Do NOT call showBusy() here - it was already called in dateUpdateHandler
     // Calling it again creates a NEW timeout that won't be properly cancelled
@@ -2284,7 +2296,8 @@ self.onInit = async function () {
         centralId: item.centralId || item.gatewayId || null,
         centralName: item.assetName || item.centralName || null,
         customerId: item.customerId || null,
-        customerName: item.customerName || null,
+        customerName: item.customerName || item.ownerName || null,
+        ownerName: item.ownerName || item.customerName || null, // RFC-FIX: Add ownerName for getCustomerNameForDevice
         connectionStatus: item.connectionStatus || 'online',
         lastConnectTime: item.lastConnectTime || Date.now(),
         lastDisconnectTime: item.lastDisconnectTime || null,

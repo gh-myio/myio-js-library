@@ -192,7 +192,7 @@ function classifyAllDevices(data) {
     const device = extractDeviceMetadataFromRows(rows);
     if (!device) continue;
 
-    const domain = window.MyIOLibrary?.detectDomain?.(device) || device.domain;
+    const domain = window.MyIOLibrary?.getDomainFromDeviceType?.(device.deviceType) || device.domain;
     const context = window.MyIOLibrary?.detectContext?.(device, domain) || 'equipments';
 
     if (classified[domain]?.[context]) {
