@@ -74,6 +74,8 @@ export interface CardGridPanelOptions {
   emptyMessage?: string;
   /** Min card width for the auto-fill grid (default: 140px) */
   gridMinCardWidth?: string;
+  /** Gap between cards in the grid (default: 16px) */
+  gridGap?: string;
   /** Show temp range tooltip on cards */
   showTempRangeTooltip?: boolean;
   /** Show search toggle button in header */
@@ -132,9 +134,9 @@ const PANEL_CSS = `
     padding: 16px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr));
-    gap: 16px;
-    row-gap: 16px;
-    column-gap: 16px;
+    gap: var(--cgp-grid-gap, 16px);
+    row-gap: var(--cgp-grid-gap, 16px);
+    column-gap: var(--cgp-grid-gap, 16px);
     align-content: start;
   }
 
@@ -314,6 +316,9 @@ export class CardGridPanel {
     grid.className = 'myio-cgp__grid';
     if (gridMinCardWidth) {
       grid.style.setProperty('--cgp-min-card-w', gridMinCardWidth);
+    }
+    if (this.options.gridGap) {
+      grid.style.setProperty('--cgp-grid-gap', this.options.gridGap);
     }
     this.root.appendChild(grid);
 

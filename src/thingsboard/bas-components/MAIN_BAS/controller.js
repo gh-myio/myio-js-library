@@ -104,6 +104,7 @@ function getSettings(ctx) {
     mainBackgroundImage: widgetSettings.mainBackgroundImage ?? undefined,
     sidebarBackground: widgetSettings.sidebarBackground ?? '#faf8f1',
     sidebarBackgroundImage: widgetSettings.sidebarBackgroundImage ?? undefined,
+    cardGridGap: widgetSettings.cardGridGap ?? '20px',
     waterPanelBackground: widgetSettings.waterPanelBackground ?? '#e8f4fc',
     environmentsPanelBackground: widgetSettings.environmentsPanelBackground ?? '#fef7e8',
     motorsPanelBackground: widgetSettings.motorsPanelBackground ?? '#f0f4e8',
@@ -714,11 +715,13 @@ var WATER_STATUS_MAP = {
 function waterDeviceToEntityObject(device) {
   var deviceType = WATER_TYPE_MAP[device.type] || 'HIDROMETRO';
   var deviceStatus = WATER_STATUS_MAP[device.status] || 'no_info';
+  // Use rawData.identifier with fallback to 'Sem ID'
+  var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
 
   return {
     entityId: device.id,
     labelOrName: device.name,
-    deviceIdentifier: device.id,
+    deviceIdentifier: identifier,
     deviceType: deviceType,
     val: device.value,
     deviceStatus: deviceStatus,
@@ -802,11 +805,13 @@ var HVAC_STATUS_MAP = {
  */
 function hvacDeviceToEntityObject(device) {
   var deviceStatus = HVAC_STATUS_MAP[device.status] || 'no_info';
+  // Use rawData.identifier with fallback to 'Sem ID'
+  var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
 
   return {
     entityId: device.id,
     labelOrName: device.name,
-    deviceIdentifier: device.id,
+    deviceIdentifier: identifier,
     deviceType: 'TERMOSTATO',
     val: device.temperature != null ? device.temperature : 0,
     deviceStatus: deviceStatus,
@@ -864,6 +869,8 @@ var ENERGY_STATUS_MAP = {
 function energyDeviceToEntityObject(device) {
   var deviceType = device.deviceType || '3F_MEDIDOR';
   var deviceStatus = ENERGY_STATUS_MAP[device.status] || 'no_info';
+  // Use rawData.identifier with fallback to 'Sem ID'
+  var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
 
   // Determine category for display
   var category = 'equipment';
@@ -877,7 +884,7 @@ function energyDeviceToEntityObject(device) {
   return {
     entityId: device.id,
     labelOrName: device.name,
-    deviceIdentifier: device.id,
+    deviceIdentifier: identifier,
     deviceType: deviceType,
     val: device.consumption,
     deviceStatus: deviceStatus,
@@ -1373,6 +1380,7 @@ function mountWaterPanel(waterHost, settings, classified) {
       letterSpacing: '0.5px',
     },
     gridMinCardWidth: '180px',
+    gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum dispositivo',
     showSearch: true,
     searchPlaceholder: 'Buscar...',
@@ -1452,6 +1460,7 @@ function mountAmbientesPanel(host, settings, classified) {
       letterSpacing: '0.5px',
     },
     gridMinCardWidth: '140px',
+    gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum ambiente',
     showSearch: true,
     searchPlaceholder: 'Buscar...',
@@ -1537,6 +1546,7 @@ function mountEnergyPanel(host, settings, classified) {
       letterSpacing: '0.5px',
     },
     gridMinCardWidth: '140px',
+    gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum equipamento',
     showSearch: true,
     searchPlaceholder: 'Buscar...',

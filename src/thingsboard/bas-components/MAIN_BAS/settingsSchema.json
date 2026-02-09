@@ -129,6 +129,11 @@
         "title": "Sidebar Background Image URL",
         "type": "string",
         "default": ""
+      },
+      "cardGridGap": {
+        "title": "Card Grid Gap",
+        "type": "string",
+        "default": "20px"
       }
     }
   },
@@ -238,6 +243,11 @@
           "key": "sidebarBackgroundImage",
           "type": "text",
           "placeholder": "https://example.com/image.png"
+        },
+        {
+          "key": "cardGridGap",
+          "type": "text",
+          "placeholder": "20px"
         }
       ]
     }
