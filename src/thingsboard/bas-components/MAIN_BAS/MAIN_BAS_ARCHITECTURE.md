@@ -2,6 +2,37 @@
 
 > Documento de arquitetura do widget BAS (Building Automation System) do ThingsBoard que orquestra o dashboard de automacao predial.
 
+---
+
+## Sumario de Documentos de Arquitetura
+
+Este documento faz parte de um conjunto de documentos que descrevem a arquitetura do MAIN_BAS:
+
+| Documento | Descricao |
+| --------- | --------- |
+| [MAIN_BAS_ARCHITECTURE.md](./MAIN_BAS_ARCHITECTURE.md) | Arquitetura geral do widget BAS (este documento) |
+| [CARD_V6_ARCHITECTURE.md](./CARD_V6_ARCHITECTURE.md) | Arquitetura do `renderCardComponentV6` - cards de dispositivos individuais |
+| [CARD_AMBIENTE_V6_ARCHITECTURE.md](./CARD_AMBIENTE_V6_ARCHITECTURE.md) | Arquitetura do `renderCardAmbienteV6` - cards de ambientes agregados |
+| [BAS_Dashboard_UI_Alignment.md](./BAS_Dashboard_UI_Alignment.md) | Alinhamento visual e dark theme |
+
+### Componentes de Card
+
+O MAIN_BAS utiliza dois tipos de cards V6:
+
+1. **Card V6 (Dispositivo)** - `renderCardComponentV6()`
+   - Para dispositivos individuais (medidores, bombas, termostatos)
+   - Suporta multiplas categorias: energy, water, tank, temperature
+   - CustomStyle para personalizacao visual
+   - [Ver documentacao completa](./CARD_V6_ARCHITECTURE.md)
+
+2. **Card Ambiente V6** - `renderCardAmbienteV6()`
+   - Para ambientes com multiplos dispositivos agregados
+   - Exibe temperatura + consumo + controle remoto
+   - Badge de contagem de dispositivos
+   - [Ver documentacao completa](./CARD_AMBIENTE_V6_ARCHITECTURE.md)
+
+---
+
 ## 1. Visao Geral
 
 O `MAIN_BAS` e o widget controlador do dashboard de automacao predial que:

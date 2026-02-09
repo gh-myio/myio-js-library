@@ -340,7 +340,7 @@
     <header class="showcase-header">
       <div>
         <h1>RFC-0160: MAIN_BAS Dashboard Simulation</h1>
-        <p>BAS - HeaderPanelComponent, EntityListPanel (icons, notifications), CardGridPanel (gap fix)</p>
+        <p>BAS - Card V6, Card Ambiente V6, EntityListPanel, CardGridPanel, HeaderPanelComponent</p>
       </div>
       <div class="header-status">
         <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
@@ -600,13 +600,94 @@
     const HVAC_STATUS_MAP = { active: 'online', inactive: 'offline' };
     const MOTOR_STATUS_MAP = { running: 'online', stopped: 'offline' };
 
-    function waterToEntity(d) { return { entityId: d.id, labelOrName: d.name, deviceType: WATER_TYPE_MAP[d.type] || 'HIDROMETRO', val: d.value, deviceStatus: WATER_STATUS_MAP[d.status] || 'no_info' }; }
-    function hvacToEntity(d) { return { entityId: d.id, labelOrName: d.name, deviceType: 'TERMOSTATO', val: d.temperature, deviceStatus: HVAC_STATUS_MAP[d.status] || 'no_info' }; }
-    function motorToEntity(d) { return { entityId: d.id, labelOrName: d.name, deviceType: 'BOMBA_HIDRAULICA', val: d.consumption, deviceStatus: MOTOR_STATUS_MAP[d.status] || 'no_info' }; }
+    // =========================================================================
+    // CARD V6 ENTITY CONVERTERS
+    // Using renderCardComponentV6 for individual device cards
+    // =========================================================================
+    function waterToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `WAT-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: WATER_TYPE_MAP[d.type] || 'HIDROMETRO',
+        val: d.value,
+        perc: d.type === 'cistern' || d.type === 'tank' ? d.value : 0,
+        deviceStatus: WATER_STATUS_MAP[d.status] || 'no_info',
+        waterLevel: d.type === 'tank' ? d.value : null,
+        waterPercentage: d.type === 'cistern' ? d.value : null,
+      };
+    }
+
+    function hvacToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `HVAC-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: 'TERMOSTATO',
+        val: d.temperature,
+        temperature: d.temperature,
+        temperatureMin: d.temperature ? d.temperature - 2 : null,
+        temperatureMax: d.temperature ? d.temperature + 2 : null,
+        deviceStatus: HVAC_STATUS_MAP[d.status] || 'no_info',
+        temperatureStatus: d.status === 'active' ? 'normal' : 'off',
+      };
+    }
+
+    function motorToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `MOT-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: d.type === 'pump' ? 'BOMBA_HIDRAULICA' : 'MOTOR',
+        val: d.consumption,
+        perc: d.consumption > 0 ? Math.min(100, (d.consumption / 20) * 100) : 0,
+        deviceStatus: MOTOR_STATUS_MAP[d.status] || 'no_info',
+      };
+    }
+
+    // =========================================================================
+    // AMBIENTE V6 DATA CONVERTERS
+    // Using renderCardAmbienteV6 for ambiente cards with aggregated data
+    // =========================================================================
+    function buildAmbienteData(ambiente, hvacDevices) {
+      // Get HVAC devices for this ambiente
+      const ambienteHvac = hvacDevices.filter(d => d.floor === ambiente.id);
+      const temps = ambienteHvac.filter(d => d.temperature !== null).map(d => d.temperature);
+      const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
+      const totalConsumption = ambienteHvac.reduce((sum, d) => sum + (d.consumption || Math.random() * 2), 0);
+      const hasOnline = ambienteHvac.some(d => d.status === 'active');
+      const hasRemote = ambienteHvac.length > 0;
+
+      return {
+        id: ambiente.id,
+        label: ambiente.name,
+        identifier: `AMB-${ambiente.id}`,
+        temperature: avgTemp,
+        consumption: totalConsumption > 0 ? totalConsumption : null,
+        isOn: hasRemote && Math.random() > 0.3,
+        hasRemote: hasRemote,
+        status: hasOnline ? 'online' : 'offline',
+        devices: ambienteHvac.map(d => ({
+          id: d.id,
+          type: 'temperature',
+          deviceType: 'TERMOSTATO',
+          status: d.status === 'active' ? 'online' : 'offline',
+          value: d.temperature,
+        })),
+      };
+    }
 
     function buildWaterItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: waterToEntity(d), source: d })); }
     function buildHVACItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: hvacToEntity(d), source: d })); }
     function buildMotorItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: motorToEntity(d), source: d })); }
+
+    // Build ambiente items using renderCardAmbienteV6
+    function buildAmbienteItems(ambientes, hvacDevices) {
+      return ambientes.map(a => buildAmbienteData(a, hvacDevices));
+    }
 
     // =========================================================================
     // WIDGET STATE & INSTANCES
@@ -788,8 +869,57 @@
       // Charts
       if (settings.showCharts && chartsHost) { mountChartPanel(chartsHost); }
 
-      // Ambientes
-      if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
+      // Ambientes - Using Card Ambiente V6 for aggregated ambiente data
+      if (settings.showEnvironments && ambientesHost && MyIO.renderCardAmbienteV6) {
+        ambientesHost.innerHTML = '';
+
+        // Create container with header
+        const ambientesContainer = document.createElement('div');
+        ambientesContainer.className = 'bas-panel-container';
+        ambientesContainer.style.cssText = 'height: 100%; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 8px; overflow: hidden;';
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = 'padding: 8px 12px; background: linear-gradient(135deg, #2F5848, #3d7a62); color: white; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;';
+        header.innerHTML = '<span>❄️</span><span>AMBIENTES HVAC (Card Ambiente V6)</span>';
+        ambientesContainer.appendChild(header);
+
+        // Cards grid
+        const cardsGrid = document.createElement('div');
+        cardsGrid.style.cssText = 'flex: 1; overflow-y: auto; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; align-content: start;';
+
+        // Build ambiente data from AMBIENTE_NAMES + hvacDevices
+        const ambienteDataList = buildAmbienteItems(AMBIENTE_NAMES, mockData.hvacDevices);
+
+        ambienteDataList.forEach(ambienteData => {
+          const [cardEl, api] = MyIO.renderCardAmbienteV6({
+            ambienteData,
+            handleClickCard: (data) => {
+              log('event', 'Ambiente Click', `${data.label} (${data.id})`);
+              currentState.selectedFloor = data.id;
+              refreshPanels();
+            },
+            handleToggleRemote: (isOn, data) => {
+              log('event', 'Remote Toggle', `${data.label}: ${isOn ? 'ON' : 'OFF'}`);
+            },
+            handleActionSettings: (data) => {
+              log('event', 'Settings', `Open settings for ${data.label}`);
+            },
+            enableSelection: false,
+            enableDragDrop: false,
+            customStyle: {
+              width: '100%',
+              height: '130px',
+            },
+          });
+          cardsGrid.appendChild(cardEl);
+        });
+
+        ambientesContainer.appendChild(cardsGrid);
+        ambientesHost.appendChild(ambientesContainer);
+        log('info', 'Ambientes', `Rendered ${ambienteDataList.length} ambiente cards (V6)`);
+      } else if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
+        // Fallback to CardGridPanel if renderCardAmbienteV6 not available
         ambientesHost.innerHTML = '';
         const hvacItems = buildHVACItems(mockData.hvacDevices, null);
         ambientesPanel = new MyIO.CardGridPanel({
@@ -800,7 +930,6 @@
           cardCustomStyle: cardStyle,
           titleStyle: slimTitleStyle,
           emptyMessage: 'Nenhum ambiente',
-          // HeaderPanelComponent features
           showSearch: true,
           searchPlaceholder: 'Buscar ambiente...',
           onSearchChange: (text) => { log('event', 'Search HVAC', text || '(cleared)'); },
