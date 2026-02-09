@@ -150,28 +150,6 @@ tb-html-widget > div,
   min-height: calc(100vh - 80px) !important;
 }
 
-/* DEBUG: Color each slot to visualize layout */
-.bas-sidebar-slot {
-  background: rgba(0, 128, 0, 0.3) !important;
-} /* Green */
-.bas-water-slot {
-  background: rgba(0, 0, 255, 0.3) !important;
-} /* Blue */
-.bas-charts-slot {
-  background: rgba(255, 0, 0, 0.3) !important;
-} /* Red */
-.bas-ambientes-slot {
-  background: rgba(255, 165, 0, 0.3) !important;
-} /* Orange */
-.bas-motors-slot {
-  background: rgba(128, 0, 128, 0.3) !important;
-} /* Purple */
-
-/* DEBUG: Also color the content-layout grid */
-.bas-content-layout {
-  background: rgba(255, 255, 0, 0.2) !important; /* Yellow for grid container */
-}
-
 /* Force ALL direct children to stretch and fill */
 .bas-sidebar-slot > *,
 .bas-water-slot > *,
