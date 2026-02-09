@@ -103,7 +103,7 @@ var _ambientesMap = {};
  * @returns {Promise<Object>} Parent asset { id, entityType: 'ASSET' }
  */
 function getParentAssetViaHttp(deviceEntityId) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     if (!deviceEntityId || !deviceEntityId.id || !deviceEntityId.entityType) {
       return reject('entityId inválido!');
     }
@@ -111,8 +111,8 @@ function getParentAssetViaHttp(deviceEntityId) {
     var url = '/api/relations?toId=' + deviceEntityId.id + '&toType=' + deviceEntityId.entityType;
 
     self.ctx.http.get(url).subscribe({
-      next: function(relations) {
-        var assetRel = relations.find(function(r) {
+      next: function (relations) {
+        var assetRel = relations.find(function (r) {
           return r.from && r.from.entityType === 'ASSET' && r.type === 'Contains';
         });
 
@@ -122,9 +122,9 @@ function getParentAssetViaHttp(deviceEntityId) {
 
         resolve(assetRel.from);
       },
-      error: function(err) {
+      error: function (err) {
         reject('Erro HTTP: ' + JSON.stringify(err));
-      }
+      },
     });
   });
 }
@@ -135,24 +135,25 @@ function getParentAssetViaHttp(deviceEntityId) {
  * @returns {Promise<void>} Resolves when all names are fetched
  */
 function fetchAmbienteNames(ambienteIds) {
-  var promises = ambienteIds.map(function(ambienteId) {
+  var promises = ambienteIds.map(function (ambienteId) {
     var url = '/api/asset/' + ambienteId;
 
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       self.ctx.http.get(url).subscribe({
-        next: function(asset) {
+        next: function (asset) {
           if (_ambienteHierarchy[ambienteId]) {
-            _ambienteHierarchy[ambienteId].name = asset.name || asset.label || 'Ambiente ' + ambienteId.slice(0, 8);
+            _ambienteHierarchy[ambienteId].name =
+              asset.name || asset.label || 'Ambiente ' + ambienteId.slice(0, 8);
           }
           resolve();
         },
-        error: function() {
+        error: function () {
           // Fallback name
           if (_ambienteHierarchy[ambienteId]) {
             _ambienteHierarchy[ambienteId].name = 'Ambiente ' + ambienteId.slice(0, 8);
           }
           resolve();
-        }
+        },
       });
     });
   });
@@ -174,7 +175,7 @@ function calculateAmbienteAggregates(devices) {
   var onlineCount = 0;
   var offlineCount = 0;
 
-  devices.forEach(function(device) {
+  devices.forEach(function (device) {
     // Status
     if (device.status === 'online' || device.status === 'active') {
       onlineCount++;
@@ -207,16 +208,25 @@ function calculateAmbienteAggregates(devices) {
   });
 
   return {
-    temperature: temps.length > 0 ? {
-      min: Math.min.apply(null, temps),
-      max: Math.max.apply(null, temps),
-      avg: temps.reduce(function(a, b) { return a + b; }, 0) / temps.length,
-      count: temps.length,
-    } : null,
-    consumption: consumptionCount > 0 ? {
-      total: consumptionTotal,
-      count: consumptionCount,
-    } : null,
+    temperature:
+      temps.length > 0
+        ? {
+            min: Math.min.apply(null, temps),
+            max: Math.max.apply(null, temps),
+            avg:
+              temps.reduce(function (a, b) {
+                return a + b;
+              }, 0) / temps.length,
+            count: temps.length,
+          }
+        : null,
+    consumption:
+      consumptionCount > 0
+        ? {
+            total: consumptionTotal,
+            count: consumptionCount,
+          }
+        : null,
     hasRemote: hasRemote,
     isRemoteOn: isRemoteOn,
     onlineCount: onlineCount,
@@ -232,7 +242,7 @@ function calculateAmbienteAggregates(devices) {
  * @returns {Promise<Object>} Hierarchy map { ambienteId -> ambiente node }
  */
 function buildAmbienteHierarchy(classifiedDevices) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     LogHelper.log('[MAIN_BAS] ============ BUILDING HIERARCHY ============');
 
     // Reset hierarchy caches
@@ -241,12 +251,12 @@ function buildAmbienteHierarchy(classifiedDevices) {
 
     // Get all devices as flat array for parent lookups
     var allDevices = [];
-    Object.keys(classifiedDevices).forEach(function(domain) {
+    Object.keys(classifiedDevices).forEach(function (domain) {
       if (domain === 'ocultos') return; // Skip hidden devices
       var domainData = classifiedDevices[domain];
       if (typeof domainData !== 'object') return;
 
-      Object.keys(domainData).forEach(function(context) {
+      Object.keys(domainData).forEach(function (context) {
         var devices = domainData[context];
         if (Array.isArray(devices)) {
           allDevices = allDevices.concat(devices);
@@ -263,9 +273,9 @@ function buildAmbienteHierarchy(classifiedDevices) {
     }
 
     // Step 1: Fetch parent asset for each device
-    var promises = allDevices.map(function(device) {
+    var promises = allDevices.map(function (device) {
       return getParentAssetViaHttp({ id: device.id, entityType: 'DEVICE' })
-        .then(function(parentAsset) {
+        .then(function (parentAsset) {
           // Store device-to-parent mapping
           _deviceToAmbienteMap[device.id] = parentAsset.id;
 
@@ -273,7 +283,7 @@ function buildAmbienteHierarchy(classifiedDevices) {
           if (!_ambienteHierarchy[parentAsset.id]) {
             _ambienteHierarchy[parentAsset.id] = {
               id: parentAsset.id,
-              name: null,  // Will fetch later
+              name: null, // Will fetch later
               entityType: 'ASSET',
               parentId: null,
               level: 1, // Default level, will be updated if parent is found
@@ -290,20 +300,20 @@ function buildAmbienteHierarchy(classifiedDevices) {
 
           return { device: device, parentId: parentAsset.id };
         })
-        .catch(function(err) {
+        .catch(function (err) {
           LogHelper.warn('[MAIN_BAS] No parent for device:', device.name, err);
           return { device: device, parentId: null };
         });
     });
 
     Promise.all(promises)
-      .then(function(results) {
+      .then(function (results) {
         // Step 2: Fetch ambiente names for all discovered ambientes
         return fetchAmbienteNames(Object.keys(_ambienteHierarchy));
       })
-      .then(function() {
+      .then(function () {
         // Step 3: Calculate aggregates for each ambiente
-        Object.keys(_ambienteHierarchy).forEach(function(ambienteId) {
+        Object.keys(_ambienteHierarchy).forEach(function (ambienteId) {
           var ambiente = _ambienteHierarchy[ambienteId];
           ambiente.aggregatedData = calculateAmbienteAggregates(ambiente.devices);
         });
@@ -313,14 +323,16 @@ function buildAmbienteHierarchy(classifiedDevices) {
         LogHelper.log('[MAIN_BAS]   Devices mapped:', Object.keys(_deviceToAmbienteMap).length);
 
         // Log ambiente details for debugging
-        Object.keys(_ambienteHierarchy).forEach(function(ambienteId) {
+        Object.keys(_ambienteHierarchy).forEach(function (ambienteId) {
           var ambiente = _ambienteHierarchy[ambienteId];
-          LogHelper.log('[MAIN_BAS]   Ambiente "' + ambiente.name + '": ' + ambiente.devices.length + ' devices');
+          LogHelper.log(
+            '[MAIN_BAS]   Ambiente "' + ambiente.name + '": ' + ambiente.devices.length + ' devices'
+          );
         });
 
         resolve(_ambienteHierarchy);
       })
-      .catch(function(err) {
+      .catch(function (err) {
         LogHelper.error('[MAIN_BAS] Error building hierarchy:', err);
         reject(err);
       });
@@ -356,7 +368,7 @@ function getLeafAmbientes() {
     }
   }
 
-  Object.values(_ambienteHierarchy).forEach(function(rootAmbiente) {
+  Object.values(_ambienteHierarchy).forEach(function (rootAmbiente) {
     walkTree(rootAmbiente);
   });
 
@@ -370,7 +382,7 @@ function getLeafAmbientes() {
  * @returns {Object[]|null} Array of devices or null if no filter
  */
 function getDevicesForAmbiente(ambienteId, domain) {
-  if (!ambienteId) return null;  // No filter, return null to indicate all
+  if (!ambienteId) return null; // No filter, return null to indicate all
 
   var ambiente = _ambienteHierarchy[ambienteId];
   if (!ambiente) return null;
@@ -379,7 +391,9 @@ function getDevicesForAmbiente(ambienteId, domain) {
 
   // Filter by domain if specified
   if (domain) {
-    return devices.filter(function(d) { return d.domain === domain; });
+    return devices.filter(function (d) {
+      return d.domain === domain;
+    });
   }
 
   return devices;
@@ -423,7 +437,7 @@ function getAmbienteIconForAggregates(aggregates) {
 function buildSidebarItemsFromHierarchy() {
   var leaves = getLeafAmbientes();
 
-  return leaves.map(function(ambiente) {
+  return leaves.map(function (ambiente) {
     var aggregates = ambiente.aggregatedData || {};
 
     return {
@@ -433,12 +447,12 @@ function buildSidebarItemsFromHierarchy() {
       icon: getAmbienteIconForAggregates(aggregates),
       data: ambiente,
       // Generate action handler for the ambiente
-      handleActionClick: function() {
+      handleActionClick: function () {
         LogHelper.log('[MAIN_BAS] Hierarchy ambiente action:', ambiente.id, ambiente.name);
         if (self.ctx && self.ctx.stateController) {
           self.ctx.stateController.openState('ambiente', {
             entityId: ambiente.id,
-            entityName: ambiente.name
+            entityName: ambiente.name,
           });
         }
       },
@@ -1944,11 +1958,19 @@ function mountAmbientesPanel(host, settings, classified) {
     },
     handleClickCard: function (item) {
       LogHelper.log('[MAIN_BAS] Ambiente clicked:', item.ambienteData);
-      window.dispatchEvent(new CustomEvent('bas:ambiente-clicked', { detail: { ambiente: item.ambienteData, source: item.source } }));
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-clicked', {
+          detail: { ambiente: item.ambienteData, source: item.source },
+        })
+      );
     },
     handleToggleRemote: function (isOn, item) {
       LogHelper.log('[MAIN_BAS] Ambiente remote toggle:', isOn, item.ambienteData);
-      window.dispatchEvent(new CustomEvent('bas:ambiente-remote-toggle', { detail: { isOn: isOn, ambiente: item.ambienteData, source: item.source } }));
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-remote-toggle', {
+          detail: { isOn: isOn, ambiente: item.ambienteData, source: item.source },
+        })
+      );
     },
   });
 
@@ -2173,22 +2195,24 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
         var ambienteDevices = getDevicesForAmbiente(item.id);
         if (ambienteDevices) {
           // Filter card items by deviceId
-          var deviceIds = ambienteDevices.map(function(d) { return d.id; });
+          var deviceIds = ambienteDevices.map(function (d) {
+            return d.id;
+          });
 
           if (_waterPanel) {
-            var waterItems = buildWaterCardItems(_currentClassified, null).filter(function(cardItem) {
+            var waterItems = buildWaterCardItems(_currentClassified, null).filter(function (cardItem) {
               return deviceIds.includes(cardItem.id);
             });
             _waterPanel.setItems(waterItems);
           }
           if (_ambientesPanel) {
-            var hvacItems = buildHVACCardItems(_currentClassified, null).filter(function(cardItem) {
+            var hvacItems = buildHVACCardItems(_currentClassified, null).filter(function (cardItem) {
               return deviceIds.includes(cardItem.id);
             });
             _ambientesPanel.setItems(hvacItems);
           }
           if (_motorsPanel) {
-            var energyItems = buildEnergyCardItems(_currentClassified, null).filter(function(cardItem) {
+            var energyItems = buildEnergyCardItems(_currentClassified, null).filter(function (cardItem) {
               return deviceIds.includes(cardItem.id);
             });
             _motorsPanel.setItems(energyItems);
@@ -2208,7 +2232,11 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
       }
 
       if (panel) panel.setSelectedId(item.id);
-      window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: item.id, hierarchyMode: hierarchyAvailable } }));
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-changed', {
+          detail: { ambiente: item.id, hierarchyMode: hierarchyAvailable },
+        })
+      );
     },
   });
 
@@ -2325,6 +2353,20 @@ function mountChartPanel(hostEl, settings) {
 
   var domains = ['energy', 'water', 'temperature'];
 
+  // Premium green header style
+  var chartHeaderStyle = {
+    background: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+    iconColor: '#a7d4c0',
+    titleColor: '#ffffff',
+    tabColor: 'rgba(255, 255, 255, 0.6)',
+    tabHoverBg: 'rgba(255, 255, 255, 0.1)',
+    tabActiveColor: '#ffffff',
+    tabActiveBg: 'rgba(255, 255, 255, 0.2)',
+    buttonColor: 'rgba(255, 255, 255, 0.7)',
+    buttonHoverBg: 'rgba(255, 255, 255, 0.15)',
+    buttonHoverColor: '#ffffff',
+  };
+
   // Create panel wrapper
   var panelWrapper = document.createElement('div');
   panelWrapper.className = 'bas-chart-panel';
@@ -2332,12 +2374,24 @@ function mountChartPanel(hostEl, settings) {
   // Build header with tabs and action buttons
   var header = document.createElement('div');
   header.className = 'bas-chart-header';
+  header.style.background = chartHeaderStyle.background;
 
   // Left side: Icon + Title
   var headerLeft = document.createElement('div');
   headerLeft.className = 'bas-chart-header__left';
-  headerLeft.innerHTML =
-    '<span class="bas-chart-header__icon">📊</span><span class="bas-chart-header__title">Consumo</span>';
+
+  var iconSpan = document.createElement('span');
+  iconSpan.className = 'bas-chart-header__icon';
+  iconSpan.textContent = '📊';
+  iconSpan.style.color = chartHeaderStyle.iconColor;
+
+  var titleSpan = document.createElement('span');
+  titleSpan.className = 'bas-chart-header__title';
+  titleSpan.textContent = 'Consumo';
+  titleSpan.style.color = chartHeaderStyle.titleColor;
+
+  headerLeft.appendChild(iconSpan);
+  headerLeft.appendChild(titleSpan);
 
   // Center: Tabs
   var tabBar = document.createElement('div');
@@ -2348,13 +2402,35 @@ function mountChartPanel(hostEl, settings) {
     btn.className = 'bas-chart-tab' + (domain === _currentChartDomain ? ' bas-chart-tab--active' : '');
     btn.textContent = CHART_DOMAIN_CONFIG[domain].label;
     btn.dataset.domain = domain;
+
+    // Apply premium green tab style
+    btn.style.color = domain === _currentChartDomain ? chartHeaderStyle.tabActiveColor : chartHeaderStyle.tabColor;
+    btn.style.background = domain === _currentChartDomain ? chartHeaderStyle.tabActiveBg : 'transparent';
+
+    btn.addEventListener('mouseenter', function () {
+      if (!btn.classList.contains('bas-chart-tab--active')) {
+        btn.style.background = chartHeaderStyle.tabHoverBg;
+        btn.style.color = 'rgba(255, 255, 255, 0.9)';
+      }
+    });
+    btn.addEventListener('mouseleave', function () {
+      if (!btn.classList.contains('bas-chart-tab--active')) {
+        btn.style.background = 'transparent';
+        btn.style.color = chartHeaderStyle.tabColor;
+      }
+    });
+
     btn.addEventListener('click', function () {
-      // Update active tab
+      // Update active tab styles
       var allTabs = tabBar.querySelectorAll('.bas-chart-tab');
       allTabs.forEach(function (t) {
         t.classList.remove('bas-chart-tab--active');
+        t.style.color = chartHeaderStyle.tabColor;
+        t.style.background = 'transparent';
       });
       btn.classList.add('bas-chart-tab--active');
+      btn.style.color = chartHeaderStyle.tabActiveColor;
+      btn.style.background = chartHeaderStyle.tabActiveBg;
 
       // Switch chart
       switchChartDomain(domain, chartCard);
@@ -2366,11 +2442,25 @@ function mountChartPanel(hostEl, settings) {
   var headerRight = document.createElement('div');
   headerRight.className = 'bas-chart-header__actions';
 
+  // Helper to apply button styles with hover
+  function applyButtonStyle(btn) {
+    btn.style.color = chartHeaderStyle.buttonColor;
+    btn.addEventListener('mouseenter', function () {
+      btn.style.background = chartHeaderStyle.buttonHoverBg;
+      btn.style.color = chartHeaderStyle.buttonHoverColor;
+    });
+    btn.addEventListener('mouseleave', function () {
+      btn.style.background = 'transparent';
+      btn.style.color = chartHeaderStyle.buttonColor;
+    });
+  }
+
   // Filter button
   var filterBtn = document.createElement('button');
   filterBtn.className = 'bas-chart-header__btn';
   filterBtn.title = 'Filtrar';
   filterBtn.innerHTML = CHART_ICON_FILTER;
+  applyButtonStyle(filterBtn);
   filterBtn.addEventListener('click', function () {
     // Open chart filter modal (period selection, chart type, etc.)
     LogHelper.log('[MAIN_BAS] Chart filter clicked');
@@ -2383,6 +2473,7 @@ function mountChartPanel(hostEl, settings) {
   maxBtn.className = 'bas-chart-header__btn';
   maxBtn.title = 'Maximizar';
   maxBtn.innerHTML = CHART_ICON_MAXIMIZE;
+  applyButtonStyle(maxBtn);
   maxBtn.addEventListener('click', function () {
     showMaximizedPanel(panelWrapper, 'Consumo', { isChart: true, chartDomain: _currentChartDomain });
   });

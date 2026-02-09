@@ -140,9 +140,9 @@ const PANEL_CSS = `
     z-index: 0;
   }
 
-  /* Header area */
+  /* Header area - no padding since HeaderPanelComponent handles it */
   .myio-elp__header {
-    padding: 14px 16px 0 16px;
+    padding: 0;
     position: relative;
     z-index: 1;
   }
