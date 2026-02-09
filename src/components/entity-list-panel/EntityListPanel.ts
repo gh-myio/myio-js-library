@@ -142,7 +142,7 @@ const PANEL_CSS = `
 
   /* Header area */
   .myio-elp__header {
-    padding: 14px 16px 0 16px;
+    padding: 0 16px 0 16px;
     position: relative;
     z-index: 1;
   }

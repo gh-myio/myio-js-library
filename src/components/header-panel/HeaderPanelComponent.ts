@@ -123,6 +123,7 @@ const HEADER_CSS = `
     padding: 0 12px;
     height: 32px;
     min-height: 32px;
+    overflow: hidden;
   }
 
   .myio-hp__left {
@@ -185,8 +186,9 @@ const HEADER_CSS = `
   .myio-hp__actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 6px;
     flex-shrink: 0;
+    min-width: fit-content;
   }
 
   .myio-hp__btn {
