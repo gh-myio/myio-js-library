@@ -24,10 +24,10 @@
 .tb-html-widget-container,
 tb-html-widget,
 tb-html-widget > div,
-[class*="widget-container"],
-[class*="dashboard-widget"],
-[class*="tb-widget"],
-[class*="widget-content"] {
+[class*='widget-container'],
+[class*='dashboard-widget'],
+[class*='tb-widget'],
+[class*='widget-content'] {
   height: 100% !important;
   min-height: 0 !important;
   max-height: 100% !important;
@@ -49,7 +49,7 @@ tb-html-widget > div,
 .mat-content,
 .mat-tab-body-content,
 .mat-drawer-content,
-[class*="mat-"] {
+[class*='mat-'] {
   height: 100% !important;
   min-height: 0 !important;
   overflow: hidden !important;
@@ -58,19 +58,28 @@ tb-html-widget > div,
 /* ========================================
    ROOT CONTAINER
    Use CSS Grid for entire layout (not flex+absolute)
+   FALLBACK: Use 100vh if 100% doesn't work
    ======================================== */
 .bas-dashboard-container {
   width: 100%;
   height: 100%;
+  height: 100vh; /* Fallback: use viewport height */
   min-height: 0;
   overflow: hidden;
   font-family: 'Roboto', 'Segoe UI', sans-serif;
-  background: #0B1220;
+  background: #0b1220;
 
   /* Grid layout: header row (auto) + content row (1fr) */
   display: grid !important;
   grid-template-rows: auto 1fr !important;
   grid-template-columns: 1fr !important;
+
+  /* Force position to ensure it fills the container */
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
 }
 
 /* ========================================
@@ -91,15 +100,19 @@ tb-html-widget > div,
 
   display: grid !important;
   grid-template-columns: 20% 40% 20% 20%;
-  grid-template-rows: 50% 50%;
+  /* Use 1fr instead of 50% - more reliable for grid rows */
+  grid-template-rows: 1fr 1fr;
   grid-template-areas:
-    "sidebar water   ambientes motors"
-    "charts  charts  ambientes motors";
+    'sidebar water   ambientes motors'
+    'charts  charts  ambientes motors';
   gap: 0;
   overflow: hidden;
   min-height: 0 !important;
   height: 100%;
   width: 100%;
+
+  /* Fallback: explicit height based on calc */
+  min-height: calc(100vh - 50px); /* 50px for header approx */
 }
 
 /* ========================================
@@ -116,14 +129,52 @@ tb-html-widget > div,
   box-sizing: border-box;
   display: flex !important;
   flex-direction: column !important;
-  min-height: 0 !important;
+  min-height: 100px !important; /* Fallback: at least 100px visible */
   height: 100% !important;
+}
+
+/* Row 1 slots (sidebar, water) - 50% of grid height */
+.bas-sidebar-slot,
+.bas-water-slot {
+  min-height: calc(50vh - 50px) !important;
+}
+
+/* Row 2 slot (charts) - 50% of grid height */
+.bas-charts-slot {
+  min-height: calc(50vh - 50px) !important;
+}
+
+/* Full height slots (ambientes, motors) - 100% of grid */
+.bas-ambientes-slot,
+.bas-motors-slot {
+  min-height: calc(100vh - 80px) !important;
+}
+
+/* DEBUG: Color each slot to visualize layout */
+.bas-sidebar-slot {
+  background: rgba(0, 128, 0, 0.3) !important;
+} /* Green */
+.bas-water-slot {
+  background: rgba(0, 0, 255, 0.3) !important;
+} /* Blue */
+.bas-charts-slot {
+  background: rgba(255, 0, 0, 0.3) !important;
+} /* Red */
+.bas-ambientes-slot {
+  background: rgba(255, 165, 0, 0.3) !important;
+} /* Orange */
+.bas-motors-slot {
+  background: rgba(128, 0, 128, 0.3) !important;
+} /* Purple */
+
+/* DEBUG: Also color the content-layout grid */
+.bas-content-layout {
+  background: rgba(255, 255, 0, 0.2) !important; /* Yellow for grid container */
 }
 
 /* Force ALL direct children to stretch and fill */
 .bas-sidebar-slot > *,
 .bas-water-slot > *,
-.bas-charts-slot > *,
 .bas-ambientes-slot > *,
 .bas-motors-slot > * {
   flex: 1 1 auto !important;
@@ -131,6 +182,21 @@ tb-html-widget > div,
   max-height: 100% !important;
   overflow-y: auto;
   height: 100% !important;
+}
+
+/* Charts slot needs special handling - tab bar stays fixed, chart card grows */
+.bas-charts-slot > .bas-chart-tabs {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.bas-charts-slot > .bas-chart-card {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
 }
 
 /* ========================================
@@ -180,7 +246,7 @@ tb-html-widget > div,
   padding: 7px 16px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.50);
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   border: none;
   background: none;
@@ -212,7 +278,7 @@ tb-html-widget > div,
 
 /* Chart card container */
 .bas-chart-card {
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   padding: 14px;
@@ -220,11 +286,15 @@ tb-html-widget > div,
   min-height: 0 !important;
   position: relative;
   overflow: hidden;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .bas-chart-card canvas {
+  flex: 1 1 auto !important;
   width: 100% !important;
   height: 100% !important;
+  min-height: 0 !important;
 }
 
 /* ========================================
@@ -294,14 +364,16 @@ tb-html-widget > div,
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #2F5848;
+  border-top-color: #2f5848;
   border-radius: 50%;
   animation: bas-spin 0.8s linear infinite;
   margin-right: 12px;
 }
 
 @keyframes bas-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ========================================
@@ -337,9 +409,9 @@ tb-html-widget > div,
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto auto;
     grid-template-areas:
-      "sidebar   water"
-      "charts    charts"
-      "ambientes motors";
+      'sidebar   water'
+      'charts    charts'
+      'ambientes motors';
   }
 
   .bas-sidebar-slot {

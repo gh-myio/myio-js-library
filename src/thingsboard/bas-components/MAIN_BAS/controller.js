@@ -327,18 +327,23 @@ function parseDevicesFromData(data) {
       var rawDataKeys = Object.keys(rowData);
       var rawFirstEntry = rawDataKeys.length > 0 ? rowData[rawDataKeys[0]] : null;
 
-      console.log('[MAIN_BAS] Row ' + index + ': ' + JSON.stringify({
-        aliasName: aliasName,
-        entityType: entityType,
-        entityId: entityId.substring(0, 8) + '...',
-        entityLabel: entityLabel,
-        occurrenceIndex: occurrenceIndex,
-        dataKeyName: keyName,
-        value: value,
-        totalDataKeys: dataKeysArray.length,
-        rawDataKeys: rawDataKeys,
-        rawFirstEntry: rawFirstEntry,
-      }));
+      console.log(
+        '[MAIN_BAS] Row ' +
+          index +
+          ': ' +
+          JSON.stringify({
+            aliasName: aliasName,
+            entityType: entityType,
+            entityId: entityId.substring(0, 8) + '...',
+            entityLabel: entityLabel,
+            occurrenceIndex: occurrenceIndex,
+            dataKeyName: keyName,
+            value: value,
+            totalDataKeys: dataKeysArray.length,
+            rawDataKeys: rawDataKeys,
+            rawFirstEntry: rawFirstEntry,
+          })
+      );
     }
 
     // ========================================
@@ -394,7 +399,7 @@ function parseDevicesFromData(data) {
   console.log('[MAIN_BAS]   Unique Devices:', Object.keys(devicesMap).length);
 
   // Phase 2: Process grouped Ambientes
-  Object.keys(ambientesMap).forEach(function(entityId) {
+  Object.keys(ambientesMap).forEach(function (entityId) {
     var entity = ambientesMap[entityId];
     ambientes.push({
       id: entityId,
@@ -405,10 +410,15 @@ function parseDevicesFromData(data) {
     });
   });
 
-  console.log('[MAIN_BAS] Ambientes processed:', ambientes.map(function(a) { return a.name; }));
+  console.log(
+    '[MAIN_BAS] Ambientes processed:',
+    ambientes.map(function (a) {
+      return a.name;
+    })
+  );
 
   // Phase 3: Process grouped Devices with classification
-  Object.keys(devicesMap).forEach(function(entityId) {
+  Object.keys(devicesMap).forEach(function (entityId) {
     var entity = devicesMap[entityId];
     var cd = entity.collectedData;
 
@@ -418,13 +428,18 @@ function parseDevicesFromData(data) {
     var identifier = cd.identifier || cd.id || '';
     var active = cd.active;
 
-    console.log('[MAIN_BAS] Device "' + entity.entityLabel + '": ' + JSON.stringify({
-      deviceType: deviceType,
-      deviceProfile: deviceProfile,
-      identifier: identifier,
-      active: active,
-      allKeys: Object.keys(cd),
-    }));
+    console.log(
+      '[MAIN_BAS] Device "' +
+        entity.entityLabel +
+        '": ' +
+        JSON.stringify({
+          deviceType: deviceType,
+          deviceProfile: deviceProfile,
+          identifier: identifier,
+          active: active,
+          allKeys: Object.keys(cd),
+        })
+    );
 
     // Check if device is hidden/archived (RFC-0142)
     if (isOcultosDevice(deviceProfile)) {
@@ -501,10 +516,18 @@ function parseDevicesFromData(data) {
   console.log('[MAIN_BAS] Ambientes:', ambientes.length);
   console.log('[MAIN_BAS] Devices:', devices.length);
   console.log('[MAIN_BAS] Classification:', {
-    water: Object.keys(classified.water).map(function(k) { return k + ':' + classified.water[k].length; }),
-    temperature: Object.keys(classified.temperature).map(function(k) { return k + ':' + classified.temperature[k].length; }),
-    motor: Object.keys(classified.motor).map(function(k) { return k + ':' + classified.motor[k].length; }),
-    energy: Object.keys(classified.energy).map(function(k) { return k + ':' + classified.energy[k].length; }),
+    water: Object.keys(classified.water).map(function (k) {
+      return k + ':' + classified.water[k].length;
+    }),
+    temperature: Object.keys(classified.temperature).map(function (k) {
+      return k + ':' + classified.temperature[k].length;
+    }),
+    motor: Object.keys(classified.motor).map(function (k) {
+      return k + ':' + classified.motor[k].length;
+    }),
+    energy: Object.keys(classified.energy).map(function (k) {
+      return k + ':' + classified.energy[k].length;
+    }),
     ocultos: classified.ocultos.length,
   });
 
@@ -859,7 +882,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     showAllOption: true,
     allLabel: 'Todos',
     sortOrder: 'asc',
-    excludePartOfLabel: '^\\(\\d{3}\\)-\\s*',  // Remove (001)- prefix from labels
+    excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels
     handleClickAll: function () {
       console.log('[MAIN_BAS] Ambiente selected: all');
       _selectedAmbiente = null;
@@ -898,7 +921,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
   sidebarHost.appendChild(panelElement);
 
   // DEBUG: Log after append
-  setTimeout(function() {
+  setTimeout(function () {
     console.log('[MAIN_BAS] After append - sidebarHost dimensions:', {
       offsetHeight: sidebarHost?.offsetHeight,
       offsetWidth: sidebarHost?.offsetWidth,
@@ -1069,7 +1092,7 @@ async function initializeDashboard(
 
     // Log each datasource row
     if (ctx.data && Array.isArray(ctx.data)) {
-      ctx.data.forEach(function(row, index) {
+      ctx.data.forEach(function (row, index) {
         console.log('[MAIN_BAS] Row ' + index + ':', {
           aliasName: row?.datasource?.aliasName,
           entityId: row?.datasource?.entityId,
@@ -1106,7 +1129,10 @@ async function initializeDashboard(
     }
 
     // Mount water CardGridPanel (col 2, row 1)
-    console.log('[MAIN_BAS] Mounting water panel:', { show: settings.showWaterInfrastructure, hostExists: !!waterHost });
+    console.log('[MAIN_BAS] Mounting water panel:', {
+      show: settings.showWaterInfrastructure,
+      hostExists: !!waterHost,
+    });
     if (settings.showWaterInfrastructure && waterHost) {
       _waterPanel = mountWaterPanel(waterHost, settings, _currentClassified);
       console.log('[MAIN_BAS] Water panel mounted:', !!_waterPanel);
@@ -1124,7 +1150,10 @@ async function initializeDashboard(
     }
 
     // Mount ambientes CardGridPanel (col 3, row 1–2)
-    console.log('[MAIN_BAS] Mounting ambientes panel:', { show: settings.showEnvironments, hostExists: !!ambientesHost });
+    console.log('[MAIN_BAS] Mounting ambientes panel:', {
+      show: settings.showEnvironments,
+      hostExists: !!ambientesHost,
+    });
     if (settings.showEnvironments && ambientesHost) {
       _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, _currentClassified);
       console.log('[MAIN_BAS] Ambientes panel mounted:', !!_ambientesPanel);
@@ -1133,7 +1162,10 @@ async function initializeDashboard(
     }
 
     // Mount motors CardGridPanel (col 4, row 1–2)
-    console.log('[MAIN_BAS] Mounting motors panel:', { show: settings.showPumpsMotors, hostExists: !!motorsHost });
+    console.log('[MAIN_BAS] Mounting motors panel:', {
+      show: settings.showPumpsMotors,
+      hostExists: !!motorsHost,
+    });
     if (settings.showPumpsMotors && motorsHost) {
       _motorsPanel = mountMotorsPanel(motorsHost, settings, _currentClassified);
       console.log('[MAIN_BAS] Motors panel mounted:', !!_motorsPanel);
@@ -1301,7 +1333,19 @@ self.onDataUpdated = function () {
   }
 
   // Update ambientes list if changed
-  if (_ambientesListPanel && JSON.stringify(parsed.ambientes.map(function(a) { return a.id; })) !== JSON.stringify(_currentAmbientes.map(function(a) { return a.id; }))) {
+  if (
+    _ambientesListPanel &&
+    JSON.stringify(
+      parsed.ambientes.map(function (a) {
+        return a.id;
+      })
+    ) !==
+      JSON.stringify(
+        _currentAmbientes.map(function (a) {
+          return a.id;
+        })
+      )
+  ) {
     _currentAmbientes = parsed.ambientes;
     _ambientesListPanel.setItems(buildAmbienteItems(parsed.ambientes));
   }
