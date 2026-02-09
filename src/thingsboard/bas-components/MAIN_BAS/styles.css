@@ -389,9 +389,24 @@ tb-html-widget > div,
   min-height: 0 !important;
   overflow-y: auto !important;
   align-content: start !important; /* Cards align top, use natural height */
+  display: grid !important; /* Force grid display */
   gap: 16px !important; /* Ensure gap between cards in grid */
   row-gap: 16px !important;
   column-gap: 16px !important;
+}
+
+/* Card wrapper inside grid - ensure proper sizing */
+.myio-cgp__card-wrapper {
+  min-width: 0 !important;
+  display: block !important; /* Not flex - let card determine its size */
+}
+
+/* Card v6 overrides - ensure full width within grid cell */
+.myio-cgp__card-wrapper .device-card-centered,
+.myio-cgp__card-wrapper .device-card-centered.clickable {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
 }
 
 /* ========================================

@@ -63,6 +63,7 @@ let _ctx = null;
 let _settings = null;
 let _currentAmbientes = [];
 let _currentClassified = null;
+let _dataUpdatedCount = 0; // Counter to limit onDataUpdated calls (max 3)
 
 // Chart domain configuration
 var CHART_DOMAIN_CONFIG = {
@@ -426,17 +427,22 @@ function parseDevicesFromData(data) {
     var deviceType = cd.deviceType || cd.type || '';
     var deviceProfile = cd.deviceProfile || cd.profile || '';
     var identifier = cd.identifier || cd.id || '';
-    var active = cd.active;
+    // Use label from collected data, fallback to entityLabel
+    var deviceLabel = cd.label || entity.entityLabel || entityId;
+    // Determine if device is online via connectionStatus attribute (values: 'online' | 'offline')
+    var connectionStatus = (cd.connectionStatus || '').toLowerCase();
+    var isOnline = connectionStatus === 'online';
 
     console.log(
       '[MAIN_BAS] Device "' +
-        entity.entityLabel +
+        deviceLabel +
         '": ' +
         JSON.stringify({
           deviceType: deviceType,
           deviceProfile: deviceProfile,
           identifier: identifier,
-          active: active,
+          connectionStatus: connectionStatus,
+          isOnline: isOnline,
           allKeys: Object.keys(cd),
         })
     );
@@ -445,7 +451,7 @@ function parseDevicesFromData(data) {
     if (isOcultosDevice(deviceProfile)) {
       classified.ocultos.push({
         id: entityId,
-        name: entity.entityLabel,
+        name: deviceLabel,
         deviceType: deviceType,
         deviceProfile: deviceProfile,
       });
@@ -459,12 +465,12 @@ function parseDevicesFromData(data) {
     // Build device object based on domain
     var device = {
       id: entityId,
-      name: entity.entityLabel,
+      name: deviceLabel,
       deviceType: deviceType,
       deviceProfile: deviceProfile,
       domain: domain,
       context: context,
-      status: active ? 'online' : 'offline',
+      status: isOnline ? 'online' : 'offline',
       lastUpdate: Date.now(),
       rawData: cd, // Keep collected data for reference
     };
@@ -490,7 +496,7 @@ function parseDevicesFromData(data) {
       device.temperature = parseFloat(cd.temperature || cd.temp || 0) || null;
       device.setpoint = parseFloat(cd.setpoint || cd.setPoint || 0) || null;
       device.consumption = parseFloat(cd.consumption || 0) || null;
-      device.status = active ? 'active' : 'inactive';
+      device.status = isOnline ? 'active' : 'inactive';
     } else {
       // Energy domain (includes motors/pumps)
       device.consumption = parseFloat(cd.consumption || cd.energy || cd.power || 0);
@@ -2133,6 +2139,16 @@ self.onInit = async function () {
 self.onDataUpdated = function () {
   if (!_ctx) return;
 
+  // Limit onDataUpdated to run max 3 times
+  _dataUpdatedCount++;
+  if (_dataUpdatedCount > 3) {
+    if (_settings && _settings.enableDebugMode) {
+      console.log('[MAIN_BAS] onDataUpdated - SKIPPED (limit of 3 calls reached)');
+    }
+    return;
+  }
+  console.log('[MAIN_BAS] onDataUpdated - Call #' + _dataUpdatedCount + ' of 3');
+
   var parsed = parseDevicesFromData(_ctx.data);
   _currentClassified = parsed.classified;
 
@@ -2240,6 +2256,7 @@ self.onDestroy = function () {
   _settings = null;
   _currentAmbientes = [];
   _currentClassified = null;
+  _dataUpdatedCount = 0; // Reset counter on destroy
 };
 
 self.typeParameters = function () {

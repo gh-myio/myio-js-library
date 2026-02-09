@@ -145,18 +145,23 @@ const PANEL_CSS = `
 
   .myio-cgp__card-wrapper {
     min-width: 0;
-    /* Allow cards to size naturally */
-    display: flex;
-    flex-direction: column;
-    /* Ensure gap is respected - grid gap should handle this but adding as fallback */
+    /* Block display - let grid handle sizing, don't use flex */
+    display: block;
     margin: 0;
   }
 
-  /* Card should fill wrapper but not be constrained */
+  /* Card should fill wrapper width */
   .myio-cgp__card-wrapper > * {
-    flex: 1;
-    min-height: 0;
+    width: 100%;
     margin: 0;
+  }
+
+  /* Override card v6 width constraints when inside grid */
+  .myio-cgp__card-wrapper .device-card-centered,
+  .myio-cgp__card-wrapper .device-card-centered.clickable {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
   }
 
   .myio-cgp__empty {
