@@ -1,4 +1,4 @@
-/* global self, window, MyIOLibrary, document */
+/* global self, window, MyIOLibrary, document, localStorage */
 /**
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
@@ -33,6 +33,31 @@
  */
 
 // ============================================================================
+// Debug Configuration
+// ============================================================================
+
+var DEBUG_ACTIVE = false; // Set to true to enable logging
+
+// LogHelper utility
+const LogHelper = {
+  log: function (...args) {
+    if (DEBUG_ACTIVE) {
+      LogHelper.log(...args);
+    }
+  },
+  warn: function (...args) {
+    if (DEBUG_ACTIVE) {
+      LogHelper.warn(...args);
+    }
+  },
+  error: function (...args) {
+    if (DEBUG_ACTIVE) {
+      LogHelper.error(...args);
+    }
+  },
+};
+
+// ============================================================================
 // Classification Constants (RFC-0142)
 // Domains: energy | water | temperature (NO motor domain - motors are energy)
 // ============================================================================
@@ -43,10 +68,6 @@ var ENTRADA_TYPES = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
 
 // Motor/pump types are ENERGY domain, context 'bomba' or 'motor'
 var MOTOR_TYPES = ['BOMBA', 'MOTOR', 'BOMBA_HIDRAULICA', 'BOMBA_INCENDIO', 'BOMBA_CAG'];
-
-var HVAC_TYPES = ['TERMOSTATO', 'CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO'];
-
-var WATER_TYPES = ['HIDROMETRO', 'CAIXA_DAGUA', 'SOLENOIDE', 'TANQUE'];
 
 // ============================================================================
 // Module-level references
@@ -64,6 +85,21 @@ let _settings = null;
 let _currentAmbientes = [];
 let _currentClassified = null;
 let _dataUpdatedCount = 0; // Counter to limit onDataUpdated calls (max 3)
+
+// Customer credentials map for API integration
+var MAP_CUSTOMER_CREDENTIALS = {
+  customer_TB_Id: null,
+  customer_Ingestion_Id: null,
+  customer_Ingestion_Cliente_Id: null,
+  customer_Ingestion_Secret: null,
+};
+
+// Customer telemetry settings map
+var CUSTOMER_TELEMETRY_SETTINGS = {
+  mapInstantaneousPower: null,
+  minTemperature: null,
+  maxTemperature: null,
+};
 
 // Chart domain configuration
 var CHART_DOMAIN_CONFIG = {
@@ -105,6 +141,8 @@ function getSettings(ctx) {
     sidebarBackground: widgetSettings.sidebarBackground ?? '#faf8f1',
     sidebarBackgroundImage: widgetSettings.sidebarBackgroundImage ?? undefined,
     cardGridGap: widgetSettings.cardGridGap ?? '20px',
+    waterCardMinWidth: widgetSettings.waterCardMinWidth ?? '160px',
+    waterCardMaxWidth: widgetSettings.waterCardMaxWidth ?? '200px',
     waterPanelBackground: widgetSettings.waterPanelBackground ?? '#e8f4fc',
     environmentsPanelBackground: widgetSettings.environmentsPanelBackground ?? '#fef7e8',
     motorsPanelBackground: widgetSettings.motorsPanelBackground ?? '#f0f4e8',
@@ -127,33 +165,6 @@ function isOcultosDevice(deviceProfile) {
     }
   }
   return false;
-}
-
-/**
- * Detect domain from deviceType
- * Domains: energy | water | temperature (NO motor domain)
- * Motors/pumps are classified as 'energy' domain
- */
-function detectDomain(deviceType) {
-  var dt = String(deviceType || '').toUpperCase();
-  var i;
-
-  // Check water types FIRST
-  for (i = 0; i < WATER_TYPES.length; i++) {
-    if (dt.includes(WATER_TYPES[i])) {
-      return 'water';
-    }
-  }
-
-  // Check HVAC/temperature types
-  for (i = 0; i < HVAC_TYPES.length; i++) {
-    if (dt.includes(HVAC_TYPES[i])) {
-      return 'temperature';
-    }
-  }
-
-  // Everything else is energy (including MOTOR_TYPES)
-  return 'energy';
 }
 
 /**
@@ -284,8 +295,8 @@ function parseDevicesFromData(data) {
     return { classified: classified, ambientes: [], devices: [] };
   }
 
-  console.log('[MAIN_BAS] ============ PARSING DATA ============');
-  console.log('[MAIN_BAS] Total rows:', data.length);
+  LogHelper.log('[MAIN_BAS] ============ PARSING DATA ============');
+  LogHelper.log('[MAIN_BAS] Total rows:', data.length);
 
   // Phase 1: Group rows by entityId and collect all dataKey values
   // Maps: entityId -> { datasource, collectedData: { keyName: value } }
@@ -329,7 +340,7 @@ function parseDevicesFromData(data) {
       var rawDataKeys = Object.keys(rowData);
       var rawFirstEntry = rawDataKeys.length > 0 ? rowData[rawDataKeys[0]] : null;
 
-      console.log(
+      LogHelper.log(
         '[MAIN_BAS] Row ' +
           index +
           ': ' +
@@ -396,9 +407,9 @@ function parseDevicesFromData(data) {
     }
   });
 
-  console.log('[MAIN_BAS] Phase 1 complete:');
-  console.log('[MAIN_BAS]   Unique Ambientes:', Object.keys(ambientesMap).length);
-  console.log('[MAIN_BAS]   Unique Devices:', Object.keys(devicesMap).length);
+  LogHelper.log('[MAIN_BAS] Phase 1 complete:');
+  LogHelper.log('[MAIN_BAS]   Unique Ambientes:', Object.keys(ambientesMap).length);
+  LogHelper.log('[MAIN_BAS]   Unique Devices:', Object.keys(devicesMap).length);
 
   // Phase 2: Process grouped Ambientes
   Object.keys(ambientesMap).forEach(function (entityId) {
@@ -412,7 +423,7 @@ function parseDevicesFromData(data) {
     });
   });
 
-  console.log(
+  LogHelper.log(
     '[MAIN_BAS] Ambientes processed:',
     ambientes.map(function (a) {
       return a.name;
@@ -434,7 +445,7 @@ function parseDevicesFromData(data) {
     var connectionStatus = (cd.connectionStatus || '').toLowerCase();
     var isOnline = connectionStatus === 'online';
 
-    console.log(
+    LogHelper.log(
       '[MAIN_BAS] Device "' +
         deviceLabel +
         '": ' +
@@ -459,8 +470,8 @@ function parseDevicesFromData(data) {
       return;
     }
 
-    // Detect domain and context
-    var domain = detectDomain(deviceType);
+    // Detect domain and context (using library function per RFC-0111)
+    var domain = window.MyIOLibrary.detectDomain({ deviceType: deviceType });
     var context = detectContextForBAS(deviceType, deviceProfile, identifier, domain);
 
     // Build device object based on domain
@@ -511,20 +522,20 @@ function parseDevicesFromData(data) {
 
     // Add device to devices list
     devices.push(device);
-    console.log('[MAIN_BAS] Added:', device.name, '| domain:', domain, '| context:', context);
+    LogHelper.log('[MAIN_BAS] Added:', device.name, '| domain:', domain, '| context:', context);
 
     // Add to classified structure
     if (classified[domain] && classified[domain][context]) {
       classified[domain][context].push(device);
     } else {
-      console.log('[MAIN_BAS] WARNING: No bucket for domain:', domain, 'context:', context);
+      LogHelper.log('[MAIN_BAS] WARNING: No bucket for domain:', domain, 'context:', context);
     }
   });
 
-  console.log('[MAIN_BAS] ============ PARSE COMPLETE ============');
-  console.log('[MAIN_BAS] Ambientes:', ambientes.length);
-  console.log('[MAIN_BAS] Devices:', devices.length);
-  console.log('[MAIN_BAS] Classification:', {
+  LogHelper.log('[MAIN_BAS] ============ PARSE COMPLETE ============');
+  LogHelper.log('[MAIN_BAS] Ambientes:', ambientes.length);
+  LogHelper.log('[MAIN_BAS] Devices:', devices.length);
+  LogHelper.log('[MAIN_BAS] Classification:', {
     water: Object.keys(classified.water).map(function (k) {
       return k + ':' + classified.water[k].length;
     }),
@@ -592,50 +603,50 @@ function getAmbienteIcon(label) {
  */
 var AMBIENTE_ACTION_MAP = {
   '(001)-Deck': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Deck ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Deck ->', ambiente.id);
     // Navigate to Deck dashboard state
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('deck', { entityId: ambiente.id });
     }
   },
   '(002)-Sala do Nobreak': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Sala do Nobreak ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Sala do Nobreak ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('nobreak', { entityId: ambiente.id });
     }
   },
   '(003)-Auditório': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Auditório ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Auditório ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('auditorio', { entityId: ambiente.id });
     }
   },
   '(004)-Staff Rio de Janeiro': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Staff Rio de Janeiro ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Staff Rio de Janeiro ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('staff', { entityId: ambiente.id });
     }
   },
   '(005)-Bombas': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Bombas ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Bombas ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('bombas', { entityId: ambiente.id });
     }
   },
   '(006)-Água': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Água ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Água ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('agua', { entityId: ambiente.id });
     }
   },
   '(007)-Configuração': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Configuração ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Configuração ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('config', { entityId: ambiente.id });
     }
   },
   '(008)-Integrações': function (ambiente) {
-    console.log('[MAIN_BAS] Action: Integrações ->', ambiente.id);
+    LogHelper.log('[MAIN_BAS] Action: Integrações ->', ambiente.id);
     if (self.ctx && self.ctx.stateController) {
       self.ctx.stateController.openState('integracoes', { entityId: ambiente.id });
     }
@@ -668,7 +679,7 @@ function getAmbienteActionHandler(ambiente) {
   // Default: navigate to ThingsBoard state if stateController available
   if (self.ctx && self.ctx.stateController) {
     return function () {
-      console.log('[MAIN_BAS] Navigate to ambiente:', ambiente.id, label);
+      LogHelper.log('[MAIN_BAS] Navigate to ambiente:', ambiente.id, label);
       self.ctx.stateController.openState('ambiente', { entityId: ambiente.id, entityName: label });
     };
   }
@@ -1145,16 +1156,14 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
 
   _maximizedPanel = { overlay: overlay, panel: panelContainer, title: panelTitle, isChart: opts.isChart };
 
-  if (_settings && _settings.enableDebugMode) {
-    console.log(
-      '[MAIN_BAS] Panel maximized:',
-      panelTitle,
-      '| theme:',
-      (_settings && _settings.defaultThemeMode) || 'light',
-      '| isChart:',
-      !!opts.isChart
-    );
-  }
+  LogHelper.log(
+    '[MAIN_BAS] Panel maximized:',
+    panelTitle,
+    '| theme:',
+    (_settings && _settings.defaultThemeMode) || 'light',
+    '| isChart:',
+    !!opts.isChart
+  );
 }
 
 /**
@@ -1180,9 +1189,7 @@ function switchChartDomainInContainer(domain, container) {
   if (!cfg) return;
 
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumption7DaysChart) {
-    if (_settings && _settings.enableDebugMode) {
-      console.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
-    }
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
     return;
   }
 
@@ -1223,9 +1230,7 @@ function closeMaximizedPanel() {
     _maximizedPanel = null;
   }, 200);
 
-  if (_settings && _settings.enableDebugMode) {
-    console.log('[MAIN_BAS] Panel minimize');
-  }
+  LogHelper.log('[MAIN_BAS] Panel minimize');
 }
 
 // ============================================================================
@@ -1246,7 +1251,7 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
   }
 
   if (!MyIOLibrary.FilterModalComponent) {
-    console.warn('[MAIN_BAS] MyIOLibrary.FilterModalComponent not available');
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.FilterModalComponent not available');
     return;
   }
 
@@ -1318,7 +1323,7 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
   });
 
   if (categories.length === 0) {
-    console.log('[MAIN_BAS] No categories to filter');
+    LogHelper.log('[MAIN_BAS] No categories to filter');
     return;
   }
 
@@ -1330,13 +1335,11 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
     selectedSortId: currentFilter?.sortId || null,
     themeMode: (_settings && _settings.defaultThemeMode) || 'light',
     onApply: function (selectedCategories, sortOption) {
-      if (_settings && _settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Filter applied:', {
-          panelType: panelType,
-          categories: selectedCategories,
-          sort: sortOption,
-        });
-      }
+      LogHelper.log('[MAIN_BAS] Filter applied:', {
+        panelType: panelType,
+        categories: selectedCategories,
+        sort: sortOption,
+      });
       onApply(selectedCategories, sortOption);
     },
     onClose: function () {
@@ -1356,10 +1359,18 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
  * Mount CardGridPanel into #bas-water-host
  */
 function mountWaterPanel(waterHost, settings, classified) {
-  console.log('[MAIN_BAS] mountWaterPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
+  LogHelper.log('[MAIN_BAS] mountWaterPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
   if (!MyIOLibrary.CardGridPanel) {
-    console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
+  }
+
+  // Apply water card size CSS variables to the host
+  if (settings.waterCardMinWidth) {
+    waterHost.style.setProperty('--bas-water-card-width', settings.waterCardMinWidth);
+  }
+  if (settings.waterCardMaxWidth) {
+    waterHost.style.setProperty('--bas-water-card-max-width', settings.waterCardMaxWidth);
   }
 
   var waterItems = buildWaterCardItems(classified, null);
@@ -1379,7 +1390,7 @@ function mountWaterPanel(waterHost, settings, classified) {
       padding: '8px 12px 6px 12px',
       letterSpacing: '0.5px',
     },
-    gridMinCardWidth: '180px',
+    gridMinCardWidth: settings.waterCardMinWidth || '160px',
     gridGap: settings.cardGridGap,
     emptyMessage: 'Nenhum dispositivo',
     showSearch: true,
@@ -1421,9 +1432,7 @@ function mountWaterPanel(waterHost, settings, classified) {
       }
     },
     handleClickCard: function (item) {
-      if (settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Water device clicked:', item.source);
-      }
+      LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
     },
   });
@@ -1436,9 +1445,12 @@ function mountWaterPanel(waterHost, settings, classified) {
  * Mount CardGridPanel into #bas-ambientes-host (HVAC devices)
  */
 function mountAmbientesPanel(host, settings, classified) {
-  console.log('[MAIN_BAS] mountAmbientesPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
+  LogHelper.log(
+    '[MAIN_BAS] mountAmbientesPanel called, CardGridPanel available:',
+    !!MyIOLibrary.CardGridPanel
+  );
   if (!MyIOLibrary.CardGridPanel) {
-    console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
@@ -1501,9 +1513,7 @@ function mountAmbientesPanel(host, settings, classified) {
       }
     },
     handleClickCard: function (item) {
-      if (settings.enableDebugMode) {
-        console.log('[MAIN_BAS] HVAC device clicked:', item.source);
-      }
+      LogHelper.log('[MAIN_BAS] HVAC device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
     },
   });
@@ -1516,9 +1526,9 @@ function mountAmbientesPanel(host, settings, classified) {
  * Mount CardGridPanel into #bas-motors-host (Energy: entrada, stores, equipments)
  */
 function mountEnergyPanel(host, settings, classified) {
-  console.log('[MAIN_BAS] mountEnergyPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
+  LogHelper.log('[MAIN_BAS] mountEnergyPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
   if (!MyIOLibrary.CardGridPanel) {
-    console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
@@ -1587,9 +1597,7 @@ function mountEnergyPanel(host, settings, classified) {
       }
     },
     handleClickCard: function (item) {
-      if (settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Energy device clicked:', item.source);
-      }
+      LogHelper.log('[MAIN_BAS] Energy device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
     },
   });
@@ -1604,9 +1612,9 @@ function mountEnergyPanel(host, settings, classified) {
  */
 function mountSidebarPanel(sidebarHost, settings, ambientes) {
   // DEBUG: Log sidebar host dimensions
-  console.log('[MAIN_BAS] mountSidebarPanel called');
-  console.log('[MAIN_BAS] sidebarHost element:', sidebarHost);
-  console.log('[MAIN_BAS] sidebarHost dimensions:', {
+  LogHelper.log('[MAIN_BAS] mountSidebarPanel called');
+  LogHelper.log('[MAIN_BAS] sidebarHost element:', sidebarHost);
+  LogHelper.log('[MAIN_BAS] sidebarHost dimensions:', {
     offsetHeight: sidebarHost?.offsetHeight,
     offsetWidth: sidebarHost?.offsetWidth,
     clientHeight: sidebarHost?.clientHeight,
@@ -1615,16 +1623,16 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     computedHeight: sidebarHost ? window.getComputedStyle(sidebarHost).height : null,
     computedGridRow: sidebarHost ? window.getComputedStyle(sidebarHost).gridRow : null,
   });
-  console.log('[MAIN_BAS] ambientes count:', ambientes?.length);
-  console.log('[MAIN_BAS] ambientes data:', ambientes);
+  LogHelper.log('[MAIN_BAS] ambientes count:', ambientes?.length);
+  LogHelper.log('[MAIN_BAS] ambientes data:', ambientes);
 
   if (!MyIOLibrary.EntityListPanel) {
-    console.warn('[MAIN_BAS] MyIOLibrary.EntityListPanel not available');
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.EntityListPanel not available');
     return null;
   }
 
   var items = buildAmbienteItems(ambientes);
-  console.log('[MAIN_BAS] Built ambiente items:', items);
+  LogHelper.log('[MAIN_BAS] Built ambiente items:', items);
 
   var panel = new MyIOLibrary.EntityListPanel({
     title: settings.sidebarLabel,
@@ -1651,7 +1659,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
       }
     },
     handleClickAll: function () {
-      console.log('[MAIN_BAS] Ambiente selected: all');
+      LogHelper.log('[MAIN_BAS] Ambiente selected: all');
       _selectedAmbiente = null;
       if (_waterPanel) {
         _waterPanel.setItems(buildWaterCardItems(_currentClassified, null));
@@ -1666,7 +1674,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: null } }));
     },
     handleClickItem: function (item) {
-      console.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
+      LogHelper.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
       _selectedAmbiente = item.id;
       if (_waterPanel) {
         _waterPanel.setItems(buildWaterCardItems(_currentClassified, item.id));
@@ -1683,18 +1691,18 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
   });
 
   var panelElement = panel.getElement();
-  console.log('[MAIN_BAS] Panel element created:', panelElement);
+  LogHelper.log('[MAIN_BAS] Panel element created:', panelElement);
 
   sidebarHost.appendChild(panelElement);
 
   // DEBUG: Log after append
   setTimeout(function () {
-    console.log('[MAIN_BAS] After append - sidebarHost dimensions:', {
+    LogHelper.log('[MAIN_BAS] After append - sidebarHost dimensions:', {
       offsetHeight: sidebarHost?.offsetHeight,
       offsetWidth: sidebarHost?.offsetWidth,
       scrollHeight: sidebarHost?.scrollHeight,
     });
-    console.log('[MAIN_BAS] After append - panelElement dimensions:', {
+    LogHelper.log('[MAIN_BAS] After append - panelElement dimensions:', {
       offsetHeight: panelElement?.offsetHeight,
       offsetWidth: panelElement?.offsetWidth,
       scrollHeight: panelElement?.scrollHeight,
@@ -1760,9 +1768,7 @@ function switchChartDomain(domain, chartContainer) {
   if (!cfg) return;
 
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumption7DaysChart) {
-    if (_settings && _settings.enableDebugMode) {
-      console.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
-    }
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
     return;
   }
 
@@ -1784,8 +1790,10 @@ function switchChartDomain(domain, chartContainer) {
 }
 
 // SVG icons for chart header buttons
-var CHART_ICON_FILTER = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
-var CHART_ICON_MAXIMIZE = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+var CHART_ICON_FILTER =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+var CHART_ICON_MAXIMIZE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
 
 /**
  * Mount chart panel with header (tabs + actions) + chart container
@@ -1806,7 +1814,8 @@ function mountChartPanel(hostEl, settings) {
   // Left side: Icon + Title
   var headerLeft = document.createElement('div');
   headerLeft.className = 'bas-chart-header__left';
-  headerLeft.innerHTML = '<span class="bas-chart-header__icon">📊</span><span class="bas-chart-header__title">Consumo</span>';
+  headerLeft.innerHTML =
+    '<span class="bas-chart-header__icon">📊</span><span class="bas-chart-header__title">Consumo</span>';
 
   // Center: Tabs
   var tabBar = document.createElement('div');
@@ -1842,9 +1851,7 @@ function mountChartPanel(hostEl, settings) {
   filterBtn.innerHTML = CHART_ICON_FILTER;
   filterBtn.addEventListener('click', function () {
     // Open chart filter modal (period selection, chart type, etc.)
-    if (_settings && _settings.enableDebugMode) {
-      console.log('[MAIN_BAS] Chart filter clicked');
-    }
+    LogHelper.log('[MAIN_BAS] Chart filter clicked');
     // TODO: Implement chart-specific filter modal
   });
   headerRight.appendChild(filterBtn);
@@ -1910,14 +1917,14 @@ async function initializeDashboard(
 ) {
   try {
     // DEBUG: Log raw data from ThingsBoard
-    console.log('[MAIN_BAS] ============ INIT START ============');
-    console.log('[MAIN_BAS] ctx.data (raw):', ctx.data);
-    console.log('[MAIN_BAS] ctx.data length:', ctx.data?.length);
+    LogHelper.log('[MAIN_BAS] ============ INIT START ============');
+    LogHelper.log('[MAIN_BAS] ctx.data (raw):', ctx.data);
+    LogHelper.log('[MAIN_BAS] ctx.data length:', ctx.data?.length);
 
     // Log each datasource row
     if (ctx.data && Array.isArray(ctx.data)) {
       ctx.data.forEach(function (row, index) {
-        console.log('[MAIN_BAS] Row ' + index + ':', {
+        LogHelper.log('[MAIN_BAS] Row ' + index + ':', {
           aliasName: row?.datasource?.aliasName,
           entityId: row?.datasource?.entityId,
           entityLabel: row?.datasource?.entityLabel,
@@ -1936,15 +1943,15 @@ async function initializeDashboard(
     _currentClassified = parsed.classified;
     _currentAmbientes = parsed.ambientes;
 
-    console.log('[MAIN_BAS] Parsed result:', {
+    LogHelper.log('[MAIN_BAS] Parsed result:', {
       ambientesCount: parsed.ambientes?.length,
       ambientes: parsed.ambientes,
       classified: parsed.classified,
     });
 
     // Mount sidebar EntityListPanel (col 1, row 1-2 full height)
-    console.log('[MAIN_BAS] settings.showSidebar:', settings.showSidebar);
-    console.log('[MAIN_BAS] sidebarHost exists:', !!sidebarHost);
+    LogHelper.log('[MAIN_BAS] settings.showSidebar:', settings.showSidebar);
+    LogHelper.log('[MAIN_BAS] sidebarHost exists:', !!sidebarHost);
 
     if (settings.showSidebar && sidebarHost) {
       _ambientesListPanel = mountSidebarPanel(sidebarHost, settings, parsed.ambientes);
@@ -1953,72 +1960,73 @@ async function initializeDashboard(
     }
 
     // Mount water CardGridPanel (col 2, row 1)
-    console.log('[MAIN_BAS] Mounting water panel:', {
+    LogHelper.log('[MAIN_BAS] Mounting water panel:', {
       show: settings.showWaterInfrastructure,
       hostExists: !!waterHost,
     });
     if (settings.showWaterInfrastructure && waterHost) {
       _waterPanel = mountWaterPanel(waterHost, settings, _currentClassified);
-      console.log('[MAIN_BAS] Water panel mounted:', !!_waterPanel);
+      LogHelper.log('[MAIN_BAS] Water panel mounted:', !!_waterPanel);
     } else if (waterHost) {
       waterHost.style.display = 'none';
     }
 
     // Mount chart panel (col 1–2, row 2)
-    console.log('[MAIN_BAS] Mounting chart panel:', { show: settings.showCharts, hostExists: !!chartsHost });
+    LogHelper.log('[MAIN_BAS] Mounting chart panel:', {
+      show: settings.showCharts,
+      hostExists: !!chartsHost,
+    });
     if (settings.showCharts && chartsHost) {
       mountChartPanel(chartsHost, settings);
-      console.log('[MAIN_BAS] Chart panel mounted');
+      LogHelper.log('[MAIN_BAS] Chart panel mounted');
     } else if (chartsHost) {
       chartsHost.style.display = 'none';
     }
 
     // Mount ambientes CardGridPanel (col 3, row 1–2)
-    console.log('[MAIN_BAS] Mounting ambientes panel:', {
+    LogHelper.log('[MAIN_BAS] Mounting ambientes panel:', {
       show: settings.showEnvironments,
       hostExists: !!ambientesHost,
     });
     if (settings.showEnvironments && ambientesHost) {
       _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, _currentClassified);
-      console.log('[MAIN_BAS] Ambientes panel mounted:', !!_ambientesPanel);
+      LogHelper.log('[MAIN_BAS] Ambientes panel mounted:', !!_ambientesPanel);
     } else if (ambientesHost) {
       ambientesHost.style.display = 'none';
     }
 
     // Mount motors CardGridPanel (col 4, row 1–2)
-    console.log('[MAIN_BAS] Mounting motors panel:', {
+    LogHelper.log('[MAIN_BAS] Mounting motors panel:', {
       show: settings.showPumpsMotors,
       hostExists: !!motorsHost,
     });
     if (settings.showPumpsMotors && motorsHost) {
       _motorsPanel = mountEnergyPanel(motorsHost, settings, _currentClassified);
-      console.log('[MAIN_BAS] Motors panel mounted:', !!_motorsPanel);
+      LogHelper.log('[MAIN_BAS] Motors panel mounted:', !!_motorsPanel);
     } else if (motorsHost) {
       motorsHost.style.display = 'none';
     }
 
-    if (settings.enableDebugMode) {
-      var waterDevices = getWaterDevicesFromClassified(_currentClassified);
-      var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
-      var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
+    var waterDevices = getWaterDevicesFromClassified(_currentClassified);
+    var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
+    var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
 
-      console.log('[MAIN_BAS] Dashboard initialized with:', {
-        ambientes: parsed.ambientes.length,
-        waterDevices: waterDevices.length,
-        hvacDevices: hvacDevices.length,
-        energyDevices: energyDevices.length,
-        ocultosDevices: _currentClassified.ocultos.length,
-        classified: _currentClassified,
-        sidebarMounted: !!_ambientesListPanel,
-        waterPanelMounted: !!_waterPanel,
-        ambientesPanelMounted: !!_ambientesPanel,
-        energyPanelMounted: !!_motorsPanel,
-        chartMounted: !!_chartInstance,
-        chartDomain: _currentChartDomain,
-      });
-    }
+    LogHelper.log('[MAIN_BAS] Dashboard initialized with:', {
+      ambientes: parsed.ambientes.length,
+      waterDevices: waterDevices.length,
+      hvacDevices: hvacDevices.length,
+      energyDevices: energyDevices.length,
+      ocultosDevices: _currentClassified.ocultos.length,
+      classified: _currentClassified,
+      sidebarMounted: !!_ambientesListPanel,
+      waterPanelMounted: !!_waterPanel,
+      ambientesPanelMounted: !!_ambientesPanel,
+      energyPanelMounted: !!_motorsPanel,
+      chartMounted: !!_chartInstance,
+      chartDomain: _currentChartDomain,
+    });
   } catch (error) {
-    console.error('[MAIN_BAS] Error initializing dashboard:', error);
+    LogHelper.error('[MAIN_BAS] Error initializing dashboard:', error);
     // Show error in the first available container
     var errorHost = ambientesHost || motorsHost || waterHost;
     if (errorHost) {
@@ -2080,7 +2088,7 @@ function fixContainerHeights(root) {
   // Force a layout recalculation
   void root.offsetHeight;
 
-  console.log('[MAIN_BAS] Container heights fixed, depth traversed:', depth);
+  LogHelper.log('[MAIN_BAS] Container heights fixed, depth traversed:', depth);
 }
 
 // ============================================================================
@@ -2089,11 +2097,55 @@ function fixContainerHeights(root) {
 
 self.onInit = async function () {
   _ctx = self.ctx;
+
+  // Enable debug mode from settings (first thing)
+  DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode || false;
+
+  // Load customer TB ID from settings
+  MAP_CUSTOMER_CREDENTIALS.customer_TB_Id = self.ctx.settings?.customerTB_ID || null;
+
+  // Fetch customer attributes from ThingsBoard if customer ID is available
+  if (
+    MAP_CUSTOMER_CREDENTIALS.customer_TB_Id &&
+    window.MyIOLibrary?.fetchThingsboardCustomerAttrsFromStorage
+  ) {
+    const jwt = localStorage.getItem('jwt_token');
+    if (!jwt) {
+      LogHelper.warn('[MAIN_BAS] JWT token not found in localStorage');
+    } else {
+      try {
+        const attrs = await window.MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
+          MAP_CUSTOMER_CREDENTIALS.customer_TB_Id,
+          jwt
+        );
+
+        // Populate customer credentials
+        MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id = attrs?.ingestionId || null;
+        MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id = attrs?.client_id || null;
+        MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret = attrs?.client_secret || null;
+
+        // Populate telemetry settings
+        CUSTOMER_TELEMETRY_SETTINGS.mapInstantaneousPower = attrs?.mapInstantaneousPower || null;
+        CUSTOMER_TELEMETRY_SETTINGS.minTemperature = attrs?.minTemperature || null;
+        CUSTOMER_TELEMETRY_SETTINGS.maxTemperature = attrs?.maxTemperature || null;
+
+        LogHelper.log('[MAIN_BAS] Customer credentials loaded:', {
+          hasIngestionId: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id,
+          hasClientId: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id,
+          hasClientSecret: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret,
+        });
+        LogHelper.log('[MAIN_BAS] Customer telemetry settings loaded:', CUSTOMER_TELEMETRY_SETTINGS);
+      } catch (error) {
+        LogHelper.error('[MAIN_BAS] Error fetching customer attributes:', error);
+      }
+    }
+  }
+
   _settings = getSettings(_ctx);
 
   var root = _ctx.$container[0].querySelector('#bas-dashboard-root');
   if (!root) {
-    console.error('[MAIN_BAS] Container #bas-dashboard-root not found');
+    LogHelper.error('[MAIN_BAS] Container #bas-dashboard-root not found');
     return;
   }
 
@@ -2123,14 +2175,14 @@ self.onInit = async function () {
   var motorsHost = root.querySelector('#bas-motors-host');
 
   // Always log layout containers for debugging
-  console.log('[MAIN_BAS] Layout containers:', {
+  LogHelper.log('[MAIN_BAS] Layout containers:', {
     sidebarHost: !!sidebarHost,
     waterHost: !!waterHost,
     chartsHost: !!chartsHost,
     ambientesHost: !!ambientesHost,
     motorsHost: !!motorsHost,
   });
-  console.log('[MAIN_BAS] Settings visibility:', {
+  LogHelper.log('[MAIN_BAS] Settings visibility:', {
     showSidebar: _settings.showSidebar,
     showWaterInfrastructure: _settings.showWaterInfrastructure,
     showCharts: _settings.showCharts,
@@ -2138,9 +2190,7 @@ self.onInit = async function () {
     showPumpsMotors: _settings.showPumpsMotors,
   });
 
-  if (_settings.enableDebugMode) {
-    console.log('[MAIN_BAS] onInit - Full Settings:', _settings);
-  }
+  LogHelper.log('[MAIN_BAS] onInit - Full Settings:', _settings);
 
   // Initialize all panels
   await initializeDashboard(_ctx, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, _settings);
@@ -2152,29 +2202,25 @@ self.onDataUpdated = function () {
   // Limit onDataUpdated to run max 3 times
   _dataUpdatedCount++;
   if (_dataUpdatedCount > 3) {
-    if (_settings && _settings.enableDebugMode) {
-      console.log('[MAIN_BAS] onDataUpdated - SKIPPED (limit of 3 calls reached)');
-    }
+    LogHelper.log('[MAIN_BAS] onDataUpdated - SKIPPED (limit of 3 calls reached)');
     return;
   }
-  console.log('[MAIN_BAS] onDataUpdated - Call #' + _dataUpdatedCount + ' of 3');
+  LogHelper.log('[MAIN_BAS] onDataUpdated - Call #' + _dataUpdatedCount + ' of 3');
 
   var parsed = parseDevicesFromData(_ctx.data);
   _currentClassified = parsed.classified;
 
-  if (_settings && _settings.enableDebugMode) {
-    var waterDevices = getWaterDevicesFromClassified(_currentClassified);
-    var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
-    var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
+  var waterDevices = getWaterDevicesFromClassified(_currentClassified);
+  var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
+  var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
 
-    console.log('[MAIN_BAS] onDataUpdated - Devices:', {
-      ambientes: parsed.ambientes.length,
-      water: waterDevices.length,
-      hvac: hvacDevices.length,
-      energy: energyDevices.length,
-      ocultos: _currentClassified.ocultos.length,
-    });
-  }
+  LogHelper.log('[MAIN_BAS] onDataUpdated - Devices:', {
+    ambientes: parsed.ambientes.length,
+    water: waterDevices.length,
+    hvac: hvacDevices.length,
+    energy: energyDevices.length,
+    ocultos: _currentClassified.ocultos.length,
+  });
 
   // Update ambientes list if changed
   if (

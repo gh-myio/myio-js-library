@@ -197,6 +197,12 @@ tb-html-widget > div,
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Water cards - custom card max width */
+.bas-water-slot .myio-cgp__card-wrapper .device-card-centered,
+.bas-water-slot .myio-cgp__card-wrapper .device-card-centered.clickable {
+  max-width: var(--bas-water-card-max-width, 200px) !important;
+}
+
 /* ========================================
    CHARTS SLOT — Header + Tab bar + chart
    col 1-2, row 2  (60% × 50%)
@@ -382,17 +388,27 @@ tb-html-widget > div,
   flex-direction: column !important;
 }
 
+/* CardGridPanel and DeviceGridV6 - use custom gap variable */
 .myio-cgp__grid,
-.myio-elp__list,
 .myio-dgv6__body {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   align-content: start !important; /* Cards align top, use natural height */
   display: grid !important; /* Force grid display */
-  gap: 16px !important; /* Ensure gap between cards in grid */
-  row-gap: 16px !important;
-  column-gap: 16px !important;
+  /* Gap uses CSS variable from CardGridPanel, fallback to 20px */
+  gap: var(--cgp-grid-gap, 20px) !important;
+  row-gap: var(--cgp-grid-gap, 20px) !important;
+  column-gap: var(--cgp-grid-gap, 20px) !important;
+}
+
+/* EntityListPanel - keep original small gap for list items */
+.myio-elp__list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  /* List items should have minimal gap */
+  gap: 0 !important;
 }
 
 /* Card wrapper inside grid - ensure proper sizing */
@@ -407,6 +423,20 @@ tb-html-widget > div,
   width: 100% !important;
   max-width: none !important;
   margin: 0 !important;
+}
+
+/* Card v6 - move label and identifier up */
+.myio-cgp__card-wrapper .device-card-centered .device-title-row {
+  margin-top: -4px !important;
+  margin-bottom: 4px !important;
+}
+
+.myio-cgp__card-wrapper .device-card-centered .device-title {
+  margin-bottom: 1px !important;
+}
+
+.myio-cgp__card-wrapper .device-card-centered .device-subtitle {
+  margin-top: 0 !important;
 }
 
 /* ========================================

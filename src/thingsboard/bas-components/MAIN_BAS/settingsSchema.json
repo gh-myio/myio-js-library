@@ -4,6 +4,11 @@
     "title": "MAIN_BAS Settings",
     "description": "RFC-0158: Building Automation System (BAS) Dashboard Controller",
     "properties": {
+      "customerTB_ID": {
+        "title": "Customer ThingsBoard ID",
+        "type": "string",
+        "default": ""
+      },
       "enableDebugMode": {
         "title": "Enable Debug Mode",
         "type": "boolean",
@@ -134,10 +139,25 @@
         "title": "Card Grid Gap",
         "type": "string",
         "default": "20px"
+      },
+      "waterCardMinWidth": {
+        "title": "Water Card Min Width",
+        "type": "string",
+        "default": "160px"
+      },
+      "waterCardMaxWidth": {
+        "title": "Water Card Max Width",
+        "type": "string",
+        "default": "200px"
       }
     }
   },
   "form": [
+    {
+      "key": "customerTB_ID",
+      "type": "text",
+      "placeholder": "Customer ThingsBoard UUID"
+    },
     {
       "key": "enableDebugMode",
       "type": "checkbox"
@@ -248,6 +268,16 @@
           "key": "cardGridGap",
           "type": "text",
           "placeholder": "20px"
+        },
+        {
+          "key": "waterCardMinWidth",
+          "type": "text",
+          "placeholder": "160px"
+        },
+        {
+          "key": "waterCardMaxWidth",
+          "type": "text",
+          "placeholder": "200px"
         }
       ]
     }
