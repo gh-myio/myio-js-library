@@ -256,6 +256,13 @@ export class CardGridPanel {
     }
   }
 
+  /** Set maximize state without triggering callback (for external reset) */
+  public setMaximized(value: boolean): void {
+    if (this.headerComponent) {
+      this.headerComponent.setMaximized(value);
+    }
+  }
+
   /** Update panel background (color or image URL) */
   public setPanelBackground(background: string): void {
     this.options.panelBackground = background;
@@ -373,12 +380,13 @@ export class CardGridPanel {
       return;
     }
 
-    // Filter by search text (match against entityObject.labelOrName or label)
+    // Filter by search text (match against entityObject.labelOrName, label, or ambienteData.label)
     const filtered = this.searchText
       ? items.filter(it => {
           const label = (it.entityObject?.labelOrName as string)
             || (it.entityObject?.label as string)
             || (it.entityObject?.entityLabel as string)
+            || ((it as any).ambienteData?.label as string)
             || '';
           return label.toLowerCase().includes(this.searchText);
         })

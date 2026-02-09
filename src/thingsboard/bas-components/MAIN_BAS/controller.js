@@ -1505,39 +1505,45 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     panelContainer.appendChild(clone);
   }
 
-  // Add close button
-  var closeBtn = document.createElement('button');
-  closeBtn.innerHTML = '×';
-  closeBtn.style.cssText = `
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 36px;
-    height: 36px;
-    border: none;
-    background: ${theme.closeBtnBg};
-    color: ${theme.closeBtnColor};
-    font-size: 24px;
-    line-height: 1;
-    border-radius: 8px;
-    cursor: pointer;
-    z-index: 10;
-    transition: background 0.15s ease;
-  `;
-  closeBtn.addEventListener('mouseenter', function () {
-    closeBtn.style.background = theme.closeBtnBgHover;
-  });
-  closeBtn.addEventListener('mouseleave', function () {
-    closeBtn.style.background = theme.closeBtnBg;
-  });
-  closeBtn.addEventListener('click', closeMaximizedPanel);
-  panelContainer.appendChild(closeBtn);
-
-  // Wrap in container for positioning
+  // Wrap in container for positioning (close button goes here, outside panelContainer's overflow:hidden)
   var container = document.createElement('div');
   container.style.cssText =
     'position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;';
   container.appendChild(panelContainer);
+
+  // Add close button with fixed position (avoids panelContainer's overflow:hidden clipping)
+  var closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '×';
+  closeBtn.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border: 2px solid #ffffff;
+    background: #dc2626;
+    color: #ffffff;
+    font-size: 26px;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10001;
+    transition: background 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+  closeBtn.addEventListener('mouseenter', function () {
+    closeBtn.style.background = '#b91c1c';
+    closeBtn.style.transform = 'scale(1.1)';
+  });
+  closeBtn.addEventListener('mouseleave', function () {
+    closeBtn.style.background = '#dc2626';
+    closeBtn.style.transform = 'scale(1)';
+  });
+  closeBtn.addEventListener('click', closeMaximizedPanel);
+  container.appendChild(closeBtn);
 
   overlay.innerHTML = '';
   overlay.appendChild(container);

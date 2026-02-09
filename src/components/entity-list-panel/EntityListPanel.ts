@@ -426,6 +426,13 @@ export class EntityListPanel {
     }
   }
 
+  /** Set maximize state without triggering callback (for external reset) */
+  public setMaximized(value: boolean): void {
+    if (this.headerComponent) {
+      this.headerComponent.setMaximized(value);
+    }
+  }
+
   /** Update panel background (color or image URL) */
   public setPanelBackground(background: string): void {
     this.options.panelBackground = background;
