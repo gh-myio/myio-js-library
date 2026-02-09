@@ -37,6 +37,19 @@ export interface CardGridCustomStyle {
   height?: string;
 }
 
+export interface CardGridTitleStyle {
+  /** Font size (e.g. '0.7rem', '11px') */
+  fontSize?: string;
+  /** Font weight (e.g. '500', '600', 'bold') */
+  fontWeight?: string;
+  /** Header padding (e.g. '8px 12px') */
+  padding?: string;
+  /** Title color */
+  color?: string;
+  /** Letter spacing */
+  letterSpacing?: string;
+}
+
 export interface CardGridPanelOptions {
   /** Panel title (e.g. "Infraestrutura Hidrica") */
   title: string;
@@ -44,6 +57,8 @@ export interface CardGridPanelOptions {
   items: CardGridItem[];
   /** Optional customStyle applied to every card */
   cardCustomStyle?: CardGridCustomStyle;
+  /** Optional style for the title/header (slim, premium look) */
+  titleStyle?: CardGridTitleStyle;
   /** Callback when a card is clicked */
   handleClickCard?: (item: CardGridItem) => void;
   /** Empty state message */
@@ -171,17 +186,24 @@ export class CardGridPanel {
   // ── Render ────────────────────────────────
 
   private render(): void {
-    const { title, gridMinCardWidth } = this.options;
+    const { title, gridMinCardWidth, titleStyle } = this.options;
 
     this.root.innerHTML = '';
 
     // Header
     const header = document.createElement('div');
     header.className = 'myio-cgp__header';
+    if (titleStyle?.padding) {
+      header.style.padding = titleStyle.padding;
+    }
 
     const titleEl = document.createElement('h3');
     titleEl.className = 'myio-cgp__title';
     titleEl.textContent = title;
+    if (titleStyle?.fontSize) titleEl.style.fontSize = titleStyle.fontSize;
+    if (titleStyle?.fontWeight) titleEl.style.fontWeight = titleStyle.fontWeight;
+    if (titleStyle?.color) titleEl.style.color = titleStyle.color;
+    if (titleStyle?.letterSpacing) titleEl.style.letterSpacing = titleStyle.letterSpacing;
     header.appendChild(titleEl);
     this.root.appendChild(header);
 

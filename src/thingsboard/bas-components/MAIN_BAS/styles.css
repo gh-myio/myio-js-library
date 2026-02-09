@@ -345,6 +345,7 @@ tb-html-widget > div,
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
+  align-content: start !important; /* Cards align top, use natural height */
 }
 
 /* ========================================

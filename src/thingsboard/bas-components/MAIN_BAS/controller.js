@@ -773,7 +773,8 @@ function mountWaterPanel(waterHost, settings, classified) {
   var panel = new MyIOLibrary.CardGridPanel({
     title: 'Infraestrutura Hidrica',
     items: buildWaterCardItems(classified, null),
-    cardCustomStyle: settings.cardCustomStyle || undefined,
+    cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
+    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum dispositivo',
     handleClickCard: function (item) {
@@ -801,7 +802,8 @@ function mountAmbientesPanel(host, settings, classified) {
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.environmentsLabel,
     items: buildHVACCardItems(classified, null),
-    cardCustomStyle: settings.cardCustomStyle || undefined,
+    cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
+    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum ambiente',
     handleClickCard: function (item) {
@@ -829,7 +831,8 @@ function mountMotorsPanel(host, settings, classified) {
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.pumpsMotorsLabel,
     items: buildMotorCardItems(classified, null),
-    cardCustomStyle: settings.cardCustomStyle || undefined,
+    cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
+    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum equipamento',
     handleClickCard: function (item) {
