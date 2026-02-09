@@ -892,10 +892,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Open filter modal'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'Sidebar Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-sidebar-host', isMax);
-          },
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(floorListPanel.getElement(), 'Ambientes', floorListPanel); else closeMaximizeOverlay(); },
           handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Ambiente', 'HOME'); },
           handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Ambiente', item.label); }
         });
@@ -945,10 +942,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'Water Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-water-host', isMax);
-          }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Water', waterPanel); else closeMaximizeOverlay(); }
         });
         waterHost.appendChild(waterPanel.getElement());
       }
@@ -1023,10 +1017,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'HVAC filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'HVAC Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-ambientes-host', isMax);
-          }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'HVAC', ambientesPanel); else closeMaximizeOverlay(); }
         });
         ambientesHost.appendChild(ambientesPanel.getElement());
       }
@@ -1050,10 +1041,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'Motors Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-motors-host', isMax);
-          }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(motorsPanel.getElement(), 'Motors', motorsPanel); else closeMaximizeOverlay(); }
         });
         motorsHost.appendChild(motorsPanel.getElement());
       }
@@ -1131,6 +1119,69 @@
       document.getElementById('themeIcon').innerHTML = document.body.classList.contains('light-mode') ? '&#x1F319;' : '&#x2600;&#xfe0f;';
       log('info', 'Theme', document.body.classList.contains('light-mode') ? 'Light' : 'Dark');
     }
+
+    // =========================================================================
+    // MAXIMIZE OVERLAY (for showcase testing)
+    // =========================================================================
+    let _maxOverlay = null;
+    let _maxPanelInstance = null; // Track which panel instance is maximized
+
+    function showMaximizeOverlay(panelElement, title, panelInstance) {
+      closeMaximizeOverlay(); // close any existing
+
+      // Overlay (click outside to close)
+      _maxOverlay = document.createElement('div');
+      _maxOverlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s ease;
+      `;
+      _maxOverlay.addEventListener('click', function(e) { if (e.target === _maxOverlay) closeMaximizeOverlay(); });
+
+      // Panel container
+      var panel = document.createElement('div');
+      panel.style.cssText = `
+        width: 90vw; height: 85vh; max-width: 1400px; max-height: 900px;
+        background: #ffffff; border-radius: 16px;
+        box-shadow: 0 25px 80px rgba(0,0,0,0.3); border: 1px solid #e2e8f0;
+        overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease;
+        position: relative; display: flex; flex-direction: column;
+      `;
+      var clone = panelElement.cloneNode(true);
+      clone.style.width = '100%'; clone.style.height = '100%';
+      clone.style.maxWidth = 'none'; clone.style.maxHeight = 'none';
+      panel.appendChild(clone);
+      _maxOverlay.appendChild(panel);
+
+      // Wire up minimize button in clone (cloneNode doesn't copy event listeners)
+      var minimizeBtn = clone.querySelector('[title="Minimizar"]') || clone.querySelector('[title="Maximizar"]');
+      if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', function(e) { e.stopPropagation(); closeMaximizeOverlay(); });
+      }
+
+      _maxPanelInstance = panelInstance || null;
+      document.body.appendChild(_maxOverlay);
+
+      // Escape key
+      document.addEventListener('keydown', _maxEscHandler);
+
+      // Animate in
+      requestAnimationFrame(function() { _maxOverlay.style.opacity = '1'; panel.style.transform = 'scale(1)'; });
+      log('info', 'Maximize', 'Opened: ' + title);
+    }
+
+    function closeMaximizeOverlay() {
+      // Reset the panel's maximize state so button icon goes back to "maximize"
+      if (_maxPanelInstance && typeof _maxPanelInstance.setMaximized === 'function') {
+        _maxPanelInstance.setMaximized(false);
+      }
+      _maxPanelInstance = null;
+      if (_maxOverlay) { _maxOverlay.remove(); _maxOverlay = null; }
+      document.removeEventListener('keydown', _maxEscHandler);
+    }
+
+    function _maxEscHandler(e) { if (e.key === 'Escape') closeMaximizeOverlay(); }
 
     // =========================================================================
     // UI HELPERS

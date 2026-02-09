@@ -206,6 +206,7 @@ export class CardGridPanel {
   private root: HTMLElement;
   private options: CardGridPanelOptions;
   private headerComponent: HeaderPanelComponent | null = null;
+  private searchText = '';
 
   constructor(options: CardGridPanelOptions) {
     injectStyles();
@@ -252,6 +253,13 @@ export class CardGridPanel {
     this.options.icon = icon;
     if (this.headerComponent) {
       this.headerComponent.setIcon(icon);
+    }
+  }
+
+  /** Set maximize state without triggering callback (for external reset) */
+  public setMaximized(value: boolean): void {
+    if (this.headerComponent) {
+      this.headerComponent.setMaximized(value);
     }
   }
 
@@ -314,10 +322,14 @@ export class CardGridPanel {
       style: titleStyle,
       showBottomBorder: true,
       showTopBorder: true,
-      // Search
+      // Search (internal filtering + optional consumer callback)
       showSearch,
       searchPlaceholder,
-      onSearchChange,
+      onSearchChange: showSearch ? (text: string) => {
+        this.searchText = text.toLowerCase();
+        this.renderGrid();
+        onSearchChange?.(text);
+      } : undefined,
       // Filter
       showFilter,
       handleActionFilter,
@@ -368,7 +380,27 @@ export class CardGridPanel {
       return;
     }
 
-    items.forEach(item => {
+    // Filter by search text (match against entityObject.labelOrName, label, or ambienteData.label)
+    const filtered = this.searchText
+      ? items.filter(it => {
+          const label = (it.entityObject?.labelOrName as string)
+            || (it.entityObject?.label as string)
+            || (it.entityObject?.entityLabel as string)
+            || ((it as any).ambienteData?.label as string)
+            || '';
+          return label.toLowerCase().includes(this.searchText);
+        })
+      : items;
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'myio-cgp__empty';
+      empty.textContent = 'Nenhum resultado';
+      grid.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach(item => {
       let cardResult: [HTMLElement, unknown] | null = null;
 
       if (cardType === 'ambiente') {

@@ -140,9 +140,9 @@ const PANEL_CSS = `
     z-index: 0;
   }
 
-  /* Header area - no padding since HeaderPanelComponent handles it */
+  /* Header area - padding for proper alignment */
   .myio-elp__header {
-    padding: 0;
+    padding: 0 16px 0 16px;
     position: relative;
     z-index: 1;
   }
@@ -423,6 +423,13 @@ export class EntityListPanel {
       }
     } else if (img) {
       img.style.display = 'none';
+    }
+  }
+
+  /** Set maximize state without triggering callback (for external reset) */
+  public setMaximized(value: boolean): void {
+    if (this.headerComponent) {
+      this.headerComponent.setMaximized(value);
     }
   }
 
