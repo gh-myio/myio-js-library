@@ -41,9 +41,15 @@ var DEBUG_ACTIVE = true; // Default true, controlled by settings.enableDebugMode
 // LogHelper instance - created in onInit using MyIOLibrary.createLogHelper
 // Fallback for early calls before onInit completes
 var LogHelper = {
-  log: function (...args) { if (DEBUG_ACTIVE) console.log('[MAIN_BAS]', ...args); },
-  warn: function (...args) { if (DEBUG_ACTIVE) console.warn('[MAIN_BAS]', ...args); },
-  error: function (...args) { if (DEBUG_ACTIVE) console.error('[MAIN_BAS]', ...args); },
+  log: function (...args) {
+    if (DEBUG_ACTIVE) console.log('[MAIN_BAS]', ...args);
+  },
+  warn: function (...args) {
+    if (DEBUG_ACTIVE) console.warn('[MAIN_BAS]', ...args);
+  },
+  error: function (...args) {
+    if (DEBUG_ACTIVE) console.error('[MAIN_BAS]', ...args);
+  },
 };
 
 // ============================================================================
@@ -772,7 +778,7 @@ function hvacDeviceToEntityObject(device) {
 }
 
 /**
- * Build CardGridPanel items from HVAC devices
+ * Build CardGridPanel items from HVAC devices (legacy device cards)
  * @param {Object} classified - Classified device structure
  * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
  */
@@ -789,6 +795,88 @@ function buildHVACCardItems(classified, selectedAmbienteId) {
     return {
       id: device.id,
       entityObject: hvacDeviceToEntityObject(device),
+      source: device,
+    };
+  });
+}
+
+/**
+ * Convert an HVAC device to ambienteData for renderCardAmbienteV6
+ * Ambiente can contain: temperature sensor, 3F meter, remote control
+ */
+function hvacDeviceToAmbienteData(device) {
+  var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
+  var status = device.status === 'online' ? 'online' : 'offline';
+
+  // Build devices array from available data
+  var devices = [];
+
+  // Temperature device
+  if (device.temperature != null) {
+    devices.push({
+      id: device.id + '_temp',
+      type: 'temperature',
+      deviceType: 'TERMOSTATO',
+      status: status,
+      value: device.temperature,
+    });
+  }
+
+  // Energy device (if has consumption)
+  if (device.consumption != null) {
+    devices.push({
+      id: device.id + '_energy',
+      type: 'energy',
+      deviceType: '3F_MEDIDOR',
+      status: status,
+      value: device.consumption,
+    });
+  }
+
+  // Remote device (if has remote control capability)
+  var hasRemote = device.rawData?.hasRemote || device.hasRemote || false;
+  var isOn = device.rawData?.isOn || device.isOn || false;
+  if (hasRemote) {
+    devices.push({
+      id: device.id + '_remote',
+      type: 'remote',
+      deviceType: 'REMOTE',
+      status: status,
+      value: isOn ? 1 : 0,
+    });
+  }
+
+  return {
+    id: device.id,
+    label: device.name,
+    identifier: identifier,
+    temperature: device.temperature,
+    consumption: device.consumption,
+    isOn: isOn,
+    hasRemote: hasRemote,
+    status: status,
+    devices: devices,
+  };
+}
+
+/**
+ * Build CardGridPanel items for ambiente cards
+ * @param {Object} classified - Classified device structure
+ * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
+ */
+function buildAmbienteCardItems(classified, selectedAmbienteId) {
+  var hvacDevices = getHVACDevicesFromClassified(classified);
+  var filtered = hvacDevices;
+  if (selectedAmbienteId) {
+    filtered = hvacDevices.filter(function (d) {
+      return d.id === selectedAmbienteId;
+    });
+  }
+
+  return filtered.map(function (device) {
+    return {
+      id: device.id,
+      ambienteData: hvacDeviceToAmbienteData(device),
       source: device,
     };
   });
@@ -1379,7 +1467,7 @@ function mountWaterPanel(waterHost, settings, classified) {
 }
 
 /**
- * Mount CardGridPanel into #bas-ambientes-host (HVAC devices)
+ * Mount CardGridPanel into #bas-ambientes-host (HVAC devices as Ambiente cards)
  */
 function mountAmbientesPanel(host, settings, classified) {
   LogHelper.log(
@@ -1391,15 +1479,16 @@ function mountAmbientesPanel(host, settings, classified) {
     return null;
   }
 
-  var hvacItems = buildHVACCardItems(classified, null);
+  var ambienteItems = buildAmbienteCardItems(classified, null);
   var hvacDevices = getHVACDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
 
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.environmentsLabel,
     icon: '🌡️',
-    quantity: hvacItems.length,
-    items: hvacItems,
+    quantity: ambienteItems.length,
+    items: ambienteItems,
+    cardType: 'ambiente',
     panelBackground: settings.environmentsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
     titleStyle: {
@@ -1420,7 +1509,7 @@ function mountAmbientesPanel(host, settings, classified) {
         currentFilter.categories = selectedCategories;
         currentFilter.sortId = sortOption ? sortOption.id : null;
         // Filter and sort items
-        var filteredItems = buildHVACCardItems(classified, _selectedAmbiente).filter(function (item) {
+        var filteredItems = buildAmbienteCardItems(classified, _selectedAmbiente).filter(function (item) {
           if (!selectedCategories || selectedCategories.length === 0) return true;
           var context = item.source?.context || '';
           return selectedCategories.includes(context);
@@ -1429,12 +1518,12 @@ function mountAmbientesPanel(host, settings, classified) {
           filteredItems.sort(function (a, b) {
             var valA, valB;
             if (sortOption.field === 'label') {
-              valA = a.source?.name || '';
-              valB = b.source?.name || '';
+              valA = a.ambienteData?.label || '';
+              valB = b.ambienteData?.label || '';
               return sortOption.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
             }
-            valA = a.source?.[sortOption.field] || a.source?.temperature || 0;
-            valB = b.source?.[sortOption.field] || b.source?.temperature || 0;
+            valA = a.ambienteData?.temperature || 0;
+            valB = b.ambienteData?.temperature || 0;
             return sortOption.direction === 'desc' ? valB - valA : valA - valB;
           });
         }
@@ -1450,8 +1539,12 @@ function mountAmbientesPanel(host, settings, classified) {
       }
     },
     handleClickCard: function (item) {
-      LogHelper.log('[MAIN_BAS] HVAC device clicked:', item.source);
-      window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+      LogHelper.log('[MAIN_BAS] Ambiente clicked:', item.ambienteData);
+      window.dispatchEvent(new CustomEvent('bas:ambiente-clicked', { detail: { ambiente: item.ambienteData, source: item.source } }));
+    },
+    handleToggleRemote: function (isOn, item) {
+      LogHelper.log('[MAIN_BAS] Ambiente remote toggle:', isOn, item.ambienteData);
+      window.dispatchEvent(new CustomEvent('bas:ambiente-remote-toggle', { detail: { isOn: isOn, ambiente: item.ambienteData, source: item.source } }));
     },
   });
 
@@ -2034,6 +2127,8 @@ function fixContainerHeights(root) {
 
 self.onInit = async function () {
   _ctx = self.ctx;
+
+  console.log('[MAIN_BAS] onInit called, ctx:', _ctx);
 
   // Enable debug mode from settings (default: true, set false to disable)
   DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode !== false;

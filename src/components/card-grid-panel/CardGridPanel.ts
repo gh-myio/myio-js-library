@@ -15,7 +15,15 @@
  */
 
 import { renderCardComponentV6 } from '../template-card-v6/template-card-v6.js';
+import { renderCardAmbienteV6 } from '../template-card-ambiente-v6/template-card-ambiente-v6.js';
 import { HeaderPanelComponent, HeaderPanelStyle } from '../header-panel/HeaderPanelComponent';
+
+/**
+ * Card type for the grid
+ * - 'device': Standard device card (renderCardComponentV6)
+ * - 'ambiente': Ambiente card with aggregated metrics (renderCardAmbienteV6)
+ */
+export type CardType = 'device' | 'ambiente';
 
 // ────────────────────────────────────────────
 // Types
@@ -51,6 +59,12 @@ export interface CardGridPanelOptions {
   /** Items to render as cards */
   items: CardGridItem[];
   /**
+   * Card type to render:
+   * - 'device': Standard device card (default)
+   * - 'ambiente': Ambiente card with aggregated metrics
+   */
+  cardType?: CardType;
+  /**
    * Panel background - can be:
    * - Hex color: '#e8f4fc'
    * - RGB/RGBA: 'rgba(0,100,200,0.1)'
@@ -70,6 +84,8 @@ export interface CardGridPanelOptions {
   handleActionReport?: (item: CardGridItem) => void;
   /** Callback for card's settings action button (lateral piano-key) */
   handleActionSettings?: (item: CardGridItem) => void;
+  /** Callback for ambiente card remote toggle (only for cardType='ambiente') */
+  handleToggleRemote?: (isOn: boolean, item: CardGridItem) => void;
   /** Empty state message */
   emptyMessage?: string;
   /** Min card width for the auto-fill grid (default: 140px) */
@@ -333,11 +349,13 @@ export class CardGridPanel {
 
     const {
       items,
+      cardType,
       cardCustomStyle,
       handleClickCard,
       handleActionDashboard,
       handleActionReport,
       handleActionSettings,
+      handleToggleRemote,
       emptyMessage,
       showTempRangeTooltip,
     } = this.options;
@@ -351,28 +369,58 @@ export class CardGridPanel {
     }
 
     items.forEach(item => {
-      const cardResult = (renderCardComponentV6 as Function)({
-        entityObject: item.entityObject,
-        handleActionDashboard: handleActionDashboard
-          ? () => handleActionDashboard(item)
-          : undefined,
-        handleActionReport: handleActionReport
-          ? () => handleActionReport(item)
-          : undefined,
-        handleActionSettings: handleActionSettings
-          ? () => handleActionSettings(item)
-          : undefined,
-        handleSelect: undefined,
-        handInfo: undefined,
-        handleClickCard: () => {
-          handleClickCard?.(item);
-        },
-        enableSelection: false,
-        enableDragDrop: false,
-        useNewComponents: true,
-        showTempRangeTooltip: showTempRangeTooltip || false,
-        customStyle: cardCustomStyle || undefined,
-      });
+      let cardResult: [HTMLElement, unknown] | null = null;
+
+      if (cardType === 'ambiente') {
+        // Use ambiente card renderer
+        // The item should have ambienteData instead of entityObject
+        const ambienteData = (item as any).ambienteData || item.entityObject;
+        cardResult = (renderCardAmbienteV6 as Function)({
+          ambienteData: ambienteData,
+          handleActionDashboard: handleActionDashboard
+            ? () => handleActionDashboard(item)
+            : undefined,
+          handleActionReport: handleActionReport
+            ? () => handleActionReport(item)
+            : undefined,
+          handleActionSettings: handleActionSettings
+            ? () => handleActionSettings(item)
+            : undefined,
+          handleClickCard: handleClickCard
+            ? () => handleClickCard(item)
+            : undefined,
+          handleToggleRemote: handleToggleRemote
+            ? (isOn: boolean) => handleToggleRemote(isOn, item)
+            : undefined,
+          enableSelection: false,
+          enableDragDrop: false,
+          customStyle: cardCustomStyle || undefined,
+        });
+      } else {
+        // Default: Use device card renderer
+        cardResult = (renderCardComponentV6 as Function)({
+          entityObject: item.entityObject,
+          handleActionDashboard: handleActionDashboard
+            ? () => handleActionDashboard(item)
+            : undefined,
+          handleActionReport: handleActionReport
+            ? () => handleActionReport(item)
+            : undefined,
+          handleActionSettings: handleActionSettings
+            ? () => handleActionSettings(item)
+            : undefined,
+          handleSelect: undefined,
+          handInfo: undefined,
+          handleClickCard: () => {
+            handleClickCard?.(item);
+          },
+          enableSelection: false,
+          enableDragDrop: false,
+          useNewComponents: true,
+          showTempRangeTooltip: showTempRangeTooltip || false,
+          customStyle: cardCustomStyle || undefined,
+        });
+      }
 
       if (cardResult && cardResult[0]) {
         const wrapper = document.createElement('div');

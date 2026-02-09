@@ -253,6 +253,9 @@ export {
   renderCardComponent as renderCardComponentV6Alias,
 } from './components/template-card-v6/template-card-v6.js';
 
+// Ambiente card component (v6) - for BAS dashboard
+export { renderCardAmbienteV6 } from './components/template-card-ambiente-v6/template-card-ambiente-v6.js';
+
 // HeaderPanelComponent — Reusable header component for panels
 export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK } from './components/header-panel/index';
 export type { HeaderPanelStyle, HeaderPanelOptions } from './components/header-panel/index';
