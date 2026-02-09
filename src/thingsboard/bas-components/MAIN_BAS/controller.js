@@ -470,8 +470,8 @@ function parseDevicesFromData(data) {
       return;
     }
 
-    // Detect domain and context (using library function per RFC-0111)
-    var domain = window.MyIOLibrary.detectDomain({ deviceType: deviceType });
+    // Detect domain (using library function per RFC-0111)
+    var domain = window.MyIOLibrary.getDomainFromDeviceType(deviceType);
     var context = detectContextForBAS(deviceType, deviceProfile, identifier, domain);
 
     // Build device object based on domain

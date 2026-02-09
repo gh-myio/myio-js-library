@@ -6,6 +6,8 @@
  * @version 1.0.0
  */
 
+import { getDomainFromDeviceType, DomainType as DeviceItemDomainType } from './deviceItem.js';
+
 /**
  * Domain types for device classification
  * @enum {string}
@@ -36,35 +38,6 @@ export const ContextType = {
   TERMOSTATO: 'termostato',
   TERMOSTATO_EXTERNAL: 'termostato_external',
 };
-
-/**
- * Detect the domain of a device based on its deviceType.
- *
- * @param {Object} device - Device object with deviceType property
- * @param {string} [device.deviceType] - The device type string
- * @returns {'energy' | 'water' | 'temperature'} The detected domain
- *
- * @example
- * detectDomain({ deviceType: 'HIDROMETRO' }); // 'water'
- * detectDomain({ deviceType: 'TERMOSTATO' }); // 'temperature'
- * detectDomain({ deviceType: '3F_MEDIDOR' }); // 'energy'
- */
-export function detectDomain(device) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-
-  // Water detection: HIDROMETRO or HIDROMETRO_AREA_COMUM
-  if (deviceType.includes('HIDROMETRO') || deviceType.includes('HIDRO')) {
-    return DomainType.WATER;
-  }
-
-  // Temperature detection: TERMOSTATO or TERMOSTATO_EXTERNAL
-  if (deviceType.includes('TERMOSTATO')) {
-    return DomainType.TEMPERATURE;
-  }
-
-  // Default: Energy (3F_MEDIDOR, ENTRADA, RELOGIO, TRAFO, SUBESTACAO, etc.)
-  return DomainType.ENERGY;
-}
 
 /**
  * RFC-0111: Detect device context based on deviceType, deviceProfile, and identifier.
@@ -190,7 +163,7 @@ export function detectContext(device, domain) {
  * // Returns { domain: 'water', context: 'hidrometro_area_comum' }
  */
 export function detectDomainAndContext(device) {
-  const domain = detectDomain(device);
+  const domain = getDomainFromDeviceType(device?.deviceType);
   const context = detectContext(device, domain);
 
   return { domain, context };

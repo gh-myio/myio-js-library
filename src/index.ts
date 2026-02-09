@@ -101,6 +101,7 @@ export {
   DeviceCategory,
   isTankDevice,
   isHydrometerDevice,
+  isSolenoidDevice,
   isTemperatureDevice,
   isEnergyDevice,
   getDomainFromDeviceType,
@@ -114,7 +115,6 @@ export {
 export {
   DomainType as DeviceDomainType,
   ContextType as DeviceContextType,
-  detectDomain,
   detectContext,
   detectDomainAndContext,
   mapConnectionStatus,

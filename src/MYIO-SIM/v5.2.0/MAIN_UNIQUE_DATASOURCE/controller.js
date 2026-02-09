@@ -5586,7 +5586,7 @@ function classifyAllDevices(data) {
   // Process each device with all its rows
   for (const rows of deviceRowsMap.values()) {
     const device = extractDeviceMetadataFromRows(rows);
-    const domain = window.MyIOLibrary.detectDomain(device);
+    const domain = window.MyIOLibrary.getDomainFromDeviceType(device.deviceType);
     const context = window.MyIOLibrary.detectContext(device, domain);
 
     if (classified[domain]?.[context]) {

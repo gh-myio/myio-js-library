@@ -65,6 +65,16 @@ export function isHydrometerDevice(deviceType) {
 }
 
 /**
+ * Checks if device type is a solenoid valve (water infrastructure)
+ * @param {string} deviceType - Device type string
+ * @returns {boolean}
+ */
+export function isSolenoidDevice(deviceType) {
+  const dt = String(deviceType || '').toUpperCase();
+  return dt.includes('SOLENOIDE');
+}
+
+/**
  * Checks if device type is a temperature sensor
  * @param {string} deviceType - Device type string
  * @returns {boolean}
@@ -90,7 +100,7 @@ export function isEnergyDevice(deviceType) {
  * @returns {string} Domain: 'energy', 'water', or 'temperature'
  */
 export function getDomainFromDeviceType(deviceType) {
-  if (isTankDevice(deviceType) || isHydrometerDevice(deviceType)) {
+  if (isTankDevice(deviceType) || isHydrometerDevice(deviceType) || isSolenoidDevice(deviceType)) {
     return DomainType.WATER;
   }
   if (isTemperatureDevice(deviceType)) {
