@@ -2156,7 +2156,8 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     showAllOption: true,
     allLabel: 'HOME',
     sortOrder: 'asc',
-    excludePartOfLabel: hierarchyAvailable ? undefined : '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels (datasource only)
+    //excludePartOfLabel: hierarchyAvailable ? undefined : '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels (datasource only)
+    excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels (datasource only)
     titleStyle: sidebarHeaderStyle,
     showFilter: true,
     showMaximize: true,
@@ -2405,7 +2406,8 @@ function mountChartPanel(hostEl, settings) {
     btn.dataset.domain = domain;
 
     // Apply premium green tab style
-    btn.style.color = domain === _currentChartDomain ? chartHeaderStyle.tabActiveColor : chartHeaderStyle.tabColor;
+    btn.style.color =
+      domain === _currentChartDomain ? chartHeaderStyle.tabActiveColor : chartHeaderStyle.tabColor;
     btn.style.background = domain === _currentChartDomain ? chartHeaderStyle.tabActiveBg : 'transparent';
 
     btn.addEventListener('mouseenter', function () {
