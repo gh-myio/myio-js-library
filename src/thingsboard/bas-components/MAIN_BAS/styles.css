@@ -425,6 +425,12 @@ tb-html-widget > div,
   gap: 0 !important;
 }
 
+/* EntityListPanel subtitle - white color for dark background */
+.myio-elp__subtitle {
+  color: rgba(255, 255, 255, 0.7) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.15) !important;
+}
+
 /* Card wrapper inside grid - ensure proper sizing */
 .myio-cgp__card-wrapper {
   min-width: 0 !important;
