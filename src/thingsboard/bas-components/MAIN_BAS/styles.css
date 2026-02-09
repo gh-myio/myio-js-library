@@ -198,7 +198,7 @@ tb-html-widget > div,
 }
 
 /* ========================================
-   CHARTS SLOT — Tab bar + chart
+   CHARTS SLOT — Header + Tab bar + chart
    col 1-2, row 2  (60% × 50%)
    ======================================== */
 .bas-charts-slot {
@@ -207,58 +207,123 @@ tb-html-widget > div,
   padding: 8px 12px 12px;
 }
 
-/* Tab bar */
+/* Chart panel wrapper */
+.bas-chart-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #faf8f1;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e8e4d9;
+}
+
+/* Chart header - inspired by HeaderPanelComponent */
+.bas-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 40px;
+  min-height: 40px;
+  background: linear-gradient(135deg, #f8f6f0 0%, #faf8f1 100%);
+  border-bottom: 1px solid #e8e4d9;
+  border-top: 2px solid rgba(47, 88, 72, 0.3);
+  flex-shrink: 0;
+}
+
+.bas-chart-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.bas-chart-header__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.bas-chart-header__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tab bar - centered in header */
 .bas-chart-tabs {
   display: flex;
-  gap: 0;
-  margin-bottom: 8px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
-  flex-shrink: 0 !important;
-  flex-grow: 0 !important;
-  height: auto !important;
-  min-height: auto !important;
-  max-height: none !important;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+  margin: 0 16px;
 }
 
 .bas-chart-tab {
-  padding: 7px 16px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
   cursor: pointer;
   border: none;
-  background: none;
+  background: transparent;
   font-family: inherit;
   position: relative;
-  transition: color 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
+  border-radius: 6px;
 }
 
 .bas-chart-tab:hover {
-  color: rgba(255, 255, 255, 0.75);
+  background: rgba(47, 88, 72, 0.08);
+  color: #475569;
 }
 
 .bas-chart-tab--active {
-  color: #3d7a62;
+  background: rgba(47, 88, 72, 0.15);
+  color: #2F5848;
   font-weight: 600;
 }
 
-.bas-chart-tab--active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #3d7a62;
-  border-radius: 1px 1px 0 0;
+/* Action buttons */
+.bas-chart-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bas-chart-header__btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: all 0.15s ease;
+}
+
+.bas-chart-header__btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1e293b;
+}
+
+.bas-chart-header__btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Chart card container */
 .bas-chart-card {
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  border-radius: 0 0 10px 10px;
   padding: 14px;
   flex: 1 1 auto !important;
   min-height: 0 !important;
@@ -325,6 +390,8 @@ tb-html-widget > div,
   overflow-y: auto !important;
   align-content: start !important; /* Cards align top, use natural height */
   gap: 16px !important; /* Ensure gap between cards in grid */
+  row-gap: 16px !important;
+  column-gap: 16px !important;
 }
 
 /* ========================================

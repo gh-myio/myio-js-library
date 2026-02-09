@@ -31,9 +31,9 @@
         "default": "Ambientes"
       },
       "pumpsMotorsLabel": {
-        "title": "Pumps & Motors Section Label",
+        "title": "Energy Section Label",
         "type": "string",
-        "default": "Bombas e Motores"
+        "default": "Energia"
       },
       "temperatureChartTitle": {
         "title": "Temperature Chart Title",

@@ -133,6 +133,8 @@ const PANEL_CSS = `
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr));
     gap: 16px;
+    row-gap: 16px;
+    column-gap: 16px;
     align-content: start;
   }
 
@@ -146,12 +148,15 @@ const PANEL_CSS = `
     /* Allow cards to size naturally */
     display: flex;
     flex-direction: column;
+    /* Ensure gap is respected - grid gap should handle this but adding as fallback */
+    margin: 0;
   }
 
   /* Card should fill wrapper but not be constrained */
   .myio-cgp__card-wrapper > * {
     flex: 1;
     min-height: 0;
+    margin: 0;
   }
 
   .myio-cgp__empty {

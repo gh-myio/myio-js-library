@@ -34,12 +34,14 @@
 
 // ============================================================================
 // Classification Constants (RFC-0142)
+// Domains: energy | water | temperature (NO motor domain - motors are energy)
 // ============================================================================
 
 var OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
 
 var ENTRADA_TYPES = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
 
+// Motor/pump types are ENERGY domain, context 'bomba' or 'motor'
 var MOTOR_TYPES = ['BOMBA', 'MOTOR', 'BOMBA_HIDRAULICA', 'BOMBA_INCENDIO', 'BOMBA_CAG'];
 
 var HVAC_TYPES = ['TERMOSTATO', 'CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO'];
@@ -81,7 +83,7 @@ function getSettings(ctx) {
     dashboardTitle: widgetSettings.dashboardTitle ?? 'DASHBOARD',
     sidebarLabel: widgetSettings.sidebarLabel ?? 'Locais',
     environmentsLabel: widgetSettings.environmentsLabel ?? 'Ambientes',
-    pumpsMotorsLabel: widgetSettings.pumpsMotorsLabel ?? 'Bombas e Motores',
+    pumpsMotorsLabel: widgetSettings.pumpsMotorsLabel ?? 'Energia',
     temperatureChartTitle:
       widgetSettings.temperatureChartTitle ?? 'Temperatura do dia atual de todos os ambientes',
     consumptionChartTitle:
@@ -127,13 +129,14 @@ function isOcultosDevice(deviceProfile) {
 
 /**
  * Detect domain from deviceType
- * Order matters: Check water types FIRST, then HVAC/temperature, then motors
+ * Domains: energy | water | temperature (NO motor domain)
+ * Motors/pumps are classified as 'energy' domain
  */
 function detectDomain(deviceType) {
   var dt = String(deviceType || '').toUpperCase();
   var i;
 
-  // Check water types FIRST (before energy default)
+  // Check water types FIRST
   for (i = 0; i < WATER_TYPES.length; i++) {
     if (dt.includes(WATER_TYPES[i])) {
       return 'water';
@@ -147,66 +150,57 @@ function detectDomain(deviceType) {
     }
   }
 
-  // Check for motor types
-  for (i = 0; i < MOTOR_TYPES.length; i++) {
-    if (dt.includes(MOTOR_TYPES[i])) {
-      return 'motor';
-    }
-  }
-
+  // Everything else is energy (including MOTOR_TYPES)
   return 'energy';
 }
 
 /**
  * Detect context within domain
+ * Uses MyIOLibrary.detectContext for standard contexts,
+ * with additional BAS-specific handling for motors (bomba/motor) and water (caixadagua, solenoide)
+ *
+ * Domains: energy | water | temperature
+ * Motors/pumps are energy domain with context 'bomba' or 'motor'
  */
-function detectContext(deviceType, deviceProfile, identifier, domain) {
+function detectContextForBAS(deviceType, deviceProfile, identifier, domain) {
   var dt = String(deviceType || '').toUpperCase();
   var dp = String(deviceProfile || '').toUpperCase();
-  var id = String(identifier || '').toUpperCase();
 
+  // Water domain: check BAS-specific contexts first (caixadagua, solenoide)
   if (domain === 'water') {
-    if (dt.includes('HIDROMETRO_SHOPPING') || dp.includes('HIDROMETRO_SHOPPING')) {
-      return 'hidrometro_entrada';
-    }
-    if (dp === 'HIDROMETRO_AREA_COMUM' && id === 'BANHEIROS') {
-      return 'banheiros';
-    }
-    if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_AREA_COMUM') {
-      return 'hidrometro_area_comum';
-    }
     if (dt.includes('CAIXA_DAGUA')) {
       return 'caixadagua';
     }
     if (dt.includes('SOLENOIDE')) {
       return 'solenoide';
     }
-    return 'hidrometro';
   }
 
-  if (domain === 'temperature') {
-    if (dt.includes('TERMOSTATO_EXTERNAL') || dp.includes('EXTERNAL')) {
-      return 'termostato_external';
+  // Energy domain: check for motor/pump types (BAS-specific contexts)
+  if (domain === 'energy') {
+    // Check if it's a motor/pump type
+    for (var i = 0; i < MOTOR_TYPES.length; i++) {
+      if (dt.includes(MOTOR_TYPES[i]) || dp.includes(MOTOR_TYPES[i])) {
+        // Specific pump types
+        if (dt.includes('BOMBA') || dp.includes('BOMBA')) {
+          return 'bomba';
+        }
+        return 'motor';
+      }
     }
-    return 'termostato';
   }
 
-  if (domain === 'motor') {
-    if (dt.includes('BOMBA') || dp.includes('BOMBA')) {
-      return 'bomba';
-    }
-    return 'motor';
+  // Use library for standard water/temperature/energy contexts
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.detectContext) {
+    var deviceObj = {
+      deviceType: deviceType,
+      deviceProfile: deviceProfile,
+      identifier: identifier,
+    };
+    return MyIOLibrary.detectContext(deviceObj, domain);
   }
 
-  // Energy domain
-  for (var i = 0; i < ENTRADA_TYPES.length; i++) {
-    if (dt.includes(ENTRADA_TYPES[i]) || dp.includes(ENTRADA_TYPES[i])) {
-      return 'entrada';
-    }
-  }
-  if (dt === '3F_MEDIDOR' && dp === '3F_MEDIDOR') {
-    return 'stores';
-  }
+  // Fallback if library not available
   return 'equipments';
 }
 
@@ -271,14 +265,12 @@ function parseDevicesFromData(data) {
       termostato: [],
       termostato_external: [],
     },
-    motor: {
-      bomba: [],
-      motor: [],
-    },
     energy: {
       entrada: [],
       stores: [],
       equipments: [],
+      bomba: [], // Motors/pumps are ENERGY domain
+      motor: [], // Motors are ENERGY domain
     },
     ocultos: [],
   };
@@ -462,7 +454,7 @@ function parseDevicesFromData(data) {
 
     // Detect domain and context
     var domain = detectDomain(deviceType);
-    var context = detectContext(deviceType, deviceProfile, identifier, domain);
+    var context = detectContextForBAS(deviceType, deviceProfile, identifier, domain);
 
     // Build device object based on domain
     var device = {
@@ -499,13 +491,15 @@ function parseDevicesFromData(data) {
       device.setpoint = parseFloat(cd.setpoint || cd.setPoint || 0) || null;
       device.consumption = parseFloat(cd.consumption || 0) || null;
       device.status = active ? 'active' : 'inactive';
-    } else if (domain === 'motor') {
-      device.consumption = parseFloat(cd.consumption || cd.power || 0);
-      device.status = device.consumption > 0 ? 'running' : 'stopped';
-      device.type = context === 'bomba' ? 'pump' : 'motor';
     } else {
-      // Energy
+      // Energy domain (includes motors/pumps)
       device.consumption = parseFloat(cd.consumption || cd.energy || cd.power || 0);
+
+      // Motors/pumps are energy domain with context 'bomba' or 'motor'
+      if (context === 'bomba' || context === 'motor') {
+        device.status = device.consumption > 0 ? 'running' : 'stopped';
+        device.type = context === 'bomba' ? 'pump' : 'motor';
+      }
     }
 
     // Add device to devices list
@@ -529,9 +523,6 @@ function parseDevicesFromData(data) {
     }),
     temperature: Object.keys(classified.temperature).map(function (k) {
       return k + ':' + classified.temperature[k].length;
-    }),
-    motor: Object.keys(classified.motor).map(function (k) {
-      return k + ':' + classified.motor[k].length;
     }),
     energy: Object.keys(classified.energy).map(function (k) {
       return k + ':' + classified.energy[k].length;
@@ -757,12 +748,14 @@ function getHVACDevicesFromClassified(classified) {
 }
 
 /**
- * Get all motor devices from classified structure
+ * Get all energy equipment devices from classified structure
+ * Energy domain contexts: entrada, stores, equipments (+ bomba, motor)
+ * For the Energia panel, we show: entrada, stores, equipments
  */
-function getMotorDevicesFromClassified(classified) {
-  if (!classified || !classified.motor) return [];
-  var motor = classified.motor;
-  return [].concat(motor.bomba || [], motor.motor || []);
+function getEnergyEquipmentDevicesFromClassified(classified) {
+  if (!classified || !classified.energy) return [];
+  var energy = classified.energy;
+  return [].concat(energy.entrada || [], energy.stores || [], energy.equipments || []);
 }
 
 /**
@@ -843,27 +836,37 @@ function buildHVACCardItems(classified, selectedAmbienteId) {
 }
 
 // ============================================================================
-// Motor device type/status mappings
+// Energy device type/status mappings
 // ============================================================================
 
-var MOTOR_TYPE_MAP = {
-  pump: 'BOMBA_HIDRAULICA',
-  motor: 'MOTOR',
-  other: 'MOTOR',
+var ENERGY_TYPE_MAP = {
+  entrada: 'ENTRADA',
+  store: '3F_MEDIDOR',
+  equipment: '3F_MEDIDOR',
 };
 
-var MOTOR_STATUS_MAP = {
-  running: 'online',
-  stopped: 'offline',
-  unknown: 'no_info',
+var ENERGY_STATUS_MAP = {
+  online: 'online',
+  offline: 'offline',
+  no_info: 'no_info',
 };
 
 /**
- * Convert a motor device to an entityObject for renderCardComponentV6
+ * Convert an energy device to an entityObject for renderCardComponentV6
+ * Uses library's isEntradaDevice, isStoreDevice, isEquipmentDevice for classification
  */
-function motorDeviceToEntityObject(device) {
-  var deviceType = MOTOR_TYPE_MAP[device.type] || 'MOTOR';
-  var deviceStatus = MOTOR_STATUS_MAP[device.status] || 'no_info';
+function energyDeviceToEntityObject(device) {
+  var deviceType = device.deviceType || '3F_MEDIDOR';
+  var deviceStatus = ENERGY_STATUS_MAP[device.status] || 'no_info';
+
+  // Determine category for display
+  var category = 'equipment';
+  if (device.context === 'entrada') {
+    category = 'entrada';
+    deviceType = device.deviceType || 'ENTRADA';
+  } else if (device.context === 'stores') {
+    category = 'store';
+  }
 
   return {
     entityId: device.id,
@@ -873,19 +876,21 @@ function motorDeviceToEntityObject(device) {
     val: device.consumption,
     deviceStatus: deviceStatus,
     perc: 0,
+    category: category,
   };
 }
 
 /**
- * Build CardGridPanel items from motor devices
+ * Build CardGridPanel items from energy equipment devices
+ * Shows: entrada, stores, equipments
  * @param {Object} classified - Classified device structure
  * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
  */
-function buildMotorCardItems(classified, selectedAmbienteId) {
-  var motorDevices = getMotorDevicesFromClassified(classified);
-  var filtered = motorDevices;
+function buildEnergyCardItems(classified, selectedAmbienteId) {
+  var energyDevices = getEnergyEquipmentDevicesFromClassified(classified);
+  var filtered = energyDevices;
   if (selectedAmbienteId) {
-    filtered = motorDevices.filter(function (d) {
+    filtered = energyDevices.filter(function (d) {
       return d.id === selectedAmbienteId;
     });
   }
@@ -893,7 +898,7 @@ function buildMotorCardItems(classified, selectedAmbienteId) {
   return filtered.map(function (device) {
     return {
       id: device.id,
-      entityObject: motorDeviceToEntityObject(device),
+      entityObject: energyDeviceToEntityObject(device),
       source: device,
     };
   });
@@ -906,11 +911,43 @@ function buildMotorCardItems(classified, selectedAmbienteId) {
 let _maximizeOverlay = null;
 let _maximizedPanel = null;
 
+// Theme colors for maximize modal
+var MAXIMIZE_THEME = {
+  light: {
+    overlayBg: 'rgba(255, 255, 255, 0.85)',
+    panelBg: '#ffffff',
+    panelShadow: '0 25px 80px rgba(0, 0, 0, 0.2)',
+    panelBorder: '1px solid #e2e8f0',
+    closeBtnBg: 'rgba(0, 0, 0, 0.05)',
+    closeBtnBgHover: 'rgba(0, 0, 0, 0.1)',
+    closeBtnColor: '#475569',
+  },
+  dark: {
+    overlayBg: 'rgba(0, 0, 0, 0.75)',
+    panelBg: '#1a1f2e',
+    panelShadow: '0 25px 80px rgba(0, 0, 0, 0.5)',
+    panelBorder: '1px solid rgba(255, 255, 255, 0.1)',
+    closeBtnBg: 'rgba(255, 255, 255, 0.1)',
+    closeBtnBgHover: 'rgba(255, 255, 255, 0.2)',
+    closeBtnColor: '#e2e8f0',
+  },
+};
+
+/**
+ * Get current theme mode (default: light)
+ */
+function getMaximizeTheme() {
+  var mode = (_settings && _settings.defaultThemeMode) || 'light';
+  return MAXIMIZE_THEME[mode] || MAXIMIZE_THEME.light;
+}
+
 /**
  * Create maximize overlay with blur background
  */
 function createMaximizeOverlay() {
   if (_maximizeOverlay) return _maximizeOverlay;
+
+  var theme = getMaximizeTheme();
 
   var overlay = document.createElement('div');
   overlay.className = 'bas-maximize-overlay';
@@ -918,9 +955,9 @@ function createMaximizeOverlay() {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: ${theme.overlayBg};
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -950,26 +987,106 @@ function createMaximizeOverlay() {
 
 /**
  * Show panel in maximized mode with blur background
+ * Supports light/dark theme based on settings.defaultThemeMode (default: light)
+ *
+ * @param {HTMLElement} panelElement - The panel to maximize
+ * @param {string} panelTitle - Title for debugging
+ * @param {Object} options - Additional options
+ * @param {boolean} options.isChart - If true, recreate chart instead of cloning canvas
+ * @param {string} options.chartDomain - Chart domain for recreating (energy|water|temperature)
  */
-function showMaximizedPanel(panelElement, panelTitle) {
+function showMaximizedPanel(panelElement, panelTitle, options) {
+  var opts = options || {};
+  var theme = getMaximizeTheme();
+
+  // Recreate overlay with current theme
+  if (_maximizeOverlay) {
+    _maximizeOverlay.remove();
+    _maximizeOverlay = null;
+  }
   var overlay = createMaximizeOverlay();
 
-  // Clone the panel for maximized view
-  var clone = panelElement.cloneNode(true);
-  clone.style.cssText = `
+  // Create panel container
+  var panelContainer = document.createElement('div');
+  panelContainer.className = 'bas-maximize-panel';
+  panelContainer.style.cssText = `
     width: 90vw;
     height: 85vh;
     max-width: 1400px;
     max-height: 900px;
-    background: #1a1f2e;
+    background: ${theme.panelBg};
     border-radius: 16px;
-    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+    box-shadow: ${theme.panelShadow};
+    border: ${theme.panelBorder};
     overflow: hidden;
     transform: scale(0.95);
     transition: transform 0.2s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
   `;
 
-  // Add close button to clone
+  // For charts, we need to recreate the structure instead of cloning
+  if (opts.isChart) {
+    // Clone header only
+    var originalHeader = panelElement.querySelector('.bas-chart-header');
+    if (originalHeader) {
+      var headerClone = originalHeader.cloneNode(true);
+      headerClone.style.flexShrink = '0';
+
+      // Re-bind tab click handlers
+      var tabs = headerClone.querySelectorAll('.bas-chart-tab');
+      tabs.forEach(function (tab) {
+        var newTab = tab.cloneNode(true);
+        tab.parentNode.replaceChild(newTab, tab);
+        newTab.addEventListener('click', function () {
+          var domain = newTab.dataset.domain;
+          if (!domain) return;
+
+          // Update active state in header
+          headerClone.querySelectorAll('.bas-chart-tab').forEach(function (t) {
+            t.classList.remove('bas-chart-tab--active');
+          });
+          newTab.classList.add('bas-chart-tab--active');
+
+          // Recreate chart with new domain
+          var chartArea = panelContainer.querySelector('.bas-maximize-chart-area');
+          if (chartArea) {
+            switchChartDomainInContainer(domain, chartArea);
+          }
+        });
+      });
+
+      panelContainer.appendChild(headerClone);
+    }
+
+    // Create new chart area
+    var chartArea = document.createElement('div');
+    chartArea.className = 'bas-maximize-chart-area';
+    chartArea.style.cssText = `
+      flex: 1;
+      min-height: 0;
+      padding: 16px;
+      background: ${(_settings && _settings.chartPanelBackground) || '#ffffff'};
+      border-radius: 0 0 12px 12px;
+      overflow: hidden;
+    `;
+    panelContainer.appendChild(chartArea);
+
+    // Create a separate chart instance for the maximized view
+    var chartDomain = opts.chartDomain || _currentChartDomain;
+    switchChartDomainInContainer(chartDomain, chartArea);
+  } else {
+    // Standard panel - just clone
+    var clone = panelElement.cloneNode(true);
+    clone.style.width = '100%';
+    clone.style.height = '100%';
+    clone.style.maxWidth = 'none';
+    clone.style.maxHeight = 'none';
+    panelContainer.appendChild(clone);
+  }
+
+  // Add close button
   var closeBtn = document.createElement('button');
   closeBtn.innerHTML = '×';
   closeBtn.style.cssText = `
@@ -979,8 +1096,8 @@ function showMaximizedPanel(panelElement, panelTitle) {
     width: 36px;
     height: 36px;
     border: none;
-    background: rgba(255, 255, 255, 0.1);
-    color: #e2e8f0;
+    background: ${theme.closeBtnBg};
+    color: ${theme.closeBtnColor};
     font-size: 24px;
     line-height: 1;
     border-radius: 8px;
@@ -989,34 +1106,88 @@ function showMaximizedPanel(panelElement, panelTitle) {
     transition: background 0.15s ease;
   `;
   closeBtn.addEventListener('mouseenter', function () {
-    closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    closeBtn.style.background = theme.closeBtnBgHover;
   });
   closeBtn.addEventListener('mouseleave', function () {
-    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.style.background = theme.closeBtnBg;
   });
   closeBtn.addEventListener('click', closeMaximizedPanel);
+  panelContainer.appendChild(closeBtn);
 
-  // Wrap clone in container for positioning
+  // Wrap in container for positioning
   var container = document.createElement('div');
-  container.style.cssText = 'position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;';
-  container.appendChild(clone);
-  clone.appendChild(closeBtn);
+  container.style.cssText =
+    'position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;';
+  container.appendChild(panelContainer);
 
   overlay.innerHTML = '';
   overlay.appendChild(container);
 
   // Show overlay with animation
   overlay.style.pointerEvents = 'auto';
-  requestAnimationFrame(function () {
+  window.requestAnimationFrame(function () {
     overlay.style.opacity = '1';
-    clone.style.transform = 'scale(1)';
+    panelContainer.style.transform = 'scale(1)';
   });
 
-  _maximizedPanel = { overlay: overlay, clone: clone, title: panelTitle };
+  _maximizedPanel = { overlay: overlay, panel: panelContainer, title: panelTitle, isChart: opts.isChart };
 
   if (_settings && _settings.enableDebugMode) {
-    console.log('[MAIN_BAS] Panel maximized:', panelTitle);
+    console.log(
+      '[MAIN_BAS] Panel maximized:',
+      panelTitle,
+      '| theme:',
+      (_settings && _settings.defaultThemeMode) || 'light',
+      '| isChart:',
+      !!opts.isChart
+    );
   }
+}
+
+/**
+ * Create a chart instance in a specific container (for maximized view)
+ */
+var _maximizedChartInstance = null;
+
+function switchChartDomainInContainer(domain, container) {
+  // Destroy existing maximized chart
+  if (_maximizedChartInstance) {
+    _maximizedChartInstance.destroy();
+    _maximizedChartInstance = null;
+  }
+
+  // Clear container and create canvas
+  container.innerHTML = '';
+  var canvas = document.createElement('canvas');
+  canvas.id = 'bas-chart-canvas-maximized';
+  canvas.style.cssText = 'width: 100%; height: 100%;';
+  container.appendChild(canvas);
+
+  var cfg = CHART_DOMAIN_CONFIG[domain];
+  if (!cfg) return;
+
+  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumption7DaysChart) {
+    if (_settings && _settings.enableDebugMode) {
+      console.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
+    }
+    return;
+  }
+
+  _maximizedChartInstance = MyIOLibrary.createConsumption7DaysChart({
+    domain: domain,
+    containerId: 'bas-chart-canvas-maximized',
+    unit: cfg.unit,
+    unitLarge: cfg.unitLarge,
+    thresholdForLargeUnit: cfg.threshold,
+    fetchData: createMockFetchData(domain),
+    defaultPeriod: 7,
+    defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+    theme: (_settings && _settings.defaultThemeMode) || 'dark',
+    showLegend: true,
+    fill: domain === 'temperature',
+  });
+
+  _maximizedChartInstance.render();
 }
 
 /**
@@ -1027,6 +1198,12 @@ function closeMaximizedPanel() {
 
   _maximizeOverlay.style.opacity = '0';
   _maximizeOverlay.style.pointerEvents = 'none';
+
+  // Clean up maximized chart instance
+  if (_maximizedChartInstance) {
+    _maximizedChartInstance.destroy();
+    _maximizedChartInstance = null;
+  }
 
   setTimeout(function () {
     _maximizeOverlay.innerHTML = '';
@@ -1066,40 +1243,66 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
 
   if (panelType === 'water') {
     // Water categories by device type
-    var hidroCount = devices.filter(function (d) { return d.type === 'hydrometer'; }).length;
-    var tankCount = devices.filter(function (d) { return d.type === 'tank'; }).length;
-    var solenoidCount = devices.filter(function (d) { return d.type === 'solenoid'; }).length;
+    var hidroCount = devices.filter(function (d) {
+      return d.type === 'hydrometer';
+    }).length;
+    var tankCount = devices.filter(function (d) {
+      return d.type === 'tank';
+    }).length;
+    var solenoidCount = devices.filter(function (d) {
+      return d.type === 'solenoid';
+    }).length;
 
     categories = [
       { id: 'HIDROMETRO', label: 'Hidrômetros', icon: '💧', count: hidroCount, selected: true },
-      { id: 'CAIXA_DAGUA', label: 'Caixas d\'Água', icon: '🛢️', count: tankCount, selected: true },
+      { id: 'CAIXA_DAGUA', label: "Caixas d'Água", icon: '🛢️', count: tankCount, selected: true },
       { id: 'SOLENOIDE', label: 'Solenoides', icon: '🔌', count: solenoidCount, selected: true },
     ];
     sortOptions = MyIOLibrary.WATER_SORT_OPTIONS || [];
   } else if (panelType === 'hvac') {
     // HVAC categories
-    var thermostatCount = devices.filter(function (d) { return d.context === 'termostato'; }).length;
-    var externalCount = devices.filter(function (d) { return d.context === 'termostato_external'; }).length;
+    var thermostatCount = devices.filter(function (d) {
+      return d.context === 'termostato';
+    }).length;
+    var externalCount = devices.filter(function (d) {
+      return d.context === 'termostato_external';
+    }).length;
 
     categories = [
       { id: 'termostato', label: 'Termostatos', icon: '🌡️', count: thermostatCount, selected: true },
-      { id: 'termostato_external', label: 'Sensores Externos', icon: '📡', count: externalCount, selected: true },
+      {
+        id: 'termostato_external',
+        label: 'Sensores Externos',
+        icon: '📡',
+        count: externalCount,
+        selected: true,
+      },
     ];
     sortOptions = MyIOLibrary.TEMPERATURE_SORT_OPTIONS || [];
-  } else if (panelType === 'motor') {
-    // Motor categories
-    var pumpCount = devices.filter(function (d) { return d.type === 'pump'; }).length;
-    var motorCount = devices.filter(function (d) { return d.type === 'motor'; }).length;
+  } else if (panelType === 'energy') {
+    // Energy categories: entrada, stores, equipments
+    var entradaCount = devices.filter(function (d) {
+      return d.context === 'entrada';
+    }).length;
+    var storesCount = devices.filter(function (d) {
+      return d.context === 'stores';
+    }).length;
+    var equipmentsCount = devices.filter(function (d) {
+      return d.context === 'equipments';
+    }).length;
 
     categories = [
-      { id: 'bomba', label: 'Bombas', icon: '💧', count: pumpCount, selected: true },
-      { id: 'motor', label: 'Motores', icon: '⚙️', count: motorCount, selected: true },
+      { id: 'entrada', label: 'Entradas', icon: '📥', count: entradaCount, selected: true },
+      { id: 'stores', label: 'Lojas', icon: '🏬', count: storesCount, selected: true },
+      { id: 'equipments', label: 'Equipamentos', icon: '⚙️', count: equipmentsCount, selected: true },
     ];
-    sortOptions = MyIOLibrary.MOTOR_SORT_OPTIONS || [];
+    sortOptions = MyIOLibrary.ENERGY_SORT_OPTIONS || [];
   }
 
   // Remove empty categories
-  categories = categories.filter(function (c) { return c.count > 0; });
+  categories = categories.filter(function (c) {
+    return c.count > 0;
+  });
 
   if (categories.length === 0) {
     console.log('[MAIN_BAS] No categories to filter');
@@ -1107,14 +1310,19 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
   }
 
   var modal = new MyIOLibrary.FilterModalComponent({
-    title: 'Filtrar ' + (panelType === 'water' ? 'Água' : panelType === 'hvac' ? 'Ambientes' : 'Motores'),
-    icon: panelType === 'water' ? '💧' : panelType === 'hvac' ? '🌡️' : '⚙️',
+    title: 'Filtrar ' + (panelType === 'water' ? 'Água' : panelType === 'hvac' ? 'Ambientes' : 'Energia'),
+    icon: panelType === 'water' ? '💧' : panelType === 'hvac' ? '🌡️' : '⚡',
     categories: categories,
     sortOptions: sortOptions,
     selectedSortId: currentFilter?.sortId || null,
+    themeMode: (_settings && _settings.defaultThemeMode) || 'light',
     onApply: function (selectedCategories, sortOption) {
       if (_settings && _settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Filter applied:', { panelType: panelType, categories: selectedCategories, sort: sortOption });
+        console.log('[MAIN_BAS] Filter applied:', {
+          panelType: panelType,
+          categories: selectedCategories,
+          sort: sortOption,
+        });
       }
       onApply(selectedCategories, sortOption);
     },
@@ -1152,7 +1360,12 @@ function mountWaterPanel(waterHost, settings, classified) {
     items: waterItems,
     panelBackground: settings.waterPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
-    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
+    titleStyle: {
+      fontSize: '0.7rem',
+      fontWeight: '600',
+      padding: '8px 12px 6px 12px',
+      letterSpacing: '0.5px',
+    },
     gridMinCardWidth: '180px',
     emptyMessage: 'Nenhum dispositivo',
     showSearch: true,
@@ -1226,7 +1439,12 @@ function mountAmbientesPanel(host, settings, classified) {
     items: hvacItems,
     panelBackground: settings.environmentsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
-    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
+    titleStyle: {
+      fontSize: '0.7rem',
+      fontWeight: '600',
+      padding: '8px 12px 6px 12px',
+      letterSpacing: '0.5px',
+    },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum ambiente',
     showSearch: true,
@@ -1280,27 +1498,38 @@ function mountAmbientesPanel(host, settings, classified) {
 }
 
 /**
- * Mount CardGridPanel into #bas-motors-host (pumps & motors)
+ * Mount CardGridPanel into #bas-motors-host (Energy: entrada, stores, equipments)
  */
-function mountMotorsPanel(host, settings, classified) {
-  console.log('[MAIN_BAS] mountMotorsPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
+function mountEnergyPanel(host, settings, classified) {
+  console.log('[MAIN_BAS] mountEnergyPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
   if (!MyIOLibrary.CardGridPanel) {
     console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
-  var motorItems = buildMotorCardItems(classified, null);
-  var motorDevices = getMotorDevicesFromClassified(classified);
+  var energyItems = buildEnergyCardItems(classified, null);
+  var energyDevices = getEnergyEquipmentDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
 
+  // Use 'Energia' as default label if pumpsMotorsLabel is the old default
+  var panelLabel = settings.pumpsMotorsLabel;
+  if (panelLabel === 'Bombas e Motores') {
+    panelLabel = 'Energia';
+  }
+
   var panel = new MyIOLibrary.CardGridPanel({
-    title: settings.pumpsMotorsLabel,
-    icon: '⚙️',
-    quantity: motorItems.length,
-    items: motorItems,
+    title: panelLabel,
+    icon: '⚡',
+    quantity: energyItems.length,
+    items: energyItems,
     panelBackground: settings.motorsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
-    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
+    titleStyle: {
+      fontSize: '0.7rem',
+      fontWeight: '600',
+      padding: '8px 12px 6px 12px',
+      letterSpacing: '0.5px',
+    },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum equipamento',
     showSearch: true,
@@ -1308,11 +1537,11 @@ function mountMotorsPanel(host, settings, classified) {
     showFilter: true,
     showMaximize: true,
     handleActionFilter: function () {
-      openFilterModal('motor', motorDevices, currentFilter, function (selectedCategories, sortOption) {
+      openFilterModal('energy', energyDevices, currentFilter, function (selectedCategories, sortOption) {
         currentFilter.categories = selectedCategories;
         currentFilter.sortId = sortOption ? sortOption.id : null;
         // Filter and sort items
-        var filteredItems = buildMotorCardItems(classified, _selectedAmbiente).filter(function (item) {
+        var filteredItems = buildEnergyCardItems(classified, _selectedAmbiente).filter(function (item) {
           if (!selectedCategories || selectedCategories.length === 0) return true;
           var context = item.source?.context || '';
           return selectedCategories.includes(context);
@@ -1336,14 +1565,14 @@ function mountMotorsPanel(host, settings, classified) {
     },
     onMaximizeToggle: function (isMaximized) {
       if (isMaximized) {
-        showMaximizedPanel(panel.getElement(), settings.pumpsMotorsLabel);
+        showMaximizedPanel(panel.getElement(), panelLabel);
       } else {
         closeMaximizedPanel();
       }
     },
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
-        console.log('[MAIN_BAS] Motor device clicked:', item.source);
+        console.log('[MAIN_BAS] Energy device clicked:', item.source);
       }
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
     },
@@ -1415,7 +1644,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
         _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, null));
       }
       if (_motorsPanel) {
-        _motorsPanel.setItems(buildMotorCardItems(_currentClassified, null));
+        _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, null));
       }
       if (panel) panel.setSelectedId(null);
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: null } }));
@@ -1430,7 +1659,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
         _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, item.id));
       }
       if (_motorsPanel) {
-        _motorsPanel.setItems(buildMotorCardItems(_currentClassified, item.id));
+        _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, item.id));
       }
       if (panel) panel.setSelectedId(item.id);
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: item.id } }));
@@ -1538,20 +1767,37 @@ function switchChartDomain(domain, chartContainer) {
   _chartInstance.render();
 }
 
+// SVG icons for chart header buttons
+var CHART_ICON_FILTER = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+var CHART_ICON_MAXIMIZE = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+
 /**
- * Mount chart tab bar + chart container into #bas-charts-host
+ * Mount chart panel with header (tabs + actions) + chart container
  */
 function mountChartPanel(hostEl, settings) {
   if (!hostEl) return;
 
   var domains = ['energy', 'water', 'temperature'];
 
-  // Build tab bar
-  var tabBar = window.document.createElement('div');
+  // Create panel wrapper
+  var panelWrapper = document.createElement('div');
+  panelWrapper.className = 'bas-chart-panel';
+
+  // Build header with tabs and action buttons
+  var header = document.createElement('div');
+  header.className = 'bas-chart-header';
+
+  // Left side: Icon + Title
+  var headerLeft = document.createElement('div');
+  headerLeft.className = 'bas-chart-header__left';
+  headerLeft.innerHTML = '<span class="bas-chart-header__icon">📊</span><span class="bas-chart-header__title">Consumo</span>';
+
+  // Center: Tabs
+  var tabBar = document.createElement('div');
   tabBar.className = 'bas-chart-tabs';
 
   domains.forEach(function (domain) {
-    var btn = window.document.createElement('button');
+    var btn = document.createElement('button');
     btn.className = 'bas-chart-tab' + (domain === _currentChartDomain ? ' bas-chart-tab--active' : '');
     btn.textContent = CHART_DOMAIN_CONFIG[domain].label;
     btn.dataset.domain = domain;
@@ -1569,6 +1815,39 @@ function mountChartPanel(hostEl, settings) {
     tabBar.appendChild(btn);
   });
 
+  // Right side: Action buttons (Filter + Maximize)
+  var headerRight = document.createElement('div');
+  headerRight.className = 'bas-chart-header__actions';
+
+  // Filter button
+  var filterBtn = document.createElement('button');
+  filterBtn.className = 'bas-chart-header__btn';
+  filterBtn.title = 'Filtrar';
+  filterBtn.innerHTML = CHART_ICON_FILTER;
+  filterBtn.addEventListener('click', function () {
+    // Open chart filter modal (period selection, chart type, etc.)
+    if (_settings && _settings.enableDebugMode) {
+      console.log('[MAIN_BAS] Chart filter clicked');
+    }
+    // TODO: Implement chart-specific filter modal
+  });
+  headerRight.appendChild(filterBtn);
+
+  // Maximize button
+  var maxBtn = document.createElement('button');
+  maxBtn.className = 'bas-chart-header__btn';
+  maxBtn.title = 'Maximizar';
+  maxBtn.innerHTML = CHART_ICON_MAXIMIZE;
+  maxBtn.addEventListener('click', function () {
+    showMaximizedPanel(panelWrapper, 'Consumo', { isChart: true, chartDomain: _currentChartDomain });
+  });
+  headerRight.appendChild(maxBtn);
+
+  // Assemble header
+  header.appendChild(headerLeft);
+  header.appendChild(tabBar);
+  header.appendChild(headerRight);
+
   // Build chart card container
   var chartCard = document.createElement('div');
   chartCard.className = 'bas-chart-card';
@@ -1578,8 +1857,10 @@ function mountChartPanel(hostEl, settings) {
     chartCard.style.backgroundColor = settings.chartPanelBackground;
   }
 
-  hostEl.appendChild(tabBar);
-  hostEl.appendChild(chartCard);
+  // Assemble panel
+  panelWrapper.appendChild(header);
+  panelWrapper.appendChild(chartCard);
+  hostEl.appendChild(panelWrapper);
 
   // Render default domain chart
   switchChartDomain(_currentChartDomain, chartCard);
@@ -1694,7 +1975,7 @@ async function initializeDashboard(
       hostExists: !!motorsHost,
     });
     if (settings.showPumpsMotors && motorsHost) {
-      _motorsPanel = mountMotorsPanel(motorsHost, settings, _currentClassified);
+      _motorsPanel = mountEnergyPanel(motorsHost, settings, _currentClassified);
       console.log('[MAIN_BAS] Motors panel mounted:', !!_motorsPanel);
     } else if (motorsHost) {
       motorsHost.style.display = 'none';
@@ -1703,19 +1984,19 @@ async function initializeDashboard(
     if (settings.enableDebugMode) {
       var waterDevices = getWaterDevicesFromClassified(_currentClassified);
       var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
-      var motorDevices = getMotorDevicesFromClassified(_currentClassified);
+      var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
 
       console.log('[MAIN_BAS] Dashboard initialized with:', {
         ambientes: parsed.ambientes.length,
         waterDevices: waterDevices.length,
         hvacDevices: hvacDevices.length,
-        motorDevices: motorDevices.length,
+        energyDevices: energyDevices.length,
         ocultosDevices: _currentClassified.ocultos.length,
         classified: _currentClassified,
         sidebarMounted: !!_ambientesListPanel,
         waterPanelMounted: !!_waterPanel,
         ambientesPanelMounted: !!_ambientesPanel,
-        motorsPanelMounted: !!_motorsPanel,
+        energyPanelMounted: !!_motorsPanel,
         chartMounted: !!_chartInstance,
         chartDomain: _currentChartDomain,
       });
@@ -1805,7 +2086,7 @@ self.onInit = async function () {
 
   // Apply main dashboard background (color or image)
   if (_settings.mainBackgroundImage) {
-    root.style.backgroundImage = 'url(\'' + _settings.mainBackgroundImage + '\')';
+    root.style.backgroundImage = "url('" + _settings.mainBackgroundImage + "')";
     root.style.backgroundSize = 'cover';
     root.style.backgroundPosition = 'center';
     root.style.backgroundRepeat = 'no-repeat';
@@ -1858,13 +2139,13 @@ self.onDataUpdated = function () {
   if (_settings && _settings.enableDebugMode) {
     var waterDevices = getWaterDevicesFromClassified(_currentClassified);
     var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
-    var motorDevices = getMotorDevicesFromClassified(_currentClassified);
+    var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
 
     console.log('[MAIN_BAS] onDataUpdated - Devices:', {
       ambientes: parsed.ambientes.length,
       water: waterDevices.length,
       hvac: hvacDevices.length,
-      motors: motorDevices.length,
+      energy: energyDevices.length,
       ocultos: _currentClassified.ocultos.length,
     });
   }
@@ -1899,7 +2180,7 @@ self.onDataUpdated = function () {
 
   // Update motors panel
   if (_motorsPanel) {
-    _motorsPanel.setItems(buildMotorCardItems(_currentClassified, _selectedAmbiente));
+    _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, _selectedAmbiente));
   }
 };
 
@@ -1920,7 +2201,12 @@ self.onDestroy = function () {
   }
   _activeFilterModal = null;
 
-  // Clean up maximize overlay
+  // Clean up maximize overlay and maximized chart
+  if (_maximizedChartInstance && _maximizedChartInstance.destroy) {
+    _maximizedChartInstance.destroy();
+  }
+  _maximizedChartInstance = null;
+
   if (_maximizeOverlay) {
     _maximizeOverlay.remove();
   }

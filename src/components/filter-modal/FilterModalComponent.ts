@@ -55,6 +55,8 @@ export interface FilterModalOptions {
   onClose: () => void;
   /** Enable grouping by category */
   groupByCategory?: boolean;
+  /** Theme mode: 'light' (default) or 'dark' */
+  themeMode?: 'light' | 'dark';
 }
 
 export interface FilterState {
@@ -84,8 +86,6 @@ const MODAL_CSS = `
   .myio-fm-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
     z-index: 10000;
     display: flex;
     align-items: center;
@@ -94,14 +94,24 @@ const MODAL_CSS = `
     transition: opacity 0.2s ease;
   }
 
+  /* Light theme overlay (default) */
+  .myio-fm-overlay--light {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Dark theme overlay */
+  .myio-fm-overlay--dark {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+  }
+
   .myio-fm-overlay--visible {
     opacity: 1;
   }
 
   .myio-fm {
-    background: #1a1f2e;
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     min-width: 360px;
     max-width: 480px;
     width: 90%;
@@ -114,6 +124,19 @@ const MODAL_CSS = `
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
 
+  /* Light theme modal (default) */
+  .myio-fm--light {
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e2e8f0;
+  }
+
+  /* Dark theme modal */
+  .myio-fm--dark {
+    background: #1a1f2e;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
   .myio-fm-overlay--visible .myio-fm {
     transform: scale(1) translateY(0);
   }
@@ -124,6 +147,14 @@ const MODAL_CSS = `
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
+  }
+
+  .myio-fm--light .myio-fm__header {
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  }
+
+  .myio-fm--dark .myio-fm__header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     background: linear-gradient(135deg, #1e2538 0%, #1a1f2e 100%);
   }
@@ -142,25 +173,45 @@ const MODAL_CSS = `
   .myio-fm__title {
     font-size: 1rem;
     font-weight: 600;
-    color: #e2e8f0;
     margin: 0;
+  }
+
+  .myio-fm--light .myio-fm__title {
+    color: #1e293b;
+  }
+
+  .myio-fm--dark .myio-fm__title {
+    color: #e2e8f0;
   }
 
   .myio-fm__close {
     width: 32px;
     height: 32px;
     border: none;
-    background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #94a3b8;
     transition: all 0.15s ease;
   }
 
-  .myio-fm__close:hover {
+  .myio-fm--light .myio-fm__close {
+    background: rgba(0, 0, 0, 0.05);
+    color: #64748b;
+  }
+
+  .myio-fm--light .myio-fm__close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #1e293b;
+  }
+
+  .myio-fm--dark .myio-fm__close {
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+  }
+
+  .myio-fm--dark .myio-fm__close:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #e2e8f0;
   }
@@ -190,10 +241,17 @@ const MODAL_CSS = `
   .myio-fm__section-title {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0;
+  }
+
+  .myio-fm--light .myio-fm__section-title {
+    color: #64748b;
+  }
+
+  .myio-fm--dark .myio-fm__section-title {
+    color: #64748b;
   }
 
   .myio-fm__section-actions {
@@ -214,7 +272,7 @@ const MODAL_CSS = `
 
   .myio-fm__section-btn:hover {
     background: rgba(61, 122, 98, 0.15);
-    color: #4ade80;
+    color: #2d5a48;
   }
 
   /* Categories */
@@ -229,31 +287,44 @@ const MODAL_CSS = `
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
-  .myio-fm__category:hover {
+  .myio-fm--light .myio-fm__category {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+
+  .myio-fm--light .myio-fm__category:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  .myio-fm--dark .myio-fm__category {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .myio-fm--dark .myio-fm__category:hover {
     background: rgba(255, 255, 255, 0.06);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
   .myio-fm__category--selected {
-    background: rgba(61, 122, 98, 0.15);
-    border-color: rgba(61, 122, 98, 0.3);
+    background: rgba(61, 122, 98, 0.1) !important;
+    border-color: rgba(61, 122, 98, 0.3) !important;
   }
 
   .myio-fm__category--selected:hover {
-    background: rgba(61, 122, 98, 0.2);
+    background: rgba(61, 122, 98, 0.15) !important;
   }
 
   .myio-fm__checkbox {
     width: 20px;
     height: 20px;
-    border: 2px solid #475569;
+    border: 2px solid #94a3b8;
     border-radius: 5px;
     display: flex;
     align-items: center;
@@ -283,8 +354,15 @@ const MODAL_CSS = `
   .myio-fm__category-label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #e2e8f0;
     margin: 0 0 2px 0;
+  }
+
+  .myio-fm--light .myio-fm__category-label {
+    color: #1e293b;
+  }
+
+  .myio-fm--dark .myio-fm__category-label {
+    color: #e2e8f0;
   }
 
   .myio-fm__category-count {
@@ -304,26 +382,38 @@ const MODAL_CSS = `
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
-  .myio-fm__sort-option:hover {
+  .myio-fm--light .myio-fm__sort-option {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+
+  .myio-fm--light .myio-fm__sort-option:hover {
+    background: #f1f5f9;
+  }
+
+  .myio-fm--dark .myio-fm__sort-option {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .myio-fm--dark .myio-fm__sort-option:hover {
     background: rgba(255, 255, 255, 0.06);
   }
 
   .myio-fm__sort-option--selected {
-    background: rgba(61, 122, 98, 0.15);
-    border-color: rgba(61, 122, 98, 0.3);
+    background: rgba(61, 122, 98, 0.1) !important;
+    border-color: rgba(61, 122, 98, 0.3) !important;
   }
 
   .myio-fm__sort-radio {
     width: 16px;
     height: 16px;
-    border: 2px solid #475569;
+    border: 2px solid #94a3b8;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -357,6 +447,13 @@ const MODAL_CSS = `
 
   .myio-fm__sort-label {
     font-size: 0.8rem;
+  }
+
+  .myio-fm--light .myio-fm__sort-label {
+    color: #475569;
+  }
+
+  .myio-fm--dark .myio-fm__sort-label {
     color: #cbd5e1;
   }
 
@@ -366,6 +463,14 @@ const MODAL_CSS = `
     justify-content: flex-end;
     gap: 12px;
     padding: 16px 20px;
+  }
+
+  .myio-fm--light .myio-fm__footer {
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+
+  .myio-fm--dark .myio-fm__footer {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(0, 0, 0, 0.2);
   }
@@ -380,12 +485,22 @@ const MODAL_CSS = `
     border: none;
   }
 
-  .myio-fm__btn--secondary {
+  .myio-fm--light .myio-fm__btn--secondary {
+    background: #e2e8f0;
+    color: #64748b;
+  }
+
+  .myio-fm--light .myio-fm__btn--secondary:hover {
+    background: #cbd5e1;
+    color: #475569;
+  }
+
+  .myio-fm--dark .myio-fm__btn--secondary {
     background: rgba(255, 255, 255, 0.05);
     color: #94a3b8;
   }
 
-  .myio-fm__btn--secondary:hover {
+  .myio-fm--dark .myio-fm__btn--secondary:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #e2e8f0;
   }
@@ -399,21 +514,39 @@ const MODAL_CSS = `
     background: linear-gradient(135deg, #4a9474 0%, #3d7a62 100%);
   }
 
-  /* Scrollbar */
-  .myio-fm__body::-webkit-scrollbar {
+  /* Scrollbar - Light */
+  .myio-fm--light .myio-fm__body::-webkit-scrollbar {
     width: 6px;
   }
 
-  .myio-fm__body::-webkit-scrollbar-track {
+  .myio-fm--light .myio-fm__body::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .myio-fm__body::-webkit-scrollbar-thumb {
+  .myio-fm--light .myio-fm__body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+  }
+
+  .myio-fm--light .myio-fm__body::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Scrollbar - Dark */
+  .myio-fm--dark .myio-fm__body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .myio-fm--dark .myio-fm__body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .myio-fm--dark .myio-fm__body::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 3px;
   }
 
-  .myio-fm__body::-webkit-scrollbar-thumb:hover {
+  .myio-fm--dark .myio-fm__body::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
   }
 `;
@@ -435,17 +568,19 @@ export class FilterModalComponent {
   private options: FilterModalOptions;
   private selectedCategories: Set<string>;
   private selectedSortId: string | null;
+  private themeMode: 'light' | 'dark';
 
   constructor(options: FilterModalOptions) {
     injectStyles();
     this.options = options;
+    this.themeMode = options.themeMode || 'light'; // Default to light theme
     this.selectedCategories = new Set(
       options.categories.filter(c => c.selected).map(c => c.id)
     );
     this.selectedSortId = options.selectedSortId || null;
 
     this.overlay = document.createElement('div');
-    this.overlay.className = 'myio-fm-overlay';
+    this.overlay.className = `myio-fm-overlay myio-fm-overlay--${this.themeMode}`;
     this.render();
     this.bindEvents();
   }
@@ -484,7 +619,7 @@ export class FilterModalComponent {
     const { title, icon, categories, sortOptions } = this.options;
 
     this.overlay.innerHTML = `
-      <div class="myio-fm">
+      <div class="myio-fm myio-fm--${this.themeMode}">
         <div class="myio-fm__header">
           <div class="myio-fm__header-left">
             ${icon ? `<span class="myio-fm__icon">${icon}</span>` : ''}
