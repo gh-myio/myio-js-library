@@ -794,23 +794,21 @@ function mountAmbientesPanel(host, settings, classified) {
 }
 
 /**
- * Mount DeviceGridV6 into #bas-motors-host (pumps & motors)
+ * Mount CardGridPanel into #bas-motors-host (pumps & motors)
  */
 function mountMotorsPanel(host, settings, classified) {
-  console.log('[MAIN_BAS] mountMotorsPanel called, createDeviceGridV6 available:', !!MyIOLibrary.createDeviceGridV6);
-  if (!MyIOLibrary.createDeviceGridV6) {
-    console.warn('[MAIN_BAS] MyIOLibrary.createDeviceGridV6 not available');
+  console.log('[MAIN_BAS] mountMotorsPanel called, CardGridPanel available:', !!MyIOLibrary.CardGridPanel);
+  if (!MyIOLibrary.CardGridPanel) {
+    console.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
-  var panel = MyIOLibrary.createDeviceGridV6({
-    container: host,
+  var panel = new MyIOLibrary.CardGridPanel({
     title: settings.pumpsMotorsLabel,
     items: buildMotorCardItems(classified, null),
     cardCustomStyle: settings.cardCustomStyle || undefined,
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum equipamento',
-    debugActive: settings.enableDebugMode,
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Motor device clicked:', item.source);
@@ -819,6 +817,7 @@ function mountMotorsPanel(host, settings, classified) {
     },
   });
 
+  host.appendChild(panel.getElement());
   return panel;
 }
 
@@ -871,7 +870,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
         _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, null));
       }
       if (_motorsPanel) {
-        _motorsPanel.updateItems(buildMotorCardItems(_currentClassified, null));
+        _motorsPanel.setItems(buildMotorCardItems(_currentClassified, null));
       }
       if (panel) panel.setSelectedId(null);
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: null } }));
@@ -886,7 +885,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
         _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, item.id));
       }
       if (_motorsPanel) {
-        _motorsPanel.updateItems(buildMotorCardItems(_currentClassified, item.id));
+        _motorsPanel.setItems(buildMotorCardItems(_currentClassified, item.id));
       }
       if (panel) panel.setSelectedId(item.id);
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: item.id } }));
@@ -1173,6 +1172,62 @@ async function initializeDashboard(
 }
 
 // ============================================================================
+// ThingsBoard Layout Fix
+// ============================================================================
+
+/**
+ * Fix container heights for ThingsBoard widget context.
+ * ThingsBoard's widget containers often don't have explicit heights set,
+ * which breaks percentage-based layouts. This function ensures the entire
+ * parent chain has proper height inheritance.
+ */
+function fixContainerHeights(root) {
+  if (!root) return;
+
+  // Walk up the DOM tree and ensure all parents have proper height
+  var el = root.parentElement;
+  var maxDepth = 15; // Prevent infinite loops
+  var depth = 0;
+
+  while (el && depth < maxDepth) {
+    // Skip html and body elements
+    if (el.tagName === 'HTML' || el.tagName === 'BODY') {
+      el = el.parentElement;
+      depth++;
+      continue;
+    }
+
+    var style = window.getComputedStyle(el);
+    var currentHeight = style.height;
+    var currentDisplay = style.display;
+
+    // If height is 'auto' or '0px', try to fix it
+    if (currentHeight === 'auto' || currentHeight === '0px' || parseInt(currentHeight) === 0) {
+      el.style.height = '100%';
+      el.style.minHeight = '0';
+    }
+
+    // Ensure overflow is handled
+    if (style.overflow === 'visible') {
+      el.style.overflow = 'hidden';
+    }
+
+    el = el.parentElement;
+    depth++;
+  }
+
+  // Also ensure the root container itself has explicit height
+  root.style.height = '100%';
+  root.style.width = '100%';
+  root.style.minHeight = '0';
+
+  // Force a layout recalculation
+  void root.offsetHeight;
+
+  console.log('[MAIN_BAS] Container heights fixed, depth traversed:', depth);
+}
+
+// ============================================================================
 // ThingsBoard Widget Lifecycle
 // ============================================================================
 
@@ -1184,6 +1239,15 @@ self.onInit = async function () {
   if (!root) {
     console.error('[MAIN_BAS] Container #bas-dashboard-root not found');
     return;
+  }
+
+  // Fix ThingsBoard container heights before mounting components
+  fixContainerHeights(root);
+
+  // Also fix the $container itself
+  if (_ctx.$container && _ctx.$container[0]) {
+    _ctx.$container[0].style.height = '100%';
+    _ctx.$container[0].style.overflow = 'hidden';
   }
 
   var sidebarHost = root.querySelector('#bas-sidebar-host');
@@ -1254,12 +1318,18 @@ self.onDataUpdated = function () {
 
   // Update motors panel
   if (_motorsPanel) {
-    _motorsPanel.updateItems(buildMotorCardItems(_currentClassified, _selectedAmbiente));
+    _motorsPanel.setItems(buildMotorCardItems(_currentClassified, _selectedAmbiente));
   }
 };
 
 self.onResize = function () {
-  // CardGridPanel handles its own resize
+  // Re-fix container heights on resize (ThingsBoard may recalculate layouts)
+  if (_ctx && _ctx.$container && _ctx.$container[0]) {
+    var root = _ctx.$container[0].querySelector('#bas-dashboard-root');
+    if (root) {
+      fixContainerHeights(root);
+    }
+  }
 };
 
 self.onDestroy = function () {
