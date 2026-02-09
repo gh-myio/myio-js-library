@@ -324,6 +324,7 @@ tb-html-widget > div,
   min-height: 0 !important;
   overflow-y: auto !important;
   align-content: start !important; /* Cards align top, use natural height */
+  gap: 16px !important; /* Ensure gap between cards in grid */
 }
 
 /* ========================================

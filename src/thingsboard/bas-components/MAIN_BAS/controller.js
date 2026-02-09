@@ -900,6 +900,234 @@ function buildMotorCardItems(classified, selectedAmbienteId) {
 }
 
 // ============================================================================
+// Maximize overlay state
+// ============================================================================
+
+let _maximizeOverlay = null;
+let _maximizedPanel = null;
+
+/**
+ * Create maximize overlay with blur background
+ */
+function createMaximizeOverlay() {
+  if (_maximizeOverlay) return _maximizeOverlay;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'bas-maximize-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  `;
+
+  // Close on overlay click (outside content)
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) {
+      closeMaximizedPanel();
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && _maximizedPanel) {
+      closeMaximizedPanel();
+    }
+  });
+
+  document.body.appendChild(overlay);
+  _maximizeOverlay = overlay;
+  return overlay;
+}
+
+/**
+ * Show panel in maximized mode with blur background
+ */
+function showMaximizedPanel(panelElement, panelTitle) {
+  var overlay = createMaximizeOverlay();
+
+  // Clone the panel for maximized view
+  var clone = panelElement.cloneNode(true);
+  clone.style.cssText = `
+    width: 90vw;
+    height: 85vh;
+    max-width: 1400px;
+    max-height: 900px;
+    background: #1a1f2e;
+    border-radius: 16px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+  `;
+
+  // Add close button to clone
+  var closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '×';
+  closeBtn.style.cssText = `
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    font-size: 24px;
+    line-height: 1;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.15s ease;
+  `;
+  closeBtn.addEventListener('mouseenter', function () {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+  });
+  closeBtn.addEventListener('mouseleave', function () {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+  });
+  closeBtn.addEventListener('click', closeMaximizedPanel);
+
+  // Wrap clone in container for positioning
+  var container = document.createElement('div');
+  container.style.cssText = 'position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;';
+  container.appendChild(clone);
+  clone.appendChild(closeBtn);
+
+  overlay.innerHTML = '';
+  overlay.appendChild(container);
+
+  // Show overlay with animation
+  overlay.style.pointerEvents = 'auto';
+  requestAnimationFrame(function () {
+    overlay.style.opacity = '1';
+    clone.style.transform = 'scale(1)';
+  });
+
+  _maximizedPanel = { overlay: overlay, clone: clone, title: panelTitle };
+
+  if (_settings && _settings.enableDebugMode) {
+    console.log('[MAIN_BAS] Panel maximized:', panelTitle);
+  }
+}
+
+/**
+ * Close maximized panel view
+ */
+function closeMaximizedPanel() {
+  if (!_maximizedPanel || !_maximizeOverlay) return;
+
+  _maximizeOverlay.style.opacity = '0';
+  _maximizeOverlay.style.pointerEvents = 'none';
+
+  setTimeout(function () {
+    _maximizeOverlay.innerHTML = '';
+    _maximizedPanel = null;
+  }, 200);
+
+  if (_settings && _settings.enableDebugMode) {
+    console.log('[MAIN_BAS] Panel minimize');
+  }
+}
+
+// ============================================================================
+// Filter modal state
+// ============================================================================
+
+let _activeFilterModal = null;
+
+/**
+ * Open filter modal for a panel
+ * Uses the new FilterModalComponent for category-based filtering
+ */
+function openFilterModal(panelType, devices, currentFilter, onApply) {
+  // Close any existing modal
+  if (_activeFilterModal) {
+    _activeFilterModal.destroy();
+    _activeFilterModal = null;
+  }
+
+  if (!MyIOLibrary.FilterModalComponent) {
+    console.warn('[MAIN_BAS] MyIOLibrary.FilterModalComponent not available');
+    return;
+  }
+
+  // Build categories based on panel type
+  var categories = [];
+  var sortOptions = [];
+
+  if (panelType === 'water') {
+    // Water categories by device type
+    var hidroCount = devices.filter(function (d) { return d.type === 'hydrometer'; }).length;
+    var tankCount = devices.filter(function (d) { return d.type === 'tank'; }).length;
+    var solenoidCount = devices.filter(function (d) { return d.type === 'solenoid'; }).length;
+
+    categories = [
+      { id: 'HIDROMETRO', label: 'Hidrômetros', icon: '💧', count: hidroCount, selected: true },
+      { id: 'CAIXA_DAGUA', label: 'Caixas d\'Água', icon: '🛢️', count: tankCount, selected: true },
+      { id: 'SOLENOIDE', label: 'Solenoides', icon: '🔌', count: solenoidCount, selected: true },
+    ];
+    sortOptions = MyIOLibrary.WATER_SORT_OPTIONS || [];
+  } else if (panelType === 'hvac') {
+    // HVAC categories
+    var thermostatCount = devices.filter(function (d) { return d.context === 'termostato'; }).length;
+    var externalCount = devices.filter(function (d) { return d.context === 'termostato_external'; }).length;
+
+    categories = [
+      { id: 'termostato', label: 'Termostatos', icon: '🌡️', count: thermostatCount, selected: true },
+      { id: 'termostato_external', label: 'Sensores Externos', icon: '📡', count: externalCount, selected: true },
+    ];
+    sortOptions = MyIOLibrary.TEMPERATURE_SORT_OPTIONS || [];
+  } else if (panelType === 'motor') {
+    // Motor categories
+    var pumpCount = devices.filter(function (d) { return d.type === 'pump'; }).length;
+    var motorCount = devices.filter(function (d) { return d.type === 'motor'; }).length;
+
+    categories = [
+      { id: 'bomba', label: 'Bombas', icon: '💧', count: pumpCount, selected: true },
+      { id: 'motor', label: 'Motores', icon: '⚙️', count: motorCount, selected: true },
+    ];
+    sortOptions = MyIOLibrary.MOTOR_SORT_OPTIONS || [];
+  }
+
+  // Remove empty categories
+  categories = categories.filter(function (c) { return c.count > 0; });
+
+  if (categories.length === 0) {
+    console.log('[MAIN_BAS] No categories to filter');
+    return;
+  }
+
+  var modal = new MyIOLibrary.FilterModalComponent({
+    title: 'Filtrar ' + (panelType === 'water' ? 'Água' : panelType === 'hvac' ? 'Ambientes' : 'Motores'),
+    icon: panelType === 'water' ? '💧' : panelType === 'hvac' ? '🌡️' : '⚙️',
+    categories: categories,
+    sortOptions: sortOptions,
+    selectedSortId: currentFilter?.sortId || null,
+    onApply: function (selectedCategories, sortOption) {
+      if (_settings && _settings.enableDebugMode) {
+        console.log('[MAIN_BAS] Filter applied:', { panelType: panelType, categories: selectedCategories, sort: sortOption });
+      }
+      onApply(selectedCategories, sortOption);
+    },
+    onClose: function () {
+      _activeFilterModal = null;
+    },
+  });
+
+  modal.show();
+  _activeFilterModal = modal;
+}
+
+// ============================================================================
 // Panel mount functions
 // ============================================================================
 
@@ -914,6 +1142,9 @@ function mountWaterPanel(waterHost, settings, classified) {
   }
 
   var waterItems = buildWaterCardItems(classified, null);
+  var waterDevices = getWaterDevicesFromClassified(classified);
+  var currentFilter = { categories: null, sortId: null };
+
   var panel = new MyIOLibrary.CardGridPanel({
     title: 'Infraestrutura Hidrica',
     icon: '💧',
@@ -922,12 +1153,46 @@ function mountWaterPanel(waterHost, settings, classified) {
     panelBackground: settings.waterPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
-    gridMinCardWidth: '140px',
+    gridMinCardWidth: '180px',
     emptyMessage: 'Nenhum dispositivo',
     showSearch: true,
     searchPlaceholder: 'Buscar...',
     showFilter: true,
     showMaximize: true,
+    handleActionFilter: function () {
+      openFilterModal('water', waterDevices, currentFilter, function (selectedCategories, sortOption) {
+        currentFilter.categories = selectedCategories;
+        currentFilter.sortId = sortOption ? sortOption.id : null;
+        // Filter and sort items
+        var filteredItems = buildWaterCardItems(classified, _selectedAmbiente).filter(function (item) {
+          if (!selectedCategories || selectedCategories.length === 0) return true;
+          var deviceType = item.source?.type || '';
+          var typeMap = { hydrometer: 'HIDROMETRO', tank: 'CAIXA_DAGUA', solenoid: 'SOLENOIDE' };
+          return selectedCategories.includes(typeMap[deviceType] || deviceType.toUpperCase());
+        });
+        if (sortOption) {
+          filteredItems.sort(function (a, b) {
+            var valA = a.source?.[sortOption.field] || a.source?.value || 0;
+            var valB = b.source?.[sortOption.field] || b.source?.value || 0;
+            if (sortOption.field === 'label') {
+              valA = a.source?.name || '';
+              valB = b.source?.name || '';
+              return sortOption.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return sortOption.direction === 'desc' ? valB - valA : valA - valB;
+          });
+        }
+        panel.setItems(filteredItems);
+        panel.setQuantity(filteredItems.length);
+      });
+    },
+    onMaximizeToggle: function (isMaximized) {
+      if (isMaximized) {
+        showMaximizedPanel(panel.getElement(), 'Infraestrutura Hidrica');
+      } else {
+        closeMaximizedPanel();
+      }
+    },
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Water device clicked:', item.source);
@@ -951,6 +1216,9 @@ function mountAmbientesPanel(host, settings, classified) {
   }
 
   var hvacItems = buildHVACCardItems(classified, null);
+  var hvacDevices = getHVACDevicesFromClassified(classified);
+  var currentFilter = { categories: null, sortId: null };
+
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.environmentsLabel,
     icon: '🌡️',
@@ -965,6 +1233,40 @@ function mountAmbientesPanel(host, settings, classified) {
     searchPlaceholder: 'Buscar...',
     showFilter: true,
     showMaximize: true,
+    handleActionFilter: function () {
+      openFilterModal('hvac', hvacDevices, currentFilter, function (selectedCategories, sortOption) {
+        currentFilter.categories = selectedCategories;
+        currentFilter.sortId = sortOption ? sortOption.id : null;
+        // Filter and sort items
+        var filteredItems = buildHVACCardItems(classified, _selectedAmbiente).filter(function (item) {
+          if (!selectedCategories || selectedCategories.length === 0) return true;
+          var context = item.source?.context || '';
+          return selectedCategories.includes(context);
+        });
+        if (sortOption) {
+          filteredItems.sort(function (a, b) {
+            var valA, valB;
+            if (sortOption.field === 'label') {
+              valA = a.source?.name || '';
+              valB = b.source?.name || '';
+              return sortOption.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            valA = a.source?.[sortOption.field] || a.source?.temperature || 0;
+            valB = b.source?.[sortOption.field] || b.source?.temperature || 0;
+            return sortOption.direction === 'desc' ? valB - valA : valA - valB;
+          });
+        }
+        panel.setItems(filteredItems);
+        panel.setQuantity(filteredItems.length);
+      });
+    },
+    onMaximizeToggle: function (isMaximized) {
+      if (isMaximized) {
+        showMaximizedPanel(panel.getElement(), settings.environmentsLabel);
+      } else {
+        closeMaximizedPanel();
+      }
+    },
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] HVAC device clicked:', item.source);
@@ -988,6 +1290,9 @@ function mountMotorsPanel(host, settings, classified) {
   }
 
   var motorItems = buildMotorCardItems(classified, null);
+  var motorDevices = getMotorDevicesFromClassified(classified);
+  var currentFilter = { categories: null, sortId: null };
+
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.pumpsMotorsLabel,
     icon: '⚙️',
@@ -1002,6 +1307,40 @@ function mountMotorsPanel(host, settings, classified) {
     searchPlaceholder: 'Buscar...',
     showFilter: true,
     showMaximize: true,
+    handleActionFilter: function () {
+      openFilterModal('motor', motorDevices, currentFilter, function (selectedCategories, sortOption) {
+        currentFilter.categories = selectedCategories;
+        currentFilter.sortId = sortOption ? sortOption.id : null;
+        // Filter and sort items
+        var filteredItems = buildMotorCardItems(classified, _selectedAmbiente).filter(function (item) {
+          if (!selectedCategories || selectedCategories.length === 0) return true;
+          var context = item.source?.context || '';
+          return selectedCategories.includes(context);
+        });
+        if (sortOption) {
+          filteredItems.sort(function (a, b) {
+            var valA, valB;
+            if (sortOption.field === 'label') {
+              valA = a.source?.name || '';
+              valB = b.source?.name || '';
+              return sortOption.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            valA = a.source?.[sortOption.field] || a.source?.consumption || 0;
+            valB = b.source?.[sortOption.field] || b.source?.consumption || 0;
+            return sortOption.direction === 'desc' ? valB - valA : valA - valB;
+          });
+        }
+        panel.setItems(filteredItems);
+        panel.setQuantity(filteredItems.length);
+      });
+    },
+    onMaximizeToggle: function (isMaximized) {
+      if (isMaximized) {
+        showMaximizedPanel(panel.getElement(), settings.pumpsMotorsLabel);
+      } else {
+        closeMaximizedPanel();
+      }
+    },
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Motor device clicked:', item.source);
@@ -1059,6 +1398,13 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 0 12px', letterSpacing: '0.5px' },
     showFilter: true,
     showMaximize: true,
+    onMaximizeToggle: function (isMaximized) {
+      if (isMaximized) {
+        showMaximizedPanel(panel.getElement(), settings.sidebarLabel);
+      } else {
+        closeMaximizedPanel();
+      }
+    },
     handleClickAll: function () {
       console.log('[MAIN_BAS] Ambiente selected: all');
       _selectedAmbiente = null;
@@ -1568,6 +1914,20 @@ self.onResize = function () {
 };
 
 self.onDestroy = function () {
+  // Clean up filter modal
+  if (_activeFilterModal && _activeFilterModal.destroy) {
+    _activeFilterModal.destroy();
+  }
+  _activeFilterModal = null;
+
+  // Clean up maximize overlay
+  if (_maximizeOverlay) {
+    _maximizeOverlay.remove();
+  }
+  _maximizeOverlay = null;
+  _maximizedPanel = null;
+
+  // Clean up panels
   if (_chartInstance && _chartInstance.destroy) {
     _chartInstance.destroy();
   }

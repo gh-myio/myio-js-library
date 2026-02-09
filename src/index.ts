@@ -817,6 +817,23 @@ export { FILTER_GROUPS, FILTER_TAB_ICONS, STATUS_TO_CONNECTIVITY } from './compo
 
 export { generateFilterModalStyles } from './components/filter-modal';
 
+// RFC-0160: Simplified category-based filter modal for CardGridPanel
+export {
+  FilterModalComponent,
+  WATER_SORT_OPTIONS,
+  ENERGY_SORT_OPTIONS,
+  TEMPERATURE_SORT_OPTIONS,
+  MOTOR_SORT_OPTIONS,
+  WATER_DEVICE_CATEGORIES,
+} from './components/filter-modal';
+
+export type {
+  FilterCategory,
+  FilterSortOption,
+  FilterModalOptions,
+  FilterState as FilterCategoryState,
+} from './components/filter-modal';
+
 // RFC-0127: CustomerCard Components
 export { CustomerCardV1, createCustomerCardV1 } from './components/customer-card-v1';
 export { injectCustomerCardV1Styles } from './components/customer-card-v1';

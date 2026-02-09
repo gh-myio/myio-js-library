@@ -1,0 +1,725 @@
+/**
+ * FilterModalComponent — Premium filter modal for CardGridPanel
+ *
+ * Features:
+ * - Multi-select checkboxes by category/type
+ * - "Select All" / "Select None" buttons
+ * - Sort options (consumption, level, label)
+ * - Group by type with internal sorting
+ * - Apply/Cancel actions
+ * - Premium dark theme design
+ */
+
+// ────────────────────────────────────────────
+// Types
+// ────────────────────────────────────────────
+
+export interface FilterCategory {
+  /** Unique identifier for the category */
+  id: string;
+  /** Display label */
+  label: string;
+  /** Icon (emoji or SVG) */
+  icon?: string;
+  /** Number of items in this category */
+  count: number;
+  /** Whether this category is selected */
+  selected: boolean;
+}
+
+export interface FilterSortOption {
+  /** Unique identifier */
+  id: string;
+  /** Display label */
+  label: string;
+  /** Sort field (e.g., 'consumption', 'water_level', 'label') */
+  field: string;
+  /** Sort direction */
+  direction: 'asc' | 'desc';
+}
+
+export interface FilterModalOptions {
+  /** Modal title */
+  title: string;
+  /** Icon for the modal header */
+  icon?: string;
+  /** Categories to filter by (e.g., device types) */
+  categories: FilterCategory[];
+  /** Sort options */
+  sortOptions: FilterSortOption[];
+  /** Currently selected sort option id */
+  selectedSortId?: string;
+  /** Callback when filter is applied */
+  onApply: (selectedCategories: string[], sortOption: FilterSortOption | null) => void;
+  /** Callback when modal is closed/cancelled */
+  onClose: () => void;
+  /** Enable grouping by category */
+  groupByCategory?: boolean;
+}
+
+export interface FilterState {
+  selectedCategories: string[];
+  sortOptionId: string | null;
+}
+
+// ────────────────────────────────────────────
+// SVG Icons
+// ────────────────────────────────────────────
+
+const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+const ICON_CHECK = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+const ICON_SORT_DESC = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/></svg>`;
+
+const ICON_SORT_ASC = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5h4M11 9h7M11 13h10M3 17l3-3 3 3M6 14V4"/></svg>`;
+
+// ────────────────────────────────────────────
+// CSS
+// ────────────────────────────────────────────
+
+const CSS_ID = 'myio-filter-modal-styles';
+
+const MODAL_CSS = `
+  .myio-fm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .myio-fm-overlay--visible {
+    opacity: 1;
+  }
+
+  .myio-fm {
+    background: #1a1f2e;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    min-width: 360px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .myio-fm-overlay--visible .myio-fm {
+    transform: scale(1) translateY(0);
+  }
+
+  /* Header */
+  .myio-fm__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, #1e2538 0%, #1a1f2e 100%);
+  }
+
+  .myio-fm__header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .myio-fm__icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .myio-fm__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin: 0;
+  }
+
+  .myio-fm__close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    transition: all 0.15s ease;
+  }
+
+  .myio-fm__close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+  }
+
+  /* Body */
+  .myio-fm__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .myio-fm__section {
+    margin-bottom: 24px;
+  }
+
+  .myio-fm__section:last-child {
+    margin-bottom: 0;
+  }
+
+  .myio-fm__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .myio-fm__section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+
+  .myio-fm__section-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .myio-fm__section-btn {
+    font-size: 0.7rem;
+    color: #3d7a62;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .myio-fm__section-btn:hover {
+    background: rgba(61, 122, 98, 0.15);
+    color: #4ade80;
+  }
+
+  /* Categories */
+  .myio-fm__categories {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .myio-fm__category {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .myio-fm__category:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .myio-fm__category--selected {
+    background: rgba(61, 122, 98, 0.15);
+    border-color: rgba(61, 122, 98, 0.3);
+  }
+
+  .myio-fm__category--selected:hover {
+    background: rgba(61, 122, 98, 0.2);
+  }
+
+  .myio-fm__checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #475569;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+    color: transparent;
+  }
+
+  .myio-fm__category--selected .myio-fm__checkbox {
+    background: #3d7a62;
+    border-color: #3d7a62;
+    color: white;
+  }
+
+  .myio-fm__category-icon {
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .myio-fm__category-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .myio-fm__category-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #e2e8f0;
+    margin: 0 0 2px 0;
+  }
+
+  .myio-fm__category-count {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+
+  /* Sort options */
+  .myio-fm__sort-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .myio-fm__sort-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .myio-fm__sort-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .myio-fm__sort-option--selected {
+    background: rgba(61, 122, 98, 0.15);
+    border-color: rgba(61, 122, 98, 0.3);
+  }
+
+  .myio-fm__sort-radio {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #475569;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .myio-fm__sort-option--selected .myio-fm__sort-radio {
+    border-color: #3d7a62;
+  }
+
+  .myio-fm__sort-radio::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background 0.15s ease;
+  }
+
+  .myio-fm__sort-option--selected .myio-fm__sort-radio::after {
+    background: #3d7a62;
+  }
+
+  .myio-fm__sort-icon {
+    color: #64748b;
+    display: flex;
+    align-items: center;
+  }
+
+  .myio-fm__sort-label {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+  }
+
+  /* Footer */
+  .myio-fm__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .myio-fm__btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: none;
+  }
+
+  .myio-fm__btn--secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+  }
+
+  .myio-fm__btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+  }
+
+  .myio-fm__btn--primary {
+    background: linear-gradient(135deg, #3d7a62 0%, #2d5a48 100%);
+    color: white;
+  }
+
+  .myio-fm__btn--primary:hover {
+    background: linear-gradient(135deg, #4a9474 0%, #3d7a62 100%);
+  }
+
+  /* Scrollbar */
+  .myio-fm__body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .myio-fm__body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .myio-fm__body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  .myio-fm__body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+`;
+
+function injectStyles(): void {
+  if (document.getElementById(CSS_ID)) return;
+  const style = document.createElement('style');
+  style.id = CSS_ID;
+  style.textContent = MODAL_CSS;
+  document.head.appendChild(style);
+}
+
+// ────────────────────────────────────────────
+// Component
+// ────────────────────────────────────────────
+
+export class FilterModalComponent {
+  private overlay: HTMLElement;
+  private options: FilterModalOptions;
+  private selectedCategories: Set<string>;
+  private selectedSortId: string | null;
+
+  constructor(options: FilterModalOptions) {
+    injectStyles();
+    this.options = options;
+    this.selectedCategories = new Set(
+      options.categories.filter(c => c.selected).map(c => c.id)
+    );
+    this.selectedSortId = options.selectedSortId || null;
+
+    this.overlay = document.createElement('div');
+    this.overlay.className = 'myio-fm-overlay';
+    this.render();
+    this.bindEvents();
+  }
+
+  // ── Public API ────────────────────────────
+
+  public show(): void {
+    document.body.appendChild(this.overlay);
+    // Trigger animation
+    requestAnimationFrame(() => {
+      this.overlay.classList.add('myio-fm-overlay--visible');
+    });
+  }
+
+  public hide(): void {
+    this.overlay.classList.remove('myio-fm-overlay--visible');
+    setTimeout(() => {
+      this.overlay.remove();
+    }, 200);
+  }
+
+  public getState(): FilterState {
+    return {
+      selectedCategories: Array.from(this.selectedCategories),
+      sortOptionId: this.selectedSortId,
+    };
+  }
+
+  public destroy(): void {
+    this.overlay.remove();
+  }
+
+  // ── Private ────────────────────────────────
+
+  private render(): void {
+    const { title, icon, categories, sortOptions } = this.options;
+
+    this.overlay.innerHTML = `
+      <div class="myio-fm">
+        <div class="myio-fm__header">
+          <div class="myio-fm__header-left">
+            ${icon ? `<span class="myio-fm__icon">${icon}</span>` : ''}
+            <h2 class="myio-fm__title">${this.escapeHtml(title)}</h2>
+          </div>
+          <button class="myio-fm__close" title="Fechar">
+            ${ICON_CLOSE}
+          </button>
+        </div>
+
+        <div class="myio-fm__body">
+          <!-- Categories Section -->
+          <div class="myio-fm__section">
+            <div class="myio-fm__section-header">
+              <h3 class="myio-fm__section-title">Tipos</h3>
+              <div class="myio-fm__section-actions">
+                <button class="myio-fm__section-btn" data-action="select-all">Todos</button>
+                <button class="myio-fm__section-btn" data-action="select-none">Nenhum</button>
+              </div>
+            </div>
+            <div class="myio-fm__categories">
+              ${categories.map(cat => this.renderCategory(cat)).join('')}
+            </div>
+          </div>
+
+          <!-- Sort Section -->
+          ${sortOptions.length > 0 ? `
+            <div class="myio-fm__section">
+              <div class="myio-fm__section-header">
+                <h3 class="myio-fm__section-title">Ordenar por</h3>
+              </div>
+              <div class="myio-fm__sort-options">
+                ${sortOptions.map(opt => this.renderSortOption(opt)).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="myio-fm__footer">
+          <button class="myio-fm__btn myio-fm__btn--secondary" data-action="cancel">Cancelar</button>
+          <button class="myio-fm__btn myio-fm__btn--primary" data-action="apply">Aplicar</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCategory(cat: FilterCategory): string {
+    const isSelected = this.selectedCategories.has(cat.id);
+    return `
+      <div class="myio-fm__category${isSelected ? ' myio-fm__category--selected' : ''}" data-category-id="${cat.id}">
+        <div class="myio-fm__checkbox">
+          ${ICON_CHECK}
+        </div>
+        ${cat.icon ? `<span class="myio-fm__category-icon">${cat.icon}</span>` : ''}
+        <div class="myio-fm__category-info">
+          <p class="myio-fm__category-label">${this.escapeHtml(cat.label)}</p>
+          <span class="myio-fm__category-count">${cat.count} ${cat.count === 1 ? 'item' : 'itens'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSortOption(opt: FilterSortOption): string {
+    const isSelected = this.selectedSortId === opt.id;
+    const sortIcon = opt.direction === 'desc' ? ICON_SORT_DESC : ICON_SORT_ASC;
+    return `
+      <div class="myio-fm__sort-option${isSelected ? ' myio-fm__sort-option--selected' : ''}" data-sort-id="${opt.id}">
+        <div class="myio-fm__sort-radio"></div>
+        <span class="myio-fm__sort-icon">${sortIcon}</span>
+        <span class="myio-fm__sort-label">${this.escapeHtml(opt.label)}</span>
+      </div>
+    `;
+  }
+
+  private bindEvents(): void {
+    // Close button
+    this.overlay.querySelector('.myio-fm__close')?.addEventListener('click', () => {
+      this.hide();
+      this.options.onClose();
+    });
+
+    // Overlay click (outside modal)
+    this.overlay.addEventListener('click', (e) => {
+      if (e.target === this.overlay) {
+        this.hide();
+        this.options.onClose();
+      }
+    });
+
+    // Category clicks
+    this.overlay.querySelectorAll('.myio-fm__category').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.getAttribute('data-category-id');
+        if (id) {
+          this.toggleCategory(id);
+        }
+      });
+    });
+
+    // Sort option clicks
+    this.overlay.querySelectorAll('.myio-fm__sort-option').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.getAttribute('data-sort-id');
+        if (id) {
+          this.selectSortOption(id);
+        }
+      });
+    });
+
+    // Select all/none
+    this.overlay.querySelector('[data-action="select-all"]')?.addEventListener('click', () => {
+      this.selectAllCategories();
+    });
+
+    this.overlay.querySelector('[data-action="select-none"]')?.addEventListener('click', () => {
+      this.selectNoCategories();
+    });
+
+    // Cancel button
+    this.overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+      this.hide();
+      this.options.onClose();
+    });
+
+    // Apply button
+    this.overlay.querySelector('[data-action="apply"]')?.addEventListener('click', () => {
+      this.applyFilter();
+    });
+
+    // Escape key
+    document.addEventListener('keydown', this.handleKeyDown);
+  }
+
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this.hide();
+      this.options.onClose();
+      document.removeEventListener('keydown', this.handleKeyDown);
+    }
+  };
+
+  private toggleCategory(id: string): void {
+    if (this.selectedCategories.has(id)) {
+      this.selectedCategories.delete(id);
+    } else {
+      this.selectedCategories.add(id);
+    }
+    this.updateCategoryUI(id);
+  }
+
+  private updateCategoryUI(id: string): void {
+    const el = this.overlay.querySelector(`[data-category-id="${id}"]`);
+    if (el) {
+      el.classList.toggle('myio-fm__category--selected', this.selectedCategories.has(id));
+    }
+  }
+
+  private selectAllCategories(): void {
+    this.options.categories.forEach(cat => {
+      this.selectedCategories.add(cat.id);
+      this.updateCategoryUI(cat.id);
+    });
+  }
+
+  private selectNoCategories(): void {
+    this.selectedCategories.clear();
+    this.options.categories.forEach(cat => {
+      this.updateCategoryUI(cat.id);
+    });
+  }
+
+  private selectSortOption(id: string): void {
+    this.selectedSortId = id;
+    // Update UI
+    this.overlay.querySelectorAll('.myio-fm__sort-option').forEach(el => {
+      el.classList.toggle('myio-fm__sort-option--selected', el.getAttribute('data-sort-id') === id);
+    });
+  }
+
+  private applyFilter(): void {
+    const selectedSort = this.options.sortOptions.find(o => o.id === this.selectedSortId) || null;
+    this.options.onApply(Array.from(this.selectedCategories), selectedSort);
+    this.hide();
+    document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+}
+
+// ────────────────────────────────────────────
+// Default sort options for common domains
+// ────────────────────────────────────────────
+
+export const WATER_SORT_OPTIONS: FilterSortOption[] = [
+  { id: 'consumption-desc', label: 'Maior consumo (m³)', field: 'consumption', direction: 'desc' },
+  { id: 'consumption-asc', label: 'Menor consumo (m³)', field: 'consumption', direction: 'asc' },
+  { id: 'level-desc', label: 'Maior nível (%)', field: 'water_level', direction: 'desc' },
+  { id: 'level-asc', label: 'Menor nível (%)', field: 'water_level', direction: 'asc' },
+  { id: 'label-asc', label: 'Nome (A-Z)', field: 'label', direction: 'asc' },
+  { id: 'label-desc', label: 'Nome (Z-A)', field: 'label', direction: 'desc' },
+];
+
+export const ENERGY_SORT_OPTIONS: FilterSortOption[] = [
+  { id: 'consumption-desc', label: 'Maior consumo (kWh)', field: 'consumption', direction: 'desc' },
+  { id: 'consumption-asc', label: 'Menor consumo (kWh)', field: 'consumption', direction: 'asc' },
+  { id: 'label-asc', label: 'Nome (A-Z)', field: 'label', direction: 'asc' },
+  { id: 'label-desc', label: 'Nome (Z-A)', field: 'label', direction: 'desc' },
+];
+
+export const TEMPERATURE_SORT_OPTIONS: FilterSortOption[] = [
+  { id: 'temp-desc', label: 'Maior temperatura', field: 'temperature', direction: 'desc' },
+  { id: 'temp-asc', label: 'Menor temperatura', field: 'temperature', direction: 'asc' },
+  { id: 'label-asc', label: 'Nome (A-Z)', field: 'label', direction: 'asc' },
+  { id: 'label-desc', label: 'Nome (Z-A)', field: 'label', direction: 'desc' },
+];
+
+export const MOTOR_SORT_OPTIONS: FilterSortOption[] = [
+  { id: 'consumption-desc', label: 'Maior consumo', field: 'consumption', direction: 'desc' },
+  { id: 'consumption-asc', label: 'Menor consumo', field: 'consumption', direction: 'asc' },
+  { id: 'label-asc', label: 'Nome (A-Z)', field: 'label', direction: 'asc' },
+  { id: 'label-desc', label: 'Nome (Z-A)', field: 'label', direction: 'desc' },
+];
+
+// ────────────────────────────────────────────
+// Water device type categories
+// ────────────────────────────────────────────
+
+export const WATER_DEVICE_CATEGORIES = {
+  HIDROMETRO: { id: 'HIDROMETRO', label: 'Hidrômetros', icon: '💧' },
+  CAIXA_DAGUA: { id: 'CAIXA_DAGUA', label: 'Caixas d\'Água', icon: '🛢️' },
+  SOLENOIDE: { id: 'SOLENOIDE', label: 'Solenoides', icon: '🔌' },
+};
+
+export default FilterModalComponent;
