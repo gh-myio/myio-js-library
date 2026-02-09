@@ -76,6 +76,376 @@ let _currentAmbientes = [];
 let _currentClassified = null;
 let _dataUpdatedCount = 0; // Counter to limit onDataUpdated calls (max 3)
 
+// ============================================================================
+// RFC-0161: Ambiente Hierarchy Caches
+// ============================================================================
+
+// Hierarchical tree: ambienteId -> { asset info, children: [], devices: [] }
+var _ambienteHierarchy = {};
+
+// Flat device-to-ambiente mapping for quick lookups: deviceId -> ambienteId
+var _deviceToAmbienteMap = {};
+
+// Ambiente details cache: ambienteId -> { id, name, parentId, level, ... }
+var _ambientesCache = {};
+
+// Parsed devices and ambientes maps from initial parsing (shared with hierarchy builder)
+var _devicesMap = {};
+var _ambientesMap = {};
+
+// ============================================================================
+// RFC-0161: ThingsBoard Relations API Functions
+// ============================================================================
+
+/**
+ * Fetch parent asset for a device via ThingsBoard Relations API
+ * @param {Object} deviceEntityId - { id: string, entityType: 'DEVICE' }
+ * @returns {Promise<Object>} Parent asset { id, entityType: 'ASSET' }
+ */
+function getParentAssetViaHttp(deviceEntityId) {
+  return new Promise(function(resolve, reject) {
+    if (!deviceEntityId || !deviceEntityId.id || !deviceEntityId.entityType) {
+      return reject('entityId inválido!');
+    }
+
+    var url = '/api/relations?toId=' + deviceEntityId.id + '&toType=' + deviceEntityId.entityType;
+
+    self.ctx.http.get(url).subscribe({
+      next: function(relations) {
+        var assetRel = relations.find(function(r) {
+          return r.from && r.from.entityType === 'ASSET' && r.type === 'Contains';
+        });
+
+        if (!assetRel) {
+          return reject('Nenhum asset pai encontrado para: ' + deviceEntityId.id);
+        }
+
+        resolve(assetRel.from);
+      },
+      error: function(err) {
+        reject('Erro HTTP: ' + JSON.stringify(err));
+      }
+    });
+  });
+}
+
+/**
+ * Fetch asset names for ambiente IDs (batch-friendly)
+ * @param {string[]} ambienteIds - Array of ambiente IDs to fetch names for
+ * @returns {Promise<void>} Resolves when all names are fetched
+ */
+function fetchAmbienteNames(ambienteIds) {
+  var promises = ambienteIds.map(function(ambienteId) {
+    var url = '/api/asset/' + ambienteId;
+
+    return new Promise(function(resolve) {
+      self.ctx.http.get(url).subscribe({
+        next: function(asset) {
+          if (_ambienteHierarchy[ambienteId]) {
+            _ambienteHierarchy[ambienteId].name = asset.name || asset.label || 'Ambiente ' + ambienteId.slice(0, 8);
+          }
+          resolve();
+        },
+        error: function() {
+          // Fallback name
+          if (_ambienteHierarchy[ambienteId]) {
+            _ambienteHierarchy[ambienteId].name = 'Ambiente ' + ambienteId.slice(0, 8);
+          }
+          resolve();
+        }
+      });
+    });
+  });
+
+  return Promise.all(promises);
+}
+
+/**
+ * Calculate aggregated data for an ambiente from its child devices
+ * @param {Object[]} devices - Array of device objects
+ * @returns {Object} Aggregated data { temperature, consumption, hasRemote, isRemoteOn, onlineCount, offlineCount, totalDevices }
+ */
+function calculateAmbienteAggregates(devices) {
+  var temps = [];
+  var consumptionTotal = 0;
+  var consumptionCount = 0;
+  var hasRemote = false;
+  var isRemoteOn = false;
+  var onlineCount = 0;
+  var offlineCount = 0;
+
+  devices.forEach(function(device) {
+    // Status
+    if (device.status === 'online' || device.status === 'active') {
+      onlineCount++;
+    } else {
+      offlineCount++;
+    }
+
+    // Temperature (from rawData or direct property)
+    var temp = (device.rawData && device.rawData.temperature) || device.temperature;
+    if (temp != null && !isNaN(temp)) {
+      temps.push(parseFloat(temp));
+    }
+
+    // Consumption
+    var consumption = (device.rawData && device.rawData.consumption) || device.consumption;
+    if (consumption != null && !isNaN(consumption)) {
+      consumptionTotal += parseFloat(consumption);
+      consumptionCount++;
+    }
+
+    // Remote control
+    var deviceHasRemote = (device.rawData && device.rawData.hasRemote) || device.hasRemote;
+    if (deviceHasRemote) {
+      hasRemote = true;
+      var deviceIsOn = (device.rawData && device.rawData.isOn) || device.isOn;
+      if (deviceIsOn) {
+        isRemoteOn = true;
+      }
+    }
+  });
+
+  return {
+    temperature: temps.length > 0 ? {
+      min: Math.min.apply(null, temps),
+      max: Math.max.apply(null, temps),
+      avg: temps.reduce(function(a, b) { return a + b; }, 0) / temps.length,
+      count: temps.length,
+    } : null,
+    consumption: consumptionCount > 0 ? {
+      total: consumptionTotal,
+      count: consumptionCount,
+    } : null,
+    hasRemote: hasRemote,
+    isRemoteOn: isRemoteOn,
+    onlineCount: onlineCount,
+    offlineCount: offlineCount,
+    totalDevices: devices.length,
+  };
+}
+
+/**
+ * Build the ambiente hierarchy map from devices
+ * Fetches parent asset for each device and organizes into tree structure
+ * @param {Object} classifiedDevices - Classified devices by domain/context
+ * @returns {Promise<Object>} Hierarchy map { ambienteId -> ambiente node }
+ */
+function buildAmbienteHierarchy(classifiedDevices) {
+  return new Promise(function(resolve, reject) {
+    LogHelper.log('[MAIN_BAS] ============ BUILDING HIERARCHY ============');
+
+    // Reset hierarchy caches
+    _ambienteHierarchy = {};
+    _deviceToAmbienteMap = {};
+
+    // Get all devices as flat array for parent lookups
+    var allDevices = [];
+    Object.keys(classifiedDevices).forEach(function(domain) {
+      if (domain === 'ocultos') return; // Skip hidden devices
+      var domainData = classifiedDevices[domain];
+      if (typeof domainData !== 'object') return;
+
+      Object.keys(domainData).forEach(function(context) {
+        var devices = domainData[context];
+        if (Array.isArray(devices)) {
+          allDevices = allDevices.concat(devices);
+        }
+      });
+    });
+
+    LogHelper.log('[MAIN_BAS] Devices to process:', allDevices.length);
+
+    if (allDevices.length === 0) {
+      LogHelper.log('[MAIN_BAS] No devices to process, skipping hierarchy build');
+      resolve(_ambienteHierarchy);
+      return;
+    }
+
+    // Step 1: Fetch parent asset for each device
+    var promises = allDevices.map(function(device) {
+      return getParentAssetViaHttp({ id: device.id, entityType: 'DEVICE' })
+        .then(function(parentAsset) {
+          // Store device-to-parent mapping
+          _deviceToAmbienteMap[device.id] = parentAsset.id;
+
+          // Create or update ambiente node
+          if (!_ambienteHierarchy[parentAsset.id]) {
+            _ambienteHierarchy[parentAsset.id] = {
+              id: parentAsset.id,
+              name: null,  // Will fetch later
+              entityType: 'ASSET',
+              parentId: null,
+              level: 1, // Default level, will be updated if parent is found
+              children: [],
+              devices: [],
+              aggregatedData: null,
+            };
+          }
+
+          // Add device to ambiente
+          _ambienteHierarchy[parentAsset.id].devices.push(device);
+
+          LogHelper.log('[MAIN_BAS] Device "' + device.name + '" -> Parent: ' + parentAsset.id);
+
+          return { device: device, parentId: parentAsset.id };
+        })
+        .catch(function(err) {
+          LogHelper.warn('[MAIN_BAS] No parent for device:', device.name, err);
+          return { device: device, parentId: null };
+        });
+    });
+
+    Promise.all(promises)
+      .then(function(results) {
+        // Step 2: Fetch ambiente names for all discovered ambientes
+        return fetchAmbienteNames(Object.keys(_ambienteHierarchy));
+      })
+      .then(function() {
+        // Step 3: Calculate aggregates for each ambiente
+        Object.keys(_ambienteHierarchy).forEach(function(ambienteId) {
+          var ambiente = _ambienteHierarchy[ambienteId];
+          ambiente.aggregatedData = calculateAmbienteAggregates(ambiente.devices);
+        });
+
+        LogHelper.log('[MAIN_BAS] ============ HIERARCHY COMPLETE ============');
+        LogHelper.log('[MAIN_BAS]   Leaf Ambientes:', Object.keys(_ambienteHierarchy).length);
+        LogHelper.log('[MAIN_BAS]   Devices mapped:', Object.keys(_deviceToAmbienteMap).length);
+
+        // Log ambiente details for debugging
+        Object.keys(_ambienteHierarchy).forEach(function(ambienteId) {
+          var ambiente = _ambienteHierarchy[ambienteId];
+          LogHelper.log('[MAIN_BAS]   Ambiente "' + ambiente.name + '": ' + ambiente.devices.length + ' devices');
+        });
+
+        resolve(_ambienteHierarchy);
+      })
+      .catch(function(err) {
+        LogHelper.error('[MAIN_BAS] Error building hierarchy:', err);
+        reject(err);
+      });
+  });
+}
+
+// ============================================================================
+// RFC-0161: Leaf Node Detection & Sidebar Rendering
+// ============================================================================
+
+/**
+ * Check if an ambiente is a "leaf" node (has devices but no sub-ambientes)
+ * @param {Object} ambiente - Ambiente node from hierarchy
+ * @returns {boolean} True if leaf node
+ */
+function isLeafAmbiente(ambiente) {
+  return ambiente.devices.length > 0 && ambiente.children.length === 0;
+}
+
+/**
+ * Get all leaf ambientes from hierarchy (for sidebar rendering)
+ * @returns {Object[]} Array of leaf ambiente nodes
+ */
+function getLeafAmbientes() {
+  var leaves = [];
+
+  function walkTree(ambiente) {
+    if (isLeafAmbiente(ambiente)) {
+      leaves.push(ambiente);
+    } else {
+      // Recurse into children
+      ambiente.children.forEach(walkTree);
+    }
+  }
+
+  Object.values(_ambienteHierarchy).forEach(function(rootAmbiente) {
+    walkTree(rootAmbiente);
+  });
+
+  return leaves;
+}
+
+/**
+ * Get devices for a specific ambiente (leaf nodes only have direct devices)
+ * @param {string|null} ambienteId - Ambiente ID or null for all devices
+ * @param {string} [domain] - Optional domain filter (water, temperature, energy)
+ * @returns {Object[]|null} Array of devices or null if no filter
+ */
+function getDevicesForAmbiente(ambienteId, domain) {
+  if (!ambienteId) return null;  // No filter, return null to indicate all
+
+  var ambiente = _ambienteHierarchy[ambienteId];
+  if (!ambiente) return null;
+
+  var devices = ambiente.devices;
+
+  // Filter by domain if specified
+  if (domain) {
+    return devices.filter(function(d) { return d.domain === domain; });
+  }
+
+  return devices;
+}
+
+/**
+ * Generate sublabel showing available data
+ * e.g., "22°C • 1.5kW" or "22°C" or "1.5kW"
+ * @param {Object} aggregates - Aggregated data from calculateAmbienteAggregates
+ * @returns {string} Sublabel text
+ */
+function buildAmbienteSublabel(aggregates) {
+  var parts = [];
+
+  if (aggregates && aggregates.temperature) {
+    parts.push(aggregates.temperature.avg.toFixed(1) + '°C');
+  }
+  if (aggregates && aggregates.consumption) {
+    parts.push(aggregates.consumption.total.toFixed(1) + 'kW');
+  }
+
+  return parts.join(' • ') || '';
+}
+
+/**
+ * Get icon based on what devices are present in ambiente
+ * @param {Object} aggregates - Aggregated data from calculateAmbienteAggregates
+ * @returns {string} Icon emoji
+ */
+function getAmbienteIconForAggregates(aggregates) {
+  if (aggregates && aggregates.hasRemote) return '🎛️';
+  if (aggregates && aggregates.temperature) return '🌡️';
+  if (aggregates && aggregates.consumption) return '⚡';
+  return '📍';
+}
+
+/**
+ * Build sidebar items from leaf ambientes only
+ * @returns {Object[]} Array of items for EntityListPanel
+ */
+function buildSidebarItemsFromHierarchy() {
+  var leaves = getLeafAmbientes();
+
+  return leaves.map(function(ambiente) {
+    var aggregates = ambiente.aggregatedData || {};
+
+    return {
+      id: ambiente.id,
+      label: ambiente.name,
+      sublabel: buildAmbienteSublabel(aggregates),
+      icon: getAmbienteIconForAggregates(aggregates),
+      data: ambiente,
+      // Generate action handler for the ambiente
+      handleActionClick: function() {
+        LogHelper.log('[MAIN_BAS] Hierarchy ambiente action:', ambiente.id, ambiente.name);
+        if (self.ctx && self.ctx.stateController) {
+          self.ctx.stateController.openState('ambiente', {
+            entityId: ambiente.id,
+            entityName: ambiente.name
+          });
+        }
+      },
+    };
+  });
+}
+
 // Customer credentials map for API integration
 var MAP_CUSTOMER_CREDENTIALS = {
   customer_TB_Id: null,
@@ -1638,9 +2008,14 @@ function mountEnergyPanel(host, settings, classified) {
 
 /**
  * Mount EntityListPanel into #bas-sidebar-host
- * Displays list of ambientes from datasource
+ * Displays list of ambientes from datasource or hierarchy
+ * RFC-0161: When hierarchyAvailable is true, uses leaf ambientes from hierarchy tree
+ * @param {HTMLElement} sidebarHost - Container element
+ * @param {Object} settings - Widget settings
+ * @param {Object[]} ambientes - Ambientes from datasource (fallback)
+ * @param {boolean} hierarchyAvailable - Whether hierarchy is available
  */
-function mountSidebarPanel(sidebarHost, settings, ambientes) {
+function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable) {
   // DEBUG: Log sidebar host dimensions
   LogHelper.log('[MAIN_BAS] mountSidebarPanel called');
   LogHelper.log('[MAIN_BAS] sidebarHost element:', sidebarHost);
@@ -1655,20 +2030,29 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
   });
   LogHelper.log('[MAIN_BAS] ambientes count:', ambientes?.length);
   LogHelper.log('[MAIN_BAS] ambientes data:', ambientes);
+  LogHelper.log('[MAIN_BAS] hierarchyAvailable:', hierarchyAvailable);
 
   if (!MyIOLibrary.EntityListPanel) {
     LogHelper.warn('[MAIN_BAS] MyIOLibrary.EntityListPanel not available');
     return null;
   }
 
-  var items = buildAmbienteItems(ambientes);
+  // RFC-0161: Use hierarchy-based items if available, otherwise use datasource ambientes
+  var items;
+  if (hierarchyAvailable) {
+    items = buildSidebarItemsFromHierarchy();
+    LogHelper.log('[MAIN_BAS] Built sidebar items from hierarchy:', items.length);
+  } else {
+    items = buildAmbienteItems(ambientes);
+    LogHelper.log('[MAIN_BAS] Built sidebar items from datasource:', items.length);
+  }
   LogHelper.log('[MAIN_BAS] Built ambiente items:', items);
 
   var panel = new MyIOLibrary.EntityListPanel({
     title: settings.sidebarLabel,
     icon: '📍',
     quantity: items.length,
-    subtitle: 'Nome \u2191',
+    subtitle: hierarchyAvailable ? 'Dispositivos' : 'Nome \u2191',
     items: items,
     panelBackground: settings.sidebarBackground,
     backgroundImage: settings.sidebarBackgroundImage || undefined,
@@ -1677,7 +2061,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     showAllOption: true,
     allLabel: 'HOME',
     sortOrder: 'asc',
-    excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels
+    excludePartOfLabel: hierarchyAvailable ? undefined : '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels (datasource only)
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 0 12px', letterSpacing: '0.5px' },
     showFilter: true,
     showMaximize: true,
@@ -1691,6 +2075,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     handleClickAll: function () {
       LogHelper.log('[MAIN_BAS] Ambiente selected: all');
       _selectedAmbiente = null;
+      // RFC-0161: Clear filter - show all devices
       if (_waterPanel) {
         _waterPanel.setItems(buildWaterCardItems(_currentClassified, null));
       }
@@ -1706,17 +2091,51 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     handleClickItem: function (item) {
       LogHelper.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
       _selectedAmbiente = item.id;
-      if (_waterPanel) {
-        _waterPanel.setItems(buildWaterCardItems(_currentClassified, item.id));
+
+      // RFC-0161: Filter devices based on selection
+      // If hierarchy is available, filter using _deviceToAmbienteMap
+      // Otherwise, use the old filtering by entityId match
+      if (hierarchyAvailable) {
+        // Get devices for this ambiente from hierarchy
+        var ambienteDevices = getDevicesForAmbiente(item.id);
+        if (ambienteDevices) {
+          // Filter card items by deviceId
+          var deviceIds = ambienteDevices.map(function(d) { return d.id; });
+
+          if (_waterPanel) {
+            var waterItems = buildWaterCardItems(_currentClassified, null).filter(function(cardItem) {
+              return deviceIds.includes(cardItem.id);
+            });
+            _waterPanel.setItems(waterItems);
+          }
+          if (_ambientesPanel) {
+            var hvacItems = buildHVACCardItems(_currentClassified, null).filter(function(cardItem) {
+              return deviceIds.includes(cardItem.id);
+            });
+            _ambientesPanel.setItems(hvacItems);
+          }
+          if (_motorsPanel) {
+            var energyItems = buildEnergyCardItems(_currentClassified, null).filter(function(cardItem) {
+              return deviceIds.includes(cardItem.id);
+            });
+            _motorsPanel.setItems(energyItems);
+          }
+        }
+      } else {
+        // Legacy filtering by ambiente ID
+        if (_waterPanel) {
+          _waterPanel.setItems(buildWaterCardItems(_currentClassified, item.id));
+        }
+        if (_ambientesPanel) {
+          _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, item.id));
+        }
+        if (_motorsPanel) {
+          _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, item.id));
+        }
       }
-      if (_ambientesPanel) {
-        _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, item.id));
-      }
-      if (_motorsPanel) {
-        _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, item.id));
-      }
+
       if (panel) panel.setSelectedId(item.id);
-      window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: item.id } }));
+      window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: item.id, hierarchyMode: hierarchyAvailable } }));
     },
   });
 
@@ -1979,12 +2398,25 @@ async function initializeDashboard(
       classified: parsed.classified,
     });
 
+    // RFC-0161: Build ambiente hierarchy from device parent relations
+    // This fetches parent assets for each device and builds a hierarchical map
+    var hierarchyAvailable = false;
+    try {
+      await buildAmbienteHierarchy(_currentClassified);
+      hierarchyAvailable = Object.keys(_ambienteHierarchy).length > 0;
+      LogHelper.log('[MAIN_BAS] Hierarchy available:', hierarchyAvailable);
+    } catch (hierarchyErr) {
+      LogHelper.warn('[MAIN_BAS] Hierarchy build failed, using datasource ambientes:', hierarchyErr);
+      hierarchyAvailable = false;
+    }
+
     // Mount sidebar EntityListPanel (col 1, row 1-2 full height)
     LogHelper.log('[MAIN_BAS] settings.showSidebar:', settings.showSidebar);
     LogHelper.log('[MAIN_BAS] sidebarHost exists:', !!sidebarHost);
 
     if (settings.showSidebar && sidebarHost) {
-      _ambientesListPanel = mountSidebarPanel(sidebarHost, settings, parsed.ambientes);
+      // RFC-0161: Use hierarchy-based sidebar items if available
+      _ambientesListPanel = mountSidebarPanel(sidebarHost, settings, parsed.ambientes, hierarchyAvailable);
     } else if (sidebarHost) {
       sidebarHost.style.display = 'none';
     }
@@ -2351,6 +2783,13 @@ self.onDestroy = function () {
   _currentAmbientes = [];
   _currentClassified = null;
   _dataUpdatedCount = 0; // Reset counter on destroy
+
+  // RFC-0161: Clean up hierarchy caches
+  _ambienteHierarchy = {};
+  _deviceToAmbienteMap = {};
+  _ambientesCache = {};
+  _devicesMap = {};
+  _ambientesMap = {};
 };
 
 self.typeParameters = function () {
