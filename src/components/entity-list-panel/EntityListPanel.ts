@@ -19,8 +19,24 @@
 export interface EntityListItem {
   id: string;
   label: string;
+  /** @deprecated Use handleActionClick instead */
   urlLink?: string;
+  /** Per-item action callback. Called when clicking the item arrow. */
+  handleActionClick?: () => void;
   [key: string]: unknown;
+}
+
+export interface EntityListTitleStyle {
+  /** Font size (e.g. '0.7rem', '11px') */
+  fontSize?: string;
+  /** Font weight (e.g. '500', '600', 'bold') */
+  fontWeight?: string;
+  /** Header padding (e.g. '8px 12px') */
+  padding?: string;
+  /** Title color */
+  color?: string;
+  /** Letter spacing */
+  letterSpacing?: string;
 }
 
 export interface EntityListPanelOptions {
@@ -44,6 +60,8 @@ export interface EntityListPanelOptions {
   allLabel?: string;
   /** Callback when "All" is clicked */
   handleClickAll?: () => void;
+  /** Optional style for the title/header (slim, premium look) */
+  titleStyle?: EntityListTitleStyle;
   /**
    * Sort order for items. Default: 'none' (preserve source order)
    * - 'asc': A-Z ascending (by normalized display label)
@@ -345,7 +363,7 @@ export class EntityListPanel {
   // ── Render ────────────────────────────────
 
   private render(): void {
-    const { title, subtitle, backgroundImage, searchPlaceholder } = this.options;
+    const { title, subtitle, backgroundImage, searchPlaceholder, titleStyle } = this.options;
 
     this.root.innerHTML = '';
 
@@ -357,6 +375,9 @@ export class EntityListPanel {
     // Header
     const header = document.createElement('div');
     header.className = 'myio-elp__header';
+    if (titleStyle?.padding) {
+      header.style.padding = titleStyle.padding;
+    }
 
     // Title row
     const titleRow = document.createElement('div');
@@ -365,6 +386,10 @@ export class EntityListPanel {
     const titleEl = document.createElement('h3');
     titleEl.className = 'myio-elp__title';
     titleEl.textContent = title;
+    if (titleStyle?.fontSize) titleEl.style.fontSize = titleStyle.fontSize;
+    if (titleStyle?.fontWeight) titleEl.style.fontWeight = titleStyle.fontWeight;
+    if (titleStyle?.color) titleEl.style.color = titleStyle.color;
+    if (titleStyle?.letterSpacing) titleEl.style.letterSpacing = titleStyle.letterSpacing;
     titleRow.appendChild(titleEl);
 
     const searchBtn = document.createElement('button');
@@ -469,6 +494,10 @@ export class EntityListPanel {
       `;
       li.addEventListener('click', () => {
         handleClickItem(item);
+        // Call per-item action if defined
+        if (typeof item.handleActionClick === 'function') {
+          item.handleActionClick();
+        }
       });
       list.appendChild(li);
     });
@@ -527,7 +556,8 @@ export class EntityListPanel {
   }
 
   /**
-   * Sort items by normalized display label.
+   * Sort items by ORIGINAL label (before excludePartOfLabel).
+   * This preserves prefix-based ordering like "(001)-", "(002)-", etc.
    * Returns a new array without mutating the original.
    */
   private sortItems(items: EntityListItem[]): EntityListItem[] {
@@ -536,9 +566,8 @@ export class EntityListPanel {
     }
 
     return [...items].sort((a, b) => {
-      const labelA = this.normalizeLabel(a.label);
-      const labelB = this.normalizeLabel(b.label);
-      const comparison = labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
+      // Sort by original label to preserve prefix ordering
+      const comparison = a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' });
       return this.options.sortOrder === 'desc' ? -comparison : comparison;
     });
   }

@@ -539,6 +539,107 @@ function parseDevicesFromData(data) {
 }
 
 /**
+ * Map of action handlers per ambiente label pattern
+ * Key is the label prefix (e.g., '(001)-Deck')
+ * Value is a function that receives the ambiente object
+ *
+ * Labels:
+ *   (001)-Deck
+ *   (002)-Sala do Nobreak
+ *   (003)-Auditório
+ *   (004)-Staff Rio de Janeiro
+ *   (005)-Bombas
+ *   (006)-Água
+ *   (007)-Configuração
+ *   (008)-Integrações
+ */
+var AMBIENTE_ACTION_MAP = {
+  '(001)-Deck': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Deck ->', ambiente.id);
+    // Navigate to Deck dashboard state
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('deck', { entityId: ambiente.id });
+    }
+  },
+  '(002)-Sala do Nobreak': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Sala do Nobreak ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('nobreak', { entityId: ambiente.id });
+    }
+  },
+  '(003)-Auditório': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Auditório ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('auditorio', { entityId: ambiente.id });
+    }
+  },
+  '(004)-Staff Rio de Janeiro': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Staff Rio de Janeiro ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('staff', { entityId: ambiente.id });
+    }
+  },
+  '(005)-Bombas': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Bombas ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('bombas', { entityId: ambiente.id });
+    }
+  },
+  '(006)-Água': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Água ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('agua', { entityId: ambiente.id });
+    }
+  },
+  '(007)-Configuração': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Configuração ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('config', { entityId: ambiente.id });
+    }
+  },
+  '(008)-Integrações': function (ambiente) {
+    console.log('[MAIN_BAS] Action: Integrações ->', ambiente.id);
+    if (self.ctx && self.ctx.stateController) {
+      self.ctx.stateController.openState('integracoes', { entityId: ambiente.id });
+    }
+  },
+};
+
+/**
+ * Get action handler for an ambiente from the action map
+ * Matches by label (e.g., '(001)-Deck') since that's what the map uses
+ */
+function getAmbienteActionHandler(ambiente) {
+  var label = ambiente.name || ambiente.label || '';
+
+  // Check exact label match first
+  if (AMBIENTE_ACTION_MAP[label]) {
+    return function () {
+      AMBIENTE_ACTION_MAP[label](ambiente);
+    };
+  }
+
+  // Check prefix patterns (keys ending with '-')
+  for (var key in AMBIENTE_ACTION_MAP) {
+    if (key.endsWith('-') && label.startsWith(key)) {
+      return function () {
+        AMBIENTE_ACTION_MAP[key](ambiente);
+      };
+    }
+  }
+
+  // Default: navigate to ThingsBoard state if stateController available
+  if (self.ctx && self.ctx.stateController) {
+    return function () {
+      console.log('[MAIN_BAS] Navigate to ambiente:', ambiente.id, ambiente.name);
+      self.ctx.stateController.openState('ambiente', { entityId: ambiente.id, entityName: name });
+    };
+  }
+
+  return undefined;
+}
+
+/**
  * Build EntityListPanel items from ambiente devices
  * Each device in the "Ambientes" datasource becomes a list item
  */
@@ -547,6 +648,7 @@ function buildAmbienteItems(ambientes) {
     return {
       id: ambiente.id,
       label: ambiente.name || ambiente.label || ambiente.id,
+      handleActionClick: getAmbienteActionHandler(ambiente),
     };
   });
 }
@@ -883,9 +985,10 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     searchPlaceholder: 'Buscar...',
     selectedId: null,
     showAllOption: true,
-    allLabel: 'Todos',
+    allLabel: 'HOME',
     sortOrder: 'asc',
     excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels
+    titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 0 12px', letterSpacing: '0.5px' },
     handleClickAll: function () {
       console.log('[MAIN_BAS] Ambiente selected: all');
       _selectedAmbiente = null;
