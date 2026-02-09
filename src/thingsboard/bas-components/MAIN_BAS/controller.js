@@ -631,8 +631,8 @@ function getAmbienteActionHandler(ambiente) {
   // Default: navigate to ThingsBoard state if stateController available
   if (self.ctx && self.ctx.stateController) {
     return function () {
-      console.log('[MAIN_BAS] Navigate to ambiente:', ambiente.id, ambiente.name);
-      self.ctx.stateController.openState('ambiente', { entityId: ambiente.id, entityName: name });
+      console.log('[MAIN_BAS] Navigate to ambiente:', ambiente.id, label);
+      self.ctx.stateController.openState('ambiente', { entityId: ambiente.id, entityName: label });
     };
   }
 

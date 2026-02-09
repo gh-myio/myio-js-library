@@ -253,6 +253,10 @@ export {
   renderCardComponent as renderCardComponentV6Alias,
 } from './components/template-card-v6/template-card-v6.js';
 
+// HeaderPanelComponent — Reusable header component for panels
+export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK } from './components/header-panel/index';
+export type { HeaderPanelStyle, HeaderPanelOptions } from './components/header-panel/index';
+
 // EntityListPanel — Reusable sidebar list component
 export { EntityListPanel } from './components/entity-list-panel/index';
 export type { EntityListItem, EntityListPanelOptions } from './components/entity-list-panel/index';

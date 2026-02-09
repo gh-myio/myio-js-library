@@ -15,6 +15,7 @@
  */
 
 import { renderCardComponentV6 } from '../template-card-v6/template-card-v6.js';
+import { HeaderPanelComponent, HeaderPanelStyle } from '../header-panel/HeaderPanelComponent';
 
 // ────────────────────────────────────────────
 // Types
@@ -37,36 +38,58 @@ export interface CardGridCustomStyle {
   height?: string;
 }
 
-export interface CardGridTitleStyle {
-  /** Font size (e.g. '0.7rem', '11px') */
-  fontSize?: string;
-  /** Font weight (e.g. '500', '600', 'bold') */
-  fontWeight?: string;
-  /** Header padding (e.g. '8px 12px') */
-  padding?: string;
-  /** Title color */
-  color?: string;
-  /** Letter spacing */
-  letterSpacing?: string;
-}
+/** @deprecated Use HeaderPanelStyle from header-panel component */
+export type CardGridTitleStyle = HeaderPanelStyle;
 
 export interface CardGridPanelOptions {
   /** Panel title (e.g. "Infraestrutura Hidrica") */
   title: string;
+  /** Icon (SVG string or emoji) displayed before title */
+  icon?: string;
+  /** Item count to display as (N) badge in header */
+  quantity?: number;
   /** Items to render as cards */
   items: CardGridItem[];
+  /**
+   * Panel background - can be:
+   * - Hex color: '#e8f4fc'
+   * - RGB/RGBA: 'rgba(0,100,200,0.1)'
+   * - Image URL: 'https://example.com/bg.png' or '/path/to/bg.jpg'
+   * Default: #faf8f1
+   */
+  panelBackground?: string;
   /** Optional customStyle applied to every card */
   cardCustomStyle?: CardGridCustomStyle;
   /** Optional style for the title/header (slim, premium look) */
   titleStyle?: CardGridTitleStyle;
   /** Callback when a card is clicked */
   handleClickCard?: (item: CardGridItem) => void;
+  /** Callback for card's dashboard action button (lateral piano-key) */
+  handleActionDashboard?: (item: CardGridItem) => void;
+  /** Callback for card's report action button (lateral piano-key) */
+  handleActionReport?: (item: CardGridItem) => void;
+  /** Callback for card's settings action button (lateral piano-key) */
+  handleActionSettings?: (item: CardGridItem) => void;
   /** Empty state message */
   emptyMessage?: string;
   /** Min card width for the auto-fill grid (default: 140px) */
   gridMinCardWidth?: string;
   /** Show temp range tooltip on cards */
   showTempRangeTooltip?: boolean;
+  /** Show search toggle button in header */
+  showSearch?: boolean;
+  /** Search placeholder text */
+  searchPlaceholder?: string;
+  /** Callback when search text changes (filters cards locally) */
+  onSearchChange?: (text: string) => void;
+  /** Show filter button in header */
+  showFilter?: boolean;
+  /** Callback when filter button is clicked */
+  handleActionFilter?: () => void;
+  /** Show maximize/minimize toggle in header */
+  showMaximize?: boolean;
+  /** Callback when maximize/minimize is toggled */
+  onMaximizeToggle?: (isMaximized: boolean) => void;
 }
 
 // ────────────────────────────────────────────
@@ -120,6 +143,15 @@ const PANEL_CSS = `
 
   .myio-cgp__card-wrapper {
     min-width: 0;
+    /* Allow cards to size naturally */
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Card should fill wrapper but not be constrained */
+  .myio-cgp__card-wrapper > * {
+    flex: 1;
+    min-height: 0;
   }
 
   .myio-cgp__empty {
@@ -145,12 +177,17 @@ function injectStyles(): void {
 export class CardGridPanel {
   private root: HTMLElement;
   private options: CardGridPanelOptions;
+  private headerComponent: HeaderPanelComponent | null = null;
 
   constructor(options: CardGridPanelOptions) {
     injectStyles();
     this.options = options;
     this.root = document.createElement('div');
     this.root.className = 'myio-cgp';
+    // Apply custom panel background (color or image)
+    if (options.panelBackground) {
+      this.applyPanelBackground(options.panelBackground);
+    }
     this.render();
   }
 
@@ -169,8 +206,46 @@ export class CardGridPanel {
   /** Update title */
   public setTitle(title: string): void {
     this.options.title = title;
-    const el = this.root.querySelector('.myio-cgp__title') as HTMLElement;
-    if (el) el.textContent = title;
+    if (this.headerComponent) {
+      this.headerComponent.setTitle(title);
+    }
+  }
+
+  /** Update quantity badge */
+  public setQuantity(quantity: number): void {
+    this.options.quantity = quantity;
+    if (this.headerComponent) {
+      this.headerComponent.setQuantity(quantity);
+    }
+  }
+
+  /** Update icon */
+  public setIcon(icon: string): void {
+    this.options.icon = icon;
+    if (this.headerComponent) {
+      this.headerComponent.setIcon(icon);
+    }
+  }
+
+  /** Update panel background (color or image URL) */
+  public setPanelBackground(background: string): void {
+    this.options.panelBackground = background;
+    this.applyPanelBackground(background);
+  }
+
+  /** Apply background - detects if it's an image URL or color */
+  private applyPanelBackground(background: string): void {
+    // Check if it's an image URL (starts with http, https, /, or data:)
+    const isImageUrl = /^(https?:\/\/|\/|data:image)/.test(background);
+    if (isImageUrl) {
+      this.root.style.backgroundImage = `url('${background}')`;
+      this.root.style.backgroundSize = 'cover';
+      this.root.style.backgroundPosition = 'center';
+      this.root.style.backgroundRepeat = 'no-repeat';
+    } else {
+      // It's a color (hex, rgb, rgba, named color)
+      this.root.style.backgroundColor = background;
+    }
   }
 
   /** Update card custom style */
@@ -186,26 +261,43 @@ export class CardGridPanel {
   // ── Render ────────────────────────────────
 
   private render(): void {
-    const { title, gridMinCardWidth, titleStyle } = this.options;
+    const {
+      title,
+      icon,
+      quantity,
+      gridMinCardWidth,
+      titleStyle,
+      showSearch,
+      searchPlaceholder,
+      onSearchChange,
+      showFilter,
+      handleActionFilter,
+      showMaximize,
+      onMaximizeToggle,
+    } = this.options;
 
     this.root.innerHTML = '';
 
-    // Header
-    const header = document.createElement('div');
-    header.className = 'myio-cgp__header';
-    if (titleStyle?.padding) {
-      header.style.padding = titleStyle.padding;
-    }
-
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'myio-cgp__title';
-    titleEl.textContent = title;
-    if (titleStyle?.fontSize) titleEl.style.fontSize = titleStyle.fontSize;
-    if (titleStyle?.fontWeight) titleEl.style.fontWeight = titleStyle.fontWeight;
-    if (titleStyle?.color) titleEl.style.color = titleStyle.color;
-    if (titleStyle?.letterSpacing) titleEl.style.letterSpacing = titleStyle.letterSpacing;
-    header.appendChild(titleEl);
-    this.root.appendChild(header);
+    // Header using HeaderPanelComponent with full feature support
+    this.headerComponent = new HeaderPanelComponent({
+      title,
+      icon,
+      quantity,
+      style: titleStyle,
+      showBottomBorder: true,
+      showTopBorder: true,
+      // Search
+      showSearch,
+      searchPlaceholder,
+      onSearchChange,
+      // Filter
+      showFilter,
+      handleActionFilter,
+      // Maximize
+      showMaximize,
+      onMaximizeToggle,
+    });
+    this.root.appendChild(this.headerComponent.getElement());
 
     // Grid
     const grid = document.createElement('div');
@@ -228,6 +320,9 @@ export class CardGridPanel {
       items,
       cardCustomStyle,
       handleClickCard,
+      handleActionDashboard,
+      handleActionReport,
+      handleActionSettings,
       emptyMessage,
       showTempRangeTooltip,
     } = this.options;
@@ -243,9 +338,15 @@ export class CardGridPanel {
     items.forEach(item => {
       const cardResult = (renderCardComponentV6 as Function)({
         entityObject: item.entityObject,
-        handleActionDashboard: undefined,
-        handleActionReport: undefined,
-        handleActionSettings: undefined,
+        handleActionDashboard: handleActionDashboard
+          ? () => handleActionDashboard(item)
+          : undefined,
+        handleActionReport: handleActionReport
+          ? () => handleActionReport(item)
+          : undefined,
+        handleActionSettings: handleActionSettings
+          ? () => handleActionSettings(item)
+          : undefined,
         handleSelect: undefined,
         handInfo: undefined,
         handleClickCard: () => {
@@ -262,6 +363,11 @@ export class CardGridPanel {
         const wrapper = document.createElement('div');
         wrapper.className = 'myio-cgp__card-wrapper';
         wrapper.dataset.deviceId = item.id;
+        // Apply min-height to wrapper if customStyle.height is specified
+        // Use min-height so card can grow if content needs more space
+        if (cardCustomStyle?.height) {
+          wrapper.style.minHeight = cardCustomStyle.height;
+        }
         wrapper.appendChild(cardResult[0]);
         grid.appendChild(wrapper);
       }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RFC-0158: MAIN_BAS Dashboard Simulation</title>
+  <title>RFC-0160: MAIN_BAS Dashboard Simulation</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Load 100% of MAIN_BAS styles -->
   <link rel="stylesheet" href="../../src/thingsboard/bas-components/MAIN_BAS/styles.css">
@@ -339,8 +339,8 @@
     <!-- Header -->
     <header class="showcase-header">
       <div>
-        <h1>RFC-0158: MAIN_BAS Dashboard Simulation</h1>
-        <p>Building Automation System (BAS) - Water, HVAC & Motors Dashboard</p>
+        <h1>RFC-0160: MAIN_BAS Dashboard Simulation</h1>
+        <p>BAS - HeaderPanelComponent, EntityListPanel (icons, notifications), CardGridPanel (gap fix)</p>
       </div>
       <div class="header-status">
         <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
@@ -421,7 +421,7 @@
         <div class="ctrl-group">
           <label class="ctrl-checkbox">
             <input type="checkbox" id="settingsShowFloors" checked onchange="updateSettings()">
-            Show Floors Sidebar
+            Show Ambientes Sidebar
           </label>
         </div>
         <div class="ctrl-group">
@@ -503,6 +503,18 @@
       tank: ['Caixa Torre', 'Caixa Reservatorio', 'Tanque Elevado'],
       solenoid: ['Solenoide 01', 'Solenoide 02', 'Valvula Principal']
     };
+
+    // Ambiente names matching controller.js pattern
+    const AMBIENTE_NAMES = [
+      { id: '001', name: 'Deck' },
+      { id: '002', name: 'Sala do Nobreak' },
+      { id: '003', name: 'Auditório' },
+      { id: '004', name: 'Staff Rio de Janeiro' },
+      { id: '005', name: 'Bombas' },
+      { id: '006', name: 'Água' },
+      { id: '007', name: 'Configuração' },
+      { id: '008', name: 'Integrações' },
+    ];
 
     const HVAC_NAMES = ['Escritorio', 'Sala de Reunioes', 'Recepcao', 'Auditorio', 'CPD', 'Refeitorio', 'Laboratorio', 'Almoxarifado'];
 
@@ -693,22 +705,83 @@
       const ambientesHost = document.getElementById('bas-ambientes-host');
       const motorsHost = document.getElementById('bas-motors-host');
 
-      // Sidebar
+      // Sidebar - using ambiente names with prefix pattern like controller.js
+      // Including new icon and notification features
       if (settings.showFloorsSidebar && sidebarHost && MyIO.EntityListPanel) {
         sidebarHost.innerHTML = '';
-        const floorItems = mockData.floors.map(f => ({ id: f, label: f + '\u00BA andar' }));
+        const AMBIENTE_ICONS = {
+          '001': '🌊', // Deck
+          '002': '⚡', // Sala do Nobreak
+          '003': '🎤', // Auditório
+          '004': '👥', // Staff Rio de Janeiro
+          '005': '💧', // Bombas
+          '006': '🚰', // Água
+          '007': '⚙️', // Configuração
+          '008': '🔗', // Integrações
+        };
+        const ambienteItems = AMBIENTE_NAMES.map((a, index) => ({
+          id: a.id,
+          label: `(${a.id})-${a.name}`,
+          icon: AMBIENTE_ICONS[a.id] || '📍',
+          // Simulate notification for some items (e.g., items with alerts)
+          notification: index === 2 || index === 5 ? {
+            show: true,
+            blink: index === 5, // Água has blinking notification
+            tooltip: index === 5 ? 'Alerta de vazamento!' : 'Atenção necessária'
+          } : undefined,
+          handleActionClick: () => {
+            log('event', 'Action', `Navigate to: ${a.name}`);
+            // In real app: self.ctx.stateController.openState(a.name.toLowerCase(), { entityId: a.id });
+          }
+        }));
         floorListPanel = new MyIO.EntityListPanel({
-          title: 'Andares', subtitle: 'Nome', items: floorItems, showAllOption: true, allLabel: 'Todos',
-          handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Floor', 'All'); },
-          handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Floor', item.id); }
+          title: 'Ambientes',
+          subtitle: 'Nome ↑',
+          icon: '🏢',
+          quantity: ambienteItems.length,
+          items: ambienteItems,
+          showAllOption: true,
+          allLabel: 'HOME',
+          sortOrder: 'asc',
+          excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from display
+          titleStyle: { fontSize: '0.7rem', fontWeight: '600', letterSpacing: '0.5px' },
+          // HeaderPanelComponent features
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Open filter modal'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { log('event', 'Maximize', isMax ? 'Maximized' : 'Minimized'); },
+          handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Ambiente', 'HOME'); },
+          handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Ambiente', item.label); }
         });
         sidebarHost.appendChild(floorListPanel.getElement());
       }
 
+      // Slim title style for all panels
+      const slimTitleStyle = { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' };
+      const cardStyle = { height: '120px' };
+
       // Water
       if (settings.showWaterInfrastructure && waterHost && MyIO.CardGridPanel) {
         waterHost.innerHTML = '';
-        waterPanel = new MyIO.CardGridPanel({ title: 'Infraestrutura Hidrica', items: buildWaterItems(mockData.waterDevices, null), emptyMessage: 'Nenhum dispositivo' });
+        const waterItems = buildWaterItems(mockData.waterDevices, null);
+        waterPanel = new MyIO.CardGridPanel({
+          title: 'Infraestrutura Hidrica',
+          icon: '💧',
+          quantity: waterItems.length,
+          items: waterItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: slimTitleStyle,
+          panelBackground: '#e8f4fc', // Light blue background (can also be image URL)
+          emptyMessage: 'Nenhum dispositivo',
+          // HeaderPanelComponent features
+          showSearch: true,
+          searchPlaceholder: 'Buscar dispositivo...',
+          onSearchChange: (text) => { log('event', 'Search Water', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { log('event', 'Water Maximize', isMax ? 'Maximized' : 'Minimized'); }
+        });
         waterHost.appendChild(waterPanel.getElement());
       }
 
@@ -718,14 +791,48 @@
       // Ambientes
       if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
         ambientesHost.innerHTML = '';
-        ambientesPanel = new MyIO.CardGridPanel({ title: 'Ambientes', items: buildHVACItems(mockData.hvacDevices, null), emptyMessage: 'Nenhum ambiente' });
+        const hvacItems = buildHVACItems(mockData.hvacDevices, null);
+        ambientesPanel = new MyIO.CardGridPanel({
+          title: 'Ambientes HVAC',
+          icon: '❄️',
+          quantity: hvacItems.length,
+          items: hvacItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: slimTitleStyle,
+          emptyMessage: 'Nenhum ambiente',
+          // HeaderPanelComponent features
+          showSearch: true,
+          searchPlaceholder: 'Buscar ambiente...',
+          onSearchChange: (text) => { log('event', 'Search HVAC', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'HVAC filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { log('event', 'HVAC Maximize', isMax ? 'Maximized' : 'Minimized'); }
+        });
         ambientesHost.appendChild(ambientesPanel.getElement());
       }
 
       // Motors
       if (settings.showPumpsMotors && motorsHost && MyIO.CardGridPanel) {
         motorsHost.innerHTML = '';
-        motorsPanel = new MyIO.CardGridPanel({ title: 'Bombas e Motores', items: buildMotorItems(mockData.motorDevices, null), emptyMessage: 'Nenhum equipamento' });
+        const motorItems = buildMotorItems(mockData.motorDevices, null);
+        motorsPanel = new MyIO.CardGridPanel({
+          title: 'Bombas e Motores',
+          icon: '⚙️',
+          quantity: motorItems.length,
+          items: motorItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: slimTitleStyle,
+          emptyMessage: 'Nenhum equipamento',
+          // HeaderPanelComponent features
+          showSearch: true,
+          searchPlaceholder: 'Buscar motor...',
+          onSearchChange: (text) => { log('event', 'Search Motors', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { log('event', 'Motors Maximize', isMax ? 'Maximized' : 'Minimized'); }
+        });
         motorsHost.appendChild(motorsPanel.getElement());
       }
 
@@ -752,7 +859,7 @@
       if (!currentState.isInitialized) { log('warn', 'onDataUpdated', 'Not initialized'); return; }
       const mockData = generateMockData();
       currentState.data = mockData;
-      if (floorListPanel) { floorListPanel.setItems(mockData.floors.map(f => ({ id: f, label: f + '\u00BA andar' }))); }
+      // Ambiente items stay the same (static list from AMBIENTE_NAMES)
       refreshPanels();
       log('info', 'onDataUpdated', `Updated: ${mockData.waterDevices.length + mockData.hvacDevices.length + mockData.motorDevices.length} devices`);
     }

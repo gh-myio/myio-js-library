@@ -12,6 +12,8 @@
  * Inspired by the BAS "Andares" floor-list design.
  */
 
+import { HeaderPanelComponent, HeaderPanelStyle } from '../header-panel/HeaderPanelComponent';
+
 // ────────────────────────────────────────────
 // Types
 // ────────────────────────────────────────────
@@ -19,6 +21,19 @@
 export interface EntityListItem {
   id: string;
   label: string;
+  /** Optional icon (SVG string or emoji) displayed before label */
+  icon?: string;
+  /** Notification indicator config */
+  notification?: {
+    /** Show notification dot/icon */
+    show: boolean;
+    /** Icon (SVG string or emoji), defaults to red dot if not provided */
+    icon?: string;
+    /** Enable blinking animation for attention */
+    blink?: boolean;
+    /** Tooltip text on hover */
+    tooltip?: string;
+  };
   /** @deprecated Use handleActionClick instead */
   urlLink?: string;
   /** Per-item action callback. Called when clicking the item arrow. */
@@ -26,24 +41,18 @@ export interface EntityListItem {
   [key: string]: unknown;
 }
 
-export interface EntityListTitleStyle {
-  /** Font size (e.g. '0.7rem', '11px') */
-  fontSize?: string;
-  /** Font weight (e.g. '500', '600', 'bold') */
-  fontWeight?: string;
-  /** Header padding (e.g. '8px 12px') */
-  padding?: string;
-  /** Title color */
-  color?: string;
-  /** Letter spacing */
-  letterSpacing?: string;
-}
+/** @deprecated Use HeaderPanelStyle from header-panel component */
+export type EntityListTitleStyle = HeaderPanelStyle;
 
 export interface EntityListPanelOptions {
   /** Panel title (e.g. "Andares") */
   title: string;
   /** Optional subtitle shown below title as sort indicator (e.g. "Nome do andar ↑") */
   subtitle?: string;
+  /** Icon (SVG string or emoji) displayed before title */
+  icon?: string;
+  /** Item count to display as (N) badge in header */
+  quantity?: number;
   /** Items to render */
   items: EntityListItem[];
   /** Optional background watermark image URL */
@@ -80,6 +89,22 @@ export interface EntityListPanelOptions {
    * Example: 'i' for case-insensitive matching
    */
   excludePartOfLabelFlags?: string;
+  /** Show filter button in header (uses HeaderPanelComponent) */
+  showFilter?: boolean;
+  /** Callback when filter button is clicked */
+  handleActionFilter?: () => void;
+  /** Show maximize/minimize toggle in header */
+  showMaximize?: boolean;
+  /** Callback when maximize/minimize is toggled */
+  onMaximizeToggle?: (isMaximized: boolean) => void;
+  /**
+   * Panel background - can be:
+   * - Hex color: '#e8f4fc'
+   * - RGB/RGBA: 'rgba(0,100,200,0.1)'
+   * - Image URL: 'https://example.com/bg.png' or '/path/to/bg.jpg'
+   * Default: #faf8f1
+   */
+  panelBackground?: string;
 }
 
 // ────────────────────────────────────────────
@@ -149,33 +174,6 @@ const PANEL_CSS = `
     color: #1a1a1a;
   }
 
-  /* Search input (hidden by default, toggled) */
-  .myio-elp__search-row {
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.25s ease, margin 0.25s ease;
-    margin-top: 0;
-  }
-  .myio-elp__search-row--open {
-    max-height: 44px;
-    margin-top: 8px;
-  }
-
-  .myio-elp__search-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 6px 10px;
-    border: 1px solid #d4cfbe;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    background: #fff;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .myio-elp__search-input:focus {
-    border-color: #a09880;
-  }
-
   /* Subtitle / sort indicator */
   .myio-elp__subtitle {
     font-size: 0.72rem;
@@ -234,6 +232,23 @@ const PANEL_CSS = `
     background: rgba(47, 88, 72, 0.15);
   }
 
+  .myio-elp__item-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2F5848;
+    font-size: 14px;
+    margin-right: 8px;
+  }
+
+  .myio-elp__item-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
   .myio-elp__item-label {
     font-size: 0.85rem;
     color: #333;
@@ -242,6 +257,42 @@ const PANEL_CSS = `
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
+  }
+
+  .myio-elp__item-notification {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+  }
+
+  .myio-elp__item-notification-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #dc2626;
+  }
+
+  .myio-elp__item-notification-icon {
+    font-size: 12px;
+    color: #dc2626;
+  }
+
+  .myio-elp__item-notification-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .myio-elp__item-notification--blink {
+    animation: myio-elp-blink 1s ease-in-out infinite;
+  }
+
+  @keyframes myio-elp-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
   }
 
   .myio-elp__item-arrow {
@@ -284,8 +335,6 @@ function injectStyles(): void {
 // SVG icons (inline, no external deps)
 // ────────────────────────────────────────────
 
-const ICON_SEARCH = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
-
 const ICON_ARROW = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 
 // ────────────────────────────────────────────
@@ -295,7 +344,7 @@ const ICON_ARROW = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="1
 export class EntityListPanel {
   private root: HTMLElement;
   private options: EntityListPanelOptions;
-  private searchOpen = false;
+  private headerComponent: HeaderPanelComponent | null = null;
   private filterText = '';
 
   constructor(options: EntityListPanelOptions) {
@@ -303,6 +352,10 @@ export class EntityListPanel {
     this.options = options;
     this.root = document.createElement('div');
     this.root.className = 'myio-elp';
+    // Apply custom panel background (color or image)
+    if (options.panelBackground) {
+      this.applyPanelBackground(options.panelBackground);
+    }
     this.render();
   }
 
@@ -328,15 +381,33 @@ export class EntityListPanel {
   /** Update title */
   public setTitle(title: string): void {
     this.options.title = title;
-    const el = this.root.querySelector('.myio-elp__title') as HTMLElement;
-    if (el) el.textContent = title;
+    if (this.headerComponent) {
+      this.headerComponent.setTitle(title);
+    }
   }
 
   /** Update subtitle */
   public setSubtitle(subtitle: string): void {
     this.options.subtitle = subtitle;
-    const el = this.root.querySelector('.myio-elp__subtitle') as HTMLElement;
-    if (el) el.textContent = subtitle;
+    if (this.headerComponent) {
+      this.headerComponent.setSubtitle(subtitle);
+    }
+  }
+
+  /** Update quantity badge */
+  public setQuantity(quantity: number): void {
+    this.options.quantity = quantity;
+    if (this.headerComponent) {
+      this.headerComponent.setQuantity(quantity);
+    }
+  }
+
+  /** Update icon */
+  public setIcon(icon: string): void {
+    this.options.icon = icon;
+    if (this.headerComponent) {
+      this.headerComponent.setIcon(icon);
+    }
   }
 
   /** Update background watermark image */
@@ -355,6 +426,27 @@ export class EntityListPanel {
     }
   }
 
+  /** Update panel background (color or image URL) */
+  public setPanelBackground(background: string): void {
+    this.options.panelBackground = background;
+    this.applyPanelBackground(background);
+  }
+
+  /** Apply background - detects if it's an image URL or color */
+  private applyPanelBackground(background: string): void {
+    // Check if it's an image URL (starts with http, https, /, or data:)
+    const isImageUrl = /^(https?:\/\/|\/|data:image)/.test(background);
+    if (isImageUrl) {
+      this.root.style.backgroundImage = `url('${background}')`;
+      this.root.style.backgroundSize = 'cover';
+      this.root.style.backgroundPosition = 'center';
+      this.root.style.backgroundRepeat = 'no-repeat';
+    } else {
+      // It's a color (hex, rgb, rgba, named color)
+      this.root.style.backgroundColor = background;
+    }
+  }
+
   /** Cleanup */
   public destroy(): void {
     this.root.remove();
@@ -363,7 +455,19 @@ export class EntityListPanel {
   // ── Render ────────────────────────────────
 
   private render(): void {
-    const { title, subtitle, backgroundImage, searchPlaceholder, titleStyle } = this.options;
+    const {
+      title,
+      subtitle,
+      icon,
+      quantity,
+      backgroundImage,
+      searchPlaceholder,
+      titleStyle,
+      showFilter,
+      handleActionFilter,
+      showMaximize,
+      onMaximizeToggle,
+    } = this.options;
 
     this.root.innerHTML = '';
 
@@ -372,59 +476,36 @@ export class EntityListPanel {
       this.injectWatermark();
     }
 
-    // Header
-    const header = document.createElement('div');
-    header.className = 'myio-elp__header';
-    if (titleStyle?.padding) {
-      header.style.padding = titleStyle.padding;
-    }
+    // Header wrapper (contains HeaderPanelComponent + search row)
+    const headerWrapper = document.createElement('div');
+    headerWrapper.className = 'myio-elp__header';
 
-    // Title row
-    const titleRow = document.createElement('div');
-    titleRow.className = 'myio-elp__title-row';
-
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'myio-elp__title';
-    titleEl.textContent = title;
-    if (titleStyle?.fontSize) titleEl.style.fontSize = titleStyle.fontSize;
-    if (titleStyle?.fontWeight) titleEl.style.fontWeight = titleStyle.fontWeight;
-    if (titleStyle?.color) titleEl.style.color = titleStyle.color;
-    if (titleStyle?.letterSpacing) titleEl.style.letterSpacing = titleStyle.letterSpacing;
-    titleRow.appendChild(titleEl);
-
-    const searchBtn = document.createElement('button');
-    searchBtn.className = 'myio-elp__search-btn';
-    searchBtn.innerHTML = ICON_SEARCH;
-    searchBtn.title = 'Buscar';
-    searchBtn.addEventListener('click', () => this.toggleSearch());
-    titleRow.appendChild(searchBtn);
-
-    header.appendChild(titleRow);
-
-    // Search row (collapsed)
-    const searchRow = document.createElement('div');
-    searchRow.className = 'myio-elp__search-row';
-
-    const searchInput = document.createElement('input');
-    searchInput.className = 'myio-elp__search-input';
-    searchInput.type = 'text';
-    searchInput.placeholder = searchPlaceholder || 'Buscar...';
-    searchInput.addEventListener('input', () => {
-      this.filterText = searchInput.value.trim().toLowerCase();
-      this.renderList();
+    // Use HeaderPanelComponent for title row with full feature support
+    this.headerComponent = new HeaderPanelComponent({
+      title,
+      subtitle,
+      icon,
+      quantity,
+      style: titleStyle,
+      showBottomBorder: false, // We handle border in wrapper
+      showTopBorder: true, // Subtle green accent line at top
+      // Use HeaderPanelComponent's built-in search
+      showSearch: true,
+      searchPlaceholder: searchPlaceholder || 'Buscar...',
+      onSearchChange: (text) => {
+        this.filterText = text.toLowerCase();
+        this.renderList();
+      },
+      // Filter button
+      showFilter,
+      handleActionFilter,
+      // Maximize button
+      showMaximize,
+      onMaximizeToggle,
     });
-    searchRow.appendChild(searchInput);
-    header.appendChild(searchRow);
+    headerWrapper.appendChild(this.headerComponent.getElement());
 
-    // Subtitle
-    if (subtitle) {
-      const subEl = document.createElement('div');
-      subEl.className = 'myio-elp__subtitle';
-      subEl.textContent = subtitle;
-      header.appendChild(subEl);
-    }
-
-    this.root.appendChild(header);
+    this.root.appendChild(headerWrapper);
 
     // List
     const list = document.createElement('ul');
@@ -488,10 +569,33 @@ export class EntityListPanel {
       const displayLabel = this.normalizeLabel(item.label);
       const li = document.createElement('li');
       li.className = `myio-elp__item${item.id === selectedId ? ' myio-elp__item--selected' : ''}`;
-      li.innerHTML = `
-        <span class="myio-elp__item-label" title="${this.escapeHtml(item.label)}">${this.escapeHtml(displayLabel)}</span>
-        <span class="myio-elp__item-arrow">${ICON_ARROW}</span>
-      `;
+
+      // Build item HTML with optional icon and notification
+      let itemHtml = '';
+
+      // Icon (optional)
+      if (item.icon) {
+        itemHtml += `<span class="myio-elp__item-icon">${item.icon}</span>`;
+      }
+
+      // Label
+      itemHtml += `<span class="myio-elp__item-label" title="${this.escapeHtml(item.label)}">${this.escapeHtml(displayLabel)}</span>`;
+
+      // Notification (optional)
+      if (item.notification?.show) {
+        const blinkClass = item.notification.blink ? ' myio-elp__item-notification--blink' : '';
+        const tooltip = item.notification.tooltip ? ` title="${this.escapeHtml(item.notification.tooltip)}"` : '';
+        if (item.notification.icon) {
+          itemHtml += `<span class="myio-elp__item-notification${blinkClass}"${tooltip}><span class="myio-elp__item-notification-icon">${item.notification.icon}</span></span>`;
+        } else {
+          itemHtml += `<span class="myio-elp__item-notification${blinkClass}"${tooltip}><span class="myio-elp__item-notification-dot"></span></span>`;
+        }
+      }
+
+      // Arrow
+      itemHtml += `<span class="myio-elp__item-arrow">${ICON_ARROW}</span>`;
+
+      li.innerHTML = itemHtml;
       li.addEventListener('click', () => {
         handleClickItem(item);
         // Call per-item action if defined
@@ -510,27 +614,6 @@ export class EntityListPanel {
     img.alt = '';
     img.draggable = false;
     this.root.appendChild(img);
-  }
-
-  private toggleSearch(): void {
-    this.searchOpen = !this.searchOpen;
-    const row = this.root.querySelector('.myio-elp__search-row') as HTMLElement;
-    if (!row) return;
-
-    if (this.searchOpen) {
-      row.classList.add('myio-elp__search-row--open');
-      const input = row.querySelector('input');
-      if (input) {
-        requestAnimationFrame(() => input.focus());
-      }
-    } else {
-      row.classList.remove('myio-elp__search-row--open');
-      // Clear filter
-      const input = row.querySelector('input') as HTMLInputElement;
-      if (input) input.value = '';
-      this.filterText = '';
-      this.renderList();
-    }
   }
 
   private escapeHtml(text: string): string {
