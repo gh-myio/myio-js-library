@@ -79,7 +79,7 @@ function getSettings(ctx) {
     enableDebugMode: widgetSettings.enableDebugMode ?? false,
     defaultThemeMode: widgetSettings.defaultThemeMode ?? 'light',
     dashboardTitle: widgetSettings.dashboardTitle ?? 'DASHBOARD',
-    sidebarLabel: widgetSettings.sidebarLabel ?? 'Ambientes',
+    sidebarLabel: widgetSettings.sidebarLabel ?? 'Locais',
     environmentsLabel: widgetSettings.environmentsLabel ?? 'Ambientes',
     pumpsMotorsLabel: widgetSettings.pumpsMotorsLabel ?? 'Bombas e Motores',
     temperatureChartTitle:
@@ -96,7 +96,15 @@ function getSettings(ctx) {
     errorColor: widgetSettings.errorColor ?? '#c62828',
     successColor: widgetSettings.successColor ?? '#2e7d32',
     cardCustomStyle: widgetSettings.cardCustomStyle ?? undefined,
+    // Panel backgrounds
+    mainBackground: widgetSettings.mainBackground ?? '#0b1220',
+    mainBackgroundImage: widgetSettings.mainBackgroundImage ?? undefined,
+    sidebarBackground: widgetSettings.sidebarBackground ?? '#faf8f1',
     sidebarBackgroundImage: widgetSettings.sidebarBackgroundImage ?? undefined,
+    waterPanelBackground: widgetSettings.waterPanelBackground ?? '#e8f4fc',
+    environmentsPanelBackground: widgetSettings.environmentsPanelBackground ?? '#fef7e8',
+    motorsPanelBackground: widgetSettings.motorsPanelBackground ?? '#f0f4e8',
+    chartPanelBackground: widgetSettings.chartPanelBackground ?? '#ffffff',
   };
 }
 
@@ -539,6 +547,37 @@ function parseDevicesFromData(data) {
 }
 
 /**
+ * Icons for each ambiente by prefix code
+ * Used to display visual indicators in EntityListPanel
+ */
+var AMBIENTE_ICONS = {
+  '001': '🌊', // Deck
+  '002': '⚡', // Sala do Nobreak
+  '003': '🎤', // Auditório
+  '004': '👥', // Staff Rio de Janeiro
+  '005': '💧', // Bombas
+  '006': '🚰', // Água
+  '007': '⚙️', // Configuração
+  '008': '🔗', // Integrações
+};
+
+/**
+ * Extract prefix code from label (e.g., "(001)-Deck" -> "001")
+ */
+function getAmbientePrefixCode(label) {
+  var match = String(label || '').match(/^\((\d{3})\)-/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Get icon for an ambiente based on its label prefix
+ */
+function getAmbienteIcon(label) {
+  var code = getAmbientePrefixCode(label);
+  return code && AMBIENTE_ICONS[code] ? AMBIENTE_ICONS[code] : null;
+}
+
+/**
  * Map of action handlers per ambiente label pattern
  * Key is the label prefix (e.g., '(001)-Deck')
  * Value is a function that receives the ambiente object
@@ -645,9 +684,11 @@ function getAmbienteActionHandler(ambiente) {
  */
 function buildAmbienteItems(ambientes) {
   return ambientes.map(function (ambiente) {
+    var label = ambiente.name || ambiente.label || ambiente.id;
     return {
       id: ambiente.id,
-      label: ambiente.name || ambiente.label || ambiente.id,
+      label: label,
+      icon: getAmbienteIcon(label),
       handleActionClick: getAmbienteActionHandler(ambiente),
     };
   });
@@ -872,13 +913,21 @@ function mountWaterPanel(waterHost, settings, classified) {
     return null;
   }
 
+  var waterItems = buildWaterCardItems(classified, null);
   var panel = new MyIOLibrary.CardGridPanel({
     title: 'Infraestrutura Hidrica',
-    items: buildWaterCardItems(classified, null),
+    icon: '💧',
+    quantity: waterItems.length,
+    items: waterItems,
+    panelBackground: settings.waterPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum dispositivo',
+    showSearch: true,
+    searchPlaceholder: 'Buscar...',
+    showFilter: true,
+    showMaximize: true,
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Water device clicked:', item.source);
@@ -901,13 +950,21 @@ function mountAmbientesPanel(host, settings, classified) {
     return null;
   }
 
+  var hvacItems = buildHVACCardItems(classified, null);
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.environmentsLabel,
-    items: buildHVACCardItems(classified, null),
+    icon: '🌡️',
+    quantity: hvacItems.length,
+    items: hvacItems,
+    panelBackground: settings.environmentsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum ambiente',
+    showSearch: true,
+    searchPlaceholder: 'Buscar...',
+    showFilter: true,
+    showMaximize: true,
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] HVAC device clicked:', item.source);
@@ -930,13 +987,21 @@ function mountMotorsPanel(host, settings, classified) {
     return null;
   }
 
+  var motorItems = buildMotorCardItems(classified, null);
   var panel = new MyIOLibrary.CardGridPanel({
     title: settings.pumpsMotorsLabel,
-    items: buildMotorCardItems(classified, null),
+    icon: '⚙️',
+    quantity: motorItems.length,
+    items: motorItems,
+    panelBackground: settings.motorsPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 6px 12px', letterSpacing: '0.5px' },
     gridMinCardWidth: '140px',
     emptyMessage: 'Nenhum equipamento',
+    showSearch: true,
+    searchPlaceholder: 'Buscar...',
+    showFilter: true,
+    showMaximize: true,
     handleClickCard: function (item) {
       if (settings.enableDebugMode) {
         console.log('[MAIN_BAS] Motor device clicked:', item.source);
@@ -979,8 +1044,11 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
 
   var panel = new MyIOLibrary.EntityListPanel({
     title: settings.sidebarLabel,
+    icon: '📍',
+    quantity: items.length,
     subtitle: 'Nome \u2191',
     items: items,
+    panelBackground: settings.sidebarBackground,
     backgroundImage: settings.sidebarBackgroundImage || undefined,
     searchPlaceholder: 'Buscar...',
     selectedId: null,
@@ -989,6 +1057,8 @@ function mountSidebarPanel(sidebarHost, settings, ambientes) {
     sortOrder: 'asc',
     excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from labels
     titleStyle: { fontSize: '0.7rem', fontWeight: '600', padding: '8px 12px 0 12px', letterSpacing: '0.5px' },
+    showFilter: true,
+    showMaximize: true,
     handleClickAll: function () {
       console.log('[MAIN_BAS] Ambiente selected: all');
       _selectedAmbiente = null;
@@ -1125,7 +1195,7 @@ function switchChartDomain(domain, chartContainer) {
 /**
  * Mount chart tab bar + chart container into #bas-charts-host
  */
-function mountChartPanel(hostEl) {
+function mountChartPanel(hostEl, settings) {
   if (!hostEl) return;
 
   var domains = ['energy', 'water', 'temperature'];
@@ -1156,6 +1226,11 @@ function mountChartPanel(hostEl) {
   // Build chart card container
   var chartCard = document.createElement('div');
   chartCard.className = 'bas-chart-card';
+
+  // Apply chart panel background
+  if (settings && settings.chartPanelBackground) {
+    chartCard.style.backgroundColor = settings.chartPanelBackground;
+  }
 
   hostEl.appendChild(tabBar);
   hostEl.appendChild(chartCard);
@@ -1249,7 +1324,7 @@ async function initializeDashboard(
     // Mount chart panel (col 1–2, row 2)
     console.log('[MAIN_BAS] Mounting chart panel:', { show: settings.showCharts, hostExists: !!chartsHost });
     if (settings.showCharts && chartsHost) {
-      mountChartPanel(chartsHost);
+      mountChartPanel(chartsHost, settings);
       console.log('[MAIN_BAS] Chart panel mounted');
     } else if (chartsHost) {
       chartsHost.style.display = 'none';
@@ -1381,6 +1456,16 @@ self.onInit = async function () {
 
   // Fix ThingsBoard container heights before mounting components
   fixContainerHeights(root);
+
+  // Apply main dashboard background (color or image)
+  if (_settings.mainBackgroundImage) {
+    root.style.backgroundImage = 'url(\'' + _settings.mainBackgroundImage + '\')';
+    root.style.backgroundSize = 'cover';
+    root.style.backgroundPosition = 'center';
+    root.style.backgroundRepeat = 'no-repeat';
+  } else if (_settings.mainBackground) {
+    root.style.backgroundColor = _settings.mainBackground;
+  }
 
   // Also fix the $container itself
   if (_ctx.$container && _ctx.$container[0]) {

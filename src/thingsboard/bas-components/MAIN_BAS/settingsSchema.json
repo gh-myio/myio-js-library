@@ -20,10 +20,10 @@
         "type": "string",
         "default": "DASHBOARD"
       },
-      "floorsLabel": {
-        "title": "Floors Section Label",
+      "sidebarLabel": {
+        "title": "Sidebar Label (Locais)",
         "type": "string",
-        "default": "Andares"
+        "default": "Locais"
       },
       "environmentsLabel": {
         "title": "Environments Section Label",
@@ -45,8 +45,8 @@
         "type": "string",
         "default": "Consumo do dia atual de todos os ambientes"
       },
-      "showFloorsSidebar": {
-        "title": "Show Floors Sidebar",
+      "showSidebar": {
+        "title": "Show Sidebar (Locais)",
         "type": "boolean",
         "default": true
       },
@@ -89,6 +89,46 @@
         "title": "Success Color",
         "type": "string",
         "default": "#2e7d32"
+      },
+      "mainBackground": {
+        "title": "Main Dashboard Background",
+        "type": "string",
+        "default": "#0b1220"
+      },
+      "mainBackgroundImage": {
+        "title": "Main Dashboard Background Image URL",
+        "type": "string",
+        "default": ""
+      },
+      "sidebarBackground": {
+        "title": "Locais Panel Background",
+        "type": "string",
+        "default": "#faf8f1"
+      },
+      "waterPanelBackground": {
+        "title": "Water Infrastructure Background",
+        "type": "string",
+        "default": "#e8f4fc"
+      },
+      "environmentsPanelBackground": {
+        "title": "Ambientes Panel Background",
+        "type": "string",
+        "default": "#fef7e8"
+      },
+      "motorsPanelBackground": {
+        "title": "Bombas e Motores Background",
+        "type": "string",
+        "default": "#f0f4e8"
+      },
+      "chartPanelBackground": {
+        "title": "Chart Panel Background",
+        "type": "string",
+        "default": "#ffffff"
+      },
+      "sidebarBackgroundImage": {
+        "title": "Sidebar Background Image URL",
+        "type": "string",
+        "default": ""
       }
     }
   },
@@ -106,7 +146,7 @@
       "title": "Labels",
       "items": [
         "dashboardTitle",
-        "floorsLabel",
+        "sidebarLabel",
         "environmentsLabel",
         "pumpsMotorsLabel",
         "temperatureChartTitle",
@@ -118,7 +158,7 @@
       "title": "Visibility",
       "items": [
         {
-          "key": "showFloorsSidebar",
+          "key": "showSidebar",
           "type": "checkbox"
         },
         {
@@ -141,7 +181,7 @@
     },
     {
       "type": "fieldset",
-      "title": "Colors",
+      "title": "Theme Colors",
       "items": [
         {
           "key": "primaryColor",
@@ -158,6 +198,46 @@
         {
           "key": "successColor",
           "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Panel Backgrounds",
+      "items": [
+        {
+          "key": "mainBackground",
+          "type": "color"
+        },
+        {
+          "key": "mainBackgroundImage",
+          "type": "text",
+          "placeholder": "https://example.com/background.png"
+        },
+        {
+          "key": "sidebarBackground",
+          "type": "color"
+        },
+        {
+          "key": "waterPanelBackground",
+          "type": "color"
+        },
+        {
+          "key": "environmentsPanelBackground",
+          "type": "color"
+        },
+        {
+          "key": "motorsPanelBackground",
+          "type": "color"
+        },
+        {
+          "key": "chartPanelBackground",
+          "type": "color"
+        },
+        {
+          "key": "sidebarBackgroundImage",
+          "type": "text",
+          "placeholder": "https://example.com/image.png"
         }
       ]
     }

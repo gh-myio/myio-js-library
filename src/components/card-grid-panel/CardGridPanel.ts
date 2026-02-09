@@ -129,10 +129,10 @@ const PANEL_CSS = `
   .myio-cgp__grid {
     flex: 1;
     overflow-y: auto;
-    padding: 12px;
+    padding: 16px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr));
-    gap: 12px;
+    gap: 16px;
     align-content: start;
   }
 
