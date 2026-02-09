@@ -108,11 +108,9 @@ tb-html-widget > div,
   gap: 0;
   overflow: hidden;
   min-height: 0 !important;
+  max-height: 100% !important;
   height: 100%;
   width: 100%;
-
-  /* Fallback: explicit height based on calc */
-  min-height: calc(100vh - 50px); /* 50px for header approx */
 }
 
 /* ========================================
@@ -129,37 +127,49 @@ tb-html-widget > div,
   box-sizing: border-box;
   display: flex !important;
   flex-direction: column !important;
-  min-height: 100px !important; /* Fallback: at least 100px visible */
+  min-height: 0 !important;
   height: 100% !important;
 }
 
-/* Row 1 slots (sidebar, water) - 50% of grid height */
+/* Row 1 slots (sidebar, water) - let grid handle sizing */
 .bas-sidebar-slot,
 .bas-water-slot {
-  min-height: calc(50vh - 50px) !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
 }
 
-/* Row 2 slot (charts) - 50% of grid height */
+/* Row 2 slot (charts) - let grid handle sizing */
 .bas-charts-slot {
-  min-height: calc(50vh - 50px) !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
 }
 
-/* Full height slots (ambientes, motors) - 100% of grid */
+/* Full height slots (ambientes, motors) - span both rows of grid */
 .bas-ambientes-slot,
 .bas-motors-slot {
-  min-height: calc(100vh - 80px) !important;
+  /* Remove min-height that was causing overflow - let grid handle sizing */
+  min-height: 0 !important;
+  max-height: 100% !important;
 }
 
 /* Force ALL direct children to stretch and fill */
 .bas-sidebar-slot > *,
-.bas-water-slot > *,
-.bas-ambientes-slot > *,
-.bas-motors-slot > * {
+.bas-water-slot > * {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   max-height: 100% !important;
   overflow-y: auto;
   height: 100% !important;
+}
+
+/* Ambientes and Motors slots - allow proper scrolling without cutting last card */
+.bas-ambientes-slot > *,
+.bas-motors-slot > * {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto;
+  height: auto !important;
+  max-height: 100% !important;
 }
 
 /* Charts slot needs special handling - tab bar stays fixed, chart card grows */
@@ -218,6 +228,7 @@ tb-html-widget > div,
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100%;
   background: #faf8f1;
   border-radius: 10px;
   overflow: hidden;
@@ -330,9 +341,10 @@ tb-html-widget > div,
 .bas-chart-card {
   background: #ffffff;
   border-radius: 0 0 10px 10px;
-  padding: 14px;
+  padding: 10px 14px 8px;
   flex: 1 1 auto !important;
   min-height: 0 !important;
+  max-height: calc(100% - 40px) !important; /* Reserve space for header */
   position: relative;
   overflow: hidden;
   display: flex !important;
@@ -342,7 +354,7 @@ tb-html-widget > div,
 .bas-chart-card canvas {
   flex: 1 1 auto !important;
   width: 100% !important;
-  height: 100% !important;
+  max-height: calc(100% - 30px) !important; /* Reserve space for legend */
   min-height: 0 !important;
 }
 
@@ -400,6 +412,8 @@ tb-html-widget > div,
   gap: var(--cgp-grid-gap, 20px) !important;
   row-gap: var(--cgp-grid-gap, 20px) !important;
   column-gap: var(--cgp-grid-gap, 20px) !important;
+  /* Padding bottom to prevent last card from being cut off */
+  padding-bottom: 16px !important;
 }
 
 /* EntityListPanel - keep original small gap for list items */

@@ -477,9 +477,9 @@ var CUSTOMER_TELEMETRY_SETTINGS = {
 
 // Chart domain configuration
 var CHART_DOMAIN_CONFIG = {
-  energy: { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia' },
-  water: { unit: 'L', unitLarge: 'm\u00B3', threshold: 1000, label: '\u00C1gua' },
-  temperature: { unit: '\u00B0C', unitLarge: '\u00B0C', threshold: 999, label: 'Temperatura' },
+  energy: { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia', icon: '⚡' },
+  water: { unit: 'L', unitLarge: 'm\u00B3', threshold: 1000, label: '\u00C1gua', icon: '💧' },
+  temperature: { unit: '\u00B0C', unitLarge: '\u00B0C', threshold: 999, label: 'Temperatura', icon: '🌡️' },
 };
 
 /**
@@ -2400,7 +2400,8 @@ function mountChartPanel(hostEl, settings) {
   domains.forEach(function (domain) {
     var btn = document.createElement('button');
     btn.className = 'bas-chart-tab' + (domain === _currentChartDomain ? ' bas-chart-tab--active' : '');
-    btn.textContent = CHART_DOMAIN_CONFIG[domain].label;
+    var config = CHART_DOMAIN_CONFIG[domain];
+    btn.textContent = config.icon + ' ' + config.label;
     btn.dataset.domain = domain;
 
     // Apply premium green tab style
