@@ -598,6 +598,29 @@ export function injectOnOffDeviceModalStyles(): void {
       color: #9ca3af !important;
     }
 
+    /* ... (código existente do tema escuro) ... */
+
+    /* Dark theme: Tooltip overrides */
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip {
+      background: var(--onoff-panel-bg, #1f2937); /* Fundo escuro */
+      border-color: var(--onoff-border-color, #4b5563); /* Borda cinza escuro */
+      color: var(--onoff-text-color, #f3f4f6); /* Texto claro */
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); /* Sombra mais forte */
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-title {
+      border-bottom-color: var(--onoff-border-color, #4b5563);
+      color: var(--onoff-text-color, #f3f4f6);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-label {
+      color: var(--onoff-text-muted, #9ca3af);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-value {
+      color: var(--onoff-text-color, #f3f4f6);
+    }
+
     /* ===== Responsive ===== */
     @media (max-width: 768px) {
       .${ON_OFF_MODAL_CSS_PREFIX} {
