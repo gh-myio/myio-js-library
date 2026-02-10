@@ -231,7 +231,6 @@ export function injectOnOffDeviceModalStyles(): void {
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__svg {
       width: 100%;
       height: auto;
-      max-height: 200px;
       overflow: visible;
     }
 
