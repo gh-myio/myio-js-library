@@ -478,66 +478,8 @@ export function renderCardAmbienteV6({
   const card = document.createElement('div');
   card.className = `myio-ambiente-card${handleClickCard ? ' clickable' : ''}${isOffline ? ' offline' : ''}`;
 
-  // === ACTIONS (Piano keys on left) ===
-  const actionsEl = document.createElement('div');
-  actionsEl.className = 'myio-ambiente-card__actions';
-
-  // Selection checkbox
-  if (enableSelection) {
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'myio-ambiente-card__checkbox';
-    checkbox.title = 'Selecionar';
-    checkbox.addEventListener('change', (e) => {
-      e.stopPropagation();
-      card.classList.toggle('selected', checkbox.checked);
-      handleSelect?.(id, checkbox.checked);
-    });
-    actionsEl.appendChild(checkbox);
-  }
-
-  // Dashboard action
-  if (handleActionDashboard) {
-    const dashBtn = document.createElement('button');
-    dashBtn.className = 'myio-ambiente-card__action';
-    dashBtn.title = 'Dashboard';
-    dashBtn.innerHTML = `<img src="${IMAGES.dashboard}" alt="Dashboard"/>`;
-    dashBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleActionDashboard(ambienteData);
-    });
-    actionsEl.appendChild(dashBtn);
-  }
-
-  // Report action
-  if (handleActionReport) {
-    const reportBtn = document.createElement('button');
-    reportBtn.className = 'myio-ambiente-card__action';
-    reportBtn.title = 'Relatório';
-    reportBtn.innerHTML = `<img src="${IMAGES.report}" alt="Relatório"/>`;
-    reportBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleActionReport(ambienteData);
-    });
-    actionsEl.appendChild(reportBtn);
-  }
-
-  // Settings action
-  if (handleActionSettings) {
-    const settingsBtn = document.createElement('button');
-    settingsBtn.className = 'myio-ambiente-card__action';
-    settingsBtn.title = 'Configurações';
-    settingsBtn.innerHTML = `<img src="${IMAGES.settings}" alt="Configurações"/>`;
-    settingsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleActionSettings(ambienteData);
-    });
-    actionsEl.appendChild(settingsBtn);
-  }
-
-  card.appendChild(actionsEl);
-
   // === BODY (Center content) ===
+  // Note: Actions (piano keys) removed for simplified card layout
   const bodyEl = document.createElement('div');
   bodyEl.className = 'myio-ambiente-card__body';
 
@@ -610,13 +552,7 @@ export function renderCardAmbienteV6({
     bodyEl.appendChild(idEl);
   }
 
-  // Device count badge
-  if (devices.length > 0) {
-    const countEl = document.createElement('div');
-    countEl.className = 'myio-ambiente-card__device-count';
-    countEl.innerHTML = `📱 ${devices.length} dispositivo${devices.length > 1 ? 's' : ''}`;
-    bodyEl.appendChild(countEl);
-  }
+  // Device count badge - removed for simplified layout
 
   card.appendChild(bodyEl);
 
