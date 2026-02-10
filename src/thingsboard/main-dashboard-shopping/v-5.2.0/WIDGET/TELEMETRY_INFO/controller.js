@@ -1467,9 +1467,7 @@ function processStateFromSummaryWater(summary, grandTotal) {
       areaComumTotal = remainingAreaComum.reduce((sum, d) => sum + (d.value || 0), 0);
 
       LogHelper.log(
-        `[RFC-0106] Extracted ${extractedBanheiros.length} banheiros (${banheirosTotal.toFixed(
-          2
-        )} m³) from areaComum (${remainingAreaComum.length} remaining, ${areaComumTotal.toFixed(2)} m³)`
+        `[RFC-0106] Extracted ${extractedBanheiros.length} banheiros (${banheirosTotal.toFixed(2)} m³) from areaComum (${remainingAreaComum.length} remaining, ${areaComumTotal.toFixed(2)} m³)`
       );
     }
   }
@@ -2450,10 +2448,7 @@ function buildAreaComumContentWater() {
   rows += `
     <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
       <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
-      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(
-        areaComum,
-        'water'
-      )}</span>
+      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComum, 'water')}</span>
     </div>
   `;
 
@@ -2479,9 +2474,7 @@ function buildAreaComumContentWater() {
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
-        <strong>Área Comum</strong> representa o consumo de água residual do shopping que não está associado a lojas${
-          includeBathrooms ? ' ou banheiros' : ''
-        } (jardins, limpeza, etc).
+        <strong>Área Comum</strong> representa o consumo de água residual do shopping que não está associado a lojas${includeBathrooms ? ' ou banheiros' : ''} (jardins, limpeza, etc).
       </div>
     </div>
   `;
@@ -2616,9 +2609,7 @@ function buildExcludedFromCAGNotice() {
     .map(
       (device) => `
       <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(146, 64, 14, 0.2);">
-        <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${
-          device.label
-        }">${device.label}</span>
+        <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
         <span class="myio-info-tooltip__value">${formatEnergy(device.value)}</span>
       </div>
     `
@@ -2893,10 +2884,7 @@ function buildPontosNaoMapeadosContent() {
       </div>
       <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
         <span class="myio-info-tooltip__label"><strong>= Não Mapeados:</strong></span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(
-          pontosNaoMapeados,
-          'water'
-        )} (${pontosNaoMapeadosPerc.toFixed(1)}%)</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(1)}%)</span>
       </div>
     </div>
 

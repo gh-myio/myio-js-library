@@ -399,7 +399,7 @@ Object.assign(window.MyIOUtils, {
 
     // Reload page after toast displays
     //setTimeout(() => {
-      //window.location.reload();
+    //window.location.reload();
     //}, 6000);
   },
 
@@ -3889,8 +3889,8 @@ const MyIOOrchestrator = (() => {
     const telemetryTimestamp = isWaterDevice
       ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
       : isTempDevice
-      ? meta.temperatureTs
-      : meta.consumptionTs;
+        ? meta.temperatureTs
+        : meta.consumptionTs;
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     // RFC-0130: Pass deviceProfile for delay time calculation
@@ -4215,9 +4215,15 @@ const MyIOOrchestrator = (() => {
         meta.temperatureTs = ts && ts > 0 ? ts : null;
       }
       // Temperature offset field - used to adjust displayed temperature
-      else if (keyName === 'offsettemperature' || keyName === 'offSetTemperature' || keyName === 'offset_temperature') {
+      else if (
+        keyName === 'offsettemperature' ||
+        keyName === 'offSetTemperature' ||
+        keyName === 'offset_temperature'
+      ) {
         meta.offSetTemperature = Number(val) || 0;
-        console.warn(`🌡️ [MAIN_VIEW] Found offSetTemperature for device "${meta.label || meta.entityName}": ${meta.offSetTemperature}`);
+        console.warn(
+          `🌡️ [MAIN_VIEW] Found offSetTemperature for device "${meta.label || meta.entityName}": ${meta.offSetTemperature}`
+        );
       }
     }
 
@@ -4230,7 +4236,10 @@ const MyIOOrchestrator = (() => {
           allDataKeys.add(row?.dataKey?.name || 'unknown');
         }
       }
-      console.warn(`🌡️ [MAIN_VIEW DEBUG] All dataKeys found for temperature domain:`, Array.from(allDataKeys));
+      console.warn(
+        `🌡️ [MAIN_VIEW DEBUG] All dataKeys found for temperature domain:`,
+        Array.from(allDataKeys)
+      );
     }
 
     // Build map by ingestionId
@@ -4927,7 +4936,7 @@ const MyIOOrchestrator = (() => {
         });
       }
 
-      const rows = Array.isArray(json) ? json : json?.data ?? [];
+      const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
       // RFC-0108 DEBUG: Log raw API response for water domain
       if (domain === 'water' && rows.length > 0) {
@@ -5790,13 +5799,16 @@ const MyIOOrchestrator = (() => {
 
   // Telemetry reporting
   if (!config?.debugMode && typeof window.tbClient !== 'undefined') {
-    setInterval(() => {
-      try {
-        window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
-      } catch (e) {
-        LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
-      }
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        try {
+          window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
+        } catch (e) {
+          LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
+        }
+      },
+      5 * 60 * 1000
+    );
   }
 
   // RFC-0048: Widget Busy Monitor - Detects stuck widgets showing busy for too long

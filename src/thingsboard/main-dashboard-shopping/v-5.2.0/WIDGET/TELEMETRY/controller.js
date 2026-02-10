@@ -1979,8 +1979,8 @@ function renderList(visible) {
           const loadingMsg = isTermostato
             ? 'Carregando dados de temperatura...'
             : isWaterTank
-            ? 'Loading water tank data...'
-            : 'Loading energy data...';
+              ? 'Loading water tank data...'
+              : 'Loading energy data...';
           loadingToast = MyIOToast.info(loadingMsg, 0);
         }
 
@@ -2010,13 +2010,10 @@ function renderList(visible) {
               window.MyIOUtils?.temperatureLimits?.maxTemperature ??
               null;
             const tempStatus = it.temperatureStatus || entityObject.temperatureStatus;
-            // Temperature offset (can be positive or negative)
-            const tempOffset = it.temperatureOffset ?? it.offSetTemperature ?? entityObject.temperatureOffset ?? 0;
 
             LogHelper.log('[TELEMETRY v5] Temperature range from entity/scope:', {
               tempMinRange,
               tempMaxRange,
-              tempOffset,
             });
 
             // Check if MyIOLibrary.openTemperatureModal is available
@@ -2039,7 +2036,6 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
-              temperatureOffset: tempOffset,
             });
 
             const modalHandle = MyIOLibrary.openTemperatureModal({
@@ -2052,7 +2048,6 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
-              temperatureOffset: tempOffset,
               theme: 'dark',
               locale: 'pt-BR',
               granularity: 'hour',
@@ -2439,10 +2434,6 @@ function renderList(visible) {
 
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
 
-          // RFC-FIX: Hide busy overlay BEFORE opening modal to avoid z-index conflict
-          // Busy overlay has z-index: 999999, modal has z-index: 10000
-          hideBusy();
-
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
@@ -2547,8 +2538,8 @@ function openFilterModal() {
     label.setAttribute('role', 'option');
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
-      checked ? 'checked' : ''
-    }>
+        checked ? 'checked' : ''
+      }>
       <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
     `;
     frag.appendChild(label);
@@ -3874,8 +3865,11 @@ self.onInit = async function () {
       // Apply temperature offset if available (from dataKey "offSetTemperature")
       // The offset can be positive or negative and is added to the raw temperature
       const deviceTbId = item.tbId || item.id;
-      const tempOffset = isTemperatureDomain ? (item.offSetTemperature ?? getTemperatureOffset(deviceTbId)) : 0;
-      const temp = isTemperatureDomain && tempOffset !== 0 ? applyTemperatureOffset(rawTemp, tempOffset) : rawTemp;
+      const tempOffset = isTemperatureDomain
+        ? (item.offSetTemperature ?? getTemperatureOffset(deviceTbId))
+        : 0;
+      const temp =
+        isTemperatureDomain && tempOffset !== 0 ? applyTemperatureOffset(rawTemp, tempOffset) : rawTemp;
 
       if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
         if (temp > globalTempMax) {

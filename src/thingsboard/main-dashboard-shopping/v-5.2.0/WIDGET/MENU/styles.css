@@ -129,8 +129,18 @@
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease, box-shadow 0.15s ease;
-  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.06s ease,
+    box-shadow 0.15s ease;
+  font:
+    500 14px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
 }
 
 /* conteúdo do botão */
@@ -349,7 +359,9 @@
   line-height: 1;
   cursor: default;
   opacity: 0.85;
-  transition: opacity 0.2s ease, transform 0.3s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s ease;
   z-index: 1;
 }
 
@@ -389,8 +401,18 @@
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease, box-shadow 0.15s ease;
-  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.06s ease,
+    box-shadow 0.15s ease;
+  font:
+    500 14px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
 }
 
 /* quando o menu estiver recolhido, continua centrado */
@@ -460,7 +482,10 @@
   text-decoration: none;
   border-bottom: 1px solid var(--divider) !important; /* padroniza divisor */
   border-radius: var(--radius);
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .menu-icon {
@@ -532,7 +557,9 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .logout-btn:hover {
@@ -656,7 +683,9 @@
   position: relative;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
   max-width: 500px;
   width: 90%;
   max-height: 80vh;
@@ -735,7 +764,9 @@
 .shopping-option:hover {
   border-color: var(--brand);
   background: var(--hover-bg);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   transform: translateY(-2px);
 }
 
@@ -771,7 +802,13 @@
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
   transition: all 0.15s ease;
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
 }
 
 /* primeira linha ("Trocar Shopping") */
@@ -890,7 +927,11 @@
   background: #ffffff;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 /* grade interna: ícone | texto (2 linhas) | atalho */
@@ -922,12 +963,24 @@
   line-height: 1.15;
 }
 #shopping-selector-btn .ssb-title {
-  font: 600 14px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font:
+    600 14px/1.1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   color: #2f2a3b;
 }
 #shopping-selector-btn .ssb-sub {
   margin-top: 2px;
-  font: 500 12.5px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font:
+    500 12.5px/1.1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   color: #5b3cc4;
   opacity: 0.95;
   white-space: nowrap;
@@ -937,7 +990,13 @@
 
 /* atalho (keycap) */
 #shopping-selector-btn .ssb-kbd {
-  font: 500 12px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font:
+    500 12px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   color: #7c7a8a;
   background: #f7f7fb;
   border: 1px solid #edecf5;
@@ -1012,8 +1071,18 @@
   color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+  font:
+    500 14px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
@@ -1076,8 +1145,18 @@
   color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+  font:
+    500 14px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
@@ -1140,8 +1219,18 @@
   color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+  font:
+    500 14px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
@@ -1204,8 +1293,18 @@
   color: #2f2a3b;
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
-  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+  font:
+    500 14px/1 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
@@ -1266,7 +1365,13 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
 }
 
 .myio-settings-modal.show {
