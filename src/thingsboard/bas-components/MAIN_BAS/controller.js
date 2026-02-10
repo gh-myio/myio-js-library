@@ -2094,6 +2094,81 @@ function openBASDeviceModal(device, settings) {
 }
 
 /**
+ * RFC-0167: On/Off device profiles that use the specialized modal
+ */
+var ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA'];
+
+/**
+ * RFC-0167: Check if a device profile is an On/Off device
+ * @param {string} deviceProfile - Device profile string
+ * @returns {boolean}
+ */
+function isOnOffDeviceProfile(deviceProfile) {
+  var profile = (deviceProfile || '').toUpperCase();
+  return ON_OFF_DEVICE_PROFILES.indexOf(profile) !== -1;
+}
+
+/**
+ * RFC-0167: Open On/Off Device Modal for solenoids, switches, relays, pumps
+ * @param {Object} device - Device data from classified
+ * @param {Object} settings - Widget settings
+ */
+function openOnOffDeviceModal(device, settings) {
+  if (!MyIOLibrary.openOnOffDeviceModal) {
+    LogHelper.warn('[MAIN_BAS] openOnOffDeviceModal not available');
+    // Fallback to BAS modal
+    openBASDeviceModal(device, settings);
+    return;
+  }
+
+  // Build device data for the On/Off modal
+  var deviceData = {
+    id: device.id || device.deviceId,
+    entityId: device.entityId || device.id,
+    label: device.name || device.label || 'Dispositivo',
+    name: device.name || device.label,
+    deviceType: device.deviceType || device.deviceProfile || '',
+    deviceProfile: device.deviceProfile || device.deviceType || '',
+    status: device.connectionStatus || device.deviceStatus || 'unknown',
+    attributes: device.attributes || {},
+    rawData: device.rawData || {}
+  };
+
+  // Get JWT token from localStorage or widget context
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) {
+    jwtToken = _ctx.http.token;
+  }
+
+  LogHelper.log('[MAIN_BAS] Opening On/Off Device modal for device:', deviceData);
+
+  // Open the On/Off Device modal
+  MyIOLibrary.openOnOffDeviceModal(deviceData, {
+    themeMode: 'dark',
+    jwtToken: jwtToken,
+    centralId: device.centralId || device.rawData?.centralId,
+    enableDebugMode: false,
+    onStateChange: function (deviceId, state) {
+      LogHelper.log('[MAIN_BAS] On/Off device state changed:', deviceId, state);
+      // Dispatch event for external handling
+      window.dispatchEvent(new CustomEvent('bas:device-state-changed', {
+        detail: { deviceId: deviceId, state: state }
+      }));
+    },
+    onScheduleSave: function (deviceId, schedules) {
+      LogHelper.log('[MAIN_BAS] On/Off device schedules saved:', deviceId, schedules);
+      // Dispatch event for external handling
+      window.dispatchEvent(new CustomEvent('bas:device-schedules-saved', {
+        detail: { deviceId: deviceId, schedules: schedules }
+      }));
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] On/Off Device modal closed');
+    }
+  });
+}
+
+/**
  * RFC-0165: Send remote command to device via ThingsBoard RPC
  * @param {string} entityId - Device entity ID
  * @param {string} command - 'on' or 'off'
@@ -2267,8 +2342,15 @@ function mountEnergyPanel(host, settings, classified) {
       LogHelper.log('[MAIN_BAS] Energy device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
 
-      // RFC-0165: Open BAS modal with device details and chart
-      openBASDeviceModal(item.source, settings);
+      // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
+      var deviceProfile = (item.source?.deviceProfile || '').toUpperCase();
+      if (isOnOffDeviceProfile(deviceProfile)) {
+        // RFC-0167: Open On/Off Device modal
+        openOnOffDeviceModal(item.source, settings);
+      } else {
+        // RFC-0165: Open BAS modal with device details and chart
+        openBASDeviceModal(item.source, settings);
+      }
     },
   });
 

@@ -1469,3 +1469,37 @@ export {
   SCHEDULE_HOLIDAY_CSS_PREFIX,
   injectScheduleHolidayStyles,
 } from './components/schedule-holiday';
+
+// RFC-0167: On/Off Device Modal (Solenoids, Switches, Relays, Pumps)
+export {
+  createOnOffDeviceModal,
+  openOnOffDeviceModal,
+  OnOffDeviceModalController,
+  OnOffDeviceModalView,
+} from './components/premium-modals/on-off-device';
+
+export type {
+  OnOffDeviceType,
+  OnOffDeviceThemeMode,
+  OnOffModalView,
+  OnOffDeviceData,
+  DeviceTypeConfig,
+  OnOffScheduleEntry as OnOffDeviceScheduleEntry,
+  UsageDataPoint,
+  OnOffDeviceModalParams,
+  OnOffDeviceModalInstance,
+  OnOffDeviceModalState,
+} from './components/premium-modals/on-off-device';
+
+export {
+  ON_OFF_DEVICE_PROFILES,
+  DEVICE_CONFIG as ON_OFF_DEVICE_CONFIG,
+  DEFAULT_DEVICE_CONFIG as ON_OFF_DEFAULT_DEVICE_CONFIG,
+  isOnOffDeviceProfile,
+  getDeviceConfig as getOnOffDeviceConfig,
+  getDeviceType as getOnOffDeviceType,
+  getModalTitle as getOnOffModalTitle,
+  DEFAULT_MODAL_STATE as ON_OFF_DEFAULT_MODAL_STATE,
+  ON_OFF_MODAL_CSS_PREFIX,
+  injectOnOffDeviceModalStyles,
+} from './components/premium-modals/on-off-device';
