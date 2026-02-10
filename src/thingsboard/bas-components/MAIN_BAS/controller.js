@@ -142,8 +142,9 @@ function fetchAmbienteNames(ambienteIds) {
       self.ctx.http.get(url).subscribe({
         next: function (asset) {
           if (_ambienteHierarchy[ambienteId]) {
+            // Prefer label (user-friendly) over name (internal identifier)
             _ambienteHierarchy[ambienteId].name =
-              asset.name || asset.label || 'Ambiente ' + ambienteId.slice(0, 8);
+              asset.label || asset.name || 'Ambiente ' + ambienteId.slice(0, 8);
           }
           resolve();
         },
@@ -2040,31 +2041,55 @@ function openBASDeviceModal(device, settings) {
     LogHelper.warn('[MAIN_BAS] No JWT token available for BAS modal');
   }
 
-  // Open modal in BAS mode
-  MyIOLibrary.openDashboardPopupEnergy({
-    basMode: true,
-    basDevice: basDevice,
-    deviceId: basDevice.entityId,
-    deviceLabel: basDevice.label,
-    startDate: startDateStr,
-    endDate: endDateStr,
-    tbJwtToken: jwtToken,
-    readingType: 'energy',
-    granularity: '1d',
-    theme: 'dark',
-    telemetryRefreshInterval: 10000,
-    onRemoteCommand: function (command, dev) {
-      return sendRemoteCommand(dev.entityId, command);
-    },
-    onTelemetryRefresh: function (dev) {
-      return fetchDeviceTelemetry(dev.entityId);
-    },
-    onClose: function () {
-      LogHelper.log('[MAIN_BAS] BAS modal closed');
-    },
-    onError: function (err) {
-      LogHelper.error('[MAIN_BAS] BAS modal error:', err);
-    }
+  // Get ingestion token using MyIO.buildMyioIngestionAuth
+  var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+  var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+
+  if (!clientId || !clientSecret) {
+    LogHelper.warn('[MAIN_BAS] No client credentials available for BAS modal - chart data may not load');
+  }
+
+  // Build auth and get token
+  var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: 'https://api.data.apps.myio-bas.com',
+    clientId: clientId,
+    clientSecret: clientSecret
+  });
+
+  myIOAuth.getToken().then(function (ingestionToken) {
+    LogHelper.log('[MAIN_BAS] Ingestion token obtained successfully');
+
+    // Open modal in BAS mode
+    MyIOLibrary.openDashboardPopupEnergy({
+      basMode: true,
+      basDevice: basDevice,
+      deviceId: basDevice.entityId,
+      deviceLabel: basDevice.label,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      tbJwtToken: jwtToken,
+      ingestionToken: ingestionToken,
+      clientId: clientId,
+      clientSecret: clientSecret,
+      readingType: 'energy',
+      granularity: '1d',
+      theme: 'dark',
+      telemetryRefreshInterval: 10000,
+      onRemoteCommand: function (command, dev) {
+        return sendRemoteCommand(dev.entityId, command);
+      },
+      onTelemetryRefresh: function (dev) {
+        return fetchDeviceTelemetry(dev.entityId);
+      },
+      onClose: function () {
+        LogHelper.log('[MAIN_BAS] BAS modal closed');
+      },
+      onError: function (err) {
+        LogHelper.error('[MAIN_BAS] BAS modal error:', err);
+      }
+    });
+  }).catch(function (err) {
+    LogHelper.error('[MAIN_BAS] Failed to get ingestion token:', err);
   });
 }
 
@@ -2113,12 +2138,13 @@ function fetchDeviceTelemetry(entityId) {
     // Try to use ThingsBoard widget context for telemetry
     if (_ctx && _ctx.http) {
       var url = '/api/plugins/telemetry/DEVICE/' + entityId + '/values/timeseries?keys=power,current,voltage,temperature,consumption';
-      _ctx.http.get(url)
-        .then(function (response) {
+      // ThingsBoard http.get returns an Observable, use subscribe instead of then
+      _ctx.http.get(url).subscribe({
+        next: function (response) {
           var telemetry = {};
-          if (response && response.data) {
-            Object.keys(response.data).forEach(function (key) {
-              var values = response.data[key];
+          if (response) {
+            Object.keys(response).forEach(function (key) {
+              var values = response[key];
               if (values && values.length > 0) {
                 telemetry[key] = parseFloat(values[0].value);
               }
@@ -2127,11 +2153,12 @@ function fetchDeviceTelemetry(entityId) {
           telemetry.lastUpdate = Date.now();
           LogHelper.log('[MAIN_BAS] Telemetry fetched:', telemetry);
           resolve(telemetry);
-        })
-        .catch(function (err) {
+        },
+        error: function (err) {
           LogHelper.error('[MAIN_BAS] Telemetry fetch failed:', err);
           reject(err);
-        });
+        }
+      });
     } else {
       // Fallback: return mock data
       resolve({

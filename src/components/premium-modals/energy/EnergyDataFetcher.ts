@@ -93,7 +93,7 @@ export class EnergyDataFetcher {
     if (this.config.ingestionToken) {
       return this.config.ingestionToken;
     }
-    
+
     // Priority 2: Client credentials via AuthClient
     if (this.authClient) {
       try {
@@ -103,7 +103,7 @@ export class EnergyDataFetcher {
         throw new Error('Failed to obtain authentication token via client credentials');
       }
     }
-    
+
     throw new Error('No authentication method available. Provide either ingestionToken or clientId/clientSecret.');
   }
 
