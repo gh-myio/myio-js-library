@@ -638,7 +638,8 @@ function parseDevicesFromData(data) {
     var aliasName = datasource.aliasName || datasource.name || '';
     var entityType = datasource.entityType || '';
     var entityId = datasource.entityId || '';
-    var entityLabel = datasource.entityLabel || datasource.entityName || datasource.name || '';
+    var entityName = datasource.entityName || datasource.name || ''; // The asset/device name (e.g., "Melicidade-Deck")
+    var entityLabel = datasource.entityLabel || entityName || ''; // The label (e.g., "(001)-Deck")
     var rowData = row?.data || {};
 
     // Track occurrence count for this entity
@@ -673,6 +674,7 @@ function parseDevicesFromData(data) {
             aliasName: aliasName,
             entityType: entityType,
             entityId: entityId.substring(0, 8) + '...',
+            entityName: entityName,
             entityLabel: entityLabel,
             occurrenceIndex: occurrenceIndex,
             dataKeyName: keyName,
@@ -692,7 +694,8 @@ function parseDevicesFromData(data) {
         ambientesMap[entityId] = {
           datasource: datasource,
           entityId: entityId,
-          entityLabel: entityLabel,
+          entityName: entityName, // The asset name (e.g., "Melicidade-Deck")
+          entityLabel: entityLabel, // The label (e.g., "(001)-Deck")
           entityType: entityType,
           aliasName: aliasName,
           collectedData: {},
@@ -741,7 +744,8 @@ function parseDevicesFromData(data) {
     var entity = ambientesMap[entityId];
     ambientes.push({
       id: entityId,
-      name: entity.entityLabel,
+      name: entity.entityName, // The asset name (e.g., "Melicidade-Deck")
+      label: entity.entityLabel, // The label (e.g., "(001)-Deck")
       entityType: entity.entityType,
       aliasName: entity.aliasName,
       data: entity.collectedData,
@@ -751,7 +755,7 @@ function parseDevicesFromData(data) {
   LogHelper.log(
     '[MAIN_BAS] Ambientes processed:',
     ambientes.map(function (a) {
-      return a.name;
+      return { name: a.name, label: a.label };
     })
   );
 
@@ -1021,11 +1025,13 @@ function getAmbienteActionHandler(ambiente) {
  */
 function buildAmbienteItems(ambientes) {
   return ambientes.map(function (ambiente) {
-    var label = ambiente.name || ambiente.label || ambiente.id;
+    // Use label (e.g., "(001)-Deck") for display, fallback to name (e.g., "Melicidade-Deck")
+    var displayLabel = ambiente.label || ambiente.name || ambiente.id;
     return {
       id: ambiente.id,
-      label: label,
-      icon: getAmbienteIcon(label),
+      label: displayLabel,
+      name: ambiente.name, // Keep the entity name for reference
+      icon: getAmbienteIcon(displayLabel),
       handleActionClick: getAmbienteActionHandler(ambiente),
     };
   });
