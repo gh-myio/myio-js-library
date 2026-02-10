@@ -662,7 +662,17 @@ export function injectOnOffDeviceModalStyles(): void {
         font-size: 11px;
       }
     }
+
+    .myio-onoff-modal__schedule-view {
+      max-height: 704px;
+    }
+
+    .myio-onoff-modal__schedule-view {
+      min-height: 435px;
+    }
   `;
+
+    
 
   document.head.appendChild(style);
 }
