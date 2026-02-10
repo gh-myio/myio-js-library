@@ -141,6 +141,7 @@ const HEADER_CSS = `
     padding: 0 12px;
     height: 32px;
     min-height: 32px;
+    overflow: hidden;
   }
 
   .myio-hp__left {
@@ -170,8 +171,8 @@ const HEADER_CSS = `
 
   .myio-hp__title {
     font-size: 0.7rem;
-    font-weight: 600;
-    color: #1a1a1a;
+    font-weight: 700;
+    color: #111111;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0;
@@ -203,8 +204,9 @@ const HEADER_CSS = `
   .myio-hp__actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 6px;
     flex-shrink: 0;
+    min-width: fit-content;
   }
 
   .myio-hp__btn {
@@ -323,8 +325,8 @@ function injectStyles(): void {
 export const HEADER_STYLE_DEFAULT: HeaderPanelStyle = {
   height: '32px',
   fontSize: '0.7rem',
-  fontWeight: '600',
-  color: '#1a1a1a',
+  fontWeight: '700',
+  color: '#111111',
   letterSpacing: '0.5px',
   textTransform: 'uppercase',
   backgroundColor: 'transparent',
@@ -441,6 +443,22 @@ export class HeaderPanelComponent {
 
   public getSearchText(): string {
     return this.searchText;
+  }
+
+  /** Set maximize state without triggering callback (for external reset) */
+  public setMaximized(value: boolean): void {
+    this.isMaximized = value;
+    const btn = this.root.querySelector('.myio-hp__actions .myio-hp__btn:last-child') as HTMLElement;
+    if (btn && this.options.showMaximize) {
+      // Find the maximize button (it's the last action button when showMaximize is true)
+      const maximizeBtn = Array.from(this.root.querySelectorAll('.myio-hp__btn')).find(
+        b => b.getAttribute('title') === 'Maximizar' || b.getAttribute('title') === 'Minimizar'
+      ) as HTMLElement;
+      if (maximizeBtn) {
+        maximizeBtn.innerHTML = value ? ICON_MINIMIZE : ICON_MAXIMIZE;
+        maximizeBtn.title = value ? 'Minimizar' : 'Maximizar';
+      }
+    }
   }
 
   public clearSearch(): void {

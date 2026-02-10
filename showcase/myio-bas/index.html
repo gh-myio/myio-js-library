@@ -415,6 +415,20 @@
         </div>
       </div>
 
+      <!-- RFC-0165: BAS Modal Test -->
+      <div class="controls-panel">
+        <h3>RFC-0165: BAS Modal</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="openBASModalTest()">
+            ⚡ Open BAS Modal
+          </button>
+          <button class="ctrl-btn secondary" onclick="openBASModalTestRemote()">
+            🔌 With Remote
+          </button>
+        </div>
+        <p style="font-size: 10px; color: #64748b; margin-top: 8px;">Test BAS device modal with 30% control panel + 70% chart</p>
+      </div>
+
       <!-- Settings -->
       <div class="controls-panel">
         <h3>Dashboard Settings</h3>
@@ -878,10 +892,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Open filter modal'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'Sidebar Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-sidebar-host', isMax);
-          },
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(floorListPanel.getElement(), 'Ambientes', floorListPanel); else closeMaximizeOverlay(); },
           handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Ambiente', 'HOME'); },
           handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Ambiente', item.label); }
         });
@@ -931,10 +942,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'Water Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-water-host', isMax);
-          }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Water', waterPanel); else closeMaximizeOverlay(); }
         });
         waterHost.appendChild(waterPanel.getElement());
       }
@@ -1009,10 +1017,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'HVAC filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'HVAC Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-ambientes-host', isMax);
-          }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'HVAC', ambientesPanel); else closeMaximizeOverlay(); }
         });
         ambientesHost.appendChild(ambientesPanel.getElement());
       }
@@ -1036,10 +1041,7 @@
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => {
-            log('event', 'Motors Maximize', isMax ? 'Maximized' : 'Minimized');
-            maximizePanel('bas-motors-host', isMax);
-          }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(motorsPanel.getElement(), 'Motors', motorsPanel); else closeMaximizeOverlay(); }
         });
         motorsHost.appendChild(motorsPanel.getElement());
       }
@@ -1119,6 +1121,69 @@
     }
 
     // =========================================================================
+    // MAXIMIZE OVERLAY (for showcase testing)
+    // =========================================================================
+    let _maxOverlay = null;
+    let _maxPanelInstance = null; // Track which panel instance is maximized
+
+    function showMaximizeOverlay(panelElement, title, panelInstance) {
+      closeMaximizeOverlay(); // close any existing
+
+      // Overlay (click outside to close)
+      _maxOverlay = document.createElement('div');
+      _maxOverlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s ease;
+      `;
+      _maxOverlay.addEventListener('click', function(e) { if (e.target === _maxOverlay) closeMaximizeOverlay(); });
+
+      // Panel container
+      var panel = document.createElement('div');
+      panel.style.cssText = `
+        width: 90vw; height: 85vh; max-width: 1400px; max-height: 900px;
+        background: #ffffff; border-radius: 16px;
+        box-shadow: 0 25px 80px rgba(0,0,0,0.3); border: 1px solid #e2e8f0;
+        overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease;
+        position: relative; display: flex; flex-direction: column;
+      `;
+      var clone = panelElement.cloneNode(true);
+      clone.style.width = '100%'; clone.style.height = '100%';
+      clone.style.maxWidth = 'none'; clone.style.maxHeight = 'none';
+      panel.appendChild(clone);
+      _maxOverlay.appendChild(panel);
+
+      // Wire up minimize button in clone (cloneNode doesn't copy event listeners)
+      var minimizeBtn = clone.querySelector('[title="Minimizar"]') || clone.querySelector('[title="Maximizar"]');
+      if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', function(e) { e.stopPropagation(); closeMaximizeOverlay(); });
+      }
+
+      _maxPanelInstance = panelInstance || null;
+      document.body.appendChild(_maxOverlay);
+
+      // Escape key
+      document.addEventListener('keydown', _maxEscHandler);
+
+      // Animate in
+      requestAnimationFrame(function() { _maxOverlay.style.opacity = '1'; panel.style.transform = 'scale(1)'; });
+      log('info', 'Maximize', 'Opened: ' + title);
+    }
+
+    function closeMaximizeOverlay() {
+      // Reset the panel's maximize state so button icon goes back to "maximize"
+      if (_maxPanelInstance && typeof _maxPanelInstance.setMaximized === 'function') {
+        _maxPanelInstance.setMaximized(false);
+      }
+      _maxPanelInstance = null;
+      if (_maxOverlay) { _maxOverlay.remove(); _maxOverlay = null; }
+      document.removeEventListener('keydown', _maxEscHandler);
+    }
+
+    function _maxEscHandler(e) { if (e.key === 'Escape') closeMaximizeOverlay(); }
+
+    // =========================================================================
     // UI HELPERS
     // =========================================================================
     function updateWidgetStatus(status) { const b = document.getElementById('widgetStatus'); b.textContent = status.toUpperCase(); b.className = 'status-badge ' + status; }
@@ -1145,6 +1210,149 @@
     // =========================================================================
     document.addEventListener('DOMContentLoaded', () => { log('info', 'Page Ready', 'Click "onInit" to start.'); updateStateDisplay(); });
 
+    // =========================================================================
+    // RFC-0165: BAS MODAL TEST FUNCTIONS
+    // =========================================================================
+    function openBASModalTest() {
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO || !MyIO.openDashboardPopupEnergy) {
+        log('error', 'BAS Modal', 'openDashboardPopupEnergy not available');
+        alert('openDashboardPopupEnergy not available in MyIOLibrary');
+        return;
+      }
+
+      const mockDevice = {
+        id: 'motor-001',
+        entityId: 'abc123-def456-motor-001',
+        label: 'Bomba Agua Fria 01',
+        deviceType: 'BOMBA_HIDRAULICA',
+        deviceProfile: 'BOMBA',
+        hasRemote: false,
+        isRemoteOn: false,
+        status: 'online',
+        telemetry: {
+          power: 2.5,
+          current: 11.4,
+          voltage: 220,
+          temperature: 45.2,
+          consumption: 18.7,
+          lastUpdate: Date.now()
+        }
+      };
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+
+      log('info', 'BAS Modal', 'Opening BAS modal (no remote)...');
+
+      MyIO.openDashboardPopupEnergy({
+        basMode: true,
+        basDevice: mockDevice,
+        deviceId: mockDevice.entityId,
+        deviceLabel: mockDevice.label,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        readingType: 'energy',
+        granularity: '1d',
+        theme: 'dark',
+        telemetryRefreshInterval: 5000,
+        onRemoteCommand: async (command, device) => {
+          log('event', 'Remote CMD', `${command.toUpperCase()} -> ${device.label}`);
+          await new Promise(r => setTimeout(r, 1000));
+          log('success', 'Remote CMD', 'Command executed');
+        },
+        onTelemetryRefresh: async (device) => {
+          log('info', 'Telemetry', `Refreshing ${device.label}...`);
+          await new Promise(r => setTimeout(r, 500));
+          return {
+            power: Math.random() * 5 + 1,
+            current: Math.random() * 15 + 5,
+            voltage: 220 + Math.random() * 5,
+            temperature: Math.random() * 20 + 35,
+            consumption: mockDevice.telemetry.consumption + Math.random() * 0.5,
+            lastUpdate: Date.now()
+          };
+        },
+        onClose: () => {
+          log('info', 'BAS Modal', 'Modal closed');
+        },
+        onError: (err) => {
+          log('error', 'BAS Modal', err.message);
+        }
+      });
+    }
+
+    function openBASModalTestRemote() {
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO || !MyIO.openDashboardPopupEnergy) {
+        log('error', 'BAS Modal', 'openDashboardPopupEnergy not available');
+        alert('openDashboardPopupEnergy not available in MyIOLibrary');
+        return;
+      }
+
+      const mockDevice = {
+        id: 'motor-002',
+        entityId: 'abc123-def456-motor-002',
+        label: 'Motor Ventilador CPD',
+        deviceType: 'MOTOR',
+        deviceProfile: 'REMOTE',
+        hasRemote: true,
+        isRemoteOn: true,
+        status: 'online',
+        telemetry: {
+          power: 1.2,
+          current: 5.5,
+          voltage: 220,
+          temperature: 38.5,
+          consumption: 8.3,
+          lastUpdate: Date.now()
+        }
+      };
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+
+      log('info', 'BAS Modal', 'Opening BAS modal (with remote)...');
+
+      MyIO.openDashboardPopupEnergy({
+        basMode: true,
+        basDevice: mockDevice,
+        deviceId: mockDevice.entityId,
+        deviceLabel: mockDevice.label,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        readingType: 'energy',
+        granularity: '1d',
+        theme: 'dark',
+        telemetryRefreshInterval: 5000,
+        onRemoteCommand: async (command, device) => {
+          log('event', 'Remote CMD', `${command.toUpperCase()} -> ${device.label}`);
+          await new Promise(r => setTimeout(r, 1000));
+          log('success', 'Remote CMD', 'Command executed');
+        },
+        onTelemetryRefresh: async (device) => {
+          log('info', 'Telemetry', `Refreshing ${device.label}...`);
+          await new Promise(r => setTimeout(r, 500));
+          return {
+            power: Math.random() * 3 + 0.5,
+            current: Math.random() * 8 + 2,
+            voltage: 220 + Math.random() * 5,
+            temperature: Math.random() * 15 + 30,
+            consumption: mockDevice.telemetry.consumption + Math.random() * 0.3,
+            lastUpdate: Date.now()
+          };
+        },
+        onClose: () => {
+          log('info', 'BAS Modal', 'Modal closed');
+        },
+        onError: (err) => {
+          log('error', 'BAS Modal', err.message);
+        }
+      });
+    }
+
     // Expose functions to global scope for onclick handlers
     window.triggerOnInit = triggerOnInit;
     window.triggerOnDataUpdated = triggerOnDataUpdated;
@@ -1156,6 +1364,8 @@
     window.toggleTheme = toggleTheme;
     window.clearLog = clearLog;
     window.toggleStatePanel = toggleStatePanel;
+    window.openBASModalTest = openBASModalTest;
+    window.openBASModalTestRemote = openBASModalTestRemote;
   })(); // End IIFE
   </script>
 </body>

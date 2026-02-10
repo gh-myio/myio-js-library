@@ -1,8 +1,47 @@
 // energy/types.ts - Comprehensive types for openDashboardPopupEnergy component
 
+// ============================================================================
+// RFC-0165: BAS Mode Types
+// ============================================================================
+
+export interface BASDeviceData {
+  id: string;
+  entityId: string;
+  label: string;
+  deviceType: string;
+  deviceProfile?: string;
+  hasRemote: boolean;
+  isRemoteOn?: boolean;
+  status: 'online' | 'offline' | 'unknown';
+  telemetry?: BASDeviceTelemetry;
+}
+
+export interface BASDeviceTelemetry {
+  power?: number;        // kW
+  current?: number;      // A
+  voltage?: number;      // V
+  temperature?: number;  // °C
+  consumption?: number;  // kWh
+  lastUpdate?: number;   // timestamp
+}
+
 export interface OpenDashboardPopupEnergyOptions {
   // ⭐ NEW: Mode Configuration (default: 'single')
   mode?: 'single' | 'comparison';
+
+  // ========================================
+  // RFC-0165: BAS MODE PARAMETERS
+  // ========================================
+  /** Enable BAS mode with automation control panel (30% left, 70% chart right) */
+  basMode?: boolean;
+  /** Device object for automation control (required when basMode=true) */
+  basDevice?: BASDeviceData;
+  /** Callback for remote control commands */
+  onRemoteCommand?: (command: 'on' | 'off', device: BASDeviceData) => Promise<void>;
+  /** Callback for device telemetry refresh */
+  onTelemetryRefresh?: (device: BASDeviceData) => Promise<BASDeviceTelemetry>;
+  /** Auto-refresh interval for telemetry in ms (default: 10000) */
+  telemetryRefreshInterval?: number;
 
   // ========================================
   // SINGLE MODE PARAMETERS (original behavior)
