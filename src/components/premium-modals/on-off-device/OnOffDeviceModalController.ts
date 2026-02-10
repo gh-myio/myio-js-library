@@ -1,11 +1,14 @@
 /**
  * RFC-0167: On/Off Device Modal Controller
  * Handles modal lifecycle and state management
+ * Uses ModalHeader pattern for consistent styling
  */
 
-import { createModal } from '../internal/ModalPremiumShell';
+import { ModalHeader } from '../../../utils/ModalHeader';
+import { CSS_TOKENS } from '../internal/styles/tokens';
 import { OnOffDeviceModalView } from './OnOffDeviceModalView';
 import { getDeviceConfig, getModalTitle } from './deviceConfig';
+import { ON_OFF_MODAL_CSS_PREFIX, injectOnOffDeviceModalStyles } from './styles';
 import type {
   OnOffDeviceModalParams,
   OnOffDeviceModalInstance,
@@ -15,22 +18,32 @@ import type {
   DeviceTypeConfig,
 } from './types';
 
+interface ModalState {
+  theme: OnOffDeviceThemeMode;
+  isMaximized: boolean;
+  deviceConfig: DeviceTypeConfig;
+}
+
 export class OnOffDeviceModalController {
-  private modal: ReturnType<typeof createModal> | null = null;
+  private modalContainer: HTMLElement | null = null;
   private view: OnOffDeviceModalView | null = null;
-  private params: OnOffDeviceModalParams;
-  private deviceConfig: DeviceTypeConfig;
-  private closeHandlers: (() => void)[] = [];
+  private params: Required<OnOffDeviceModalParams>;
+  private state: ModalState;
+  private modalId: string;
 
   constructor(params: OnOffDeviceModalParams) {
     this.params = this.normalizeParams(params);
-    this.deviceConfig = getDeviceConfig(params.device.deviceProfile);
+    this.modalId = `onoff-modal-${Date.now()}`;
+    this.state = {
+      theme: this.params.themeMode,
+      isMaximized: false,
+      deviceConfig: getDeviceConfig(params.device.deviceProfile),
+    };
 
     if (params.enableDebugMode) {
       console.log('[OnOffDeviceModal] Initialized with params:', {
         deviceId: params.device.id,
         deviceProfile: params.device.deviceProfile,
-        deviceType: params.deviceType,
         themeMode: params.themeMode,
       });
     }
@@ -41,7 +54,7 @@ export class OnOffDeviceModalController {
       container: params.container || document.body,
       device: params.device,
       deviceType: params.deviceType || 'generic',
-      themeMode: params.themeMode || 'light',
+      themeMode: params.themeMode || 'light', // Default to light
       jwtToken: params.jwtToken || '',
       tbBaseUrl: params.tbBaseUrl || '',
       onClose: params.onClose || (() => {}),
@@ -56,44 +69,181 @@ export class OnOffDeviceModalController {
    * Show the modal
    */
   public show(): OnOffDeviceModalInstance {
-    const deviceName = this.params.device.label || this.params.device.name || 'Dispositivo';
-    const title = getModalTitle(this.params.device.deviceProfile, deviceName);
+    injectOnOffDeviceModalStyles();
+    this.injectModalStyles();
 
-    // Create modal shell
-    this.modal = createModal({
-      title,
-      width: '80vw',
-      height: '80vh',
-      theme: this.params.themeMode,
-      closeOnBackdrop: true,
-      closeOnEscape: true,
-    });
+    // Create modal container
+    this.modalContainer = document.createElement('div');
+    this.modalContainer.id = this.modalId;
+    document.body.appendChild(this.modalContainer);
 
-    // Create view inside modal body
-    this.view = new OnOffDeviceModalView({
-      container: this.modal.element,
-      device: this.params.device,
-      themeMode: this.params.themeMode,
-      deviceConfig: this.deviceConfig,
-      onToggleView: () => this.handleToggleView(),
-      onDeviceToggle: (newState) => this.handleDeviceToggle(newState),
-      onScheduleSave: (schedules) => this.handleScheduleSave(schedules),
-    });
+    // Render modal
+    this.renderModal();
 
-    // Handle modal close
-    this.modal.on('close', () => this.handleClose());
+    // Setup event listeners
+    this.setupEventListeners();
 
     if (this.params.enableDebugMode) {
       console.log('[OnOffDeviceModal] Modal shown');
     }
 
     return {
-      element: this.modal.element,
+      element: this.modalContainer,
       destroy: () => this.destroy(),
       close: () => this.close(),
       setTheme: (mode) => this.setTheme(mode),
       updateDeviceState: (state) => this.updateDeviceState(state),
     };
+  }
+
+  private injectModalStyles(): void {
+    const styleId = `${ON_OFF_MODAL_CSS_PREFIX}-modal-styles`;
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = CSS_TOKENS + `
+      .${ON_OFF_MODAL_CSS_PREFIX}-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9998;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(2px);
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}-content {
+        background: var(--myio-surface, #ffffff);
+        border-radius: 10px;
+        max-width: 900px;
+        width: 95%;
+        max-height: 90vh;
+        height: auto;
+        min-height: 500px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}-content.maximized {
+        max-width: 100%;
+        width: 100%;
+        max-height: 100vh;
+        height: 100%;
+        border-radius: 0;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}-body {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+      }
+
+      /* Dark theme */
+      .${ON_OFF_MODAL_CSS_PREFIX}-overlay[data-theme="dark"] .${ON_OFF_MODAL_CSS_PREFIX}-content {
+        background: #1f2937;
+        color: #f3f4f6;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  private renderModal(): void {
+    if (!this.modalContainer) return;
+
+    const deviceName = this.params.device.label || this.params.device.name || 'Dispositivo';
+    const title = getModalTitle(this.params.device.deviceProfile, deviceName);
+    const isMaximized = this.state.isMaximized;
+
+    this.modalContainer.innerHTML = `
+      <div class="${ON_OFF_MODAL_CSS_PREFIX}-overlay myio-modal-scope" data-theme="${this.state.theme}">
+        <div class="${ON_OFF_MODAL_CSS_PREFIX}-content ${isMaximized ? 'maximized' : ''}">
+          <!-- Header via ModalHeader -->
+          ${ModalHeader.generateInlineHTML({
+            icon: this.state.deviceConfig.icon,
+            title: title,
+            modalId: this.modalId,
+            theme: this.state.theme,
+            isMaximized: isMaximized,
+            showThemeToggle: true,
+            showMaximize: true,
+            showClose: true,
+            primaryColor: this.state.deviceConfig.controlColor || '#3b82f6',
+            borderRadius: isMaximized ? '0' : '10px 10px 0 0',
+          })}
+
+          <!-- Body -->
+          <div class="${ON_OFF_MODAL_CSS_PREFIX}-body" id="${this.modalId}-body">
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Create view inside body
+    const bodyContainer = document.getElementById(`${this.modalId}-body`);
+    if (bodyContainer) {
+      // Destroy previous view if exists
+      if (this.view) {
+        this.view.destroy();
+      }
+
+      this.view = new OnOffDeviceModalView({
+        container: bodyContainer,
+        device: this.params.device,
+        themeMode: this.state.theme,
+        deviceConfig: this.state.deviceConfig,
+        onToggleView: () => this.handleToggleView(),
+        onDeviceToggle: (newState) => this.handleDeviceToggle(newState),
+        onScheduleSave: (schedules) => this.handleScheduleSave(schedules),
+      });
+    }
+  }
+
+  private setupEventListeners(): void {
+    if (!this.modalContainer) return;
+
+    // Close on overlay click
+    const overlay = this.modalContainer.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}-overlay`);
+    overlay?.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        this.close();
+      }
+    });
+
+    // Close button
+    document.getElementById(`${this.modalId}-close`)?.addEventListener('click', () => {
+      this.close();
+    });
+
+    // Theme toggle
+    document.getElementById(`${this.modalId}-theme-toggle`)?.addEventListener('click', () => {
+      this.state.theme = this.state.theme === 'dark' ? 'light' : 'dark';
+      this.renderModal();
+      this.setupEventListeners();
+    });
+
+    // Maximize toggle
+    document.getElementById(`${this.modalId}-maximize`)?.addEventListener('click', () => {
+      this.state.isMaximized = !this.state.isMaximized;
+      this.renderModal();
+      this.setupEventListeners();
+    });
+
+    // Escape key to close
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        this.close();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
   }
 
   private handleToggleView(): void {
@@ -139,7 +289,6 @@ export class OnOffDeviceModalController {
     const rpcMethod = 'setValueOutput';
     const rpcParams = {
       value: state ? 1 : 0,
-      // Some devices expect specific parameters
       output: 1,
     };
 
@@ -224,13 +373,13 @@ export class OnOffDeviceModalController {
     }
   }
 
-  private handleClose(): void {
+  /**
+   * Close the modal
+   */
+  public close(): void {
     if (this.params.enableDebugMode) {
       console.log('[OnOffDeviceModal] Modal closing');
     }
-
-    // Trigger close handlers
-    this.closeHandlers.forEach((handler) => handler());
 
     // Trigger callback
     this.params.onClose?.();
@@ -240,30 +389,12 @@ export class OnOffDeviceModalController {
   }
 
   /**
-   * Register close handler
-   */
-  public on(event: 'close', handler: () => void): void {
-    if (event === 'close') {
-      this.closeHandlers.push(handler);
-    }
-  }
-
-  /**
-   * Close the modal
-   */
-  public close(): void {
-    if (this.modal) {
-      this.modal.close();
-    }
-  }
-
-  /**
    * Set theme mode
    */
   public setTheme(mode: OnOffDeviceThemeMode): void {
-    if (this.view) {
-      this.view.setThemeMode(mode);
-    }
+    this.state.theme = mode;
+    this.renderModal();
+    this.setupEventListeners();
   }
 
   /**
@@ -283,8 +414,10 @@ export class OnOffDeviceModalController {
       this.view.destroy();
       this.view = null;
     }
-    this.modal = null;
-    this.closeHandlers = [];
+    if (this.modalContainer) {
+      this.modalContainer.remove();
+      this.modalContainer = null;
+    }
   }
 
   /**
@@ -292,7 +425,6 @@ export class OnOffDeviceModalController {
    */
   public destroy(): void {
     this.close();
-    this.cleanup();
   }
 }
 

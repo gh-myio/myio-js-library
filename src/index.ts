@@ -1503,3 +1503,22 @@ export {
   ON_OFF_MODAL_CSS_PREFIX,
   injectOnOffDeviceModalStyles,
 } from './components/premium-modals/on-off-device';
+
+// RFC-0167: On/Off Timeline Chart (for On/Off Device Modal)
+export {
+  createOnOffTimelineChart,
+  renderOnOffTimelineChart,
+  initOnOffTimelineTooltips,
+  generateMockOnOffTimelineData,
+  ONOFF_TIMELINE_CSS_PREFIX,
+  injectOnOffTimelineStyles,
+} from './components/on-off-timeline-chart';
+
+export type {
+  OnOffActivationPoint,
+  OnOffTimelineSegment,
+  OnOffTimelineData,
+  OnOffTimelineChartConfig,
+  OnOffTimelineChartInstance,
+  OnOffTimelineChartParams,
+} from './components/on-off-timeline-chart';

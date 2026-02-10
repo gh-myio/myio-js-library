@@ -1867,6 +1867,13 @@ function mountWaterPanel(waterHost, settings, classified) {
     handleClickCard: function (item) {
       LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+
+      // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
+      var deviceProfile = (item.source?.deviceProfile || '').toUpperCase();
+      if (isOnOffDeviceProfile(deviceProfile)) {
+        // RFC-0167: Open On/Off Device modal
+        openOnOffDeviceModal(item.source, settings);
+      }
     },
   });
 

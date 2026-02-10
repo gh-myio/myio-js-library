@@ -150,13 +150,8 @@ export function injectOnOffDeviceModalStyles(): void {
       flex: 1;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
       min-height: 200px;
-      background: var(--onoff-chart-bg, #ffffff);
-      border: 1px solid var(--onoff-border-color, #e5e7eb);
-      border-radius: 8px;
-      padding: 24px;
+      overflow: auto;
     }
 
     /* Usage summary stats */

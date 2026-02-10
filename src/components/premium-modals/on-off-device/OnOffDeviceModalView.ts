@@ -16,6 +16,12 @@ import type {
 import { DEFAULT_MODAL_STATE } from './types';
 import { getDeviceConfig, getModalTitle } from './deviceConfig';
 import { ON_OFF_MODAL_CSS_PREFIX, injectOnOffDeviceModalStyles } from './styles';
+import {
+  renderOnOffTimelineChart,
+  initOnOffTimelineTooltips,
+  generateMockOnOffTimelineData,
+  type OnOffTimelineData,
+} from '../../on-off-timeline-chart';
 
 export interface OnOffDeviceModalViewOptions {
   container: HTMLElement;
@@ -154,41 +160,50 @@ export class OnOffDeviceModalView {
     `;
     view.appendChild(header);
 
-    // Chart content
+    // Chart content container
     const content = document.createElement('div');
     content.className = `${ON_OFF_MODAL_CSS_PREFIX}__chart-content`;
+    content.id = `onoff-chart-${Date.now()}`;
 
-    // Usage stats (placeholder - will be updated with real data)
-    const stats = document.createElement('div');
-    stats.className = `${ON_OFF_MODAL_CSS_PREFIX}__usage-stats`;
-    stats.innerHTML = `
-      <div class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat">
-        <span class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-value">--</span>
-        <span class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-label">Hoje</span>
-      </div>
-      <div class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat">
-        <span class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-value">--</span>
-        <span class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-label">Esta Semana</span>
-      </div>
-      <div class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat">
-        <span class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-value">--</span>
-        <span class="${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-label">Este Mês</span>
-      </div>
-    `;
-    content.appendChild(stats);
+    // Generate mock timeline data with device-specific labels
+    const mockData = this.generateDeviceTimelineData();
 
-    // Chart placeholder
-    const placeholder = document.createElement('div');
-    placeholder.className = `${ON_OFF_MODAL_CSS_PREFIX}__chart-placeholder`;
-    placeholder.innerHTML = `
-      <span class="${ON_OFF_MODAL_CSS_PREFIX}__chart-placeholder-icon">📊</span>
-      <span>Dados de uso não disponíveis</span>
-    `;
-    content.appendChild(placeholder);
+    // Render timeline chart
+    content.innerHTML = renderOnOffTimelineChart(mockData, {
+      themeMode: this.themeMode,
+      labels: {
+        on: this.deviceConfig.labelOn,
+        off: this.deviceConfig.labelOff,
+      },
+      onColor: this.deviceConfig.controlColor,
+    });
 
     view.appendChild(content);
 
+    // Initialize tooltips after DOM is ready
+    requestAnimationFrame(() => {
+      initOnOffTimelineTooltips(content, {
+        on: this.deviceConfig.labelOn,
+        off: this.deviceConfig.labelOff,
+      });
+    });
+
     return view;
+  }
+
+  /**
+   * Generate timeline data for the device
+   * Uses mock data for now - will be replaced with real telemetry data
+   */
+  private generateDeviceTimelineData(): OnOffTimelineData {
+    const mockData = generateMockOnOffTimelineData();
+
+    // Customize with device info
+    return {
+      ...mockData,
+      deviceId: this.device.id || 'unknown',
+      deviceName: this.device.label || this.device.name || 'Dispositivo',
+    };
   }
 
   private createScheduleView(): HTMLElement {
@@ -387,6 +402,30 @@ export class OnOffDeviceModalView {
     if (this.scheduleOnOffInstance?.setThemeMode) {
       this.scheduleOnOffInstance.setThemeMode(mode);
     }
+
+    // Re-render the chart with new theme
+    this.updateChartTheme();
+  }
+
+  private updateChartTheme(): void {
+    const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
+    if (!chartContent) return;
+
+    const mockData = this.generateDeviceTimelineData();
+    chartContent.innerHTML = renderOnOffTimelineChart(mockData, {
+      themeMode: this.themeMode,
+      labels: {
+        on: this.deviceConfig.labelOn,
+        off: this.deviceConfig.labelOff,
+      },
+      onColor: this.deviceConfig.controlColor,
+    });
+
+    // Re-initialize tooltips
+    initOnOffTimelineTooltips(chartContent as HTMLElement, {
+      on: this.deviceConfig.labelOn,
+      off: this.deviceConfig.labelOff,
+    });
   }
 
   public updateDeviceState(state: boolean): void {
@@ -444,16 +483,34 @@ export class OnOffDeviceModalView {
 
   public updateUsageData(data: UsageDataPoint[]): void {
     this.state.usageData = data;
-    // Update chart view with real data
-    // For now, just update the stats placeholders
-    const stats = this.chartView?.querySelectorAll(`.${ON_OFF_MODAL_CSS_PREFIX}__usage-stat-value`);
-    if (stats && data.length > 0) {
-      // This is a simplified example - real implementation would calculate proper values
-      const unit = this.deviceConfig.chartUnit;
-      if (stats[0]) stats[0].textContent = `0 ${unit}`;
-      if (stats[1]) stats[1].textContent = `0 ${unit}`;
-      if (stats[2]) stats[2].textContent = `0 ${unit}`;
-    }
+
+    // TODO: Convert UsageDataPoint[] to OnOffTimelineData and re-render chart
+    // For now, the chart uses mock data
+    // Future implementation will transform real telemetry data into timeline segments
+  }
+
+  /**
+   * Update the timeline chart with real telemetry data
+   * @param timelineData - Timeline data from device telemetry
+   */
+  public updateTimelineData(timelineData: OnOffTimelineData): void {
+    const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
+    if (!chartContent) return;
+
+    chartContent.innerHTML = renderOnOffTimelineChart(timelineData, {
+      themeMode: this.themeMode,
+      labels: {
+        on: this.deviceConfig.labelOn,
+        off: this.deviceConfig.labelOff,
+      },
+      onColor: this.deviceConfig.controlColor,
+    });
+
+    // Re-initialize tooltips
+    initOnOffTimelineTooltips(chartContent as HTMLElement, {
+      on: this.deviceConfig.labelOn,
+      off: this.deviceConfig.labelOff,
+    });
   }
 
   public updateSchedules(schedules: OnOffScheduleEntry[]): void {
