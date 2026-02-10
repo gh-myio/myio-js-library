@@ -122,11 +122,11 @@ export class OnOffDeviceModalController {
       .${ON_OFF_MODAL_CSS_PREFIX}-content {
         background: var(--myio-surface, #ffffff);
         border-radius: 10px;
-        max-width: 900px;
+        max-width: 1000px;
         width: 95%;
         max-height: 90vh;
         height: auto;
-        min-height: 500px;
+        min-height: 600px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
