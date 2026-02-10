@@ -2402,15 +2402,11 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     return null;
   }
 
-  // RFC-0161: Use hierarchy-based items if available, otherwise use datasource ambientes
-  var items;
-  if (hierarchyAvailable) {
-    items = buildSidebarItemsFromHierarchy();
-    LogHelper.log('[MAIN_BAS] Built sidebar items from hierarchy:', items.length);
-  } else {
-    items = buildAmbienteItems(ambientes);
-    LogHelper.log('[MAIN_BAS] Built sidebar items from datasource:', items.length);
-  }
+  // Always use datasource ambientes for sidebar display
+  // The hierarchy is used for device filtering, not for sidebar display
+  // This ensures EntityListPanel shows the same items as the "Ambientes" datasource
+  var items = buildAmbienteItems(ambientes);
+  LogHelper.log('[MAIN_BAS] Built sidebar items from datasource:', items.length);
   LogHelper.log('[MAIN_BAS] Built ambiente items:', items);
 
   // Use premium green header style from library
