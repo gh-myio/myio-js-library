@@ -14,14 +14,21 @@ import {
   ContractDevicesFetcher
 } from './types';
 
+// Allowed email domain for editing contract devices
+const ALLOWED_EMAIL_DOMAIN = '@myio.com.br';
+
 export class ContractDevicesController {
   private params: OpenContractDevicesModalParams;
   private view: ContractDevicesModalView | null = null;
   private persister: ContractDevicesPersister;
   private fetcher: ContractDevicesFetcher;
+  private isReadOnly: boolean;
 
   constructor(params: OpenContractDevicesModalParams) {
     this.params = params;
+
+    // Check if user has edit permission based on email domain
+    this.isReadOnly = !this.hasEditPermission(params.userEmail);
 
     // Initialize persister
     this.persister = new DefaultContractDevicesPersister(
@@ -34,6 +41,28 @@ export class ContractDevicesController {
       params.jwtToken,
       params.api
     );
+  }
+
+  /**
+   * Check if user has permission to edit contract devices
+   * Only users with @myio.com.br email domain can edit
+   */
+  private hasEditPermission(userEmail?: string): boolean {
+    if (!userEmail) {
+      console.log('[ContractDevicesController] No userEmail provided, defaulting to read-only');
+      return false;
+    }
+
+    const email = userEmail.toLowerCase().trim();
+    const hasPermission = email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
+
+    console.log('[ContractDevicesController] Permission check:', {
+      userEmail: email,
+      allowedDomain: ALLOWED_EMAIL_DOMAIN,
+      hasEditPermission: hasPermission
+    });
+
+    return hasPermission;
   }
 
   async show(): Promise<void> {
@@ -55,6 +84,7 @@ export class ContractDevicesController {
       width: this.params.ui?.width || 800,
       closeOnBackdrop: this.params.ui?.closeOnBackdrop !== false,
       customerName: this.params.customerName,
+      readOnly: this.isReadOnly,
       onSave: this.handleSave.bind(this),
       onClose: this.handleClose.bind(this)
     };
@@ -131,40 +161,46 @@ export class ContractDevicesController {
   }
 
   /**
-   * Validate that totals match sum of components for each domain
+   * Validate that totals match sum of components for each domain and type
    * Returns error message if validation fails, null if valid
    */
   private validateTotals(formData: ContractDeviceCounts): string | null {
     const errors: string[] = [];
+    const types: Array<{ key: 'contracted' | 'installed'; label: string }> = [
+      { key: 'contracted', label: 'Contratado' },
+      { key: 'installed', label: 'Instalado' }
+    ];
 
-    // Energy: total = entries + commonArea + stores
-    if (formData.energy.total !== null) {
-      const energySum = (formData.energy.entries || 0) +
-                        (formData.energy.commonArea || 0) +
-                        (formData.energy.stores || 0);
-      if (formData.energy.total !== energySum) {
-        errors.push(`Energia: Total (${formData.energy.total}) deve ser igual a Entradas + Area Comum + Lojas (${energySum})`);
+    types.forEach(({ key, label }) => {
+      // Energy: total = entries + commonArea + stores
+      if (formData.energy[key].total !== null) {
+        const energySum = (formData.energy[key].entries || 0) +
+                          (formData.energy[key].commonArea || 0) +
+                          (formData.energy[key].stores || 0);
+        if (formData.energy[key].total !== energySum) {
+          errors.push(`Energia ${label}: Total (${formData.energy[key].total}) deve ser igual a Entradas + Area Comum + Lojas (${energySum})`);
+        }
       }
-    }
 
-    // Water: total = entries + commonArea + stores
-    if (formData.water.total !== null) {
-      const waterSum = (formData.water.entries || 0) +
-                       (formData.water.commonArea || 0) +
-                       (formData.water.stores || 0);
-      if (formData.water.total !== waterSum) {
-        errors.push(`Agua: Total (${formData.water.total}) deve ser igual a Entradas + Area Comum + Lojas (${waterSum})`);
+      // Water: total = entries + commonArea + stores
+      if (formData.water[key].total !== null) {
+        const waterSum = (formData.water[key].entries || 0) +
+                         (formData.water[key].commonArea || 0) +
+                         (formData.water[key].stores || 0);
+        if (formData.water[key].total !== waterSum) {
+          errors.push(`Agua ${label}: Total (${formData.water[key].total}) deve ser igual a Entradas + Area Comum + Lojas (${waterSum})`);
+        }
       }
-    }
 
-    // Temperature: total = internal + stores
-    if (formData.temperature.total !== null) {
-      const tempSum = (formData.temperature.internal || 0) +
-                      (formData.temperature.stores || 0);
-      if (formData.temperature.total !== tempSum) {
-        errors.push(`Temperatura: Total (${formData.temperature.total}) deve ser igual a Sensores Internos + Lojas (${tempSum})`);
+      // Temperature: total = internal + stores
+      if (formData.temperature[key].total !== null) {
+        const tempSum = (formData.temperature[key].internal || 0) +
+                        (formData.temperature[key].stores || 0);
+        if (formData.temperature[key].total !== tempSum) {
+          errors.push(`Temperatura ${label}: Total (${formData.temperature[key].total}) deve ser igual a Sensores Internos + Externos (${tempSum})`);
+        }
       }
-    }
+    });
 
     return errors.length > 0 ? errors.join('\n') : null;
   }
@@ -175,21 +211,44 @@ export class ContractDevicesController {
   ): Partial<ContractDeviceCounts> {
     return {
       energy: {
-        total: fetched.energy?.total ?? seed.energy?.total ?? null,
-        entries: fetched.energy?.entries ?? seed.energy?.entries ?? null,
-        commonArea: fetched.energy?.commonArea ?? seed.energy?.commonArea ?? null,
-        stores: fetched.energy?.stores ?? seed.energy?.stores ?? null
+        contracted: {
+          total: fetched.energy?.contracted?.total ?? seed.energy?.contracted?.total ?? null,
+          entries: fetched.energy?.contracted?.entries ?? seed.energy?.contracted?.entries ?? null,
+          commonArea: fetched.energy?.contracted?.commonArea ?? seed.energy?.contracted?.commonArea ?? null,
+          stores: fetched.energy?.contracted?.stores ?? seed.energy?.contracted?.stores ?? null
+        },
+        installed: {
+          total: fetched.energy?.installed?.total ?? seed.energy?.installed?.total ?? null,
+          entries: fetched.energy?.installed?.entries ?? seed.energy?.installed?.entries ?? null,
+          commonArea: fetched.energy?.installed?.commonArea ?? seed.energy?.installed?.commonArea ?? null,
+          stores: fetched.energy?.installed?.stores ?? seed.energy?.installed?.stores ?? null
+        }
       },
       water: {
-        total: fetched.water?.total ?? seed.water?.total ?? null,
-        entries: fetched.water?.entries ?? seed.water?.entries ?? null,
-        commonArea: fetched.water?.commonArea ?? seed.water?.commonArea ?? null,
-        stores: fetched.water?.stores ?? seed.water?.stores ?? null
+        contracted: {
+          total: fetched.water?.contracted?.total ?? seed.water?.contracted?.total ?? null,
+          entries: fetched.water?.contracted?.entries ?? seed.water?.contracted?.entries ?? null,
+          commonArea: fetched.water?.contracted?.commonArea ?? seed.water?.contracted?.commonArea ?? null,
+          stores: fetched.water?.contracted?.stores ?? seed.water?.contracted?.stores ?? null
+        },
+        installed: {
+          total: fetched.water?.installed?.total ?? seed.water?.installed?.total ?? null,
+          entries: fetched.water?.installed?.entries ?? seed.water?.installed?.entries ?? null,
+          commonArea: fetched.water?.installed?.commonArea ?? seed.water?.installed?.commonArea ?? null,
+          stores: fetched.water?.installed?.stores ?? seed.water?.installed?.stores ?? null
+        }
       },
       temperature: {
-        total: fetched.temperature?.total ?? seed.temperature?.total ?? null,
-        internal: fetched.temperature?.internal ?? seed.temperature?.internal ?? null,
-        stores: fetched.temperature?.stores ?? seed.temperature?.stores ?? null
+        contracted: {
+          total: fetched.temperature?.contracted?.total ?? seed.temperature?.contracted?.total ?? null,
+          internal: fetched.temperature?.contracted?.internal ?? seed.temperature?.contracted?.internal ?? null,
+          stores: fetched.temperature?.contracted?.stores ?? seed.temperature?.contracted?.stores ?? null
+        },
+        installed: {
+          total: fetched.temperature?.installed?.total ?? seed.temperature?.installed?.total ?? null,
+          internal: fetched.temperature?.installed?.internal ?? seed.temperature?.installed?.internal ?? null,
+          stores: fetched.temperature?.installed?.stores ?? seed.temperature?.installed?.stores ?? null
+        }
       }
     };
   }

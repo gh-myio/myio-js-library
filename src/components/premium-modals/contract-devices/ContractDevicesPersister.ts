@@ -28,43 +28,82 @@ export class DefaultContractDevicesPersister implements ContractDevicesPersister
       // Build flat attributes from nested structure
       const payload: Record<string, number> = {};
 
-      // Energy counts
-      if (counts.energy.total !== null) {
-        payload[DEVICE_COUNT_KEYS.energy.total] = counts.energy.total;
+      // Energy contracted counts
+      if (counts.energy.contracted.total !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.contracted.total] = counts.energy.contracted.total;
       }
-      if (counts.energy.entries !== null) {
-        payload[DEVICE_COUNT_KEYS.energy.entries] = counts.energy.entries;
+      if (counts.energy.contracted.entries !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.contracted.entries] = counts.energy.contracted.entries;
       }
-      if (counts.energy.commonArea !== null) {
-        payload[DEVICE_COUNT_KEYS.energy.commonArea] = counts.energy.commonArea;
+      if (counts.energy.contracted.commonArea !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.contracted.commonArea] = counts.energy.contracted.commonArea;
       }
-      if (counts.energy.stores !== null) {
-        payload[DEVICE_COUNT_KEYS.energy.stores] = counts.energy.stores;
-      }
-
-      // Water counts
-      if (counts.water.total !== null) {
-        payload[DEVICE_COUNT_KEYS.water.total] = counts.water.total;
-      }
-      if (counts.water.entries !== null) {
-        payload[DEVICE_COUNT_KEYS.water.entries] = counts.water.entries;
-      }
-      if (counts.water.commonArea !== null) {
-        payload[DEVICE_COUNT_KEYS.water.commonArea] = counts.water.commonArea;
-      }
-      if (counts.water.stores !== null) {
-        payload[DEVICE_COUNT_KEYS.water.stores] = counts.water.stores;
+      if (counts.energy.contracted.stores !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.contracted.stores] = counts.energy.contracted.stores;
       }
 
-      // Temperature counts
-      if (counts.temperature.total !== null) {
-        payload[DEVICE_COUNT_KEYS.temperature.total] = counts.temperature.total;
+      // Energy installed counts
+      if (counts.energy.installed.total !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.installed.total] = counts.energy.installed.total;
       }
-      if (counts.temperature.internal !== null) {
-        payload[DEVICE_COUNT_KEYS.temperature.internal] = counts.temperature.internal;
+      if (counts.energy.installed.entries !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.installed.entries] = counts.energy.installed.entries;
       }
-      if (counts.temperature.stores !== null) {
-        payload[DEVICE_COUNT_KEYS.temperature.stores] = counts.temperature.stores;
+      if (counts.energy.installed.commonArea !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.installed.commonArea] = counts.energy.installed.commonArea;
+      }
+      if (counts.energy.installed.stores !== null) {
+        payload[DEVICE_COUNT_KEYS.energy.installed.stores] = counts.energy.installed.stores;
+      }
+
+      // Water contracted counts
+      if (counts.water.contracted.total !== null) {
+        payload[DEVICE_COUNT_KEYS.water.contracted.total] = counts.water.contracted.total;
+      }
+      if (counts.water.contracted.entries !== null) {
+        payload[DEVICE_COUNT_KEYS.water.contracted.entries] = counts.water.contracted.entries;
+      }
+      if (counts.water.contracted.commonArea !== null) {
+        payload[DEVICE_COUNT_KEYS.water.contracted.commonArea] = counts.water.contracted.commonArea;
+      }
+      if (counts.water.contracted.stores !== null) {
+        payload[DEVICE_COUNT_KEYS.water.contracted.stores] = counts.water.contracted.stores;
+      }
+
+      // Water installed counts
+      if (counts.water.installed.total !== null) {
+        payload[DEVICE_COUNT_KEYS.water.installed.total] = counts.water.installed.total;
+      }
+      if (counts.water.installed.entries !== null) {
+        payload[DEVICE_COUNT_KEYS.water.installed.entries] = counts.water.installed.entries;
+      }
+      if (counts.water.installed.commonArea !== null) {
+        payload[DEVICE_COUNT_KEYS.water.installed.commonArea] = counts.water.installed.commonArea;
+      }
+      if (counts.water.installed.stores !== null) {
+        payload[DEVICE_COUNT_KEYS.water.installed.stores] = counts.water.installed.stores;
+      }
+
+      // Temperature contracted counts
+      if (counts.temperature.contracted.total !== null) {
+        payload[DEVICE_COUNT_KEYS.temperature.contracted.total] = counts.temperature.contracted.total;
+      }
+      if (counts.temperature.contracted.internal !== null) {
+        payload[DEVICE_COUNT_KEYS.temperature.contracted.internal] = counts.temperature.contracted.internal;
+      }
+      if (counts.temperature.contracted.stores !== null) {
+        payload[DEVICE_COUNT_KEYS.temperature.contracted.stores] = counts.temperature.contracted.stores;
+      }
+
+      // Temperature installed counts
+      if (counts.temperature.installed.total !== null) {
+        payload[DEVICE_COUNT_KEYS.temperature.installed.total] = counts.temperature.installed.total;
+      }
+      if (counts.temperature.installed.internal !== null) {
+        payload[DEVICE_COUNT_KEYS.temperature.installed.internal] = counts.temperature.installed.internal;
+      }
+      if (counts.temperature.installed.stores !== null) {
+        payload[DEVICE_COUNT_KEYS.temperature.installed.stores] = counts.temperature.installed.stores;
       }
 
       console.log('[ContractDevicesPersister] Saving to CUSTOMER SERVER_SCOPE:', payload);

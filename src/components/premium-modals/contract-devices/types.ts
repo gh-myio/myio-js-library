@@ -6,48 +6,87 @@
 export type ContractDomain = 'energy' | 'water' | 'temperature';
 
 /**
+ * Sub-fields for energy and water domains
+ */
+export interface EnergyWaterSubFields {
+  total: number | null;
+  entries: number | null;
+  commonArea: number | null;
+  stores: number | null;
+}
+
+/**
+ * Sub-fields for temperature domain
+ */
+export interface TemperatureSubFields {
+  total: number | null;
+  internal: number | null;
+  stores: number | null;
+}
+
+/**
  * Device count keys structure matching RFC-0107
+ * Each domain has contracted and installed sub-keys
  */
 export interface DeviceCountKeys {
   energy: {
-    total: string;
-    entries: string;
-    commonArea: string;
-    stores: string;
+    contracted: {
+      total: string;
+      entries: string;
+      commonArea: string;
+      stores: string;
+    };
+    installed: {
+      total: string;
+      entries: string;
+      commonArea: string;
+      stores: string;
+    };
   };
   water: {
-    total: string;
-    entries: string;
-    commonArea: string;
-    stores: string;
+    contracted: {
+      total: string;
+      entries: string;
+      commonArea: string;
+      stores: string;
+    };
+    installed: {
+      total: string;
+      entries: string;
+      commonArea: string;
+      stores: string;
+    };
   };
   temperature: {
-    total: string;
-    internal: string;
-    stores: string;
+    contracted: {
+      total: string;
+      internal: string;
+      stores: string;
+    };
+    installed: {
+      total: string;
+      internal: string;
+      stores: string;
+    };
   };
 }
 
 /**
  * Device counts data structure
+ * Each domain has contracted and installed counts
  */
 export interface ContractDeviceCounts {
   energy: {
-    total: number | null;
-    entries: number | null;
-    commonArea: number | null;
-    stores: number | null;
+    contracted: EnergyWaterSubFields;
+    installed: EnergyWaterSubFields;
   };
   water: {
-    total: number | null;
-    entries: number | null;
-    commonArea: number | null;
-    stores: number | null;
+    contracted: EnergyWaterSubFields;
+    installed: EnergyWaterSubFields;
   };
   temperature: {
-    total: number | null;
-    internal: number | null;
-    stores: number | null;
+    contracted: TemperatureSubFields;
+    installed: TemperatureSubFields;
   };
 }
 
@@ -61,6 +100,9 @@ export interface OpenContractDevicesModalParams {
 
   // Authentication (REQUIRED)
   jwtToken: string;
+
+  // User email for permission check (fields editable only for @myio.com.br domain)
+  userEmail?: string;
 
   // API configuration
   api?: {
@@ -112,6 +154,8 @@ export interface ContractDevicesModalConfig {
   width: number | string;
   closeOnBackdrop?: boolean;
   customerName?: string;
+  /** When true, fields are disabled and save button is hidden (view-only mode) */
+  readOnly?: boolean;
   onSave: (formData: ContractDeviceCounts) => Promise<void>;
   onClose: () => void;
 }
@@ -137,23 +181,47 @@ export interface ContractDevicesFetcher {
 
 /**
  * Default device count keys (matches RFC-0107)
+ * Each domain has contracted and installed sub-keys
  */
 export const DEVICE_COUNT_KEYS: DeviceCountKeys = {
   energy: {
-    total: 'qtDevices3f',
-    entries: 'qtDevices3f-Entries',
-    commonArea: 'qtDevices3f-CommonArea',
-    stores: 'qtDevices3f-Stores'
+    contracted: {
+      total: 'qtDevices3f',
+      entries: 'qtDevices3f-Entries',
+      commonArea: 'qtDevices3f-CommonArea',
+      stores: 'qtDevices3f-Stores'
+    },
+    installed: {
+      total: 'qtDevices3f-Installed',
+      entries: 'qtDevices3f-Installed-Entries',
+      commonArea: 'qtDevices3f-Installed-CommonArea',
+      stores: 'qtDevices3f-Installed-Stores'
+    }
   },
   water: {
-    total: 'qtDevicesHidr',
-    entries: 'qtDevicesHidr-Entries',
-    commonArea: 'qtDevicesHidr-CommonArea',
-    stores: 'qtDevicesHidr-Stores'
+    contracted: {
+      total: 'qtDevicesHidr',
+      entries: 'qtDevicesHidr-Entries',
+      commonArea: 'qtDevicesHidr-CommonArea',
+      stores: 'qtDevicesHidr-Stores'
+    },
+    installed: {
+      total: 'qtDevicesHidr-Installed',
+      entries: 'qtDevicesHidr-Installed-Entries',
+      commonArea: 'qtDevicesHidr-Installed-CommonArea',
+      stores: 'qtDevicesHidr-Installed-Stores'
+    }
   },
   temperature: {
-    total: 'qtDevicesTemp',
-    internal: 'qtDevicesTemp-Internal',
-    stores: 'qtDevicesTemp-Stores'
+    contracted: {
+      total: 'qtDevicesTemp',
+      internal: 'qtDevicesTemp-Internal',
+      stores: 'qtDevicesTemp-Stores'
+    },
+    installed: {
+      total: 'qtDevicesTemp-Installed',
+      internal: 'qtDevicesTemp-Installed-Internal',
+      stores: 'qtDevicesTemp-Installed-Stores'
+    }
   }
 };

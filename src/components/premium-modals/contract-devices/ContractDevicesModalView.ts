@@ -84,21 +84,44 @@ export class ContractDevicesModalView {
 
     return {
       energy: {
-        total: getValue('energy_total'),
-        entries: getValue('energy_entries'),
-        commonArea: getValue('energy_commonArea'),
-        stores: getValue('energy_stores')
+        contracted: {
+          total: getValue('energy_contracted_total'),
+          entries: getValue('energy_contracted_entries'),
+          commonArea: getValue('energy_contracted_commonArea'),
+          stores: getValue('energy_contracted_stores')
+        },
+        installed: {
+          total: getValue('energy_installed_total'),
+          entries: getValue('energy_installed_entries'),
+          commonArea: getValue('energy_installed_commonArea'),
+          stores: getValue('energy_installed_stores')
+        }
       },
       water: {
-        total: getValue('water_total'),
-        entries: getValue('water_entries'),
-        commonArea: getValue('water_commonArea'),
-        stores: getValue('water_stores')
+        contracted: {
+          total: getValue('water_contracted_total'),
+          entries: getValue('water_contracted_entries'),
+          commonArea: getValue('water_contracted_commonArea'),
+          stores: getValue('water_contracted_stores')
+        },
+        installed: {
+          total: getValue('water_installed_total'),
+          entries: getValue('water_installed_entries'),
+          commonArea: getValue('water_installed_commonArea'),
+          stores: getValue('water_installed_stores')
+        }
       },
       temperature: {
-        total: getValue('temperature_total'),
-        internal: getValue('temperature_internal'),
-        stores: getValue('temperature_stores')
+        contracted: {
+          total: getValue('temperature_contracted_total'),
+          internal: getValue('temperature_contracted_internal'),
+          stores: getValue('temperature_contracted_stores')
+        },
+        installed: {
+          total: getValue('temperature_installed_total'),
+          internal: getValue('temperature_installed_internal'),
+          stores: getValue('temperature_installed_stores')
+        }
       }
     };
   }
@@ -123,6 +146,12 @@ export class ContractDevicesModalView {
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert"></div>
+            ${this.config.readOnly ? `
+              <div class="readonly-notice">
+                <span class="readonly-icon">🔒</span>
+                <span class="readonly-text">Modo somente leitura. Apenas usuarios @myio.com.br podem editar.</span>
+              </div>
+            ` : ''}
             ${this.config.customerName ? `
               <div class="customer-info">
                 <span class="customer-label">Shopping:</span>
@@ -135,7 +164,7 @@ export class ContractDevicesModalView {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-cancel">Fechar</button>
-            <button type="button" class="btn-save btn-primary">Salvar</button>
+            ${!this.config.readOnly ? '<button type="button" class="btn-save btn-primary">Salvar</button>' : ''}
           </div>
         </div>
       </div>
@@ -152,27 +181,58 @@ export class ContractDevicesModalView {
             <span class="domain-icon">&#9889;</span>
             <h4>Energia</h4>
           </div>
-          <div class="domain-fields">
-            <div class="field-group field-total">
-              <label for="energy_total">Total Contratado</label>
-              <input type="number" id="energy_total" name="energy_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-              <small class="field-key">${DEVICE_COUNT_KEYS.energy.total}</small>
-              <small class="field-hint">Soma automatica</small>
+          <div class="domain-columns">
+            <!-- Contracted Column -->
+            <div class="domain-column">
+              <div class="column-header">Contratado</div>
+              <div class="domain-fields">
+                <div class="field-group field-total">
+                  <label for="energy_contracted_total">Total</label>
+                  <input type="number" id="energy_contracted_total" name="energy_contracted_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.total}</small>
+                </div>
+                <div class="field-group">
+                  <label for="energy_contracted_entries">Entradas</label>
+                  <input type="number" id="energy_contracted_entries" name="energy_contracted_entries" min="0" step="1" placeholder="0" data-domain="energy" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.entries}</small>
+                </div>
+                <div class="field-group">
+                  <label for="energy_contracted_commonArea">Area Comum</label>
+                  <input type="number" id="energy_contracted_commonArea" name="energy_contracted_commonArea" min="0" step="1" placeholder="0" data-domain="energy" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.commonArea}</small>
+                </div>
+                <div class="field-group">
+                  <label for="energy_contracted_stores">Lojas</label>
+                  <input type="number" id="energy_contracted_stores" name="energy_contracted_stores" min="0" step="1" placeholder="0" data-domain="energy" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.stores}</small>
+                </div>
+              </div>
             </div>
-            <div class="field-group">
-              <label for="energy_entries">Entradas</label>
-              <input type="number" id="energy_entries" name="energy_entries" min="0" step="1" placeholder="0" data-domain="energy">
-              <small class="field-key">${DEVICE_COUNT_KEYS.energy.entries}</small>
-            </div>
-            <div class="field-group">
-              <label for="energy_commonArea">Area Comum</label>
-              <input type="number" id="energy_commonArea" name="energy_commonArea" min="0" step="1" placeholder="0" data-domain="energy">
-              <small class="field-key">${DEVICE_COUNT_KEYS.energy.commonArea}</small>
-            </div>
-            <div class="field-group">
-              <label for="energy_stores">Lojas</label>
-              <input type="number" id="energy_stores" name="energy_stores" min="0" step="1" placeholder="0" data-domain="energy">
-              <small class="field-key">${DEVICE_COUNT_KEYS.energy.stores}</small>
+            <!-- Installed Column -->
+            <div class="domain-column">
+              <div class="column-header column-header--installed">Instalado</div>
+              <div class="domain-fields">
+                <div class="field-group field-total">
+                  <label for="energy_installed_total">Total</label>
+                  <input type="number" id="energy_installed_total" name="energy_installed_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.total}</small>
+                </div>
+                <div class="field-group">
+                  <label for="energy_installed_entries">Entradas</label>
+                  <input type="number" id="energy_installed_entries" name="energy_installed_entries" min="0" step="1" placeholder="0" data-domain="energy" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.entries}</small>
+                </div>
+                <div class="field-group">
+                  <label for="energy_installed_commonArea">Area Comum</label>
+                  <input type="number" id="energy_installed_commonArea" name="energy_installed_commonArea" min="0" step="1" placeholder="0" data-domain="energy" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.commonArea}</small>
+                </div>
+                <div class="field-group">
+                  <label for="energy_installed_stores">Lojas</label>
+                  <input type="number" id="energy_installed_stores" name="energy_installed_stores" min="0" step="1" placeholder="0" data-domain="energy" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.stores}</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -183,27 +243,58 @@ export class ContractDevicesModalView {
             <span class="domain-icon">&#128167;</span>
             <h4>Agua</h4>
           </div>
-          <div class="domain-fields">
-            <div class="field-group field-total">
-              <label for="water_total">Total Contratado</label>
-              <input type="number" id="water_total" name="water_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-              <small class="field-key">${DEVICE_COUNT_KEYS.water.total}</small>
-              <small class="field-hint">Soma automatica</small>
+          <div class="domain-columns">
+            <!-- Contracted Column -->
+            <div class="domain-column">
+              <div class="column-header">Contratado</div>
+              <div class="domain-fields">
+                <div class="field-group field-total">
+                  <label for="water_contracted_total">Total</label>
+                  <input type="number" id="water_contracted_total" name="water_contracted_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.total}</small>
+                </div>
+                <div class="field-group">
+                  <label for="water_contracted_entries">Entradas</label>
+                  <input type="number" id="water_contracted_entries" name="water_contracted_entries" min="0" step="1" placeholder="0" data-domain="water" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.entries}</small>
+                </div>
+                <div class="field-group">
+                  <label for="water_contracted_commonArea">Area Comum</label>
+                  <input type="number" id="water_contracted_commonArea" name="water_contracted_commonArea" min="0" step="1" placeholder="0" data-domain="water" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.commonArea}</small>
+                </div>
+                <div class="field-group">
+                  <label for="water_contracted_stores">Lojas</label>
+                  <input type="number" id="water_contracted_stores" name="water_contracted_stores" min="0" step="1" placeholder="0" data-domain="water" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.stores}</small>
+                </div>
+              </div>
             </div>
-            <div class="field-group">
-              <label for="water_entries">Entradas</label>
-              <input type="number" id="water_entries" name="water_entries" min="0" step="1" placeholder="0" data-domain="water">
-              <small class="field-key">${DEVICE_COUNT_KEYS.water.entries}</small>
-            </div>
-            <div class="field-group">
-              <label for="water_commonArea">Area Comum</label>
-              <input type="number" id="water_commonArea" name="water_commonArea" min="0" step="1" placeholder="0" data-domain="water">
-              <small class="field-key">${DEVICE_COUNT_KEYS.water.commonArea}</small>
-            </div>
-            <div class="field-group">
-              <label for="water_stores">Lojas</label>
-              <input type="number" id="water_stores" name="water_stores" min="0" step="1" placeholder="0" data-domain="water">
-              <small class="field-key">${DEVICE_COUNT_KEYS.water.stores}</small>
+            <!-- Installed Column -->
+            <div class="domain-column">
+              <div class="column-header column-header--installed">Instalado</div>
+              <div class="domain-fields">
+                <div class="field-group field-total">
+                  <label for="water_installed_total">Total</label>
+                  <input type="number" id="water_installed_total" name="water_installed_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.total}</small>
+                </div>
+                <div class="field-group">
+                  <label for="water_installed_entries">Entradas</label>
+                  <input type="number" id="water_installed_entries" name="water_installed_entries" min="0" step="1" placeholder="0" data-domain="water" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.entries}</small>
+                </div>
+                <div class="field-group">
+                  <label for="water_installed_commonArea">Area Comum</label>
+                  <input type="number" id="water_installed_commonArea" name="water_installed_commonArea" min="0" step="1" placeholder="0" data-domain="water" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.commonArea}</small>
+                </div>
+                <div class="field-group">
+                  <label for="water_installed_stores">Lojas</label>
+                  <input type="number" id="water_installed_stores" name="water_installed_stores" min="0" step="1" placeholder="0" data-domain="water" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.stores}</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -214,22 +305,48 @@ export class ContractDevicesModalView {
             <span class="domain-icon">&#127777;</span>
             <h4>Temperatura</h4>
           </div>
-          <div class="domain-fields">
-            <div class="field-group field-total">
-              <label for="temperature_total">Total Contratado</label>
-              <input type="number" id="temperature_total" name="temperature_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-              <small class="field-key">${DEVICE_COUNT_KEYS.temperature.total}</small>
-              <small class="field-hint">Soma automatica</small>
+          <div class="domain-columns">
+            <!-- Contracted Column -->
+            <div class="domain-column">
+              <div class="column-header">Contratado</div>
+              <div class="domain-fields">
+                <div class="field-group field-total">
+                  <label for="temperature_contracted_total">Total</label>
+                  <input type="number" id="temperature_contracted_total" name="temperature_contracted_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.contracted.total}</small>
+                </div>
+                <div class="field-group">
+                  <label for="temperature_contracted_internal">Sensores Internos</label>
+                  <input type="number" id="temperature_contracted_internal" name="temperature_contracted_internal" min="0" step="1" placeholder="0" data-domain="temperature" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.contracted.internal}</small>
+                </div>
+                <div class="field-group">
+                  <label for="temperature_contracted_stores">Sensores Externos</label>
+                  <input type="number" id="temperature_contracted_stores" name="temperature_contracted_stores" min="0" step="1" placeholder="0" data-domain="temperature" data-type="contracted">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.contracted.stores}</small>
+                </div>
+              </div>
             </div>
-            <div class="field-group">
-              <label for="temperature_internal">Sensores Internos</label>
-              <input type="number" id="temperature_internal" name="temperature_internal" min="0" step="1" placeholder="0" data-domain="temperature">
-              <small class="field-key">${DEVICE_COUNT_KEYS.temperature.internal}</small>
-            </div>
-            <div class="field-group">
-              <label for="temperature_stores">Sensores Externos</label>
-              <input type="number" id="temperature_stores" name="temperature_stores" min="0" step="1" placeholder="0" data-domain="temperature">
-              <small class="field-key">${DEVICE_COUNT_KEYS.temperature.stores}</small>
+            <!-- Installed Column -->
+            <div class="domain-column">
+              <div class="column-header column-header--installed">Instalado</div>
+              <div class="domain-fields">
+                <div class="field-group field-total">
+                  <label for="temperature_installed_total">Total</label>
+                  <input type="number" id="temperature_installed_total" name="temperature_installed_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.installed.total}</small>
+                </div>
+                <div class="field-group">
+                  <label for="temperature_installed_internal">Sensores Internos</label>
+                  <input type="number" id="temperature_installed_internal" name="temperature_installed_internal" min="0" step="1" placeholder="0" data-domain="temperature" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.installed.internal}</small>
+                </div>
+                <div class="field-group">
+                  <label for="temperature_installed_stores">Sensores Externos</label>
+                  <input type="number" id="temperature_installed_stores" name="temperature_installed_stores" min="0" step="1" placeholder="0" data-domain="temperature" data-type="installed">
+                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.installed.stores}</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -321,6 +438,27 @@ export class ContractDevicesModalView {
           line-height: 1.6;
         }
 
+        .myio-contract-devices-modal .readonly-notice {
+          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+          border: 1px solid #f59e0b;
+          padding: 12px 16px;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .myio-contract-devices-modal .readonly-icon {
+          font-size: 18px;
+        }
+
+        .myio-contract-devices-modal .readonly-text {
+          font-size: 13px;
+          color: #92400e;
+          font-weight: 500;
+        }
+
         .myio-contract-devices-modal .customer-info {
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           padding: 16px 20px;
@@ -387,11 +525,41 @@ export class ContractDevicesModalView {
           background: linear-gradient(135deg, #fce7f3 0%, #f9a8d4 100%);
         }
 
+        .myio-contract-devices-modal .domain-columns {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0;
+        }
+
+        .myio-contract-devices-modal .domain-column {
+          border-right: 1px solid #eee;
+        }
+
+        .myio-contract-devices-modal .domain-column:last-child {
+          border-right: none;
+        }
+
+        .myio-contract-devices-modal .column-header {
+          padding: 8px 12px;
+          background: #f0f0f0;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          color: #666;
+          text-align: center;
+          letter-spacing: 0.5px;
+        }
+
+        .myio-contract-devices-modal .column-header--installed {
+          background: #e8f5e9;
+          color: #2e7d32;
+        }
+
         .myio-contract-devices-modal .domain-fields {
-          padding: 16px;
+          padding: 12px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 10px;
         }
 
         .myio-contract-devices-modal .field-group {
@@ -528,27 +696,56 @@ export class ContractDevicesModalView {
     };
 
     // Populate sub-fields (NOT totals - totals are auto-calculated)
-    if (data.energy) {
-      setValue('energy_entries', data.energy.entries);
-      setValue('energy_commonArea', data.energy.commonArea);
-      setValue('energy_stores', data.energy.stores);
+    // Energy
+    if (data.energy?.contracted) {
+      setValue('energy_contracted_entries', data.energy.contracted.entries);
+      setValue('energy_contracted_commonArea', data.energy.contracted.commonArea);
+      setValue('energy_contracted_stores', data.energy.contracted.stores);
+    }
+    if (data.energy?.installed) {
+      setValue('energy_installed_entries', data.energy.installed.entries);
+      setValue('energy_installed_commonArea', data.energy.installed.commonArea);
+      setValue('energy_installed_stores', data.energy.installed.stores);
     }
 
-    if (data.water) {
-      setValue('water_entries', data.water.entries);
-      setValue('water_commonArea', data.water.commonArea);
-      setValue('water_stores', data.water.stores);
+    // Water
+    if (data.water?.contracted) {
+      setValue('water_contracted_entries', data.water.contracted.entries);
+      setValue('water_contracted_commonArea', data.water.contracted.commonArea);
+      setValue('water_contracted_stores', data.water.contracted.stores);
+    }
+    if (data.water?.installed) {
+      setValue('water_installed_entries', data.water.installed.entries);
+      setValue('water_installed_commonArea', data.water.installed.commonArea);
+      setValue('water_installed_stores', data.water.installed.stores);
     }
 
-    if (data.temperature) {
-      setValue('temperature_internal', data.temperature.internal);
-      setValue('temperature_stores', data.temperature.stores);
+    // Temperature
+    if (data.temperature?.contracted) {
+      setValue('temperature_contracted_internal', data.temperature.contracted.internal);
+      setValue('temperature_contracted_stores', data.temperature.contracted.stores);
+    }
+    if (data.temperature?.installed) {
+      setValue('temperature_installed_internal', data.temperature.installed.internal);
+      setValue('temperature_installed_stores', data.temperature.installed.stores);
     }
 
     // Calculate totals from sub-fields
-    this.calculateDomainTotal('energy');
-    this.calculateDomainTotal('water');
-    this.calculateDomainTotal('temperature');
+    this.calculateDomainTotal('energy', 'contracted');
+    this.calculateDomainTotal('energy', 'installed');
+    this.calculateDomainTotal('water', 'contracted');
+    this.calculateDomainTotal('water', 'installed');
+    this.calculateDomainTotal('temperature', 'contracted');
+    this.calculateDomainTotal('temperature', 'installed');
+
+    // Disable all editable fields in readOnly mode
+    if (this.config.readOnly) {
+      const editableInputs = this.form.querySelectorAll('input:not(.input-readonly)') as NodeListOf<HTMLInputElement>;
+      editableInputs.forEach(input => {
+        input.disabled = true;
+        input.classList.add('input-readonly');
+      });
+    }
   }
 
   private attachEventListeners(): void {
@@ -594,35 +791,39 @@ export class ContractDevicesModalView {
   }
 
   private setupAutoCalculation(): void {
-    // Energy: total = entries + commonArea + stores
-    const energyFields = ['energy_entries', 'energy_commonArea', 'energy_stores'];
-    energyFields.forEach(fieldName => {
-      const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
-      if (input) {
-        input.addEventListener('input', () => this.calculateDomainTotal('energy'));
-      }
-    });
+    const types: Array<'contracted' | 'installed'> = ['contracted', 'installed'];
 
-    // Water: total = entries + commonArea + stores
-    const waterFields = ['water_entries', 'water_commonArea', 'water_stores'];
-    waterFields.forEach(fieldName => {
-      const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
-      if (input) {
-        input.addEventListener('input', () => this.calculateDomainTotal('water'));
-      }
-    });
+    types.forEach(type => {
+      // Energy: total = entries + commonArea + stores
+      const energyFields = [`energy_${type}_entries`, `energy_${type}_commonArea`, `energy_${type}_stores`];
+      energyFields.forEach(fieldName => {
+        const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+        if (input) {
+          input.addEventListener('input', () => this.calculateDomainTotal('energy', type));
+        }
+      });
 
-    // Temperature: total = internal + stores (external)
-    const temperatureFields = ['temperature_internal', 'temperature_stores'];
-    temperatureFields.forEach(fieldName => {
-      const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
-      if (input) {
-        input.addEventListener('input', () => this.calculateDomainTotal('temperature'));
-      }
+      // Water: total = entries + commonArea + stores
+      const waterFields = [`water_${type}_entries`, `water_${type}_commonArea`, `water_${type}_stores`];
+      waterFields.forEach(fieldName => {
+        const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+        if (input) {
+          input.addEventListener('input', () => this.calculateDomainTotal('water', type));
+        }
+      });
+
+      // Temperature: total = internal + stores (external)
+      const temperatureFields = [`temperature_${type}_internal`, `temperature_${type}_stores`];
+      temperatureFields.forEach(fieldName => {
+        const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+        if (input) {
+          input.addEventListener('input', () => this.calculateDomainTotal('temperature', type));
+        }
+      });
     });
   }
 
-  private calculateDomainTotal(domain: 'energy' | 'water' | 'temperature'): void {
+  private calculateDomainTotal(domain: 'energy' | 'water' | 'temperature', type: 'contracted' | 'installed'): void {
     const getValue = (name: string): number => {
       const input = this.form.querySelector(`[name="${name}"]`) as HTMLInputElement;
       if (!input || input.value === '') return 0;
@@ -633,14 +834,14 @@ export class ContractDevicesModalView {
     let total = 0;
 
     if (domain === 'energy') {
-      total = getValue('energy_entries') + getValue('energy_commonArea') + getValue('energy_stores');
+      total = getValue(`energy_${type}_entries`) + getValue(`energy_${type}_commonArea`) + getValue(`energy_${type}_stores`);
     } else if (domain === 'water') {
-      total = getValue('water_entries') + getValue('water_commonArea') + getValue('water_stores');
+      total = getValue(`water_${type}_entries`) + getValue(`water_${type}_commonArea`) + getValue(`water_${type}_stores`);
     } else if (domain === 'temperature') {
-      total = getValue('temperature_internal') + getValue('temperature_stores');
+      total = getValue(`temperature_${type}_internal`) + getValue(`temperature_${type}_stores`);
     }
 
-    const totalInput = this.form.querySelector(`[name="${domain}_total"]`) as HTMLInputElement;
+    const totalInput = this.form.querySelector(`[name="${domain}_${type}_total"]`) as HTMLInputElement;
     if (totalInput) {
       totalInput.value = String(total);
     }

@@ -71,8 +71,64 @@ export interface ContractSummaryData {
 const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 /* ============================================
    Contract Summary Tooltip (RFC-0107)
-   Premium draggable tooltip with dark theme
+   Premium draggable tooltip with light/dark theme support
    ============================================ */
+
+/* Theme Variables */
+.myio-contract-summary-tooltip,
+.myio-contract-summary-tooltip[data-theme="light"] {
+  /* Light theme (default) */
+  --cst-bg-panel: #ffffff;
+  --cst-bg-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --cst-bg-body: #f8f9fa;
+  --cst-bg-footer: #f1f3f4;
+  --cst-bg-domain: #ffffff;
+  --cst-bg-domain-hover: #f5f5f5;
+  --cst-bg-domain-details: #f8f9fa;
+  --cst-bg-total: #e8f5e9;
+  --cst-bg-icon: rgba(255, 255, 255, 0.2);
+  --cst-bg-btn: rgba(255, 255, 255, 0.2);
+  --cst-bg-btn-hover: rgba(255, 255, 255, 0.35);
+  --cst-border-panel: #e0e0e0;
+  --cst-border-domain: #e8e8e8;
+  --cst-border-detail: #eeeeee;
+  --cst-text-primary: #1a1a2e;
+  --cst-text-secondary: #555555;
+  --cst-text-muted: #888888;
+  --cst-text-btn: rgba(255, 255, 255, 0.9);
+  --cst-accent: #667eea;
+  --cst-success: #2e7d32;
+  --cst-error: #c62828;
+  --cst-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 20px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --cst-pinned-shadow: 0 0 0 2px #667eea, 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.myio-contract-summary-tooltip[data-theme="dark"] {
+  /* Dark theme */
+  --cst-bg-panel: #2d1458;
+  --cst-bg-header: linear-gradient(135deg, #9684B5 0%, #2d1458 100%);
+  --cst-bg-body: #2d1458;
+  --cst-bg-footer: rgba(0, 0, 0, 0.2);
+  --cst-bg-domain: rgba(255, 255, 255, 0.05);
+  --cst-bg-domain-hover: rgba(255, 255, 255, 0.08);
+  --cst-bg-domain-details: rgba(0, 0, 0, 0.15);
+  --cst-bg-total: rgba(255, 255, 255, 0.08);
+  --cst-bg-icon: rgba(255, 255, 255, 0.15);
+  --cst-bg-btn: rgba(255, 255, 255, 0.15);
+  --cst-bg-btn-hover: rgba(255, 255, 255, 0.25);
+  --cst-border-panel: rgba(255, 255, 255, 0.1);
+  --cst-border-domain: rgba(255, 255, 255, 0.08);
+  --cst-border-detail: rgba(255, 255, 255, 0.05);
+  --cst-text-primary: #ffffff;
+  --cst-text-secondary: rgba(255, 255, 255, 0.7);
+  --cst-text-muted: rgba(255, 255, 255, 0.5);
+  --cst-text-btn: rgba(255, 255, 255, 0.8);
+  --cst-accent: #9684B5;
+  --cst-success: #81c784;
+  --cst-error: #ef5350;
+  --cst-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 8px 20px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --cst-pinned-shadow: 0 0 0 2px #9684B5, 0 10px 40px rgba(0, 0, 0, 0.3);
+}
 
 .myio-contract-summary-tooltip {
   position: fixed;
@@ -93,11 +149,11 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease, transform 0.4s ease;
-  pointer-events: none; /* Disable pointer events during close animation */
+  pointer-events: none;
 }
 
 .myio-contract-summary-tooltip.pinned {
-  box-shadow: 0 0 0 2px #9684B5, 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--cst-pinned-shadow);
   border-radius: 16px;
 }
 
@@ -129,18 +185,15 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 }
 
 .myio-contract-summary-tooltip__panel {
-  background: #2d1458;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--cst-bg-panel);
+  border: 1px solid var(--cst-border-panel);
   border-radius: 16px;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.4),
-    0 8px 20px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: var(--cst-shadow);
   min-width: 320px;
   max-width: 380px;
   font-family: Inter, system-ui, -apple-system, sans-serif;
   font-size: 12px;
-  color: #ffffff;
+  color: var(--cst-text-primary);
   overflow: hidden;
 }
 
@@ -150,7 +203,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  background: linear-gradient(135deg, #9684B5 0%, #2d1458 100%);
+  background: var(--cst-bg-header);
   border-radius: 16px 16px 0 0;
   position: relative;
   overflow: hidden;
@@ -172,7 +225,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 .myio-contract-summary-tooltip__icon {
   width: 40px;
   height: 40px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--cst-bg-icon);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -181,6 +234,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   backdrop-filter: blur(10px);
   position: relative;
   z-index: 1;
+  color: #ffffff;
 }
 
 .myio-contract-summary-tooltip__icon.valid {
@@ -222,30 +276,30 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   width: 28px;
   height: 28px;
   border: none;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--cst-bg-btn);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--cst-text-btn);
 }
 
 .myio-contract-summary-tooltip__header-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--cst-bg-btn-hover);
   color: #ffffff;
   transform: scale(1.05);
 }
 
 .myio-contract-summary-tooltip__header-btn.pinned {
   background: rgba(255, 255, 255, 0.9);
-  color: #9684B5;
+  color: var(--cst-accent);
 }
 
 .myio-contract-summary-tooltip__header-btn.pinned:hover {
   background: #ffffff;
-  color: #2d1458;
+  color: var(--cst-bg-panel);
 }
 
 .myio-contract-summary-tooltip__header-btn svg {
@@ -256,15 +310,16 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 /* Body */
 .myio-contract-summary-tooltip__body {
   padding: 16px;
+  background: var(--cst-bg-body);
 }
 
 /* Domain Section */
 .myio-contract-summary-tooltip__domain {
   margin-bottom: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--cst-bg-domain);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--cst-border-domain);
 }
 
 .myio-contract-summary-tooltip__domain:last-child {
@@ -281,7 +336,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 }
 
 .myio-contract-summary-tooltip__domain-header:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--cst-bg-domain-hover);
 }
 
 .myio-contract-summary-tooltip__domain-info {
@@ -297,11 +352,12 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 .myio-contract-summary-tooltip__domain-name {
   font-weight: 600;
   font-size: 13px;
+  color: var(--cst-text-primary);
 }
 
 .myio-contract-summary-tooltip__domain-count {
   font-size: 12px;
-  color: #81c784;
+  color: var(--cst-success);
   font-weight: 600;
 }
 
@@ -309,6 +365,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   font-size: 10px;
   opacity: 0.6;
   transition: transform 0.3s ease;
+  color: var(--cst-text-secondary);
 }
 
 .myio-contract-summary-tooltip__domain.expanded .myio-contract-summary-tooltip__expand-icon {
@@ -320,7 +377,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--cst-bg-domain-details);
 }
 
 .myio-contract-summary-tooltip__domain.expanded .myio-contract-summary-tooltip__domain-details {
@@ -333,7 +390,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   justify-content: space-between;
   padding: 6px 14px 6px 40px;
   font-size: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--cst-border-detail);
 }
 
 .myio-contract-summary-tooltip__detail-row:first-child {
@@ -345,6 +402,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   display: flex;
   align-items: center;
   gap: 6px;
+  color: var(--cst-text-secondary);
 }
 
 .myio-contract-summary-tooltip__detail-label::before {
@@ -358,7 +416,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 
 .myio-contract-summary-tooltip__detail-count {
   font-weight: 500;
-  color: #81c784;
+  color: var(--cst-success);
 }
 
 /* Status Banner */
@@ -375,14 +433,14 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 }
 
 .myio-contract-summary-tooltip__status.valid {
-  background: rgba(76, 175, 80, 0.2);
-  color: #81c784;
+  background: rgba(76, 175, 80, 0.15);
+  color: var(--cst-success);
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 .myio-contract-summary-tooltip__status.invalid {
-  background: rgba(244, 67, 54, 0.2);
-  color: #ef5350;
+  background: rgba(244, 67, 54, 0.15);
+  color: var(--cst-error);
   border: 1px solid rgba(244, 67, 54, 0.3);
 }
 
@@ -392,7 +450,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 
 /* Discrepancies */
 .myio-contract-summary-tooltip__discrepancies {
-  background: rgba(244, 67, 54, 0.15);
+  background: rgba(244, 67, 54, 0.1);
   border: 1px solid rgba(244, 67, 54, 0.3);
   border-radius: 10px;
   padding: 10px 14px;
@@ -402,7 +460,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 .myio-contract-summary-tooltip__discrepancies-title {
   font-size: 11px;
   font-weight: 600;
-  color: #ef5350;
+  color: var(--cst-error);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -410,7 +468,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
 
 .myio-contract-summary-tooltip__discrepancy-item {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--cst-text-secondary);
   padding: 3px 0;
 }
 
@@ -420,20 +478,20 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.2);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--cst-bg-footer);
+  border-top: 1px solid var(--cst-border-detail);
   border-radius: 0 0 16px 16px;
 }
 
 .myio-contract-summary-tooltip__footer-label {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--cst-text-muted);
 }
 
 .myio-contract-summary-tooltip__footer-value {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--cst-text-secondary);
 }
 
 /* Total Devices Badge */
@@ -443,20 +501,20 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   justify-content: center;
   gap: 8px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--cst-bg-total);
   border-radius: 10px;
   margin-bottom: 14px;
 }
 
 .myio-contract-summary-tooltip__total-label {
   font-size: 12px;
-  opacity: 0.8;
+  color: var(--cst-text-secondary);
 }
 
 .myio-contract-summary-tooltip__total-value {
   font-size: 18px;
   font-weight: 700;
-  color: #81c784;
+  color: var(--cst-success);
 }
 
 /* Responsive */
@@ -495,6 +553,8 @@ function injectCSS(): void {
 // State Management
 // ============================================
 
+export type TooltipTheme = 'light' | 'dark';
+
 interface TooltipState {
   hideTimer: ReturnType<typeof setTimeout> | null;
   isMouseOverTooltip: boolean;
@@ -504,6 +564,7 @@ interface TooltipState {
   savedPosition: { left: string; top: string } | null;
   pinnedCounter: number;
   expandedDomains: Set<string>;
+  theme: TooltipTheme;
 }
 
 const state: TooltipState = {
@@ -515,6 +576,7 @@ const state: TooltipState = {
   savedPosition: null,
   pinnedCounter: 0,
   expandedDomains: new Set(['energy', 'water', 'temperature']),
+  theme: 'light',
 };
 
 // ============================================
@@ -829,6 +891,9 @@ function createPinnedClone(container: HTMLElement): void {
   clone.classList.add('pinned');
   clone.classList.remove('closing');
 
+  // Preserve theme on clone
+  clone.setAttribute('data-theme', state.theme);
+
   const pinBtn = clone.querySelector('[data-action="pin"]');
   if (pinBtn) {
     pinBtn.classList.add('pinned');
@@ -1071,7 +1136,7 @@ export const ContractSummaryTooltip = {
   /**
    * Show tooltip
    */
-  show(triggerElement: HTMLElement, data: ContractSummaryData): void {
+  show(triggerElement: HTMLElement, data: ContractSummaryData, options?: { theme?: TooltipTheme }): void {
     // Cancel pending hide
     if (state.hideTimer) {
       clearTimeout(state.hideTimer);
@@ -1080,6 +1145,10 @@ export const ContractSummaryTooltip = {
 
     const container = this.getContainer();
     container.classList.remove('closing');
+
+    // Apply theme
+    const theme = options?.theme || state.theme;
+    container.setAttribute('data-theme', theme);
 
     // Build HTML
     container.innerHTML = `
@@ -1140,6 +1209,33 @@ export const ContractSummaryTooltip = {
     if (container) {
       container.classList.remove('visible', 'pinned', 'maximized', 'dragging', 'closing');
     }
+  },
+
+  /**
+   * Set the default theme for the tooltip
+   * @param theme - 'light' or 'dark'
+   */
+  setTheme(theme: TooltipTheme): void {
+    state.theme = theme;
+
+    // Update existing container if visible
+    const container = document.getElementById(this.containerId);
+    if (container) {
+      container.setAttribute('data-theme', theme);
+    }
+
+    // Also update any pinned clones
+    const pinnedClones = document.querySelectorAll('[id^="myio-contract-summary-tooltip-pinned-"]');
+    pinnedClones.forEach(clone => {
+      clone.setAttribute('data-theme', theme);
+    });
+  },
+
+  /**
+   * Get the current theme
+   */
+  getTheme(): TooltipTheme {
+    return state.theme;
   },
 
   /**
