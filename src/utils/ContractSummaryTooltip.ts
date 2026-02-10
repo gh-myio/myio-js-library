@@ -189,8 +189,8 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid var(--cst-border-panel);
   border-radius: 16px;
   box-shadow: var(--cst-shadow);
-  min-width: 320px;
-  max-width: 380px;
+  min-width: 380px;
+  max-width: 450px;
   font-family: Inter, system-ui, -apple-system, sans-serif;
   font-size: 12px;
   color: var(--cst-text-primary);
@@ -620,23 +620,23 @@ function generateHeaderHTML(data: ContractSummaryData): string {
     <div class="myio-contract-summary-tooltip__header" data-drag-handle>
       <div class="myio-contract-summary-tooltip__icon ${iconClass}">${iconSymbol}</div>
       <div class="myio-contract-summary-tooltip__header-info">
-        <div class="myio-contract-summary-tooltip__title">Contract Summary</div>
-        <div class="myio-contract-summary-tooltip__subtitle">${totalDevices} devices loaded</div>
+        <div class="myio-contract-summary-tooltip__title">Resumo do Contrato</div>
+        <div class="myio-contract-summary-tooltip__subtitle">${totalDevices} dispositivos carregados</div>
       </div>
       <div class="myio-contract-summary-tooltip__header-actions">
-        <button class="myio-contract-summary-tooltip__header-btn" data-action="pin" title="Pin to screen">
+        <button class="myio-contract-summary-tooltip__header-btn" data-action="pin" title="Fixar na tela">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
             <line x1="12" y1="16" x2="12" y2="21"/>
             <line x1="8" y1="4" x2="16" y2="4"/>
           </svg>
         </button>
-        <button class="myio-contract-summary-tooltip__header-btn" data-action="maximize" title="Maximize">
+        <button class="myio-contract-summary-tooltip__header-btn" data-action="maximize" title="Maximizar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
           </svg>
         </button>
-        <button class="myio-contract-summary-tooltip__header-btn" data-action="close" title="Close">
+        <button class="myio-contract-summary-tooltip__header-btn" data-action="close" title="Fechar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -664,11 +664,11 @@ function generateDomainHTML(
     const tempCounts = counts as ContractTemperatureCounts;
     detailsHTML = `
       <div class="myio-contract-summary-tooltip__detail-row">
-        <span class="myio-contract-summary-tooltip__detail-label">Internal (Climate)</span>
+        <span class="myio-contract-summary-tooltip__detail-label">Internos (Climatizacao)</span>
         <span class="myio-contract-summary-tooltip__detail-count">${tempCounts.internal}</span>
       </div>
       <div class="myio-contract-summary-tooltip__detail-row">
-        <span class="myio-contract-summary-tooltip__detail-label">Stores (Non-Climate)</span>
+        <span class="myio-contract-summary-tooltip__detail-label">Lojas (Nao-Climatizados)</span>
         <span class="myio-contract-summary-tooltip__detail-count">${tempCounts.stores}</span>
       </div>
     `;
@@ -676,15 +676,15 @@ function generateDomainHTML(
     const domainCounts = counts as ContractDomainCounts;
     detailsHTML = `
       <div class="myio-contract-summary-tooltip__detail-row">
-        <span class="myio-contract-summary-tooltip__detail-label">Entries</span>
+        <span class="myio-contract-summary-tooltip__detail-label">Entradas</span>
         <span class="myio-contract-summary-tooltip__detail-count">${domainCounts.entries}</span>
       </div>
       <div class="myio-contract-summary-tooltip__detail-row">
-        <span class="myio-contract-summary-tooltip__detail-label">Common Area</span>
+        <span class="myio-contract-summary-tooltip__detail-label">Area Comum</span>
         <span class="myio-contract-summary-tooltip__detail-count">${domainCounts.commonArea}</span>
       </div>
       <div class="myio-contract-summary-tooltip__detail-row">
-        <span class="myio-contract-summary-tooltip__detail-label">Stores</span>
+        <span class="myio-contract-summary-tooltip__detail-label">Lojas</span>
         <span class="myio-contract-summary-tooltip__detail-count">${domainCounts.stores}</span>
       </div>
     `;
@@ -698,7 +698,7 @@ function generateDomainHTML(
           <span class="myio-contract-summary-tooltip__domain-name">${name}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="myio-contract-summary-tooltip__domain-count">${counts.total} devices</span>
+          <span class="myio-contract-summary-tooltip__domain-count">${counts.total} dispositivos</span>
           <span class="myio-contract-summary-tooltip__expand-icon">▼</span>
         </div>
       </div>
@@ -719,17 +719,17 @@ function generateBodyHTML(data: ContractSummaryData): string {
   const statusClass = data.isValid ? 'valid' : 'invalid';
   const statusIcon = data.isValid ? '✓' : '⚠';
   const statusText = data.isValid
-    ? 'Contract validated successfully'
-    : 'Validation issues detected';
+    ? 'Contrato validado com sucesso'
+    : 'Problemas de validacao detectados';
 
   let discrepanciesHTML = '';
   if (data.discrepancies && data.discrepancies.length > 0) {
     const items = data.discrepancies
-      .map(d => `<div class="myio-contract-summary-tooltip__discrepancy-item">${d.domain}: expected ${d.expected}, found ${d.actual}</div>`)
+      .map(d => `<div class="myio-contract-summary-tooltip__discrepancy-item">${d.domain}: esperado ${d.expected}, encontrado ${d.actual}</div>`)
       .join('');
     discrepanciesHTML = `
       <div class="myio-contract-summary-tooltip__discrepancies">
-        <div class="myio-contract-summary-tooltip__discrepancies-title">Discrepancies</div>
+        <div class="myio-contract-summary-tooltip__discrepancies-title">Divergencias</div>
         ${items}
       </div>
     `;
@@ -747,23 +747,23 @@ function generateBodyHTML(data: ContractSummaryData): string {
 
       <!-- Total Devices -->
       <div class="myio-contract-summary-tooltip__total">
-        <span class="myio-contract-summary-tooltip__total-label">Total Devices:</span>
+        <span class="myio-contract-summary-tooltip__total-label">Total de Dispositivos:</span>
         <span class="myio-contract-summary-tooltip__total-value">${totalDevices}</span>
       </div>
 
       <!-- Energy -->
-      ${generateDomainHTML('energy', '⚡', 'Energy', data.energy)}
+      ${generateDomainHTML('energy', '⚡', 'Energia', data.energy)}
 
       <!-- Water -->
-      ${generateDomainHTML('water', '💧', 'Water', data.water)}
+      ${generateDomainHTML('water', '💧', 'Agua', data.water)}
 
       <!-- Temperature -->
-      ${generateDomainHTML('temperature', '🌡️', 'Temperature', data.temperature, true)}
+      ${generateDomainHTML('temperature', '🌡️', 'Temperatura', data.temperature, true)}
     </div>
 
     <!-- Footer -->
     <div class="myio-contract-summary-tooltip__footer">
-      <span class="myio-contract-summary-tooltip__footer-label">Loaded at</span>
+      <span class="myio-contract-summary-tooltip__footer-label">Carregado em</span>
       <span class="myio-contract-summary-tooltip__footer-value">${timestamp}</span>
     </div>
   `;
@@ -897,7 +897,7 @@ function createPinnedClone(container: HTMLElement): void {
   const pinBtn = clone.querySelector('[data-action="pin"]');
   if (pinBtn) {
     pinBtn.classList.add('pinned');
-    pinBtn.setAttribute('title', 'Unpin');
+    pinBtn.setAttribute('title', 'Desafixar');
     pinBtn.innerHTML = `
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
         <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
@@ -965,10 +965,10 @@ function setupPinnedCloneListeners(clone: HTMLElement, cloneId: string): void {
       if (isMaximized) {
         savedPosition = { left: clone.style.left, top: clone.style.top };
         maxBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 5V3h12v12h-2"/></svg>`;
-        maxBtn.setAttribute('title', 'Restore');
+        maxBtn.setAttribute('title', 'Restaurar');
       } else {
         maxBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
-        maxBtn.setAttribute('title', 'Maximize');
+        maxBtn.setAttribute('title', 'Maximizar');
         if (savedPosition) {
           clone.style.left = savedPosition.left;
           clone.style.top = savedPosition.top;
@@ -1047,10 +1047,10 @@ function toggleMaximize(container: HTMLElement): void {
   if (maxBtn) {
     if (state.isMaximized) {
       maxBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 5V3h12v12h-2"/></svg>`;
-      maxBtn.setAttribute('title', 'Restore');
+      maxBtn.setAttribute('title', 'Restaurar');
     } else {
       maxBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
-      maxBtn.setAttribute('title', 'Maximize');
+      maxBtn.setAttribute('title', 'Maximizar');
       if (state.savedPosition) {
         container.style.left = state.savedPosition.left;
         container.style.top = state.savedPosition.top;

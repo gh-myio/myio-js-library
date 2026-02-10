@@ -170,6 +170,36 @@
   transform: rotate(-90deg);
 }
 
+/* ===== Contract Status (RFC-0107) ===== */
+.tbx-contract-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tbx-contract-status:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  border-color: #ced4da;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.tbx-contract-icon {
+  font-size: 18px;
+}
+
+.tbx-contract-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+}
+
 /* ===== Responsivo ===== */
 @media (max-width: 980px) {
   .tbx-row {

@@ -3,7 +3,7 @@
  * Renders the modal UI for managing device count attributes
  */
 
-import { ContractDevicesModalConfig, ContractDeviceCounts, DEVICE_COUNT_KEYS } from './types';
+import { ContractDevicesModalConfig, ContractDeviceCounts } from './types';
 
 export class ContractDevicesModalView {
   private container: HTMLElement;
@@ -189,22 +189,18 @@ export class ContractDevicesModalView {
                 <div class="field-group field-total">
                   <label for="energy_contracted_total">Total</label>
                   <input type="number" id="energy_contracted_total" name="energy_contracted_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.total}</small>
                 </div>
                 <div class="field-group">
                   <label for="energy_contracted_entries">Entradas</label>
                   <input type="number" id="energy_contracted_entries" name="energy_contracted_entries" min="0" step="1" placeholder="0" data-domain="energy" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.entries}</small>
                 </div>
                 <div class="field-group">
                   <label for="energy_contracted_commonArea">Area Comum</label>
                   <input type="number" id="energy_contracted_commonArea" name="energy_contracted_commonArea" min="0" step="1" placeholder="0" data-domain="energy" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.commonArea}</small>
                 </div>
                 <div class="field-group">
                   <label for="energy_contracted_stores">Lojas</label>
                   <input type="number" id="energy_contracted_stores" name="energy_contracted_stores" min="0" step="1" placeholder="0" data-domain="energy" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.contracted.stores}</small>
                 </div>
               </div>
             </div>
@@ -215,22 +211,18 @@ export class ContractDevicesModalView {
                 <div class="field-group field-total">
                   <label for="energy_installed_total">Total</label>
                   <input type="number" id="energy_installed_total" name="energy_installed_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.total}</small>
                 </div>
                 <div class="field-group">
                   <label for="energy_installed_entries">Entradas</label>
                   <input type="number" id="energy_installed_entries" name="energy_installed_entries" min="0" step="1" placeholder="0" data-domain="energy" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.entries}</small>
                 </div>
                 <div class="field-group">
                   <label for="energy_installed_commonArea">Area Comum</label>
                   <input type="number" id="energy_installed_commonArea" name="energy_installed_commonArea" min="0" step="1" placeholder="0" data-domain="energy" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.commonArea}</small>
                 </div>
                 <div class="field-group">
                   <label for="energy_installed_stores">Lojas</label>
                   <input type="number" id="energy_installed_stores" name="energy_installed_stores" min="0" step="1" placeholder="0" data-domain="energy" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.energy.installed.stores}</small>
                 </div>
               </div>
             </div>
@@ -251,22 +243,18 @@ export class ContractDevicesModalView {
                 <div class="field-group field-total">
                   <label for="water_contracted_total">Total</label>
                   <input type="number" id="water_contracted_total" name="water_contracted_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.total}</small>
                 </div>
                 <div class="field-group">
                   <label for="water_contracted_entries">Entradas</label>
                   <input type="number" id="water_contracted_entries" name="water_contracted_entries" min="0" step="1" placeholder="0" data-domain="water" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.entries}</small>
                 </div>
                 <div class="field-group">
                   <label for="water_contracted_commonArea">Area Comum</label>
                   <input type="number" id="water_contracted_commonArea" name="water_contracted_commonArea" min="0" step="1" placeholder="0" data-domain="water" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.commonArea}</small>
                 </div>
                 <div class="field-group">
                   <label for="water_contracted_stores">Lojas</label>
                   <input type="number" id="water_contracted_stores" name="water_contracted_stores" min="0" step="1" placeholder="0" data-domain="water" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.contracted.stores}</small>
                 </div>
               </div>
             </div>
@@ -277,22 +265,18 @@ export class ContractDevicesModalView {
                 <div class="field-group field-total">
                   <label for="water_installed_total">Total</label>
                   <input type="number" id="water_installed_total" name="water_installed_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.total}</small>
                 </div>
                 <div class="field-group">
                   <label for="water_installed_entries">Entradas</label>
                   <input type="number" id="water_installed_entries" name="water_installed_entries" min="0" step="1" placeholder="0" data-domain="water" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.entries}</small>
                 </div>
                 <div class="field-group">
                   <label for="water_installed_commonArea">Area Comum</label>
                   <input type="number" id="water_installed_commonArea" name="water_installed_commonArea" min="0" step="1" placeholder="0" data-domain="water" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.commonArea}</small>
                 </div>
                 <div class="field-group">
                   <label for="water_installed_stores">Lojas</label>
                   <input type="number" id="water_installed_stores" name="water_installed_stores" min="0" step="1" placeholder="0" data-domain="water" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.water.installed.stores}</small>
                 </div>
               </div>
             </div>
@@ -313,17 +297,14 @@ export class ContractDevicesModalView {
                 <div class="field-group field-total">
                   <label for="temperature_contracted_total">Total</label>
                   <input type="number" id="temperature_contracted_total" name="temperature_contracted_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.contracted.total}</small>
                 </div>
                 <div class="field-group">
                   <label for="temperature_contracted_internal">Sensores Internos</label>
                   <input type="number" id="temperature_contracted_internal" name="temperature_contracted_internal" min="0" step="1" placeholder="0" data-domain="temperature" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.contracted.internal}</small>
                 </div>
                 <div class="field-group">
                   <label for="temperature_contracted_stores">Sensores Externos</label>
                   <input type="number" id="temperature_contracted_stores" name="temperature_contracted_stores" min="0" step="1" placeholder="0" data-domain="temperature" data-type="contracted">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.contracted.stores}</small>
                 </div>
               </div>
             </div>
@@ -334,17 +315,14 @@ export class ContractDevicesModalView {
                 <div class="field-group field-total">
                   <label for="temperature_installed_total">Total</label>
                   <input type="number" id="temperature_installed_total" name="temperature_installed_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.installed.total}</small>
                 </div>
                 <div class="field-group">
                   <label for="temperature_installed_internal">Sensores Internos</label>
                   <input type="number" id="temperature_installed_internal" name="temperature_installed_internal" min="0" step="1" placeholder="0" data-domain="temperature" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.installed.internal}</small>
                 </div>
                 <div class="field-group">
                   <label for="temperature_installed_stores">Sensores Externos</label>
                   <input type="number" id="temperature_installed_stores" name="temperature_installed_stores" min="0" step="1" placeholder="0" data-domain="temperature" data-type="installed">
-                  <small class="field-key">${DEVICE_COUNT_KEYS.temperature.installed.stores}</small>
                 </div>
               </div>
             </div>
@@ -588,12 +566,6 @@ export class ContractDevicesModalView {
           outline: none;
           border-color: #3e1a7d;
           box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.15);
-        }
-
-        .myio-contract-devices-modal .field-key {
-          font-size: 10px;
-          color: #999;
-          font-family: 'Courier New', monospace;
         }
 
         .myio-contract-devices-modal .field-hint {
