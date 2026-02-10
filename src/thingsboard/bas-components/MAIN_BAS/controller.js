@@ -722,7 +722,8 @@ function parseDevicesFromData(data) {
           devicesMap[entityId] = {
             datasource: datasource,
             entityId: entityId,
-            entityLabel: entityLabel,
+            entityName: entityName, // The device name (e.g., "Termostato-Auditorio")
+            entityLabel: entityLabel, // The label (if configured)
             entityType: entityType,
             aliasName: aliasName,
             collectedData: {},
@@ -768,8 +769,8 @@ function parseDevicesFromData(data) {
     var deviceType = cd.deviceType || cd.type || '';
     var deviceProfile = cd.deviceProfile || cd.profile || '';
     var identifier = cd.identifier || cd.id || '';
-    // Use label from collected data, fallback to entityLabel
-    var deviceLabel = cd.label || entity.entityLabel || entityId;
+    // Use label from collected data, fallback to entityLabel, then entityName, finally entityId
+    var deviceLabel = cd.label || entity.entityLabel || entity.entityName || entityId;
     // Determine if device is online via connectionStatus attribute (values: 'online' | 'offline')
     var connectionStatus = (cd.connectionStatus || '').toLowerCase();
     var isOnline = connectionStatus === 'online';
@@ -785,6 +786,12 @@ function parseDevicesFromData(data) {
           connectionStatus: connectionStatus,
           isOnline: isOnline,
           allKeys: Object.keys(cd),
+          labelSources: {
+            cdLabel: cd.label,
+            entityLabel: entity.entityLabel,
+            entityName: entity.entityName,
+            entityId: entityId,
+          },
         })
     );
 
