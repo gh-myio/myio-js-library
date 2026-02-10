@@ -9015,11 +9015,25 @@ async function initializeContractLoading() {
  * @param {Object} expectedCounts - Device counts from SERVER_SCOPE
  */
 function setupContractValidationListeners(expectedCounts) {
-  // FIX: Only track domains that are actually enabled in widgetSettings
+  // FIX: Only track domains that are enabled AND have configured devices (total > 0)
   const enabledDomains = widgetSettings.domainsEnabled || { energy: true, water: true, temperature: true };
-  const activeDomains = ['energy', 'water', 'temperature'].filter((d) => enabledDomains[d]);
+  const activeDomains = ['energy', 'water', 'temperature'].filter((d) => {
+    const isEnabled = enabledDomains[d];
+    const hasDevices = expectedCounts[d]?.total > 0;
+    if (isEnabled && !hasDevices) {
+      LogHelper.log(`[RFC-0107] Domain ${d} enabled but has no configured devices (total=0), skipping validation`);
+    }
+    return isEnabled && hasDevices;
+  });
 
   LogHelper.log('[RFC-0107] Active domains for validation:', activeDomains);
+
+  // If no domains have configured devices, finalize immediately with current state
+  if (activeDomains.length === 0) {
+    LogHelper.log('[RFC-0107] No domains with configured devices, finalizing contract validation immediately');
+    storeContractState(expectedCounts, { isValid: true, discrepancies: [] });
+    return;
+  }
 
   const domainsLoaded = {};
   const domainsFetchComplete = {};
@@ -9029,6 +9043,30 @@ function setupContractValidationListeners(expectedCounts) {
   });
 
   let validationFinalized = false;
+  let validationTimeoutId = null;
+
+  // RFC-0107 FIX: Fallback timeout - finalize validation after 15 seconds even if not all domains reported
+  // This prevents the user from having to navigate through all tabs to enable contract status
+  const VALIDATION_TIMEOUT_MS = 15000;
+
+  const finalizeWithTimeout = () => {
+    if (validationFinalized) return;
+
+    const loadedDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => loaded).map(([d]) => d);
+    const pendingDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => !loaded).map(([d]) => d);
+
+    LogHelper.warn(`[RFC-0107] Validation timeout after ${VALIDATION_TIMEOUT_MS}ms - finalizing with partial data`);
+    LogHelper.log(`[RFC-0107] Loaded domains: [${loadedDomains.join(', ')}], Pending: [${pendingDomains.join(', ')}]`);
+
+    validationFinalized = true;
+    window.removeEventListener('myio:state:ready', handleStateReady);
+    window.removeEventListener('myio:domain:fetch-complete', handleFetchComplete);
+
+    // Finalize with whatever data we have - skip validation for pending domains
+    storeContractState(expectedCounts, { isValid: true, discrepancies: [], partialLoad: pendingDomains.length > 0 });
+  };
+
+  validationTimeoutId = setTimeout(finalizeWithTimeout, VALIDATION_TIMEOUT_MS);
 
   // Listen for domain state-ready events (data is in STATE)
   const handleStateReady = (event) => {
@@ -9101,6 +9139,11 @@ function setupContractValidationListeners(expectedCounts) {
 
     if (allStateReady && allFetchComplete) {
       validationFinalized = true;
+      // Clear the fallback timeout since validation completed normally
+      if (validationTimeoutId) {
+        clearTimeout(validationTimeoutId);
+        validationTimeoutId = null;
+      }
       LogHelper.log('[RFC-0107] All domains loaded AND fetch complete - finalizing validation');
       finalizeContractValidation(expectedCounts);
       window.removeEventListener('myio:state:ready', handleStateReady);

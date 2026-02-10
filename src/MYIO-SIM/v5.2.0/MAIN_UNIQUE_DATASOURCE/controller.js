@@ -4424,7 +4424,7 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0152: Generate mock alarms data
   function generateMockAlarms() {
     const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-    const states = ['OPEN', 'ACKNOWLEDGED', 'SNOOZED'];
+    const states = ['OPEN', 'ACK', 'SNOOZED']; // RFC-0152: Fixed - use 'ACK' not 'ACKNOWLEDGED'
     const shoppingNames = ['Mestre Alvaro', 'Mont Serrat', 'Moxuara', 'Rio Poty', 'Shopping da Ilha'];
     const alarmTitles = [
       'Falha no motor',
@@ -4435,6 +4435,7 @@ body.filter-modal-open { overflow: hidden !important; }
       'Sobrecarga detectada',
       'Reversão inesperada',
     ];
+    const tagTypes = ['elevador', 'escada_rolante', 'hvac', 'iluminacao', 'bomba'];
 
     const alarms = [];
     const count = 10 + Math.floor(Math.random() * 10);
@@ -4442,15 +4443,18 @@ body.filter-modal-open { overflow: hidden !important; }
     for (let i = 0; i < count; i++) {
       const now = Date.now();
       const createdAt = new Date(now - Math.random() * 7 * 24 * 60 * 60 * 1000);
+      const customerName = shoppingNames[Math.floor(Math.random() * shoppingNames.length)];
 
       alarms.push({
         id: `alarm-${i}`,
+        customerId: `customer-${Math.floor(Math.random() * 5)}`, // RFC-0152: Required field
+        customerName: customerName,
         title: alarmTitles[Math.floor(Math.random() * alarmTitles.length)],
         description: 'Detalhes do alarme detectado pelo sistema de monitoramento.',
         severity: severities[Math.floor(Math.random() * severities.length)],
         state: states[Math.floor(Math.random() * states.length)],
         source: `${Math.random() < 0.5 ? 'ESC' : 'ELV'}-${String(Math.floor(Math.random() * 20) + 1).padStart(2, '0')}`,
-        customerName: shoppingNames[Math.floor(Math.random() * shoppingNames.length)],
+        tags: { type: tagTypes[Math.floor(Math.random() * tagTypes.length)] }, // RFC-0152: Required field
         firstOccurrence: createdAt.toISOString(),
         lastOccurrence: new Date(createdAt.getTime() + Math.random() * 24 * 60 * 60 * 1000).toISOString(),
         occurrenceCount: 1 + Math.floor(Math.random() * 10),
