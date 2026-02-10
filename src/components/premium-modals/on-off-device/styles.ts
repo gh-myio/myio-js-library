@@ -22,7 +22,6 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       flex-direction: row;
       width: 100%;
-      height: 100%;
       font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
       box-sizing: border-box;
       overflow: hidden;
