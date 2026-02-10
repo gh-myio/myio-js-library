@@ -105,7 +105,7 @@ export function injectOnOffDeviceModalStyles(): void {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 16px;
+      padding: 12px 8px;
       overflow: hidden;
       box-sizing: border-box;
     }
@@ -128,8 +128,9 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 0 0 12px 0;
-      margin-bottom: 8px;
+      padding: 4px 4px 10px 4px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
       flex-shrink: 0;
     }
 
@@ -208,6 +209,12 @@ export function injectOnOffDeviceModalStyles(): void {
       flex-direction: column;
       min-height: 0;
       overflow: auto;
+      animation: ${ON_OFF_MODAL_CSS_PREFIX}-fadeIn 0.3s ease;
+    }
+
+    @keyframes ${ON_OFF_MODAL_CSS_PREFIX}-fadeIn {
+      from { opacity: 0.5; }
+      to { opacity: 1; }
     }
 
     /* Make timeline chart responsive inside the modal */
@@ -219,13 +226,13 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 12px;
+      padding: 8px 4px;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__svg {
       width: 100%;
       height: auto;
-      max-height: 160px;
+      max-height: 200px;
       overflow: visible;
     }
 
@@ -238,33 +245,91 @@ export function injectOnOffDeviceModalStyles(): void {
       font-size: 10px;
     }
 
-    /* Scale down summary inside the modal */
+    /* Summary: horizontal distribution with proper text colors */
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-around;
       gap: 16px;
       padding: 10px 12px;
     }
 
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary-item {
+      flex-direction: row;
+      gap: 6px;
+    }
+
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary-value {
-      font-size: 16px;
+      font-size: 15px;
+      color: #1f2937;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary-label {
-      font-size: 11px;
+      font-size: 12px;
+      color: #6b7280;
     }
 
-    /* Scale down legend inside the modal */
+    /* Legend: horizontal with proper text colors */
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__legend {
-      gap: 14px;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      gap: 20px;
       padding-top: 4px;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__legend-item {
-      font-size: 11px;
+      font-size: 12px;
+      color: #374151;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__legend-color {
       width: 10px;
       height: 10px;
+    }
+
+    /* Header text color fix for light mode */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__header-period,
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__header-stats {
+      color: #6b7280;
+    }
+
+    /* Tooltip: light bg with dark text in light mode */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip {
+      z-index: 100001;
+      background: #ffffff;
+      color: #1f2937;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-title {
+      border-bottom-color: #e5e7eb;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-label {
+      color: #6b7280;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-value {
+      color: #1f2937;
+    }
+
+    /* SVG axis label fill for light mode */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__axis-label {
+      fill: #374151;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__date-label {
+      fill: #6b7280;
+    }
+
+    /* Border and background for chart container */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__container {
+      background: var(--onoff-btn-bg, #ffffff);
+      border: 1px solid var(--onoff-border-color, #e5e7eb);
+      border-radius: 8px;
     }
 
     /* Header inside the modal */
@@ -339,14 +404,14 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 12px;
+      padding: 4px 4px 10px 4px;
       border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       flex-shrink: 0;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-title {
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--onoff-text-color, #1f2937);
       margin: 0;
@@ -513,6 +578,24 @@ export function injectOnOffDeviceModalStyles(): void {
     .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-sched__btn-bar {
       background: #111827;
       border-top-color: #4b5563;
+    }
+
+    /* Dark theme: chart text colors */
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-onoff-timeline__summary-value {
+      color: #f3f4f6 !important;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-onoff-timeline__summary-label {
+      color: #9ca3af !important;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-onoff-timeline__legend-item {
+      color: #d1d5db !important;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-onoff-timeline__header-period,
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-onoff-timeline__header-stats {
+      color: #9ca3af !important;
     }
 
     /* ===== Responsive ===== */

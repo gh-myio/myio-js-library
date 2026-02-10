@@ -539,20 +539,23 @@ export function initOnOffTimelineTooltips(
 /**
  * Generate mock On/Off Timeline data
  */
-export function generateMockOnOffTimelineData(): OnOffTimelineData {
-  // Period: Last 7 days
+export function generateMockOnOffTimelineData(
+  startISO?: string,
+  endISO?: string,
+): OnOffTimelineData {
   const now = new Date();
-  const periodEnd = now.toISOString();
-  const periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const periodEnd = endISO || now.toISOString();
+  const periodStart = startISO || new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // Generate mock segments
   const segments: OnOffTimelineSegment[] = [];
+  const endDate = new Date(periodEnd);
   let currentTime = new Date(periodStart);
   let isOn = false;
   let totalOnMinutes = 0;
   let activationCount = 0;
 
-  while (currentTime < now) {
+  while (currentTime < endDate) {
     isOn = !isOn;
     const startTime = currentTime.toISOString();
 
@@ -562,8 +565,8 @@ export function generateMockOnOffTimelineData(): OnOffTimelineData {
       : Math.floor(Math.random() * 300) + 60; // 1h to 6h
 
     currentTime = new Date(currentTime.getTime() + durationMinutes * 60 * 1000);
-    if (currentTime > now) {
-      currentTime = now;
+    if (currentTime > endDate) {
+      currentTime = endDate;
     }
 
     const endTime = currentTime.toISOString();
@@ -588,10 +591,10 @@ export function generateMockOnOffTimelineData(): OnOffTimelineData {
     deviceName: 'Solenoide Jardim 1',
     periodStart,
     periodEnd,
-    totalHours: 7 * 24,
+    totalHours: Math.round((new Date(periodEnd).getTime() - new Date(periodStart).getTime()) / 3600000),
     segments,
     totalOnMinutes,
-    totalOffMinutes: 7 * 24 * 60 - totalOnMinutes,
+    totalOffMinutes: Math.round((new Date(periodEnd).getTime() - new Date(periodStart).getTime()) / 60000) - totalOnMinutes,
     activationCount,
     currentState: isOn ? 'on' : 'off',
   };

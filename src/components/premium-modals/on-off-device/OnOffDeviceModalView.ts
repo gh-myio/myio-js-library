@@ -250,8 +250,8 @@ export class OnOffDeviceModalView {
    * Generate timeline data for the device
    * Uses mock data for now - will be replaced with real telemetry data
    */
-  private generateDeviceTimelineData(): OnOffTimelineData {
-    const mockData = generateMockOnOffTimelineData();
+  private generateDeviceTimelineData(startISO?: string, endISO?: string): OnOffTimelineData {
+    const mockData = generateMockOnOffTimelineData(startISO, endISO);
 
     // Customize with device info
     return {
@@ -259,6 +259,32 @@ export class OnOffDeviceModalView {
       deviceId: this.device.id || 'unknown',
       deviceName: this.device.label || this.device.name || 'Dispositivo',
     };
+  }
+
+  /**
+   * Re-render the chart with a new date range
+   */
+  private reRenderChart(startISO?: string, endISO?: string): void {
+    const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
+    if (!chartContent) return;
+
+    const data = this.generateDeviceTimelineData(startISO, endISO);
+    chartContent.innerHTML = renderOnOffTimelineChart(data, {
+      themeMode: this.themeMode,
+      labels: {
+        on: this.deviceConfig.labelOn,
+        off: this.deviceConfig.labelOff,
+      },
+      onColor: this.deviceConfig.controlColor,
+    });
+
+    // Re-initialize tooltips
+    requestAnimationFrame(() => {
+      initOnOffTimelineTooltips(chartContent as HTMLElement, {
+        on: this.deviceConfig.labelOn,
+        off: this.deviceConfig.labelOff,
+      });
+    });
   }
 
   private createScheduleView(): HTMLElement {
@@ -308,6 +334,9 @@ export class OnOffDeviceModalView {
         parentEl: this.parentEl || undefined,
         onApply: (result: { startISO: string; endISO: string }) => {
           if (!result.startISO || !result.endISO) return;
+          // Re-render chart with new date range
+          this.reRenderChart(result.startISO, result.endISO);
+          // Notify external callback
           this.onDateRangeChange?.(result.startISO, result.endISO);
         },
       });
