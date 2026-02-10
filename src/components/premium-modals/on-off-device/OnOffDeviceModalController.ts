@@ -126,7 +126,7 @@ export class OnOffDeviceModalController {
         width: 95%;
         max-height: 90vh;
         height: auto;
-        min-height: 600px;
+        min-height: 824px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
