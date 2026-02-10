@@ -456,6 +456,15 @@ export function renderCardAmbienteV6({
     devices = [],
   } = ambienteData || {};
 
+  // DEBUG: Log received data
+  console.log('[renderCardAmbienteV6] ambienteData:', {
+    id,
+    label,
+    temperature,
+    status,
+    fullData: ambienteData,
+  });
+
   // Determine aggregated status
   const aggregatedStatus = status || getAggregatedStatus(devices);
   const isOffline = aggregatedStatus === 'offline';

@@ -1206,6 +1206,13 @@ function hvacDeviceToAmbienteData(device) {
   var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
   var status = device.status === 'online' ? 'online' : 'offline';
 
+  LogHelper.log('[MAIN_BAS] hvacDeviceToAmbienteData:', {
+    deviceId: device.id,
+    deviceName: device.name,
+    temperature: device.temperature,
+    status: status,
+  });
+
   // Build devices array from available data
   var devices = [];
 
