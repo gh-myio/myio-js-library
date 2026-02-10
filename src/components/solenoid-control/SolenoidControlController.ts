@@ -26,6 +26,7 @@ export class SolenoidControlController {
   ) => Promise<boolean> | boolean;
   private onConfirmAction?: (title: string, message: string) => Promise<boolean>;
   private onNotify?: (type: 'success' | 'warning' | 'error', message: string) => void;
+  private isToggling = false;
 
   constructor(container: HTMLElement, params: SolenoidControlParams) {
     this.settings = {
@@ -51,8 +52,10 @@ export class SolenoidControlController {
   }
 
   private async handleToggle(): Promise<void> {
+    if (this.isToggling) return; // Prevent rapid re-entry
     const { status, deviceName, relatedDevices } = this.state;
     if (status === 'offline') return;
+    this.isToggling = true;
 
     const newStatus: SolenoidStatus = status === 'on' ? 'off' : 'on';
     const { labels } = this.settings;
@@ -61,10 +64,10 @@ export class SolenoidControlController {
     // Show confirmation
     if (this.onConfirmAction) {
       const confirmed = await this.onConfirmAction('Confirmar', confirmMessage);
-      if (!confirmed) return;
+      if (!confirmed) { this.isToggling = false; return; }
     } else {
       const confirmed = await this.showConfirmModal(confirmMessage);
-      if (!confirmed) return;
+      if (!confirmed) { this.isToggling = false; return; }
     }
 
     // Call toggle callback
@@ -96,6 +99,7 @@ export class SolenoidControlController {
         : (labels.closed || 'Fechado');
       this.notify('success', `Solenoide ${label} com sucesso!`);
     }
+    this.isToggling = false;
   }
 
   private notify(type: 'success' | 'warning' | 'error', message: string): void {
@@ -108,9 +112,12 @@ export class SolenoidControlController {
 
   private showConfirmModal(message: string): Promise<boolean> {
     return new Promise((resolve) => {
-      this.view.showModal('confirm', message, () => resolve(true));
+      let resolved = false;
+      this.view.showModal('confirm', message, () => {
+        if (!resolved) { resolved = true; resolve(true); }
+      });
       // If modal is closed without confirm, resolve false after a delay
-      setTimeout(() => resolve(false), 30000);
+      setTimeout(() => { if (!resolved) { resolved = true; resolve(false); } }, 30000);
     });
   }
 

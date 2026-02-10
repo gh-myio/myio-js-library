@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>On/Off Device Modal - Showcase</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #2F5848;
+      --bg-dark: #0B1220;
+      --card-dark: #1a2332;
+      --text-dark: #e0e0e0;
+      --border: rgba(255,255,255,0.08);
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .showcase-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .showcase-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .showcase-header p {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      padding: 16px;
+      background: var(--card-dark);
+      border-radius: 12px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #aaa;
+    }
+
+    .control-group select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #1a2332;
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+
+    .ctrl-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .ctrl-btn.primary { background: var(--primary); color: white; }
+    .ctrl-btn.primary:hover { filter: brightness(1.15); }
+    .ctrl-btn.secondary { background: #3b82f6; color: white; }
+    .ctrl-btn.secondary:hover { filter: brightness(1.15); }
+    .ctrl-btn.warning { background: #eab308; color: #1a1a1a; }
+    .ctrl-btn.warning:hover { filter: brightness(1.15); }
+    .ctrl-btn.cyan { background: #06b6d4; color: white; }
+    .ctrl-btn.cyan:hover { filter: brightness(1.15); }
+    .ctrl-btn.purple { background: #8b5cf6; color: white; }
+    .ctrl-btn.purple:hover { filter: brightness(1.15); }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      max-width: 900px;
+      margin: 0 auto 32px;
+    }
+
+    .demo-card {
+      background: var(--card-dark);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .demo-card:hover {
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+
+    .demo-card .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .demo-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #e0e0e0;
+    }
+
+    .demo-card p {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .event-log {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-dark);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .event-log h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #aaa;
+    }
+
+    .event-log-content {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      color: #8bc34a;
+      max-height: 250px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: #aaa;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="showcase-header">
+    <h1>On/Off Device Modal</h1>
+    <p>RFC-0167 &mdash; Modal para controle de dispositivos On/Off (Solenoide, Interruptor, Rele, Bomba)</p>
+  </div>
+
+  <div class="controls-bar">
+    <div class="control-group">
+      <label>Theme:</label>
+      <select id="themeSelect">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Status:</label>
+      <select id="statusSelect">
+        <option value="on">On</option>
+        <option value="off">Off</option>
+        <option value="offline">Offline</option>
+      </select>
+    </div>
+  </div>
+
+  <p class="section-title">Clique em um dispositivo para abrir o modal</p>
+
+  <div class="demo-grid">
+    <div class="demo-card" onclick="openModal('SOLENOIDE')">
+      <div class="icon">&#x1F6BF;</div>
+      <h3>Solenoide</h3>
+      <p>Valvula de agua</p>
+    </div>
+    <div class="demo-card" onclick="openModal('INTERRUPTOR')">
+      <div class="icon">&#x1F4A1;</div>
+      <h3>Interruptor</h3>
+      <p>Automacao de luz</p>
+    </div>
+    <div class="demo-card" onclick="openModal('RELE')">
+      <div class="icon">&#x26A1;</div>
+      <h3>Rele</h3>
+      <p>Controle generico</p>
+    </div>
+    <div class="demo-card" onclick="openModal('BOMBA')">
+      <div class="icon">&#x1F4A7;</div>
+      <h3>Bomba</h3>
+      <p>Bomba de agua</p>
+    </div>
+  </div>
+
+  <div class="event-log">
+    <h3>Event Log</h3>
+    <div class="event-log-content" id="eventLog">Aguardando eventos...</div>
+  </div>
+
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    let currentModal = null;
+
+    function logEvent(msg) {
+      const ts = new Date().toLocaleTimeString('pt-BR');
+      const el = document.getElementById('eventLog');
+      el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    }
+
+    function getDeviceData(profile) {
+      const devices = {
+        SOLENOIDE: {
+          id: 'dev-solenoide-001',
+          entityId: '48bf3660-9011-11f0-a06d-e9509531b1d5',
+          label: 'Solenoide 1',
+          name: 'Solenoide Irrigacao',
+          deviceType: 'SOLENOIDE',
+          deviceProfile: 'SOLENOIDE',
+          status: document.getElementById('statusSelect').value === 'offline' ? 'offline' : 'online',
+          attributes: {
+            state: document.getElementById('statusSelect').value === 'on' ? true : false,
+          },
+          rawData: {},
+        },
+        INTERRUPTOR: {
+          id: 'dev-interruptor-001',
+          entityId: '59cf4770-a022-22f1-b17e-fa610642c2e6',
+          label: 'Interruptor 1',
+          name: 'Interruptor Hall',
+          deviceType: 'INTERRUPTOR',
+          deviceProfile: 'INTERRUPTOR',
+          status: document.getElementById('statusSelect').value === 'offline' ? 'offline' : 'online',
+          attributes: {
+            state: document.getElementById('statusSelect').value === 'on' ? 'ligado' : 'desligado',
+          },
+          rawData: {},
+        },
+        RELE: {
+          id: 'dev-rele-001',
+          entityId: '6ade5880-b133-33f2-c28f-gb721753d3f7',
+          label: 'Rele 1',
+          name: 'Rele Portao',
+          deviceType: 'RELE',
+          deviceProfile: 'RELE',
+          status: document.getElementById('statusSelect').value === 'offline' ? 'offline' : 'online',
+          attributes: {
+            state: document.getElementById('statusSelect').value === 'on' ? 1 : 0,
+          },
+          rawData: {},
+        },
+        BOMBA: {
+          id: 'dev-bomba-001',
+          entityId: '7bef6990-c244-44f3-d39f-hc832864e4f8',
+          label: 'Bomba 1',
+          name: 'Bomba Reservatorio',
+          deviceType: 'BOMBA',
+          deviceProfile: 'BOMBA',
+          status: document.getElementById('statusSelect').value === 'offline' ? 'offline' : 'online',
+          attributes: {
+            state: document.getElementById('statusSelect').value === 'on' ? 'ligado' : 'desligado',
+          },
+          rawData: {},
+        },
+      };
+      return devices[profile];
+    }
+
+    function openModal(profile) {
+      // Close existing modal if open
+      if (currentModal) {
+        currentModal.destroy();
+        currentModal = null;
+      }
+
+      const device = getDeviceData(profile);
+      const theme = document.getElementById('themeSelect').value;
+
+      logEvent(`Abrindo modal: ${profile} (theme=${theme}, status=${device.status})`);
+
+      currentModal = MyIOLibrary.createOnOffDeviceModal({
+        device: device,
+        themeMode: theme,
+        jwtToken: '', // No real API in showcase
+        tbBaseUrl: '',
+        enableDebugMode: true,
+        onClose: () => {
+          logEvent(`Modal fechado: ${profile}`);
+          currentModal = null;
+        },
+        onStateChange: (deviceId, state) => {
+          logEvent(`Estado alterado: deviceId=${deviceId}, newState=${state}`);
+        },
+        onScheduleSave: (deviceId, schedules) => {
+          logEvent(`Agendamentos salvos: deviceId=${deviceId}, count=${schedules?.length || 0}`);
+        },
+        onRefresh: (deviceId) => {
+          logEvent(`Refresh solicitado: deviceId=${deviceId}`);
+        },
+        onDateRangeChange: (deviceId, startISO, endISO) => {
+          logEvent(`Data alterada: deviceId=${deviceId}, start=${startISO}, end=${endISO}`);
+        },
+      });
+    }
+  </script>
+</body>
+</html>

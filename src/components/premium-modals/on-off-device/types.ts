@@ -89,6 +89,10 @@ export interface OnOffDeviceModalParams {
   centralId?: string;
   /** Enable debug mode */
   enableDebugMode?: boolean;
+  /** Callback when refresh is requested */
+  onRefresh?: (deviceId: string) => void;
+  /** Callback when date range changes */
+  onDateRangeChange?: (deviceId: string, startISO: string, endISO: string) => void;
 }
 
 /**

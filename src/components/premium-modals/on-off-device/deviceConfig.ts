@@ -107,5 +107,5 @@ export function getDeviceType(deviceProfile: string | undefined): OnOffDeviceTyp
  */
 export function getModalTitle(deviceProfile: string | undefined, deviceName: string): string {
   const config = getDeviceConfig(deviceProfile);
-  return `${config.icon} Controle - ${deviceName}`;
+  return `Controle - ${deviceName}`;
 }

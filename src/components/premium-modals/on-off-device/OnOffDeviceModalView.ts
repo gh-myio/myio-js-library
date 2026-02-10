@@ -22,6 +22,7 @@ import {
   generateMockOnOffTimelineData,
   type OnOffTimelineData,
 } from '../../on-off-timeline-chart';
+import { createDateRangePicker } from '../../createDateRangePicker';
 
 export interface OnOffDeviceModalViewOptions {
   container: HTMLElement;
@@ -31,6 +32,9 @@ export interface OnOffDeviceModalViewOptions {
   onToggleView: () => void;
   onDeviceToggle: (newState: boolean) => void;
   onScheduleSave?: (schedules: OnOffScheduleEntry[]) => void;
+  onRefresh?: () => void;
+  onDateRangeChange?: (startISO: string, endISO: string) => void;
+  parentEl?: HTMLElement;
 }
 
 export class OnOffDeviceModalView {
@@ -53,11 +57,16 @@ export class OnOffDeviceModalView {
   // Child component instances
   private solenoidControlInstance: any = null;
   private scheduleOnOffInstance: any = null;
+  private dateRangePickerInstance: any = null;
+  private dateRangeInputEl: HTMLInputElement | null = null;
 
   // Callbacks
   private onToggleView: () => void;
   private onDeviceToggle: (newState: boolean) => void;
   private onScheduleSave?: (schedules: OnOffScheduleEntry[]) => void;
+  private onRefresh?: () => void;
+  private onDateRangeChange?: (startISO: string, endISO: string) => void;
+  private parentEl?: HTMLElement;
 
   constructor(options: OnOffDeviceModalViewOptions) {
     this.container = options.container;
@@ -67,6 +76,9 @@ export class OnOffDeviceModalView {
     this.onToggleView = options.onToggleView;
     this.onDeviceToggle = options.onDeviceToggle;
     this.onScheduleSave = options.onScheduleSave;
+    this.onRefresh = options.onRefresh;
+    this.onDateRangeChange = options.onDateRangeChange;
+    this.parentEl = options.parentEl;
 
     this.state = {
       ...DEFAULT_MODAL_STATE,
@@ -109,12 +121,28 @@ export class OnOffDeviceModalView {
     const panel = document.createElement('div');
     panel.className = `${ON_OFF_MODAL_CSS_PREFIX}__left-panel`;
 
-    // Control container (top 50%)
+    // Control container (top area)
     this.controlContainer = document.createElement('div');
     this.controlContainer.className = `${ON_OFF_MODAL_CSS_PREFIX}__control-container`;
     panel.appendChild(this.controlContainer);
 
-    // Schedule button container (bottom 50%)
+    // Refresh button (below control)
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn`;
+    refreshBtn.innerHTML = `
+      <span class="${ON_OFF_MODAL_CSS_PREFIX}__refresh-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+      <span>Atualizar</span>
+    `;
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.classList.add(`${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn--loading`);
+      this.onRefresh?.();
+      setTimeout(() => {
+        refreshBtn.classList.remove(`${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn--loading`);
+      }, 1500);
+    });
+    panel.appendChild(refreshBtn);
+
+    // Schedule button container (bottom area)
     this.scheduleButtonContainer = document.createElement('div');
     this.scheduleButtonContainer.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-container`;
 
@@ -136,31 +164,58 @@ export class OnOffDeviceModalView {
     const panel = document.createElement('div');
     panel.className = `${ON_OFF_MODAL_CSS_PREFIX}__right-panel`;
 
+    // Toolbar with date range picker
+    const toolbar = this.createToolbar();
+    panel.appendChild(toolbar);
+
     // Chart view (default)
     this.chartView = this.createChartView();
     panel.appendChild(this.chartView);
 
-    // Schedule view (hidden by default)
+    // Schedule view (hidden by default - only one view visible at a time)
     this.scheduleView = this.createScheduleView();
     this.scheduleView.classList.add(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+    this.scheduleView.style.display = 'none';
     panel.appendChild(this.scheduleView);
 
     return panel;
+  }
+
+  private createToolbar(): HTMLElement {
+    const toolbar = document.createElement('div');
+    toolbar.className = `${ON_OFF_MODAL_CSS_PREFIX}__toolbar`;
+
+    const label = document.createElement('span');
+    label.className = `${ON_OFF_MODAL_CSS_PREFIX}__toolbar-label`;
+    label.textContent = 'Período';
+    toolbar.appendChild(label);
+
+    // Wrapper with calendar icon
+    const wrapper = document.createElement('div');
+    wrapper.className = `${ON_OFF_MODAL_CSS_PREFIX}__date-input-wrapper`;
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = `${ON_OFF_MODAL_CSS_PREFIX}__date-input-icon`;
+    iconSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    wrapper.appendChild(iconSpan);
+
+    this.dateRangeInputEl = document.createElement('input');
+    this.dateRangeInputEl.type = 'text';
+    this.dateRangeInputEl.readOnly = true;
+    this.dateRangeInputEl.placeholder = 'Selecione o período...';
+    this.dateRangeInputEl.className = `${ON_OFF_MODAL_CSS_PREFIX}__date-input`;
+    wrapper.appendChild(this.dateRangeInputEl);
+
+    toolbar.appendChild(wrapper);
+
+    return toolbar;
   }
 
   private createChartView(): HTMLElement {
     const view = document.createElement('div');
     view.className = `${ON_OFF_MODAL_CSS_PREFIX}__view-container ${ON_OFF_MODAL_CSS_PREFIX}__chart-view`;
 
-    // Header
-    const header = document.createElement('div');
-    header.className = `${ON_OFF_MODAL_CSS_PREFIX}__chart-header`;
-    header.innerHTML = `
-      <h3 class="${ON_OFF_MODAL_CSS_PREFIX}__chart-title">${this.escapeHtml(this.deviceConfig.chartTitle)}</h3>
-    `;
-    view.appendChild(header);
-
-    // Chart content container
+    // Chart content container (fills entire view, no title header)
     const content = document.createElement('div');
     content.className = `${ON_OFF_MODAL_CSS_PREFIX}__chart-content`;
     content.id = `onoff-chart-${Date.now()}`;
@@ -230,7 +285,35 @@ export class OnOffDeviceModalView {
     // Initialize SolenoidControl component
     this.initializeSolenoidControl();
 
+    // Initialize DateRangePicker
+    this.initializeDateRangePicker();
+
     // Initialize ScheduleOnOff component (lazy - only when schedule view is shown)
+  }
+
+  private async initializeDateRangePicker(): Promise<void> {
+    if (!this.dateRangeInputEl) return;
+
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    try {
+      this.dateRangePickerInstance = await createDateRangePicker(this.dateRangeInputEl, {
+        presetStart: sevenDaysAgo.toISOString(),
+        presetEnd: now.toISOString(),
+        includeTime: true,
+        timePrecision: 'minute',
+        maxRangeDays: 31,
+        locale: 'pt-BR',
+        parentEl: this.parentEl || undefined,
+        onApply: (result: { startISO: string; endISO: string }) => {
+          if (!result.startISO || !result.endISO) return;
+          this.onDateRangeChange?.(result.startISO, result.endISO);
+        },
+      });
+    } catch (error) {
+      console.warn('[OnOffDeviceModalView] DateRangePicker initialization failed:', error);
+    }
   }
 
   private initializeSolenoidControl(): void {
@@ -405,6 +488,13 @@ export class OnOffDeviceModalView {
 
     // Re-render the chart with new theme
     this.updateChartTheme();
+
+    // Re-initialize date picker for new theme
+    if (this.dateRangePickerInstance?.destroy) {
+      this.dateRangePickerInstance.destroy();
+      this.dateRangePickerInstance = null;
+    }
+    this.initializeDateRangePicker();
   }
 
   private updateChartTheme(): void {
@@ -443,9 +533,15 @@ export class OnOffDeviceModalView {
     this.state.currentView = newView;
 
     if (newView === 'schedule') {
-      // Show schedule, hide chart
-      this.chartView?.classList.add(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
-      this.scheduleView?.classList.remove(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+      // Hide chart completely, show schedule
+      if (this.chartView) {
+        this.chartView.classList.add(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+        this.chartView.style.display = 'none';
+      }
+      if (this.scheduleView) {
+        this.scheduleView.classList.remove(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+        this.scheduleView.style.display = '';
+      }
 
       // Lazy initialize schedule component
       this.initializeScheduleOnOff();
@@ -453,9 +549,15 @@ export class OnOffDeviceModalView {
       // Update button
       this.updateScheduleButton('📊', 'Ver Gráfico');
     } else {
-      // Show chart, hide schedule
-      this.scheduleView?.classList.add(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
-      this.chartView?.classList.remove(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+      // Hide schedule completely, show chart
+      if (this.scheduleView) {
+        this.scheduleView.classList.add(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+        this.scheduleView.style.display = 'none';
+      }
+      if (this.chartView) {
+        this.chartView.classList.remove(`${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden`);
+        this.chartView.style.display = '';
+      }
 
       // Update button
       this.updateScheduleButton('📅', 'Agendamento');
@@ -531,6 +633,9 @@ export class OnOffDeviceModalView {
     }
     if (this.scheduleOnOffInstance?.destroy) {
       this.scheduleOnOffInstance.destroy();
+    }
+    if (this.dateRangePickerInstance?.destroy) {
+      this.dateRangePickerInstance.destroy();
     }
 
     // Remove root element

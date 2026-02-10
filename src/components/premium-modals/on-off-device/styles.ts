@@ -120,7 +120,78 @@ export function injectOnOffDeviceModalStyles(): void {
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__view-container--hidden {
-      display: none;
+      display: none !important;
+    }
+
+    /* ===== Right Panel Toolbar (date picker) ===== */
+    .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 0 12px 0;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__toolbar-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--onoff-text-muted, #6b7280);
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      flex: 1;
+      max-width: 300px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input-icon {
+      position: absolute;
+      left: 10px;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      color: var(--onoff-text-muted, #9ca3af);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input {
+      padding: 7px 12px 7px 30px;
+      border: 1px solid var(--onoff-border-color, #e5e7eb);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--onoff-text-color, #1f2937);
+      background: var(--onoff-btn-bg, #ffffff);
+      cursor: pointer;
+      box-sizing: border-box;
+      width: 100%;
+      font-family: inherit;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input::placeholder {
+      color: var(--onoff-text-muted, #9ca3af);
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input:hover {
+      border-color: var(--onoff-primary-color, #3b82f6);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__date-input:focus {
+      outline: none;
+      border-color: var(--onoff-primary-color, #3b82f6);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     /* ===== Chart View ===== */
@@ -128,30 +199,85 @@ export function injectOnOffDeviceModalStyles(): void {
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-    }
-
-    .${ON_OFF_MODAL_CSS_PREFIX}__chart-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
-    }
-
-    .${ON_OFF_MODAL_CSS_PREFIX}__chart-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--onoff-text-color, #1f2937);
-      margin: 0;
+      min-height: 0;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content {
       flex: 1;
       display: flex;
       flex-direction: column;
-      min-height: 200px;
+      min-height: 0;
       overflow: auto;
+    }
+
+    /* Make timeline chart responsive inside the modal */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline {
+      width: 100%;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__svg {
+      width: 100%;
+      height: auto;
+      max-height: 160px;
+      overflow: visible;
+    }
+
+    /* Fix axis labels clipping — increase readability */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__axis-label {
+      font-size: 11px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__date-label {
+      font-size: 10px;
+    }
+
+    /* Scale down summary inside the modal */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary {
+      gap: 16px;
+      padding: 10px 12px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary-value {
+      font-size: 16px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__summary-label {
+      font-size: 11px;
+    }
+
+    /* Scale down legend inside the modal */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__legend {
+      gap: 14px;
+      padding-top: 4px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__legend-item {
+      font-size: 11px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__legend-color {
+      width: 10px;
+      height: 10px;
+    }
+
+    /* Header inside the modal */
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__header {
+      padding-bottom: 6px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__header-period {
+      font-size: 12px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__header-stats {
+      font-size: 11px;
     }
 
     /* Usage summary stats */
@@ -206,6 +332,7 @@ export function injectOnOffDeviceModalStyles(): void {
       flex: 1;
       display: flex;
       flex-direction: column;
+      min-height: 0;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-header {
@@ -215,6 +342,7 @@ export function injectOnOffDeviceModalStyles(): void {
       padding-bottom: 12px;
       border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
       margin-bottom: 16px;
+      flex-shrink: 0;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-title {
@@ -227,6 +355,75 @@ export function injectOnOffDeviceModalStyles(): void {
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-content {
       flex: 1;
       overflow: auto;
+      position: relative;
+      padding: 8px 4px;
+    }
+
+    /* Add spacing to schedule items inside the modal */
+    .${ON_OFF_MODAL_CSS_PREFIX}__schedule-content .myio-sched__interval {
+      margin-bottom: 12px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__schedule-content .myio-sched__form {
+      padding: 12px;
+      gap: 10px;
+    }
+
+    /* ===== Schedule button bar override (keep inside modal) ===== */
+    .${ON_OFF_MODAL_CSS_PREFIX} .myio-sched__btn-bar {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      justify-content: flex-start;
+      padding: 12px 16px;
+      background: var(--onoff-panel-bg, #f9fafb);
+      border-top: 1px solid var(--onoff-border-color, #e5e7eb);
+      z-index: 2;
+    }
+
+    /* ===== Refresh Button ===== */
+    .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--onoff-border-color, #e5e7eb);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--onoff-text-muted, #6b7280);
+      margin-top: 8px;
+      align-self: center;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn:hover {
+      color: var(--onoff-primary-color, #3b82f6);
+      border-color: var(--onoff-primary-color, #3b82f6);
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn:active {
+      transform: scale(0.97);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__refresh-icon {
+      display: inline-flex;
+      align-items: center;
+      transition: transform 0.3s ease;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__refresh-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn--loading .${ON_OFF_MODAL_CSS_PREFIX}__refresh-icon {
+      animation: ${ON_OFF_MODAL_CSS_PREFIX}-spin 0.8s linear infinite;
     }
 
     /* ===== Loading State ===== */
@@ -288,6 +485,36 @@ export function injectOnOffDeviceModalStyles(): void {
       color: #e5e7eb;
     }
 
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__date-input {
+      background: #1f2937;
+      border-color: #4b5563;
+      color: #f3f4f6;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__date-input:hover {
+      border-color: #60a5fa;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__date-input-icon {
+      color: #6b7280;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn {
+      border-color: #4b5563;
+      color: #9ca3af;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn:hover {
+      color: #60a5fa;
+      border-color: #60a5fa;
+      background: rgba(96, 165, 250, 0.08);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-sched__btn-bar {
+      background: #111827;
+      border-top-color: #4b5563;
+    }
+
     /* ===== Responsive ===== */
     @media (max-width: 768px) {
       .${ON_OFF_MODAL_CSS_PREFIX} {
@@ -314,6 +541,19 @@ export function injectOnOffDeviceModalStyles(): void {
 
       .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-icon {
         font-size: 24px;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
+        flex-wrap: wrap;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__date-input-wrapper {
+        max-width: none;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn {
+        padding: 5px 10px;
+        font-size: 11px;
       }
     }
   `;

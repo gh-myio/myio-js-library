@@ -70,7 +70,10 @@ function renderTimelineSVG(
   config: Required<OnOffTimelineChartConfig>
 ): string {
   const { width, height, onColor, offColor, showMarkers, showDurationLabels, labels } = config;
-  const padding = { top: 10, right: 20, bottom: 45, left: 45 };
+  // Dynamic left padding based on label length to prevent clipping
+  const maxLabelLen = Math.max((labels.on || '').length, (labels.off || '').length);
+  const dynamicLeft = maxLabelLen > 5 ? 60 : 45;
+  const padding = { top: 10, right: 20, bottom: 45, left: dynamicLeft };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 

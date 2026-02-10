@@ -62,6 +62,8 @@ export class OnOffDeviceModalController {
       onScheduleSave: params.onScheduleSave || (() => {}),
       centralId: params.centralId || '',
       enableDebugMode: params.enableDebugMode || false,
+      onRefresh: params.onRefresh || (() => {}),
+      onDateRangeChange: params.onDateRangeChange || (() => {}),
     };
   }
 
@@ -202,6 +204,9 @@ export class OnOffDeviceModalController {
         onToggleView: () => this.handleToggleView(),
         onDeviceToggle: (newState) => this.handleDeviceToggle(newState),
         onScheduleSave: (schedules) => this.handleScheduleSave(schedules),
+        onRefresh: () => this.handleRefresh(),
+        onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO),
+        parentEl: this.modalContainer?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}-content`) as HTMLElement || undefined,
       });
     }
   }
@@ -334,6 +339,57 @@ export class OnOffDeviceModalController {
     } catch (error) {
       console.error('[OnOffDeviceModal] Failed to save schedules:', error);
     }
+  }
+
+  private async handleRefresh(): Promise<void> {
+    if (this.params.enableDebugMode) {
+      console.log('[OnOffDeviceModal] Refresh requested');
+    }
+
+    try {
+      // Notify external callback
+      this.params.onRefresh?.(this.params.device.id);
+
+      // If we have a JWT token, try to fetch latest device state
+      if (this.params.jwtToken && this.params.device.id) {
+        const deviceId = this.params.device.entityId || this.params.device.id;
+        const response = await fetch(
+          `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/CLIENT_SCOPE,SHARED_SCOPE,SERVER_SCOPE`,
+          {
+            method: 'GET',
+            headers: {
+              'X-Authorization': `Bearer ${this.params.jwtToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const attrs = await response.json();
+          const stateAttr = attrs.find((a: any) => a.key === 'state' || a.key === 'acionamento');
+          if (stateAttr) {
+            const isOn = stateAttr.value === true || stateAttr.value === 'on' || stateAttr.value === 1 ||
+              stateAttr.value === 'aberta' || stateAttr.value === 'ligado';
+            this.view?.updateDeviceState(isOn);
+          }
+
+          if (this.params.enableDebugMode) {
+            console.log('[OnOffDeviceModal] Device state refreshed:', attrs);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[OnOffDeviceModal] Refresh error:', error);
+    }
+  }
+
+  private handleDateRangeChange(startISO: string, endISO: string): void {
+    if (this.params.enableDebugMode) {
+      console.log('[OnOffDeviceModal] Date range changed:', { startISO, endISO });
+    }
+
+    // Notify external callback
+    this.params.onDateRangeChange?.(this.params.device.id, startISO, endISO);
   }
 
   private async saveSchedulesToDevice(schedules: OnOffScheduleEntry[]): Promise<void> {

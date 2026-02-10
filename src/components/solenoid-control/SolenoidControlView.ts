@@ -149,6 +149,9 @@ export class SolenoidControlView {
     message: string,
     onConfirm?: () => void,
   ): void {
+    // Remove any existing modal overlay to prevent stacking
+    document.querySelectorAll(`.${SOLENOID_CONTROL_CSS_PREFIX}__modal-overlay`).forEach(el => el.remove());
+
     const modal = document.createElement('div');
     modal.className = `${SOLENOID_CONTROL_CSS_PREFIX}__modal-overlay`;
 
