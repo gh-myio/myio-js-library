@@ -48,10 +48,9 @@ function initContractStatusIcon() {
   const iconEl = contractStatusEl.querySelector('.tbx-contract-icon');
   const countEl = contractStatusEl.querySelector('.tbx-contract-count');
 
-  // Style the contract status container (keep display:none until contract is loaded)
-  // NOTE: display is set by updateContractStatus() - do NOT set display:flex here
+  // Style the contract status container (always visible)
   contractStatusEl.style.cssText = `
-    display: none;
+    display: flex;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
@@ -80,8 +79,27 @@ function initContractStatusIcon() {
    * @param {Object} contractState - The contract state from window.CONTRACT_STATE
    */
   function updateContractStatus(contractState) {
+    // Always keep visible, just update content
     if (!contractState || !contractState.isLoaded) {
-      contractStatusEl.style.display = 'none';
+      // Show loading/waiting state
+      if (iconEl) {
+        iconEl.textContent = '⏳';
+        iconEl.style.cssText = `
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: rgba(158, 158, 158, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #9e9e9e;
+          font-size: 11px;
+        `;
+      }
+      if (countEl) {
+        countEl.textContent = 'Carregando...';
+        countEl.style.color = '#9e9e9e';
+      }
       return;
     }
 
@@ -128,9 +146,6 @@ function initContractStatusIcon() {
       countEl.textContent = `${totalDevices} disp.`;
       countEl.style.color = contractState.isValid ? '#81c784' : '#ef5350';
     }
-
-    // Show the container
-    contractStatusEl.style.display = 'flex';
 
     LogHelper.log('[HEADER] Contract status updated:', {
       total: totalDevices,

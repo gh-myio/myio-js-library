@@ -707,6 +707,9 @@ self.onInit = function () {
       customerName: customerName,
       jwtToken: jwtToken,
       userEmail: user?.email,
+      ui: {
+        width: 1100,
+      },
       onSaved: (result) => {
         LogHelper.log('[MENU] Contract devices saved:', result);
         window.dispatchEvent(new CustomEvent('myio:contract-devices-updated', { detail: result }));
@@ -967,6 +970,9 @@ self.onInit = function () {
         customerName: customerName,
         jwtToken: jwtToken,
         userEmail: user?.email,
+        ui: {
+          width: 1100,
+        },
         onSaved: (result) => {
           LogHelper.log('[MENU] Contract devices saved:', result);
           // Dispatch event to notify other widgets
