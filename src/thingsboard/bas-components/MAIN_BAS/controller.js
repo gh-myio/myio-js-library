@@ -1403,11 +1403,33 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     temperature = aggregatedData.temperature.avg;
   }
 
+  // Helper function to check if a device is a REMOTE control device
+  // Check deviceType, deviceProfile, AND type attribute (from rawData or collectedData)
+  function isRemoteDevice(d) {
+    var dt = (d.deviceType || '').toUpperCase();
+    var dp = (d.deviceProfile || '').toUpperCase();
+    var typeAttr = ((d.rawData && d.rawData.type) || d.type || '').toUpperCase();
+    return (
+      dt.includes('REMOTE') ||
+      dt.includes('CONTROLE') ||
+      dp.includes('REMOTE') ||
+      dp.includes('CONTROLE') ||
+      typeAttr === 'REMOTE' ||
+      typeAttr.includes('CONTROLE')
+    );
+  }
+
   // Collect individual energy devices (3F_MEDIDOR, FANCOIL, AR_CONDICIONADO_SPLIT)
+  // EXCLUDE devices that are REMOTE controls
   var energyDevices = [];
   var consumptionTotal = 0;
   var hasConsumption = false;
   devices.forEach(function (d) {
+    // Skip REMOTE devices - they are not energy meters
+    if (isRemoteDevice(d)) {
+      return;
+    }
+
     var dt = (d.deviceType || '').toUpperCase();
     if (
       dt.includes('3F_MEDIDOR') ||
@@ -1433,25 +1455,34 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     }
   });
 
-  // Find remote control from REMOTE devices
-  var hasRemote = false;
-  var isOn = false;
-  var remoteDevice = devices.find(function (d) {
-    var dt = (d.deviceType || '').toUpperCase();
-    return dt.includes('REMOTE') || dt.includes('CONTROLE');
+  // Collect ALL remote control devices
+  var remoteDevices = [];
+  devices.forEach(function (d) {
+    if (isRemoteDevice(d)) {
+      // Get the state from various possible sources
+      var state = (d.rawData && d.rawData.state) || d.state || 'off';
+      var isDeviceOn =
+        state === 'on' ||
+        state === 'ON' ||
+        state === true ||
+        state === 1 ||
+        (d.rawData && d.rawData.isOn === true) ||
+        d.isOn === true;
+
+      remoteDevices.push({
+        id: d.id,
+        name: d.name || d.label || 'Controle',
+        label: (d.rawData && d.rawData.label) || d.label || d.name || 'Controle',
+        deviceType: d.deviceType || 'REMOTE',
+        isOn: isDeviceOn,
+        state: state,
+        status: d.status || 'offline',
+      });
+    }
   });
 
-  if (remoteDevice) {
-    hasRemote = true;
-    isOn =
-      (remoteDevice.rawData && remoteDevice.rawData.isOn) ||
-      remoteDevice.isOn ||
-      (remoteDevice.rawData && remoteDevice.rawData.state === 'on') ||
-      false;
-  } else if (aggregatedData.hasRemote) {
-    hasRemote = true;
-    isOn = aggregatedData.isRemoteOn || false;
-  }
+  var hasRemote = remoteDevices.length > 0;
+  var isOn = remoteDevices.some(function (r) { return r.isOn; });
 
   // Determine overall status
   var onlineCount = aggregatedData.onlineCount || 0;
@@ -1490,16 +1521,16 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     });
   }
 
-  // Add remote device if available
-  if (hasRemote) {
+  // Add remote devices to cardDevices array
+  remoteDevices.forEach(function (remote) {
     cardDevices.push({
-      id: remoteDevice ? remoteDevice.id + '_remote' : hierarchyNode.id + '_remote',
+      id: remote.id + '_remote',
       type: 'remote',
       deviceType: 'REMOTE',
-      status: status,
-      value: isOn ? 1 : 0,
+      status: remote.status,
+      value: remote.isOn ? 1 : 0,
     });
-  }
+  });
 
   LogHelper.log('[MAIN_BAS] assetAmbientToAmbienteData:', {
     id: hierarchyNode.id,
@@ -1508,6 +1539,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     humidity: humidity,
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices,
+    remoteDevices: remoteDevices,
     hasRemote: hasRemote,
     isOn: isOn,
     status: status,
@@ -1523,6 +1555,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     humidity: humidity, // RFC-0168: New field
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices, // Individual energy devices for card display
+    remoteDevices: remoteDevices, // Individual remote control devices
     isOn: isOn,
     hasRemote: hasRemote,
     status: status,

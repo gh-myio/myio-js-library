@@ -201,12 +201,12 @@ const CARD_STYLES = `
     50% { opacity: 0.5; }
   }
 
-  /* Metrics row */
+  /* Metrics row - Line 2: Temperature (50%) + Humidity (50%) */
   .myio-ambiente-card__metrics {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 0;
+    flex-wrap: nowrap;
   }
 
   .myio-ambiente-card__metric {
@@ -215,6 +215,8 @@ const CARD_STYLES = `
     gap: 4px;
     font-size: 0.8rem;
     color: #495057;
+    width: 50%;
+    flex-shrink: 0;
   }
 
   .myio-ambiente-card__metric-icon {
@@ -392,6 +394,48 @@ const CARD_STYLES = `
     opacity: 0.3;
     cursor: default;
   }
+
+  /* Remote devices row */
+  .myio-ambiente-card__remote-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+
+  .myio-ambiente-card__remote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+
+  .myio-ambiente-card__remote-btn.on {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    border-color: rgba(40, 167, 69, 0.3);
+  }
+
+  .myio-ambiente-card__remote-btn.off {
+    background: rgba(108, 117, 125, 0.1);
+    color: #6c757d;
+    border-color: rgba(108, 117, 125, 0.2);
+  }
+
+  .myio-ambiente-card__remote-btn:hover {
+    transform: scale(1.02);
+  }
+
+  .myio-ambiente-card__remote-btn-icon {
+    font-size: 0.85rem;
+  }
 `;
 
 // ============================================
@@ -565,7 +609,7 @@ export function renderCardAmbienteV6({
   injectStyles();
 
   // Extract data
-  // RFC-0168: Added humidity, hasSetupWarning, and energyDevices fields
+  // RFC-0168: Added humidity, hasSetupWarning, energyDevices, and remoteDevices fields
   const {
     id,
     label,
@@ -574,6 +618,7 @@ export function renderCardAmbienteV6({
     humidity, // RFC-0168: Humidity from TERMOSTATO
     consumption,
     energyDevices = [], // Individual energy devices (3F_MEDIDOR, FANCOIL, etc.)
+    remoteDevices = [], // Individual remote control devices
     isOn,
     hasRemote,
     status,
@@ -588,6 +633,7 @@ export function renderCardAmbienteV6({
     temperature,
     humidity,
     energyDevices,
+    remoteDevices,
     status,
     hasSetupWarning,
     fullData: ambienteData,
@@ -730,25 +776,27 @@ export function renderCardAmbienteV6({
     bodyEl.appendChild(energyRowEl);
   }
 
-  // Remote toggle (if has remote and not in warning state)
-  // RFC-0168: Only show remote toggle when not in setup warning state
-  if (hasRemote && !hasSetupWarning) {
+  // === REMOTE DEVICES ROW ===
+  // Show individual ON/OFF buttons for each remote control device
+  if (remoteDevices.length > 0 && !hasSetupWarning) {
     const remoteRowEl = document.createElement('div');
-    remoteRowEl.className = 'myio-ambiente-card__metrics';
-    remoteRowEl.style.marginTop = '4px';
+    remoteRowEl.className = 'myio-ambiente-card__remote-row';
 
-    const remoteEl = document.createElement('div');
-    remoteEl.className = `myio-ambiente-card__remote-toggle ${isOn ? 'on' : 'off'}`;
-    remoteEl.innerHTML = `
-      <span>${isOn ? '🟢' : '⚫'}</span>
-      <span class="myio-ambiente-card__metric-value ${isOn ? 'remote-on' : 'remote-off'}">${isOn ? 'Ligado' : 'Desligado'}</span>
-    `;
-    remoteEl.title = 'Clique para alternar';
-    remoteEl.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleToggleRemote?.(!isOn, ambienteData);
+    remoteDevices.forEach((remote) => {
+      const remoteBtn = document.createElement('div');
+      remoteBtn.className = `myio-ambiente-card__remote-btn ${remote.isOn ? 'on' : 'off'}`;
+      remoteBtn.innerHTML = `
+        <span class="myio-ambiente-card__remote-btn-icon">${remote.isOn ? '🟢' : '⚫'}</span>
+        <span>${remote.isOn ? 'ON' : 'OFF'}</span>
+      `;
+      remoteBtn.title = remote.label || remote.name || 'Controle';
+      remoteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleToggleRemote?.(!remote.isOn, { ...ambienteData, targetRemote: remote });
+      });
+      remoteRowEl.appendChild(remoteBtn);
     });
-    remoteRowEl.appendChild(remoteEl);
+
     bodyEl.appendChild(remoteRowEl);
   }
 
