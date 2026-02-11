@@ -98,11 +98,12 @@ var _ambientesMap = {};
 // ============================================================================
 
 /**
- * Fetch parent asset for a device via ThingsBoard Relations API
+ * Fetch ALL parent assets for a device via ThingsBoard Relations API
+ * A device can have multiple parent ASSETs via "Contains" relations
  * @param {Object} deviceEntityId - { id: string, entityType: 'DEVICE' }
- * @returns {Promise<Object>} Parent asset { id, entityType: 'ASSET' }
+ * @returns {Promise<Object[]>} Array of parent assets [{ id, entityType: 'ASSET' }, ...]
  */
-function getParentAssetViaHttp(deviceEntityId) {
+function getAllParentAssetsViaHttp(deviceEntityId) {
   return new Promise(function (resolve, reject) {
     if (!deviceEntityId || !deviceEntityId.id || !deviceEntityId.entityType) {
       return reject('entityId inválido!');
@@ -112,15 +113,21 @@ function getParentAssetViaHttp(deviceEntityId) {
 
     self.ctx.http.get(url).subscribe({
       next: function (relations) {
-        var assetRel = relations.find(function (r) {
+        // Get ALL parent assets (not just the first one)
+        var assetRelations = relations.filter(function (r) {
           return r.from && r.from.entityType === 'ASSET' && r.type === 'Contains';
         });
 
-        if (!assetRel) {
+        if (assetRelations.length === 0) {
           return reject('Nenhum asset pai encontrado para: ' + deviceEntityId.id);
         }
 
-        resolve(assetRel.from);
+        // Return all parent assets
+        var parentAssets = assetRelations.map(function (rel) {
+          return rel.from;
+        });
+
+        resolve(parentAssets);
       },
       error: function (err) {
         reject('Erro HTTP: ' + JSON.stringify(err));
@@ -273,37 +280,40 @@ function buildAmbienteHierarchy(classifiedDevices) {
       return;
     }
 
-    // Step 1: Fetch parent asset for each device
+    // Step 1: Fetch ALL parent assets for each device (a device can have multiple parents)
     var promises = allDevices.map(function (device) {
-      return getParentAssetViaHttp({ id: device.id, entityType: 'DEVICE' })
-        .then(function (parentAsset) {
-          // Store device-to-parent mapping
-          _deviceToAmbienteMap[device.id] = parentAsset.id;
+      return getAllParentAssetsViaHttp({ id: device.id, entityType: 'DEVICE' })
+        .then(function (parentAssets) {
+          // Store device-to-parent mapping (first parent for backwards compatibility)
+          _deviceToAmbienteMap[device.id] = parentAssets[0].id;
 
-          // Create or update ambiente node
-          if (!_ambienteHierarchy[parentAsset.id]) {
-            _ambienteHierarchy[parentAsset.id] = {
-              id: parentAsset.id,
-              name: null, // Will fetch later
-              entityType: 'ASSET',
-              parentId: null,
-              level: 1, // Default level, will be updated if parent is found
-              children: [],
-              devices: [],
-              aggregatedData: null,
-            };
-          }
+          // Add device to ALL of its parent ASSETs
+          parentAssets.forEach(function (parentAsset) {
+            // Create or update ambiente node
+            if (!_ambienteHierarchy[parentAsset.id]) {
+              _ambienteHierarchy[parentAsset.id] = {
+                id: parentAsset.id,
+                name: null, // Will fetch later
+                entityType: 'ASSET',
+                parentId: null,
+                level: 1, // Default level, will be updated if parent is found
+                children: [],
+                devices: [],
+                aggregatedData: null,
+              };
+            }
 
-          // Add device to ambiente
-          _ambienteHierarchy[parentAsset.id].devices.push(device);
+            // Add device to ambiente
+            _ambienteHierarchy[parentAsset.id].devices.push(device);
 
-          LogHelper.log('[MAIN_BAS] Device "' + device.name + '" -> Parent: ' + parentAsset.id);
+            LogHelper.log('[MAIN_BAS] Device "' + device.name + '" -> Parent: ' + parentAsset.id);
+          });
 
-          return { device: device, parentId: parentAsset.id };
+          return { device: device, parentIds: parentAssets.map(function (p) { return p.id; }) };
         })
         .catch(function (err) {
           LogHelper.warn('[MAIN_BAS] No parent for device:', device.name, err);
-          return { device: device, parentId: null };
+          return { device: device, parentIds: [] };
         });
     });
 

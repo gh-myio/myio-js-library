@@ -26,7 +26,7 @@ import { formatEnergy } from '../../format/energy.ts';
 // ============================================
 
 /** Maximum characters for ambiente label before truncation */
-const LABEL_CHAR_LIMIT = 20;
+const LABEL_CHAR_LIMIT = 30;
 
 /** CSS ID for injected styles */
 const STYLES_ID = 'myio-card-ambiente-v6-styles';
