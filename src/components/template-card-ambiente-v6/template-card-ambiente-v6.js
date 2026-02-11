@@ -316,6 +316,82 @@ const CARD_STYLES = `
   .myio-ambiente-card__remote-toggle.off {
     background: rgba(108, 117, 125, 0.1);
   }
+
+  /* Energy devices row with horizontal scroll */
+  .myio-ambiente-card__energy-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    position: relative;
+  }
+
+  .myio-ambiente-card__energy-scroll {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .myio-ambiente-card__energy-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .myio-ambiente-card__energy-device {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: rgba(25, 135, 84, 0.08);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .myio-ambiente-card__energy-device-icon {
+    font-size: 0.85rem;
+  }
+
+  .myio-ambiente-card__energy-device-value {
+    font-weight: 600;
+    color: #198754;
+  }
+
+  .myio-ambiente-card__energy-device-empty {
+    color: #6c757d;
+    font-weight: 400;
+  }
+
+  .myio-ambiente-card__scroll-btn {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: #495057;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .myio-ambiente-card__scroll-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .myio-ambiente-card__scroll-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
 `;
 
 // ============================================
@@ -346,7 +422,7 @@ function truncateLabel(label, maxLength = LABEL_CHAR_LIMIT) {
  * Format temperature value
  */
 function formatTemperature(value) {
-  if (value === null || value === undefined || isNaN(value)) return '--';
+  if (value === null || value === undefined || isNaN(value)) return '-';
   const num = Number(value);
   return num.toLocaleString('pt-BR', {
     minimumFractionDigits: 1,
@@ -358,7 +434,7 @@ function formatTemperature(value) {
  * RFC-0168: Format humidity value
  */
 function formatHumidity(value) {
-  if (value === null || value === undefined || isNaN(value)) return '--';
+  if (value === null || value === undefined || isNaN(value)) return '-';
   const num = Number(value);
   return num.toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
@@ -367,18 +443,23 @@ function formatHumidity(value) {
 }
 
 /**
- * Format energy/consumption value
+ * Format power/consumption value in Watts
+ * Values are instantaneous power readings, not energy consumption
  */
 function formatConsumption(value) {
-  if (value === null || value === undefined || isNaN(value)) return '--';
+  if (value === null || value === undefined || isNaN(value)) return '-';
   const num = Number(value);
-  if (typeof formatEnergy === 'function') {
-    return formatEnergy(num);
+  // Format as Watts (W) for instantaneous power
+  if (num >= 1000) {
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }) + ' kW';
   }
   return num.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }) + ' kW';
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }) + ' W';
 }
 
 /**
@@ -484,7 +565,7 @@ export function renderCardAmbienteV6({
   injectStyles();
 
   // Extract data
-  // RFC-0168: Added humidity and hasSetupWarning fields
+  // RFC-0168: Added humidity, hasSetupWarning, and energyDevices fields
   const {
     id,
     label,
@@ -492,6 +573,7 @@ export function renderCardAmbienteV6({
     temperature,
     humidity, // RFC-0168: Humidity from TERMOSTATO
     consumption,
+    energyDevices = [], // Individual energy devices (3F_MEDIDOR, FANCOIL, etc.)
     isOn,
     hasRemote,
     status,
@@ -505,6 +587,7 @@ export function renderCardAmbienteV6({
     label,
     temperature,
     humidity,
+    energyDevices,
     status,
     hasSetupWarning,
     fullData: ambienteData,
@@ -547,7 +630,7 @@ export function renderCardAmbienteV6({
 
   bodyEl.appendChild(headerEl);
 
-  // Metrics row
+  // === LINE 2: Temperature + Humidity (always show, "-" if not available) ===
   const metricsEl = document.createElement('div');
   metricsEl.className = 'myio-ambiente-card__metrics';
 
@@ -561,43 +644,99 @@ export function renderCardAmbienteV6({
     `;
     metricsEl.appendChild(warningEl);
   } else {
-    // Temperature metric
-    if (temperature !== undefined && temperature !== null) {
-      const tempMetric = document.createElement('div');
-      tempMetric.className = 'myio-ambiente-card__metric';
-      tempMetric.innerHTML = `
-        <span class="myio-ambiente-card__metric-icon">🌡️</span>
-        <span class="myio-ambiente-card__metric-value temperature">${formatTemperature(temperature)}</span>
+    // Temperature metric - always show (with "-" if not available)
+    const tempMetric = document.createElement('div');
+    tempMetric.className = 'myio-ambiente-card__metric';
+    tempMetric.innerHTML = `
+      <span class="myio-ambiente-card__metric-icon">🌡️</span>
+      <span class="myio-ambiente-card__metric-value temperature">${formatTemperature(temperature)}</span>
+    `;
+    metricsEl.appendChild(tempMetric);
+
+    // Humidity metric - always show (with "-" if not available)
+    const humidityMetric = document.createElement('div');
+    humidityMetric.className = 'myio-ambiente-card__metric';
+    humidityMetric.innerHTML = `
+      <span class="myio-ambiente-card__metric-icon">💧</span>
+      <span class="myio-ambiente-card__metric-value humidity">${formatHumidity(humidity)}</span>
+    `;
+    metricsEl.appendChild(humidityMetric);
+  }
+
+  bodyEl.appendChild(metricsEl);
+
+  // === LINE 3: Energy devices with horizontal scroll ===
+  if (!hasSetupWarning) {
+    const energyRowEl = document.createElement('div');
+    energyRowEl.className = 'myio-ambiente-card__energy-row';
+
+    if (energyDevices.length === 0) {
+      // No energy devices - show icon with "-"
+      const emptyEnergy = document.createElement('div');
+      emptyEnergy.className = 'myio-ambiente-card__energy-device';
+      emptyEnergy.innerHTML = `
+        <span class="myio-ambiente-card__energy-device-icon">⚡</span>
+        <span class="myio-ambiente-card__energy-device-value myio-ambiente-card__energy-device-empty">-</span>
       `;
-      metricsEl.appendChild(tempMetric);
+      energyRowEl.appendChild(emptyEnergy);
+    } else {
+      // Has energy devices - show with horizontal scroll if multiple
+      const needsScroll = energyDevices.length > 2;
+
+      // Scroll container
+      const scrollContainer = document.createElement('div');
+      scrollContainer.className = 'myio-ambiente-card__energy-scroll';
+
+      // Add each energy device
+      energyDevices.forEach((device) => {
+        const deviceEl = document.createElement('div');
+        deviceEl.className = 'myio-ambiente-card__energy-device';
+        deviceEl.title = device.label || device.name || 'Medidor';
+        deviceEl.innerHTML = `
+          <span class="myio-ambiente-card__energy-device-icon">⚡</span>
+          <span class="myio-ambiente-card__energy-device-value">${formatConsumption(device.consumption)}</span>
+        `;
+        scrollContainer.appendChild(deviceEl);
+      });
+
+      // Add scroll buttons if needed
+      if (needsScroll) {
+        const leftBtn = document.createElement('button');
+        leftBtn.className = 'myio-ambiente-card__scroll-btn';
+        leftBtn.innerHTML = '◀';
+        leftBtn.title = 'Anterior';
+        leftBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          scrollContainer.scrollBy({ left: -80, behavior: 'smooth' });
+        });
+        energyRowEl.appendChild(leftBtn);
+      }
+
+      energyRowEl.appendChild(scrollContainer);
+
+      if (needsScroll) {
+        const rightBtn = document.createElement('button');
+        rightBtn.className = 'myio-ambiente-card__scroll-btn';
+        rightBtn.innerHTML = '▶';
+        rightBtn.title = 'Próximo';
+        rightBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          scrollContainer.scrollBy({ left: 80, behavior: 'smooth' });
+        });
+        energyRowEl.appendChild(rightBtn);
+      }
     }
 
-    // RFC-0168: Humidity metric (if available)
-    if (humidity !== undefined && humidity !== null) {
-      const humidityMetric = document.createElement('div');
-      humidityMetric.className = 'myio-ambiente-card__metric';
-      humidityMetric.innerHTML = `
-        <span class="myio-ambiente-card__metric-icon">💧</span>
-        <span class="myio-ambiente-card__metric-value humidity">${formatHumidity(humidity)}</span>
-      `;
-      metricsEl.appendChild(humidityMetric);
-    }
-
-    // Consumption metric
-    if (consumption !== undefined && consumption !== null) {
-      const consMetric = document.createElement('div');
-      consMetric.className = 'myio-ambiente-card__metric';
-      consMetric.innerHTML = `
-        <span class="myio-ambiente-card__metric-icon">⚡</span>
-        <span class="myio-ambiente-card__metric-value consumption">${formatConsumption(consumption)}</span>
-      `;
-      metricsEl.appendChild(consMetric);
-    }
+    bodyEl.appendChild(energyRowEl);
   }
 
   // Remote toggle (if has remote and not in warning state)
   // RFC-0168: Only show remote toggle when not in setup warning state
   if (hasRemote && !hasSetupWarning) {
+    const remoteRowEl = document.createElement('div');
+    remoteRowEl.className = 'myio-ambiente-card__metrics';
+    remoteRowEl.style.marginTop = '4px';
+
     const remoteEl = document.createElement('div');
     remoteEl.className = `myio-ambiente-card__remote-toggle ${isOn ? 'on' : 'off'}`;
     remoteEl.innerHTML = `
@@ -609,20 +748,11 @@ export function renderCardAmbienteV6({
       e.stopPropagation();
       handleToggleRemote?.(!isOn, ambienteData);
     });
-    metricsEl.appendChild(remoteEl);
+    remoteRowEl.appendChild(remoteEl);
+    bodyEl.appendChild(remoteRowEl);
   }
 
-  bodyEl.appendChild(metricsEl);
-
-  // Identifier
-  if (identifier) {
-    const idEl = document.createElement('div');
-    idEl.className = 'myio-ambiente-card__identifier';
-    idEl.textContent = identifier;
-    bodyEl.appendChild(idEl);
-  }
-
-  // Device count badge - removed for simplified layout
+  // Identifier removed per user request - card should only show label in header
 
   card.appendChild(bodyEl);
 

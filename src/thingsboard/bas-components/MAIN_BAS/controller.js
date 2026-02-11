@@ -1393,7 +1393,8 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     temperature = aggregatedData.temperature.avg;
   }
 
-  // Aggregate consumption from energy devices (3F_MEDIDOR, FANCOIL, AR_CONDICIONADO_SPLIT)
+  // Collect individual energy devices (3F_MEDIDOR, FANCOIL, AR_CONDICIONADO_SPLIT)
+  var energyDevices = [];
   var consumptionTotal = 0;
   var hasConsumption = false;
   devices.forEach(function (d) {
@@ -1405,10 +1406,20 @@ function assetAmbientToAmbienteData(hierarchyNode) {
       dt.includes('MEDIDOR')
     ) {
       var consumption = (d.rawData && d.rawData.consumption) || d.consumption;
-      if (consumption != null && !isNaN(consumption)) {
-        consumptionTotal += parseFloat(consumption);
+      var consumptionValue = consumption != null && !isNaN(consumption) ? parseFloat(consumption) : null;
+      if (consumptionValue != null) {
+        consumptionTotal += consumptionValue;
         hasConsumption = true;
       }
+      // Add individual energy device info
+      energyDevices.push({
+        id: d.id,
+        name: d.name || d.label || 'Medidor',
+        label: (d.rawData && d.rawData.label) || d.label || d.name || 'Medidor',
+        deviceType: d.deviceType,
+        consumption: consumptionValue,
+        status: d.status || 'offline',
+      });
     }
   });
 
@@ -1486,6 +1497,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     temperature: temperature,
     humidity: humidity,
     consumption: hasConsumption ? consumptionTotal : null,
+    energyDevices: energyDevices,
     hasRemote: hasRemote,
     isOn: isOn,
     status: status,
@@ -1500,6 +1512,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     temperature: temperature,
     humidity: humidity, // RFC-0168: New field
     consumption: hasConsumption ? consumptionTotal : null,
+    energyDevices: energyDevices, // Individual energy devices for card display
     isOn: isOn,
     hasRemote: hasRemote,
     status: status,
