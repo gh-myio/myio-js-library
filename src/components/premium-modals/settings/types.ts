@@ -71,6 +71,9 @@ export interface OpenDashboardPopupSettingsParams {
     i18n?: { t: (key: string, def?: string) => string }; // Internationalization
     consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   };
+
+  /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
+  enableAnnotationsOnboarding?: boolean;
   
   // Pre-populate form with existing values
   seed?: {
@@ -159,6 +162,8 @@ export interface ModalConfig {
   consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   superadmin?: boolean; // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
   userEmail?: string; // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
+  /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
+  enableAnnotationsOnboarding?: boolean;
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

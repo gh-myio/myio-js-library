@@ -52,6 +52,8 @@ export class SettingsController {
       // Fallback to window.MyIOUtils.currentUserEmail if not provided (set by MAIN controller)
       superadmin: params.superadmin,
       userEmail: params.userEmail || (window as any).MyIOUtils?.currentUserEmail || null,
+      // RFC-0144: Pass enableAnnotationsOnboarding flag for onboarding control
+      enableAnnotationsOnboarding: params.enableAnnotationsOnboarding ?? false,
     });
   }
 

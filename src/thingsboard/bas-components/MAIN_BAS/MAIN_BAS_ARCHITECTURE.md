@@ -298,6 +298,33 @@ O controller.js classifica dispositivos pelo `aliasName` da datasource:
 
 > **Nota**: O `floor` e extraido do telemetry key `floor` ou do label do dispositivo via regex.
 
+### 4.1.1 Validacao de Energy Devices (RFC-0171)
+
+O domain `energy` nao e mais usado como default. Dispositivos so sao classificados como energy se passarem na validacao:
+
+```javascript
+// Usa deviceProfile como fonte primaria (mais confiavel que deviceType)
+var effectiveType = deviceProfile || deviceType;
+var domain = MyIOLibrary.getDomainFromDeviceType(effectiveType);
+
+// Se domain === 'energy', valida antes de incluir
+if (domain === 'energy') {
+  var isValidEnergy = MyIOLibrary.isEnergyDevice(deviceProfile);
+  var isMotorPump = deviceProfile.includes('BOMBA') || deviceProfile.includes('MOTOR');
+  var isEntrada = deviceProfile.includes('ENTRADA') || deviceProfile.includes('TRAFO');
+
+  if (!isValidEnergy && !isMotorPump && !isEntrada) {
+    // Skip - dispositivo ignorado (nao e energy valido)
+    return;
+  }
+}
+```
+
+**Dispositivos aceitos como energy:**
+- `3F_MEDIDOR` ou qualquer deviceProfile contendo `3F` ou `MEDIDOR`
+- `BOMBA`, `MOTOR` (bombas e motores)
+- `ENTRADA`, `RELOGIO`, `TRAFO`, `SUBESTACAO` (medidores de entrada)
+
 ### 4.2 Mapeamento para Card v6
 
 A `BASDashboardView` e o `waterDeviceToEntityObject` convertem dispositivos BAS para o formato `entityObject` do card v6:
@@ -879,7 +906,83 @@ O `#bas-main-content` (grid slot col 3–4, row 1–2) recebe o BASDashboardView
 
 ---
 
-## 17. Referencias
+## 17. RFC-0171: Filtros e Validacoes de Dispositivos
+
+### 17.1 Filtro de Ambientes (EntityListPanel)
+
+A sidebar de ambientes (`buildAmbienteItems`) filtra itens pelo padrao de label `(NNN)-`:
+
+```javascript
+// Regex para validar label de ambiente
+var ambienteLabelPattern = /^\(\d{3}\)-/;
+
+// Exemplos validos: "(001)-Deck", "(002)-Sala Nobreak", "(010)-Auditorio"
+// Exemplos invalidos: "3F_MEDIDOR-001", "Termostato-Sala1", "HVAC-Central"
+```
+
+| Label | Incluido? |
+|-------|-----------|
+| `(001)-Deck` | ✅ Sim |
+| `(002)-Sala do Nobreak` | ✅ Sim |
+| `Melicidade-3F_MEDIDOR-001` | ❌ Nao |
+| `Termostato-Sala1` | ❌ Nao |
+
+### 17.2 Filtro de Energy Devices (CardGridPanel)
+
+A funcao `buildEnergyCardItems` valida dispositivos de energia usando `isEnergyDevice()`:
+
+```javascript
+// MyIOLibrary.isEnergyDevice verifica deviceType/deviceProfile
+var isValid = MyIOLibrary.isEnergyDevice(deviceType);
+// Retorna true para: 3F_MEDIDOR, *3F*, *MEDIDOR*
+```
+
+### 17.3 Validacao no Parse (Energy nao e mais default)
+
+O parse (`parseDevicesFromData`) agora valida dispositivos de energia antes de classifica-los:
+
+```javascript
+// Se domain === 'energy' (default), valida com isEnergyDevice
+if (domain === 'energy') {
+  var isValidEnergy = MyIOLibrary.isEnergyDevice(deviceProfile)
+                   || MyIOLibrary.isEnergyDevice(deviceType);
+  var isMotorPump = profileUpper.includes('BOMBA')
+                 || profileUpper.includes('MOTOR');
+  var isEntrada = profileUpper.includes('ENTRADA')
+               || profileUpper.includes('TRAFO');
+
+  if (!isValidEnergy && !isMotorPump && !isEntrada) {
+    return; // Skip - nao e energy valido
+  }
+}
+```
+
+| deviceProfile | Resultado |
+|---------------|-----------|
+| `3F_MEDIDOR` | ✅ Incluido (isEnergyDevice) |
+| `ENTRADA` | ✅ Incluido (isEntrada) |
+| `BOMBA_HIDRAULICA` | ✅ Incluido (isMotorPump) |
+| `ASSET_AMBIENT` | ❌ Ignorado |
+| `(vazio)` | ❌ Ignorado |
+
+### 17.4 Remocao do Subtitle da EntityListPanel
+
+O subtitle "Dispositivos" ou "Nome ↑" foi removido da sidebar:
+
+```javascript
+var panel = new MyIOLibrary.EntityListPanel({
+  title: settings.sidebarLabel,
+  icon: '📍',
+  quantity: items.length,
+  subtitle: null, // Removido
+  items: items,
+  // ...
+});
+```
+
+---
+
+## 18. Referencias
 
 | RFC      | Descricao                                               |
 | -------- | ------------------------------------------------------- |
@@ -887,8 +990,9 @@ O `#bas-main-content` (grid slot col 3–4, row 1–2) recebe o BASDashboardView
 | RFC-0130 | Tooltips de range (temperatura, energia, comparacao)    |
 | RFC-0108 | Formatacao inteligente (MyIOUtils measurement settings) |
 | RFC-0111 | Classificacao de dominio/contexto de dispositivos       |
+| RFC-0171 | Filtros e validacoes de dispositivos (ambiente, energy) |
 
 ---
 
-_Documento atualizado em: 2026-02-05_
-_Versao: v7.0.0 (CSS Grid layout fiel ao target.design.txt + panels-only mode + dailyTotals format)_
+_Documento atualizado em: 2026-02-11_
+_Versao: v8.0.0 (RFC-0171: Filtros de ambiente e energy + validacao no parse)_

@@ -123,6 +123,7 @@ export class SettingsModalView {
         jwtToken: this.config.jwtToken,
         currentUser: this.currentUser,
         permissions: this.permissions,
+        enableAnnotationsOnboarding: this.config.enableAnnotationsOnboarding ?? false, // RFC-0144
       });
 
       await this.annotationsTab.init();

@@ -497,6 +497,7 @@ let widgetSettings = {
   debugMode: false,
   domainsEnabled: { energy: true, water: true, temperature: true },
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
+  enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
 };
 
 // Config object (populated in onInit from widgetSettings)
@@ -1179,6 +1180,12 @@ Object.assign(window.MyIOUtils, {
     };
     widgetSettings.excludeDevicesAtCountSubtotalCAG =
       self.ctx.settings?.excludeDevicesAtCountSubtotalCAG ?? [];
+
+    // RFC-0144: Load annotations onboarding setting
+    widgetSettings.enableAnnotationsOnboarding = self.ctx.settings?.enableAnnotationsOnboarding ?? false;
+    // Expose via window.MyIOUtils for TELEMETRY widget
+    window.MyIOUtils.enableAnnotationsOnboarding = widgetSettings.enableAnnotationsOnboarding;
+    LogHelper.log('[Orchestrator] RFC-0144: enableAnnotationsOnboarding:', widgetSettings.enableAnnotationsOnboarding);
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {

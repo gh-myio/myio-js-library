@@ -164,6 +164,8 @@ export interface AnnotationsTabConfig {
   i18n?: {
     t: (key: string, fallback?: string) => string;
   };
+  /** RFC-0144: If false, onboarding tour is never shown. Default: false */
+  enableAnnotationsOnboarding?: boolean;
 }
 
 export interface AnnotationFormConfig {
