@@ -2475,6 +2475,139 @@ function isOnOffDeviceProfile(deviceProfile) {
 }
 
 /**
+ * RFC-0170: Find sub-ambientes for a given parent ambiente
+ * Matches by label prefix or name pattern
+ * @param {Object} parentItem - Parent item from sidebar
+ * @returns {Array} Array of sub-ambiente items
+ */
+function findSubAmbientesForParent(parentItem) {
+  if (!_assetAmbientHierarchy) return [];
+
+  // Get the display label without prefix (e.g., "Deck" from "(001)-Deck")
+  var parentLabel = removeAmbientePrefixFromLabel(parentItem.label || '');
+  var parentName = parentItem.name || '';
+
+  LogHelper.log('[MAIN_BAS] Finding sub-ambientes for:', parentLabel, parentName);
+
+  var subAmbientes = [];
+  var hierarchyNodes = Object.values(_assetAmbientHierarchy);
+
+  hierarchyNodes.forEach(function (node) {
+    var nodeLabel = removeAmbientePrefixFromLabel(node.displayLabel || node.originalLabel || '');
+
+    // Check if this node matches the parent or is a child of the parent
+    // Match patterns:
+    // 1. Exact match: "Deck" === "Deck"
+    // 2. Child match: "Deck - Climatização" starts with "Deck"
+    // 3. Name-based match: node.name starts with parentName
+    var isMatch = nodeLabel === parentLabel ||
+                  nodeLabel.startsWith(parentLabel + ' - ') ||
+                  nodeLabel.startsWith(parentLabel + ' ') ||
+                  (parentName && node.name && node.name.includes(parentName.split('-')[0]));
+
+    if (isMatch) {
+      // Build AmbienteData from hierarchy node
+      var ambienteData = assetAmbientToAmbienteData(node);
+      subAmbientes.push({
+        id: node.id,
+        label: node.displayLabel || nodeLabel,
+        name: node.name,
+        ambienteData: ambienteData,
+        source: node,
+      });
+    }
+  });
+
+  LogHelper.log('[MAIN_BAS] Found sub-ambientes:', subAmbientes.length);
+  return subAmbientes;
+}
+
+/**
+ * RFC-0170: Open Ambiente Group Modal
+ * Shows aggregated view of multiple sub-ambientes
+ * @param {Object} parentItem - Parent item from sidebar
+ * @param {Object} settings - Widget settings
+ */
+function openAmbienteGroupModal(parentItem, settings) {
+  if (!MyIOLibrary.openAmbienteGroupModal) {
+    LogHelper.warn('[MAIN_BAS] openAmbienteGroupModal not available');
+    return;
+  }
+
+  // Find all sub-ambientes for this parent
+  var subAmbientes = findSubAmbientesForParent(parentItem);
+
+  if (subAmbientes.length === 0) {
+    LogHelper.log('[MAIN_BAS] No sub-ambientes found, opening detail modal if single ambiente');
+    // If no sub-ambientes found but we have hierarchy data for this item, open detail modal
+    if (_assetAmbientHierarchy && _assetAmbientHierarchy[parentItem.id]) {
+      var node = _assetAmbientHierarchy[parentItem.id];
+      var ambienteData = assetAmbientToAmbienteData(node);
+      openAmbienteDetailModal(ambienteData, node, settings);
+    }
+    return;
+  }
+
+  // If only 1 sub-ambiente and it matches exactly, open detail modal instead
+  if (subAmbientes.length === 1) {
+    var singleSub = subAmbientes[0];
+    var singleLabel = removeAmbientePrefixFromLabel(singleSub.label);
+    var parentLabel = removeAmbientePrefixFromLabel(parentItem.label || '');
+    if (singleLabel === parentLabel) {
+      LogHelper.log('[MAIN_BAS] Single exact match, opening detail modal');
+      openAmbienteDetailModal(singleSub.ambienteData, singleSub.source, settings);
+      return;
+    }
+  }
+
+  // Build group data
+  var groupLabel = removeAmbientePrefixFromLabel(parentItem.label || parentItem.name || 'Grupo');
+  var groupData = MyIOLibrary.buildAmbienteGroupData
+    ? MyIOLibrary.buildAmbienteGroupData(parentItem.id, groupLabel, parentItem.name || '', subAmbientes)
+    : {
+        id: parentItem.id,
+        label: groupLabel,
+        name: parentItem.name || '',
+        metrics: {
+          temperatureAvg: null,
+          temperatureMin: null,
+          temperatureMax: null,
+          humidityAvg: null,
+          consumptionTotal: null,
+          deviceCount: 0,
+          onlineCount: 0,
+          offlineCount: 0,
+          subAmbienteCount: subAmbientes.length,
+        },
+        subAmbientes: subAmbientes,
+        status: 'offline',
+      };
+
+  LogHelper.log('[MAIN_BAS] Opening Ambiente Group modal:', groupData);
+
+  // Open the group modal
+  MyIOLibrary.openAmbienteGroupModal(groupData, {
+    themeMode: 'light',
+    onSubAmbienteClick: function (subAmbiente) {
+      LogHelper.log('[MAIN_BAS] Sub-ambiente clicked:', subAmbiente);
+      // Open detail modal for this sub-ambiente
+      openAmbienteDetailModal(subAmbiente.ambienteData, subAmbiente.source, settings);
+    },
+    onRemoteToggle: function (isOn, subAmbiente, remoteId) {
+      LogHelper.log('[MAIN_BAS] Group remote toggle:', isOn, subAmbiente, remoteId);
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-remote-toggle', {
+          detail: { isOn: isOn, ambiente: subAmbiente.ambienteData, remoteId: remoteId, source: subAmbiente.source },
+        })
+      );
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] Ambiente Group modal closed');
+    },
+  });
+}
+
+/**
  * RFC-0168: Open Ambiente Detail Modal
  * @param {Object} ambienteData - Ambiente data from card click
  * @param {Object} source - Source hierarchy node
@@ -2878,6 +3011,9 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     handleClickItem: function (item) {
       LogHelper.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
       _selectedAmbiente = item.id;
+
+      // RFC-0170: Open Ambiente Group Modal for aggregated view
+      openAmbienteGroupModal(item, settings);
 
       // RFC-0161: Filter devices based on selection
       // If hierarchy is available, filter using _deviceToAmbienteMap

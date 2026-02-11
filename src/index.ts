@@ -1540,3 +1540,21 @@ export type {
   AmbienteHierarchyNode,
   AmbienteChildDevice,
 } from './components/ambiente-detail-modal';
+
+// RFC-0170: Ambiente Group Modal (aggregated sub-ambientes view)
+export {
+  createAmbienteGroupModal,
+  openAmbienteGroupModal,
+  buildAmbienteGroupData,
+  calculateGroupMetrics,
+  AMBIENTE_GROUP_CSS_PREFIX,
+  injectAmbienteGroupModalStyles,
+} from './components/ambiente-group-modal';
+
+export type {
+  AmbienteGroupData,
+  AmbienteGroupModalConfig,
+  AmbienteGroupModalInstance,
+  SubAmbienteItem,
+  AggregatedGroupMetrics,
+} from './components/ambiente-group-modal';
