@@ -242,6 +242,34 @@ const CARD_STYLES = `
     color: #6c757d;
   }
 
+  /* RFC-0168: Humidity metric */
+  .myio-ambiente-card__metric-value.humidity {
+    color: #17a2b8;
+  }
+
+  /* RFC-0168: Setup warning state */
+  .myio-ambiente-card.setup-warning {
+    border: 2px dashed #ffc107;
+    background: linear-gradient(135deg, #fffbe6 0%, #fff8dc 100%);
+  }
+
+  .myio-ambiente-card__warning {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(255, 193, 7, 0.15);
+    border-radius: 6px;
+    color: #856404;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .myio-ambiente-card__warning-icon {
+    font-size: 1rem;
+  }
+
   /* Identifier row */
   .myio-ambiente-card__identifier {
     font-size: 0.7rem;
@@ -324,6 +352,18 @@ function formatTemperature(value) {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }) + '°C';
+}
+
+/**
+ * RFC-0168: Format humidity value
+ */
+function formatHumidity(value) {
+  if (value === null || value === undefined || isNaN(value)) return '--';
+  const num = Number(value);
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }) + '%';
 }
 
 /**
@@ -444,15 +484,18 @@ export function renderCardAmbienteV6({
   injectStyles();
 
   // Extract data
+  // RFC-0168: Added humidity and hasSetupWarning fields
   const {
     id,
     label,
     identifier,
     temperature,
+    humidity, // RFC-0168: Humidity from TERMOSTATO
     consumption,
     isOn,
     hasRemote,
     status,
+    hasSetupWarning, // RFC-0168: True if ASSET_AMBIENT has no children
     devices = [],
   } = ambienteData || {};
 
@@ -461,13 +504,16 @@ export function renderCardAmbienteV6({
     id,
     label,
     temperature,
+    humidity,
     status,
+    hasSetupWarning,
     fullData: ambienteData,
   });
 
   // Determine aggregated status
   const aggregatedStatus = status || getAggregatedStatus(devices);
   const isOffline = aggregatedStatus === 'offline';
+  const isWarning = hasSetupWarning || aggregatedStatus === 'warning';
 
   // Create container
   const container = document.createElement('div');
@@ -475,8 +521,9 @@ export function renderCardAmbienteV6({
   container.dataset.ambienteId = id || '';
 
   // Create card element
+  // RFC-0168: Added setup-warning class for cards with no child devices
   const card = document.createElement('div');
-  card.className = `myio-ambiente-card${handleClickCard ? ' clickable' : ''}${isOffline ? ' offline' : ''}`;
+  card.className = `myio-ambiente-card${handleClickCard ? ' clickable' : ''}${isOffline ? ' offline' : ''}${isWarning ? ' setup-warning' : ''}`;
 
   // === BODY (Center content) ===
   // Note: Actions (piano keys) removed for simplified card layout
@@ -504,30 +551,53 @@ export function renderCardAmbienteV6({
   const metricsEl = document.createElement('div');
   metricsEl.className = 'myio-ambiente-card__metrics';
 
-  // Temperature metric
-  if (temperature !== undefined && temperature !== null) {
-    const tempMetric = document.createElement('div');
-    tempMetric.className = 'myio-ambiente-card__metric';
-    tempMetric.innerHTML = `
-      <span class="myio-ambiente-card__metric-icon">🌡️</span>
-      <span class="myio-ambiente-card__metric-value temperature">${formatTemperature(temperature)}</span>
+  // RFC-0168: Show setup warning if no child devices
+  if (hasSetupWarning) {
+    const warningEl = document.createElement('div');
+    warningEl.className = 'myio-ambiente-card__warning';
+    warningEl.innerHTML = `
+      <span class="myio-ambiente-card__warning-icon">⚠️</span>
+      <span>Configuração Necessária</span>
     `;
-    metricsEl.appendChild(tempMetric);
+    metricsEl.appendChild(warningEl);
+  } else {
+    // Temperature metric
+    if (temperature !== undefined && temperature !== null) {
+      const tempMetric = document.createElement('div');
+      tempMetric.className = 'myio-ambiente-card__metric';
+      tempMetric.innerHTML = `
+        <span class="myio-ambiente-card__metric-icon">🌡️</span>
+        <span class="myio-ambiente-card__metric-value temperature">${formatTemperature(temperature)}</span>
+      `;
+      metricsEl.appendChild(tempMetric);
+    }
+
+    // RFC-0168: Humidity metric (if available)
+    if (humidity !== undefined && humidity !== null) {
+      const humidityMetric = document.createElement('div');
+      humidityMetric.className = 'myio-ambiente-card__metric';
+      humidityMetric.innerHTML = `
+        <span class="myio-ambiente-card__metric-icon">💧</span>
+        <span class="myio-ambiente-card__metric-value humidity">${formatHumidity(humidity)}</span>
+      `;
+      metricsEl.appendChild(humidityMetric);
+    }
+
+    // Consumption metric
+    if (consumption !== undefined && consumption !== null) {
+      const consMetric = document.createElement('div');
+      consMetric.className = 'myio-ambiente-card__metric';
+      consMetric.innerHTML = `
+        <span class="myio-ambiente-card__metric-icon">⚡</span>
+        <span class="myio-ambiente-card__metric-value consumption">${formatConsumption(consumption)}</span>
+      `;
+      metricsEl.appendChild(consMetric);
+    }
   }
 
-  // Consumption metric
-  if (consumption !== undefined && consumption !== null) {
-    const consMetric = document.createElement('div');
-    consMetric.className = 'myio-ambiente-card__metric';
-    consMetric.innerHTML = `
-      <span class="myio-ambiente-card__metric-icon">⚡</span>
-      <span class="myio-ambiente-card__metric-value consumption">${formatConsumption(consumption)}</span>
-    `;
-    metricsEl.appendChild(consMetric);
-  }
-
-  // Remote toggle (if has remote)
-  if (hasRemote) {
+  // Remote toggle (if has remote and not in warning state)
+  // RFC-0168: Only show remote toggle when not in setup warning state
+  if (hasRemote && !hasSetupWarning) {
     const remoteEl = document.createElement('div');
     remoteEl.className = `myio-ambiente-card__remote-toggle ${isOn ? 'on' : 'off'}`;
     remoteEl.innerHTML = `
@@ -595,6 +665,11 @@ export function renderCardAmbienteV6({
       if (tempValue && newData.temperature !== undefined) {
         tempValue.textContent = formatTemperature(newData.temperature);
       }
+      // RFC-0168: Update humidity
+      const humidityValue = container.querySelector('.myio-ambiente-card__metric-value.humidity');
+      if (humidityValue && newData.humidity !== undefined) {
+        humidityValue.textContent = formatHumidity(newData.humidity);
+      }
       // Update consumption
       const consValue = container.querySelector('.myio-ambiente-card__metric-value.consumption');
       if (consValue && newData.consumption !== undefined) {
@@ -619,6 +694,8 @@ export function renderCardAmbienteV6({
           statusDotEl.className = `myio-ambiente-card__status-dot ${newData.status}`;
         }
         card.classList.toggle('offline', newData.status === 'offline');
+        // RFC-0168: Handle warning status
+        card.classList.toggle('setup-warning', newData.status === 'warning' || newData.hasSetupWarning);
       }
     },
     destroy: () => {
