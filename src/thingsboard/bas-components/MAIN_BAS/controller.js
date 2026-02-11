@@ -909,7 +909,45 @@ function parseDevicesFromData(data) {
     }
 
     // Detect domain and context (using library functions per RFC-0111)
-    var domain = window.MyIOLibrary.getDomainFromDeviceType(deviceType);
+    // RFC-0171: Validate devices using deviceProfile (primary) and deviceType (fallback)
+    // Use deviceProfile for domain detection as it's more reliable
+    var effectiveType = deviceProfile || deviceType;
+    var domain = window.MyIOLibrary.getDomainFromDeviceType(effectiveType);
+
+    // RFC-0171: If domain is 'energy' (default), validate it's actually an energy device
+    // Energy devices must pass isEnergyDevice check on deviceProfile (3F_MEDIDOR, MEDIDOR, etc.)
+    // or be a valid motor/pump (BOMBA, MOTOR)
+    if (domain === 'energy') {
+      var profileUpper = deviceProfile.toUpperCase();
+      var typeUpper = deviceType.toUpperCase();
+
+      var isValidEnergy = window.MyIOLibrary.isEnergyDevice
+        ? window.MyIOLibrary.isEnergyDevice(deviceProfile) || window.MyIOLibrary.isEnergyDevice(deviceType)
+        : false;
+      var isMotorPump =
+        profileUpper.includes('BOMBA') ||
+        profileUpper.includes('MOTOR') ||
+        typeUpper.includes('BOMBA') ||
+        typeUpper.includes('MOTOR');
+      var isEntrada =
+        profileUpper.includes('ENTRADA') ||
+        profileUpper.includes('RELOGIO') ||
+        profileUpper.includes('TRAFO') ||
+        profileUpper.includes('SUBESTACAO');
+
+      if (!isValidEnergy && !isMotorPump && !isEntrada) {
+        LogHelper.log(
+          '[MAIN_BAS] Skipping invalid energy device (deviceProfile not energy):',
+          deviceLabel,
+          'deviceProfile:',
+          deviceProfile,
+          'deviceType:',
+          deviceType
+        );
+        return; // Skip this device - not a valid energy device
+      }
+    }
+
     var context = window.MyIOLibrary.detectContext(
       { deviceType: deviceType, deviceProfile: deviceProfile, identifier: identifier },
       domain
@@ -951,7 +989,7 @@ function parseDevicesFromData(data) {
       device.consumption = parseFloat(cd.consumption || 0) || null;
       device.status = isOnline ? 'active' : 'inactive';
     } else {
-      // Energy domain (includes motors/pumps)
+      // Energy domain (includes motors/pumps) - already validated above
       device.consumption = parseFloat(cd.consumption || cd.energy || cd.power || 0);
 
       // Motors/pumps are energy domain with context 'bomba' or 'motor'
@@ -1129,17 +1167,42 @@ function getAmbienteActionHandler(ambiente) {
 }
 
 /**
- * Build EntityListPanel items from ambiente devices
- * Each device in the "Ambientes" datasource becomes a list item
+ * Build EntityListPanel items from ambiente assets
+ * RFC-0168: Only include items with label pattern "(NNN)-" at the start
+ * Examples: "(001)-Deck", "(002)-Sala do Nobreak", "(010)-Auditório"
+ * This pattern identifies ASSET_AMBIENT items in the datasource
  */
 function buildAmbienteItems(ambientes) {
-  return ambientes.map(function (ambiente) {
+  // RFC-0168: Filter to include only items with label pattern "(NNN)-"
+  // Pattern matches: (001)-, (002)-, (010)-, (123)-, etc.
+  var ambienteLabelPattern = /^\(\d{3}\)-/;
+
+  var filteredAmbientes = ambientes.filter(function (ambiente) {
+    var label = ambiente.label || '';
+    var hasValidPattern = ambienteLabelPattern.test(label);
+
+    if (!hasValidPattern) {
+      LogHelper.log(
+        '[MAIN_BAS] buildAmbienteItems: filtered out (no (NNN)- pattern):',
+        ambiente.name || ambiente.id,
+        'label:',
+        label
+      );
+    }
+
+    return hasValidPattern;
+  });
+
+  LogHelper.log('[MAIN_BAS] buildAmbienteItems: filtered', filteredAmbientes.length, 'of', ambientes.length, 'ambientes');
+
+  return filteredAmbientes.map(function (ambiente) {
     // Use label (e.g., "(001)-Deck") for display, fallback to name (e.g., "Melicidade-Deck")
     var displayLabel = ambiente.label || ambiente.name || ambiente.id;
     return {
       id: ambiente.id,
       label: displayLabel,
       name: ambiente.name, // Keep the entity name for reference
+      type: ambiente.type, // Keep type for debugging
       icon: getAmbienteIcon(displayLabel),
       handleActionClick: getAmbienteActionHandler(ambiente),
     };
@@ -1643,14 +1706,42 @@ function energyDeviceToEntityObject(device) {
 /**
  * Build CardGridPanel items from energy equipment devices
  * Shows: entrada, stores, equipments
+ * RFC-0171: Filter to include only devices that pass isEnergyDevice check
  * @param {Object} classified - Classified device structure
  * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
  */
 function buildEnergyCardItems(classified, selectedAmbienteId) {
   var energyDevices = getEnergyEquipmentDevicesFromClassified(classified);
-  var filtered = energyDevices;
+
+  // RFC-0171: Filter to include only valid energy devices
+  // Use MyIOLibrary.isEnergyDevice to validate deviceType/deviceProfile
+  var validEnergyDevices = energyDevices.filter(function (device) {
+    var deviceType = device.deviceType || device.deviceProfile || '';
+    var isValid = MyIOLibrary.isEnergyDevice ? MyIOLibrary.isEnergyDevice(deviceType) : true;
+
+    if (!isValid) {
+      LogHelper.log(
+        '[MAIN_BAS] buildEnergyCardItems: filtered out non-energy device:',
+        device.name,
+        'deviceType:',
+        deviceType
+      );
+    }
+
+    return isValid;
+  });
+
+  LogHelper.log(
+    '[MAIN_BAS] buildEnergyCardItems: filtered',
+    validEnergyDevices.length,
+    'of',
+    energyDevices.length,
+    'devices'
+  );
+
+  var filtered = validEnergyDevices;
   if (selectedAmbienteId) {
-    filtered = energyDevices.filter(function (d) {
+    filtered = validEnergyDevices.filter(function (d) {
       return d.id === selectedAmbienteId;
     });
   }
@@ -2971,7 +3062,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     title: settings.sidebarLabel,
     icon: '📍',
     quantity: items.length,
-    subtitle: hierarchyAvailable ? 'Dispositivos' : 'Nome \u2191',
+    subtitle: null, // Removed subtitle line
     items: items,
     panelBackground: settings.sidebarBackground,
     backgroundImage: settings.sidebarBackgroundImage || undefined,

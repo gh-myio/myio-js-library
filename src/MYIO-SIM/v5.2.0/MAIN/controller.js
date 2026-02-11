@@ -149,6 +149,8 @@ Object.assign(window.MyIOUtils, {
   // RFC-XXXX: SuperAdmin flag - user with @myio.com.br email (except alarme/alarmes)
   // Populated by detectSuperAdmin() in onInit
   SuperAdmin: false,
+  // RFC-0171: Current user email - used for superadmin check in modals
+  currentUserEmail: null,
   /**
    * Handle 401 Unauthorized errors globally
    * Shows toast message and reloads the page
@@ -3548,11 +3550,13 @@ Object.assign(window.MyIOUtils, {
   }
 
   // RFC-XXXX: SuperAdmin detection
+  // RFC-0171: Also stores currentUserEmail for use in modals (openDashboardPopupSettings)
   // SuperAdmin = user with @myio.com.br email EXCEPT alarme@myio.com.br or alarmes@myio.com.br
   async function detectSuperAdmin() {
     const jwt = localStorage.getItem('jwt_token');
     if (!jwt) {
       window.MyIOUtils.SuperAdmin = false;
+      window.MyIOUtils.currentUserEmail = null;
       LogHelper.log('[MAIN_VIEW] SuperAdmin: false (no JWT token)');
       return;
     }
@@ -3570,6 +3574,7 @@ Object.assign(window.MyIOUtils, {
 
       if (!response.ok) {
         window.MyIOUtils.SuperAdmin = false;
+        window.MyIOUtils.currentUserEmail = null;
         LogHelper.warn('[MAIN_VIEW] SuperAdmin: false (API error:', response.status, ')');
         return;
       }
@@ -3577,15 +3582,30 @@ Object.assign(window.MyIOUtils, {
       const user = await response.json();
       const email = (user.email || '').toLowerCase().trim();
 
+      // RFC-0171: Store email for use in modals
+      window.MyIOUtils.currentUserEmail = email;
+
       // Check: email ends with @myio.com.br AND is NOT alarme@ or alarmes@
       const isSuperAdmin =
         email.endsWith('@myio.com.br') && !email.startsWith('alarme@') && !email.startsWith('alarmes@');
 
       window.MyIOUtils.SuperAdmin = isSuperAdmin;
       LogHelper.log(`[MAIN_VIEW] SuperAdmin detection: ${email} -> ${isSuperAdmin}`);
+
+      // RFC-0171: Dispatch event for other widgets (MENU, etc.)
+      window.dispatchEvent(
+        new CustomEvent('myio:user-info-ready', {
+          detail: {
+            email: email,
+            isSuperAdmin: isSuperAdmin,
+            ts: Date.now(),
+          },
+        })
+      );
     } catch (err) {
       LogHelper.error('[MAIN_VIEW] SuperAdmin detection failed:', err);
       window.MyIOUtils.SuperAdmin = false;
+      window.MyIOUtils.currentUserEmail = null;
     }
   }
 

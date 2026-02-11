@@ -48,6 +48,10 @@ export class SettingsController {
       onClose: this.handleClose.bind(this),
       mapInstantaneousPower: params.mapInstantaneousPower, // RFC-0077: Pass instantaneous power map for Power Limits feature,
       deviceMapInstaneousPower: params.deviceMapInstaneousPower,
+      // RFC-0171: Pass superadmin and userEmail for field editing permissions
+      // Fallback to window.MyIOUtils.currentUserEmail if not provided (set by MAIN controller)
+      superadmin: params.superadmin,
+      userEmail: params.userEmail || (window as any).MyIOUtils?.currentUserEmail || null,
     });
   }
 

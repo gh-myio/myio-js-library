@@ -18,6 +18,9 @@ export interface OpenDashboardPopupSettingsParams {
   // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
   superadmin?: boolean;
 
+  // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
+  userEmail?: string;
+
   // Connection information (from card v5 info panel)
   connectionData?: {
     centralName?: string;
@@ -155,6 +158,7 @@ export interface ModalConfig {
   };
   consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   superadmin?: boolean; // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
+  userEmail?: string; // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

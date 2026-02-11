@@ -3449,6 +3449,8 @@ body.filter-modal-open { overflow: hidden !important; }
             deviceProfile: device.deviceProfile,
             customerName: device.customerName,
             customerId: device.customerId, // RFC-0080: Required for GLOBAL mapInstantaneousPower fetch
+            // RFC-0171: Pass userEmail for superadmin check (allows editing identifier field)
+            userEmail: window.MyIOUtils?.currentUserEmail || null,
             connectionData: {
               centralName: device.centralName || device.customerName,
               connectionStatusTime: device.lastConnectTime,
