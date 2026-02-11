@@ -72,6 +72,7 @@ function getStatusLabel(status: string): string {
 
 /**
  * Get device type icon
+ * RFC-0172: LAMP has same behavior as REMOTE
  */
 function getDeviceIcon(deviceType: string): string {
   const dt = (deviceType || '').toUpperCase();
@@ -79,8 +80,23 @@ function getDeviceIcon(deviceType: string): string {
   if (dt.includes('3F_MEDIDOR') || dt.includes('MEDIDOR')) return '⚡';
   if (dt.includes('FANCOIL')) return '❄️';
   if (dt.includes('AR_CONDICIONADO')) return '🌀';
-  if (dt.includes('REMOTE') || dt.includes('CONTROLE')) return '🎮';
+  if (dt.includes('REMOTE') || dt.includes('CONTROLE') || dt.includes('LAMP')) return '💡';
   return '📱';
+}
+
+/**
+ * Get device profile for display, with deviceType as fallback
+ * RFC-0172: Always prefer deviceProfile, warn if using deviceType fallback
+ */
+function getDisplayDeviceProfile(device: { deviceProfile?: string; deviceType?: string }): string {
+  if (device.deviceProfile) {
+    return device.deviceProfile;
+  }
+  if (device.deviceType) {
+    console.warn('[AmbienteDetailModal] deviceProfile missing, using deviceType fallback:', device.deviceType);
+    return device.deviceType;
+  }
+  return 'Dispositivo';
 }
 
 /**
@@ -149,10 +165,10 @@ function renderModalHTML(
         ${hasClickHandler ? 'role="button" tabindex="0"' : ''}
       >
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-info">
-          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceType)}</span>
+          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceProfile || device.deviceType || '')}</span>
           <div>
             <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-name">${device.label || device.name}</div>
-            <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-type">${device.deviceType || 'Medidor'}</div>
+            <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-type">${getDisplayDeviceProfile(device)}</div>
           </div>
         </div>
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-value">
@@ -211,10 +227,10 @@ function renderModalHTML(
     const deviceItems = data.devices.map((device) => `
       <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-item">
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-info">
-          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceType)}</span>
+          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceProfile || device.deviceType || '')}</span>
           <div>
             <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-name">${device.label || device.name}</div>
-            <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-type">${device.deviceType || 'Dispositivo'}</div>
+            <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-type">${getDisplayDeviceProfile(device)}</div>
           </div>
         </div>
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-value status-${device.status}">

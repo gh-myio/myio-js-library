@@ -1466,8 +1466,9 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     temperature = aggregatedData.temperature.avg;
   }
 
-  // Helper function to check if a device is a REMOTE control device
+  // Helper function to check if a device is a REMOTE/LAMP control device
   // Check deviceType, deviceProfile, AND type attribute (from rawData or collectedData)
+  // RFC-0172: LAMP has same behavior as REMOTE
   function isRemoteDevice(d) {
     var dt = (d.deviceType || '').toUpperCase();
     var dp = (d.deviceProfile || '').toUpperCase();
@@ -1475,9 +1476,12 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     return (
       dt.includes('REMOTE') ||
       dt.includes('CONTROLE') ||
+      dt.includes('LAMP') ||
       dp.includes('REMOTE') ||
       dp.includes('CONTROLE') ||
+      dp.includes('LAMP') ||
       typeAttr === 'REMOTE' ||
+      typeAttr === 'LAMP' ||
       typeAttr.includes('CONTROLE')
     );
   }

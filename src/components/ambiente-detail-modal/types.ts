@@ -21,12 +21,14 @@ export interface AmbienteEnergyDevice {
 
 /**
  * Remote control device data within an ambiente
+ * RFC-0172: LAMP has same behavior as REMOTE
  */
 export interface AmbienteRemoteDevice {
   id: string;
   name: string;
   label: string;
   deviceType: string;
+  deviceProfile?: string;
   isOn: boolean;
   status: string;
 }
