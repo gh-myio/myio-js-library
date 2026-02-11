@@ -22,7 +22,6 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       flex-direction: row;
       width: 100%;
-      height: 100%;
       font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
       box-sizing: border-box;
       overflow: hidden;
@@ -232,7 +231,6 @@ export function injectOnOffDeviceModalStyles(): void {
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__svg {
       width: 100%;
       height: auto;
-      max-height: 200px;
       overflow: visible;
     }
 
