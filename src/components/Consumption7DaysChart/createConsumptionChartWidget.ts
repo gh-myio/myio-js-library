@@ -55,6 +55,8 @@ export interface ConsumptionWidgetConfig extends Omit<Consumption7DaysConfig, 'c
   showChartTypeTabs?: boolean;
   /** Chart height in pixels or CSS value (default: 300) */
   chartHeight?: number | string;
+  /** Enable full height mode - widget expands to fill parent container (default: false, auto-enabled when chartHeight is '100%') */
+  fullHeight?: boolean;
   /** Callback when settings button is clicked */
   onSettingsClick?: () => void;
   /** Callback when maximize button is clicked */
@@ -172,6 +174,34 @@ function getWidgetStyles(
       border-radius: 16px;
       overflow: hidden;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Full height mode - when parent has defined height */
+    .myio-chart-widget.full-height {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-header {
+      flex-shrink: 0;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-canvas-container {
+      flex: 1;
+      min-height: 0;
+      height: auto !important;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-footer {
+      flex-shrink: 0;
     }
 
     .myio-chart-widget.dark {
@@ -705,6 +735,8 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
   const showChartTypeTabs = config.showChartTypeTabs ?? true;
   const chartHeight =
     typeof config.chartHeight === 'number' ? `${config.chartHeight}px` : config.chartHeight ?? '300px';
+  // Auto-enable fullHeight when chartHeight is '100%'
+  const isFullHeight = config.fullHeight ?? chartHeight === '100%';
 
   /**
    * Generate the widget title
@@ -728,7 +760,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
     const barChartIcon = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="0.5"/><rect x="6" y="5" width="3" height="10" rx="0.5"/><rect x="11" y="7" width="3" height="8" rx="0.5"/></svg>`;
 
     return `
-      <div id="${widgetId}" class="myio-chart-widget ${currentTheme === 'dark' ? 'dark' : ''} ${
+      <div id="${widgetId}" class="myio-chart-widget ${currentTheme === 'dark' ? 'dark' : ''} ${isFullHeight ? 'full-height' : ''} ${
       config.className || ''
     }">
         <div class="myio-chart-widget-header">

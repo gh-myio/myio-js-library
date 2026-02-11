@@ -1925,6 +1925,8 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
       background: ${(_settings && _settings.chartPanelBackground) || '#ffffff'};
       border-radius: 0 0 12px 12px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     `;
     panelContainer.appendChild(chartArea);
 
@@ -2023,7 +2025,7 @@ function switchChartDomainInContainer(domain, container) {
   var widgetContainer = document.createElement('div');
   var containerId = 'bas-chart-widget-maximized-' + domain + '-' + Date.now(); // Unique ID
   widgetContainer.id = containerId;
-  widgetContainer.style.cssText = 'width: 100%; height: 100%;';
+  widgetContainer.style.cssText = 'width: 100%; height: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column;';
   container.appendChild(widgetContainer);
 
   var cfg = CHART_DOMAIN_CONFIG[domain];
@@ -2050,6 +2052,7 @@ function switchChartDomainInContainer(domain, container) {
         thresholdForLargeUnit: cfg.threshold,
         decimalPlaces: domain === 'temperature' ? 1 : 2,
         chartHeight: '100%',
+        fullHeight: true, // Enable full height mode for maximized view
         defaultPeriod: 7,
         defaultChartType: domain === 'temperature' ? 'line' : 'bar',
         defaultVizMode: 'total',
