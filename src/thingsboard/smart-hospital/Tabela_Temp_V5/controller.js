@@ -32,6 +32,11 @@ let startDate = null,
 let deviceList = [],
   deviceNameLabelMap = {};
 
+// Device filter state
+let showDeviceFilter = false;
+let deviceFilterText = '';
+let devicesSelectionList = []; // [{ name, label, selected }]
+
 // timers overlay
 let _timerHandle = null,
   _loadingStart = null;
@@ -120,9 +125,9 @@ function setCache(centrals, s, e, data) {
  * Configurações de interpolação limitada
  */
 const INTERPOLATION_CONFIG = {
-  maxGapSlots: 8,           // 8 slots × 30min = 4 horas máximo (per user request)
+  maxGapSlots: 8, // 8 slots × 30min = 4 horas máximo (per user request)
   allowCrossMidnight: false, // Não interpolar gaps que cruzam meia-noite
-  includeMissingInOutput: false // Se false, não adiciona registros missing ao output
+  includeMissingInOutput: false, // Se false, não adiciona registros missing ao output
 };
 
 /**
@@ -168,7 +173,7 @@ function identifyGaps(fullSlots, existingBySlot) {
  * @returns {Object|null} - Gap info ou null se não encontrado
  */
 function findGapForSlot(gaps, slotIndex) {
-  return gaps.find(gap => slotIndex >= gap.startIndex && slotIndex <= gap.endIndex) || null;
+  return gaps.find((gap) => slotIndex >= gap.startIndex && slotIndex <= gap.endIndex) || null;
 }
 
 /**
@@ -253,11 +258,16 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
 
   const HALF_HOUR_MS = 30 * 60 * 1000;
 
-  // Agrupar dados reais por dia (YYYY-MM-DD)
+  // Agrupar dados reais por dia LOCAL (Brasil, não UTC)
+  // Usando getFullYear/getMonth/getDate que retornam valores no timezone local
   const dataByDay = new Map();
   for (const item of sorted) {
     const dt = new Date(item.time_interval);
-    const dayKey = dt.toISOString().split('T')[0]; // "2026-01-14"
+    // Usa métodos locais para extrair o dia no timezone do Brasil
+    const year = dt.getFullYear();
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    const dayKey = `${year}-${month}-${day}`; // dia LOCAL, não UTC
     if (!dataByDay.has(dayKey)) {
       dataByDay.set(dayKey, []);
     }
@@ -265,7 +275,9 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
   }
 
   const daysWithData = Array.from(dataByDay.keys()).sort();
-  console.log(`[Interpolation] Device: ${deviceName} - Days with real data: ${daysWithData.length} (${daysWithData[0]} to ${daysWithData[daysWithData.length - 1]})`);
+  console.log(
+    `[Interpolation] Device: ${deviceName} - Days with real data: ${daysWithData.length} (${daysWithData[0]} to ${daysWithData[daysWithData.length - 1]})`
+  );
 
   // Processar APENAS os dias que têm dados reais
   const allResults = [];
@@ -273,9 +285,13 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
   for (const dayKey of daysWithData) {
     const dayData = dataByDay.get(dayKey);
 
-    // Normaliza para slots de 30 min (00:00 até o limite do dia)
-    const start = new Date(dayKey + 'T00:00:00.000Z');
-    let end = new Date(dayKey + 'T23:30:00.000Z');
+    // Normaliza para slots de 30 min no horário Brasil (UTC-3)
+    // Dia local começa às 03:00 UTC e termina às 02:30 UTC do dia seguinte
+    // Mas para simplificar, vamos criar slots de 00:00 local até 23:30 local
+    // usando Date que já trabalha no timezone local
+    const [year, month, day] = dayKey.split('-').map(Number);
+    const start = new Date(year, month - 1, day, 0, 0, 0, 0); // 00:00 local
+    let end = new Date(year, month - 1, day, 23, 30, 0, 0); // 23:30 local
     // Não gerar slots além do endISO (evita dados futuros interpolados)
     const endCap = new Date(endISO);
     if (end > endCap) {
@@ -283,7 +299,16 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
       end = new Date(snapped);
     }
 
-    const dayResult = interpolateDay(dayData, deviceName, start, end, HALF_HOUR_MS, maxGapSlots, allowCrossMidnight, includeMissingInOutput);
+    const dayResult = interpolateDay(
+      dayData,
+      deviceName,
+      start,
+      end,
+      HALF_HOUR_MS,
+      maxGapSlots,
+      allowCrossMidnight,
+      includeMissingInOutput
+    );
     allResults.push(...dayResult);
   }
 
@@ -293,8 +318,16 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
 /**
  * Interpola um único dia
  */
-function interpolateDay(sorted, deviceName, start, end, HALF_HOUR_MS, maxGapSlots, allowCrossMidnight, includeMissingInOutput) {
-
+function interpolateDay(
+  sorted,
+  deviceName,
+  start,
+  end,
+  HALF_HOUR_MS,
+  maxGapSlots,
+  allowCrossMidnight,
+  includeMissingInOutput
+) {
   // "Snap" de qualquer timestamp para o slot de 30min **mais próximo** (tolerante a segundos/offsets).
   // Trabalha em tempo absoluto (epoch), então independe de UTC/local para arredondamento.
   function canonicalISO30(dt) {
@@ -324,10 +357,14 @@ function interpolateDay(sorted, deviceName, start, end, HALF_HOUR_MS, maxGapSlot
 
   // Log para debug
   if (gaps.length > 0) {
-    console.log(`[Interpolation] Device: ${deviceName}, Gaps found: ${gaps.length}, Config: max ${maxGapSlots} slots, crossMidnight: ${allowCrossMidnight}`);
+    console.log(
+      `[Interpolation] Device: ${deviceName}, Gaps found: ${gaps.length}, Config: max ${maxGapSlots} slots, crossMidnight: ${allowCrossMidnight}`
+    );
     gaps.forEach((g, idx) => {
       const canInterp = canInterpolate(g, maxGapSlots, allowCrossMidnight);
-      console.log(`  Gap ${idx + 1}: ${g.size} slots (${g.startSlot} → ${g.endSlot}) - ${canInterp ? 'WILL INTERPOLATE' : 'SKIP: ' + getSkipReason(g, maxGapSlots, allowCrossMidnight)}`);
+      console.log(
+        `  Gap ${idx + 1}: ${g.size} slots (${g.startSlot} → ${g.endSlot}) - ${canInterp ? 'WILL INTERPOLATE' : 'SKIP: ' + getSkipReason(g, maxGapSlots, allowCrossMidnight)}`
+      );
     });
   }
 
@@ -377,7 +414,9 @@ function interpolateDay(sorted, deviceName, start, end, HALF_HOUR_MS, maxGapSlot
   // Log summary
   if (interpolatedCount > 0 || missingCount > 0) {
     const missingAction = includeMissingInOutput ? 'included' : 'skipped';
-    console.log(`[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount} (${missingAction}), Real: ${existingBySlot.size}`);
+    console.log(
+      `[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount} (${missingAction}), Real: ${existingBySlot.size}`
+    );
   }
 
   return result;
@@ -438,20 +477,106 @@ function clampTemperature(val) {
 }
 
 // -------- Util --------
+// Formata data/hora usando valores UTC (não converte para timezone local)
 function brDatetime(iso) {
   const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yy = d.getUTCFullYear();
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
   return `${dd}/${mm}/${yy} ${hh}:${mi}`;
 }
 
+// -------- Toast Notification --------
+function showToast(message, type = 'error', duration = 8000) {
+  console.log('[TOAST] Mostrando toast:', type, message);
+
+  // Remove toast existente se houver (em qualquer lugar do DOM)
+  const existingToasts = document.querySelectorAll('.myio-toast');
+  existingToasts.forEach((t) => t.remove());
+
+  const toast = document.createElement('div');
+  toast.className = `myio-toast myio-toast-${type}`;
+  // Inline styles para garantir visibilidade em qualquer contexto
+  toast.style.cssText = `
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 640px;
+    max-width: 960px;
+    padding: 16px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  const iconBg = type === 'error' ? '#fee2e2' : type === 'warning' ? '#fef3c7' : '#d1fae5';
+  const iconColor = type === 'error' ? '#dc2626' : type === 'warning' ? '#d97706' : '#059669';
+  const iconClass =
+    type === 'error'
+      ? 'fa-circle-exclamation'
+      : type === 'warning'
+        ? 'fa-triangle-exclamation'
+        : 'fa-circle-check';
+  const title = type === 'error' ? 'Erro de Conexão' : type === 'warning' ? 'Aviso' : 'Sucesso';
+
+  toast.innerHTML = `
+    <div style="flex-shrink: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: ${iconBg}; color: ${iconColor}; font-size: 18px;">
+      <i class="fa-solid ${iconClass}"></i>
+    </div>
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-weight: 600; font-size: 14px; color: #111827; margin-bottom: 4px;">${title}</div>
+      <div style="font-size: 13px; color: #6b7280; line-height: 1.4;">${message}</div>
+    </div>
+    <button style="flex-shrink: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #9ca3af; cursor: pointer; border-radius: 6px;" onclick="this.parentElement.remove()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  `;
+
+  // Tenta adicionar ao body principal da página (não do widget)
+  const targetBody = window.top?.document?.body || document.body;
+  targetBody.appendChild(toast);
+  console.log('[TOAST] Toast adicionado ao DOM');
+
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.style.transform = 'translateX(0)';
+    toast.style.opacity = '1';
+  });
+
+  // Auto remove after duration
+  setTimeout(() => {
+    toast.style.transform = 'translateX(120%)';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 // -------- RPC --------
+const RPC_TIMEOUT_MS = 45000; // 45 segundos
+
 async function sendRPCTemp(centralIds, body) {
   const $http = getHttp();
   const results = {};
+  const errors = []; // Track failed centrals
+
+  // Helper: timeout promise
+  function timeoutPromise(ms, centralId) {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Timeout: Central ${centralId} não respondeu em ${ms / 1000}s`));
+      }, ms);
+    });
+  }
 
   // Helper: resolve tanto Observable (HttpClient) quanto $http Promise-like
   async function resolveRequest(req) {
@@ -481,7 +606,8 @@ async function sendRPCTemp(centralIds, body) {
   for (const centralId of centralIds) {
     try {
       const req = $http.post(`https://${centralId}.y.myio.com.br/api/rpc/temperature_report`, body);
-      const resp = await resolveRequest(req);
+      // Race entre a requisição e o timeout
+      const resp = await Promise.race([resolveRequest(req), timeoutPromise(RPC_TIMEOUT_MS, centralId)]);
 
       // Normalizar payload: pode ser {data: [...]}, ou já vir como [...]
       let payload;
@@ -501,9 +627,22 @@ async function sendRPCTemp(centralIds, body) {
     } catch (err) {
       console.error('[RPC ERRO]', centralId, err);
       results[centralId] = [];
+
+      // Captura detalhes do erro para o toast
+      const isTimeout = err?.message?.includes('Timeout');
+      const status = isTimeout ? 'timeout' : err?.status || err?.statusCode || 'unknown';
+      const statusText = isTimeout
+        ? `Timeout (${RPC_TIMEOUT_MS / 1000}s)`
+        : err?.statusText || err?.message || 'Erro desconhecido';
+      errors.push({
+        centralId,
+        status,
+        statusText,
+        url: `https://${centralId}.y.myio.com.br/api/rpc/temperature_report`,
+      });
     }
   }
-  return results;
+  return { results, errors };
 }
 
 // -------- Exportações (mantive seu PDF/CSV, só higienizei) --------
@@ -593,17 +732,19 @@ function exportToPDF(data) {
   doc.save('registro_temperatura.pdf');
 }
 
-// -------- Helper para dividir datas em chunks de 5 dias --------
+// -------- Helper para dividir datas em chunks de N dias (trabalha com timezone Brasil) --------
 function createDateChunks(startDate, endDate, chunkSizeDays = 5) {
   const chunks = [];
+  // Mantém o startDate como veio (já está em 03:00 UTC = 00:00 Brasil)
   const current = new Date(startDate);
-  current.setHours(0, 0, 0, 0);
 
   while (current <= endDate) {
     const chunkStart = new Date(current);
+
+    // Chunk end: avança N dias e vai até 02:59:59 UTC do dia seguinte (23:59:59 Brasil)
     const chunkEnd = new Date(current);
-    chunkEnd.setDate(chunkEnd.getDate() + chunkSizeDays - 1);
-    chunkEnd.setHours(23, 59, 59, 999);
+    chunkEnd.setUTCDate(chunkEnd.getUTCDate() + chunkSizeDays);
+    chunkEnd.setUTCHours(2, 59, 59, 999); // 02:59 UTC = 23:59 Brasil
 
     // Não ultrapassar a data final
     if (chunkEnd > endDate) {
@@ -615,7 +756,18 @@ function createDateChunks(startDate, endDate, chunkSizeDays = 5) {
       end: new Date(chunkEnd),
     });
 
-    current.setDate(current.getDate() + chunkSizeDays);
+    // Avança para o próximo chunk (próximo dia Brasil = +24h)
+    current.setUTCDate(current.getUTCDate() + chunkSizeDays);
+  }
+
+  console.log('[UTC-FIX-V5] createDateChunks gerou', chunks.length, 'chunk(s)');
+  if (chunks.length > 0) {
+    console.log(
+      '[UTC-FIX-V5] Primeiro chunk: start=',
+      chunks[0].start.toISOString(),
+      'end=',
+      chunks[0].end.toISOString()
+    );
   }
 
   return chunks;
@@ -634,17 +786,85 @@ async function getData() {
     console.warn('[getData] Nenhum centralId disponível em $scope.centralIdList.');
   }
 
-  // Normaliza janela em UTC para key de cache e RPC
-  const s = new Date(startDate);
-  s.setUTCHours(0, 0, 0, 0);
-  const e = new Date(endDate);
-  e.setUTCHours(23, 59, 59, 999);
-  // Se o fim do dia cai no futuro, limitar ao momento atual
-  // para não gerar slots interpolados de horários que ainda não ocorreram
-  const now = new Date();
-  if (e > now) {
-    e.setTime(now.getTime());
+  // Use selected devices from filter (or all if none selected)
+  const selectedDevices = getSelectedDevices();
+  if (selectedDevices.length === 0) {
+    alert('Por favor, selecione ao menos um ambiente para gerar o relatório.');
+    return;
   }
+  console.log('[getData] Devices selecionados:', selectedDevices.length, '/', deviceList.length);
+
+  // =====================================================
+  // NORMALIZAÇÃO UTC - v2 (2026-02-11)
+  // O usuário seleciona uma DATA LOCAL no calendário (ex: 11/02/2026).
+  // Queremos enviar essa mesma data como UTC meia-noite: 2026-02-11T00:00:00.000Z
+  // NÃO queremos conversão de timezone (ex: 2026-02-10T03:00:00.000Z está ERRADO)
+  // =====================================================
+
+  // Debug: log valores originais do date picker
+  console.log('[UTC-FIX-V5] startDate objeto:', startDate);
+  console.log('[UTC-FIX-V5] startDate.toISOString():', startDate?.toISOString?.());
+  console.log(
+    '[UTC-FIX-V5] startDate.getDate():',
+    startDate?.getDate?.(),
+    'getMonth():',
+    startDate?.getMonth?.(),
+    'getFullYear():',
+    startDate?.getFullYear?.()
+  );
+  console.log('[UTC-FIX-V5] endDate objeto:', endDate);
+  console.log('[UTC-FIX-V5] endDate.toISOString():', endDate?.toISOString?.());
+  console.log(
+    '[UTC-FIX-V5] endDate.getDate():',
+    endDate?.getDate?.(),
+    'getMonth():',
+    endDate?.getMonth?.(),
+    'getFullYear():',
+    endDate?.getFullYear?.()
+  );
+
+  // Extrai componentes LOCAL (ano/mês/dia) e converte para UTC real do Brasil
+  // Brasil = UTC-3, então 00:00 local = 03:00 UTC
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth();
+  const startDay = startDate.getDate();
+
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth();
+  const endDay = endDate.getDate();
+
+  // Para pegar dados do "dia D" no Brasil:
+  // - Início: 00:00 local do dia D = 03:00 UTC do dia D (adiciona 3h)
+  // - Fim: 23:59:59 local do dia D = 02:59:59 UTC do dia D+1 (dia seguinte às 02:59 UTC)
+  const s = new Date(Date.UTC(startYear, startMonth, startDay, 3, 0, 0, 0)); // 03:00 UTC = 00:00 Brasil
+  let e = new Date(Date.UTC(endYear, endMonth, endDay + 1, 2, 59, 59, 999)); // 02:59 UTC dia seguinte = 23:59 Brasil
+
+  console.log('[UTC-FIX-V5] Dia selecionado:', startDay, '/', startMonth + 1, '/', startYear);
+  console.log('[UTC-FIX-V5] START (00:00 Brasil):', s.toISOString());
+  console.log('[UTC-FIX-V5] END (23:59 Brasil):', e.toISOString());
+
+  // Limita endDate ao horário atual em UTC real
+  // Se são 14:12 local Brasil, em UTC são 17:12
+  const now = new Date();
+  const nowUTC = new Date(now.getTime()); // já está em UTC internamente
+  console.log(
+    '[UTC-FIX-V5] Horário local:',
+    now.getHours() + ':' + now.getMinutes(),
+    '-> UTC real:',
+    nowUTC.toISOString()
+  );
+
+  if (e > nowUTC) {
+    e = new Date(nowUTC);
+    // Arredonda para o slot de 30min anterior mais próximo
+    const mins = e.getUTCMinutes();
+    e.setUTCMinutes(mins < 30 ? 0 : 30, 0, 0);
+    console.log('[UTC-FIX-V5] END limitado ao horário atual UTC:', e.toISOString());
+  }
+
+  console.log('[UTC-FIX-V5] === PAYLOAD FINAL ===');
+  console.log('[UTC-FIX-V5] dateStart:', s.toISOString());
+  console.log('[UTC-FIX-V5] dateEnd:', e.toISOString());
   const keyStart = s.toISOString();
   const keyEnd = e.toISOString();
   const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}`;
@@ -690,6 +910,7 @@ async function getData() {
     let allProcessed = [];
     const globalMissingMap = {};
     const devicesSeen = {}; // continuidade após 1ª aparição
+    const allRpcErrors = []; // Acumula erros de conexão com centrais
 
     for (let chunkIndex = 0; chunkIndex < dateChunks.length; chunkIndex++) {
       const chunk = dateChunks[chunkIndex];
@@ -701,19 +922,56 @@ async function getData() {
       setPremiumLoading(true, chunkStatus, progress);
 
       const body = {
-        devices: deviceList, // pode estar vazio; servidor decide o comportamento
+        devices: selectedDevices, // usa devices selecionados no filtro
         dateStart: chunk.start.toISOString(),
         dateEnd: chunk.end.toISOString(),
       };
 
-      const rpcResponses = await sendRPCTemp(centrals, body);
+      // Log claro do payload que será enviado
+      console.log('[UTC-FIX-V5] === PAYLOAD ENVIADO ===');
+      console.log('[UTC-FIX-V5] dateStart:', body.dateStart);
+      console.log('[UTC-FIX-V5] dateEnd:', body.dateEnd);
+      console.log('[UTC-FIX-V5] devices:', body.devices.length, 'selecionados');
+
+      const { results: rpcResponses, errors: rpcErrors } = await sendRPCTemp(centrals, body);
+
+      // Acumular erros de conexão para mostrar toast depois
+      if (rpcErrors && rpcErrors.length > 0) {
+        allRpcErrors.push(...rpcErrors);
+      }
 
       for (const [centralId, readings] of Object.entries(rpcResponses || {})) {
         const arrReadings = Array.isArray(readings) ? readings : [];
         console.log(`[CHUNK ${chunkNumber}/${totalChunks}]`, centralId, 'leituras:', arrReadings.length);
 
+        // ===== NORMALIZAÇÃO DE TIMEZONE: -6h no time_interval =====
+        // O endpoint retorna time_interval com offset adicional, normalizamos subtraindo 6 horas
+        const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+        const normalizedReadings = (Array.isArray(readings) ? readings : []).map((r) => {
+          if (r.time_interval) {
+            const originalTime = new Date(r.time_interval);
+            const normalizedTime = new Date(originalTime.getTime() - SIX_HOURS_MS);
+            return { ...r, time_interval: normalizedTime.toISOString() };
+          }
+          return r;
+        });
+
+        if (normalizedReadings.length > 0) {
+          console.log(
+            '[NORMALIZE] Primeiro registro:',
+            normalizedReadings[0].time_interval,
+            '(original:',
+            readings[0]?.time_interval,
+            ')'
+          );
+          console.log(
+            '[NORMALIZE] Último registro:',
+            normalizedReadings[normalizedReadings.length - 1].time_interval
+          );
+        }
+
         const byDevice = _.groupBy(
-          readings,
+          normalizedReadings,
           (r) =>
             r.device_label || r.deviceLabel || r.label || r.deviceName || r.device || r.name || 'desconhecido'
         );
@@ -739,11 +997,19 @@ async function getData() {
           // - se nunca apareceu e não há leitura neste chunk -> pula
           if (!devicesSeen[devName] && arr.length === 0) continue;
 
+          // Limita a interpolação pelo último dado REAL do device (não pelo chunk.end)
+          // Isso evita criar slots interpolados para horários sem dados reais
+          const firstRealData = arr.length > 0 ? arr[0].time_interval : null;
+          const lastRealData = arr.length > 0 ? arr[arr.length - 1].time_interval : null;
+
+          // Se não há dados reais, pula a interpolação
+          if (!firstRealData || !lastRealData) continue;
+
           const interpolated = interpolateSeries(
             arr,
-            devName, // << passar o deviceName como 2º parâmetro
-            chunk.start.toISOString(),
-            chunk.end.toISOString()
+            devName,
+            firstRealData,  // Começa do primeiro dado real
+            lastRealData    // Termina no último dado real
           );
 
           // Mapear lacunas (slots interpolados)
@@ -790,7 +1056,10 @@ async function getData() {
 
       if (missingLabels.length > 0) {
         // Apenas log - NÃO geramos dados fictícios para labels sem telemetria real
-        console.warn('[BACKFILL DISABLED] Labels sem dados reais (NÃO incluídos no relatório):', missingLabels);
+        console.warn(
+          '[BACKFILL DISABLED] Labels sem dados reais (NÃO incluídos no relatório):',
+          missingLabels
+        );
       } else {
         console.log('[LABELS] Todos os labels esperados têm dados reais no relatório ✓');
       }
@@ -809,6 +1078,24 @@ async function getData() {
     }
 
     setPremiumLoading(true, LOADING_STATES.INTERPOLATING, 90);
+
+    // Mostrar toast se houve erros de conexão com centrais
+    if (allRpcErrors.length > 0) {
+      const uniqueErrors = [...new Map(allRpcErrors.map((e) => [e.centralId, e])).values()];
+      const errorMessages = uniqueErrors.map((e) => {
+        let statusInfo;
+        if (e.status === 'timeout') statusInfo = `Timeout ${RPC_TIMEOUT_MS / 1000}s`;
+        else if (e.status === 502) statusInfo = '502 Bad Gateway';
+        else if (e.status === 0) statusInfo = 'CORS/Rede';
+        else statusInfo = `Status ${e.status}`;
+        return `<strong>${e.centralId.substring(0, 8)}...</strong> (${statusInfo})`;
+      });
+      const toastMessage =
+        uniqueErrors.length === 1
+          ? `Central inacessível:<br>${errorMessages[0]}`
+          : `${uniqueErrors.length} centrais inacessíveis:<br>${errorMessages.join('<br>')}`;
+      showToast(toastMessage, 'warning', 30000);
+    }
 
     // UI: finalizar
     setTimeout(() => {
@@ -876,12 +1163,98 @@ function handleEndDateChange(event) {
   endDate = event?.value || null;
 }
 
-function applyDateRange() {
-  if (startDate && endDate) {
-    getData();
-  } else {
-    alert('Por favor, selecione ambas as datas (início e fim).');
+// -------- Device Filter Functions --------
+function initDeviceSelectionList() {
+  devicesSelectionList = deviceList.map((name) => ({
+    name: name,
+    label: deviceNameLabelMap[name.split(' ')[0]] || name,
+    selected: true, // default: all selected
+  }));
+  updateDeviceFilterScope();
+}
+
+function updateDeviceFilterScope() {
+  const s = self.ctx.$scope;
+  s.devicesSelectionList = devicesSelectionList;
+  s.filteredDevicesList = getFilteredDevicesList();
+  s.selectedDevicesCount = devicesSelectionList.filter((d) => d.selected).length;
+  s.allDevicesCount = devicesSelectionList.length;
+  s.showDeviceFilter = showDeviceFilter;
+  s.deviceFilterText = deviceFilterText;
+}
+
+function getFilteredDevicesList() {
+  if (!deviceFilterText || deviceFilterText.trim() === '') {
+    return devicesSelectionList;
   }
+  const searchTerm = deviceFilterText.toLowerCase().trim();
+  return devicesSelectionList.filter(
+    (d) => d.name.toLowerCase().includes(searchTerm) || d.label.toLowerCase().includes(searchTerm)
+  );
+}
+
+function toggleDeviceFilter() {
+  showDeviceFilter = !showDeviceFilter;
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function onDeviceFilterTextChange(value) {
+  deviceFilterText = value || '';
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function toggleDeviceSelection(device) {
+  const found = devicesSelectionList.find((d) => d.name === device.name);
+  if (found) {
+    found.selected = !found.selected;
+  }
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function selectAllDevices() {
+  const filtered = getFilteredDevicesList();
+  filtered.forEach((d) => {
+    const found = devicesSelectionList.find((x) => x.name === d.name);
+    if (found) found.selected = true;
+  });
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function deselectAllDevices() {
+  const filtered = getFilteredDevicesList();
+  filtered.forEach((d) => {
+    const found = devicesSelectionList.find((x) => x.name === d.name);
+    if (found) found.selected = false;
+  });
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function applyDeviceFilter() {
+  showDeviceFilter = false;
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function getSelectedDevices() {
+  return devicesSelectionList.filter((d) => d.selected).map((d) => d.name);
+}
+
+function applyDateRange() {
+  if (!startDate || !endDate) {
+    alert('Por favor, selecione ambas as datas (início e fim).');
+    return;
+  }
+  const selectedDevices = getSelectedDevices();
+  if (selectedDevices.length === 0) {
+    alert('Por favor, selecione ao menos um ambiente para gerar o relatório.');
+    return;
+  }
+  getData();
 }
 
 // -------- Modal de bloqueio --------
@@ -910,6 +1283,11 @@ function insertCurrentDate() {
 self.onInit = function () {
   insertCurrentDate();
 
+  // ======= VERSÃO DO WIDGET - VERIFICAR NO CONSOLE =======
+  console.log('=============================================');
+  console.log('TabelaTemp5 v2.5.0 - UTC-FIX-V6 (2026-02-11)');
+  console.log('Fix: Normalização -6h no time_interval do endpoint');
+  console.log('=============================================');
   console.log('TabelaTemp5 widget init >>> self.ctx', self.ctx);
 
   // Map de label por NOME COMPLETO (sem split) para evitar colisões/sobrescritas
@@ -970,6 +1348,17 @@ self.onInit = function () {
   self.ctx.$scope.handleEndDateChange = handleEndDateChange;
   self.ctx.$scope.applyDateRange = applyDateRange;
 
+  // Device filter bindings
+  self.ctx.$scope.toggleDeviceFilter = toggleDeviceFilter;
+  self.ctx.$scope.onDeviceFilterTextChange = onDeviceFilterTextChange;
+  self.ctx.$scope.toggleDeviceSelection = toggleDeviceSelection;
+  self.ctx.$scope.selectAllDevices = selectAllDevices;
+  self.ctx.$scope.deselectAllDevices = deselectAllDevices;
+  self.ctx.$scope.applyDeviceFilter = applyDeviceFilter;
+
+  // Initialize device selection list after deviceList is populated
+  initDeviceSelectionList();
+
   // View default: card view recolhido
   self.ctx.$scope.isCardView = true;
   self.ctx.$scope.groupedData = {};
@@ -994,7 +1383,8 @@ self.onInit = function () {
   };
   self.ctx.$scope.getLatestTemperature = (arr) => (arr?.length ? arr[arr.length - 1].temperature : '-');
   self.ctx.$scope.getDeviceReadingCount = (arr) => arr?.length || 0;
-  self.ctx.$scope.getInterpolatedCount = (arr) => (arr || []).filter((r) => r.interpolated && !r.missing).length;
+  self.ctx.$scope.getInterpolatedCount = (arr) =>
+    (arr || []).filter((r) => r.interpolated && !r.missing).length;
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
   self.ctx.$scope.getRealCount = (arr) => (arr || []).filter((r) => !r.interpolated && !r.missing).length;
 
