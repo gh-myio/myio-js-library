@@ -68,16 +68,41 @@ function getDeviceIcon(deviceType: string): string {
 }
 
 /**
+ * Sanitize string value - returns null if undefined, 'undefined', null, or empty
+ */
+function sanitizeString(value: string | undefined | null): string | null {
+  if (!value || value === 'undefined' || value === 'null') return null;
+  return value.trim() || null;
+}
+
+/**
+ * Get device display name with fallback
+ */
+function getDeviceDisplayName(device: { label?: string; name?: string; deviceProfile?: string }): string {
+  const label = sanitizeString(device.label);
+  if (label) return label;
+
+  const name = sanitizeString(device.name);
+  if (name) return name;
+
+  // Fallback to deviceProfile or generic name
+  const profile = sanitizeString(device.deviceProfile);
+  return profile || 'Dispositivo';
+}
+
+/**
  * Get device profile for display, with deviceType as fallback
  * RFC-0172: Always prefer deviceProfile, warn if using deviceType fallback
  */
 function getDisplayDeviceProfile(device: { deviceProfile?: string; deviceType?: string }): string {
-  if (device.deviceProfile) {
-    return device.deviceProfile;
+  const profile = sanitizeString(device.deviceProfile);
+  if (profile) {
+    return profile;
   }
-  if (device.deviceType) {
-    console.warn('[AmbienteGroupModal] deviceProfile missing, using deviceType fallback:', device.deviceType);
-    return device.deviceType;
+  const type = sanitizeString(device.deviceType);
+  if (type) {
+    console.warn('[AmbienteGroupModal] deviceProfile missing, using deviceType fallback:', type);
+    return type;
   }
   return 'Dispositivo';
 }
@@ -163,7 +188,7 @@ function renderModalHTML(
         <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-value consumption">
           ${formatConsumption(metrics.consumptionTotal)}
         </div>
-        <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-label">Consumo Total</div>
+        <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-label">Potência Total</div>
       </div>
       <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-card">
         <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-icon">📱</div>
@@ -177,7 +202,7 @@ function renderModalHTML(
         <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-value">
           ${metrics.subAmbienteCount}
         </div>
-        <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-label">Sub-Ambientes</div>
+        <div class="${AMBIENTE_GROUP_CSS_PREFIX}__summary-label">Ambientes</div>
       </div>
     </div>
   `;
@@ -209,7 +234,7 @@ function renderModalHTML(
         <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-item">
           <span class="${AMBIENTE_GROUP_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceProfile || device.deviceType || '')}</span>
           <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-info">
-            <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-name">${device.label || device.name}</div>
+            <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-name">${getDeviceDisplayName(device)}</div>
             <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-type">${getDisplayDeviceProfile(device)}</div>
           </div>
           <span class="${AMBIENTE_GROUP_CSS_PREFIX}__device-value">${formatConsumption(device.consumption)}</span>
@@ -220,7 +245,7 @@ function renderModalHTML(
         <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-item">
           <span class="${AMBIENTE_GROUP_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceProfile || device.deviceType || '')}</span>
           <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-info">
-            <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-name">${device.label || device.name}</div>
+            <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-name">${getDeviceDisplayName(device)}</div>
             <div class="${AMBIENTE_GROUP_CSS_PREFIX}__device-type">${getDisplayDeviceProfile(device)}</div>
           </div>
         </div>
@@ -291,7 +316,7 @@ function renderModalHTML(
           ${summaryHTML}
           ${statusBarHTML}
           <h4 class="${AMBIENTE_GROUP_CSS_PREFIX}__section-title">
-            🏢 Sub-Ambientes (${metrics.subAmbienteCount})
+            🏢 Ambientes (${metrics.subAmbienteCount})
           </h4>
           <div class="${AMBIENTE_GROUP_CSS_PREFIX}__subambientes">
             ${subAmbientesHTML}

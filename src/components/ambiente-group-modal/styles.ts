@@ -291,6 +291,8 @@ export function injectAmbienteGroupModalStyles(): void {
       font-size: 12px;
       color: #6c757d;
       transition: transform 0.2s;
+      margin-left: 16px;
+      flex-shrink: 0;
     }
 
     .${AMBIENTE_GROUP_CSS_PREFIX}__subambiente.expanded .${AMBIENTE_GROUP_CSS_PREFIX}__subambiente-arrow {
