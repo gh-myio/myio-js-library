@@ -1062,7 +1062,7 @@ export class SettingsModalView {
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 10000;
+          z-index: 9999999;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         

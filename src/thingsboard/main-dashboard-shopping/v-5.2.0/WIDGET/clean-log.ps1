@@ -56,10 +56,17 @@ $patterns = @(
     '^Tt @ polyfills-',           # Tt @ polyfills-5W6QH7SK.js:1
     '^rafSupported\.rafFunction @', # rafSupported.rafFunction @ chunk-5T4PGUXE.js:95
     '^\w{1,3} @ (chunk|polyfills)-[A-Z0-9]+\.js:\d+$', # Qualquer função curta (1-3 letras) @ chunk/polyfills
+    '^\w{1,3} @ [a-f0-9]+-[a-f0-9]+\.js:\d+$',       # or @ fd9d1056-20ecbefacf915056.js:1 (hash filenames)
+    '^\w{1,3} @ page-[a-f0-9]+\.js:\d+$',           # O @ page-855558f1d0d6946e.js:1
+    '^[\w#\.]+\s*@\s*\d+-[a-f0-9]+\.js:\d+$',       # request @ 34-88b3f52306e892b1.js:1 (numbered hash files)
+    '^await in \w+$',                               # await in request
+    '^overrideMethod @ installHook\.js:\d+$',       # overrideMethod @ installHook.js:1
+    '^window\.console\.\w+ @ \d+-[a-f0-9]+\.js:\d+$' # window.console.error @ 117-cd033fadff6bee47.js:1
     '^setTimeout$',                 # Linha contendo apenas "setTimeout"
     '^setInterval$',                # Linha contendo apenas "setInterval"
     '^requestAnimationFrame$',      # Linha contendo apenas "requestAnimationFrame"
     '^Promise\.then$',              # Linha contendo apenas "Promise.then"
+    '^Promise\.catch$',             # Linha contendo apenas "Promise.catch"
     '^async function$',             # Linha contendo apenas "async function"
     '^\s*$'                         # Linhas em branco
 )
