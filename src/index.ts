@@ -1577,3 +1577,26 @@ export type {
   SubAmbienteItem,
   AggregatedGroupMetrics,
 } from './components/ambiente-group-modal';
+
+// RFC-0173: Premium Sidebar Menu Component
+export {
+  createSidebarMenu,
+  SidebarMenuController,
+  SidebarMenuView,
+  SIDEBAR_MENU_CSS_PREFIX,
+  injectSidebarMenuStyles,
+  SIDEBAR_ICONS,
+  getIcon as getSidebarIcon,
+  DEFAULT_SIDEBAR_CONFIG,
+} from './components/sidebar-menu';
+
+export type {
+  SidebarThemeMode,
+  SidebarState,
+  SidebarMenuItem,
+  SidebarMenuSection,
+  SidebarHeaderConfig,
+  SidebarFooterConfig,
+  SidebarMenuConfig,
+  SidebarMenuInstance,
+} from './components/sidebar-menu';
