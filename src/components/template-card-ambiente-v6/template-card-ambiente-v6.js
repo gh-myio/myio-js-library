@@ -159,12 +159,13 @@ const CARD_STYLES = `
     min-width: 0;
   }
 
-  /* Header row with label and status */
+  /* Header row with label, remote toggle, and status */
   .myio-ambiente-card__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
+    gap: 8px;
   }
 
   .myio-ambiente-card__label {
@@ -178,12 +179,42 @@ const CARD_STYLES = `
     min-width: 0;
   }
 
+  /* Remote toggle in header (next to status dot) */
+  .myio-ambiente-card__header-remote {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+  }
+
+  .myio-ambiente-card__header-remote.on {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    border-color: rgba(40, 167, 69, 0.3);
+  }
+
+  .myio-ambiente-card__header-remote.off {
+    background: rgba(108, 117, 125, 0.1);
+    color: #6c757d;
+    border-color: rgba(108, 117, 125, 0.2);
+  }
+
+  .myio-ambiente-card__header-remote:hover {
+    transform: scale(1.05);
+  }
+
   .myio-ambiente-card__status-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
-    margin-left: 8px;
   }
 
   .myio-ambiente-card__status-dot.online {
@@ -395,47 +426,6 @@ const CARD_STYLES = `
     cursor: default;
   }
 
-  /* Remote devices row */
-  .myio-ambiente-card__remote-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-    flex-wrap: wrap;
-  }
-
-  .myio-ambiente-card__remote-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-  }
-
-  .myio-ambiente-card__remote-btn.on {
-    background: rgba(40, 167, 69, 0.15);
-    color: #28a745;
-    border-color: rgba(40, 167, 69, 0.3);
-  }
-
-  .myio-ambiente-card__remote-btn.off {
-    background: rgba(108, 117, 125, 0.1);
-    color: #6c757d;
-    border-color: rgba(108, 117, 125, 0.2);
-  }
-
-  .myio-ambiente-card__remote-btn:hover {
-    transform: scale(1.02);
-  }
-
-  .myio-ambiente-card__remote-btn-icon {
-    font-size: 0.85rem;
-  }
 `;
 
 // ============================================
@@ -659,7 +649,7 @@ export function renderCardAmbienteV6({
   const bodyEl = document.createElement('div');
   bodyEl.className = 'myio-ambiente-card__body';
 
-  // Header with label and status
+  // Header with label, remote toggle, and status
   const headerEl = document.createElement('div');
   headerEl.className = 'myio-ambiente-card__header';
 
@@ -668,6 +658,21 @@ export function renderCardAmbienteV6({
   labelEl.textContent = truncateLabel(label);
   labelEl.title = label || '';
   headerEl.appendChild(labelEl);
+
+  // Remote toggle button (next to status dot)
+  // Show first remote device toggle if available
+  if (remoteDevices.length > 0 && !hasSetupWarning) {
+    const firstRemote = remoteDevices[0];
+    const remoteToggle = document.createElement('div');
+    remoteToggle.className = `myio-ambiente-card__header-remote ${firstRemote.isOn ? 'on' : 'off'}`;
+    remoteToggle.innerHTML = `<span>${firstRemote.isOn ? 'ON' : 'OFF'}</span>`;
+    remoteToggle.title = firstRemote.label || firstRemote.name || 'Controle';
+    remoteToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleToggleRemote?.(!firstRemote.isOn, { ...ambienteData, targetRemote: firstRemote });
+    });
+    headerEl.appendChild(remoteToggle);
+  }
 
   const statusDot = document.createElement('div');
   statusDot.className = `myio-ambiente-card__status-dot ${aggregatedStatus}`;
@@ -776,31 +781,8 @@ export function renderCardAmbienteV6({
     bodyEl.appendChild(energyRowEl);
   }
 
-  // === REMOTE DEVICES ROW ===
-  // Show individual ON/OFF buttons for each remote control device
-  if (remoteDevices.length > 0 && !hasSetupWarning) {
-    const remoteRowEl = document.createElement('div');
-    remoteRowEl.className = 'myio-ambiente-card__remote-row';
-
-    remoteDevices.forEach((remote) => {
-      const remoteBtn = document.createElement('div');
-      remoteBtn.className = `myio-ambiente-card__remote-btn ${remote.isOn ? 'on' : 'off'}`;
-      remoteBtn.innerHTML = `
-        <span class="myio-ambiente-card__remote-btn-icon">${remote.isOn ? '🟢' : '⚫'}</span>
-        <span>${remote.isOn ? 'ON' : 'OFF'}</span>
-      `;
-      remoteBtn.title = remote.label || remote.name || 'Controle';
-      remoteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleToggleRemote?.(!remote.isOn, { ...ambienteData, targetRemote: remote });
-      });
-      remoteRowEl.appendChild(remoteBtn);
-    });
-
-    bodyEl.appendChild(remoteRowEl);
-  }
-
   // Identifier removed per user request - card should only show label in header
+  // Remote toggle moved to header (next to status dot)
 
   card.appendChild(bodyEl);
 
