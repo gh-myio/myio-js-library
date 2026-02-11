@@ -61,6 +61,22 @@ export interface ConsumptionWidgetConfig extends Omit<Consumption7DaysConfig, 'c
   onMaximizeClick?: () => void;
   /** Custom CSS class for the widget container */
   className?: string;
+  /**
+   * Custom header styles for compact layouts
+   * @example { padding: '8px 12px', fontSize: '12px', titleFontSize: '12px', tabPadding: '4px 10px', tabFontSize: '11px' }
+   */
+  headerStyles?: {
+    /** Header padding (default: '16px 20px') */
+    padding?: string;
+    /** Header gap between elements (default: '12px') */
+    gap?: string;
+    /** Title font size (default: '14px') */
+    titleFontSize?: string;
+    /** Tab padding (default: '6px 14px') */
+    tabPadding?: string;
+    /** Tab font size (default: '12px') */
+    tabFontSize?: string;
+  };
 }
 
 export interface ConsumptionWidgetInstance {
@@ -133,8 +149,20 @@ const DOMAIN_CONFIG: Record<string, { name: string; icon: string; color: string;
 // Styles
 // ============================================================================
 
-function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
+function getWidgetStyles(
+  theme: ThemeMode,
+  primaryColor: string,
+  headerStyles?: ConsumptionWidgetConfig['headerStyles']
+): string {
   const colors = THEME_COLORS[theme];
+  // Default header styles with custom overrides
+  const hStyles = {
+    padding: headerStyles?.padding ?? '16px 20px',
+    gap: headerStyles?.gap ?? '12px',
+    titleFontSize: headerStyles?.titleFontSize ?? '14px',
+    tabPadding: headerStyles?.tabPadding ?? '6px 14px',
+    tabFontSize: headerStyles?.tabFontSize ?? '12px',
+  };
 
   return `
     .myio-chart-widget {
@@ -155,10 +183,10 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 20px;
+      padding: ${hStyles.padding};
       border-bottom: 1px solid ${colors.border};
       flex-wrap: wrap;
-      gap: 12px;
+      gap: ${hStyles.gap};
     }
 
     .myio-chart-widget-title-group {
@@ -169,7 +197,7 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
 
     .myio-chart-widget-title {
       margin: 0;
-      font-size: 14px;
+      font-size: ${hStyles.titleFontSize};
       font-weight: 600;
       color: ${colors.text};
     }
@@ -183,8 +211,8 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
     }
 
     .myio-chart-widget-tab {
-      padding: 6px 14px;
-      font-size: 12px;
+      padding: ${hStyles.tabPadding};
+      font-size: ${hStyles.tabFontSize};
       font-weight: 500;
       border: none;
       background: transparent;
@@ -200,7 +228,7 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
     }
 
     .myio-chart-widget-tab.icon-only {
-      padding: 6px 10px;
+      padding: ${hStyles.tabPadding.split(' ')[0]} 10px;
     }
 
     .myio-chart-widget-tab svg {
@@ -1000,7 +1028,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
 
     styleElement = document.createElement('style');
     styleElement.id = `${widgetId}-styles`;
-    styleElement.textContent = getWidgetStyles(currentTheme, primaryColor);
+    styleElement.textContent = getWidgetStyles(currentTheme, primaryColor, config.headerStyles);
     document.head.appendChild(styleElement);
   }
 
@@ -1009,7 +1037,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
    */
   function updateStyles(): void {
     if (styleElement) {
-      styleElement.textContent = getWidgetStyles(currentTheme, primaryColor);
+      styleElement.textContent = getWidgetStyles(currentTheme, primaryColor, config.headerStyles);
     }
   }
 

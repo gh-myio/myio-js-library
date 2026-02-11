@@ -2005,46 +2005,113 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
 
 /**
  * Create a chart instance in a specific container (for maximized view)
+ * RFC-0098: Updated to use createConsumptionChartWidget
  */
 var _maximizedChartInstance = null;
 
 function switchChartDomainInContainer(domain, container) {
   // Destroy existing maximized chart
   if (_maximizedChartInstance) {
-    _maximizedChartInstance.destroy();
+    if (typeof _maximizedChartInstance.destroy === 'function') {
+      _maximizedChartInstance.destroy();
+    }
     _maximizedChartInstance = null;
   }
 
-  // Clear container and create canvas
+  // Clear container and create widget container
   container.innerHTML = '';
-  var canvas = document.createElement('canvas');
-  canvas.id = 'bas-chart-canvas-maximized';
-  canvas.style.cssText = 'width: 100%; height: 100%;';
-  container.appendChild(canvas);
+  var widgetContainer = document.createElement('div');
+  var containerId = 'bas-chart-widget-maximized-' + domain + '-' + Date.now(); // Unique ID
+  widgetContainer.id = containerId;
+  widgetContainer.style.cssText = 'width: 100%; height: 100%;';
+  container.appendChild(widgetContainer);
 
   var cfg = CHART_DOMAIN_CONFIG[domain];
   if (!cfg) return;
 
-  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumption7DaysChart) {
-    LogHelper.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
-    return;
-  }
+  // RFC-0098: Use createConsumptionChartWidget for maximized view
+  // Wait for container to be in DOM before creating widget
+  setTimeout(function () {
+    // Verify container is in DOM
+    if (!document.getElementById(containerId)) {
+      LogHelper.error('[MAIN_BAS] Maximized container not found in DOM:', containerId);
+      return;
+    }
 
-  _maximizedChartInstance = MyIOLibrary.createConsumption7DaysChart({
-    domain: domain,
-    containerId: 'bas-chart-canvas-maximized',
-    unit: cfg.unit,
-    unitLarge: cfg.unitLarge,
-    thresholdForLargeUnit: cfg.threshold,
-    fetchData: createRealFetchData(domain),
-    defaultPeriod: 7,
-    defaultChartType: domain === 'temperature' ? 'line' : 'bar',
-    theme: (_settings && _settings.defaultThemeMode) || 'dark',
-    showLegend: true,
-    fill: domain === 'temperature',
-  });
+    if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
+      LogHelper.log('[MAIN_BAS] Using createConsumptionChartWidget for maximized view, domain:', domain);
 
-  _maximizedChartInstance.render();
+      _maximizedChartInstance = MyIOLibrary.createConsumptionChartWidget({
+        domain: domain,
+        containerId: containerId,
+        title: cfg.label + ' - Últimos 7 dias',
+        unit: cfg.unit,
+        unitLarge: cfg.unitLarge,
+        thresholdForLargeUnit: cfg.threshold,
+        decimalPlaces: domain === 'temperature' ? 1 : 2,
+        chartHeight: '100%',
+        defaultPeriod: 7,
+        defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+        defaultVizMode: 'total',
+        theme: (_settings && _settings.defaultThemeMode) || 'light',
+        showSettingsButton: false,
+        showMaximizeButton: false,
+        showVizModeTabs: true,
+        showChartTypeTabs: true,
+
+        // Compact header styles for maximized view
+        headerStyles: {
+          padding: '10px 16px',
+          gap: '10px',
+          titleFontSize: '13px',
+          tabPadding: '5px 12px',
+          tabFontSize: '11px',
+        },
+
+        // Data fetching
+        fetchData: createRealFetchData(domain),
+
+        // Callbacks
+        onDataLoaded: function (data) {
+          LogHelper.log('[MAIN_BAS] Maximized chart data loaded for', domain, ':', data.labels?.length, 'days');
+        },
+        onError: function (error) {
+          LogHelper.error('[MAIN_BAS] Maximized chart error for', domain, ':', error);
+        },
+      });
+
+      _maximizedChartInstance.render().catch(function (err) {
+        LogHelper.error('[MAIN_BAS] Failed to render maximized chart widget:', err);
+      });
+    } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
+      // Fallback
+      LogHelper.warn('[MAIN_BAS] createConsumptionChartWidget not available for maximized view, using fallback');
+
+      container.innerHTML = '';
+      var canvas = document.createElement('canvas');
+      canvas.id = 'bas-chart-canvas-maximized';
+      canvas.style.cssText = 'width: 100%; height: 100%;';
+      container.appendChild(canvas);
+
+      _maximizedChartInstance = MyIOLibrary.createConsumption7DaysChart({
+        domain: domain,
+        containerId: 'bas-chart-canvas-maximized',
+        unit: cfg.unit,
+        unitLarge: cfg.unitLarge,
+        thresholdForLargeUnit: cfg.threshold,
+        fetchData: createRealFetchData(domain),
+        defaultPeriod: 7,
+        defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+        theme: (_settings && _settings.defaultThemeMode) || 'dark',
+        showLegend: true,
+        fill: domain === 'temperature',
+      });
+
+      _maximizedChartInstance.render();
+    } else {
+      LogHelper.warn('[MAIN_BAS] No chart library available for maximized view');
+    }
+  }, 100); // Wait 100ms for DOM to be ready
 }
 
 /**
@@ -2289,11 +2356,18 @@ function mountWaterPanel(waterHost, settings, classified) {
       LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
 
+      var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
+
       // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
-      var deviceProfile = (item.source?.deviceProfile || '').toUpperCase();
       if (isOnOffDeviceProfile(deviceProfile)) {
         // RFC-0167: Open On/Off Device modal
         openOnOffDeviceModal(item.source, settings);
+      } else if (isHidrometerDevice(deviceProfile)) {
+        // RFC-0172: Open BAS Water modal for HIDROMETRO devices
+        openBASWaterModal(item.source, settings);
+      } else {
+        // Fallback: Log warning for unhandled water device type
+        LogHelper.warn('[MAIN_BAS] Unhandled water device type:', deviceProfile);
       }
     },
   });
@@ -2552,6 +2626,121 @@ function openBASDeviceModal(device, settings) {
     .catch(function (err) {
       LogHelper.error('[MAIN_BAS] Failed to get ingestion token:', err);
     });
+}
+
+/**
+ * RFC-0172: Open BAS Water Modal for HIDROMETRO devices
+ * Shows water telemetry (m3, pulses = liters)
+ * @param {Object} device - Device data from classified
+ * @param {Object} settings - Widget settings
+ */
+function openBASWaterModal(device, settings) {
+  if (!MyIOLibrary.openDashboardPopupEnergy) {
+    LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available for water modal');
+    return;
+  }
+
+  // Build water device data
+  var deviceType = device.deviceType || device.deviceProfile || 'HIDROMETRO';
+  var deviceProfile = device.deviceProfile || device.deviceType || 'HIDROMETRO';
+
+  var waterDevice = {
+    id: device.id || device.deviceId,
+    entityId: device.entityId || device.id,
+    label: device.name || device.label || 'Hidrômetro',
+    deviceType: deviceType,
+    deviceProfile: deviceProfile,
+    status: device.connectionStatus || device.deviceStatus || device.status || 'unknown',
+    telemetry: {
+      // Water-specific telemetry (m3, pulses = liters)
+      volume: device.rawData?.volume || device.rawData?.m3 || device.value || device.val || 0,
+      pulses: device.rawData?.pulses || device.rawData?.pulsos || 0,
+      flowRate: device.rawData?.flow_rate || device.rawData?.vazao || 0,
+      consumption: device.consumption || device.value || device.val || 0,
+      lastUpdate: Date.now(),
+    },
+  };
+
+  // Get date range (last 7 days default)
+  var endDate = new Date();
+  var startDate = new Date();
+  startDate.setDate(startDate.getDate() - 7);
+
+  var startDateStr = startDate.toISOString().split('T')[0];
+  var endDateStr = endDate.toISOString().split('T')[0];
+
+  LogHelper.log('[MAIN_BAS] Opening BAS Water modal for device:', waterDevice);
+
+  // Get JWT token from localStorage or widget context
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) {
+    jwtToken = _ctx.http.token;
+  }
+
+  if (!jwtToken) {
+    LogHelper.warn('[MAIN_BAS] No JWT token available for BAS Water modal');
+  }
+
+  // Get ingestion token using MyIO.buildMyioIngestionAuth
+  var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+  var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+
+  if (!clientId || !clientSecret) {
+    LogHelper.warn('[MAIN_BAS] No client credentials available for BAS Water modal - chart data may not load');
+  }
+
+  // Build auth and get token
+  var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: 'https://api.data.apps.myio-bas.com',
+    clientId: clientId,
+    clientSecret: clientSecret,
+  });
+
+  myIOAuth
+    .getToken()
+    .then(function (ingestionToken) {
+      LogHelper.log('[MAIN_BAS] Ingestion token obtained for water modal');
+
+      // Open modal with water readingType
+      MyIOLibrary.openDashboardPopupEnergy({
+        basMode: true,
+        basDevice: waterDevice,
+        deviceId: waterDevice.entityId,
+        deviceLabel: waterDevice.label,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        tbJwtToken: jwtToken,
+        ingestionToken: ingestionToken,
+        clientId: clientId,
+        clientSecret: clientSecret,
+        readingType: 'water', // RFC-0172: Water domain
+        granularity: '1d',
+        theme: 'dark',
+        telemetryRefreshInterval: 10000,
+        // Water-specific telemetry keys
+        telemetryKeys: ['volume', 'm3', 'pulses', 'pulsos', 'flow_rate', 'vazao', 'consumption'],
+        onTelemetryRefresh: function (dev) {
+          return fetchDeviceTelemetry(dev.entityId);
+        },
+        onClose: function () {
+          LogHelper.log('[MAIN_BAS] BAS Water modal closed');
+        },
+        onError: function (err) {
+          LogHelper.error('[MAIN_BAS] BAS Water modal error:', err);
+        },
+      });
+    })
+    .catch(function (err) {
+      LogHelper.error('[MAIN_BAS] Failed to get ingestion token for water modal:', err);
+    });
+}
+
+/**
+ * RFC-0172: Check if device profile is HIDROMETRO (water meter)
+ */
+function isHidrometerDevice(deviceProfile) {
+  var profile = (deviceProfile || '').toUpperCase();
+  return profile.includes('HIDROMETRO') || profile.includes('HYDROMETER') || profile === 'WATER_METER';
 }
 
 /**
@@ -3243,7 +3432,6 @@ var DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 function createRealFetchData(domain) {
   return async function fetchData(period) {
     var labels = [];
-    var values = [];
     var now = new Date();
 
     // Calculate date range
@@ -3264,23 +3452,31 @@ function createRealFetchData(domain) {
 
     if (!customerId || !clientId || !clientSecret) {
       LogHelper.warn('[MAIN_BAS] Chart: No credentials available, returning empty data');
-      return { labels: labels, dailyTotals: new Array(period).fill(0) };
+      return { labels: labels, dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
     }
 
     try {
+      var result;
       if (domain === 'temperature') {
         // Temperature: fetch from ThingsBoard telemetry API
-        values = await fetchTemperatureData(period, startTs, endTs);
+        var values = await fetchTemperatureData(period, startTs, endTs);
+        result = { dailyTotals: values, shoppingData: {}, shoppingNames: {} };
       } else {
-        // Energy/Water: fetch from ingestion API
-        values = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
+        // Energy/Water: fetch from ingestion API with per-customer breakdown
+        result = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
       }
 
-      LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', values.length, 'points');
-      return { labels: labels, dailyTotals: values };
+      LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', result.dailyTotals.length, 'points,', Object.keys(result.shoppingData).length, 'shoppings');
+      return {
+        labels: labels,
+        dailyTotals: result.dailyTotals,
+        shoppingData: result.shoppingData || {},
+        shoppingNames: result.shoppingNames || {},
+        fetchTimestamp: Date.now(),
+      };
     } catch (error) {
       LogHelper.error('[MAIN_BAS] Chart fetch error for', domain, ':', error);
-      return { labels: labels, dailyTotals: new Array(period).fill(0) };
+      return { labels: labels, dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
     }
   };
 }
@@ -3288,11 +3484,17 @@ function createRealFetchData(domain) {
 /**
  * Fetch energy/water data from ingestion API
  * Makes one API call per day (same pattern as ENERGY widget)
+ * Returns: { dailyTotals, shoppingData, shoppingNames }
+ * Note: MAIN_BAS splits by DEVICE (not customer) since there's typically only one customer
+ * shoppingData = { deviceId: [values per day] }
+ * shoppingNames = { deviceId: "Device Label" }
  */
 async function fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs) {
+  var emptyResult = { dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
+
   if (!MyIOLibrary || !MyIOLibrary.buildMyioIngestionAuth) {
     LogHelper.warn('[MAIN_BAS] MyIOLibrary.buildMyioIngestionAuth not available');
-    return new Array(period).fill(0);
+    return emptyResult;
   }
 
   // Build auth and get token
@@ -3305,11 +3507,13 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
   var token = await myIOAuth.getToken();
   if (!token) {
     LogHelper.error('[MAIN_BAS] Failed to get ingestion token');
-    return new Array(period).fill(0);
+    return emptyResult;
   }
 
   var endpoint = domain === 'energy' ? 'energy' : 'water';
   var dailyTotals = [];
+  var shoppingData = {}; // { deviceId: [values per day] } - split by device
+  var shoppingNames = {}; // { deviceId: "Device Label" }
   var dayMs = 24 * 60 * 60 * 1000;
 
   // Calculate day boundaries (same pattern as ENERGY widget)
@@ -3330,6 +3534,7 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
   // Make one API call per day
   for (var j = 0; j < dayBoundaries.length; j++) {
     var day = dayBoundaries[j];
+    var dayIndex = j;
 
     try {
       var url = new URL(DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals');
@@ -3352,17 +3557,38 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
       var json = await response.json();
       var devices = Array.isArray(json) ? json : json?.data || [];
 
-      // Sum all device values for this day
+      // Sum all device values for this day AND collect per-device data
       var dayTotal = 0;
+
       devices.forEach(function (device) {
+        var deviceValue = 0;
         if (Array.isArray(device.consumption)) {
           // New API format with consumption array
           device.consumption.forEach(function (entry) {
-            dayTotal += Number(entry.value) || 0;
+            deviceValue += Number(entry.value) || 0;
           });
         } else {
           // Old format with total_value
-          dayTotal += Number(device.total_value) || Number(device.value) || 0;
+          deviceValue = Number(device.total_value) || Number(device.value) || 0;
+        }
+
+        dayTotal += deviceValue;
+
+        // Split by DEVICE instead of customer
+        var deviceId = device.id || device.deviceId || device.device_id;
+        var deviceName = device.label || device.name || device.deviceName || device.device_name || deviceId;
+
+        if (deviceId && deviceValue > 0) {
+          // Initialize device array if needed
+          if (!shoppingData[deviceId]) {
+            shoppingData[deviceId] = new Array(period).fill(0);
+          }
+          shoppingData[deviceId][dayIndex] = deviceValue;
+
+          // Store device name (truncate if too long)
+          if (!shoppingNames[deviceId]) {
+            shoppingNames[deviceId] = deviceName.length > 25 ? deviceName.substring(0, 22) + '...' : deviceName;
+          }
         }
       });
 
@@ -3372,14 +3598,15 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
       }
 
       dailyTotals.push(dayTotal);
-      LogHelper.log('[MAIN_BAS]', domain, 'day', day.label, ':', dayTotal.toFixed(2));
+      LogHelper.log('[MAIN_BAS]', domain, 'day', day.label, ':', dayTotal.toFixed(2), '(' + devices.length + ' devices)');
     } catch (err) {
       LogHelper.warn('[MAIN_BAS] Error fetching', domain, 'for day', day.label, ':', err.message);
       dailyTotals.push(0);
     }
   }
 
-  return dailyTotals;
+  LogHelper.log('[MAIN_BAS]', domain, 'chart: Total devices tracked:', Object.keys(shoppingData).length);
+  return { dailyTotals: dailyTotals, shoppingData: shoppingData, shoppingNames: shoppingNames };
 }
 
 /**
@@ -3489,46 +3716,105 @@ function createMockFetchData(domain) {
 }
 
 /**
- * Switch chart to a different domain — destroys old chart + creates fresh canvas
+ * Switch chart to a different domain — destroys old widget + creates new one
+ * RFC-0098: Now uses createConsumptionChartWidget with full tab controls
  */
 function switchChartDomain(domain, chartContainer) {
-  // Destroy existing chart
+  // Destroy existing chart widget
   if (_chartInstance) {
-    _chartInstance.destroy();
+    if (typeof _chartInstance.destroy === 'function') {
+      _chartInstance.destroy();
+    }
     _chartInstance = null;
   }
 
   _currentChartDomain = domain;
 
-  // Replace canvas (Chart.js needs a fresh canvas)
+  // Clear container and create widget container
   chartContainer.innerHTML = '';
-  var canvas = document.createElement('canvas');
-  canvas.id = 'bas-chart-canvas';
-  chartContainer.appendChild(canvas);
+  var widgetContainer = document.createElement('div');
+  widgetContainer.id = 'bas-chart-widget-' + domain;
+  widgetContainer.style.width = '100%';
+  widgetContainer.style.height = '100%';
+  chartContainer.appendChild(widgetContainer);
 
   var cfg = CHART_DOMAIN_CONFIG[domain];
   if (!cfg) return;
 
-  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumption7DaysChart) {
-    LogHelper.warn('[MAIN_BAS] MyIOLibrary.createConsumption7DaysChart not available');
-    return;
+  // RFC-0098: Use createConsumptionChartWidget for full functionality (tabs, viz modes, etc.)
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
+    LogHelper.log('[MAIN_BAS] Using createConsumptionChartWidget for domain:', domain);
+
+    _chartInstance = MyIOLibrary.createConsumptionChartWidget({
+      domain: domain,
+      containerId: 'bas-chart-widget-' + domain,
+      title: cfg.label + ' - Últimos 7 dias',
+      unit: cfg.unit,
+      unitLarge: cfg.unitLarge,
+      thresholdForLargeUnit: cfg.threshold,
+      decimalPlaces: domain === 'temperature' ? 1 : 2,
+      chartHeight: 260,
+      defaultPeriod: 7,
+      defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+      defaultVizMode: 'total',
+      theme: (_settings && _settings.defaultThemeMode) || 'light',
+      showSettingsButton: false, // Settings handled by BAS header
+      showMaximizeButton: false, // Maximize handled by BAS header
+      showVizModeTabs: true, // Show Total/Por Shopping tabs
+      showChartTypeTabs: true, // Show Bar/Line tabs
+
+      // Compact header styles for BAS panel
+      headerStyles: {
+        padding: '10px 16px',
+        gap: '10px',
+        titleFontSize: '13px',
+        tabPadding: '5px 12px',
+        tabFontSize: '11px',
+      },
+
+      // Data fetching
+      fetchData: createRealFetchData(domain),
+
+      // Callbacks
+      onDataLoaded: function (data) {
+        LogHelper.log('[MAIN_BAS] Chart data loaded for', domain, ':', data.labels?.length, 'days');
+      },
+      onError: function (error) {
+        LogHelper.error('[MAIN_BAS] Chart error for', domain, ':', error);
+      },
+    });
+
+    // Render the widget
+    _chartInstance.render().catch(function (err) {
+      LogHelper.error('[MAIN_BAS] Failed to render chart widget:', err);
+    });
+  } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
+    // Fallback to simple chart if widget not available
+    LogHelper.warn('[MAIN_BAS] createConsumptionChartWidget not available, using fallback');
+
+    var canvas = document.createElement('canvas');
+    canvas.id = 'bas-chart-canvas';
+    chartContainer.innerHTML = '';
+    chartContainer.appendChild(canvas);
+
+    _chartInstance = MyIOLibrary.createConsumption7DaysChart({
+      domain: domain,
+      containerId: 'bas-chart-canvas',
+      unit: cfg.unit,
+      unitLarge: cfg.unitLarge,
+      thresholdForLargeUnit: cfg.threshold,
+      fetchData: createRealFetchData(domain),
+      defaultPeriod: 7,
+      defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+      theme: (_settings && _settings.defaultThemeMode) || 'dark',
+      showLegend: true,
+      fill: domain === 'temperature',
+    });
+
+    _chartInstance.render();
+  } else {
+    LogHelper.warn('[MAIN_BAS] No chart library available');
   }
-
-  _chartInstance = MyIOLibrary.createConsumption7DaysChart({
-    domain: domain,
-    containerId: 'bas-chart-canvas',
-    unit: cfg.unit,
-    unitLarge: cfg.unitLarge,
-    thresholdForLargeUnit: cfg.threshold,
-    fetchData: createRealFetchData(domain),
-    defaultPeriod: 7,
-    defaultChartType: domain === 'temperature' ? 'line' : 'bar',
-    theme: (_settings && _settings.defaultThemeMode) || 'dark',
-    showLegend: true,
-    fill: domain === 'temperature',
-  });
-
-  _chartInstance.render();
 }
 
 // SVG icons for chart header buttons
