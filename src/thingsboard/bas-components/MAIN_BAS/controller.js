@@ -3283,6 +3283,7 @@ function createRealFetchData(domain) {
 
 /**
  * Fetch energy/water data from ingestion API
+ * Makes one API call per day (same pattern as ENERGY widget)
  */
 async function fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs) {
   if (!MyIOLibrary || !MyIOLibrary.buildMyioIngestionAuth) {
@@ -3303,30 +3304,77 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
     return new Array(period).fill(0);
   }
 
-  // Build API URL based on domain
   var endpoint = domain === 'energy' ? 'energy' : 'water';
-  var url = new URL(DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals');
-  url.searchParams.set('startTime', new Date(startTs).toISOString());
-  url.searchParams.set('endTime', new Date(endTs).toISOString());
-  url.searchParams.set('deep', '1');
-  url.searchParams.set('granularity', '1d');
+  var dailyTotals = [];
+  var dayMs = 24 * 60 * 60 * 1000;
 
-  LogHelper.log('[MAIN_BAS] Fetching', domain, 'chart data from:', url.toString());
-
-  var response = await fetch(url.toString(), {
-    headers: { Authorization: 'Bearer ' + token },
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    throw new Error('API error: ' + response.status);
+  // Calculate day boundaries (same pattern as ENERGY widget)
+  var dayBoundaries = [];
+  for (var i = 0; i < period; i++) {
+    var dayStart = new Date(startTs + i * dayMs);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    var dayEnd = new Date(dayStart.getTime() + dayMs - 1);
+    dayBoundaries.push({
+      startTs: dayStart.getTime(),
+      endTs: dayEnd.getTime(),
+      label: dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+    });
   }
 
-  var json = await response.json();
-  var data = Array.isArray(json) ? json : json?.data || [];
+  LogHelper.log('[MAIN_BAS] Fetching', domain, 'chart data for', period, 'days...');
 
-  // Aggregate data by day
-  var dailyTotals = aggregateByDay(data, period, startTs);
+  // Make one API call per day
+  for (var j = 0; j < dayBoundaries.length; j++) {
+    var day = dayBoundaries[j];
+
+    try {
+      var url = new URL(DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals');
+      url.searchParams.set('startTime', new Date(day.startTs).toISOString());
+      url.searchParams.set('endTime', new Date(day.endTs).toISOString());
+      url.searchParams.set('deep', '1');
+      url.searchParams.set('granularity', '1d');
+
+      var response = await fetch(url.toString(), {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        LogHelper.warn('[MAIN_BAS] API error for day', day.label, ':', response.status);
+        dailyTotals.push(0);
+        continue;
+      }
+
+      var json = await response.json();
+      var devices = Array.isArray(json) ? json : json?.data || [];
+
+      // Sum all device values for this day
+      var dayTotal = 0;
+      devices.forEach(function (device) {
+        if (Array.isArray(device.consumption)) {
+          // New API format with consumption array
+          device.consumption.forEach(function (entry) {
+            dayTotal += Number(entry.value) || 0;
+          });
+        } else {
+          // Old format with total_value
+          dayTotal += Number(device.total_value) || Number(device.value) || 0;
+        }
+      });
+
+      // Fallback to summary total if available
+      if (dayTotal === 0 && json?.summary?.totalValue) {
+        dayTotal = json.summary.totalValue;
+      }
+
+      dailyTotals.push(dayTotal);
+      LogHelper.log('[MAIN_BAS]', domain, 'day', day.label, ':', dayTotal.toFixed(2));
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Error fetching', domain, 'for day', day.label, ':', err.message);
+      dailyTotals.push(0);
+    }
+  }
+
   return dailyTotals;
 }
 
@@ -3405,27 +3453,6 @@ async function fetchTemperatureData(period, startTs, endTs) {
 /**
  * Aggregate ingestion API data by day
  */
-function aggregateByDay(data, period, startTs) {
-  var dayMs = 24 * 60 * 60 * 1000;
-  var dailyTotals = new Array(period).fill(0);
-
-  data.forEach(function (item) {
-    // API returns items with timestamp or time_interval
-    var timestamp = item.timestamp || item.time_interval;
-    if (!timestamp) return;
-
-    var ts = new Date(timestamp).getTime();
-    var dayIndex = Math.floor((ts - startTs) / dayMs);
-
-    if (dayIndex >= 0 && dayIndex < period) {
-      var value = item.total_value || item.value || item.consumption || 0;
-      dailyTotals[dayIndex] += Number(value) || 0;
-    }
-  });
-
-  return dailyTotals;
-}
-
 /**
  * Generate mock fetchData for a given chart domain (FALLBACK)
  * @deprecated Use createRealFetchData instead
