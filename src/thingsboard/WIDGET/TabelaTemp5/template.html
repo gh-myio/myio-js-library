@@ -21,6 +21,50 @@
       </button>
 
       <div id="datePicker">
+        <!-- Device Filter Dropdown -->
+        <div class="device-filter-container hide-in-pdf">
+          <button class="device-filter-btn" (click)="toggleDeviceFilter()" [class.active]="showDeviceFilter">
+            <i class="fa-solid fa-filter"></i>
+            <span>Devices ({{ selectedDevicesCount }}/{{ allDevicesCount }})</span>
+            <i class="fa-solid" [ngClass]="showDeviceFilter ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+          </button>
+
+          <div class="device-filter-dropdown" *ngIf="showDeviceFilter">
+            <div class="device-filter-header">
+              <input type="text"
+                     class="device-filter-search"
+                     placeholder="Filtrar devices..."
+                     [ngModel]="deviceFilterText"
+                     (ngModelChange)="onDeviceFilterTextChange($event)" />
+              <div class="device-filter-actions">
+                <button class="btn-small" (click)="selectAllDevices()" title="Marcar todos">
+                  <i class="fa-solid fa-check-double"></i> Todos
+                </button>
+                <button class="btn-small" (click)="deselectAllDevices()" title="Desmarcar todos">
+                  <i class="fa-solid fa-xmark"></i> Nenhum
+                </button>
+              </div>
+            </div>
+            <div class="device-filter-list">
+              <label class="device-filter-item"
+                     *ngFor="let device of filteredDevicesList"
+                     [class.selected]="device.selected">
+                <input type="checkbox"
+                       [checked]="device.selected"
+                       (change)="toggleDeviceSelection(device)" />
+                <span class="device-label">{{ device.label }}</span>
+              </label>
+              <div class="no-devices" *ngIf="filteredDevicesList?.length === 0">
+                Nenhum device encontrado
+              </div>
+            </div>
+            <div class="device-filter-footer">
+              <span class="selection-count">{{ selectedDevicesCount }} selecionado(s)</span>
+              <button class="btn-apply" (click)="applyDeviceFilter()">Aplicar</button>
+            </div>
+          </div>
+        </div>
+
         <mat-form-field class="example-form-field hide-in-pdf">
           <mat-label>Selecione um intervalo</mat-label>
           <mat-date-range-input [rangePicker]="rangePicker">

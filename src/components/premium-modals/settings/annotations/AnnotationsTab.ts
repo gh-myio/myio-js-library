@@ -3121,6 +3121,9 @@ export class AnnotationsTab {
   private modalDateRangePicker: DateRangeControl | null = null;
   private newAnnotationModal: HTMLElement | null = null;
 
+  // RFC-0144: Controls whether onboarding tour is shown
+  private enableAnnotationsOnboarding: boolean = false;
+
   // Onboarding Tour State (RFC-0144)
   private tourCurrentStep: number = 0;
   private tourPopover: HTMLElement | null = null;
@@ -3140,6 +3143,7 @@ export class AnnotationsTab {
     this.currentUser = config.currentUser;
     this.permissions = config.permissions;
     this.onAnnotationChange = config.onAnnotationChange;
+    this.enableAnnotationsOnboarding = config.enableAnnotationsOnboarding ?? false; // RFC-0144
   }
 
   // ============================================
@@ -3166,8 +3170,15 @@ export class AnnotationsTab {
   /**
    * Check if this is the user's first time using annotations
    * Only triggers when the Annotations tab is actually visible in Settings modal
+   * RFC-0144: Only triggers if enableAnnotationsOnboarding is true
    */
   private checkFirstRunOnboarding(): void {
+    // RFC-0144: Check if onboarding is enabled globally
+    if (!this.enableAnnotationsOnboarding) {
+      console.log('[AnnotationsTab] RFC-0144: Onboarding disabled by settings');
+      return;
+    }
+
     const storageKey = `${TOUR_STORAGE_KEY}_${this.deviceId}`;
     const stored = localStorage.getItem(storageKey);
 

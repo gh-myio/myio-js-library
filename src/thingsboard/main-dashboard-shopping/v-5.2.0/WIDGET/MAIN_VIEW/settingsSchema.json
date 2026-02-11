@@ -67,6 +67,12 @@
         },
         "default": [],
         "description": "Lista de Entity IDs do ThingsBoard que serão excluídos do cálculo de consumo no summary CAG (Climatização, Áreas Comuns, etc). Ex: ['abc123-def456-...', 'xyz789-...']"
+      },
+      "enableAnnotationsOnboarding": {
+        "title": "Enable Annotations Onboarding",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0144: Habilita o onboarding de Anotações do Dispositivo no modal de Settings. Se false, o onboarding nunca é exibido."
       }
     }
   },
@@ -80,6 +86,7 @@
     "domainsEnabled.energy",
     "domainsEnabled.water",
     "domainsEnabled.temperature",
-    "excludeDevicesAtCountSubtotalCAG"
+    "excludeDevicesAtCountSubtotalCAG",
+    "enableAnnotationsOnboarding"
   ]
 }

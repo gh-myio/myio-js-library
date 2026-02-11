@@ -4,6 +4,9 @@ import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
 
+// RFC-0171: Allowed email domain for superadmin editing permissions
+const ALLOWED_EMAIL_DOMAIN = '@myio.com.br';
+
 export class SettingsModalView {
   private container: HTMLElement;
   private modal: HTMLElement;
@@ -20,6 +23,28 @@ export class SettingsModalView {
   constructor(config: ModalConfig) {
     this.config = config;
     this.createModal();
+  }
+
+  /**
+   * RFC-0171: Check if user has superadmin permissions
+   * Returns true if:
+   * - superadmin flag is explicitly set to true, OR
+   * - userEmail ends with @myio.com.br
+   */
+  private isSuperAdmin(): boolean {
+    // Explicit superadmin flag takes precedence
+    if (this.config.superadmin === true) {
+      return true;
+    }
+
+    // Check userEmail domain
+    const userEmail = this.config.userEmail;
+    if (!userEmail) {
+      return false;
+    }
+
+    const email = userEmail.toLowerCase().trim();
+    return email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
   }
 
   render(initialData: Record<string, any>): void {
@@ -98,6 +123,7 @@ export class SettingsModalView {
         jwtToken: this.config.jwtToken,
         currentUser: this.currentUser,
         permissions: this.permissions,
+        enableAnnotationsOnboarding: this.config.enableAnnotationsOnboarding ?? false, // RFC-0144
       });
 
       await this.annotationsTab.init();
@@ -392,7 +418,7 @@ export class SettingsModalView {
               <div class="form-group">
                 <label for="identifier">Identificador / LUC / SUC</label>
                 <input type="text" id="identifier" name="identifier" maxlength="20" ${
-                  this.config.superadmin ? '' : 'readonly'
+                  this.isSuperAdmin() ? '' : 'readonly'
                 }>
               </div>
             </div>
@@ -451,9 +477,9 @@ export class SettingsModalView {
   }
 
   private getThermostatAlarmsHTML(): string {
-    // RFC-XXXX: offSetTemperature field only visible for SuperAdmin
+    // RFC-0171: offSetTemperature field only visible for SuperAdmin (@myio.com.br users)
     const offSetTemperatureField =
-      this.config.superadmin || 3 > 2 // TODO Remover esse hardcode e ajustar a visão de superadmin
+      this.isSuperAdmin()
         ? `
         <div class="form-group">
           <label for="offSetTemperature">Offset de Temperatura (°C)</label>
@@ -1037,7 +1063,7 @@ export class SettingsModalView {
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 10000;
+          z-index: 9999999;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         

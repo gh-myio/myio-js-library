@@ -98,11 +98,12 @@ var _ambientesMap = {};
 // ============================================================================
 
 /**
- * Fetch parent asset for a device via ThingsBoard Relations API
+ * Fetch ALL parent assets for a device via ThingsBoard Relations API
+ * A device can have multiple parent ASSETs via "Contains" relations
  * @param {Object} deviceEntityId - { id: string, entityType: 'DEVICE' }
- * @returns {Promise<Object>} Parent asset { id, entityType: 'ASSET' }
+ * @returns {Promise<Object[]>} Array of parent assets [{ id, entityType: 'ASSET' }, ...]
  */
-function getParentAssetViaHttp(deviceEntityId) {
+function getAllParentAssetsViaHttp(deviceEntityId) {
   return new Promise(function (resolve, reject) {
     if (!deviceEntityId || !deviceEntityId.id || !deviceEntityId.entityType) {
       return reject('entityId inválido!');
@@ -112,15 +113,21 @@ function getParentAssetViaHttp(deviceEntityId) {
 
     self.ctx.http.get(url).subscribe({
       next: function (relations) {
-        var assetRel = relations.find(function (r) {
+        // Get ALL parent assets (not just the first one)
+        var assetRelations = relations.filter(function (r) {
           return r.from && r.from.entityType === 'ASSET' && r.type === 'Contains';
         });
 
-        if (!assetRel) {
+        if (assetRelations.length === 0) {
           return reject('Nenhum asset pai encontrado para: ' + deviceEntityId.id);
         }
 
-        resolve(assetRel.from);
+        // Return all parent assets
+        var parentAssets = assetRelations.map(function (rel) {
+          return rel.from;
+        });
+
+        resolve(parentAssets);
       },
       error: function (err) {
         reject('Erro HTTP: ' + JSON.stringify(err));
@@ -273,37 +280,40 @@ function buildAmbienteHierarchy(classifiedDevices) {
       return;
     }
 
-    // Step 1: Fetch parent asset for each device
+    // Step 1: Fetch ALL parent assets for each device (a device can have multiple parents)
     var promises = allDevices.map(function (device) {
-      return getParentAssetViaHttp({ id: device.id, entityType: 'DEVICE' })
-        .then(function (parentAsset) {
-          // Store device-to-parent mapping
-          _deviceToAmbienteMap[device.id] = parentAsset.id;
+      return getAllParentAssetsViaHttp({ id: device.id, entityType: 'DEVICE' })
+        .then(function (parentAssets) {
+          // Store device-to-parent mapping (first parent for backwards compatibility)
+          _deviceToAmbienteMap[device.id] = parentAssets[0].id;
 
-          // Create or update ambiente node
-          if (!_ambienteHierarchy[parentAsset.id]) {
-            _ambienteHierarchy[parentAsset.id] = {
-              id: parentAsset.id,
-              name: null, // Will fetch later
-              entityType: 'ASSET',
-              parentId: null,
-              level: 1, // Default level, will be updated if parent is found
-              children: [],
-              devices: [],
-              aggregatedData: null,
-            };
-          }
+          // Add device to ALL of its parent ASSETs
+          parentAssets.forEach(function (parentAsset) {
+            // Create or update ambiente node
+            if (!_ambienteHierarchy[parentAsset.id]) {
+              _ambienteHierarchy[parentAsset.id] = {
+                id: parentAsset.id,
+                name: null, // Will fetch later
+                entityType: 'ASSET',
+                parentId: null,
+                level: 1, // Default level, will be updated if parent is found
+                children: [],
+                devices: [],
+                aggregatedData: null,
+              };
+            }
 
-          // Add device to ambiente
-          _ambienteHierarchy[parentAsset.id].devices.push(device);
+            // Add device to ambiente
+            _ambienteHierarchy[parentAsset.id].devices.push(device);
 
-          LogHelper.log('[MAIN_BAS] Device "' + device.name + '" -> Parent: ' + parentAsset.id);
+            LogHelper.log('[MAIN_BAS] Device "' + device.name + '" -> Parent: ' + parentAsset.id);
+          });
 
-          return { device: device, parentId: parentAsset.id };
+          return { device: device, parentIds: parentAssets.map(function (p) { return p.id; }) };
         })
         .catch(function (err) {
           LogHelper.warn('[MAIN_BAS] No parent for device:', device.name, err);
-          return { device: device, parentId: null };
+          return { device: device, parentIds: [] };
         });
     });
 
@@ -338,6 +348,96 @@ function buildAmbienteHierarchy(classifiedDevices) {
         reject(err);
       });
   });
+}
+
+// ============================================================================
+// RFC-0168: ASSET_AMBIENT Hierarchy Building
+// ============================================================================
+
+// Module-level cache for ASSET_AMBIENT hierarchy
+var _assetAmbientHierarchy = {};
+
+/**
+ * RFC-0168: Remove "(NNN)-" prefix pattern from ambiente labels
+ * Examples:
+ *   "(002)-Sala do Nobreak" → "Sala do Nobreak"
+ *   "(001)-Deck" → "Deck"
+ *   "Deck - Climatização" → "Deck - Climatização" (no change)
+ *
+ * @param {string} label - The label to process
+ * @returns {string} Label without the prefix pattern
+ */
+function removeAmbientePrefixFromLabel(label) {
+  if (!label || typeof label !== 'string') return label || '';
+  // Match pattern: (NNN)- where NNN is one or more digits
+  return label.replace(/^\(\d+\)-\s*/, '');
+}
+
+/**
+ * RFC-0168: Build ASSET_AMBIENT hierarchy from parsed ambientes and device hierarchy
+ *
+ * Filters _ambienteHierarchy to include only ASSET_AMBIENT type assets and enriches
+ * them with displayLabel (prefix removed) and hasSetupWarning flags.
+ *
+ * @param {Object[]} parsedAmbientes - Array of ambiente objects from parseDevicesFromData
+ * @returns {Object} Map of ambienteId -> AssetAmbientNode
+ *
+ * AssetAmbientNode structure:
+ * {
+ *   id: string,
+ *   name: string,
+ *   assetType: 'ASSET_AMBIENT',
+ *   originalLabel: string,      // "(002)-Sala do Nobreak"
+ *   displayLabel: string,       // "Sala do Nobreak"
+ *   devices: Device[],
+ *   hasSetupWarning: boolean,   // true if devices.length === 0
+ *   aggregatedData: AggregatedData | null
+ * }
+ */
+function buildAssetAmbientHierarchy(parsedAmbientes) {
+  _assetAmbientHierarchy = {};
+
+  LogHelper.log('[MAIN_BAS] ============ BUILDING ASSET_AMBIENT HIERARCHY ============');
+
+  // Step 1: Get ASSET_AMBIENT type ambientes from parsed ambientes
+  var assetAmbients = parsedAmbientes.filter(function (amb) {
+    return amb.type === 'ASSET_AMBIENT';
+  });
+
+  LogHelper.log('[MAIN_BAS] ASSET_AMBIENT ambientes found:', assetAmbients.length);
+
+  // Step 2: For each ASSET_AMBIENT, find its devices from _ambienteHierarchy
+  assetAmbients.forEach(function (amb) {
+    var hierarchyNode = _ambienteHierarchy[amb.id];
+    var devices = hierarchyNode ? hierarchyNode.devices : [];
+
+    _assetAmbientHierarchy[amb.id] = {
+      id: amb.id,
+      name: amb.name,
+      assetType: 'ASSET_AMBIENT',
+      originalLabel: amb.label,
+      displayLabel: removeAmbientePrefixFromLabel(amb.label),
+      devices: devices,
+      hasSetupWarning: devices.length === 0,
+      aggregatedData: hierarchyNode ? hierarchyNode.aggregatedData : null,
+      // Keep reference to original parsed ambiente for additional data
+      _sourceAmbiente: amb,
+    };
+
+    LogHelper.log(
+      '[MAIN_BAS] ASSET_AMBIENT "' +
+        _assetAmbientHierarchy[amb.id].displayLabel +
+        '": ' +
+        devices.length +
+        ' devices' +
+        (_assetAmbientHierarchy[amb.id].hasSetupWarning ? ' (SETUP WARNING)' : '')
+    );
+  });
+
+  LogHelper.log('[MAIN_BAS] ============ ASSET_AMBIENT HIERARCHY COMPLETE ============');
+  LogHelper.log('[MAIN_BAS]   Total ASSET_AMBIENTs:', Object.keys(_assetAmbientHierarchy).length);
+
+  return _assetAmbientHierarchy;
 }
 
 // ============================================================================
@@ -722,7 +822,8 @@ function parseDevicesFromData(data) {
           devicesMap[entityId] = {
             datasource: datasource,
             entityId: entityId,
-            entityLabel: entityLabel,
+            entityName: entityName, // The device name (e.g., "Termostato-Auditorio")
+            entityLabel: entityLabel, // The label (if configured)
             entityType: entityType,
             aliasName: aliasName,
             collectedData: {},
@@ -740,12 +841,14 @@ function parseDevicesFromData(data) {
   LogHelper.log('[MAIN_BAS]   Unique Devices:', Object.keys(devicesMap).length);
 
   // Phase 2: Process grouped Ambientes
+  // RFC-0168: Capture 'type' attribute from collectedData for ASSET_AMBIENT filtering
   Object.keys(ambientesMap).forEach(function (entityId) {
     var entity = ambientesMap[entityId];
     ambientes.push({
       id: entityId,
       name: entity.entityName, // The asset name (e.g., "Melicidade-Deck")
       label: entity.entityLabel, // The label (e.g., "(001)-Deck")
+      type: entity.collectedData.type || null, // RFC-0168: Asset type (e.g., "ASSET_AMBIENT")
       entityType: entity.entityType,
       aliasName: entity.aliasName,
       data: entity.collectedData,
@@ -768,8 +871,8 @@ function parseDevicesFromData(data) {
     var deviceType = cd.deviceType || cd.type || '';
     var deviceProfile = cd.deviceProfile || cd.profile || '';
     var identifier = cd.identifier || cd.id || '';
-    // Use label from collected data, fallback to entityLabel
-    var deviceLabel = cd.label || entity.entityLabel || entityId;
+    // Use label from collected data, fallback to entityLabel, then entityName, finally entityId
+    var deviceLabel = cd.label || entity.entityLabel || entity.entityName || entityId;
     // Determine if device is online via connectionStatus attribute (values: 'online' | 'offline')
     var connectionStatus = (cd.connectionStatus || '').toLowerCase();
     var isOnline = connectionStatus === 'online';
@@ -785,6 +888,12 @@ function parseDevicesFromData(data) {
           connectionStatus: connectionStatus,
           isOnline: isOnline,
           allKeys: Object.keys(cd),
+          labelSources: {
+            cdLabel: cd.label,
+            entityLabel: entity.entityLabel,
+            entityName: entity.entityName,
+            entityId: entityId,
+          },
         })
     );
 
@@ -800,7 +909,45 @@ function parseDevicesFromData(data) {
     }
 
     // Detect domain and context (using library functions per RFC-0111)
-    var domain = window.MyIOLibrary.getDomainFromDeviceType(deviceType);
+    // RFC-0171: Validate devices using deviceProfile (primary) and deviceType (fallback)
+    // Use deviceProfile for domain detection as it's more reliable
+    var effectiveType = deviceProfile || deviceType;
+    var domain = window.MyIOLibrary.getDomainFromDeviceType(effectiveType);
+
+    // RFC-0171: If domain is 'energy' (default), validate it's actually an energy device
+    // Energy devices must pass isEnergyDevice check on deviceProfile (3F_MEDIDOR, MEDIDOR, etc.)
+    // or be a valid motor/pump (BOMBA, MOTOR)
+    if (domain === 'energy') {
+      var profileUpper = deviceProfile.toUpperCase();
+      var typeUpper = deviceType.toUpperCase();
+
+      var isValidEnergy = window.MyIOLibrary.isEnergyDevice
+        ? window.MyIOLibrary.isEnergyDevice(deviceProfile) || window.MyIOLibrary.isEnergyDevice(deviceType)
+        : false;
+      var isMotorPump =
+        profileUpper.includes('BOMBA') ||
+        profileUpper.includes('MOTOR') ||
+        typeUpper.includes('BOMBA') ||
+        typeUpper.includes('MOTOR');
+      var isEntrada =
+        profileUpper.includes('ENTRADA') ||
+        profileUpper.includes('RELOGIO') ||
+        profileUpper.includes('TRAFO') ||
+        profileUpper.includes('SUBESTACAO');
+
+      if (!isValidEnergy && !isMotorPump && !isEntrada) {
+        LogHelper.log(
+          '[MAIN_BAS] Skipping invalid energy device (deviceProfile not energy):',
+          deviceLabel,
+          'deviceProfile:',
+          deviceProfile,
+          'deviceType:',
+          deviceType
+        );
+        return; // Skip this device - not a valid energy device
+      }
+    }
+
     var context = window.MyIOLibrary.detectContext(
       { deviceType: deviceType, deviceProfile: deviceProfile, identifier: identifier },
       domain
@@ -842,7 +989,7 @@ function parseDevicesFromData(data) {
       device.consumption = parseFloat(cd.consumption || 0) || null;
       device.status = isOnline ? 'active' : 'inactive';
     } else {
-      // Energy domain (includes motors/pumps)
+      // Energy domain (includes motors/pumps) - already validated above
       device.consumption = parseFloat(cd.consumption || cd.energy || cd.power || 0);
 
       // Motors/pumps are energy domain with context 'bomba' or 'motor'
@@ -1020,17 +1167,42 @@ function getAmbienteActionHandler(ambiente) {
 }
 
 /**
- * Build EntityListPanel items from ambiente devices
- * Each device in the "Ambientes" datasource becomes a list item
+ * Build EntityListPanel items from ambiente assets
+ * RFC-0168: Only include items with label pattern "(NNN)-" at the start
+ * Examples: "(001)-Deck", "(002)-Sala do Nobreak", "(010)-Auditório"
+ * This pattern identifies ASSET_AMBIENT items in the datasource
  */
 function buildAmbienteItems(ambientes) {
-  return ambientes.map(function (ambiente) {
+  // RFC-0168: Filter to include only items with label pattern "(NNN)-"
+  // Pattern matches: (001)-, (002)-, (010)-, (123)-, etc.
+  var ambienteLabelPattern = /^\(\d{3}\)-/;
+
+  var filteredAmbientes = ambientes.filter(function (ambiente) {
+    var label = ambiente.label || '';
+    var hasValidPattern = ambienteLabelPattern.test(label);
+
+    if (!hasValidPattern) {
+      LogHelper.log(
+        '[MAIN_BAS] buildAmbienteItems: filtered out (no (NNN)- pattern):',
+        ambiente.name || ambiente.id,
+        'label:',
+        label
+      );
+    }
+
+    return hasValidPattern;
+  });
+
+  LogHelper.log('[MAIN_BAS] buildAmbienteItems: filtered', filteredAmbientes.length, 'of', ambientes.length, 'ambientes');
+
+  return filteredAmbientes.map(function (ambiente) {
     // Use label (e.g., "(001)-Deck") for display, fallback to name (e.g., "Melicidade-Deck")
     var displayLabel = ambiente.label || ambiente.name || ambiente.id;
     return {
       id: ambiente.id,
       label: displayLabel,
       name: ambiente.name, // Keep the entity name for reference
+      type: ambiente.type, // Keep type for debugging
       icon: getAmbienteIcon(displayLabel),
       handleActionClick: getAmbienteActionHandler(ambiente),
     };
@@ -1199,6 +1371,13 @@ function hvacDeviceToAmbienteData(device) {
   var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
   var status = device.status === 'online' ? 'online' : 'offline';
 
+  LogHelper.log('[MAIN_BAS] hvacDeviceToAmbienteData:', {
+    deviceId: device.id,
+    deviceName: device.name,
+    temperature: device.temperature,
+    status: status,
+  });
+
   // Build devices array from available data
   var devices = [];
 
@@ -1251,24 +1430,228 @@ function hvacDeviceToAmbienteData(device) {
 }
 
 /**
- * Build CardGridPanel items for ambiente cards
- * @param {Object} classified - Classified device structure
- * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
+ * RFC-0168: Convert an ASSET_AMBIENT hierarchy node to AmbienteData for renderCardAmbienteV6
+ *
+ * Aggregates data from multiple child devices:
+ * - Temperature & Humidity from TERMOSTATO devices
+ * - Consumption from 3F_MEDIDOR, FANCOIL, AR_CONDICIONADO_SPLIT devices
+ * - Remote control from REMOTE devices
+ *
+ * @param {Object} hierarchyNode - ASSET_AMBIENT node from buildAssetAmbientHierarchy
+ * @returns {Object} AmbienteData for card rendering
  */
-function buildAmbienteCardItems(classified, selectedAmbienteId) {
-  var hvacDevices = getHVACDevicesFromClassified(classified);
-  var filtered = hvacDevices;
-  if (selectedAmbienteId) {
-    filtered = hvacDevices.filter(function (d) {
-      return d.id === selectedAmbienteId;
+function assetAmbientToAmbienteData(hierarchyNode) {
+  var devices = hierarchyNode.devices || [];
+  var aggregatedData = hierarchyNode.aggregatedData || {};
+
+  // Find temperature and humidity from TERMOSTATO devices
+  var temperature = null;
+  var humidity = null;
+  var termostatoDevice = devices.find(function (d) {
+    var dt = (d.deviceType || '').toUpperCase();
+    return dt.includes('TERMOSTATO');
+  });
+
+  if (termostatoDevice) {
+    // Get temperature from rawData or direct property
+    temperature =
+      (termostatoDevice.rawData && termostatoDevice.rawData.temperature) ||
+      termostatoDevice.temperature;
+    // Get humidity from rawData or direct property
+    humidity =
+      (termostatoDevice.rawData && termostatoDevice.rawData.humidity) ||
+      termostatoDevice.humidity;
+  } else if (aggregatedData.temperature) {
+    // Fallback to aggregated temperature average
+    temperature = aggregatedData.temperature.avg;
+  }
+
+  // Helper function to check if a device is a REMOTE control device
+  // Check deviceType, deviceProfile, AND type attribute (from rawData or collectedData)
+  function isRemoteDevice(d) {
+    var dt = (d.deviceType || '').toUpperCase();
+    var dp = (d.deviceProfile || '').toUpperCase();
+    var typeAttr = ((d.rawData && d.rawData.type) || d.type || '').toUpperCase();
+    return (
+      dt.includes('REMOTE') ||
+      dt.includes('CONTROLE') ||
+      dp.includes('REMOTE') ||
+      dp.includes('CONTROLE') ||
+      typeAttr === 'REMOTE' ||
+      typeAttr.includes('CONTROLE')
+    );
+  }
+
+  // Collect individual energy devices (3F_MEDIDOR, FANCOIL, AR_CONDICIONADO_SPLIT)
+  // EXCLUDE devices that are REMOTE controls
+  var energyDevices = [];
+  var consumptionTotal = 0;
+  var hasConsumption = false;
+  devices.forEach(function (d) {
+    // Skip REMOTE devices - they are not energy meters
+    if (isRemoteDevice(d)) {
+      return;
+    }
+
+    var dt = (d.deviceType || '').toUpperCase();
+    if (
+      dt.includes('3F_MEDIDOR') ||
+      dt.includes('FANCOIL') ||
+      dt.includes('AR_CONDICIONADO') ||
+      dt.includes('MEDIDOR')
+    ) {
+      var consumption = (d.rawData && d.rawData.consumption) || d.consumption;
+      var consumptionValue = consumption != null && !isNaN(consumption) ? parseFloat(consumption) : null;
+      if (consumptionValue != null) {
+        consumptionTotal += consumptionValue;
+        hasConsumption = true;
+      }
+      // Add individual energy device info
+      energyDevices.push({
+        id: d.id,
+        name: d.name || d.label || 'Medidor',
+        label: (d.rawData && d.rawData.label) || d.label || d.name || 'Medidor',
+        deviceType: d.deviceType,
+        consumption: consumptionValue,
+        status: d.status || 'offline',
+      });
+    }
+  });
+
+  // Collect ALL remote control devices
+  var remoteDevices = [];
+  devices.forEach(function (d) {
+    if (isRemoteDevice(d)) {
+      // Get the state from various possible sources
+      var state = (d.rawData && d.rawData.state) || d.state || 'off';
+      var isDeviceOn =
+        state === 'on' ||
+        state === 'ON' ||
+        state === true ||
+        state === 1 ||
+        (d.rawData && d.rawData.isOn === true) ||
+        d.isOn === true;
+
+      remoteDevices.push({
+        id: d.id,
+        name: d.name || d.label || 'Controle',
+        label: (d.rawData && d.rawData.label) || d.label || d.name || 'Controle',
+        deviceType: d.deviceType || 'REMOTE',
+        isOn: isDeviceOn,
+        state: state,
+        status: d.status || 'offline',
+      });
+    }
+  });
+
+  var hasRemote = remoteDevices.length > 0;
+  var isOn = remoteDevices.some(function (r) { return r.isOn; });
+
+  // Determine overall status
+  var onlineCount = aggregatedData.onlineCount || 0;
+  var offlineCount = aggregatedData.offlineCount || 0;
+  var status = 'offline';
+  if (hierarchyNode.hasSetupWarning) {
+    status = 'warning';
+  } else if (onlineCount > 0 && offlineCount === 0) {
+    status = 'online';
+  } else if (onlineCount > 0) {
+    status = 'online'; // Mixed state, show as online
+  }
+
+  // Build devices array for the card
+  var cardDevices = [];
+
+  // Add temperature device if available
+  if (temperature != null) {
+    cardDevices.push({
+      id: termostatoDevice ? termostatoDevice.id + '_temp' : hierarchyNode.id + '_temp',
+      type: 'temperature',
+      deviceType: 'TERMOSTATO',
+      status: termostatoDevice ? termostatoDevice.status : status,
+      value: temperature,
     });
   }
 
-  return filtered.map(function (device) {
+  // Add energy device if available
+  if (hasConsumption) {
+    cardDevices.push({
+      id: hierarchyNode.id + '_energy',
+      type: 'energy',
+      deviceType: '3F_MEDIDOR',
+      status: status,
+      value: consumptionTotal,
+    });
+  }
+
+  // Add remote devices to cardDevices array
+  remoteDevices.forEach(function (remote) {
+    cardDevices.push({
+      id: remote.id + '_remote',
+      type: 'remote',
+      deviceType: 'REMOTE',
+      status: remote.status,
+      value: remote.isOn ? 1 : 0,
+    });
+  });
+
+  LogHelper.log('[MAIN_BAS] assetAmbientToAmbienteData:', {
+    id: hierarchyNode.id,
+    displayLabel: hierarchyNode.displayLabel,
+    temperature: temperature,
+    humidity: humidity,
+    consumption: hasConsumption ? consumptionTotal : null,
+    energyDevices: energyDevices,
+    remoteDevices: remoteDevices,
+    hasRemote: hasRemote,
+    isOn: isOn,
+    status: status,
+    hasSetupWarning: hierarchyNode.hasSetupWarning,
+    deviceCount: devices.length,
+  });
+
+  return {
+    id: hierarchyNode.id,
+    label: hierarchyNode.displayLabel,
+    identifier: hierarchyNode.name,
+    temperature: temperature,
+    humidity: humidity, // RFC-0168: New field
+    consumption: hasConsumption ? consumptionTotal : null,
+    energyDevices: energyDevices, // Individual energy devices for card display
+    remoteDevices: remoteDevices, // Individual remote control devices
+    isOn: isOn,
+    hasRemote: hasRemote,
+    status: status,
+    hasSetupWarning: hierarchyNode.hasSetupWarning, // RFC-0168: New field
+    devices: cardDevices,
+    childDeviceCount: devices.length,
+  };
+}
+
+/**
+ * RFC-0168: Build CardGridPanel items for ambiente cards from ASSET_AMBIENT hierarchy
+ *
+ * Changed from using HVAC devices directly to using ASSET_AMBIENT hierarchy.
+ * Each ASSET_AMBIENT becomes a card with aggregated data from its child devices.
+ *
+ * @param {Object} assetAmbientHierarchy - ASSET_AMBIENT hierarchy from buildAssetAmbientHierarchy
+ * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
+ */
+function buildAmbienteCardItems(assetAmbientHierarchy, selectedAmbienteId) {
+  var hierarchyNodes = Object.values(assetAmbientHierarchy || {});
+  var filtered = hierarchyNodes;
+
+  if (selectedAmbienteId) {
+    filtered = hierarchyNodes.filter(function (node) {
+      return node.id === selectedAmbienteId;
+    });
+  }
+
+  return filtered.map(function (node) {
     return {
-      id: device.id,
-      ambienteData: hvacDeviceToAmbienteData(device),
-      source: device,
+      id: node.id,
+      ambienteData: assetAmbientToAmbienteData(node),
+      source: node,
     };
   });
 }
@@ -1323,14 +1706,42 @@ function energyDeviceToEntityObject(device) {
 /**
  * Build CardGridPanel items from energy equipment devices
  * Shows: entrada, stores, equipments
+ * RFC-0171: Filter to include only devices that pass isEnergyDevice check
  * @param {Object} classified - Classified device structure
  * @param {string|null} selectedAmbienteId - ID of selected ambiente to filter, or null for all
  */
 function buildEnergyCardItems(classified, selectedAmbienteId) {
   var energyDevices = getEnergyEquipmentDevicesFromClassified(classified);
-  var filtered = energyDevices;
+
+  // RFC-0171: Filter to include only valid energy devices
+  // Use MyIOLibrary.isEnergyDevice to validate deviceType/deviceProfile
+  var validEnergyDevices = energyDevices.filter(function (device) {
+    var deviceType = device.deviceType || device.deviceProfile || '';
+    var isValid = MyIOLibrary.isEnergyDevice ? MyIOLibrary.isEnergyDevice(deviceType) : true;
+
+    if (!isValid) {
+      LogHelper.log(
+        '[MAIN_BAS] buildEnergyCardItems: filtered out non-energy device:',
+        device.name,
+        'deviceType:',
+        deviceType
+      );
+    }
+
+    return isValid;
+  });
+
+  LogHelper.log(
+    '[MAIN_BAS] buildEnergyCardItems: filtered',
+    validEnergyDevices.length,
+    'of',
+    energyDevices.length,
+    'devices'
+  );
+
+  var filtered = validEnergyDevices;
   if (selectedAmbienteId) {
-    filtered = energyDevices.filter(function (d) {
+    filtered = validEnergyDevices.filter(function (d) {
       return d.id === selectedAmbienteId;
     });
   }
@@ -1621,7 +2032,7 @@ function switchChartDomainInContainer(domain, container) {
     unit: cfg.unit,
     unitLarge: cfg.unitLarge,
     thresholdForLargeUnit: cfg.threshold,
-    fetchData: createMockFetchData(domain),
+    fetchData: createRealFetchData(domain),
     defaultPeriod: 7,
     defaultChartType: domain === 'temperature' ? 'line' : 'bar',
     theme: (_settings && _settings.defaultThemeMode) || 'dark',
@@ -1890,18 +2301,30 @@ function mountWaterPanel(waterHost, settings, classified) {
 /**
  * Mount CardGridPanel into #bas-ambientes-host (HVAC devices as Ambiente cards)
  */
-function mountAmbientesPanel(host, settings, classified) {
+/**
+ * RFC-0168: Mount Ambientes Panel using ASSET_AMBIENT hierarchy
+ *
+ * Changed to receive ASSET_AMBIENT hierarchy instead of classified devices.
+ * Each ASSET_AMBIENT becomes a card with aggregated data from its child devices.
+ *
+ * @param {HTMLElement} host - Container element
+ * @param {Object} settings - Widget settings
+ * @param {Object} assetAmbientHierarchy - ASSET_AMBIENT hierarchy from buildAssetAmbientHierarchy
+ */
+function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
   LogHelper.log(
     '[MAIN_BAS] mountAmbientesPanel called, CardGridPanel available:',
     !!MyIOLibrary.CardGridPanel
   );
+  LogHelper.log('[MAIN_BAS] ASSET_AMBIENT hierarchy count:', Object.keys(assetAmbientHierarchy || {}).length);
+
   if (!MyIOLibrary.CardGridPanel) {
     LogHelper.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
 
-  var ambienteItems = buildAmbienteCardItems(classified, null);
-  var hvacDevices = getHVACDevicesFromClassified(classified);
+  // RFC-0168: Build items from ASSET_AMBIENT hierarchy
+  var ambienteItems = buildAmbienteCardItems(assetAmbientHierarchy, null);
   var currentFilter = { categories: null, sortId: null };
 
   // Use premium green header style from library
@@ -1943,15 +2366,29 @@ function mountAmbientesPanel(host, settings, classified) {
     showFilter: true,
     showMaximize: true,
     handleActionFilter: function () {
-      openFilterModal('hvac', hvacDevices, currentFilter, function (selectedCategories, sortOption) {
+      // RFC-0168: For filtering, extract devices from all ASSET_AMBIENTs
+      var allDevices = [];
+      Object.values(assetAmbientHierarchy || {}).forEach(function (node) {
+        allDevices = allDevices.concat(node.devices || []);
+      });
+
+      openFilterModal('hvac', allDevices, currentFilter, function (selectedCategories, sortOption) {
         currentFilter.categories = selectedCategories;
         currentFilter.sortId = sortOption ? sortOption.id : null;
-        // Filter and sort items
-        var filteredItems = buildAmbienteCardItems(classified, _selectedAmbiente).filter(function (item) {
-          if (!selectedCategories || selectedCategories.length === 0) return true;
-          var context = item.source?.context || '';
-          return selectedCategories.includes(context);
-        });
+
+        // RFC-0168: Filter ASSET_AMBIENTs based on their devices' contexts
+        var filteredItems = buildAmbienteCardItems(assetAmbientHierarchy, _selectedAmbiente).filter(
+          function (item) {
+            if (!selectedCategories || selectedCategories.length === 0) return true;
+            // Check if any device in this ambiente matches the selected categories
+            var devices = item.source?.devices || [];
+            return devices.some(function (d) {
+              var context = d.context || '';
+              return selectedCategories.includes(context);
+            });
+          }
+        );
+
         if (sortOption) {
           filteredItems.sort(function (a, b) {
             var valA, valB;
@@ -1983,6 +2420,9 @@ function mountAmbientesPanel(host, settings, classified) {
           detail: { ambiente: item.ambienteData, source: item.source },
         })
       );
+
+      // RFC-0168: Open Ambiente Detail Modal
+      openAmbienteDetailModal(item.ambienteData, item.source, settings);
     },
     handleToggleRemote: function (isOn, item) {
       LogHelper.log('[MAIN_BAS] Ambiente remote toggle:', isOn, item.ambienteData);
@@ -2011,9 +2451,10 @@ function openBASDeviceModal(device, settings) {
 
   // Build BAS device data from classified device
   var deviceType = device.deviceType || device.deviceProfile || '';
-  var hasRemote = deviceType.toUpperCase().includes('REMOTE') ||
-                  device.hasRemote === true ||
-                  (device.rawData && device.rawData.remote_available === true);
+  var hasRemote =
+    deviceType.toUpperCase().includes('REMOTE') ||
+    device.hasRemote === true ||
+    (device.rawData && device.rawData.remote_available === true);
 
   var basDevice = {
     id: device.id || device.deviceId,
@@ -2030,8 +2471,8 @@ function openBASDeviceModal(device, settings) {
       voltage: device.rawData?.voltage || device.rawData?.tensao,
       temperature: device.rawData?.temperature || device.rawData?.temperatura,
       consumption: device.consumption || device.val || device.rawData?.consumption,
-      lastUpdate: Date.now()
-    }
+      lastUpdate: Date.now(),
+    },
   };
 
   // Get date range (last 7 days default)
@@ -2066,44 +2507,47 @@ function openBASDeviceModal(device, settings) {
   var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
     dataApiHost: 'https://api.data.apps.myio-bas.com',
     clientId: clientId,
-    clientSecret: clientSecret
+    clientSecret: clientSecret,
   });
 
-  myIOAuth.getToken().then(function (ingestionToken) {
-    LogHelper.log('[MAIN_BAS] Ingestion token obtained successfully');
+  myIOAuth
+    .getToken()
+    .then(function (ingestionToken) {
+      LogHelper.log('[MAIN_BAS] Ingestion token obtained successfully');
 
-    // Open modal in BAS mode
-    MyIOLibrary.openDashboardPopupEnergy({
-      basMode: true,
-      basDevice: basDevice,
-      deviceId: basDevice.entityId,
-      deviceLabel: basDevice.label,
-      startDate: startDateStr,
-      endDate: endDateStr,
-      tbJwtToken: jwtToken,
-      ingestionToken: ingestionToken,
-      clientId: clientId,
-      clientSecret: clientSecret,
-      readingType: 'energy',
-      granularity: '1d',
-      theme: 'dark',
-      telemetryRefreshInterval: 10000,
-      onRemoteCommand: function (command, dev) {
-        return sendRemoteCommand(dev.entityId, command);
-      },
-      onTelemetryRefresh: function (dev) {
-        return fetchDeviceTelemetry(dev.entityId);
-      },
-      onClose: function () {
-        LogHelper.log('[MAIN_BAS] BAS modal closed');
-      },
-      onError: function (err) {
-        LogHelper.error('[MAIN_BAS] BAS modal error:', err);
-      }
+      // Open modal in BAS mode
+      MyIOLibrary.openDashboardPopupEnergy({
+        basMode: true,
+        basDevice: basDevice,
+        deviceId: basDevice.entityId,
+        deviceLabel: basDevice.label,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        tbJwtToken: jwtToken,
+        ingestionToken: ingestionToken,
+        clientId: clientId,
+        clientSecret: clientSecret,
+        readingType: 'energy',
+        granularity: '1d',
+        theme: 'dark',
+        telemetryRefreshInterval: 10000,
+        onRemoteCommand: function (command, dev) {
+          return sendRemoteCommand(dev.entityId, command);
+        },
+        onTelemetryRefresh: function (dev) {
+          return fetchDeviceTelemetry(dev.entityId);
+        },
+        onClose: function () {
+          LogHelper.log('[MAIN_BAS] BAS modal closed');
+        },
+        onError: function (err) {
+          LogHelper.error('[MAIN_BAS] BAS modal error:', err);
+        },
+      });
+    })
+    .catch(function (err) {
+      LogHelper.error('[MAIN_BAS] Failed to get ingestion token:', err);
     });
-  }).catch(function (err) {
-    LogHelper.error('[MAIN_BAS] Failed to get ingestion token:', err);
-  });
 }
 
 /**
@@ -2119,6 +2563,220 @@ var ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA'];
 function isOnOffDeviceProfile(deviceProfile) {
   var profile = (deviceProfile || '').toUpperCase();
   return ON_OFF_DEVICE_PROFILES.indexOf(profile) !== -1;
+}
+
+/**
+ * RFC-0170: Check if an ASSET_AMBIENT node is a leaf (has no sub-ambientes)
+ * A node is a leaf if no other node's name starts with its name + "-"
+ * @param {Object} node - The node to check
+ * @param {Object[]} allNodes - All nodes in the hierarchy
+ * @returns {boolean} True if this is a leaf node
+ */
+function isAssetAmbientLeaf(node, allNodes) {
+  var nodeName = node.name || '';
+  if (!nodeName) return true;
+
+  // Check if any other node's name starts with this node's name + "-"
+  // e.g., "Melicidade-Deck-Climatização" is NOT a leaf because
+  // "Melicidade-Deck-Climatização-Direita" starts with it
+  for (var i = 0; i < allNodes.length; i++) {
+    var otherNode = allNodes[i];
+    if (otherNode.id === node.id) continue;
+    var otherName = otherNode.name || '';
+    if (otherName.startsWith(nodeName + '-')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * RFC-0170: Find sub-ambientes for a given parent ambiente
+ * Matches by label prefix or name pattern, returns ONLY LEAF nodes
+ * @param {Object} parentItem - Parent item from sidebar
+ * @returns {Array} Array of sub-ambiente items (only leaves)
+ */
+function findSubAmbientesForParent(parentItem) {
+  if (!_assetAmbientHierarchy) return [];
+
+  // Get the display label without prefix (e.g., "Deck" from "(001)-Deck")
+  var parentLabel = removeAmbientePrefixFromLabel(parentItem.label || '');
+  var parentName = parentItem.name || '';
+
+  LogHelper.log('[MAIN_BAS] Finding sub-ambientes for:', parentLabel, parentName);
+
+  var allMatchingNodes = [];
+  var hierarchyNodes = Object.values(_assetAmbientHierarchy);
+
+  // Step 1: Find all nodes that match the parent pattern
+  hierarchyNodes.forEach(function (node) {
+    var nodeLabel = removeAmbientePrefixFromLabel(node.displayLabel || node.originalLabel || '');
+
+    // Check if this node matches the parent or is a child of the parent
+    // Match patterns:
+    // 1. Exact match: "Deck" === "Deck"
+    // 2. Child match: "Deck - Climatização" starts with "Deck"
+    // 3. Name-based match: node.name starts with parentName
+    var isMatch = nodeLabel === parentLabel ||
+                  nodeLabel.startsWith(parentLabel + ' - ') ||
+                  nodeLabel.startsWith(parentLabel + ' ') ||
+                  (parentName && node.name && node.name.startsWith(parentName + '-'));
+
+    if (isMatch) {
+      allMatchingNodes.push(node);
+    }
+  });
+
+  LogHelper.log('[MAIN_BAS] Found matching nodes:', allMatchingNodes.length);
+
+  // Step 2: Filter to keep only LEAF nodes (no sub-ambientes)
+  var subAmbientes = [];
+  allMatchingNodes.forEach(function (node) {
+    var isLeaf = isAssetAmbientLeaf(node, allMatchingNodes);
+
+    if (isLeaf) {
+      var ambienteData = assetAmbientToAmbienteData(node);
+      var nodeLabel = removeAmbientePrefixFromLabel(node.displayLabel || node.originalLabel || '');
+      subAmbientes.push({
+        id: node.id,
+        label: node.displayLabel || nodeLabel,
+        name: node.name,
+        ambienteData: ambienteData,
+        source: node,
+      });
+      LogHelper.log('[MAIN_BAS]   LEAF: ' + node.name);
+    } else {
+      LogHelper.log('[MAIN_BAS]   NOT LEAF (has children): ' + node.name);
+    }
+  });
+
+  LogHelper.log('[MAIN_BAS] Found leaf sub-ambientes:', subAmbientes.length);
+  return subAmbientes;
+}
+
+/**
+ * RFC-0170: Open Ambiente Group Modal
+ * Shows aggregated view of multiple sub-ambientes
+ * @param {Object} parentItem - Parent item from sidebar
+ * @param {Object} settings - Widget settings
+ */
+function openAmbienteGroupModal(parentItem, settings) {
+  if (!MyIOLibrary.openAmbienteGroupModal) {
+    LogHelper.warn('[MAIN_BAS] openAmbienteGroupModal not available');
+    return;
+  }
+
+  // Find all sub-ambientes for this parent
+  var subAmbientes = findSubAmbientesForParent(parentItem);
+
+  if (subAmbientes.length === 0) {
+    LogHelper.log('[MAIN_BAS] No sub-ambientes found, opening detail modal if single ambiente');
+    // If no sub-ambientes found but we have hierarchy data for this item, open detail modal
+    if (_assetAmbientHierarchy && _assetAmbientHierarchy[parentItem.id]) {
+      var node = _assetAmbientHierarchy[parentItem.id];
+      var ambienteData = assetAmbientToAmbienteData(node);
+      openAmbienteDetailModal(ambienteData, node, settings);
+    }
+    return;
+  }
+
+  // If only 1 sub-ambiente and it matches exactly, open detail modal instead
+  if (subAmbientes.length === 1) {
+    var singleSub = subAmbientes[0];
+    var singleLabel = removeAmbientePrefixFromLabel(singleSub.label);
+    var parentLabel = removeAmbientePrefixFromLabel(parentItem.label || '');
+    if (singleLabel === parentLabel) {
+      LogHelper.log('[MAIN_BAS] Single exact match, opening detail modal');
+      openAmbienteDetailModal(singleSub.ambienteData, singleSub.source, settings);
+      return;
+    }
+  }
+
+  // Build group data
+  var groupLabel = removeAmbientePrefixFromLabel(parentItem.label || parentItem.name || 'Grupo');
+  var groupData = MyIOLibrary.buildAmbienteGroupData
+    ? MyIOLibrary.buildAmbienteGroupData(parentItem.id, groupLabel, parentItem.name || '', subAmbientes)
+    : {
+        id: parentItem.id,
+        label: groupLabel,
+        name: parentItem.name || '',
+        metrics: {
+          temperatureAvg: null,
+          temperatureMin: null,
+          temperatureMax: null,
+          humidityAvg: null,
+          consumptionTotal: null,
+          deviceCount: 0,
+          onlineCount: 0,
+          offlineCount: 0,
+          subAmbienteCount: subAmbientes.length,
+        },
+        subAmbientes: subAmbientes,
+        status: 'offline',
+      };
+
+  LogHelper.log('[MAIN_BAS] Opening Ambiente Group modal:', groupData);
+
+  // Open the group modal
+  MyIOLibrary.openAmbienteGroupModal(groupData, {
+    themeMode: 'light',
+    onSubAmbienteClick: function (subAmbiente) {
+      LogHelper.log('[MAIN_BAS] Sub-ambiente clicked:', subAmbiente);
+      // Open detail modal for this sub-ambiente
+      openAmbienteDetailModal(subAmbiente.ambienteData, subAmbiente.source, settings);
+    },
+    onRemoteToggle: function (isOn, subAmbiente, remoteId) {
+      LogHelper.log('[MAIN_BAS] Group remote toggle:', isOn, subAmbiente, remoteId);
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-remote-toggle', {
+          detail: { isOn: isOn, ambiente: subAmbiente.ambienteData, remoteId: remoteId, source: subAmbiente.source },
+        })
+      );
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] Ambiente Group modal closed');
+    },
+  });
+}
+
+/**
+ * RFC-0168: Open Ambiente Detail Modal
+ * @param {Object} ambienteData - Ambiente data from card click
+ * @param {Object} source - Source hierarchy node
+ * @param {Object} settings - Widget settings
+ */
+function openAmbienteDetailModal(ambienteData, source, settings) {
+  if (!MyIOLibrary.openAmbienteDetailModal) {
+    LogHelper.warn('[MAIN_BAS] openAmbienteDetailModal not available');
+    return;
+  }
+
+  LogHelper.log('[MAIN_BAS] Opening Ambiente Detail modal:', ambienteData);
+
+  // Get JWT token from localStorage or widget context
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) {
+    jwtToken = _ctx.http.token;
+  }
+
+  // Open the Ambiente Detail modal
+  MyIOLibrary.openAmbienteDetailModal(ambienteData, source, {
+    themeMode: 'light',
+    jwtToken: jwtToken,
+    showTimelineChart: false,
+    onRemoteToggle: function (isOn, remote) {
+      LogHelper.log('[MAIN_BAS] Ambiente remote toggle from modal:', isOn, remote);
+      // Dispatch event for external handling
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-remote-toggle', {
+          detail: { isOn: isOn, ambiente: ambienteData, remote: remote, source: source },
+        })
+      );
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] Ambiente Detail modal closed');
+    },
+  });
 }
 
 /**
@@ -2144,7 +2802,7 @@ function openOnOffDeviceModal(device, settings) {
     deviceProfile: device.deviceProfile || device.deviceType || '',
     status: device.connectionStatus || device.deviceStatus || 'unknown',
     attributes: device.attributes || {},
-    rawData: device.rawData || {}
+    rawData: device.rawData || {},
   };
 
   // Get JWT token from localStorage or widget context
@@ -2164,20 +2822,24 @@ function openOnOffDeviceModal(device, settings) {
     onStateChange: function (deviceId, state) {
       LogHelper.log('[MAIN_BAS] On/Off device state changed:', deviceId, state);
       // Dispatch event for external handling
-      window.dispatchEvent(new CustomEvent('bas:device-state-changed', {
-        detail: { deviceId: deviceId, state: state }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('bas:device-state-changed', {
+          detail: { deviceId: deviceId, state: state },
+        })
+      );
     },
     onScheduleSave: function (deviceId, schedules) {
       LogHelper.log('[MAIN_BAS] On/Off device schedules saved:', deviceId, schedules);
       // Dispatch event for external handling
-      window.dispatchEvent(new CustomEvent('bas:device-schedules-saved', {
-        detail: { deviceId: deviceId, schedules: schedules }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('bas:device-schedules-saved', {
+          detail: { deviceId: deviceId, schedules: schedules },
+        })
+      );
     },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] On/Off Device modal closed');
-    }
+    },
   });
 }
 
@@ -2194,7 +2856,8 @@ function sendRemoteCommand(entityId, command) {
     // Try to use ThingsBoard widget context for RPC
     if (_ctx && _ctx.controlApi) {
       var rpcMethod = command === 'on' ? 'setRemoteOn' : 'setRemoteOff';
-      _ctx.controlApi.sendOneWayCommand(rpcMethod, { state: command === 'on' })
+      _ctx.controlApi
+        .sendOneWayCommand(rpcMethod, { state: command === 'on' })
         .then(function () {
           LogHelper.log('[MAIN_BAS] Remote command sent successfully');
           resolve();
@@ -2205,9 +2868,11 @@ function sendRemoteCommand(entityId, command) {
         });
     } else {
       // Fallback: dispatch event for external handling
-      window.dispatchEvent(new CustomEvent('bas:remote-command', {
-        detail: { entityId: entityId, command: command }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('bas:remote-command', {
+          detail: { entityId: entityId, command: command },
+        })
+      );
       // Simulate success after dispatch
       setTimeout(resolve, 500);
     }
@@ -2225,7 +2890,10 @@ function fetchDeviceTelemetry(entityId) {
 
     // Try to use ThingsBoard widget context for telemetry
     if (_ctx && _ctx.http) {
-      var url = '/api/plugins/telemetry/DEVICE/' + entityId + '/values/timeseries?keys=power,current,voltage,temperature,consumption';
+      var url =
+        '/api/plugins/telemetry/DEVICE/' +
+        entityId +
+        '/values/timeseries?keys=power,current,voltage,temperature,consumption';
       // ThingsBoard http.get returns an Observable, use subscribe instead of then
       _ctx.http.get(url).subscribe({
         next: function (response) {
@@ -2245,7 +2913,7 @@ function fetchDeviceTelemetry(entityId) {
         error: function (err) {
           LogHelper.error('[MAIN_BAS] Telemetry fetch failed:', err);
           reject(err);
-        }
+        },
       });
     } else {
       // Fallback: return mock data
@@ -2254,7 +2922,7 @@ function fetchDeviceTelemetry(entityId) {
         current: Math.random() * 10,
         voltage: 220 + Math.random() * 10,
         consumption: Math.random() * 100,
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
       });
     }
   });
@@ -2435,7 +3103,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     title: settings.sidebarLabel,
     icon: '📍',
     quantity: items.length,
-    subtitle: hierarchyAvailable ? 'Dispositivos' : 'Nome \u2191',
+    subtitle: null, // Removed subtitle line
     items: items,
     panelBackground: settings.sidebarBackground,
     backgroundImage: settings.sidebarBackgroundImage || undefined,
@@ -2475,6 +3143,9 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
     handleClickItem: function (item) {
       LogHelper.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
       _selectedAmbiente = item.id;
+
+      // RFC-0170: Open Ambiente Group Modal for aggregated view
+      openAmbienteGroupModal(item, settings);
 
       // RFC-0161: Filter devices based on selection
       // If hierarchy is available, filter using _deviceToAmbienteMap
@@ -2556,7 +3227,208 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
 // ============================================================================
 
 /**
- * Generate mock fetchData for a given chart domain
+ * Data API host for ingestion API calls
+ */
+var DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+
+/**
+ * Create real fetchData function for chart - fetches from ingestion API
+ * @param {string} domain - 'energy', 'water', or 'temperature'
+ * @returns {function} fetchData function that returns { labels, dailyTotals }
+ */
+function createRealFetchData(domain) {
+  return async function fetchData(period) {
+    var labels = [];
+    var values = [];
+    var now = new Date();
+
+    // Calculate date range
+    var endTs = now.getTime();
+    var startTs = endTs - period * 24 * 60 * 60 * 1000;
+
+    // Generate labels for all days
+    for (var i = period - 1; i >= 0; i--) {
+      var d = new Date(now);
+      d.setDate(d.getDate() - i);
+      labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    }
+
+    // Get credentials
+    var customerId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id;
+    var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+    var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+
+    if (!customerId || !clientId || !clientSecret) {
+      LogHelper.warn('[MAIN_BAS] Chart: No credentials available, returning empty data');
+      return { labels: labels, dailyTotals: new Array(period).fill(0) };
+    }
+
+    try {
+      if (domain === 'temperature') {
+        // Temperature: fetch from ThingsBoard telemetry API
+        values = await fetchTemperatureData(period, startTs, endTs);
+      } else {
+        // Energy/Water: fetch from ingestion API
+        values = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
+      }
+
+      LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', values.length, 'points');
+      return { labels: labels, dailyTotals: values };
+    } catch (error) {
+      LogHelper.error('[MAIN_BAS] Chart fetch error for', domain, ':', error);
+      return { labels: labels, dailyTotals: new Array(period).fill(0) };
+    }
+  };
+}
+
+/**
+ * Fetch energy/water data from ingestion API
+ */
+async function fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs) {
+  if (!MyIOLibrary || !MyIOLibrary.buildMyioIngestionAuth) {
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.buildMyioIngestionAuth not available');
+    return new Array(period).fill(0);
+  }
+
+  // Build auth and get token
+  var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST,
+    clientId: clientId,
+    clientSecret: clientSecret,
+  });
+
+  var token = await myIOAuth.getToken();
+  if (!token) {
+    LogHelper.error('[MAIN_BAS] Failed to get ingestion token');
+    return new Array(period).fill(0);
+  }
+
+  // Build API URL based on domain
+  var endpoint = domain === 'energy' ? 'energy' : 'water';
+  var url = new URL(DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals');
+  url.searchParams.set('startTime', new Date(startTs).toISOString());
+  url.searchParams.set('endTime', new Date(endTs).toISOString());
+  url.searchParams.set('deep', '1');
+  url.searchParams.set('granularity', '1d');
+
+  LogHelper.log('[MAIN_BAS] Fetching', domain, 'chart data from:', url.toString());
+
+  var response = await fetch(url.toString(), {
+    headers: { Authorization: 'Bearer ' + token },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('API error: ' + response.status);
+  }
+
+  var json = await response.json();
+  var data = Array.isArray(json) ? json : json?.data || [];
+
+  // Aggregate data by day
+  var dailyTotals = aggregateByDay(data, period, startTs);
+  return dailyTotals;
+}
+
+/**
+ * Fetch temperature data from ThingsBoard telemetry API
+ */
+async function fetchTemperatureData(period, startTs, endTs) {
+  var jwt = localStorage.getItem('jwt_token');
+  if (!jwt) {
+    LogHelper.warn('[MAIN_BAS] No JWT token for temperature fetch');
+    return new Array(period).fill(null);
+  }
+
+  // Get temperature devices from current classified data
+  var tempDevices = [];
+  if (_currentClassified && _currentClassified.temperature) {
+    tempDevices = _currentClassified.temperature.items || [];
+  }
+
+  if (tempDevices.length === 0) {
+    LogHelper.warn('[MAIN_BAS] No temperature devices found');
+    return new Array(period).fill(null);
+  }
+
+  var dayMs = 24 * 60 * 60 * 1000;
+  var dailySums = new Array(period).fill(0);
+  var dailyCounts = new Array(period).fill(0);
+
+  // Fetch data for up to 10 devices to limit API calls
+  var devicesToFetch = tempDevices.slice(0, 10);
+
+  for (var i = 0; i < devicesToFetch.length; i++) {
+    var device = devicesToFetch[i];
+    var deviceId = device.tbId || device.id;
+    if (!deviceId) continue;
+
+    try {
+      var url = '/api/plugins/telemetry/DEVICE/' + deviceId + '/values/timeseries?keys=temperature&startTs=' + startTs + '&endTs=' + endTs + '&agg=AVG&interval=' + dayMs;
+
+      var response = await fetch(url, {
+        headers: {
+          Authorization: 'Bearer ' + jwt,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) continue;
+
+      var data = await response.json();
+      var readings = data?.temperature || [];
+
+      readings.forEach(function (reading) {
+        var dayIndex = Math.floor((reading.ts - startTs) / dayMs);
+        if (dayIndex >= 0 && dayIndex < period && reading.value !== null) {
+          var value = Number(reading.value);
+          if (!isNaN(value)) {
+            dailySums[dayIndex] += value;
+            dailyCounts[dayIndex]++;
+          }
+        }
+      });
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Error fetching temperature device', deviceId, ':', err.message);
+    }
+  }
+
+  // Calculate daily averages
+  var dailyTotals = dailySums.map(function (sum, idx) {
+    if (dailyCounts[idx] === 0) return null;
+    return Number((sum / dailyCounts[idx]).toFixed(1));
+  });
+
+  return dailyTotals;
+}
+
+/**
+ * Aggregate ingestion API data by day
+ */
+function aggregateByDay(data, period, startTs) {
+  var dayMs = 24 * 60 * 60 * 1000;
+  var dailyTotals = new Array(period).fill(0);
+
+  data.forEach(function (item) {
+    // API returns items with timestamp or time_interval
+    var timestamp = item.timestamp || item.time_interval;
+    if (!timestamp) return;
+
+    var ts = new Date(timestamp).getTime();
+    var dayIndex = Math.floor((ts - startTs) / dayMs);
+
+    if (dayIndex >= 0 && dayIndex < period) {
+      var value = item.total_value || item.value || item.consumption || 0;
+      dailyTotals[dayIndex] += Number(value) || 0;
+    }
+  });
+
+  return dailyTotals;
+}
+
+/**
+ * Generate mock fetchData for a given chart domain (FALLBACK)
+ * @deprecated Use createRealFetchData instead
  */
 function createMockFetchData(domain) {
   return function fetchData(period) {
@@ -2617,7 +3489,7 @@ function switchChartDomain(domain, chartContainer) {
     unit: cfg.unit,
     unitLarge: cfg.unitLarge,
     thresholdForLargeUnit: cfg.threshold,
-    fetchData: createMockFetchData(domain),
+    fetchData: createRealFetchData(domain),
     defaultPeriod: 7,
     defaultChartType: domain === 'temperature' ? 'line' : 'bar',
     theme: (_settings && _settings.defaultThemeMode) || 'dark',
@@ -2865,6 +3737,16 @@ async function initializeDashboard(
       hierarchyAvailable = false;
     }
 
+    // RFC-0168: Build ASSET_AMBIENT hierarchy from parsed ambientes
+    // This filters ASSET_AMBIENT type assets and enriches them with devices from _ambienteHierarchy
+    var assetAmbientHierarchy = {};
+    try {
+      assetAmbientHierarchy = buildAssetAmbientHierarchy(parsed.ambientes);
+      LogHelper.log('[MAIN_BAS] ASSET_AMBIENT hierarchy built:', Object.keys(assetAmbientHierarchy).length);
+    } catch (assetAmbientErr) {
+      LogHelper.warn('[MAIN_BAS] ASSET_AMBIENT hierarchy build failed:', assetAmbientErr);
+    }
+
     // Mount sidebar EntityListPanel (col 1, row 1-2 full height)
     LogHelper.log('[MAIN_BAS] settings.showSidebar:', settings.showSidebar);
     LogHelper.log('[MAIN_BAS] sidebarHost exists:', !!sidebarHost);
@@ -2900,13 +3782,14 @@ async function initializeDashboard(
       chartsHost.style.display = 'none';
     }
 
-    // Mount ambientes CardGridPanel (col 3, row 1–2)
+    // RFC-0168: Mount ambientes CardGridPanel using ASSET_AMBIENT hierarchy (col 3, row 1–2)
     LogHelper.log('[MAIN_BAS] Mounting ambientes panel:', {
       show: settings.showEnvironments,
       hostExists: !!ambientesHost,
+      assetAmbientCount: Object.keys(assetAmbientHierarchy).length,
     });
     if (settings.showEnvironments && ambientesHost) {
-      _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, _currentClassified);
+      _ambientesPanel = mountAmbientesPanel(ambientesHost, settings, assetAmbientHierarchy);
       LogHelper.log('[MAIN_BAS] Ambientes panel mounted:', !!_ambientesPanel);
     } else if (ambientesHost) {
       ambientesHost.style.display = 'none';
@@ -3126,8 +4009,8 @@ self.onDataUpdated = function () {
 
   // Limit onDataUpdated to run max 3 times
   _dataUpdatedCount++;
-  if (_dataUpdatedCount > 3) {
-    LogHelper.log('[MAIN_BAS] onDataUpdated - SKIPPED (limit of 3 calls reached)');
+  if (_dataUpdatedCount > 1) {
+    LogHelper.log('[MAIN_BAS] onDataUpdated - SKIPPED (limit of 1 calls reached)');
     return;
   }
   LogHelper.log('[MAIN_BAS] onDataUpdated - Call #' + _dataUpdatedCount + ' of 3');
@@ -3170,9 +4053,12 @@ self.onDataUpdated = function () {
     _waterPanel.setItems(buildWaterCardItems(_currentClassified, _selectedAmbiente));
   }
 
-  // Update ambientes panel (HVAC cards)
+  // RFC-0168: Update ambientes panel using ASSET_AMBIENT hierarchy
   if (_ambientesPanel) {
-    _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, _selectedAmbiente));
+    // Rebuild ASSET_AMBIENT hierarchy with updated data
+    // Note: _ambienteHierarchy should be updated by buildAmbienteHierarchy if called
+    var assetAmbientHierarchy = buildAssetAmbientHierarchy(parsed.ambientes);
+    _ambientesPanel.setItems(buildAmbienteCardItems(assetAmbientHierarchy, _selectedAmbiente));
   }
 
   // Update motors panel

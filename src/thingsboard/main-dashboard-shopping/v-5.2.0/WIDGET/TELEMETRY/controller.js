@@ -2432,7 +2432,11 @@ function renderList(visible) {
           // RFC-XXXX: SuperAdmin flag from MAIN_VIEW
           const isSuperAdmin = window.MyIOUtils?.SuperAdmin || false;
 
+          // RFC-0144: Annotations onboarding flag from MAIN_VIEW settings
+          const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
+
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
+          console.log(`[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `, enableAnnotationsOnboarding);
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
@@ -2442,6 +2446,7 @@ function renderList(visible) {
             deviceType: it.deviceType,
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
+            enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,
