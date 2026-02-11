@@ -1319,6 +1319,25 @@ export {
   injectSolenoidControlStyles,
 } from './components/solenoid-control';
 
+// RFC-0172: Switch Control Component (On/Off Interruptor)
+export { createSwitchControl, SwitchControlController, SwitchControlView } from './components/switch-control';
+
+export type {
+  SwitchStatus,
+  SwitchThemeMode,
+  SwitchControlSettings,
+  SwitchState,
+  SwitchControlParams,
+  SwitchControlInstance,
+} from './components/switch-control';
+
+export {
+  DEFAULT_SWITCH_SETTINGS,
+  DEFAULT_SWITCH_STATE,
+  SWITCH_CONTROL_CSS_PREFIX,
+  injectSwitchControlStyles,
+} from './components/switch-control';
+
 // RFC-0158: Action Button Component
 export { createActionButton, ActionButtonController, ActionButtonView } from './components/action-button';
 

@@ -11,8 +11,12 @@ export interface AmbienteEnergyDevice {
   name: string;
   label: string;
   deviceType: string;
+  deviceProfile?: string;
   consumption: number | null;
   status: string;
+  entityId?: string;
+  rawData?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
 }
 
 /**
@@ -86,6 +90,8 @@ export interface AmbienteDetailModalConfig {
   showTimelineChart?: boolean;
   /** Callback when remote toggle is clicked */
   onRemoteToggle?: (isOn: boolean, remote: AmbienteRemoteDevice) => void;
+  /** Callback when energy device is clicked (closes modal and opens device modal) */
+  onEnergyDeviceClick?: (device: AmbienteEnergyDevice) => void;
   /** Callback when modal is closed */
   onClose?: () => void;
   /** i18n translation function */

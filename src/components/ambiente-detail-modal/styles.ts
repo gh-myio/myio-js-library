@@ -1,5 +1,6 @@
 /**
  * RFC-0168: Ambiente Detail Modal Styles
+ * RFC-0171: Updated to use ModalHeader from utils
  * CSS-in-JS styles for the ambiente detail modal
  */
 
@@ -58,52 +59,13 @@ export function injectAmbienteModalStyles(): void {
       transform: translateY(0);
     }
 
-    /* ===== Header ===== */
-    .${AMBIENTE_MODAL_CSS_PREFIX}__header {
-      background: linear-gradient(135deg, #2F5848 0%, #1e3a2f 100%);
-      color: white;
-      padding: 20px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    /* ===== Header (RFC-0171: Uses ModalHeader from utils) ===== */
+    .${AMBIENTE_MODAL_CSS_PREFIX} .myio-modal-header {
+      border-radius: 12px 12px 0 0;
     }
 
-    .${AMBIENTE_MODAL_CSS_PREFIX}__header-content {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .${AMBIENTE_MODAL_CSS_PREFIX}__title {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-      color: white;
-    }
-
-    .${AMBIENTE_MODAL_CSS_PREFIX}__subtitle {
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.75);
-    }
-
-    .${AMBIENTE_MODAL_CSS_PREFIX}__close-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: white;
-      padding: 0;
-      width: 36px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      transition: background 0.2s;
-    }
-
-    .${AMBIENTE_MODAL_CSS_PREFIX}__close-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
+    .${AMBIENTE_MODAL_CSS_PREFIX} .myio-modal-header--not-maximized {
+      border-radius: 12px 12px 0 0;
     }
 
     /* ===== Body ===== */
@@ -297,6 +259,35 @@ export function injectAmbienteModalStyles(): void {
       color: #198754;
     }
 
+    /* Clickable device item (energy devices with click handler) */
+    .${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable:hover {
+      background: #f8f9fa;
+      border-color: #2F5848;
+      transform: translateX(4px);
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable:active {
+      transform: translateX(2px);
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__device-arrow {
+      font-size: 20px;
+      color: #adb5bd;
+      font-weight: 300;
+      margin-left: 8px;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable:hover .${AMBIENTE_MODAL_CSS_PREFIX}__device-arrow {
+      color: #2F5848;
+      transform: translateX(4px);
+    }
+
     /* ===== Remote Controls ===== */
     .${AMBIENTE_MODAL_CSS_PREFIX}__remote-controls {
       display: flex;
@@ -417,6 +408,19 @@ export function injectAmbienteModalStyles(): void {
     .${AMBIENTE_MODAL_CSS_PREFIX}--dark .${AMBIENTE_MODAL_CSS_PREFIX}__device-item {
       background: #1f2937;
       border-color: #374151;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}--dark .${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable:hover {
+      background: #374151;
+      border-color: #4caf50;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}--dark .${AMBIENTE_MODAL_CSS_PREFIX}__device-arrow {
+      color: #6b7280;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}--dark .${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable:hover .${AMBIENTE_MODAL_CSS_PREFIX}__device-arrow {
+      color: #4caf50;
     }
 
     .${AMBIENTE_MODAL_CSS_PREFIX}--dark .${AMBIENTE_MODAL_CSS_PREFIX}__section-title {

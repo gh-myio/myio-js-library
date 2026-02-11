@@ -1,9 +1,11 @@
 /**
  * RFC-0168: Ambiente Detail Modal Component
+ * RFC-0171: Uses ModalHeader for standardized premium header
  * Modal for displaying detailed ambiente information with devices
  */
 
 import { AMBIENTE_MODAL_CSS_PREFIX, injectAmbienteModalStyles } from './styles';
+import { ModalHeader } from '../../utils/ModalHeader';
 import type {
   AmbienteData,
   AmbienteDetailModalConfig,
@@ -12,6 +14,9 @@ import type {
   AmbienteRemoteDevice,
   AmbienteHierarchyNode,
 } from './types';
+
+// Modal ID prefix for ModalHeader
+const MODAL_ID = 'ambiente-detail';
 
 /**
  * Format temperature value
@@ -136,8 +141,13 @@ function renderModalHTML(
   // Energy devices section
   let energyDevicesHTML = '';
   if (data.energyDevices && data.energyDevices.length > 0) {
+    const hasClickHandler = !!config.onEnergyDeviceClick;
     const deviceItems = data.energyDevices.map((device: AmbienteEnergyDevice) => `
-      <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-item">
+      <div
+        class="${AMBIENTE_MODAL_CSS_PREFIX}__device-item ${hasClickHandler ? `${AMBIENTE_MODAL_CSS_PREFIX}__device-item--clickable` : ''}"
+        data-energy-device-id="${device.id}"
+        ${hasClickHandler ? 'role="button" tabindex="0"' : ''}
+      >
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-info">
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__device-icon">${getDeviceIcon(device.deviceType)}</span>
           <div>
@@ -148,6 +158,7 @@ function renderModalHTML(
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__device-value">
           ${formatConsumption(device.consumption)}
         </div>
+        ${hasClickHandler ? `<span class="${AMBIENTE_MODAL_CSS_PREFIX}__device-arrow">›</span>` : ''}
       </div>
     `).join('');
 
@@ -182,8 +193,8 @@ function renderModalHTML(
     remoteControlsHTML = `
       <div class="${AMBIENTE_MODAL_CSS_PREFIX}__section">
         <h4 class="${AMBIENTE_MODAL_CSS_PREFIX}__section-title">
-          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__section-icon">🎮</span>
-          Controles Remotos (${data.remoteDevices.length})
+          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__section-icon">💡</span>
+          Interruptor (${data.remoteDevices.length})
         </h4>
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__remote-controls">
           ${remoteButtons}
@@ -239,16 +250,23 @@ function renderModalHTML(
     `;
   }
 
+  // RFC-0171: Generate header using ModalHeader
+  const headerHTML = ModalHeader.generateHTML({
+    icon: '🏢',
+    title: data.label,
+    modalId: MODAL_ID,
+    theme: config.themeMode || 'dark',
+    isMaximized: false,
+    showThemeToggle: false,
+    showMaximize: false,
+    showClose: true,
+    primaryColor: '#2F5848', // Green theme for ambiente
+  });
+
   return `
     <div class="${AMBIENTE_MODAL_CSS_PREFIX}-overlay" role="dialog" aria-modal="true" aria-labelledby="ambiente-modal-title">
       <div class="${AMBIENTE_MODAL_CSS_PREFIX} ${themeClass}">
-        <div class="${AMBIENTE_MODAL_CSS_PREFIX}__header">
-          <div class="${AMBIENTE_MODAL_CSS_PREFIX}__header-content">
-            <h2 id="ambiente-modal-title" class="${AMBIENTE_MODAL_CSS_PREFIX}__title">${data.label}</h2>
-            ${source?.name ? `<span class="${AMBIENTE_MODAL_CSS_PREFIX}__subtitle">${source.name}</span>` : ''}
-          </div>
-          <button class="${AMBIENTE_MODAL_CSS_PREFIX}__close-btn" aria-label="Fechar">&times;</button>
-        </div>
+        ${headerHTML}
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__body">
           <div class="${AMBIENTE_MODAL_CSS_PREFIX}__status-banner ${status}">
             <span class="${AMBIENTE_MODAL_CSS_PREFIX}__status-dot ${status}"></span>
@@ -296,7 +314,6 @@ export function createAmbienteDetailModal(
     if (!container) return;
 
     const overlay = container.querySelector(`.${AMBIENTE_MODAL_CSS_PREFIX}-overlay`) as HTMLElement;
-    const closeBtn = container.querySelector(`.${AMBIENTE_MODAL_CSS_PREFIX}__close-btn`) as HTMLElement;
     const footerCloseBtn = container.querySelector(`.${AMBIENTE_MODAL_CSS_PREFIX}__btn-close`) as HTMLElement;
     const remoteButtons = container.querySelectorAll(`.${AMBIENTE_MODAL_CSS_PREFIX}__remote-btn`);
 
@@ -307,8 +324,13 @@ export function createAmbienteDetailModal(
       }
     });
 
-    // Close button
-    closeBtn?.addEventListener('click', close);
+    // RFC-0171: Setup ModalHeader handlers for close button
+    ModalHeader.setupHandlers({
+      modalId: MODAL_ID,
+      onClose: close,
+    });
+
+    // Close button (footer)
     footerCloseBtn?.addEventListener('click', close);
 
     // Escape key
@@ -326,6 +348,30 @@ export function createAmbienteDetailModal(
         }
       });
     });
+
+    // Energy device click handler - opens BAS device modal
+    if (config.onEnergyDeviceClick) {
+      const energyDeviceItems = container.querySelectorAll(`[data-energy-device-id]`);
+      energyDeviceItems.forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const deviceId = (item as HTMLElement).dataset.energyDeviceId;
+          const device = data.energyDevices?.find((d) => d.id === deviceId);
+          if (device && config.onEnergyDeviceClick) {
+            // Close this modal first, then call the callback
+            close();
+            config.onEnergyDeviceClick(device);
+          }
+        });
+        // Support keyboard navigation
+        item.addEventListener('keydown', (e) => {
+          if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') {
+            e.preventDefault();
+            (item as HTMLElement).click();
+          }
+        });
+      });
+    }
   }
 
   // Handle escape key
