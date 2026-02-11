@@ -1522,3 +1522,21 @@ export type {
   OnOffTimelineChartInstance,
   OnOffTimelineChartParams,
 } from './components/on-off-timeline-chart';
+
+// RFC-0168: Ambiente Detail Modal
+export {
+  createAmbienteDetailModal,
+  openAmbienteDetailModal,
+  AMBIENTE_MODAL_CSS_PREFIX,
+  injectAmbienteModalStyles,
+} from './components/ambiente-detail-modal';
+
+export type {
+  AmbienteData as AmbienteDetailData,
+  AmbienteDetailModalConfig,
+  AmbienteDetailModalInstance,
+  AmbienteEnergyDevice,
+  AmbienteRemoteDevice,
+  AmbienteHierarchyNode,
+  AmbienteChildDevice,
+} from './components/ambiente-detail-modal';

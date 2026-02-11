@@ -2329,6 +2329,9 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
           detail: { ambiente: item.ambienteData, source: item.source },
         })
       );
+
+      // RFC-0168: Open Ambiente Detail Modal
+      openAmbienteDetailModal(item.ambienteData, item.source, settings);
     },
     handleToggleRemote: function (isOn, item) {
       LogHelper.log('[MAIN_BAS] Ambiente remote toggle:', isOn, item.ambienteData);
@@ -2469,6 +2472,46 @@ var ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA'];
 function isOnOffDeviceProfile(deviceProfile) {
   var profile = (deviceProfile || '').toUpperCase();
   return ON_OFF_DEVICE_PROFILES.indexOf(profile) !== -1;
+}
+
+/**
+ * RFC-0168: Open Ambiente Detail Modal
+ * @param {Object} ambienteData - Ambiente data from card click
+ * @param {Object} source - Source hierarchy node
+ * @param {Object} settings - Widget settings
+ */
+function openAmbienteDetailModal(ambienteData, source, settings) {
+  if (!MyIOLibrary.openAmbienteDetailModal) {
+    LogHelper.warn('[MAIN_BAS] openAmbienteDetailModal not available');
+    return;
+  }
+
+  LogHelper.log('[MAIN_BAS] Opening Ambiente Detail modal:', ambienteData);
+
+  // Get JWT token from localStorage or widget context
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) {
+    jwtToken = _ctx.http.token;
+  }
+
+  // Open the Ambiente Detail modal
+  MyIOLibrary.openAmbienteDetailModal(ambienteData, source, {
+    themeMode: 'light',
+    jwtToken: jwtToken,
+    showTimelineChart: false,
+    onRemoteToggle: function (isOn, remote) {
+      LogHelper.log('[MAIN_BAS] Ambiente remote toggle from modal:', isOn, remote);
+      // Dispatch event for external handling
+      window.dispatchEvent(
+        new CustomEvent('bas:ambiente-remote-toggle', {
+          detail: { isOn: isOn, ambiente: ambienteData, remote: remote, source: source },
+        })
+      );
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] Ambiente Detail modal closed');
+    },
+  });
 }
 
 /**
