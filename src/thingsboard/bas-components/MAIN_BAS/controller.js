@@ -2032,7 +2032,7 @@ function switchChartDomainInContainer(domain, container) {
     unit: cfg.unit,
     unitLarge: cfg.unitLarge,
     thresholdForLargeUnit: cfg.threshold,
-    fetchData: createMockFetchData(domain),
+    fetchData: createRealFetchData(domain),
     defaultPeriod: 7,
     defaultChartType: domain === 'temperature' ? 'line' : 'bar',
     theme: (_settings && _settings.defaultThemeMode) || 'dark',
@@ -2566,10 +2566,35 @@ function isOnOffDeviceProfile(deviceProfile) {
 }
 
 /**
+ * RFC-0170: Check if an ASSET_AMBIENT node is a leaf (has no sub-ambientes)
+ * A node is a leaf if no other node's name starts with its name + "-"
+ * @param {Object} node - The node to check
+ * @param {Object[]} allNodes - All nodes in the hierarchy
+ * @returns {boolean} True if this is a leaf node
+ */
+function isAssetAmbientLeaf(node, allNodes) {
+  var nodeName = node.name || '';
+  if (!nodeName) return true;
+
+  // Check if any other node's name starts with this node's name + "-"
+  // e.g., "Melicidade-Deck-Climatização" is NOT a leaf because
+  // "Melicidade-Deck-Climatização-Direita" starts with it
+  for (var i = 0; i < allNodes.length; i++) {
+    var otherNode = allNodes[i];
+    if (otherNode.id === node.id) continue;
+    var otherName = otherNode.name || '';
+    if (otherName.startsWith(nodeName + '-')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * RFC-0170: Find sub-ambientes for a given parent ambiente
- * Matches by label prefix or name pattern
+ * Matches by label prefix or name pattern, returns ONLY LEAF nodes
  * @param {Object} parentItem - Parent item from sidebar
- * @returns {Array} Array of sub-ambiente items
+ * @returns {Array} Array of sub-ambiente items (only leaves)
  */
 function findSubAmbientesForParent(parentItem) {
   if (!_assetAmbientHierarchy) return [];
@@ -2580,9 +2605,10 @@ function findSubAmbientesForParent(parentItem) {
 
   LogHelper.log('[MAIN_BAS] Finding sub-ambientes for:', parentLabel, parentName);
 
-  var subAmbientes = [];
+  var allMatchingNodes = [];
   var hierarchyNodes = Object.values(_assetAmbientHierarchy);
 
+  // Step 1: Find all nodes that match the parent pattern
   hierarchyNodes.forEach(function (node) {
     var nodeLabel = removeAmbientePrefixFromLabel(node.displayLabel || node.originalLabel || '');
 
@@ -2594,11 +2620,23 @@ function findSubAmbientesForParent(parentItem) {
     var isMatch = nodeLabel === parentLabel ||
                   nodeLabel.startsWith(parentLabel + ' - ') ||
                   nodeLabel.startsWith(parentLabel + ' ') ||
-                  (parentName && node.name && node.name.includes(parentName.split('-')[0]));
+                  (parentName && node.name && node.name.startsWith(parentName + '-'));
 
     if (isMatch) {
-      // Build AmbienteData from hierarchy node
+      allMatchingNodes.push(node);
+    }
+  });
+
+  LogHelper.log('[MAIN_BAS] Found matching nodes:', allMatchingNodes.length);
+
+  // Step 2: Filter to keep only LEAF nodes (no sub-ambientes)
+  var subAmbientes = [];
+  allMatchingNodes.forEach(function (node) {
+    var isLeaf = isAssetAmbientLeaf(node, allMatchingNodes);
+
+    if (isLeaf) {
       var ambienteData = assetAmbientToAmbienteData(node);
+      var nodeLabel = removeAmbientePrefixFromLabel(node.displayLabel || node.originalLabel || '');
       subAmbientes.push({
         id: node.id,
         label: node.displayLabel || nodeLabel,
@@ -2606,10 +2644,13 @@ function findSubAmbientesForParent(parentItem) {
         ambienteData: ambienteData,
         source: node,
       });
+      LogHelper.log('[MAIN_BAS]   LEAF: ' + node.name);
+    } else {
+      LogHelper.log('[MAIN_BAS]   NOT LEAF (has children): ' + node.name);
     }
   });
 
-  LogHelper.log('[MAIN_BAS] Found sub-ambientes:', subAmbientes.length);
+  LogHelper.log('[MAIN_BAS] Found leaf sub-ambientes:', subAmbientes.length);
   return subAmbientes;
 }
 
@@ -3186,7 +3227,208 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
 // ============================================================================
 
 /**
- * Generate mock fetchData for a given chart domain
+ * Data API host for ingestion API calls
+ */
+var DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+
+/**
+ * Create real fetchData function for chart - fetches from ingestion API
+ * @param {string} domain - 'energy', 'water', or 'temperature'
+ * @returns {function} fetchData function that returns { labels, dailyTotals }
+ */
+function createRealFetchData(domain) {
+  return async function fetchData(period) {
+    var labels = [];
+    var values = [];
+    var now = new Date();
+
+    // Calculate date range
+    var endTs = now.getTime();
+    var startTs = endTs - period * 24 * 60 * 60 * 1000;
+
+    // Generate labels for all days
+    for (var i = period - 1; i >= 0; i--) {
+      var d = new Date(now);
+      d.setDate(d.getDate() - i);
+      labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    }
+
+    // Get credentials
+    var customerId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id;
+    var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+    var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+
+    if (!customerId || !clientId || !clientSecret) {
+      LogHelper.warn('[MAIN_BAS] Chart: No credentials available, returning empty data');
+      return { labels: labels, dailyTotals: new Array(period).fill(0) };
+    }
+
+    try {
+      if (domain === 'temperature') {
+        // Temperature: fetch from ThingsBoard telemetry API
+        values = await fetchTemperatureData(period, startTs, endTs);
+      } else {
+        // Energy/Water: fetch from ingestion API
+        values = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
+      }
+
+      LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', values.length, 'points');
+      return { labels: labels, dailyTotals: values };
+    } catch (error) {
+      LogHelper.error('[MAIN_BAS] Chart fetch error for', domain, ':', error);
+      return { labels: labels, dailyTotals: new Array(period).fill(0) };
+    }
+  };
+}
+
+/**
+ * Fetch energy/water data from ingestion API
+ */
+async function fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs) {
+  if (!MyIOLibrary || !MyIOLibrary.buildMyioIngestionAuth) {
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.buildMyioIngestionAuth not available');
+    return new Array(period).fill(0);
+  }
+
+  // Build auth and get token
+  var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST,
+    clientId: clientId,
+    clientSecret: clientSecret,
+  });
+
+  var token = await myIOAuth.getToken();
+  if (!token) {
+    LogHelper.error('[MAIN_BAS] Failed to get ingestion token');
+    return new Array(period).fill(0);
+  }
+
+  // Build API URL based on domain
+  var endpoint = domain === 'energy' ? 'energy' : 'water';
+  var url = new URL(DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals');
+  url.searchParams.set('startTime', new Date(startTs).toISOString());
+  url.searchParams.set('endTime', new Date(endTs).toISOString());
+  url.searchParams.set('deep', '1');
+  url.searchParams.set('granularity', '1d');
+
+  LogHelper.log('[MAIN_BAS] Fetching', domain, 'chart data from:', url.toString());
+
+  var response = await fetch(url.toString(), {
+    headers: { Authorization: 'Bearer ' + token },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('API error: ' + response.status);
+  }
+
+  var json = await response.json();
+  var data = Array.isArray(json) ? json : json?.data || [];
+
+  // Aggregate data by day
+  var dailyTotals = aggregateByDay(data, period, startTs);
+  return dailyTotals;
+}
+
+/**
+ * Fetch temperature data from ThingsBoard telemetry API
+ */
+async function fetchTemperatureData(period, startTs, endTs) {
+  var jwt = localStorage.getItem('jwt_token');
+  if (!jwt) {
+    LogHelper.warn('[MAIN_BAS] No JWT token for temperature fetch');
+    return new Array(period).fill(null);
+  }
+
+  // Get temperature devices from current classified data
+  var tempDevices = [];
+  if (_currentClassified && _currentClassified.temperature) {
+    tempDevices = _currentClassified.temperature.items || [];
+  }
+
+  if (tempDevices.length === 0) {
+    LogHelper.warn('[MAIN_BAS] No temperature devices found');
+    return new Array(period).fill(null);
+  }
+
+  var dayMs = 24 * 60 * 60 * 1000;
+  var dailySums = new Array(period).fill(0);
+  var dailyCounts = new Array(period).fill(0);
+
+  // Fetch data for up to 10 devices to limit API calls
+  var devicesToFetch = tempDevices.slice(0, 10);
+
+  for (var i = 0; i < devicesToFetch.length; i++) {
+    var device = devicesToFetch[i];
+    var deviceId = device.tbId || device.id;
+    if (!deviceId) continue;
+
+    try {
+      var url = '/api/plugins/telemetry/DEVICE/' + deviceId + '/values/timeseries?keys=temperature&startTs=' + startTs + '&endTs=' + endTs + '&agg=AVG&interval=' + dayMs;
+
+      var response = await fetch(url, {
+        headers: {
+          Authorization: 'Bearer ' + jwt,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) continue;
+
+      var data = await response.json();
+      var readings = data?.temperature || [];
+
+      readings.forEach(function (reading) {
+        var dayIndex = Math.floor((reading.ts - startTs) / dayMs);
+        if (dayIndex >= 0 && dayIndex < period && reading.value !== null) {
+          var value = Number(reading.value);
+          if (!isNaN(value)) {
+            dailySums[dayIndex] += value;
+            dailyCounts[dayIndex]++;
+          }
+        }
+      });
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Error fetching temperature device', deviceId, ':', err.message);
+    }
+  }
+
+  // Calculate daily averages
+  var dailyTotals = dailySums.map(function (sum, idx) {
+    if (dailyCounts[idx] === 0) return null;
+    return Number((sum / dailyCounts[idx]).toFixed(1));
+  });
+
+  return dailyTotals;
+}
+
+/**
+ * Aggregate ingestion API data by day
+ */
+function aggregateByDay(data, period, startTs) {
+  var dayMs = 24 * 60 * 60 * 1000;
+  var dailyTotals = new Array(period).fill(0);
+
+  data.forEach(function (item) {
+    // API returns items with timestamp or time_interval
+    var timestamp = item.timestamp || item.time_interval;
+    if (!timestamp) return;
+
+    var ts = new Date(timestamp).getTime();
+    var dayIndex = Math.floor((ts - startTs) / dayMs);
+
+    if (dayIndex >= 0 && dayIndex < period) {
+      var value = item.total_value || item.value || item.consumption || 0;
+      dailyTotals[dayIndex] += Number(value) || 0;
+    }
+  });
+
+  return dailyTotals;
+}
+
+/**
+ * Generate mock fetchData for a given chart domain (FALLBACK)
+ * @deprecated Use createRealFetchData instead
  */
 function createMockFetchData(domain) {
   return function fetchData(period) {
@@ -3247,7 +3489,7 @@ function switchChartDomain(domain, chartContainer) {
     unit: cfg.unit,
     unitLarge: cfg.unitLarge,
     thresholdForLargeUnit: cfg.threshold,
-    fetchData: createMockFetchData(domain),
+    fetchData: createRealFetchData(domain),
     defaultPeriod: 7,
     defaultChartType: domain === 'temperature' ? 'line' : 'bar',
     theme: (_settings && _settings.defaultThemeMode) || 'dark',
