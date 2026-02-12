@@ -13,6 +13,7 @@ import type {
   SidebarFooterConfig,
   SidebarState,
   SidebarThemeMode,
+  SidebarUserInfo,
 } from './types';
 import { DEFAULT_SIDEBAR_CONFIG } from './types';
 
@@ -85,24 +86,44 @@ export class SidebarMenuView {
   private renderHeader(): string {
     const header = this.config.header || {};
     const logo = header.logo || SIDEBAR_ICONS.logo;
+    const showThemeToggle = header.showThemeToggle !== false; // default true
+    const userInfo = header.userInfo;
 
     return `
       <div class="${SIDEBAR_MENU_CSS_PREFIX}__header">
-        <div class="${SIDEBAR_MENU_CSS_PREFIX}__logo">
-          ${logo}
+        <div class="${SIDEBAR_MENU_CSS_PREFIX}__header-top">
+          <div class="${SIDEBAR_MENU_CSS_PREFIX}__logo">
+            ${logo}
+          </div>
+          <div class="${SIDEBAR_MENU_CSS_PREFIX}__header-text">
+            ${header.title ? `<span class="${SIDEBAR_MENU_CSS_PREFIX}__title">${header.title}</span>` : ''}
+            ${header.subtitle ? `<span class="${SIDEBAR_MENU_CSS_PREFIX}__subtitle">${header.subtitle}</span>` : ''}
+          </div>
+          ${showThemeToggle ? `
+            <button
+              class="${SIDEBAR_MENU_CSS_PREFIX}__theme-toggle"
+              data-action="theme-toggle"
+              aria-label="Alternar tema"
+              title="${this.themeMode === 'dark' ? 'Tema escuro' : 'Tema claro'}"
+            >
+              ${this.themeMode === 'dark' ? SIDEBAR_ICONS.moon : SIDEBAR_ICONS.sun}
+            </button>
+          ` : ''}
+          <button
+            class="${SIDEBAR_MENU_CSS_PREFIX}__toggle"
+            data-action="toggle"
+            aria-label="${this.state === 'expanded' ? 'Recolher menu' : 'Expandir menu'}"
+            aria-expanded="${this.state === 'expanded'}"
+          >
+            ${this.state === 'expanded' ? SIDEBAR_ICONS.chevronLeft : SIDEBAR_ICONS.chevronRight}
+          </button>
         </div>
-        <div class="${SIDEBAR_MENU_CSS_PREFIX}__header-text">
-          ${header.title ? `<span class="${SIDEBAR_MENU_CSS_PREFIX}__title">${header.title}</span>` : ''}
-          ${header.subtitle ? `<span class="${SIDEBAR_MENU_CSS_PREFIX}__subtitle">${header.subtitle}</span>` : ''}
-        </div>
-        <button
-          class="${SIDEBAR_MENU_CSS_PREFIX}__toggle"
-          data-action="toggle"
-          aria-label="${this.state === 'expanded' ? 'Recolher menu' : 'Expandir menu'}"
-          aria-expanded="${this.state === 'expanded'}"
-        >
-          ${this.state === 'expanded' ? SIDEBAR_ICONS.chevronLeft : SIDEBAR_ICONS.chevronRight}
-        </button>
+        ${userInfo ? `
+          <div class="${SIDEBAR_MENU_CSS_PREFIX}__user-info">
+            <span class="${SIDEBAR_MENU_CSS_PREFIX}__user-name">${userInfo.name || ''}</span>
+            <span class="${SIDEBAR_MENU_CSS_PREFIX}__user-email">${userInfo.email || ''}</span>
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -195,8 +216,10 @@ export class SidebarMenuView {
 
   private renderFooter(): string {
     const footer = this.config.footer || {};
+    const showLogout = footer.showLogout !== false; // default true
+    const logoutLabel = footer.logoutLabel || 'Sair';
 
-    if (!footer.items?.length && !footer.showVersion) {
+    if (!footer.items?.length && !footer.showVersion && !showLogout) {
       return '';
     }
 
@@ -206,6 +229,17 @@ export class SidebarMenuView {
           <div class="${SIDEBAR_MENU_CSS_PREFIX}__footer-items">
             ${footer.items.map(item => this.renderFooterItem(item)).join('')}
           </div>
+        ` : ''}
+        ${showLogout ? `
+          <button
+            class="${SIDEBAR_MENU_CSS_PREFIX}__logout"
+            data-action="logout"
+            aria-label="${logoutLabel}"
+            title="${logoutLabel}"
+          >
+            <span class="${SIDEBAR_MENU_CSS_PREFIX}__logout-icon">${SIDEBAR_ICONS.logout}</span>
+            <span class="${SIDEBAR_MENU_CSS_PREFIX}__logout-text">${logoutLabel}</span>
+          </button>
         ` : ''}
         ${footer.showVersion && footer.version ? `
           <div class="${SIDEBAR_MENU_CSS_PREFIX}__version">
@@ -269,6 +303,10 @@ export class SidebarMenuView {
 
       if (action === 'toggle') {
         this.toggle();
+      } else if (action === 'theme-toggle') {
+        this.handleThemeToggle();
+      } else if (action === 'logout') {
+        this.handleLogout();
       } else if (action === 'toggle-section') {
         const sectionEl = target.closest('[data-section-id]');
         if (sectionEl) {
@@ -357,6 +395,30 @@ export class SidebarMenuView {
         this.tooltip.style.visibility = 'hidden';
       }
     }, true);
+  }
+
+  private handleThemeToggle(): void {
+    // Toggle theme
+    const newTheme: SidebarThemeMode = this.themeMode === 'dark' ? 'light' : 'dark';
+    this.setThemeMode(newTheme);
+
+    // Update button icon
+    const themeBtn = this.root.querySelector(`[data-action="theme-toggle"]`);
+    if (themeBtn) {
+      themeBtn.innerHTML = newTheme === 'dark' ? SIDEBAR_ICONS.moon : SIDEBAR_ICONS.sun;
+      themeBtn.setAttribute('title', newTheme === 'dark' ? 'Tema escuro' : 'Tema claro');
+    }
+
+    // Callback
+    if (this.config.onThemeToggle) {
+      this.config.onThemeToggle(newTheme);
+    }
+  }
+
+  private handleLogout(): void {
+    if (this.config.onLogout) {
+      this.config.onLogout();
+    }
   }
 
   private handleItemClick(itemId: string, sectionId: string): void {
@@ -529,6 +591,39 @@ export class SidebarMenuView {
 
   getActiveItem(): string | null {
     return this.activeItemId;
+  }
+
+  updateUserInfo(userInfo: SidebarUserInfo): void {
+    // Update config
+    if (!this.config.header) {
+      this.config.header = {};
+    }
+    this.config.header.userInfo = userInfo;
+
+    // Update DOM
+    const userInfoEl = this.root.querySelector(`.${SIDEBAR_MENU_CSS_PREFIX}__user-info`);
+    if (userInfoEl) {
+      const nameEl = userInfoEl.querySelector(`.${SIDEBAR_MENU_CSS_PREFIX}__user-name`);
+      const emailEl = userInfoEl.querySelector(`.${SIDEBAR_MENU_CSS_PREFIX}__user-email`);
+      if (nameEl) nameEl.textContent = userInfo.name || '';
+      if (emailEl) emailEl.textContent = userInfo.email || '';
+    } else if (userInfo.name || userInfo.email) {
+      // Create user info element if it doesn't exist
+      const headerEl = this.root.querySelector(`.${SIDEBAR_MENU_CSS_PREFIX}__header`);
+      if (headerEl) {
+        const newUserInfo = document.createElement('div');
+        newUserInfo.className = `${SIDEBAR_MENU_CSS_PREFIX}__user-info`;
+        newUserInfo.innerHTML = `
+          <span class="${SIDEBAR_MENU_CSS_PREFIX}__user-name">${userInfo.name || ''}</span>
+          <span class="${SIDEBAR_MENU_CSS_PREFIX}__user-email">${userInfo.email || ''}</span>
+        `;
+        headerEl.appendChild(newUserInfo);
+      }
+    }
+  }
+
+  getThemeMode(): SidebarThemeMode {
+    return this.themeMode;
   }
 
   private persistState(): void {

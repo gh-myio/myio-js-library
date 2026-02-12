@@ -47,14 +47,19 @@ export function injectSidebarMenuStyles(): void {
     /* ===== Header ===== */
     .${SIDEBAR_MENU_CSS_PREFIX}__header {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 16px;
       background: linear-gradient(135deg, var(--sidebar-primary) 0%, var(--sidebar-primary-light) 100%);
       color: #ffffff;
-      min-height: 64px;
       flex-shrink: 0;
       border-radius: 0 16px 0 0;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .${SIDEBAR_MENU_CSS_PREFIX}__logo {
@@ -128,6 +133,65 @@ export function injectSidebarMenuStyles(): void {
 
     .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__toggle {
       margin-left: 0;
+    }
+
+    /* ===== Theme Toggle ===== */
+    .${SIDEBAR_MENU_CSS_PREFIX}__theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 6px;
+      color: #ffffff;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__theme-toggle svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__theme-toggle {
+      display: none;
+    }
+
+    /* ===== User Info ===== */
+    .${SIDEBAR_MENU_CSS_PREFIX}__user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px 0 4px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      margin-top: 4px;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__user-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__user-email {
+      font-size: 11px;
+      opacity: 0.75;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__user-info {
+      display: none;
     }
 
     /* ===== Search ===== */
@@ -422,6 +486,58 @@ export function injectSidebarMenuStyles(): void {
       display: none;
     }
 
+    /* ===== Logout Button ===== */
+    .${SIDEBAR_MENU_CSS_PREFIX}__logout {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: transparent;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__logout:hover {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #dc2626;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__logout-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__logout-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}__logout-text {
+      flex: 1;
+      text-align: left;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__logout {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__logout-text {
+      display: none;
+    }
+
     /* ===== Dark Theme ===== */
     .${SIDEBAR_MENU_CSS_PREFIX}.dark {
       background: #1f2937;
@@ -482,6 +598,17 @@ export function injectSidebarMenuStyles(): void {
 
     .${SIDEBAR_MENU_CSS_PREFIX}.dark .${SIDEBAR_MENU_CSS_PREFIX}__footer {
       border-top-color: #374151;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.dark .${SIDEBAR_MENU_CSS_PREFIX}__logout {
+      border-color: #374151;
+      color: #9ca3af;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.dark .${SIDEBAR_MENU_CSS_PREFIX}__logout:hover {
+      background: rgba(220, 38, 38, 0.15);
+      border-color: #dc2626;
+      color: #f87171;
     }
 
     .${SIDEBAR_MENU_CSS_PREFIX}.dark .${SIDEBAR_MENU_CSS_PREFIX}__content::-webkit-scrollbar-thumb {

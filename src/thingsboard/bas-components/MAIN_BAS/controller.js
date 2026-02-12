@@ -3486,12 +3486,9 @@ function mountSidebarMenu(host, settings, classified) {
 
   LogHelper.log('[MAIN_BAS] Built', ambienteItems.length, 'ambiente items for sidebar menu (sorted by prefix)');
 
-  // Build unified navigation items: static items first, then sorted ambientes
+  // Build unified navigation items: Dashboard first, then sorted ambientes
   var navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
-    { id: 'water', label: 'Água', icon: MyIOLibrary.SIDEBAR_ICONS?.water || '💧', badge: waterCount || undefined },
-    { id: 'energy', label: 'Energia', icon: MyIOLibrary.SIDEBAR_ICONS?.energy || '⚡', badge: energyCount || undefined },
-    { id: 'hvac', label: 'Climatização', icon: MyIOLibrary.SIDEBAR_ICONS?.thermometer || '❄️', badge: temperatureCount || undefined },
   ].concat(ambienteItems);
 
   // Build menu sections - single unified navigation section (no title header)
@@ -3500,16 +3497,6 @@ function mountSidebarMenu(host, settings, classified) {
       id: 'navigation',
       title: null, // No section title - items flow directly
       items: navigationItems,
-    },
-    {
-      id: 'config',
-      title: 'Configurações',
-      collapsible: true,
-      collapsed: true,
-      items: [
-        { id: 'settings', label: 'Configurações', icon: MyIOLibrary.SIDEBAR_ICONS?.settings || '⚙️' },
-        { id: 'profile', label: 'Perfil', icon: MyIOLibrary.SIDEBAR_ICONS?.user || '👤' },
-      ],
     },
   ];
 
@@ -3525,16 +3512,21 @@ function mountSidebarMenu(host, settings, classified) {
     initialState: 'expanded',
     persistState: true,
     storageKey: 'myio-bas-sidebar-menu-state',
-    showSearch: true,
-    searchPlaceholder: 'Buscar...',
+    showSearch: false,
     header: {
       logo: settings.logoUrl || MyIOLibrary.SIDEBAR_ICONS?.logo || undefined,
       title: settings.sidebarMenuTitle || 'MYIO BAS',
       subtitle: settings.customerName || '',
+      showThemeToggle: true,
+      userInfo: {
+        name: 'Carregando...',
+        email: '',
+      },
     },
     sections: sections,
     footer: {
-      items: [{ id: 'help', label: 'Ajuda', icon: MyIOLibrary.SIDEBAR_ICONS?.help || '❓' }],
+      showLogout: true,
+      logoutLabel: 'Sair',
       showVersion: true,
       version: MyIOLibrary.version || '0.1.374',
     },
@@ -3544,20 +3536,104 @@ function mountSidebarMenu(host, settings, classified) {
     },
     onStateChange: function (state) {
       LogHelper.log('[MAIN_BAS] Sidebar menu state changed:', state);
-      // Optionally dispatch event for other components
       window.dispatchEvent(new CustomEvent('bas:sidebar-menu-state', { detail: { state: state } }));
     },
-    onSearch: function (query) {
-      LogHelper.log('[MAIN_BAS] Sidebar menu search:', query);
-      // TODO: Implement global search across dashboard
+    onThemeToggle: function (newTheme) {
+      LogHelper.log('[MAIN_BAS] Theme toggled to:', newTheme);
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('myio:theme-changed', { detail: { theme: newTheme } }));
+    },
+    onLogout: function () {
+      LogHelper.log('[MAIN_BAS] Logout clicked');
+      handleSidebarLogout();
     },
   });
+
+  // Fetch user info and update sidebar menu
+  fetchUserInfoForSidebar(sidebarMenu);
 
   // Set dashboard as active by default
   sidebarMenu.setActiveItem('dashboard');
 
   LogHelper.log('[MAIN_BAS] Sidebar menu mounted successfully');
   return sidebarMenu;
+}
+
+/**
+ * Fetch user info from ThingsBoard API and update sidebar menu
+ * @param {Object} sidebarMenu - Sidebar menu instance
+ */
+async function fetchUserInfoForSidebar(sidebarMenu) {
+  try {
+    var token = localStorage.getItem('jwt_token');
+    var headers = { 'Content-Type': 'application/json' };
+    if (token) headers['X-Authorization'] = 'Bearer ' + token;
+
+    var response = await fetch('/api/auth/user', {
+      method: 'GET',
+      headers: headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      LogHelper.warn('[MAIN_BAS] Failed to fetch user info:', response.status);
+      return;
+    }
+
+    var user = await response.json();
+    LogHelper.log('[MAIN_BAS] User info fetched:', user.email);
+
+    var fullName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.name || 'Usuário';
+
+    sidebarMenu.updateUserInfo({
+      name: fullName,
+      email: user.email || '',
+    });
+  } catch (err) {
+    LogHelper.error('[MAIN_BAS] Error fetching user info:', err);
+    sidebarMenu.updateUserInfo({
+      name: 'Usuário',
+      email: '',
+    });
+  }
+}
+
+/**
+ * Handle logout from sidebar menu
+ */
+async function handleSidebarLogout() {
+  var confirmed = window.confirm('Tem certeza que deseja sair?');
+  if (!confirmed) {
+    LogHelper.log('[MAIN_BAS] Logout cancelled by user');
+    return;
+  }
+
+  try {
+    var token = localStorage.getItem('jwt_token');
+    var response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Authorization': 'Bearer ' + token,
+      },
+      credentials: 'include',
+    });
+
+    LogHelper.log('[MAIN_BAS] Logout response:', response.status);
+
+    // Clear local storage
+    localStorage.removeItem('jwt_token');
+    sessionStorage.clear();
+
+    // Redirect to login
+    window.location.href = '/login';
+  } catch (err) {
+    LogHelper.error('[MAIN_BAS] Logout error:', err);
+    // Force redirect even on error
+    localStorage.removeItem('jwt_token');
+    sessionStorage.clear();
+    window.location.href = '/login';
+  }
 }
 
 /**

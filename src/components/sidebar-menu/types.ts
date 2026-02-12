@@ -43,6 +43,16 @@ export interface SidebarMenuSection {
 }
 
 /**
+ * User info configuration for header
+ */
+export interface SidebarUserInfo {
+  /** User display name */
+  name?: string;
+  /** User email */
+  email?: string;
+}
+
+/**
  * Header configuration
  */
 export interface SidebarHeaderConfig {
@@ -52,6 +62,10 @@ export interface SidebarHeaderConfig {
   title?: string;
   /** Optional subtitle */
   subtitle?: string;
+  /** Show theme toggle button (sun/moon) */
+  showThemeToggle?: boolean;
+  /** User info to display below title */
+  userInfo?: SidebarUserInfo;
 }
 
 /**
@@ -60,6 +74,10 @@ export interface SidebarHeaderConfig {
 export interface SidebarFooterConfig {
   /** Footer menu items */
   items?: SidebarMenuItem[];
+  /** Show logout button */
+  showLogout?: boolean;
+  /** Logout button label */
+  logoutLabel?: string;
   /** Show version number */
   showVersion?: boolean;
   /** Version string */
@@ -98,6 +116,10 @@ export interface SidebarMenuConfig {
   onStateChange?: (state: SidebarState) => void;
   /** Callback when search query changes */
   onSearch?: (query: string) => void;
+  /** Callback when theme toggle is clicked */
+  onThemeToggle?: (currentTheme: SidebarThemeMode) => void;
+  /** Callback when logout is clicked */
+  onLogout?: () => void;
   /** Primary color for accents */
   primaryColor?: string;
 }
@@ -126,6 +148,10 @@ export interface SidebarMenuInstance {
   setActiveItem(itemId: string | null): void;
   /** Get active item ID */
   getActiveItem(): string | null;
+  /** Update user info in header */
+  updateUserInfo(userInfo: SidebarUserInfo): void;
+  /** Get current theme mode */
+  getThemeMode(): SidebarThemeMode;
   /** Destroy and cleanup */
   destroy(): void;
 }
