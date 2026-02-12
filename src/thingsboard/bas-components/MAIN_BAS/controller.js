@@ -4553,7 +4553,8 @@ var CHART_ICON_MAXIMIZE =
 function mountChartPanel(hostEl, settings) {
   if (!hostEl) return;
 
-  var domains = ['energy', 'water', 'temperature'];
+  // PRESENTATION MODE: Temporarily hide temperature tab
+  var domains = ['energy', 'water'];
 
   // Build tabs configuration for CardGridPanel
   var chartTabs = domains.map(function (domain) {
