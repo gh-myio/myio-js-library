@@ -481,18 +481,45 @@ tb-html-widget > div,
   margin: 0 !important;
 }
 
-/* Card v6 - move label and identifier up */
+/* Card v6 - position label at top-left of card */
 .myio-cgp__card-wrapper .device-card-centered .device-title-row {
-  margin-top: -4px !important;
-  margin-bottom: 4px !important;
+  position: absolute !important;
+  top: 8px !important;
+  left: 50px !important;
+  right: 12px !important;
+  width: auto !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
 }
 
 .myio-cgp__card-wrapper .device-card-centered .device-title {
-  margin-bottom: 1px !important;
+  margin-bottom: 2px !important;
+  text-align: left !important;
+  width: 100% !important;
 }
 
 .myio-cgp__card-wrapper .device-card-centered .device-subtitle {
   margin-top: 0 !important;
+  text-align: left !important;
+  width: 100% !important;
+}
+
+/* Card v6 - center device image */
+.myio-cgp__card-wrapper .device-card-centered .device-image-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 !important;
+  width: 100% !important;
+  min-height: 50px !important;
+}
+
+/* Card v6 - hide percentage badge */
+.myio-cgp__card-wrapper .device-card-centered .device-percentage-badge {
+  display: none !important;
 }
 
 /* ========================================

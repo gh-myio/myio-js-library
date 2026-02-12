@@ -4,7 +4,7 @@ import pkg from '../package.json';
 export const version: string = pkg.version || '0.0.0';
 
 // Format utilities
-export { formatEnergy, formatAllInSameUnit } from './format/energy';
+export { formatEnergy, formatPower, formatAllInSameUnit } from './format/energy';
 export { fmtPerc } from './format/percentage';
 export { formatNumberReadable } from './format/numbers';
 export {

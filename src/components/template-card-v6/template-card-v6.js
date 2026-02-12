@@ -19,7 +19,7 @@
 // Import the MYIO components (same as v5)
 import { MyIOSelectionStore } from '../SelectionStore.js';
 import { MyIODraggableCard } from '../DraggableCard.js';
-import { formatEnergy } from '../../format/energy.ts';
+import { formatEnergy, formatPower } from '../../format/energy.ts';
 import {
   DeviceStatusType,
   ConnectionStatusType,
@@ -701,10 +701,11 @@ export function renderCardComponentV6({
     const numValue = Number(value) || 0;
 
     if (isEnergyDevice(deviceType)) {
-      if (window.MyIOUtils?.formatEnergyWithSettings) {
-        return window.MyIOUtils.formatEnergyWithSettings(numValue);
+      // Use formatPower for instantaneous power readings (kW, not kWh)
+      if (window.MyIOUtils?.formatPowerWithSettings) {
+        return window.MyIOUtils.formatPowerWithSettings(numValue);
       }
-      return formatEnergy(numValue);
+      return formatPower(numValue);
     } else if (isTemperatureDevice(deviceType)) {
       if (window.MyIOUtils?.formatTemperatureWithSettings) {
         return window.MyIOUtils.formatTemperatureWithSettings(numValue);
