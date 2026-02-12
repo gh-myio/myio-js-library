@@ -281,6 +281,7 @@ tb-html-widget > div,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   padding: 0 12px;
   height: 40px;
   min-height: 40px;
@@ -318,6 +319,15 @@ tb-html-widget > div,
   flex: 1;
   justify-content: center;
   margin: 0 16px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.bas-chart-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .bas-chart-tab {
@@ -333,6 +343,7 @@ tb-html-widget > div,
   transition: all 0.15s ease;
   white-space: nowrap;
   border-radius: 6px;
+  flex: 0 0 auto;
 }
 
 .bas-chart-tab:hover {
