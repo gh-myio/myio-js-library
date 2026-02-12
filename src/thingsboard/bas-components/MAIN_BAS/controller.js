@@ -2287,6 +2287,64 @@ function mountWaterPanel(waterHost, settings, classified) {
   var waterItems = buildWaterCardItems(classified, null);
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
+  var currentWaterTab = 'all'; // Track selected tab: 'all', 'tank', 'hydrometer', 'solenoid'
+
+  // Helper to filter items by tab
+  function filterWaterItemsByTab(items, tabId) {
+    if (tabId === 'all') return items;
+    return items.filter(function (item) {
+      var type = item.source?.type || '';
+      return type === tabId;
+    });
+  }
+
+  // Water tab configuration
+  var waterTabs = [
+    {
+      id: 'all',
+      label: 'Todos',
+      selected: true,
+      handleClick: function () {
+        currentWaterTab = 'all';
+        var filtered = filterWaterItemsByTab(waterItems, 'all');
+        panel.setItems(filtered);
+        panel.setQuantity(filtered.length);
+      },
+    },
+    {
+      id: 'tank',
+      label: "Caixa d'Água",
+      selected: false,
+      handleClick: function () {
+        currentWaterTab = 'tank';
+        var filtered = filterWaterItemsByTab(waterItems, 'tank');
+        panel.setItems(filtered);
+        panel.setQuantity(filtered.length);
+      },
+    },
+    {
+      id: 'hydrometer',
+      label: 'Hidrômetro',
+      selected: false,
+      handleClick: function () {
+        currentWaterTab = 'hydrometer';
+        var filtered = filterWaterItemsByTab(waterItems, 'hydrometer');
+        panel.setItems(filtered);
+        panel.setQuantity(filtered.length);
+      },
+    },
+    {
+      id: 'solenoid',
+      label: 'Solenóide',
+      selected: false,
+      handleClick: function () {
+        currentWaterTab = 'solenoid';
+        var filtered = filterWaterItemsByTab(waterItems, 'solenoid');
+        panel.setItems(filtered);
+        panel.setQuantity(filtered.length);
+      },
+    },
+  ];
 
   // Use premium green header style from library
   var waterHeaderStyle = MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN || {
@@ -2315,6 +2373,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     icon: '💧',
     quantity: waterItems.length,
     items: waterItems,
+    tabs: waterTabs,
     panelBackground: settings.waterPanelBackground,
     cardCustomStyle: settings.cardCustomStyle || { height: '90px' },
     titleStyle: waterHeaderStyle,
