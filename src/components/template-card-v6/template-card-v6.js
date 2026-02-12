@@ -1204,7 +1204,7 @@ export function renderCardComponentV6({
         flex-direction: column !important;
         justify-content: center !important;
         align-items: center !important;
-        padding: 28px 8px 8px 8px !important;
+        padding: 20px 6px 4px 6px !important;
         margin: 0 !important;
         width: 100% !important;
         height: 100% !important;
@@ -1258,11 +1258,11 @@ export function renderCardComponentV6({
         justify-content: flex-start !important;
         text-align: left !important;
         position: absolute !important;
-        top: 6px !important;
-        left: 6px !important;
+        top: 2px !important;
+        left: 4px !important;
         right: auto !important;
         width: auto !important;
-        max-width: calc(100% - 20px) !important;
+        max-width: calc(100% - 16px) !important;
         min-height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
