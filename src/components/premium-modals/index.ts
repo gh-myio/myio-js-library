@@ -69,3 +69,14 @@ export type {
   DateRange as FooterDateRange,
 } from '../footer/types';
 export { DEFAULT_FOOTER_COLORS } from '../footer/types';
+
+// RFC-0174: Integrations Modal
+export { openIntegrationsModal } from './integrations/openIntegrationsModal';
+export type {
+  IntegrationsModalOptions,
+  IntegrationsModalInstance,
+  IntegrationsThemeMode,
+  IntegrationTab,
+  IntegrationTabId,
+} from './integrations/types';
+export { DEFAULT_INTEGRATION_TABS } from './integrations/types';

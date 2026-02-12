@@ -1600,3 +1600,14 @@ export type {
   SidebarMenuConfig,
   SidebarMenuInstance,
 } from './components/sidebar-menu';
+
+// RFC-0174: Integrations Modal (iFrame tabs for external integrations)
+export { openIntegrationsModal } from './components/premium-modals/integrations';
+export type {
+  IntegrationsModalOptions,
+  IntegrationsModalInstance,
+  IntegrationsThemeMode,
+  IntegrationTab,
+  IntegrationTabId,
+} from './components/premium-modals/integrations';
+export { DEFAULT_INTEGRATION_TABS } from './components/premium-modals/integrations';

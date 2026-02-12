@@ -1130,8 +1130,16 @@ var AMBIENTE_ACTION_MAP = {
   },
   '(008)-Integrações': function (ambiente) {
     LogHelper.log('[MAIN_BAS] Action: Integrações ->', ambiente.id);
-    if (self.ctx && self.ctx.stateController) {
-      self.ctx.stateController.openState('integracoes', { entityId: ambiente.id });
+    // RFC-0174: Open integrations modal with iframe tabs
+    if (MyIOLibrary.openIntegrationsModal) {
+      MyIOLibrary.openIntegrationsModal({
+        theme: _settings?.themeMode || 'dark',
+        onClose: function () {
+          LogHelper.log('[MAIN_BAS] Integrations modal closed');
+        },
+      });
+    } else {
+      LogHelper.warn('[MAIN_BAS] openIntegrationsModal not available in MyIOLibrary');
     }
   },
 };
