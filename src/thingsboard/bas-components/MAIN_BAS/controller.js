@@ -3471,10 +3471,12 @@ function mountSidebarMenu(host, settings, classified) {
       var displayLabel = ambiente.label || ambiente.name || ambiente.id;
       // Remove the (NNN)- prefix for cleaner display
       var cleanLabel = displayLabel.replace(/^\(\d{3}\)-\s*/, '');
+      // Use ambiente-specific icon from AMBIENTE_ICONS map, fallback to building
+      var ambienteIcon = getAmbienteIcon(displayLabel) || MyIOLibrary.SIDEBAR_ICONS?.building || '🏢';
       return {
         id: 'ambiente:' + ambiente.id,
         label: cleanLabel,
-        icon: MyIOLibrary.SIDEBAR_ICONS?.building || '🏢',
+        icon: ambienteIcon,
         data: { ambienteId: ambiente.id, originalLabel: displayLabel },
       };
     });
@@ -3489,11 +3491,11 @@ function mountSidebarMenu(host, settings, classified) {
     { id: 'hvac', label: 'Climatização', icon: MyIOLibrary.SIDEBAR_ICONS?.thermometer || '❄️', badge: temperatureCount || undefined },
   ].concat(ambienteItems);
 
-  // Build menu sections - single unified navigation section (all items together)
+  // Build menu sections - single unified navigation section (no title header)
   var sections = [
     {
       id: 'navigation',
-      title: 'Navegação',
+      title: null, // No section title - items flow directly
       items: navigationItems,
     },
     {
