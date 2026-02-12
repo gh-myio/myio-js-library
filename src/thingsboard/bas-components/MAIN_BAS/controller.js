@@ -1,4 +1,4 @@
-/* global self, window, MyIOLibrary, document, localStorage */
+/* global self, window, MyIOLibrary, document, localStorage, sessionStorage */
 /**
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
