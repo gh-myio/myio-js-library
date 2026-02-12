@@ -41,7 +41,7 @@ export function injectOnOffDeviceModalStyles(): void {
       box-sizing: border-box;
     }
 
-    /* Control container (50% of left panel height) */
+    /* Control container (top area - takes available space) */
     .${ON_OFF_MODAL_CSS_PREFIX}__control-container {
       flex: 1;
       display: flex;
@@ -51,14 +51,24 @@ export function injectOnOffDeviceModalStyles(): void {
       min-height: 0;
     }
 
-    /* Schedule button container (50% of left panel height) */
+    /* Bottom buttons container (schedule + refresh at bottom) */
+    .${ON_OFF_MODAL_CSS_PREFIX}__bottom-buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--onoff-border-color, #e5e7eb);
+      margin-top: auto;
+    }
+
+    /* Schedule button container */
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-container {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 0;
+      width: 100%;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn {
@@ -225,7 +235,8 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 8px 4px;
+      padding: 12px 8px;
+      min-height: 280px;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__svg {
@@ -293,25 +304,57 @@ export function injectOnOffDeviceModalStyles(): void {
       color: #6b7280;
     }
 
-    /* Tooltip: light bg with dark text in light mode */
+    /* Tooltip: Premium style with status icon */
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip {
       z-index: 100001;
-      background: #ffffff;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
       color: #1f2937;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+      padding: 14px 16px;
+      min-width: 180px;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-title {
-      border-bottom-color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-title--on {
+      color: #16a34a;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-title--off {
+      color: #64748b;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 4px 0;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-label {
-      color: #6b7280;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content .myio-onoff-timeline__tooltip-value {
-      color: #1f2937;
+      color: #1e293b;
+      font-size: 13px;
+      font-weight: 600;
     }
 
     /* SVG axis label fill for light mode */

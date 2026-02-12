@@ -922,6 +922,27 @@ function parseDevicesFromData(data) {
       var profileUpper = deviceProfile.toUpperCase();
       var typeUpper = deviceType.toUpperCase();
 
+      // RFC-0174: Explicit exclusion list - these are NEVER energy devices
+      var isExcluded =
+        profileUpper === 'REMOTE' ||
+        profileUpper.includes('SOLENOIDE') ||
+        profileUpper.includes('SOLENOID') ||
+        typeUpper === 'REMOTE' ||
+        typeUpper.includes('SOLENOIDE') ||
+        typeUpper.includes('SOLENOID');
+
+      if (isExcluded) {
+        LogHelper.log(
+          '[MAIN_BAS] Skipping excluded device type from energy:',
+          deviceLabel,
+          'deviceProfile:',
+          deviceProfile,
+          'deviceType:',
+          deviceType
+        );
+        return; // Skip - not an energy device
+      }
+
       var isValidEnergy = window.MyIOLibrary.isEnergyDevice
         ? window.MyIOLibrary.isEnergyDevice(deviceProfile) || window.MyIOLibrary.isEnergyDevice(deviceType)
         : false;
@@ -3002,6 +3023,10 @@ function openAmbienteGroupModal(parentItem, settings) {
     },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] Ambiente Group modal closed');
+      // Return to Dashboard selection
+      if (_sidebarMenu) {
+        _sidebarMenu.setActiveItem('dashboard');
+      }
     },
   });
 }
@@ -3082,7 +3107,7 @@ function openOnOffDeviceModal(device, settings) {
 
   // Open the On/Off Device modal
   MyIOLibrary.openOnOffDeviceModal(deviceData, {
-    themeMode: 'dark',
+    themeMode: 'light',
     jwtToken: jwtToken,
     centralId: device.centralId || device.rawData?.centralId,
     enableDebugMode: false,
@@ -3575,7 +3600,7 @@ function mountSidebarMenu(host, settings, classified) {
   }
 
   var sidebarMenu = MyIOLibrary.createSidebarMenu(host, {
-    themeMode: settings.themeMode || 'dark',
+    themeMode: settings.themeMode || 'light',
     initialState: 'expanded',
     persistState: true,
     storageKey: 'myio-bas-sidebar-menu-state',
@@ -3781,14 +3806,26 @@ function handleSidebarMenuNavigation(itemId, item) {
 function handleAmbienteSelection(ambienteId, item) {
   LogHelper.log('[MAIN_BAS] Ambiente selected from menu:', ambienteId, item?.label);
 
-  _selectedAmbiente = ambienteId;
-
-  // Update active state in sidebar menu
-  if (_sidebarMenu) {
-    _sidebarMenu.setActiveItem('ambiente:' + ambienteId);
+  // RFC-0174: Check if this is the Integrações item (special action - opens iframe modal)
+  var originalLabel = item?.data?.originalLabel || '';
+  if (originalLabel === '(008)-Integrações') {
+    LogHelper.log('[MAIN_BAS] Opening Integrações modal');
+    if (MyIOLibrary.openIntegrationsModal) {
+      MyIOLibrary.openIntegrationsModal({
+        theme: _settings?.themeMode || 'light',
+        onClose: function () {
+          LogHelper.log('[MAIN_BAS] Integrations modal closed');
+          // Return to Dashboard selection
+          if (_sidebarMenu) {
+            _sidebarMenu.setActiveItem('dashboard');
+          }
+        },
+      });
+    }
+    return;
   }
 
-  // RFC-0170: Open Ambiente Group Modal for aggregated view
+  // RFC-0170: Open Ambiente Group Modal for aggregated view (no panel filtering)
   var ambienteData = _currentAmbientes.find(function (a) {
     return a.id === ambienteId;
   });
@@ -3801,49 +3838,6 @@ function handleAmbienteSelection(ambienteId, item) {
     };
     openAmbienteGroupModal(modalItem, _settings);
   }
-
-  // Filter panels based on hierarchy if available
-  var hierarchyAvailable = Object.keys(_ambienteHierarchy).length > 0;
-
-  if (hierarchyAvailable) {
-    var ambienteDevices = getDevicesForAmbiente(ambienteId);
-    if (ambienteDevices) {
-      var deviceIds = ambienteDevices.map(function (d) {
-        return d.id;
-      });
-
-      if (_waterPanel) {
-        var waterItems = buildWaterCardItems(_currentClassified, null).filter(function (cardItem) {
-          return deviceIds.includes(cardItem.id);
-        });
-        _waterPanel.setItems(waterItems);
-      }
-      if (_ambientesPanel) {
-        var hvacItems = buildHVACCardItems(_currentClassified, null).filter(function (cardItem) {
-          return deviceIds.includes(cardItem.id);
-        });
-        _ambientesPanel.setItems(hvacItems);
-      }
-      if (_motorsPanel) {
-        var energyItems = buildEnergyCardItems(_currentClassified, null).filter(function (cardItem) {
-          return deviceIds.includes(cardItem.id);
-        });
-        _motorsPanel.setItems(energyItems);
-      }
-    }
-  } else {
-    // Legacy filtering by ambiente ID
-    if (_waterPanel) _waterPanel.setItems(buildWaterCardItems(_currentClassified, ambienteId));
-    if (_ambientesPanel) _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, ambienteId));
-    if (_motorsPanel) _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, ambienteId));
-  }
-
-  // Dispatch event for other components
-  window.dispatchEvent(
-    new CustomEvent('bas:ambiente-changed', {
-      detail: { ambiente: ambienteId, hierarchyMode: hierarchyAvailable },
-    })
-  );
 }
 
 /**

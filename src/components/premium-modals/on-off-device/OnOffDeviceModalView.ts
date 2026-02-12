@@ -126,7 +126,25 @@ export class OnOffDeviceModalView {
     this.controlContainer.className = `${ON_OFF_MODAL_CSS_PREFIX}__control-container`;
     panel.appendChild(this.controlContainer);
 
-    // Refresh button (below control)
+    // Bottom buttons container (schedule + refresh)
+    const bottomButtons = document.createElement('div');
+    bottomButtons.className = `${ON_OFF_MODAL_CSS_PREFIX}__bottom-buttons`;
+
+    // Schedule button container
+    this.scheduleButtonContainer = document.createElement('div');
+    this.scheduleButtonContainer.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-container`;
+
+    const scheduleBtn = document.createElement('button');
+    scheduleBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn`;
+    scheduleBtn.innerHTML = `
+      <span class="${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-icon" data-icon>📅</span>
+      <span class="${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-label" data-label>Agendamento</span>
+    `;
+    scheduleBtn.addEventListener('click', () => this.onToggleView());
+    this.scheduleButtonContainer.appendChild(scheduleBtn);
+    bottomButtons.appendChild(this.scheduleButtonContainer);
+
+    // Refresh button (bottom)
     const refreshBtn = document.createElement('button');
     refreshBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn`;
     refreshBtn.innerHTML = `
@@ -140,22 +158,9 @@ export class OnOffDeviceModalView {
         refreshBtn.classList.remove(`${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn--loading`);
       }, 1500);
     });
-    panel.appendChild(refreshBtn);
+    bottomButtons.appendChild(refreshBtn);
 
-    // Schedule button container (bottom area)
-    this.scheduleButtonContainer = document.createElement('div');
-    this.scheduleButtonContainer.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-container`;
-
-    const scheduleBtn = document.createElement('button');
-    scheduleBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn`;
-    scheduleBtn.innerHTML = `
-      <span class="${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-icon" data-icon>📅</span>
-      <span class="${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-label" data-label>Agendamento</span>
-    `;
-    scheduleBtn.addEventListener('click', () => this.onToggleView());
-    this.scheduleButtonContainer.appendChild(scheduleBtn);
-
-    panel.appendChild(this.scheduleButtonContainer);
+    panel.appendChild(bottomButtons);
 
     return panel;
   }
