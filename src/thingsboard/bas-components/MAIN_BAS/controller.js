@@ -1337,6 +1337,9 @@ function waterDeviceToEntityObject(device) {
     deviceStatus = 'online';
   }
 
+  // PRESENTATION MODE: Force all water devices to online status
+  deviceStatus = 'online';
+
   return {
     entityId: device.id,
     labelOrName: device.name,
@@ -2291,7 +2294,7 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
     categories = [
       { id: 'HIDROMETRO', label: 'Hidrômetros', icon: '💧', count: hidroCount, selected: true },
       { id: 'CAIXA_DAGUA', label: "Caixas d'Água", icon: '🛢️', count: tankCount, selected: true },
-      { id: 'SOLENOIDE', label: 'Solenoides', icon: '🔌', count: solenoidCount, selected: true },
+      { id: 'SOLENOIDE', label: 'Solenoides', icon: '🚰', count: solenoidCount, selected: true },
     ];
     sortOptions = MyIOLibrary.WATER_SORT_OPTIONS || [];
   } else if (panelType === 'hvac') {
@@ -2720,13 +2723,34 @@ function openBASDeviceModal(device, settings) {
     isRemoteOn: device.isOn || device.rawData?.remote_status === 'on',
     status: device.connectionStatus || device.deviceStatus || 'unknown',
     telemetry: {
-      power: device.rawData?.power || device.rawData?.potencia,
-      current: device.rawData?.current || device.rawData?.corrente,
-      voltage: device.rawData?.voltage || device.rawData?.tensao,
-      temperature: device.rawData?.temperature || device.rawData?.temperatura,
-      consumption: device.consumption || device.val || device.rawData?.consumption,
+      // Potência: use consumption value (realtime power in W), convert to kW for display
+      power: device.consumption || device.val || device.rawData?.power || device.rawData?.potencia,
+      // Corrente: check multiple possible fields
+      current:
+        device.rawData?.total_current ||
+        device.rawData?.current ||
+        device.rawData?.current_a ||
+        device.rawData?.corrente,
+      // Tensão: check multiple possible fields
+      voltage:
+        device.rawData?.voltage_a ||
+        device.rawData?.voltage ||
+        device.rawData?.tensao,
+      // Fases individuais para exibição detalhada
+      currentPhases: {
+        a: device.rawData?.current_a,
+        b: device.rawData?.current_b,
+        c: device.rawData?.current_c,
+      },
+      voltagePhases: {
+        a: device.rawData?.voltage_a,
+        b: device.rawData?.voltage_b,
+        c: device.rawData?.voltage_c,
+      },
       lastUpdate: Date.now(),
     },
+    // Flag to indicate energy device (no temperature)
+    isEnergyDevice: true,
   };
 
   // Get date range (last 7 days default)
