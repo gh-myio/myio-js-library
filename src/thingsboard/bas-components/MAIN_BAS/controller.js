@@ -1036,18 +1036,18 @@ function parseDevicesFromData(data) {
 }
 
 /**
- * Icons for each ambiente by prefix code
- * Used to display visual indicators in EntityListPanel
+ * Map ambiente prefix codes to SIDEBAR_ICONS keys
+ * Uses professional SVG icons instead of emojis
  */
-var AMBIENTE_ICONS = {
-  '001': '🌊', // Deck
-  '002': '⚡', // Sala do Nobreak
-  '003': '🎤', // Auditório
-  '004': '👥', // Staff Rio de Janeiro
-  '005': '💧', // Bombas
-  '006': '🚰', // Água
-  '007': '⚙️', // Configuração
-  '008': '🔗', // Integrações
+var AMBIENTE_ICON_MAP = {
+  '001': 'deck', // Deck
+  '002': 'nobreak', // Sala do Nobreak
+  '003': 'auditorium', // Auditório
+  '004': 'staff', // Staff Rio de Janeiro
+  '005': 'pump', // Bombas
+  '006': 'water', // Água
+  '007': 'settings', // Configuração
+  '008': 'link', // Integrações
 };
 
 /**
@@ -1060,10 +1060,13 @@ function getAmbientePrefixCode(label) {
 
 /**
  * Get icon for an ambiente based on its label prefix
+ * Returns SVG icon from SIDEBAR_ICONS or null
  */
 function getAmbienteIcon(label) {
   var code = getAmbientePrefixCode(label);
-  return code && AMBIENTE_ICONS[code] ? AMBIENTE_ICONS[code] : null;
+  if (!code || !AMBIENTE_ICON_MAP[code]) return null;
+  var iconKey = AMBIENTE_ICON_MAP[code];
+  return MyIOLibrary.SIDEBAR_ICONS?.[iconKey] || null;
 }
 
 /**
