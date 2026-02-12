@@ -32,10 +32,12 @@ export function injectSidebarMenuStyles(): void {
       height: 100%;
       background: #ffffff;
       border-right: 1px solid #e5e7eb;
+      border-radius: 0 16px 16px 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       transition: width var(--sidebar-transition);
       overflow: hidden;
       z-index: 100;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
     }
 
     .${SIDEBAR_MENU_CSS_PREFIX}.collapsed {
@@ -52,6 +54,7 @@ export function injectSidebarMenuStyles(): void {
       color: #ffffff;
       min-height: 64px;
       flex-shrink: 0;
+      border-radius: 0 16px 0 0;
     }
 
     .${SIDEBAR_MENU_CSS_PREFIX}__logo {

@@ -128,19 +128,20 @@ tb-html-widget > div,
 }
 
 /* ========================================
-   CONTENT LAYOUT — CSS Grid 4 cols × 2 rows
+   CONTENT LAYOUT — CSS Grid 3 cols × 2 rows
+   RFC-0173: Sidebar removed, water expanded to 60%
    ======================================== */
 .bas-content-layout {
   grid-row: 2;
   grid-column: 1;
 
   display: grid !important;
-  grid-template-columns: 20% 40% 20% 20%;
+  grid-template-columns: 60% 20% 20%;
   /* Use 1fr instead of 50% - more reliable for grid rows */
   grid-template-rows: 1fr 1fr;
   grid-template-areas:
-    'sidebar water   ambientes motors'
-    'charts  charts  ambientes motors';
+    'water    ambientes motors'
+    'charts   ambientes motors';
   gap: 0;
   overflow: hidden;
   min-height: 0 !important;
@@ -167,8 +168,12 @@ tb-html-widget > div,
   height: 100% !important;
 }
 
-/* Row 1 slots (sidebar, water) - let grid handle sizing */
-.bas-sidebar-slot,
+/* RFC-0173: Hide EntityListPanel sidebar - now using premium sidebar menu */
+.bas-sidebar-slot {
+  display: none !important;
+}
+
+/* Row 1 slots (water) - let grid handle sizing */
 .bas-water-slot {
   min-height: 0 !important;
   max-height: 100% !important;

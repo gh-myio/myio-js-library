@@ -3448,7 +3448,27 @@ function mountSidebarMenu(host, settings, classified) {
   var waterCount = classified?.water?.length || 0;
   var energyCount = classified?.energy?.length || 0;
   var temperatureCount = classified?.temperature?.length || 0;
-  var ambientesCount = _currentAmbientes?.length || 0;
+
+  // Build ambientes items from _currentAmbientes (migrated from EntityListPanel)
+  var ambienteLabelPattern = /^\(\d{3}\)-/;
+  var ambienteItems = (_currentAmbientes || [])
+    .filter(function (ambiente) {
+      var label = ambiente.label || '';
+      return ambienteLabelPattern.test(label);
+    })
+    .map(function (ambiente) {
+      var displayLabel = ambiente.label || ambiente.name || ambiente.id;
+      // Remove the (NNN)- prefix for cleaner display
+      var cleanLabel = displayLabel.replace(/^\(\d{3}\)-\s*/, '');
+      return {
+        id: 'ambiente:' + ambiente.id,
+        label: cleanLabel,
+        icon: MyIOLibrary.SIDEBAR_ICONS?.building || '🏢',
+        data: { ambienteId: ambiente.id, originalLabel: displayLabel },
+      };
+    });
+
+  LogHelper.log('[MAIN_BAS] Built', ambienteItems.length, 'ambiente items for sidebar menu');
 
   // Build menu sections
   var sections = [
@@ -3457,16 +3477,22 @@ function mountSidebarMenu(host, settings, classified) {
       title: 'Navegação',
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
-        { id: 'ambientes', label: 'Ambientes', icon: MyIOLibrary.SIDEBAR_ICONS?.building || '🏢', badge: ambientesCount || undefined },
         { id: 'water', label: 'Água', icon: MyIOLibrary.SIDEBAR_ICONS?.water || '💧', badge: waterCount || undefined },
         { id: 'energy', label: 'Energia', icon: MyIOLibrary.SIDEBAR_ICONS?.energy || '⚡', badge: energyCount || undefined },
         { id: 'hvac', label: 'Climatização', icon: MyIOLibrary.SIDEBAR_ICONS?.thermometer || '❄️', badge: temperatureCount || undefined },
       ],
     },
     {
+      id: 'locais',
+      title: 'Locais',
+      collapsible: true,
+      items: ambienteItems,
+    },
+    {
       id: 'config',
       title: 'Configurações',
       collapsible: true,
+      collapsed: true,
       items: [
         { id: 'settings', label: 'Configurações', icon: MyIOLibrary.SIDEBAR_ICONS?.settings || '⚙️' },
         { id: 'profile', label: 'Perfil', icon: MyIOLibrary.SIDEBAR_ICONS?.user || '👤' },
@@ -3493,8 +3519,8 @@ function mountSidebarMenu(host, settings, classified) {
       version: MyIOLibrary.version || '0.1.374',
     },
     onItemClick: function (item, section) {
-      LogHelper.log('[MAIN_BAS] Sidebar menu item clicked:', item.id);
-      handleSidebarMenuNavigation(item.id);
+      LogHelper.log('[MAIN_BAS] Sidebar menu item clicked:', item.id, 'section:', section.id);
+      handleSidebarMenuNavigation(item.id, item);
     },
     onStateChange: function (state) {
       LogHelper.log('[MAIN_BAS] Sidebar menu state changed:', state);
@@ -3517,25 +3543,24 @@ function mountSidebarMenu(host, settings, classified) {
 /**
  * Handle navigation from sidebar menu
  * @param {string} itemId - Menu item ID
+ * @param {Object} item - Full menu item object (optional)
  */
-function handleSidebarMenuNavigation(itemId) {
-  var rootEl = document.getElementById('bas-dashboard-root');
+function handleSidebarMenuNavigation(itemId, item) {
+  // Handle ambiente selection (items starting with 'ambiente:')
+  if (itemId.startsWith('ambiente:')) {
+    var ambienteId = itemId.replace('ambiente:', '');
+    handleAmbienteSelection(ambienteId, item);
+    return;
+  }
 
   switch (itemId) {
     case 'dashboard':
-      // Scroll to top / reset filters
-      if (_ambientesListPanel) {
-        _ambientesListPanel.setSelectedId(null);
-      }
+      // Reset filters - show all devices
       _selectedAmbiente = null;
-      // Reset all panels to show all devices
       if (_waterPanel) _waterPanel.setItems(buildWaterCardItems(_currentClassified, null));
       if (_ambientesPanel) _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, null));
       if (_motorsPanel) _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, null));
-      break;
-
-    case 'ambientes':
-      scrollToElement('bas-sidebar-host');
+      if (_sidebarMenu) _sidebarMenu.setActiveItem('dashboard');
       break;
 
     case 'water':
@@ -3585,6 +3610,80 @@ function handleSidebarMenuNavigation(itemId) {
 }
 
 /**
+ * Handle ambiente selection from sidebar menu
+ * Filters all panels to show only devices from selected ambiente
+ * @param {string} ambienteId - Selected ambiente ID
+ * @param {Object} item - Menu item with data
+ */
+function handleAmbienteSelection(ambienteId, item) {
+  LogHelper.log('[MAIN_BAS] Ambiente selected from menu:', ambienteId, item?.label);
+
+  _selectedAmbiente = ambienteId;
+
+  // Update active state in sidebar menu
+  if (_sidebarMenu) {
+    _sidebarMenu.setActiveItem('ambiente:' + ambienteId);
+  }
+
+  // RFC-0170: Open Ambiente Group Modal for aggregated view
+  var ambienteData = _currentAmbientes.find(function (a) {
+    return a.id === ambienteId;
+  });
+
+  if (ambienteData) {
+    var modalItem = {
+      id: ambienteId,
+      label: item?.label || ambienteData.label || ambienteData.name,
+      name: ambienteData.name,
+    };
+    openAmbienteGroupModal(modalItem, _settings);
+  }
+
+  // Filter panels based on hierarchy if available
+  var hierarchyAvailable = Object.keys(_ambienteHierarchy).length > 0;
+
+  if (hierarchyAvailable) {
+    var ambienteDevices = getDevicesForAmbiente(ambienteId);
+    if (ambienteDevices) {
+      var deviceIds = ambienteDevices.map(function (d) {
+        return d.id;
+      });
+
+      if (_waterPanel) {
+        var waterItems = buildWaterCardItems(_currentClassified, null).filter(function (cardItem) {
+          return deviceIds.includes(cardItem.id);
+        });
+        _waterPanel.setItems(waterItems);
+      }
+      if (_ambientesPanel) {
+        var hvacItems = buildHVACCardItems(_currentClassified, null).filter(function (cardItem) {
+          return deviceIds.includes(cardItem.id);
+        });
+        _ambientesPanel.setItems(hvacItems);
+      }
+      if (_motorsPanel) {
+        var energyItems = buildEnergyCardItems(_currentClassified, null).filter(function (cardItem) {
+          return deviceIds.includes(cardItem.id);
+        });
+        _motorsPanel.setItems(energyItems);
+      }
+    }
+  } else {
+    // Legacy filtering by ambiente ID
+    if (_waterPanel) _waterPanel.setItems(buildWaterCardItems(_currentClassified, ambienteId));
+    if (_ambientesPanel) _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, ambienteId));
+    if (_motorsPanel) _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, ambienteId));
+  }
+
+  // Dispatch event for other components
+  window.dispatchEvent(
+    new CustomEvent('bas:ambiente-changed', {
+      detail: { ambiente: ambienteId, hierarchyMode: hierarchyAvailable },
+    })
+  );
+}
+
+/**
  * Scroll to element by ID with smooth animation
  * @param {string} elementId - Element ID to scroll to
  */
@@ -3610,9 +3709,7 @@ function updateSidebarMenuBadges(classified) {
   var waterCount = classified?.water?.length || 0;
   var energyCount = classified?.energy?.length || 0;
   var temperatureCount = classified?.temperature?.length || 0;
-  var ambientesCount = _currentAmbientes?.length || 0;
 
-  _sidebarMenu.updateItemBadge('ambientes', ambientesCount || null);
   _sidebarMenu.updateItemBadge('water', waterCount || null);
   _sidebarMenu.updateItemBadge('energy', energyCount || null);
   _sidebarMenu.updateItemBadge('hvac', temperatureCount || null);
