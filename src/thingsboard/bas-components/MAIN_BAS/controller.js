@@ -2073,7 +2073,7 @@ function switchChartDomainInContainer(domain, container) {
         },
 
         // Data fetching
-        fetchData: createRealFetchData(domain),
+        fetchData: createRealFetchData(domain, { preferCache: true, maxAgeMs: 15 * 60 * 1000 }),
 
         // Callbacks
         onDataLoaded: function (data) {
@@ -2103,7 +2103,7 @@ function switchChartDomainInContainer(domain, container) {
         unit: cfg.unit,
         unitLarge: cfg.unitLarge,
         thresholdForLargeUnit: cfg.threshold,
-        fetchData: createRealFetchData(domain),
+        fetchData: createRealFetchData(domain, { preferCache: true, maxAgeMs: 15 * 60 * 1000 }),
         defaultPeriod: 7,
         defaultChartType: domain === 'temperature' ? 'line' : 'bar',
         theme: (_settings && _settings.defaultThemeMode) || 'dark',
@@ -3450,11 +3450,22 @@ function mountSidebarMenu(host, settings, classified) {
   var temperatureCount = classified?.temperature?.length || 0;
 
   // Build ambientes items from _currentAmbientes (migrated from EntityListPanel)
+  // Sort by (NNN)- prefix numerically and display clean labels without prefix
   var ambienteLabelPattern = /^\(\d{3}\)-/;
   var ambienteItems = (_currentAmbientes || [])
     .filter(function (ambiente) {
       var label = ambiente.label || '';
       return ambienteLabelPattern.test(label);
+    })
+    .sort(function (a, b) {
+      // Sort by the (NNN) prefix numerically
+      var labelA = a.label || '';
+      var labelB = b.label || '';
+      var matchA = labelA.match(/^\((\d{3})\)-/);
+      var matchB = labelB.match(/^\((\d{3})\)-/);
+      var numA = matchA ? parseInt(matchA[1], 10) : 999;
+      var numB = matchB ? parseInt(matchB[1], 10) : 999;
+      return numA - numB;
     })
     .map(function (ambiente) {
       var displayLabel = ambiente.label || ambiente.name || ambiente.id;
@@ -3468,25 +3479,22 @@ function mountSidebarMenu(host, settings, classified) {
       };
     });
 
-  LogHelper.log('[MAIN_BAS] Built', ambienteItems.length, 'ambiente items for sidebar menu');
+  LogHelper.log('[MAIN_BAS] Built', ambienteItems.length, 'ambiente items for sidebar menu (sorted by prefix)');
 
-  // Build menu sections
+  // Build unified navigation items: static items first, then sorted ambientes
+  var navigationItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
+    { id: 'water', label: 'Água', icon: MyIOLibrary.SIDEBAR_ICONS?.water || '💧', badge: waterCount || undefined },
+    { id: 'energy', label: 'Energia', icon: MyIOLibrary.SIDEBAR_ICONS?.energy || '⚡', badge: energyCount || undefined },
+    { id: 'hvac', label: 'Climatização', icon: MyIOLibrary.SIDEBAR_ICONS?.thermometer || '❄️', badge: temperatureCount || undefined },
+  ].concat(ambienteItems);
+
+  // Build menu sections - single unified navigation section (all items together)
   var sections = [
     {
       id: 'navigation',
       title: 'Navegação',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
-        { id: 'water', label: 'Água', icon: MyIOLibrary.SIDEBAR_ICONS?.water || '💧', badge: waterCount || undefined },
-        { id: 'energy', label: 'Energia', icon: MyIOLibrary.SIDEBAR_ICONS?.energy || '⚡', badge: energyCount || undefined },
-        { id: 'hvac', label: 'Climatização', icon: MyIOLibrary.SIDEBAR_ICONS?.thermometer || '❄️', badge: temperatureCount || undefined },
-      ],
-    },
-    {
-      id: 'locais',
-      title: 'Locais',
-      collapsible: true,
-      items: ambienteItems,
+      items: navigationItems,
     },
     {
       id: 'config',
@@ -3731,13 +3739,33 @@ function updateSidebarMenuBadges(classified) {
  */
 var DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 
+// Chart data cache to avoid unnecessary refetches (e.g., on maximize)
+// Keyed by domain, stores last result per period
+var _chartDataCache = {};
+
 /**
  * Create real fetchData function for chart - fetches from ingestion API
  * @param {string} domain - 'energy', 'water', or 'temperature'
+ * @param {Object} [options] - Cache options
+ * @param {boolean} [options.preferCache=false] - If true, return cached data when available
+ * @param {number} [options.maxAgeMs=300000] - Cache max age in ms for normal use
  * @returns {function} fetchData function that returns { labels, dailyTotals }
  */
-function createRealFetchData(domain) {
+function createRealFetchData(domain, options) {
+  var opts = options || {};
+  var preferCache = !!opts.preferCache;
+  var maxAgeMs = typeof opts.maxAgeMs === 'number' ? opts.maxAgeMs : 5 * 60 * 1000;
+
   return async function fetchData(period) {
+    var cacheKey = domain;
+    var cached = _chartDataCache[cacheKey];
+    if (cached && cached.period === period) {
+      var ageMs = Date.now() - cached.timestamp;
+      if (preferCache || ageMs <= maxAgeMs) {
+        return cached.data;
+      }
+    }
+
     var labels = [];
     var now = new Date();
 
@@ -3774,16 +3802,20 @@ function createRealFetchData(domain) {
       }
 
       LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', result.dailyTotals.length, 'points,', Object.keys(result.shoppingData).length, 'shoppings');
-      return {
+      var resultData = {
         labels: labels,
         dailyTotals: result.dailyTotals,
         shoppingData: result.shoppingData || {},
         shoppingNames: result.shoppingNames || {},
         fetchTimestamp: Date.now(),
       };
+      _chartDataCache[cacheKey] = { period: period, timestamp: Date.now(), data: resultData };
+      return resultData;
     } catch (error) {
       LogHelper.error('[MAIN_BAS] Chart fetch error for', domain, ':', error);
-      return { labels: labels, dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
+      var errorData = { labels: labels, dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
+      _chartDataCache[cacheKey] = { period: period, timestamp: Date.now(), data: errorData };
+      return errorData;
     }
   };
 }
