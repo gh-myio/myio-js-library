@@ -1249,24 +1249,93 @@ function buildAmbienteItems(ambientes) {
 var WATER_TYPE_MAP = {
   hydrometer: 'HIDROMETRO',
   cistern: 'CAIXA_DAGUA',
+  caixa: 'CAIXA_DAGUA',
   tank: 'TANK',
   solenoid: 'BOMBA_HIDRAULICA',
 };
 
 var WATER_STATUS_MAP = {
+  // Online statuses
   online: 'online',
+  power_on: 'online',
+  normal: 'online',
+  ok: 'online',
+  active: 'online',
+  running: 'online',
+  connected: 'online',
+  // Offline statuses
   offline: 'offline',
+  power_off: 'offline',
+  disconnected: 'offline',
+  inactive: 'offline',
+  // Alert statuses (for tanks with low/high levels)
+  alert: 'alert',
+  warning: 'alert',
+  low: 'alert',
+  high: 'alert',
+  critical: 'alert',
+  // Unknown/no info statuses
   unknown: 'no_info',
+  no_info: 'no_info',
+  no_reading: 'no_info',
+  null: 'no_info',
+  undefined: 'no_info',
 };
+
+/**
+ * Check if a device profile/type is a water tank (TANK or CAIXA_DAGUA)
+ */
+function isTankDevice(deviceProfile) {
+  if (!deviceProfile) return false;
+  var upper = deviceProfile.toUpperCase();
+  return upper === 'TANK' || upper === 'CAIXA_DAGUA' || upper.includes('CAIXA') || upper.includes('TANK');
+}
 
 /**
  * Convert a water device to an entityObject for renderCardComponentV6
  */
 function waterDeviceToEntityObject(device) {
   var deviceType = WATER_TYPE_MAP[device.type] || 'HIDROMETRO';
-  var deviceStatus = WATER_STATUS_MAP[device.status] || 'no_info';
+  var statusKey = String(device.status || '').toLowerCase();
+  var deviceStatus = WATER_STATUS_MAP[statusKey] || 'no_info';
   // Use rawData.identifier with fallback to 'Sem ID'
   var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
+
+  // RFC-0174: Check if this is a tank device (tank, cistern, caixa)
+  var isTank = device.type === 'tank' || device.type === 'cistern' || device.type === 'caixa';
+
+  // RFC-0174: Extract water level from device data
+  // Check multiple possible properties where water level might be stored
+  var waterLevel =
+    device.rawData?.water_level ??
+    device.rawData?.waterLevel ??
+    device.rawData?.level ??
+    device.rawData?.nivel ??
+    device.value ??
+    null;
+
+  // RFC-0174: Extract water percentage (0-1 range from API)
+  var waterPercentage =
+    device.rawData?.water_percentage ??
+    device.rawData?.waterPercentage ??
+    device.rawData?.percentage ??
+    null;
+
+  // Calculate percentage for display (0-100 range)
+  var displayPercentage = 0;
+  if (waterPercentage !== null && waterPercentage !== undefined) {
+    // API returns 0-1 range, convert to 0-100
+    displayPercentage = waterPercentage * 100;
+  } else if (waterLevel !== null && waterLevel !== undefined && isTank) {
+    // Fallback: assume waterLevel is already in percentage format
+    displayPercentage = waterLevel;
+  }
+
+  // RFC-0174: For tanks, determine status based on level if not already set
+  if (isTank && deviceStatus === 'no_info' && displayPercentage > 0) {
+    // If we have level data, consider it online
+    deviceStatus = 'online';
+  }
 
   return {
     entityId: device.id,
@@ -1275,9 +1344,10 @@ function waterDeviceToEntityObject(device) {
     deviceType: deviceType,
     val: device.value,
     deviceStatus: deviceStatus,
-    perc: 0,
-    waterLevel: device.type === 'tank' ? device.value : undefined,
-    waterPercentage: device.type === 'tank' ? device.value / 100 : undefined,
+    perc: isTank ? displayPercentage : 0,
+    waterLevel: isTank ? waterLevel : undefined,
+    waterPercentage: isTank ? waterPercentage : undefined,
+    isTank: isTank,
   };
 }
 
@@ -2459,17 +2529,21 @@ function mountWaterPanel(waterHost, settings, classified) {
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
 
       var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
+      var deviceType = (item.source?.type || '').toLowerCase();
 
       // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
       if (isOnOffDeviceProfile(deviceProfile)) {
         // RFC-0167: Open On/Off Device modal
         openOnOffDeviceModal(item.source, settings);
+      } else if (isTankDevice(deviceProfile) || deviceType === 'tank') {
+        // RFC-0174: Open Water Tank modal for TANK/CAIXA_DAGUA devices
+        openWaterTankModal(item.source, item.entityObject, settings);
       } else if (isHidrometerDevice(deviceProfile)) {
         // RFC-0172: Open BAS Water modal for HIDROMETRO devices
         openBASWaterModal(item.source, settings);
       } else {
         // Fallback: Log warning for unhandled water device type
-        LogHelper.warn('[MAIN_BAS] Unhandled water device type:', deviceProfile);
+        LogHelper.warn('[MAIN_BAS] Unhandled water device type:', deviceProfile, 'deviceType:', deviceType);
       }
     },
   });
@@ -3194,6 +3268,86 @@ function openOnOffDeviceModal(device, settings) {
     },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] On/Off Device modal closed');
+    },
+  });
+}
+
+/**
+ * RFC-0174: Open Water Tank modal for TANK/CAIXA_DAGUA devices
+ * @param {Object} device - Device data from water panel click
+ * @param {Object} entityObject - Entity object with water level data
+ * @param {Object} settings - Widget settings
+ */
+function openWaterTankModal(device, entityObject, settings) {
+  if (!MyIOLibrary.openDashboardPopupWaterTank) {
+    LogHelper.warn('[MAIN_BAS] openDashboardPopupWaterTank not available');
+    return;
+  }
+
+  // Get JWT token from localStorage or widget context
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) {
+    jwtToken = _ctx.http.token;
+  }
+
+  // Extract water level data from device/entityObject
+  var waterLevel = entityObject?.waterLevel ?? device?.rawData?.water_level ?? device?.value ?? null;
+  var waterPercentage = entityObject?.waterPercentage ?? device?.rawData?.water_percentage ?? null;
+
+  // RFC-0107: waterPercentage is in 0-1 range (e.g., 0.21 = 21%)
+  // Convert to 0-100 range for display, and clamp to 0-100 for visual display
+  var currentLevelPercent = 0;
+  if (waterPercentage !== null && waterPercentage !== undefined) {
+    // waterPercentage is 0-1 range, convert to percentage
+    currentLevelPercent = waterPercentage * 100;
+  } else if (waterLevel !== null && waterLevel !== undefined) {
+    // Fallback: if only waterLevel is available, use it as percentage (assume it's already %)
+    currentLevelPercent = waterLevel;
+  }
+
+  // Clamp for display (can be >100% but visual indicator should cap at 100)
+  var currentLevelClamped = Math.min(100, Math.max(0, currentLevelPercent));
+
+  // Get date range (last 7 days default)
+  var endTs = Date.now();
+  var startTs = endTs - 7 * 24 * 60 * 60 * 1000;
+
+  var deviceType = device?.deviceType || device?.deviceProfile || 'CAIXA_DAGUA';
+  var deviceLabel = device?.name || device?.label || "Caixa d'Água";
+
+  LogHelper.log('[MAIN_BAS] Opening Water Tank modal for device:', {
+    deviceId: device?.id,
+    deviceType: deviceType,
+    waterLevel: waterLevel,
+    waterPercentage: waterPercentage,
+    currentLevelPercent: currentLevelPercent,
+    currentLevelClamped: currentLevelClamped,
+  });
+
+  // Open the Water Tank modal
+  MyIOLibrary.openDashboardPopupWaterTank({
+    deviceId: device?.id || device?.entityId,
+    deviceType: deviceType,
+    tbJwtToken: jwtToken,
+    startTs: startTs,
+    endTs: endTs,
+    label: deviceLabel,
+    currentLevel: currentLevelPercent,
+    currentLevelClamped: currentLevelClamped,
+    waterLevel: waterLevel,
+    waterPercentage: waterPercentage,
+    slaveId: device?.slaveId || device?.rawData?.slaveId,
+    centralId: device?.centralId || device?.rawData?.centralId,
+    timezone: 'America/Sao_Paulo',
+    telemetryKeys: ['water_level', 'water_percentage', 'waterLevel', 'nivel', 'level'],
+    onOpen: function (context) {
+      LogHelper.log('[MAIN_BAS] ✅ Water tank modal opened successfully!', context);
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] 🚪 Water tank modal closed');
+    },
+    onError: function (error) {
+      LogHelper.error('[MAIN_BAS] ❌ Water tank modal error:', error);
     },
   });
 }
