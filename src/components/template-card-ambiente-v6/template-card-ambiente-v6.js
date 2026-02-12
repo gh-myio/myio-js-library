@@ -20,6 +20,7 @@
 import { MyIOSelectionStore } from '../SelectionStore.js';
 import { MyIODraggableCard } from '../DraggableCard.js';
 import { formatEnergy } from '../../format/energy.ts';
+import { InfoTooltip } from '../../utils/InfoTooltip';
 
 // ============================================
 // CONSTANTS
@@ -49,6 +50,254 @@ const STATUS_COLORS = {
   warning: '#ffc107',
   neutral: '#6c757d',
 };
+
+// ============================================
+// ANNOTATION BADGES (RFC-0105)
+// ============================================
+
+const ANNOTATION_BADGE_STYLES_ID = 'myio-ambiente-v6-annotation-badge-styles';
+
+const ANNOTATION_TYPE_CONFIG = {
+  pending: {
+    color: '#d63031',
+    icon: '⚠️',
+    label: 'Pendência',
+  },
+  maintenance: {
+    color: '#e17055',
+    icon: '🔧',
+    label: 'Manutenção',
+  },
+  activity: {
+    color: '#00b894',
+    icon: '✓',
+    label: 'Atividade',
+  },
+  observation: {
+    color: '#0984e3',
+    icon: '📝',
+    label: 'Observação',
+  },
+};
+
+/**
+ * Inject annotation badge styles for ambiente cards
+ */
+function injectAnnotationBadgeStyles() {
+  if (document.getElementById(ANNOTATION_BADGE_STYLES_ID)) return;
+
+  const style = document.createElement('style');
+  style.id = ANNOTATION_BADGE_STYLES_ID;
+  style.textContent = `
+    .myio-ambiente-v6-annotation-badges {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      z-index: 15;
+    }
+
+    .myio-ambiente-v6-annotation-badge {
+      position: relative;
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .myio-ambiente-v6-annotation-badge:hover {
+      transform: scale(1.15);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    .myio-ambiente-v6-annotation-badge__count {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 12px;
+      height: 12px;
+      padding: 0 2px;
+      background: #1a1a2e;
+      color: white;
+      border-radius: 6px;
+      font-size: 8px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Build annotation type tooltip content
+ * @param {string} type - Annotation type
+ * @param {Array} typeAnnotations - Annotations of this type
+ * @param {Object} config - Type configuration
+ * @returns {string} HTML content
+ */
+function buildAnnotationTooltipContent(type, typeAnnotations, config) {
+  const now = new Date();
+  const typeOverdueCount = typeAnnotations.filter((a) => a.dueDate && new Date(a.dueDate) < now).length;
+
+  const overdueWarning =
+    typeOverdueCount > 0
+      ? `<div style="color:#d63031;padding:6px 10px;background:#fff5f5;border-radius:4px;margin-bottom:8px;font-size:10px;font-weight:500;">
+         ⚠️ ${typeOverdueCount} anotação(ões) vencida(s)
+       </div>`
+      : '';
+
+  const annotationsList = typeAnnotations
+    .slice(0, 5)
+    .map(
+      (a) => `
+      <div style="padding:6px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:500;color:#1a1a2e;font-size:11px;line-height:1.3;">"${a.text}"</div>
+        <div style="font-size:9px;color:#868e96;margin-top:2px;">
+          ${a.createdBy?.name || 'N/A'} • ${new Date(a.createdAt).toLocaleDateString('pt-BR')}
+          ${a.dueDate ? ` • Vence: ${new Date(a.dueDate).toLocaleDateString('pt-BR')}` : ''}
+        </div>
+      </div>
+    `
+    )
+    .join('');
+
+  const moreCount = typeAnnotations.length > 5 ? typeAnnotations.length - 5 : 0;
+  const moreSection =
+    moreCount > 0
+      ? `<div style="font-size:10px;color:#6c757d;margin-top:6px;text-align:center;">+ ${moreCount} mais...</div>`
+      : '';
+
+  return `
+    <div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${config.color};"></span>
+        <span style="font-weight:600;font-size:12px;">${config.label} (${typeAnnotations.length})</span>
+      </div>
+      ${overdueWarning}
+      ${annotationsList}
+      ${moreSection}
+    </div>
+  `;
+}
+
+/**
+ * Add annotation badges to an ambiente card element
+ * @param {HTMLElement} cardElement - The card DOM element
+ * @param {Object} ambienteData - Ambiente data with log_annotations
+ * @returns {HTMLElement|null} The badges container or null
+ */
+function addAnnotationIndicatorToAmbienteCard(cardElement, ambienteData) {
+  // Safely extract annotations array from log_annotations
+  let annotations = null;
+  try {
+    let logAnnotations = ambienteData.log_annotations;
+
+    // If it's a string, try to parse it as JSON
+    if (typeof logAnnotations === 'string') {
+      logAnnotations = JSON.parse(logAnnotations);
+    }
+
+    // Extract annotations array from parsed object
+    if (logAnnotations && Array.isArray(logAnnotations.annotations)) {
+      annotations = logAnnotations.annotations;
+    } else if (Array.isArray(logAnnotations)) {
+      annotations = logAnnotations;
+    }
+  } catch (err) {
+    console.warn(`[template-card-ambiente-v6] Failed to parse log_annotations:`, err.message);
+    return null;
+  }
+
+  // No valid annotations found
+  if (!annotations || annotations.length === 0) {
+    return null;
+  }
+
+  // Ensure styles are injected
+  injectAnnotationBadgeStyles();
+
+  // Ensure card has relative positioning
+  if (cardElement && cardElement.style) {
+    cardElement.style.position = 'relative';
+  }
+
+  // Filter active annotations
+  const activeAnnotations = annotations.filter((a) => a.status !== 'archived');
+  if (activeAnnotations.length === 0) return null;
+
+  // Group annotations by type
+  const annotationsByType = {
+    pending: [],
+    maintenance: [],
+    activity: [],
+    observation: [],
+  };
+
+  activeAnnotations.forEach((a) => {
+    if (annotationsByType[a.type] !== undefined) {
+      annotationsByType[a.type].push(a);
+    }
+  });
+
+  // Create badges container
+  const container = document.createElement('div');
+  container.className = 'myio-ambiente-v6-annotation-badges';
+
+  // Priority order: pending, maintenance, activity, observation
+  const typeOrder = ['pending', 'maintenance', 'activity', 'observation'];
+
+  // Get InfoTooltip (from import or window)
+  const tooltip = InfoTooltip || window.MyIOLibrary?.InfoTooltip;
+
+  // Create a badge for each type with annotations
+  typeOrder.forEach((type) => {
+    const typeAnnotations = annotationsByType[type];
+    if (typeAnnotations.length === 0) return;
+
+    const config = ANNOTATION_TYPE_CONFIG[type];
+    const badge = document.createElement('div');
+    badge.className = 'myio-ambiente-v6-annotation-badge';
+    badge.style.background = config.color;
+    badge.innerHTML = `
+      <span>${config.icon}</span>
+      <span class="myio-ambiente-v6-annotation-badge__count">${typeAnnotations.length}</span>
+    `;
+
+    // Attach tooltip on hover
+    if (tooltip) {
+      badge.addEventListener('mouseenter', () => {
+        const content = buildAnnotationTooltipContent(type, typeAnnotations, config);
+        tooltip.show(badge, {
+          icon: config.icon,
+          title: `${config.label} - ${ambienteData.label || 'Ambiente'}`,
+          content: content,
+        });
+      });
+
+      badge.addEventListener('mouseleave', () => {
+        tooltip.startDelayedHide?.() || tooltip.hide?.();
+      });
+    }
+
+    container.appendChild(badge);
+  });
+
+  // Append badges to card
+  cardElement.appendChild(container);
+
+  return container;
+}
 
 // ============================================
 // CSS STYLES
@@ -807,6 +1056,11 @@ export function renderCardAmbienteV6({
   // === APPLY CUSTOM STYLE ===
   if (customStyle) {
     applyCustomStyle(container, card, customStyle);
+  }
+
+  // === ADD ANNOTATION BADGES ===
+  if (ambienteData.log_annotations) {
+    addAnnotationIndicatorToAmbienteCard(card, ambienteData);
   }
 
   // === API ===
