@@ -4335,22 +4335,44 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
  * Fetch temperature data from ThingsBoard telemetry API
  */
 async function fetchTemperatureData(period, startTs, endTs) {
-  var jwt = localStorage.getItem('jwt_token');
-  if (!jwt) {
-    LogHelper.warn('[MAIN_BAS] No JWT token for temperature fetch');
+  // RFC-0174: Fetch temperature data from ingestion API (one request per device)
+  // API: /api/v1/telemetry/devices/{deviceId}/temperature?startTime=...&endTime=...&granularity=1d&deep=0
+
+  // Get credentials
+  var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+  var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+
+  if (!clientId || !clientSecret) {
+    LogHelper.warn('[MAIN_BAS] No credentials for temperature fetch');
     return new Array(period).fill(null);
   }
 
   // Get temperature devices from current classified data
-  var tempDevices = [];
-  if (_currentClassified && _currentClassified.temperature) {
-    tempDevices = _currentClassified.temperature.items || [];
-  }
+  var tempDevices = getHVACDevicesFromClassified(_currentClassified);
 
   if (tempDevices.length === 0) {
     LogHelper.warn('[MAIN_BAS] No temperature devices found');
     return new Array(period).fill(null);
   }
+
+  // Build auth and get token
+  var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST,
+    clientId: clientId,
+    clientSecret: clientSecret,
+  });
+
+  var token = await myIOAuth.getToken();
+  if (!token) {
+    LogHelper.error('[MAIN_BAS] Failed to get ingestion token for temperature');
+    return new Array(period).fill(null);
+  }
+
+  // Format dates for API (ISO 8601 with timezone)
+  var startDate = new Date(startTs);
+  var endDate = new Date(endTs);
+  var startTimeISO = startDate.toISOString().split('.')[0] + '-03:00';
+  var endTimeISO = endDate.toISOString().split('.')[0] + '-03:00';
 
   var dayMs = 24 * 60 * 60 * 1000;
   var dailySums = new Array(period).fill(0);
@@ -4359,29 +4381,40 @@ async function fetchTemperatureData(period, startTs, endTs) {
   // Fetch data for up to 10 devices to limit API calls
   var devicesToFetch = tempDevices.slice(0, 10);
 
+  LogHelper.log('[MAIN_BAS] Fetching temperature for', devicesToFetch.length, 'devices');
+
   for (var i = 0; i < devicesToFetch.length; i++) {
     var device = devicesToFetch[i];
-    var deviceId = device.tbId || device.id;
+    var deviceId = device.id || device.tbId || device.entityId;
     if (!deviceId) continue;
 
     try {
-      var url = '/api/plugins/telemetry/DEVICE/' + deviceId + '/values/timeseries?keys=temperature&startTs=' + startTs + '&endTs=' + endTs + '&agg=AVG&interval=' + dayMs;
+      var url = DATA_API_HOST + '/api/v1/telemetry/devices/' + deviceId + '/temperature?startTime=' + encodeURIComponent(startTimeISO) + '&endTime=' + encodeURIComponent(endTimeISO) + '&granularity=1d&deep=0';
 
       var response = await fetch(url, {
         headers: {
-          Authorization: 'Bearer ' + jwt,
+          Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) continue;
+      if (!response.ok) {
+        LogHelper.warn('[MAIN_BAS] Temperature API error for device', deviceId, ':', response.status);
+        continue;
+      }
 
       var data = await response.json();
-      var readings = data?.temperature || [];
+      // API returns array with device object containing "consumption" array
+      var deviceData = Array.isArray(data) ? data[0] : data;
+      var readings = deviceData?.consumption || [];
+
+      LogHelper.log('[MAIN_BAS] Temperature device', deviceId, 'returned', readings.length, 'readings');
 
       readings.forEach(function (reading) {
-        var dayIndex = Math.floor((reading.ts - startTs) / dayMs);
-        if (dayIndex >= 0 && dayIndex < period && reading.value !== null) {
+        // Parse timestamp from ISO format
+        var readingTs = new Date(reading.timestamp).getTime();
+        var dayIndex = Math.floor((readingTs - startTs) / dayMs);
+        if (dayIndex >= 0 && dayIndex < period && reading.value !== null && reading.value !== undefined) {
           var value = Number(reading.value);
           if (!isNaN(value)) {
             dailySums[dayIndex] += value;
@@ -4399,6 +4432,8 @@ async function fetchTemperatureData(period, startTs, endTs) {
     if (dailyCounts[idx] === 0) return null;
     return Number((sum / dailyCounts[idx]).toFixed(1));
   });
+
+  LogHelper.log('[MAIN_BAS] Temperature daily totals:', dailyTotals);
 
   return dailyTotals;
 }
@@ -4553,8 +4588,8 @@ var CHART_ICON_MAXIMIZE =
 function mountChartPanel(hostEl, settings) {
   if (!hostEl) return;
 
-  // PRESENTATION MODE: Temporarily hide temperature tab
-  var domains = ['energy', 'water'];
+  // RFC-0174: Chart domains with temperature using ingestion API
+  var domains = ['energy', 'water', 'temperature'];
 
   // Build tabs configuration for CardGridPanel
   var chartTabs = domains.map(function (domain) {
