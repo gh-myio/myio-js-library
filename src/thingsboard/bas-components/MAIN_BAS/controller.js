@@ -2068,10 +2068,10 @@ function switchChartDomainInContainer(domain, container) {
 
         // Compact header styles for maximized view
         headerStyles: {
-          padding: '10px 16px',
+          padding: '8px 14px',
           gap: '10px',
-          titleFontSize: '13px',
-          tabPadding: '5px 12px',
+          titleFontSize: '12px',
+          tabPadding: '4px 10px',
           tabFontSize: '11px',
         },
 
@@ -4173,7 +4173,8 @@ function switchChartDomain(domain, chartContainer) {
       unitLarge: cfg.unitLarge,
       thresholdForLargeUnit: cfg.threshold,
       decimalPlaces: domain === 'temperature' ? 1 : 2,
-      chartHeight: 260,
+      chartHeight: '100%',
+      fullHeight: true, // Use all available height
       defaultPeriod: 7,
       defaultChartType: domain === 'temperature' ? 'line' : 'bar',
       defaultVizMode: 'total',
@@ -4185,11 +4186,11 @@ function switchChartDomain(domain, chartContainer) {
 
       // Compact header styles for BAS panel
       headerStyles: {
-        padding: '10px 16px',
-        gap: '10px',
-        titleFontSize: '13px',
-        tabPadding: '5px 12px',
-        tabFontSize: '11px',
+        padding: '6px 12px',
+        gap: '8px',
+        titleFontSize: '11px',
+        tabPadding: '3px 8px',
+        tabFontSize: '10px',
       },
 
       // Data fetching

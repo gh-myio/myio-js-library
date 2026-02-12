@@ -129,16 +129,16 @@ tb-html-widget > div,
 
 /* ========================================
    CONTENT LAYOUT — CSS Grid 3 cols × 2 rows
-   RFC-0173: Sidebar removed, water expanded to 60%
+   RFC-0173: Water/Charts 54%, Ambientes 23%, Motors 23%
    ======================================== */
 .bas-content-layout {
   grid-row: 2;
   grid-column: 1;
 
   display: grid !important;
-  grid-template-columns: 60% 20% 20%;
-  /* Use 1fr instead of 50% - more reliable for grid rows */
-  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 54% 23% 23%;
+  /* Row 1: Water 45%, Row 2: Charts 55% */
+  grid-template-rows: 45% 55%;
   grid-template-areas:
     'water    ambientes motors'
     'charts   ambientes motors';
@@ -276,18 +276,14 @@ tb-html-widget > div,
   border: 1px solid #e8e4d9;
 }
 
-/* Chart header - inspired by HeaderPanelComponent */
+/* Chart header - matches CardGridPanel .myio-cgp__header pattern */
 .bas-chart-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  padding: 0 12px;
-  height: 40px;
-  min-height: 40px;
-  background: linear-gradient(135deg, #f8f6f0 0%, #faf8f1 100%);
+  padding: 14px 16px 10px 16px;
   border-bottom: 1px solid #e8e4d9;
-  border-top: 2px solid rgba(47, 88, 72, 0.3);
   flex-shrink: 0;
 }
 
@@ -299,16 +295,18 @@ tb-html-widget > div,
 }
 
 .bas-chart-header__icon {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
 }
 
+/* Title - matches CardGridPanel .myio-cgp__title */
 .bas-chart-header__title {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: #1a1a1a;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  margin: 0;
 }
 
 /* Tab bar - centered in header */
@@ -331,8 +329,8 @@ tb-html-widget > div,
 }
 
 .bas-chart-tab {
-  padding: 6px 14px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 10px;
   font-weight: 500;
   color: #64748b;
   cursor: pointer;
@@ -342,7 +340,7 @@ tb-html-widget > div,
   position: relative;
   transition: all 0.15s ease;
   white-space: nowrap;
-  border-radius: 6px;
+  border-radius: 5px;
   flex: 0 0 auto;
 }
 
@@ -393,10 +391,10 @@ tb-html-widget > div,
 .bas-chart-card {
   background: #ffffff;
   border-radius: 0 0 10px 10px;
-  padding: 10px 14px 8px;
+  padding: 8px 12px 6px;
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  max-height: calc(100% - 40px) !important; /* Reserve space for header */
+  max-height: calc(100% - 32px) !important; /* Reserve space for header */
   position: relative;
   overflow: hidden;
   display: flex !important;
@@ -406,7 +404,7 @@ tb-html-widget > div,
 .bas-chart-card canvas {
   flex: 1 1 auto !important;
   width: 100% !important;
-  max-height: calc(100% - 30px) !important; /* Reserve space for legend */
+  max-height: calc(100% - 40px) !important; /* Reserve space for legend */
   min-height: 0 !important;
 }
 
@@ -437,6 +435,109 @@ tb-html-widget > div,
 .bas-motors-slot .myio-cgp__grid,
 .bas-motors-slot .myio-dgv6__body {
   grid-template-columns: 1fr !important;
+}
+
+/* ========================================
+   MYIO CHART WIDGET OVERRIDES
+   Match CardGridPanel header pattern
+   ======================================== */
+
+/* Header - match CardGridPanel pattern (padding: 14px 16px 10px 16px) */
+.bas-charts-slot .myio-chart-widget-header {
+  padding: 10px 14px 8px 14px !important;
+  gap: 12px !important;
+  min-height: auto !important;
+  border-bottom: 1px solid #e8e4d9 !important;
+}
+
+/* Title - match CardGridPanel (font-size: 0.82rem, uppercase) */
+.bas-charts-slot .myio-chart-widget-title {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  color: #1a1a1a !important;
+  margin: 0 !important;
+}
+
+/* Title group - flex container with title left, tabs right */
+.bas-charts-slot .myio-chart-widget-title-group {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 12px !important;
+}
+
+/* Title stays left */
+.bas-charts-slot .myio-chart-widget-title-group h4,
+.bas-charts-slot .myio-chart-widget-title {
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Create a wrapper effect for tabs using CSS order */
+.bas-charts-slot .myio-chart-widget-tabs {
+  margin-left: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+/* First tabs group (viz-tabs) - no left margin */
+.bas-charts-slot .myio-chart-widget-tabs:first-of-type {
+  margin-left: auto !important;
+}
+
+/* Smaller tabs */
+.bas-charts-slot .myio-chart-widget-tab {
+  padding: 4px 8px !important;
+  font-size: 10px !important;
+  border-radius: 4px !important;
+}
+
+.bas-charts-slot .myio-chart-widget-tab.icon-only {
+  padding: 4px 6px !important;
+}
+
+.bas-charts-slot .myio-chart-widget-tab svg {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* Reduce body padding */
+.bas-charts-slot .myio-chart-widget-body {
+  padding: 8px 12px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+/* Canvas container - fill available space */
+.bas-charts-slot .myio-chart-widget-canvas-container {
+  height: 100% !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.bas-charts-slot .myio-chart-widget-canvas-container canvas {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Compact footer */
+.bas-charts-slot .myio-chart-widget-footer {
+  padding: 8px 12px !important;
+  gap: 8px !important;
+}
+
+.bas-charts-slot .myio-chart-widget-stat-label {
+  font-size: 10px !important;
+}
+
+.bas-charts-slot .myio-chart-widget-stat-value {
+  font-size: 16px !important;
+}
+
+.bas-charts-slot .myio-chart-widget-stat-sub {
+  font-size: 9px !important;
 }
 
 /* ========================================
