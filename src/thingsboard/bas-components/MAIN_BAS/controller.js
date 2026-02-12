@@ -4176,9 +4176,8 @@ function createRealFetchData(domain, options) {
     try {
       var result;
       if (domain === 'temperature') {
-        // Temperature: fetch from ThingsBoard telemetry API
-        var values = await fetchTemperatureData(period, startTs, endTs);
-        result = { dailyTotals: values, shoppingData: {}, shoppingNames: {} };
+        // Temperature: fetch from ingestion API (returns full structure with per-device data)
+        result = await fetchTemperatureData(period, startTs, endTs);
       } else {
         // Energy/Water: fetch from ingestion API with per-customer breakdown
         result = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
@@ -4337,6 +4336,9 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
 async function fetchTemperatureData(period, startTs, endTs) {
   // RFC-0174: Fetch temperature data from ingestion API (one request per device)
   // API: /api/v1/telemetry/devices/{deviceId}/temperature?startTime=...&endTime=...&granularity=1d&deep=0
+  // Returns: { dailyTotals, shoppingData, shoppingNames } for grouped/separated views
+
+  var emptyResult = { dailyTotals: new Array(period).fill(null), shoppingData: {}, shoppingNames: {} };
 
   // Get credentials
   var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
@@ -4344,7 +4346,7 @@ async function fetchTemperatureData(period, startTs, endTs) {
 
   if (!clientId || !clientSecret) {
     LogHelper.warn('[MAIN_BAS] No credentials for temperature fetch');
-    return new Array(period).fill(null);
+    return emptyResult;
   }
 
   // Get temperature devices from current classified data
@@ -4352,7 +4354,7 @@ async function fetchTemperatureData(period, startTs, endTs) {
 
   if (tempDevices.length === 0) {
     LogHelper.warn('[MAIN_BAS] No temperature devices found');
-    return new Array(period).fill(null);
+    return emptyResult;
   }
 
   // Build auth and get token
@@ -4365,7 +4367,7 @@ async function fetchTemperatureData(period, startTs, endTs) {
   var token = await myIOAuth.getToken();
   if (!token) {
     LogHelper.error('[MAIN_BAS] Failed to get ingestion token for temperature');
-    return new Array(period).fill(null);
+    return emptyResult;
   }
 
   // Format dates for API (ISO 8601 with timezone)
@@ -4378,6 +4380,10 @@ async function fetchTemperatureData(period, startTs, endTs) {
   var dailySums = new Array(period).fill(0);
   var dailyCounts = new Array(period).fill(0);
 
+  // Per-device data for separated view
+  var shoppingData = {}; // { deviceId: [values per day] }
+  var shoppingNames = {}; // { deviceId: "Device Name" }
+
   // Fetch data for up to 10 devices to limit API calls
   var devicesToFetch = tempDevices.slice(0, 10);
 
@@ -4385,11 +4391,20 @@ async function fetchTemperatureData(period, startTs, endTs) {
 
   for (var i = 0; i < devicesToFetch.length; i++) {
     var device = devicesToFetch[i];
-    var deviceId = device.id || device.tbId || device.entityId;
-    if (!deviceId) continue;
+    // RFC-0174: Use ingestionId attribute for API calls, NOT entityId/tbId
+    var ingestionId = device.rawData?.ingestionId || device.attributes?.ingestionId || device.ingestionId;
+    if (!ingestionId) {
+      LogHelper.warn('[MAIN_BAS] Temperature device missing ingestionId:', device.id || device.name);
+      continue;
+    }
+
+    // Initialize per-device arrays
+    var deviceKey = ingestionId;
+    shoppingData[deviceKey] = new Array(period).fill(null);
+    shoppingNames[deviceKey] = device.name || device.label || 'Sensor ' + (i + 1);
 
     try {
-      var url = DATA_API_HOST + '/api/v1/telemetry/devices/' + deviceId + '/temperature?startTime=' + encodeURIComponent(startTimeISO) + '&endTime=' + encodeURIComponent(endTimeISO) + '&granularity=1d&deep=0';
+      var url = DATA_API_HOST + '/api/v1/telemetry/devices/' + ingestionId + '/temperature?startTime=' + encodeURIComponent(startTimeISO) + '&endTime=' + encodeURIComponent(endTimeISO) + '&granularity=1d&deep=0';
 
       var response = await fetch(url, {
         headers: {
@@ -4399,7 +4414,7 @@ async function fetchTemperatureData(period, startTs, endTs) {
       });
 
       if (!response.ok) {
-        LogHelper.warn('[MAIN_BAS] Temperature API error for device', deviceId, ':', response.status);
+        LogHelper.warn('[MAIN_BAS] Temperature API error for device', ingestionId, ':', response.status);
         continue;
       }
 
@@ -4408,7 +4423,12 @@ async function fetchTemperatureData(period, startTs, endTs) {
       var deviceData = Array.isArray(data) ? data[0] : data;
       var readings = deviceData?.consumption || [];
 
-      LogHelper.log('[MAIN_BAS] Temperature device', deviceId, 'returned', readings.length, 'readings');
+      // Use name from API response if available
+      if (deviceData?.name) {
+        shoppingNames[deviceKey] = deviceData.name;
+      }
+
+      LogHelper.log('[MAIN_BAS] Temperature device', ingestionId, 'returned', readings.length, 'readings');
 
       readings.forEach(function (reading) {
         // Parse timestamp from ISO format
@@ -4417,25 +4437,28 @@ async function fetchTemperatureData(period, startTs, endTs) {
         if (dayIndex >= 0 && dayIndex < period && reading.value !== null && reading.value !== undefined) {
           var value = Number(reading.value);
           if (!isNaN(value)) {
+            // Aggregate for grouped view
             dailySums[dayIndex] += value;
             dailyCounts[dayIndex]++;
+            // Store for separated view
+            shoppingData[deviceKey][dayIndex] = Number(value.toFixed(1));
           }
         }
       });
     } catch (err) {
-      LogHelper.warn('[MAIN_BAS] Error fetching temperature device', deviceId, ':', err.message);
+      LogHelper.warn('[MAIN_BAS] Error fetching temperature device', ingestionId, ':', err.message);
     }
   }
 
-  // Calculate daily averages
+  // Calculate daily averages for grouped view
   var dailyTotals = dailySums.map(function (sum, idx) {
     if (dailyCounts[idx] === 0) return null;
     return Number((sum / dailyCounts[idx]).toFixed(1));
   });
 
-  LogHelper.log('[MAIN_BAS] Temperature daily totals:', dailyTotals);
+  LogHelper.log('[MAIN_BAS] Temperature daily totals:', dailyTotals, 'devices:', Object.keys(shoppingData).length);
 
-  return dailyTotals;
+  return { dailyTotals: dailyTotals, shoppingData: shoppingData, shoppingNames: shoppingNames };
 }
 
 /**
