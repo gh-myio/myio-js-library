@@ -481,6 +481,11 @@ tb-html-widget > div,
   margin: 0 !important;
 }
 
+/* Card v6 - configurable min-height via CSS custom property */
+.myio-cgp__card-wrapper .device-card-centered {
+  --card-v6-min-height: 130px;
+}
+
 /* Card v6 - title row positioned at top-left of card (outside centered body) */
 .myio-cgp__card-wrapper .device-card-centered .device-card-front {
   position: relative !important;
@@ -488,11 +493,11 @@ tb-html-widget > div,
 
 .myio-cgp__card-wrapper .device-card-centered .device-title-row {
   position: absolute !important;
-  top: 2px !important;
-  left: 4px !important;
+  top: 0px !important;
+  left: 2px !important;
   right: auto !important;
   width: auto !important;
-  max-width: calc(100% - 16px) !important;
+  max-width: calc(100% - 12px) !important;
   margin: 0 !important;
   padding: 0 !important;
   display: flex !important;
@@ -527,7 +532,7 @@ tb-html-widget > div,
   flex-direction: column !important;
   justify-content: center !important;
   align-items: center !important;
-  padding: 20px 6px 4px 6px !important;
+  padding: 18px 6px 6px 6px !important;
   margin-left: 0 !important;
   width: 100% !important;
 }

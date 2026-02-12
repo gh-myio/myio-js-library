@@ -132,6 +132,9 @@ const DEVICE_TYPE_CONFIG = {
 
   // Temperature devices (dynamic images based on status)
   TERMOSTATO: { category: 'temperature', image: null },
+
+  // Solenoid devices (dynamic images based on on/off state)
+  SOLENOIDE: { category: 'solenoid', image: null },
 };
 
 // Pre-computed sets for fast lookup
@@ -152,6 +155,19 @@ const TEMPERATURE_DEVICE_TYPES = new Set(
     .filter(([_, cfg]) => cfg.category === 'temperature')
     .map(([type]) => type)
 );
+
+const SOLENOID_DEVICE_TYPES = new Set(
+  Object.entries(DEVICE_TYPE_CONFIG)
+    .filter(([_, cfg]) => cfg.category === 'solenoid')
+    .map(([type]) => type)
+);
+
+/** SOLENOIDE image URLs by status */
+const SOLENOID_IMAGES = {
+  on: 'https://dashboard.myio-bas.com/api/images/public/Tnq47Vd1TxhhqhYoHvzS73WVh1X84fPa',
+  off: 'https://dashboard.myio-bas.com/api/images/public/dzVDTk3IxrOYkJ1sH92nXQFBaW53kVgs',
+  offline: 'https://dashboard.myio-bas.com/api/images/public/gkSGqEFP4rgApNArjEoctM0BoLZMiKz6',
+};
 
 const DEFAULT_DEVICE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
 
@@ -423,6 +439,11 @@ const isWaterDeviceType = (deviceType) => {
 const isTemperatureDeviceType = (deviceType) => {
   const normalizedType = String(deviceType || '').toUpperCase();
   return TEMPERATURE_DEVICE_TYPES.has(normalizedType);
+};
+
+const isSolenoidDeviceType = (deviceType) => {
+  const normalizedType = String(deviceType || '').toUpperCase();
+  return SOLENOID_DEVICE_TYPES.has(normalizedType) || normalizedType.includes('SOLENOIDE');
 };
 
 const getStaticDeviceImage = (deviceType) => {
@@ -700,6 +721,13 @@ export function renderCardComponentV6({
   const formatCardValue = (value, deviceType) => {
     const numValue = Number(value) || 0;
     const dt = String(deviceType || '').toUpperCase();
+
+    // SOLENOIDE devices: show ABERTO/FECHADO based on status
+    if (isSolenoidDeviceType(deviceType)) {
+      // Value 1 or 'on' means open, 0 or 'off' means closed
+      const isOpen = numValue === 1 || String(value).toLowerCase() === 'on' || connectionStatus === 'on';
+      return isOpen ? 'ABERTO' : 'FECHADO';
+    }
 
     // TANK devices: show percentage instead of m.c.a
     if (dt === 'TANK' || dt === 'CAIXA_DAGUA') {
@@ -985,6 +1013,16 @@ export function renderCardComponentV6({
       }
     }
 
+    // SOLENOIDE devices: Dynamic icon based on on/off status
+    if (nameType === 'SOLENOIDE' || nameType.includes('SOLENOIDE')) {
+      if (isOffline) {
+        return SOLENOID_IMAGES.offline;
+      }
+      // Check if device is on (open) or off (closed)
+      const isOpen = Number(val) === 1 || String(val).toLowerCase() === 'on' || connectionStatus === 'on';
+      return isOpen ? SOLENOID_IMAGES.on : SOLENOID_IMAGES.off;
+    }
+
     return getStaticDeviceImage(nameType);
   };
 
@@ -1144,7 +1182,7 @@ export function renderCardComponentV6({
         position: relative;
         overflow: hidden;
         backdrop-filter: blur(10px);
-        min-height: 114px !important;
+        min-height: var(--card-v6-min-height, 114px) !important;
         margin: 0 auto;
       }
 
@@ -1204,7 +1242,7 @@ export function renderCardComponentV6({
         flex-direction: column !important;
         justify-content: center !important;
         align-items: center !important;
-        padding: 20px 6px 4px 6px !important;
+        padding: 18px 6px 6px 6px !important;
         margin: 0 !important;
         width: 100% !important;
         height: 100% !important;
@@ -1258,11 +1296,11 @@ export function renderCardComponentV6({
         justify-content: flex-start !important;
         text-align: left !important;
         position: absolute !important;
-        top: 2px !important;
-        left: 4px !important;
+        top: 0px !important;
+        left: 2px !important;
         right: auto !important;
         width: auto !important;
-        max-width: calc(100% - 16px) !important;
+        max-width: calc(100% - 12px) !important;
         min-height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
