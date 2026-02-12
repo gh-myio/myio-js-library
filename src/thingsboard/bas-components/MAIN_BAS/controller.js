@@ -1133,7 +1133,7 @@ var AMBIENTE_ACTION_MAP = {
     // RFC-0174: Open integrations modal with iframe tabs
     if (MyIOLibrary.openIntegrationsModal) {
       MyIOLibrary.openIntegrationsModal({
-        theme: _settings?.themeMode || 'dark',
+        theme: _settings?.themeMode || 'light',
         onClose: function () {
           LogHelper.log('[MAIN_BAS] Integrations modal closed');
         },
