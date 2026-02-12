@@ -3500,9 +3500,16 @@ function mountSidebarMenu(host, settings, classified) {
     },
   ];
 
+  // Clear any stale localStorage state to ensure menu starts expanded
+  try {
+    localStorage.removeItem('myio-bas-sidebar-menu-state');
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+
   var sidebarMenu = MyIOLibrary.createSidebarMenu(host, {
     themeMode: settings.themeMode || 'dark',
-    initialState: settings.sidebarMenuInitialState || 'expanded',
+    initialState: 'expanded',
     persistState: true,
     storageKey: 'myio-bas-sidebar-menu-state',
     showSearch: true,

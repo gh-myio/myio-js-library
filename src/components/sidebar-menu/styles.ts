@@ -121,6 +121,11 @@ export function injectSidebarMenuStyles(): void {
       background: rgba(255, 255, 255, 0.25);
     }
 
+    .${SIDEBAR_MENU_CSS_PREFIX}__toggle svg,
+    .${SIDEBAR_MENU_CSS_PREFIX}__toggle * {
+      pointer-events: none;
+    }
+
     .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__toggle {
       margin-left: 0;
     }
