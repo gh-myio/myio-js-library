@@ -264,127 +264,11 @@ tb-html-widget > div,
   padding: 8px 12px 12px;
 }
 
-/* Chart panel wrapper */
+/* Chart panel wrapper - uses myio-cgp (CardGridPanel) base class */
 .bas-chart-panel {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   max-height: 100%;
-  background: #faf8f1;
-  border-radius: 10px;
-  overflow: hidden;
   border: 1px solid #e8e4d9;
-}
-
-/* Chart header - compact version */
-.bas-chart-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid #e8e4d9;
-  flex-shrink: 0;
-}
-
-.bas-chart-header__left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.bas-chart-header__icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-/* Title - compact */
-.bas-chart-header__title {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin: 0;
-}
-
-/* Tab bar - centered in header */
-.bas-chart-tabs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  justify-content: center;
-  margin: 0 16px;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.bas-chart-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.bas-chart-tab {
-  padding: 4px 10px;
-  font-size: 10px;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  position: relative;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  border-radius: 5px;
-  flex: 0 0 auto;
-}
-
-.bas-chart-tab:hover {
-  background: rgba(47, 88, 72, 0.08);
-  color: #475569;
-}
-
-.bas-chart-tab--active {
-  background: rgba(47, 88, 72, 0.15);
-  color: #2F5848;
-  font-weight: 600;
-}
-
-/* Action buttons */
-.bas-chart-header__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.bas-chart-header__btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  transition: all 0.15s ease;
-}
-
-.bas-chart-header__btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1e293b;
-}
-
-.bas-chart-header__btn svg {
-  width: 14px;
-  height: 14px;
 }
 
 /* Chart card container */
@@ -394,7 +278,6 @@ tb-html-widget > div,
   padding: 8px 12px 6px;
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  max-height: calc(100% - 32px) !important; /* Reserve space for header */
   position: relative;
   overflow: hidden;
   display: flex !important;

@@ -4245,157 +4245,145 @@ var CHART_ICON_MAXIMIZE =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
 
 /**
- * Mount chart panel with header (tabs + actions) + chart container
+ * Mount chart panel using CardGridPanel with tabs feature
+ * RFC-0174: Uses standardized CardGridPanel tabs for consistency
  */
 function mountChartPanel(hostEl, settings) {
   if (!hostEl) return;
 
   var domains = ['energy', 'water', 'temperature'];
 
-  // Premium green header style
-  var chartHeaderStyle = {
-    background: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
-    iconColor: '#a7d4c0',
-    titleColor: '#ffffff',
-    tabColor: 'rgba(255, 255, 255, 0.6)',
-    tabHoverBg: 'rgba(255, 255, 255, 0.1)',
-    tabActiveColor: '#ffffff',
-    tabActiveBg: 'rgba(255, 255, 255, 0.2)',
-    buttonColor: 'rgba(255, 255, 255, 0.7)',
-    buttonHoverBg: 'rgba(255, 255, 255, 0.15)',
-    buttonHoverColor: '#ffffff',
-  };
-
-  // Create panel wrapper
-  var panelWrapper = document.createElement('div');
-  panelWrapper.className = 'bas-chart-panel';
-
-  // Build header with tabs and action buttons
-  var header = document.createElement('div');
-  header.className = 'bas-chart-header';
-  header.style.background = chartHeaderStyle.background;
-
-  // Left side: Icon + Title
-  var headerLeft = document.createElement('div');
-  headerLeft.className = 'bas-chart-header__left';
-
-  var iconSpan = document.createElement('span');
-  iconSpan.className = 'bas-chart-header__icon';
-  iconSpan.textContent = '📊';
-  iconSpan.style.color = chartHeaderStyle.iconColor;
-
-  var titleSpan = document.createElement('span');
-  titleSpan.className = 'bas-chart-header__title';
-  titleSpan.textContent = 'Consumo';
-  titleSpan.style.color = chartHeaderStyle.titleColor;
-
-  headerLeft.appendChild(iconSpan);
-  headerLeft.appendChild(titleSpan);
-
-  // Center: Tabs
-  var tabBar = document.createElement('div');
-  tabBar.className = 'bas-chart-tabs';
-
-  domains.forEach(function (domain) {
-    var btn = document.createElement('button');
-    btn.className = 'bas-chart-tab' + (domain === _currentChartDomain ? ' bas-chart-tab--active' : '');
+  // Build tabs configuration for CardGridPanel
+  var chartTabs = domains.map(function (domain) {
     var config = CHART_DOMAIN_CONFIG[domain];
-    btn.textContent = config.icon + ' ' + config.label;
-    btn.dataset.domain = domain;
-
-    // Apply premium green tab style
-    btn.style.color =
-      domain === _currentChartDomain ? chartHeaderStyle.tabActiveColor : chartHeaderStyle.tabColor;
-    btn.style.background = domain === _currentChartDomain ? chartHeaderStyle.tabActiveBg : 'transparent';
-
-    btn.addEventListener('mouseenter', function () {
-      if (!btn.classList.contains('bas-chart-tab--active')) {
-        btn.style.background = chartHeaderStyle.tabHoverBg;
-        btn.style.color = 'rgba(255, 255, 255, 0.9)';
-      }
-    });
-    btn.addEventListener('mouseleave', function () {
-      if (!btn.classList.contains('bas-chart-tab--active')) {
-        btn.style.background = 'transparent';
-        btn.style.color = chartHeaderStyle.tabColor;
-      }
-    });
-
-    btn.addEventListener('click', function () {
-      // Update active tab styles
-      var allTabs = tabBar.querySelectorAll('.bas-chart-tab');
-      allTabs.forEach(function (t) {
-        t.classList.remove('bas-chart-tab--active');
-        t.style.color = chartHeaderStyle.tabColor;
-        t.style.background = 'transparent';
-      });
-      btn.classList.add('bas-chart-tab--active');
-      btn.style.color = chartHeaderStyle.tabActiveColor;
-      btn.style.background = chartHeaderStyle.tabActiveBg;
-
-      // Switch chart
-      switchChartDomain(domain, chartCard);
-    });
-    tabBar.appendChild(btn);
+    return {
+      id: domain,
+      label: config.icon + ' ' + config.label,
+      selected: domain === _currentChartDomain,
+      handleClick: function () {
+        // Switch chart on tab click
+        var chartCard = hostEl.querySelector('.bas-chart-card');
+        if (chartCard) {
+          switchChartDomain(domain, chartCard);
+          _currentChartDomain = domain;
+        }
+      },
+    };
   });
 
-  // Right side: Action buttons (Filter + Maximize)
-  var headerRight = document.createElement('div');
-  headerRight.className = 'bas-chart-header__actions';
+  // Create panel wrapper using standard CardGridPanel structure
+  var panelWrapper = document.createElement('div');
+  panelWrapper.className = 'myio-cgp bas-chart-panel';
+  panelWrapper.style.background = '#faf8f1';
 
-  // Helper to apply button styles with hover
-  function applyButtonStyle(btn) {
-    btn.style.color = chartHeaderStyle.buttonColor;
-    btn.addEventListener('mouseenter', function () {
-      btn.style.background = chartHeaderStyle.buttonHoverBg;
-      btn.style.color = chartHeaderStyle.buttonHoverColor;
+  // Use HeaderPanelComponent for consistent header
+  if (MyIOLibrary.HeaderPanelComponent) {
+    var headerComponent = new MyIOLibrary.HeaderPanelComponent({
+      title: 'Consumo',
+      icon: '📊',
+      style: MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN,
+      showBottomBorder: false,
+      showTopBorder: true,
+      showFilter: true,
+      handleActionFilter: function () {
+        LogHelper.log('[MAIN_BAS] Chart filter clicked');
+        // TODO: Implement chart-specific filter modal
+      },
+      showMaximize: true,
+      onMaximizeToggle: function () {
+        showMaximizedPanel(panelWrapper, 'Consumo', { isChart: true, chartDomain: _currentChartDomain });
+      },
     });
-    btn.addEventListener('mouseleave', function () {
-      btn.style.background = 'transparent';
-      btn.style.color = chartHeaderStyle.buttonColor;
-    });
+    panelWrapper.appendChild(headerComponent.getElement());
   }
 
-  // Filter button
-  var filterBtn = document.createElement('button');
-  filterBtn.className = 'bas-chart-header__btn';
-  filterBtn.title = 'Filtrar';
-  filterBtn.innerHTML = CHART_ICON_FILTER;
-  applyButtonStyle(filterBtn);
-  filterBtn.addEventListener('click', function () {
-    // Open chart filter modal (period selection, chart type, etc.)
-    LogHelper.log('[MAIN_BAS] Chart filter clicked');
-    // TODO: Implement chart-specific filter modal
-  });
-  headerRight.appendChild(filterBtn);
+  // Add tabs wrapper using CardGridPanel tab styles
+  var tabsWrapper = document.createElement('div');
+  tabsWrapper.className = 'myio-cgp__tabs-wrapper';
 
-  // Maximize button
-  var maxBtn = document.createElement('button');
-  maxBtn.className = 'bas-chart-header__btn';
-  maxBtn.title = 'Maximizar';
-  maxBtn.innerHTML = CHART_ICON_MAXIMIZE;
-  applyButtonStyle(maxBtn);
-  maxBtn.addEventListener('click', function () {
-    showMaximizedPanel(panelWrapper, 'Consumo', { isChart: true, chartDomain: _currentChartDomain });
-  });
-  headerRight.appendChild(maxBtn);
+  // Left scroll button (hidden unless 3+ tabs)
+  var leftBtn = document.createElement('button');
+  leftBtn.className = 'myio-cgp__tabs-scroll-btn';
+  leftBtn.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+  leftBtn.title = 'Rolar esquerda';
+  leftBtn.disabled = true;
+  if (chartTabs.length >= 3) {
+    leftBtn.classList.add('myio-cgp__tabs-scroll-btn--visible');
+  }
+  tabsWrapper.appendChild(leftBtn);
 
-  // Assemble header
-  header.appendChild(headerLeft);
-  header.appendChild(tabBar);
-  header.appendChild(headerRight);
+  // Tabs container
+  var tabsContainer = document.createElement('div');
+  tabsContainer.className = 'myio-cgp__tabs-container';
+
+  chartTabs.forEach(function (tab) {
+    var tabEl = document.createElement('button');
+    tabEl.className = 'myio-cgp__tab' + (tab.selected ? ' myio-cgp__tab--selected' : '');
+    tabEl.dataset.tabId = tab.id;
+    tabEl.textContent = tab.label;
+
+    tabEl.addEventListener('click', function () {
+      // Update all tabs selection state
+      tabsContainer.querySelectorAll('.myio-cgp__tab').forEach(function (t) {
+        t.classList.remove('myio-cgp__tab--selected');
+      });
+      tabEl.classList.add('myio-cgp__tab--selected');
+
+      // Call tab handler
+      if (tab.handleClick) tab.handleClick();
+    });
+
+    tabsContainer.appendChild(tabEl);
+  });
+
+  tabsWrapper.appendChild(tabsContainer);
+
+  // Right scroll button (hidden unless 3+ tabs)
+  var rightBtn = document.createElement('button');
+  rightBtn.className = 'myio-cgp__tabs-scroll-btn';
+  rightBtn.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  rightBtn.title = 'Rolar direita';
+  if (chartTabs.length >= 3) {
+    rightBtn.classList.add('myio-cgp__tabs-scroll-btn--visible');
+  }
+  tabsWrapper.appendChild(rightBtn);
+
+  // Scroll button handlers
+  if (chartTabs.length >= 3) {
+    var scrollAmount = 120;
+
+    leftBtn.addEventListener('click', function () {
+      tabsContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    });
+
+    rightBtn.addEventListener('click', function () {
+      tabsContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    });
+
+    var updateScrollButtons = function () {
+      leftBtn.disabled = tabsContainer.scrollLeft <= 0;
+      rightBtn.disabled = tabsContainer.scrollLeft + tabsContainer.clientWidth >= tabsContainer.scrollWidth - 1;
+    };
+
+    tabsContainer.addEventListener('scroll', updateScrollButtons);
+    window.requestAnimationFrame(updateScrollButtons);
+  }
+
+  panelWrapper.appendChild(tabsWrapper);
 
   // Build chart card container
   var chartCard = document.createElement('div');
-  chartCard.className = 'bas-chart-card';
+  chartCard.className = 'bas-chart-card myio-cgp__content';
+  chartCard.style.flex = '1';
+  chartCard.style.overflow = 'hidden';
 
   // Apply chart panel background
   if (settings && settings.chartPanelBackground) {
     chartCard.style.backgroundColor = settings.chartPanelBackground;
   }
 
-  // Assemble panel
-  panelWrapper.appendChild(header);
   panelWrapper.appendChild(chartCard);
   hostEl.appendChild(panelWrapper);
 

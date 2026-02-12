@@ -29,6 +29,31 @@ export type CardType = 'device' | 'ambiente';
 // Types
 // ────────────────────────────────────────────
 
+/**
+ * Tab item configuration for header tabs
+ */
+export interface TabItem {
+  /** Unique identifier for the tab */
+  id: string;
+  /** Display label */
+  label: string;
+  /** Whether this tab is selected */
+  selected?: boolean;
+  /** Colors configuration (optional) */
+  colors?: {
+    /** Background color when selected */
+    selectedBackground?: string;
+    /** Text color when selected */
+    selectedColor?: string;
+    /** Background color when not selected */
+    unselectedBackground?: string;
+    /** Text color when not selected */
+    unselectedColor?: string;
+  };
+  /** Click handler */
+  handleClick?: (tab: TabItem) => void;
+}
+
 export interface CardGridItem {
   /** Unique identifier */
   id: string;
@@ -108,6 +133,10 @@ export interface CardGridPanelOptions {
   showMaximize?: boolean;
   /** Callback when maximize/minimize is toggled */
   onMaximizeToggle?: (isMaximized: boolean) => void;
+  /** Optional tabs in header (supports N tabs with horizontal scroll for 3+) */
+  tabs?: TabItem[];
+  /** Callback when tab selection changes (receives the newly selected tab) */
+  onTabChange?: (tab: TabItem) => void;
 }
 
 // ────────────────────────────────────────────
@@ -188,6 +217,98 @@ const PANEL_CSS = `
     font-size: 0.8rem;
     color: #999;
   }
+
+  /* ── Tabs ────────────────────────────────── */
+  .myio-cgp__tabs-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #e8e4d9;
+    background: linear-gradient(135deg, #245040 0%, #2F5848 100%);
+  }
+
+  .myio-cgp__tabs-scroll-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.15s, opacity 0.15s;
+  }
+
+  .myio-cgp__tabs-scroll-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  .myio-cgp__tabs-scroll-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .myio-cgp__tabs-scroll-btn--visible {
+    display: flex;
+  }
+
+  .myio-cgp__tabs-scroll-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .myio-cgp__tabs-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .myio-cgp__tabs-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .myio-cgp__tab {
+    padding: 5px 12px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .myio-cgp__tab:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .myio-cgp__tab--selected {
+    background: rgba(255, 255, 255, 0.95);
+    color: #2F5848;
+    font-weight: 600;
+  }
+
+  .myio-cgp__tab--selected:hover {
+    background: #ffffff;
+    color: #2F5848;
+  }
 `;
 
 function injectStyles(): void {
@@ -199,6 +320,14 @@ function injectStyles(): void {
 }
 
 // ────────────────────────────────────────────
+// SVG Icons for tabs scroll
+// ────────────────────────────────────────────
+
+const ICON_CHEVRON_LEFT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+
+const ICON_CHEVRON_RIGHT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+// ────────────────────────────────────────────
 // Component class
 // ────────────────────────────────────────────
 
@@ -207,6 +336,7 @@ export class CardGridPanel {
   private options: CardGridPanelOptions;
   private headerComponent: HeaderPanelComponent | null = null;
   private searchText = '';
+  private tabsContainer: HTMLElement | null = null;
 
   constructor(options: CardGridPanelOptions) {
     injectStyles();
@@ -261,6 +391,27 @@ export class CardGridPanel {
     if (this.headerComponent) {
       this.headerComponent.setMaximized(value);
     }
+  }
+
+  /** Update tabs configuration */
+  public setTabs(tabs: TabItem[]): void {
+    this.options.tabs = tabs;
+    this.renderTabs();
+  }
+
+  /** Select a tab by id */
+  public selectTab(tabId: string): void {
+    if (!this.options.tabs) return;
+    this.options.tabs = this.options.tabs.map(t => ({
+      ...t,
+      selected: t.id === tabId,
+    }));
+    this.renderTabs();
+  }
+
+  /** Get the currently selected tab */
+  public getSelectedTab(): TabItem | undefined {
+    return this.options.tabs?.find(t => t.selected);
   }
 
   /** Update panel background (color or image URL) */
@@ -349,6 +500,9 @@ export class CardGridPanel {
       grid.style.setProperty('--cgp-grid-gap', this.options.gridGap);
     }
     this.root.appendChild(grid);
+
+    // Render tabs if configured
+    this.renderTabs();
 
     this.renderGrid();
   }
@@ -467,5 +621,136 @@ export class CardGridPanel {
         grid.appendChild(wrapper);
       }
     });
+  }
+
+  private renderTabs(): void {
+    const { tabs, onTabChange } = this.options;
+
+    // Remove existing tabs wrapper if any
+    const existingTabs = this.root.querySelector('.myio-cgp__tabs-wrapper');
+    if (existingTabs) {
+      existingTabs.remove();
+    }
+
+    // Don't render if no tabs
+    if (!tabs || tabs.length === 0) {
+      this.tabsContainer = null;
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'myio-cgp__tabs-wrapper';
+
+    // Left scroll button
+    const leftBtn = document.createElement('button');
+    leftBtn.className = 'myio-cgp__tabs-scroll-btn';
+    leftBtn.innerHTML = ICON_CHEVRON_LEFT;
+    leftBtn.title = 'Rolar esquerda';
+    leftBtn.disabled = true;
+    wrapper.appendChild(leftBtn);
+
+    // Tabs container
+    const container = document.createElement('div');
+    container.className = 'myio-cgp__tabs-container';
+    this.tabsContainer = container;
+
+    // Render each tab
+    tabs.forEach(tab => {
+      const tabEl = document.createElement('button');
+      tabEl.className = 'myio-cgp__tab';
+      tabEl.dataset.tabId = tab.id;
+      tabEl.textContent = tab.label;
+
+      if (tab.selected) {
+        tabEl.classList.add('myio-cgp__tab--selected');
+        // Apply custom selected colors if provided
+        if (tab.colors?.selectedBackground) {
+          tabEl.style.background = tab.colors.selectedBackground;
+        }
+        if (tab.colors?.selectedColor) {
+          tabEl.style.color = tab.colors.selectedColor;
+        }
+      } else {
+        // Apply custom unselected colors if provided
+        if (tab.colors?.unselectedBackground) {
+          tabEl.style.background = tab.colors.unselectedBackground;
+        }
+        if (tab.colors?.unselectedColor) {
+          tabEl.style.color = tab.colors.unselectedColor;
+        }
+      }
+
+      tabEl.addEventListener('click', () => {
+        // Update selection state
+        this.options.tabs = tabs.map(t => ({
+          ...t,
+          selected: t.id === tab.id,
+        }));
+        this.renderTabs();
+
+        // Call tab's own click handler
+        tab.handleClick?.(tab);
+
+        // Call global onTabChange callback
+        onTabChange?.(tab);
+      });
+
+      container.appendChild(tabEl);
+    });
+
+    wrapper.appendChild(container);
+
+    // Right scroll button
+    const rightBtn = document.createElement('button');
+    rightBtn.className = 'myio-cgp__tabs-scroll-btn';
+    rightBtn.innerHTML = ICON_CHEVRON_RIGHT;
+    rightBtn.title = 'Rolar direita';
+    wrapper.appendChild(rightBtn);
+
+    // Show scroll buttons when 3+ tabs
+    if (tabs.length >= 3) {
+      leftBtn.classList.add('myio-cgp__tabs-scroll-btn--visible');
+      rightBtn.classList.add('myio-cgp__tabs-scroll-btn--visible');
+
+      // Scroll handlers
+      const scrollAmount = 120;
+
+      leftBtn.addEventListener('click', () => {
+        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      });
+
+      rightBtn.addEventListener('click', () => {
+        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      });
+
+      // Update button states on scroll
+      const updateScrollButtons = () => {
+        leftBtn.disabled = container.scrollLeft <= 0;
+        rightBtn.disabled = container.scrollLeft + container.clientWidth >= container.scrollWidth - 1;
+      };
+
+      container.addEventListener('scroll', updateScrollButtons);
+
+      // Initial state update after render
+      requestAnimationFrame(() => {
+        updateScrollButtons();
+      });
+    }
+
+    // Insert tabs after header
+    const headerEl = this.root.querySelector('.myio-hp');
+    if (headerEl && headerEl.nextSibling) {
+      this.root.insertBefore(wrapper, headerEl.nextSibling);
+    } else if (headerEl) {
+      headerEl.after(wrapper);
+    } else {
+      // No header, insert at beginning before grid
+      const grid = this.root.querySelector('.myio-cgp__grid');
+      if (grid) {
+        this.root.insertBefore(wrapper, grid);
+      } else {
+        this.root.appendChild(wrapper);
+      }
+    }
   }
 }
