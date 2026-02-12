@@ -276,13 +276,13 @@ tb-html-widget > div,
   border: 1px solid #e8e4d9;
 }
 
-/* Chart header - matches CardGridPanel .myio-cgp__header pattern */
+/* Chart header - compact version */
 .bas-chart-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  padding: 14px 16px 10px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #e8e4d9;
   flex-shrink: 0;
 }
@@ -299,13 +299,13 @@ tb-html-widget > div,
   line-height: 1;
 }
 
-/* Title - matches CardGridPanel .myio-cgp__title */
+/* Title - compact */
 .bas-chart-header__title {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: #1a1a1a;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   margin: 0;
 }
 
