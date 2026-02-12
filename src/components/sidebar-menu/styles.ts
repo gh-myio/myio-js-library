@@ -60,6 +60,21 @@ export function injectSidebarMenuStyles(): void {
       display: flex;
       align-items: center;
       gap: 12px;
+      position: relative;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__header {
+      padding: 12px 8px;
+      align-items: center;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__header-top {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__logo {
+      display: none;
     }
 
     .${SIDEBAR_MENU_CSS_PREFIX}__logo {
@@ -133,6 +148,8 @@ export function injectSidebarMenuStyles(): void {
 
     .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__toggle {
       margin-left: 0;
+      position: relative;
+      z-index: 10;
     }
 
     /* ===== Theme Toggle ===== */
