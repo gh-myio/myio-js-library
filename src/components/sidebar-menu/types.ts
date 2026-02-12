@@ -159,7 +159,7 @@ export interface SidebarMenuInstance {
 /**
  * Default configuration values
  */
-export const DEFAULT_SIDEBAR_CONFIG: Required<Omit<SidebarMenuConfig, 'sections' | 'onItemClick' | 'onStateChange' | 'onSearch'>> = {
+export const DEFAULT_SIDEBAR_CONFIG: Required<Omit<SidebarMenuConfig, 'sections' | 'onItemClick' | 'onStateChange' | 'onSearch' | 'onThemeToggle' | 'onLogout'>> = {
   themeMode: 'light',
   initialState: 'expanded',
   expandedWidth: '260px',

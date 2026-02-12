@@ -10,6 +10,7 @@ import type {
   SidebarMenuInstance,
   SidebarState,
   SidebarThemeMode,
+  SidebarUserInfo,
 } from './types';
 
 export class SidebarMenuController implements SidebarMenuInstance {
@@ -60,6 +61,14 @@ export class SidebarMenuController implements SidebarMenuInstance {
 
   getActiveItem(): string | null {
     return this.view.getActiveItem();
+  }
+
+  updateUserInfo(userInfo: SidebarUserInfo): void {
+    this.view.updateUserInfo(userInfo);
+  }
+
+  getThemeMode(): SidebarThemeMode {
+    return this.view.getThemeMode();
   }
 
   destroy(): void {
