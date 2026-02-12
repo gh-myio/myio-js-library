@@ -676,6 +676,20 @@ export class EnergyModalView {
         width: 70% !important;
       }
 
+      /* Override fixed height for BAS mode - allow chart to expand */
+      .myio-energy-modal--bas .myio-energy-chart-container {
+        height: 100% !important;
+        min-height: 300px !important;
+        flex: 1 !important;
+      }
+
+      /* Ensure iframe inside chart fills container */
+      .myio-energy-modal--bas .myio-energy-chart-container > iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+      }
+
       @media (max-width: 900px) {
         .myio-energy-modal--bas .myio-energy-bas-layout {
           flex-direction: column;

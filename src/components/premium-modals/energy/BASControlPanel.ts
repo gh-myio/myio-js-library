@@ -118,21 +118,31 @@ export class BASControlPanel {
     }
 
     const items: string[] = [];
+    const isEnergyDevice = (this.device as any).isEnergyDevice === true;
 
-    if (telemetry.power !== undefined) {
-      items.push(this.renderTelemetryItem('Potência', telemetry.power.toFixed(2), 'kW', '⚡'));
+    // Potência - convert W to kW if value > 1000
+    if (telemetry.power !== undefined && telemetry.power !== null && !isNaN(telemetry.power)) {
+      const powerValue = Number(telemetry.power);
+      if (powerValue >= 1000) {
+        items.push(this.renderTelemetryItem('Potência', (powerValue / 1000).toFixed(2), 'kW', '⚡'));
+      } else {
+        items.push(this.renderTelemetryItem('Potência', powerValue.toFixed(0), 'W', '⚡'));
+      }
     }
-    if (telemetry.consumption !== undefined) {
-      items.push(this.renderTelemetryItem('Consumo', telemetry.consumption.toFixed(2), 'kWh', '📊'));
+
+    // Corrente
+    if (telemetry.current !== undefined && telemetry.current !== null && !isNaN(telemetry.current)) {
+      items.push(this.renderTelemetryItem('Corrente', Number(telemetry.current).toFixed(1), 'A', '🔌'));
     }
-    if (telemetry.current !== undefined) {
-      items.push(this.renderTelemetryItem('Corrente', telemetry.current.toFixed(1), 'A', '🔌'));
+
+    // Tensão
+    if (telemetry.voltage !== undefined && telemetry.voltage !== null && !isNaN(telemetry.voltage)) {
+      items.push(this.renderTelemetryItem('Tensão', Number(telemetry.voltage).toFixed(0), 'V', '⚡'));
     }
-    if (telemetry.voltage !== undefined) {
-      items.push(this.renderTelemetryItem('Tensão', telemetry.voltage.toFixed(0), 'V', '⚡'));
-    }
-    if (telemetry.temperature !== undefined) {
-      items.push(this.renderTelemetryItem('Temperatura', telemetry.temperature.toFixed(1), '°C', '🌡️'));
+
+    // Temperatura - only show for non-energy devices
+    if (!isEnergyDevice && telemetry.temperature !== undefined && telemetry.temperature !== null && !isNaN(telemetry.temperature)) {
+      items.push(this.renderTelemetryItem('Temperatura', Number(telemetry.temperature).toFixed(1), '°C', '🌡️'));
     }
 
     if (items.length === 0) {
