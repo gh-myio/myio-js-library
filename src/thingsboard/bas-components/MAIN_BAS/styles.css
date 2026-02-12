@@ -57,7 +57,7 @@ tb-html-widget > div,
 
 /* ========================================
    ROOT CONTAINER
-   Use CSS Grid for entire layout (not flex+absolute)
+   RFC-0173: Flex layout with sidebar menu + main content
    FALLBACK: Use 100vh if 100% doesn't work
    ======================================== */
 .bas-dashboard-container {
@@ -69,10 +69,9 @@ tb-html-widget > div,
   font-family: 'Roboto', 'Segoe UI', sans-serif;
   background: #0b1220;
 
-  /* Grid layout: header row (auto) + content row (1fr) */
-  display: grid !important;
-  grid-template-rows: auto 1fr !important;
-  grid-template-columns: 1fr !important;
+  /* RFC-0173: Flex layout for sidebar menu + main content */
+  display: flex !important;
+  flex-direction: row !important;
 
   /* Force position to ensure it fills the container */
   position: absolute !important;
@@ -83,12 +82,49 @@ tb-html-widget > div,
 }
 
 /* ========================================
+   RFC-0173: SIDEBAR MENU HOST
+   Premium retractable sidebar navigation
+   ======================================== */
+#bas-sidebar-menu-host {
+  flex-shrink: 0;
+  height: 100%;
+  z-index: 100;
+}
+
+/* When sidebar menu is collapsed, adjust the host */
+#bas-sidebar-menu-host:empty {
+  display: none;
+}
+
+/* ========================================
+   MAIN CONTENT WRAPPER
+   Contains header + content layout
+   ======================================== */
+#bas-main-content {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+
+  /* Grid layout: header row (auto) + content row (1fr) */
+  display: grid !important;
+  grid-template-rows: auto 1fr !important;
+  grid-template-columns: 1fr !important;
+}
+
+/* Transition for sidebar collapse/expand */
+#bas-main-content {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
    HEADER
    ======================================== */
 .bas-header {
   grid-row: 1;
   grid-column: 1;
   min-height: 0;
+  flex-shrink: 0;
 }
 
 /* ========================================

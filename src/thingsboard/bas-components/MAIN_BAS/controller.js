@@ -75,6 +75,7 @@ let _settings = null;
 let _currentAmbientes = [];
 let _currentClassified = null;
 let _dataUpdatedCount = 0; // Counter to limit onDataUpdated calls (max 3)
+let _sidebarMenu = null; // RFC-0173: Premium sidebar menu instance
 
 // ============================================================================
 // RFC-0161: Ambiente Hierarchy Caches
@@ -3419,6 +3420,205 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
 }
 
 // ============================================================================
+// RFC-0173: Premium Sidebar Menu
+// ============================================================================
+
+/**
+ * Mount the premium sidebar menu (RFC-0173)
+ * Provides navigation, filtering, and quick actions
+ * @param {HTMLElement} host - Container element
+ * @param {Object} settings - Widget settings
+ * @param {Object} classified - Classified devices data
+ * @returns {Object|null} Sidebar menu instance
+ */
+function mountSidebarMenu(host, settings, classified) {
+  LogHelper.log('[MAIN_BAS] mountSidebarMenu called');
+
+  if (!host) {
+    LogHelper.warn('[MAIN_BAS] Sidebar menu host not found');
+    return null;
+  }
+
+  if (!MyIOLibrary.createSidebarMenu) {
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.createSidebarMenu not available');
+    return null;
+  }
+
+  // Count devices by domain
+  var waterCount = classified?.water?.length || 0;
+  var energyCount = classified?.energy?.length || 0;
+  var temperatureCount = classified?.temperature?.length || 0;
+  var ambientesCount = _currentAmbientes?.length || 0;
+
+  // Build menu sections
+  var sections = [
+    {
+      id: 'navigation',
+      title: 'Navegação',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
+        { id: 'ambientes', label: 'Ambientes', icon: MyIOLibrary.SIDEBAR_ICONS?.building || '🏢', badge: ambientesCount || undefined },
+        { id: 'water', label: 'Água', icon: MyIOLibrary.SIDEBAR_ICONS?.water || '💧', badge: waterCount || undefined },
+        { id: 'energy', label: 'Energia', icon: MyIOLibrary.SIDEBAR_ICONS?.energy || '⚡', badge: energyCount || undefined },
+        { id: 'hvac', label: 'Climatização', icon: MyIOLibrary.SIDEBAR_ICONS?.thermometer || '❄️', badge: temperatureCount || undefined },
+      ],
+    },
+    {
+      id: 'config',
+      title: 'Configurações',
+      collapsible: true,
+      items: [
+        { id: 'settings', label: 'Configurações', icon: MyIOLibrary.SIDEBAR_ICONS?.settings || '⚙️' },
+        { id: 'profile', label: 'Perfil', icon: MyIOLibrary.SIDEBAR_ICONS?.user || '👤' },
+      ],
+    },
+  ];
+
+  var sidebarMenu = MyIOLibrary.createSidebarMenu(host, {
+    themeMode: settings.themeMode || 'dark',
+    initialState: settings.sidebarMenuInitialState || 'expanded',
+    persistState: true,
+    storageKey: 'myio-bas-sidebar-menu-state',
+    showSearch: true,
+    searchPlaceholder: 'Buscar...',
+    header: {
+      logo: settings.logoUrl || MyIOLibrary.SIDEBAR_ICONS?.logo || undefined,
+      title: settings.sidebarMenuTitle || 'MYIO BAS',
+      subtitle: settings.customerName || '',
+    },
+    sections: sections,
+    footer: {
+      items: [{ id: 'help', label: 'Ajuda', icon: MyIOLibrary.SIDEBAR_ICONS?.help || '❓' }],
+      showVersion: true,
+      version: MyIOLibrary.version || '0.1.374',
+    },
+    onItemClick: function (item, section) {
+      LogHelper.log('[MAIN_BAS] Sidebar menu item clicked:', item.id);
+      handleSidebarMenuNavigation(item.id);
+    },
+    onStateChange: function (state) {
+      LogHelper.log('[MAIN_BAS] Sidebar menu state changed:', state);
+      // Optionally dispatch event for other components
+      window.dispatchEvent(new CustomEvent('bas:sidebar-menu-state', { detail: { state: state } }));
+    },
+    onSearch: function (query) {
+      LogHelper.log('[MAIN_BAS] Sidebar menu search:', query);
+      // TODO: Implement global search across dashboard
+    },
+  });
+
+  // Set dashboard as active by default
+  sidebarMenu.setActiveItem('dashboard');
+
+  LogHelper.log('[MAIN_BAS] Sidebar menu mounted successfully');
+  return sidebarMenu;
+}
+
+/**
+ * Handle navigation from sidebar menu
+ * @param {string} itemId - Menu item ID
+ */
+function handleSidebarMenuNavigation(itemId) {
+  var rootEl = document.getElementById('bas-dashboard-root');
+
+  switch (itemId) {
+    case 'dashboard':
+      // Scroll to top / reset filters
+      if (_ambientesListPanel) {
+        _ambientesListPanel.setSelectedId(null);
+      }
+      _selectedAmbiente = null;
+      // Reset all panels to show all devices
+      if (_waterPanel) _waterPanel.setItems(buildWaterCardItems(_currentClassified, null));
+      if (_ambientesPanel) _ambientesPanel.setItems(buildHVACCardItems(_currentClassified, null));
+      if (_motorsPanel) _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, null));
+      break;
+
+    case 'ambientes':
+      scrollToElement('bas-sidebar-host');
+      break;
+
+    case 'water':
+      scrollToElement('bas-water-host');
+      break;
+
+    case 'energy':
+      scrollToElement('bas-motors-host');
+      // Switch chart to energy domain
+      if (_currentChartDomain !== 'energy') {
+        var chartCard = document.querySelector('.bas-chart-card');
+        if (chartCard) switchChartDomain('energy', chartCard);
+      }
+      break;
+
+    case 'hvac':
+      scrollToElement('bas-ambientes-host');
+      // Switch chart to temperature domain
+      if (_currentChartDomain !== 'temperature') {
+        var chartCardHvac = document.querySelector('.bas-chart-card');
+        if (chartCardHvac) switchChartDomain('temperature', chartCardHvac);
+      }
+      break;
+
+    case 'settings':
+      // TODO: Open settings modal when implemented
+      LogHelper.log('[MAIN_BAS] Settings - not implemented yet');
+      break;
+
+    case 'profile':
+      // TODO: Open profile modal when implemented
+      LogHelper.log('[MAIN_BAS] Profile - not implemented yet');
+      break;
+
+    case 'help':
+      // Open help modal if available
+      if (MyIOLibrary.openOnboardModal) {
+        MyIOLibrary.openOnboardModal({ mode: 'help' });
+      } else {
+        LogHelper.log('[MAIN_BAS] Help modal not available');
+      }
+      break;
+
+    default:
+      LogHelper.log('[MAIN_BAS] Unknown menu item:', itemId);
+  }
+}
+
+/**
+ * Scroll to element by ID with smooth animation
+ * @param {string} elementId - Element ID to scroll to
+ */
+function scrollToElement(elementId) {
+  var element = document.getElementById(elementId);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Add visual feedback
+    element.style.outline = '2px solid rgba(47, 136, 80, 0.5)';
+    setTimeout(function () {
+      element.style.outline = '';
+    }, 1500);
+  }
+}
+
+/**
+ * Update sidebar menu badges with current device counts
+ * @param {Object} classified - Classified devices data
+ */
+function updateSidebarMenuBadges(classified) {
+  if (!_sidebarMenu) return;
+
+  var waterCount = classified?.water?.length || 0;
+  var energyCount = classified?.energy?.length || 0;
+  var temperatureCount = classified?.temperature?.length || 0;
+  var ambientesCount = _currentAmbientes?.length || 0;
+
+  _sidebarMenu.updateItemBadge('ambientes', ambientesCount || null);
+  _sidebarMenu.updateItemBadge('water', waterCount || null);
+  _sidebarMenu.updateItemBadge('energy', energyCount || null);
+  _sidebarMenu.updateItemBadge('hvac', temperatureCount || null);
+}
+
+// ============================================================================
 // Chart functions
 // ============================================================================
 
@@ -4000,10 +4200,12 @@ function showError(container, message) {
 }
 
 /**
- * Initialize the BAS dashboard — mounts all 5 panels into their grid slots
+ * Initialize the BAS dashboard — mounts all panels into their grid slots
+ * RFC-0173: Added sidebarMenuHost for premium retractable sidebar menu
  */
 async function initializeDashboard(
   ctx,
+  sidebarMenuHost,
   sidebarHost,
   waterHost,
   chartsHost,
@@ -4065,6 +4267,16 @@ async function initializeDashboard(
       LogHelper.log('[MAIN_BAS] ASSET_AMBIENT hierarchy built:', Object.keys(assetAmbientHierarchy).length);
     } catch (assetAmbientErr) {
       LogHelper.warn('[MAIN_BAS] ASSET_AMBIENT hierarchy build failed:', assetAmbientErr);
+    }
+
+    // RFC-0173: Mount premium sidebar menu (retractable navigation)
+    LogHelper.log('[MAIN_BAS] sidebarMenuHost exists:', !!sidebarMenuHost);
+    LogHelper.log('[MAIN_BAS] settings.showSidebarMenu:', settings.showSidebarMenu);
+
+    if (settings.showSidebarMenu !== false && sidebarMenuHost) {
+      _sidebarMenu = mountSidebarMenu(sidebarMenuHost, settings, _currentClassified);
+    } else if (sidebarMenuHost) {
+      sidebarMenuHost.style.display = 'none';
     }
 
     // Mount sidebar EntityListPanel (col 1, row 1-2 full height)
@@ -4296,6 +4508,8 @@ self.onInit = async function () {
     _ctx.$container[0].style.overflow = 'hidden';
   }
 
+  // RFC-0173: Get sidebar menu host (premium retractable menu)
+  var sidebarMenuHost = root.querySelector('#bas-sidebar-menu-host');
   var sidebarHost = root.querySelector('#bas-sidebar-host');
   var waterHost = root.querySelector('#bas-water-host');
   var chartsHost = root.querySelector('#bas-charts-host');
@@ -4304,6 +4518,7 @@ self.onInit = async function () {
 
   // Always log layout containers for debugging
   LogHelper.log('[MAIN_BAS] Layout containers:', {
+    sidebarMenuHost: !!sidebarMenuHost,
     sidebarHost: !!sidebarHost,
     waterHost: !!waterHost,
     chartsHost: !!chartsHost,
@@ -4320,8 +4535,8 @@ self.onInit = async function () {
 
   LogHelper.log('[MAIN_BAS] onInit - Full Settings:', _settings);
 
-  // Initialize all panels
-  await initializeDashboard(_ctx, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, _settings);
+  // Initialize all panels (RFC-0173: added sidebarMenuHost)
+  await initializeDashboard(_ctx, sidebarMenuHost, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, _settings);
 };
 
 self.onDataUpdated = function () {
@@ -4385,6 +4600,9 @@ self.onDataUpdated = function () {
   if (_motorsPanel) {
     _motorsPanel.setItems(buildEnergyCardItems(_currentClassified, _selectedAmbiente));
   }
+
+  // RFC-0173: Update sidebar menu badges
+  updateSidebarMenuBadges(_currentClassified);
 };
 
 self.onResize = function () {
@@ -4432,12 +4650,17 @@ self.onDestroy = function () {
   if (_motorsPanel && _motorsPanel.destroy) {
     _motorsPanel.destroy();
   }
+  // RFC-0173: Clean up sidebar menu
+  if (_sidebarMenu && _sidebarMenu.destroy) {
+    _sidebarMenu.destroy();
+  }
   _chartInstance = null;
   _currentChartDomain = 'energy';
   _ambientesListPanel = null;
   _waterPanel = null;
   _ambientesPanel = null;
   _motorsPanel = null;
+  _sidebarMenu = null;
   _selectedAmbiente = null;
   _ctx = null;
   _settings = null;
