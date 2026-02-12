@@ -699,6 +699,17 @@ export function renderCardComponentV6({
   // Smart formatting function
   const formatCardValue = (value, deviceType) => {
     const numValue = Number(value) || 0;
+    const dt = String(deviceType || '').toUpperCase();
+
+    // TANK devices: show percentage instead of m.c.a
+    if (dt === 'TANK' || dt === 'CAIXA_DAGUA') {
+      const percValue = (waterPercentage || 0) * 100;
+      const formattedPerc = percValue.toLocaleString('pt-BR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      });
+      return `${formattedPerc}%`;
+    }
 
     if (isEnergyDevice(deviceType)) {
       // Use formatPower for instantaneous power readings (kW, not kWh)
@@ -1024,6 +1035,7 @@ export function renderCardComponentV6({
   const cardHTML = `
     <div class="device-card-centered clickable ${cardEntity.status === 'offline' ? 'offline' : ''}"
         data-entity-id="${entityId}"
+        data-device-type="${String(deviceType || '').toUpperCase()}"
         draggable="${enableDragDrop}"
         tabindex="0"
         role="article"
@@ -1037,7 +1049,7 @@ export function renderCardComponentV6({
               : ''
           }
 
-          <div class="device-card-body" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; padding: 0 12px 0 20px; margin-left: 16px; position: relative;">
+          <div class="device-card-body" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; position: relative;">
 
             <div class="device-title-row">
               <span class="device-title" title="${cardEntity.name}">
@@ -1187,17 +1199,27 @@ export function renderCardComponentV6({
         gap: 8px !important;
       }
 
+      .device-card-centered .device-card-body {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 28px 8px 8px 8px !important;
+        margin: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+
       .device-card-centered .device-image-wrapper {
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        flex: 1 !important;
         width: 100% !important;
-        min-height: 50px !important;
+        margin-bottom: 4px !important;
       }
 
       .device-card-centered .device-image {
-        max-height: 47px !important;
+        max-height: 44px !important;
         width: auto;
         margin: 0 !important;
         display: block;
@@ -1209,6 +1231,13 @@ export function renderCardComponentV6({
       .device-card-centered:hover .device-image {
         filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.15));
         transform: scale(1.05);
+      }
+
+      .device-card-centered .device-data-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
       }
 
       .device-card-centered .device-percentage-badge {
@@ -1228,40 +1257,43 @@ export function renderCardComponentV6({
         align-items: flex-start !important;
         justify-content: flex-start !important;
         text-align: left !important;
-        width: 100% !important;
-        min-height: 32px !important;
-        margin-bottom: 4px !important;
         position: absolute !important;
-        top: 8px !important;
-        left: 50px !important;
-        right: 12px !important;
+        top: 6px !important;
+        left: 6px !important;
+        right: auto !important;
         width: auto !important;
+        max-width: calc(100% - 20px) !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: 5 !important;
       }
 
       .device-card-centered .device-title {
-        font-weight: 700 !important;
-        font-size: 0.80rem !important;
+        font-weight: 600 !important;
+        font-size: 0.75rem !important;
         color: #1e293b !important;
-        margin: 0 0 2px 0 !important;
+        margin: 0 0 1px 0 !important;
         display: block !important;
-        width: 100% !important;
         text-align: left !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        line-height: 1.2 !important;
       }
 
       .device-card-centered .device-subtitle {
-        font-size: 0.67rem !important;
-        color: #64748b !important;
-        font-weight: 500 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        opacity: 0.8;
+        font-size: 0.55rem !important;
+        color: #94a3b8 !important;
+        font-weight: 400 !important;
+        letter-spacing: 0.02em;
+        opacity: 0.9;
         display: block !important;
-        width: 100% !important;
         text-align: left !important;
         margin: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
       }
 
       .device-card-centered .consumption-main {

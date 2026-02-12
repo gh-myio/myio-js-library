@@ -481,29 +481,54 @@ tb-html-widget > div,
   margin: 0 !important;
 }
 
-/* Card v6 - position label at top-left of card */
+/* Card v6 - title row positioned at top-left of card (outside centered body) */
+.myio-cgp__card-wrapper .device-card-centered .device-card-front {
+  position: relative !important;
+}
+
 .myio-cgp__card-wrapper .device-card-centered .device-title-row {
   position: absolute !important;
-  top: 8px !important;
-  left: 50px !important;
-  right: 12px !important;
+  top: 4px !important;
+  left: 4px !important;
+  right: auto !important;
   width: auto !important;
+  max-width: calc(100% - 16px) !important;
   margin: 0 !important;
+  padding: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-start !important;
   text-align: left !important;
+  z-index: 5 !important;
+  min-height: auto !important;
 }
 
 .myio-cgp__card-wrapper .device-card-centered .device-title {
-  margin-bottom: 2px !important;
+  margin: 0 0 1px 0 !important;
   text-align: left !important;
-  width: 100% !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
 }
 
 .myio-cgp__card-wrapper .device-card-centered .device-subtitle {
-  margin-top: 0 !important;
+  margin: 0 !important;
   text-align: left !important;
+  font-size: 0.58rem !important;
+  font-weight: 400 !important;
+  color: #94a3b8 !important;
+  opacity: 0.9 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* Card v6 - body area: center icon and telemetry */
+.myio-cgp__card-wrapper .device-card-centered .device-card-body {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 28px 8px 8px 8px !important;
+  margin-left: 0 !important;
   width: 100% !important;
 }
 
@@ -512,14 +537,27 @@ tb-html-widget > div,
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  flex: 1 !important;
   width: 100% !important;
-  min-height: 50px !important;
+  margin-bottom: 4px !important;
 }
 
-/* Card v6 - hide percentage badge */
+/* Card v6 - center data row (telemetry) */
+.myio-cgp__card-wrapper .device-card-centered .device-data-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+/* Card v6 - hide percentage badge (energy devices) */
 .myio-cgp__card-wrapper .device-card-centered .device-percentage-badge {
   display: none !important;
+}
+
+/* Card v6 - TANK devices: show percentage badge */
+.myio-cgp__card-wrapper .device-card-centered[data-device-type="TANK"] .device-percentage-badge,
+.myio-cgp__card-wrapper .device-card-centered[data-device-type="CAIXA_DAGUA"] .device-percentage-badge {
+  display: block !important;
 }
 
 /* ========================================
