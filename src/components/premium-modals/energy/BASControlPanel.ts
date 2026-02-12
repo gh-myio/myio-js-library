@@ -7,6 +7,7 @@ export interface BASControlPanelOptions {
   device: BASDeviceData;
   onRemoteCommand?: (command: 'on' | 'off', device: BASDeviceData) => Promise<void>;
   onTelemetryRefresh?: (device: BASDeviceData) => Promise<BASDeviceTelemetry>;
+  onSettingsClick?: (device: BASDeviceData) => void;
   refreshInterval?: number; // ms, default 10000
   theme?: 'dark' | 'light';
 }
@@ -39,13 +40,12 @@ export class BASControlPanel {
     this.container.innerHTML = `
       <style>${this.getStyles()}</style>
 
-      <!-- Device Info Section -->
-      <div class="myio-bas-section">
-        <div class="myio-bas-section__title">Dispositivo</div>
-        <div class="myio-bas-device-info">
-          <div class="myio-bas-device-label">${this.escapeHtml(device.label)}</div>
-          <div class="myio-bas-device-type">${this.escapeHtml(device.deviceType || 'N/A')}</div>
-        </div>
+      <!-- Settings Button Section -->
+      <div class="myio-bas-section myio-bas-section--settings">
+        <button class="myio-bas-settings-btn" id="bas-settings-btn" title="Configurações do dispositivo">
+          <span class="myio-bas-settings-icon">⚙️</span>
+          <span class="myio-bas-settings-text">Configurações</span>
+        </button>
       </div>
 
       <!-- Status Section -->
@@ -174,6 +174,14 @@ export class BASControlPanel {
     const refreshBtn = this.container.querySelector('#bas-refresh-btn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.refreshTelemetry());
+    }
+
+    // Settings button
+    const settingsBtn = this.container.querySelector('#bas-settings-btn');
+    if (settingsBtn && this.options.onSettingsClick) {
+      settingsBtn.addEventListener('click', () => {
+        this.options.onSettingsClick?.(this.device);
+      });
     }
   }
 
@@ -357,6 +365,45 @@ export class BASControlPanel {
 
       .myio-bas-section--muted {
         opacity: 0.7;
+      }
+
+      .myio-bas-section--settings {
+        padding: 8px;
+      }
+
+      .myio-bas-settings-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--myio-energy-text, #1f2937);
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border: 1px solid var(--myio-energy-border, #d1d5db);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .myio-bas-settings-btn:hover {
+        background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .myio-bas-settings-btn:active {
+        transform: translateY(0);
+      }
+
+      .myio-bas-settings-icon {
+        font-size: 18px;
+      }
+
+      .myio-bas-settings-text {
+        letter-spacing: 0.3px;
       }
 
       .myio-bas-section--telemetry {

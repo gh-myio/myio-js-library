@@ -639,6 +639,7 @@ export class EnergyModalView {
           device: basDevice,
           onRemoteCommand: this.config.params.onRemoteCommand,
           onTelemetryRefresh: this.config.params.onTelemetryRefresh,
+          onSettingsClick: this.config.params.onSettingsClick,
           refreshInterval: this.config.params.telemetryRefreshInterval || 10000,
           theme: this.currentTheme
         });

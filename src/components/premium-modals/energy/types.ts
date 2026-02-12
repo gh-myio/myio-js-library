@@ -40,6 +40,8 @@ export interface OpenDashboardPopupEnergyOptions {
   onRemoteCommand?: (command: 'on' | 'off', device: BASDeviceData) => Promise<void>;
   /** Callback for device telemetry refresh */
   onTelemetryRefresh?: (device: BASDeviceData) => Promise<BASDeviceTelemetry>;
+  /** Callback when settings button is clicked */
+  onSettingsClick?: (device: BASDeviceData) => void;
   /** Auto-refresh interval for telemetry in ms (default: 10000) */
   telemetryRefreshInterval?: number;
 
