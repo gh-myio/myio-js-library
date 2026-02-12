@@ -2710,6 +2710,34 @@ function openBASDeviceModal(device, settings) {
         onTelemetryRefresh: function (dev) {
           return fetchDeviceTelemetry(dev.entityId);
         },
+        onSettingsClick: function (dev) {
+          LogHelper.log('[MAIN_BAS] Settings button clicked for device:', dev);
+          // Open settings modal
+          if (MyIOLibrary.openDashboardPopupSettings) {
+            MyIOLibrary.openDashboardPopupSettings({
+              deviceId: dev.entityId || dev.id,
+              label: dev.label,
+              jwtToken: jwtToken,
+              domain: 'energy',
+              deviceType: dev.deviceType,
+              deviceProfile: dev.deviceProfile,
+              customerName: _settings?.customerName || '',
+              connectionData: {
+                centralName: _settings?.customerName || '',
+                deviceStatus: dev.status === 'online' ? 'power_on' : 'power_off',
+              },
+              ui: { title: 'Configurações - ' + (dev.label || 'Dispositivo'), width: 900 },
+              onSaved: function (payload) {
+                LogHelper.log('[MAIN_BAS] Settings saved:', payload);
+              },
+              onClose: function () {
+                LogHelper.log('[MAIN_BAS] Settings modal closed');
+              },
+            });
+          } else {
+            LogHelper.warn('[MAIN_BAS] openDashboardPopupSettings not available');
+          }
+        },
         onClose: function () {
           LogHelper.log('[MAIN_BAS] BAS modal closed');
         },
@@ -2816,6 +2844,34 @@ function openBASWaterModal(device, settings) {
         telemetryKeys: ['volume', 'm3', 'pulses', 'pulsos', 'flow_rate', 'vazao', 'consumption'],
         onTelemetryRefresh: function (dev) {
           return fetchDeviceTelemetry(dev.entityId);
+        },
+        onSettingsClick: function (dev) {
+          LogHelper.log('[MAIN_BAS] Settings button clicked for water device:', dev);
+          // Open settings modal
+          if (MyIOLibrary.openDashboardPopupSettings) {
+            MyIOLibrary.openDashboardPopupSettings({
+              deviceId: dev.entityId || dev.id,
+              label: dev.label,
+              jwtToken: jwtToken,
+              domain: 'water',
+              deviceType: dev.deviceType,
+              deviceProfile: dev.deviceProfile,
+              customerName: _settings?.customerName || '',
+              connectionData: {
+                centralName: _settings?.customerName || '',
+                deviceStatus: dev.status === 'online' ? 'power_on' : 'power_off',
+              },
+              ui: { title: 'Configurações - ' + (dev.label || 'Dispositivo'), width: 900 },
+              onSaved: function (payload) {
+                LogHelper.log('[MAIN_BAS] Water settings saved:', payload);
+              },
+              onClose: function () {
+                LogHelper.log('[MAIN_BAS] Water settings modal closed');
+              },
+            });
+          } else {
+            LogHelper.warn('[MAIN_BAS] openDashboardPopupSettings not available');
+          }
         },
         onClose: function () {
           LogHelper.log('[MAIN_BAS] BAS Water modal closed');
