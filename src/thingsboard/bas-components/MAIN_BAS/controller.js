@@ -1751,15 +1751,22 @@ function buildEnergyCardItems(classified, selectedAmbienteId) {
   var energyDevices = getEnergyEquipmentDevicesFromClassified(classified);
 
   // RFC-0171: Filter to include only valid energy devices
-  // Use MyIOLibrary.isEnergyDevice to validate deviceType/deviceProfile
+  // Use MyIOLibrary.isEnergyDevice to validate deviceProfile (primary) and deviceType (fallback)
   var validEnergyDevices = energyDevices.filter(function (device) {
-    var deviceType = device.deviceType || device.deviceProfile || '';
-    var isValid = MyIOLibrary.isEnergyDevice ? MyIOLibrary.isEnergyDevice(deviceType) : true;
+    var deviceProfile = device.deviceProfile || '';
+    var deviceType = device.deviceType || '';
+
+    // Check deviceProfile first (preferred), then deviceType as fallback
+    var isValid = MyIOLibrary.isEnergyDevice
+      ? MyIOLibrary.isEnergyDevice(deviceProfile) || MyIOLibrary.isEnergyDevice(deviceType)
+      : true;
 
     if (!isValid) {
       LogHelper.log(
         '[MAIN_BAS] buildEnergyCardItems: filtered out non-energy device:',
         device.name,
+        'deviceProfile:',
+        deviceProfile,
         'deviceType:',
         deviceType
       );

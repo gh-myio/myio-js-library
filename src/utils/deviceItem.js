@@ -85,13 +85,55 @@ export function isTemperatureDevice(deviceType) {
 }
 
 /**
- * Checks if device type is an energy meter
- * @param {string} deviceType - Device type string
+ * Checks if device type is an energy device
+ * RFC-0128: Includes all energy equipment categories
+ * @param {string} deviceType - Device type or profile string
  * @returns {boolean}
  */
 export function isEnergyDevice(deviceType) {
   const dt = String(deviceType || '').toUpperCase();
-  return dt === '3F_MEDIDOR' || dt.includes('3F') || dt.includes('MEDIDOR');
+
+  // Explicitly exclude non-energy devices (lighting, remotes)
+  if (dt.includes('LAMP') || dt.includes('REMOTE') || dt.includes('CONTROLE')) {
+    return false;
+  }
+
+  // Energy meters
+  if (dt === '3F_MEDIDOR' || dt.includes('3F') || dt.includes('MEDIDOR')) {
+    return true;
+  }
+
+  // Entrada (main power entry)
+  if (dt.includes('ENTRADA') || dt.includes('RELOGIO') || dt.includes('TRAFO') || dt.includes('SUBESTACAO')) {
+    return true;
+  }
+
+  // HVAC / Climatization
+  if (
+    dt.includes('CHILLER') ||
+    dt.includes('FANCOIL') ||
+    dt.includes('HVAC') ||
+    dt.includes('AR_CONDICIONADO') ||
+    dt.includes('BOMBA_CAG') ||
+    dt.includes('CAG')
+  ) {
+    return true;
+  }
+
+  // Motors, elevators, escalators
+  if (dt.includes('MOTOR') || dt.includes('ELEVADOR') || dt.includes('ESCADA_ROLANTE')) {
+    return true;
+  }
+
+  // Pumps (non-water), generators
+  if (dt.includes('BOMBA') && !dt.includes('AGUA') && !dt.includes('HIDRO')) {
+    return true;
+  }
+  if (dt.includes('GERADOR') || dt.includes('NOBREAK')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
