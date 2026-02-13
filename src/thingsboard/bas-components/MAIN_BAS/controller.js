@@ -1348,6 +1348,8 @@ function waterDeviceToEntityObject(device) {
     labelOrName: device.name,
     deviceIdentifier: identifier,
     deviceType: deviceType,
+    // RFC-0175: Include deviceProfile for SOLENOIDE detection in card component
+    deviceProfile: device.deviceProfile,
     val: device.value,
     deviceStatus: deviceStatus,
     perc: isTank ? displayPercentage : 0,
@@ -1815,6 +1817,8 @@ function energyDeviceToEntityObject(device) {
     labelOrName: device.name,
     deviceIdentifier: identifier,
     deviceType: deviceType,
+    // RFC-0175: Include deviceProfile for proper device type detection in card
+    deviceProfile: device.deviceProfile,
     val: device.consumption,
     deviceStatus: deviceStatus,
     perc: 0,
