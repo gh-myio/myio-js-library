@@ -182,11 +182,12 @@ const PANEL_CSS = `
     min-height: 0 !important;
     overflow-y: auto !important;
     padding: 16px !important;
-    padding-bottom: 20px !important;
+    padding-bottom: 24px !important;
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr)) !important;
     grid-auto-rows: auto !important;
-    gap: var(--cgp-grid-gap, 16px) !important;
+    /* Enforce minimum 16px gap, use CSS variable for larger values */
+    gap: 16px !important;
     row-gap: var(--cgp-grid-gap, 16px) !important;
     column-gap: var(--cgp-grid-gap, 16px) !important;
     align-content: start !important;
@@ -199,26 +200,22 @@ const PANEL_CSS = `
 
   .myio-cgp__card-wrapper {
     min-width: 0 !important;
+    min-height: 0 !important;
     /* Block display - let grid handle sizing, don't use flex */
     display: block !important;
+    /* CRITICAL: No margin - grid gap handles spacing */
     margin: 0 !important;
     padding: 0 !important;
     /* Ensure wrapper doesn't collapse or add extra space */
     box-sizing: border-box !important;
   }
 
-  /* Card should fill wrapper width */
+  /* Card should fill wrapper width - force no margins */
   .myio-cgp__card-wrapper > * {
     width: 100% !important;
     margin: 0 !important;
-  }
-
-  /* Override card v6 width constraints when inside grid */
-  .myio-cgp__card-wrapper .device-card-centered,
-  .myio-cgp__card-wrapper .device-card-centered.clickable {
-    width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
   }
 
   .myio-cgp__empty {
@@ -233,12 +230,16 @@ const PANEL_CSS = `
     grid-template-columns: 1fr !important;
   }
 
-  /* Card v6 overrides when inside CardGridPanel */
+  /* Card v6 overrides when inside CardGridPanel - sizing and margin reset */
   .myio-cgp__card-wrapper .device-card-centered,
-  .myio-cgp__card-wrapper .device-card-centered.clickable {
+  .myio-cgp__card-wrapper .device-card-centered.clickable,
+  .myio-cgp__card-wrapper .ambiente-card,
+  .myio-cgp__card-wrapper .ambiente-card.clickable {
     width: 100% !important;
     max-width: var(--cgp-max-card-w, none) !important;
     margin: 0 !important;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
   }
 
   .myio-cgp__card-wrapper .device-card-centered {
