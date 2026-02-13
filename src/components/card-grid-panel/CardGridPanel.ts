@@ -117,6 +117,10 @@ export interface CardGridPanelOptions {
   gridMinCardWidth?: string;
   /** Gap between cards in the grid (default: 16px) */
   gridGap?: string;
+  /** Force single column layout (useful for narrow panels like ambientes/motors) */
+  singleColumn?: boolean;
+  /** Max width for cards (e.g. '200px') */
+  maxCardWidth?: string;
   /** Show temp range tooltip on cards */
   showTempRangeTooltip?: boolean;
   /** Show search toggle button in header */
@@ -222,6 +226,91 @@ const PANEL_CSS = `
     text-align: center;
     font-size: 0.8rem;
     color: #999;
+  }
+
+  /* Single column layout */
+  .myio-cgp--single-column .myio-cgp__grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Card v6 overrides when inside CardGridPanel */
+  .myio-cgp__card-wrapper .device-card-centered,
+  .myio-cgp__card-wrapper .device-card-centered.clickable {
+    width: 100% !important;
+    max-width: var(--cgp-max-card-w, none) !important;
+    margin: 0 !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered {
+    --card-v6-min-height: 130px;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-card-front {
+    position: relative !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-title-row {
+    position: absolute !important;
+    top: -2px !important;
+    left: 0px !important;
+    right: auto !important;
+    width: auto !important;
+    max-width: calc(100% - 8px) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+    z-index: 5 !important;
+    min-height: auto !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-title {
+    margin: 0 0 1px 0 !important;
+    text-align: left !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-subtitle {
+    margin: 0 !important;
+    text-align: left !important;
+    font-size: 0.58rem !important;
+    font-weight: 400 !important;
+    color: #94a3b8 !important;
+    opacity: 0.9 !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 18px 6px 6px 6px !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-image-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    margin-bottom: 4px !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-data-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+
+  .myio-cgp__card-wrapper .device-card-centered .device-percentage-badge {
+    display: none !important;
   }
 
   /* ── Tabs ────────────────────────────────── */
@@ -496,6 +585,11 @@ export class CardGridPanel {
     });
     this.root.appendChild(this.headerComponent.getElement());
 
+    // Apply single column class if needed
+    if (this.options.singleColumn) {
+      this.root.classList.add('myio-cgp--single-column');
+    }
+
     // Grid
     const grid = document.createElement('div');
     grid.className = 'myio-cgp__grid';
@@ -504,6 +598,9 @@ export class CardGridPanel {
     }
     if (this.options.gridGap) {
       grid.style.setProperty('--cgp-grid-gap', this.options.gridGap);
+    }
+    if (this.options.maxCardWidth) {
+      grid.style.setProperty('--cgp-max-card-w', this.options.maxCardWidth);
     }
     this.root.appendChild(grid);
 

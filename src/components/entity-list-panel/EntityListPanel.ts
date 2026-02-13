@@ -72,6 +72,12 @@ export interface EntityListPanelOptions {
   /** Optional style for the title/header (slim, premium look) */
   titleStyle?: EntityListTitleStyle;
   /**
+   * Theme for the panel:
+   * - 'light': Default light theme (#faf8f1 background)
+   * - 'dark': Dark theme for dark backgrounds (transparent with light text)
+   */
+  theme?: 'light' | 'dark';
+  /**
    * Sort order for items. Default: 'none' (preserve source order)
    * - 'asc': A-Z ascending (by normalized display label)
    * - 'desc': Z-A descending (by normalized display label)
@@ -321,6 +327,53 @@ const PANEL_CSS = `
     font-size: 0.8rem;
     color: #999;
   }
+
+  /* ============ Dark Theme ============ */
+  .myio-elp--dark {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .myio-elp--dark .myio-elp__subtitle {
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.15) !important;
+  }
+
+  .myio-elp--dark .myio-elp__list {
+    gap: 0 !important;
+  }
+
+  .myio-elp--dark .myio-elp__item {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .myio-elp--dark .myio-elp__item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .myio-elp--dark .myio-elp__item--selected {
+    background: rgba(47, 88, 72, 0.25);
+  }
+
+  .myio-elp--dark .myio-elp__item--selected:hover {
+    background: rgba(47, 88, 72, 0.35);
+  }
+
+  .myio-elp--dark .myio-elp__item-label {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .myio-elp--dark .myio-elp__item-arrow {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .myio-elp--dark .myio-elp__item:hover .myio-elp__item-arrow {
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .myio-elp--dark .myio-elp__empty {
+    color: rgba(255, 255, 255, 0.5);
+  }
 `;
 
 function injectStyles(): void {
@@ -352,6 +405,10 @@ export class EntityListPanel {
     this.options = options;
     this.root = document.createElement('div');
     this.root.className = 'myio-elp';
+    // Apply dark theme class if specified
+    if (options.theme === 'dark') {
+      this.root.classList.add('myio-elp--dark');
+    }
     // Apply custom panel background (color or image)
     if (options.panelBackground) {
       this.applyPanelBackground(options.panelBackground);

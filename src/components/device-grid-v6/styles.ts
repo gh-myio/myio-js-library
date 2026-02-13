@@ -166,14 +166,19 @@ const STYLES = `
 
 /* ============ Grid ============ */
 .myio-dgv6__grid {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
   overflow-x: hidden;
   padding: 10px;
-  display: grid;
+  padding-bottom: 16px;
+  display: grid !important;
   grid-template-columns: repeat(auto-fill, minmax(var(--dgv6-min-card-w, 140px), 1fr));
-  gap: 10px;
-  align-content: start;
+  grid-auto-rows: auto !important;
+  gap: 16px !important;
+  row-gap: 16px !important;
+  column-gap: 16px !important;
+  align-content: start !important;
 }
 
 /* Thin dark scrollbar */

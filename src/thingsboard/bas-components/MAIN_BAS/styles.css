@@ -248,13 +248,6 @@ tb-html-widget > div,
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Water cards - custom card max width */
-.bas-water-slot .myio-cgp__card-wrapper .device-card-centered,
-.bas-water-slot .myio-cgp__card-wrapper .device-card-centered.clickable {
-  max-width: var(--bas-water-card-max-width, 200px) !important;
-}
-
-
 /* ========================================
    CHARTS SLOT — Header + Tab bar + chart
    col 1-2, row 2  (60% × 50%)
@@ -301,13 +294,6 @@ tb-html-widget > div,
   border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Force single column layout for ambientes cards */
-.bas-ambientes-slot .myio-cgp__grid,
-.bas-ambientes-slot .myio-dgv6__body {
-  grid-template-columns: 1fr !important;
-}
-
-
 /* ========================================
    MOTORS SLOT — CardGridPanel host (Bombas e Motores)
    col 4, row 1–2  (20% × 100%)
@@ -316,16 +302,10 @@ tb-html-widget > div,
   grid-area: motors;
 }
 
-/* Force single column layout for motors cards */
-.bas-motors-slot .myio-cgp__grid,
-.bas-motors-slot .myio-dgv6__body {
-  grid-template-columns: 1fr !important;
-}
-
-
 /* ========================================
    MYIO CHART WIDGET OVERRIDES
    Match CardGridPanel header pattern
+   (TODO: Move to dedicated chart widget component)
    ======================================== */
 
 /* Header - match CardGridPanel pattern (padding: 14px 16px 10px 16px) */
@@ -424,136 +404,6 @@ tb-html-widget > div,
 
 .bas-charts-slot .myio-chart-widget-stat-sub {
   font-size: 9px !important;
-}
-
-/* ========================================
-   MYIO LIBRARY COMPONENT OVERRIDES
-   Ensure library components fill their containers
-   ======================================== */
-.myio-cgp,
-.myio-elp,
-.myio-dgv6 {
-  height: 100% !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-/* DeviceGridV6 body - grid styling (CardGridPanel handles its own grid via component CSS) */
-.myio-dgv6__body {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  align-content: start !important;
-  display: grid !important;
-  gap: var(--cgp-grid-gap, 16px) !important;
-  row-gap: var(--cgp-grid-gap, 16px) !important;
-  column-gap: var(--cgp-grid-gap, 16px) !important;
-  grid-auto-rows: auto !important;
-  padding-bottom: 16px !important;
-}
-
-/* EntityListPanel - keep original small gap for list items */
-.myio-elp__list {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  /* List items should have minimal gap */
-  gap: 0 !important;
-}
-
-/* EntityListPanel subtitle - white color for dark background */
-.myio-elp__subtitle {
-  color: rgba(255, 255, 255, 0.7) !important;
-  border-bottom-color: rgba(255, 255, 255, 0.15) !important;
-}
-
-/* Card wrapper - sizing handled by CardGridPanel component CSS */
-
-/* Card v6 overrides - ensure full width within grid cell */
-.myio-cgp__card-wrapper .device-card-centered,
-.myio-cgp__card-wrapper .device-card-centered.clickable {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-}
-
-/* Card v6 - configurable min-height via CSS custom property */
-.myio-cgp__card-wrapper .device-card-centered {
-  --card-v6-min-height: 130px;
-}
-
-/* Card v6 - title row positioned at top-left of card (outside centered body) */
-.myio-cgp__card-wrapper .device-card-centered .device-card-front {
-  position: relative !important;
-}
-
-.myio-cgp__card-wrapper .device-card-centered .device-title-row {
-  position: absolute !important;
-  top: -2px !important;
-  left: 0px !important;
-  right: auto !important;
-  width: auto !important;
-  max-width: calc(100% - 8px) !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  text-align: left !important;
-  z-index: 5 !important;
-  min-height: auto !important;
-}
-
-.myio-cgp__card-wrapper .device-card-centered .device-title {
-  margin: 0 0 1px 0 !important;
-  text-align: left !important;
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  line-height: 1.2 !important;
-}
-
-.myio-cgp__card-wrapper .device-card-centered .device-subtitle {
-  margin: 0 !important;
-  text-align: left !important;
-  font-size: 0.58rem !important;
-  font-weight: 400 !important;
-  color: #94a3b8 !important;
-  opacity: 0.9 !important;
-  letter-spacing: 0.02em !important;
-}
-
-/* Card v6 - body area: center icon and telemetry */
-.myio-cgp__card-wrapper .device-card-centered .device-card-body {
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  align-items: center !important;
-  padding: 18px 6px 6px 6px !important;
-  margin-left: 0 !important;
-  width: 100% !important;
-}
-
-/* Card v6 - center device image */
-.myio-cgp__card-wrapper .device-card-centered .device-image-wrapper {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-  margin-bottom: 4px !important;
-}
-
-/* Card v6 - center data row (telemetry) */
-.myio-cgp__card-wrapper .device-card-centered .device-data-row {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-}
-
-/* Card v6 - hide percentage badge for all devices including TANK */
-.myio-cgp__card-wrapper .device-card-centered .device-percentage-badge {
-  display: none !important;
 }
 
 /* ========================================

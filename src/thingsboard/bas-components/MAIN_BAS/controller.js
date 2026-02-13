@@ -2411,14 +2411,6 @@ function mountWaterPanel(waterHost, settings, classified) {
     return null;
   }
 
-  // Apply water card size CSS variables to the host
-  if (settings.waterCardMinWidth) {
-    waterHost.style.setProperty('--bas-water-card-width', settings.waterCardMinWidth);
-  }
-  if (settings.waterCardMaxWidth) {
-    waterHost.style.setProperty('--bas-water-card-max-width', settings.waterCardMaxWidth);
-  }
-
   var waterItems = buildWaterCardItems(classified, null);
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
@@ -2514,6 +2506,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     titleStyle: waterHeaderStyle,
     gridMinCardWidth: settings.waterCardMinWidth || '160px',
     gridGap: settings.cardGridGap,
+    maxCardWidth: settings.waterCardMaxWidth || '200px',
     emptyMessage: 'Nenhum dispositivo',
     showSearch: true,
     searchPlaceholder: 'Buscar...',
@@ -2643,6 +2636,7 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
     titleStyle: headerStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap,
+    singleColumn: true,
     emptyMessage: 'Nenhum ambiente',
     showSearch: true,
     searchPlaceholder: 'Buscar...',
@@ -3539,6 +3533,7 @@ function mountEnergyPanel(host, settings, classified) {
     titleStyle: energyHeaderStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap,
+    singleColumn: true,
     emptyMessage: 'Nenhum equipamento',
     showSearch: true,
     searchPlaceholder: 'Buscar...',
