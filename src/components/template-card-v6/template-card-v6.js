@@ -590,6 +590,8 @@ export function renderCardComponentV6({
     temperatureMin,
     temperatureMax,
     temperatureStatus,
+    // RFC-0175: Solenoid valve status (on=closed, off=open)
+    solenoidStatus,
   } = entityObject;
 
   // RFC-0175: Use deviceProfile (preferred) or deviceType (fallback) for device classification
@@ -730,11 +732,13 @@ export function renderCardComponentV6({
     const dt = String(deviceType || '').toUpperCase();
     const dp = String(deviceProfile || '').toUpperCase();
 
-    // SOLENOIDE devices: show ABERTO/FECHADO based on status
+    // SOLENOIDE devices: show ABERTO/FECHADO based on solenoidStatus
     // RFC-0175: Check deviceProfile first (preferred), then deviceType as fallback
+    // Logic: status='off' means valve is OPEN, status='on' means valve is CLOSED
     if (isSolenoidDeviceType(deviceProfile) || isSolenoidDeviceType(deviceType)) {
-      // Value 1 or 'on' means open, 0 or 'off' means closed
-      const isOpen = numValue === 1 || String(value).toLowerCase() === 'on' || connectionStatus === 'on';
+      const statusLower = String(solenoidStatus || '').toLowerCase();
+      // off = ABERTO (open), on = FECHADO (closed)
+      const isOpen = statusLower === 'off' || statusLower === '' || statusLower === 'null';
       return isOpen ? 'ABERTO' : 'FECHADO';
     }
 
@@ -1024,15 +1028,19 @@ export function renderCardComponentV6({
       }
     }
 
-    // SOLENOIDE devices: Dynamic icon based on on/off status
+    // SOLENOIDE devices: Dynamic icon based on solenoidStatus
     // RFC-0175: Check deviceProfile first (preferred), then deviceType as fallback
+    // Logic: status='off' means valve is OPEN, status='on' means valve is CLOSED
     if (profileType === 'SOLENOIDE' || profileType.includes('SOLENOIDE') ||
         nameType === 'SOLENOIDE' || nameType.includes('SOLENOIDE')) {
       if (isOffline) {
         return SOLENOID_IMAGES.offline;
       }
-      // Check if device is on (open) or off (closed)
-      const isOpen = Number(val) === 1 || String(val).toLowerCase() === 'on' || connectionStatus === 'on';
+      // Use solenoidStatus from options
+      const { solenoidStatus: solStatus } = options;
+      const statusLower = String(solStatus || '').toLowerCase();
+      // off = ABERTO (open valve) → show 'on' image, on = FECHADO (closed valve) → show 'off' image
+      const isOpen = statusLower === 'off' || statusLower === '' || statusLower === 'null';
       return isOpen ? SOLENOID_IMAGES.on : SOLENOID_IMAGES.off;
     }
 
@@ -1063,11 +1071,12 @@ export function renderCardComponentV6({
   };
 
   const tempStatus = isTermostatoDevice ? calculateTempStatus() : null;
-  // RFC-0175: Pass deviceProfile to getDeviceImageUrl for SOLENOIDE detection
+  // RFC-0175: Pass deviceProfile and solenoidStatus to getDeviceImageUrl for SOLENOIDE detection
   const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay, {
     tempStatus,
     isOffline,
     deviceProfile,
+    solenoidStatus,
   });
 
   // Calculate temperature deviation percentage
@@ -1316,11 +1325,11 @@ export function renderCardComponentV6({
         justify-content: flex-start !important;
         text-align: left !important;
         position: absolute !important;
-        top: 0px !important;
-        left: 2px !important;
+        top: -2px !important;
+        left: 0px !important;
         right: auto !important;
         width: auto !important;
-        max-width: calc(100% - 12px) !important;
+        max-width: calc(100% - 8px) !important;
         min-height: auto !important;
         margin: 0 !important;
         padding: 0 !important;

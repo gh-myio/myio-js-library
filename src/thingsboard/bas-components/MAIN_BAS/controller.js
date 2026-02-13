@@ -1343,6 +1343,9 @@ function waterDeviceToEntityObject(device) {
   // PRESENTATION MODE: Force all water devices to online status
   deviceStatus = 'online';
 
+  // RFC-0175: Extract solenoid status from rawData (on/off for valve state)
+  var solenoidStatus = device.rawData?.status || null;
+
   return {
     entityId: device.id,
     labelOrName: device.name,
@@ -1352,6 +1355,8 @@ function waterDeviceToEntityObject(device) {
     deviceProfile: device.deviceProfile,
     val: device.value,
     deviceStatus: deviceStatus,
+    // RFC-0175: Solenoid status (on=closed, off=open)
+    solenoidStatus: solenoidStatus,
     perc: isTank ? displayPercentage : 0,
     waterLevel: isTank ? waterLevel : undefined,
     waterPercentage: isTank ? waterPercentage : undefined,
@@ -1789,7 +1794,13 @@ var ENERGY_TYPE_MAP = {
 
 var ENERGY_STATUS_MAP = {
   online: 'online',
+  active: 'online',
+  running: 'online',
+  power_on: 'online',
+  connected: 'online',
   offline: 'offline',
+  inactive: 'offline',
+  disconnected: 'offline',
   no_info: 'no_info',
 };
 
@@ -1799,7 +1810,9 @@ var ENERGY_STATUS_MAP = {
  */
 function energyDeviceToEntityObject(device) {
   var deviceType = device.deviceType || '3F_MEDIDOR';
-  var deviceStatus = ENERGY_STATUS_MAP[device.status] || 'no_info';
+  // RFC-0175: Check both status and connectionStatus fields
+  var rawStatus = device.status || device.connectionStatus || 'no_info';
+  var deviceStatus = ENERGY_STATUS_MAP[rawStatus] || 'online';
   // Use rawData.identifier with fallback to 'Sem ID'
   var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
 

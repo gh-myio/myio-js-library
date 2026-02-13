@@ -255,9 +255,11 @@ tb-html-widget > div,
 }
 
 /* RFC-0175: Ensure proper row gap for water cards */
-.bas-water-slot .myio-cgp__grid {
+.bas-water-slot .myio-cgp__grid,
+.bas-water-slot .myio-dgv6__body {
   gap: 12px !important;
   row-gap: 12px !important;
+  column-gap: 12px !important;
 }
 
 /* ========================================
@@ -313,9 +315,11 @@ tb-html-widget > div,
 }
 
 /* RFC-0175: Reduce gap between ambiente cards (they already have internal spacing) */
-.bas-ambientes-slot .myio-cgp__grid {
+.bas-ambientes-slot .myio-cgp__grid,
+.bas-ambientes-slot .myio-dgv6__body {
   gap: 8px !important;
   row-gap: 8px !important;
+  column-gap: 8px !important;
 }
 
 /* ========================================
@@ -333,9 +337,11 @@ tb-html-widget > div,
 }
 
 /* RFC-0175: Ensure proper row gap for motors/energy cards */
-.bas-motors-slot .myio-cgp__grid {
+.bas-motors-slot .myio-cgp__grid,
+.bas-motors-slot .myio-dgv6__body {
   gap: 12px !important;
   row-gap: 12px !important;
+  column-gap: 12px !important;
 }
 
 /* ========================================
@@ -489,8 +495,8 @@ tb-html-widget > div,
 .myio-cgp__card-wrapper {
   min-width: 0 !important;
   display: block !important; /* Not flex - let card determine its size */
-  /* RFC-0175: Add spacing between cards when using larger heights */
-  margin-bottom: 8px !important;
+  /* RFC-0175: Spacing handled by grid gap, not margin */
+  margin-bottom: 0 !important;
 }
 
 /* Card v6 overrides - ensure full width within grid cell */
@@ -513,11 +519,11 @@ tb-html-widget > div,
 
 .myio-cgp__card-wrapper .device-card-centered .device-title-row {
   position: absolute !important;
-  top: 0px !important;
-  left: 2px !important;
+  top: -2px !important;
+  left: 0px !important;
   right: auto !important;
   width: auto !important;
-  max-width: calc(100% - 12px) !important;
+  max-width: calc(100% - 8px) !important;
   margin: 0 !important;
   padding: 0 !important;
   display: flex !important;
@@ -574,15 +580,9 @@ tb-html-widget > div,
   width: 100% !important;
 }
 
-/* Card v6 - hide percentage badge (energy devices) */
+/* Card v6 - hide percentage badge for all devices including TANK */
 .myio-cgp__card-wrapper .device-card-centered .device-percentage-badge {
   display: none !important;
-}
-
-/* Card v6 - TANK devices: show percentage badge */
-.myio-cgp__card-wrapper .device-card-centered[data-device-type="TANK"] .device-percentage-badge,
-.myio-cgp__card-wrapper .device-card-centered[data-device-type="CAIXA_DAGUA"] .device-percentage-badge {
-  display: block !important;
 }
 
 /* ========================================
