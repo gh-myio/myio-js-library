@@ -571,6 +571,7 @@ export function renderCardComponentV6({
     deviceIdentifier,
     entityType,
     deviceType,
+    deviceProfile,
     slaveId,
     ingestionId,
     val,
@@ -590,6 +591,10 @@ export function renderCardComponentV6({
     temperatureMax,
     temperatureStatus,
   } = entityObject;
+
+  // RFC-0175: Use deviceProfile (preferred) or deviceType (fallback) for device classification
+  // This fixes SOLENOIDE devices which have deviceType=3F_MEDIDOR but deviceProfile=SOLENOIDE
+  const effectiveDeviceType = deviceProfile || deviceType;
 
   // MyIO Global Toast Manager
   const MyIOToast = (function () {
@@ -692,7 +697,8 @@ export function renderCardComponentV6({
   const connectionStatus = mapDeviceToConnectionStatus(deviceStatus);
   const isOffline = isDeviceOffline(deviceStatus);
   const shouldFlashIcon = shouldIconFlash(deviceStatus);
-  const icon = getDeviceStatusIcon(deviceStatus, deviceType);
+  // RFC-0175: Use effectiveDeviceType (deviceProfile preferred) for icon selection
+  const icon = getDeviceStatusIcon(deviceStatus, effectiveDeviceType);
   const connectionIcon = getConnectionStatusIcon(connectionStatus);
 
   // Map device type to icon category
@@ -718,12 +724,15 @@ export function renderCardComponentV6({
   const isTemperatureDevice = (deviceType) => isTemperatureDeviceType(deviceType);
 
   // Smart formatting function
-  const formatCardValue = (value, deviceType) => {
+  // RFC-0175: Accept both deviceType and deviceProfile for proper device detection
+  const formatCardValue = (value, deviceType, deviceProfile) => {
     const numValue = Number(value) || 0;
     const dt = String(deviceType || '').toUpperCase();
+    const dp = String(deviceProfile || '').toUpperCase();
 
     // SOLENOIDE devices: show ABERTO/FECHADO based on status
-    if (isSolenoidDeviceType(deviceType)) {
+    // RFC-0175: Check deviceProfile first (preferred), then deviceType as fallback
+    if (isSolenoidDeviceType(deviceProfile) || isSolenoidDeviceType(deviceType)) {
       // Value 1 or 'on' means open, 0 or 'off' means closed
       const isOpen = numValue === 1 || String(value).toLowerCase() === 'on' || connectionStatus === 'on';
       return isOpen ? 'ABERTO' : 'FECHADO';
@@ -982,12 +991,14 @@ export function renderCardComponentV6({
   }
 
   // Get device image URL with dynamic level support
+  // RFC-0175: Accept both deviceType and deviceProfile for proper device detection
   const getDeviceImageUrl = (deviceType, percentage = 0, options = {}) => {
-    const { tempStatus, isOffline } = options;
+    const { tempStatus, isOffline, deviceProfile: optDeviceProfile } = options;
     const nameType = String(deviceType || '').toUpperCase();
+    const profileType = String(optDeviceProfile || '').toUpperCase();
 
     // TERMOSTATO devices: Dynamic icon based on temperature status
-    if (nameType === 'TERMOSTATO') {
+    if (nameType === 'TERMOSTATO' || profileType === 'TERMOSTATO') {
       if (isOffline) {
         return 'https://dashboard.myio-bas.com/api/images/public/Q4bE6zWz4pL3u5M3rjmMt2uSis6Xe52F';
       }
@@ -1001,7 +1012,7 @@ export function renderCardComponentV6({
     }
 
     // TANK devices: Dynamic icon based on water level percentage
-    if (nameType === 'TANK') {
+    if (nameType === 'TANK' || profileType === 'TANK') {
       if (percentage >= 70) {
         return 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq';
       } else if (percentage >= 40) {
@@ -1014,7 +1025,9 @@ export function renderCardComponentV6({
     }
 
     // SOLENOIDE devices: Dynamic icon based on on/off status
-    if (nameType === 'SOLENOIDE' || nameType.includes('SOLENOIDE')) {
+    // RFC-0175: Check deviceProfile first (preferred), then deviceType as fallback
+    if (profileType === 'SOLENOIDE' || profileType.includes('SOLENOIDE') ||
+        nameType === 'SOLENOIDE' || nameType.includes('SOLENOIDE')) {
       if (isOffline) {
         return SOLENOID_IMAGES.offline;
       }
@@ -1027,9 +1040,14 @@ export function renderCardComponentV6({
   };
 
   // Create card HTML
-  const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-  const isTermostatoDevice = deviceType?.toUpperCase() === 'TERMOSTATO';
-  const isEnergyDeviceFlag = isEnergyDevice(deviceType);
+  // RFC-0175: Check deviceProfile first (preferred) for all device type flags
+  const dtUpper = String(deviceType || '').toUpperCase();
+  const dpUpper = String(deviceProfile || '').toUpperCase();
+  const isTankDevice = dpUpper === 'TANK' || dpUpper === 'CAIXA_DAGUA' || dtUpper === 'TANK' || dtUpper === 'CAIXA_DAGUA';
+  const isTermostatoDevice = dpUpper === 'TERMOSTATO' || dtUpper === 'TERMOSTATO';
+  // RFC-0175: SOLENOIDE devices are NOT energy devices even if deviceType=3F_MEDIDOR
+  const isSolenoidDevice = isSolenoidDeviceType(deviceProfile) || isSolenoidDeviceType(deviceType);
+  const isEnergyDeviceFlag = !isSolenoidDevice && (isEnergyDevice(deviceProfile) || isEnergyDevice(deviceType));
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
 
   // Calculate temperature status for TERMOSTATO devices
@@ -1045,9 +1063,11 @@ export function renderCardComponentV6({
   };
 
   const tempStatus = isTermostatoDevice ? calculateTempStatus() : null;
+  // RFC-0175: Pass deviceProfile to getDeviceImageUrl for SOLENOIDE detection
   const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay, {
     tempStatus,
     isOffline,
+    deviceProfile,
   });
 
   // Calculate temperature deviation percentage
@@ -1130,7 +1150,7 @@ export function renderCardComponentV6({
                 <span class="flash-icon ${shouldFlashIcon ? 'flash' : ''}">
                   ${icon}
                 </span>
-                <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
+                <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType, deviceProfile)}</span>
               </div>
             </div>
             ${

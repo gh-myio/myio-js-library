@@ -923,11 +923,14 @@ function parseDevicesFromData(data) {
       var typeUpper = deviceType.toUpperCase();
 
       // RFC-0174: Explicit exclusion list - these are NEVER energy devices
+      // RFC-0175: Add LAMP to exclusion list (LAMP is a control device, not an energy meter)
       var isExcluded =
         profileUpper === 'REMOTE' ||
+        profileUpper === 'LAMP' ||
         profileUpper.includes('SOLENOIDE') ||
         profileUpper.includes('SOLENOID') ||
         typeUpper === 'REMOTE' ||
+        typeUpper === 'LAMP' ||
         typeUpper.includes('SOLENOIDE') ||
         typeUpper.includes('SOLENOID');
 

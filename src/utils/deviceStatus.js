@@ -88,6 +88,23 @@ export const temperatureDeviceStatusIcons = {
 };
 
 /**
+ * RFC-0175: Solenoid device status icons mapping (for SOLENOIDE)
+ * @type {Object.<string, string>}
+ */
+export const solenoidDeviceStatusIcons = {
+  [DeviceStatusType.POWER_ON]: '🔵', // Open valve
+  [DeviceStatusType.STANDBY]: '🔴', // Closed valve
+  [DeviceStatusType.POWER_OFF]: '⚫',
+  [DeviceStatusType.WARNING]: '⚠️',
+  [DeviceStatusType.FAILURE]: '🚨',
+  [DeviceStatusType.MAINTENANCE]: '🛠️',
+  [DeviceStatusType.NO_INFO]: '❓️',
+  [DeviceStatusType.NOT_INSTALLED]: '📦',
+  [DeviceStatusType.OFFLINE]: '🔴',
+  [DeviceStatusType.WEAK_CONNECTION]: '📶', // RFC-0109: Weak signal icon
+};
+
+/**
  * Connection status icons mapping
  * @type {Object.<string, string>}
  */
@@ -263,7 +280,7 @@ export function isDeviceOffline(deviceStatus) {
  * Gets the appropriate icon for a device status
  *
  * @param {string} deviceStatus - The device status
- * @param {string} deviceType - The device type (optional, for water/temperature devices)
+ * @param {string} deviceType - The device type (optional, for water/temperature/solenoid devices)
  * @returns {string} The icon emoji/character
  */
 export function getDeviceStatusIcon(deviceStatus, deviceType = null) {
@@ -282,11 +299,16 @@ export function getDeviceStatusIcon(deviceStatus, deviceType = null) {
   // Use temperature icons for TERMOSTATO devices
   const isTemperatureDevice = normalizedType === 'TERMOSTATO';
 
+  // RFC-0175: Use solenoid icons for SOLENOIDE devices
+  const isSolenoidDevice = normalizedType === 'SOLENOIDE' || normalizedType.includes('SOLENOIDE');
+
   let iconMap;
   if (isWaterDevice) {
     iconMap = waterDeviceStatusIcons;
   } else if (isTemperatureDevice) {
     iconMap = temperatureDeviceStatusIcons;
+  } else if (isSolenoidDevice) {
+    iconMap = solenoidDeviceStatusIcons;
   } else {
     iconMap = deviceStatusIcons;
   }

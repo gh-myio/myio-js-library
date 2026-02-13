@@ -471,6 +471,8 @@ tb-html-widget > div,
 .myio-cgp__card-wrapper {
   min-width: 0 !important;
   display: block !important; /* Not flex - let card determine its size */
+  /* RFC-0175: Add spacing between cards when using larger heights */
+  margin-bottom: 8px !important;
 }
 
 /* Card v6 overrides - ensure full width within grid cell */
