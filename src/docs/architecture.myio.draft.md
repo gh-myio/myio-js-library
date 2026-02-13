@@ -549,9 +549,256 @@ async function fetchEnergyData(deviceId, startDate, endDate) {
 
 ---
 
-## 9. Data Flow
+## 9. Ingestion Backend Architecture
 
-### 9.1 ThingsBoard to UI Flow
+### 9.1 Overview
+
+The Myio Ingestion Backend handles real-time data collection from IoT devices via MQTT, stores readings in TimescaleDB, and serves aggregated data through the REST API.
+
+**Technology Stack:**
+- **ORM:** TypeORM 0.3.x
+- **Database:** PostgreSQL + TimescaleDB extension
+- **Messaging:** MQTT (Aedes broker)
+- **Web Framework:** Express 5.x
+- **Language:** TypeScript
+
+### 9.2 Data Models
+
+#### Energy Reading
+
+```typescript
+@Entity('energy_readings')
+export class EnergyReading {
+  @PrimaryColumn({ name: 'gateway_id' })
+  gatewayId!: string;
+
+  @PrimaryColumn({ name: 'slave_id' })
+  slaveId!: number;
+
+  @PrimaryColumn({ type: 'timestamp with time zone' })
+  timestamp!: Date;
+
+  @Column({ type: 'double precision' })
+  value!: number;  // kWh
+
+  @Column({ name: 'value_reactive', type: 'double precision' })
+  valueReactive?: number;  // kVArh
+}
+```
+
+**Key:** `(gateway_id, slave_id, timestamp)`
+
+#### Water Reading
+
+```typescript
+@Entity('water_readings')
+export class WaterReading {
+  @PrimaryColumn({ name: 'gateway_id' })
+  gatewayId!: string;
+
+  @PrimaryColumn({ name: 'slave_id' })
+  slaveId!: number;
+
+  @PrimaryColumn()
+  channel!: number;  // Multi-channel support
+
+  @PrimaryColumn({ type: 'timestamptz' })
+  timestamp!: Date;
+
+  @Column({ type: 'decimal', precision: 15, scale: 6 })
+  value!: number;  // m³
+}
+```
+
+**Key:** `(gateway_id, slave_id, channel, timestamp)`
+
+#### Device
+
+```typescript
+@Entity('devices')
+export class Device {
+  @Column({ name: 'gateway_id' })
+  gatewayId!: string;
+
+  @Column({ name: 'slave_id' })
+  slaveId!: number;
+
+  @Column({ name: 'device_type' })
+  deviceType?: 'energy' | 'water' | 'temperature';
+}
+```
+
+### 9.3 MQTT Topics
+
+| Topic | Direction | Purpose |
+|-------|-----------|---------|
+| `gateway/+/data` | IN | Energy readings from gateways |
+| `gateway/+/water` | IN | Water readings from gateways |
+| `gateway/+/status` | IN | Gateway status updates |
+| `gateway/+/fetch` | OUT | Request to fetch data from gateway |
+
+### 9.4 Data Flow
+
+```
+┌─────────────────┐
+│   IoT Gateway   │
+│  (Field Device) │
+└────────┬────────┘
+         │ MQTT publish
+         │ gateway/{id}/data
+         ▼
+┌─────────────────┐
+│   MQTT Broker   │
+│    (Aedes)      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   MqttService   │
+│  handleMessage  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ ReadingService  │
+│ saveReadings()  │──────────────────┐
+└────────┬────────┘                  │
+         │ batch insert              │ trigger refresh
+         ▼                           ▼
+┌─────────────────┐        ┌─────────────────┐
+│   TimescaleDB   │        │ AggregateRefresh│
+│   Hypertable    │        │    Service      │
+└────────┬────────┘        └────────┬────────┘
+         │                          │
+         │ continuous aggregate     │ on-demand refresh
+         ▼                          ▼
+┌─────────────────────────────────────────────┐
+│          Materialized Views                  │
+│  aggregated_energy_hourly                   │
+│  aggregated_water_hourly                    │
+└─────────────────────────────────────────────┘
+         │
+         │ API query
+         ▼
+┌─────────────────┐
+│   REST API      │
+│   /api/v1/*     │
+└─────────────────┘
+```
+
+### 9.5 TimescaleDB Materialized Views
+
+#### Energy Hourly Aggregation
+
+```sql
+CREATE MATERIALIZED VIEW aggregated_energy_hourly
+WITH (timescaledb.continuous) AS
+SELECT
+  time_bucket('1 hour', timestamp) AS hour_start,
+  gateway_id,
+  slave_id,
+  SUM(value) / COUNT(value) AS value
+FROM public.energy_readings
+GROUP BY hour_start, gateway_id, slave_id;
+```
+
+#### Water Hourly Aggregation
+
+```sql
+CREATE MATERIALIZED VIEW aggregated_water_hourly
+WITH (timescaledb.continuous) AS
+SELECT
+  time_bucket('1 hour', timestamp) AS hour_start,
+  gateway_id,
+  slave_id,
+  channel,
+  SUM(value) AS value
+FROM public.water_readings
+GROUP BY hour_start, gateway_id, slave_id, channel;
+```
+
+#### Refresh Policy
+
+```sql
+SELECT add_continuous_aggregate_policy(
+  'aggregated_energy_hourly',
+  start_offset    => INTERVAL '3 days',
+  end_offset      => INTERVAL '1 hour',
+  schedule_interval => INTERVAL '1 hour'
+);
+```
+
+### 9.6 Backend Directory Structure
+
+```
+packages/backend/src/
+├── models/                    # TypeORM entities
+│   ├── EnergyReading.ts
+│   ├── WaterReading.ts
+│   ├── Gateway.ts
+│   ├── Device.ts
+│   ├── Customer.ts
+│   ├── Asset.ts
+│   └── AggregateRefreshJob.ts
+├── services/                  # Business logic
+│   ├── MqttService.ts         # MQTT message handling
+│   ├── EnergyReadingService.ts
+│   ├── WaterReadingService.ts
+│   ├── GatewayService.ts
+│   ├── DeviceService.ts
+│   ├── AggregateRefreshService.ts
+│   ├── PollingService.ts
+│   └── TelemetryService.ts
+├── routes/                    # API endpoints
+│   ├── reading.routes.ts
+│   ├── water.routes.ts
+│   ├── telemetry.routes.ts
+│   └── ...
+├── middleware/
+│   ├── auth.ts
+│   ├── rateLimiter.ts
+│   └── customerScoping.ts
+├── db/
+│   └── data-source.ts
+└── index.ts
+```
+
+### 9.7 Key Design Features
+
+| Feature | Implementation |
+|---------|----------------|
+| **Time-Series Storage** | TimescaleDB hypertables |
+| **Duplicate Handling** | Composite PK + `orIgnore()` |
+| **Batch Inserts** | 10,000 readings per batch |
+| **Pre-Aggregation** | Continuous aggregates |
+| **Historical Refresh** | On-demand job queue |
+| **Timezone Support** | Query-time transformation |
+
+### 9.8 Configuration
+
+**Environment Variables:**
+
+```env
+MQTT_BROKER_URL=mqtt://mqtt:1883
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=energy_ingestion
+POLLING_INTERVAL=300000
+```
+
+**System Settings:**
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `aggregate_refresh.auto_trigger_enabled` | true | Auto-refresh on historical data |
+| `aggregate_refresh.default_batch_size_days` | 7 | Days per refresh batch |
+| `aggregate_refresh.historical_threshold_hours` | 1 | Age to consider historical |
+
+---
+
+## 10. Data Flow (Frontend)
+
+### 10.1 ThingsBoard to UI Flow
 
 ```
 ┌─────────────────┐
@@ -590,7 +837,7 @@ async function fetchEnergyData(deviceId, startDate, endDate) {
 └─────────────────┘
 ```
 
-### 9.2 EntityObject Structure
+### 10.2 EntityObject Structure
 
 ```typescript
 interface EntityObject {
@@ -624,16 +871,16 @@ interface EntityObject {
 
 ---
 
-## 10. Styling Strategy
+## 11. Styling Strategy
 
-### 10.1 Style Ownership
+### 11.1 Style Ownership
 
 | Owner | Responsibility |
 |-------|----------------|
 | **Component** (CardGridPanel.ts) | Grid, card layout, card styling, spacing |
 | **Widget** (styles.css) | Slot layout, ThingsBoard overrides, grid areas |
 
-### 10.2 CSS Variable System
+### 11.2 CSS Variable System
 
 ```css
 /* CardGridPanel CSS Variables */
@@ -642,7 +889,7 @@ interface EntityObject {
 --cgp-max-card-w: none;        /* Maximum card width */
 ```
 
-### 10.3 Style Injection
+### 11.3 Style Injection
 
 ```typescript
 const CSS_ID = 'myio-cgp-styles';
@@ -658,9 +905,9 @@ function injectStyles(): void {
 
 ---
 
-## 11. Build System
+## 12. Build System
 
-### 11.1 Build Pipeline
+### 12.1 Build Pipeline
 
 ```
 TypeScript Source → tsup (ESM/CJS) → UMD Bundler → Minify (terser)
@@ -668,7 +915,7 @@ TypeScript Source → tsup (ESM/CJS) → UMD Bundler → Minify (terser)
                    dist/index.js   dist/umd/*.js   dist/umd/*.min.js
 ```
 
-### 11.2 Build Commands
+### 12.2 Build Commands
 
 ```bash
 npm run build           # Full build (clean + tsup + umd + minify)
@@ -678,7 +925,7 @@ npm version patch       # Bump version
 npm publish             # Publish to npm
 ```
 
-### 11.3 Output Formats
+### 12.3 Output Formats
 
 | Format | File | Usage |
 |--------|------|-------|
@@ -688,7 +935,7 @@ npm publish             # Publish to npm
 
 ---
 
-## 12. Key Design Decisions
+## 13. Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
@@ -700,7 +947,7 @@ npm publish             # Publish to npm
 
 ---
 
-## 13. RFC Index
+## 14. RFC Index
 
 | RFC | Title | Status |
 |-----|-------|--------|
@@ -716,7 +963,7 @@ npm publish             # Publish to npm
 
 ---
 
-## 14. Glossary
+## 15. Glossary
 
 | Term | Definition |
 |------|------------|
