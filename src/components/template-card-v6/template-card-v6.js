@@ -1308,14 +1308,7 @@ export function renderCardComponentV6({
       }
 
       .device-card-centered .device-percentage-badge {
-        background: none !important;
-        border: none !important;
-        padding: 0 !important;
-        font-size: 0.65rem !important;
-        font-weight: 600 !important;
-        color: #6b7280 !important;
-        white-space: nowrap !important;
-        box-shadow: none !important;
+        display: none !important;
       }
 
       .device-card-centered .device-title-row {

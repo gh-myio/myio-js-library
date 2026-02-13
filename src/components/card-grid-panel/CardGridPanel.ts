@@ -179,6 +179,7 @@ const PANEL_CSS = `
     padding: 16px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr));
+    grid-auto-rows: auto;
     gap: var(--cgp-grid-gap, 16px);
     row-gap: var(--cgp-grid-gap, 16px);
     column-gap: var(--cgp-grid-gap, 16px);

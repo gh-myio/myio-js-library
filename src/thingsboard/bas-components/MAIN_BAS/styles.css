@@ -257,6 +257,7 @@ tb-html-widget > div,
 /* RFC-0175: Ensure proper row gap for water cards */
 .bas-water-slot .myio-cgp__grid,
 .bas-water-slot .myio-dgv6__body {
+  grid-auto-rows: auto !important;
   gap: 12px !important;
   row-gap: 12px !important;
   column-gap: 12px !important;
@@ -317,6 +318,7 @@ tb-html-widget > div,
 /* RFC-0175: Reduce gap between ambiente cards (they already have internal spacing) */
 .bas-ambientes-slot .myio-cgp__grid,
 .bas-ambientes-slot .myio-dgv6__body {
+  grid-auto-rows: auto !important;
   gap: 8px !important;
   row-gap: 8px !important;
   column-gap: 8px !important;
@@ -339,6 +341,7 @@ tb-html-widget > div,
 /* RFC-0175: Ensure proper row gap for motors/energy cards */
 .bas-motors-slot .myio-cgp__grid,
 .bas-motors-slot .myio-dgv6__body {
+  grid-auto-rows: auto !important;
   gap: 12px !important;
   row-gap: 12px !important;
   column-gap: 12px !important;
