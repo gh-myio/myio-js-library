@@ -93,8 +93,9 @@ export function isTemperatureDevice(deviceType) {
 export function isEnergyDevice(deviceType) {
   const dt = String(deviceType || '').toUpperCase();
 
-  // Explicitly exclude non-energy devices (lighting, remotes)
-  if (dt.includes('LAMP') || dt.includes('REMOTE') || dt.includes('CONTROLE')) {
+  // Explicitly exclude non-energy devices (lighting, remotes, solenoids)
+  // RFC-0175: SOLENOIDE is a control device, not an energy meter
+  if (dt.includes('LAMP') || dt.includes('REMOTE') || dt.includes('CONTROLE') || dt.includes('SOLENOIDE')) {
     return false;
   }
 

@@ -254,6 +254,12 @@ tb-html-widget > div,
   max-width: var(--bas-water-card-max-width, 200px) !important;
 }
 
+/* RFC-0175: Ensure proper row gap for water cards */
+.bas-water-slot .myio-cgp__grid {
+  gap: 12px !important;
+  row-gap: 12px !important;
+}
+
 /* ========================================
    CHARTS SLOT — Header + Tab bar + chart
    col 1-2, row 2  (60% × 50%)
@@ -306,6 +312,12 @@ tb-html-widget > div,
   grid-template-columns: 1fr !important;
 }
 
+/* RFC-0175: Reduce gap between ambiente cards (they already have internal spacing) */
+.bas-ambientes-slot .myio-cgp__grid {
+  gap: 8px !important;
+  row-gap: 8px !important;
+}
+
 /* ========================================
    MOTORS SLOT — CardGridPanel host (Bombas e Motores)
    col 4, row 1–2  (20% × 100%)
@@ -318,6 +330,12 @@ tb-html-widget > div,
 .bas-motors-slot .myio-cgp__grid,
 .bas-motors-slot .myio-dgv6__body {
   grid-template-columns: 1fr !important;
+}
+
+/* RFC-0175: Ensure proper row gap for motors/energy cards */
+.bas-motors-slot .myio-cgp__grid {
+  gap: 12px !important;
+  row-gap: 12px !important;
 }
 
 /* ========================================

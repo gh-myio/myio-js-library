@@ -1384,13 +1384,19 @@ function getHVACDevicesFromClassified(classified) {
 
 /**
  * Get all energy equipment devices from classified structure
- * Energy domain contexts: entrada, stores, equipments (+ bomba, motor)
- * For the Energia panel, we show: entrada, stores, equipments
+ * Energy domain contexts: entrada, stores, equipments, motor, bomba
+ * RFC-0175: Include motor context for MOTOR devices (DM1, DM2, DM3, DM4, etc.)
  */
 function getEnergyEquipmentDevicesFromClassified(classified) {
   if (!classified || !classified.energy) return [];
   var energy = classified.energy;
-  return [].concat(energy.entrada || [], energy.stores || [], energy.equipments || []);
+  return [].concat(
+    energy.entrada || [],
+    energy.stores || [],
+    energy.equipments || [],
+    energy.motor || [],
+    energy.bomba || []
+  );
 }
 
 /**
