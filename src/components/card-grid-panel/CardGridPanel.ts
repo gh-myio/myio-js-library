@@ -174,16 +174,18 @@ const PANEL_CSS = `
   }
 
   .myio-cgp__grid {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr));
-    grid-auto-rows: auto;
-    gap: var(--cgp-grid-gap, 16px);
-    row-gap: var(--cgp-grid-gap, 16px);
-    column-gap: var(--cgp-grid-gap, 16px);
-    align-content: start;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding: 16px !important;
+    padding-bottom: 20px !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr)) !important;
+    grid-auto-rows: auto !important;
+    gap: var(--cgp-grid-gap, 16px) !important;
+    row-gap: var(--cgp-grid-gap, 16px) !important;
+    column-gap: var(--cgp-grid-gap, 16px) !important;
+    align-content: start !important;
   }
 
   /* Thin scrollbar */
@@ -192,16 +194,19 @@ const PANEL_CSS = `
   .myio-cgp__grid::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
 
   .myio-cgp__card-wrapper {
-    min-width: 0;
+    min-width: 0 !important;
     /* Block display - let grid handle sizing, don't use flex */
-    display: block;
-    margin: 0;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    /* Ensure wrapper doesn't collapse or add extra space */
+    box-sizing: border-box !important;
   }
 
   /* Card should fill wrapper width */
   .myio-cgp__card-wrapper > * {
-    width: 100%;
-    margin: 0;
+    width: 100% !important;
+    margin: 0 !important;
   }
 
   /* Override card v6 width constraints when inside grid */

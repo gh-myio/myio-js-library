@@ -439,19 +439,17 @@ tb-html-widget > div,
   flex-direction: column !important;
 }
 
-/* CardGridPanel and DeviceGridV6 - use custom gap variable */
-.myio-cgp__grid,
+/* DeviceGridV6 body - grid styling (CardGridPanel handles its own grid via component CSS) */
 .myio-dgv6__body {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
-  align-content: start !important; /* Cards align top, use natural height */
-  display: grid !important; /* Force grid display */
-  /* Gap uses CSS variable from CardGridPanel, fallback to 20px */
-  gap: var(--cgp-grid-gap, 20px) !important;
-  row-gap: var(--cgp-grid-gap, 20px) !important;
-  column-gap: var(--cgp-grid-gap, 20px) !important;
-  /* Padding bottom to prevent last card from being cut off */
+  align-content: start !important;
+  display: grid !important;
+  gap: var(--cgp-grid-gap, 16px) !important;
+  row-gap: var(--cgp-grid-gap, 16px) !important;
+  column-gap: var(--cgp-grid-gap, 16px) !important;
+  grid-auto-rows: auto !important;
   padding-bottom: 16px !important;
 }
 
@@ -470,13 +468,7 @@ tb-html-widget > div,
   border-bottom-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Card wrapper inside grid - ensure proper sizing */
-.myio-cgp__card-wrapper {
-  min-width: 0 !important;
-  display: block !important; /* Not flex - let card determine its size */
-  /* RFC-0175: Spacing handled by grid gap, not margin */
-  margin-bottom: 0 !important;
-}
+/* Card wrapper - sizing handled by CardGridPanel component CSS */
 
 /* Card v6 overrides - ensure full width within grid cell */
 .myio-cgp__card-wrapper .device-card-centered,
