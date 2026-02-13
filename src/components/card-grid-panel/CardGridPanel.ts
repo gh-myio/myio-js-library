@@ -252,11 +252,11 @@ const PANEL_CSS = `
 
   .myio-cgp__card-wrapper .device-card-centered .device-title-row {
     position: absolute !important;
-    top: -2px !important;
-    left: 0px !important;
+    top: -4px !important;
+    left: -2px !important;
     right: auto !important;
     width: auto !important;
-    max-width: calc(100% - 8px) !important;
+    max-width: calc(100% - 4px) !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
