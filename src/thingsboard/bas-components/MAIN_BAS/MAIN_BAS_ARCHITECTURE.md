@@ -409,11 +409,12 @@ O controller.js define o seguinte default para todos os paineis (Water, Ambiente
 
 ```javascript
 cardCustomStyle: settings.cardCustomStyle || {
-  height: '90px',
   zoomMultiplier: 0.9,
   padding: '15px'
 },
 ```
+
+> **Nota**: Evite usar `height` fixo com `zoomMultiplier` - o zoom calcula automaticamente o `minHeight`.
 
 ### Propriedades do customStyle
 
@@ -813,8 +814,8 @@ controller.js
    - Apenas `handleClickCard` ativo para emitir `bas:device-clicked`
 
 5. **customStyle tem defaults**
-   - Se `cardCustomStyle` nao definido no widget settings, usa default: `{ height: '90px', zoomMultiplier: 0.9, padding: '15px' }`
-   - `cardCustomStyle: settings.cardCustomStyle || { height: '90px', zoomMultiplier: 0.9, padding: '15px' }`
+   - Se `cardCustomStyle` nao definido no widget settings, usa default: `{ zoomMultiplier: 0.9, padding: '15px' }`
+   - `cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' }`
 
 6. **Chart precisa de canvas fresco**
    - `switchChartDomain()` destroi o chart antigo e cria um novo `<canvas>` element
@@ -846,7 +847,6 @@ if (_basInstance && _basInstance.updateData) {
 // Usar cardCustomStyle para personalizar cards no widget settings
 {
   "cardCustomStyle": {
-    "height": "90px",
     "zoomMultiplier": 0.9,
     "padding": "15px",
     "backgroundColor": "#1a1a2e",

@@ -115,8 +115,12 @@ export interface CardGridPanelOptions {
   emptyMessage?: string;
   /** Min card width for the auto-fill grid (default: 140px) */
   gridMinCardWidth?: string;
-  /** Gap between cards in the grid (default: 16px) */
+  /** Gap between cards in the grid - applies to both row and column (default: 16px) */
   gridGap?: string;
+  /** Row gap between cards (default: gridGap value, min: 2px) */
+  gridRowGap?: string;
+  /** Column gap between cards (default: gridGap value) */
+  gridColumnGap?: string;
   /** Force single column layout (useful for narrow panels like ambientes/motors) */
   singleColumn?: boolean;
   /** Max width for cards (e.g. '200px') */
@@ -185,12 +189,13 @@ const PANEL_CSS = `
     padding-bottom: 24px !important;
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(var(--cgp-min-card-w, 140px), 1fr)) !important;
-    grid-auto-rows: auto !important;
-    /* Enforce minimum 16px gap, use CSS variable for larger values */
-    gap: 16px !important;
-    row-gap: var(--cgp-grid-gap, 16px) !important;
-    column-gap: var(--cgp-grid-gap, 16px) !important;
+    /* Use min-content to ensure rows size to fit card content */
+    grid-auto-rows: min-content !important;
+    /* Separate row and column gaps with minimums */
+    row-gap: var(--cgp-row-gap, var(--cgp-grid-gap, 8px)) !important;
+    column-gap: var(--cgp-col-gap, var(--cgp-grid-gap, 8px)) !important;
     align-content: start !important;
+    align-items: start !important;
   }
 
   /* Thin scrollbar */
@@ -200,7 +205,8 @@ const PANEL_CSS = `
 
   .myio-cgp__card-wrapper {
     min-width: 0 !important;
-    min-height: 0 !important;
+    /* Let wrapper take natural height from content */
+    height: fit-content !important;
     /* Block display - let grid handle sizing, don't use flex */
     display: block !important;
     /* CRITICAL: No margin - grid gap handles spacing */
@@ -599,6 +605,13 @@ export class CardGridPanel {
     }
     if (this.options.gridGap) {
       grid.style.setProperty('--cgp-grid-gap', this.options.gridGap);
+    }
+    // Separate row/column gap support (min 2px enforced)
+    if (this.options.gridRowGap) {
+      grid.style.setProperty('--cgp-row-gap', this.options.gridRowGap);
+    }
+    if (this.options.gridColumnGap) {
+      grid.style.setProperty('--cgp-col-gap', this.options.gridColumnGap);
     }
     if (this.options.maxCardWidth) {
       grid.style.setProperty('--cgp-max-card-w', this.options.maxCardWidth);

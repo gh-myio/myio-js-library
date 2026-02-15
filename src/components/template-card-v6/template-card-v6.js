@@ -983,7 +983,7 @@ export function renderCardComponentV6({
       .myio-enhanced-card-container-v6 {
         position: relative;
         width: 100%;
-        height: 100%;
+        height: auto;
       }
 
       .myio-enhanced-card-container-v6 .myio-draggable-card {
@@ -1267,7 +1267,7 @@ export function renderCardComponentV6({
               : ''
           }
 
-          <div class="device-card-body" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; position: relative;">
+          <div class="device-card-body" style="display:flex;flex-direction:column;justify-content:center;align-items:center; flex-grow: 1; min-width: 0; position: relative;">
 
             <div class="device-title-row">
               <span class="device-title" title="${cardEntity.name}">

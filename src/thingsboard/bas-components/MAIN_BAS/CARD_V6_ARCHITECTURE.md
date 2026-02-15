@@ -237,11 +237,13 @@ O controller.js define o seguinte default para todos os paineis:
 
 ```javascript
 cardCustomStyle: settings.cardCustomStyle || {
-  height: '90px',
   zoomMultiplier: 0.9,
   padding: '15px'
 },
 ```
+
+> **Nota**: Não use `height` fixo junto com `zoomMultiplier` pois podem conflitar.
+> O `zoomMultiplier` calcula automaticamente o `minHeight` proporcional (114px * 0.9 = 102.6px).
 
 ---
 

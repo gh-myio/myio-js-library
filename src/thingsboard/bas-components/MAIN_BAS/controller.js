@@ -310,7 +310,12 @@ function buildAmbienteHierarchy(classifiedDevices) {
             LogHelper.log('[MAIN_BAS] Device "' + device.name + '" -> Parent: ' + parentAsset.id);
           });
 
-          return { device: device, parentIds: parentAssets.map(function (p) { return p.id; }) };
+          return {
+            device: device,
+            parentIds: parentAssets.map(function (p) {
+              return p.id;
+            }),
+          };
         })
         .catch(function (err) {
           LogHelper.warn('[MAIN_BAS] No parent for device:', device.name, err);
@@ -1229,7 +1234,13 @@ function buildAmbienteItems(ambientes) {
     return hasValidPattern;
   });
 
-  LogHelper.log('[MAIN_BAS] buildAmbienteItems: filtered', filteredAmbientes.length, 'of', ambientes.length, 'ambientes');
+  LogHelper.log(
+    '[MAIN_BAS] buildAmbienteItems: filtered',
+    filteredAmbientes.length,
+    'of',
+    ambientes.length,
+    'ambientes'
+  );
 
   return filteredAmbientes.map(function (ambiente) {
     // Use label (e.g., "(001)-Deck") for display, fallback to name (e.g., "Melicidade-Deck")
@@ -1319,10 +1330,7 @@ function waterDeviceToEntityObject(device) {
 
   // RFC-0174: Extract water percentage (0-1 range from API)
   var waterPercentage =
-    device.rawData?.water_percentage ??
-    device.rawData?.waterPercentage ??
-    device.rawData?.percentage ??
-    null;
+    device.rawData?.water_percentage ?? device.rawData?.waterPercentage ?? device.rawData?.percentage ?? null;
 
   // Calculate percentage for display (0-100 range)
   var displayPercentage = 0;
@@ -1577,12 +1585,9 @@ function assetAmbientToAmbienteData(hierarchyNode) {
   if (termostatoDevice) {
     // Get temperature from rawData or direct property
     temperature =
-      (termostatoDevice.rawData && termostatoDevice.rawData.temperature) ||
-      termostatoDevice.temperature;
+      (termostatoDevice.rawData && termostatoDevice.rawData.temperature) || termostatoDevice.temperature;
     // Get humidity from rawData or direct property
-    humidity =
-      (termostatoDevice.rawData && termostatoDevice.rawData.humidity) ||
-      termostatoDevice.humidity;
+    humidity = (termostatoDevice.rawData && termostatoDevice.rawData.humidity) || termostatoDevice.humidity;
   } else if (aggregatedData.temperature) {
     // Fallback to aggregated temperature average
     temperature = aggregatedData.temperature.avg;
@@ -1671,7 +1676,9 @@ function assetAmbientToAmbienteData(hierarchyNode) {
   });
 
   var hasRemote = remoteDevices.length > 0;
-  var isOn = remoteDevices.some(function (r) { return r.isOn; });
+  var isOn = remoteDevices.some(function (r) {
+    return r.isOn;
+  });
 
   // Determine overall status
   var onlineCount = aggregatedData.onlineCount || 0;
@@ -1908,7 +1915,7 @@ let _maximizedPanel = null;
 // Theme colors for maximize modal
 var MAXIMIZE_THEME = {
   light: {
-    overlayBg: 'rgba(255, 255, 255, 0.85)',
+    overlayBg: 'rgba(255, 255, 255, 1.00)',
     panelBg: '#ffffff',
     panelShadow: '0 25px 80px rgba(0, 0, 0, 0.2)',
     panelBorder: '1px solid #e2e8f0',
@@ -2164,7 +2171,8 @@ function switchChartDomainInContainer(domain, container) {
   var widgetContainer = document.createElement('div');
   var containerId = 'bas-chart-widget-maximized-' + domain + '-' + Date.now(); // Unique ID
   widgetContainer.id = containerId;
-  widgetContainer.style.cssText = 'width: 100%; height: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column;';
+  widgetContainer.style.cssText =
+    'width: 100%; height: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column;';
   container.appendChild(widgetContainer);
 
   var cfg = CHART_DOMAIN_CONFIG[domain];
@@ -2215,7 +2223,13 @@ function switchChartDomainInContainer(domain, container) {
 
         // Callbacks
         onDataLoaded: function (data) {
-          LogHelper.log('[MAIN_BAS] Maximized chart data loaded for', domain, ':', data.labels?.length, 'days');
+          LogHelper.log(
+            '[MAIN_BAS] Maximized chart data loaded for',
+            domain,
+            ':',
+            data.labels?.length,
+            'days'
+          );
         },
         onError: function (error) {
           LogHelper.error('[MAIN_BAS] Maximized chart error for', domain, ':', error);
@@ -2227,7 +2241,9 @@ function switchChartDomainInContainer(domain, container) {
       });
     } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
       // Fallback
-      LogHelper.warn('[MAIN_BAS] createConsumptionChartWidget not available for maximized view, using fallback');
+      LogHelper.warn(
+        '[MAIN_BAS] createConsumptionChartWidget not available for maximized view, using fallback'
+      );
 
       container.innerHTML = '';
       var canvas = document.createElement('canvas');
@@ -2502,10 +2518,11 @@ function mountWaterPanel(waterHost, settings, classified) {
     items: waterItems,
     tabs: waterTabs,
     panelBackground: settings.waterPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { height: '90px', zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
     titleStyle: waterHeaderStyle,
     gridMinCardWidth: settings.waterCardMinWidth || '160px',
-    gridGap: settings.cardGridGap,
+    gridGap: settings.cardGridGap || '8px',
+    gridRowGap: settings.cardGridRowGap || '6px',
     maxCardWidth: settings.waterCardMaxWidth || '200px',
     emptyMessage: 'Nenhum dispositivo',
     showSearch: true,
@@ -2632,10 +2649,11 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
     items: ambienteItems,
     cardType: 'ambiente',
     panelBackground: settings.environmentsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { height: '90px', zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
     titleStyle: headerStyle,
     gridMinCardWidth: '140px',
-    gridGap: settings.cardGridGap,
+    gridGap: settings.cardGridGap || '8px',
+    gridRowGap: settings.cardGridRowGap || '6px',
     singleColumn: true,
     emptyMessage: 'Nenhum ambiente',
     showSearch: true,
@@ -2752,10 +2770,7 @@ function openBASDeviceModal(device, settings) {
         device.rawData?.current_a ||
         device.rawData?.corrente,
       // Tensão: check multiple possible fields
-      voltage:
-        device.rawData?.voltage_a ||
-        device.rawData?.voltage ||
-        device.rawData?.tensao,
+      voltage: device.rawData?.voltage_a || device.rawData?.voltage || device.rawData?.tensao,
       // Fases individuais para exibição detalhada
       currentPhases: {
         a: device.rawData?.current_a,
@@ -2934,7 +2949,9 @@ function openBASWaterModal(device, settings) {
   var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
 
   if (!clientId || !clientSecret) {
-    LogHelper.warn('[MAIN_BAS] No client credentials available for BAS Water modal - chart data may not load');
+    LogHelper.warn(
+      '[MAIN_BAS] No client credentials available for BAS Water modal - chart data may not load'
+    );
   }
 
   // Build auth and get token
@@ -3086,10 +3103,11 @@ function findSubAmbientesForParent(parentItem) {
     // 1. Exact match: "Deck" === "Deck"
     // 2. Child match: "Deck - Climatização" starts with "Deck"
     // 3. Name-based match: node.name starts with parentName
-    var isMatch = nodeLabel === parentLabel ||
-                  nodeLabel.startsWith(parentLabel + ' - ') ||
-                  nodeLabel.startsWith(parentLabel + ' ') ||
-                  (parentName && node.name && node.name.startsWith(parentName + '-'));
+    var isMatch =
+      nodeLabel === parentLabel ||
+      nodeLabel.startsWith(parentLabel + ' - ') ||
+      nodeLabel.startsWith(parentLabel + ' ') ||
+      (parentName && node.name && node.name.startsWith(parentName + '-'));
 
     if (isMatch) {
       allMatchingNodes.push(node);
@@ -3198,7 +3216,12 @@ function openAmbienteGroupModal(parentItem, settings) {
       LogHelper.log('[MAIN_BAS] Group remote toggle:', isOn, subAmbiente, remoteId);
       window.dispatchEvent(
         new CustomEvent('bas:ambiente-remote-toggle', {
-          detail: { isOn: isOn, ambiente: subAmbiente.ambienteData, remoteId: remoteId, source: subAmbiente.source },
+          detail: {
+            isOn: isOn,
+            ambiente: subAmbiente.ambienteData,
+            remoteId: remoteId,
+            source: subAmbiente.source,
+          },
         })
       );
     },
@@ -3529,10 +3552,11 @@ function mountEnergyPanel(host, settings, classified) {
     quantity: energyItems.length,
     items: energyItems,
     panelBackground: settings.motorsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { height: '90px', zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
     titleStyle: energyHeaderStyle,
     gridMinCardWidth: '140px',
-    gridGap: settings.cardGridGap,
+    gridGap: settings.cardGridGap || '8px',
+    gridRowGap: settings.cardGridRowGap || '6px',
     singleColumn: true,
     emptyMessage: 'Nenhum equipamento',
     showSearch: true,
@@ -3838,7 +3862,11 @@ function mountSidebarMenu(host, settings, classified) {
       };
     });
 
-  LogHelper.log('[MAIN_BAS] Built', ambienteItems.length, 'ambiente items for sidebar menu (sorted by prefix)');
+  LogHelper.log(
+    '[MAIN_BAS] Built',
+    ambienteItems.length,
+    'ambiente items for sidebar menu (sorted by prefix)'
+  );
 
   // Build unified navigation items: Dashboard first, then sorted ambientes
   var navigationItems = [
@@ -4204,7 +4232,15 @@ function createRealFetchData(domain, options) {
         result = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
       }
 
-      LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', result.dailyTotals.length, 'points,', Object.keys(result.shoppingData).length, 'shoppings');
+      LogHelper.log(
+        '[MAIN_BAS] Chart data fetched for',
+        domain,
+        ':',
+        result.dailyTotals.length,
+        'points,',
+        Object.keys(result.shoppingData).length,
+        'shoppings'
+      );
       var resultData = {
         labels: labels,
         dailyTotals: result.dailyTotals,
@@ -4216,7 +4252,12 @@ function createRealFetchData(domain, options) {
       return resultData;
     } catch (error) {
       LogHelper.error('[MAIN_BAS] Chart fetch error for', domain, ':', error);
-      var errorData = { labels: labels, dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
+      var errorData = {
+        labels: labels,
+        dailyTotals: new Array(period).fill(0),
+        shoppingData: {},
+        shoppingNames: {},
+      };
       _chartDataCache[cacheKey] = { period: period, timestamp: Date.now(), data: errorData };
       return errorData;
     }
@@ -4279,7 +4320,9 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
     var dayIndex = j;
 
     try {
-      var url = new URL(DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals');
+      var url = new URL(
+        DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals'
+      );
       url.searchParams.set('startTime', new Date(day.startTs).toISOString());
       url.searchParams.set('endTime', new Date(day.endTs).toISOString());
       url.searchParams.set('deep', '1');
@@ -4329,7 +4372,8 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
 
           // Store device name (truncate if too long)
           if (!shoppingNames[deviceId]) {
-            shoppingNames[deviceId] = deviceName.length > 25 ? deviceName.substring(0, 22) + '...' : deviceName;
+            shoppingNames[deviceId] =
+              deviceName.length > 25 ? deviceName.substring(0, 22) + '...' : deviceName;
           }
         }
       });
@@ -4340,7 +4384,15 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
       }
 
       dailyTotals.push(dayTotal);
-      LogHelper.log('[MAIN_BAS]', domain, 'day', day.label, ':', dayTotal.toFixed(2), '(' + devices.length + ' devices)');
+      LogHelper.log(
+        '[MAIN_BAS]',
+        domain,
+        'day',
+        day.label,
+        ':',
+        dayTotal.toFixed(2),
+        '(' + devices.length + ' devices)'
+      );
     } catch (err) {
       LogHelper.warn('[MAIN_BAS] Error fetching', domain, 'for day', day.label, ':', err.message);
       dailyTotals.push(0);
@@ -4425,7 +4477,15 @@ async function fetchTemperatureData(period, startTs, endTs) {
     shoppingNames[deviceKey] = device.name || device.label || 'Sensor ' + (i + 1);
 
     try {
-      var url = DATA_API_HOST + '/api/v1/telemetry/devices/' + ingestionId + '/temperature?startTime=' + encodeURIComponent(startTimeISO) + '&endTime=' + encodeURIComponent(endTimeISO) + '&granularity=1d&deep=0';
+      var url =
+        DATA_API_HOST +
+        '/api/v1/telemetry/devices/' +
+        ingestionId +
+        '/temperature?startTime=' +
+        encodeURIComponent(startTimeISO) +
+        '&endTime=' +
+        encodeURIComponent(endTimeISO) +
+        '&granularity=1d&deep=0';
 
       var response = await fetch(url, {
         headers: {
@@ -4477,7 +4537,12 @@ async function fetchTemperatureData(period, startTs, endTs) {
     return Number((sum / dailyCounts[idx]).toFixed(1));
   });
 
-  LogHelper.log('[MAIN_BAS] Temperature daily totals:', dailyTotals, 'devices:', Object.keys(shoppingData).length);
+  LogHelper.log(
+    '[MAIN_BAS] Temperature daily totals:',
+    dailyTotals,
+    'devices:',
+    Object.keys(shoppingData).length
+  );
 
   return { dailyTotals: dailyTotals, shoppingData: shoppingData, shoppingNames: shoppingNames };
 }
@@ -4746,7 +4811,8 @@ function mountChartPanel(hostEl, settings) {
 
     var updateScrollButtons = function () {
       leftBtn.disabled = tabsContainer.scrollLeft <= 0;
-      rightBtn.disabled = tabsContainer.scrollLeft + tabsContainer.clientWidth >= tabsContainer.scrollWidth - 1;
+      rightBtn.disabled =
+        tabsContainer.scrollLeft + tabsContainer.clientWidth >= tabsContainer.scrollWidth - 1;
     };
 
     tabsContainer.addEventListener('scroll', updateScrollButtons);
@@ -5124,7 +5190,16 @@ self.onInit = async function () {
   LogHelper.log('[MAIN_BAS] onInit - Full Settings:', _settings);
 
   // Initialize all panels (RFC-0173: added sidebarMenuHost)
-  await initializeDashboard(_ctx, sidebarMenuHost, sidebarHost, waterHost, chartsHost, ambientesHost, motorsHost, _settings);
+  await initializeDashboard(
+    _ctx,
+    sidebarMenuHost,
+    sidebarHost,
+    waterHost,
+    chartsHost,
+    ambientesHost,
+    motorsHost,
+    _settings
+  );
 };
 
 self.onDataUpdated = function () {

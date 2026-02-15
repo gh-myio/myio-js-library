@@ -193,24 +193,14 @@ tb-html-widget > div,
   max-height: 100% !important;
 }
 
-/* Force ALL direct children to stretch and fill */
+/* Slot children - minimal layout rules only, components handle their own styles */
 .bas-sidebar-slot > *,
-.bas-water-slot > * {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  max-height: 100% !important;
-  overflow-y: auto;
-  height: 100% !important;
-}
-
-/* Ambientes and Motors slots - allow proper scrolling without cutting last card */
+.bas-water-slot > *,
 .bas-ambientes-slot > *,
 .bas-motors-slot > * {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-y: auto;
-  height: auto !important;
-  max-height: 100% !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
 }
 
 /* Charts slot needs special handling - tab bar stays fixed, chart card grows */
