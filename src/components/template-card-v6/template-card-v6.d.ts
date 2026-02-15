@@ -9,6 +9,16 @@ export interface CustomStyle {
   fontColor?: string;
   width?: string;
   height?: string;
+  padding?: string;
+  borderRadius?: string;
+  boxShadow?: string;
+  margin?: string;
+  /**
+   * Scale multiplier for all card dimensions (default: 1.0)
+   * Example: 0.9 = 90% scale (everything 10% smaller)
+   * Example: 1.1 = 110% scale (everything 10% larger)
+   */
+  zoomMultiplier?: number;
 }
 
 export interface RenderCardV6Options {

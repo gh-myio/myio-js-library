@@ -458,7 +458,28 @@ const getStaticDeviceImage = (deviceType) => {
  * @property {string} [fontColor]       - CSS color for all text elements (e.g. '#333', 'white')
  * @property {string} [width]           - CSS width for the card (e.g. '300px', '100%')
  * @property {string} [height]          - CSS height for the card (e.g. '180px', 'auto')
+ * @property {string} [padding]         - CSS padding for the card (e.g. '12px', '8px 16px')
+ * @property {string} [borderRadius]    - CSS border-radius for the card (e.g. '8px', '12px')
+ * @property {string} [boxShadow]       - CSS box-shadow for the card (e.g. '0 4px 12px rgba(0,0,0,0.1)')
+ * @property {string} [margin]          - CSS margin for the card (e.g. '8px', '0 auto')
+ * @property {number} [zoomMultiplier]  - Scale multiplier for all sizes (default: 1.0, e.g. 0.9 = 90% scale)
  */
+
+// Default card dimensions for zoom calculations
+const CARD_V6_DEFAULTS = {
+  padding: 18,
+  borderRadius: 14,
+  minHeight: 114,
+  maxWidth: 280,
+  imageMaxHeight: 44,
+  titleFontSize: 0.75,      // rem
+  subtitleFontSize: 0.55,   // rem
+  valueFontSize: 0.75,      // rem
+  flashIconSize: 0.85,      // rem
+  actionButtonSize: 28,     // px
+  actionIconSize: 16,       // px
+  gap: 8,                   // px
+};
 
 /**
  * Applies customStyle overrides to the rendered card container.
@@ -467,11 +488,120 @@ const getStaticDeviceImage = (deviceType) => {
  * @param {CustomStyle} customStyle - Style overrides to apply
  */
 function applyCustomStyle(container, customStyle) {
-  const { fontSize, backgroundColor, fontColor, width, height } = customStyle;
+  const {
+    fontSize,
+    backgroundColor,
+    fontColor,
+    width,
+    height,
+    padding,
+    borderRadius,
+    boxShadow,
+    margin,
+    zoomMultiplier = 1.0,
+  } = customStyle;
 
   // The actual card element is the first child (.device-card-centered)
   const cardEl = container.querySelector('.device-card-centered');
   if (!cardEl) return;
+
+  const zoom = zoomMultiplier;
+
+  // -- zoomMultiplier: Scale all dimensions proportionally --
+  if (zoom !== 1.0) {
+    // Padding
+    const scaledPadding = (CARD_V6_DEFAULTS.padding * zoom).toFixed(1);
+    cardEl.style.setProperty('padding', `${scaledPadding}px`, 'important');
+
+    // Border radius
+    const scaledRadius = (CARD_V6_DEFAULTS.borderRadius * zoom).toFixed(1);
+    cardEl.style.setProperty('border-radius', `${scaledRadius}px`, 'important');
+
+    // Min height
+    const scaledMinHeight = (CARD_V6_DEFAULTS.minHeight * zoom).toFixed(1);
+    cardEl.style.setProperty('min-height', `${scaledMinHeight}px`, 'important');
+
+    // Max width
+    const scaledMaxWidth = (CARD_V6_DEFAULTS.maxWidth * zoom).toFixed(1);
+    cardEl.style.setProperty('max-width', `${scaledMaxWidth}px`, 'important');
+
+    // Image max height
+    const deviceImage = cardEl.querySelector('.device-image');
+    if (deviceImage) {
+      const scaledImageHeight = (CARD_V6_DEFAULTS.imageMaxHeight * zoom).toFixed(1);
+      deviceImage.style.setProperty('max-height', `${scaledImageHeight}px`, 'important');
+    }
+
+    // Title font size
+    const title = cardEl.querySelector('.device-title');
+    if (title) {
+      const scaledTitleSize = (CARD_V6_DEFAULTS.titleFontSize * zoom).toFixed(3);
+      title.style.setProperty('font-size', `${scaledTitleSize}rem`, 'important');
+    }
+
+    // Subtitle font size
+    const subtitle = cardEl.querySelector('.device-subtitle');
+    if (subtitle) {
+      const scaledSubtitleSize = (CARD_V6_DEFAULTS.subtitleFontSize * zoom).toFixed(3);
+      subtitle.style.setProperty('font-size', `${scaledSubtitleSize}rem`, 'important');
+    }
+
+    // Consumption value font size
+    const consumptionValue = cardEl.querySelector('.consumption-value');
+    if (consumptionValue) {
+      const scaledValueSize = (CARD_V6_DEFAULTS.valueFontSize * zoom).toFixed(3);
+      consumptionValue.style.setProperty('font-size', `${scaledValueSize}rem`, 'important');
+    }
+
+    // Flash icon size
+    const flashIcon = cardEl.querySelector('.flash-icon');
+    if (flashIcon) {
+      const scaledIconSize = (CARD_V6_DEFAULTS.flashIconSize * zoom).toFixed(3);
+      flashIcon.style.setProperty('font-size', `${scaledIconSize}rem`, 'important');
+    }
+
+    // Action buttons
+    const actionButtons = cardEl.querySelectorAll('.card-action');
+    actionButtons.forEach((btn) => {
+      const scaledBtnSize = (CARD_V6_DEFAULTS.actionButtonSize * zoom).toFixed(1);
+      btn.style.setProperty('width', `${scaledBtnSize}px`, 'important');
+      btn.style.setProperty('height', `${scaledBtnSize}px`, 'important');
+      btn.style.setProperty('min-height', `${scaledBtnSize}px`, 'important');
+
+      const img = btn.querySelector('img');
+      if (img) {
+        const scaledImgSize = (CARD_V6_DEFAULTS.actionIconSize * zoom).toFixed(1);
+        img.style.setProperty('width', `${scaledImgSize}px`, 'important');
+        img.style.setProperty('height', `${scaledImgSize}px`, 'important');
+      }
+    });
+
+    // Actions container width
+    const actionsContainer = cardEl.querySelector('.card-actions');
+    if (actionsContainer) {
+      const scaledActionsWidth = (34 * zoom).toFixed(1);
+      actionsContainer.style.setProperty('width', `${scaledActionsWidth}px`, 'important');
+    }
+
+    // Consumption badge padding
+    const consumptionMain = cardEl.querySelector('.consumption-main');
+    if (consumptionMain) {
+      const scaledPadV = (4 * zoom).toFixed(1);
+      const scaledPadH = (8 * zoom).toFixed(1);
+      consumptionMain.style.setProperty('padding', `${scaledPadV}px ${scaledPadH}px`, 'important');
+      consumptionMain.style.setProperty('border-radius', `${(8 * zoom).toFixed(1)}px`, 'important');
+    }
+
+    // Shopping badge
+    const shoppingBadge = cardEl.querySelector('.myio-v5-shopping-badge');
+    if (shoppingBadge) {
+      const scaledBadgeFontSize = (11 * zoom).toFixed(1);
+      shoppingBadge.style.setProperty('font-size', `${scaledBadgeFontSize}px`, 'important');
+      const scaledBadgePadV = (4 * zoom).toFixed(1);
+      const scaledBadgePadH = (10 * zoom).toFixed(1);
+      shoppingBadge.style.setProperty('padding', `${scaledBadgePadV}px ${scaledBadgePadH}px`, 'important');
+    }
+  }
 
   // -- Width & Height: applied on the outer container AND the card --
   if (width) {
@@ -484,6 +614,26 @@ function applyCustomStyle(container, customStyle) {
     container.style.height = height;
     cardEl.style.minHeight = height;
     cardEl.style.height = height;
+  }
+
+  // -- Padding: override card padding --
+  if (padding) {
+    cardEl.style.setProperty('padding', padding, 'important');
+  }
+
+  // -- Border radius: override card border-radius --
+  if (borderRadius) {
+    cardEl.style.setProperty('border-radius', borderRadius, 'important');
+  }
+
+  // -- Box shadow: override card box-shadow --
+  if (boxShadow) {
+    cardEl.style.setProperty('box-shadow', boxShadow, 'important');
+  }
+
+  // -- Margin: applied on the card --
+  if (margin) {
+    cardEl.style.setProperty('margin', margin, 'important');
   }
 
   // -- Background color: override the card gradient --
@@ -509,7 +659,8 @@ function applyCustomStyle(container, customStyle) {
   }
 
   // -- Font size: scaled proportionally across card text elements --
-  if (fontSize) {
+  // Note: If zoomMultiplier is set, it takes precedence for font scaling
+  if (fontSize && zoom === 1.0) {
     const baseSize = parseFloat(fontSize);
     const unit = fontSize.replace(/[\d.]/g, '') || 'px';
 
