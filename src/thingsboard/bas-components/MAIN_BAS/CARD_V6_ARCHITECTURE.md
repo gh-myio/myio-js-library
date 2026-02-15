@@ -162,22 +162,47 @@ interface CustomStyle {
   fontColor?: string;       // Ex: '#ffffff', '#333'
   width?: string;           // Ex: '300px', '100%'
   height?: string;          // Ex: '180px', 'auto'
+  padding?: string;         // Ex: '12px', '8px 16px'
+  borderRadius?: string;    // Ex: '8px', '12px'
+  boxShadow?: string;       // Ex: '0 4px 12px rgba(0,0,0,0.1)'
+  margin?: string;          // Ex: '8px', '0 auto'
+  zoomMultiplier?: number;  // Ex: 0.9 = 90%, 1.0 = 100% (default), 1.1 = 110%
 }
 ```
 
-### 5.2 Aplicacao
+### 5.2 zoomMultiplier
+
+O `zoomMultiplier` escala proporcionalmente todos os elementos do card:
+
+| Elemento | Valor Padrao | Com zoom 0.9 |
+| -------- | ------------ | ------------ |
+| padding | 18px | 16.2px |
+| borderRadius | 14px | 12.6px |
+| minHeight | 114px | 102.6px |
+| maxWidth | 280px | 252px |
+| imageMaxHeight | 44px | 39.6px |
+| titleFontSize | 0.75rem | 0.675rem |
+| subtitleFontSize | 0.55rem | 0.495rem |
+| valueFontSize | 0.75rem | 0.675rem |
+| actionButtonSize | 28px | 25.2px |
+| actionIconSize | 16px | 14.4px |
+
+### 5.3 Aplicacao
 
 ```javascript
 // applyCustomStyle() aplica em:
 // - Container: width, height
-// - Card (.device-card-centered): background, width, height
+// - Card (.device-card-centered): background, padding, borderRadius, boxShadow, margin
 // - Titulo (.device-title): fontSize, fontColor
 // - Subtitulo (.device-subtitle): fontSize * 0.84, fontColor
 // - Valor (.consumption-value): fontSize * 0.94, fontColor
 // - Badge (.device-percentage-badge): fontSize * 0.81, fontColor
+// - Imagem (.device-image): maxHeight escalado por zoomMultiplier
+// - Botoes (.card-action): width/height escalados por zoomMultiplier
+// - Badge shopping (.myio-v5-shopping-badge): fontSize/padding escalados
 ```
 
-### 5.3 Exemplo de Uso
+### 5.4 Exemplo de Uso
 
 ```javascript
 renderCardComponentV6({
@@ -191,6 +216,31 @@ renderCardComponentV6({
     height: '160px',
   },
 });
+```
+
+### 5.5 Exemplo com zoomMultiplier
+
+```javascript
+// Card 10% menor que o padrao
+renderCardComponentV6({
+  entityObject: { ... },
+  customStyle: {
+    zoomMultiplier: 0.9,  // 90% do tamanho original
+    padding: '15px',      // override especifico (opcional)
+  },
+});
+```
+
+### 5.6 Default no MAIN_BAS
+
+O controller.js define o seguinte default para todos os paineis:
+
+```javascript
+cardCustomStyle: settings.cardCustomStyle || {
+  height: '90px',
+  zoomMultiplier: 0.9,
+  padding: '15px'
+},
 ```
 
 ---
@@ -411,4 +461,5 @@ if (handInfo) {
 ---
 
 _Documento criado em: 2026-02-09_
-_Versao: 6.0.0_
+_Atualizado em: 2026-02-15_
+_Versao: 6.1.0_

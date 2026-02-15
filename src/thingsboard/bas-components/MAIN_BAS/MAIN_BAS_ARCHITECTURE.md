@@ -399,22 +399,20 @@ O componente `createConsumption7DaysChart` espera que `fetchData` retorne o form
 
 ## 6. Template Card v6 (customStyle)
 
-O BAS dashboard utiliza `renderCardComponentV6` que aceita um parametro `customStyle` para personalizar a aparencia dos cards:
+O BAS dashboard utiliza `renderCardComponentV6` que aceita um parametro `customStyle` para personalizar a aparencia dos cards.
+
+> **Ver documentacao completa**: [CARD_V6_ARCHITECTURE.md](./CARD_V6_ARCHITECTURE.md)
+
+### Default no MAIN_BAS
+
+O controller.js define o seguinte default para todos os paineis (Water, Ambientes, Energy):
 
 ```javascript
-renderCardComponentV6({
-  entityObject,
-  handleClickCard: () => onDeviceClick(device),
-  enableSelection: false,
-  enableDragDrop: false,
-  customStyle: {
-    fontSize: '14px',
-    backgroundColor: '#1a1a2e',
-    fontColor: '#ffffff',
-    width: '240px',
-    height: '160px',
-  },
-});
+cardCustomStyle: settings.cardCustomStyle || {
+  height: '90px',
+  zoomMultiplier: 0.9,
+  padding: '15px'
+},
 ```
 
 ### Propriedades do customStyle
@@ -426,6 +424,22 @@ renderCardComponentV6({
 | `fontColor`       | Titulo, subtitulo, valor, badge de porcentagem        | `'#fff'`             |
 | `width`           | Container externo + card interno                      | `'300px'`, `'100%'`  |
 | `height`          | Container + min-height do card                        | `'180px'`            |
+| `padding`         | Padding interno do card                               | `'15px'`, `'8px 16px'` |
+| `borderRadius`    | Borda arredondada do card                             | `'8px'`, `'12px'`    |
+| `boxShadow`       | Sombra do card                                        | `'0 4px 12px rgba(0,0,0,0.1)'` |
+| `margin`          | Margem externa do card                                | `'8px'`, `'0 auto'`  |
+| `zoomMultiplier`  | Escala proporcional de todos elementos (1.0 = 100%)   | `0.9` (90%), `1.1` (110%) |
+
+### zoomMultiplier
+
+O `zoomMultiplier` escala proporcionalmente padding, fontes, imagens, botoes e badges:
+
+```javascript
+// Card 10% menor que o padrao
+customStyle: {
+  zoomMultiplier: 0.9,  // 90% do tamanho original
+}
+```
 
 O `cardCustomStyle` e configuravel via `widgetSettings.cardCustomStyle` no ThingsBoard.
 
@@ -572,7 +586,7 @@ _currentWaterDevices; // Array<WaterDevice> — dispositivos de agua atuais
 | **Labels**       | `dashboardTitle`, `floorsLabel`, `environmentsLabel`, `pumpsMotorsLabel`, `temperatureChartTitle`, `consumptionChartTitle` |
 | **Visibilidade** | `showFloorsSidebar`, `showWaterInfrastructure`, `showEnvironments`, `showPumpsMotors`, `showCharts`                        |
 | **Cores**        | `primaryColor`, `warningColor`, `errorColor`, `successColor`                                                               |
-| **Cards**        | `cardCustomStyle` (fontSize, backgroundColor, fontColor, width, height)                                                    |
+| **Cards**        | `cardCustomStyle` (fontSize, backgroundColor, fontColor, width, height, padding, borderRadius, boxShadow, margin, zoomMultiplier) |
 | **Extra**        | `sidebarBackgroundImage` (imagem de fundo da sidebar)                                                                      |
 
 ### 10.2 Temas
@@ -798,9 +812,9 @@ controller.js
    - Selection e drag-drop desabilitados (`enableSelection: false`, `enableDragDrop: false`)
    - Apenas `handleClickCard` ativo para emitir `bas:device-clicked`
 
-5. **customStyle e opcional**
-   - Se `cardCustomStyle` nao definido no widget settings, cards usam estilo padrao do v5
-   - `customStyle: this.settings.cardCustomStyle || undefined`
+5. **customStyle tem defaults**
+   - Se `cardCustomStyle` nao definido no widget settings, usa default: `{ height: '90px', zoomMultiplier: 0.9, padding: '15px' }`
+   - `cardCustomStyle: settings.cardCustomStyle || { height: '90px', zoomMultiplier: 0.9, padding: '15px' }`
 
 6. **Chart precisa de canvas fresco**
    - `switchChartDomain()` destroi o chart antigo e cria um novo `<canvas>` element
@@ -832,11 +846,11 @@ if (_basInstance && _basInstance.updateData) {
 // Usar cardCustomStyle para personalizar cards no widget settings
 {
   "cardCustomStyle": {
-    "fontSize": "13px",
+    "height": "90px",
+    "zoomMultiplier": 0.9,
+    "padding": "15px",
     "backgroundColor": "#1a1a2e",
-    "fontColor": "#e0e0e0",
-    "width": "220px",
-    "height": "150px"
+    "fontColor": "#e0e0e0"
   }
 }
 
