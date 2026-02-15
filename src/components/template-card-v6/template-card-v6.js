@@ -472,10 +472,10 @@ const CARD_V6_DEFAULTS = {
   minHeight: 114,
   maxWidth: 280,
   imageMaxHeight: 44,
-  titleFontSize: 0.75,      // rem
-  subtitleFontSize: 0.55,   // rem
-  valueFontSize: 0.75,      // rem
-  flashIconSize: 0.85,      // rem
+  titleFontSize: 0.85,      // rem (increased from 0.75)
+  subtitleFontSize: 0.65,   // rem (increased from 0.55)
+  valueFontSize: 0.88,      // rem (increased from 0.75)
+  flashIconSize: 0.95,      // rem (increased from 0.85)
   actionButtonSize: 28,     // px
   actionIconSize: 16,       // px
   gap: 8,                   // px
@@ -521,9 +521,8 @@ function applyCustomStyle(container, customStyle) {
     const scaledMinHeight = (CARD_V6_DEFAULTS.minHeight * zoom).toFixed(1);
     cardEl.style.setProperty('min-height', `${scaledMinHeight}px`, 'important');
 
-    // Max width
-    const scaledMaxWidth = (CARD_V6_DEFAULTS.maxWidth * zoom).toFixed(1);
-    cardEl.style.setProperty('max-width', `${scaledMaxWidth}px`, 'important');
+    // NOTE: max-width removed - grid cell controls width, not the card
+    // This allows cards to fill their container in CardGridPanel
 
     // Image max height
     const deviceImage = cardEl.querySelector('.device-image');
@@ -1350,8 +1349,8 @@ export function renderCardComponentV6({
       /* ===== MYIO Card v6 — Standalone with CustomStyle Support ===== */
 
       .device-card-centered.clickable {
-        width: 90% !important;
-        max-width: 280px !important;
+        width: 100% !important;
+        /* No max-width - let container control sizing */
         border-radius: 14px !important;
         padding: 18px !important;
         background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%) !important;
@@ -1363,7 +1362,7 @@ export function renderCardComponentV6({
         overflow: hidden;
         backdrop-filter: blur(10px);
         min-height: var(--card-v6-min-height, 114px) !important;
-        margin: 0 auto;
+        margin: 0;
       }
 
       .device-card-centered.clickable::before {
@@ -1482,7 +1481,7 @@ export function renderCardComponentV6({
 
       .device-card-centered .device-title {
         font-weight: 600 !important;
-        font-size: 0.75rem !important;
+        font-size: 0.85rem !important;
         color: #1e293b !important;
         margin: 0 0 1px 0 !important;
         display: block !important;
@@ -1494,7 +1493,7 @@ export function renderCardComponentV6({
       }
 
       .device-card-centered .device-subtitle {
-        font-size: 0.55rem !important;
+        font-size: 0.65rem !important;
         color: #94a3b8 !important;
         font-weight: 400 !important;
         letter-spacing: 0.02em;
@@ -1517,7 +1516,7 @@ export function renderCardComponentV6({
 
       .device-card-centered .consumption-value {
         font-weight: 700 !important;
-        font-size: 0.75rem !important;
+        font-size: 0.88rem !important;
         color: #059669 !important;
       }
 

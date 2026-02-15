@@ -318,7 +318,7 @@ const CARD_STYLES = `
     transition: transform 0.2s, box-shadow 0.2s;
     box-sizing: border-box;
     overflow: hidden;
-    min-height: 120px;
+    min-height: 95px;
     display: flex;
     flex-direction: row;
     align-items: stretch;
