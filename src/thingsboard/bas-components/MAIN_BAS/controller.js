@@ -716,6 +716,11 @@ function parseDevicesFromData(data) {
       bomba: [], // Motors/pumps are ENERGY domain
       motor: [], // Motors are ENERGY domain
     },
+    // RFC-0176: Switch domain for LAMP and REMOTE devices
+    switch: {
+      lamp: [],   // Lighting control devices
+      remote: [], // Remote control devices
+    },
     ocultos: [],
   };
 
@@ -920,22 +925,36 @@ function parseDevicesFromData(data) {
     var effectiveType = deviceProfile || deviceType;
     var domain = window.MyIOLibrary.getDomainFromDeviceType(effectiveType);
 
+    // RFC-0176: Check for switch domain FIRST (LAMP, REMOTE)
+    // These devices control lighting/equipment and have on/off or detected/not_detected status
+    var profileUpper = deviceProfile.toUpperCase();
+    var typeUpper = deviceType.toUpperCase();
+    var isSwitchDevice =
+      profileUpper === 'LAMP' ||
+      profileUpper === 'REMOTE' ||
+      typeUpper === 'LAMP' ||
+      typeUpper === 'REMOTE';
+
+    if (isSwitchDevice) {
+      domain = 'switch';
+      LogHelper.log(
+        '[MAIN_BAS] Switch device detected:',
+        deviceLabel,
+        'deviceProfile:',
+        deviceProfile,
+        'deviceType:',
+        deviceType
+      );
+    }
+
     // RFC-0171: If domain is 'energy' (default), validate it's actually an energy device
     // Energy devices must pass isEnergyDevice check on deviceProfile (3F_MEDIDOR, MEDIDOR, etc.)
     // or be a valid motor/pump (BOMBA, MOTOR)
     if (domain === 'energy') {
-      var profileUpper = deviceProfile.toUpperCase();
-      var typeUpper = deviceType.toUpperCase();
-
       // RFC-0174: Explicit exclusion list - these are NEVER energy devices
-      // RFC-0175: Add LAMP to exclusion list (LAMP is a control device, not an energy meter)
       var isExcluded =
-        profileUpper === 'REMOTE' ||
-        profileUpper === 'LAMP' ||
         profileUpper.includes('SOLENOIDE') ||
         profileUpper.includes('SOLENOID') ||
-        typeUpper === 'REMOTE' ||
-        typeUpper === 'LAMP' ||
         typeUpper.includes('SOLENOIDE') ||
         typeUpper.includes('SOLENOID');
 
@@ -1018,6 +1037,28 @@ function parseDevicesFromData(data) {
       device.setpoint = parseFloat(cd.setpoint || cd.setPoint || 0) || null;
       device.consumption = parseFloat(cd.consumption || 0) || null;
       device.status = isOnline ? 'active' : 'inactive';
+    } else if (domain === 'switch') {
+      // RFC-0176: Switch domain for LAMP and REMOTE devices
+      // Status values: on | off | detected | not_detected
+      var switchStatus = (cd.status || cd.state || '').toLowerCase();
+      var isOn = switchStatus === 'on' || switchStatus === 'detected';
+      device.switchStatus = switchStatus; // Raw status value
+      device.isOn = isOn;
+      device.type = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      device.status = isOn ? 'on' : 'off';
+      // Determine context based on device type
+      context = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      device.context = context;
+      LogHelper.log(
+        '[MAIN_BAS] Switch device status:',
+        deviceLabel,
+        'switchStatus:',
+        switchStatus,
+        'isOn:',
+        isOn,
+        'type:',
+        device.type
+      );
     } else {
       // Energy domain (includes motors/pumps) - already validated above
       device.consumption = parseFloat(cd.consumption || cd.energy || cd.power || 0);
@@ -1053,6 +1094,9 @@ function parseDevicesFromData(data) {
     }),
     energy: Object.keys(classified.energy).map(function (k) {
       return k + ':' + classified.energy[k].length;
+    }),
+    switch: Object.keys(classified.switch).map(function (k) {
+      return k + ':' + classified.switch[k].length;
     }),
     ocultos: classified.ocultos.length,
   });
@@ -1649,34 +1693,48 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     }
   });
 
-  // Collect ALL remote control devices
-  var remoteDevices = [];
+  // RFC-0176: Collect ALL switch devices (LAMP, REMOTE) from switch domain
+  var switchDevices = [];
   devices.forEach(function (d) {
-    if (isRemoteDevice(d)) {
+    // Check if device is in switch domain (set during parseDevicesFromData)
+    var isSwitchDomain = d.domain === 'switch';
+    // Fallback: also check via isRemoteDevice for backwards compatibility
+    var isRemote = !isSwitchDomain && isRemoteDevice(d);
+
+    if (isSwitchDomain || isRemote) {
       // Get the state from various possible sources
-      var state = (d.rawData && d.rawData.state) || d.state || 'off';
+      // RFC-0176: status can be on|off or detected|not_detected
+      var rawStatus = (d.rawData && (d.rawData.status || d.rawData.state)) || d.switchStatus || d.state || 'off';
+      var statusLower = String(rawStatus).toLowerCase();
       var isDeviceOn =
-        state === 'on' ||
-        state === 'ON' ||
-        state === true ||
-        state === 1 ||
-        (d.rawData && d.rawData.isOn === true) ||
+        statusLower === 'on' ||
+        statusLower === 'detected' ||
+        rawStatus === true ||
+        rawStatus === 1 ||
         d.isOn === true;
 
-      remoteDevices.push({
+      // Determine device type for visual display
+      var dp = (d.deviceProfile || '').toUpperCase();
+      var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+
+      switchDevices.push({
         id: d.id,
-        name: d.name || d.label || 'Controle',
-        label: (d.rawData && d.rawData.label) || d.label || d.name || 'Controle',
-        deviceType: d.deviceType || 'REMOTE',
+        name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+        label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+        deviceType: d.deviceType,
+        deviceProfile: d.deviceProfile,
+        type: switchType, // 'lamp' or 'remote'
         isOn: isDeviceOn,
-        state: state,
+        switchStatus: statusLower, // on|off|detected|not_detected
         status: d.status || 'offline',
       });
     }
   });
 
-  var hasRemote = remoteDevices.length > 0;
-  var isOn = remoteDevices.some(function (r) {
+  // Keep remoteDevices as alias for backwards compatibility
+  var remoteDevices = switchDevices;
+  var hasRemote = switchDevices.length > 0;
+  var isOn = switchDevices.some(function (r) {
     return r.isOn;
   });
 
@@ -1735,7 +1793,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     humidity: humidity,
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices,
-    remoteDevices: remoteDevices,
+    switchDevices: switchDevices,
     hasRemote: hasRemote,
     isOn: isOn,
     status: status,
@@ -1751,7 +1809,8 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     humidity: humidity, // RFC-0168: New field
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices, // Individual energy devices for card display
-    remoteDevices: remoteDevices, // Individual remote control devices
+    switchDevices: switchDevices, // RFC-0176: LAMP and REMOTE devices with on/off status
+    remoteDevices: remoteDevices, // Alias for backwards compatibility
     isOn: isOn,
     hasRemote: hasRemote,
     status: status,

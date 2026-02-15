@@ -675,6 +675,71 @@ const CARD_STYLES = `
     cursor: default;
   }
 
+  /* RFC-0176: Switch device styles (LAMP and REMOTE) */
+  .myio-ambiente-card__switch-device {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .myio-ambiente-card__switch-device-icon {
+    font-size: 0.85rem;
+    transition: filter 0.2s ease;
+  }
+
+  .myio-ambiente-card__switch-device-value {
+    font-weight: 600;
+    font-size: 0.7rem;
+  }
+
+  /* LAMP device styles */
+  .myio-ambiente-card__switch-device.lamp.on {
+    background: rgba(255, 193, 7, 0.15);
+  }
+
+  .myio-ambiente-card__switch-device.lamp.on .myio-ambiente-card__switch-device-value {
+    color: #d4a106;
+  }
+
+  .myio-ambiente-card__switch-device.lamp.off {
+    background: rgba(108, 117, 125, 0.1);
+  }
+
+  .myio-ambiente-card__switch-device.lamp.off .myio-ambiente-card__switch-device-icon {
+    filter: grayscale(100%) opacity(0.5);
+  }
+
+  .myio-ambiente-card__switch-device.lamp.off .myio-ambiente-card__switch-device-value {
+    color: #6c757d;
+  }
+
+  /* REMOTE device styles */
+  .myio-ambiente-card__switch-device.remote.on {
+    background: rgba(40, 167, 69, 0.12);
+  }
+
+  .myio-ambiente-card__switch-device.remote.on .myio-ambiente-card__switch-device-value {
+    color: #28a745;
+  }
+
+  .myio-ambiente-card__switch-device.remote.off {
+    background: rgba(108, 117, 125, 0.1);
+  }
+
+  .myio-ambiente-card__switch-device.remote.off .myio-ambiente-card__switch-device-icon {
+    filter: grayscale(100%) opacity(0.5);
+  }
+
+  .myio-ambiente-card__switch-device.remote.off .myio-ambiente-card__switch-device-value {
+    color: #6c757d;
+  }
+
 `;
 
 // ============================================
@@ -849,6 +914,7 @@ export function renderCardAmbienteV6({
 
   // Extract data
   // RFC-0168: Added humidity, hasSetupWarning, energyDevices, and remoteDevices fields
+  // RFC-0176: Added switchDevices for LAMP and REMOTE devices
   const {
     id,
     label,
@@ -857,7 +923,8 @@ export function renderCardAmbienteV6({
     humidity, // RFC-0168: Humidity from TERMOSTATO
     consumption,
     energyDevices = [], // Individual energy devices (3F_MEDIDOR, FANCOIL, etc.)
-    remoteDevices = [], // Individual remote control devices
+    switchDevices = [], // RFC-0176: LAMP and REMOTE devices with on/off status
+    remoteDevices = [], // Individual remote control devices (alias for backwards compatibility)
     isOn,
     hasRemote,
     status,
@@ -872,7 +939,7 @@ export function renderCardAmbienteV6({
     temperature,
     humidity,
     energyDevices,
-    remoteDevices,
+    switchDevices,
     status,
     hasSetupWarning,
     fullData: ambienteData,
@@ -965,13 +1032,19 @@ export function renderCardAmbienteV6({
 
   bodyEl.appendChild(metricsEl);
 
-  // === LINE 3: Energy devices with horizontal scroll ===
+  // === LINE 3: Energy + Switch devices with horizontal scroll ===
+  // RFC-0176: Combined row for energy devices (⚡) and switch devices (💡/🔘)
   if (!hasSetupWarning) {
     const energyRowEl = document.createElement('div');
     energyRowEl.className = 'myio-ambiente-card__energy-row';
 
-    if (energyDevices.length === 0) {
-      // No energy devices - show icon with "-"
+    // Combine energy and switch devices for display
+    const hasEnergyDevices = energyDevices.length > 0;
+    const hasSwitchDevices = switchDevices.length > 0;
+    const totalDevices = energyDevices.length + switchDevices.length;
+
+    if (!hasEnergyDevices && !hasSwitchDevices) {
+      // No devices - show icon with "-"
       const emptyEnergy = document.createElement('div');
       emptyEnergy.className = 'myio-ambiente-card__energy-device';
       emptyEnergy.innerHTML = `
@@ -980,8 +1053,8 @@ export function renderCardAmbienteV6({
       `;
       energyRowEl.appendChild(emptyEnergy);
     } else {
-      // Has energy devices - show with horizontal scroll if multiple
-      const needsScroll = energyDevices.length > 2;
+      // Has devices - show with horizontal scroll if multiple
+      const needsScroll = totalDevices > 2;
 
       // Scroll container
       const scrollContainer = document.createElement('div');
@@ -995,6 +1068,27 @@ export function renderCardAmbienteV6({
         deviceEl.innerHTML = `
           <span class="myio-ambiente-card__energy-device-icon">⚡</span>
           <span class="myio-ambiente-card__energy-device-value">${formatConsumption(device.consumption)}</span>
+        `;
+        scrollContainer.appendChild(deviceEl);
+      });
+
+      // RFC-0176: Add each switch device (LAMP or REMOTE)
+      switchDevices.forEach((device) => {
+        const isLamp = device.type === 'lamp';
+        const isOn = device.isOn;
+        const statusText = isOn ? 'ON' : 'OFF';
+
+        // Different icons for LAMP vs REMOTE
+        // LAMP: 💡 (on=yellow, off=gray)
+        // REMOTE: 🔘 (on=green, off=gray)
+        const icon = isLamp ? '💡' : '🔘';
+
+        const deviceEl = document.createElement('div');
+        deviceEl.className = `myio-ambiente-card__switch-device ${isOn ? 'on' : 'off'} ${isLamp ? 'lamp' : 'remote'}`;
+        deviceEl.title = device.label || device.name || (isLamp ? 'Lâmpada' : 'Controle');
+        deviceEl.innerHTML = `
+          <span class="myio-ambiente-card__switch-device-icon">${icon}</span>
+          <span class="myio-ambiente-card__switch-device-value">${statusText}</span>
         `;
         scrollContainer.appendChild(deviceEl);
       });

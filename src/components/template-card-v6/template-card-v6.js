@@ -471,11 +471,11 @@ const CARD_V6_DEFAULTS = {
   borderRadius: 14,
   minHeight: 114,
   maxWidth: 280,
-  imageMaxHeight: 44,
-  titleFontSize: 0.85,      // rem (increased from 0.75)
-  subtitleFontSize: 0.65,   // rem (increased from 0.55)
-  valueFontSize: 0.88,      // rem (increased from 0.75)
-  flashIconSize: 0.95,      // rem (increased from 0.85)
+  imageMaxHeight: 54,       // px (increased from 44)
+  titleFontSize: 0.9,       // rem (match ambiente card)
+  subtitleFontSize: 0.65,   // rem
+  valueFontSize: 1.0,       // rem (increased from 0.88)
+  flashIconSize: 1.0,       // rem (increased from 0.95)
   actionButtonSize: 28,     // px
   actionIconSize: 16,       // px
   gap: 8,                   // px
@@ -1194,6 +1194,11 @@ export function renderCardComponentV6({
       return isOpen ? SOLENOID_IMAGES.on : SOLENOID_IMAGES.off;
     }
 
+    // Priorizar deviceProfile sobre deviceType para seleção de imagem
+    // Ex: deviceType=3F_MEDIDOR mas deviceProfile=FANCOIL → usar imagem de FANCOIL
+    if (profileType && DEVICE_TYPE_CONFIG[profileType]?.image) {
+      return getStaticDeviceImage(profileType);
+    }
     return getStaticDeviceImage(nameType);
   };
 
@@ -1436,7 +1441,7 @@ export function renderCardComponentV6({
       }
 
       .device-card-centered .device-image {
-        max-height: 44px !important;
+        max-height: 54px !important;
         width: auto;
         margin: 0 !important;
         display: block;
@@ -1481,8 +1486,8 @@ export function renderCardComponentV6({
 
       .device-card-centered .device-title {
         font-weight: 600 !important;
-        font-size: 0.85rem !important;
-        color: #1e293b !important;
+        font-size: 0.9rem !important;
+        color: #1a1a1a !important;
         margin: 0 0 1px 0 !important;
         display: block !important;
         text-align: left !important;
@@ -1516,12 +1521,12 @@ export function renderCardComponentV6({
 
       .device-card-centered .consumption-value {
         font-weight: 700 !important;
-        font-size: 0.88rem !important;
+        font-size: 1.0rem !important;
         color: #059669 !important;
       }
 
       .device-card-centered .flash-icon {
-        font-size: 0.85rem !important;
+        font-size: 1.0rem !important;
         margin-right: 5px;
         transition: all 0.3s ease;
       }
