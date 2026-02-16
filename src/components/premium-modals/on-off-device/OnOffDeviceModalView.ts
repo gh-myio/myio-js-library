@@ -405,6 +405,26 @@ export class OnOffDeviceModalView {
     // Check state from attributes or rawData
     // RFC-0175: Also check rawData.status for solenoid devices (MAIN_BAS uses cd.status)
     const state = attrs.state ?? rawData.state ?? rawData.status ?? attrs.acionamento ?? rawData.acionamento;
+
+    // RFC-0175: Solenoid has INVERTED logic - 'off' means valve OPEN, 'on' means valve CLOSED
+    // For solenoid: status='off' → valve open → modal shows 'on' (operating)
+    // For solenoid: status='on' → valve closed → modal shows 'off' (not operating)
+    const deviceTypeUpper = (this.device.deviceType || '').toUpperCase();
+    const deviceProfileUpper = (this.device.deviceProfile || '').toUpperCase();
+    const isSolenoid = deviceTypeUpper.includes('SOLENOIDE') ||
+      deviceProfileUpper.includes('SOLENOIDE') ||
+      deviceTypeUpper === 'SOLENOID' ||
+      deviceProfileUpper === 'SOLENOID';
+
+    if (isSolenoid) {
+      // Inverted logic for solenoid
+      if (state === false || state === 'off' || state === 0 || state === 'aberta' || state === 'desligado') {
+        return 'on'; // off = valve open = operating
+      }
+      return 'off'; // on = valve closed = not operating
+    }
+
+    // Standard logic for other devices
     if (state === true || state === 'on' || state === 1 || state === 'aberta' || state === 'ligado') {
       return 'on';
     }
