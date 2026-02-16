@@ -23,6 +23,13 @@ import {
   type OnOffTimelineData,
 } from '../../on-off-timeline-chart';
 import { createDateRangePicker } from '../../createDateRangePicker';
+import {
+  fetchOnOffTimelineData,
+  fetchDeviceSchedules,
+  exportTimelineToCSV,
+  exportTimelineToPDF,
+  exportSchedulesToPDF,
+} from './utils';
 
 export interface OnOffDeviceModalViewOptions {
   container: HTMLElement;
@@ -35,6 +42,8 @@ export interface OnOffDeviceModalViewOptions {
   onRefresh?: () => void;
   onDateRangeChange?: (startISO: string, endISO: string) => void;
   parentEl?: HTMLElement;
+  /** JWT token for ThingsBoard API - enables real data fetching */
+  jwtToken?: string;
 }
 
 export class OnOffDeviceModalView {
@@ -68,6 +77,13 @@ export class OnOffDeviceModalView {
   private onDateRangeChange?: (startISO: string, endISO: string) => void;
   private parentEl?: HTMLElement;
 
+  // Data fetching
+  private jwtToken?: string;
+  private currentStartISO: string;
+  private currentEndISO: string;
+  private isLoadingChart: boolean = false;
+  private currentTimelineData: OnOffTimelineData | null = null;
+
   constructor(options: OnOffDeviceModalViewOptions) {
     this.container = options.container;
     this.device = options.device;
@@ -79,6 +95,13 @@ export class OnOffDeviceModalView {
     this.onRefresh = options.onRefresh;
     this.onDateRangeChange = options.onDateRangeChange;
     this.parentEl = options.parentEl;
+    this.jwtToken = options.jwtToken;
+
+    // Initialize date range (default: last 7 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    this.currentStartISO = sevenDaysAgo.toISOString();
+    this.currentEndISO = now.toISOString();
 
     this.state = {
       ...DEFAULT_MODAL_STATE,
@@ -92,6 +115,36 @@ export class OnOffDeviceModalView {
 
     this.render();
     this.container.appendChild(this.root);
+
+    // Fetch real data if token is available
+    if (this.jwtToken) {
+      this.fetchAndUpdateChart();
+      this.fetchAndUpdateSchedules();
+    }
+  }
+
+  /**
+   * Fetch schedules from device attributes
+   */
+  private async fetchAndUpdateSchedules(): Promise<void> {
+    if (!this.jwtToken || !this.device.id) {
+      return;
+    }
+
+    const deviceId = (this.device as any).entityId || this.device.id;
+
+    try {
+      const schedules = await fetchDeviceSchedules(this.jwtToken, deviceId);
+      console.log('[OnOffDeviceModalView] Fetched schedules:', schedules.length);
+      this.state.schedules = schedules;
+
+      // Update schedule component if already initialized
+      if (this.scheduleOnOffInstance?.updateState) {
+        this.scheduleOnOffInstance.updateState({ schedules });
+      }
+    } catch (error) {
+      console.error('[OnOffDeviceModalView] Error fetching schedules:', error);
+    }
   }
 
   private getRootClassName(): string {
@@ -213,7 +266,60 @@ export class OnOffDeviceModalView {
 
     toolbar.appendChild(wrapper);
 
+    // Export buttons container
+    const exportContainer = document.createElement('div');
+    exportContainer.className = `${ON_OFF_MODAL_CSS_PREFIX}__export-buttons`;
+    exportContainer.style.cssText = 'display: flex; gap: 8px; margin-left: auto;';
+
+    // CSV Export button
+    const csvBtn = document.createElement('button');
+    csvBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__export-btn`;
+    csvBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> CSV`;
+    csvBtn.title = 'Exportar para CSV';
+    csvBtn.addEventListener('click', () => this.handleExportCSV());
+    exportContainer.appendChild(csvBtn);
+
+    // PDF Export button
+    const pdfBtn = document.createElement('button');
+    pdfBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__export-btn`;
+    pdfBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15v-2h6v2"/><path d="M12 13v4"/></svg> PDF`;
+    pdfBtn.title = 'Exportar para PDF';
+    pdfBtn.addEventListener('click', () => this.handleExportPDF());
+    exportContainer.appendChild(pdfBtn);
+
+    toolbar.appendChild(exportContainer);
+
     return toolbar;
+  }
+
+  /**
+   * Handle CSV export
+   */
+  private handleExportCSV(): void {
+    if (!this.currentTimelineData || this.currentTimelineData.segments.length === 0) {
+      console.warn('[OnOffDeviceModalView] No data to export');
+      return;
+    }
+
+    exportTimelineToCSV(this.currentTimelineData, {
+      on: this.deviceConfig.labelOn,
+      off: this.deviceConfig.labelOff,
+    });
+  }
+
+  /**
+   * Handle PDF export
+   */
+  private handleExportPDF(): void {
+    if (!this.currentTimelineData || this.currentTimelineData.segments.length === 0) {
+      console.warn('[OnOffDeviceModalView] No data to export');
+      return;
+    }
+
+    exportTimelineToPDF(this.currentTimelineData, {
+      on: this.deviceConfig.labelOn,
+      off: this.deviceConfig.labelOff,
+    });
   }
 
   private createChartView(): HTMLElement {
@@ -225,30 +331,148 @@ export class OnOffDeviceModalView {
     content.className = `${ON_OFF_MODAL_CSS_PREFIX}__chart-content`;
     content.id = `onoff-chart-${Date.now()}`;
 
-    // Generate mock timeline data with device-specific labels
-    const mockData = this.generateDeviceTimelineData();
+    // Show loading state if we're fetching data, otherwise show mock or cached data
+    if (this.isLoadingChart) {
+      content.innerHTML = this.renderChartLoading();
+    } else {
+      // Generate mock timeline data with device-specific labels (will be replaced by real data)
+      const mockData = this.generateDeviceTimelineData();
 
-    // Render timeline chart
-    content.innerHTML = renderOnOffTimelineChart(mockData, {
-      themeMode: this.themeMode,
-      labels: {
-        on: this.deviceConfig.labelOn,
-        off: this.deviceConfig.labelOff,
-      },
-      onColor: this.deviceConfig.controlColor,
-    });
+      // Render timeline chart
+      content.innerHTML = renderOnOffTimelineChart(mockData, {
+        themeMode: this.themeMode,
+        labels: {
+          on: this.deviceConfig.labelOn,
+          off: this.deviceConfig.labelOff,
+        },
+        onColor: this.deviceConfig.controlColor,
+      });
+    }
 
     view.appendChild(content);
 
-    // Initialize tooltips after DOM is ready
-    requestAnimationFrame(() => {
-      initOnOffTimelineTooltips(content, {
-        on: this.deviceConfig.labelOn,
-        off: this.deviceConfig.labelOff,
+    // Initialize tooltips after DOM is ready (only if not loading)
+    if (!this.isLoadingChart) {
+      requestAnimationFrame(() => {
+        initOnOffTimelineTooltips(content, {
+          on: this.deviceConfig.labelOn,
+          off: this.deviceConfig.labelOff,
+        });
       });
-    });
+    }
 
     return view;
+  }
+
+  /**
+   * Render loading state for the chart
+   */
+  private renderChartLoading(): string {
+    const bgColor = this.themeMode === 'dark' ? 'rgba(255,255,255,0.05)' : '#f9fafb';
+    const textColor = this.themeMode === 'dark' ? '#9ca3af' : '#6b7280';
+
+    return `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        background: ${bgColor};
+        border-radius: 8px;
+      ">
+        <div style="
+          width: 40px;
+          height: 40px;
+          border: 3px solid ${this.themeMode === 'dark' ? '#374151' : '#e5e7eb'};
+          border-top-color: ${this.deviceConfig.controlColor || '#3b82f6'};
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        "></div>
+        <p style="margin-top: 12px; color: ${textColor}; font-size: 14px;">
+          Carregando dados...
+        </p>
+      </div>
+      <style>
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+  }
+
+  /**
+   * Fetch real telemetry data and update the chart
+   */
+  private async fetchAndUpdateChart(): Promise<void> {
+    if (!this.jwtToken || !this.device.id) {
+      console.warn('[OnOffDeviceModalView] No token or device ID, using mock data');
+      return;
+    }
+
+    const deviceId = (this.device as any).entityId || this.device.id;
+
+    // Check if device is solenoid (uses inverted logic)
+    const deviceTypeUpper = (this.device.deviceType || '').toUpperCase();
+    const deviceProfileUpper = (this.device.deviceProfile || '').toUpperCase();
+    const isSolenoid = deviceTypeUpper.includes('SOLENOIDE') ||
+      deviceProfileUpper.includes('SOLENOIDE') ||
+      deviceTypeUpper === 'SOLENOID' ||
+      deviceProfileUpper === 'SOLENOID';
+
+    this.isLoadingChart = true;
+    this.updateChartLoadingState();
+
+    try {
+      const startTs = new Date(this.currentStartISO).getTime();
+      const endTs = new Date(this.currentEndISO).getTime();
+
+      console.log('[OnOffDeviceModalView] Fetching telemetry data:', {
+        deviceId,
+        startTs,
+        endTs,
+        isSolenoid,
+      });
+
+      const timelineData = await fetchOnOffTimelineData({
+        token: this.jwtToken,
+        deviceId,
+        startTs,
+        endTs,
+        deviceName: this.device.label || this.device.name || 'Dispositivo',
+        invertLogic: isSolenoid,
+      });
+
+      console.log('[OnOffDeviceModalView] Received timeline data:', {
+        segments: timelineData.segments.length,
+        totalOnMinutes: timelineData.totalOnMinutes,
+        activationCount: timelineData.activationCount,
+      });
+
+      this.isLoadingChart = false;
+      this.updateTimelineData(timelineData);
+    } catch (error) {
+      console.error('[OnOffDeviceModalView] Error fetching telemetry:', error);
+      this.isLoadingChart = false;
+
+      // Fall back to showing empty state or mock data
+      const fallbackData = this.generateDeviceTimelineData();
+      fallbackData.segments = [];
+      fallbackData.totalOnMinutes = 0;
+      fallbackData.totalOffMinutes = 0;
+      fallbackData.activationCount = 0;
+      this.updateTimelineData(fallbackData);
+    }
+  }
+
+  /**
+   * Update chart container to show loading state
+   */
+  private updateChartLoadingState(): void {
+    const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
+    if (chartContent) {
+      chartContent.innerHTML = this.renderChartLoading();
+    }
   }
 
   /**
@@ -270,6 +494,17 @@ export class OnOffDeviceModalView {
    * Re-render the chart with a new date range
    */
   private reRenderChart(startISO?: string, endISO?: string): void {
+    // Update stored date range
+    if (startISO) this.currentStartISO = startISO;
+    if (endISO) this.currentEndISO = endISO;
+
+    // If we have a token, fetch real data
+    if (this.jwtToken) {
+      this.fetchAndUpdateChart();
+      return;
+    }
+
+    // Fall back to mock data
     const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
     if (!chartContent) return;
 
@@ -296,12 +531,23 @@ export class OnOffDeviceModalView {
     const view = document.createElement('div');
     view.className = `${ON_OFF_MODAL_CSS_PREFIX}__view-container ${ON_OFF_MODAL_CSS_PREFIX}__schedule-view`;
 
-    // Header
+    // Header with export button
     const header = document.createElement('div');
     header.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-header`;
-    header.innerHTML = `
-      <h3 class="${ON_OFF_MODAL_CSS_PREFIX}__schedule-title">Agendamentos</h3>
-    `;
+
+    const title = document.createElement('h3');
+    title.className = `${ON_OFF_MODAL_CSS_PREFIX}__schedule-title`;
+    title.textContent = 'Agendamentos';
+    header.appendChild(title);
+
+    // PDF Export button for schedules
+    const pdfBtn = document.createElement('button');
+    pdfBtn.className = `${ON_OFF_MODAL_CSS_PREFIX}__export-btn`;
+    pdfBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15v-2h6v2"/><path d="M12 13v4"/></svg> PDF`;
+    pdfBtn.title = 'Exportar agendamentos para PDF';
+    pdfBtn.addEventListener('click', () => this.handleExportSchedulesPDF());
+    header.appendChild(pdfBtn);
+
     view.appendChild(header);
 
     // Schedule content container (will be populated by ScheduleOnOff component)
@@ -310,6 +556,14 @@ export class OnOffDeviceModalView {
     view.appendChild(this.scheduleContent);
 
     return view;
+  }
+
+  /**
+   * Handle PDF export for schedules
+   */
+  private handleExportSchedulesPDF(): void {
+    const deviceName = this.device.label || this.device.name || 'Dispositivo';
+    exportSchedulesToPDF(this.state.schedules, deviceName);
   }
 
   private initializeComponents(): void {
@@ -553,6 +807,13 @@ export class OnOffDeviceModalView {
   }
 
   private updateChartTheme(): void {
+    // If we have a token, re-fetch with the new theme
+    if (this.jwtToken) {
+      this.fetchAndUpdateChart();
+      return;
+    }
+
+    // Fall back to mock data
     const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
     if (!chartContent) return;
 
@@ -651,6 +912,9 @@ export class OnOffDeviceModalView {
    * @param timelineData - Timeline data from device telemetry
    */
   public updateTimelineData(timelineData: OnOffTimelineData): void {
+    // Store data for export
+    this.currentTimelineData = timelineData;
+
     const chartContent = this.chartView?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}__chart-content`);
     if (!chartContent) return;
 

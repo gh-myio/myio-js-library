@@ -137,9 +137,43 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 4px 4px 10px 4px;
-      margin-bottom: 4px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
       border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
+      flex-shrink: 0;
+      background: var(--onoff-panel-bg, #f9fafb);
+      border-radius: 8px 8px 0 0;
+    }
+
+    /* ===== Export Buttons ===== */
+    .${ON_OFF_MODAL_CSS_PREFIX}__export-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--onoff-btn-bg, #ffffff);
+      border: 1px solid var(--onoff-border-color, #e5e7eb);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--onoff-text-muted, #6b7280);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__export-btn:hover {
+      color: var(--onoff-primary-color, #3b82f6);
+      border-color: var(--onoff-primary-color, #3b82f6);
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__export-btn:active {
+      transform: scale(0.97);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}__export-btn svg {
       flex-shrink: 0;
     }
 
@@ -210,6 +244,7 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       flex-direction: column;
       min-height: 0;
+      overflow: hidden;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__chart-content {
@@ -219,6 +254,8 @@ export function injectOnOffDeviceModalStyles(): void {
       min-height: 0;
       overflow: auto;
       animation: ${ON_OFF_MODAL_CSS_PREFIX}-fadeIn 0.3s ease;
+      /* Remove any extra space at bottom */
+      justify-content: flex-start;
     }
 
     @keyframes ${ON_OFF_MODAL_CSS_PREFIX}-fadeIn {
@@ -445,10 +482,12 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 4px 4px 10px 4px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
       margin-bottom: 12px;
       flex-shrink: 0;
+      background: var(--onoff-panel-bg, #f9fafb);
+      border-radius: 8px 8px 0 0;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-title {
@@ -614,6 +653,22 @@ export function injectOnOffDeviceModalStyles(): void {
       color: #60a5fa;
       border-color: #60a5fa;
       background: rgba(96, 165, 250, 0.08);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__export-btn {
+      background: #374151;
+      border-color: #4b5563;
+      color: #9ca3af;
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__export-btn:hover {
+      color: #60a5fa;
+      border-color: #60a5fa;
+      background: rgba(96, 165, 250, 0.08);
+    }
+
+    .${ON_OFF_MODAL_CSS_PREFIX}--dark .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
+      background: #111827;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}--dark .myio-sched__btn-bar {

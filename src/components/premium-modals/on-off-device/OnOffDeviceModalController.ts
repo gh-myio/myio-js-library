@@ -207,6 +207,7 @@ export class OnOffDeviceModalController {
         onRefresh: () => this.handleRefresh(),
         onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO),
         parentEl: this.modalContainer?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}-content`) as HTMLElement || undefined,
+        jwtToken: this.params.jwtToken,
       });
     }
   }
