@@ -1039,19 +1039,25 @@ function parseDevicesFromData(data) {
       device.status = isOnline ? 'active' : 'inactive';
     } else if (domain === 'switch') {
       // RFC-0176: Switch domain for LAMP and REMOTE devices
-      // Status values: on | off | detected | not_detected
+      // connectionStatus = online | offline (device connection)
+      // status (timeseries) = on | off | detected | not_detected (switch state)
       var switchStatus = (cd.status || cd.state || '').toLowerCase();
       var isOn = switchStatus === 'on' || switchStatus === 'detected';
-      device.switchStatus = switchStatus; // Raw status value
+      device.switchStatus = switchStatus; // Raw switch state value (on/off/detected/not_detected)
       device.isOn = isOn;
       device.type = profileUpper === 'LAMP' ? 'lamp' : 'remote';
-      device.status = isOn ? 'on' : 'off';
+      // IMPORTANT: Keep device.status based on connectionStatus (online/offline)
+      // This is already set above: device.status = isOnline ? 'online' : 'offline'
+      // Do NOT override it with switch state
+      device.connectionStatus = connectionStatus; // Store raw connectionStatus
       // Determine context based on device type
       context = profileUpper === 'LAMP' ? 'lamp' : 'remote';
       device.context = context;
       LogHelper.log(
-        '[MAIN_BAS] Switch device status:',
+        '[MAIN_BAS] Switch device:',
         deviceLabel,
+        'connectionStatus:',
+        connectionStatus,
         'switchStatus:',
         switchStatus,
         'isOn:',
@@ -1717,6 +1723,10 @@ function assetAmbientToAmbienteData(hierarchyNode) {
       var dp = (d.deviceProfile || '').toUpperCase();
       var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
 
+      // connectionStatus = online/offline (device connection state)
+      var connStatus = d.connectionStatus || d.status || 'offline';
+      var isConnected = connStatus === 'online';
+
       switchDevices.push({
         id: d.id,
         name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
@@ -1725,8 +1735,10 @@ function assetAmbientToAmbienteData(hierarchyNode) {
         deviceProfile: d.deviceProfile,
         type: switchType, // 'lamp' or 'remote'
         isOn: isDeviceOn,
-        switchStatus: statusLower, // on|off|detected|not_detected
-        status: d.status || 'offline',
+        switchStatus: statusLower, // on|off|detected|not_detected (switch state)
+        connectionStatus: connStatus, // online|offline (device connection)
+        isConnected: isConnected, // true if device is connected
+        status: connStatus, // Keep for backwards compatibility
       });
     }
   });
@@ -1738,17 +1750,21 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     return r.isOn;
   });
 
-  // Determine overall status
+  // Determine overall status based on connectionStatus of child devices
+  // online: all devices connectionStatus = online
+  // warning: mix of online and offline devices
+  // offline: all devices connectionStatus = offline
   var onlineCount = aggregatedData.onlineCount || 0;
   var offlineCount = aggregatedData.offlineCount || 0;
   var status = 'offline';
   if (hierarchyNode.hasSetupWarning) {
     status = 'warning';
   } else if (onlineCount > 0 && offlineCount === 0) {
-    status = 'online';
-  } else if (onlineCount > 0) {
-    status = 'online'; // Mixed state, show as online
+    status = 'online'; // All devices online
+  } else if (onlineCount > 0 && offlineCount > 0) {
+    status = 'warning'; // Mix of online and offline devices
   }
+  // else: all devices offline → status remains 'offline'
 
   // Build devices array for the card
   var cardDevices = [];

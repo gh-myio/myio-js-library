@@ -529,10 +529,16 @@ const CARD_STYLES = `
     color: #17a2b8;
   }
 
-  /* RFC-0168: Setup warning state */
+  /* RFC-0168: Setup warning state (no devices configured) */
   .myio-ambiente-card.setup-warning {
     border: 2px dashed #ffc107;
     background: linear-gradient(135deg, #fffbe6 0%, #fff8dc 100%);
+  }
+
+  /* RFC-0176: Connection warning state (mix of online/offline devices) */
+  .myio-ambiente-card.connection-warning {
+    border: 2px solid #fd7e14;
+    background: linear-gradient(135deg, #fff5eb 0%, #fff0e6 100%);
   }
 
   .myio-ambiente-card__warning {
@@ -738,6 +744,21 @@ const CARD_STYLES = `
 
   .myio-ambiente-card__switch-device.remote.off .myio-ambiente-card__switch-device-value {
     color: #6c757d;
+  }
+
+  /* OFFLINE state for both LAMP and REMOTE (device disconnected) */
+  .myio-ambiente-card__switch-device.offline {
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px dashed rgba(220, 53, 69, 0.3);
+  }
+
+  .myio-ambiente-card__switch-device.offline .myio-ambiente-card__switch-device-icon {
+    filter: grayscale(100%) opacity(0.4);
+  }
+
+  .myio-ambiente-card__switch-device.offline .myio-ambiente-card__switch-device-value {
+    color: #dc3545;
+    font-size: 0.6rem;
   }
 
 `;
@@ -948,7 +969,8 @@ export function renderCardAmbienteV6({
   // Determine aggregated status
   const aggregatedStatus = status || getAggregatedStatus(devices);
   const isOffline = aggregatedStatus === 'offline';
-  const isWarning = hasSetupWarning || aggregatedStatus === 'warning';
+  const isSetupWarning = hasSetupWarning; // No devices configured
+  const isConnectionWarning = aggregatedStatus === 'warning'; // Mix of online/offline devices
 
   // Create container
   const container = document.createElement('div');
@@ -956,9 +978,16 @@ export function renderCardAmbienteV6({
   container.dataset.ambienteId = id || '';
 
   // Create card element
-  // RFC-0168: Added setup-warning class for cards with no child devices
+  // RFC-0168: setup-warning class for cards with no child devices
+  // RFC-0176: connection-warning class for mix of online/offline devices
+  let cardClasses = 'myio-ambiente-card';
+  if (handleClickCard) cardClasses += ' clickable';
+  if (isOffline) cardClasses += ' offline';
+  if (isSetupWarning) cardClasses += ' setup-warning';
+  if (isConnectionWarning && !isSetupWarning) cardClasses += ' connection-warning';
+
   const card = document.createElement('div');
-  card.className = `myio-ambiente-card${handleClickCard ? ' clickable' : ''}${isOffline ? ' offline' : ''}${isWarning ? ' setup-warning' : ''}`;
+  card.className = cardClasses;
 
   // === BODY (Center content) ===
   // Note: Actions (piano keys) removed for simplified card layout
@@ -1073,18 +1102,31 @@ export function renderCardAmbienteV6({
       });
 
       // RFC-0176: Add each switch device (LAMP or REMOTE)
+      // connectionStatus = online|offline (device connection)
+      // switchStatus = on|off|detected|not_detected (switch state)
       switchDevices.forEach((device) => {
         const isLamp = device.type === 'lamp';
+        const isConnected = device.isConnected !== false && device.connectionStatus !== 'offline';
         const isOn = device.isOn;
-        const statusText = isOn ? 'ON' : 'OFF';
+
+        // If device is offline, show OFFLINE instead of ON/OFF
+        let statusText;
+        let stateClass;
+        if (!isConnected) {
+          statusText = 'OFFLINE';
+          stateClass = 'offline';
+        } else {
+          statusText = isOn ? 'ON' : 'OFF';
+          stateClass = isOn ? 'on' : 'off';
+        }
 
         // Different icons for LAMP vs REMOTE
-        // LAMP: 💡 (on=yellow, off=gray)
-        // REMOTE: 🔘 (on=green, off=gray)
+        // LAMP: 💡 (on=yellow, off=gray, offline=gray)
+        // REMOTE: 🔘 (on=green, off=gray, offline=gray)
         const icon = isLamp ? '💡' : '🔘';
 
         const deviceEl = document.createElement('div');
-        deviceEl.className = `myio-ambiente-card__switch-device ${isOn ? 'on' : 'off'} ${isLamp ? 'lamp' : 'remote'}`;
+        deviceEl.className = `myio-ambiente-card__switch-device ${stateClass} ${isLamp ? 'lamp' : 'remote'}`;
         deviceEl.title = device.label || device.name || (isLamp ? 'Lâmpada' : 'Controle');
         deviceEl.innerHTML = `
           <span class="myio-ambiente-card__switch-device-icon">${icon}</span>
