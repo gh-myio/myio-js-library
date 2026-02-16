@@ -38,6 +38,23 @@ export interface FilterSortOption {
   direction: 'asc' | 'desc';
 }
 
+export interface FilterDevice {
+  /** Unique identifier for the device */
+  id: string;
+  /** Display label/name */
+  label: string;
+  /** Device type (for icon selection) */
+  type?: string;
+  /** Device context */
+  context?: string;
+  /** Icon (emoji or SVG) */
+  icon?: string;
+  /** Whether this device is selected (defaults to true) */
+  selected?: boolean;
+  /** Status for visual indication */
+  status?: string;
+}
+
 export interface FilterModalOptions {
   /** Modal title */
   title: string;
@@ -49,19 +66,24 @@ export interface FilterModalOptions {
   sortOptions: FilterSortOption[];
   /** Currently selected sort option id */
   selectedSortId?: string;
+  /** Devices for individual selection (shown in right panel) */
+  devices?: FilterDevice[];
   /** Callback when filter is applied */
-  onApply: (selectedCategories: string[], sortOption: FilterSortOption | null) => void;
+  onApply: (selectedCategories: string[], sortOption: FilterSortOption | null, selectedDeviceIds?: string[]) => void;
   /** Callback when modal is closed/cancelled */
   onClose: () => void;
   /** Enable grouping by category */
   groupByCategory?: boolean;
   /** Theme mode: 'light' (default) or 'dark' */
   themeMode?: 'light' | 'dark';
+  /** Show device grid panel (default: true when devices provided) */
+  showDeviceGrid?: boolean;
 }
 
 export interface FilterState {
   selectedCategories: string[];
   sortOptionId: string | null;
+  selectedDeviceIds: string[];
 }
 
 // ────────────────────────────────────────────
@@ -122,6 +144,12 @@ const MODAL_CSS = `
     transform: scale(0.95) translateY(10px);
     transition: transform 0.2s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  /* Two-column layout when device grid is shown */
+  .myio-fm--with-devices {
+    max-width: 800px;
+    min-width: 700px;
   }
 
   /* Light theme modal (default) */
@@ -221,6 +249,234 @@ const MODAL_CSS = `
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+  }
+
+  /* Two-column body layout */
+  .myio-fm__body--two-col {
+    display: flex;
+    gap: 20px;
+    overflow: hidden;
+  }
+
+  .myio-fm__left-panel {
+    flex: 0 0 280px;
+    overflow-y: auto;
+    padding-right: 16px;
+  }
+
+  .myio-fm--light .myio-fm__left-panel {
+    border-right: 1px solid #e2e8f0;
+  }
+
+  .myio-fm--dark .myio-fm__left-panel {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .myio-fm__right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Device grid */
+  .myio-fm__device-grid-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+
+  .myio-fm__device-search {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.15s ease;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+
+  .myio-fm--light .myio-fm__device-search {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #1e293b;
+  }
+
+  .myio-fm--light .myio-fm__device-search:focus {
+    border-color: #3d7a62;
+    box-shadow: 0 0 0 3px rgba(61, 122, 98, 0.1);
+  }
+
+  .myio-fm--light .myio-fm__device-search::placeholder {
+    color: #94a3b8;
+  }
+
+  .myio-fm--dark .myio-fm__device-search {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+  }
+
+  .myio-fm--dark .myio-fm__device-search:focus {
+    border-color: #3d7a62;
+    box-shadow: 0 0 0 3px rgba(61, 122, 98, 0.2);
+  }
+
+  .myio-fm--dark .myio-fm__device-search::placeholder {
+    color: #64748b;
+  }
+
+  .myio-fm__device-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .myio-fm__device-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .myio-fm--light .myio-fm__device-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+
+  .myio-fm--light .myio-fm__device-item:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  .myio-fm--dark .myio-fm__device-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .myio-fm--dark .myio-fm__device-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .myio-fm__device-item--selected {
+    background: rgba(61, 122, 98, 0.1) !important;
+    border-color: rgba(61, 122, 98, 0.3) !important;
+  }
+
+  .myio-fm__device-item--selected:hover {
+    background: rgba(61, 122, 98, 0.15) !important;
+  }
+
+  .myio-fm__device-item--hidden {
+    display: none;
+  }
+
+  .myio-fm__device-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #94a3b8;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+    color: transparent;
+  }
+
+  .myio-fm__device-item--selected .myio-fm__device-checkbox {
+    background: #3d7a62;
+    border-color: #3d7a62;
+    color: white;
+  }
+
+  .myio-fm__device-icon {
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .myio-fm__device-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .myio-fm__device-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .myio-fm--light .myio-fm__device-label {
+    color: #1e293b;
+  }
+
+  .myio-fm--dark .myio-fm__device-label {
+    color: #e2e8f0;
+  }
+
+  .myio-fm__device-type {
+    font-size: 0.65rem;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .myio-fm__device-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .myio-fm__device-status--online {
+    background: #28a745;
+    box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
+  }
+
+  .myio-fm__device-status--offline {
+    background: #dc3545;
+  }
+
+  .myio-fm__device-status--warning {
+    background: #fd7e14;
+  }
+
+  .myio-fm__device-count {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+  }
+
+  .myio-fm--light .myio-fm__device-count {
+    background: #e2e8f0;
+    color: #64748b;
+  }
+
+  .myio-fm--dark .myio-fm__device-count {
+    background: rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+  }
+
+  .myio-fm__no-devices {
+    text-align: center;
+    padding: 24px;
+    font-size: 0.85rem;
+    color: #64748b;
   }
 
   .myio-fm__section {
@@ -568,7 +824,10 @@ export class FilterModalComponent {
   private options: FilterModalOptions;
   private selectedCategories: Set<string>;
   private selectedSortId: string | null;
+  private selectedDeviceIds: Set<string>;
   private themeMode: 'light' | 'dark';
+  private showDeviceGrid: boolean;
+  private deviceSearchQuery: string = '';
 
   constructor(options: FilterModalOptions) {
     injectStyles();
@@ -578,6 +837,13 @@ export class FilterModalComponent {
       options.categories.filter(c => c.selected).map(c => c.id)
     );
     this.selectedSortId = options.selectedSortId || null;
+
+    // Device selection - all selected by default
+    const devices = options.devices || [];
+    this.selectedDeviceIds = new Set(
+      devices.filter(d => d.selected !== false).map(d => d.id)
+    );
+    this.showDeviceGrid = options.showDeviceGrid ?? (devices.length > 0);
 
     this.overlay = document.createElement('div');
     this.overlay.className = `myio-fm-overlay myio-fm-overlay--${this.themeMode}`;
@@ -606,6 +872,7 @@ export class FilterModalComponent {
     return {
       selectedCategories: Array.from(this.selectedCategories),
       sortOptionId: this.selectedSortId,
+      selectedDeviceIds: Array.from(this.selectedDeviceIds),
     };
   }
 
@@ -616,10 +883,13 @@ export class FilterModalComponent {
   // ── Private ────────────────────────────────
 
   private render(): void {
-    const { title, icon, categories, sortOptions } = this.options;
+    const { title, icon, categories, sortOptions, devices = [] } = this.options;
+    const hasDevices = this.showDeviceGrid && devices.length > 0;
+    const modalClass = `myio-fm myio-fm--${this.themeMode}${hasDevices ? ' myio-fm--with-devices' : ''}`;
+    const bodyClass = `myio-fm__body${hasDevices ? ' myio-fm__body--two-col' : ''}`;
 
     this.overlay.innerHTML = `
-      <div class="myio-fm myio-fm--${this.themeMode}">
+      <div class="${modalClass}">
         <div class="myio-fm__header">
           <div class="myio-fm__header-left">
             ${icon ? `<span class="myio-fm__icon">${icon}</span>` : ''}
@@ -630,7 +900,9 @@ export class FilterModalComponent {
           </button>
         </div>
 
-        <div class="myio-fm__body">
+        <div class="${bodyClass}">
+          ${hasDevices ? '<div class="myio-fm__left-panel">' : ''}
+
           <!-- Categories Section -->
           <div class="myio-fm__section">
             <div class="myio-fm__section-header">
@@ -656,6 +928,10 @@ export class FilterModalComponent {
               </div>
             </div>
           ` : ''}
+
+          ${hasDevices ? '</div>' : ''}
+
+          ${hasDevices ? this.renderDeviceGrid(devices) : ''}
         </div>
 
         <div class="myio-fm__footer">
@@ -664,6 +940,76 @@ export class FilterModalComponent {
         </div>
       </div>
     `;
+  }
+
+  private renderDeviceGrid(devices: FilterDevice[]): string {
+    const selectedCount = this.selectedDeviceIds.size;
+    const totalCount = devices.length;
+
+    return `
+      <div class="myio-fm__right-panel">
+        <div class="myio-fm__section" style="height: 100%; display: flex; flex-direction: column;">
+          <div class="myio-fm__section-header">
+            <h3 class="myio-fm__section-title">Dispositivos</h3>
+            <div class="myio-fm__section-actions">
+              <span class="myio-fm__device-count">${selectedCount}/${totalCount}</span>
+              <button class="myio-fm__section-btn" data-action="select-all-devices">Todos</button>
+              <button class="myio-fm__section-btn" data-action="select-no-devices">Nenhum</button>
+            </div>
+          </div>
+          <input
+            type="text"
+            class="myio-fm__device-search"
+            placeholder="Buscar dispositivo..."
+            data-action="device-search"
+          />
+          <div class="myio-fm__device-list">
+            ${devices.length > 0
+              ? devices.map(device => this.renderDeviceItem(device)).join('')
+              : '<div class="myio-fm__no-devices">Nenhum dispositivo disponível</div>'
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderDeviceItem(device: FilterDevice): string {
+    const isSelected = this.selectedDeviceIds.has(device.id);
+    const statusClass = device.status ? `myio-fm__device-status--${device.status}` : '';
+    const icon = device.icon || this.getDefaultDeviceIcon(device.type, device.context);
+
+    return `
+      <div class="myio-fm__device-item${isSelected ? ' myio-fm__device-item--selected' : ''}"
+           data-device-id="${device.id}"
+           data-device-label="${this.escapeHtml(device.label || '').toLowerCase()}">
+        <div class="myio-fm__device-checkbox">
+          ${ICON_CHECK}
+        </div>
+        ${icon ? `<span class="myio-fm__device-icon">${icon}</span>` : ''}
+        <div class="myio-fm__device-info">
+          <p class="myio-fm__device-label" title="${this.escapeHtml(device.label)}">${this.escapeHtml(device.label)}</p>
+          ${device.type ? `<p class="myio-fm__device-type">${this.escapeHtml(device.type)}</p>` : ''}
+        </div>
+        ${device.status ? `<div class="myio-fm__device-status ${statusClass}"></div>` : ''}
+      </div>
+    `;
+  }
+
+  private getDefaultDeviceIcon(type?: string, context?: string): string {
+    const t = (type || '').toLowerCase();
+    const c = (context || '').toLowerCase();
+
+    if (t.includes('hidro') || c.includes('hidro')) return '💧';
+    if (t.includes('caixa') || t.includes('tank')) return '🛢️';
+    if (t.includes('solenoide')) return '🚰';
+    if (t.includes('termostato') || c.includes('termostato')) return '🌡️';
+    if (t.includes('3f_medidor') || c === 'stores') return '🏬';
+    if (c === 'entrada') return '📥';
+    if (c === 'equipments') return '⚙️';
+    if (t.includes('lamp')) return '💡';
+    if (t.includes('remote')) return '🔘';
+    return '📟';
   }
 
   private renderCategory(cat: FilterCategory): string {
@@ -729,7 +1075,7 @@ export class FilterModalComponent {
       });
     });
 
-    // Select all/none
+    // Select all/none categories
     this.overlay.querySelector('[data-action="select-all"]')?.addEventListener('click', () => {
       this.selectAllCategories();
     });
@@ -737,6 +1083,33 @@ export class FilterModalComponent {
     this.overlay.querySelector('[data-action="select-none"]')?.addEventListener('click', () => {
       this.selectNoCategories();
     });
+
+    // Device grid events
+    this.overlay.querySelectorAll('.myio-fm__device-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.getAttribute('data-device-id');
+        if (id) {
+          this.toggleDevice(id);
+        }
+      });
+    });
+
+    // Select all/none devices
+    this.overlay.querySelector('[data-action="select-all-devices"]')?.addEventListener('click', () => {
+      this.selectAllDevices();
+    });
+
+    this.overlay.querySelector('[data-action="select-no-devices"]')?.addEventListener('click', () => {
+      this.selectNoDevices();
+    });
+
+    // Device search
+    const searchInput = this.overlay.querySelector('[data-action="device-search"]') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.filterDevices((e.target as HTMLInputElement).value);
+      });
+    }
 
     // Cancel button
     this.overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
@@ -799,9 +1172,75 @@ export class FilterModalComponent {
     });
   }
 
+  // Device selection methods
+  private toggleDevice(id: string): void {
+    if (this.selectedDeviceIds.has(id)) {
+      this.selectedDeviceIds.delete(id);
+    } else {
+      this.selectedDeviceIds.add(id);
+    }
+    this.updateDeviceUI(id);
+    this.updateDeviceCount();
+  }
+
+  private updateDeviceUI(id: string): void {
+    const el = this.overlay.querySelector(`[data-device-id="${id}"]`);
+    if (el) {
+      el.classList.toggle('myio-fm__device-item--selected', this.selectedDeviceIds.has(id));
+    }
+  }
+
+  private updateDeviceCount(): void {
+    const countEl = this.overlay.querySelector('.myio-fm__device-count');
+    if (countEl) {
+      const totalCount = this.options.devices?.length || 0;
+      countEl.textContent = `${this.selectedDeviceIds.size}/${totalCount}`;
+    }
+  }
+
+  private selectAllDevices(): void {
+    const devices = this.options.devices || [];
+    // Only select visible devices (not filtered out by search)
+    const visibleDevices = devices.filter(d => {
+      const el = this.overlay.querySelector(`[data-device-id="${d.id}"]`);
+      return el && !el.classList.contains('myio-fm__device-item--hidden');
+    });
+
+    visibleDevices.forEach(device => {
+      this.selectedDeviceIds.add(device.id);
+      this.updateDeviceUI(device.id);
+    });
+    this.updateDeviceCount();
+  }
+
+  private selectNoDevices(): void {
+    const devices = this.options.devices || [];
+    // Only deselect visible devices (not filtered out by search)
+    const visibleDevices = devices.filter(d => {
+      const el = this.overlay.querySelector(`[data-device-id="${d.id}"]`);
+      return el && !el.classList.contains('myio-fm__device-item--hidden');
+    });
+
+    visibleDevices.forEach(device => {
+      this.selectedDeviceIds.delete(device.id);
+      this.updateDeviceUI(device.id);
+    });
+    this.updateDeviceCount();
+  }
+
+  private filterDevices(query: string): void {
+    this.deviceSearchQuery = query.toLowerCase().trim();
+    this.overlay.querySelectorAll('.myio-fm__device-item').forEach(el => {
+      const label = el.getAttribute('data-device-label') || '';
+      const matches = !this.deviceSearchQuery || label.includes(this.deviceSearchQuery);
+      el.classList.toggle('myio-fm__device-item--hidden', !matches);
+    });
+  }
+
   private applyFilter(): void {
     const selectedSort = this.options.sortOptions.find(o => o.id === this.selectedSortId) || null;
-    this.options.onApply(Array.from(this.selectedCategories), selectedSort);
+    const selectedDeviceIds = this.showDeviceGrid ? Array.from(this.selectedDeviceIds) : undefined;
+    this.options.onApply(Array.from(this.selectedCategories), selectedSort, selectedDeviceIds);
     this.hide();
     document.removeEventListener('keydown', this.handleKeyDown);
   }

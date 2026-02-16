@@ -21,6 +21,7 @@ export {
 export type {
   FilterCategory,
   FilterSortOption,
+  FilterDevice,
   FilterModalOptions,
   FilterState,
 } from './FilterModalComponent.js';
