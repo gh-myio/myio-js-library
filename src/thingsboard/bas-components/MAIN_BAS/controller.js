@@ -180,8 +180,14 @@ function calculateAmbienteAggregates(devices) {
   var offlineCount = 0;
 
   devices.forEach(function (device) {
-    // Status
-    if (device.status === 'online' || device.status === 'active') {
+    // Status - check both status and connectionStatus fields
+    // RFC-0175: connectionStatus is the primary field from ThingsBoard
+    var deviceStatus = device.status || device.connectionStatus || '';
+    var isOnline = device.isOnline === true ||
+      deviceStatus === 'online' ||
+      deviceStatus === 'active' ||
+      deviceStatus === 'connected';
+    if (isOnline) {
       onlineCount++;
     } else {
       offlineCount++;
