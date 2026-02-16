@@ -471,6 +471,11 @@ const CARD_STYLES = `
     box-shadow: 0 0 6px rgba(40, 167, 69, 0.5);
   }
 
+  .myio-ambiente-card__status-dot.warning {
+    background: #fd7e14;
+    box-shadow: 0 0 6px rgba(253, 126, 20, 0.5);
+  }
+
   .myio-ambiente-card__status-dot.offline {
     background: #dc3545;
     animation: status-pulse 1s infinite;
@@ -994,7 +999,7 @@ export function renderCardAmbienteV6({
   const bodyEl = document.createElement('div');
   bodyEl.className = 'myio-ambiente-card__body';
 
-  // Header with label, remote toggle, and status
+  // Header with label and status dot
   const headerEl = document.createElement('div');
   headerEl.className = 'myio-ambiente-card__header';
 
@@ -1004,24 +1009,15 @@ export function renderCardAmbienteV6({
   labelEl.title = label || '';
   headerEl.appendChild(labelEl);
 
-  // Remote toggle button (next to status dot)
-  // Show first remote device toggle if available
-  if (remoteDevices.length > 0 && !hasSetupWarning) {
-    const firstRemote = remoteDevices[0];
-    const remoteToggle = document.createElement('div');
-    remoteToggle.className = `myio-ambiente-card__header-remote ${firstRemote.isOn ? 'on' : 'off'}`;
-    remoteToggle.innerHTML = `<span>${firstRemote.isOn ? 'ON' : 'OFF'}</span>`;
-    remoteToggle.title = firstRemote.label || firstRemote.name || 'Controle';
-    remoteToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleToggleRemote?.(!firstRemote.isOn, { ...ambienteData, targetRemote: firstRemote });
-    });
-    headerEl.appendChild(remoteToggle);
-  }
-
+  // Status dot - ALWAYS present (green=online, orange=warning, red=offline)
   const statusDot = document.createElement('div');
   statusDot.className = `myio-ambiente-card__status-dot ${aggregatedStatus}`;
-  statusDot.title = aggregatedStatus === 'online' ? 'Online' : 'Offline';
+  const statusTitles = {
+    online: 'Online - Todos dispositivos conectados',
+    warning: 'Atenção - Alguns dispositivos offline',
+    offline: 'Offline - Todos dispositivos desconectados',
+  };
+  statusDot.title = statusTitles[aggregatedStatus] || 'Status desconhecido';
   headerEl.appendChild(statusDot);
 
   bodyEl.appendChild(headerEl);

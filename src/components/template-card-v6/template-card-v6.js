@@ -1424,9 +1424,9 @@ export function renderCardComponentV6({
       .device-card-centered .device-card-body {
         display: flex !important;
         flex-direction: column !important;
-        justify-content: center !important;
+        justify-content: flex-end !important;
         align-items: center !important;
-        padding: 18px 6px 6px 6px !important;
+        padding: 18px 6px 12px 6px !important;
         margin: 0 !important;
         width: 100% !important;
         height: 100% !important;
