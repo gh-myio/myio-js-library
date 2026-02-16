@@ -403,7 +403,8 @@ export class OnOffDeviceModalView {
     }
 
     // Check state from attributes or rawData
-    const state = attrs.state ?? rawData.state ?? attrs.acionamento ?? rawData.acionamento;
+    // RFC-0175: Also check rawData.status for solenoid devices (MAIN_BAS uses cd.status)
+    const state = attrs.state ?? rawData.state ?? rawData.status ?? attrs.acionamento ?? rawData.acionamento;
     if (state === true || state === 'on' || state === 1 || state === 'aberta' || state === 'ligado') {
       return 'on';
     }

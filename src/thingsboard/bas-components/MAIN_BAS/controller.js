@@ -87,12 +87,7 @@ var _ambienteHierarchy = {};
 // Flat device-to-ambiente mapping for quick lookups: deviceId -> ambienteId
 var _deviceToAmbienteMap = {};
 
-// Ambiente details cache: ambienteId -> { id, name, parentId, level, ... }
-var _ambientesCache = {};
-
-// Parsed devices and ambientes maps from initial parsing (shared with hierarchy builder)
-var _devicesMap = {};
-var _ambientesMap = {};
+// NOTE: _ambientesCache, _devicesMap, _ambientesMap were removed (unused)
 
 // ============================================================================
 // RFC-0161: ThingsBoard Relations API Functions
@@ -324,7 +319,7 @@ function buildAmbienteHierarchy(classifiedDevices) {
     });
 
     Promise.all(promises)
-      .then(function (results) {
+      .then(function (_results) {
         // Step 2: Fetch ambiente names for all discovered ambientes
         return fetchAmbienteNames(Object.keys(_ambienteHierarchy));
       })
@@ -450,37 +445,7 @@ function buildAssetAmbientHierarchy(parsedAmbientes) {
 // RFC-0161: Leaf Node Detection & Sidebar Rendering
 // ============================================================================
 
-/**
- * Check if an ambiente is a "leaf" node (has devices but no sub-ambientes)
- * @param {Object} ambiente - Ambiente node from hierarchy
- * @returns {boolean} True if leaf node
- */
-function isLeafAmbiente(ambiente) {
-  return ambiente.devices.length > 0 && ambiente.children.length === 0;
-}
-
-/**
- * Get all leaf ambientes from hierarchy (for sidebar rendering)
- * @returns {Object[]} Array of leaf ambiente nodes
- */
-function getLeafAmbientes() {
-  var leaves = [];
-
-  function walkTree(ambiente) {
-    if (isLeafAmbiente(ambiente)) {
-      leaves.push(ambiente);
-    } else {
-      // Recurse into children
-      ambiente.children.forEach(walkTree);
-    }
-  }
-
-  Object.values(_ambienteHierarchy).forEach(function (rootAmbiente) {
-    walkTree(rootAmbiente);
-  });
-
-  return leaves;
-}
+// NOTE: isLeafAmbiente, getLeafAmbientes were removed (unused)
 
 /**
  * Get devices for a specific ambiente (leaf nodes only have direct devices)
@@ -506,66 +471,7 @@ function getDevicesForAmbiente(ambienteId, domain) {
   return devices;
 }
 
-/**
- * Generate sublabel showing available data
- * e.g., "22°C • 1.5kW" or "22°C" or "1.5kW"
- * @param {Object} aggregates - Aggregated data from calculateAmbienteAggregates
- * @returns {string} Sublabel text
- */
-function buildAmbienteSublabel(aggregates) {
-  var parts = [];
-
-  if (aggregates && aggregates.temperature) {
-    parts.push(aggregates.temperature.avg.toFixed(1) + '°C');
-  }
-  if (aggregates && aggregates.consumption) {
-    parts.push(aggregates.consumption.total.toFixed(1) + 'kW');
-  }
-
-  return parts.join(' • ') || '';
-}
-
-/**
- * Get icon based on what devices are present in ambiente
- * @param {Object} aggregates - Aggregated data from calculateAmbienteAggregates
- * @returns {string} Icon emoji
- */
-function getAmbienteIconForAggregates(aggregates) {
-  if (aggregates && aggregates.hasRemote) return '🎛️';
-  if (aggregates && aggregates.temperature) return '🌡️';
-  if (aggregates && aggregates.consumption) return '⚡';
-  return '📍';
-}
-
-/**
- * Build sidebar items from leaf ambientes only
- * @returns {Object[]} Array of items for EntityListPanel
- */
-function buildSidebarItemsFromHierarchy() {
-  var leaves = getLeafAmbientes();
-
-  return leaves.map(function (ambiente) {
-    var aggregates = ambiente.aggregatedData || {};
-
-    return {
-      id: ambiente.id,
-      label: ambiente.name,
-      sublabel: buildAmbienteSublabel(aggregates),
-      icon: getAmbienteIconForAggregates(aggregates),
-      data: ambiente,
-      // Generate action handler for the ambiente
-      handleActionClick: function () {
-        LogHelper.log('[MAIN_BAS] Hierarchy ambiente action:', ambiente.id, ambiente.name);
-        if (self.ctx && self.ctx.stateController) {
-          self.ctx.stateController.openState('ambiente', {
-            entityId: ambiente.id,
-            entityName: ambiente.name,
-          });
-        }
-      },
-    };
-  });
-}
+// NOTE: buildAmbienteSublabel, getAmbienteIconForAggregates, buildSidebarItemsFromHierarchy were removed (unused)
 
 // Customer credentials map for API integration
 var MAP_CUSTOMER_CREDENTIALS = {
@@ -648,16 +554,7 @@ function isOcultosDevice(deviceProfile) {
   return false;
 }
 
-/**
- * Get last value from dataKey array
- */
-function getLastValue(dataKeys, key) {
-  var arr = dataKeys[key];
-  if (Array.isArray(arr) && arr.length > 0) {
-    return arr[arr.length - 1][1];
-  }
-  return null;
-}
+// NOTE: getLastValue was removed (unused)
 
 /**
  * Get the first available value from row.data
@@ -1026,7 +923,12 @@ function parseDevicesFromData(data) {
         device.value = state === 'on' || state === true ? 1 : 0;
         device.unit = '';
         device.type = 'solenoid';
-        device.status = state === 'on' || state === true ? 'online' : 'offline';
+        // RFC-0175: Keep device.status as connection status (already set above from connectionStatus)
+        // Store valve state separately - DO NOT override device.status with valve state
+        device.valveState = state; // Raw valve state (on/off)
+        device.isValveOn = state === 'on' || state === true;
+        device.connectionStatus = connectionStatus; // Store raw connectionStatus for modal
+        // device.status remains as isOnline ? 'online' : 'offline' (connection status)
       } else {
         device.value = parseFloat(cd.consumption || cd.volume || cd.totalVolume || 0);
         device.unit = 'm3';
@@ -1401,8 +1303,8 @@ function waterDeviceToEntityObject(device) {
   // PRESENTATION MODE: Force all water devices to online status
   deviceStatus = 'online';
 
-  // RFC-0175: Extract solenoid status from rawData (on/off for valve state)
-  var solenoidStatus = device.rawData?.status || null;
+  // RFC-0175: Extract solenoid status from rawData or valveState (on/off for valve state)
+  var solenoidStatus = device.valveState || device.rawData?.status || device.rawData?.state || null;
 
   return {
     entityId: device.id,
@@ -1543,71 +1445,7 @@ function buildHVACCardItems(classified, selectedAmbienteId) {
   });
 }
 
-/**
- * Convert an HVAC device to ambienteData for renderCardAmbienteV6
- * Ambiente can contain: temperature sensor, 3F meter, remote control
- */
-function hvacDeviceToAmbienteData(device) {
-  var identifier = (device.rawData && device.rawData.identifier) || 'Sem ID';
-  var status = device.status === 'online' ? 'online' : 'offline';
-
-  LogHelper.log('[MAIN_BAS] hvacDeviceToAmbienteData:', {
-    deviceId: device.id,
-    deviceName: device.name,
-    temperature: device.temperature,
-    status: status,
-  });
-
-  // Build devices array from available data
-  var devices = [];
-
-  // Temperature device
-  if (device.temperature != null) {
-    devices.push({
-      id: device.id + '_temp',
-      type: 'temperature',
-      deviceType: 'TERMOSTATO',
-      status: status,
-      value: device.temperature,
-    });
-  }
-
-  // Energy device (if has consumption)
-  if (device.consumption != null) {
-    devices.push({
-      id: device.id + '_energy',
-      type: 'energy',
-      deviceType: '3F_MEDIDOR',
-      status: status,
-      value: device.consumption,
-    });
-  }
-
-  // Remote device (if has remote control capability)
-  var hasRemote = device.rawData?.hasRemote || device.hasRemote || false;
-  var isOn = device.rawData?.isOn || device.isOn || false;
-  if (hasRemote) {
-    devices.push({
-      id: device.id + '_remote',
-      type: 'remote',
-      deviceType: 'REMOTE',
-      status: status,
-      value: isOn ? 1 : 0,
-    });
-  }
-
-  return {
-    id: device.id,
-    label: device.name,
-    identifier: identifier,
-    temperature: device.temperature,
-    consumption: device.consumption,
-    isOn: isOn,
-    hasRemote: hasRemote,
-    status: status,
-    devices: devices,
-  };
-}
+// NOTE: hvacDeviceToAmbienteData was removed (unused)
 
 /**
  * RFC-0168: Convert an ASSET_AMBIENT hierarchy node to AmbienteData for renderCardAmbienteV6
@@ -1868,11 +1706,7 @@ function buildAmbienteCardItems(assetAmbientHierarchy, selectedAmbienteId) {
 // Energy device type/status mappings
 // ============================================================================
 
-var ENERGY_TYPE_MAP = {
-  entrada: 'ENTRADA',
-  store: '3F_MEDIDOR',
-  equipment: '3F_MEDIDOR',
-};
+// NOTE: ENERGY_TYPE_MAP was removed (unused)
 
 var ENERGY_STATUS_MAP = {
   online: 'online',
@@ -2464,20 +2298,37 @@ function openFilterModal(panelType, devices, currentFilter, onApply) {
     return;
   }
 
+  // Build device list for individual selection
+  var filterDevices = devices.map(function (d) {
+    return {
+      id: d.id || d.entityId,
+      label: d.label || d.name || d.entityLabel || 'Desconhecido',
+      type: d.deviceType || d.type || '',
+      context: d.context || '',
+      status: d.connectionStatus === 'online' ? 'online' : d.connectionStatus === 'offline' ? 'offline' : undefined,
+      selected: currentFilter?.selectedDeviceIds
+        ? currentFilter.selectedDeviceIds.includes(d.id || d.entityId)
+        : true, // All selected by default
+    };
+  });
+
   var modal = new MyIOLibrary.FilterModalComponent({
     title: 'Filtrar ' + (panelType === 'water' ? 'Água' : panelType === 'hvac' ? 'Ambientes' : 'Energia'),
     icon: panelType === 'water' ? '💧' : panelType === 'hvac' ? '🌡️' : '⚡',
     categories: categories,
     sortOptions: sortOptions,
     selectedSortId: currentFilter?.sortId || null,
+    devices: filterDevices,
+    showDeviceGrid: true,
     themeMode: (_settings && _settings.defaultThemeMode) || 'light',
-    onApply: function (selectedCategories, sortOption) {
+    onApply: function (selectedCategories, sortOption, selectedDeviceIds) {
       LogHelper.log('[MAIN_BAS] Filter applied:', {
         panelType: panelType,
         categories: selectedCategories,
         sort: sortOption,
+        deviceIds: selectedDeviceIds?.length || 0,
       });
-      onApply(selectedCategories, sortOption);
+      onApply(selectedCategories, sortOption, selectedDeviceIds);
     },
     onClose: function () {
       _activeFilterModal = null;
@@ -2505,7 +2356,6 @@ function mountWaterPanel(waterHost, settings, classified) {
   var waterItems = buildWaterCardItems(classified, null);
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
-  var currentWaterTab = 'all'; // Track selected tab: 'all', 'tank', 'hydrometer', 'solenoid'
 
   // Helper to filter items by tab
   function filterWaterItemsByTab(items, tabId) {
@@ -2523,7 +2373,6 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: 'Todos',
       selected: true,
       handleClick: function () {
-        currentWaterTab = 'all';
         var filtered = filterWaterItemsByTab(waterItems, 'all');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
@@ -2534,7 +2383,6 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: "Caixa d'Água",
       selected: false,
       handleClick: function () {
-        currentWaterTab = 'tank';
         var filtered = filterWaterItemsByTab(waterItems, 'tank');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
@@ -2545,7 +2393,6 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: 'Hidrômetro',
       selected: false,
       handleClick: function () {
-        currentWaterTab = 'hydrometer';
         var filtered = filterWaterItemsByTab(waterItems, 'hydrometer');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
@@ -2556,7 +2403,6 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: 'Solenóide',
       selected: false,
       handleClick: function () {
-        currentWaterTab = 'solenoid';
         var filtered = filterWaterItemsByTab(waterItems, 'solenoid');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
@@ -2605,11 +2451,18 @@ function mountWaterPanel(waterHost, settings, classified) {
     showFilter: true,
     showMaximize: true,
     handleActionFilter: function () {
-      openFilterModal('water', waterDevices, currentFilter, function (selectedCategories, sortOption) {
+      openFilterModal('water', waterDevices, currentFilter, function (selectedCategories, sortOption, selectedDeviceIds) {
         currentFilter.categories = selectedCategories;
         currentFilter.sortId = sortOption ? sortOption.id : null;
+        currentFilter.selectedDeviceIds = selectedDeviceIds;
         // Filter and sort items
         var filteredItems = buildWaterCardItems(classified, _selectedAmbiente).filter(function (item) {
+          // Filter by device ID if specified
+          if (selectedDeviceIds && selectedDeviceIds.length > 0) {
+            var itemId = item.source?.id || item.source?.entityId;
+            if (!selectedDeviceIds.includes(itemId)) return false;
+          }
+          // Filter by category
           if (!selectedCategories || selectedCategories.length === 0) return true;
           var deviceType = item.source?.type || '';
           var typeMap = { hydrometer: 'HIDROMETRO', tank: 'CAIXA_DAGUA', solenoid: 'SOLENOIDE' };
@@ -2743,16 +2596,28 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
         allDevices = allDevices.concat(node.devices || []);
       });
 
-      openFilterModal('hvac', allDevices, currentFilter, function (selectedCategories, sortOption) {
+      openFilterModal('hvac', allDevices, currentFilter, function (selectedCategories, sortOption, selectedDeviceIds) {
         currentFilter.categories = selectedCategories;
         currentFilter.sortId = sortOption ? sortOption.id : null;
+        currentFilter.selectedDeviceIds = selectedDeviceIds;
 
-        // RFC-0168: Filter ASSET_AMBIENTs based on their devices' contexts
+        // RFC-0168: Filter ASSET_AMBIENTs based on their devices' contexts and selected device IDs
         var filteredItems = buildAmbienteCardItems(assetAmbientHierarchy, _selectedAmbiente).filter(
           function (item) {
+            var devices = item.source?.devices || [];
+
+            // Filter by selected device IDs - ambiente must have at least one selected device
+            if (selectedDeviceIds && selectedDeviceIds.length > 0) {
+              var hasSelectedDevice = devices.some(function (d) {
+                var deviceId = d.id || d.entityId;
+                return selectedDeviceIds.includes(deviceId);
+              });
+              if (!hasSelectedDevice) return false;
+            }
+
+            // Filter by category
             if (!selectedCategories || selectedCategories.length === 0) return true;
             // Check if any device in this ambiente matches the selected categories
-            var devices = item.source?.devices || [];
             return devices.some(function (d) {
               var context = d.context || '';
               return selectedCategories.includes(context);
@@ -2814,7 +2679,7 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
  * @param {Object} device - Device data from classified
  * @param {Object} settings - Widget settings
  */
-function openBASDeviceModal(device, settings) {
+function openBASDeviceModal(device, _settings) {
   if (!MyIOLibrary.openDashboardPopupEnergy) {
     LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available');
     return;
@@ -2973,7 +2838,7 @@ function openBASDeviceModal(device, settings) {
  * @param {Object} device - Device data from classified
  * @param {Object} settings - Widget settings
  */
-function openBASWaterModal(device, settings) {
+function openBASWaterModal(device, _settings) {
   if (!MyIOLibrary.openDashboardPopupEnergy) {
     LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available for water modal');
     return;
@@ -3317,7 +3182,7 @@ function openAmbienteGroupModal(parentItem, settings) {
  * @param {Object} source - Source hierarchy node
  * @param {Object} settings - Widget settings
  */
-function openAmbienteDetailModal(ambienteData, source, settings) {
+function openAmbienteDetailModal(ambienteData, source, _settings) {
   if (!MyIOLibrary.openAmbienteDetailModal) {
     LogHelper.warn('[MAIN_BAS] openAmbienteDetailModal not available');
     return;
@@ -3365,6 +3230,13 @@ function openOnOffDeviceModal(device, settings) {
   }
 
   // Build device data for the On/Off modal
+  // RFC-0175: Merge valveState into rawData for solenoid status detection in modal
+  var mergedRawData = Object.assign({}, device.rawData || {});
+  if (device.valveState !== undefined) {
+    mergedRawData.state = device.valveState;
+    mergedRawData.status = device.valveState;
+  }
+
   var deviceData = {
     id: device.id || device.deviceId,
     entityId: device.entityId || device.id,
@@ -3372,9 +3244,10 @@ function openOnOffDeviceModal(device, settings) {
     name: device.name || device.label,
     deviceType: device.deviceType || device.deviceProfile || '',
     deviceProfile: device.deviceProfile || device.deviceType || '',
-    status: device.connectionStatus || device.deviceStatus || 'unknown',
+    // RFC-0175: Use connection status, not valve state
+    status: device.connectionStatus || (device.status !== 'online' && device.status !== 'offline' ? 'unknown' : device.status),
     attributes: device.attributes || {},
-    rawData: device.rawData || {},
+    rawData: mergedRawData,
   };
 
   // Get JWT token from localStorage or widget context
@@ -3421,7 +3294,7 @@ function openOnOffDeviceModal(device, settings) {
  * @param {Object} entityObject - Entity object with water level data
  * @param {Object} settings - Widget settings
  */
-function openWaterTankModal(device, entityObject, settings) {
+function openWaterTankModal(device, entityObject, _settings) {
   if (!MyIOLibrary.openDashboardPopupWaterTank) {
     LogHelper.warn('[MAIN_BAS] openDashboardPopupWaterTank not available');
     return;
@@ -3641,11 +3514,18 @@ function mountEnergyPanel(host, settings, classified) {
     showFilter: true,
     showMaximize: true,
     handleActionFilter: function () {
-      openFilterModal('energy', energyDevices, currentFilter, function (selectedCategories, sortOption) {
+      openFilterModal('energy', energyDevices, currentFilter, function (selectedCategories, sortOption, selectedDeviceIds) {
         currentFilter.categories = selectedCategories;
         currentFilter.sortId = sortOption ? sortOption.id : null;
+        currentFilter.selectedDeviceIds = selectedDeviceIds;
         // Filter and sort items
         var filteredItems = buildEnergyCardItems(classified, _selectedAmbiente).filter(function (item) {
+          // Filter by device ID if specified
+          if (selectedDeviceIds && selectedDeviceIds.length > 0) {
+            var itemId = item.source?.id || item.source?.entityId;
+            if (!selectedDeviceIds.includes(itemId)) return false;
+          }
+          // Filter by category
           if (!selectedCategories || selectedCategories.length === 0) return true;
           var context = item.source?.context || '';
           return selectedCategories.includes(context);
@@ -3889,7 +3769,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
  * @param {Object} classified - Classified devices data
  * @returns {Object|null} Sidebar menu instance
  */
-function mountSidebarMenu(host, settings, classified) {
+function mountSidebarMenu(host, settings, _classified) {
   LogHelper.log('[MAIN_BAS] mountSidebarMenu called');
 
   if (!host) {
@@ -3902,10 +3782,8 @@ function mountSidebarMenu(host, settings, classified) {
     return null;
   }
 
-  // Count devices by domain
-  var waterCount = classified?.water?.length || 0;
-  var energyCount = classified?.energy?.length || 0;
-  var temperatureCount = classified?.temperature?.length || 0;
+  // NOTE: waterCount, energyCount, temperatureCount were removed (unused in this function)
+  // Use updateSidebarMenuBadges() to update badge counts after mounting
 
   // Build ambientes items from _currentAmbientes (migrated from EntityListPanel)
   // Sort by (NNN)- prefix numerically and display clean labels without prefix
@@ -3962,7 +3840,7 @@ function mountSidebarMenu(host, settings, classified) {
   // Clear any stale localStorage state to ensure menu starts expanded
   try {
     localStorage.removeItem('myio-bas-sidebar-menu-state');
-  } catch (e) {
+  } catch {
     // Ignore localStorage errors
   }
 
@@ -4349,7 +4227,7 @@ function createRealFetchData(domain, options) {
  * shoppingData = { deviceId: [values per day] }
  * shoppingNames = { deviceId: "Device Label" }
  */
-async function fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs) {
+async function fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, _endTs) {
   var emptyResult = { dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
 
   if (!MyIOLibrary || !MyIOLibrary.buildMyioIngestionAuth) {
@@ -4627,36 +4505,7 @@ async function fetchTemperatureData(period, startTs, endTs) {
 /**
  * Aggregate ingestion API data by day
  */
-/**
- * Generate mock fetchData for a given chart domain (FALLBACK)
- * @deprecated Use createRealFetchData instead
- */
-function createMockFetchData(domain) {
-  return function fetchData(period) {
-    var labels = [];
-    var values = [];
-    var now = new Date();
-
-    for (var i = period - 1; i >= 0; i--) {
-      var d = new Date(now);
-      d.setDate(d.getDate() - i);
-      labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
-
-      if (domain === 'energy') {
-        values.push(Math.random() * 800 + 200);
-      } else if (domain === 'water') {
-        values.push(Math.random() * 50 + 10);
-      } else {
-        values.push(Math.random() * 8 + 18);
-      }
-    }
-
-    return Promise.resolve({
-      labels: labels,
-      dailyTotals: values,
-    });
-  };
-}
+// NOTE: createMockFetchData was removed (unused, deprecated)
 
 /**
  * Switch chart to a different domain — destroys old widget + creates new one
@@ -4761,11 +4610,7 @@ function switchChartDomain(domain, chartContainer) {
   }
 }
 
-// SVG icons for chart header buttons
-var CHART_ICON_FILTER =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
-var CHART_ICON_MAXIMIZE =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+// NOTE: CHART_ICON_FILTER, CHART_ICON_MAXIMIZE were removed (unused)
 
 /**
  * Mount chart panel using CardGridPanel with tabs feature
@@ -5126,7 +4971,6 @@ function fixContainerHeights(root) {
 
     var style = window.getComputedStyle(el);
     var currentHeight = style.height;
-    var currentDisplay = style.display;
 
     // If height is 'auto' or '0px', try to fix it
     if (currentHeight === 'auto' || currentHeight === '0px' || parseInt(currentHeight) === 0) {
@@ -5411,9 +5255,6 @@ self.onDestroy = function () {
   // RFC-0161: Clean up hierarchy caches
   _ambienteHierarchy = {};
   _deviceToAmbienteMap = {};
-  _ambientesCache = {};
-  _devicesMap = {};
-  _ambientesMap = {};
 };
 
 self.typeParameters = function () {
