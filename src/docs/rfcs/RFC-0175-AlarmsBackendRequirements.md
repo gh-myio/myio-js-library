@@ -15,9 +15,9 @@ The myio-js-library (ThingsBoard dashboard widgets) will start consuming the Ala
 1. CORS enabled for ThingsBoard dashboard origins
 2. Confirmation of the `GET /api/v1/alarms/stats/by-device` response shape
 3. Validation of the expected response contracts listed below
-4. (Optional) A new field `avgResolutionTimeMinutes` in per-device stats
+4. **New endpoint**: `GET /api/v1/alarms/stats/availability` — MTBF, MTTR, and Availability metrics per device and fleet-wide (see `RFC-0175-AlarmsBackendAvailability.md` for full spec)
 
-**No new endpoints are required** — we plan to use only existing endpoints.
+**One new endpoint is required** — the availability stats endpoint. All other endpoints already exist.
 
 ---
 
@@ -42,6 +42,7 @@ The myio-js-library (ThingsBoard dashboard widgets) will start consuming the Ala
 | `GET /api/v1/alarms/stats/trend` | GET | Phase 4 & 5: Trend line charts |
 | `GET /api/v1/alarms/stats/top-offenders` | GET | Phase 5: Top 5 Downtime ranking |
 | `GET /api/v1/alarms/stats/by-device` | GET | Phase 3: Alert count per equipment card |
+| `GET /api/v1/alarms/stats/availability` | GET | **NEW** — Phase 3, 4 & 5: MTBF, MTTR, Availability per device and fleet-wide. Full spec in `RFC-0175-AlarmsBackendAvailability.md` |
 
 ### 1.3 WebSocket
 
@@ -302,7 +303,7 @@ Rough estimate of API calls per active user session:
 | Open Alarms panel (Phase 4 list) | `GET /alarms` | Once on open, then cached 15s |
 | Open Alarms dashboard tab | `GET /stats` + `GET /stats/trend` | Once on open, then cached 30-60s |
 | Open Management Dashboard (Phase 5) | `GET /stats` + `GET /stats/trend` + `GET /stats/top-offenders` | Once on open, cached 30-60s |
-| Open General List (Phase 3) | `GET /stats/by-device` | Once on open, cached 120s |
+| Open General List (Phase 3) | `GET /stats/by-device` + `GET /stats/availability` | Once on open, cached 60-120s |
 | Alarm action (ack/close/etc.) | `POST /alarms/:id/ack` | On user click |
 | WebSocket | 1 persistent connection | Per session |
 
@@ -324,6 +325,7 @@ Rough estimate of API calls per active user session:
 | 6 | Is the WebSocket alarm payload the same shape as REST? | Medium | No (we'll handle differences) |
 | 7 | Is there a `GET /auth/validate` or similar? | Low | No |
 | 8 | Is `quarter` supported as a period value? | Low | No (we'll use `month`) |
+| 9 | Can you implement `GET /stats/availability`? (see `RFC-0175-AlarmsBackendAvailability.md`) | **High** | **Yes** (MTBF/MTTR/Availability) |
 
 ---
 
@@ -333,8 +335,8 @@ Rough estimate of API calls per active user session:
 |-------|-------------|----------------------|
 | **Phase A** (infra) | HTTP client, cache, auth flow | CORS must be enabled |
 | **Phase B** (alarms panel) | Alarm list, stats, actions | Endpoints already exist |
-| **Phase C** (general list) | Per-device alarm counts | `by-device` endpoint confirmed |
-| **Phase D** (dashboard) | KPIs, trends, top offenders | Endpoints already exist |
+| **Phase C** (general list) | Per-device alarm counts + MTBF/MTTR | `by-device` + `availability` endpoints |
+| **Phase D** (dashboard) | KPIs, trends, top offenders | `availability` + existing endpoints |
 | **Phase E** (WebSocket) | Real-time updates | WebSocket already exists |
 | **Phase F** (hardening) | Error handling, retry | No dependency |
 
@@ -346,4 +348,5 @@ Rough estimate of API calls per active user session:
 
 - **Frontend team**: myio-js-library (`myio-js-library-PROD.git`)
 - **RFC document**: `src/docs/rfcs/RFC-0175-AlarmsRealUsage.draft.md`
+- **Availability endpoint spec**: `src/docs/rfcs/RFC-0175-AlarmsBackendAvailability.md`
 - **Tech Lead**: Rodrigo Lago - rodrigo@myio.com.br
