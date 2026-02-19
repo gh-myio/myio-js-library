@@ -4186,6 +4186,31 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   }
 
+  // RFC-0175: Map DeviceAvailability API response to OperationalEquipment[]
+  function mapAvailabilityToEquipment(byDevice) {
+    return (byDevice || []).map((d) => ({
+      id: d.deviceId,
+      name: d.deviceName,
+      identifier: d.deviceName,
+      type:
+        d.deviceType === 'ESCADA_ROLANTE' ? 'escada'
+        : d.deviceType === 'ELEVADOR' ? 'elevador'
+        : 'other',
+      status: d.status || 'offline',
+      customerId: d.customerId || '',
+      customerName: d.customerName || '',
+      location: d.location || '',
+      availability: d.availability ?? 0,
+      mtbf: d.mtbf ?? 0,
+      mttr: d.mttr ?? 0,
+      hasReversal: d.hasReversal ?? false,
+      recentAlerts: d.recentAlarmCount ?? 0,
+      openAlarms: d.openAlarmCount ?? 0,
+      lastActivityTime: d.lastActivityAt ? new Date(d.lastActivityAt).getTime() : undefined,
+      lastMaintenanceTime: d.lastMaintenanceAt ? new Date(d.lastMaintenanceAt).getTime() : undefined,
+    }));
+  }
+
   // RFC-0152 Phase 3: Generate mock operational equipment data
   function generateMockOperationalEquipment() {
     const shoppingNames = [
@@ -4327,11 +4352,11 @@ body.filter-modal-open { overflow: hidden !important; }
     LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Dashboard rendered');
   }
 
-  // RFC-0152 Phase 3: Render Operational General List (Card Grid)
-  function renderOperationalGeneralList(container) {
+  // RFC-0175: Render Operational General List with real data from Alarms Backend
+  async function renderOperationalGeneralList(container) {
     if (!container) return;
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0152: renderOperationalGeneralList called');
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList called');
 
     // Destroy other views
     destroyAllPanels();
@@ -4339,47 +4364,81 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!MyIOLibrary?.createDeviceOperationalCardGridComponent) {
       container.innerHTML =
         '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
-      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
       return;
     }
 
     container.innerHTML = '';
     currentViewMode = 'operational-grid';
 
-    // Generate mock equipment data
-    const mockEquipment = generateMockOperationalEquipment();
+    // Show loading spinner while fetching
+    container.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#94a3b8;font-size:14px;">Carregando dados de disponibilidade...</div>';
 
-    // Build customers list from equipment
-    const customers = Array.from(
-      mockEquipment.reduce((map, eq) => {
-        const id = eq.customerId || eq.customerName;
-        if (id && eq.customerName) {
-          map.set(id, eq.customerName);
-        }
-        return map;
-      }, new Map())
-    ).map(([id, name]) => ({ id, name }));
+    try {
+      const customerId = CUSTOMER_ING_ID;
 
-    operationalGridInstance = MyIOLibrary.createDeviceOperationalCardGridComponent({
-      container,
-      themeMode: currentThemeMode,
-      enableDebugMode: settings.enableDebugMode,
-      equipment: mockEquipment,
-      customers: customers,
-      includeSearch: true,
-      includeFilters: true,
-      includeStats: true,
-      enableSelection: true,
-      enableDragDrop: true,
-      onEquipmentClick: (eq) => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment clicked:', eq.name);
-      },
-      onEquipmentAction: (action, eq) => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment action:', action, eq.name);
-      },
-    });
+      if (!customerId) {
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: CUSTOMER_ING_ID not set — cannot fetch availability data');
+        container.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#94a3b8;">ID do cliente não configurado. Verifique as credenciais.</div>';
+        return;
+      }
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational General List rendered');
+      const alarmService = MyIOLibrary?.AlarmService;
+      if (!alarmService) {
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService not available in MyIOLibrary');
+        container.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#94a3b8;">AlarmService não disponível.</div>';
+        return;
+      }
+
+      // Last 30 days rolling window
+      const now = new Date();
+      const endAt = now.toISOString();
+      const startAt = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Fetching availability for customer:', customerId);
+      const response = await alarmService.getAvailability(customerId, startAt, endAt);
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Received', response.byDevice?.length ?? 0, 'devices');
+
+      const equipment = mapAvailabilityToEquipment(response.byDevice);
+
+      const customers = Array.from(
+        equipment.reduce((map, eq) => {
+          const id = eq.customerId || eq.customerName;
+          if (id && eq.customerName) map.set(id, eq.customerName);
+          return map;
+        }, new Map())
+      ).map(([id, name]) => ({ id, name }));
+
+      container.innerHTML = '';
+
+      operationalGridInstance = MyIOLibrary.createDeviceOperationalCardGridComponent({
+        container,
+        themeMode: currentThemeMode,
+        enableDebugMode: settings.enableDebugMode,
+        equipment,
+        customers,
+        includeSearch: true,
+        includeFilters: true,
+        includeStats: true,
+        enableSelection: true,
+        enableDragDrop: true,
+        onEquipmentClick: (eq) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0175: Equipment clicked:', eq.name);
+        },
+        onEquipmentAction: (action, eq) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0175: Equipment action:', action, eq.name);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Operational General List rendered with', equipment.length, 'devices');
+    } catch (err) {
+      LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch availability data:', err);
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#ef4444;">Erro ao carregar dados de disponibilidade. Tente novamente.</div>';
+    }
   }
 
   // RFC-0152 Phase 4: Render Alarms & Notifications Panel

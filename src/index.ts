@@ -1611,3 +1611,14 @@ export type {
   IntegrationTabId,
 } from './components/premium-modals/integrations';
 export { DEFAULT_INTEGRATION_TABS } from './components/premium-modals/integrations';
+
+// RFC-0175: Alarm Service (Alarms Backend integration — MTBF, MTTR, Availability)
+export { AlarmService } from './services/alarm';
+export type {
+  AvailabilityResponse,
+  AvailabilitySummary,
+  AvailabilityFleet,
+  DeviceAvailability,
+  AvailabilityParams,
+  AvailabilityStatus,
+} from './services/alarm';
