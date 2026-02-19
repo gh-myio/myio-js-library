@@ -81,6 +81,9 @@ const DOMAIN_ALL_LIST = [DOMAIN_ENERGY, DOMAIN_WATER, DOMAIN_TEMPERATURE];
 let _apiEnrichmentDone = false;
 let _apiEnrichmentInProgress = false;
 
+// RFC-0175: Guard to prevent concurrent async renders of the operational grid
+let _isRenderingOperationalGrid = false;
+
 // Global counter for credentials retry attempts (max 10 attempts)
 let _credentialsRetryCount = 0;
 const MAX_CREDENTIALS_RETRIES = 10;
@@ -180,6 +183,7 @@ self.onInit = async function () {
   _menuInstanceRef = null;
   _headerInstanceRef = null;
   _welcomeModalRef = null;
+  _isRenderingOperationalGrid = false;
 
   // === 1. LIBRARY REFERENCE (must be first) ===
   const MyIOLibrary = window.MyIOLibrary;
@@ -3932,11 +3936,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
     showMenuBusy(tabId, 'Carregando dados...');
 
-    // RFC-0152 Phase 3: Check if this is an operational domain request
+    // RFC-0175: Operational tab is handled exclusively via myio:switch-main-state listener
+    // (renderOperationalGeneralList / renderAlarmsNotificationsPanel / renderOperationalDashboard)
     if (tabId === 'operational') {
-      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Switching to Operational Grid view, context:', contextId);
-      switchToOperationalGrid(telemetryContainer, contextId, target);
-      currentViewMode = 'operational-grid';
       hideMenuBusy();
     } else if (contextId === 'energy_general') {
       // RFC-0132/RFC-0133: Check if this is a panel view request
@@ -4356,26 +4358,33 @@ body.filter-modal-open { overflow: hidden !important; }
   async function renderOperationalGeneralList(container) {
     if (!container) return;
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList called');
-
-    // Destroy other views
-    destroyAllPanels();
-
-    if (!MyIOLibrary?.createDeviceOperationalCardGridComponent) {
-      container.innerHTML =
-        '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
-      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+    // Guard: prevent concurrent async renders triggered by duplicate myio:switch-main-state events
+    if (_isRenderingOperationalGrid) {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList already in progress, skipping duplicate call');
       return;
     }
-
-    container.innerHTML = '';
-    currentViewMode = 'operational-grid';
-
-    // Show loading spinner while fetching
-    container.innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#94a3b8;font-size:14px;">Carregando dados de disponibilidade...</div>';
+    _isRenderingOperationalGrid = true;
 
     try {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList called');
+
+      // Destroy other views
+      destroyAllPanels();
+
+      if (!MyIOLibrary?.createDeviceOperationalCardGridComponent) {
+        container.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+        return;
+      }
+
+      container.innerHTML = '';
+      currentViewMode = 'operational-grid';
+
+      // Show loading message while fetching
+      container.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#94a3b8;font-size:14px;">Carregando dados de disponibilidade...</div>';
+
       const customerId = CUSTOMER_ING_ID;
 
       if (!customerId) {
@@ -4438,6 +4447,8 @@ body.filter-modal-open { overflow: hidden !important; }
       LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch availability data:', err);
       container.innerHTML =
         '<div style="padding:20px;text-align:center;color:#ef4444;">Erro ao carregar dados de disponibilidade. Tente novamente.</div>';
+    } finally {
+      _isRenderingOperationalGrid = false;
     }
   }
 

@@ -1622,3 +1622,23 @@ export type {
   AvailabilityParams,
   AvailabilityStatus,
 } from './services/alarm';
+
+// RFC-0176: GCDR Sync Modal
+export { openGCDRSyncModal } from './components/premium-modals/gcdr-sync';
+export type {
+  GCDRSyncModalParams,
+  GCDRSyncPlan,
+  SyncAction,
+  SyncActionType,
+  SyncOutcome,
+  GCDRSyncResult,
+  CreateCustomerDto,
+  CreateAssetDto,
+  CreateDeviceDto,
+  TBCustomer as GCDRTBCustomer,
+  TBAsset as GCDRTBAsset,
+  TBDevice as GCDRTBDevice,
+  TBServerScopeAttrs as GCDRTBServerScopeAttrs,
+  GCDREntity,
+  ProgressCallback as GCDRProgressCallback,
+} from './components/premium-modals/gcdr-sync';

@@ -3991,6 +3991,7 @@ self.onInit = function () {
             <button id="import-json" class="btn btn-outline"><i>📥</i> Importar JSON</button>
             <button id="ingestion-sync" class="btn btn-outline"><i>🔄</i> Ingestion Sync</button>
             <button id="upsell-modal" class="btn btn-outline" style="background:#3e1a7d;color:#fff;border-color:#3e1a7d;"><i>⚡</i> Upsell Setup</button>
+            <button id="gcdr-sync" class="btn btn-outline" style="background:#0a6d5e;color:#fff;border-color:#0a6d5e;"><i>🔗</i> GCDR Sync</button>
             <button id="information" class="btn btn-ghost" style="display:none;"><i>ℹ️</i> Informações</button>
           </div>
           <div id="treeContainer"></div>
@@ -4076,6 +4077,44 @@ self.onInit = function () {
     } catch (err) {
       console.error('[Upsell] Error:', err);
       window.alert('Erro ao abrir modal: ' + err.message);
+    }
+  };
+
+  // RFC-0176: GCDR Sync Modal
+  document.getElementById('gcdr-sync').onclick = async () => {
+    try {
+      if (!window.structure || !window.structure.length) {
+        window.alert('Nenhuma estrutura carregada. Importe ou construa a árvore antes de sincronizar.');
+        return;
+      }
+
+      const lib = await loadMyIOLibrary();
+
+      const thingsboardToken = localStorage.getItem('jwt_token');
+      if (!thingsboardToken) {
+        window.alert('Token ThingsBoard não encontrado. Faça login novamente.');
+        return;
+      }
+
+      // Lê gcdrTenantId do SERVER_SCOPE do customer raiz para identificar o tenant no GCDR
+      const rootCustomer = window.structure[0];
+      const attrs = rootCustomer?.id?.id ? await fetchCustomerServerScopeAttrs(rootCustomer.id.id) : {};
+      const gcdrTenantId = attrs?.gcdrTenantId ?? null;
+
+      lib.openGCDRSyncModal({
+        thingsboardToken,
+        gcdrTenantId,
+        customerId: rootCustomer?.id?.id ?? rootCustomer?.id,
+        onSync: (result) => {
+          console.log('[GCDRSync] Sync result:', result);
+        },
+        onClose: () => {
+          console.log('[GCDRSync] Modal closed');
+        },
+      });
+    } catch (err) {
+      console.error('[GCDRSync] Error:', err);
+      window.alert('Erro ao abrir GCDR Sync: ' + err.message);
     }
   };
 
