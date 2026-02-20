@@ -297,9 +297,13 @@ export class GCDRSyncController {
 
     // Resolve the correct asset for this device via the device→asset map
     const parentAssetTbId = bundle.deviceAssetMap.get(action.tbId);
-    const assetGcdrId = parentAssetTbId
-      ? (resolvedGcdrIds.get(parentAssetTbId) ?? '__unknown_asset__')
-      : '__unknown_asset__';
+    if (!parentAssetTbId) {
+      throw new Error(`Device "${action.tbName}" não tem asset pai no ThingsBoard — sem assetId para GCDR`);
+    }
+    const assetGcdrId = resolvedGcdrIds.get(parentAssetTbId);
+    if (!assetGcdrId) {
+      throw new Error(`Asset pai do device "${action.tbName}" ainda não tem GCDR ID — verifique se o asset foi criado`);
+    }
 
     return mapDeviceToGCDR(device!, attrs, assetGcdrId, customerGcdrId);
   }

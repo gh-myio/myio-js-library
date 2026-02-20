@@ -42,7 +42,7 @@ const TB_DEVICE_TYPE_MAP: Array<{ keywords: string[]; gcdrType: string }> = [
   { keywords: ['3f_medidor', 'medidor', 'meter'], gcdrType: 'METER' },
   { keywords: ['termostato', 'thermostat'], gcdrType: 'SENSOR' },
   { keywords: ['hidrometro', 'water_meter', 'hydrometer'], gcdrType: 'METER' },
-  { keywords: ['chiller', 'hvac', 'fancoil', 'ar_condicionado', 'cag'], gcdrType: 'HVAC' },
+  { keywords: ['chiller', 'hvac', 'fancoil', 'ar_condicionado', 'cag'], gcdrType: 'OTHER' },
   { keywords: ['gateway', 'central'], gcdrType: 'GATEWAY' },
 ];
 

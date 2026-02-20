@@ -544,6 +544,7 @@ interface ColumnWidths {
   label: number;
   type: number;
   createdTime: number;
+  relationTo: number;
   deviceType: number;
   deviceProfile: number;
   telemetry: number;
@@ -646,6 +647,8 @@ interface ModalState {
     newAssetName: string;
     assetsLoaded: boolean;
   };
+  deviceToAssetMap: Map<string, string>; // deviceId → asset name
+  relationsLoaded: boolean;
 }
 
 // Helper: format timestamp to locale date string
@@ -757,6 +760,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
       label: 280,
       type: 180,
       createdTime: 100,
+      relationTo: 120,
       deviceType: 80,
       deviceProfile: 90,
       telemetry: 100,
@@ -770,6 +774,8 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     telemetryLoadedCount: 0,
     deviceRelations: [],
     allRelations: [],
+    deviceToAssetMap: new Map(),
+    relationsLoaded: false,
     deviceProfiles: [],
     customerAssets: [],
     relationSelectorOpen: false,
@@ -2071,6 +2077,11 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
       ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
       <div style="width: ${
+        state.columnWidths.relationTo
+      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+        relTO ${!state.relationsLoaded ? '⏳' : ''}
+      </div>
+      <div style="width: ${
         state.columnWidths.deviceType
       }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
         devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
@@ -2337,6 +2348,17 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
         state.columnWidths.createdTime
       }px; padding: 0 6px; text-align: center; flex-shrink: 0;">
         <span style="font-size: 9px; color: ${colors.textMuted};">${createdTimeStr}</span>
+      </div>
+      <div style="width: ${
+        state.columnWidths.relationTo
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${(() => {
+          if (!state.relationsLoaded) return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
+          const assetName = state.deviceToAssetMap.get(deviceId);
+          return assetName
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${assetName}">${assetName}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+        })()}
       </div>
       <div style="width: ${
         state.columnWidths.deviceType
@@ -3208,10 +3230,12 @@ function setupEventListeners(
 
       renderModal(container, state, modalId, t);
 
-      // Restore scroll position after re-render
+      // Restore scroll position after re-render (double rAF ensures layout is settled)
       requestAnimationFrame(() => {
-        const newListEl = document.getElementById(`${modalId}-device-list`);
-        if (newListEl) newListEl.scrollTop = savedScrollTop;
+        requestAnimationFrame(() => {
+          const newListEl = document.getElementById(`${modalId}-device-list`);
+          if (newListEl) newListEl.scrollTop = savedScrollTop;
+        });
       });
     });
   });
@@ -3559,8 +3583,10 @@ function setupEventListeners(
     const savedScroll = listEl ? listEl.scrollTop : 0;
     renderModal(container, state, modalId, t);
     requestAnimationFrame(() => {
-      const el = document.getElementById(`${modalId}-device-list`);
-      if (el) el.scrollTop = savedScroll;
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`${modalId}-device-list`);
+        if (el) el.scrollTop = savedScroll;
+      });
     });
   });
 
@@ -3573,8 +3599,10 @@ function setupEventListeners(
     const savedScroll = listEl ? listEl.scrollTop : 0;
     renderModal(container, state, modalId, t);
     requestAnimationFrame(() => {
-      const el = document.getElementById(`${modalId}-device-list`);
-      if (el) el.scrollTop = savedScroll;
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`${modalId}-device-list`);
+        if (el) el.scrollTop = savedScroll;
+      });
     });
   });
 
@@ -3613,10 +3641,12 @@ function setupEventListeners(
         renderModal(container, state, modalId, t);
         setupEventListeners(container, state, modalId, t, onClose);
 
-        // Restore scroll position after re-render
+        // Restore scroll position after re-render (double rAF ensures layout is settled)
         requestAnimationFrame(() => {
-          const el = document.getElementById(`${modalId}-device-list`);
-          if (el) el.scrollTop = savedScroll;
+          requestAnimationFrame(() => {
+            const el = document.getElementById(`${modalId}-device-list`);
+            if (el) el.scrollTop = savedScroll;
+          });
         });
       }, 0);
     };
@@ -5234,15 +5264,59 @@ async function loadDevices(
     state.deviceTelemetryLoaded = false;
     state.telemetryLoading = false;
     state.telemetryLoadedCount = 0;
+    state.relationsLoaded = false;
+    state.deviceToAssetMap = new Map();
     state.isLoading = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
     // Attrs and telemetry are now loaded on demand via buttons
+    // Relations load in background automatically
+    void loadDeviceRelations(state, container, modalId, t, onClose);
   } catch (error) {
     console.error('[UpsellModal] Error loading devices:', error);
     state.isLoading = false;
     renderModal(container, state, modalId, t, error as Error);
   }
+}
+
+// Load device→asset relations for all customer assets in background
+async function loadDeviceRelations(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  if (!state.selectedCustomer) return;
+  const customerId = getEntityId(state.selectedCustomer);
+
+  // Ensure customer assets are loaded
+  if (state.customerAssets.length === 0) {
+    state.customerAssets = await fetchCustomerAssets(state, customerId);
+  }
+
+  const deviceToAssetMap = new Map<string, string>();
+
+  for (const asset of state.customerAssets) {
+    try {
+      const rels = await tbFetch<Array<{ from: { id: string; entityType: string }; to: { id: string; entityType: string }; type: string }>>(
+        state,
+        `/api/relations?fromId=${asset.id}&fromType=ASSET`
+      );
+      for (const rel of rels) {
+        if (rel.to.entityType === 'DEVICE') {
+          deviceToAssetMap.set(rel.to.id, asset.name);
+        }
+      }
+    } catch {
+      // ignore per-asset errors
+    }
+  }
+
+  state.deviceToAssetMap = deviceToAssetMap;
+  state.relationsLoaded = true;
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
 }
 
 // Load server-scope attributes for all devices in batch
