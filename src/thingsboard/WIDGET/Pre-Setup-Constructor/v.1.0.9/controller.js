@@ -1281,6 +1281,10 @@ async function createAssetWithParentAsset(name, type, parentAssetId) {
 
 // ===================== Importar Cliente já existente =====================
 async function importedTree(tbCustomerId) {
+  if (!tbCustomerId) {
+    window.alert('Selecione um cliente antes de importar.');
+    return;
+  }
   const token = localStorage['jwt_token'];
   if (!token) {
     console.warn('[importedTree] Token JWT não disponível');

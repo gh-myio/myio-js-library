@@ -74,27 +74,22 @@ export interface GCDRSyncResult {
 
 export interface CreateCustomerDto {
   name: string;
-  slug: string;
-  externalId: string;
-  tenantId: string;
+  type: string; // "COMPANY" — tenantId comes from X-Tenant-Id header, not body
   metadata?: Record<string, unknown>;
 }
 
 export interface CreateAssetDto {
   name: string;
-  slug: string;
-  externalId: string;
   type: string;
-  customerId: string;
+  customerId: string; // GCDR customer ID (from create response)
   parentAssetId?: string;
   metadata?: Record<string, unknown>;
 }
 
 export interface CreateDeviceDto {
   name: string;
-  slug: string;
-  externalId: string;
   type: string;
+  externalId?: string; // TB device ID (externalId exists for devices only)
   assetId: string;
   customerId: string;
   metadata?: Record<string, unknown>;

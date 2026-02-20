@@ -4,7 +4,7 @@
  */
 
 import type { TBCustomer, TBAsset, TBDevice, TBServerScopeAttrs, CreateCustomerDto, CreateAssetDto, CreateDeviceDto } from './types';
-import { slugify, mapAssetType, mapDeviceType } from './typeMapping';
+import { mapAssetType, mapDeviceType } from './typeMapping';
 
 /**
  * Maps a ThingsBoard Customer to a GCDR CreateCustomerDto.
@@ -15,15 +15,13 @@ import { slugify, mapAssetType, mapDeviceType } from './typeMapping';
  */
 export function mapCustomerToGCDR(
   tbCustomer: TBCustomer,
-  gcdrTenantId: string,
+  _gcdrTenantId?: string,
   _attrs?: TBServerScopeAttrs,
 ): CreateCustomerDto {
   const name = tbCustomer.title || tbCustomer.name;
   return {
     name,
-    slug: slugify(name),
-    externalId: tbCustomer.id.id,
-    tenantId: gcdrTenantId,
+    type: 'COMPANY',
     metadata: {
       tbEntityType: 'CUSTOMER',
       tbId: tbCustomer.id.id,
@@ -47,8 +45,6 @@ export function mapAssetToGCDR(
   const name = tbAsset.label || tbAsset.name;
   const dto: CreateAssetDto = {
     name,
-    slug: slugify(name),
-    externalId: tbAsset.id.id,
     type: mapAssetType(tbAsset.type),
     customerId: parentGcdrCustomerId,
     metadata: {
@@ -83,9 +79,8 @@ export function mapDeviceToGCDR(
   const tbProfile = tbDevice.deviceProfileName;
   return {
     name,
-    slug: slugify(name),
-    externalId: tbDevice.id.id,
     type: mapDeviceType(tbType, tbProfile),
+    externalId: tbDevice.id.id,
     assetId: parentGcdrAssetId,
     customerId: parentGcdrCustomerId,
     metadata: {

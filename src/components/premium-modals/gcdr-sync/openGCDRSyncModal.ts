@@ -532,24 +532,65 @@ export async function openGCDRSyncModal(params: GCDRSyncModalParams): Promise<vo
     `;
   }
 
-  // ---- Show error (blocks sync) ----
+  // ---- Step 0: collect gcdrTenantId manually if missing ----
   if (!params.gcdrTenantId) {
     card.innerHTML = `
       ${renderHeader('Configuração GCDR')}
       <div class="gcdr-body">
-        <div class="gcdr-error-box">
+        <div class="gcdr-error-box" style="margin-bottom:16px;">
           <span style="font-size:20px;flex-shrink:0;">⚠️</span>
           <div>
-            <strong>GCDR Tenant ID não configurado.</strong><br>
-            Adicione o atributo <code>gcdrTenantId</code> no SERVER_SCOPE do customer raiz no ThingsBoard e tente novamente.
+            <strong>GCDR Tenant ID não encontrado.</strong><br>
+            O atributo <code>gcdrTenantId</code> não está no SERVER_SCOPE do customer raiz.
+            Insira o valor manualmente para continuar ou configure-o no ThingsBoard.
           </div>
+        </div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:4px;">
+          GCDR Tenant ID
+        </label>
+        <input
+          id="gcdr-tenant-id-input"
+          type="text"
+          placeholder="ex: tenant_abc123"
+          style="
+            width:100%;box-sizing:border-box;padding:9px 12px;
+            border:1px solid #ccc;border-radius:6px;font-size:13px;
+            outline:none;transition:border-color .15s;
+          "
+          autocomplete="off"
+        />
+        <div id="gcdr-tenant-id-error" style="color:#c0392b;font-size:11px;margin-top:4px;display:none;">
+          Campo obrigatório.
         </div>
       </div>
       <div class="gcdr-footer">
         <button class="gcdr-btn gcdr-btn-secondary" id="gcdr-modal-close">Fechar</button>
+        <button class="gcdr-btn gcdr-btn-primary" id="gcdr-tenant-id-confirm">Continuar →</button>
       </div>
     `;
+
+    const input = card.querySelector('#gcdr-tenant-id-input') as HTMLInputElement;
+    const errorEl = card.querySelector('#gcdr-tenant-id-error') as HTMLElement;
+
+    input.addEventListener('focus', () => { input.style.borderColor = '#0a6d5e'; });
+    input.addEventListener('blur', () => { input.style.borderColor = '#ccc'; });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmTenantId(); });
+
+    function confirmTenantId() {
+      const val = input.value.trim();
+      if (!val) {
+        errorEl.style.display = 'block';
+        input.focus();
+        return;
+      }
+      errorEl.style.display = 'none';
+      params.gcdrTenantId = val;
+      gotoStep1();
+    }
+
     card.querySelector('#gcdr-modal-close')?.addEventListener('click', closeModal);
+    card.querySelector('#gcdr-tenant-id-confirm')?.addEventListener('click', confirmTenantId);
+    input.focus();
     return;
   }
 
