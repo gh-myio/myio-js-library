@@ -1116,13 +1116,31 @@ function renderModal(
             }; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
               Valor
             </label>
-            <input type="text" id="${modalId}-bulk-attr-value" value="${
-            state.bulkAttributeModal.value
-          }" placeholder="Digite o valor..." style="
-              width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
-              border-radius: 6px; font-size: 14px; color: ${colors.text};
-              background: ${colors.inputBg}; box-sizing: border-box;
-            "/>
+            ${
+              state.bulkAttributeModal.attribute === 'deviceType' || state.bulkAttributeModal.attribute === 'deviceProfile'
+                ? `<select id="${modalId}-bulk-attr-value" style="
+                    width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
+                    border-radius: 6px; font-size: 14px; color: ${colors.text};
+                    background: ${colors.inputBg}; cursor: pointer; box-sizing: border-box;
+                  ">
+                    <option value="">— Selecione —</option>
+                    ${[
+                      'ELEVADOR', 'ESCADA_ROLANTE', 'MOTOR',
+                      'BOMBA_HIDRAULICA', 'BOMBA_CAG', 'BOMBA_INCENDIO',
+                      'CHILLER', 'FANCOIL', '3F_MEDIDOR',
+                      'RELOGIO', 'ENTRADA', 'SUBESTACAO', 'AR_CONDICIONADO',
+                      'HIDROMETRO', 'HIDROMETRO_AREA_COMUM', 'HIDROMETRO_SHOPPING',
+                      'CAIXA_DAGUA', 'TANK', 'TERMOSTATO',
+                    ].map((opt) => `<option value="${opt}" ${state.bulkAttributeModal.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                  </select>`
+                : `<input type="text" id="${modalId}-bulk-attr-value" value="${
+                    state.bulkAttributeModal.value
+                  }" placeholder="Digite o valor..." style="
+                    width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
+                    border-radius: 6px; font-size: 14px; color: ${colors.text};
+                    background: ${colors.inputBg}; box-sizing: border-box;
+                  "/>`
+            }
           </div>
 
           <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -3676,14 +3694,21 @@ function setupEventListeners(
     renderModal(container, state, modalId, t);
   });
 
-  // Attribute select change
+  // Attribute select change — reset value and re-render to switch input/select
   document.getElementById(`${modalId}-bulk-attr-select`)?.addEventListener('change', (e) => {
     state.bulkAttributeModal.attribute = (e.target as HTMLSelectElement).value;
+    state.bulkAttributeModal.value = '';
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Value input change
-  document.getElementById(`${modalId}-bulk-attr-value`)?.addEventListener('input', (e) => {
+  // Value input/select change (handles both text input and select dropdown)
+  const bulkAttrValueEl = document.getElementById(`${modalId}-bulk-attr-value`);
+  bulkAttrValueEl?.addEventListener('input', (e) => {
     state.bulkAttributeModal.value = (e.target as HTMLInputElement).value;
+  });
+  bulkAttrValueEl?.addEventListener('change', (e) => {
+    state.bulkAttributeModal.value = (e.target as HTMLSelectElement).value;
   });
 
   // Save bulk attributes
