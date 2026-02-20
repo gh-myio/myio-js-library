@@ -75,8 +75,33 @@ export class GCDRApiClient {
       return { data: null, conflict: false, notFound: false };
     }
 
-    const data = await response.json() as T;
+    // GCDR API wraps responses as { success: boolean, data: T, meta: {...} }
+    const raw = await response.json() as { success?: boolean; data?: T; [k: string]: unknown };
+    const data = (raw.data !== undefined ? raw.data : raw) as T;
     return { data, conflict: false, notFound: false };
+  }
+
+  // ============================================================================
+  // Code derivation (mirrors server-side logic: uppercase + non-alphanumeric → _)
+  // ============================================================================
+
+  private codeFromName(name: string): string {
+    return name
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '_')
+      .replace(/__+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
+
+  /** Extract first item from a GCDR list response (handles array or { items: [] } shapes). */
+  private firstFromList(data: unknown): GCDREntity | null {
+    if (Array.isArray(data)) return (data[0] as GCDREntity) ?? null;
+    if (data && typeof data === 'object') {
+      const d = data as Record<string, unknown>;
+      if (Array.isArray(d['items'])) return (d['items'][0] as GCDREntity) ?? null;
+      if (Array.isArray(d['data'])) return (d['data'][0] as GCDREntity) ?? null;
+    }
+    return null;
   }
 
   // ============================================================================
@@ -86,7 +111,12 @@ export class GCDRApiClient {
   async createCustomer(dto: CreateCustomerDto): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('POST', '/api/v1/customers', dto);
     if (result.conflict) {
-      throw new Error(`GCDR customer conflict: "${dto.name}" already exists`);
+      // 409 — entity already exists: fetch by code and reuse its ID
+      const code = this.codeFromName(dto.name);
+      const listResult = await this.request<unknown>('GET', `/api/v1/customers?code=${encodeURIComponent(code)}`);
+      const existing = this.firstFromList(listResult.data);
+      if (existing?.id) return existing;
+      throw new Error(`GCDR: customer "${dto.name}" conflicted (409) but could not be fetched by code "${code}"`);
     }
     return result.data!;
   }
@@ -109,7 +139,11 @@ export class GCDRApiClient {
   async createAsset(dto: CreateAssetDto): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('POST', '/api/v1/assets', dto);
     if (result.conflict) {
-      throw new Error(`GCDR asset conflict: "${dto.name}" already exists`);
+      const code = this.codeFromName(dto.name);
+      const listResult = await this.request<unknown>('GET', `/api/v1/assets?code=${encodeURIComponent(code)}`);
+      const existing = this.firstFromList(listResult.data);
+      if (existing?.id) return existing;
+      throw new Error(`GCDR: asset "${dto.name}" conflicted (409) but could not be fetched by code "${code}"`);
     }
     return result.data!;
   }
@@ -132,7 +166,11 @@ export class GCDRApiClient {
   async createDevice(dto: CreateDeviceDto): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('POST', '/api/v1/devices', dto);
     if (result.conflict) {
-      throw new Error(`GCDR device conflict: "${dto.name}" already exists`);
+      const code = this.codeFromName(dto.name);
+      const listResult = await this.request<unknown>('GET', `/api/v1/devices?code=${encodeURIComponent(code)}`);
+      const existing = this.firstFromList(listResult.data);
+      if (existing?.id) return existing;
+      throw new Error(`GCDR: device "${dto.name}" conflicted (409) but could not be fetched by code "${code}"`);
     }
     return result.data!;
   }
