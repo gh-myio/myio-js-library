@@ -41,8 +41,9 @@ export class GCDRApiClient {
 
     let response = await attempt();
 
-    // Retry once on 5xx
-    if (response.status >= 500) {
+    // Retry once on 5xx only for idempotent methods (GET/PATCH/PUT).
+    // Never retry POST — a failed DB insert retried just produces a duplicate attempt.
+    if (response.status >= 500 && method !== 'POST') {
       await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
       response = await attempt();
     }
@@ -85,7 +86,7 @@ export class GCDRApiClient {
   async createCustomer(dto: CreateCustomerDto): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('POST', '/api/v1/customers', dto);
     if (result.conflict) {
-      throw new Error(`GCDR customer conflict: slug "${dto.slug}" already exists`);
+      throw new Error(`GCDR customer conflict: "${dto.name}" already exists`);
     }
     return result.data!;
   }
@@ -108,7 +109,7 @@ export class GCDRApiClient {
   async createAsset(dto: CreateAssetDto): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('POST', '/api/v1/assets', dto);
     if (result.conflict) {
-      throw new Error(`GCDR asset conflict: slug "${dto.slug}" already exists`);
+      throw new Error(`GCDR asset conflict: "${dto.name}" already exists`);
     }
     return result.data!;
   }
@@ -131,7 +132,7 @@ export class GCDRApiClient {
   async createDevice(dto: CreateDeviceDto): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('POST', '/api/v1/devices', dto);
     if (result.conflict) {
-      throw new Error(`GCDR device conflict: slug "${dto.slug}" already exists`);
+      throw new Error(`GCDR device conflict: "${dto.name}" already exists`);
     }
     return result.data!;
   }

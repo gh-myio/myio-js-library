@@ -22,6 +22,7 @@ import {
   fetchCustomer,
   fetchAssets,
   fetchDevices,
+  fetchDeviceAssetMap,
   fetchServerScopeAttrs,
   fetchServerScopeAttrsBatch,
 } from './TBDataFetcher';
@@ -59,6 +60,10 @@ export class GCDRSyncController {
       fetchDevices(customerId, jwt),
     ]);
 
+    onProgress?.('Mapeando devices para assets...');
+    // Build device→asset map via TB relations (needed to pass correct assetId when creating devices)
+    const deviceAssetMap = await fetchDeviceAssetMap(assets.map((a) => a.id.id), jwt, concurrency);
+
     onProgress?.('Carregando atributos dos dispositivos...');
 
     // Fetch SERVER_SCOPE attrs for all entities in parallel
@@ -87,6 +92,7 @@ export class GCDRSyncController {
       assets,
       devices,
       deviceAttrs,
+      deviceAssetMap,
       gcdrTenantId: gcdrTenantId!,
     };
 
@@ -167,10 +173,29 @@ export class GCDRSyncController {
     let current = 0;
     const total = orderedActions.filter((a) => a.type !== 'SKIP').length;
 
+    // Track failed CREATE/RECREATE entity TB IDs so dependents can be aborted.
+    let customerCreateFailed = false;
+    const failedAssetTbIds = new Set<string>(); // assets that failed CREATE/RECREATE
+
     for (const action of orderedActions) {
       if (action.type === 'SKIP') {
         skipped.push({ action, success: true });
         continue;
+      }
+
+      // Abort assets and devices if customer could not be created
+      if (customerCreateFailed && (action.entityKind === 'asset' || action.entityKind === 'device')) {
+        failed.push({ action, success: false, error: 'Abortado: criação do customer no GCDR falhou' });
+        continue;
+      }
+
+      // Abort a device if its parent asset failed to be created
+      if (action.entityKind === 'device') {
+        const parentAssetTbId = bundle.deviceAssetMap.get(action.tbId);
+        if (parentAssetTbId && failedAssetTbIds.has(parentAssetTbId)) {
+          failed.push({ action, success: false, error: 'Abortado: criação do asset pai no GCDR falhou' });
+          continue;
+        }
       }
 
       current++;
@@ -185,6 +210,12 @@ export class GCDRSyncController {
       } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
         failed.push({ action, success: false, error });
+        if (action.entityKind === 'customer' && (action.type === 'CREATE' || action.type === 'RECREATE')) {
+          customerCreateFailed = true;
+        }
+        if (action.entityKind === 'asset' && (action.type === 'CREATE' || action.type === 'RECREATE')) {
+          failedAssetTbIds.add(action.tbId);
+        }
       }
     }
 
@@ -264,11 +295,11 @@ export class GCDRSyncController {
     const attrs = bundle.deviceAttrs.get(action.tbId) ?? {};
     const customerGcdrId = resolvedGcdrIds.get(bundle.customer.id.id) ?? '__unknown_customer__';
 
-    // Find which asset this device belongs to (first asset as fallback)
-    const assetGcdrId =
-      bundle.assets.length > 0
-        ? (resolvedGcdrIds.get(bundle.assets[0].id.id) ?? '__unknown_asset__')
-        : '__unknown_asset__';
+    // Resolve the correct asset for this device via the device→asset map
+    const parentAssetTbId = bundle.deviceAssetMap.get(action.tbId);
+    const assetGcdrId = parentAssetTbId
+      ? (resolvedGcdrIds.get(parentAssetTbId) ?? '__unknown_asset__')
+      : '__unknown_asset__';
 
     return mapDeviceToGCDR(device!, attrs, assetGcdrId, customerGcdrId);
   }

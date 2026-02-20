@@ -24,7 +24,8 @@ export interface TBDataBundle {
   customerAttrs: TBServerScopeAttrs;
   assets: TBAsset[];
   devices: TBDevice[];
-  deviceAttrs: Map<string, TBServerScopeAttrs>; // tbDeviceId → attrs
+  deviceAttrs: Map<string, TBServerScopeAttrs>; // tbDeviceId (or assetId) → attrs
+  deviceAssetMap: Map<string, string>; // tbDeviceId → tbAssetId (from TB relations)
   gcdrTenantId: string;
 }
 
@@ -174,7 +175,6 @@ function buildDeviceAction(
 function detectChangedCustomerFields(dto: CreateCustomerDto, gcdr: GCDREntity): string[] {
   const changed: string[] = [];
   if (gcdr.name && gcdr.name !== dto.name) changed.push('name');
-  if (gcdr.slug && gcdr.slug !== dto.slug) changed.push('slug');
   return changed;
 }
 
@@ -182,7 +182,6 @@ function detectChangedAssetFields(dto: CreateAssetDto, gcdr: GCDREntity): string
   const changed: string[] = [];
   if (gcdr.name && gcdr.name !== dto.name) changed.push('name');
   if (gcdr.type && gcdr.type !== dto.type) changed.push('type');
-  if (gcdr.slug && gcdr.slug !== dto.slug) changed.push('slug');
   return changed;
 }
 
@@ -190,6 +189,5 @@ function detectChangedDeviceFields(dto: CreateDeviceDto, gcdr: GCDREntity): stri
   const changed: string[] = [];
   if (gcdr.name && gcdr.name !== dto.name) changed.push('name');
   if (gcdr.type && gcdr.type !== dto.type) changed.push('type');
-  if (gcdr.slug && gcdr.slug !== dto.slug) changed.push('slug');
   return changed;
 }

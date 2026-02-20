@@ -69,6 +69,49 @@ export async function fetchDevices(customerId: string, jwt: string): Promise<TBD
 }
 
 /**
+ * Fetches a device→asset map for a list of assets.
+ * Uses TB relations API: GET /api/relations?fromId={assetId}&fromType=ASSET
+ * Returns Map<deviceTbId, assetTbId>.
+ */
+export async function fetchDeviceAssetMap(
+  assetIds: string[],
+  jwt: string,
+  concurrency = 5,
+): Promise<Map<string, string>> {
+  interface Relation {
+    to: { id: string; entityType: string };
+    type: string;
+  }
+
+  const result = new Map<string, string>();
+  const queue = [...assetIds];
+
+  const worker = async () => {
+    while (queue.length > 0) {
+      const assetId = queue.shift();
+      if (!assetId) break;
+      try {
+        const relations = await tbFetch<Relation[]>(
+          `/api/relations?fromId=${assetId}&fromType=ASSET`,
+          jwt,
+        );
+        for (const rel of relations) {
+          if (rel.to.entityType === 'DEVICE') {
+            result.set(rel.to.id, assetId);
+          }
+        }
+      } catch {
+        // Asset may have no relations — skip silently
+      }
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(concurrency, Math.max(1, assetIds.length)) }, () => worker());
+  await Promise.all(workers);
+  return result;
+}
+
+/**
  * Fetches SERVER_SCOPE attributes for a single entity.
  * Returns a flat key→value map.
  */
