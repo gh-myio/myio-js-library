@@ -587,7 +587,7 @@ interface ModalState {
   customerSearchTerm: string;
   deviceSort: { field: DeviceSortField; order: SortOrder };
   deviceSearchTerm: string;
-  deviceFilters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[]; statuses: string[] };
+  deviceFilters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[]; statuses: string[]; telemetryKeys: string[] };
   deviceSelectionMode: 'single' | 'multi';
   selectedDevices: Device[];
   bulkAttributeModal: {
@@ -747,7 +747,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     customerSearchTerm: '',
     deviceSort: { field: 'name', order: 'asc' },
     deviceSearchTerm: '',
-    deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [], statuses: [] },
+    deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [], statuses: [], telemetryKeys: [] },
     deviceSelectionMode: 'single',
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
@@ -1728,6 +1728,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     deviceTypes: filterDeviceTypes,
     deviceProfiles: filterDeviceProfiles,
     statuses: filterStatuses,
+    telemetryKeys: filterTelemetryKeys,
   } = state.deviceFilters;
   const searchTerm = state.deviceSearchTerm.toLowerCase();
 
@@ -1741,6 +1742,15 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     if (filterStatuses.length > 0) {
       const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
       if (!filterStatuses.includes(status)) return false;
+    }
+    if (filterTelemetryKeys.length > 0) {
+      const telem = d.latestTelemetry;
+      const hasMatch = filterTelemetryKeys.some((k) => {
+        if (k === 'pulses') return telem?.pulses != null;
+        if (k === 'consumption') return telem?.consumption != null;
+        return false;
+      });
+      if (!hasMatch) return false;
     }
     return true;
   });
@@ -1773,7 +1783,8 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     filterTypes.length > 0 ||
     filterDeviceTypes.length > 0 ||
     filterDeviceProfiles.length > 0 ||
-    filterStatuses.length > 0;
+    filterStatuses.length > 0 ||
+    filterTelemetryKeys.length > 0;
 
   // Helper for sortable column header
   const renderSortableHeader = (col: string, label: string, field: DeviceSortField, width: number) => {
@@ -1907,6 +1918,28 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
                 (s) => `<option value="${s}" ${filterStatuses.includes(s) ? 'selected' : ''}>${s}</option>`
               )
               .join('')}
+          </select>
+        </div>
+        <div style="min-width: 110px;">
+          <label style="color: ${
+            state.deviceTelemetryLoaded ? colors.textMuted : colors.warning
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            Telemetria ${filterTelemetryKeys.length > 0 ? `(${filterTelemetryKeys.length})` : ''} ${
+    !state.deviceTelemetryLoaded ? '🔒' : ''
+  }
+          </label>
+          <select id="${modalId}-device-telemetry-filter" multiple size="1" style="
+            width: 100%; padding: 7px 8px; border: 1px solid ${
+              filterTelemetryKeys.length > 0 ? MYIO_PURPLE : colors.border
+            };
+            border-radius: 6px; font-size: 11px; color: ${colors.text};
+            background: ${colors.inputBg}; cursor: ${
+    state.deviceTelemetryLoaded ? 'pointer' : 'not-allowed'
+  }; height: 32px;
+            opacity: ${state.deviceTelemetryLoaded ? '1' : '0.5'};
+          " ${!state.deviceTelemetryLoaded ? 'disabled' : ''}>
+            <option value="pulses" ${filterTelemetryKeys.includes('pulses') ? 'selected' : ''}>Litros (L)</option>
+            <option value="consumption" ${filterTelemetryKeys.includes('consumption') ? 'selected' : ''}>Watts (W)</option>
           </select>
         </div>
         ${
@@ -3225,9 +3258,20 @@ function setupEventListeners(
     }
   );
 
+  // Telemetry key filter (only works when telemetry is loaded)
+  (document.getElementById(`${modalId}-device-telemetry-filter`) as HTMLSelectElement | null)?.addEventListener(
+    'change',
+    (e) => {
+      const select = e.target as HTMLSelectElement;
+      state.deviceFilters.telemetryKeys = Array.from(select.selectedOptions).map((o) => o.value);
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    }
+  );
+
   // Clear filters button
   document.getElementById(`${modalId}-clear-filters`)?.addEventListener('click', () => {
-    state.deviceFilters = { types: [], deviceTypes: [], deviceProfiles: [], statuses: [] };
+    state.deviceFilters = { types: [], deviceTypes: [], deviceProfiles: [], statuses: [], telemetryKeys: [] };
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -3480,6 +3524,8 @@ function setupEventListeners(
       types: filterTypes,
       deviceTypes: filterDeviceTypes,
       deviceProfiles: filterDeviceProfiles,
+      statuses: filterStatuses,
+      telemetryKeys: filterTelemetryKeys,
     } = state.deviceFilters;
     // Select all visible/filtered devices
     let filteredDevices = state.devices.filter((d) => {
@@ -3491,6 +3537,19 @@ function setupEventListeners(
         !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
       )
         return false;
+      if (filterStatuses.length > 0) {
+        const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
+        if (!filterStatuses.includes(status)) return false;
+      }
+      if (filterTelemetryKeys.length > 0) {
+        const telem = d.latestTelemetry;
+        const hasMatch = filterTelemetryKeys.some((k) => {
+          if (k === 'pulses') return telem?.pulses != null;
+          if (k === 'consumption') return telem?.consumption != null;
+          return false;
+        });
+        if (!hasMatch) return false;
+      }
       return true;
     });
     state.selectedDevices = [...filteredDevices];

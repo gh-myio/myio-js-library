@@ -4097,14 +4097,15 @@ self.onInit = function () {
       }
 
       // Lê gcdrTenantId do SERVER_SCOPE do customer raiz para identificar o tenant no GCDR
-      const rootCustomer = window.structure[0];
-      const attrs = rootCustomer?.id?.id ? await fetchCustomerServerScopeAttrs(rootCustomer.id.id) : {};
+      // window.currentTbCustomerId é o UUID raw definido em loadTree (buildTree não inclui id no nó)
+      const tbCustomerId = window.currentTbCustomerId;
+      const attrs = tbCustomerId ? await fetchCustomerServerScopeAttrs(tbCustomerId) : {};
       const gcdrTenantId = attrs?.gcdrTenantId ?? null;
 
       lib.openGCDRSyncModal({
         thingsboardToken,
         gcdrTenantId,
-        customerId: rootCustomer?.id?.id ?? rootCustomer?.id,
+        customerId: tbCustomerId,
         onSync: (result) => {
           console.log('[GCDRSync] Sync result:', result);
         },
