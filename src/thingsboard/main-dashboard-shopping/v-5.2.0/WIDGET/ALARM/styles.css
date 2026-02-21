@@ -1,0 +1,203 @@
+/* ============================================================
+ * ALARM Widget — Single Shopping
+ * RFC-0177
+ * Scoped under .alarm-widget-root
+ * CSS vars mirror TELEMETRY widget for visual consistency
+ * ============================================================ */
+
+/* ---- Variables (light mode defaults) ---- */
+.alarm-widget-root {
+  --ink-1:      #1c2743;
+  --ink-2:      #6b7a90;
+  --bd:         #e8eef4;
+  --card:       #ffffff;
+  --accent:     #1f6fb5;
+  --brand:      #1f6fb5;
+  --brand-ghost: rgba(31, 111, 181, 0.08);
+  --shadow:     0 8px 24px rgba(0, 0, 0, 0.06);
+  --bg-soft:    #f7fbff;
+  --font-ui:
+    Inter, 'Inter var', 'Plus Jakarta Sans', 'SF Pro Text',
+    system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Severity palette */
+  --alarm-critical: #ef4444;
+  --alarm-high:     #f97316;
+  --alarm-medium:   #eab308;
+  --alarm-low:      #3b82f6;
+  --alarm-info:     #6b7280;
+}
+
+/* ---- Dark mode overrides ---- */
+[data-theme="dark"] .alarm-widget-root {
+  --ink-1:       #f1f5f9;
+  --ink-2:       #94a3b8;
+  --bd:          #334155;
+  --card:        #1e293b;
+  --brand:       #60a5fa;
+  --brand-ghost: rgba(96, 165, 250, 0.1);
+  --bg-soft:     #0f172a;
+}
+
+/* ---- Root layout ---- */
+.alarm-widget-root,
+.alarm-widget-root * {
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  box-sizing: border-box;
+}
+
+.alarm-widget-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+
+/* ---- Header ---- */
+.alarm-widget-root .alarm-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, var(--card) 0%, var(--bg-soft) 100%);
+  border: 1px solid var(--bd);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 8px 10px 0;
+  box-shadow: var(--shadow);
+}
+
+.alarm-widget-root .alarm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.alarm-widget-root .alarm-header-icon {
+  fill: var(--brand);
+  flex-shrink: 0;
+}
+
+.alarm-widget-root .alarm-title {
+  margin: 0;
+  font: 700 13px/1.2 var(--font-ui);
+  color: var(--ink-1);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.alarm-widget-root .alarm-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--alarm-critical);
+  color: #fff;
+  font: 700 11px/1 var(--font-ui);
+  flex-shrink: 0;
+}
+
+.alarm-widget-root .alarm-count-badge.is-zero {
+  background: var(--ink-2);
+}
+
+.alarm-widget-root .alarm-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- Icon button (Refresh) ---- */
+.alarm-widget-root .alarm-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.alarm-widget-root .alarm-icon-btn svg {
+  fill: currentColor;
+}
+
+.alarm-widget-root .alarm-icon-btn:hover {
+  background: var(--brand-ghost);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.alarm-widget-root .alarm-icon-btn.is-spinning svg {
+  animation: alarm-spin 0.7s linear infinite;
+}
+
+@keyframes alarm-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ---- Tab navigation ---- */
+.alarm-widget-root .alarm-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid var(--bd);
+  margin: 6px 10px 0;
+}
+
+.alarm-widget-root .alarm-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px 8px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 12px/1 var(--font-ui);
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.alarm-widget-root .alarm-tab-btn svg {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.alarm-widget-root .alarm-tab-btn:hover {
+  color: var(--brand);
+  background: var(--brand-ghost);
+}
+
+.alarm-widget-root .alarm-tab-btn.is-active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+  font-weight: 700;
+}
+
+/* ---- Panel container (scrollable content) ---- */
+.alarm-widget-root .alarm-panel-container {
+  flex: 1 1 auto;
+  overflow: hidden;
+  position: relative;
+  margin: 0 10px 8px;
+}

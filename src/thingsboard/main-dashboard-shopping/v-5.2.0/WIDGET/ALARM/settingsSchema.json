@@ -1,0 +1,62 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Alarm Widget Settings",
+    "properties": {
+      "labelWidget": {
+        "type": "string",
+        "title": "Widget Label",
+        "default": "Alarmes e Notificações"
+      },
+      "customerTB_ID": {
+        "type": "string",
+        "title": "ThingsBoard Customer ID",
+        "description": "TB Customer UUID for this shopping. Used to read ingestionId from SERVER_SCOPE attributes."
+      },
+      "defaultTab": {
+        "type": "string",
+        "title": "Default Tab",
+        "enum": ["list", "dashboard"],
+        "default": "list"
+      },
+      "showCustomerName": {
+        "type": "boolean",
+        "title": "Show Customer Name on Alarm Cards",
+        "default": false,
+        "description": "Redundant on single-shopping dashboards — enable only for cross-customer contexts."
+      },
+      "refreshIntervalSeconds": {
+        "type": "number",
+        "title": "Auto-Refresh Interval (seconds, 0 = disabled)",
+        "default": 60
+      },
+      "maxAlarmsVisible": {
+        "type": "number",
+        "title": "Max Alarms in List",
+        "default": 50
+      },
+      "defaultThemeMode": {
+        "type": "string",
+        "title": "Theme Mode",
+        "enum": ["dark", "light"],
+        "default": "dark"
+      },
+      "enableDebugMode": {
+        "type": "boolean",
+        "title": "Enable Debug Mode",
+        "default": false
+      }
+    },
+    "required": ["customerTB_ID"]
+  },
+  "form": [
+    "labelWidget",
+    "customerTB_ID",
+    "defaultTab",
+    "showCustomerName",
+    "refreshIntervalSeconds",
+    "maxAlarmsVisible",
+    "defaultThemeMode",
+    "enableDebugMode"
+  ]
+}
