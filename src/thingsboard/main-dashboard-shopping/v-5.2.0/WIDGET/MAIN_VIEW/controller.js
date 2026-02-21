@@ -5729,7 +5729,8 @@ const MyIOOrchestrator = (() => {
     const tab = ev.detail.tab;
 
     // Alarm view — activate alarm panel and skip domain hydration
-    if (tab === 'alarm') {
+    // Accept both 'alarm' (RFC-0178) and null/falsy (legacy, when MENU is not yet updated)
+    if (tab === 'alarm' || !tab) {
       visibleTab = 'alarm';
       LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
       window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));
