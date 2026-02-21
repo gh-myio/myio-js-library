@@ -227,7 +227,7 @@ self.onInit = function () {
     telemetry_content: 'energy',
     water_content: 'water',
     temperature_content: 'temperature',
-    alarm_content: null, // No domain for alarms
+    alarm_content: 'alarm',
   };
 
   scope.changeDashboardState = function (e, stateId, index) {

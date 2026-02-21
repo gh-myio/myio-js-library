@@ -4592,14 +4592,20 @@ body.filter-modal-open { overflow: hidden !important; }
       alarmsNotificationsPanelInstance?.setLoading?.(true);
       const tenantId = CUSTOMER_ING_ID;
 
-      const [alarms, stats, trend] = await Promise.all([
-        alarmService.getAlarms({ state: ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'] }),
-        tenantId ? alarmService.getAlarmStats(tenantId, 'week') : Promise.resolve(null),
+      // RFC-0178: getAlarms now returns { data, summary }; summary replaces separate getAlarmStats
+      const [response, trend] = await Promise.all([
+        alarmService.getAlarms({
+          state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
+          customerId: tenantId || undefined,
+        }),
         tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),
       ]);
 
+      const alarms  = response.data;
+      const summary = response.summary;
+
       alarmsNotificationsPanelInstance?.updateAlarms?.(alarms);
-      if (stats) alarmsNotificationsPanelInstance?.updateStats?.(stats);
+      if (summary) alarmsNotificationsPanelInstance?.updateStats?.(summary);
       if (trend?.length) alarmsNotificationsPanelInstance?.updateTrendData?.(trend);
 
       LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm panel updated with', alarms.length, 'alarms');

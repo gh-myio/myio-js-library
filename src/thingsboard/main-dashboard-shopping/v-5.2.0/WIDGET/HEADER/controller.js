@@ -360,6 +360,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const btnLoad = q('#tbx-btn-load');
   const btnForceRefresh = q('#tbx-btn-force-refresh');
   const btnGen = q('#tbx-btn-report-general');
+  const btnAlarmReport = q('#tbx-btn-report-alarm');
 
   setupTooltipPremium(inputRange, '📅 Clique para alterar o intervalo de datas');
 
@@ -478,6 +479,25 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // Helper function to update controls state based on domain
     const updateControlsState = (domain) => {
       const btnText = document.getElementById('tbx-btn-report-general-text');
+
+      // RFC-0178: Alarm domain — enable date controls, swap report buttons
+      if (domain === 'alarm') {
+        if (inputRange)      inputRange.disabled      = false;
+        if (btnLoad)         btnLoad.disabled         = false;
+        if (btnForceRefresh) btnForceRefresh.disabled = false;
+
+        // Show alarm report button (still disabled — no endpoint yet), hide general report
+        if (btnGen)         btnGen.style.display         = 'none';
+        if (btnAlarmReport) btnAlarmReport.style.display = '';
+
+        LogHelper.log('[HEADER] alarm domain — date controls enabled, report buttons swapped');
+        return;
+      }
+
+      // Restore alarm report button and show general report for non-alarm domains
+      if (btnAlarmReport) btnAlarmReport.style.display = 'none';
+      if (btnGen)         btnGen.style.display         = '';
+
       const domainLabels = {
         energy: 'Relatório Consumo Geral de Energia por Loja',
         water: 'Relatório Consumo Geral de Água por Loja',
@@ -676,6 +696,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           }
           return;
         }
+      }
+
+      // RFC-0178: Alarm domain — emit alarm filter change event
+      if (currentDomain.value === 'alarm') {
+        const filters = self.getFilters();
+        LogHelper.log('[HEADER] RFC-0178: Emitting myio:alarm-filter-change:', filters);
+        window.dispatchEvent(new CustomEvent('myio:alarm-filter-change', {
+          detail: {
+            from: filters.startAt,  // ISO 8601
+            to:   filters.endAt,    // ISO 8601
+          },
+        }));
+        return;
       }
 
       if (currentDomain.value !== 'energy' && currentDomain.value !== 'water') {

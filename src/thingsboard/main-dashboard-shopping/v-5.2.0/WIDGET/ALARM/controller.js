@@ -19,14 +19,17 @@
 // Module-level state (reset on every onInit)
 // ============================================================================
 
-let _panelInstance       = null;
-let _refreshTimer        = null;
-let _customerIngId       = '';
-let _maxAlarms           = 50;
-let _activeTab           = 'list';
-let _isRefreshing        = false;
-let _currentTheme        = 'light';
-let _themeChangeHandler  = null;
+let _panelInstance          = null;
+let _refreshTimer           = null;
+let _customerIngId          = '';
+let _maxAlarms              = 50;
+let _activeTab              = 'list';
+let _isRefreshing           = false;
+let _currentTheme           = 'light';
+let _themeChangeHandler     = null;
+let _filterChangeHandler    = null;
+let _activationHandler      = null;
+let _activeFilters          = {}; // { from?, to? }
 
 let LogHelper = {
   log:   (...a) => {},
@@ -42,10 +45,11 @@ self.onInit = async function () {
   'use strict';
 
   // --- Reset state ---
-  _panelInstance  = null;
-  _refreshTimer   = null;
-  _customerIngId  = '';
-  _isRefreshing   = false;
+  _panelInstance       = null;
+  _refreshTimer        = null;
+  _customerIngId       = '';
+  _isRefreshing        = false;
+  _activeFilters       = {};
 
   // --- Library reference ---
   const MyIOLibrary = window.MyIOLibrary;
@@ -98,6 +102,32 @@ self.onInit = async function () {
     LogHelper.log('Theme updated:', theme);
   };
   window.addEventListener('myio:theme-changed', _themeChangeHandler);
+
+  // --- RFC-0178: Configure AlarmService base URL from orchestrator ---
+  const alarmsUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl;
+  if (alarmsUrl) {
+    MyIOLibrary.AlarmService?.configure?.(alarmsUrl);
+    LogHelper.log('AlarmService configured with base URL:', alarmsUrl);
+  }
+
+  // --- RFC-0178: Listen for alarm filter changes from HEADER ---
+  _filterChangeHandler = (ev) => {
+    _activeFilters = {
+      from: ev.detail?.from || null,
+      to:   ev.detail?.to   || null,
+    };
+    LogHelper.log('Alarm filter changed:', _activeFilters);
+    MyIOLibrary?.AlarmService?.clearCache?.();
+    _fetchAndUpdate();
+  };
+  window.addEventListener('myio:alarm-filter-change', _filterChangeHandler);
+
+  // --- RFC-0178: Refresh when alarm view is activated (tab switch) ---
+  _activationHandler = () => {
+    LogHelper.log('Alarm view activated — refreshing data');
+    _fetchAndUpdate();
+  };
+  window.addEventListener('myio:alarm-content-activated', _activationHandler);
 
   // --- Label ---
   const labelEl = document.getElementById('labelWidgetId');
@@ -183,6 +213,14 @@ self.onDestroy = function () {
     window.removeEventListener('myio:theme-changed', _themeChangeHandler);
     _themeChangeHandler = null;
   }
+  if (_filterChangeHandler) {
+    window.removeEventListener('myio:alarm-filter-change', _filterChangeHandler);
+    _filterChangeHandler = null;
+  }
+  if (_activationHandler) {
+    window.removeEventListener('myio:alarm-content-activated', _activationHandler);
+    _activationHandler = null;
+  }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);
     _refreshTimer = null;
@@ -216,36 +254,40 @@ async function _fetchAndUpdate() {
     return;
   }
 
+  // RFC-0178: customerId is mandatory — abort if empty
+  if (!_customerIngId) {
+    LogHelper.error('_fetchAndUpdate aborted: _customerIngId (gcdrCustomerId) is empty');
+    _isRefreshing = false;
+    return;
+  }
+
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) btnRefresh.classList.add('is-spinning');
 
   try {
     _panelInstance?.setLoading?.(true);
 
-    const tenantId = _customerIngId;
-
-    // Fetch alarms, stats and trend in parallel
-    const [alarms, stats, trend] = await Promise.all([
+    // RFC-0178: Single getAlarms call with summary + parallel trend fetch
+    const [response, trend] = await Promise.all([
       AlarmService.getAlarms({
-        state: ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
-        limit: _maxAlarms,
+        state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
+        limit:      _maxAlarms,
+        customerId: _customerIngId,                    // always required
+        from:       _activeFilters.from || undefined,
+        to:         _activeFilters.to   || undefined,
       }),
-      tenantId
-        ? AlarmService.getAlarmStats(tenantId, 'week')
-        : Promise.resolve(null),
-      tenantId
-        ? AlarmService.getAlarmTrend(tenantId, 'week', 'day')
-        : Promise.resolve([]),
+      AlarmService.getAlarmTrend(_customerIngId, 'week', 'day'),
     ]);
 
+    const alarms  = response.data;
+    const summary = response.summary;
+
     _panelInstance?.updateAlarms?.(alarms);
-    if (stats) _panelInstance?.updateStats?.(stats);
+    if (summary) _panelInstance?.updateStats?.(summary);
     if (trend?.length) _panelInstance?.updateTrendData?.(trend);
 
-    // Update count badge — open + escalated
-    const openCount = (alarms || []).filter(
-      (a) => a.state === 'OPEN' || a.state === 'ESCALATED'
-    ).length;
+    // Count badge: open + escalated from embedded summary
+    const openCount = (summary?.byState?.OPEN ?? 0) + (summary?.byState?.ESCALATED ?? 0);
     _updateCountBadge(openCount);
 
     LogHelper.log('Panel updated —', alarms.length, 'alarms, openCount:', openCount);

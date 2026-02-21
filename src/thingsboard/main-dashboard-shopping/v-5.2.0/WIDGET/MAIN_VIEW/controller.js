@@ -1172,6 +1172,13 @@ Object.assign(window.MyIOUtils, {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
 
+    // RFC-0178: Expose alarmsApiBaseUrl for ALARM widget
+    const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+    if (window.MyIOOrchestrator) {
+      window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
+    }
+    LogHelper.log('[Orchestrator] RFC-0178: alarmsApiBaseUrl:', alarmsApiBaseUrl);
+
     widgetSettings.debugMode = self.ctx.settings?.debugMode ?? false;
     widgetSettings.domainsEnabled = self.ctx.settings?.domainsEnabled ?? {
       energy: true,
@@ -1226,6 +1233,9 @@ Object.assign(window.MyIOUtils, {
 
         // Customer ID from settings (for MENU and other widgets)
         customerTB_ID: null,
+
+        // RFC-0178: Alarms API base URL (for ALARM widget)
+        alarmsApiBaseUrl: null,
 
         // RFC-0108: Measurement display settings (units, decimal places)
         // Populated by MENU when user opens MeasurementSetupModal
@@ -5718,8 +5728,8 @@ const MyIOOrchestrator = (() => {
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
 
-    // Alarm view has no domain — activate alarm panel and skip domain hydration
-    if (!tab) {
+    // Alarm view — activate alarm panel and skip domain hydration
+    if (tab === 'alarm') {
       visibleTab = 'alarm';
       LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
       window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));

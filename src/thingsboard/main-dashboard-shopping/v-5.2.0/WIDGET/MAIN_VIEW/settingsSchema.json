@@ -73,6 +73,12 @@
         "type": "boolean",
         "default": false,
         "description": "RFC-0144: Habilita o onboarding de Anotações do Dispositivo no modal de Settings. Se false, o onboarding nunca é exibido."
+      },
+      "alarmsApiBaseUrl": {
+        "title": "Alarms API Base URL",
+        "type": "string",
+        "default": "https://alarms-api.a.myio-bas.com",
+        "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
       }
     }
   },
@@ -87,6 +93,7 @@
     "domainsEnabled.water",
     "domainsEnabled.temperature",
     "excludeDevicesAtCountSubtotalCAG",
-    "enableAnnotationsOnboarding"
+    "enableAnnotationsOnboarding",
+    "alarmsApiBaseUrl"
   ]
 }

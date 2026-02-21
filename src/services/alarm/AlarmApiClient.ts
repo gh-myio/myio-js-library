@@ -15,12 +15,16 @@ const ALARMS_BASE_URL = 'https://alarms-api.a.myio-bas.com';
 const API_KEY = 'gcdr_cust_tb_integration_key_2026';
 
 export class AlarmApiClient {
-  private readonly baseUrl: string;
+  private baseUrl: string;
   private readonly apiKey: string;
 
   constructor(baseUrl = ALARMS_BASE_URL, apiKey = API_KEY) {
     this.baseUrl = baseUrl;
     this.apiKey = apiKey;
+  }
+
+  configure(baseUrl: string): void {
+    this.baseUrl = baseUrl;
   }
 
   private get headers(): HeadersInit {
@@ -77,12 +81,16 @@ export class AlarmApiClient {
     if (params.severity?.length) {
       params.severity.forEach((s) => query.append('severity', s));
     }
-    if (params.limit) query.set('limit', String(params.limit));
-    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.alarmType)  query.set('alarmType',  params.alarmType);
+    if (params.from)       query.set('from',        params.from);
+    if (params.to)         query.set('to',          params.to);
+    if (params.customerId) query.set('customerId',  params.customerId);
+    if (params.limit)      query.set('limit',       String(params.limit));
+    if (params.cursor)     query.set('cursor',      params.cursor);
 
     const qs = query.toString();
     return this.request<AlarmListApiResponse>(
-      `${this.baseUrl}/alarms${qs ? `?${qs}` : ''}`
+      `${this.baseUrl}/api/v1/alarms${qs ? `?${qs}` : ''}`
     );
   }
 

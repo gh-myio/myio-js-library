@@ -93,13 +93,21 @@ export interface AlarmApiResponse {
   occurrenceCount?: number;
 }
 
+export interface AlarmListSummary {
+  total:       number;
+  byState:     Record<string, number>;
+  bySeverity:  Record<string, number>;
+  byAlarmType: Record<string, number>;
+}
+
 export interface AlarmListApiResponse {
   data: AlarmApiResponse[];
   pagination: {
     hasMore: boolean;
     cursor?: string;
-    total: number;
+    // NOTE: total is in summary, not pagination
   };
+  summary: AlarmListSummary;
 }
 
 // =====================================================================
@@ -153,8 +161,12 @@ export interface DeviceAlarmStatApiItem {
 // =====================================================================
 
 export interface AlarmListParams {
-  state?: string[];
-  severity?: string[];
-  limit?: number;
-  cursor?: string;
+  state?:      string[];
+  severity?:   string[];
+  alarmType?:  string;
+  from?:       string;  // ISO 8601
+  to?:         string;  // ISO 8601
+  customerId?: string;  // gcdrCustomerId — mandatory at runtime (see guard in ALARM widget)
+  limit?:      number;
+  cursor?:     string;
 }

@@ -4,6 +4,7 @@ import { AlarmApiClient } from './AlarmApiClient';
 import type {
   AvailabilityResponse,
   AlarmListParams,
+  AlarmListSummary,
   AlarmStatsApiResponse,
 } from './types';
 import type { Alarm, AlarmStats, AlarmTrendDataPoint } from '../../types/alarm';
@@ -112,10 +113,12 @@ function mapApiTopOffenders(
   }));
 }
 
+type AlarmListResult = { data: Alarm[]; summary: AlarmListSummary };
+
 class AlarmServiceClass {
-  private readonly client = new AlarmApiClient();
+  private client = new AlarmApiClient();
   private readonly availabilityCache = new Map<string, CacheEntry<AvailabilityResponse>>();
-  private readonly alarmsCache = new Map<string, CacheEntry<Alarm[]>>();
+  private readonly alarmsCache = new Map<string, CacheEntry<AlarmListResult>>();
   private readonly statsCache = new Map<string, CacheEntry<AlarmStats>>();
   private readonly trendCache = new Map<string, CacheEntry<AlarmTrendDataPoint[]>>();
 
@@ -158,12 +161,14 @@ class AlarmServiceClass {
 
   /**
    * Fetch alarm list with optional filters.
-   * Returns mapped Alarm[] (from src/types/alarm.ts).
+   * Returns { data: Alarm[], summary: AlarmListSummary }.
+   * The summary contains totals by state, severity, and alarm type — eliminating
+   * the need for a separate getAlarmStats call.
    */
   async getAlarms(
     params: AlarmListParams = {},
     customerMap?: Map<string, string>
-  ): Promise<Alarm[]> {
+  ): Promise<AlarmListResult> {
     const cacheKey = `alarms:${JSON.stringify(params)}`;
     const cached = this.alarmsCache.get(cacheKey);
 
@@ -171,9 +176,10 @@ class AlarmServiceClass {
 
     const response = await this.client.getAlarms(params);
     const data = (response.data || []).map((a) => mapApiAlarm(a, customerMap));
+    const result: AlarmListResult = { data, summary: response.summary };
 
-    this.alarmsCache.set(cacheKey, { data, timestamp: Date.now() });
-    return data;
+    this.alarmsCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   }
 
   // -----------------------------------------------------------------------
@@ -274,6 +280,19 @@ class AlarmServiceClass {
 
   async closeAlarm(id: string, userEmail: string, resolution?: string): Promise<void> {
     return this.client.closeAlarm(id, userEmail, resolution);
+  }
+
+  // -----------------------------------------------------------------------
+  // Configuration
+  // -----------------------------------------------------------------------
+
+  /**
+   * Set the Alarms API base URL (e.g. from MAIN_VIEW orchestrator settings).
+   * Clears the cache so subsequent calls use the new endpoint.
+   */
+  configure(baseUrl: string): void {
+    this.client.configure(baseUrl);
+    this.clearCache();
   }
 
   // -----------------------------------------------------------------------
