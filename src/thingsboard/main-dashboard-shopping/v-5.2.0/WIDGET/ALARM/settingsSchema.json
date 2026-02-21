@@ -30,12 +30,6 @@
         "title": "Max Alarms in List",
         "default": 50
       },
-      "defaultThemeMode": {
-        "type": "string",
-        "title": "Theme Mode",
-        "enum": ["dark", "light"],
-        "default": "light"
-      },
       "enableDebugMode": {
         "type": "boolean",
         "title": "Enable Debug Mode",
@@ -50,7 +44,6 @@
     "showCustomerName",
     "refreshIntervalSeconds",
     "maxAlarmsVisible",
-    "defaultThemeMode",
     "enableDebugMode"
   ]
 }

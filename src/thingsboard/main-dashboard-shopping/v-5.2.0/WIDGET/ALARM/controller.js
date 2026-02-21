@@ -19,12 +19,14 @@
 // Module-level state (reset on every onInit)
 // ============================================================================
 
-let _panelInstance  = null;
-let _refreshTimer   = null;
-let _customerIngId  = '';
-let _maxAlarms      = 50;
-let _activeTab      = 'list';
-let _isRefreshing   = false;
+let _panelInstance       = null;
+let _refreshTimer        = null;
+let _customerIngId       = '';
+let _maxAlarms           = 50;
+let _activeTab           = 'list';
+let _isRefreshing        = false;
+let _currentTheme        = 'light';
+let _themeChangeHandler  = null;
 
 let LogHelper = {
   log:   (...a) => {},
@@ -60,7 +62,9 @@ self.onInit = async function () {
   const showCustomerName       = settings.showCustomerName       ?? false;
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 60;
   const enableDebugMode        = settings.enableDebugMode        ?? false;
-  const themeMode              = settings.defaultThemeMode       || 'light';
+
+  // Read theme from dashboard orchestrator; fallback to light
+  _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
 
   _maxAlarms  = settings.maxAlarmsVisible ?? 50;
   _activeTab  = defaultTab;
@@ -79,11 +83,21 @@ self.onInit = async function () {
     };
   }
 
-  LogHelper.log('onInit — settings:', { labelWidget, defaultTab, showCustomerName, refreshIntervalSeconds, themeMode });
+  LogHelper.log('onInit — settings:', { labelWidget, defaultTab, showCustomerName, refreshIntervalSeconds, theme: _currentTheme });
 
-  // --- Apply theme ---
+  // --- Apply theme and sync with dashboard ---
   const root = document.getElementById('alarmWidgetRoot');
-  if (root) root.setAttribute('data-theme', themeMode);
+  if (root) root.setAttribute('data-theme', _currentTheme);
+
+  _themeChangeHandler = (ev) => {
+    const theme = ev.detail?.theme;
+    if (theme !== 'dark' && theme !== 'light') return;
+    _currentTheme = theme;
+    if (root) root.setAttribute('data-theme', theme);
+    _panelInstance?.setTheme?.(theme);
+    LogHelper.log('Theme updated:', theme);
+  };
+  window.addEventListener('myio:theme-changed', _themeChangeHandler);
 
   // --- Label ---
   const labelEl = document.getElementById('labelWidgetId');
@@ -124,7 +138,7 @@ self.onInit = async function () {
 
   _panelInstance = MyIOLibrary.createAlarmsNotificationsPanelComponent({
     container,
-    themeMode,
+    themeMode: _currentTheme,
     enableDebugMode,
     alarms: [],
 
@@ -165,6 +179,10 @@ self.onInit = async function () {
 // ============================================================================
 
 self.onDestroy = function () {
+  if (_themeChangeHandler) {
+    window.removeEventListener('myio:theme-changed', _themeChangeHandler);
+    _themeChangeHandler = null;
+  }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);
     _refreshTimer = null;
