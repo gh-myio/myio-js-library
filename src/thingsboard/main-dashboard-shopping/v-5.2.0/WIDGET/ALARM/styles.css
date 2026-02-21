@@ -60,14 +60,55 @@
 .alarm-widget-root .alarm-header {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
   background: linear-gradient(180deg, var(--card) 0%, var(--bg-soft) 100%);
   border: 1px solid var(--bd);
   border-radius: 12px;
   padding: 8px 12px;
   margin: 8px 10px 0;
   box-shadow: var(--shadow);
+}
+
+/* Row 1: toolbar with GCDR rules button */
+.alarm-widget-root .alarm-header-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Row 2: title + badge + icon buttons */
+.alarm-widget-root .alarm-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Text button (REGRAS DE ALARMES) */
+.alarm-widget-root .alarm-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: var(--brand-ghost);
+  color: var(--brand);
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.alarm-widget-root .alarm-text-btn svg {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.alarm-widget-root .alarm-text-btn:hover {
+  background: var(--brand);
+  color: #fff;
 }
 
 .alarm-widget-root .alarm-header-left {
