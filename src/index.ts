@@ -1621,6 +1621,13 @@ export type {
   DeviceAvailability,
   AvailabilityParams,
   AvailabilityStatus,
+  AlarmApiResponse,
+  AlarmListApiResponse,
+  AlarmStatsApiResponse,
+  AlarmTrendApiPoint,
+  TopOffenderApiItem,
+  DeviceAlarmStatApiItem,
+  AlarmListParams,
 } from './services/alarm';
 
 // RFC-0176: GCDR Sync Modal

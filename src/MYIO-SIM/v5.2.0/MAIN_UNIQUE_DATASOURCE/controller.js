@@ -4278,10 +4278,11 @@ body.filter-modal-open { overflow: hidden !important; }
   }
 
   // RFC-0152 Phase 5: Render Operational Dashboard
-  function renderOperationalDashboard(container) {
+  // RFC-0175 Phase 5: Render Operational Dashboard with real data
+  async function renderOperationalDashboard(container) {
     if (!container) return;
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0152: renderOperationalDashboard called');
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalDashboard called');
 
     // Destroy other views
     destroyAllPanels();
@@ -4289,69 +4290,136 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!MyIOLibrary?.createOperationalDashboardComponent) {
       container.innerHTML =
         '<div style="padding:20px;text-align:center;color:#94a3b8;">OperationalDashboard component not available</div>';
-      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: createOperationalDashboardComponent not found in MyIOLibrary');
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createOperationalDashboardComponent not found in MyIOLibrary');
       return;
     }
 
     container.innerHTML = '';
     currentViewMode = 'operational-dashboard';
 
-    // Generate mock KPIs and data
-    const mockKPIs = MyIOLibrary.generateMockKPIs?.() || {
-      fleetAvailability: 94.7,
-      availabilityTrend: 2.3,
-      avgAvailability: 92.5,
-      activeAlerts: 3,
-      fleetMTBF: 342,
-      fleetMTTR: 4.2,
-      totalEquipment: 48,
-      onlineCount: 42,
-      offlineCount: 3,
-      maintenanceCount: 3,
+    const defaultKPIs = {
+      fleetAvailability: 0,
+      availabilityTrend: 0,
+      fleetMTBF: 0,
+      fleetMTTR: 0,
+      totalEquipment: 0,
+      onlineCount: 0,
+      offlineCount: 0,
+      maintenanceCount: 0,
     };
-
-    const mockTrendData = MyIOLibrary.generateMockTrendData?.('month') || [];
-    const mockDowntimeList = MyIOLibrary.generateMockDowntimeList?.() || [
-      { name: 'ESC-02', location: 'Shopping Meier', downtime: 48, percentage: 15 },
-      { name: 'ELV-05', location: 'Shopping Central', downtime: 32, percentage: 10 },
-      { name: 'ESC-08', location: 'Shopping Madureira', downtime: 24, percentage: 7.5 },
-      { name: 'ELV-02', location: 'Shopping Deodoro', downtime: 18, percentage: 5.6 },
-      { name: 'ESC-11', location: 'Shopping Bonsucesso', downtime: 12, percentage: 3.8 },
-    ];
 
     operationalDashboardInstance = MyIOLibrary.createOperationalDashboardComponent({
       container,
       themeMode: currentThemeMode,
       enableDebugMode: settings.enableDebugMode,
       initialPeriod: 'month',
-      kpis: mockKPIs,
-      trendData: mockTrendData,
-      downtimeList: mockDowntimeList,
-      onPeriodChange: (period) => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Dashboard period changed:', period);
-        operationalDashboardInstance?.setLoading?.(true);
-        setTimeout(() => {
-          const newTrendData = MyIOLibrary.generateMockTrendData?.(period) || [];
-          operationalDashboardInstance?.updateTrendData?.(newTrendData);
-          operationalDashboardInstance?.setLoading?.(false);
-        }, 800);
+      kpis: defaultKPIs,
+      trendData: [],
+      downtimeList: [],
+      onPeriodChange: async (period) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Dashboard period changed:', period);
+        await fetchAndUpdateDashboard(period);
       },
-      onRefresh: () => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Dashboard refresh requested');
-        operationalDashboardInstance?.setLoading?.(true);
-        setTimeout(() => {
-          const newKPIs = {
-            ...mockKPIs,
-            fleetAvailability: 90 + Math.random() * 10,
-            availabilityTrend: (Math.random() - 0.5) * 6,
-          };
-          operationalDashboardInstance?.updateKPIs?.(newKPIs);
-          operationalDashboardInstance?.setLoading?.(false);
-        }, 1000);
+      onRefresh: async () => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Dashboard refresh requested');
+        const period = operationalDashboardInstance?.getPeriod?.() || 'month';
+        MyIOLibrary.AlarmService?.clearCache?.();
+        await fetchAndUpdateDashboard(period);
       },
     });
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Dashboard rendered');
+    // Initial data fetch
+    await fetchAndUpdateDashboard('month');
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: Operational Dashboard rendered');
+  }
+
+  // RFC-0175: Fetch real data and update the dashboard
+  async function fetchAndUpdateDashboard(period) {
+    const alarmService = MyIOLibrary?.AlarmService;
+    const tenantId = CUSTOMER_ING_ID;
+
+    if (!alarmService || !tenantId) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService or tenantId not available — using TB data only');
+      _updateDashboardFromTBOnly();
+      return;
+    }
+
+    try {
+      operationalDashboardInstance?.setLoading?.(true);
+
+      // Map UI period to API parameters
+      const apiPeriod = { today: 'day', week: 'week', month: 'month', quarter: 'month' }[period] || 'month';
+      const groupBy = { today: 'hour', week: 'day', month: 'day', quarter: 'week' }[period] || 'day';
+
+      const [alarmStats, trendData, topOffenders] = await Promise.all([
+        alarmService.getAlarmStats(tenantId, apiPeriod),
+        alarmService.getAlarmTrend(tenantId, apiPeriod, groupBy),
+        alarmService.getTopDowntime(tenantId, new Map(), 5),
+      ]);
+
+      // Compute fleet KPIs from TB device cache + alarm stats
+      const classifiedDevices = _cachedClassified || [];
+      const operationalDevices = classifiedDevices.filter((d) => {
+        const cat = MyIOLibrary.classifyEquipment?.(d);
+        return cat === 'escadas_rolantes' || cat === 'elevadores';
+      });
+
+      const total = operationalDevices.length;
+      const onlineCount = operationalDevices.filter((d) => {
+        const s = MyIOLibrary.calculateDeviceStatusMasterRules?.(d) || '';
+        return ['power_on', 'online', 'normal', 'ok', 'running', 'active'].includes(s);
+      }).length;
+      const offlineCount = total - onlineCount;
+
+      const kpis = {
+        fleetAvailability: total > 0 ? (onlineCount / total) * 100 : 0,
+        availabilityTrend: 0,
+        fleetMTBF: alarmStats.total > 0 ? Math.round((720 / alarmStats.total) * total) : 720,
+        fleetMTTR: 0,
+        totalEquipment: total,
+        onlineCount,
+        offlineCount,
+        maintenanceCount: 0,
+      };
+
+      operationalDashboardInstance?.updateKPIs?.(kpis);
+      if (trendData?.length) operationalDashboardInstance?.updateTrendData?.(trendData);
+      if (topOffenders?.length) operationalDashboardInstance?.updateDowntimeList?.(topOffenders);
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Dashboard updated — period:', period, 'total:', total);
+    } catch (error) {
+      LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch dashboard data:', error);
+      _updateDashboardFromTBOnly();
+    } finally {
+      operationalDashboardInstance?.setLoading?.(false);
+    }
+  }
+
+  // RFC-0175: Fallback — populate dashboard using only ThingsBoard device data
+  function _updateDashboardFromTBOnly() {
+    const classifiedDevices = _cachedClassified || [];
+    const operationalDevices = classifiedDevices.filter((d) => {
+      const cat = MyIOLibrary.classifyEquipment?.(d);
+      return cat === 'escadas_rolantes' || cat === 'elevadores';
+    });
+
+    const total = operationalDevices.length;
+    const onlineCount = operationalDevices.filter((d) => {
+      const s = MyIOLibrary.calculateDeviceStatusMasterRules?.(d) || '';
+      return ['power_on', 'online', 'normal', 'ok', 'running', 'active'].includes(s);
+    }).length;
+
+    operationalDashboardInstance?.updateKPIs?.({
+      fleetAvailability: total > 0 ? (onlineCount / total) * 100 : 0,
+      availabilityTrend: 0,
+      fleetMTBF: 0,
+      fleetMTTR: 0,
+      totalEquipment: total,
+      onlineCount,
+      offlineCount: total - onlineCount,
+      maintenanceCount: 0,
+    });
   }
 
   // RFC-0175: Render Operational General List with real data from Alarms Backend
@@ -4452,11 +4520,11 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   }
 
-  // RFC-0152 Phase 4: Render Alarms & Notifications Panel
-  function renderAlarmsNotificationsPanel(container) {
+  // RFC-0175 Phase 4: Render Alarms & Notifications Panel with real data
+  async function renderAlarmsNotificationsPanel(container) {
     if (!container) return;
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0152: renderAlarmsNotificationsPanel called');
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderAlarmsNotificationsPanel called');
 
     // Destroy other views
     destroyAllPanels();
@@ -4464,33 +4532,85 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!MyIOLibrary?.createAlarmsNotificationsPanelComponent) {
       container.innerHTML =
         '<div style="padding:20px;text-align:center;color:#94a3b8;">AlarmsNotificationsPanel component not available</div>';
-      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: createAlarmsNotificationsPanelComponent not found in MyIOLibrary');
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createAlarmsNotificationsPanelComponent not found in MyIOLibrary');
       return;
     }
 
     container.innerHTML = '';
     currentViewMode = 'alarms-panel';
 
-    // Generate mock alarms data
-    const mockAlarms = generateMockAlarms();
+    const userEmail = window.MyIOUtils?.currentUser?.email || 'unknown';
 
+    // Create component with empty data — real data fetched async below
     alarmsNotificationsPanelInstance = MyIOLibrary.createAlarmsNotificationsPanelComponent({
       container,
       themeMode: currentThemeMode,
       enableDebugMode: settings.enableDebugMode,
-      alarms: mockAlarms,
+      alarms: [],
       onAlarmClick: (alarm) => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarm clicked:', alarm.title || alarm.id);
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm clicked:', alarm.title || alarm.id);
       },
-      onAlarmAction: (action, alarm) => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarm action:', action, alarm.id);
+      onAlarmAction: async (action, alarm) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm action:', action, alarm.id);
+        const alarmService = MyIOLibrary?.AlarmService;
+        if (alarmService) {
+          try {
+            if (action === 'acknowledge') await alarmService.acknowledgeAlarm(alarm.id, userEmail);
+            else if (action === 'snooze') await alarmService.silenceAlarm(alarm.id, userEmail, '4h');
+            else if (action === 'escalate') await alarmService.escalateAlarm(alarm.id, userEmail);
+            else if (action === 'close') await alarmService.closeAlarm(alarm.id, userEmail);
+            // Refresh alarm list after action
+            await fetchAndUpdateAlarms();
+          } catch (err) {
+            LogHelper.error('[MAIN_UNIQUE] RFC-0175: Alarm action failed:', err);
+          }
+        }
       },
       onTabChange: (tab) => {
-        LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarm tab changed:', tab);
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm tab changed:', tab);
       },
     });
 
-    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Alarms & Notifications Panel rendered');
+    // Fetch real data
+    await fetchAndUpdateAlarms();
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarms & Notifications Panel rendered');
+  }
+
+  // RFC-0175: Fetch real alarm data and update the panel
+  async function fetchAndUpdateAlarms() {
+    const alarmService = MyIOLibrary?.AlarmService;
+
+    if (!alarmService) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService not available — using mock alarms');
+      const mockAlarms = generateMockAlarms();
+      alarmsNotificationsPanelInstance?.updateAlarms?.(mockAlarms);
+      return;
+    }
+
+    try {
+      alarmsNotificationsPanelInstance?.setLoading?.(true);
+      const tenantId = CUSTOMER_ING_ID;
+
+      const [alarms, stats, trend] = await Promise.all([
+        alarmService.getAlarms({ state: ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'] }),
+        tenantId ? alarmService.getAlarmStats(tenantId, 'week') : Promise.resolve(null),
+        tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),
+      ]);
+
+      alarmsNotificationsPanelInstance?.updateAlarms?.(alarms);
+      if (stats) alarmsNotificationsPanelInstance?.updateStats?.(stats);
+      if (trend?.length) alarmsNotificationsPanelInstance?.updateTrendData?.(trend);
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm panel updated with', alarms.length, 'alarms');
+    } catch (error) {
+      LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch alarms:', error);
+      // Fallback to mock on error
+      const mockAlarms = generateMockAlarms();
+      alarmsNotificationsPanelInstance?.updateAlarms?.(mockAlarms);
+    } finally {
+      alarmsNotificationsPanelInstance?.setLoading?.(false);
+    }
   }
 
   // RFC-0152: Generate mock alarms data

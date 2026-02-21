@@ -8,4 +8,11 @@ export type {
   DeviceAvailability,
   AvailabilityParams,
   AvailabilityStatus,
+  AlarmApiResponse,
+  AlarmListApiResponse,
+  AlarmStatsApiResponse,
+  AlarmTrendApiPoint,
+  TopOffenderApiItem,
+  DeviceAlarmStatApiItem,
+  AlarmListParams,
 } from './types';

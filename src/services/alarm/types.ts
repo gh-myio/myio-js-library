@@ -61,3 +61,100 @@ export interface AvailabilityParams {
   deviceIds?: string;       // Comma-separated device IDs
   includeByDevice?: boolean; // Default: true
 }
+
+// =====================================================================
+// Raw Alarm API response types (GET /alarms)
+// =====================================================================
+
+export interface AlarmApiResponse {
+  id: string;
+  title: string;
+  alarmType: string;
+  severity: string;
+  state: string;
+  tenantId: string;
+  customerId?: string;
+  centralId?: string;
+  deviceId: string;
+  deviceType: string;
+  description?: string;
+  fingerprint: string;
+  metadata?: Record<string, unknown>;
+  raisedAt: string;        // ISO 8601
+  updatedAt: string;       // ISO 8601
+  closedAt?: string;
+  closedBy?: string;
+  resolution?: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+  snoozedUntil?: string;
+  escalatedAt?: string;
+  escalatedBy?: string;
+  occurrenceCount?: number;
+}
+
+export interface AlarmListApiResponse {
+  data: AlarmApiResponse[];
+  pagination: {
+    hasMore: boolean;
+    cursor?: string;
+    total: number;
+  };
+}
+
+// =====================================================================
+// Raw Stats API response types (GET /api/v1/alarms/stats)
+// =====================================================================
+
+export interface AlarmStatsApiResponse {
+  total: number;
+  bySeverity: Record<string, number>;
+  byState: Record<string, number>;
+  openCritical: number;
+  openHigh: number;
+  last24Hours: number;
+  avgResolutionTimeMinutes?: number;
+}
+
+// =====================================================================
+// Raw Trend API response types (GET /api/v1/alarms/stats/trend)
+// =====================================================================
+
+export interface AlarmTrendApiPoint {
+  period: string;
+  count: number;
+  bySeverity?: Record<string, number>;
+}
+
+// =====================================================================
+// Raw Top Offenders response (GET /api/v1/alarms/stats/top-offenders)
+// =====================================================================
+
+export interface TopOffenderApiItem {
+  deviceId: string;
+  deviceName: string;
+  customerId?: string;
+  customerName?: string;
+  alarmCount: number;
+  downtimeHours?: number;
+}
+
+// =====================================================================
+// Raw by-device stats (GET /api/v1/alarms/stats/by-device)
+// =====================================================================
+
+export interface DeviceAlarmStatApiItem {
+  deviceId: string;
+  alarmCount: number;
+}
+
+// =====================================================================
+// Request parameter types
+// =====================================================================
+
+export interface AlarmListParams {
+  state?: string[];
+  severity?: string[];
+  limit?: number;
+  cursor?: string;
+}
