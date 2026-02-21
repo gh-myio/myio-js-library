@@ -75,12 +75,8 @@ export class AlarmApiClient {
   async getAlarms(params: AlarmListParams = {}): Promise<AlarmListApiResponse> {
     const query = new URLSearchParams();
 
-    if (params.state?.length) {
-      params.state.forEach((s) => query.append('state', s));
-    }
-    if (params.severity?.length) {
-      params.severity.forEach((s) => query.append('severity', s));
-    }
+    if (params.state?.length)    query.set('state',    params.state.join(','));
+    if (params.severity?.length) query.set('severity', params.severity.join(','));
     if (params.alarmType)  query.set('alarmType',  params.alarmType);
     if (params.from)       query.set('from',        params.from);
     if (params.to)         query.set('to',          params.to);
