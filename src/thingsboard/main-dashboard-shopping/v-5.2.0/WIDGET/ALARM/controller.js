@@ -55,7 +55,7 @@ self.onInit = async function () {
   // --- Settings ---
   const settings               = self.ctx.settings || {};
   const labelWidget            = settings.labelWidget            || 'Alarmes e Notificações';
-  const customerTB_ID          = settings.customerTB_ID          || '';
+  const customerTB_ID          = window.MyIOOrchestrator?.customerTB_ID || '';
   const defaultTab             = settings.defaultTab             || 'list';
   const showCustomerName       = settings.showCustomerName       ?? false;
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 60;
@@ -88,13 +88,6 @@ self.onInit = async function () {
   // --- Label ---
   const labelEl = document.getElementById('labelWidgetId');
   if (labelEl) labelEl.textContent = labelWidget;
-
-  // --- Validate customerTB_ID ---
-  if (!customerTB_ID) {
-    LogHelper.error('customerTB_ID not configured in widget settings');
-    _renderError(document.getElementById('alarmPanelContainer'), 'customerTB_ID não configurado nas settings do widget.');
-    return;
-  }
 
   // --- Fetch CUSTOMER_ING_ID from TB SERVER_SCOPE attributes ---
   const jwt = localStorage.getItem('jwt_token') || '';

@@ -8,11 +8,6 @@
         "title": "Widget Label",
         "default": "Alarmes e Notificações"
       },
-      "customerTB_ID": {
-        "type": "string",
-        "title": "ThingsBoard Customer ID",
-        "description": "TB Customer UUID for this shopping. Used to read ingestionId from SERVER_SCOPE attributes."
-      },
       "defaultTab": {
         "type": "string",
         "title": "Default Tab",
@@ -47,11 +42,10 @@
         "default": false
       }
     },
-    "required": ["customerTB_ID"]
+    "required": []
   },
   "form": [
     "labelWidget",
-    "customerTB_ID",
     "defaultTab",
     "showCustomerName",
     "refreshIntervalSeconds",

@@ -5717,7 +5717,14 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
-    if (!tab) return;
+
+    // Alarm view has no domain — activate alarm panel and skip domain hydration
+    if (!tab) {
+      visibleTab = 'alarm';
+      LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
+      window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));
+      return;
+    }
 
     try {
       hideGlobalBusy(tab);
