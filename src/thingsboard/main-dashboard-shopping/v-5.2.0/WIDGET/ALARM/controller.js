@@ -60,7 +60,7 @@ self.onInit = async function () {
   const showCustomerName       = settings.showCustomerName       ?? false;
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 60;
   const enableDebugMode        = settings.enableDebugMode        ?? false;
-  const themeMode              = settings.defaultThemeMode       || 'dark';
+  const themeMode              = settings.defaultThemeMode       || 'light';
 
   _maxAlarms  = settings.maxAlarmsVisible ?? 50;
   _activeTab  = defaultTab;

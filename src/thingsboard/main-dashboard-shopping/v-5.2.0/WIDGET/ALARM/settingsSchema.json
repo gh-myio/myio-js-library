@@ -34,7 +34,7 @@
         "type": "string",
         "title": "Theme Mode",
         "enum": ["dark", "light"],
-        "default": "dark"
+        "default": "light"
       },
       "enableDebugMode": {
         "type": "boolean",
