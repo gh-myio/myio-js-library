@@ -20,4 +20,8 @@ export type {
   TBServerScopeAttrs,
   GCDREntity,
   ProgressCallback,
+  GCDRBundleAsset,
+  GCDRBundleDevice,
+  GCDRBundleRule,
+  GCDRCustomerBundle,
 } from './types';

@@ -22,6 +22,7 @@ export function mapCustomerToGCDR(
   return {
     name,
     type: 'COMPANY',
+    externalId: tbCustomer.id.id, // RFC-0176-v2: TB UUID stored in indexed external_id column
     metadata: {
       tbEntityType: 'CUSTOMER',
       tbId: tbCustomer.id.id,
@@ -47,6 +48,7 @@ export function mapAssetToGCDR(
     name,
     type: mapAssetType(tbAsset.type),
     customerId: parentGcdrCustomerId,
+    externalId: tbAsset.id.id, // RFC-0176-v2: forward-compat, external_id column pending RFC-0017
     metadata: {
       tbEntityType: 'ASSET',
       tbId: tbAsset.id.id,

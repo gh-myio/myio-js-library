@@ -22,6 +22,7 @@
 let _panelInstance          = null;
 let _refreshTimer           = null;
 let _customerIngId          = '';
+let _gcdrTenantId           = ''; // RFC-0179: from TB SERVER_SCOPE attr gcdrTenantId
 let _maxAlarms              = 50;
 let _activeTab              = 'list';
 let _isRefreshing           = false;
@@ -48,6 +49,7 @@ self.onInit = async function () {
   _panelInstance       = null;
   _refreshTimer        = null;
   _customerIngId       = '';
+  _gcdrTenantId        = '';
   _isRefreshing        = false;
   _activeFilters       = {};
 
@@ -143,7 +145,9 @@ self.onInit = async function () {
     if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
       const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
       _customerIngId = attrs?.ingestionId || '';
+      _gcdrTenantId  = attrs?.gcdrTenantId || '';
       LogHelper.log('CUSTOMER_ING_ID resolved:', _customerIngId || '(empty)');
+      LogHelper.log('GCDR Tenant ID resolved:', _gcdrTenantId || '(empty)');
     } else {
       LogHelper.warn('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
     }
@@ -354,6 +358,34 @@ function _updateCountBadge(count) {
 }
 
 function _bindHeaderButtons() {
+  // RFC-0179: GCDR Alarm Bundle Map button
+  const btnBundleMap = document.getElementById('btnAlarmBundleMap');
+  if (btnBundleMap) {
+    btnBundleMap.addEventListener('click', () => {
+      const MyIOLibrary = window.MyIOLibrary;
+      if (!MyIOLibrary?.openAlarmBundleMapModal) {
+        LogHelper.warn('openAlarmBundleMapModal not available in MyIOLibrary');
+        return;
+      }
+
+      const customerTB_ID = window.MyIOOrchestrator?.customerTB_ID || '';
+      const gcdrTenantId  = _gcdrTenantId || window.MyIOOrchestrator?.gcdrTenantId || '';
+      const gcdrApiBaseUrl = window.MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+
+      if (!customerTB_ID) {
+        LogHelper.warn('btnAlarmBundleMap: customerTB_ID not available in orchestrator');
+        return;
+      }
+
+      MyIOLibrary.openAlarmBundleMapModal({
+        customerTB_ID,
+        gcdrTenantId,
+        gcdrApiBaseUrl,
+        themeMode: _currentTheme,
+      });
+    });
+  }
+
   // Refresh button
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) {

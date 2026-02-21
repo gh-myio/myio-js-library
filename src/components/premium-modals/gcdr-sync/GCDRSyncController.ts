@@ -129,6 +129,39 @@ export class GCDRSyncController {
       }),
     );
 
+    // RFC-0176-v2: ExternalId fallback — for entities without gcdrId in TB attrs,
+    // check GCDR by externalId. Catches write-back failures from previous sync runs.
+    {
+      const checks: Promise<void>[] = [];
+
+      if (!bundle.customerAttrs.gcdrId) {
+        checks.push((async () => {
+          const entity = await this.gcdrClient.getCustomerByExternalId(bundle.customer.id.id).catch(() => null);
+          if (entity?.id) {
+            bundle.customerAttrs.gcdrId = entity.id;
+            gcdrLookup.set(entity.id, entity);
+          }
+        })());
+      }
+
+      for (const [tbId, attrs] of bundle.deviceAttrs) {
+        if (!attrs.gcdrId && devices.some((d) => d.id.id === tbId)) {
+          checks.push((async () => {
+            const entity = await this.gcdrClient.getDeviceByExternalId(tbId).catch(() => null);
+            if (entity?.id) {
+              attrs.gcdrId = entity.id;
+              gcdrLookup.set(entity.id, entity);
+            }
+          })());
+        }
+      }
+
+      if (checks.length > 0) {
+        onProgress?.('Verificando entidades por externalId...');
+        await Promise.all(checks);
+      }
+    }
+
     const plan = computeSyncPlan(bundle, gcdrLookup);
     return { plan, bundle };
   }

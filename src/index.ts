@@ -1648,4 +1648,12 @@ export type {
   TBServerScopeAttrs as GCDRTBServerScopeAttrs,
   GCDREntity,
   ProgressCallback as GCDRProgressCallback,
+  GCDRBundleAsset,
+  GCDRBundleDevice,
+  GCDRBundleRule,
+  GCDRCustomerBundle,
 } from './components/premium-modals/gcdr-sync';
+
+// RFC-0179: GCDR Alarm Bundle Map Modal
+export { openAlarmBundleMapModal } from './components/premium-modals/alarm-bundle-map';
+export type { AlarmBundleMapParams } from './components/premium-modals/alarm-bundle-map';

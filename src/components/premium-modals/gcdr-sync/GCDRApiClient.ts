@@ -2,7 +2,7 @@
  * RFC-0176: GCDR Sync Modal — GCDR REST API Client
  */
 
-import type { CreateCustomerDto, CreateAssetDto, CreateDeviceDto, GCDREntity } from './types';
+import type { CreateCustomerDto, CreateAssetDto, CreateDeviceDto, GCDREntity, GCDRCustomerBundle } from './types';
 
 const GCDR_BASE_URL = 'https://gcdr-api.a.myio-bas.com';
 const GCDR_API_KEY = 'gcdr_cust_tb_master_key_2026';
@@ -127,6 +127,33 @@ export class GCDRApiClient {
     return result.data;
   }
 
+  /** RFC-0176-v2 / RFC-0017: Reverse-lookup by TB Customer UUID (externalId) */
+  async getCustomerByExternalId(externalId: string): Promise<GCDREntity | null> {
+    const result = await this.request<GCDREntity>(
+      'GET', `/api/v1/customers/external/${encodeURIComponent(externalId)}`
+    );
+    if (result.notFound) return null;
+    return result.data;
+  }
+
+  /** RFC-0017 enriched bundle: customer + assets + devices (with rules) */
+  async getCustomerBundle(
+    externalId: string,
+    opts: { deep?: boolean; allRules?: boolean; filterOnlyDevicesWithRules?: boolean } = {},
+  ): Promise<GCDRCustomerBundle | null> {
+    const q = new URLSearchParams();
+    if (opts.deep) q.set('deep', '1');
+    if (opts.allRules) q.set('allRules', '1');
+    if (opts.filterOnlyDevicesWithRules) q.set('filterOnlyDevicesWithRules', '1');
+    const qs = q.toString();
+    const result = await this.request<GCDRCustomerBundle>(
+      'GET',
+      `/api/v1/customers/external/${encodeURIComponent(externalId)}${qs ? `?${qs}` : ''}`
+    );
+    if (result.notFound) return null;
+    return result.data;
+  }
+
   async updateCustomer(gcdrId: string, dto: Partial<CreateCustomerDto>): Promise<GCDREntity> {
     const result = await this.request<GCDREntity>('PATCH', `/api/v1/customers/${gcdrId}`, dto);
     return result.data!;
@@ -177,6 +204,15 @@ export class GCDRApiClient {
 
   async getDevice(gcdrId: string): Promise<GCDREntity | null> {
     const result = await this.request<GCDREntity>('GET', `/api/v1/devices/${gcdrId}`);
+    if (result.notFound) return null;
+    return result.data;
+  }
+
+  /** RFC-0176-v2 / RFC-0017: Reverse-lookup by TB Device UUID (externalId) */
+  async getDeviceByExternalId(externalId: string): Promise<GCDREntity | null> {
+    const result = await this.request<GCDREntity>(
+      'GET', `/api/v1/devices/external/${encodeURIComponent(externalId)}`
+    );
     if (result.notFound) return null;
     return result.data;
   }

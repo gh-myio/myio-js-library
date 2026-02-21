@@ -75,6 +75,8 @@ export interface GCDRSyncResult {
 export interface CreateCustomerDto {
   name: string;
   type: string; // "COMPANY" — tenantId comes from X-Tenant-Id header, not body
+  /** TB Customer UUID stored in indexed external_id column (RFC-0176-v2) */
+  externalId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -82,6 +84,8 @@ export interface CreateAssetDto {
   name: string;
   type: string;
   customerId: string; // GCDR customer ID (from create response)
+  /** TB Asset UUID — forward-compat, external_id column pending RFC-0017 (RFC-0176-v2) */
+  externalId?: string;
   parentAssetId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -161,6 +165,56 @@ export interface GCDREntity {
   tenantId?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// ============================================================================
+// GCDR Customer Bundle (RFC-0017 enriched endpoint)
+// GET /api/v1/customers/external/:externalId?deep=1&allRules=1&filterOnlyDevicesWithRules=1
+// ============================================================================
+
+export interface GCDRBundleAsset {
+  id: string;
+  name: string;
+  displayName: string;
+  code: string;
+  type: string;
+  status: string;
+  metadata?: { tbId?: string; tbName?: string; tbType?: string; tbEntityType?: string };
+}
+
+export interface GCDRBundleDevice {
+  id: string;
+  name: string;
+  displayName: string;
+  type: string;
+  externalId?: string;
+  assetId: string;
+  customerId: string;
+  status: string;
+  metadata?: { tbId?: string; tbName?: string; tbType?: string; tbEntityType?: string };
+  ruleIds?: string[];
+}
+
+export interface GCDRBundleRule {
+  id: string;
+  name: string;
+  scope: { type: string; entityId: string; inherited?: boolean };
+  metric: string;
+  operator: string;
+  value: number;
+  duration?: number;
+  aggregation?: string;
+  startAt?: string;
+  endAt?: string;
+  daysOfWeek?: Record<string, boolean>;
+  keyMulti?: number;
+}
+
+export interface GCDRCustomerBundle {
+  customer: GCDREntity & { externalId?: string; code?: string; metadata?: Record<string, unknown> };
+  assets: GCDRBundleAsset[];
+  devices: GCDRBundleDevice[];
+  rules: Record<string, GCDRBundleRule>;
 }
 
 // ============================================================================
