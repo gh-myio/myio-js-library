@@ -175,6 +175,7 @@ self.onInit = async function () {
     themeMode: _currentTheme,
     enableDebugMode,
     alarms: [],
+    showCustomerName: showCustomerName,
 
     onAlarmClick: (alarm) => {
       LogHelper.log('Alarm clicked:', alarm.title || alarm.id);

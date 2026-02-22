@@ -79,6 +79,8 @@ export interface AlarmsNotificationsPanelParams {
   onTabChange?: (tab: AlarmsTab) => void;
   /** Called when filters change */
   onFilterChange?: (filters: import('../../types/alarm').AlarmFilters) => void;
+  /** Show customer name chip on each alarm card (default: true; set false for single-shopping context) */
+  showCustomerName?: boolean;
 }
 
 // =====================================================================
@@ -199,6 +201,8 @@ export interface AlarmCardParams {
   onMore?: (alarmId: string, event: MouseEvent) => void;
   /** Current theme mode */
   themeMode?: ThemeMode;
+  /** Show customer name chip (default: true) */
+  showCustomerName?: boolean;
 }
 
 // =====================================================================

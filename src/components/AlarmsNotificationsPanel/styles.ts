@@ -156,17 +156,20 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   flex: 1;
   overflow: hidden;
   position: relative;
+  min-height: 0;
 }
 
 .myio-alarms-content .tab-content {
   display: none;
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .myio-alarms-content .tab-content.active {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 /* =====================================================================
@@ -374,6 +377,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   flex: 1;
   overflow-y: auto;
   align-content: start;
+  align-items: start;
 }
 
 @media (max-width: 1400px) {

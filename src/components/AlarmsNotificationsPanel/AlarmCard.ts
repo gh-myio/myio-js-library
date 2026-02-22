@@ -27,10 +27,14 @@ function getCustomerInitials(name: string): string {
 /**
  * Format relative time for display (e.g., "6d ago", "just now")
  */
-function formatRelativeTimeShort(isoString: string | null | undefined): string {
+function formatRelativeTimeShort(isoString: string | number | null | undefined): string {
   try {
-    if (!isoString) return '-';
-    const date = new Date(isoString);
+    if (isoString === null || isoString === undefined || isoString === '') return '-';
+    let date = new Date(isoString as string);
+    if (isNaN(date.getTime())) {
+      const ts = Number(isoString);
+      if (!isNaN(ts)) date = new Date(ts);
+    }
     if (isNaN(date.getTime())) return '-';
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -88,8 +92,8 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
   // Safely escape values
   const safeTitle = escapeHtml(alarm.title || 'Sem título');
   const safeCustomerName = escapeHtml(alarm.customerName || 'N/A');
-  const safeSource = escapeHtml(alarm.source || 'N/A');
   const safeOccurrences = alarm.occurrenceCount || 1;
+  const showCustomer = _params?.showCustomerName ?? true;
 
   return `<article class="alarm-card" data-alarm-id="${alarm.id}" data-severity="${alarm.severity}" data-state="${alarm.state}">
   <header class="alarm-card-header">
@@ -104,8 +108,7 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
   </header>
   <div class="alarm-card-body">
     <h3 class="alarm-card-title">${safeTitle}</h3>
-    <p class="alarm-card-id">${alarm.id}</p>
-    <span class="alarm-shopping-chip">${BUILDING_ICON}<span class="chip-text">${safeCustomerName}</span></span>
+    ${showCustomer ? `<span class="alarm-shopping-chip">${BUILDING_ICON}<span class="chip-text">${safeCustomerName}</span></span>` : ''}
     <div class="alarm-card-stats">
       <div class="alarm-stat">
         <span class="alarm-stat-value alarm-stat-value--large">${safeOccurrences}</span>
@@ -120,7 +123,6 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
         <span class="alarm-stat-label">Última vez</span>
       </div>
     </div>
-    ${renderTags(alarm.tags)}
   </div>
   <footer class="alarm-card-footer">
     ${isActive ? `<button class="btn btn-ack" data-action="acknowledge" data-alarm-id="${alarm.id}">Reconhecer</button>` : ''}

@@ -328,6 +328,7 @@ export class AlarmsNotificationsPanelView {
         onDetails: (id) => this.handleDetails(id),
         onMore: (id, e) => this.handleMore(id, e),
         themeMode: state.themeMode,
+        showCustomerName: this.params.showCustomerName ?? true,
       });
       grid.appendChild(card);
     });
