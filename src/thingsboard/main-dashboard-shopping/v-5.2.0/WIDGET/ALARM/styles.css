@@ -70,17 +70,19 @@
   box-shadow: var(--shadow);
 }
 
-/* Row 1: toolbar with GCDR rules button */
+/* Row 1: toolbar — buttons side-by-side, right-aligned */
 .alarm-widget-root .alarm-header-toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 6px;
+  padding-right: 10px;
 }
 
-/* Row 2: title + badge + icon buttons */
+/* Row 2: title + badge */
 .alarm-widget-root .alarm-header-main {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 /* Text button (REGRAS DE ALARMES) */

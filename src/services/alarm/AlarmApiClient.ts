@@ -48,6 +48,16 @@ export class AlarmApiClient {
     return response.json() as Promise<T>;
   }
 
+  // Some endpoints return { success: true, data: T[] } — unwrap safely
+  private unwrapArray<T>(raw: unknown): T[] {
+    if (Array.isArray(raw)) return raw as T[];
+    if (raw !== null && typeof raw === 'object' && 'data' in (raw as object)) {
+      const d = (raw as { data: unknown }).data;
+      return Array.isArray(d) ? (d as T[]) : [];
+    }
+    return [];
+  }
+
   // -----------------------------------------------------------------------
   // Availability (existing endpoint)
   // -----------------------------------------------------------------------
@@ -111,9 +121,10 @@ export class AlarmApiClient {
     groupBy: string
   ): Promise<AlarmTrendApiPoint[]> {
     const query = new URLSearchParams({ tenantId, period, groupBy });
-    return this.request<AlarmTrendApiPoint[]>(
+    const raw = await this.request<unknown>(
       `${this.baseUrl}/api/v1/alarms/stats/trend?${query.toString()}`
     );
+    return this.unwrapArray<AlarmTrendApiPoint>(raw);
   }
 
   // -----------------------------------------------------------------------
@@ -122,9 +133,10 @@ export class AlarmApiClient {
 
   async getTopOffenders(tenantId: string, limit = 5): Promise<TopOffenderApiItem[]> {
     const query = new URLSearchParams({ tenantId, limit: String(limit) });
-    return this.request<TopOffenderApiItem[]>(
+    const raw = await this.request<unknown>(
       `${this.baseUrl}/api/v1/alarms/stats/top-offenders?${query.toString()}`
     );
+    return this.unwrapArray<TopOffenderApiItem>(raw);
   }
 
   // -----------------------------------------------------------------------
@@ -133,9 +145,10 @@ export class AlarmApiClient {
 
   async getAlarmStatsByDevice(tenantId: string): Promise<DeviceAlarmStatApiItem[]> {
     const query = new URLSearchParams({ tenantId });
-    return this.request<DeviceAlarmStatApiItem[]>(
+    const raw = await this.request<unknown>(
       `${this.baseUrl}/api/v1/alarms/stats/by-device?${query.toString()}`
     );
+    return this.unwrapArray<DeviceAlarmStatApiItem>(raw);
   }
 
   // -----------------------------------------------------------------------
