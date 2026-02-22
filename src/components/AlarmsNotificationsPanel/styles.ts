@@ -1261,12 +1261,14 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
  */
 export function injectAlarmsNotificationsPanelStyles(): void {
   const styleId = 'alarms-notifications-panel-styles';
-  if (document.getElementById(styleId)) return;
-
-  const style = document.createElement('style');
-  style.id = styleId;
+  let style = document.getElementById(styleId) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+  // Always overwrite — ensures updated CSS takes effect without hard refresh
   style.textContent = ALARMS_NOTIFICATIONS_PANEL_STYLES;
-  document.head.appendChild(style);
 }
 
 /**
