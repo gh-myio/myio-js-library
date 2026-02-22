@@ -78,8 +78,8 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    ===================================================================== */
 .myio-alarms-panel {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--alarms-text);
   background: var(--alarms-bg);
   border-radius: var(--alarms-radius-lg);
@@ -87,7 +87,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 400px;
+  min-height: 0;
 }
 
 /* =====================================================================
@@ -96,17 +96,18 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .myio-alarms-tabs {
   display: flex;
   gap: 4px;
-  padding: 12px 16px;
+  padding: 4px 8px;
   background: var(--alarms-bg-secondary);
   border-bottom: 1px solid var(--alarms-border);
+  flex-shrink: 0;
 }
 
 .myio-alarms-tabs .tab-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  font-size: 14px;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--alarms-text-muted);
   background: transparent;
@@ -178,11 +179,12 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .alarms-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 16px;
+  gap: 6px;
+  padding: 6px 8px;
   background: var(--alarms-bg-secondary);
   border-bottom: 1px solid var(--alarms-border);
   align-items: flex-end;
+  flex-shrink: 0;
 }
 
 .alarms-filter-group {
@@ -371,11 +373,12 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    ===================================================================== */
 .alarms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 8px;
-  padding: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 6px;
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
   align-content: start;
   align-items: start;
 }
@@ -451,7 +454,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-bottom: 1px solid var(--alarms-border-light);
   flex-shrink: 0;
 }
@@ -523,7 +526,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 /* Card Body */
 .alarm-card-body {
-  padding: 6px 8px;
+  padding: 4px 6px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -638,9 +641,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
-  gap: 6px;
-  padding: 6px 4px;
-  margin: 4px 0;
+  gap: 4px;
+  padding: 4px 3px;
+  margin: 3px 0;
   background: var(--alarms-bg-secondary);
   border-radius: var(--alarms-radius);
   width: 100%;
@@ -704,8 +707,8 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 3px;
+  padding: 4px 6px;
   border-top: 1px solid var(--alarms-border-light);
   background: var(--alarms-bg-secondary);
   flex-shrink: 0;
