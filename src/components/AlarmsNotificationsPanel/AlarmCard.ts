@@ -27,19 +27,21 @@ function getCustomerInitials(name: string): string {
 /**
  * Format relative time for display (e.g., "6d ago", "just now")
  */
-function formatRelativeTimeShort(isoString: string): string {
+function formatRelativeTimeShort(isoString: string | null | undefined): string {
   try {
+    if (!isoString) return '-';
     const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '-';
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffDays > 0) return `${diffDays}d ago`;
-    if (diffHours > 0) return `${diffHours}h ago`;
-    if (diffMinutes > 0) return `${diffMinutes}m ago`;
-    return 'just now';
+    if (diffDays > 0) return `${diffDays}d atrás`;
+    if (diffHours > 0) return `${diffHours}h atrás`;
+    if (diffMinutes > 0) return `${diffMinutes}m atrás`;
+    return 'agora';
   } catch {
     return '-';
   }
@@ -107,24 +109,24 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
     <div class="alarm-card-stats">
       <div class="alarm-stat">
         <span class="alarm-stat-value alarm-stat-value--large">${safeOccurrences}</span>
-        <span class="alarm-stat-label">Occurrences</span>
+        <span class="alarm-stat-label">Ocorrências</span>
       </div>
       <div class="alarm-stat">
         <span class="alarm-stat-value">${firstSeenRelative}</span>
-        <span class="alarm-stat-label">First seen</span>
+        <span class="alarm-stat-label">Primeira vez</span>
       </div>
       <div class="alarm-stat">
         <span class="alarm-stat-value">${lastSeenRelative}</span>
-        <span class="alarm-stat-label">Last seen</span>
+        <span class="alarm-stat-label">Última vez</span>
       </div>
     </div>
     ${renderTags(alarm.tags)}
   </div>
   <footer class="alarm-card-footer">
-    ${isActive ? `<button class="btn btn-ack" data-action="acknowledge" data-alarm-id="${alarm.id}">Acknowledge</button>` : ''}
-    ${alarm.state !== 'CLOSED' ? `<button class="btn btn-snooze" data-action="snooze" data-alarm-id="${alarm.id}">Snooze</button>` : ''}
-    ${alarm.state !== 'CLOSED' ? `<button class="btn btn-escalate" data-action="escalate" data-alarm-id="${alarm.id}">Escalate</button>` : ''}
-    <button class="btn btn-details" data-action="details" data-alarm-id="${alarm.id}">Details</button>
+    ${isActive ? `<button class="btn btn-ack" data-action="acknowledge" data-alarm-id="${alarm.id}">Reconhecer</button>` : ''}
+    ${alarm.state !== 'CLOSED' ? `<button class="btn btn-snooze" data-action="snooze" data-alarm-id="${alarm.id}">Adiar</button>` : ''}
+    ${alarm.state !== 'CLOSED' ? `<button class="btn btn-escalate" data-action="escalate" data-alarm-id="${alarm.id}">Escalar</button>` : ''}
+    <button class="btn btn-details" data-action="details" data-alarm-id="${alarm.id}">Detalhes</button>
   </footer>
 </article>`;
 }

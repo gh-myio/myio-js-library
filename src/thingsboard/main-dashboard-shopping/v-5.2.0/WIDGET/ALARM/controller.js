@@ -135,7 +135,7 @@ self.onInit = async function () {
   const labelEl = document.getElementById('labelWidgetId');
   if (labelEl) labelEl.textContent = labelWidget;
 
-  // --- Fetch CUSTOMER_ING_ID from TB SERVER_SCOPE attributes ---
+  // --- Fetch gcdrCustomerId from TB SERVER_SCOPE attributes ---
   const jwt = localStorage.getItem('jwt_token') || '';
   if (!jwt) {
     LogHelper.warn('JWT token not found in localStorage');
@@ -144,9 +144,9 @@ self.onInit = async function () {
   try {
     if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
       const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-      _customerIngId = attrs?.ingestionId || '';
+      _customerIngId = attrs?.gcdrCustomerId || attrs?.gcdrId || '';
       _gcdrTenantId  = attrs?.gcdrTenantId || '';
-      LogHelper.log('CUSTOMER_ING_ID resolved:', _customerIngId || '(empty)');
+      LogHelper.log('gcdrCustomerId resolved:', _customerIngId || '(empty)');
       LogHelper.log('GCDR Tenant ID resolved:', _gcdrTenantId || '(empty)');
     } else {
       LogHelper.warn('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
@@ -260,7 +260,7 @@ async function _fetchAndUpdate() {
 
   // RFC-0178: customerId is mandatory — abort if empty
   if (!_customerIngId) {
-    LogHelper.error('_fetchAndUpdate aborted: _customerIngId (gcdrCustomerId) is empty');
+    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty (check TB SERVER_SCOPE attr gcdrCustomerId)');
     _isRefreshing = false;
     return;
   }

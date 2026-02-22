@@ -368,9 +368,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    ===================================================================== */
 .alarms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 16px;
-  padding: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  padding: 8px;
   flex: 1;
   overflow-y: auto;
   align-content: start;
@@ -378,15 +378,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 @media (max-width: 1400px) {
   .alarms-grid {
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   }
 }
 
 @media (max-width: 768px) {
   .alarms-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 12px;
+    gap: 6px;
+    padding: 6px;
   }
 }
 
@@ -404,8 +404,6 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   overflow: hidden;
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 400px;
-  height: 100%;
 }
 
 .alarm-card:hover {
@@ -448,8 +446,8 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 4px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--alarms-border-light);
   flex-shrink: 0;
 }
@@ -521,31 +519,31 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 /* Card Body */
 .alarm-card-body {
-  padding: 12px 16px;
+  padding: 6px 8px;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .alarm-card-title {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--alarms-text);
-  margin: 0 0 4px 0;
-  line-height: 1.4;
+  margin: 0 0 2px 0;
+  line-height: 1.3;
   word-break: break-word;
   max-width: 100%;
   overflow-wrap: break-word;
 }
 
 .alarm-card-id {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--alarms-text-muted);
   font-family: 'SF Mono', Monaco, monospace;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   flex-shrink: 0;
 }
 
@@ -554,9 +552,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-  padding: 8px 12px;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 4px 6px;
   background: var(--alarms-bg-secondary);
   border-radius: var(--alarms-radius);
 }
@@ -565,10 +563,10 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  font-size: 13px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--alarms-primary);
   background: var(--alarms-primary-light);
@@ -606,15 +604,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 12px;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--alarms-text);
   background: var(--alarms-bg-secondary);
   border: 1px solid var(--alarms-border);
   border-radius: 20px;
-  margin: 8px 0;
+  margin: 4px 0;
   flex-shrink: 0;
 }
 
@@ -636,9 +634,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 8px;
-  margin: 8px 0;
+  gap: 6px;
+  padding: 6px 4px;
+  margin: 4px 0;
   background: var(--alarms-bg-secondary);
   border-radius: var(--alarms-radius);
   width: 100%;
@@ -649,24 +647,24 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   text-align: center;
 }
 
 .alarm-stat-value {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--alarms-text);
 }
 
 .alarm-stat-value--large {
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .alarm-stat-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   text-transform: capitalize;
   color: var(--alarms-text-muted);
@@ -702,8 +700,8 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 4px;
+  padding: 6px 8px;
   border-top: 1px solid var(--alarms-border-light);
   background: var(--alarms-bg-secondary);
   flex-shrink: 0;
@@ -715,15 +713,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 10px 14px;
-  font-size: 12px;
+  padding: 5px 8px;
+  font-size: 10px;
   font-weight: 600;
   border: none;
   border-radius: var(--alarms-radius);
   cursor: pointer;
   white-space: nowrap;
   flex: 1;
-  max-width: 120px;
+  max-width: 80px;
   transition: all 0.15s ease;
   user-select: none;
 }
@@ -792,9 +790,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 .alarm-card-footer .btn-more {
   flex: 0;
-  max-width: 40px;
-  min-width: 40px;
-  padding: 10px;
+  max-width: 26px;
+  min-width: 26px;
+  padding: 5px;
   color: var(--alarms-text-muted);
   background: var(--alarms-border);
   border-radius: var(--alarms-radius);
@@ -804,10 +802,6 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    Responsive Card Adjustments
    ===================================================================== */
 @media (max-width: 480px) {
-  .alarm-card {
-    min-height: 280px;
-  }
-
   .alarm-card-header {
     flex-wrap: wrap;
     gap: 6px;

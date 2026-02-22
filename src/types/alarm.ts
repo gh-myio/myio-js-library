@@ -305,8 +305,11 @@ export function isAlarmActive(state: AlarmState): boolean {
 /**
  * Format relative time for alarm display
  */
-export function formatAlarmRelativeTime(isoString: string): string {
+export function formatAlarmRelativeTime(isoString: string | null | undefined): string {
+  if (!isoString) return '-';
   const date = new Date(isoString);
+  if (isNaN(date.getTime())) return '-';
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
 
