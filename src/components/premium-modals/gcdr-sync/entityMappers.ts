@@ -79,7 +79,8 @@ export function mapDeviceToGCDR(
   const name = tbDevice.label || tbDevice.name;
   const tbType = tbDevice.type || (attrs.deviceType as string | undefined);
   const tbProfile = tbDevice.deviceProfileName;
-  return {
+
+  const dto: CreateDeviceDto = {
     name,
     type: mapDeviceType(tbType, tbProfile),
     externalId: tbDevice.id.id,
@@ -93,4 +94,10 @@ export function mapDeviceToGCDR(
       tbName: tbDevice.name,
     },
   };
+
+  if (attrs.slaveId)    dto.slaveId    = String(attrs.slaveId);
+  if (attrs.centralId)  dto.centralId  = String(attrs.centralId);
+  if (attrs.identifier) dto.identifier = String(attrs.identifier);
+
+  return dto;
 }

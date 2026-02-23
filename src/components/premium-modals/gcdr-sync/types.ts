@@ -96,6 +96,9 @@ export interface CreateDeviceDto {
   externalId?: string; // TB device ID (externalId exists for devices only)
   assetId: string;
   customerId: string;
+  slaveId?: string;
+  centralId?: string;
+  identifier?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -147,6 +150,9 @@ export interface TBServerScopeAttrs {
   gcdrDeviceId?: string;
   gcdrSyncedAt?: string;
   gcdrTenantId?: string;
+  slaveId?: string;
+  centralId?: string;
+  identifier?: string;
 }
 
 // ============================================================================
