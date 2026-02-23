@@ -203,6 +203,10 @@ export interface AlarmCardParams {
   themeMode?: ThemeMode;
   /** Show customer name chip (default: true) */
   showCustomerName?: boolean;
+  /** Whether this card is selected for bulk actions */
+  selected?: boolean;
+  /** Callback when bulk-selection checkbox changes */
+  onSelectChange?: (alarmId: string, selected: boolean) => void;
 }
 
 // =====================================================================

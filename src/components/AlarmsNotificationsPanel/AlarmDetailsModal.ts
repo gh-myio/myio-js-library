@@ -41,8 +41,9 @@ function durationLabel(ms: number): string {
   return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
 
-function escHtml(s: string): string {
-  return s
+function escHtml(s: string | null | undefined): string {
+  if (s == null) return '';
+  return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

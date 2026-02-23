@@ -379,32 +379,9 @@
             </div>
             <div data-content-state="alarm_content" style="display: none; height: 100%; min-height: 400px">
               <section id="alarmContentContainer" class="myio-alarm-section">
-                <!-- ALARM widget template (from ALARM/template.html) -->
+                <!-- ALARM widget template (mirrors ALARM/template.html exactly) -->
+                <!-- btnAlarmBundleMap e alarmCountBadge são renderizados pelo componente na tab nav -->
                 <section class="alarm-widget-root" id="alarmWidgetRoot">
-                  <header class="alarm-header" style="display: block">
-                    <div class="alarm-header-toolbar">
-                      <button class="alarm-text-btn" id="btnAlarmBundleMap" title="Regras de Alarmes" aria-label="Regras de Alarmes">
-                        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-                          <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
-                        </svg>
-                        REGRAS DE ALARMES
-                      </button>
-                      <button class="alarm-icon-btn" id="btnRefresh" title="Atualizar" aria-label="Atualizar">
-                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                          <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-                        </svg>
-                      </button>
-                    </div>
-                    <div class="alarm-header-main">
-                      <div class="alarm-header-left">
-                        <svg class="alarm-header-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                        </svg>
-                        <h2 class="alarm-title" id="labelWidgetId">Alarmes e Notificações</h2>
-                        <span class="alarm-count-badge" id="alarmCountBadge" style="display: none">0</span>
-                      </div>
-                    </div>
-                  </header>
                   <div class="alarm-panel-container" id="alarmPanelContainer"></div>
                 </section>
               </section>
@@ -513,7 +490,7 @@
       <div class="controls-panel" id="alarmControls" style="display: none">
         <h3>&#128276; Alarm Panel</h3>
         <div class="ctrl-group">
-          <label class="ctrl-label">Qtd. Alarmes</label>
+          <label class="ctrl-label">Qtd. Alarmes (gerados)</label>
           <select class="ctrl-select" id="alarmCountSelect" onchange="updateAlarmCount()">
             <option value="5">5 alarmes</option>
             <option value="10">10 alarmes</option>
@@ -536,6 +513,13 @@
         <div class="controls-grid">
           <button class="ctrl-btn success" onclick="reinitAlarmPanel()">&#x2728; Re-init</button>
           <button class="ctrl-btn danger" onclick="destroyAlarmPanel()">&#x1F5D1; Destroy</button>
+        </div>
+        <div style="margin-top:8px; padding:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:6px; font-size:10px; color:#93c5fd; line-height:1.5">
+          <strong>Novas funcionalidades:</strong><br>
+          &#x2705; Agrupamento por título<br>
+          &#x2611; Checkbox + Ações em Lote<br>
+          &#x2500; Toggle Card | Lista<br>
+          &#x1F4E4; Exportar PDF/Excel/CSV
         </div>
       </div>
 
@@ -1024,19 +1008,14 @@
 
     const ALARM_SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
     const ALARM_STATES = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
+    // Fewer unique titles → grouping is clearly visible (20 alarms → ~6 grouped cards)
     const ALARM_TITLES = [
+      'Elevador energizado e não usado (seg-sáb)',   // same as PINNED-01 → merges
+      'Falha no sistema de refrigeração',            // same as PINNED-02 → merges
+      'Consumo de energia acima do limite',          // same as PINNED-03 → merges
       'Falha de comunicação com dispositivo',
       'Temperatura fora da faixa configurada',
-      'Consumo de energia acima do limite',
-      'Manutenção preventiva necessária',
-      'Sensor desconectado',
-      'Vazamento detectado',
-      'Sobrecarga no circuito',
-      'Falha no sistema de refrigeração',
-      'Nível de água abaixo do mínimo',
       'Dispositivo offline por mais de 24h',
-      'Alarme de tensão fora do padrão',
-      'Corrente de fuga detectada',
     ];
     // Sources: single device OR multi-device (comma-separated simulates real-world groups)
     const ALARM_SOURCES = [
@@ -1189,13 +1168,10 @@
         onTabChange: (tab) => logEvent('ALARM_TAB', tab, 'info'),
       });
 
-      // Bind header buttons
-      const btnRefresh = document.getElementById('btnRefresh');
-      if (btnRefresh) {
-        btnRefresh.onclick = () => {
-          btnRefresh.classList.add('is-spinning');
-          setTimeout(() => { refreshAlarmPanel(); btnRefresh.classList.remove('is-spinning'); }, 600);
-        };
+      // Bind btnAlarmBundleMap (floats top-right inside alarmPanelContainer)
+      const btnMap = document.getElementById('btnAlarmBundleMap');
+      if (btnMap) {
+        btnMap.onclick = () => logEvent('ALARM_MAP', 'Regras de Alarmes clicked', 'info');
       }
 
       // Update count badge
@@ -1236,12 +1212,13 @@
     }
 
     function destroyAlarmPanel() {
+      // badge lives inside the component — hide before destroying
+      const badge = document.getElementById('alarmCountBadge');
+      if (badge) badge.style.display = 'none';
       if (_alarmPanelInstance?.destroy) _alarmPanelInstance.destroy();
       _alarmPanelInstance = null;
       const container = document.getElementById('alarmPanelContainer');
       if (container) container.innerHTML = '';
-      const badge = document.getElementById('alarmCountBadge');
-      if (badge) badge.style.display = 'none';
       logEvent('ALARM', 'Panel destroyed', 'warn');
     }
 
