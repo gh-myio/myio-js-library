@@ -150,8 +150,13 @@ interface Bucket {
  */
 function generateBuckets(alarm: Alarm, devices: string[], period: Period = 'mes'): Bucket[] {
   const count = alarm.occurrenceCount || 1;
-  const firstMs = new Date(alarm.firstOccurrence).getTime();
-  const lastMs = new Date(alarm.lastOccurrence).getTime();
+  let firstMs = new Date(alarm.firstOccurrence as string).getTime();
+  let lastMs  = new Date(alarm.lastOccurrence  as string).getTime();
+  // Guard against invalid / missing dates (e.g. grouped alarms with undefined fields)
+  if (isNaN(firstMs) || isNaN(lastMs) || firstMs <= 0 || lastMs <= 0) {
+    lastMs  = Date.now();
+    firstMs = lastMs - 7 * 86_400_000;
+  }
   const durMs = Math.max(lastMs - firstMs, 3_600_000); // at least 1h
 
   let numBuckets: number;

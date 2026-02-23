@@ -3,7 +3,7 @@
  * DOM rendering and event handling
  */
 
-import type { Alarm, AlarmSeverity, AlarmState } from '../../types/alarm';
+import type { Alarm, AlarmFilters, AlarmSeverity, AlarmState } from '../../types/alarm';
 import { SEVERITY_CONFIG, STATE_CONFIG } from '../../types/alarm';
 import type {
   AlarmsNotificationsPanelParams,
@@ -137,20 +137,10 @@ export class AlarmsNotificationsPanelView {
    * Build compact inline list header (filters + bulk actions button)
    */
   private buildListHeaderTemplate(state: AlarmsNotificationsPanelState): string {
-    const currentSeverity = state.filters.severity?.[0] || '';
-    const currentState = state.filters.state?.[0] || '';
-
-    const severityOptions = (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] as AlarmSeverity[])
-      .map((s) => `<option value="${s}" ${currentSeverity === s ? 'selected' : ''}>${SEVERITY_CONFIG[s].icon} ${SEVERITY_CONFIG[s].label}</option>`)
-      .join('');
-
-    const stateOptions = (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'] as AlarmState[])
-      .map((s) => `<option value="${s}" ${currentState === s ? 'selected' : ''}>${STATE_CONFIG[s].label}</option>`)
-      .join('');
-
     const sel = this.selectedTitles.size;
     const isCard = this.viewMode === 'card';
     const isList = this.viewMode === 'list';
+    const filterCount = this.getActiveFilterCount(state.filters);
 
     return `
       <div class="alarms-list-header">
@@ -158,14 +148,11 @@ export class AlarmsNotificationsPanelView {
           <span class="alarms-search-icon">🔍</span>
           <input type="text" id="searchInput" placeholder="Buscar alarmes..." value="${state.filters.search || ''}">
         </div>
-        <select class="alarms-filter-select" id="severityFilter">
-          <option value="">Severidade</option>
-          ${severityOptions}
-        </select>
-        <select class="alarms-filter-select" id="stateFilter">
-          <option value="">Estado</option>
-          ${stateOptions}
-        </select>
+        <button class="alarms-filter-btn" id="filterBtn" title="Filtros avançados">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+          Filtros
+          <span class="alarms-filter-count" id="filterCount"${filterCount === 0 ? ' style="display:none"' : ''}>${filterCount}</span>
+        </button>
         <button class="alarms-clear-filters" id="clearFiltersBtn" title="Limpar filtros">✕</button>
         <button class="alarms-bulk-btn" id="bulkActionsBtn" ${sel === 0 ? 'disabled' : ''}>
           <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>
@@ -221,33 +208,18 @@ export class AlarmsNotificationsPanelView {
       });
     }
 
-    // Severity filter
-    const severityFilter = this.root.querySelector('#severityFilter') as HTMLSelectElement;
-    if (severityFilter) {
-      severityFilter.addEventListener('change', () => {
-        const value = severityFilter.value;
-        this.controller.setSeverityFilter(value ? [value as AlarmSeverity] : undefined);
-      });
-    }
-
-    // State filter
-    const stateFilter = this.root.querySelector('#stateFilter') as HTMLSelectElement;
-    if (stateFilter) {
-      stateFilter.addEventListener('change', () => {
-        const value = stateFilter.value;
-        this.controller.setStateFilter(value ? [value as AlarmState] : undefined);
-      });
-    }
+    // Filter modal button
+    this.root.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('#filterBtn')) this.openFilterModal();
+    });
 
     // Clear filters button
     const clearBtn = this.root.querySelector('#clearFiltersBtn');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
         this.controller.clearFilters();
-        // Reset filter inputs
         if (searchInput) searchInput.value = '';
-        if (severityFilter) severityFilter.value = '';
-        if (stateFilter) stateFilter.value = '';
+        this.updateFilterBadge();
       });
     }
 
@@ -504,6 +476,170 @@ export class AlarmsNotificationsPanelView {
     btn.disabled = sel === 0;
     count.textContent = String(sel);
     count.style.display = sel === 0 ? 'none' : '';
+  }
+
+  private getActiveFilterCount(filters: AlarmFilters): number {
+    let count = 0;
+    if (filters.severity?.length) count++;
+    if (filters.state?.length) count++;
+    if (filters.alarmType?.length) count++;
+    if (filters.devices?.length) count++;
+    return count;
+  }
+
+  private updateFilterBadge(): void {
+    if (!this.root) return;
+    const filters = this.controller.getFilters();
+    const count = this.getActiveFilterCount(filters);
+    const badge = this.root.querySelector('#filterCount') as HTMLElement | null;
+    if (!badge) return;
+    badge.textContent = String(count);
+    badge.style.display = count === 0 ? 'none' : '';
+  }
+
+  private openFilterModal(): void {
+    const state = this.controller.getState();
+    const filters = state.filters as AlarmFilters;
+
+    // Extract unique alarm types from all alarms
+    const alarmTypes = [...new Set(state.allAlarms.map((a) => a.title).filter(Boolean))].sort();
+
+    // Extract unique devices from alarm.source (comma-separated)
+    const deviceSet = new Set<string>();
+    state.allAlarms.forEach((a) => {
+      if (a.source) {
+        a.source.split(',').map((s) => s.trim()).filter(Boolean).forEach((d) => deviceSet.add(d));
+      }
+    });
+    const allDevices = [...deviceSet].sort();
+
+    const selSeverity = new Set<string>(filters.severity || []);
+    const selState = new Set<string>(filters.state || []);
+    const selAlarmType = new Set<string>(filters.alarmType || []);
+    const selDevices = new Set<string>(filters.devices || []);
+
+    const severityChips = (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] as AlarmSeverity[])
+      .map((s) => {
+        const cfg = SEVERITY_CONFIG[s];
+        const checked = selSeverity.has(s);
+        return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="severity" data-value="${s}">
+          <input type="checkbox" value="${s}" ${checked ? 'checked' : ''} style="display:none">
+          ${cfg.icon} ${cfg.label}
+        </label>`;
+      }).join('');
+
+    const stateChips = (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'] as AlarmState[])
+      .map((s) => {
+        const cfg = STATE_CONFIG[s];
+        const checked = selState.has(s);
+        return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="state" data-value="${s}">
+          <input type="checkbox" value="${s}" ${checked ? 'checked' : ''} style="display:none">
+          ${cfg.label}
+        </label>`;
+      }).join('');
+
+    const alarmTypeChips = alarmTypes.length > 0
+      ? alarmTypes.map((t) => {
+          const checked = selAlarmType.has(t);
+          const esc = this.esc(t);
+          return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="alarmType" data-value="${esc}">
+            <input type="checkbox" value="${esc}" ${checked ? 'checked' : ''} style="display:none">
+            ${esc}
+          </label>`;
+        }).join('')
+      : '<span class="afm-empty">Nenhum tipo encontrado</span>';
+
+    const deviceChips = allDevices.length > 0
+      ? allDevices.map((d) => {
+          const checked = selDevices.has(d);
+          const esc = this.esc(d);
+          return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="devices" data-value="${esc}">
+            <input type="checkbox" value="${esc}" ${checked ? 'checked' : ''} style="display:none">
+            ${esc}
+          </label>`;
+        }).join('')
+      : '<span class="afm-empty">Nenhum dispositivo encontrado</span>';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'afm-overlay';
+    overlay.innerHTML = `
+      <div class="afm-modal" role="dialog" aria-modal="true" aria-label="Filtros avançados">
+        <div class="afm-header">
+          <span class="afm-title">Filtros</span>
+          <button class="afm-close" aria-label="Fechar">✕</button>
+        </div>
+        <div class="afm-body">
+          <div class="afm-section">
+            <div class="afm-section-label">Severidade</div>
+            <div class="afm-chips" data-group="severity">${severityChips}</div>
+          </div>
+          <div class="afm-section">
+            <div class="afm-section-label">Estado</div>
+            <div class="afm-chips" data-group="state">${stateChips}</div>
+          </div>
+          <div class="afm-section">
+            <div class="afm-section-label">Tipo de Alarme</div>
+            <div class="afm-chips afm-chips--scroll" data-group="alarmType">${alarmTypeChips}</div>
+          </div>
+          <div class="afm-section">
+            <div class="afm-section-label">Dispositivos</div>
+            <div class="afm-chips afm-chips--scroll" data-group="devices">${deviceChips}</div>
+          </div>
+        </div>
+        <div class="afm-footer">
+          <button class="afm-btn-clear" id="afmClearBtn">Limpar filtros</button>
+          <button class="afm-btn-apply" id="afmApplyBtn">Aplicar</button>
+        </div>
+      </div>
+    `;
+
+    const close = () => overlay.remove();
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+
+    overlay.querySelector('.afm-close')!.addEventListener('click', close);
+
+    overlay.addEventListener('click', (e) => {
+      const chip = (e.target as HTMLElement).closest('.afm-chip') as HTMLElement | null;
+      if (!chip) return;
+      chip.classList.toggle('is-checked');
+      const cb = chip.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      if (cb) cb.checked = chip.classList.contains('is-checked');
+    });
+
+    overlay.querySelector('#afmClearBtn')!.addEventListener('click', () => {
+      overlay.querySelectorAll<HTMLElement>('.afm-chip.is-checked').forEach((chip) => {
+        chip.classList.remove('is-checked');
+        const cb = chip.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+        if (cb) cb.checked = false;
+      });
+    });
+
+    overlay.querySelector('#afmApplyBtn')!.addEventListener('click', () => {
+      const getGroup = (group: string): string[] =>
+        [...overlay.querySelectorAll<HTMLElement>(`.afm-chip.is-checked[data-group="${group}"]`)]
+          .map((el) => el.getAttribute('data-value') || '')
+          .filter(Boolean);
+
+      const severity = getGroup('severity') as AlarmSeverity[];
+      const stateVal = getGroup('state') as AlarmState[];
+      const alarmType = getGroup('alarmType');
+      const devices = getGroup('devices');
+
+      this.controller.setFilters({
+        severity: severity.length ? severity : undefined,
+        state: stateVal.length ? stateVal : undefined,
+        alarmType: alarmType.length ? alarmType : undefined,
+        devices: devices.length ? devices : undefined,
+      });
+
+      this.updateFilterBadge();
+      close();
+    });
+
+    (this.root || document.body).appendChild(overlay);
   }
 
   // =====================================================================

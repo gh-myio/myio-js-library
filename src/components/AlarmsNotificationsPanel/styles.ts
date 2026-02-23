@@ -162,10 +162,16 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   white-space: nowrap;
 }
 
-/* Alarm count badge — imediatamente à direita do botão */
+/* Alarm count badge — imediatamente à direita do botão, margem direita de 10px */
 .myio-alarms-tabs .alarms-tab-count-badge {
   align-self: center;
   flex-shrink: 0;
+  margin-right: 15px;
+}
+
+/* Quando badge está oculto (display:none), o botão fica como último elemento */
+.myio-alarms-tabs .alarms-tab-map-btn:last-child {
+  margin-right: 15px;
 }
 
 /* =====================================================================
@@ -242,32 +248,41 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   color: var(--alarms-text-light);
 }
 
-.alarms-filter-select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 5px 22px 5px 8px;
+/* Filter button (opens modal) */
+.alarms-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--alarms-text-muted);
   background: var(--alarms-input-bg);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  background-size: 12px;
   border: 1px solid var(--alarms-input-border);
   border-radius: var(--alarms-radius);
-  color: var(--alarms-text);
-  font-size: 11px;
-  font-weight: 500;
   cursor: pointer;
-  outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.15s;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.alarms-filter-select:hover { border-color: var(--alarms-text-light); }
-.alarms-filter-select:focus { border-color: var(--alarms-primary); }
+.alarms-filter-btn:hover {
+  border-color: var(--alarms-primary);
+  color: var(--alarms-primary);
+}
 
-.alarms-filter-select option {
-  background: var(--alarms-card-bg);
-  color: var(--alarms-text);
+.alarms-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--alarms-primary);
+  border-radius: 8px;
 }
 
 .alarms-clear-filters {
@@ -336,6 +351,168 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   color: #fff;
   background: rgba(255, 255, 255, 0.25);
 }
+
+/* =====================================================================
+   Advanced Filter Modal (afm-*)
+   ===================================================================== */
+.afm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  z-index: 200;
+  padding: 42px 8px 0;
+}
+
+.afm-modal {
+  background: var(--alarms-card-bg);
+  border: 1px solid var(--alarms-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  width: 320px;
+  max-height: calc(100% - 8px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.afm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--alarms-border);
+  flex-shrink: 0;
+}
+
+.afm-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--alarms-text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.afm-close {
+  background: transparent;
+  border: none;
+  color: var(--alarms-text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.afm-close:hover { background: var(--alarms-card-hover); }
+
+.afm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.afm-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--alarms-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.afm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.afm-chips--scroll {
+  max-height: 100px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.afm-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--alarms-text-muted);
+  background: var(--alarms-input-bg);
+  border: 1px solid var(--alarms-input-border);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.afm-chip:hover {
+  border-color: var(--alarms-primary);
+  color: var(--alarms-primary);
+}
+
+.afm-chip.is-checked {
+  background: var(--alarms-primary-light);
+  border-color: var(--alarms-primary);
+  color: var(--alarms-primary);
+  font-weight: 600;
+}
+
+.afm-empty {
+  font-size: 11px;
+  color: var(--alarms-text-light);
+  font-style: italic;
+}
+
+.afm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--alarms-border);
+  flex-shrink: 0;
+}
+
+.afm-btn-clear {
+  background: transparent;
+  border: 1px solid var(--alarms-border);
+  border-radius: var(--alarms-radius);
+  color: var(--alarms-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.afm-btn-clear:hover {
+  border-color: var(--alarms-text-muted);
+  color: var(--alarms-text);
+}
+
+.afm-btn-apply {
+  background: var(--alarms-primary);
+  border: 1px solid var(--alarms-primary);
+  border-radius: var(--alarms-radius);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 16px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.afm-btn-apply:hover { opacity: 0.85; }
 
 /* =====================================================================
    Alarms Grid (List Tab)
@@ -3184,7 +3361,6 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 `;
-
 
 /**
  * Inject styles into the document

@@ -291,6 +291,21 @@ export class AlarmsNotificationsPanelController {
       filtered = filtered.filter((alarm) => alarm.customerId === customerId);
     }
 
+    // Alarm type filter (matches alarm.title)
+    const alarmType = (this.state.filters as import('../../types/alarm').AlarmFilters).alarmType;
+    if (alarmType && alarmType.length > 0) {
+      filtered = filtered.filter((alarm) => alarmType.includes(alarm.title));
+    }
+
+    // Device filter (matches tokens in alarm.source)
+    const devices = (this.state.filters as import('../../types/alarm').AlarmFilters).devices;
+    if (devices && devices.length > 0) {
+      filtered = filtered.filter((alarm) => {
+        const sources = (alarm.source || '').split(',').map((s) => s.trim());
+        return devices.some((d) => sources.includes(d));
+      });
+    }
+
     // Sort by last occurrence (most recent first)
     filtered.sort((a, b) => {
       try {

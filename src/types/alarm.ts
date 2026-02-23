@@ -145,6 +145,10 @@ export interface AlarmFilters {
   fromDate?: string;
   /** Date range end (ISO string) */
   toDate?: string;
+  /** Alarm type filter — matches alarm.title (multiple selection) */
+  alarmType?: string[];
+  /** Device filter — matches tokens in alarm.source (multiple selection) */
+  devices?: string[];
 }
 
 /**
