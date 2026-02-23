@@ -313,8 +313,19 @@ async function _fetchAndUpdate() {
       AlarmService.getAlarmTrend(_customerIngId, 'week', 'day'),
     ]);
 
-    const alarms  = response.data;
-    const summary = response.summary;
+    const rawAlarms = response.data;
+    const summary   = response.summary;
+
+    // RFC-0179: Enrich alarm sources with TB device names.
+    // MAIN_VIEW builds gcdrDeviceNameMap (gcdrDeviceId → TB entityName) from the
+    // 'gcdrDeviceId' datasource attribute and exposes it via MyIOOrchestrator.
+    const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+    const alarms = (gcdrMap && gcdrMap.size > 0)
+      ? rawAlarms.map((a) => {
+          const tbName = gcdrMap.get(a.source);
+          return tbName ? { ...a, source: tbName } : a;
+        })
+      : rawAlarms;
 
     _panelInstance?.updateAlarms?.(alarms);
     if (summary) _panelInstance?.updateStats?.(summary);

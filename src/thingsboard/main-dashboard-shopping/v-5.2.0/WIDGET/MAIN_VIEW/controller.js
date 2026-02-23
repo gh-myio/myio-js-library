@@ -1499,6 +1499,32 @@ Object.assign(window.MyIOUtils, {
         }
       }
     }
+
+    // RFC-0179: Build gcdrDeviceId → TB device name map from any datasource alias.
+    // Scans all rows for the 'gcdrDeviceId' attribute key and stores
+    // gcdrId → entityName in window.MyIOOrchestrator.gcdrDeviceNameMap so the
+    // ALARM widget can enrich alarm sources with human-readable device names.
+    if (window.MyIOOrchestrator) {
+      const gcdrMap = window.MyIOOrchestrator.gcdrDeviceNameMap instanceof Map
+        ? window.MyIOOrchestrator.gcdrDeviceNameMap
+        : new Map();
+      let mapChanged = false;
+      for (const row of ctxDataRows) {
+        const keyName = (row?.dataKey?.name || '').toLowerCase();
+        if (keyName !== 'gcdrdeviceid') continue;
+        const gcdrId = row?.data?.[0]?.[1];
+        if (!gcdrId) continue;
+        const tbName = row?.datasource?.entityName || row?.datasource?.entityLabel || '';
+        if (tbName && !gcdrMap.has(String(gcdrId))) {
+          gcdrMap.set(String(gcdrId), tbName);
+          mapChanged = true;
+        }
+      }
+      if (mapChanged) {
+        window.MyIOOrchestrator.gcdrDeviceNameMap = gcdrMap;
+        LogHelper.log(`[MAIN_VIEW] gcdrDeviceNameMap updated: ${gcdrMap.size} entries`);
+      }
+    }
   };
 
   self.onDestroy = function () {
