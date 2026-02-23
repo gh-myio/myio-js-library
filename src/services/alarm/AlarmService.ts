@@ -6,6 +6,7 @@ import type {
   AlarmListParams,
   AlarmListSummary,
   AlarmStatsApiResponse,
+  AlarmBatchResult,
 } from './types';
 import type { Alarm, AlarmStats, AlarmTrendDataPoint } from '../../types/alarm';
 import type { DowntimeEntry } from '../../types/operational';
@@ -280,6 +281,26 @@ class AlarmServiceClass {
 
   async closeAlarm(id: string, userEmail: string, resolution?: string): Promise<void> {
     return this.client.closeAlarm(id, userEmail, resolution);
+  }
+
+  // -----------------------------------------------------------------------
+  // Batch alarm actions (POST /alarms/batch/*)
+  // -----------------------------------------------------------------------
+
+  async batchAcknowledge(alarmIds: string[], userEmail: string): Promise<AlarmBatchResult> {
+    return this.client.batchAcknowledge(alarmIds, userEmail);
+  }
+
+  async batchSilence(alarmIds: string[], userEmail: string, duration: string): Promise<AlarmBatchResult> {
+    return this.client.batchSilence(alarmIds, userEmail, duration);
+  }
+
+  async batchEscalate(alarmIds: string[], userEmail: string): Promise<AlarmBatchResult> {
+    return this.client.batchEscalate(alarmIds, userEmail);
+  }
+
+  async batchClose(alarmIds: string[], userEmail: string, resolution?: string): Promise<AlarmBatchResult> {
+    return this.client.batchClose(alarmIds, userEmail, resolution);
   }
 
   // -----------------------------------------------------------------------

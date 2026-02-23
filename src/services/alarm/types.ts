@@ -157,6 +157,23 @@ export interface DeviceAlarmStatApiItem {
 }
 
 // =====================================================================
+// Batch action response types (POST /alarms/batch/*)
+// =====================================================================
+
+export interface AlarmBatchFailure {
+  id: string;
+  reason: string;
+  currentState?: string;
+}
+
+export interface AlarmBatchResult {
+  succeeded: string[];
+  failed: AlarmBatchFailure[];
+  successCount: number;
+  failureCount: number;
+}
+
+// =====================================================================
 // Request parameter types
 // =====================================================================
 

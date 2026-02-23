@@ -370,8 +370,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border: 1px solid var(--alarms-border);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
-  width: 320px;
-  max-height: calc(100% - 8px);
+  width: 640px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -433,7 +434,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 .afm-chips--scroll {
-  max-height: 100px;
+  max-height: 160px;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -1732,9 +1733,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 .adm-drawer {
-  width: 680px;
+  width: 880px;
   max-width: 96vw;
-  max-height: 88vh;
+  max-height: 92vh;
   background: #ffffff;
   display: flex;
   flex-direction: column;
@@ -3076,6 +3077,48 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 .alarms-view-btn.is-active {
+  background: var(--alarms-primary-light);
+  color: var(--alarms-primary);
+  box-shadow: inset 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+/* =====================================================================
+   Group Toggle (CONSOLIDADO | SEPARADO)
+   ===================================================================== */
+.alarms-group-toggle {
+  display: inline-flex;
+  border: 1px solid var(--alarms-border);
+  border-radius: var(--alarms-radius);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.alarms-group-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  height: 28px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--alarms-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.alarms-group-btn + .alarms-group-btn {
+  border-left: 1px solid var(--alarms-border);
+}
+
+.alarms-group-btn:hover {
+  background: var(--alarms-card-hover);
+  color: var(--alarms-text);
+}
+
+.alarms-group-btn.is-active {
   background: var(--alarms-primary-light);
   color: var(--alarms-primary);
   box-shadow: inset 0 0 0 2px rgba(139, 92, 246, 0.2);

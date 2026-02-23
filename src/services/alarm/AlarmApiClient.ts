@@ -9,6 +9,7 @@ import type {
   AlarmTrendApiPoint,
   TopOffenderApiItem,
   DeviceAlarmStatApiItem,
+  AlarmBatchResult,
 } from './types';
 
 const ALARMS_BASE_URL = 'https://alarms-api.a.myio-bas.com';
@@ -185,5 +186,42 @@ export class AlarmApiClient {
       method: 'POST',
       body: JSON.stringify({ closedBy, resolution }),
     });
+  }
+
+  // -----------------------------------------------------------------------
+  // Batch alarm actions (POST /alarms/batch/*)
+  // Up to 100 IDs per call; response contains succeeded/failed arrays.
+  // -----------------------------------------------------------------------
+
+  async batchAcknowledge(alarmIds: string[], acknowledgedBy: string): Promise<AlarmBatchResult> {
+    const res = await this.request<{ data: AlarmBatchResult }>(
+      `${this.baseUrl}/api/v1/alarms/batch/ack`,
+      { method: 'POST', body: JSON.stringify({ alarmIds, acknowledgedBy }) }
+    );
+    return res.data;
+  }
+
+  async batchSilence(alarmIds: string[], silencedBy: string, duration: string): Promise<AlarmBatchResult> {
+    const res = await this.request<{ data: AlarmBatchResult }>(
+      `${this.baseUrl}/api/v1/alarms/batch/silence`,
+      { method: 'POST', body: JSON.stringify({ alarmIds, silencedBy, duration }) }
+    );
+    return res.data;
+  }
+
+  async batchEscalate(alarmIds: string[], escalatedBy: string): Promise<AlarmBatchResult> {
+    const res = await this.request<{ data: AlarmBatchResult }>(
+      `${this.baseUrl}/api/v1/alarms/batch/escalate`,
+      { method: 'POST', body: JSON.stringify({ alarmIds, escalatedBy }) }
+    );
+    return res.data;
+  }
+
+  async batchClose(alarmIds: string[], closedBy: string, resolution?: string): Promise<AlarmBatchResult> {
+    const res = await this.request<{ data: AlarmBatchResult }>(
+      `${this.baseUrl}/api/v1/alarms/batch/close`,
+      { method: 'POST', body: JSON.stringify({ alarmIds, closedBy, resolution }) }
+    );
+    return res.data;
   }
 }

@@ -67,14 +67,14 @@ export interface AlarmsNotificationsPanelParams {
   // Callbacks
   /** Called when an alarm card is clicked */
   onAlarmClick?: (alarm: import('../../types/alarm').Alarm) => void;
-  /** Called when acknowledge button is clicked */
-  onAcknowledge?: (alarmId: string) => Promise<void> | void;
-  /** Called when escalate action is triggered */
-  onEscalate?: (alarmId: string) => Promise<void> | void;
-  /** Called when snooze action is triggered */
-  onSnooze?: (alarmId: string, until: string) => Promise<void> | void;
-  /** Called when close action is triggered */
-  onClose?: (alarmId: string, reason: string) => Promise<void> | void;
+  /** Called when acknowledge action is confirmed (batch — 1..N IDs) */
+  onAcknowledge?: (alarmIds: string[]) => Promise<void> | void;
+  /** Called when escalate action is confirmed (batch — 1..N IDs) */
+  onEscalate?: (alarmIds: string[]) => Promise<void> | void;
+  /** Called when snooze action is confirmed (batch — 1..N IDs) */
+  onSnooze?: (alarmIds: string[], until: string) => Promise<void> | void;
+  /** Called when close action is confirmed (batch — 1..N IDs) */
+  onClose?: (alarmIds: string[], reason: string) => Promise<void> | void;
   /** Called when tab changes */
   onTabChange?: (tab: AlarmsTab) => void;
   /** Called when filters change */

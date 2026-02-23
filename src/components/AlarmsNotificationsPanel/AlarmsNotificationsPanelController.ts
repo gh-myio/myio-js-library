@@ -398,42 +398,42 @@ export class AlarmsNotificationsPanelController {
   }
 
   /**
-   * Handle acknowledge action
+   * Handle acknowledge action (batch — 1..N IDs)
    */
-  async handleAcknowledge(alarmId: string): Promise<void> {
-    this.log('Acknowledge requested', { alarmId });
+  async handleAcknowledge(alarmIds: string[]): Promise<void> {
+    this.log('Acknowledge requested', { alarmIds });
     if (this.params.onAcknowledge) {
-      await this.params.onAcknowledge(alarmId);
+      await this.params.onAcknowledge(alarmIds);
     }
   }
 
   /**
-   * Handle escalate action
+   * Handle escalate action (batch — 1..N IDs)
    */
-  async handleEscalate(alarmId: string): Promise<void> {
-    this.log('Escalate requested', { alarmId });
+  async handleEscalate(alarmIds: string[]): Promise<void> {
+    this.log('Escalate requested', { alarmIds });
     if (this.params.onEscalate) {
-      await this.params.onEscalate(alarmId);
+      await this.params.onEscalate(alarmIds);
     }
   }
 
   /**
-   * Handle snooze action
+   * Handle snooze action (batch — 1..N IDs)
    */
-  async handleSnooze(alarmId: string, until: string): Promise<void> {
-    this.log('Snooze requested', { alarmId, until });
+  async handleSnooze(alarmIds: string[], until: string): Promise<void> {
+    this.log('Snooze requested', { alarmIds, until });
     if (this.params.onSnooze) {
-      await this.params.onSnooze(alarmId, until);
+      await this.params.onSnooze(alarmIds, until);
     }
   }
 
   /**
-   * Handle close action
+   * Handle close action (batch — 1..N IDs)
    */
-  async handleClose(alarmId: string, reason: string): Promise<void> {
-    this.log('Close requested', { alarmId, reason });
+  async handleClose(alarmIds: string[], reason: string): Promise<void> {
+    this.log('Close requested', { alarmIds, reason });
     if (this.params.onClose) {
-      await this.params.onClose(alarmId, reason);
+      await this.params.onClose(alarmIds, reason);
     }
   }
 

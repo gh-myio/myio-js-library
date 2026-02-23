@@ -33,6 +33,9 @@ export class AlarmsNotificationsPanelView {
   // View mode: 'card' (default) or 'list' (table)
   private viewMode: 'card' | 'list' = 'card';
 
+  // Group mode: 'consolidado' (default) groups same-title alarms; 'separado' one row per device
+  private groupMode: 'consolidado' | 'separado' = 'consolidado';
+
   constructor(
     params: AlarmsNotificationsPanelParams,
     controller: AlarmsNotificationsPanelController
@@ -140,6 +143,8 @@ export class AlarmsNotificationsPanelView {
     const sel = this.selectedTitles.size;
     const isCard = this.viewMode === 'card';
     const isList = this.viewMode === 'list';
+    const isConsol = this.groupMode === 'consolidado';
+    const isSep = this.groupMode === 'separado';
     const filterCount = this.getActiveFilterCount(state.filters);
 
     return `
@@ -167,6 +172,11 @@ export class AlarmsNotificationsPanelView {
           <button class="alarms-view-btn${isList ? ' is-active' : ''}" data-view="list" title="Lista">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
           </button>
+        </div>
+
+        <div class="alarms-group-toggle" role="group" aria-label="Modo de agrupamento">
+          <button class="alarms-group-btn${isConsol ? ' is-active' : ''}" data-group-mode="consolidado" title="Agrupar alarmes do mesmo tipo">Consol.</button>
+          <button class="alarms-group-btn${isSep ? ' is-active' : ''}" data-group-mode="separado" title="Um item por dispositivo">Separ.</button>
         </div>
 
         <button class="alarms-export-btn" id="exportBtn" title="Exportar dados">
@@ -249,6 +259,21 @@ export class AlarmsNotificationsPanelView {
       // Update active state on toggle buttons
       this.root?.querySelectorAll('.alarms-view-btn').forEach((b) => {
         b.classList.toggle('is-active', b.getAttribute('data-view') === view);
+      });
+      const state = this.controller.getState();
+      this.renderListContent(state);
+    });
+
+    // Group toggle (CONSOLIDADO | SEPARADO)
+    this.root.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-group-mode]') as HTMLElement | null;
+      if (!btn) return;
+      const mode = btn.getAttribute('data-group-mode') as 'consolidado' | 'separado';
+      if (mode === this.groupMode) return;
+      this.groupMode = mode;
+      this.selectedTitles.clear();
+      this.root?.querySelectorAll('.alarms-group-btn').forEach((b) => {
+        b.classList.toggle('is-active', b.getAttribute('data-group-mode') === mode);
       });
       const state = this.controller.getState();
       this.renderListContent(state);
@@ -406,8 +431,10 @@ export class AlarmsNotificationsPanelView {
 
     if (emptyState) emptyState.style.display = 'none';
 
-    // Group alarms by title before rendering, persist for bulk actions
-    this.groupedAlarms = this.groupAlarmsByTitle(state.filteredAlarms);
+    // Group alarms by title (consolidado) or explode per device (separado), persist for bulk actions
+    this.groupedAlarms = this.groupMode === 'consolidado'
+      ? this.groupAlarmsByTitle(state.filteredAlarms)
+      : this.explodeAlarmsByDevice(state.filteredAlarms);
 
     if (this.viewMode === 'list') {
       // Table view
@@ -513,10 +540,13 @@ export class AlarmsNotificationsPanelView {
     });
     const allDevices = [...deviceSet].sort();
 
-    const selSeverity = new Set<string>(filters.severity || []);
-    const selState = new Set<string>(filters.state || []);
-    const selAlarmType = new Set<string>(filters.alarmType || []);
-    const selDevices = new Set<string>(filters.devices || []);
+    // When no filter is active for a group, treat all options as selected (show-all default)
+    const allSeverities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+    const allStates     = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'];
+    const selSeverity  = new Set<string>(filters.severity?.length  ? filters.severity  : allSeverities);
+    const selState     = new Set<string>(filters.state?.length     ? filters.state     : allStates);
+    const selAlarmType = new Set<string>(filters.alarmType?.length ? filters.alarmType : alarmTypes);
+    const selDevices   = new Set<string>(filters.devices?.length   ? filters.devices   : allDevices);
 
     const severityChips = (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] as AlarmSeverity[])
       .map((s) => {
@@ -1043,17 +1073,17 @@ export class AlarmsNotificationsPanelView {
       if (cfg.textRequired && !textarea.value.trim()) return;
       const durationSelect = overlay.querySelector('#aamDuration') as HTMLSelectElement | null;
 
-      selectedAlarms.forEach((alarm) => {
-        if (type === 'acknowledge') {
-          this.controller.handleAcknowledge(alarm.id);
-        } else if (type === 'escalate') {
-          this.controller.handleEscalate(alarm.id);
-        } else if (type === 'snooze') {
-          const minutes = parseInt(durationSelect?.value ?? '60', 10);
-          const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
-          this.controller.handleSnooze(alarm.id, until);
-        }
-      });
+      // Collect all real IDs (strip separado compound suffix), then call batch once
+      const ids = selectedAlarms.map((alarm) => this.stripSeparadoId(alarm.id));
+      if (type === 'acknowledge') {
+        this.controller.handleAcknowledge(ids);
+      } else if (type === 'escalate') {
+        this.controller.handleEscalate(ids);
+      } else if (type === 'snooze') {
+        const minutes = parseInt(durationSelect?.value ?? '60', 10);
+        const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+        this.controller.handleSnooze(ids, until);
+      }
 
       // Clear selection after bulk action
       this.selectedTitles.clear();
@@ -1135,6 +1165,33 @@ export class AlarmsNotificationsPanelView {
     });
   }
 
+  /**
+   * Separado mode: one entry per (alarm × device).
+   * Uses compound ID "uuid__DEVICE" when the alarm has multiple sources.
+   */
+  private explodeAlarmsByDevice(alarms: Alarm[]): Alarm[] {
+    const result: Alarm[] = [];
+    for (const alarm of alarms) {
+      const devices = alarm.source
+        ? alarm.source.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+      if (devices.length <= 1) {
+        result.push(alarm);
+      } else {
+        devices.forEach((dev) => {
+          result.push({ ...alarm, id: `${alarm.id}__${dev}`, source: dev });
+        });
+      }
+    }
+    return result;
+  }
+
+  /** Strip the "__DEVICE" suffix from a separado compound ID to get the real alarm UUID. */
+  private stripSeparadoId(id: string): string {
+    const idx = id.indexOf('__');
+    return idx === -1 ? id : id.slice(0, idx);
+  }
+
   // =====================================================================
   // Alarm Actions
   // =====================================================================
@@ -1147,7 +1204,10 @@ export class AlarmsNotificationsPanelView {
 
   private handleDetails(alarmId: string): void {
     this.log('Details', alarmId);
-    const alarm = this.controller.getAlarms().find((a) => a.id === alarmId);
+    // In separado mode alarmId may be a compound "uuid__DEVICE" — look in groupedAlarms first
+    const alarm =
+      this.groupedAlarms.find((a) => a.id === alarmId) ??
+      this.controller.getAlarms().find((a) => a.id === this.stripSeparadoId(alarmId));
     if (alarm) {
       openAlarmDetailsModal(alarm);
       this.emit('alarm-click', alarm);
@@ -1335,17 +1395,18 @@ export class AlarmsNotificationsPanelView {
     const confirmAction = () => {
       if (cfg.textRequired && !textarea.value.trim()) return;
 
+      const ids = [this.stripSeparadoId(alarmId)];
       if (type === 'acknowledge') {
-        this.controller.handleAcknowledge(alarmId);
+        this.controller.handleAcknowledge(ids);
         this.emit('alarm-acknowledge', alarmId);
       } else if (type === 'escalate') {
-        this.controller.handleEscalate(alarmId);
+        this.controller.handleEscalate(ids);
         this.emit('alarm-escalate', alarmId);
       } else if (type === 'snooze') {
         const durationSelect = overlay.querySelector('#aamDuration') as HTMLSelectElement | null;
         const minutes = parseInt(durationSelect?.value ?? '60', 10);
         const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
-        this.controller.handleSnooze(alarmId, until);
+        this.controller.handleSnooze(ids, until);
         this.emit('alarm-snooze', alarmId);
       }
 

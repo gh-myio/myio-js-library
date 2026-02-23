@@ -72,7 +72,7 @@ self.onInit = async function () {
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
 
-  _maxAlarms  = settings.maxAlarmsVisible ?? 500;
+  _maxAlarms  = Math.max(settings.maxAlarmsVisible ?? 500, 500); // enforce minimum 500
   _activeTab  = defaultTab;
 
   // --- Logger ---
@@ -179,13 +179,27 @@ self.onInit = async function () {
 
     onAlarmClick: (alarm) => {
       LogHelper.log('Alarm clicked:', alarm.title || alarm.id);
-      // RFC-0152 Phase 4: Open alarm details modal
       MyIOLibrary.openAlarmDetailsModal?.(alarm);
     },
 
-    onAlarmAction: async (action, alarm) => {
-      LogHelper.log('Alarm action:', action, alarm.id);
-      await _handleAlarmAction(action, alarm, userEmail);
+    onAcknowledge: async (alarmIds) => {
+      LogHelper.log('Batch acknowledge:', alarmIds.length, 'alarms');
+      await _handleBatchAction('acknowledge', alarmIds, userEmail);
+    },
+
+    onEscalate: async (alarmIds) => {
+      LogHelper.log('Batch escalate:', alarmIds.length, 'alarms');
+      await _handleBatchAction('escalate', alarmIds, userEmail);
+    },
+
+    onSnooze: async (alarmIds, until) => {
+      LogHelper.log('Batch snooze:', alarmIds.length, 'alarms until', until);
+      await _handleBatchAction('snooze', alarmIds, userEmail, { until });
+    },
+
+    onClose: async (alarmIds, reason) => {
+      LogHelper.log('Batch close:', alarmIds.length, 'alarms');
+      await _handleBatchAction('close', alarmIds, userEmail, { reason });
     },
 
     onTabChange: (tab) => {
@@ -307,27 +321,33 @@ async function _fetchAndUpdate() {
   }
 }
 
-async function _handleAlarmAction(action, alarm, userEmail) {
+async function _handleBatchAction(action, alarmIds, userEmail, opts) {
   const AlarmService = window.MyIOLibrary?.AlarmService;
   if (!AlarmService) return;
 
   const email = userEmail || window.MyIOUtils?.currentUserEmail || 'unknown';
 
   try {
-    if      (action === 'acknowledge') await AlarmService.acknowledgeAlarm(alarm.id, email);
-    else if (action === 'snooze')      await AlarmService.silenceAlarm(alarm.id, email, '4h');
-    else if (action === 'escalate')    await AlarmService.escalateAlarm(alarm.id, email);
-    else if (action === 'close')       await AlarmService.closeAlarm(alarm.id, email);
+    let result;
+    if      (action === 'acknowledge') result = await AlarmService.batchAcknowledge(alarmIds, email);
+    else if (action === 'snooze')      result = await AlarmService.batchSilence(alarmIds, email, opts?.until || '4h');
+    else if (action === 'escalate')    result = await AlarmService.batchEscalate(alarmIds, email);
+    else if (action === 'close')       result = await AlarmService.batchClose(alarmIds, email, opts?.reason);
     else {
       LogHelper.warn('Unknown alarm action:', action);
       return;
     }
 
+    if (result?.failureCount > 0) {
+      LogHelper.warn('Batch action partial failure:', action, result.failureCount, 'failed', result.failed);
+    }
+    LogHelper.log('Batch action completed:', action, `${result?.successCount ?? 0}/${alarmIds.length} succeeded`);
+
     // Invalidate cache so fresh data is fetched
     AlarmService.clearCache?.();
     await _fetchAndUpdate();
   } catch (err) {
-    LogHelper.error('Alarm action failed:', action, err);
+    LogHelper.error('Batch action failed:', action, err);
   }
 }
 
