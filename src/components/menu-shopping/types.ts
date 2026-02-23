@@ -13,7 +13,7 @@ export type ThemeMode = 'light' | 'dark';
 /**
  * Domain types for tab navigation
  */
-export type DomainType = 'energy' | 'water' | 'temperature' | null;
+export type DomainType = 'energy' | 'water' | 'temperature' | 'alarms' | null;
 
 /**
  * Tab item configuration
