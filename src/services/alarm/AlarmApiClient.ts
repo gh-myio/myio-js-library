@@ -156,9 +156,8 @@ export class AlarmApiClient {
   // -----------------------------------------------------------------------
 
   async acknowledgeAlarm(id: string, acknowledgedBy: string, note?: string): Promise<void> {
-    await fetch(`${this.baseUrl}/alarms/${id}/ack`, {
+    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/ack`, {
       method: 'POST',
-      headers: this.headers,
       body: JSON.stringify({ acknowledgedBy, note }),
     });
   }
@@ -169,25 +168,22 @@ export class AlarmApiClient {
     duration: string,
     reason?: string
   ): Promise<void> {
-    await fetch(`${this.baseUrl}/alarms/${id}/silence`, {
+    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/silence`, {
       method: 'POST',
-      headers: this.headers,
       body: JSON.stringify({ silencedBy, duration, reason }),
     });
   }
 
   async escalateAlarm(id: string, escalatedBy: string, reason?: string): Promise<void> {
-    await fetch(`${this.baseUrl}/alarms/${id}/escalate`, {
+    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/escalate`, {
       method: 'POST',
-      headers: this.headers,
       body: JSON.stringify({ escalatedBy, reason }),
     });
   }
 
   async closeAlarm(id: string, closedBy: string, resolution?: string): Promise<void> {
-    await fetch(`${this.baseUrl}/alarms/${id}/close`, {
+    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/close`, {
       method: 'POST',
-      headers: this.headers,
       body: JSON.stringify({ closedBy, resolution }),
     });
   }
