@@ -515,12 +515,15 @@
           <button class="ctrl-btn danger" onclick="destroyAlarmPanel()">&#x1F5D1; Destroy</button>
         </div>
         <div style="margin-top:8px; padding:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:6px; font-size:10px; color:#93c5fd; line-height:1.5">
-          <strong>Novas funcionalidades:</strong><br>
-          &#x2705; Agrupamento por título<br>
-          &#x2611; Checkbox + Ações em Lote<br>
-          &#x2500; Toggle Card | Lista<br>
+          <strong>Funcionalidades:</strong><br>
+          &#x2705; Agrupamento por título (Consolidado)<br>
+          &#x2194; Toggle Consolidado | Separado (1 card/row por device)<br>
+          &#x2611; Checkbox + Ações em Lote (batch API)<br>
+          &#x2500; Toggle Card | Lista (col. Shopping ocultável)<br>
+          &#x1F50D; Modal de Filtros (sev/estado/tipo/device)<br>
           &#x1F4E4; Exportar PDF/Excel/CSV<br>
-          &#x1F50D; Modal de Filtros (sev/estado/tipo/device)
+          &#x1F504; Auto-paginação (hasMore loop, page size 100)<br>
+          &#x1F3F7; Badge device no card (modo Separado)
         </div>
       </div>
 
@@ -1161,25 +1164,31 @@
         showCustomerName,
         enableDebugMode: true,
         onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
-        onAlarmAction: async (action, alarm) => {
-          logEvent('ALARM_ACTION', `${action}: ${alarm.id}`, 'info');
-          // Simulate action delay then refresh
+        onAcknowledge: async (ids) => {
+          logEvent('ALARM_ACK', `batch(${ids.length}): ${ids.join(', ')}`, 'info');
+          setTimeout(() => refreshAlarmPanel(), 300);
+        },
+        onEscalate: async (ids) => {
+          logEvent('ALARM_ESCALATE', `batch(${ids.length}): ${ids.join(', ')}`, 'info');
+          setTimeout(() => refreshAlarmPanel(), 300);
+        },
+        onSnooze: async (ids, until) => {
+          logEvent('ALARM_SNOOZE', `batch(${ids.length}) until ${until}`, 'info');
+          setTimeout(() => refreshAlarmPanel(), 300);
+        },
+        onClose: async (ids, reason) => {
+          logEvent('ALARM_CLOSE', `batch(${ids.length}) reason: ${reason || '-'}`, 'info');
           setTimeout(() => refreshAlarmPanel(), 300);
         },
         onTabChange: (tab) => logEvent('ALARM_TAB', tab, 'info'),
       });
 
-      // Bind btnAlarmBundleMap (floats top-right inside alarmPanelContainer)
+      // Bind btnAlarmBundleMap
       const btnMap = document.getElementById('btnAlarmBundleMap');
       if (btnMap) {
         btnMap.onclick = () => logEvent('ALARM_MAP', 'Regras de Alarmes clicked', 'info');
       }
-
-      // Update count badge
-      const alarms = generateFakeAlarms(_alarmCount);
-      const openCount = alarms.filter(a => a.state === 'OPEN' || a.state === 'ESCALATED').length;
-      const badge = document.getElementById('alarmCountBadge');
-      if (badge) { badge.style.display = 'inline-flex'; badge.textContent = openCount > 99 ? '99+' : String(openCount); }
+      // Badge is managed internally by the component via handleStateChange
 
       // Feed trend data
       if (_alarmPanelInstance?.updateTrendData) _alarmPanelInstance.updateTrendData(generateFakeTrend());
@@ -1190,12 +1199,9 @@
     function refreshAlarmPanel() {
       if (!_alarmPanelInstance) return;
       const alarms = generateFakeAlarms(_alarmCount);
-      _alarmPanelInstance.updateAlarms?.(alarms);
+      _alarmPanelInstance.updateAlarms?.(alarms); // badge auto-updated by component
       _alarmPanelInstance.updateStats?.(_buildAlarmStats(alarms));
       _alarmPanelInstance.updateTrendData?.(generateFakeTrend());
-      const openCount = alarms.filter(a => a.state === 'OPEN' || a.state === 'ESCALATED').length;
-      const badge = document.getElementById('alarmCountBadge');
-      if (badge) badge.textContent = openCount > 99 ? '99+' : String(openCount);
       logEvent('ALARM', `Refreshed: ${alarms.length} alarms`, 'info');
     }
 
