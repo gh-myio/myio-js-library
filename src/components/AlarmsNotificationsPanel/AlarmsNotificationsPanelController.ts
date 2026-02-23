@@ -5,6 +5,7 @@
 
 import type { Alarm, AlarmStats, AlarmFilters, AlarmSeverity, AlarmState } from '../../types/alarm';
 import { DEFAULT_ALARM_STATS, DEFAULT_ALARM_FILTERS } from '../../types/alarm';
+import { AlarmService } from '../../services/alarm/AlarmService';
 import type {
   AlarmsNotificationsPanelParams,
   AlarmsNotificationsPanelState,
@@ -21,6 +22,11 @@ export class AlarmsNotificationsPanelController {
   constructor(params: AlarmsNotificationsPanelParams) {
     this.params = params;
     this.debug = params.enableDebugMode ?? false;
+
+    // Configure AlarmService with credentials from params (no hardcoded fallbacks)
+    if (params.alarmsApiBaseUrl || params.alarmsApiKey) {
+      AlarmService.configure(params.alarmsApiBaseUrl, undefined, params.alarmsApiKey);
+    }
 
     // Initialize state
     this.state = {

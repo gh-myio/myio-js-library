@@ -12,20 +12,13 @@ import type {
   AlarmBatchResult,
 } from './types';
 
-const ALARMS_BASE_URL = 'https://alarms-api.a.myio-bas.com';
-const API_KEY = 'gcdr_cust_tb_integration_key_2026';
-
 export class AlarmApiClient {
-  private baseUrl: string;
-  private readonly apiKey: string;
+  private baseUrl = '';
+  private apiKey = '';
 
-  constructor(baseUrl = ALARMS_BASE_URL, apiKey = API_KEY) {
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
-  }
-
-  configure(baseUrl: string): void {
-    this.baseUrl = baseUrl;
+  configure(baseUrl: string, apiKey?: string): void {
+    if (baseUrl) this.baseUrl = baseUrl;
+    if (apiKey)  this.apiKey  = apiKey;
   }
 
   private get headers(): HeadersInit {

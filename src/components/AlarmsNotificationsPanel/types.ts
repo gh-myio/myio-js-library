@@ -53,6 +53,10 @@ export type AlarmsTab = 'list' | 'dashboard';
 export interface AlarmsNotificationsPanelParams {
   /** Container element to render into */
   container: HTMLElement;
+  /** Alarms API base URL (required — no hardcoded fallback) */
+  alarmsApiBaseUrl?: string;
+  /** Alarms API key (required — no hardcoded fallback) */
+  alarmsApiKey?: string;
   /** Theme mode (default: 'dark') */
   themeMode?: ThemeMode;
   /** Enable debug logging */

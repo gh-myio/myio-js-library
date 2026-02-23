@@ -323,8 +323,8 @@ class AlarmServiceClass {
    * Set the Alarms API base URL (e.g. from MAIN_VIEW orchestrator settings).
    * Clears the cache so subsequent calls use the new endpoint.
    */
-  configure(baseUrl: string | null | undefined, cacheTtlMs?: number): void {
-    if (baseUrl) this.client.configure(baseUrl);
+  configure(baseUrl: string | null | undefined, cacheTtlMs?: number, apiKey?: string): void {
+    this.client.configure(baseUrl ?? '', apiKey);
     if (cacheTtlMs && cacheTtlMs > 0) this.cacheTtlMs = cacheTtlMs;
     this.clearCache();
   }

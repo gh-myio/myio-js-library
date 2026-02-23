@@ -72,6 +72,9 @@ self.onInit = async function () {
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 180;
   const cacheIntervalSeconds   = settings.cacheIntervalSeconds   ?? 180;
   const enableDebugMode        = settings.enableDebugMode        ?? false;
+  // API credentials: orchestrator takes priority, widget settings as fallback
+  const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || settings.alarmsApiBaseUrl || '';
+  const alarmsApiKey     = window.MyIOOrchestrator?.alarmsApiKey     || settings.alarmsApiKey     || '';
 
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
@@ -109,10 +112,9 @@ self.onInit = async function () {
   };
   window.addEventListener('myio:theme-changed', _themeChangeHandler);
 
-  // --- RFC-0178: Configure AlarmService — always apply TTL from settings; URL when available ---
-  const alarmsUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl;
-  MyIOLibrary.AlarmService?.configure?.(alarmsUrl, cacheIntervalSeconds * 1000);
-  LogHelper.log('AlarmService configured — baseUrl:', alarmsUrl || '(default)', '— cacheTTL:', cacheIntervalSeconds + 's');
+  // --- Configure AlarmService — credentials + TTL always from settings/orchestrator ---
+  MyIOLibrary.AlarmService?.configure?.(alarmsApiBaseUrl, cacheIntervalSeconds * 1000, alarmsApiKey);
+  LogHelper.log('AlarmService configured — baseUrl:', alarmsApiBaseUrl || '(missing!)', '— cacheTTL:', cacheIntervalSeconds + 's');
 
   // --- RFC-0178: Listen for alarm filter changes from HEADER ---
   _filterChangeHandler = (ev) => {
@@ -178,6 +180,8 @@ self.onInit = async function () {
     enableDebugMode,
     alarms: [],
     showCustomerName: showCustomerName,
+    alarmsApiBaseUrl,
+    alarmsApiKey,
 
     onAlarmClick: (alarm) => {
       LogHelper.log('Alarm clicked:', alarm.title || alarm.id);
