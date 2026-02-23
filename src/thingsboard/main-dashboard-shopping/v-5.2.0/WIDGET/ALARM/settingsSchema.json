@@ -36,18 +36,6 @@
         "title": "Alarms Page Size (per fetch, auto-paginates)",
         "default": 100
       },
-      "alarmsApiBaseUrl": {
-        "type": "string",
-        "title": "Alarms API Base URL",
-        "default": "https://alarms-api.a.myio-bas.com",
-        "description": "Inherited from MAIN_VIEW orchestrator. Override here only if needed."
-      },
-      "alarmsApiKey": {
-        "type": "string",
-        "title": "Alarms API Key",
-        "default": "gcdr_cust_tb_integration_key_2026",
-        "description": "Inherited from MAIN_VIEW orchestrator. Override here only if needed."
-      },
       "enableDebugMode": {
         "type": "boolean",
         "title": "Enable Debug Mode",
@@ -63,8 +51,6 @@
     "refreshIntervalSeconds",
     "cacheIntervalSeconds",
     "maxAlarmsVisible",
-    "alarmsApiBaseUrl",
-    "alarmsApiKey",
     "enableDebugMode"
   ]
 }

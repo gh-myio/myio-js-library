@@ -72,9 +72,9 @@ self.onInit = async function () {
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 180;
   const cacheIntervalSeconds   = settings.cacheIntervalSeconds   ?? 180;
   const enableDebugMode        = settings.enableDebugMode        ?? false;
-  // API credentials: orchestrator takes priority, widget settings as fallback
-  const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || settings.alarmsApiBaseUrl || '';
-  const alarmsApiKey     = window.MyIOOrchestrator?.alarmsApiKey     || settings.alarmsApiKey     || '';
+  // API credentials: from MAIN_VIEW orchestrator (configured in MAIN_VIEW settingsSchema)
+  const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || '';
+  const alarmsApiKey     = window.MyIOOrchestrator?.alarmsApiKey     || '';
 
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
