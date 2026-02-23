@@ -23,7 +23,7 @@ let _panelInstance          = null;
 let _refreshTimer           = null;
 let _customerIngId          = '';
 let _gcdrTenantId           = ''; // RFC-0179: from TB SERVER_SCOPE attr gcdrTenantId
-let _maxAlarms              = 50;
+let _maxAlarms              = 500;
 let _activeTab              = 'list';
 let _isRefreshing           = false;
 let _currentTheme           = 'light';
@@ -72,7 +72,7 @@ self.onInit = async function () {
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
 
-  _maxAlarms  = settings.maxAlarmsVisible ?? 50;
+  _maxAlarms  = settings.maxAlarmsVisible ?? 500;
   _activeTab  = defaultTab;
 
   // --- Logger ---

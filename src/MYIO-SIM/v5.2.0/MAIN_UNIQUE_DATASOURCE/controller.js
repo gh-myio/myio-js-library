@@ -4596,6 +4596,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const [response, trend] = await Promise.all([
         alarmService.getAlarms({
           state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
+          limit:      500,
           customerId: tenantId || undefined,
         }),
         tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),

@@ -77,43 +77,34 @@ function buildTimeline(alarm: Alarm): string {
       </div>`;
   }
 
-  if (count === 1) {
-    return occItem(1, firstMs, 'Único registro detectado', 'is-single');
+  // Show all occurrences most-recent first, capped at 30 (scroll handles the rest)
+  const MAX_SHOWN = 30;
+  const items: string[] = [];
+
+  for (let i = count; i >= 1; i--) {
+    const tsMs = firstMs + interval * (i - 1);
+    let meta: string;
+    let extraClass: string;
+
+    if (count === 1) {
+      meta = 'Único registro detectado';
+      extraClass = 'is-single';
+    } else if (i === count) {
+      meta = 'Mais recente';
+      extraClass = 'is-last';
+    } else if (i === 1) {
+      meta = 'Primeiro registro';
+      extraClass = 'is-first';
+    } else {
+      meta = 'Estimado';
+      extraClass = '';
+    }
+
+    items.push(occItem(i, tsMs, meta, extraClass));
+    if (items.length >= MAX_SHOWN) break;
   }
 
-  if (count === 2) {
-    return (
-      occItem(2, lastMs, 'Mais recente', 'is-last') +
-      occItem(1, firstMs, 'Primeiro registro', 'is-first')
-    );
-  }
-
-  if (count === 3) {
-    const mid = firstMs + interval;
-    return (
-      occItem(3, lastMs, 'Mais recente', 'is-last') +
-      occItem(2, mid, 'Estimado', '') +
-      occItem(1, firstMs, 'Primeiro registro', 'is-first')
-    );
-  }
-
-  // count > 3: show last 2, ellipsis, first 2
-  const skipCount = count - 4;
-  const skipLabel =
-    skipCount > 0
-      ? `<div class="adm-timeline-ellipsis">
-           <span class="adm-timeline-ellipsis-dots">· · ·</span>
-           <span class="adm-timeline-ellipsis-label">${skipCount} ocorrência${skipCount !== 1 ? 's' : ''} intermediária${skipCount !== 1 ? 's' : ''}</span>
-         </div>`
-      : '';
-
-  return (
-    occItem(count, lastMs, 'Mais recente', 'is-last') +
-    occItem(count - 1, lastMs - interval, 'Estimado', '') +
-    skipLabel +
-    occItem(2, firstMs + interval, 'Estimado', '') +
-    occItem(1, firstMs, 'Primeiro registro', 'is-first')
-  );
+  return items.join('');
 }
 
 // =====================================================================
@@ -1016,18 +1007,17 @@ function buildOccurrenceMatrix(alarm: Alarm, devices: string[]): string {
   const lastMs = new Date(alarm.lastOccurrence).getTime();
   const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
 
+  // Show all occurrences most-recent first, capped at 30 (scroll handles the rest)
+  const MAX_ROWS = 30;
   const show: Array<{ n: number; tsMs: number; estimated: boolean }> = [];
 
-  if (count <= 6) {
-    for (let i = 0; i < count; i++) {
-      show.push({ n: i + 1, tsMs: firstMs + interval * i, estimated: i > 0 && i < count - 1 });
-    }
-  } else {
-    show.push({ n: 1, tsMs: firstMs, estimated: false });
-    show.push({ n: 2, tsMs: firstMs + interval, estimated: true });
-    show.push({ n: -1, tsMs: 0, estimated: false }); // ellipsis sentinel
-    show.push({ n: count - 1, tsMs: lastMs - interval, estimated: true });
-    show.push({ n: count, tsMs: lastMs, estimated: false });
+  for (let i = count; i >= 1; i--) {
+    show.push({
+      n: i,
+      tsMs: firstMs + interval * (i - 1),
+      estimated: i > 1 && i < count,
+    });
+    if (show.length >= MAX_ROWS) break;
   }
 
   // For each occurrence we rotate through devices (simulating which device fired)
@@ -1039,17 +1029,11 @@ function buildOccurrenceMatrix(alarm: Alarm, devices: string[]): string {
 
   return show
     .map((item) => {
-      if (item.n === -1) {
-        const skip = count - 4;
-        return `<div class="adm-matrix-ellipsis">· · · ${skip} intermediária${skip !== 1 ? 's' : ''} · · ·</div>`;
-      }
-      // Pick device(s) for this occurrence row
-      // If single device, always show it; if multiple, rotate so each occurrence maps to one
       const devIndex = (item.n - 1) % devices.length;
       const rowDevices =
         devices.length === 1
           ? [devices[0]]
-          : [devices[devIndex]]; // one device per occurrence (round-robin)
+          : [devices[devIndex]];
       const chipsHtml = rowDevices.map(deviceChip).join('');
 
       return `<div class="adm-matrix-row">

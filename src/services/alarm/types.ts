@@ -103,9 +103,9 @@ export interface AlarmListSummary {
 export interface AlarmListApiResponse {
   data: AlarmApiResponse[];
   pagination: {
+    total: number;
+    totalPages: number;
     hasMore: boolean;
-    cursor?: string;
-    // NOTE: total is in summary, not pagination
   };
   summary: AlarmListSummary;
 }
@@ -168,5 +168,4 @@ export interface AlarmListParams {
   to?:         string;  // ISO 8601
   customerId?: string;  // gcdrCustomerId — mandatory at runtime (see guard in ALARM widget)
   limit?:      number;
-  cursor?:     string;
 }

@@ -2022,6 +2022,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-timeline {
   position: relative;
   padding-left: 28px;
+  max-height: 340px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .adm-timeline::before {
@@ -2102,7 +2105,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-devices-list {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 200px;
 }
 
 .adm-device-row {
@@ -2157,7 +2162,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-matrix {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 280px;
   font-size: 11px;
 }
 
@@ -2173,6 +2180,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: #9ca3af;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .adm-matrix-row {
