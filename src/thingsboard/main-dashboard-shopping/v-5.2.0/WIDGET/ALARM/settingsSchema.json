@@ -25,6 +25,12 @@
         "title": "Auto-Refresh Interval (seconds, 0 = disabled)",
         "default": 60
       },
+      "cacheIntervalSeconds": {
+        "type": "number",
+        "title": "Cache TTL (seconds)",
+        "default": 180,
+        "description": "How long alarm list results are cached before a new API call is made."
+      },
       "maxAlarmsVisible": {
         "type": "number",
         "title": "Alarms Page Size (per fetch, auto-paginates)",
@@ -43,6 +49,7 @@
     "defaultTab",
     "showCustomerName",
     "refreshIntervalSeconds",
+    "cacheIntervalSeconds",
     "maxAlarmsVisible",
     "enableDebugMode"
   ]

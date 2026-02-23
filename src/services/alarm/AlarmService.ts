@@ -11,15 +11,13 @@ import type {
 import type { Alarm, AlarmStats, AlarmTrendDataPoint } from '../../types/alarm';
 import type { DowntimeEntry } from '../../types/operational';
 
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
-
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
 }
 
-function isFresh<T>(entry: CacheEntry<T> | undefined): entry is CacheEntry<T> {
-  return !!entry && Date.now() - entry.timestamp < CACHE_TTL_MS;
+function isFresh<T>(entry: CacheEntry<T> | undefined, ttlMs: number): entry is CacheEntry<T> {
+  return !!entry && Date.now() - entry.timestamp < ttlMs;
 }
 
 // -----------------------------------------------------------------------
@@ -118,6 +116,7 @@ type AlarmListResult = { data: Alarm[]; summary: AlarmListSummary };
 
 class AlarmServiceClass {
   private client = new AlarmApiClient();
+  private cacheTtlMs = 3 * 60 * 1000; // 3 min default; overridable via configure()
   private readonly availabilityCache = new Map<string, CacheEntry<AvailabilityResponse>>();
   private readonly alarmsCache = new Map<string, CacheEntry<AlarmListResult>>();
   private readonly statsCache = new Map<string, CacheEntry<AlarmStats>>();
@@ -143,7 +142,7 @@ class AlarmServiceClass {
     const cacheKey = `avail:${customerId}:${startAt}:${endAt}`;
     const cached = this.availabilityCache.get(cacheKey);
 
-    if (isFresh(cached)) return cached.data;
+    if (isFresh(cached, this.cacheTtlMs)) return cached.data;
 
     const data = await this.client.getAvailability({
       customerId,
@@ -172,7 +171,7 @@ class AlarmServiceClass {
     const cacheKey = `alarms:${JSON.stringify(params)}`;
     const cached = this.alarmsCache.get(cacheKey);
 
-    if (isFresh(cached)) return cached.data;
+    if (isFresh(cached, this.cacheTtlMs)) return cached.data;
 
     let allData: import('../../types/alarm').Alarm[] = [];
     let summary: import('./types').AlarmListSummary | undefined;
@@ -206,7 +205,7 @@ class AlarmServiceClass {
     const cacheKey = `stats:${tenantId}:${period}`;
     const cached = this.statsCache.get(cacheKey);
 
-    if (isFresh(cached)) return cached.data;
+    if (isFresh(cached, this.cacheTtlMs)) return cached.data;
 
     const raw = await this.client.getAlarmStats(tenantId, period);
     const data = mapApiStats(raw);
@@ -231,7 +230,7 @@ class AlarmServiceClass {
     const cacheKey = `trend:${tenantId}:${period}:${groupBy}`;
     const cached = this.trendCache.get(cacheKey);
 
-    if (isFresh(cached)) return cached.data;
+    if (isFresh(cached, this.cacheTtlMs)) return cached.data;
 
     const raw = await this.client.getAlarmTrend(tenantId, period, groupBy);
     const data = mapApiTrend(raw);
@@ -322,8 +321,9 @@ class AlarmServiceClass {
    * Set the Alarms API base URL (e.g. from MAIN_VIEW orchestrator settings).
    * Clears the cache so subsequent calls use the new endpoint.
    */
-  configure(baseUrl: string): void {
-    this.client.configure(baseUrl);
+  configure(baseUrl: string | null | undefined, cacheTtlMs?: number): void {
+    if (baseUrl) this.client.configure(baseUrl);
+    if (cacheTtlMs && cacheTtlMs > 0) this.cacheTtlMs = cacheTtlMs;
     this.clearCache();
   }
 

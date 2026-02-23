@@ -21,6 +21,7 @@
 
 let _panelInstance          = null;
 let _refreshTimer           = null;
+let _fetchDebounceTimer     = null;
 let _customerIngId          = '';
 let _gcdrTenantId           = ''; // RFC-0179: from TB SERVER_SCOPE attr gcdrTenantId
 let _maxAlarms              = 100;
@@ -48,6 +49,8 @@ self.onInit = async function () {
   // --- Reset state ---
   _panelInstance       = null;
   _refreshTimer        = null;
+  clearTimeout(_fetchDebounceTimer);
+  _fetchDebounceTimer  = null;
   _customerIngId       = '';
   _gcdrTenantId        = '';
   _isRefreshing        = false;
@@ -67,6 +70,7 @@ self.onInit = async function () {
   const defaultTab             = settings.defaultTab             || 'list';
   const showCustomerName       = settings.showCustomerName       ?? false;
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 60;
+  const cacheIntervalSeconds   = settings.cacheIntervalSeconds   ?? 180;
   const enableDebugMode        = settings.enableDebugMode        ?? false;
 
   // Read theme from dashboard orchestrator; fallback to light
@@ -105,12 +109,10 @@ self.onInit = async function () {
   };
   window.addEventListener('myio:theme-changed', _themeChangeHandler);
 
-  // --- RFC-0178: Configure AlarmService base URL from orchestrator ---
+  // --- RFC-0178: Configure AlarmService — always apply TTL from settings; URL when available ---
   const alarmsUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl;
-  if (alarmsUrl) {
-    MyIOLibrary.AlarmService?.configure?.(alarmsUrl);
-    LogHelper.log('AlarmService configured with base URL:', alarmsUrl);
-  }
+  MyIOLibrary.AlarmService?.configure?.(alarmsUrl, cacheIntervalSeconds * 1000);
+  LogHelper.log('AlarmService configured — baseUrl:', alarmsUrl || '(default)', '— cacheTTL:', cacheIntervalSeconds + 's');
 
   // --- RFC-0178: Listen for alarm filter changes from HEADER ---
   _filterChangeHandler = (ev) => {
@@ -120,14 +122,14 @@ self.onInit = async function () {
     };
     LogHelper.log('Alarm filter changed:', _activeFilters);
     MyIOLibrary?.AlarmService?.clearCache?.();
-    _fetchAndUpdate();
+    _debouncedFetchAndUpdate(400);
   };
   window.addEventListener('myio:alarm-filter-change', _filterChangeHandler);
 
   // --- RFC-0178: Refresh when alarm view is activated (tab switch) ---
   _activationHandler = () => {
     LogHelper.log('Alarm view activated — refreshing data');
-    _fetchAndUpdate();
+    _debouncedFetchAndUpdate(300);
   };
   window.addEventListener('myio:alarm-content-activated', _activationHandler);
 
@@ -246,6 +248,8 @@ self.onDestroy = function () {
     clearInterval(_refreshTimer);
     _refreshTimer = null;
   }
+  clearTimeout(_fetchDebounceTimer);
+  _fetchDebounceTimer = null;
   if (_panelInstance?.destroy) {
     _panelInstance.destroy();
   }
@@ -262,6 +266,11 @@ self.onDataUpdated = function () {};
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+function _debouncedFetchAndUpdate(delayMs = 300) {
+  clearTimeout(_fetchDebounceTimer);
+  _fetchDebounceTimer = setTimeout(() => _fetchAndUpdate(), delayMs);
+}
 
 async function _fetchAndUpdate() {
   if (_isRefreshing) return;
