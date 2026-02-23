@@ -679,7 +679,7 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
             <div class="adm-section-title">Mapa ocorrências × dispositivos</div>
             <div class="adm-matrix">
               <div class="adm-matrix-header">
-                <span>Ocorrência</span><span>Timestamp</span><span>Dispositivos</span>
+                <span>ID</span><span>Timestamp</span><span>Dispositivos</span>
               </div>
               ${buildOccurrenceMatrix(alarm, devices)}
             </div>

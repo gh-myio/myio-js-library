@@ -162,8 +162,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   white-space: nowrap;
 }
 
-/* Alarm count badge — imediatamente à direita do botão, margem direita de 10px */
+/* Alarm count badge — hidden (kept for JS compatibility) */
 .myio-alarms-tabs .alarms-tab-count-badge {
+  display: none !important;
   align-self: center;
   flex-shrink: 0;
   margin-right: 15px;
@@ -356,7 +357,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    Advanced Filter Modal (afm-*)
    ===================================================================== */
 .afm-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   display: flex;

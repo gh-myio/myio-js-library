@@ -105,7 +105,7 @@
 
 /* ---- Panel container ---- */
 .alarm-widget-root .alarm-panel-container {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   overflow: hidden;
   position: relative;
   margin: 0;
