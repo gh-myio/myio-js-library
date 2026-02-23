@@ -80,17 +80,21 @@ export interface AlarmApiResponse {
   description?: string;
   fingerprint: string;
   metadata?: Record<string, unknown>;
-  raisedAt: string;        // ISO 8601
-  updatedAt: string;       // ISO 8601
+  raisedAt: string;          // ISO 8601
+  lastUpdatedAt?: string;    // ISO 8601 (real API field)
+  updatedAt?: string;        // ISO 8601 (legacy alias)
   closedAt?: string;
   closedBy?: string;
   resolution?: string;
   acknowledgedAt?: string;
   acknowledgedBy?: string;
-  snoozedUntil?: string;
+  silencedUntil?: string;    // real API field
+  snoozedUntil?: string;     // legacy alias
   escalatedAt?: string;
   escalatedBy?: string;
-  occurrenceCount?: number;
+  dispatchCount?: number;    // real API field
+  occurrenceCount?: number;  // legacy alias
+  deviceName?: string;
 }
 
 export interface AlarmListSummary {

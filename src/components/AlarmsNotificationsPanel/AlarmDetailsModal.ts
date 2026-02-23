@@ -154,20 +154,21 @@ function generateBuckets(alarm: Alarm, devices: string[], period: Period = 'mes'
   let bucketMs: number;
   let labelFn: (ms: number) => string;
 
+  const nowMs = Date.now();
   if (period === 'hora') {
     bucketMs = 3_600_000;
-    numBuckets = Math.max(4, Math.min(24, Math.ceil(durMs / bucketMs)));
+    numBuckets = Math.max(2, Math.min(24, Math.ceil(durMs / bucketMs)));
     labelFn = (ms) => `${String(new Date(ms).getHours()).padStart(2, '0')}h`;
   } else if (period === 'dia') {
     bucketMs = 86_400_000;
-    numBuckets = Math.max(2, Math.min(31, Math.ceil(durMs / bucketMs)));
+    numBuckets = Math.max(1, Math.min(31, Math.ceil(durMs / bucketMs)));
     labelFn = (ms) => {
       const d = new Date(ms);
       return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
     };
   } else if (period === 'semana') {
     bucketMs = 7 * 86_400_000;
-    numBuckets = Math.max(2, Math.min(26, Math.ceil(durMs / bucketMs)));
+    numBuckets = Math.max(1, Math.min(26, Math.ceil(durMs / bucketMs)));
     labelFn = (ms) => {
       const d = new Date(ms);
       return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -175,10 +176,12 @@ function generateBuckets(alarm: Alarm, devices: string[], period: Period = 'mes'
   } else {
     // 'mes'
     bucketMs = 30 * 86_400_000;
-    numBuckets = Math.max(2, Math.min(24, Math.ceil(durMs / bucketMs)));
+    numBuckets = Math.max(1, Math.min(24, Math.ceil(durMs / bucketMs)));
     const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     labelFn = (ms) => months[new Date(ms).getMonth()];
   }
+  // Cap buckets so last bucket doesn't exceed today
+  while (numBuckets > 1 && firstMs + (numBuckets - 1) * bucketMs > nowMs) numBuckets--;
 
   const seed = hashStr(alarm.id + period);
   const rand = seededRand(seed);
@@ -857,12 +860,14 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
   const rptPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="relatorio"]');
   if (rptPanel) {
     let rptPeriod: Period = 'dia';
+    let rptEmitted = false;
 
     rptPanel.querySelectorAll<HTMLButtonElement>('[data-rpt-period]').forEach((btn) => {
       btn.addEventListener('click', () => {
         rptPeriod = btn.dataset.rptPeriod as Period;
         rptPanel.querySelectorAll('[data-rpt-period]').forEach((b) => b.classList.remove('is-active'));
         btn.classList.add('is-active');
+        if (rptEmitted) buildReportTable();
       });
     });
 
@@ -955,7 +960,7 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
       });
     };
 
-    emitBtn?.addEventListener('click', buildReportTable);
+    emitBtn?.addEventListener('click', () => { rptEmitted = true; buildReportTable(); });
   }
 
   // Anotações tab — bind interactive events

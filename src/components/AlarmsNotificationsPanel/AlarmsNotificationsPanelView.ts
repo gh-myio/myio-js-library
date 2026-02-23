@@ -1170,9 +1170,8 @@ export class AlarmsNotificationsPanelView {
       const customerName =
         uniqueCustomers.size === 1 ? rep.customerName : `${uniqueCustomers.size} shoppings`;
 
-      const uniqueSources = new Set(group.map((a) => a.source));
-      const source =
-        uniqueSources.size === 1 ? rep.source : `${uniqueSources.size} dispositivos`;
+      const allSources = [...new Set(group.map((a) => a.source).filter(Boolean))];
+      const source = allSources.join(',');
 
       return { ...rep, occurrenceCount, firstOccurrence, lastOccurrence, severity, state, customerName, source };
     });
