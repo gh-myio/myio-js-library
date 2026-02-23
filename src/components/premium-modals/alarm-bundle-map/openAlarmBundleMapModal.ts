@@ -63,7 +63,7 @@ const STYLES = `
     color: #1a1a1a;
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.30);
-    width: min(620px, 96vw);
+    width: min(775px, 96vw);
     max-height: 88vh;
     display: flex;
     flex-direction: column;
