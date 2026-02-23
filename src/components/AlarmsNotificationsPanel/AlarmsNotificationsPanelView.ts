@@ -522,30 +522,21 @@ export class AlarmsNotificationsPanelView {
       .map((s) => {
         const cfg = SEVERITY_CONFIG[s];
         const checked = selSeverity.has(s);
-        return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="severity" data-value="${s}">
-          <input type="checkbox" value="${s}" ${checked ? 'checked' : ''} style="display:none">
-          ${cfg.icon} ${cfg.label}
-        </label>`;
+        return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="severity" data-value="${s}">${cfg.icon} ${cfg.label}</div>`;
       }).join('');
 
     const stateChips = (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'] as AlarmState[])
       .map((s) => {
         const cfg = STATE_CONFIG[s];
         const checked = selState.has(s);
-        return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="state" data-value="${s}">
-          <input type="checkbox" value="${s}" ${checked ? 'checked' : ''} style="display:none">
-          ${cfg.label}
-        </label>`;
+        return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="state" data-value="${s}">${cfg.label}</div>`;
       }).join('');
 
     const alarmTypeChips = alarmTypes.length > 0
       ? alarmTypes.map((t) => {
           const checked = selAlarmType.has(t);
           const esc = this.esc(t);
-          return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="alarmType" data-value="${esc}">
-            <input type="checkbox" value="${esc}" ${checked ? 'checked' : ''} style="display:none">
-            ${esc}
-          </label>`;
+          return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="alarmType" data-value="${esc}">${esc}</div>`;
         }).join('')
       : '<span class="afm-empty">Nenhum tipo encontrado</span>';
 
@@ -553,10 +544,7 @@ export class AlarmsNotificationsPanelView {
       ? allDevices.map((d) => {
           const checked = selDevices.has(d);
           const esc = this.esc(d);
-          return `<label class="afm-chip${checked ? ' is-checked' : ''}" data-group="devices" data-value="${esc}">
-            <input type="checkbox" value="${esc}" ${checked ? 'checked' : ''} style="display:none">
-            ${esc}
-          </label>`;
+          return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="devices" data-value="${esc}">${esc}</div>`;
         }).join('')
       : '<span class="afm-empty">Nenhum dispositivo encontrado</span>';
 
@@ -605,15 +593,11 @@ export class AlarmsNotificationsPanelView {
       const chip = (e.target as HTMLElement).closest('.afm-chip') as HTMLElement | null;
       if (!chip) return;
       chip.classList.toggle('is-checked');
-      const cb = chip.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-      if (cb) cb.checked = chip.classList.contains('is-checked');
     });
 
     overlay.querySelector('#afmClearBtn')!.addEventListener('click', () => {
       overlay.querySelectorAll<HTMLElement>('.afm-chip.is-checked').forEach((chip) => {
         chip.classList.remove('is-checked');
-        const cb = chip.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-        if (cb) cb.checked = false;
       });
     });
 

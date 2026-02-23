@@ -360,10 +360,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   z-index: 200;
-  padding: 42px 8px 0;
 }
 
 .afm-modal {
