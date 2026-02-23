@@ -79,6 +79,12 @@
         "type": "string",
         "default": "https://alarms-api.a.myio-bas.com",
         "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
+      },
+      "alarmsApiKey": {
+        "title": "Alarms API Key",
+        "type": "string",
+        "default": "gcdr_cust_tb_integration_key_2026",
+        "description": "RFC-0178: API key for the Alarms Backend REST API (X-API-Key header)."
       }
     }
   },
@@ -94,6 +100,7 @@
     "domainsEnabled.temperature",
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
-    "alarmsApiBaseUrl"
+    "alarmsApiBaseUrl",
+    "alarmsApiKey"
   ]
 }

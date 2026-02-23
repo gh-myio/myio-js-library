@@ -1173,10 +1173,12 @@ Object.assign(window.MyIOUtils, {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
 
-    // RFC-0178: Expose alarmsApiBaseUrl for ALARM widget
+    // RFC-0178: Expose alarmsApiBaseUrl and alarmsApiKey for ALARM widget
     const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+    const alarmsApiKey     = self.ctx.settings?.alarmsApiKey     || 'gcdr_cust_tb_integration_key_2026';
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
+      window.MyIOOrchestrator.alarmsApiKey     = alarmsApiKey;
     }
     LogHelper.log('[Orchestrator] RFC-0178: alarmsApiBaseUrl:', alarmsApiBaseUrl);
 
