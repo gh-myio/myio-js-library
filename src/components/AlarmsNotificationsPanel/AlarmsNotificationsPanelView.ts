@@ -1178,24 +1178,74 @@ export class AlarmsNotificationsPanelView {
   }
 
   /**
-   * Separado mode: one entry per (alarm × device).
-   * Uses compound ID "uuid__DEVICE" when the alarm has multiple sources.
+   * Separado mode: one card per unique (device, title) pair.
+   * Aggregates occurrenceCount, firstOccurrence, lastOccurrence, severity, state
+   * across all raw alarm records that share the same device+title — same logic as
+   * groupAlarmsByTitle but keyed on (source, title) instead of just (title).
    */
   private explodeAlarmsByDevice(alarms: Alarm[]): Alarm[] {
-    const result: Alarm[] = [];
+    const SEVERITY_ORDER: AlarmSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+    const STATE_ORDER: AlarmState[] = ['OPEN', 'ESCALATED', 'ACK', 'SNOOZED', 'CLOSED'];
+
+    // Flatten: each alarm × each device → atomic (device, alarm) unit
+    const atoms: Array<{ alarm: Alarm; device: string }> = [];
     for (const alarm of alarms) {
       const devices = alarm.source
         ? alarm.source.split(',').map((s) => s.trim()).filter(Boolean)
-        : [];
-      if (devices.length <= 1) {
-        result.push(alarm);
-      } else {
-        devices.forEach((dev) => {
-          result.push({ ...alarm, id: `${alarm.id}__${dev}`, source: dev });
-        });
+        : [''];
+      for (const dev of devices) {
+        atoms.push({ alarm, device: dev });
       }
     }
-    return result;
+
+    // Group by (device, title)
+    const groups = new Map<string, Array<{ alarm: Alarm; device: string }>>();
+    for (const atom of atoms) {
+      const key = `${atom.device}||${atom.alarm.title}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(atom);
+    }
+
+    return Array.from(groups.values()).map((group) => {
+      const device = group[0].device;
+      const rawAlarms = group.map((g) => g.alarm);
+
+      const sorted = [...rawAlarms].sort(
+        (a, b) => new Date(b.lastOccurrence ?? 0).getTime() - new Date(a.lastOccurrence ?? 0).getTime()
+      );
+      const rep = sorted[0];
+
+      const occurrenceCount = rawAlarms.reduce((sum, a) => sum + (a.occurrenceCount || 1), 0);
+      const firstOccurrence = rawAlarms.reduce(
+        (min, a) => (!min || (a.firstOccurrence && a.firstOccurrence < min) ? a.firstOccurrence : min),
+        rawAlarms[0].firstOccurrence
+      );
+      const lastOccurrence = rawAlarms.reduce(
+        (max, a) => (!max || (a.lastOccurrence && a.lastOccurrence > max) ? a.lastOccurrence : max),
+        rawAlarms[0].lastOccurrence
+      );
+      const severity = rawAlarms.reduce<AlarmSeverity>(
+        (best, a) =>
+          SEVERITY_ORDER.indexOf(a.severity) < SEVERITY_ORDER.indexOf(best) ? a.severity : best,
+        rawAlarms[0].severity
+      );
+      const state = rawAlarms.reduce<AlarmState>(
+        (best, a) =>
+          STATE_ORDER.indexOf(a.state) < STATE_ORDER.indexOf(best) ? a.state : best,
+        rawAlarms[0].state
+      );
+
+      return {
+        ...rep,
+        id: device ? `${rep.id}__${device}` : rep.id,
+        source: device,
+        occurrenceCount,
+        firstOccurrence,
+        lastOccurrence,
+        severity,
+        state,
+      };
+    });
   }
 
   /** Strip the "__DEVICE" suffix from a separado compound ID to get the real alarm UUID. */
