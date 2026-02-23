@@ -69,7 +69,7 @@ self.onInit = async function () {
   const customerTB_ID          = window.MyIOOrchestrator?.customerTB_ID || '';
   const defaultTab             = settings.defaultTab             || 'list';
   const showCustomerName       = settings.showCustomerName       ?? false;
-  const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 60;
+  const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 180;
   const cacheIntervalSeconds   = settings.cacheIntervalSeconds   ?? 180;
   const enableDebugMode        = settings.enableDebugMode        ?? false;
 

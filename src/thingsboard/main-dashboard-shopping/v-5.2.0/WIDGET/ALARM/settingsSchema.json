@@ -23,7 +23,7 @@
       "refreshIntervalSeconds": {
         "type": "number",
         "title": "Auto-Refresh Interval (seconds, 0 = disabled)",
-        "default": 60
+        "default": 180
       },
       "cacheIntervalSeconds": {
         "type": "number",
