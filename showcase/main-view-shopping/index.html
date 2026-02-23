@@ -1163,6 +1163,8 @@
         alarms: generateFakeAlarms(_alarmCount),
         showCustomerName,
         enableDebugMode: true,
+        alarmsApiBaseUrl: 'https://alarms-api.a.myio-bas.com',
+        alarmsApiKey: 'gcdr_cust_tb_integration_key_2026',
         onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
         onAcknowledge: async (ids) => {
           logEvent('ALARM_ACK', `batch(${ids.length}): ${ids.join(', ')}`, 'info');
