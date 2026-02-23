@@ -1081,6 +1081,7 @@ Object.assign(window.MyIOUtils, {
 
   // RFC-XXXX: SuperAdmin detection
   // RFC-0171: Also stores currentUserEmail for use in modals (openDashboardPopupSettings)
+  // RFC-0152: currentUserEmail is also used as the annotation author in alarm annotation panels
   // SuperAdmin = user with @myio.com.br email EXCEPT alarme@myio.com.br or alarmes@myio.com.br
   async function detectSuperAdmin() {
     const jwt = localStorage.getItem('jwt_token');

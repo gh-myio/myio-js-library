@@ -284,12 +284,29 @@
         grid-row: auto;
       }
     }
+
+    /* ===== ALARM WIDGET AREA ===== */
+    /* Alarm section must be a bounded flex column so the panel can scroll internally */
+    .myio-alarm-section {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* The ALARM widget root fills the section */
+    .myio-alarm-section .alarm-widget-root {
+      flex: 1;
+      min-height: 0;
+    }
   </style>
 
   <!-- Widget Styles from MAIN_VIEW -->
   <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/styles.css">
+  <!-- Widget Styles from ALARM widget (served fresh — no bundle cache) -->
+  <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/ALARM/styles.css">
 </head>
-<body>
+<body class="light-mode">
   <div class="showcase-layout">
     <!-- Showcase Header -->
     <header class="showcase-header">
@@ -362,7 +379,34 @@
             </div>
             <div data-content-state="alarm_content" style="display: none; height: 100%; min-height: 400px">
               <section id="alarmContentContainer" class="myio-alarm-section">
-                <div class="placeholder-component" id="alarmPlaceholder">Alarm Panel</div>
+                <!-- ALARM widget template (from ALARM/template.html) -->
+                <section class="alarm-widget-root" id="alarmWidgetRoot">
+                  <header class="alarm-header" style="display: block">
+                    <div class="alarm-header-toolbar">
+                      <button class="alarm-text-btn" id="btnAlarmBundleMap" title="Regras de Alarmes" aria-label="Regras de Alarmes">
+                        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                          <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+                        </svg>
+                        REGRAS DE ALARMES
+                      </button>
+                      <button class="alarm-icon-btn" id="btnRefresh" title="Atualizar" aria-label="Atualizar">
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                          <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="alarm-header-main">
+                      <div class="alarm-header-left">
+                        <svg class="alarm-header-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                        </svg>
+                        <h2 class="alarm-title" id="labelWidgetId">Alarmes e Notificações</h2>
+                        <span class="alarm-count-badge" id="alarmCountBadge" style="display: none">0</span>
+                      </div>
+                    </div>
+                  </header>
+                  <div class="alarm-panel-container" id="alarmPanelContainer"></div>
+                </section>
               </section>
             </div>
           </main>
@@ -428,7 +472,7 @@
           <label class="ctrl-label">Theme</label>
           <select class="ctrl-select" id="settingsTheme" onchange="updateSettings()">
             <option value="dark">dark</option>
-            <option value="light">light</option>
+            <option value="light" selected>light</option>
           </select>
         </div>
         <div class="ctrl-group">
@@ -462,6 +506,36 @@
         <div class="controls-grid">
           <button class="ctrl-btn success" onclick="createComponents()">&#x2728; Create All</button>
           <button class="ctrl-btn secondary" onclick="destroyComponents()">&#x1F5D1; Destroy</button>
+        </div>
+      </div>
+
+      <!-- Alarm Controls (visible when alarm tab is active) -->
+      <div class="controls-panel" id="alarmControls" style="display: none">
+        <h3>&#128276; Alarm Panel</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Qtd. Alarmes</label>
+          <select class="ctrl-select" id="alarmCountSelect" onchange="updateAlarmCount()">
+            <option value="5">5 alarmes</option>
+            <option value="10">10 alarmes</option>
+            <option value="20" selected>20 alarmes</option>
+            <option value="50">50 alarmes</option>
+            <option value="100">100 alarmes</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">showCustomerName</label>
+          <select class="ctrl-select" id="alarmShowCustomer" onchange="updateAlarmPanel()">
+            <option value="false" selected>false (shopping ctx)</option>
+            <option value="true">true (head office)</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="refreshAlarmPanel()">&#x1F504; Refresh</button>
+          <button class="ctrl-btn secondary" onclick="toggleAlarmLoading()">&#x23F3; Loading</button>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="reinitAlarmPanel()">&#x2728; Re-init</button>
+          <button class="ctrl-btn danger" onclick="destroyAlarmPanel()">&#x1F5D1; Destroy</button>
         </div>
       </div>
 
@@ -925,10 +999,257 @@
         targetEl.querySelector('.placeholder-component')?.classList.add('active');
       }
 
+      // Show/hide alarm controls in sidebar
+      const alarmControls = document.getElementById('alarmControls');
+      if (alarmControls) alarmControls.style.display = (tab === 'alarms') ? 'block' : 'none';
+
+      // Init alarm panel on first switch to alarms tab
+      if (tab === 'alarms' && !_alarmPanelInstance) {
+        setTimeout(initAlarmPanel, 50); // small delay so display:block takes effect
+      }
+
       // Dispatch event (controller.js listens to this)
       window.dispatchEvent(new CustomEvent('myio:dashboard-state', { detail: { tab } }));
       logEvent('TAB_CHANGED', tab);
       updateStateDisplay();
+    }
+
+    // =========================================================================
+    // ALARM PANEL — Mock data + component lifecycle
+    // =========================================================================
+
+    let _alarmPanelInstance = null;
+    let _alarmCount = 20;
+    let _alarmLoading = false;
+
+    const ALARM_SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+    const ALARM_STATES = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
+    const ALARM_TITLES = [
+      'Falha de comunicação com dispositivo',
+      'Temperatura fora da faixa configurada',
+      'Consumo de energia acima do limite',
+      'Manutenção preventiva necessária',
+      'Sensor desconectado',
+      'Vazamento detectado',
+      'Sobrecarga no circuito',
+      'Falha no sistema de refrigeração',
+      'Nível de água abaixo do mínimo',
+      'Dispositivo offline por mais de 24h',
+      'Alarme de tensão fora do padrão',
+      'Corrente de fuga detectada',
+    ];
+    // Sources: single device OR multi-device (comma-separated simulates real-world groups)
+    const ALARM_SOURCES = [
+      // Single device
+      'CHILLER-01',
+      'FANCOIL-03',
+      'ELV-01',
+      'ESC-01',
+      'MEDIDOR-01',
+      'HIDROMETRO-01',
+      'TERMOSTATO-01',
+      // Multi-device (2 devices)
+      'CHILLER-01, CHILLER-02',
+      'ELV-01, ELV-02',
+      'FANCOIL-01, FANCOIL-02',
+      // Multi-device (3–4 devices)
+      'ELV-01, ELV-02, ELV-03',
+      'FANCOIL-01, FANCOIL-02, FANCOIL-03',
+      'CHILLER-01, CHILLER-02, FANCOIL-01, FANCOIL-02',
+    ];
+
+    // Pinned rich alarms to showcase the details modal (multi-device + high occurrences)
+    const PINNED_ALARMS = [
+      {
+        id: 'ALM-PINNED-01',
+        customerId: 'cust-1',
+        customerName: 'Shopping Aricanduva',
+        source: 'ELV-01, ELV-02, ELV-03',
+        severity: 'HIGH',
+        state: 'OPEN',
+        title: 'Elevador energizado e não usado (seg-sáb)',
+        description: 'Alerta quando o elevador está energizado mas não está sendo usado de segunda a sábado (10:00–22:00). Verificar painel de controle e circuito de acionamento.',
+        tags: { alarmType: 'energy', deviceType: 'ELEVADOR', andar: 'todos' },
+        firstOccurrence: new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+        occurrenceCount: 50,
+      },
+      {
+        id: 'ALM-PINNED-02',
+        customerId: 'cust-2',
+        customerName: 'Mestre Alvaro',
+        source: 'CHILLER-01, CHILLER-02, FANCOIL-01, FANCOIL-02',
+        severity: 'CRITICAL',
+        state: 'OPEN',
+        title: 'Falha no sistema de refrigeração',
+        description: 'Sistema de refrigeração central apresentando falha intermitente. Chillers e fancoils desligando fora do horário programado.',
+        tags: { alarmType: 'temperature', deviceType: 'CHILLER', zona: 'ala-norte' },
+        firstOccurrence: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        occurrenceCount: 32,
+      },
+      {
+        id: 'ALM-PINNED-03',
+        customerId: 'cust-3',
+        customerName: 'Shopping Eldorado',
+        source: 'FANCOIL-01, FANCOIL-02, FANCOIL-03',
+        severity: 'MEDIUM',
+        state: 'ACK',
+        title: 'Consumo de energia acima do limite',
+        description: 'Consumo acumulado dos fancoils ultrapassa o limite contratual de demanda para o período.',
+        tags: { alarmType: 'energy', deviceType: 'FANCOIL', limite_kw: '250' },
+        firstOccurrence: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
+        occurrenceCount: 18,
+        acknowledgedAt: new Date().toISOString(),
+        acknowledgedBy: 'operador@myio.com.br',
+      },
+    ];
+
+    function generateFakeAlarms(count) {
+      const now = Date.now();
+      const alarms = [...PINNED_ALARMS];
+      for (let i = 0; i < count; i++) {
+        const severity = ALARM_SEVERITIES[Math.floor(Math.random() * ALARM_SEVERITIES.length)];
+        const state = ALARM_STATES[Math.floor(Math.random() * ALARM_STATES.length)];
+        const firstTs = now - Math.floor(Math.random() * 7 * 24 * 3600 * 1000);
+        const lastTs = firstTs + Math.floor(Math.random() * (now - firstTs));
+        const alarm = {
+          id: `ALM-${String(i + 1).padStart(6, '0')}`,
+          customerId: `cust-${(i % 3) + 1}`,
+          customerName: ['Mestre Alvaro', 'Shopping Aricanduva', 'Shopping Eldorado'][(i % 3)],
+          source: ALARM_SOURCES[i % ALARM_SOURCES.length],
+          severity,
+          state,
+          title: ALARM_TITLES[i % ALARM_TITLES.length],
+          description: 'Descrição detalhada do alarme de equipamento monitorado.',
+          tags: { alarmType: 'energy', deviceType: '3F_MEDIDOR' },
+          firstOccurrence: new Date(firstTs).toISOString(),
+          lastOccurrence: new Date(lastTs).toISOString(),
+          occurrenceCount: Math.floor(Math.random() * 20) + 1,
+        };
+        if (state === 'ACK') { alarm.acknowledgedAt = new Date().toISOString(); alarm.acknowledgedBy = 'operador@myio.com.br'; }
+        if (state === 'SNOOZED') { alarm.snoozedUntil = new Date(now + 4 * 3600 * 1000).toISOString(); }
+        alarms.push(alarm);
+      }
+      return alarms;
+    }
+
+    function generateFakeTrend() {
+      const now = new Date();
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() - (6 - i));
+        return {
+          label: d.toLocaleDateString('pt-BR', { weekday: 'short' }),
+          timestamp: d.getTime(),
+          total: Math.floor(Math.random() * 25) + 3,
+          bySeverity: { CRITICAL: Math.floor(Math.random() * 5), HIGH: Math.floor(Math.random() * 8), MEDIUM: Math.floor(Math.random() * 6), LOW: Math.floor(Math.random() * 4), INFO: Math.floor(Math.random() * 3) },
+        };
+      });
+    }
+
+    function _buildAlarmStats(alarms) {
+      const bySeverity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+      const byState = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
+      alarms.forEach(a => { bySeverity[a.severity] = (bySeverity[a.severity] || 0) + 1; byState[a.state] = (byState[a.state] || 0) + 1; });
+      return { total: alarms.length, bySeverity, byState, openCritical: bySeverity.CRITICAL, openHigh: bySeverity.HIGH, last24Hours: Math.floor(alarms.length * 0.3) };
+    }
+
+    function initAlarmPanel() {
+      const lib = window.MyIOLibrary;
+      if (!lib?.createAlarmsNotificationsPanelComponent) {
+        logEvent('ALARM', 'createAlarmsNotificationsPanelComponent not available', 'error');
+        return;
+      }
+
+      const container = document.getElementById('alarmPanelContainer');
+      if (!container) { logEvent('ALARM', '#alarmPanelContainer not found', 'error'); return; }
+
+      // Clear previous instance
+      if (_alarmPanelInstance?.destroy) _alarmPanelInstance.destroy();
+      container.innerHTML = '';
+      _alarmPanelInstance = null;
+
+      const showCustomerName = document.getElementById('alarmShowCustomer')?.value === 'true';
+      const themeMode = document.getElementById('settingsTheme')?.value || 'light';
+
+      _alarmPanelInstance = lib.createAlarmsNotificationsPanelComponent({
+        container,
+        themeMode,
+        alarms: generateFakeAlarms(_alarmCount),
+        showCustomerName,
+        enableDebugMode: true,
+        onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
+        onAlarmAction: async (action, alarm) => {
+          logEvent('ALARM_ACTION', `${action}: ${alarm.id}`, 'info');
+          // Simulate action delay then refresh
+          setTimeout(() => refreshAlarmPanel(), 300);
+        },
+        onTabChange: (tab) => logEvent('ALARM_TAB', tab, 'info'),
+      });
+
+      // Bind header buttons
+      const btnRefresh = document.getElementById('btnRefresh');
+      if (btnRefresh) {
+        btnRefresh.onclick = () => {
+          btnRefresh.classList.add('is-spinning');
+          setTimeout(() => { refreshAlarmPanel(); btnRefresh.classList.remove('is-spinning'); }, 600);
+        };
+      }
+
+      // Update count badge
+      const alarms = generateFakeAlarms(_alarmCount);
+      const openCount = alarms.filter(a => a.state === 'OPEN' || a.state === 'ESCALATED').length;
+      const badge = document.getElementById('alarmCountBadge');
+      if (badge) { badge.style.display = 'inline-flex'; badge.textContent = openCount > 99 ? '99+' : String(openCount); }
+
+      // Feed trend data
+      if (_alarmPanelInstance?.updateTrendData) _alarmPanelInstance.updateTrendData(generateFakeTrend());
+
+      logEvent('ALARM', `Panel initialized with ${_alarmCount} alarms`, 'info');
+    }
+
+    function refreshAlarmPanel() {
+      if (!_alarmPanelInstance) return;
+      const alarms = generateFakeAlarms(_alarmCount);
+      _alarmPanelInstance.updateAlarms?.(alarms);
+      _alarmPanelInstance.updateStats?.(_buildAlarmStats(alarms));
+      _alarmPanelInstance.updateTrendData?.(generateFakeTrend());
+      const openCount = alarms.filter(a => a.state === 'OPEN' || a.state === 'ESCALATED').length;
+      const badge = document.getElementById('alarmCountBadge');
+      if (badge) badge.textContent = openCount > 99 ? '99+' : String(openCount);
+      logEvent('ALARM', `Refreshed: ${alarms.length} alarms`, 'info');
+    }
+
+    function updateAlarmCount() {
+      _alarmCount = parseInt(document.getElementById('alarmCountSelect').value, 10);
+      refreshAlarmPanel();
+    }
+
+    function updateAlarmPanel() {
+      reinitAlarmPanel();
+    }
+
+    function reinitAlarmPanel() {
+      initAlarmPanel();
+    }
+
+    function destroyAlarmPanel() {
+      if (_alarmPanelInstance?.destroy) _alarmPanelInstance.destroy();
+      _alarmPanelInstance = null;
+      const container = document.getElementById('alarmPanelContainer');
+      if (container) container.innerHTML = '';
+      const badge = document.getElementById('alarmCountBadge');
+      if (badge) badge.style.display = 'none';
+      logEvent('ALARM', 'Panel destroyed', 'warn');
+    }
+
+    function toggleAlarmLoading() {
+      if (!_alarmPanelInstance) return;
+      _alarmLoading = !_alarmLoading;
+      _alarmPanelInstance.setLoading?.(_alarmLoading);
+      logEvent('ALARM', `Loading: ${_alarmLoading}`, 'info');
     }
 
     // ===== COMPONENT CREATION (after orchestrator is ready) =====
@@ -963,6 +1284,12 @@
               showLogoutButton: true,
               showLibraryVersion: true,
               showHamburgerToggle: true,
+              tabs: [
+                { id: 'tab-energy',      domain: 'energy',      label: 'Energia',     icon: '⚡',  enabled: true },
+                { id: 'tab-water',       domain: 'water',       label: 'Água',        icon: '💧',  enabled: true },
+                { id: 'tab-temperature', domain: 'temperature', label: 'Temperatura', icon: '🌡️', enabled: true },
+                { id: 'tab-alarms',      domain: 'alarms',      label: 'Alarmes',     icon: '🔔',  enabled: true },
+              ],
             },
             onTabChange: (domain, tabId) => {
               logEvent('MENU', `Tab changed: ${domain} (${tabId})`, 'info');

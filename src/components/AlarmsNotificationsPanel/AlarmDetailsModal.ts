@@ -1,0 +1,1056 @@
+/**
+ * RFC-0152 Phase 4: Alarm Details Modal
+ * Premium right-side drawer with occurrence timeline, device map, and full alarm info
+ */
+
+import type { Alarm } from '../../types/alarm';
+import { SEVERITY_CONFIG, STATE_CONFIG } from '../../types/alarm';
+import {
+  buildAnnotationsPanelHtml,
+  bindAnnotationsPanelEvents,
+  getActiveAnnotationCount,
+} from './AlarmAnnotations';
+
+// =====================================================================
+// Helpers
+// =====================================================================
+
+function fmt(isoString: string | number | null | undefined): string {
+  if (!isoString) return '-';
+  const d = new Date(isoString as string);
+  if (isNaN(d.getTime())) return '-';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+}
+
+function fmtDateInput(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function durationLabel(ms: number): string {
+  if (ms < 60_000) return '< 1 min';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// =====================================================================
+// Timeline builder
+// =====================================================================
+
+function buildTimeline(alarm: Alarm): string {
+  const count = alarm.occurrenceCount || 1;
+  const firstMs = new Date(alarm.firstOccurrence).getTime();
+  const lastMs = new Date(alarm.lastOccurrence).getTime();
+  const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
+
+  function occItem(
+    n: number,
+    tsMs: number,
+    meta: string,
+    extraClass = ''
+  ): string {
+    return `
+      <div class="adm-timeline-item ${extraClass}">
+        <div class="adm-timeline-dot"></div>
+        <div class="adm-timeline-content">
+          <div class="adm-timeline-num">Ocorrência #${n}</div>
+          <div class="adm-timeline-time">${fmt(tsMs)}</div>
+          ${meta ? `<div class="adm-timeline-meta">${meta}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  if (count === 1) {
+    return occItem(1, firstMs, 'Único registro detectado', 'is-single');
+  }
+
+  if (count === 2) {
+    return (
+      occItem(2, lastMs, 'Mais recente', 'is-last') +
+      occItem(1, firstMs, 'Primeiro registro', 'is-first')
+    );
+  }
+
+  if (count === 3) {
+    const mid = firstMs + interval;
+    return (
+      occItem(3, lastMs, 'Mais recente', 'is-last') +
+      occItem(2, mid, 'Estimado', '') +
+      occItem(1, firstMs, 'Primeiro registro', 'is-first')
+    );
+  }
+
+  // count > 3: show last 2, ellipsis, first 2
+  const skipCount = count - 4;
+  const skipLabel =
+    skipCount > 0
+      ? `<div class="adm-timeline-ellipsis">
+           <span class="adm-timeline-ellipsis-dots">· · ·</span>
+           <span class="adm-timeline-ellipsis-label">${skipCount} ocorrência${skipCount !== 1 ? 's' : ''} intermediária${skipCount !== 1 ? 's' : ''}</span>
+         </div>`
+      : '';
+
+  return (
+    occItem(count, lastMs, 'Mais recente', 'is-last') +
+    occItem(count - 1, lastMs - interval, 'Estimado', '') +
+    skipLabel +
+    occItem(2, firstMs + interval, 'Estimado', '') +
+    occItem(1, firstMs, 'Primeiro registro', 'is-first')
+  );
+}
+
+// =====================================================================
+// Chart helpers
+// =====================================================================
+
+/** Deterministic pseudo-random seeded by a number */
+function seededRand(seed: number): () => number {
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  return () => {
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = (s ^ (s >>> 16)) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
+/** Hash a string to a stable integer */
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+interface Bucket {
+  label: string;
+  total: number;
+  byDevice: Record<string, number>; // device → count
+}
+
+/**
+ * Generate synthetic time-bucketed occurrence data.
+ * Distributes occurrenceCount across buckets using seeded noise + bell curve.
+ */
+function generateBuckets(alarm: Alarm, devices: string[], period: Period = 'mes'): Bucket[] {
+  const count = alarm.occurrenceCount || 1;
+  const firstMs = new Date(alarm.firstOccurrence).getTime();
+  const lastMs = new Date(alarm.lastOccurrence).getTime();
+  const durMs = Math.max(lastMs - firstMs, 3_600_000); // at least 1h
+
+  let numBuckets: number;
+  let bucketMs: number;
+  let labelFn: (ms: number) => string;
+
+  if (period === 'hora') {
+    bucketMs = 3_600_000;
+    numBuckets = Math.max(4, Math.min(24, Math.ceil(durMs / bucketMs)));
+    labelFn = (ms) => `${String(new Date(ms).getHours()).padStart(2, '0')}h`;
+  } else if (period === 'dia') {
+    bucketMs = 86_400_000;
+    numBuckets = Math.max(2, Math.min(31, Math.ceil(durMs / bucketMs)));
+    labelFn = (ms) => {
+      const d = new Date(ms);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+  } else if (period === 'semana') {
+    bucketMs = 7 * 86_400_000;
+    numBuckets = Math.max(2, Math.min(26, Math.ceil(durMs / bucketMs)));
+    labelFn = (ms) => {
+      const d = new Date(ms);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+  } else {
+    // 'mes'
+    bucketMs = 30 * 86_400_000;
+    numBuckets = Math.max(2, Math.min(24, Math.ceil(durMs / bucketMs)));
+    const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    labelFn = (ms) => months[new Date(ms).getMonth()];
+  }
+
+  const seed = hashStr(alarm.id + period);
+  const rand = seededRand(seed);
+
+  // Generate weight per bucket (bell-curve + noise)
+  const weights = Array.from({ length: numBuckets }, (_, i) => {
+    const center = (numBuckets - 1) / 2;
+    const bell = 1 - 0.45 * Math.abs(i - center) / (center || 1);
+    return Math.max(0.1, bell * (0.6 + rand() * 0.8));
+  });
+  const wSum = weights.reduce((a, b) => a + b, 0);
+
+  // Distribute count across buckets
+  const totals: number[] = new Array(numBuckets).fill(0);
+  let remaining = count;
+  for (let i = 0; i < numBuckets - 1; i++) {
+    const v = Math.round((weights[i] / wSum) * count);
+    totals[i] = Math.min(v, remaining);
+    remaining -= totals[i];
+  }
+  totals[numBuckets - 1] = Math.max(0, remaining);
+
+  // Distribute each bucket's total across devices
+  return Array.from({ length: numBuckets }, (_, i) => {
+    const ts = firstMs + i * bucketMs;
+    const total = totals[i];
+    const byDevice: Record<string, number> = {};
+    if (devices.length === 1) {
+      byDevice[devices[0]] = total;
+    } else {
+      let rem = total;
+      for (let d = 0; d < devices.length - 1; d++) {
+        const share = Math.round(rand() * rem * (1 / (devices.length - d)));
+        byDevice[devices[d]] = share;
+        rem -= share;
+      }
+      byDevice[devices[devices.length - 1]] = Math.max(0, rem);
+    }
+    return { label: labelFn(ts), total, byDevice };
+  });
+}
+
+/** Generate day-of-week distribution (0=Sun…6=Sat) */
+function generateDowDistribution(alarm: Alarm): number[] {
+  const count = alarm.occurrenceCount || 1;
+  const rand = seededRand(hashStr(alarm.id + 'dow'));
+  const weights = [0.2, 1, 0.95, 0.9, 0.85, 0.8, 0.3]; // Sun–Sat bias
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  const vals = weights.map((w) => Math.round((w / wSum) * count * (0.7 + rand() * 0.6)));
+  return vals;
+}
+
+/** Generate hour-of-day distribution (0–23) */
+function generateHodDistribution(alarm: Alarm): number[] {
+  const count = alarm.occurrenceCount || 1;
+  const rand = seededRand(hashStr(alarm.id + 'hod'));
+  // Business-hours bias (peak 10-19)
+  const weights = Array.from({ length: 24 }, (_, h) => {
+    if (h < 6) return 0.05 + rand() * 0.05;
+    if (h < 10) return 0.3 + rand() * 0.3;
+    if (h <= 19) return 0.7 + rand() * 0.6;
+    if (h <= 22) return 0.3 + rand() * 0.3;
+    return 0.05 + rand() * 0.05;
+  });
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  return weights.map((w) => Math.max(0, Math.round((w / wSum) * count)));
+}
+
+// Device palette
+const DEV_COLORS = [
+  '#7c3aed', '#2563eb', '#16a34a', '#d97706',
+  '#dc2626', '#0891b2', '#9333ea', '#65a30d',
+];
+
+type VizMode = 'total' | 'separate';
+type Period = 'hora' | 'dia' | 'semana' | 'mes';
+
+function chartGrid(cW: number, cH: number, maxVal: number): string {
+  return [0, 0.25, 0.5, 0.75, 1]
+    .map((pct) => {
+      const y = (cH * pct).toFixed(1);
+      const val = Math.round(maxVal * (1 - pct));
+      return `<line x1="0" y1="${y}" x2="${cW}" y2="${y}" stroke="#f3f4f6" stroke-width="1"/>
+        <text x="-5" y="${(cH * pct + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#9ca3af">${val}</text>`;
+    })
+    .join('');
+}
+
+function chartXLabels(buckets: Bucket[], cW: number, cH: number): string {
+  const step = buckets.length > 12 ? Math.ceil(buckets.length / 12) : 1;
+  return buckets
+    .map((b, i) => {
+      if (i % step !== 0 && i !== buckets.length - 1) return '';
+      const x = ((i + 0.5) * cW / buckets.length).toFixed(1);
+      return `<text x="${x}" y="${(cH + 18).toFixed(1)}" text-anchor="middle" font-size="8" fill="#9ca3af">${b.label}</text>`;
+    })
+    .join('');
+}
+
+function chartLegend(devices: string[]): string {
+  return `<div class="adm-chart-legend">${devices
+    .map(
+      (dev, di) =>
+        `<span class="adm-chart-legend-item">
+           <span class="adm-chart-legend-dot" style="background:${DEV_COLORS[di % DEV_COLORS.length]}"></span>
+           ${escHtml(dev)}
+         </span>`
+    )
+    .join('')}</div>`;
+}
+
+/** Bar chart — stacked per device or single total */
+function buildBarChartHtml(
+  buckets: Bucket[],
+  devices: string[],
+  singleColor: string,
+  vizMode: VizMode
+): string {
+  const W = 560;
+  const H = 160;
+  const PAD = { top: 14, right: 8, bottom: 30, left: 32 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const multi = vizMode === 'separate' && devices.length > 1;
+
+  const maxVal = Math.max(...buckets.map((b) => b.total), 1);
+  const barSlot = cW / buckets.length;
+  const barW = Math.max(3, Math.min(28, barSlot * 0.65));
+
+  const bars = buckets
+    .map((b, i) => {
+      const groupCenterX = i * barSlot + barSlot / 2;
+      let rects: string;
+      let labelX: number;
+
+      if (multi) {
+        // Grouped (side-by-side) bars
+        const subW = Math.max(2, Math.min((barSlot * 0.82) / devices.length, 18));
+        const gap = Math.min(1.5, subW * 0.18);
+        const groupW = devices.length * subW + (devices.length - 1) * gap;
+        const gx0 = groupCenterX - groupW / 2;
+        rects = devices
+          .map((dev, di) => {
+            const v = b.byDevice[dev] ?? 0;
+            const bh = Math.max(0, (v / maxVal) * cH);
+            const bx = gx0 + di * (subW + gap);
+            return `<rect x="${bx.toFixed(1)}" y="${(cH - bh).toFixed(1)}" width="${subW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${DEV_COLORS[di % DEV_COLORS.length]}" rx="1" opacity="0.88"/>`;
+          })
+          .join('');
+        labelX = groupCenterX;
+      } else {
+        const bh = Math.max(0, (b.total / maxVal) * cH);
+        const bx = groupCenterX - barW / 2;
+        rects = `<rect x="${bx.toFixed(1)}" y="${(cH - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${singleColor}" rx="1.5" opacity="0.85"/>`;
+        labelX = groupCenterX;
+      }
+
+      return rects + `<text x="${labelX.toFixed(1)}" y="${(cH + 18).toFixed(1)}" text-anchor="middle" font-size="8" fill="#9ca3af">${b.label}</text>`;
+    })
+    .join('');
+
+  const trendPts = buckets
+    .map((b, i) => `${((i + 0.5) * barSlot).toFixed(1)},${(cH - (b.total / maxVal) * cH).toFixed(1)}`)
+    .join(' ');
+
+  const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+    <g transform="translate(${PAD.left},${PAD.top})">
+      ${chartGrid(cW, cH, maxVal)}
+      ${bars}
+      <polyline points="${trendPts}" fill="none" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round" opacity="0.35"/>
+    </g>
+  </svg>`;
+
+  return svg + (multi ? chartLegend(devices) : '');
+}
+
+/** Line/area chart — one curve per device or single total */
+function buildLineChartHtml(
+  buckets: Bucket[],
+  devices: string[],
+  singleColor: string,
+  vizMode: VizMode
+): string {
+  const W = 560;
+  const H = 160;
+  const PAD = { top: 14, right: 8, bottom: 30, left: 32 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const multi = vizMode === 'separate' && devices.length > 1;
+
+  const maxVal = Math.max(...buckets.map((b) => b.total), 1);
+  const xOf = (i: number) => ((i + 0.5) * cW / buckets.length).toFixed(1);
+  const yOf = (v: number) => (cH - (v / maxVal) * cH).toFixed(1);
+
+  let paths = '';
+
+  if (multi) {
+    for (let di = 0; di < devices.length; di++) {
+      const color = DEV_COLORS[di % DEV_COLORS.length];
+      const pts = buckets.map((b, i) => `${xOf(i)},${yOf(b.byDevice[devices[di]] ?? 0)}`);
+      const areaD = `M ${xOf(0)},${cH} L ${pts.join(' L ')} L ${xOf(buckets.length - 1)},${cH} Z`;
+      paths += `<path d="${areaD}" fill="${color}" opacity="0.1"/>`;
+      paths += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      buckets.forEach((b, i) => {
+        paths += `<circle cx="${xOf(i)}" cy="${yOf(b.byDevice[devices[di]] ?? 0)}" r="3" fill="${color}" stroke="#fff" stroke-width="1.5"/>`;
+      });
+    }
+  } else {
+    const pts = buckets.map((b, i) => `${xOf(i)},${yOf(b.total)}`);
+    const areaD = `M ${xOf(0)},${cH} L ${pts.join(' L ')} L ${xOf(buckets.length - 1)},${cH} Z`;
+    paths += `<path d="${areaD}" fill="${singleColor}" opacity="0.12"/>`;
+    paths += `<polyline points="${pts.join(' ')}" fill="none" stroke="${singleColor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    buckets.forEach((b, i) => {
+      paths += `<circle cx="${xOf(i)}" cy="${yOf(b.total)}" r="3.5" fill="${singleColor}" stroke="#fff" stroke-width="1.5"/>`;
+    });
+  }
+
+  const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+    <g transform="translate(${PAD.left},${PAD.top})">
+      ${chartGrid(cW, cH, maxVal)}
+      ${chartXLabels(buckets, cW, cH)}
+      ${paths}
+    </g>
+  </svg>`;
+
+  return svg + (multi ? chartLegend(devices) : '');
+}
+
+/** Compact 7-bar DOW chart (Sun=0) */
+function buildDowChart(vals: number[]): string {
+  const LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const maxV = Math.max(...vals, 1);
+  const barMaxW = 200;
+  const rows = LABELS.map((lbl, i) => {
+    const pct = vals[i] / maxV;
+    const w = Math.round(pct * barMaxW);
+    const opacity = 0.3 + pct * 0.7;
+    return `<div class="adm-dow-row">
+      <span class="adm-dow-label">${lbl}</span>
+      <div class="adm-dow-track">
+        <div class="adm-dow-bar" style="width:${w}px;opacity:${opacity.toFixed(2)}"></div>
+      </div>
+      <span class="adm-dow-val">${vals[i]}</span>
+    </div>`;
+  }).join('');
+  return `<div class="adm-dow-chart">${rows}</div>`;
+}
+
+/** Compact 24-column HOD heatmap */
+function buildHodChart(vals: number[]): string {
+  const maxV = Math.max(...vals, 1);
+  const cells = vals.map((v, h) => {
+    const pct = v / maxV;
+    const opacity = 0.08 + pct * 0.92;
+    return `<div class="adm-hod-cell" title="${h}:00 — ${v} ocorrências" style="opacity:${opacity.toFixed(2)}">
+      <div class="adm-hod-bar" style="height:${Math.max(4, Math.round(pct * 40))}px"></div>
+      <span class="adm-hod-label">${h}</span>
+    </div>`;
+  }).join('');
+  return `<div class="adm-hod-chart">${cells}</div>`;
+}
+
+// =====================================================================
+// Device list parser — source may be "dev-01, dev-02; dev-03" or single
+// =====================================================================
+
+function parseDevices(source: string): string[] {
+  return source
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// =====================================================================
+// Main export
+// =====================================================================
+
+export function openAlarmDetailsModal(alarm: Alarm): void {
+  const sev = SEVERITY_CONFIG[alarm.severity];
+  const st = STATE_CONFIG[alarm.state];
+
+  const count = alarm.occurrenceCount || 1;
+  const firstMs = new Date(alarm.firstOccurrence).getTime();
+  const lastMs = new Date(alarm.lastOccurrence).getTime();
+  const durMs = Math.max(0, lastMs - firstMs);
+  const durLabel = durationLabel(durMs);
+  const avgFreq =
+    count > 1
+      ? durationLabel(durMs / (count - 1)) + ' entre ocorrências'
+      : 'Evento único';
+
+  const devices = parseDevices(alarm.source);
+  const deviceCount = devices.length;
+
+  const tagEntries = Object.entries(alarm.tags || {});
+  const tagsHtml =
+    tagEntries.length > 0
+      ? tagEntries
+          .map(
+            ([k, v]) =>
+              `<span class="adm-tag"><span class="adm-tag-key">${escHtml(k)}</span>: ${escHtml(v)}</span>`
+          )
+          .join('')
+      : '<span class="adm-empty-inline">Nenhuma tag</span>';
+
+  // Conditional rows helper
+  const row = (label: string, value: string | undefined | null) =>
+    value
+      ? `<div class="adm-row"><span class="adm-row-label">${label}</span><span class="adm-row-value">${escHtml(value)}</span></div>`
+      : '';
+
+  // Device list HTML
+  const devicesListHtml = devices
+    .map(
+      (dev, i) => `
+      <div class="adm-device-row">
+        <span class="adm-device-row-index">${i + 1}</span>
+        <div class="adm-device-icon-sm">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7c3aed" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+          </svg>
+        </div>
+        <span class="adm-device-row-name">${escHtml(dev)}</span>
+        <span class="adm-device-row-sub">${escHtml(alarm.customerName || '-')}</span>
+      </div>`
+    )
+    .join('');
+
+  // Pre-render chart data (deterministic, seeded by alarm.id)
+  const initialPeriod: Period =
+    durMs < 86_400_000 ? 'hora' :
+    durMs < 7 * 86_400_000 ? 'dia' :
+    durMs < 30 * 86_400_000 ? 'semana' : 'mes';
+  const buckets = generateBuckets(alarm, devices, initialPeriod);
+  const dowVals = generateDowDistribution(alarm);
+  const hodVals = generateHodDistribution(alarm);
+  const chartSingleColor = sev.text || '#7c3aed';
+  const barTotalHtml = buildBarChartHtml(buckets, devices, chartSingleColor, 'total');
+  const barSepHtml =
+    devices.length > 1
+      ? buildBarChartHtml(buckets, devices, chartSingleColor, 'separate')
+      : barTotalHtml;
+  const lineTotalHtml = buildLineChartHtml(buckets, devices, chartSingleColor, 'total');
+  const lineSepHtml =
+    devices.length > 1
+      ? buildLineChartHtml(buckets, devices, chartSingleColor, 'separate')
+      : lineTotalHtml;
+  const dowChartHtml = buildDowChart(dowVals);
+  const hodChartHtml = buildHodChart(hodVals);
+
+  // Annotation count (persisted across modal open/close in session)
+  const annotCount = getActiveAnnotationCount(alarm.id);
+
+  // Header source display
+  const sourceDisplay =
+    deviceCount > 1
+      ? `${deviceCount} dispositivos`
+      : escHtml(alarm.source);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'adm-overlay';
+
+  overlay.innerHTML = `
+    <div class="adm-drawer" role="dialog" aria-modal="true" aria-label="Detalhes do alarme">
+
+      <!-- ── Header ── -->
+      <div class="adm-header">
+        <div class="adm-header-top">
+          <h2 class="adm-title" title="${escHtml(alarm.title)}">${escHtml(alarm.title)}</h2>
+          <button class="adm-close" id="admClose" title="Fechar (Esc)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="adm-badges">
+          <span class="adm-badge-severity" style="background:${sev.bg};color:${sev.text}">${sev.icon} ${sev.label}</span>
+          <span class="adm-badge-state" style="color:${st.color}">${st.label}</span>
+          <span class="adm-badge-source" title="${escHtml(alarm.source)}">${sourceDisplay}</span>
+        </div>
+      </div>
+
+      <!-- ── Tabs ── -->
+      <nav class="adm-tabs">
+        <button class="adm-tab is-active" data-panel="resumo">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          Resumo
+        </button>
+        <button class="adm-tab" data-panel="timeline">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 18a8 8 0 110-16 8 8 0 010 16zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+          Timeline <span class="adm-tab-badge">${count}</span>
+        </button>
+        <button class="adm-tab" data-panel="dispositivos">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 3H4a1 1 0 00-1 1v12a1 1 0 001 1h8v2H8v2h8v-2h-4v-2h8a1 1 0 001-1V4a1 1 0 00-1-1zm-1 12H5V5h14v10z"/></svg>
+          Dispositivos <span class="adm-tab-badge">${deviceCount}</span>
+        </button>
+        <button class="adm-tab" data-panel="grafico">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 20 9 12 14 16 19 6"/><polyline points="19 6 19 10"/><polyline points="19 6 15 6"/></svg>
+          Gráfico
+        </button>
+        <button class="adm-tab" data-panel="relatorio">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Relatório
+        </button>
+        <button class="adm-tab" data-panel="anotacoes">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+          Anotações${annotCount > 0 ? ` <span class="adm-tab-badge">${annotCount}</span>` : ''}
+        </button>
+      </nav>
+
+      <!-- ── Body ── -->
+      <div class="adm-body">
+
+        <!-- RESUMO -->
+        <div class="adm-panel is-active" data-panel="resumo">
+          <div class="adm-kpi-grid">
+            <div class="adm-kpi">
+              <div class="adm-kpi-value" style="color:${sev.text}">${count}</div>
+              <div class="adm-kpi-label">Ocorrências</div>
+            </div>
+            <div class="adm-kpi">
+              <div class="adm-kpi-value">${deviceCount}</div>
+              <div class="adm-kpi-label">Dispositivos</div>
+            </div>
+            <div class="adm-kpi">
+              <div class="adm-kpi-value">${durLabel}</div>
+              <div class="adm-kpi-label">Duração</div>
+            </div>
+          </div>
+
+          ${alarm.description ? `<div class="adm-description">${escHtml(alarm.description)}</div>` : ''}
+
+          <div class="adm-section">
+            <div class="adm-section-title">Identificação</div>
+            ${row('Shopping', alarm.customerName)}
+            ${row('Dispositivo(s)', alarm.source)}
+            ${row('ID', alarm.id)}
+          </div>
+
+          <div class="adm-section">
+            <div class="adm-section-title">Datas</div>
+            ${row('Primeira ocorrência', fmt(alarm.firstOccurrence))}
+            ${row('Última ocorrência', fmt(alarm.lastOccurrence))}
+            ${alarm.acknowledgedAt ? row('Reconhecido em', fmt(alarm.acknowledgedAt)) : ''}
+            ${alarm.acknowledgedBy ? row('Reconhecido por', alarm.acknowledgedBy) : ''}
+            ${alarm.snoozedUntil ? row('Adiado até', fmt(alarm.snoozedUntil)) : ''}
+            ${alarm.closedAt ? row('Fechado em', fmt(alarm.closedAt)) : ''}
+            ${alarm.closedBy ? row('Fechado por', alarm.closedBy) : ''}
+            ${alarm.closedReason ? row('Motivo', alarm.closedReason) : ''}
+          </div>
+
+          ${
+            tagEntries.length > 0
+              ? `<div class="adm-section">
+              <div class="adm-section-title">Tags</div>
+              <div class="adm-tags">${tagsHtml}</div>
+            </div>`
+              : ''
+          }
+        </div>
+
+        <!-- TIMELINE -->
+        <div class="adm-panel" data-panel="timeline">
+          <div class="adm-section">
+            <div class="adm-section-title">${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela</div>
+            <div class="adm-timeline">
+              ${buildTimeline(alarm)}
+            </div>
+          </div>
+
+          ${
+            count > 1
+              ? `<div class="adm-section">
+            <div class="adm-section-title">Estatísticas de recorrência</div>
+            ${row('Frequência média', avgFreq)}
+            ${row('Janela total', durLabel)}
+            ${row('Primeira ocorrência', fmt(alarm.firstOccurrence))}
+            ${row('Última ocorrência', fmt(alarm.lastOccurrence))}
+          </div>`
+              : ''
+          }
+        </div>
+
+        <!-- DISPOSITIVOS -->
+        <div class="adm-panel" data-panel="dispositivos">
+          <div class="adm-section">
+            <div class="adm-section-title">${deviceCount} dispositivo${deviceCount !== 1 ? 's' : ''} de origem</div>
+            <div class="adm-devices-list">
+              ${devicesListHtml}
+            </div>
+          </div>
+
+          <!-- Occurrence × Device matrix -->
+          <div class="adm-section">
+            <div class="adm-section-title">Mapa ocorrências × dispositivos</div>
+            <div class="adm-matrix">
+              <div class="adm-matrix-header">
+                <span>Ocorrência</span><span>Timestamp</span><span>Dispositivos</span>
+              </div>
+              ${buildOccurrenceMatrix(alarm, devices)}
+            </div>
+          </div>
+
+          ${
+            tagEntries.length > 0
+              ? `<div class="adm-section">
+            <div class="adm-section-title">Atributos</div>
+            <div class="adm-tags">${tagsHtml}</div>
+          </div>`
+              : ''
+          }
+        </div>
+
+        <!-- RELATÓRIO -->
+        <div class="adm-panel" data-panel="relatorio">
+          <div class="adm-report-toolbar">
+            <div class="adm-report-date-row">
+              <label class="adm-report-label">De</label>
+              <input type="date" class="adm-report-date-input" id="admRptStart" value="${fmtDateInput(firstMs)}">
+              <label class="adm-report-label">Até</label>
+              <input type="date" class="adm-report-date-input" id="admRptEnd" value="${fmtDateInput(lastMs)}">
+              <div class="adm-chart-ctrl-group">
+                <button class="adm-chart-btn" data-rpt-period="hora">Hora</button>
+                <button class="adm-chart-btn is-active" data-rpt-period="dia">Dia</button>
+                <button class="adm-chart-btn" data-rpt-period="semana">Semana</button>
+                <button class="adm-chart-btn" data-rpt-period="mes">Mês</button>
+              </div>
+            </div>
+            <button class="adm-report-emit-btn" id="admRptEmit">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+              Emitir Relatório
+            </button>
+          </div>
+          <div class="adm-report-grid" id="admRptGrid">
+            <div class="adm-report-empty-hint">Configure o período e clique em <strong>Emitir Relatório</strong>.</div>
+          </div>
+        </div>
+
+        <!-- GRÁFICO -->
+        <div class="adm-panel" data-panel="grafico">
+          <div class="adm-chart-controls">
+            <div class="adm-chart-ctrl-group">
+              <button class="adm-chart-btn is-active" data-chart-type="bar">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><rect x="2" y="10" width="4" height="12" rx="1"/><rect x="9" y="6" width="4" height="16" rx="1"/><rect x="16" y="2" width="4" height="20" rx="1"/></svg>
+                Barras
+              </button>
+              <button class="adm-chart-btn" data-chart-type="line">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 20 9 12 14 16 19 6"/></svg>
+                Linha
+              </button>
+            </div>
+            ${devices.length > 1 ? `<div class="adm-chart-ctrl-group">
+              <button class="adm-chart-btn is-active" data-viz-mode="total">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
+                Consolidado
+              </button>
+              <button class="adm-chart-btn" data-viz-mode="separate">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/></svg>
+                Por dispositivo
+              </button>
+            </div>` : ''}
+            <div class="adm-chart-ctrl-group">
+              <button class="adm-chart-btn ${initialPeriod === 'hora' ? 'is-active' : ''}" data-period="hora">Hora</button>
+              <button class="adm-chart-btn ${initialPeriod === 'dia' ? 'is-active' : ''}" data-period="dia">Dia</button>
+              <button class="adm-chart-btn ${initialPeriod === 'semana' ? 'is-active' : ''}" data-period="semana">Semana</button>
+              <button class="adm-chart-btn ${initialPeriod === 'mes' ? 'is-active' : ''}" data-period="mes">Mês</button>
+            </div>
+          </div>
+
+          <div class="adm-section">
+            <div class="adm-section-title">Tendência de ocorrências no período</div>
+            <div class="adm-chart-wrapper">
+              <div class="adm-chart-variant is-active" data-chart-type="bar" data-viz-mode="total">${barTotalHtml}</div>
+              <div class="adm-chart-variant" data-chart-type="bar" data-viz-mode="separate">${barSepHtml}</div>
+              <div class="adm-chart-variant" data-chart-type="line" data-viz-mode="total">${lineTotalHtml}</div>
+              <div class="adm-chart-variant" data-chart-type="line" data-viz-mode="separate">${lineSepHtml}</div>
+            </div>
+          </div>
+
+          <div class="adm-chart-secondary-grid">
+            <div class="adm-section">
+              <div class="adm-section-title">Por dia da semana</div>
+              ${dowChartHtml}
+            </div>
+            <div class="adm-section">
+              <div class="adm-section-title">Por hora do dia</div>
+              ${hodChartHtml}
+            </div>
+          </div>
+        </div>
+
+        <!-- ANOTAÇÕES -->
+        <div class="adm-panel" data-panel="anotacoes">
+          ${buildAnnotationsPanelHtml(alarm.id)}
+        </div>
+
+      </div><!-- /adm-body -->
+    </div><!-- /adm-drawer -->
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Animate in
+  requestAnimationFrame(() => overlay.classList.add('adm-overlay--visible'));
+
+  // Tab switching
+  overlay.querySelectorAll<HTMLElement>('.adm-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const panel = btn.getAttribute('data-panel');
+      overlay.querySelectorAll('.adm-tab').forEach((b) => b.classList.remove('is-active'));
+      overlay.querySelectorAll('.adm-panel').forEach((p) => p.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      overlay.querySelector(`.adm-panel[data-panel="${panel}"]`)?.classList.add('is-active');
+    });
+  });
+
+  // Chart toggle handlers (scoped to grafico panel)
+  const graficoPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="grafico"]');
+  if (graficoPanel) {
+    let activeChartType = 'bar';
+    let activeVizMode = 'total';
+    let activePeriod: Period = initialPeriod;
+
+    const updateChartVariant = () => {
+      graficoPanel.querySelectorAll<HTMLElement>('.adm-chart-variant').forEach((el) => {
+        const show =
+          el.dataset.chartType === activeChartType && el.dataset.vizMode === activeVizMode;
+        el.classList.toggle('is-active', show);
+      });
+    };
+
+    const rebuildCharts = (period: Period) => {
+      const nb = generateBuckets(alarm, devices, period);
+      const bT = buildBarChartHtml(nb, devices, chartSingleColor, 'total');
+      const bS = devices.length > 1 ? buildBarChartHtml(nb, devices, chartSingleColor, 'separate') : bT;
+      const lT = buildLineChartHtml(nb, devices, chartSingleColor, 'total');
+      const lS = devices.length > 1 ? buildLineChartHtml(nb, devices, chartSingleColor, 'separate') : lT;
+      const map: Record<string, string> = {
+        'bar-total': bT, 'bar-separate': bS, 'line-total': lT, 'line-separate': lS,
+      };
+      graficoPanel.querySelectorAll<HTMLElement>('.adm-chart-variant').forEach((el) => {
+        el.innerHTML = map[`${el.dataset.chartType}-${el.dataset.vizMode}`] ?? '';
+      });
+    };
+
+    graficoPanel.querySelectorAll<HTMLButtonElement>('[data-chart-type]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeChartType = btn.dataset.chartType!;
+        graficoPanel.querySelectorAll('[data-chart-type]').forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        updateChartVariant();
+      });
+    });
+
+    graficoPanel.querySelectorAll<HTMLButtonElement>('[data-viz-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeVizMode = btn.dataset.vizMode!;
+        graficoPanel.querySelectorAll('[data-viz-mode]').forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        updateChartVariant();
+      });
+    });
+
+    graficoPanel.querySelectorAll<HTMLButtonElement>('[data-period]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activePeriod = btn.dataset.period as Period;
+        graficoPanel.querySelectorAll('[data-period]').forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        rebuildCharts(activePeriod);
+        updateChartVariant();
+      });
+    });
+  }
+
+  // Relatório tab handlers
+  const rptPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="relatorio"]');
+  if (rptPanel) {
+    let rptPeriod: Period = 'dia';
+
+    rptPanel.querySelectorAll<HTMLButtonElement>('[data-rpt-period]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rptPeriod = btn.dataset.rptPeriod as Period;
+        rptPanel.querySelectorAll('[data-rpt-period]').forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+      });
+    });
+
+    const emitBtn = rptPanel.querySelector<HTMLButtonElement>('#admRptEmit');
+    const grid = rptPanel.querySelector<HTMLElement>('#admRptGrid');
+
+    const buildReportTable = () => {
+      const startInput = rptPanel.querySelector<HTMLInputElement>('#admRptStart');
+      const endInput = rptPanel.querySelector<HTMLInputElement>('#admRptEnd');
+      const startMs = startInput?.value ? new Date(startInput.value).getTime() : firstMs;
+      const endMs = endInput?.value ? new Date(endInput.value).getTime() + 86_400_000 - 1 : lastMs;
+      const rptAlarm = { ...alarm, firstOccurrence: new Date(startMs).toISOString(), lastOccurrence: new Date(endMs).toISOString() };
+      const nb = generateBuckets(rptAlarm, devices, rptPeriod);
+      const totalOcc = nb.reduce((s, b) => s + b.total, 0);
+
+      const csvRows: string[][] = [['Período', 'Ocorrências', 'Dispositivos']];
+      const tableRows = nb.map((b) => {
+        const devList = devices.length === 1
+          ? devices[0]
+          : devices.filter((d) => (b.byDevice[d] ?? 0) > 0).join(', ') || '-';
+        csvRows.push([b.label, String(b.total), devList]);
+        return `<tr>
+          <td class="adm-rpt-cell">${b.label}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--num">${b.total}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(devList)}</td>
+        </tr>`;
+      }).join('');
+
+      if (!grid) return;
+      grid.innerHTML = `
+        <div class="adm-rpt-table-wrap" id="admRptTableWrap">
+          <table class="adm-rpt-table">
+            <thead>
+              <tr>
+                <th class="adm-rpt-th">Período</th>
+                <th class="adm-rpt-th adm-rpt-th--num">Ocorrências</th>
+                <th class="adm-rpt-th">Dispositivos</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+            <tfoot>
+              <tr>
+                <td class="adm-rpt-cell adm-rpt-cell--total">Total</td>
+                <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${totalOcc}</td>
+                <td class="adm-rpt-cell adm-rpt-cell--total">${deviceCount} dispositivo${deviceCount !== 1 ? 's' : ''}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="adm-report-export">
+          <button class="adm-export-btn" id="admExportCsv">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            CSV
+          </button>
+          <button class="adm-export-btn adm-export-btn--pdf" id="admExportPdf">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF
+          </button>
+        </div>`;
+
+      grid.querySelector<HTMLButtonElement>('#admExportCsv')?.addEventListener('click', () => {
+        const csv = csvRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `relatorio-${alarm.id}.csv`; a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      grid.querySelector<HTMLButtonElement>('#admExportPdf')?.addEventListener('click', () => {
+        const win = window.open('', '_blank', 'width=860,height=660');
+        if (!win) return;
+        const tbl = grid.querySelector('#admRptTableWrap')?.outerHTML ?? '';
+        win.document.write(`<!DOCTYPE html><html><head><title>Relatório — ${escHtml(alarm.title)}</title>
+          <style>
+            body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#111;}
+            h2{font-size:15px;margin:0 0 4px;}p{color:#6b7280;font-size:11px;margin:0 0 16px;}
+            table{border-collapse:collapse;width:100%;}
+            th,td{border:1px solid #e5e7eb;padding:7px 10px;text-align:left;}
+            th{background:#f9fafb;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+            tr:nth-child(even) td{background:#fafafa;}
+            tfoot td{font-weight:700;background:#ede9fe;}
+          </style></head><body>
+          <h2>${escHtml(alarm.title)}</h2>
+          <p>${escHtml(alarm.id)} · ${escHtml(alarm.customerName || '')} · ${count} ocorrências · Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
+          ${tbl}
+          <script>window.onload=function(){window.print();window.close();}<\/script>
+          </body></html>`);
+        win.document.close();
+      });
+    };
+
+    emitBtn?.addEventListener('click', buildReportTable);
+  }
+
+  // Anotações tab — bind interactive events
+  const annotPanelEl = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="anotacoes"]');
+  if (annotPanelEl) {
+    const currentUser = (window as any).MyIOUtils?.currentUserEmail || alarm.acknowledgedBy || alarm.customerName || 'Usuário';
+    bindAnnotationsPanelEvents(annotPanelEl, alarm.id, currentUser, (n) => {
+      const tabBtn = overlay.querySelector<HTMLElement>('.adm-tab[data-panel="anotacoes"]');
+      if (!tabBtn) return;
+      let badge = tabBtn.querySelector<HTMLElement>('.adm-tab-badge');
+      if (n > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'adm-tab-badge';
+          tabBtn.appendChild(badge);
+        }
+        badge.textContent = String(n);
+      } else if (badge) {
+        badge.remove();
+      }
+    });
+  }
+
+  // Close
+  const closeModal = () => {
+    overlay.classList.remove('adm-overlay--visible');
+    setTimeout(() => overlay.remove(), 300);
+    document.removeEventListener('keydown', onKey);
+  };
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') closeModal();
+  };
+
+  document.addEventListener('keydown', onKey);
+  overlay.querySelector('#admClose')?.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+}
+
+// =====================================================================
+// Occurrence × Device matrix
+// =====================================================================
+
+function buildOccurrenceMatrix(alarm: Alarm, devices: string[]): string {
+  const count = alarm.occurrenceCount || 1;
+  const firstMs = new Date(alarm.firstOccurrence).getTime();
+  const lastMs = new Date(alarm.lastOccurrence).getTime();
+  const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
+
+  const show: Array<{ n: number; tsMs: number; estimated: boolean }> = [];
+
+  if (count <= 6) {
+    for (let i = 0; i < count; i++) {
+      show.push({ n: i + 1, tsMs: firstMs + interval * i, estimated: i > 0 && i < count - 1 });
+    }
+  } else {
+    show.push({ n: 1, tsMs: firstMs, estimated: false });
+    show.push({ n: 2, tsMs: firstMs + interval, estimated: true });
+    show.push({ n: -1, tsMs: 0, estimated: false }); // ellipsis sentinel
+    show.push({ n: count - 1, tsMs: lastMs - interval, estimated: true });
+    show.push({ n: count, tsMs: lastMs, estimated: false });
+  }
+
+  // For each occurrence we rotate through devices (simulating which device fired)
+  const deviceChip = (dev: string) =>
+    `<span class="adm-device-chip">
+       <svg viewBox="0 0 24 24" width="8" height="8" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+       ${escHtml(dev)}
+     </span>`;
+
+  return show
+    .map((item) => {
+      if (item.n === -1) {
+        const skip = count - 4;
+        return `<div class="adm-matrix-ellipsis">· · · ${skip} intermediária${skip !== 1 ? 's' : ''} · · ·</div>`;
+      }
+      // Pick device(s) for this occurrence row
+      // If single device, always show it; if multiple, rotate so each occurrence maps to one
+      const devIndex = (item.n - 1) % devices.length;
+      const rowDevices =
+        devices.length === 1
+          ? [devices[0]]
+          : [devices[devIndex]]; // one device per occurrence (round-robin)
+      const chipsHtml = rowDevices.map(deviceChip).join('');
+
+      return `<div class="adm-matrix-row">
+        <span class="adm-matrix-n">#${item.n}</span>
+        <span class="adm-matrix-ts">${fmt(item.tsMs)}${item.estimated ? '<sup title="Estimado">~</sup>' : ''}</span>
+        <span class="adm-matrix-devices">${chipsHtml}</span>
+      </div>`;
+    })
+    .join('');
+}

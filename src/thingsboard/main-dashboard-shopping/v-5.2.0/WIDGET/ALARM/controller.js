@@ -179,6 +179,8 @@ self.onInit = async function () {
 
     onAlarmClick: (alarm) => {
       LogHelper.log('Alarm clicked:', alarm.title || alarm.id);
+      // RFC-0152 Phase 4: Open alarm details modal
+      MyIOLibrary.openAlarmDetailsModal?.(alarm);
     },
 
     onAlarmAction: async (action, alarm) => {

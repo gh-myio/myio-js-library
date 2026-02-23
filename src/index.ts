@@ -1200,6 +1200,21 @@ export {
   removeAlarmsNotificationsPanelStyles,
 } from './components/AlarmsNotificationsPanel';
 
+// RFC-0152 Phase 4: Alarm Details Modal (tabs: Resumo, Timeline, Dispositivos, Gráfico, Relatório, Anotações)
+export { openAlarmDetailsModal } from './components/AlarmsNotificationsPanel/AlarmDetailsModal';
+
+// RFC-0152 Phase 4: Alarm Annotations store helpers
+export {
+  getActiveAnnotationCount,
+  getAlarmAnnotations,
+  upsertAlarmAnnotation,
+  archiveAlarmAnnotation,
+} from './components/AlarmsNotificationsPanel/AlarmAnnotations';
+export type { AlarmAnnotation } from './components/AlarmsNotificationsPanel/AlarmAnnotations';
+
+// RFC-0152 Phase 4: Annotation Tooltip (hover preview on alarm card badge)
+export { AnnotationTooltip } from './utils/AnnotationTooltip';
+
 // RFC-0152 Phase 5: Operational Dashboard Component
 export { createOperationalDashboardComponent } from './components/operational-dashboard';
 
