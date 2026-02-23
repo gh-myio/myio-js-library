@@ -28,7 +28,7 @@
       "maxAlarmsVisible": {
         "type": "number",
         "title": "Max Alarms in List",
-        "default": 50
+        "default": 100
       },
       "enableDebugMode": {
         "type": "boolean",

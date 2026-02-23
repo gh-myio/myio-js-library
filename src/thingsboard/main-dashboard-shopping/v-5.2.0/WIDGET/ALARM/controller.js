@@ -72,7 +72,7 @@ self.onInit = async function () {
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
 
-  _maxAlarms  = Math.max(settings.maxAlarmsVisible ?? 500, 500); // enforce minimum 500
+  _maxAlarms  = settings.maxAlarmsVisible ?? 100;
   _activeTab  = defaultTab;
 
   // --- Logger ---
