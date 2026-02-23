@@ -175,15 +175,17 @@ class AlarmServiceClass {
 
     let allData: import('../../types/alarm').Alarm[] = [];
     let summary: import('./types').AlarmListSummary | undefined;
+    let totalPages = 1;
     let page = 1;
-    let hasMore = true;
 
-    while (hasMore) {
+    while (page <= totalPages) {
       const response = await this.client.getAlarms({ ...params, page });
       const pageData = (response.data || []).map((a) => mapApiAlarm(a, customerMap));
       allData = allData.concat(pageData);
-      if (page === 1) summary = response.summary; // summary reflects full dataset
-      hasMore = response.pagination?.hasMore ?? false;
+      if (page === 1) {
+        summary = response.summary; // summary reflects full dataset
+        totalPages = response.pagination?.totalPages ?? 1;
+      }
       page++;
     }
 
