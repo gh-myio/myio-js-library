@@ -150,9 +150,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: rgba(139, 92, 246, 0.2);
 }
 
-/* Bundle map button — direita da tab bar (margin-left:auto empurra ele + badge) */
+/* Bundle map button — logo após as tabs, margem fixa à esquerda */
 .myio-alarms-tabs .alarms-tab-map-btn {
-  margin-left: auto;
+  margin-left: 16px;
   flex-shrink: 0;
   align-self: center;
   padding: 4px 8px;
@@ -559,7 +559,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   overflow: hidden;
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 144px;
+  min-height: 158px;
   position: relative;
 }
 
@@ -606,6 +606,23 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   gap: 3px;
   padding: 4px 6px;
   border-bottom: 1px solid var(--alarms-border-light);
+  flex-shrink: 0;
+}
+
+.alarm-card-device-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--alarms-primary-light);
+  color: var(--alarms-primary);
+  font-size: 10px;
+  font-weight: 600;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex-shrink: 0;
 }
 
@@ -688,10 +705,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   line-height: 1.3;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: center;
   max-width: 100%;
+  min-height: calc(11px * 1.3 * 2);
 }
 
 .alarm-card-id {

@@ -111,18 +111,22 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
 
   // Safely escape values — title truncated to 18 visible chars
   const rawTitle = alarm.title || 'Sem título';
-  const truncatedTitle = rawTitle.length > 18 ? rawTitle.substring(0, 18) + '…' : rawTitle;
+  // CSS handles 2-line clamp; JS truncates only beyond 42 chars (21 per line × 2)
+  const truncatedTitle = rawTitle.length > 42 ? rawTitle.substring(0, 42) + '…' : rawTitle;
   const safeTitle = escapeHtml(truncatedTitle);
   const safeTitleFull = escapeHtml(rawTitle); // used in title tooltip
   const safeCustomerName = escapeHtml(alarm.customerName || 'N/A');
   const safeOccurrences = alarm.occurrenceCount || 1;
   const showCustomer = _params?.showCustomerName ?? true;
+  const showDeviceBadge = _params?.showDeviceBadge ?? false;
+  const safeSource = escapeHtml(alarm.source || '');
 
   return `<article class="alarm-card${isSelected ? ' alarm-card--selected' : ''}" data-alarm-id="${alarm.id}" data-severity="${alarm.severity}" data-state="${alarm.state}">
   <header class="alarm-card-header">
     <label class="alarm-card-checkbox-wrap" title="Selecionar para ação em lote" onclick="event.stopPropagation()">
       <input type="checkbox" class="alarm-card-select" data-alarm-id="${alarm.id}" data-alarm-title="${escapeHtml(rawTitle)}"${isSelected ? ' checked' : ''}>
     </label>
+    ${showDeviceBadge && safeSource ? `<span class="alarm-card-device-badge" title="${safeSource}"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M4 6h16v10H4zm8 12c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-4 0h8v-1H8v1z"/></svg>${safeSource}</span>` : ''}
     <div class="alarm-card-badges">
       <span class="alarm-severity-badge" data-severity="${alarm.severity}" title="${severityConfig.label}">${severityConfig.icon}</span>
       <span class="alarm-state-badge" data-state="${alarm.state}">${stateConfig.label}</span>

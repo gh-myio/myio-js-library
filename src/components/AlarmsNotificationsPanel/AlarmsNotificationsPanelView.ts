@@ -369,6 +369,17 @@ export class AlarmsNotificationsPanelView {
       countEl.textContent = String(state.filteredAlarms.length);
     }
 
+    // Update open/escalated count badge (calculated from allAlarms, independent of API summary)
+    const badgeEl = this.root.querySelector('#alarmCountBadge') as HTMLElement | null;
+    if (badgeEl) {
+      const openCount = state.allAlarms.filter(
+        (a) => a.state === 'OPEN' || a.state === 'ESCALATED'
+      ).length;
+      badgeEl.textContent = openCount > 99 ? '99+' : String(openCount);
+      badgeEl.style.display = 'inline-flex';
+      badgeEl.classList.toggle('is-zero', openCount === 0);
+    }
+
     // Update loading state
     const loadingOverlay = this.root.querySelector('#loadingOverlay');
     if (loadingOverlay) {
@@ -452,6 +463,7 @@ export class AlarmsNotificationsPanelView {
           themeMode: state.themeMode,
           showCustomerName: this.params.showCustomerName ?? true,
           selected: this.selectedTitles.has(alarm.title),
+          showDeviceBadge: this.groupMode === 'separado',
         });
         grid.appendChild(card);
       });
@@ -661,6 +673,7 @@ export class AlarmsNotificationsPanelView {
   // =====================================================================
 
   private renderAlarmsTable(alarms: import('../../types/alarm').Alarm[]): string {
+    const showCustomer = this.params.showCustomerName ?? true;
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '-';
       const d = new Date(iso as string);
@@ -701,7 +714,7 @@ export class AlarmsNotificationsPanelView {
           <td class="atbl-cell atbl-cell--state">
             <span class="alarm-state-badge" data-state="${alarm.state}">${st.label}</span>
           </td>
-          <td class="atbl-cell atbl-cell--customer">${escCustomer}</td>
+          ${showCustomer ? `<td class="atbl-cell atbl-cell--customer">${escCustomer}</td>` : ''}
           <td class="atbl-cell atbl-cell--num">${alarm.occurrenceCount || 1}</td>
           <td class="atbl-cell atbl-cell--date">${fmtDt(alarm.firstOccurrence)}</td>
           <td class="atbl-cell atbl-cell--date">${fmtDt(alarm.lastOccurrence)}</td>
@@ -719,7 +732,7 @@ export class AlarmsNotificationsPanelView {
             <th class="atbl-th">Tipo</th>
             <th class="atbl-th">Severidade</th>
             <th class="atbl-th">Estado</th>
-            <th class="atbl-th">Shopping</th>
+            ${showCustomer ? '<th class="atbl-th">Shopping</th>' : ''}
             <th class="atbl-th atbl-th--num">Qte.</th>
             <th class="atbl-th atbl-th--date">1a Ocorrência</th>
             <th class="atbl-th atbl-th--date">Últ. Ocorrência</th>

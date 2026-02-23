@@ -207,6 +207,8 @@ export interface AlarmCardParams {
   selected?: boolean;
   /** Callback when bulk-selection checkbox changes */
   onSelectChange?: (alarmId: string, selected: boolean) => void;
+  /** Show device name badge in card header (Separado mode) */
+  showDeviceBadge?: boolean;
 }
 
 // =====================================================================

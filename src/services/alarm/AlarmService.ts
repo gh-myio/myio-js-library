@@ -161,10 +161,9 @@ class AlarmServiceClass {
   // -----------------------------------------------------------------------
 
   /**
-   * Fetch alarm list with optional filters.
-   * Returns { data: Alarm[], summary: AlarmListSummary }.
-   * The summary contains totals by state, severity, and alarm type — eliminating
-   * the need for a separate getAlarmStats call.
+   * Fetch alarm list with optional filters, auto-paginating until hasMore is false.
+   * Returns { data: Alarm[], summary: AlarmListSummary } with all pages merged.
+   * The summary comes from page 1 (reflects full dataset totals).
    */
   async getAlarms(
     params: AlarmListParams = {},
@@ -175,9 +174,21 @@ class AlarmServiceClass {
 
     if (isFresh(cached)) return cached.data;
 
-    const response = await this.client.getAlarms(params);
-    const data = (response.data || []).map((a) => mapApiAlarm(a, customerMap));
-    const result: AlarmListResult = { data, summary: response.summary };
+    let allData: import('../../types/alarm').Alarm[] = [];
+    let summary: import('./types').AlarmListSummary | undefined;
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await this.client.getAlarms({ ...params, page });
+      const pageData = (response.data || []).map((a) => mapApiAlarm(a, customerMap));
+      allData = allData.concat(pageData);
+      if (page === 1) summary = response.summary; // summary reflects full dataset
+      hasMore = response.pagination?.hasMore ?? false;
+      page++;
+    }
+
+    const result: AlarmListResult = { data: allData, summary };
 
     this.alarmsCache.set(cacheKey, { data: result, timestamp: Date.now() });
     return result;

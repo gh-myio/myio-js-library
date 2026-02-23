@@ -184,5 +184,6 @@ export interface AlarmListParams {
   from?:       string;  // ISO 8601
   to?:         string;  // ISO 8601
   customerId?: string;  // gcdrCustomerId — mandatory at runtime (see guard in ALARM widget)
-  limit?:      number;
+  limit?:      number;  // page size (AlarmService.getAlarms paginates automatically)
+  page?:       number;  // 1-indexed page number (used internally by pagination loop)
 }

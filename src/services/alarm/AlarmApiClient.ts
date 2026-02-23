@@ -92,7 +92,8 @@ export class AlarmApiClient {
     if (params.from)       query.set('from',        params.from);
     if (params.to)         query.set('to',          params.to);
     if (params.customerId) query.set('customerId',  params.customerId);
-    query.set('limit', String(params.limit ?? 500));
+    query.set('limit', String(params.limit ?? 100));
+    if (params.page && params.page > 1) query.set('page', String(params.page));
 
     const qs = query.toString();
     return this.request<AlarmListApiResponse>(

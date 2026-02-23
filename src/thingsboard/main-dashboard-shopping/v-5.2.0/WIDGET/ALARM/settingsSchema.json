@@ -27,7 +27,7 @@
       },
       "maxAlarmsVisible": {
         "type": "number",
-        "title": "Max Alarms in List",
+        "title": "Alarms Page Size (per fetch, auto-paginates)",
         "default": 100
       },
       "enableDebugMode": {
