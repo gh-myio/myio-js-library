@@ -80,6 +80,10 @@ export interface OpenDashboardPopupSettingsParams {
   // RFC-0180: Raw TB device name (distinct from `label` which is user-editable)
   deviceName?: string;
 
+  // Device timestamps (Unix ms)
+  createdTime?: number | null;
+  lastActivityTime?: number | null;
+
   // RFC-0180: GCDR identifiers — required to power the Alarms tab
   gcdrDeviceId?: string;
   gcdrCustomerId?: string;
@@ -180,6 +184,10 @@ export interface ModalConfig {
 
   // RFC-0180: Raw TB device name shown as muted subtitle in identity card
   deviceName?: string;
+
+  // Device timestamps (Unix ms)
+  createdTime?: number | null;
+  lastActivityTime?: number | null;
 
   // RFC-0180: GCDR identifiers — required to power the Alarms tab
   gcdrDeviceId?: string;

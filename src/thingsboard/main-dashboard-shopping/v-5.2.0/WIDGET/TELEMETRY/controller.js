@@ -2447,6 +2447,8 @@ function renderList(visible) {
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
             enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
+            createdTime: it.createdTime || null,
+            lastActivityTime: it.lastActivityTime || null,
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,

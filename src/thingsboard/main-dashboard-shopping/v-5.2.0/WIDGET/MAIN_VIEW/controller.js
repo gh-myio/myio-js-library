@@ -4090,6 +4090,7 @@ const MyIOOrchestrator = (() => {
       slaveId: meta.slaveId || apiRow?.slaveId || null,
 
       // Timestamps
+      createdTime: meta.createdTime || null,
       lastActivityTime: meta.lastActivityTime || null,
       lastConnectTime: meta.lastConnectTime || null,
       lastDisconnectTime: meta.lastDisconnectTime || null,
@@ -4247,6 +4248,7 @@ const MyIOOrchestrator = (() => {
         // RFC-0110: Extract timestamp of connectionStatus for stale check
         meta.connectionStatusTs = row?.data?.[0]?.[0] ?? null;
       } else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
+      else if (keyName === 'createdtime') meta.createdTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;

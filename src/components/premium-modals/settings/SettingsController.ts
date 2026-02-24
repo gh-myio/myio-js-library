@@ -61,6 +61,9 @@ export class SettingsController {
       gcdrTenantId: params.gcdrTenantId,
       gcdrApiBaseUrl: params.gcdrApiBaseUrl,
       prefetchedBundle: params.prefetchedBundle,
+      // Device timestamps
+      createdTime: params.createdTime ?? null,
+      lastActivityTime: params.lastActivityTime ?? null,
     });
   }
 
