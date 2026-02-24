@@ -2597,6 +2597,49 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-rpt-table tbody tr:nth-child(even) td { background: #fafafa; }
 .adm-rpt-table tbody tr:last-child td { border-bottom: none; }
 
+/* Report: section title */
+.adm-rpt-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7c3aed;
+  margin: 12px 0 6px;
+}
+.adm-rpt-section-title:first-child { margin-top: 0; }
+
+/* Report: summary table spacing */
+.adm-rpt-table-wrap--summary { margin-bottom: 12px; }
+
+/* Report: idx column */
+.adm-rpt-th--idx { width: 42px; text-align: right; }
+.adm-rpt-cell--idx { text-align: right; color: #9ca3af; font-size: 10px; font-weight: 600; }
+
+/* Report: separado device header */
+.adm-rpt-device-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.adm-rpt-device-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: monospace;
+}
+.adm-rpt-device-sep { color: #9ca3af; font-size: 11px; }
+.adm-rpt-alarm-type {
+  font-size: 11px;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
 .adm-report-export {
   display: flex;
   gap: 8px;
@@ -3366,6 +3409,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-overlay[data-theme="dark"] .adm-rpt-row:nth-child(even) .adm-rpt-cell {
   background: #252636;
 }
+
+.adm-overlay[data-theme="dark"] .adm-rpt-section-title { color: #a78bfa; }
+.adm-overlay[data-theme="dark"] .adm-rpt-device-header {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.25);
+}
+.adm-overlay[data-theme="dark"] .adm-rpt-device-name { color: #e2e8f0; }
+.adm-overlay[data-theme="dark"] .adm-rpt-alarm-type { color: #a78bfa; }
+.adm-overlay[data-theme="dark"] .adm-rpt-cell--total { background: rgba(139, 92, 246, 0.15); color: #e2e8f0; }
 
 .adm-overlay[data-theme="dark"] .adm-annot-card {
   background: #252636;

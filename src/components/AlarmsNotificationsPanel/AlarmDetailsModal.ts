@@ -732,8 +732,8 @@ export function openAlarmDetailsModal(
             </div>
           </div>
 
-          <!-- Occurrence × Device matrix -->
-          <div class="adm-section">
+          <!-- Occurrence × Device matrix — disabled -->
+          <!-- <div class="adm-section" style="display:none">
             <div class="adm-section-title">Mapa ocorrências × dispositivos</div>
             <div class="adm-matrix">
               <div class="adm-matrix-header">
@@ -741,7 +741,7 @@ export function openAlarmDetailsModal(
               </div>
               ${buildOccurrenceMatrix(alarm, devices)}
             </div>
-          </div>
+          </div> -->
 
         </div>
 
@@ -753,12 +753,6 @@ export function openAlarmDetailsModal(
               <input type="date" class="adm-report-date-input" id="admRptStart" value="${fmtDateInput(firstMs)}">
               <label class="adm-report-label">Até</label>
               <input type="date" class="adm-report-date-input" id="admRptEnd" value="${fmtDateInput(lastMs)}">
-              <div class="adm-chart-ctrl-group">
-                <button class="adm-chart-btn" data-rpt-period="hora">Hora</button>
-                <button class="adm-chart-btn is-active" data-rpt-period="dia">Dia</button>
-                <button class="adm-chart-btn" data-rpt-period="semana">Semana</button>
-                <button class="adm-chart-btn" data-rpt-period="mes">Mês</button>
-              </div>
             </div>
             <button class="adm-report-emit-btn" id="admRptEmit">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -904,69 +898,90 @@ export function openAlarmDetailsModal(
   // Relatório tab handlers
   const rptPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="relatorio"]');
   if (rptPanel) {
-    let rptPeriod: Period = 'dia';
-    let rptEmitted = false;
-
-    rptPanel.querySelectorAll<HTMLButtonElement>('[data-rpt-period]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        rptPeriod = btn.dataset.rptPeriod as Period;
-        rptPanel.querySelectorAll('[data-rpt-period]').forEach((b) => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        if (rptEmitted) buildReportTable();
-      });
-    });
-
     const emitBtn = rptPanel.querySelector<HTMLButtonElement>('#admRptEmit');
     const grid = rptPanel.querySelector<HTMLElement>('#admRptGrid');
+    const isSeparado = groupMode === 'separado';
 
     const buildReportTable = () => {
       const startInput = rptPanel.querySelector<HTMLInputElement>('#admRptStart');
-      const endInput = rptPanel.querySelector<HTMLInputElement>('#admRptEnd');
+      const endInput   = rptPanel.querySelector<HTMLInputElement>('#admRptEnd');
       const startMs = startInput?.value ? new Date(startInput.value).getTime() : firstMs;
-      const endMs = endInput?.value ? new Date(endInput.value).getTime() + 86_400_000 - 1 : lastMs;
-      const rptAlarm = { ...alarm, firstOccurrence: new Date(startMs).toISOString(), lastOccurrence: new Date(endMs).toISOString() };
-      const nb = generateBuckets(rptAlarm, devices, rptPeriod);
-      const totalOcc = nb.reduce((s, b) => s + b.total, 0);
+      const endMs   = endInput?.value   ? new Date(endInput.value).getTime() + 86_400_000 - 1 : lastMs;
 
-      const csvRows: string[][] = [['Período', 'Ocorrências', 'Dispositivos', 'Trigger']];
-      const tableRows = nb.map((b, bIdx) => {
-        const devList = devices.length === 1
-          ? devices[0]
-          : devices.filter((d) => (b.byDevice[d] ?? 0) > 0).join(', ') || '-';
-        const isLastBucket = bIdx === nb.length - 1;
-        const trigStr = isLastBucket && alarm.triggerValue != null ? String(alarm.triggerValue) : '—';
-        csvRows.push([b.label, String(b.total), devList, trigStr]);
-        return `<tr>
-          <td class="adm-rpt-cell">${b.label}</td>
-          <td class="adm-rpt-cell adm-rpt-cell--num">${b.total}</td>
-          <td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(devList)}</td>
-          <td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr)}</td>
-        </tr>`;
-      }).join('');
+      // Clamp occurrence window to the selected date range
+      const occFirst = Math.max(firstMs, startMs);
+      const occLast  = Math.min(lastMs,  endMs);
+      const interval = count > 1 ? (occLast - occFirst) / (count - 1) : 0;
+      const trigStr  = alarm.triggerValue != null ? String(alarm.triggerValue) : '—';
+
+      // --- Occurrence rows (newest → oldest) ---
+      const csvRows: string[][] = [['#', 'Data/Hora', 'Trigger']];
+      const tableRows: string[] = [];
+      for (let i = count; i >= 1; i--) {
+        const tsMs = occFirst + interval * (i - 1);
+        const isLatest = i === count;
+        const showVal  = isLatest || count === 1;
+        const cellVal  = showVal ? escHtml(trigStr) : '—';
+        csvRows.push([`#${i}`, fmt(tsMs), showVal ? trigStr : '—']);
+        tableRows.push(`<tr>
+          <td class="adm-rpt-cell adm-rpt-cell--idx">#${i}</td>
+          <td class="adm-rpt-cell">${fmt(tsMs)}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--num">${cellVal}</td>
+        </tr>`);
+      }
+
+      // --- Summary per device (consolidado / porDispositivo only) ---
+      let summaryHtml = '';
+      if (!isSeparado && devices.length > 0) {
+        const devRows = devices.map((dev) => `<tr>
+          <td class="adm-rpt-cell">${escHtml(dev)}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--num">${count}</td>
+          <td class="adm-rpt-cell">${fmt(occFirst)}</td>
+          <td class="adm-rpt-cell">${fmt(occLast)}</td>
+        </tr>`).join('');
+        summaryHtml = `
+          <div class="adm-rpt-section-title">Sumário por dispositivo</div>
+          <div class="adm-rpt-table-wrap adm-rpt-table-wrap--summary">
+            <table class="adm-rpt-table">
+              <thead><tr>
+                <th class="adm-rpt-th">Dispositivo</th>
+                <th class="adm-rpt-th adm-rpt-th--num">Ocorrências</th>
+                <th class="adm-rpt-th">Primeira</th>
+                <th class="adm-rpt-th">Última</th>
+              </tr></thead>
+              <tbody>${devRows}</tbody>
+            </table>
+          </div>`;
+      }
+
+      // --- Separado: header block ---
+      const headerHtml = isSeparado
+        ? `<div class="adm-rpt-device-header">
+            <span class="adm-rpt-device-name">${escHtml(alarm.source)}</span>
+            <span class="adm-rpt-device-sep">·</span>
+            <span class="adm-rpt-alarm-type">${escHtml(alarm.title)}</span>
+          </div>`
+        : '';
 
       if (!grid) return;
       grid.innerHTML = `
+        ${headerHtml}
+        <div class="adm-rpt-section-title">Ocorrências (${count})</div>
         <div class="adm-rpt-table-wrap" id="admRptTableWrap">
           <table class="adm-rpt-table">
-            <thead>
-              <tr>
-                <th class="adm-rpt-th">Período</th>
-                <th class="adm-rpt-th adm-rpt-th--num">Ocorrências</th>
-                <th class="adm-rpt-th">Dispositivos</th>
-                <th class="adm-rpt-th adm-rpt-th--num">Trigger</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-            <tfoot>
-              <tr>
-                <td class="adm-rpt-cell adm-rpt-cell--total">Total</td>
-                <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${totalOcc}</td>
-                <td class="adm-rpt-cell adm-rpt-cell--total">${deviceCount} dispositivo${deviceCount !== 1 ? 's' : ''}</td>
-                <td class="adm-rpt-cell adm-rpt-cell--total">—</td>
-              </tr>
-            </tfoot>
+            <thead><tr>
+              <th class="adm-rpt-th adm-rpt-th--idx">#</th>
+              <th class="adm-rpt-th">Data/Hora</th>
+              <th class="adm-rpt-th adm-rpt-th--num">Trigger</th>
+            </tr></thead>
+            <tbody>${tableRows.join('')}</tbody>
+            <tfoot><tr>
+              <td class="adm-rpt-cell adm-rpt-cell--total" colspan="2">Total</td>
+              <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${count} ocorrência${count !== 1 ? 's' : ''}</td>
+            </tr></tfoot>
           </table>
         </div>
+        ${summaryHtml}
         <div class="adm-report-export">
           <button class="adm-export-btn" id="admExportCsv">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
@@ -991,11 +1006,13 @@ export function openAlarmDetailsModal(
         const win = window.open('', '_blank', 'width=860,height=660');
         if (!win) return;
         const tbl = grid.querySelector('#admRptTableWrap')?.outerHTML ?? '';
+        const sumTbl = grid.querySelector('.adm-rpt-table-wrap--summary')?.outerHTML ?? '';
         win.document.write(`<!DOCTYPE html><html><head><title>Relatório — ${escHtml(alarm.title)}</title>
           <style>
             body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#111;}
             h2{font-size:15px;margin:0 0 4px;}p{color:#6b7280;font-size:11px;margin:0 0 16px;}
-            table{border-collapse:collapse;width:100%;}
+            h3{font-size:12px;font-weight:700;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px;color:#7c3aed;}
+            table{border-collapse:collapse;width:100%;margin-bottom:16px;}
             th,td{border:1px solid #e5e7eb;padding:7px 10px;text-align:left;}
             th{background:#f9fafb;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
             tr:nth-child(even) td{background:#fafafa;}
@@ -1003,14 +1020,15 @@ export function openAlarmDetailsModal(
           </style></head><body>
           <h2>${escHtml(alarm.title)}</h2>
           <p>${escHtml(alarm.id)} · ${escHtml(alarm.customerName || '')} · ${count} ocorrências · Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
-          ${tbl}
+          <h3>Ocorrências</h3>${tbl}
+          ${sumTbl ? `<h3>Sumário por dispositivo</h3>${sumTbl}` : ''}
           <script>window.onload=function(){window.print();window.close();}<\/script>
           </body></html>`);
         win.document.close();
       });
     };
 
-    emitBtn?.addEventListener('click', () => { rptEmitted = true; buildReportTable(); });
+    emitBtn?.addEventListener('click', () => buildReportTable());
   }
 
   // Anotações tab — bind interactive events
