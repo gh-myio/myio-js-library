@@ -64,22 +64,27 @@ function buildTimeline(alarm: Alarm, groupMode?: string): string {
     ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
     : [];
 
-  // Value pill: only on the most recent occurrence (triggerValue is from the latest record)
-  const valuePillHtml = alarm.triggerValue != null
-    ? `<span class="adm-timeline-value-pill">${escHtml(String(alarm.triggerValue))}</span>`
-    : '';
+  const showDevice = groupMode !== 'separado' && deviceTokens.length > 0;
+  const trigStr = alarm.triggerValue != null ? String(alarm.triggerValue) : null;
+  const hasTrigger = trigStr != null;
 
-  // Device label function: depends on groupMode
-  // separado: no device; consolidado/default: always show, rotate for multi-device
-  const deviceSpanFn: (n: number) => string = groupMode === 'separado'
-    ? (_n: number) => ''
-    : (n: number) => {
-        if (deviceTokens.length === 0) return '';
-        const token = deviceTokens[(n - 1) % deviceTokens.length];
-        return `<span class="adm-timeline-sep">|</span><span class="adm-timeline-device">${escHtml(token)}</span>`;
-      };
+  // Color for the # index cell depending on position in the timeline
+  const idxStyle = (isSingle: boolean, isLatest: boolean, isFirst: boolean): string => {
+    if (isSingle) return 'color:#7c3aed;font-weight:700';
+    if (isLatest) return 'color:#3b82f6;font-weight:700';
+    if (isFirst)  return 'color:#ef4444;font-weight:700';
+    return '';
+  };
 
-  // porDispositivo: grouped sections per alarm type from _alarmTypeGroups
+  // Shared table header
+  const thead = `<thead><tr>
+    <th class="adm-rpt-th adm-rpt-th--idx">#</th>
+    <th class="adm-rpt-th">Data/Hora</th>
+    ${showDevice ? `<th class="adm-rpt-th">Dispositivo</th>` : ''}
+    ${hasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
+  </tr></thead>`;
+
+  // porDispositivo: grouped tables per alarm type from _alarmTypeGroups
   function buildGroupedTimeline(): string {
     const groups = alarm._alarmTypeGroups;
     if (!groups?.length) return buildFlatTimeline();
@@ -89,89 +94,68 @@ function buildTimeline(alarm: Alarm, groupMode?: string): string {
       const gFirstMs = new Date(grp.firstOccurrence).getTime();
       const gLastMs = new Date(grp.lastOccurrence).getTime();
       const gInterval = gCount > 1 ? (gLastMs - gFirstMs) / (gCount - 1) : 0;
-      const gValuePill = grp.triggerValue != null
-        ? `<span class="adm-timeline-value-pill">${escHtml(String(grp.triggerValue))}</span>`
-        : '';
+      const gTrig = grp.triggerValue != null ? String(grp.triggerValue) : trigStr;
+      const gHasTrigger = gTrig != null;
 
-      const items: string[] = [];
+      const gThead = `<thead><tr>
+        <th class="adm-rpt-th adm-rpt-th--idx">#</th>
+        <th class="adm-rpt-th">Data/Hora</th>
+        ${gHasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
+      </tr></thead>`;
+
       const MAX_PER_GROUP = 10;
+      const rows: string[] = [];
       for (let i = gCount; i >= 1; i--) {
         const tsMs = gFirstMs + gInterval * (i - 1);
         const isSingle = gCount === 1;
-        const isLatest = i === gCount && !isSingle;
-        const isFirst = i === 1 && !isSingle;
+        const isLatest = !isSingle && i === gCount;
+        const isFirst  = !isSingle && i === 1;
         const isEstimated = !isSingle && !isLatest && !isFirst;
         const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
-        const extraClass = isSingle ? 'is-single' : isLatest ? 'is-last' : isFirst ? 'is-first' : '';
-        const showPill = isSingle || isLatest;
-        items.push(`
-          <div class="adm-timeline-item ${extraClass}">
-            <div class="adm-timeline-dot"></div>
-            <span class="adm-timeline-num">#${i}</span>
-            <span class="adm-timeline-sep">|</span>
-            <span class="adm-timeline-time">${timeStr}</span>
-            ${showPill ? gValuePill : ''}
-          </div>`);
-        if (items.length >= MAX_PER_GROUP) break;
+        const style = idxStyle(isSingle, isLatest, isFirst);
+        rows.push(`<tr>
+          <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
+          <td class="adm-rpt-cell">${timeStr}</td>
+          ${gHasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(gTrig!)}</td>` : ''}
+        </tr>`);
+        if (rows.length >= MAX_PER_GROUP) break;
       }
 
-      return `<div class="adm-timeline-group${gi > 0 ? ' adm-timeline-group--sep' : ''}">
+      const sepStyle = gi > 0 ? ' style="margin-top:12px;padding-top:12px;border-top:1px dashed #e5e7eb"' : '';
+      return `<div${sepStyle}>
         <div class="adm-timeline-group-header">${escHtml(grp.title)}<span class="adm-timeline-group-count">${gCount}</span></div>
-        ${items.join('')}
+        <div class="adm-rpt-table-wrap" style="margin-bottom:0">
+          <table class="adm-rpt-table">${gThead}<tbody>${rows.join('')}</tbody></table>
+        </div>
       </div>`;
     }).join('');
   }
 
   function buildFlatTimeline(): string {
-    function occItem(
-      n: number,
-      tsMs: number,
-      meta: string,
-      extraClass = ''
-    ): string {
-      // Pill only on most-recent; estimated occurrences show ~ before the date
-      const isLatest = extraClass.includes('is-last') || extraClass.includes('is-single');
-      const isEstimated = meta === 'Estimado';
-      const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
-      return `
-        <div class="adm-timeline-item ${extraClass}">
-          <div class="adm-timeline-dot"></div>
-          <span class="adm-timeline-num">#${n}</span>
-          <span class="adm-timeline-sep">|</span>
-          <span class="adm-timeline-time">${timeStr}</span>
-          ${deviceSpanFn(n)}
-          ${isLatest ? valuePillHtml : ''}
-        </div>`;
-    }
-
-    // Show all occurrences most-recent first, capped at 30 (scroll handles the rest)
     const MAX_SHOWN = 30;
-    const items: string[] = [];
+    const rows: string[] = [];
 
     for (let i = count; i >= 1; i--) {
       const tsMs = firstMs + interval * (i - 1);
-      let meta: string;
-      let extraClass: string;
-
-      if (count === 1) {
-        meta = 'Único registro detectado';
-        extraClass = 'is-single';
-      } else if (i === count) {
-        meta = 'Mais recente';
-        extraClass = 'is-last';
-      } else if (i === 1) {
-        meta = 'Primeiro registro';
-        extraClass = 'is-first';
-      } else {
-        meta = 'Estimado';
-        extraClass = '';
-      }
-
-      items.push(occItem(i, tsMs, meta, extraClass));
-      if (items.length >= MAX_SHOWN) break;
+      const isSingle = count === 1;
+      const isLatest = !isSingle && i === count;
+      const isFirst  = !isSingle && i === 1;
+      const isEstimated = !isSingle && !isLatest && !isFirst;
+      const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
+      const device = showDevice ? deviceTokens[(i - 1) % deviceTokens.length] : '';
+      const style = idxStyle(isSingle, isLatest, isFirst);
+      rows.push(`<tr>
+        <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
+        <td class="adm-rpt-cell">${timeStr}</td>
+        ${showDevice ? `<td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(device)}</td>` : ''}
+        ${hasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr!)}</td>` : ''}
+      </tr>`);
+      if (rows.length >= MAX_SHOWN) break;
     }
 
-    return items.join('');
+    return `<div class="adm-rpt-table-wrap" style="max-height:340px;overflow-y:auto">
+      <table class="adm-rpt-table">${thead}<tbody>${rows.join('')}</tbody></table>
+    </div>`;
   }
 
   if (groupMode === 'porDispositivo') return buildGroupedTimeline();
@@ -680,6 +664,7 @@ export function openAlarmDetailsModal(
             <div class="adm-section-title">Identificação</div>
             ${row('Shopping', alarm.customerName)}
             ${row('Dispositivo(s)', alarm.source)}
+            ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
             ${row('ID', alarm.id)}
           </div>
 
@@ -705,19 +690,18 @@ export function openAlarmDetailsModal(
                 ? `${alarm._alarmTypeGroups.length} tipo${alarm._alarmTypeGroups.length !== 1 ? 's' : ''} · ${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
                 : `${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
             }</div>
-            <div class="adm-timeline">
-              ${buildTimeline(alarm, groupMode)}
-            </div>
+            ${buildTimeline(alarm, groupMode)}
           </div>
 
           ${
-            count > 1
+            count > 1 || alarm.triggerValue != null
               ? `<div class="adm-section">
             <div class="adm-section-title">Estatísticas de recorrência</div>
-            ${row('Frequência média', avgFreq)}
-            ${row('Janela total', durLabel)}
-            ${row('Primeira ocorrência', fmt(alarm.firstOccurrence))}
-            ${row('Última ocorrência', fmt(alarm.lastOccurrence))}
+            ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
+            ${count > 1 ? row('Frequência média', avgFreq) : ''}
+            ${count > 1 ? row('Janela total', durLabel) : ''}
+            ${count > 1 ? row('Primeira ocorrência', fmt(alarm.firstOccurrence)) : ''}
+            ${count > 1 ? row('Última ocorrência', fmt(alarm.lastOccurrence)) : ''}
           </div>`
               : ''
           }
@@ -919,10 +903,8 @@ export function openAlarmDetailsModal(
       const tableRows: string[] = [];
       for (let i = count; i >= 1; i--) {
         const tsMs = occFirst + interval * (i - 1);
-        const isLatest = i === count;
-        const showVal  = isLatest || count === 1;
-        const cellVal  = showVal ? escHtml(trigStr) : '—';
-        csvRows.push([`#${i}`, fmt(tsMs), showVal ? trigStr : '—']);
+        const cellVal = escHtml(trigStr);
+        csvRows.push([`#${i}`, fmt(tsMs), trigStr]);
         tableRows.push(`<tr>
           <td class="adm-rpt-cell adm-rpt-cell--idx">#${i}</td>
           <td class="adm-rpt-cell">${fmt(tsMs)}</td>
