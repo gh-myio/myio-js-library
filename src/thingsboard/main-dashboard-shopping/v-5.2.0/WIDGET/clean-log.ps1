@@ -62,6 +62,7 @@ $patterns = @(
     '^await in \w+$',                               # await in request
     '^overrideMethod @ installHook\.js:\d+$',       # overrideMethod @ installHook.js:1
     '^window\.console\.\w+ @ \d+-[a-f0-9]+\.js:\d+$' # window.console.error @ 117-cd033fadff6bee47.js:1
+    '@ unknown$',                   # buildMetadataMapFromCtxData @ unknown / eval @ unknown
     '^setTimeout$',                 # Linha contendo apenas "setTimeout"
     '^setInterval$',                # Linha contendo apenas "setInterval"
     '^requestAnimationFrame$',      # Linha contendo apenas "requestAnimationFrame"

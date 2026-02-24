@@ -59,7 +59,8 @@ export function updateKPIValues(container: HTMLElement, stats: AlarmStats): void
 // =====================================================================
 
 /**
- * Render trend line chart (SVG)
+ * Render trend area chart (SVG) — dual series: total alarms + critical.
+ * Inspired by alarms-frontend AlarmTrendChart (Recharts AreaChart).
  */
 export function renderTrendChart(
   data: AlarmTrendDataPoint[],
@@ -69,85 +70,109 @@ export function renderTrendChart(
     width = 600,
     height = 200,
     padding = 40,
-    lineColor = '#8b5cf6',
-    fillColor = 'rgba(139, 92, 246, 0.2)',
     showGrid = true,
   } = options;
+
+  // Fixed colors matching the React reference component
+  const totalColor    = '#3b82f6'; // blue
+  const criticalColor = '#ef4444'; // red
 
   if (!data || data.length === 0) {
     return renderEmptyChart(width, height, 'Sem dados de tendencia');
   }
 
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
+  const chartW = width - padding * 2;
+  const chartH = height - padding * 2;
+  const n = data.length;
 
-  // Calculate scales
   const maxValue = Math.max(...data.map((d) => d.total), 1);
-  const minValue = 0;
-  const valueRange = maxValue - minValue || 1;
 
-  const xScale = (index: number) => padding + (index / (data.length - 1 || 1)) * chartWidth;
-  const yScale = (value: number) =>
-    padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+  const xAt = (i: number) => padding + (i / (n - 1 || 1)) * chartW;
+  const yAt = (v: number) => padding + chartH - (v / maxValue) * chartH;
+  const yBase = yAt(0);
 
-  // Build path
-  const points = data.map((d, i) => `${xScale(i)},${yScale(d.total)}`);
-  const linePath = `M ${points.join(' L ')}`;
+  // Smooth monotone bezier: horizontal control-point tangents between consecutive points
+  function smoothLinePath(pts: [number, number][]): string {
+    if (pts.length === 0) return '';
+    let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      const cpx = ((x0 + x1) / 2).toFixed(1);
+      d += ` C ${cpx},${y0.toFixed(1)} ${cpx},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+    }
+    return d;
+  }
 
-  // Area path (for fill)
-  const areaPath = `M ${xScale(0)},${yScale(0)} L ${points.join(' L ')} L ${xScale(
-    data.length - 1
-  )},${yScale(0)} Z`;
+  function areaPath(pts: [number, number][]): string {
+    if (pts.length === 0) return '';
+    const line = smoothLinePath(pts);
+    return `${line} L ${pts[pts.length - 1][0].toFixed(1)},${yBase.toFixed(1)} L ${pts[0][0].toFixed(1)},${yBase.toFixed(1)} Z`;
+  }
 
-  // Grid lines
+  const totalPts:    [number, number][] = data.map((d, i) => [xAt(i), yAt(d.total)]);
+  const criticalPts: [number, number][] = data.map((d, i) => [xAt(i), yAt(d.bySeverity?.CRITICAL ?? 0)]);
+
+  // Grid lines + Y labels
   const gridLines = showGrid
     ? Array.from({ length: 5 }, (_, i) => {
-        const y = padding + (i / 4) * chartHeight;
-        const value = Math.round(maxValue - (i / 4) * valueRange);
-        return `
-          <line class="chart-grid" x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" />
-          <text class="chart-label" x="${padding - 8}" y="${y + 4}" text-anchor="end">${value}</text>
-        `;
+        const y     = padding + (i / 4) * chartH;
+        const value = Math.round(maxValue - (i / 4) * maxValue);
+        return `<line class="chart-grid" x1="${padding}" y1="${y.toFixed(1)}" x2="${width - padding}" y2="${y.toFixed(1)}" />
+          <text class="chart-label" x="${padding - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end">${value}</text>`;
       }).join('')
     : '';
 
-  // X-axis labels
+  // X-axis labels (up to 6, always include last)
+  const step = Math.max(1, Math.ceil(n / 6));
   const xLabels = data
-    .filter((_, i) => i % Math.ceil(data.length / 6) === 0 || i === data.length - 1)
-    .map((d, _, arr) => {
-      const index = data.indexOf(d);
-      return `
-        <text class="chart-label" x="${xScale(index)}" y="${height - 8}" text-anchor="middle">
-          ${d.label}
-        </text>
-      `;
+    .filter((_, i) => i % step === 0 || i === n - 1)
+    .map((d) => {
+      const i = data.indexOf(d);
+      return `<text class="chart-label" x="${xAt(i).toFixed(1)}" y="${height - 8}" text-anchor="middle">${d.label}</text>`;
     })
     .join('');
 
-  // Data points
-  const dataPoints = data
-    .map(
-      (d, i) => `
-        <circle class="chart-point" cx="${xScale(i)}" cy="${yScale(d.total)}" r="4" />
-      `
-    )
-    .join('');
+  // Endpoint dots
+  const lastTotal    = totalPts[totalPts.length - 1];
+  const lastCritical = criticalPts[criticalPts.length - 1];
 
-  return `
+  // Legend
+  const legend = `
+    <div class="alarms-trend-legend">
+      <span class="alarms-trend-legend-item">
+        <svg width="16" height="4"><rect width="16" height="2" y="1" rx="1" fill="${totalColor}"/></svg>
+        Total
+      </span>
+      <span class="alarms-trend-legend-item">
+        <svg width="16" height="4"><rect width="16" height="2" y="1" rx="1" fill="${criticalColor}"/></svg>
+        Críticos
+      </span>
+    </div>`;
+
+  const svg = `
     <svg class="alarms-trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="trendGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style="stop-color:${lineColor};stop-opacity:0.3" />
-          <stop offset="100%" style="stop-color:${lineColor};stop-opacity:0" />
+        <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%"  stop-color="${totalColor}"    stop-opacity="0.25"/>
+          <stop offset="95%" stop-color="${totalColor}"    stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="gradCritical" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%"  stop-color="${criticalColor}" stop-opacity="0.25"/>
+          <stop offset="95%" stop-color="${criticalColor}" stop-opacity="0"/>
         </linearGradient>
       </defs>
       ${gridLines}
-      <path class="chart-area" d="${areaPath}" fill="${fillColor}" />
-      <path class="chart-line" d="${linePath}" stroke="${lineColor}" />
-      ${dataPoints}
+      <path d="${areaPath(totalPts)}"    fill="url(#gradTotal)" />
+      <path d="${areaPath(criticalPts)}" fill="url(#gradCritical)" />
+      <path d="${smoothLinePath(totalPts)}"    fill="none" stroke="${totalColor}"    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${smoothLinePath(criticalPts)}" fill="none" stroke="${criticalColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${lastTotal[0].toFixed(1)}"    cy="${lastTotal[1].toFixed(1)}"    r="4" fill="${totalColor}"    />
+      <circle cx="${lastCritical[0].toFixed(1)}" cy="${lastCritical[1].toFixed(1)}" r="4" fill="${criticalColor}" />
       ${xLabels}
-    </svg>
-  `;
+    </svg>`;
+
+  return `<div class="alarms-trend-wrap">${svg}${legend}</div>`;
 }
 
 // =====================================================================

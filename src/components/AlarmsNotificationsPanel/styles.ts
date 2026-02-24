@@ -1240,36 +1240,43 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 /* SVG Charts */
-.alarms-trend-chart {
+.alarms-trend-wrap {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
+  gap: 6px;
 }
 
-.alarms-trend-chart .chart-line {
-  fill: none;
-  stroke: var(--alarms-primary);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.alarms-trend-chart .chart-area {
-  fill: url(#trendGradient);
-  opacity: 0.3;
-}
-
-.alarms-trend-chart .chart-point {
-  fill: var(--alarms-primary);
+.alarms-trend-chart {
+  width: 100%;
+  flex: 1;
 }
 
 .alarms-trend-chart .chart-grid {
   stroke: var(--alarms-border);
-  stroke-dasharray: 2, 4;
+  stroke-dasharray: 3 4;
 }
 
 .alarms-trend-chart .chart-label {
   font-size: 10px;
   fill: var(--alarms-text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.alarms-trend-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.alarms-trend-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #6b7280;
 }
 
 .alarms-donut-chart {
@@ -1789,13 +1796,17 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 .adm-title {
+  display: block;
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
   color: #111827;
   line-height: 1.4;
   flex: 1;
   word-break: break-word;
+  letter-spacing: -0.1px;
 }
 
 .adm-close {
@@ -2105,20 +2116,33 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   margin-top: 2px;
 }
 
+.adm-timeline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.adm-timeline-value-pill {
+  font-size: 10px;
+  font-weight: 600;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .adm-timeline-device {
   font-size: 11px;
   color: #6b7280;
-  margin-top: 4px;
+  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
-}
-
-.adm-timeline-value {
-  font-size: 11px;
-  color: #374151;
-  margin-top: 2px;
+  max-width: 220px;
 }
 
 .adm-timeline-ellipsis {

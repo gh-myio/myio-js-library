@@ -28,7 +28,7 @@ function mapApiAlarm(api: import('./types').AlarmApiResponse, customerMap?: Map<
     id: api.id,
     customerId: api.customerId ?? api.tenantId,
     customerName: customerMap?.get(api.customerId ?? '') ?? '',
-    source: api.deviceId || api.deviceName, // RFC-0179: prefer full UUID so gcdrDeviceNameMap lookup works
+    source: api.deviceName || api.deviceId,
     severity: api.severity as Alarm['severity'],
     state: api.state as Alarm['state'],
     title: api.title,

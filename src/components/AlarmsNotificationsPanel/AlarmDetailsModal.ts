@@ -60,12 +60,16 @@ function buildTimeline(alarm: Alarm): string {
   const lastMs = new Date(alarm.lastOccurrence).getTime();
   const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
 
-  // Build extra info lines: device + trigger value
-  const deviceLabel = alarm.source
-    ? `<div class="adm-timeline-device">${escHtml(alarm.source)}</div>`
+  // Device label: only for single-device alarms (multi-device is already in the Dispositivos tab)
+  const deviceTokens = alarm.source
+    ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const deviceLabel = deviceTokens.length === 1
+    ? `<div class="adm-timeline-device">${escHtml(deviceTokens[0])}</div>`
     : '';
-  const valueLabel = alarm.triggerValue != null
-    ? `<div class="adm-timeline-value">Valor: <strong>${escHtml(String(alarm.triggerValue))}</strong></div>`
+  // Value pill: rendered inline next to the occurrence number
+  const valuePill = alarm.triggerValue != null
+    ? `<span class="adm-timeline-value-pill">${escHtml(String(alarm.triggerValue))}</span>`
     : '';
 
   function occItem(
@@ -78,10 +82,13 @@ function buildTimeline(alarm: Alarm): string {
       <div class="adm-timeline-item ${extraClass}">
         <div class="adm-timeline-dot"></div>
         <div class="adm-timeline-content">
-          <div class="adm-timeline-num">Ocorrência #${n}</div>
+          <div class="adm-timeline-row">
+            <div class="adm-timeline-num">Ocorrência #${n}</div>
+            ${valuePill}
+          </div>
           <div class="adm-timeline-time">${fmt(tsMs)}</div>
           ${meta ? `<div class="adm-timeline-meta">${meta}</div>` : ''}
-          ${deviceLabel}${valueLabel}
+          ${deviceLabel}
         </div>
       </div>`;
   }
@@ -549,7 +556,7 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
       <!-- ── Header ── -->
       <div class="adm-header">
         <div class="adm-header-top">
-          <h2 class="adm-title" title="${escHtml(alarm.title)}">${escHtml(alarm.title)}</h2>
+          <div class="adm-title" title="${escHtml(alarm.title)}">${escHtml(alarm.title)}</div>
           <button class="adm-close" id="admClose" title="Fechar (Esc)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M18 6L6 18M6 6l12 12"/>
