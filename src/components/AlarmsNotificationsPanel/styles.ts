@@ -2116,14 +2116,8 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   margin-top: 2px;
 }
 
-.adm-timeline-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
 .adm-timeline-value-pill {
+  display: inline-block;
   font-size: 10px;
   font-weight: 600;
   background: #f0fdf4;
@@ -2132,7 +2126,8 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border-radius: 4px;
   padding: 1px 6px;
   white-space: nowrap;
-  flex-shrink: 0;
+  vertical-align: middle;
+  margin-left: 4px;
 }
 
 .adm-timeline-device {

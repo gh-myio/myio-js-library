@@ -60,15 +60,16 @@ function buildTimeline(alarm: Alarm): string {
   const lastMs = new Date(alarm.lastOccurrence).getTime();
   const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
 
-  // Device label: only for single-device alarms (multi-device is already in the Dispositivos tab)
+  // Device label: only for single-device alarms (multi-device is in the Dispositivos tab)
   const deviceTokens = alarm.source
     ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
     : [];
   const deviceLabel = deviceTokens.length === 1
     ? `<div class="adm-timeline-device">${escHtml(deviceTokens[0])}</div>`
     : '';
-  // Value pill: rendered inline next to the occurrence number
-  const valuePill = alarm.triggerValue != null
+
+  // Value pill: only on the most recent occurrence (triggerValue is from the latest record)
+  const valuePillHtml = alarm.triggerValue != null
     ? `<span class="adm-timeline-value-pill">${escHtml(String(alarm.triggerValue))}</span>`
     : '';
 
@@ -78,14 +79,13 @@ function buildTimeline(alarm: Alarm): string {
     meta: string,
     extraClass = ''
   ): string {
+    // Inline pill only on most-recent; avoids misleading "same value every occurrence"
+    const isLatest = extraClass.includes('is-last') || extraClass.includes('is-single');
     return `
       <div class="adm-timeline-item ${extraClass}">
         <div class="adm-timeline-dot"></div>
         <div class="adm-timeline-content">
-          <div class="adm-timeline-row">
-            <div class="adm-timeline-num">Ocorrência #${n}</div>
-            ${valuePill}
-          </div>
+          <div class="adm-timeline-num">Ocorrência #${n}${isLatest ? ' ' + valuePillHtml : ''}</div>
           <div class="adm-timeline-time">${fmt(tsMs)}</div>
           ${meta ? `<div class="adm-timeline-meta">${meta}</div>` : ''}
           ${deviceLabel}

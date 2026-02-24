@@ -317,18 +317,34 @@ async function _fetchAndUpdate() {
     const summary   = response.summary;
 
     // RFC-0179: Enrich alarm sources with TB device names.
-    // Strategy:
-    //   1. Try gcdrMap.get(a.source)  — works for old format (UUID as source)
-    //   2. If source is numeric (localId like "188"), fall back to gcdrMap.get(a.centralId)
-    //      Each device has a unique centralId UUID that IS in the gcdrDeviceNameMap.
+    // Three-layer strategy — first match wins:
+    //   1. gcdrMap.get(source)       — old format (alarm.source IS the GCDR UUID)
+    //   2. gcdrMap.get(centralId)    — new format: numeric localId, centralId is GCDR UUID
+    //   3. stateMap.get(centralId)   — window.STATE._raw (same data TELEMETRY uses)
+    //      window.STATE items have centralId + label ("Elevador 7 L2") from MAIN_VIEW,
+    //      no extra datakey config needed — already populated for TELEMETRY.
     const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
-    const alarms = (gcdrMap && gcdrMap.size > 0)
-      ? rawAlarms.map((a) => {
-          const tbName = gcdrMap.get(a.source)
-            || (/^\d+$/.test(a.source) ? gcdrMap.get(a.centralId) : null);
-          return tbName ? { ...a, source: tbName } : a;
-        })
-      : rawAlarms;
+
+    // Build centralId→label map from window.STATE (all domains)
+    const stateMap = new Map();
+    if (window.STATE) {
+      for (const domain of ['energy', 'water', 'temperature']) {
+        const raw = window.STATE[domain]?._raw || [];
+        for (const item of raw) {
+          const name = item.label || item.name || '';
+          if (name && item.centralId) stateMap.set(String(item.centralId), name);
+        }
+      }
+    }
+    LogHelper.log(`[ALARM] enrich maps — gcdrMap: ${gcdrMap?.size ?? 0}, stateMap: ${stateMap.size}`);
+
+    const alarms = rawAlarms.map((a) => {
+      const isNumericSrc = /^\d+$/.test(a.source);
+      const tbName = gcdrMap?.get(a.source)
+        || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
+        || stateMap.get(a.centralId);
+      return tbName ? { ...a, source: tbName } : a;
+    });
 
     _panelInstance?.updateAlarms?.(alarms);
     if (summary) _panelInstance?.updateStats?.(summary);
