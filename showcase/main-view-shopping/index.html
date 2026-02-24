@@ -544,6 +544,38 @@
         </div>
       </div>
 
+      <!-- Settings Modal (RFC-0180) -->
+      <div class="controls-panel" id="settingsRFC180Controls">
+        <h3>&#x2699;&#xFE0F; Settings Modal (RFC-0180)</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Dispositivo de Teste</label>
+          <select class="ctrl-select" id="rfc180DeviceSelect">
+            <option value="0">Loja 101 (com GCDR)</option>
+            <option value="1">Elevador 1 L2 (com GCDR)</option>
+            <option value="2">Chiller Norte (com GCDR)</option>
+            <option value="3">Loja 250 (sem GCDR)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Pre-fetched Bundle</label>
+          <select class="ctrl-select" id="rfc180BundleMode">
+            <option value="mock">Mock Bundle (offline)</option>
+            <option value="null">null (sem bundle)</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="openSettingsRFC180()">&#x2699; Open Settings</button>
+          <button class="ctrl-btn secondary" onclick="openAlarmBundleMapRFC180()">&#x1F5FA; Bundle Map</button>
+        </div>
+        <div style="margin-top:8px; padding:6px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:6px; font-size:10px; color:#6ee7b7; line-height:1.5">
+          <strong>RFC-0180 — Alarms Tab:</strong><br>
+          &#x2705; General: identity + placeholder card<br>
+          &#x2705; Aba Alarmes: regras GCDR ativas<br>
+          &#x2705; Multiselect: associar/dissociar regras<br>
+          &#x1F504; Bundle: mock (offline) ou null
+        </div>
+      </div>
+
       <!-- Event Log -->
       <div class="event-log-panel">
         <div class="event-log-header">
@@ -608,6 +640,36 @@
     const _CLIENT_ID = 'mestreal_mfh4e642_4flnuh';
     const _CLIENT_SECRET = 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
     const _DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+
+    // RFC-0180: GCDR identifiers for Alarms tab testing
+    const _GCDR_API_BASE_URL = 'https://gcdr-api.a.myio-bas.com';
+    const _GCDR_TENANT_ID = 'mestre-alvaro-tenant-001';
+    const _GCDR_CUSTOMER_ID = 'gcdr-customer-mestre-alvaro';
+
+    // Mock devices with GCDR IDs for Settings modal RFC-0180 test
+    const _RFC180_TEST_DEVICES = [
+      { id: 'device-1', name: '3F_MEDIDOR_001', label: 'Loja 101', gcdrDeviceId: 'gcdr-uuid-dev01-0000-000000000001', deviceType: '3F_MEDIDOR', domain: 'energy' },
+      { id: 'device-2', name: '3F_ELEVADOR_002', label: 'Elevador 1 L2', gcdrDeviceId: 'gcdr-uuid-dev02-0000-000000000001', deviceType: 'ELEVADOR', domain: 'energy' },
+      { id: 'device-3', name: '3F_CHILLER_003', label: 'Chiller Norte', gcdrDeviceId: 'gcdr-uuid-dev03-0000-000000000001', deviceType: 'CHILLER', domain: 'energy' },
+      { id: 'device-99', name: '3F_MEDIDOR_099', label: 'Loja 250 (sem GCDR)', gcdrDeviceId: null, deviceType: '3F_MEDIDOR', domain: 'energy' },
+    ];
+
+    // Mock GCDR bundle — simulates what MAIN_VIEW pre-fetches at startup
+    const _MOCK_GCDR_BUNDLE = {
+      customer: { id: _GCDR_CUSTOMER_ID, name: 'Mestre Alvaro', tenantId: _GCDR_TENANT_ID },
+      assets: [],
+      devices: [
+        { id: 'gcdr-uuid-dev01-0000-000000000001', externalId: 'device-1', metadata: { tbId: 'device-1' }, name: '3F_MEDIDOR_001', ruleIds: ['rule-001', 'rule-003'] },
+        { id: 'gcdr-uuid-dev02-0000-000000000001', externalId: 'device-2', metadata: { tbId: 'device-2' }, name: '3F_ELEVADOR_002', ruleIds: ['rule-002'] },
+        { id: 'gcdr-uuid-dev03-0000-000000000001', externalId: 'device-3', metadata: { tbId: 'device-3' }, name: '3F_CHILLER_003', ruleIds: ['rule-001', 'rule-002'] },
+      ],
+      rules: {
+        'rule-001': { id: 'rule-001', name: 'Alerta Demanda Alta', severity: 'WARNING', enabled: true, scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] } },
+        'rule-002': { id: 'rule-002', name: 'Falta de Energia', severity: 'CRITICAL', enabled: true, scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] } },
+        'rule-003': { id: 'rule-003', name: 'Consumo Anomalo Noturno', severity: 'MAJOR', enabled: false, scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001'] } },
+        'rule-004': { id: 'rule-004', name: 'Pico de Temperatura', severity: 'WARNING', enabled: true, scope: { type: 'DEVICE', entityIds: [] } },
+      },
+    };
 
     const DEVICE_TYPES = {
       energy: ['3F_MEDIDOR', 'AC_3F', 'ENTRADA', 'RELOGIO', 'CHILLER', 'ELEVADOR'],
@@ -754,6 +816,13 @@
         window.MyIOOrchestrator.credentialsSet = true;
         console.log('[Showcase] setCredentials called (stub):', { customerId, clientId });
       },
+      // RFC-0180: GCDR orchestrator fields
+      customerTB_ID: _CUSTOMER_TB_ID,
+      gcdrTenantId: _GCDR_TENANT_ID,
+      gcdrApiBaseUrl: _GCDR_API_BASE_URL,
+      gcdrCustomerId: _GCDR_CUSTOMER_ID,
+      alarmBundle: null,
+      alarmBundleFetchedAt: null,
       // RFC-0179: Device name enrichment maps (pre-populated with mock data)
       // gcdrDeviceNameMap: UUID / "gcdr:<first8>" → human-readable label
       // UUIDs must be unique in first 8 chars for short-code indexing to work
@@ -1882,6 +1951,79 @@
     ['myio:dashboard-state', 'myio:data-ready', 'myio:theme-changed', 'myio:energy-summary-ready', 'myio:water-summary-ready'].forEach(evt => {
       window.addEventListener(evt, (e) => logEvent('EVENT', evt, 'info'));
     });
+
+    // ===== SETTINGS RFC-0180 =====
+    async function openSettingsRFC180() {
+      const token = ghostAuthToken || localStorage.getItem('jwt_token');
+      if (!token) {
+        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
+        return;
+      }
+
+      const deviceIdx = parseInt(document.getElementById('rfc180DeviceSelect').value, 10);
+      const device = _RFC180_TEST_DEVICES[deviceIdx];
+      const bundleMode = document.getElementById('rfc180BundleMode').value;
+      const prefetchedBundle = bundleMode === 'mock' ? _MOCK_GCDR_BUNDLE : null;
+
+      logEvent('SETTINGS-RFC180', `Opening for "${device.label}"`, 'info');
+
+      if (typeof MyIOLibrary?.openDashboardPopupSettings !== 'function') {
+        logEvent('ERROR', 'openDashboardPopupSettings not in MyIOLibrary — rebuild', 'error');
+        return;
+      }
+
+      try {
+        MyIOLibrary.openDashboardPopupSettings({
+          deviceId: device.id,
+          deviceName: device.name,
+          label: device.label,
+          deviceType: device.deviceType,
+          domain: device.domain,
+          jwtToken: token,
+          api: {
+            tbBaseUrl: _TB_URL,
+            dataApiBaseUrl: _DATA_API_HOST,
+            clientId: _CLIENT_ID,
+            clientSecret: _CLIENT_SECRET,
+            ingestionToken: _CUSTOMER_ING_ID,
+          },
+          // RFC-0180: GCDR params for Alarms tab
+          gcdrDeviceId: device.gcdrDeviceId,
+          gcdrCustomerId: _GCDR_CUSTOMER_ID,
+          gcdrTenantId: _GCDR_TENANT_ID,
+          gcdrApiBaseUrl: _GCDR_API_BASE_URL,
+          prefetchedBundle,
+          customerName: 'Mestre Alvaro',
+          customerId: _CUSTOMER_TB_ID,
+          enableAnnotationsOnboarding: false,
+          onSaved: (result) => logEvent('SETTINGS-SAVED', JSON.stringify(result).substring(0, 80), 'info'),
+          onClose: () => logEvent('SETTINGS-CLOSED', device.label, 'info'),
+          onError: (err) => logEvent('SETTINGS-ERROR', err.message, 'error'),
+        });
+      } catch (err) {
+        logEvent('ERROR', err.message, 'error');
+        console.error('[Showcase] openSettingsRFC180 error:', err);
+      }
+    }
+
+    function openAlarmBundleMapRFC180() {
+      if (typeof MyIOLibrary?.openAlarmBundleMapModal !== 'function') {
+        logEvent('ERROR', 'openAlarmBundleMapModal not in MyIOLibrary — rebuild', 'error');
+        return;
+      }
+      const bundleMode = document.getElementById('rfc180BundleMode').value;
+      const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+
+      logEvent('ALARM-MAP', `Opening bundle map (bundle=${bundleMode}, theme=${themeMode})`, 'info');
+      MyIOLibrary.openAlarmBundleMapModal({
+        customerTB_ID: _CUSTOMER_TB_ID,
+        gcdrTenantId: _GCDR_TENANT_ID,
+        gcdrApiBaseUrl: _GCDR_API_BASE_URL,
+        prefetchedBundle: bundleMode === 'mock' ? _MOCK_GCDR_BUNDLE : null,
+        themeMode,
+        onClose: () => logEvent('ALARM-MAP-CLOSED', '-', 'info'),
+      });
+    }
 
     // ===== INITIALIZE =====
     window.addEventListener('DOMContentLoaded', async () => {
