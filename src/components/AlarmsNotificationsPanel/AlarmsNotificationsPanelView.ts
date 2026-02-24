@@ -36,6 +36,10 @@ export class AlarmsNotificationsPanelView {
   // Group mode: 'consolidado' (default) groups same-title alarms; 'separado' one row per device
   private groupMode: 'consolidado' | 'separado' = 'consolidado';
 
+  // Table sort state
+  private sortCol: string = '';
+  private sortDir: 'asc' | 'desc' = 'asc';
+
   constructor(
     params: AlarmsNotificationsPanelParams,
     controller: AlarmsNotificationsPanelController
@@ -277,6 +281,20 @@ export class AlarmsNotificationsPanelView {
       });
       const state = this.controller.getState();
       this.renderListContent(state);
+    });
+
+    // Table column sort
+    this.root.addEventListener('click', (e) => {
+      const th = (e.target as HTMLElement).closest('[data-sort-col]') as HTMLElement | null;
+      if (!th) return;
+      const col = th.getAttribute('data-sort-col')!;
+      if (this.sortCol === col) {
+        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortCol = col;
+        this.sortDir = 'asc';
+      }
+      this.renderListContent(this.controller.getState());
     });
 
     // Export button
@@ -693,6 +711,35 @@ export class AlarmsNotificationsPanelView {
       );
     };
 
+    // Apply column sort
+    const SEVERITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
+    const STATE_ORDER: Record<string, number> = { OPEN: 0, ESCALATED: 1, ACK: 2, SNOOZED: 3, CLOSED: 4 };
+    if (this.sortCol) {
+      const dir = this.sortDir === 'asc' ? 1 : -1;
+      alarms = [...alarms].sort((a, b) => {
+        switch (this.sortCol) {
+          case 'title':    return dir * (a.title || '').localeCompare(b.title || '', 'pt-BR', { sensitivity: 'base' });
+          case 'device':   return dir * (a.source || '').localeCompare(b.source || '', 'pt-BR', { sensitivity: 'base' });
+          case 'severity': return dir * ((SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9));
+          case 'state':    return dir * ((STATE_ORDER[a.state] ?? 9) - (STATE_ORDER[b.state] ?? 9));
+          case 'customer': return dir * (a.customerName || '').localeCompare(b.customerName || '', 'pt-BR', { sensitivity: 'base' });
+          case 'count':    return dir * ((a.occurrenceCount || 1) - (b.occurrenceCount || 1));
+          case 'first':    return dir * (new Date(a.firstOccurrence ?? 0).getTime() - new Date(b.firstOccurrence ?? 0).getTime());
+          case 'last':     return dir * (new Date(a.lastOccurrence ?? 0).getTime() - new Date(b.lastOccurrence ?? 0).getTime());
+          default:         return 0;
+        }
+      });
+    }
+
+    // Helper: render sortable <th>
+    const th = (label: string, col: string, extraClass = '') => {
+      const active = this.sortCol === col;
+      const icon = active
+        ? `<span class="atbl-sort-icon is-active">${this.sortDir === 'asc' ? '▲' : '▼'}</span>`
+        : `<span class="atbl-sort-icon">⇅</span>`;
+      return `<th class="atbl-th atbl-th--sortable${extraClass ? ' ' + extraClass : ''}${active ? ' is-sorted' : ''}" data-sort-col="${col}">${label}${icon}</th>`;
+    };
+
     const rows = alarms.map((alarm) => {
       const sev = SEVERITY_CONFIG[alarm.severity];
       const st = STATE_CONFIG[alarm.state];
@@ -737,14 +784,14 @@ export class AlarmsNotificationsPanelView {
         <thead>
           <tr class="atbl-head-row">
             <th class="atbl-th atbl-th--sel"><input type="checkbox" id="tblSelectAll"${allSelected ? ' checked' : ''}></th>
-            <th class="atbl-th">Tipo</th>
-            ${showDevice ? '<th class="atbl-th atbl-th--device">Dispositivo</th>' : ''}
-            <th class="atbl-th">Severidade</th>
-            <th class="atbl-th">Estado</th>
-            ${showCustomer ? '<th class="atbl-th">Shopping</th>' : ''}
-            <th class="atbl-th atbl-th--num">Qte.</th>
-            <th class="atbl-th atbl-th--date">1a Ocorrência</th>
-            <th class="atbl-th atbl-th--date">Últ. Ocorrência</th>
+            ${th('Tipo', 'title')}
+            ${showDevice ? th('Dispositivo', 'device', 'atbl-th--device') : ''}
+            ${th('Severidade', 'severity')}
+            ${th('Estado', 'state')}
+            ${showCustomer ? th('Shopping', 'customer') : ''}
+            ${th('Qte.', 'count', 'atbl-th--num')}
+            ${th('1a Ocorrência', 'first', 'atbl-th--date')}
+            ${th('Últ. Ocorrência', 'last', 'atbl-th--date')}
             <th class="atbl-th atbl-th--actions">Ações</th>
           </tr>
         </thead>

@@ -64,8 +64,8 @@ function buildTimeline(alarm: Alarm): string {
   const deviceTokens = alarm.source
     ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
     : [];
-  const deviceLabel = deviceTokens.length === 1
-    ? `<div class="adm-timeline-device">${escHtml(deviceTokens[0])}</div>`
+  const deviceSpan = deviceTokens.length === 1
+    ? `<span class="adm-timeline-sep">·</span><span class="adm-timeline-device">${escHtml(deviceTokens[0])}</span>`
     : '';
 
   // Value pill: only on the most recent occurrence (triggerValue is from the latest record)
@@ -79,17 +79,18 @@ function buildTimeline(alarm: Alarm): string {
     meta: string,
     extraClass = ''
   ): string {
-    // Inline pill only on most-recent; avoids misleading "same value every occurrence"
+    // Pill only on most-recent; estimated occurrences show ~ before the date
     const isLatest = extraClass.includes('is-last') || extraClass.includes('is-single');
+    const isEstimated = meta === 'Estimado';
+    const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
     return `
       <div class="adm-timeline-item ${extraClass}">
         <div class="adm-timeline-dot"></div>
-        <div class="adm-timeline-content">
-          <div class="adm-timeline-num">Ocorrência #${n}${isLatest ? ' ' + valuePillHtml : ''}</div>
-          <div class="adm-timeline-time">${fmt(tsMs)}</div>
-          ${meta ? `<div class="adm-timeline-meta">${meta}</div>` : ''}
-          ${deviceLabel}
-        </div>
+        <span class="adm-timeline-num">Ocorrência #${n}</span>
+        <span class="adm-timeline-sep">·</span>
+        <span class="adm-timeline-time">${timeStr}</span>
+        ${deviceSpan}
+        ${isLatest ? valuePillHtml : ''}
       </div>`;
   }
 

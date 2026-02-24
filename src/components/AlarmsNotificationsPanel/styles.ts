@@ -2109,46 +2109,56 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 .adm-timeline-item {
   position: relative;
-  margin-bottom: 16px;
+  display: flex !important;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  margin-bottom: 10px;
+  min-height: 20px;
+  overflow: hidden;
 }
 
 .adm-timeline-dot {
   position: absolute;
   left: -23px;
-  top: 3px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: #8b5cf6;
   border: 2px solid #fff;
   box-shadow: 0 0 0 2px #8b5cf6;
+  flex-shrink: 0;
 }
 
 .adm-timeline-item.is-last  .adm-timeline-dot { background: #3b82f6; box-shadow: 0 0 0 2px #3b82f6; }
 .adm-timeline-item.is-first .adm-timeline-dot { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
 .adm-timeline-item.is-single .adm-timeline-dot { background: #7c3aed; box-shadow: 0 0 0 2px #7c3aed; }
 
-.adm-timeline-content { }
-
 .adm-timeline-num {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   color: #9ca3af;
-  margin-bottom: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.adm-timeline-sep {
+  color: #d1d5db;
+  font-size: 10px;
+  flex-shrink: 0;
+  user-select: none;
 }
 
 .adm-timeline-time {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: #111827;
-}
-
-.adm-timeline-meta {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 2px;
+  color: #374151;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .adm-timeline-value-pill {
@@ -2162,17 +2172,17 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   padding: 1px 6px;
   white-space: nowrap;
   vertical-align: middle;
-  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .adm-timeline-device {
   font-size: 11px;
   color: #6b7280;
-  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .adm-timeline-ellipsis {
@@ -3562,6 +3572,36 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .atbl-th--date { width: 90px; }
 .atbl-th--device { width: 130px; }
 .atbl-th--actions { width: 100px; }
+
+.atbl-th--sortable {
+  cursor: pointer;
+  gap: 4px;
+}
+
+.atbl-th--sortable:hover {
+  color: var(--alarms-text-primary);
+  background: var(--alarms-card-hover);
+}
+
+.atbl-th--sortable.is-sorted {
+  color: var(--alarms-primary);
+  background: var(--alarms-primary-light);
+}
+
+.atbl-sort-icon {
+  display: inline-block;
+  font-size: 8px;
+  opacity: 0.35;
+  margin-left: 3px;
+  vertical-align: middle;
+  font-style: normal;
+  line-height: 1;
+}
+
+.atbl-sort-icon.is-active {
+  opacity: 1;
+  color: var(--alarms-primary);
+}
 
 .atbl-row {
   border-bottom: 1px solid var(--alarms-border-light);

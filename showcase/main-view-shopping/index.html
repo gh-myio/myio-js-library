@@ -520,10 +520,16 @@
           &#x2194; Toggle Consolidado | Separado (1 card/row por device)<br>
           &#x2611; Checkbox + Ações em Lote (batch API)<br>
           &#x2500; Toggle Card | Lista (col. Shopping ocultável)<br>
+          &#x1F3F7; Badge device no card (modo Separado)<br>
+          &#x1F4CB; Coluna Dispositivo na lista (modo Separado)<br>
           &#x1F50D; Modal de Filtros (sev/estado/tipo/device)<br>
           &#x1F4E4; Exportar PDF/Excel/CSV<br>
           &#x1F504; Auto-paginação (hasMore loop, page size 100)<br>
-          &#x1F3F7; Badge device no card (modo Separado)
+          &#x26F2; Modal Detalhes: botão Maximizar (fullscreen)<br>
+          &#x1F319; Modal Detalhes: dark mode (segue tema do painel)<br>
+          &#x1F4CD; Enriquecimento 4 camadas RFC-0179 (gcdrMap/stateMap/nameMap)<br>
+          &nbsp;&nbsp;&#x2022; gcdr:shortcode → label<br>
+          &nbsp;&nbsp;&#x2022; 3F_SCMOX... → "Elevador X L2"
         </div>
       </div>
 
@@ -737,6 +743,30 @@
         window.MyIOOrchestrator.credentialsSet = true;
         console.log('[Showcase] setCredentials called (stub):', { customerId, clientId });
       },
+      // RFC-0179: Device name enrichment maps (pre-populated with mock data)
+      // gcdrDeviceNameMap: UUID / "gcdr:<first8>" → human-readable label
+      // UUIDs must be unique in first 8 chars for short-code indexing to work
+      gcdrDeviceNameMap: new Map([
+        // Full UUID entries
+        ['a1b2c3d4-0000-0000-0000-000000000001', 'Elevador 1'],
+        ['b2c3d4e5-0000-0000-0000-000000000002', 'Elevador 2'],
+        ['c3d4e5f6-0000-0000-0000-000000000003', 'Chiller Norte'],
+        // Short-code entries (first 8 chars of UUID)
+        ['gcdr:a1b2c3d4', 'Elevador 1'],
+        ['gcdr:b2c3d4e5', 'Elevador 2'],
+        ['gcdr:c3d4e5f6', 'Chiller Norte'],
+        // Real-format short codes matching PINNED_ALARMS (tests real enrichment path)
+        ['gcdr:9264f262', 'Elevador 3 L2'],
+        ['gcdr:e9dce3c5', 'Elevador 7 L2'],
+      ]),
+      // entityNameToLabelMap: TB entityName → entityLabel (raw name → friendly label)
+      entityNameToLabelMap: new Map([
+        ['3F_SCMOXUARAAC_EL1_L2', 'Elevador 1 L2'],
+        ['3F_SCMOXUARAAC_EL2_L2', 'Elevador 2 L2'],
+        ['3F_SCMOXUARAAC_EL7_L2', 'Elevador 7 L2'],
+        ['3F_SCMOXUARAAC_CH1',    'Chiller 1'],
+        ['3F_SCMOXUARAAC_FC1',    'Fancoil 1'],
+      ]),
     };
 
     // RFC-0130: Listen for orchestrator:ready and immediately set credentials
@@ -891,10 +921,24 @@
             dataKey: { name: 'identifier', type: 'attribute', label: 'Identifier' },
             data: [[now, entityName]],
           });
+
+          // 8. gcdrDeviceId (attribute) - RFC-0179: for gcdrDeviceNameMap enrichment
+          // Only emit for a few devices to simulate the real GCDR concentrators
+          if (deviceIndex <= 5) {
+            const gcdrUuid = `gcdr-uuid-dev${String(deviceIndex).padStart(2, '0')}-0000-000000000001`;
+            devices.push({
+              datasource: {
+                ...baseDatasource,
+                entityLabel: entityName.replace(/_\d+$/, '').replace(/_/g, ' '), // e.g. "3F MEDIDOR"
+              },
+              dataKey: { name: 'gcdrDeviceId', type: 'attribute', label: 'GCDR Device ID' },
+              data: [[now, gcdrUuid]],
+            });
+          }
         }
       });
 
-      console.log(`[Showcase] Generated ${devices.length} rows (${deviceIndex} devices × ~7 dataKeys each)`);
+      console.log(`[Showcase] Generated ${devices.length} rows (${deviceIndex} devices × ~7-8 dataKeys each)`);
       console.log('[Showcase] Sample row:', devices[0]);
       console.log('[Showcase] DataKeys per first device:',
         devices.filter(d => d.datasource.entityId === 'device-1').map(d => d.dataKey.name));
@@ -1022,8 +1066,9 @@
       'Dispositivo offline por mais de 24h',
     ];
     // Sources: single device OR multi-device (comma-separated simulates real-world groups)
+    // Also includes raw TB entityNames and gcdr: short-codes to exercise RFC-0179 enrichment
     const ALARM_SOURCES = [
-      // Single device
+      // Single device — already human-readable (no enrichment needed)
       'CHILLER-01',
       'FANCOIL-03',
       'ELV-01',
@@ -1031,6 +1076,13 @@
       'MEDIDOR-01',
       'HIDROMETRO-01',
       'TERMOSTATO-01',
+      // Raw TB entityNames (enriched via entityNameToLabelMap → friendly label)
+      '3F_SCMOXUARAAC_EL1_L2',
+      '3F_SCMOXUARAAC_EL7_L2',
+      '3F_SCMOXUARAAC_CH1',
+      // GCDR short-code format (enriched via gcdrDeviceNameMap)
+      'gcdr:9264f262',
+      'gcdr:e9dce3c5',
       // Multi-device (2 devices)
       'CHILLER-01, CHILLER-02',
       'ELV-01, ELV-02',
@@ -1042,12 +1094,15 @@
     ];
 
     // Pinned rich alarms to showcase the details modal (multi-device + high occurrences)
+    // centralId: GCDR UUID used for stateMap enrichment (layer 3 of RFC-0179)
+    // triggerValue: measured value that triggered the rule (shown in timeline)
     const PINNED_ALARMS = [
       {
         id: 'ALM-PINNED-01',
         customerId: 'cust-1',
         customerName: 'Shopping Aricanduva',
         source: 'ELV-01, ELV-02, ELV-03',
+        centralId: 'a1b2c3d4-0000-0000-0000-000000000001',
         severity: 'HIGH',
         state: 'OPEN',
         title: 'Elevador energizado e não usado (seg-sáb)',
@@ -1056,12 +1111,15 @@
         firstOccurrence: new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString(),
         lastOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
         occurrenceCount: 50,
+        triggerValue: 4.2,
       },
       {
         id: 'ALM-PINNED-02',
         customerId: 'cust-2',
         customerName: 'Mestre Alvaro',
-        source: 'CHILLER-01, CHILLER-02, FANCOIL-01, FANCOIL-02',
+        // Raw TB entityName → enriched to "Chiller 1" via entityNameToLabelMap
+        source: '3F_SCMOXUARAAC_CH1',
+        centralId: 'c3d4e5f6-0000-0000-0000-000000000003',
         severity: 'CRITICAL',
         state: 'OPEN',
         title: 'Falha no sistema de refrigeração',
@@ -1070,12 +1128,15 @@
         firstOccurrence: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
         lastOccurrence: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
         occurrenceCount: 32,
+        triggerValue: 194,
       },
       {
         id: 'ALM-PINNED-03',
         customerId: 'cust-3',
         customerName: 'Shopping Eldorado',
-        source: 'FANCOIL-01, FANCOIL-02, FANCOIL-03',
+        // GCDR short-code format → enriched via gcdrDeviceNameMap
+        source: 'gcdr:9264f262',
+        centralId: 'b2c3d4e5-0000-0000-0000-000000000002',
         severity: 'MEDIUM',
         state: 'ACK',
         title: 'Consumo de energia acima do limite',
@@ -1086,6 +1147,7 @@
         occurrenceCount: 18,
         acknowledgedAt: new Date().toISOString(),
         acknowledgedBy: 'operador@myio.com.br',
+        triggerValue: 287.5,
       },
     ];
 
@@ -1102,6 +1164,7 @@
           customerId: `cust-${(i % 3) + 1}`,
           customerName: ['Mestre Alvaro', 'Shopping Aricanduva', 'Shopping Eldorado'][(i % 3)],
           source: ALARM_SOURCES[i % ALARM_SOURCES.length],
+          centralId: `gcdr-uuid-dev${String((i % 5) + 1).padStart(2, '0')}-0000-000000000001`,
           severity,
           state,
           title: ALARM_TITLES[i % ALARM_TITLES.length],
@@ -1110,6 +1173,10 @@
           firstOccurrence: new Date(firstTs).toISOString(),
           lastOccurrence: new Date(lastTs).toISOString(),
           occurrenceCount: Math.floor(Math.random() * 20) + 1,
+          // triggerValue: measured value that triggered the rule (shown in timeline)
+          triggerValue: severity === 'CRITICAL' || severity === 'HIGH'
+            ? Math.round((Math.random() * 300 + 50) * 10) / 10
+            : undefined,
         };
         if (state === 'ACK') { alarm.acknowledgedAt = new Date().toISOString(); alarm.acknowledgedBy = 'operador@myio.com.br'; }
         if (state === 'SNOOZED') { alarm.snoozedUntil = new Date(now + 4 * 3600 * 1000).toISOString(); }
@@ -1678,6 +1745,11 @@
         window.MyIOUtils.setTheme(theme);
       }
 
+      // Reinit alarm panel so themeMode propagates to the AlarmDetailsModal
+      if (_alarmPanelInstance && currentTab === 'alarms') {
+        reinitAlarmPanel();
+      }
+
       logEvent('SETTINGS', { theme, debug });
       updateStateDisplay();
     }
@@ -1685,16 +1757,22 @@
     // ===== THEME TOGGLE =====
     document.getElementById('themeToggle').addEventListener('click', () => {
       const isLight = document.body.classList.contains('light-mode');
+      const newTheme = isLight ? 'dark' : 'light';
       document.body.classList.toggle('light-mode', !isLight);
-      document.getElementById('settingsTheme').value = isLight ? 'dark' : 'light';
+      document.getElementById('settingsTheme').value = newTheme;
       document.getElementById('themeIcon').innerHTML = isLight ? '&#x2600;&#xfe0f;' : '&#x1F319;';
 
       // Update MyIOUtils theme
       if (window.MyIOUtils?.setTheme) {
-        window.MyIOUtils.setTheme(isLight ? 'dark' : 'light');
+        window.MyIOUtils.setTheme(newTheme);
       }
 
-      logEvent('THEME', isLight ? 'dark' : 'light');
+      // Reinit alarm panel so AlarmDetailsModal opens with the new themeMode
+      if (_alarmPanelInstance && currentTab === 'alarms') {
+        reinitAlarmPanel();
+      }
+
+      logEvent('THEME', newTheme);
     });
 
     // ===== EVENT LISTENERS =====
