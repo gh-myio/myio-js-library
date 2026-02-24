@@ -33,8 +33,11 @@ export class AlarmsNotificationsPanelView {
   // View mode: 'card' (default) or 'list' (table)
   private viewMode: 'card' | 'list' = 'card';
 
-  // Group mode: 'consolidado' (default) groups same-title alarms; 'separado' one row per device
-  private groupMode: 'consolidado' | 'separado' = 'consolidado';
+  // Group mode:
+  //   'consolidado'    – Por Tipo de Alarme  (one row per alarm type, all devices merged)
+  //   'separado'       – Por Dispositivo - Tipo  (one row per device × alarm type pair)
+  //   'porDispositivo' – Por Dispositivo  (one row per device, all alarm types merged)
+  private groupMode: 'consolidado' | 'separado' | 'porDispositivo' = 'consolidado';
 
   // Table sort state
   private sortCol: string = '';
@@ -149,6 +152,7 @@ export class AlarmsNotificationsPanelView {
     const isList = this.viewMode === 'list';
     const isConsol = this.groupMode === 'consolidado';
     const isSep = this.groupMode === 'separado';
+    const isPorDev = this.groupMode === 'porDispositivo';
     const filterCount = this.getActiveFilterCount(state.filters);
 
     return `
@@ -179,8 +183,9 @@ export class AlarmsNotificationsPanelView {
         </div>
 
         <div class="alarms-group-toggle" role="group" aria-label="Modo de agrupamento">
-          <button class="alarms-group-btn${isConsol ? ' is-active' : ''}" data-group-mode="consolidado" title="Agrupar alarmes do mesmo tipo">Consol.</button>
-          <button class="alarms-group-btn${isSep ? ' is-active' : ''}" data-group-mode="separado" title="Um item por dispositivo">Separ.</button>
+          <button class="alarms-group-btn${isConsol ? ' is-active' : ''}" data-group-mode="consolidado" title="Por Tipo de Alarme — agrupa todas as ocorrências do mesmo tipo">Por Tipo</button>
+          <button class="alarms-group-btn${isSep ? ' is-active' : ''}" data-group-mode="separado" title="Por Dispositivo - Tipo — um item por par dispositivo × tipo de alarme">Disp. + Tipo</button>
+          <button class="alarms-group-btn${isPorDev ? ' is-active' : ''}" data-group-mode="porDispositivo" title="Por Dispositivo — um item por dispositivo com todos os tipos de alarme">Por Disp.</button>
         </div>
 
         <button class="alarms-export-btn" id="exportBtn" title="Exportar dados">
@@ -268,11 +273,11 @@ export class AlarmsNotificationsPanelView {
       this.renderListContent(state);
     });
 
-    // Group toggle (CONSOLIDADO | SEPARADO)
+    // Group toggle (CONSOLIDADO | SEPARADO | POR_DISPOSITIVO)
     this.root.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('[data-group-mode]') as HTMLElement | null;
       if (!btn) return;
-      const mode = btn.getAttribute('data-group-mode') as 'consolidado' | 'separado';
+      const mode = btn.getAttribute('data-group-mode') as 'consolidado' | 'separado' | 'porDispositivo';
       if (mode === this.groupMode) return;
       this.groupMode = mode;
       this.selectedTitles.clear();
@@ -460,20 +465,23 @@ export class AlarmsNotificationsPanelView {
 
     if (emptyState) emptyState.style.display = 'none';
 
-    // Group alarms by title (consolidado) or explode per device (separado), persist for bulk actions
-    this.groupedAlarms = this.groupMode === 'consolidado'
-      ? this.groupAlarmsByTitle(state.filteredAlarms)
-      : this.explodeAlarmsByDevice(state.filteredAlarms);
+    // Group alarms based on active groupMode
+    this.groupedAlarms =
+      this.groupMode === 'consolidado'    ? this.groupAlarmsByTitle(state.filteredAlarms) :
+      this.groupMode === 'separado'       ? this.explodeAlarmsByDevice(state.filteredAlarms) :
+      /* porDispositivo */                  this.groupAlarmsByDevice(state.filteredAlarms);
 
-    const isSeparado = this.groupMode === 'separado';
+    const isSeparado       = this.groupMode === 'separado';
+    const isPorDispositivo = this.groupMode === 'porDispositivo';
 
     if (this.viewMode === 'list') {
-      // Table view — pass showDevice flag so the "Dispositivo" column is rendered in separado mode
       (grid as HTMLElement).className = 'alarms-table-container';
-      (grid as HTMLElement).innerHTML = this.renderAlarmsTable(this.groupedAlarms, isSeparado);
+      (grid as HTMLElement).innerHTML = this.renderAlarmsTable(
+        this.groupedAlarms, isSeparado, isPorDispositivo
+      );
     } else {
-      // Card grid view — sort by device label when in separado mode
-      const cards = isSeparado
+      // Sort by device label in separado/porDispositivo modes
+      const cards = (isSeparado || isPorDispositivo)
         ? [...this.groupedAlarms].sort((a, b) =>
             (a.source || '').localeCompare(b.source || '', 'pt-BR', { sensitivity: 'base' })
           )
@@ -488,7 +496,8 @@ export class AlarmsNotificationsPanelView {
           themeMode: state.themeMode,
           showCustomerName: this.params.showCustomerName ?? true,
           selected: this.selectedTitles.has(alarm.title),
-          showDeviceBadge: isSeparado,
+          showDeviceBadge: isSeparado,             // separado: show device badge in header
+          alarmTypes: isPorDispositivo ? (alarm._alarmTypes ?? []) : undefined,
         });
         grid.appendChild(card);
       });
@@ -697,7 +706,7 @@ export class AlarmsNotificationsPanelView {
   // Table View
   // =====================================================================
 
-  private renderAlarmsTable(alarms: import('../../types/alarm').Alarm[], showDevice = false): string {
+  private renderAlarmsTable(alarms: import('../../types/alarm').Alarm[], showDevice = false, isPorDispositivo = false): string {
     const showCustomer = this.params.showCustomerName ?? true;
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '-';
@@ -726,6 +735,7 @@ export class AlarmsNotificationsPanelView {
           case 'count':    return dir * ((a.occurrenceCount || 1) - (b.occurrenceCount || 1));
           case 'first':    return dir * (new Date(a.firstOccurrence ?? 0).getTime() - new Date(b.firstOccurrence ?? 0).getTime());
           case 'last':     return dir * (new Date(a.lastOccurrence ?? 0).getTime() - new Date(b.lastOccurrence ?? 0).getTime());
+          case 'tipos':    return dir * ((a._alarmTypes?.length ?? 0) - (b._alarmTypes?.length ?? 0));
           default:         return 0;
         }
       });
@@ -756,6 +766,14 @@ export class AlarmsNotificationsPanelView {
         <button class="atbl-btn atbl-btn--details" data-action="details" data-alarm-id="${alarm.id}" title="Detalhes"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></button>
       `;
 
+      const tiposHtml = isPorDispositivo && alarm._alarmTypes?.length
+        ? alarm._alarmTypes.slice(0, 2).map((t) =>
+            `<span class="atbl-tipo-chip">${this.esc(t.length > 16 ? t.substring(0, 16) + '…' : t)}</span>`
+          ).join('') + (alarm._alarmTypes.length > 2
+            ? `<span class="atbl-tipo-chip atbl-tipo-chip--more">+${alarm._alarmTypes.length - 2}</span>`
+            : '')
+        : '';
+
       return `
         <tr class="atbl-row${sel ? ' atbl-row--selected' : ''}" data-alarm-id="${alarm.id}">
           <td class="atbl-cell atbl-cell--sel">
@@ -771,6 +789,7 @@ export class AlarmsNotificationsPanelView {
           </td>
           ${showCustomer ? `<td class="atbl-cell atbl-cell--customer">${escCustomer}</td>` : ''}
           <td class="atbl-cell atbl-cell--num">${alarm.occurrenceCount || 1}</td>
+          ${isPorDispositivo ? `<td class="atbl-cell atbl-cell--tipos">${tiposHtml}</td>` : ''}
           <td class="atbl-cell atbl-cell--date">${fmtDt(alarm.firstOccurrence)}</td>
           <td class="atbl-cell atbl-cell--date">${fmtDt(alarm.lastOccurrence)}</td>
           <td class="atbl-cell atbl-cell--actions">${actionBtns}</td>
@@ -784,12 +803,13 @@ export class AlarmsNotificationsPanelView {
         <thead>
           <tr class="atbl-head-row">
             <th class="atbl-th atbl-th--sel"><input type="checkbox" id="tblSelectAll"${allSelected ? ' checked' : ''}></th>
-            ${th('Tipo', 'title')}
+            ${th(isPorDispositivo ? 'Dispositivo' : 'Tipo', 'title')}
             ${showDevice ? th('Dispositivo', 'device', 'atbl-th--device') : ''}
             ${th('Severidade', 'severity')}
             ${th('Estado', 'state')}
             ${showCustomer ? th('Shopping', 'customer') : ''}
             ${th('Qte.', 'count', 'atbl-th--num')}
+            ${isPorDispositivo ? th('Tipos de Alarme', 'tipos', 'atbl-th--tipos') : ''}
             ${th('1a Ocorrência', 'first', 'atbl-th--date')}
             ${th('Últ. Ocorrência', 'last', 'atbl-th--date')}
             <th class="atbl-th atbl-th--actions">Ações</th>
@@ -1304,6 +1324,104 @@ export class AlarmsNotificationsPanelView {
     });
   }
 
+  /**
+   * Por Dispositivo mode: one entry per unique device (alarm.source).
+   * Sets title = device name, _alarmTypes = unique alarm type titles for that device.
+   * Aggregates: occurrenceCount (sum), severity (highest), state (most active),
+   * firstOccurrence (min), lastOccurrence (max).
+   */
+  private groupAlarmsByDevice(alarms: Alarm[]): Alarm[] {
+    const SEVERITY_ORDER: AlarmSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+    const STATE_ORDER: AlarmState[] = ['OPEN', 'ESCALATED', 'ACK', 'SNOOZED', 'CLOSED'];
+
+    // Flatten: each alarm × each device token → atomic unit
+    const atoms: Array<{ alarm: Alarm; device: string }> = [];
+    for (const alarm of alarms) {
+      const devices = alarm.source
+        ? alarm.source.split(',').map((s) => s.trim()).filter(Boolean)
+        : [''];
+      for (const dev of devices) {
+        atoms.push({ alarm, device: dev });
+      }
+    }
+
+    // Group by device
+    const groups = new Map<string, Array<{ alarm: Alarm; device: string }>>();
+    for (const atom of atoms) {
+      const key = atom.device;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(atom);
+    }
+
+    return Array.from(groups.entries()).map(([device, group]) => {
+      const rawAlarms = group.map((g) => g.alarm);
+      const sorted = [...rawAlarms].sort(
+        (a, b) => new Date(b.lastOccurrence ?? 0).getTime() - new Date(a.lastOccurrence ?? 0).getTime()
+      );
+      const rep = sorted[0];
+
+      const occurrenceCount = rawAlarms.reduce((sum, a) => sum + (a.occurrenceCount || 1), 0);
+      const firstOccurrence = rawAlarms.reduce(
+        (min, a) => (!min || (a.firstOccurrence && a.firstOccurrence < min) ? a.firstOccurrence : min),
+        rawAlarms[0].firstOccurrence
+      );
+      const lastOccurrence = rawAlarms.reduce(
+        (max, a) => (!max || (a.lastOccurrence && a.lastOccurrence > max) ? a.lastOccurrence : max),
+        rawAlarms[0].lastOccurrence
+      );
+      const severity = rawAlarms.reduce<AlarmSeverity>(
+        (best, a) =>
+          SEVERITY_ORDER.indexOf(a.severity) < SEVERITY_ORDER.indexOf(best) ? a.severity : best,
+        rawAlarms[0].severity
+      );
+      const state = rawAlarms.reduce<AlarmState>(
+        (best, a) =>
+          STATE_ORDER.indexOf(a.state) < STATE_ORDER.indexOf(best) ? a.state : best,
+        rawAlarms[0].state
+      );
+
+      const alarmTypes = [...new Set(rawAlarms.map((a) => a.title).filter(Boolean))];
+      const deviceLabel = device || 'Dispositivo desconhecido';
+
+      const alarmTypeGroups = alarmTypes.map((typeTitle) => {
+        const typeRaws = rawAlarms.filter((a) => a.title === typeTitle);
+        const typeCount = typeRaws.reduce((sum, a) => sum + (a.occurrenceCount || 1), 0);
+        const typeFirst = typeRaws.reduce(
+          (min, a) => (!min || (a.firstOccurrence && a.firstOccurrence < min) ? a.firstOccurrence : min),
+          typeRaws[0].firstOccurrence
+        );
+        const typeLast = typeRaws.reduce(
+          (max, a) => (!max || (a.lastOccurrence && a.lastOccurrence > max) ? a.lastOccurrence : max),
+          typeRaws[0].lastOccurrence
+        );
+        const typeTrigger = [...typeRaws]
+          .sort((a, b) => new Date(b.lastOccurrence ?? 0).getTime() - new Date(a.lastOccurrence ?? 0).getTime())[0]
+          ?.triggerValue;
+        return {
+          title: typeTitle,
+          occurrenceCount: typeCount,
+          firstOccurrence: typeFirst,
+          lastOccurrence: typeLast,
+          triggerValue: typeTrigger,
+        };
+      });
+
+      return {
+        ...rep,
+        id: device ? `${rep.id}__dev__${device}` : rep.id,
+        title: deviceLabel,
+        source: device,
+        occurrenceCount,
+        firstOccurrence,
+        lastOccurrence,
+        severity,
+        state,
+        _alarmTypes: alarmTypes,
+        _alarmTypeGroups: alarmTypeGroups,
+      };
+    });
+  }
+
   /** Strip the "__DEVICE" suffix from a separado compound ID to get the real alarm UUID. */
   private stripSeparadoId(id: string): string {
     const idx = id.indexOf('__');
@@ -1327,7 +1445,7 @@ export class AlarmsNotificationsPanelView {
       this.groupedAlarms.find((a) => a.id === alarmId) ??
       this.controller.getAlarms().find((a) => a.id === this.stripSeparadoId(alarmId));
     if (alarm) {
-      openAlarmDetailsModal(alarm, this.controller.getState().themeMode);
+      openAlarmDetailsModal(alarm, this.controller.getState().themeMode, this.groupMode);
       this.emit('alarm-click', alarm);
     }
   }

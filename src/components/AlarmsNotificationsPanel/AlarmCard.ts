@@ -120,6 +120,18 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
   const showCustomer = _params?.showCustomerName ?? true;
   const showDeviceBadge = _params?.showDeviceBadge ?? false;
   const safeSource = escapeHtml(alarm.source || '');
+  const alarmTypes = _params?.alarmTypes ?? [];
+  const typeChipsHtml = alarmTypes.length > 0
+    ? `<div class="alarm-card-type-scroll">
+      <button class="alarm-type-scroll-btn alarm-type-scroll-btn--left" tabindex="-1" aria-hidden="true">&#8249;</button>
+      <div class="alarm-card-type-list">${
+        alarmTypes.map((t) =>
+          `<span class="alarm-type-chip" title="${escapeHtml(t)}">${escapeHtml(t.length > 22 ? t.substring(0, 22) + '…' : t)}</span>`
+        ).join('')
+      }</div>
+      <button class="alarm-type-scroll-btn alarm-type-scroll-btn--right" tabindex="-1" aria-hidden="true">&#8250;</button>
+    </div>`
+    : '';
 
   return `<article class="alarm-card${isSelected ? ' alarm-card--selected' : ''}" data-alarm-id="${alarm.id}" data-severity="${alarm.severity}" data-state="${alarm.state}">
   <header class="alarm-card-header">
@@ -134,6 +146,7 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
   </header>
   <div class="alarm-card-body">
     <div class="alarm-card-title" title="${safeTitleFull}">${safeTitle}</div>
+    ${typeChipsHtml}
     ${showCustomer ? `<span class="alarm-shopping-chip">${BUILDING_ICON}<span class="chip-text">${safeCustomerName}</span></span>` : ''}
     <div class="alarm-card-stats">
       <div class="alarm-stat">
@@ -222,6 +235,25 @@ export function createAlarmCardElement(
       // Emit custom event for escalate action
       card.dispatchEvent(new CustomEvent('alarm-escalate', { bubbles: true, detail: { alarmId: alarm.id } }));
     });
+  }
+
+  // Alarm type chips scroll arrows
+  const typeList = card.querySelector('.alarm-card-type-list') as HTMLElement | null;
+  const scrollLeft = card.querySelector('.alarm-type-scroll-btn--left') as HTMLButtonElement | null;
+  const scrollRight = card.querySelector('.alarm-type-scroll-btn--right') as HTMLButtonElement | null;
+  if (typeList && scrollLeft && scrollRight) {
+    const updateArrows = () => {
+      const canLeft = typeList.scrollLeft > 0;
+      const canRight = typeList.scrollLeft < typeList.scrollWidth - typeList.clientWidth - 1;
+      scrollLeft.style.opacity = canLeft ? '1' : '0';
+      scrollLeft.style.pointerEvents = canLeft ? 'auto' : 'none';
+      scrollRight.style.opacity = canRight ? '1' : '0';
+      scrollRight.style.pointerEvents = canRight ? 'auto' : 'none';
+    };
+    scrollLeft.addEventListener('click', (e) => { e.stopPropagation(); typeList.scrollBy({ left: -80, behavior: 'smooth' }); });
+    scrollRight.addEventListener('click', (e) => { e.stopPropagation(); typeList.scrollBy({ left: 80, behavior: 'smooth' }); });
+    typeList.addEventListener('scroll', updateArrows);
+    requestAnimationFrame(updateArrows);
   }
 
   // Annotation type badges — same pattern as TELEMETRY widget

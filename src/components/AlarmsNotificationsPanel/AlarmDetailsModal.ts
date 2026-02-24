@@ -54,74 +54,128 @@ function escHtml(s: string | null | undefined): string {
 // Timeline builder
 // =====================================================================
 
-function buildTimeline(alarm: Alarm): string {
+function buildTimeline(alarm: Alarm, groupMode?: string): string {
   const count = alarm.occurrenceCount || 1;
   const firstMs = new Date(alarm.firstOccurrence).getTime();
   const lastMs = new Date(alarm.lastOccurrence).getTime();
   const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
 
-  // Device label: only for single-device alarms (multi-device is in the Dispositivos tab)
   const deviceTokens = alarm.source
     ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
     : [];
-  const deviceSpan = deviceTokens.length === 1
-    ? `<span class="adm-timeline-sep">|</span><span class="adm-timeline-device">${escHtml(deviceTokens[0])}</span>`
-    : '';
 
   // Value pill: only on the most recent occurrence (triggerValue is from the latest record)
   const valuePillHtml = alarm.triggerValue != null
     ? `<span class="adm-timeline-value-pill">${escHtml(String(alarm.triggerValue))}</span>`
     : '';
 
-  function occItem(
-    n: number,
-    tsMs: number,
-    meta: string,
-    extraClass = ''
-  ): string {
-    // Pill only on most-recent; estimated occurrences show ~ before the date
-    const isLatest = extraClass.includes('is-last') || extraClass.includes('is-single');
-    const isEstimated = meta === 'Estimado';
-    const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
-    return `
-      <div class="adm-timeline-item ${extraClass}">
-        <div class="adm-timeline-dot"></div>
-        <span class="adm-timeline-num">#${n}</span>
-        <span class="adm-timeline-sep">|</span>
-        <span class="adm-timeline-time">${timeStr}</span>
-        ${deviceSpan}
-        ${isLatest ? valuePillHtml : ''}
+  // Device label function: depends on groupMode
+  // separado: no device; consolidado/default: always show, rotate for multi-device
+  const deviceSpanFn: (n: number) => string = groupMode === 'separado'
+    ? (_n: number) => ''
+    : (n: number) => {
+        if (deviceTokens.length === 0) return '';
+        const token = deviceTokens[(n - 1) % deviceTokens.length];
+        return `<span class="adm-timeline-sep">|</span><span class="adm-timeline-device">${escHtml(token)}</span>`;
+      };
+
+  // porDispositivo: grouped sections per alarm type from _alarmTypeGroups
+  function buildGroupedTimeline(): string {
+    const groups = alarm._alarmTypeGroups;
+    if (!groups?.length) return buildFlatTimeline();
+
+    return groups.map((grp, gi) => {
+      const gCount = grp.occurrenceCount || 1;
+      const gFirstMs = new Date(grp.firstOccurrence).getTime();
+      const gLastMs = new Date(grp.lastOccurrence).getTime();
+      const gInterval = gCount > 1 ? (gLastMs - gFirstMs) / (gCount - 1) : 0;
+      const gValuePill = grp.triggerValue != null
+        ? `<span class="adm-timeline-value-pill">${escHtml(String(grp.triggerValue))}</span>`
+        : '';
+
+      const items: string[] = [];
+      const MAX_PER_GROUP = 10;
+      for (let i = gCount; i >= 1; i--) {
+        const tsMs = gFirstMs + gInterval * (i - 1);
+        const isSingle = gCount === 1;
+        const isLatest = i === gCount && !isSingle;
+        const isFirst = i === 1 && !isSingle;
+        const isEstimated = !isSingle && !isLatest && !isFirst;
+        const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
+        const extraClass = isSingle ? 'is-single' : isLatest ? 'is-last' : isFirst ? 'is-first' : '';
+        const showPill = isSingle || isLatest;
+        items.push(`
+          <div class="adm-timeline-item ${extraClass}">
+            <div class="adm-timeline-dot"></div>
+            <span class="adm-timeline-num">#${i}</span>
+            <span class="adm-timeline-sep">|</span>
+            <span class="adm-timeline-time">${timeStr}</span>
+            ${showPill ? gValuePill : ''}
+          </div>`);
+        if (items.length >= MAX_PER_GROUP) break;
+      }
+
+      return `<div class="adm-timeline-group${gi > 0 ? ' adm-timeline-group--sep' : ''}">
+        <div class="adm-timeline-group-header">${escHtml(grp.title)}<span class="adm-timeline-group-count">${gCount}</span></div>
+        ${items.join('')}
       </div>`;
+    }).join('');
   }
 
-  // Show all occurrences most-recent first, capped at 30 (scroll handles the rest)
-  const MAX_SHOWN = 30;
-  const items: string[] = [];
-
-  for (let i = count; i >= 1; i--) {
-    const tsMs = firstMs + interval * (i - 1);
-    let meta: string;
-    let extraClass: string;
-
-    if (count === 1) {
-      meta = 'Único registro detectado';
-      extraClass = 'is-single';
-    } else if (i === count) {
-      meta = 'Mais recente';
-      extraClass = 'is-last';
-    } else if (i === 1) {
-      meta = 'Primeiro registro';
-      extraClass = 'is-first';
-    } else {
-      meta = 'Estimado';
-      extraClass = '';
+  function buildFlatTimeline(): string {
+    function occItem(
+      n: number,
+      tsMs: number,
+      meta: string,
+      extraClass = ''
+    ): string {
+      // Pill only on most-recent; estimated occurrences show ~ before the date
+      const isLatest = extraClass.includes('is-last') || extraClass.includes('is-single');
+      const isEstimated = meta === 'Estimado';
+      const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
+      return `
+        <div class="adm-timeline-item ${extraClass}">
+          <div class="adm-timeline-dot"></div>
+          <span class="adm-timeline-num">#${n}</span>
+          <span class="adm-timeline-sep">|</span>
+          <span class="adm-timeline-time">${timeStr}</span>
+          ${deviceSpanFn(n)}
+          ${isLatest ? valuePillHtml : ''}
+        </div>`;
     }
 
-    items.push(occItem(i, tsMs, meta, extraClass));
-    if (items.length >= MAX_SHOWN) break;
+    // Show all occurrences most-recent first, capped at 30 (scroll handles the rest)
+    const MAX_SHOWN = 30;
+    const items: string[] = [];
+
+    for (let i = count; i >= 1; i--) {
+      const tsMs = firstMs + interval * (i - 1);
+      let meta: string;
+      let extraClass: string;
+
+      if (count === 1) {
+        meta = 'Único registro detectado';
+        extraClass = 'is-single';
+      } else if (i === count) {
+        meta = 'Mais recente';
+        extraClass = 'is-last';
+      } else if (i === 1) {
+        meta = 'Primeiro registro';
+        extraClass = 'is-first';
+      } else {
+        meta = 'Estimado';
+        extraClass = '';
+      }
+
+      items.push(occItem(i, tsMs, meta, extraClass));
+      if (items.length >= MAX_SHOWN) break;
+    }
+
+    return items.join('');
   }
 
-  return items.join('');
+  if (groupMode === 'porDispositivo') return buildGroupedTimeline();
+  return buildFlatTimeline();
 }
 
 // =====================================================================
@@ -465,7 +519,11 @@ function parseDevices(source: string): string[] {
 // Main export
 // =====================================================================
 
-export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' = 'light'): void {
+export function openAlarmDetailsModal(
+  alarm: Alarm,
+  themeMode: 'light' | 'dark' = 'light',
+  groupMode?: 'consolidado' | 'separado' | 'porDispositivo'
+): void {
   const sev = SEVERITY_CONFIG[alarm.severity];
   const st = STATE_CONFIG[alarm.state];
 
@@ -610,6 +668,14 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
 
           ${alarm.description ? `<div class="adm-description">${escHtml(alarm.description)}</div>` : ''}
 
+          ${alarm._alarmTypes && alarm._alarmTypes.length > 0 ? `
+          <div class="adm-section">
+            <div class="adm-section-title">Tipos de Alarme (${alarm._alarmTypes.length})</div>
+            <div class="adm-alarm-types-list">
+              ${alarm._alarmTypes.map((t) => `<span class="adm-alarm-type-chip">${escHtml(t)}</span>`).join('')}
+            </div>
+          </div>` : ''}
+
           <div class="adm-section">
             <div class="adm-section-title">Identificação</div>
             ${row('Shopping', alarm.customerName)}
@@ -634,9 +700,13 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
         <!-- TIMELINE -->
         <div class="adm-panel" data-panel="timeline">
           <div class="adm-section">
-            <div class="adm-section-title">${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela</div>
+            <div class="adm-section-title">${
+              groupMode === 'porDispositivo' && alarm._alarmTypeGroups?.length
+                ? `${alarm._alarmTypeGroups.length} tipo${alarm._alarmTypeGroups.length !== 1 ? 's' : ''} · ${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
+                : `${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
+            }</div>
             <div class="adm-timeline">
-              ${buildTimeline(alarm)}
+              ${buildTimeline(alarm, groupMode)}
             </div>
           </div>
 

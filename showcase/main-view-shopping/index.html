@@ -517,7 +517,7 @@
         <div style="margin-top:8px; padding:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:6px; font-size:10px; color:#93c5fd; line-height:1.5">
           <strong>Funcionalidades:</strong><br>
           &#x2705; Agrupamento por título (Consolidado)<br>
-          &#x2194; Toggle Consolidado | Separado (1 card/row por device)<br>
+          &#x2194; Toggle Consolidado | Separado | Por Disp.<br>
           &#x2611; Checkbox + Ações em Lote (batch API)<br>
           &#x2500; Toggle Card | Lista (col. Shopping ocultável)<br>
           &#x1F3F7; Badge device no card (modo Separado)<br>
@@ -530,6 +530,17 @@
           &#x1F4CD; Enriquecimento 4 camadas RFC-0179 (gcdrMap/stateMap/nameMap)<br>
           &nbsp;&nbsp;&#x2022; gcdr:shortcode → label<br>
           &nbsp;&nbsp;&#x2022; 3F_SCMOX... → "Elevador X L2"
+        </div>
+        <div style="margin-top:6px; padding:6px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:6px; font-size:10px; color:#c4b5fd; line-height:1.6">
+          <strong>&#x1F550; Timeline context-aware (RFC-0152):</strong><br>
+          Abra Detalhes → aba <em>Timeline</em> em cada modo:<br>
+          <strong style="color:#93c5fd">Por Tipo</strong> → device label em toda linha; rotativo se multi-device<br>
+          &nbsp;&nbsp;&#x2022; PINNED-01 (ELV-01/02/03): veja rotação de 3 devices<br>
+          <strong style="color:#6ee7b7">Disp.+Tipo</strong> → sem device; só #N | data | [valor no is-last]<br>
+          &nbsp;&nbsp;&#x2022; PINNED-07 (TERM-SALA-02): 1 ocorrência, is-single<br>
+          <strong style="color:#fcd34d">Por Disp.</strong> → seções por tipo de alarme; valor no is-last de cada grupo<br>
+          &nbsp;&nbsp;&#x2022; ELV-01: 3 grupos (PINNED-01 + 04 + 05)<br>
+          &nbsp;&nbsp;&#x2022; Chiller 1: 2 grupos (PINNED-02 + 06)
         </div>
       </div>
 
@@ -1096,7 +1107,29 @@
     // Pinned rich alarms to showcase the details modal (multi-device + high occurrences)
     // centralId: GCDR UUID used for stateMap enrichment (layer 3 of RFC-0179)
     // triggerValue: measured value that triggered the rule (shown in timeline)
+    // ─────────────────────────────────────────────────────────────────────────
+    // PINNED_ALARMS: alarmes fixos com dados ricos para o modal de Detalhes.
+    //
+    // Estratégia de cobertura por modo de Timeline (RFC-0152):
+    //
+    //  CONSOLIDADO  → PINNED-01 (3 devices: ELV-01/02/03) demonstra rotação de
+    //                 dispositivos por linha; triggerValue=4.2 aparece no is-last.
+    //
+    //  SEPARADO     → PINNED-04 (source='ELV-01', único dispositivo) demonstra
+    //                 ausência de device label nas linhas; só #N | data | [valor].
+    //
+    //  POR DISPOSITIVO → no modo porDispositivo o panel chama groupAlarmsByDevice()
+    //    que computa _alarmTypeGroups automaticamente a partir dos rawAlarms do mesmo
+    //    device. Os alarmes PINNED-01 + PINNED-04 + PINNED-05 compartilham 'ELV-01'
+    //    → produzem 3 grupos na timeline:
+    //      • "Elevador energizado e não usado (seg-sáb)" (50 occ., trigger=4.2)
+    //      • "Comunicação Perdida"  (7 occ., sem trigger)
+    //      • "Corrente de Fuga"     (3 occ., trigger=0.7A)
+    //    PINNED-02 + PINNED-06 compartilham '3F_SCMOXUARAAC_CH1'
+    //      → 2 grupos: "Falha no sistema de refrigeração" + "Temperatura de Condensador Alta"
+    // ─────────────────────────────────────────────────────────────────────────
     const PINNED_ALARMS = [
+      // ── Consolidado showcase: 3 dispositivos (rotação na timeline) ──────────
       {
         id: 'ALM-PINNED-01',
         customerId: 'cust-1',
@@ -1113,12 +1146,12 @@
         occurrenceCount: 50,
         triggerValue: 4.2,
       },
+      // ── Consolidado + Por Dispositivo: source único, com triggerValue ─────
       {
         id: 'ALM-PINNED-02',
         customerId: 'cust-2',
         customerName: 'Mestre Alvaro',
-        // Raw TB entityName → enriched to "Chiller 1" via entityNameToLabelMap
-        source: '3F_SCMOXUARAAC_CH1',
+        source: '3F_SCMOXUARAAC_CH1',       // enriched → "Chiller 1" via entityNameToLabelMap
         centralId: 'c3d4e5f6-0000-0000-0000-000000000003',
         severity: 'CRITICAL',
         state: 'OPEN',
@@ -1130,12 +1163,12 @@
         occurrenceCount: 32,
         triggerValue: 194,
       },
+      // ── GCDR short-code enrichment showcase ─────────────────────────────
       {
         id: 'ALM-PINNED-03',
         customerId: 'cust-3',
         customerName: 'Shopping Eldorado',
-        // GCDR short-code format → enriched via gcdrDeviceNameMap
-        source: 'gcdr:9264f262',
+        source: 'gcdr:9264f262',             // enriched via gcdrDeviceNameMap
         centralId: 'b2c3d4e5-0000-0000-0000-000000000002',
         severity: 'MEDIUM',
         state: 'ACK',
@@ -1148,6 +1181,76 @@
         acknowledgedAt: new Date().toISOString(),
         acknowledgedBy: 'operador@myio.com.br',
         triggerValue: 287.5,
+      },
+
+      // ── Por Dispositivo showcase: ELV-01 ganha 3 grupos na timeline ──────
+      // (shares source 'ELV-01' with PINNED-01's device list)
+      {
+        id: 'ALM-PINNED-04',
+        customerId: 'cust-1',
+        customerName: 'Shopping Aricanduva',
+        source: 'ELV-01',
+        severity: 'HIGH',
+        state: 'OPEN',
+        title: 'Comunicação Perdida',
+        description: 'Elevador 1 sem resposta por mais de 15 minutos.',
+        tags: { alarmType: 'connectivity', deviceType: 'ELEVADOR' },
+        firstOccurrence: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
+        occurrenceCount: 7,
+        triggerValue: null,
+      },
+      {
+        id: 'ALM-PINNED-05',
+        customerId: 'cust-1',
+        customerName: 'Shopping Aricanduva',
+        source: 'ELV-01',
+        severity: 'MEDIUM',
+        state: 'ACK',
+        title: 'Corrente de Fuga',
+        description: 'Corrente de fuga detectada no circuito do Elevador 1.',
+        tags: { alarmType: 'energy', deviceType: 'ELEVADOR' },
+        firstOccurrence: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+        occurrenceCount: 3,
+        triggerValue: '0.7A',
+        acknowledgedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+        acknowledgedBy: 'manutencao@myio.com.br',
+      },
+
+      // ── Por Dispositivo showcase: 3F_SCMOXUARAAC_CH1 ganha 2 grupos ─────
+      // (shares source with PINNED-02 → "Chiller 1" terá 2 tipos de alarme)
+      {
+        id: 'ALM-PINNED-06',
+        customerId: 'cust-2',
+        customerName: 'Mestre Alvaro',
+        source: '3F_SCMOXUARAAC_CH1',
+        severity: 'MEDIUM',
+        state: 'OPEN',
+        title: 'Temperatura de Condensador Alta',
+        description: 'Temperatura de saída do condensador do Chiller 1 acima de 60°C.',
+        tags: { alarmType: 'temperature', deviceType: 'CHILLER' },
+        firstOccurrence: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+        occurrenceCount: 5,
+        triggerValue: '67°C',
+      },
+
+      // ── Separado showcase: 1 ocorrência única, sem triggerValue ──────────
+      {
+        id: 'ALM-PINNED-07',
+        customerId: 'cust-3',
+        customerName: 'Shopping Eldorado',
+        source: 'TERM-SALA-02',
+        severity: 'LOW',
+        state: 'OPEN',
+        title: 'Temperatura fora da faixa configurada',
+        description: 'Temperatura da sala técnica fora do intervalo 18–28°C.',
+        tags: { alarmType: 'temperature', deviceType: 'TERMOSTATO' },
+        firstOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+        lastOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+        occurrenceCount: 1,
+        triggerValue: '31.5°C',
       },
     ];
 

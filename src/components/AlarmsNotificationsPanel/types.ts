@@ -213,6 +213,8 @@ export interface AlarmCardParams {
   onSelectChange?: (alarmId: string, selected: boolean) => void;
   /** Show device name badge in card header (Separado mode) */
   showDeviceBadge?: boolean;
+  /** Alarm type titles to show as chips inside card body (Por Dispositivo mode) */
+  alarmTypes?: string[];
 }
 
 // =====================================================================

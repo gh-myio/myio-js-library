@@ -65,6 +65,16 @@ export interface Alarm {
   triggerValue?: number | string;
   /** GCDR central/concentrator UUID — used as fallback key for gcdrDeviceNameMap */
   centralId?: string;
+  /** Virtual: unique alarm type titles aggregated under this device (Por Dispositivo grouping only) */
+  _alarmTypes?: string[];
+  /** Virtual: per-type stats for porDispositivo grouped timeline */
+  _alarmTypeGroups?: Array<{
+    title: string;
+    occurrenceCount: number;
+    firstOccurrence: string;
+    lastOccurrence: string;
+    triggerValue?: number | string;
+  }>;
 }
 
 /**

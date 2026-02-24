@@ -560,7 +560,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   overflow: hidden;
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 158px;
+  min-height: 165px;
   position: relative;
 }
 
@@ -871,6 +871,68 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .alarm-tag-overflow {
   font-weight: 500;
   color: var(--alarms-primary);
+}
+
+/* Card — Alarm Type Chips scroll row (Por Dispositivo mode) */
+.alarm-card-type-scroll {
+  display: flex !important;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.alarm-card-type-list {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.alarm-card-type-list::-webkit-scrollbar {
+  display: none;
+}
+
+.alarm-type-chip {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 500;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--alarms-primary);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.alarm-type-scroll-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--alarms-primary);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.alarm-type-scroll-btn:hover {
+  background: rgba(139, 92, 246, 0.3);
 }
 
 /* Card Footer */
@@ -2037,6 +2099,26 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border-bottom: 1px solid #f3f4f6;
 }
 
+/* Modal Resumo — Alarm Types list (Por Dispositivo mode) */
+.adm-alarm-types-list {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.adm-alarm-type-chip {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+}
+
 .adm-row {
   display: flex;
   gap: 8px;
@@ -2201,6 +2283,39 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   font-size: 11px;
   color: #9ca3af;
   font-style: italic;
+}
+
+/* ---- Grouped timeline (Por Dispositivo mode) ---- */
+.adm-timeline-group {
+  margin-bottom: 12px;
+}
+
+.adm-timeline-group--sep {
+  padding-top: 10px;
+  border-top: 1px dashed #e5e7eb;
+  margin-top: 10px;
+}
+
+.adm-timeline-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #7c3aed;
+  margin-bottom: 6px;
+  padding: 3px 6px;
+  background: rgba(139, 92, 246, 0.08);
+  border-radius: 4px;
+}
+
+.adm-timeline-group-count {
+  font-size: 9px;
+  font-weight: 500;
+  background: rgba(139, 92, 246, 0.2);
+  color: #7c3aed;
+  padding: 1px 5px;
+  border-radius: 8px;
 }
 
 /* ---- Device list ---- */
@@ -3146,6 +3261,20 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   color: #64748b;
 }
 
+.adm-overlay[data-theme="dark"] .adm-timeline-group--sep {
+  border-top-color: #334155;
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline-group-header {
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline-group-count {
+  background: rgba(139, 92, 246, 0.25);
+  color: #a78bfa;
+}
+
 .adm-overlay[data-theme="dark"] .adm-devices-list {
   border-color: #2a2b3d;
 }
@@ -3663,6 +3792,35 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   text-overflow: ellipsis;
   font-size: 10px;
   color: var(--alarms-text-muted);
+}
+
+/* Table — Tipos column (Por Dispositivo mode) */
+.atbl-th--tipos { min-width: 120px; }
+
+.atbl-cell--tipos {
+  max-width: 160px;
+}
+
+.atbl-tipo-chip {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 1px 5px;
+  margin: 1px 2px 1px 0;
+  font-size: 9px;
+  font-weight: 500;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--alarms-primary);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 3px;
+  max-width: 100px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.atbl-tipo-chip--more {
+  background: rgba(139, 92, 246, 0.06);
+  border-style: dashed;
 }
 
 .atbl-sev-badge {
