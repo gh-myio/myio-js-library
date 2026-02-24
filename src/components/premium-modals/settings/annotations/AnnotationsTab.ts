@@ -1130,7 +1130,7 @@ const ANNOTATIONS_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100001;
+  z-index: 10000000;
   animation: annotModalFadeIn 0.2s ease;
 }
 
@@ -1471,7 +1471,7 @@ const ANNOTATIONS_STYLES = `
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 999998;
+  z-index: 10000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1774,7 +1774,7 @@ const ANNOTATIONS_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100000;
+  z-index: 10000000;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -1951,7 +1951,7 @@ const ANNOTATIONS_STYLES = `
 /* Help Tooltip */
 .annotation-help-tooltip {
   position: fixed;
-  z-index: 100001;
+  z-index: 10000001;
   background: #1e293b;
   color: #f1f5f9;
   border-radius: 12px;
@@ -2249,7 +2249,7 @@ const ANNOTATIONS_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10001;
+  z-index: 10000000;
   backdrop-filter: blur(2px);
 }
 
@@ -2509,7 +2509,7 @@ const ANNOTATIONS_STYLES = `
 /* Tour Popover - Light Mode (default) */
 .annotation-tour-popover {
   position: fixed;
-  z-index: 999999;
+  z-index: 10000001;
   background: #ffffff;
   color: #212529;
   border-radius: 12px;
@@ -2706,7 +2706,7 @@ const ANNOTATIONS_STYLES = `
 /* Tour Highlight for elements - Spotlight effect with box-shadow */
 .tour-highlight {
   position: relative !important;
-  z-index: 1000001 !important;
+  z-index: 10000001 !important;
   border-radius: 8px;
   outline: 3px solid #6c5ce7 !important;
   outline-offset: 4px;
@@ -2717,7 +2717,7 @@ const ANNOTATIONS_STYLES = `
 /* Main tour highlight (for annotations tab) */
 .annotation-tour-highlight {
   position: relative !important;
-  z-index: 1000001 !important;
+  z-index: 10000001 !important;
   border-radius: 8px;
   outline: 3px solid #6c5ce7 !important;
   outline-offset: 4px;
@@ -2730,18 +2730,18 @@ const ANNOTATIONS_STYLES = `
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 999997;
+  z-index: 10000000;
   pointer-events: none;
 }
 
 /* Modal-specific popover (higher z-index) */
 .annotation-tour-popover--modal {
-  z-index: 1000002;
+  z-index: 10000002;
 }
 
 /* Modal-specific backdrop (higher z-index for modals) */
 .annotation-tour-backdrop--modal {
-  z-index: 999999;
+  z-index: 10000001;
 }
 
 /* ============================================
@@ -2815,7 +2815,7 @@ const ANNOTATIONS_STYLES = `
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999998;
+  z-index: 10000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3558,7 +3558,7 @@ export class AnnotationsTab {
 
     // Highlight target
     targetEl.style.position = 'relative';
-    targetEl.style.zIndex = '1000001';
+    targetEl.style.zIndex = '10000001';
     targetEl.classList.add('tour-highlight');
 
     // Create popover
@@ -3668,7 +3668,7 @@ export class AnnotationsTab {
     popover.style.position = 'fixed';
     popover.style.top = `${top}px`;
     popover.style.left = `${left}px`;
-    popover.style.zIndex = '1000002';
+    popover.style.zIndex = '10000002';
   }
 
   /**
@@ -3782,7 +3782,7 @@ export class AnnotationsTab {
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 100001;
+            z-index: 10000000;
             animation: confirmFadeIn 0.2s ease;
           }
           @keyframes confirmFadeIn {
@@ -6436,7 +6436,7 @@ export class AnnotationsTab {
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 100001;
+            z-index: 10000000;
             animation: inputFadeIn 0.2s ease;
           }
           @keyframes inputFadeIn {
