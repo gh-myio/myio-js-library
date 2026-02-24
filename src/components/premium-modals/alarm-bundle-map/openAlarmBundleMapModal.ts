@@ -39,6 +39,15 @@ export interface AlarmBundleMapParams {
   themeMode?: 'dark' | 'light';
   /** Called when modal closes */
   onClose?: () => void;
+  /**
+   * RFC-0180: Pre-fetched GCDRCustomerBundle from MAIN_VIEW orchestrator.
+   * If provided and forceRefetch is false, skips the API call.
+   */
+  prefetchedBundle?: GCDRCustomerBundle | null;
+  /**
+   * RFC-0180: If true, always fetches fresh data even when prefetchedBundle is provided.
+   */
+  forceRefetch?: boolean;
 }
 
 // ============================================================================
@@ -469,7 +478,11 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
   render(`<div class="abm-loading">⏳ Carregando mapa de alarmes...</div>`);
 
   try {
-    const bundle = await fetchBundle(params.customerTB_ID, params.gcdrTenantId, baseUrl);
+    // RFC-0180: Reuse pre-fetched bundle if available and forceRefetch is not set
+    const bundle =
+      params.prefetchedBundle && !params.forceRefetch
+        ? params.prefetchedBundle
+        : await fetchBundle(params.customerTB_ID, params.gcdrTenantId, baseUrl);
     const customerName = (bundle.customer as { displayName?: string; name?: string }).displayName
       || (bundle.customer as { name?: string }).name
       || '';
@@ -488,3 +501,6 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
     `);
   }
 }
+
+// RFC-0180: Export fetchBundle so MAIN_VIEW and AlarmsTab can reuse it
+export { fetchBundle as fetchGCDRBundle };

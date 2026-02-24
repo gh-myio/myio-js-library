@@ -54,6 +54,13 @@ export class SettingsController {
       userEmail: params.userEmail || (window as any).MyIOUtils?.currentUserEmail || null,
       // RFC-0144: Pass enableAnnotationsOnboarding flag for onboarding control
       enableAnnotationsOnboarding: params.enableAnnotationsOnboarding ?? false,
+      // RFC-0180: Raw device name + GCDR identifiers for Alarms tab
+      deviceName: params.deviceName,
+      gcdrDeviceId: params.gcdrDeviceId,
+      gcdrCustomerId: params.gcdrCustomerId,
+      gcdrTenantId: params.gcdrTenantId,
+      gcdrApiBaseUrl: params.gcdrApiBaseUrl,
+      prefetchedBundle: params.prefetchedBundle,
     });
   }
 

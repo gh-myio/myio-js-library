@@ -1,3 +1,5 @@
+import type { GCDRCustomerBundle } from '../gcdr-sync/types';
+
 export type TbScope = 'CLIENT_SCOPE' | 'SERVER_SCOPE';
 export type Domain = 'energy' | 'water' | 'temperature';
 
@@ -74,7 +76,18 @@ export interface OpenDashboardPopupSettingsParams {
 
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
-  
+
+  // RFC-0180: Raw TB device name (distinct from `label` which is user-editable)
+  deviceName?: string;
+
+  // RFC-0180: GCDR identifiers — required to power the Alarms tab
+  gcdrDeviceId?: string;
+  gcdrCustomerId?: string;
+  gcdrTenantId?: string;
+  gcdrApiBaseUrl?: string;
+  /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
+  prefetchedBundle?: GCDRCustomerBundle | null;
+
   // Pre-populate form with existing values
   seed?: {
     label?: string;
@@ -164,6 +177,18 @@ export interface ModalConfig {
   userEmail?: string; // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
+
+  // RFC-0180: Raw TB device name shown as muted subtitle in identity card
+  deviceName?: string;
+
+  // RFC-0180: GCDR identifiers — required to power the Alarms tab
+  gcdrDeviceId?: string;
+  gcdrCustomerId?: string;
+  gcdrTenantId?: string;
+  gcdrApiBaseUrl?: string;
+  /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
+  prefetchedBundle?: GCDRCustomerBundle | null;
+
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

@@ -1670,5 +1670,5 @@ export type {
 } from './components/premium-modals/gcdr-sync';
 
 // RFC-0179: GCDR Alarm Bundle Map Modal
-export { openAlarmBundleMapModal } from './components/premium-modals/alarm-bundle-map';
+export { openAlarmBundleMapModal, fetchGCDRBundle } from './components/premium-modals/alarm-bundle-map';
 export type { AlarmBundleMapParams } from './components/premium-modals/alarm-bundle-map';

@@ -1,6 +1,7 @@
 import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
+import { AlarmsTab } from './alarms/AlarmsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
 
@@ -16,7 +17,9 @@ export class SettingsModalView {
   private originalActiveElement: Element | null = null;
   // RFC-0104: Annotations Tab
   private annotationsTab: AnnotationsTab | null = null;
-  private currentTab: 'general' | 'annotations' = 'general';
+  // RFC-0180: Alarms Tab
+  private alarmsTab: AlarmsTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
 
@@ -81,6 +84,8 @@ export class SettingsModalView {
 
     // RFC-0104: Initialize annotations tab (async)
     this.initAnnotationsTab();
+    // RFC-0180: Initialize alarms tab (async)
+    this.initAlarmsTab();
   }
 
   // RFC-0104: Initialize the Annotations Tab
@@ -135,25 +140,60 @@ export class SettingsModalView {
     }
   }
 
-  // RFC-0104: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations'): void {
+  // RFC-0180: Initialize the Alarms Tab
+  private async initAlarmsTab(): Promise<void> {
+    const container = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
+    if (!container) return;
+
+    const { gcdrDeviceId, gcdrCustomerId, gcdrTenantId, gcdrApiBaseUrl, prefetchedBundle, deviceId, jwtToken } =
+      this.config;
+
+    if (!gcdrDeviceId || !gcdrCustomerId || !gcdrTenantId) {
+      container.innerHTML =
+        '<p style="color:#6c757d;padding:20px;text-align:center;font-style:italic;">Alarm data not available (missing GCDR identifiers).</p>';
+      return;
+    }
+
+    try {
+      this.alarmsTab = new AlarmsTab({
+        container,
+        gcdrDeviceId,
+        gcdrCustomerId,
+        gcdrTenantId,
+        gcdrApiBaseUrl,
+        tbDeviceId: deviceId ?? '',
+        jwtToken: jwtToken ?? '',
+        prefetchedBundle: prefetchedBundle ?? null,
+      });
+      await this.alarmsTab.init();
+      console.log('[SettingsModalView] RFC-0180: Alarms tab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize alarms tab:', error);
+      container.innerHTML =
+        '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar alarmes</p>';
+    }
+  }
+
+  // RFC-0104 / RFC-0180: Switch between tabs
+  private switchTab(tab: 'general' | 'annotations' | 'alarms'): void {
     this.currentTab = tab;
 
     // Update tab buttons
-    const generalTabBtn = this.modal.querySelector('[data-tab="general"]');
-    const annotationsTabBtn = this.modal.querySelector('[data-tab="annotations"]');
-
-    generalTabBtn?.classList.toggle('active', tab === 'general');
-    annotationsTabBtn?.classList.toggle('active', tab === 'annotations');
+    this.modal.querySelectorAll('.modal-tab').forEach((btn) => {
+      const t = (btn as HTMLElement).dataset.tab;
+      btn.classList.toggle('active', t === tab);
+    });
 
     // Update tab content visibility
     const generalContent = this.modal.querySelector('#general-tab-content') as HTMLElement;
     const annotationsContent = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
+    const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
+    if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
 
-    // Update footer buttons visibility (only show Save on General tab)
+    // Update footer Save button (only on General tab)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
 
@@ -170,6 +210,12 @@ export class SettingsModalView {
     if (this.annotationsTab) {
       this.annotationsTab.destroy();
       this.annotationsTab = null;
+    }
+
+    // RFC-0180: Clean up alarms tab
+    if (this.alarmsTab) {
+      this.alarmsTab.destroy();
+      this.alarmsTab = null;
     }
 
     // Restore focus to original element
@@ -339,6 +385,14 @@ export class SettingsModalView {
               </svg>
               Anotações
             </button>
+            <!-- RFC-0180: Alarms Tab -->
+            <button type="button" class="modal-tab" data-tab="alarms">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              Alarmes
+            </button>
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert" aria-live="polite"></div>
@@ -353,6 +407,13 @@ export class SettingsModalView {
               <div style="padding: 20px; text-align: center; color: #6c757d;">
                 <div class="loading-spinner"></div>
                 <p>Carregando anotações...</p>
+              </div>
+            </div>
+            <!-- RFC-0180: Alarms Tab Content -->
+            <div id="alarms-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando alarmes...</p>
               </div>
             </div>
           </div>
@@ -400,10 +461,16 @@ export class SettingsModalView {
 
         <!-- Top Row: Two cards side by side -->
         <div class="form-columns">
-          <!-- Left Column: Device Label -->
+          <!-- Left Column: Device Identity -->
           <div class="form-column">
             <div class="form-card">
-              <h4 class="section-title device-label-title">${this.config.deviceLabel || 'NÃO INFORMADO'}</h4>
+              <!-- RFC-0180: Device identity header with icon + deviceName subtitle -->
+              <div class="device-identity-header">
+                <div class="device-identity-header__text">
+                  <h4 class="section-title device-label-title">${this.config.deviceLabel || 'NÃO INFORMADO'}</h4>
+                  ${this.config.deviceName ? `<span class="device-name-subtitle">${this.config.deviceName}</span>` : ''}
+                </div>
+              </div>
 
               <div class="form-group">
                 <label for="label">Etiqueta</label>
@@ -424,9 +491,9 @@ export class SettingsModalView {
             </div>
           </div>
 
-          <!-- Right Column: Alarms -->
+          <!-- Right Column: Alarm Placeholder (RFC-0180 — inputs hidden, GCDR rules managed in Alarms tab) -->
           <div class="form-column">
-            ${this.getAlarmsHTML(deviceType)}
+            ${this.getAlarmPlaceholderCard()}
           </div>
         </div>
 
@@ -435,6 +502,22 @@ export class SettingsModalView {
 
         <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
         ${this.config.domain === 'energy' && this.config.deviceType ? this.getPowerLimitsHTML() : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * RFC-0180: Placeholder card shown in place of the alarm form column.
+   * The "Alarms tab" button inside it wires up via attachEventListeners().
+   */
+  private getAlarmPlaceholderCard(): string {
+    return `
+      <div class="form-card form-card--muted">
+        <h4 class="section-title">Alarm Rules</h4>
+        <p class="form-card__hint">
+          Configure alarm rules for this device in the
+          <button type="button" class="link-btn" data-tab-link="alarms">Alarms tab</button>.
+        </p>
       </div>
     `;
   }
@@ -1306,6 +1389,74 @@ export class SettingsModalView {
           height: fit-content;
         }
 
+        /* RFC-0180: Muted placeholder card */
+        .form-card--muted {
+          background: #f8f9fa;
+          border: 1px dashed #dee2e6;
+          box-shadow: none;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-height: 140px;
+        }
+
+        .form-card--muted .section-title {
+          color: #6c757d;
+          font-size: 14px;
+          margin-bottom: 10px;
+        }
+
+        .form-card__hint {
+          font-size: 13px;
+          color: #6c757d;
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        /* RFC-0180: Inline link button to switch to Alarms tab */
+        .link-btn {
+          background: none;
+          border: none;
+          padding: 0;
+          font-size: inherit;
+          color: #3e1a7d;
+          text-decoration: underline;
+          cursor: pointer;
+          font-weight: 500;
+        }
+
+        .link-btn:hover { color: #2d1458; }
+
+        /* RFC-0180: Device identity header (icon + title + subtitle) */
+        .device-identity-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+
+        .device-identity-header__text {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .device-identity-header__text .section-title {
+          margin-bottom: 4px;
+        }
+
+        /* RFC-0180: Muted raw deviceName shown below the user label */
+        .device-name-subtitle {
+          display: block;
+          font-size: 11px;
+          color: #9ca3af;
+          font-family: 'Courier New', Courier, monospace;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-top: 2px;
+          margin-bottom: 0;
+        }
+
         .section-title {
           margin: 0 0 20px 0;
           font-size: 16px;
@@ -2170,16 +2321,25 @@ export class SettingsModalView {
   }
 
   private attachEventListeners(): void {
-    // RFC-0104: Handle tab switching
+    // RFC-0104/0180: Handle tab switching (general | annotations | alarms)
     const tabButtons = this.modal.querySelectorAll('.modal-tab');
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations';
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms';
         if (tab) {
           this.switchTab(tab);
         }
       });
+    });
+
+    // RFC-0180: "Alarms tab" link button inside the alarm placeholder card
+    this.modal.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.dataset.tabLink === 'alarms') {
+        event.preventDefault();
+        this.switchTab('alarms');
+      }
     });
 
     // Handle form submission
