@@ -447,14 +447,21 @@ export class AlarmsNotificationsPanelView {
       ? this.groupAlarmsByTitle(state.filteredAlarms)
       : this.explodeAlarmsByDevice(state.filteredAlarms);
 
+    const isSeparado = this.groupMode === 'separado';
+
     if (this.viewMode === 'list') {
-      // Table view
+      // Table view — pass showDevice flag so the "Dispositivo" column is rendered in separado mode
       (grid as HTMLElement).className = 'alarms-table-container';
-      (grid as HTMLElement).innerHTML = this.renderAlarmsTable(this.groupedAlarms);
+      (grid as HTMLElement).innerHTML = this.renderAlarmsTable(this.groupedAlarms, isSeparado);
     } else {
-      // Card grid view
+      // Card grid view — sort by device label when in separado mode
+      const cards = isSeparado
+        ? [...this.groupedAlarms].sort((a, b) =>
+            (a.source || '').localeCompare(b.source || '', 'pt-BR', { sensitivity: 'base' })
+          )
+        : this.groupedAlarms;
       (grid as HTMLElement).className = 'alarms-grid';
-      this.groupedAlarms.forEach((alarm) => {
+      cards.forEach((alarm) => {
         const card = createAlarmCardElement(alarm, {
           onCardClick: (a) => this.handleAlarmClick(a),
           onAcknowledge: (id) => this.openAlarmActionModal('acknowledge', id),
@@ -463,7 +470,7 @@ export class AlarmsNotificationsPanelView {
           themeMode: state.themeMode,
           showCustomerName: this.params.showCustomerName ?? true,
           selected: this.selectedTitles.has(alarm.title),
-          showDeviceBadge: this.groupMode === 'separado',
+          showDeviceBadge: isSeparado,
         });
         grid.appendChild(card);
       });
@@ -672,7 +679,7 @@ export class AlarmsNotificationsPanelView {
   // Table View
   // =====================================================================
 
-  private renderAlarmsTable(alarms: import('../../types/alarm').Alarm[]): string {
+  private renderAlarmsTable(alarms: import('../../types/alarm').Alarm[], showDevice = false): string {
     const showCustomer = this.params.showCustomerName ?? true;
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '-';
@@ -708,6 +715,7 @@ export class AlarmsNotificationsPanelView {
             <input type="checkbox" class="alarm-card-select" data-alarm-id="${alarm.id}" data-alarm-title="${escTitle}"${sel ? ' checked' : ''}>
           </td>
           <td class="atbl-cell atbl-cell--title" title="${escTitle}">${escTitle}</td>
+          ${showDevice ? `<td class="atbl-cell atbl-cell--device" title="${escSource}">${escSource}</td>` : ''}
           <td class="atbl-cell atbl-cell--sev">
             <span class="atbl-sev-badge" style="background:${sev.bg};color:${sev.text}">${sev.icon} ${sev.label}</span>
           </td>
@@ -730,6 +738,7 @@ export class AlarmsNotificationsPanelView {
           <tr class="atbl-head-row">
             <th class="atbl-th atbl-th--sel"><input type="checkbox" id="tblSelectAll"${allSelected ? ' checked' : ''}></th>
             <th class="atbl-th">Tipo</th>
+            ${showDevice ? '<th class="atbl-th atbl-th--device">Dispositivo</th>' : ''}
             <th class="atbl-th">Severidade</th>
             <th class="atbl-th">Estado</th>
             ${showCustomer ? '<th class="atbl-th">Shopping</th>' : ''}
@@ -1271,7 +1280,7 @@ export class AlarmsNotificationsPanelView {
       this.groupedAlarms.find((a) => a.id === alarmId) ??
       this.controller.getAlarms().find((a) => a.id === this.stripSeparadoId(alarmId));
     if (alarm) {
-      openAlarmDetailsModal(alarm);
+      openAlarmDetailsModal(alarm, this.controller.getState().themeMode);
       this.emit('alarm-click', alarm);
     }
   }

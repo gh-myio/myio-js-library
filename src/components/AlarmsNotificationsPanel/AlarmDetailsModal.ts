@@ -475,7 +475,7 @@ function parseDevices(source: string): string[] {
 // Main export
 // =====================================================================
 
-export function openAlarmDetailsModal(alarm: Alarm): void {
+export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' = 'light'): void {
   const sev = SEVERITY_CONFIG[alarm.severity];
   const st = STATE_CONFIG[alarm.state];
 
@@ -549,6 +549,7 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
 
   const overlay = document.createElement('div');
   overlay.className = 'adm-overlay';
+  overlay.setAttribute('data-theme', themeMode);
 
   overlay.innerHTML = `
     <div class="adm-drawer" role="dialog" aria-modal="true" aria-label="Detalhes do alarme">
@@ -557,11 +558,23 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
       <div class="adm-header">
         <div class="adm-header-top">
           <div class="adm-title" title="${escHtml(alarm.title)}">${escHtml(alarm.title)}</div>
-          <button class="adm-close" id="admClose" title="Fechar (Esc)">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
+          <div class="adm-header-actions">
+            <button class="adm-header-btn" id="admMaximize" title="Maximizar">
+              <svg class="adm-icon-expand" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+              <svg class="adm-icon-compress" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+                <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+              </svg>
+            </button>
+            <button class="adm-header-btn adm-close" id="admClose" title="Fechar (Esc)">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="adm-badges">
           <span class="adm-badge-severity" style="background:${sev.bg};color:${sev.text}">${sev.icon} ${sev.label}</span>
@@ -973,6 +986,19 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
       }
     });
   }
+
+  // Maximize / restore
+  const drawer = overlay.querySelector('.adm-drawer') as HTMLElement | null;
+  const maximizeBtn = overlay.querySelector('#admMaximize') as HTMLElement | null;
+  const iconExpand   = maximizeBtn?.querySelector<HTMLElement>('.adm-icon-expand');
+  const iconCompress = maximizeBtn?.querySelector<HTMLElement>('.adm-icon-compress');
+
+  maximizeBtn?.addEventListener('click', () => {
+    const isMax = drawer?.classList.toggle('adm-drawer--maximized');
+    if (iconExpand)   iconExpand.style.display   = isMax ? 'none'  : '';
+    if (iconCompress) iconCompress.style.display = isMax ? ''      : 'none';
+    maximizeBtn.title = isMax ? 'Restaurar (Esc)' : 'Maximizar';
+  });
 
   // Close
   const closeModal = () => {

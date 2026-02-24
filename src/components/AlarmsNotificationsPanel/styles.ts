@@ -1780,6 +1780,15 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   transform: translateY(0) scale(1);
 }
 
+/* ---- Maximized state ---- */
+.adm-drawer--maximized {
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 100vh !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+}
+
 /* ---- Header ---- */
 .adm-header {
   padding: 14px 18px 12px;
@@ -1795,6 +1804,13 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   margin-bottom: 8px;
 }
 
+.adm-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .adm-title {
   display: block;
   margin: 0;
@@ -1807,6 +1823,25 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   flex: 1;
   word-break: break-word;
   letter-spacing: -0.1px;
+}
+
+.adm-header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: background 0.15s, color 0.15s;
+}
+
+.adm-header-btn:hover {
+  background: #e5e7eb;
+  color: #111827;
 }
 
 .adm-close {
@@ -2958,6 +2993,282 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-annot-archived-list { margin-top: 8px; }
 
 /* =====================================================================
+   Alarm Details Modal — Dark Mode
+   Activated by data-theme="dark" on .adm-overlay
+   ===================================================================== */
+
+.adm-overlay[data-theme="dark"] .adm-drawer {
+  background: #1e1f2e;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.adm-overlay[data-theme="dark"] .adm-header {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-title {
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-header-btn,
+.adm-overlay[data-theme="dark"] .adm-close {
+  background: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-header-btn:hover,
+.adm-overlay[data-theme="dark"] .adm-close:hover {
+  background: #363750;
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-badge-state {
+  background: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-badge-source {
+  background: #252636;
+  border-color: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-tabs {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-tab {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-tab:hover {
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-tab.is-active {
+  color: #a78bfa;
+  border-bottom-color: #a78bfa;
+}
+
+.adm-overlay[data-theme="dark"] .adm-tab-badge {
+  background: #2d1b69;
+  color: #a78bfa;
+}
+
+.adm-overlay[data-theme="dark"] .adm-body {
+  scrollbar-color: #2a2b3d transparent;
+}
+
+.adm-overlay[data-theme="dark"] .adm-body::-webkit-scrollbar-thumb {
+  background: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-kpi {
+  background: #252636;
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-kpi-value {
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-kpi-label {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-section-title {
+  color: #94a3b8;
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-row {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-row-label {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-row-value {
+  color: #cbd5e1;
+}
+
+.adm-overlay[data-theme="dark"] .adm-description {
+  background: #252636;
+  border-color: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline::before {
+  background: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline-item {
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline-dot {
+  border-color: #1e1f2e;
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline-num {
+  color: #cbd5e1;
+}
+
+.adm-overlay[data-theme="dark"] .adm-timeline-device {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-devices-list {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-device-row {
+  border-color: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-device-row:nth-child(odd) {
+  background: #252636;
+}
+
+.adm-overlay[data-theme="dark"] .adm-device-chip {
+  background: #252636;
+  border-color: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-chart-btn {
+  background: #252636;
+  border-color: #2a2b3d;
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-chart-btn.is-active {
+  background: #2d1b69;
+  border-color: #6d28d9;
+  color: #a78bfa;
+}
+
+.adm-overlay[data-theme="dark"] .adm-chart-btn:hover:not(.is-active) {
+  background: #2a2b3d;
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-chart-wrapper text,
+.adm-overlay[data-theme="dark"] .adm-chart-wrapper .axis-label {
+  fill: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-dow-chart {
+  border-color: #2a2b3d;
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-hod-chart {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-matrix {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-matrix-header,
+.adm-overlay[data-theme="dark"] .adm-matrix-row {
+  border-color: #2a2b3d;
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-matrix-row:hover {
+  background: #252636;
+}
+
+.adm-overlay[data-theme="dark"] .adm-report-toolbar input[type="date"],
+.adm-overlay[data-theme="dark"] .adm-report-toolbar select {
+  background: #252636;
+  border-color: #2a2b3d;
+  color: #e2e8f0;
+  color-scheme: dark;
+}
+
+.adm-overlay[data-theme="dark"] .adm-rpt-table {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-rpt-th {
+  background: #252636;
+  color: #64748b;
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-rpt-cell {
+  border-color: #2a2b3d;
+  color: #cbd5e1;
+}
+
+.adm-overlay[data-theme="dark"] .adm-rpt-row:nth-child(even) .adm-rpt-cell {
+  background: #252636;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-card {
+  background: #252636;
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-card:hover {
+  border-color: #4c1d95;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-card--archived {
+  background: #1e1f2e;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-card-text {
+  color: #cbd5e1;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-author {
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-date {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-btn {
+  border-color: #2a2b3d;
+  color: #94a3b8;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-btn:hover {
+  background: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-archived-summary {
+  color: #64748b;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-form {
+  background: #252636;
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-form textarea,
+.adm-overlay[data-theme="dark"] .adm-annot-form select {
+  background: #1e1f2e;
+  border-color: #2a2b3d;
+  color: #e2e8f0;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-toolbar {
+  border-color: #2a2b3d;
+}
+
+.adm-overlay[data-theme="dark"] .adm-annot-empty {
+  color: #64748b;
+}
+
+/* =====================================================================
    Bulk Action Picker Modal (abm-*)
    ===================================================================== */
 .abm-overlay {
@@ -3249,6 +3560,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .atbl-th--sel { width: 28px; text-align: center; }
 .atbl-th--num { width: 48px; text-align: center; }
 .atbl-th--date { width: 90px; }
+.atbl-th--device { width: 130px; }
 .atbl-th--actions { width: 100px; }
 
 .atbl-row {
@@ -3276,6 +3588,14 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
+}
+
+.atbl-cell--device {
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
 }
 
 .atbl-cell--customer {
