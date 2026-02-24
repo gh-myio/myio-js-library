@@ -2469,10 +2469,12 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 /* ---- Relatório tab ---- */
 .adm-report-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 14px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
@@ -2668,6 +2670,12 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 }
 
 .adm-export-btn--pdf:hover { background: #fef2f2; }
+
+.adm-export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 /* ---- Gráfico tab — chart toggle controls ---- */
 .adm-chart-controls {

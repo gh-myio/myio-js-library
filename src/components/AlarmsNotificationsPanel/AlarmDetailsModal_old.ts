@@ -51,6 +51,118 @@ function escHtml(s: string | null | undefined): string {
 }
 
 // =====================================================================
+// Timeline builder
+// =====================================================================
+
+function buildTimeline(alarm: Alarm, groupMode?: string): string {
+  const count = alarm.occurrenceCount || 1;
+  const firstMs = new Date(alarm.firstOccurrence).getTime();
+  const lastMs = new Date(alarm.lastOccurrence).getTime();
+  const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
+
+  const deviceTokens = alarm.source
+    ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const showDevice = groupMode !== 'separado' && deviceTokens.length > 0;
+  const trigStr = alarm.triggerValue != null ? String(alarm.triggerValue) : null;
+  const hasTrigger = trigStr != null;
+
+  // Color for the # index cell depending on position in the timeline
+  const idxStyle = (isSingle: boolean, isLatest: boolean, isFirst: boolean): string => {
+    if (isSingle) return 'color:#7c3aed;font-weight:700';
+    if (isLatest) return 'color:#3b82f6;font-weight:700';
+    if (isFirst)  return 'color:#ef4444;font-weight:700';
+    return '';
+  };
+
+  // Shared table header
+  const thead = `<thead><tr>
+    <th class="adm-rpt-th adm-rpt-th--idx">#</th>
+    <th class="adm-rpt-th">Data/Hora</th>
+    ${showDevice ? `<th class="adm-rpt-th">Dispositivo</th>` : ''}
+    ${hasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
+  </tr></thead>`;
+
+  // porDispositivo: grouped tables per alarm type from _alarmTypeGroups
+  function buildGroupedTimeline(): string {
+    const groups = alarm._alarmTypeGroups;
+    if (!groups?.length) return buildFlatTimeline();
+
+    return groups.map((grp, gi) => {
+      const gCount = grp.occurrenceCount || 1;
+      const gFirstMs = new Date(grp.firstOccurrence).getTime();
+      const gLastMs = new Date(grp.lastOccurrence).getTime();
+      const gInterval = gCount > 1 ? (gLastMs - gFirstMs) / (gCount - 1) : 0;
+      const gTrig = grp.triggerValue != null ? String(grp.triggerValue) : trigStr;
+      const gHasTrigger = gTrig != null;
+
+      const gThead = `<thead><tr>
+        <th class="adm-rpt-th adm-rpt-th--idx">#</th>
+        <th class="adm-rpt-th">Data/Hora</th>
+        ${gHasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
+      </tr></thead>`;
+
+      const MAX_PER_GROUP = 10;
+      const rows: string[] = [];
+      for (let i = gCount; i >= 1; i--) {
+        const tsMs = gFirstMs + gInterval * (i - 1);
+        const isSingle = gCount === 1;
+        const isLatest = !isSingle && i === gCount;
+        const isFirst  = !isSingle && i === 1;
+        const isEstimated = !isSingle && !isLatest && !isFirst;
+        const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
+        const style = idxStyle(isSingle, isLatest, isFirst);
+        rows.push(`<tr>
+          <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
+          <td class="adm-rpt-cell">${timeStr}</td>
+          ${gHasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(gTrig!)}</td>` : ''}
+        </tr>`);
+        if (rows.length >= MAX_PER_GROUP) break;
+      }
+
+      const sepStyle = gi > 0 ? ' style="margin-top:12px;padding-top:12px;border-top:1px dashed #e5e7eb"' : '';
+      return `<div${sepStyle}>
+        <div class="adm-timeline-group-header">${escHtml(grp.title)}<span class="adm-timeline-group-count">${gCount}</span></div>
+        <div class="adm-rpt-table-wrap" style="margin-bottom:0">
+          <table class="adm-rpt-table">${gThead}<tbody>${rows.join('')}</tbody></table>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function buildFlatTimeline(): string {
+    const MAX_SHOWN = 30;
+    const rows: string[] = [];
+
+    for (let i = count; i >= 1; i--) {
+      const tsMs = firstMs + interval * (i - 1);
+      const isSingle = count === 1;
+      const isLatest = !isSingle && i === count;
+      const isFirst  = !isSingle && i === 1;
+      const isEstimated = !isSingle && !isLatest && !isFirst;
+      const timeStr = (isEstimated ? '~' : '') + fmt(tsMs);
+      const device = showDevice ? deviceTokens[(i - 1) % deviceTokens.length] : '';
+      const style = idxStyle(isSingle, isLatest, isFirst);
+      rows.push(`<tr>
+        <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
+        <td class="adm-rpt-cell">${timeStr}</td>
+        ${showDevice ? `<td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(device)}</td>` : ''}
+        ${hasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr!)}</td>` : ''}
+      </tr>`);
+      if (rows.length >= MAX_SHOWN) break;
+    }
+
+    return `<div class="adm-rpt-table-wrap" style="max-height:340px;overflow-y:auto">
+      <table class="adm-rpt-table">${thead}<tbody>${rows.join('')}</tbody></table>
+    </div>`;
+  }
+
+  if (groupMode === 'porDispositivo') return buildGroupedTimeline();
+  return buildFlatTimeline();
+}
+
+// =====================================================================
 // Chart helpers
 // =====================================================================
 
@@ -496,9 +608,9 @@ export function openAlarmDetailsModal(
           <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
           Resumo
         </button>
-        <button class="adm-tab" data-panel="relatorio">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Relatório <span class="adm-tab-badge">${count}</span>
+        <button class="adm-tab" data-panel="timeline">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 18a8 8 0 110-16 8 8 0 010 16zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+          Timeline <span class="adm-tab-badge">${count}</span>
         </button>
         <button class="adm-tab" data-panel="dispositivos">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 3H4a1 1 0 00-1 1v12a1 1 0 001 1h8v2H8v2h8v-2h-4v-2h8a1 1 0 001-1V4a1 1 0 00-1-1zm-1 12H5V5h14v10z"/></svg>
@@ -507,6 +619,10 @@ export function openAlarmDetailsModal(
         <button class="adm-tab" data-panel="grafico">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 20 9 12 14 16 19 6"/><polyline points="19 6 19 10"/><polyline points="19 6 15 6"/></svg>
           Gráfico
+        </button>
+        <button class="adm-tab" data-panel="relatorio">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Relatório
         </button>
         <button class="adm-tab" data-panel="anotacoes">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
@@ -566,6 +682,31 @@ export function openAlarmDetailsModal(
 
         </div>
 
+        <!-- TIMELINE -->
+        <div class="adm-panel" data-panel="timeline">
+          <div class="adm-section">
+            <div class="adm-section-title">${
+              groupMode === 'porDispositivo' && alarm._alarmTypeGroups?.length
+                ? `${alarm._alarmTypeGroups.length} tipo${alarm._alarmTypeGroups.length !== 1 ? 's' : ''} · ${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
+                : `${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
+            }</div>
+            ${buildTimeline(alarm, groupMode)}
+          </div>
+
+          ${
+            count > 1 || alarm.triggerValue != null
+              ? `<div class="adm-section">
+            <div class="adm-section-title">Estatísticas de recorrência</div>
+            ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
+            ${count > 1 ? row('Frequência média', avgFreq) : ''}
+            ${count > 1 ? row('Janela total', durLabel) : ''}
+            ${count > 1 ? row('Primeira ocorrência', fmt(alarm.firstOccurrence)) : ''}
+            ${count > 1 ? row('Última ocorrência', fmt(alarm.lastOccurrence)) : ''}
+          </div>`
+              : ''
+          }
+        </div>
+
         <!-- DISPOSITIVOS -->
         <div class="adm-panel" data-panel="dispositivos">
           <div class="adm-section">
@@ -588,28 +729,22 @@ export function openAlarmDetailsModal(
 
         </div>
 
-        <!-- RELATÓRIO (unificado: timeline + estatísticas + sumário + exportação) -->
+        <!-- RELATÓRIO -->
         <div class="adm-panel" data-panel="relatorio">
           <div class="adm-report-toolbar">
-            <label class="adm-report-label">De</label>
-            <input type="date" class="adm-report-date-input" id="admRptStart" value="${fmtDateInput(firstMs)}">
-            <label class="adm-report-label">Até</label>
-            <input type="date" class="adm-report-date-input" id="admRptEnd" value="${fmtDateInput(lastMs)}">
+            <div class="adm-report-date-row">
+              <label class="adm-report-label">De</label>
+              <input type="date" class="adm-report-date-input" id="admRptStart" value="${fmtDateInput(firstMs)}">
+              <label class="adm-report-label">Até</label>
+              <input type="date" class="adm-report-date-input" id="admRptEnd" value="${fmtDateInput(lastMs)}">
+            </div>
             <button class="adm-report-emit-btn" id="admRptEmit">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-              Carregar
-            </button>
-            <button class="adm-export-btn" id="admExportCsv" disabled>
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-              CSV
-            </button>
-            <button class="adm-export-btn adm-export-btn--pdf" id="admExportPdf" disabled>
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              PDF
+              Emitir Relatório
             </button>
           </div>
           <div class="adm-report-grid" id="admRptGrid">
-            <div class="adm-report-empty-hint">Configure o período e clique em <strong>Carregar</strong>.</div>
+            <div class="adm-report-empty-hint">Configure o período e clique em <strong>Emitir Relatório</strong>.</div>
           </div>
         </div>
 
@@ -744,135 +879,12 @@ export function openAlarmDetailsModal(
     });
   }
 
-  // Relatório tab handlers (unificado: timeline + estatísticas + sumário + exportação)
+  // Relatório tab handlers
   const rptPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="relatorio"]');
   if (rptPanel) {
     const emitBtn = rptPanel.querySelector<HTMLButtonElement>('#admRptEmit');
-    const csvBtn  = rptPanel.querySelector<HTMLButtonElement>('#admExportCsv');
-    const pdfBtn  = rptPanel.querySelector<HTMLButtonElement>('#admExportPdf');
-    const grid    = rptPanel.querySelector<HTMLElement>('#admRptGrid');
+    const grid = rptPanel.querySelector<HTMLElement>('#admRptGrid');
     const isSeparado = groupMode === 'separado';
-
-    // Holds latest CSV data for the static export buttons
-    let lastCsvRows: string[][] = [];
-
-    // ── Occurrence table builder (respects date filter, same CSS as buildTimeline) ──
-    const buildOccurrenceSection = (occFirst: number, occLast: number): { html: string; csvRows: string[][] } => {
-      const intervalMs = count > 1 ? (occLast - occFirst) / (count - 1) : 0;
-      const trigStr    = alarm.triggerValue != null ? String(alarm.triggerValue) : null;
-      const hasTrigger = trigStr != null;
-      const showDevice = !isSeparado && devices.length > 0;
-
-      const idxStyle = (isSingle: boolean, isLatest: boolean, isFirst: boolean): string => {
-        if (isSingle) return 'color:#7c3aed;font-weight:700';
-        if (isLatest) return 'color:#3b82f6;font-weight:700';
-        if (isFirst)  return 'color:#ef4444;font-weight:700';
-        return '';
-      };
-
-      const csvHeader = ['#', 'Data/Hora'];
-      if (showDevice) csvHeader.push('Dispositivo');
-      if (hasTrigger) csvHeader.push('Trigger');
-      const rows: string[][] = [csvHeader];
-      const tableRows: string[] = [];
-
-      if (groupMode === 'porDispositivo' && alarm._alarmTypeGroups?.length) {
-        // Grouped tables per alarm type
-        const groups = alarm._alarmTypeGroups;
-        const groupHtml = groups.map((grp, gi) => {
-          const gCount    = grp.occurrenceCount || 1;
-          const gFirstMs  = new Date(grp.firstOccurrence).getTime();
-          const gLastMs   = new Date(grp.lastOccurrence).getTime();
-          const gInterval = gCount > 1 ? (gLastMs - gFirstMs) / (gCount - 1) : 0;
-          const gTrig     = grp.triggerValue != null ? String(grp.triggerValue) : trigStr;
-          const gHasTrig  = gTrig != null;
-
-          const gThead = `<thead><tr>
-            <th class="adm-rpt-th adm-rpt-th--idx">#</th>
-            <th class="adm-rpt-th">Data/Hora</th>
-            ${gHasTrig ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
-          </tr></thead>`;
-
-          const gRows: string[] = [];
-          const MAX = 10;
-          for (let i = gCount; i >= 1; i--) {
-            const tsMs = gFirstMs + gInterval * (i - 1);
-            const isSingle  = gCount === 1;
-            const isLatest  = !isSingle && i === gCount;
-            const isFirst   = !isSingle && i === 1;
-            const isEst     = !isSingle && !isLatest && !isFirst;
-            const timeStr   = (isEst ? '~' : '') + fmt(tsMs);
-            const style     = idxStyle(isSingle, isLatest, isFirst);
-            gRows.push(`<tr>
-              <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
-              <td class="adm-rpt-cell">${timeStr}</td>
-              ${gHasTrig ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(gTrig!)}</td>` : ''}
-            </tr>`);
-            const csvRow = [`#${i}`, fmt(tsMs)];
-            if (gHasTrig) csvRow.push(gTrig!);
-            rows.push(csvRow);
-            if (gRows.length >= MAX) break;
-          }
-
-          const sepStyle = gi > 0 ? ' style="margin-top:12px;padding-top:12px;border-top:1px dashed #e5e7eb"' : '';
-          return `<div${sepStyle}>
-            <div class="adm-timeline-group-header">${escHtml(grp.title)}<span class="adm-timeline-group-count">${gCount}</span></div>
-            <div class="adm-rpt-table-wrap" style="margin-bottom:0">
-              <table class="adm-rpt-table">${gThead}<tbody>${gRows.join('')}</tbody></table>
-            </div>
-          </div>`;
-        }).join('');
-
-        return { html: groupHtml, csvRows: rows };
-      }
-
-      // Flat table (consolidado / separado)
-      const deviceTokens = alarm.source
-        ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
-        : [];
-      const thead = `<thead><tr>
-        <th class="adm-rpt-th adm-rpt-th--idx">#</th>
-        <th class="adm-rpt-th">Data/Hora</th>
-        ${showDevice ? `<th class="adm-rpt-th">Dispositivo</th>` : ''}
-        ${hasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
-      </tr></thead>`;
-
-      const MAX_SHOWN = 30;
-      for (let i = count; i >= 1; i--) {
-        const tsMs     = occFirst + intervalMs * (i - 1);
-        const isSingle = count === 1;
-        const isLatest = !isSingle && i === count;
-        const isFirst  = !isSingle && i === 1;
-        const isEst    = !isSingle && !isLatest && !isFirst;
-        const timeStr  = (isEst ? '~' : '') + fmt(tsMs);
-        const device   = showDevice ? deviceTokens[(i - 1) % deviceTokens.length] : '';
-        const style    = idxStyle(isSingle, isLatest, isFirst);
-        tableRows.push(`<tr>
-          <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
-          <td class="adm-rpt-cell">${timeStr}</td>
-          ${showDevice ? `<td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(device)}</td>` : ''}
-          ${hasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr!)}</td>` : ''}
-        </tr>`);
-        const csvRow = [`#${i}`, fmt(tsMs)];
-        if (showDevice) csvRow.push(device);
-        if (hasTrigger) csvRow.push(trigStr!);
-        rows.push(csvRow);
-        if (tableRows.length >= MAX_SHOWN) break;
-      }
-
-      const html = `<div class="adm-rpt-table-wrap" id="admRptTableWrap" style="max-height:340px;overflow-y:auto">
-        <table class="adm-rpt-table">
-          ${thead}
-          <tbody>${tableRows.join('')}</tbody>
-          <tfoot><tr>
-            <td class="adm-rpt-cell adm-rpt-cell--total" colspan="${showDevice ? (hasTrigger ? 3 : 2) : (hasTrigger ? 2 : 1)}">Total</td>
-            <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${count} ocorrência${count !== 1 ? 's' : ''}</td>
-          </tr></tfoot>
-        </table>
-      </div>`;
-
-      return { html, csvRows: rows };
-    };
 
     const buildReportTable = () => {
       const startInput = rptPanel.querySelector<HTMLInputElement>('#admRptStart');
@@ -880,40 +892,27 @@ export function openAlarmDetailsModal(
       const startMs = startInput?.value ? new Date(startInput.value).getTime() : firstMs;
       const endMs   = endInput?.value   ? new Date(endInput.value).getTime() + 86_400_000 - 1 : lastMs;
 
+      // Clamp occurrence window to the selected date range
       const occFirst = Math.max(firstMs, startMs);
-      const occLast  = Math.min(lastMs, endMs);
+      const occLast  = Math.min(lastMs,  endMs);
+      const interval = count > 1 ? (occLast - occFirst) / (count - 1) : 0;
+      const trigStr  = alarm.triggerValue != null ? String(alarm.triggerValue) : '—';
 
-      // ── Header (separado only) ──
-      const headerHtml = isSeparado
-        ? `<div class="adm-rpt-device-header">
-            <span class="adm-rpt-device-name">${escHtml(alarm.source)}</span>
-            <span class="adm-rpt-device-sep">·</span>
-            <span class="adm-rpt-alarm-type">${escHtml(alarm.title)}</span>
-          </div>`
-        : '';
+      // --- Occurrence rows (newest → oldest) ---
+      const csvRows: string[][] = [['#', 'Data/Hora', 'Trigger']];
+      const tableRows: string[] = [];
+      for (let i = count; i >= 1; i--) {
+        const tsMs = occFirst + interval * (i - 1);
+        const cellVal = escHtml(trigStr);
+        csvRows.push([`#${i}`, fmt(tsMs), trigStr]);
+        tableRows.push(`<tr>
+          <td class="adm-rpt-cell adm-rpt-cell--idx">#${i}</td>
+          <td class="adm-rpt-cell">${fmt(tsMs)}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--num">${cellVal}</td>
+        </tr>`);
+      }
 
-      // ── Section title ──
-      const sectionTitle = groupMode === 'porDispositivo' && alarm._alarmTypeGroups?.length
-        ? `${alarm._alarmTypeGroups.length} tipo${alarm._alarmTypeGroups.length !== 1 ? 's' : ''} · ${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
-        : `${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`;
-
-      // ── Occurrence table ──
-      const { html: occHtml, csvRows } = buildOccurrenceSection(occFirst, occLast);
-      lastCsvRows = csvRows;
-
-      // ── Estatísticas de recorrência ──
-      const statsHtml = count > 1 || alarm.triggerValue != null
-        ? `<div class="adm-section">
-            <div class="adm-section-title">Estatísticas de recorrência</div>
-            ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
-            ${count > 1 ? row('Frequência média', avgFreq) : ''}
-            ${count > 1 ? row('Janela total', durLabel) : ''}
-            ${count > 1 ? row('Primeira ocorrência', fmt(alarm.firstOccurrence)) : ''}
-            ${count > 1 ? row('Última ocorrência', fmt(alarm.lastOccurrence)) : ''}
-          </div>`
-        : '';
-
-      // ── Sumário por dispositivo (consolidado / porDispositivo) ──
+      // --- Summary per device (consolidado / porDispositivo only) ---
       let summaryHtml = '';
       if (!isSeparado && devices.length > 0) {
         const devRows = devices.map((dev) => `<tr>
@@ -937,62 +936,81 @@ export function openAlarmDetailsModal(
           </div>`;
       }
 
+      // --- Separado: header block ---
+      const headerHtml = isSeparado
+        ? `<div class="adm-rpt-device-header">
+            <span class="adm-rpt-device-name">${escHtml(alarm.source)}</span>
+            <span class="adm-rpt-device-sep">·</span>
+            <span class="adm-rpt-alarm-type">${escHtml(alarm.title)}</span>
+          </div>`
+        : '';
+
       if (!grid) return;
       grid.innerHTML = `
         ${headerHtml}
-        <div class="adm-section">
-          <div class="adm-section-title">${sectionTitle}</div>
-          ${occHtml}
+        <div class="adm-rpt-section-title">Ocorrências (${count})</div>
+        <div class="adm-rpt-table-wrap" id="admRptTableWrap">
+          <table class="adm-rpt-table">
+            <thead><tr>
+              <th class="adm-rpt-th adm-rpt-th--idx">#</th>
+              <th class="adm-rpt-th">Data/Hora</th>
+              <th class="adm-rpt-th adm-rpt-th--num">Trigger</th>
+            </tr></thead>
+            <tbody>${tableRows.join('')}</tbody>
+            <tfoot><tr>
+              <td class="adm-rpt-cell adm-rpt-cell--total" colspan="2">Total</td>
+              <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${count} ocorrência${count !== 1 ? 's' : ''}</td>
+            </tr></tfoot>
+          </table>
         </div>
-        ${statsHtml}
-        ${summaryHtml}`;
+        ${summaryHtml}
+        <div class="adm-report-export">
+          <button class="adm-export-btn" id="admExportCsv">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            CSV
+          </button>
+          <button class="adm-export-btn adm-export-btn--pdf" id="admExportPdf">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF
+          </button>
+        </div>`;
 
-      // Enable export buttons after first load
-      csvBtn?.removeAttribute('disabled');
-      pdfBtn?.removeAttribute('disabled');
+      grid.querySelector<HTMLButtonElement>('#admExportCsv')?.addEventListener('click', () => {
+        const csv = csvRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `relatorio-${alarm.id}.csv`; a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      grid.querySelector<HTMLButtonElement>('#admExportPdf')?.addEventListener('click', () => {
+        const win = window.open('', '_blank', 'width=860,height=660');
+        if (!win) return;
+        const tbl = grid.querySelector('#admRptTableWrap')?.outerHTML ?? '';
+        const sumTbl = grid.querySelector('.adm-rpt-table-wrap--summary')?.outerHTML ?? '';
+        win.document.write(`<!DOCTYPE html><html><head><title>Relatório — ${escHtml(alarm.title)}</title>
+          <style>
+            body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#111;}
+            h2{font-size:15px;margin:0 0 4px;}p{color:#6b7280;font-size:11px;margin:0 0 16px;}
+            h3{font-size:12px;font-weight:700;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px;color:#7c3aed;}
+            table{border-collapse:collapse;width:100%;margin-bottom:16px;}
+            th,td{border:1px solid #e5e7eb;padding:7px 10px;text-align:left;}
+            th{background:#f9fafb;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+            tr:nth-child(even) td{background:#fafafa;}
+            tfoot td{font-weight:700;background:#ede9fe;}
+          </style></head><body>
+          <h2>${escHtml(alarm.title)}</h2>
+          <p>${escHtml(alarm.id)} · ${escHtml(alarm.customerName || '')} · ${count} ocorrências · Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
+          <h3>Ocorrências</h3>${tbl}
+          ${sumTbl ? `<h3>Sumário por dispositivo</h3>${sumTbl}` : ''}
+          <script>window.onload=function(){window.print();window.close();}<\/script>
+          </body></html>`);
+        win.document.close();
+      });
     };
 
-    // ── Static export handlers (bound once, use latest lastCsvRows) ──
-    csvBtn?.addEventListener('click', () => {
-      if (!lastCsvRows.length) return;
-      const csv = lastCsvRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `relatorio-${alarm.id}.csv`; a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    pdfBtn?.addEventListener('click', () => {
-      if (!grid || !lastCsvRows.length) return;
-      const win = window.open('', '_blank', 'width=860,height=660');
-      if (!win) return;
-      const tbl    = grid.querySelector('#admRptTableWrap')?.outerHTML ?? '';
-      const sumTbl = grid.querySelector('.adm-rpt-table-wrap--summary')?.outerHTML ?? '';
-      win.document.write(`<!DOCTYPE html><html><head><title>Relatório — ${escHtml(alarm.title)}</title>
-        <style>
-          body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#111;}
-          h2{font-size:15px;margin:0 0 4px;}p{color:#6b7280;font-size:11px;margin:0 0 16px;}
-          h3{font-size:12px;font-weight:700;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px;color:#7c3aed;}
-          table{border-collapse:collapse;width:100%;margin-bottom:16px;}
-          th,td{border:1px solid #e5e7eb;padding:7px 10px;text-align:left;}
-          th{background:#f9fafb;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
-          tr:nth-child(even) td{background:#fafafa;}
-          tfoot td{font-weight:700;background:#ede9fe;}
-        </style></head><body>
-        <h2>${escHtml(alarm.title)}</h2>
-        <p>${escHtml(alarm.id)} · ${escHtml(alarm.customerName || '')} · ${count} ocorrência${count !== 1 ? 's' : ''} · Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
-        <h3>Ocorrências</h3>${tbl}
-        ${sumTbl ? `<h3>Sumário por dispositivo</h3>${sumTbl}` : ''}
-        <script>window.onload=function(){window.print();window.close();}<\/script>
-        </body></html>`);
-      win.document.close();
-    });
-
     emitBtn?.addEventListener('click', () => buildReportTable());
-
-    // Auto-load com a data padrão ao abrir o modal
-    buildReportTable();
   }
 
   // Anotações tab — bind interactive events
