@@ -65,7 +65,7 @@ function buildTimeline(alarm: Alarm): string {
     ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
     : [];
   const deviceSpan = deviceTokens.length === 1
-    ? `<span class="adm-timeline-sep">·</span><span class="adm-timeline-device">${escHtml(deviceTokens[0])}</span>`
+    ? `<span class="adm-timeline-sep">|</span><span class="adm-timeline-device">${escHtml(deviceTokens[0])}</span>`
     : '';
 
   // Value pill: only on the most recent occurrence (triggerValue is from the latest record)
@@ -86,8 +86,8 @@ function buildTimeline(alarm: Alarm): string {
     return `
       <div class="adm-timeline-item ${extraClass}">
         <div class="adm-timeline-dot"></div>
-        <span class="adm-timeline-num">Ocorrência #${n}</span>
-        <span class="adm-timeline-sep">·</span>
+        <span class="adm-timeline-num">#${n}</span>
+        <span class="adm-timeline-sep">|</span>
         <span class="adm-timeline-time">${timeStr}</span>
         ${deviceSpan}
         ${isLatest ? valuePillHtml : ''}
@@ -276,189 +276,178 @@ const DEV_COLORS = [
 type VizMode = 'total' | 'separate';
 type Period = 'hora' | 'dia' | 'semana' | 'mes';
 
-function chartGrid(cW: number, cH: number, maxVal: number): string {
-  return [0, 0.25, 0.5, 0.75, 1]
-    .map((pct) => {
-      const y = (cH * pct).toFixed(1);
-      const val = Math.round(maxVal * (1 - pct));
-      return `<line x1="0" y1="${y}" x2="${cW}" y2="${y}" stroke="#f3f4f6" stroke-width="1"/>
-        <text x="-5" y="${(cH * pct + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#9ca3af">${val}</text>`;
-    })
-    .join('');
+// ─────────────────────────────────────────────────────────────────────────────
+// Chart.js helpers  (CDN: chart.js@4.4.x UMD → window.Chart)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getChartLib(): any {
+  return (window as any).Chart ?? null;
 }
 
-function chartXLabels(buckets: Bucket[], cW: number, cH: number): string {
-  const step = buckets.length > 12 ? Math.ceil(buckets.length / 12) : 1;
-  return buckets
-    .map((b, i) => {
-      if (i % step !== 0 && i !== buckets.length - 1) return '';
-      const x = ((i + 0.5) * cW / buckets.length).toFixed(1);
-      return `<text x="${x}" y="${(cH + 18).toFixed(1)}" text-anchor="middle" font-size="8" fill="#9ca3af">${b.label}</text>`;
-    })
-    .join('');
-}
-
-function chartLegend(devices: string[]): string {
-  return `<div class="adm-chart-legend">${devices
-    .map(
-      (dev, di) =>
-        `<span class="adm-chart-legend-item">
-           <span class="adm-chart-legend-dot" style="background:${DEV_COLORS[di % DEV_COLORS.length]}"></span>
-           ${escHtml(dev)}
-         </span>`
-    )
-    .join('')}</div>`;
-}
-
-/** Bar chart — stacked per device or single total */
-function buildBarChartHtml(
+function createMainChart(
+  canvas: HTMLCanvasElement,
   buckets: Bucket[],
   devices: string[],
-  singleColor: string,
-  vizMode: VizMode
-): string {
-  const W = 560;
-  const H = 160;
-  const PAD = { top: 14, right: 8, bottom: 30, left: 32 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-  const multi = vizMode === 'separate' && devices.length > 1;
+  chartType: 'bar' | 'line',
+  vizMode: 'total' | 'separate',
+  singleColor: string
+): any {
+  const Chart = getChartLib();
+  if (!Chart) return null;
 
-  const maxVal = Math.max(...buckets.map((b) => b.total), 1);
-  const barSlot = cW / buckets.length;
-  const barW = Math.max(3, Math.min(28, barSlot * 0.65));
+  const labels = buckets.map((b) => b.label);
+  const isMulti = vizMode === 'separate' && devices.length > 1;
 
-  const bars = buckets
-    .map((b, i) => {
-      const groupCenterX = i * barSlot + barSlot / 2;
-      let rects: string;
-      let labelX: number;
+  const datasets: any[] = isMulti
+    ? devices.map((dev, di) => {
+        const color = DEV_COLORS[di % DEV_COLORS.length];
+        return {
+          label: dev,
+          data: buckets.map((b) => b.byDevice[dev] ?? 0),
+          backgroundColor: chartType === 'bar' ? color + 'bb' : color + '22',
+          borderColor: color,
+          borderWidth: chartType === 'line' ? 2 : 1,
+          borderRadius: chartType === 'bar' ? 3 : 0,
+          tension: chartType === 'line' ? 0.4 : 0,
+          fill: chartType === 'line',
+          pointRadius: chartType === 'line' ? 3 : 0,
+          pointHoverRadius: 6,
+        };
+      })
+    : [{
+        label: 'Ocorrências',
+        data: buckets.map((b) => b.total),
+        backgroundColor: chartType === 'bar' ? singleColor + 'bb' : singleColor + '22',
+        borderColor: singleColor,
+        borderWidth: chartType === 'line' ? 2.5 : 1,
+        borderRadius: chartType === 'bar' ? 3 : 0,
+        tension: chartType === 'line' ? 0.4 : 0,
+        fill: chartType === 'line',
+        pointRadius: chartType === 'line' ? 3 : 0,
+        pointHoverRadius: 6,
+      }];
 
-      if (multi) {
-        // Grouped (side-by-side) bars
-        const subW = Math.max(2, Math.min((barSlot * 0.82) / devices.length, 18));
-        const gap = Math.min(1.5, subW * 0.18);
-        const groupW = devices.length * subW + (devices.length - 1) * gap;
-        const gx0 = groupCenterX - groupW / 2;
-        rects = devices
-          .map((dev, di) => {
-            const v = b.byDevice[dev] ?? 0;
-            const bh = Math.max(0, (v / maxVal) * cH);
-            const bx = gx0 + di * (subW + gap);
-            return `<rect x="${bx.toFixed(1)}" y="${(cH - bh).toFixed(1)}" width="${subW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${DEV_COLORS[di % DEV_COLORS.length]}" rx="1" opacity="0.88"/>`;
-          })
-          .join('');
-        labelX = groupCenterX;
-      } else {
-        const bh = Math.max(0, (b.total / maxVal) * cH);
-        const bx = groupCenterX - barW / 2;
-        rects = `<rect x="${bx.toFixed(1)}" y="${(cH - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${singleColor}" rx="1.5" opacity="0.85"/>`;
-        labelX = groupCenterX;
-      }
-
-      return rects + `<text x="${labelX.toFixed(1)}" y="${(cH + 18).toFixed(1)}" text-anchor="middle" font-size="8" fill="#9ca3af">${b.label}</text>`;
-    })
-    .join('');
-
-  const trendPts = buckets
-    .map((b, i) => `${((i + 0.5) * barSlot).toFixed(1)},${(cH - (b.total / maxVal) * cH).toFixed(1)}`)
-    .join(' ');
-
-  const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
-    <g transform="translate(${PAD.left},${PAD.top})">
-      ${chartGrid(cW, cH, maxVal)}
-      ${bars}
-      <polyline points="${trendPts}" fill="none" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round" opacity="0.35"/>
-    </g>
-  </svg>`;
-
-  return svg + (multi ? chartLegend(devices) : '');
+  return new Chart(canvas, {
+    type: chartType,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: {
+        legend: {
+          display: isMulti,
+          position: 'bottom',
+          labels: { font: { size: 10 }, boxWidth: 10, padding: 10 },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items: any[]) => `Período: ${items[0]?.label ?? ''}`,
+            label: (item: any) => ` ${item.dataset.label}: ${item.parsed.y} ocorrências`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: '#f3f4f6' },
+          ticks: { font: { size: 9 }, color: '#9ca3af', maxRotation: 45 },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f3f4f6' },
+          ticks: { font: { size: 9 }, color: '#9ca3af', precision: 0 },
+        },
+      },
+    },
+  });
 }
 
-/** Line/area chart — one curve per device or single total */
-function buildLineChartHtml(
-  buckets: Bucket[],
-  devices: string[],
-  singleColor: string,
-  vizMode: VizMode
-): string {
-  const W = 560;
-  const H = 160;
-  const PAD = { top: 14, right: 8, bottom: 30, left: 32 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-  const multi = vizMode === 'separate' && devices.length > 1;
-
-  const maxVal = Math.max(...buckets.map((b) => b.total), 1);
-  const xOf = (i: number) => ((i + 0.5) * cW / buckets.length).toFixed(1);
-  const yOf = (v: number) => (cH - (v / maxVal) * cH).toFixed(1);
-
-  let paths = '';
-
-  if (multi) {
-    for (let di = 0; di < devices.length; di++) {
-      const color = DEV_COLORS[di % DEV_COLORS.length];
-      const pts = buckets.map((b, i) => `${xOf(i)},${yOf(b.byDevice[devices[di]] ?? 0)}`);
-      const areaD = `M ${xOf(0)},${cH} L ${pts.join(' L ')} L ${xOf(buckets.length - 1)},${cH} Z`;
-      paths += `<path d="${areaD}" fill="${color}" opacity="0.1"/>`;
-      paths += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
-      buckets.forEach((b, i) => {
-        paths += `<circle cx="${xOf(i)}" cy="${yOf(b.byDevice[devices[di]] ?? 0)}" r="3" fill="${color}" stroke="#fff" stroke-width="1.5"/>`;
-      });
-    }
-  } else {
-    const pts = buckets.map((b, i) => `${xOf(i)},${yOf(b.total)}`);
-    const areaD = `M ${xOf(0)},${cH} L ${pts.join(' L ')} L ${xOf(buckets.length - 1)},${cH} Z`;
-    paths += `<path d="${areaD}" fill="${singleColor}" opacity="0.12"/>`;
-    paths += `<polyline points="${pts.join(' ')}" fill="none" stroke="${singleColor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    buckets.forEach((b, i) => {
-      paths += `<circle cx="${xOf(i)}" cy="${yOf(b.total)}" r="3.5" fill="${singleColor}" stroke="#fff" stroke-width="1.5"/>`;
-    });
-  }
-
-  const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
-    <g transform="translate(${PAD.left},${PAD.top})">
-      ${chartGrid(cW, cH, maxVal)}
-      ${chartXLabels(buckets, cW, cH)}
-      ${paths}
-    </g>
-  </svg>`;
-
-  return svg + (multi ? chartLegend(devices) : '');
+function createDowChart(canvas: HTMLCanvasElement, vals: number[]): any {
+  const Chart = getChartLib();
+  if (!Chart) return null;
+  return new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
+      datasets: [{
+        label: 'Ocorrências',
+        data: vals,
+        backgroundColor: '#8b5cf6bb',
+        borderColor: '#7c3aed',
+        borderWidth: 1,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      indexAxis: 'y' as const,
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item: any) => ` ${item.parsed.x} ocorrências`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          grid: { color: '#f3f4f6' },
+          ticks: { font: { size: 9 }, color: '#9ca3af', precision: 0 },
+        },
+        y: {
+          grid: { display: false },
+          ticks: { font: { size: 10 }, color: '#374151' },
+        },
+      },
+    },
+  });
 }
 
-/** Compact 7-bar DOW chart (Sun=0) */
-function buildDowChart(vals: number[]): string {
-  const LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  const maxV = Math.max(...vals, 1);
-  const barMaxW = 200;
-  const rows = LABELS.map((lbl, i) => {
-    const pct = vals[i] / maxV;
-    const w = Math.round(pct * barMaxW);
-    const opacity = 0.3 + pct * 0.7;
-    return `<div class="adm-dow-row">
-      <span class="adm-dow-label">${lbl}</span>
-      <div class="adm-dow-track">
-        <div class="adm-dow-bar" style="width:${w}px;opacity:${opacity.toFixed(2)}"></div>
-      </div>
-      <span class="adm-dow-val">${vals[i]}</span>
-    </div>`;
-  }).join('');
-  return `<div class="adm-dow-chart">${rows}</div>`;
-}
-
-/** Compact 24-column HOD heatmap */
-function buildHodChart(vals: number[]): string {
-  const maxV = Math.max(...vals, 1);
-  const cells = vals.map((v, h) => {
-    const pct = v / maxV;
-    const opacity = 0.08 + pct * 0.92;
-    return `<div class="adm-hod-cell" title="${h}:00 — ${v} ocorrências" style="opacity:${opacity.toFixed(2)}">
-      <div class="adm-hod-bar" style="height:${Math.max(4, Math.round(pct * 40))}px"></div>
-      <span class="adm-hod-label">${h}</span>
-    </div>`;
-  }).join('');
-  return `<div class="adm-hod-chart">${cells}</div>`;
+function createHodChart(canvas: HTMLCanvasElement, vals: number[]): any {
+  const Chart = getChartLib();
+  if (!Chart) return null;
+  return new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: Array.from({ length: 24 }, (_, h) => `${h}h`),
+      datasets: [{
+        label: 'Ocorrências',
+        data: vals,
+        backgroundColor: '#3b82f6bb',
+        borderColor: '#2563eb',
+        borderWidth: 1,
+        borderRadius: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items: any[]) => `${items[0]?.label}`,
+            label: (item: any) => ` ${item.parsed.y} ocorrências`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 9 }, color: '#9ca3af' },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f3f4f6' },
+          ticks: { font: { size: 9 }, color: '#9ca3af', precision: 0 },
+        },
+      },
+    },
+  });
 }
 
 // =====================================================================
@@ -522,22 +511,9 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
     durMs < 86_400_000 ? 'hora' :
     durMs < 7 * 86_400_000 ? 'dia' :
     durMs < 30 * 86_400_000 ? 'semana' : 'mes';
-  const buckets = generateBuckets(alarm, devices, initialPeriod);
   const dowVals = generateDowDistribution(alarm);
   const hodVals = generateHodDistribution(alarm);
   const chartSingleColor = sev.text || '#7c3aed';
-  const barTotalHtml = buildBarChartHtml(buckets, devices, chartSingleColor, 'total');
-  const barSepHtml =
-    devices.length > 1
-      ? buildBarChartHtml(buckets, devices, chartSingleColor, 'separate')
-      : barTotalHtml;
-  const lineTotalHtml = buildLineChartHtml(buckets, devices, chartSingleColor, 'total');
-  const lineSepHtml =
-    devices.length > 1
-      ? buildLineChartHtml(buckets, devices, chartSingleColor, 'separate')
-      : lineTotalHtml;
-  const dowChartHtml = buildDowChart(dowVals);
-  const hodChartHtml = buildHodChart(hodVals);
 
   // Annotation count (persisted across modal open/close in session)
   const annotCount = getActiveAnnotationCount(alarm.id);
@@ -691,7 +667,7 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
             <div class="adm-section-title">Mapa ocorrências × dispositivos</div>
             <div class="adm-matrix">
               <div class="adm-matrix-header">
-                <span>ID</span><span>Timestamp</span><span>Dispositivos</span>
+                <span>ID</span><span>Timestamp</span><span>Dispositivos</span><span>Trigger</span>
               </div>
               ${buildOccurrenceMatrix(alarm, devices)}
             </div>
@@ -758,21 +734,18 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
           <div class="adm-section">
             <div class="adm-section-title">Tendência de ocorrências no período</div>
             <div class="adm-chart-wrapper">
-              <div class="adm-chart-variant is-active" data-chart-type="bar" data-viz-mode="total">${barTotalHtml}</div>
-              <div class="adm-chart-variant" data-chart-type="bar" data-viz-mode="separate">${barSepHtml}</div>
-              <div class="adm-chart-variant" data-chart-type="line" data-viz-mode="total">${lineTotalHtml}</div>
-              <div class="adm-chart-variant" data-chart-type="line" data-viz-mode="separate">${lineSepHtml}</div>
+              <canvas id="admMainChart" class="adm-chart-canvas"></canvas>
             </div>
           </div>
 
           <div class="adm-chart-secondary-grid">
             <div class="adm-section">
               <div class="adm-section-title">Por dia da semana</div>
-              ${dowChartHtml}
+              <div class="adm-chart-canvas-wrap adm-chart-canvas-wrap--dow"><canvas id="admDowChart"></canvas></div>
             </div>
             <div class="adm-section">
               <div class="adm-section-title">Por hora do dia</div>
-              ${hodChartHtml}
+              <div class="adm-chart-canvas-wrap adm-chart-canvas-wrap--hod"><canvas id="admHodChart"></canvas></div>
             </div>
           </div>
         </div>
@@ -802,61 +775,59 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
     });
   });
 
-  // Chart toggle handlers (scoped to grafico panel)
+  // Chart.js handlers (scoped to grafico panel)
+  const chartInstances: any[] = []; // [0]=main [1]=dow [2]=hod
   const graficoPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="grafico"]');
   if (graficoPanel) {
-    let activeChartType = 'bar';
-    let activeVizMode = 'total';
+    let activeChartType: 'bar' | 'line' = 'bar';
+    let activeVizMode: 'total' | 'separate' = 'total';
     let activePeriod: Period = initialPeriod;
 
-    const updateChartVariant = () => {
-      graficoPanel.querySelectorAll<HTMLElement>('.adm-chart-variant').forEach((el) => {
-        const show =
-          el.dataset.chartType === activeChartType && el.dataset.vizMode === activeVizMode;
-        el.classList.toggle('is-active', show);
-      });
+    const buildMain = () => {
+      const nb = generateBuckets(alarm, devices, activePeriod);
+      const canvas = graficoPanel.querySelector<HTMLCanvasElement>('#admMainChart');
+      if (!canvas) return;
+      if (chartInstances[0]) { chartInstances[0].destroy(); chartInstances[0] = null; }
+      chartInstances[0] = createMainChart(canvas, nb, devices, activeChartType, activeVizMode, chartSingleColor);
     };
 
-    const rebuildCharts = (period: Period) => {
-      const nb = generateBuckets(alarm, devices, period);
-      const bT = buildBarChartHtml(nb, devices, chartSingleColor, 'total');
-      const bS = devices.length > 1 ? buildBarChartHtml(nb, devices, chartSingleColor, 'separate') : bT;
-      const lT = buildLineChartHtml(nb, devices, chartSingleColor, 'total');
-      const lS = devices.length > 1 ? buildLineChartHtml(nb, devices, chartSingleColor, 'separate') : lT;
-      const map: Record<string, string> = {
-        'bar-total': bT, 'bar-separate': bS, 'line-total': lT, 'line-separate': lS,
-      };
-      graficoPanel.querySelectorAll<HTMLElement>('.adm-chart-variant').forEach((el) => {
-        el.innerHTML = map[`${el.dataset.chartType}-${el.dataset.vizMode}`] ?? '';
-      });
+    const initSecondary = () => {
+      const dowCanvas = graficoPanel.querySelector<HTMLCanvasElement>('#admDowChart');
+      if (dowCanvas && !chartInstances[1]) chartInstances[1] = createDowChart(dowCanvas, dowVals);
+      const hodCanvas = graficoPanel.querySelector<HTMLCanvasElement>('#admHodChart');
+      if (hodCanvas && !chartInstances[2]) chartInstances[2] = createHodChart(hodCanvas, hodVals);
     };
 
-    graficoPanel.querySelectorAll<HTMLButtonElement>('[data-chart-type]').forEach((btn) => {
+    graficoPanel.querySelectorAll<HTMLButtonElement>('button[data-chart-type]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        activeChartType = btn.dataset.chartType!;
-        graficoPanel.querySelectorAll('[data-chart-type]').forEach((b) => b.classList.remove('is-active'));
+        activeChartType = btn.dataset.chartType as 'bar' | 'line';
+        graficoPanel.querySelectorAll('button[data-chart-type]').forEach((b) => b.classList.remove('is-active'));
         btn.classList.add('is-active');
-        updateChartVariant();
+        buildMain();
       });
     });
 
-    graficoPanel.querySelectorAll<HTMLButtonElement>('[data-viz-mode]').forEach((btn) => {
+    graficoPanel.querySelectorAll<HTMLButtonElement>('button[data-viz-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        activeVizMode = btn.dataset.vizMode!;
-        graficoPanel.querySelectorAll('[data-viz-mode]').forEach((b) => b.classList.remove('is-active'));
+        activeVizMode = btn.dataset.vizMode as 'total' | 'separate';
+        graficoPanel.querySelectorAll('button[data-viz-mode]').forEach((b) => b.classList.remove('is-active'));
         btn.classList.add('is-active');
-        updateChartVariant();
+        buildMain();
       });
     });
 
-    graficoPanel.querySelectorAll<HTMLButtonElement>('[data-period]').forEach((btn) => {
+    graficoPanel.querySelectorAll<HTMLButtonElement>('button[data-period]').forEach((btn) => {
       btn.addEventListener('click', () => {
         activePeriod = btn.dataset.period as Period;
-        graficoPanel.querySelectorAll('[data-period]').forEach((b) => b.classList.remove('is-active'));
+        graficoPanel.querySelectorAll('button[data-period]').forEach((b) => b.classList.remove('is-active'));
         btn.classList.add('is-active');
-        rebuildCharts(activePeriod);
-        updateChartVariant();
+        buildMain();
       });
+    });
+
+    // Init charts when the Gráfico tab is clicked (canvas must be visible for correct sizing)
+    overlay.querySelectorAll<HTMLElement>('.adm-tab[data-panel="grafico"]').forEach((tabBtn) => {
+      tabBtn.addEventListener('click', () => setTimeout(() => { buildMain(); initSecondary(); }, 30));
     });
   }
 
@@ -887,16 +858,19 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
       const nb = generateBuckets(rptAlarm, devices, rptPeriod);
       const totalOcc = nb.reduce((s, b) => s + b.total, 0);
 
-      const csvRows: string[][] = [['Período', 'Ocorrências', 'Dispositivos']];
-      const tableRows = nb.map((b) => {
+      const csvRows: string[][] = [['Período', 'Ocorrências', 'Dispositivos', 'Trigger']];
+      const tableRows = nb.map((b, bIdx) => {
         const devList = devices.length === 1
           ? devices[0]
           : devices.filter((d) => (b.byDevice[d] ?? 0) > 0).join(', ') || '-';
-        csvRows.push([b.label, String(b.total), devList]);
+        const isLastBucket = bIdx === nb.length - 1;
+        const trigStr = isLastBucket && alarm.triggerValue != null ? String(alarm.triggerValue) : '—';
+        csvRows.push([b.label, String(b.total), devList, trigStr]);
         return `<tr>
           <td class="adm-rpt-cell">${b.label}</td>
           <td class="adm-rpt-cell adm-rpt-cell--num">${b.total}</td>
           <td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(devList)}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr)}</td>
         </tr>`;
       }).join('');
 
@@ -909,6 +883,7 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
                 <th class="adm-rpt-th">Período</th>
                 <th class="adm-rpt-th adm-rpt-th--num">Ocorrências</th>
                 <th class="adm-rpt-th">Dispositivos</th>
+                <th class="adm-rpt-th adm-rpt-th--num">Trigger</th>
               </tr>
             </thead>
             <tbody>${tableRows}</tbody>
@@ -917,6 +892,7 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
                 <td class="adm-rpt-cell adm-rpt-cell--total">Total</td>
                 <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${totalOcc}</td>
                 <td class="adm-rpt-cell adm-rpt-cell--total">${deviceCount} dispositivo${deviceCount !== 1 ? 's' : ''}</td>
+                <td class="adm-rpt-cell adm-rpt-cell--total">—</td>
               </tr>
             </tfoot>
           </table>
@@ -1004,7 +980,10 @@ export function openAlarmDetailsModal(alarm: Alarm, themeMode: 'light' | 'dark' 
   // Close
   const closeModal = () => {
     overlay.classList.remove('adm-overlay--visible');
-    setTimeout(() => overlay.remove(), 300);
+    setTimeout(() => {
+      overlay.remove();
+      chartInstances.forEach((c) => { try { c?.destroy(); } catch (_) {} });
+    }, 300);
     document.removeEventListener('keydown', onKey);
   };
 
@@ -1058,10 +1037,14 @@ function buildOccurrenceMatrix(alarm: Alarm, devices: string[]): string {
           : [devices[devIndex]];
       const chipsHtml = rowDevices.map(deviceChip).join('');
 
+      const trigVal = item.n === count && alarm.triggerValue != null
+        ? escHtml(String(alarm.triggerValue))
+        : '—';
       return `<div class="adm-matrix-row">
         <span class="adm-matrix-n">#${item.n}</span>
         <span class="adm-matrix-ts">${fmt(item.tsMs)}${item.estimated ? '<sup title="Estimado">~</sup>' : ''}</span>
         <span class="adm-matrix-devices">${chipsHtml}</span>
+        <span class="adm-matrix-trigger">${trigVal}</span>
       </div>`;
     })
     .join('');

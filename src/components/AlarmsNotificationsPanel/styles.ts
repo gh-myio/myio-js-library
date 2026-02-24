@@ -2137,11 +2137,9 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .adm-timeline-item.is-single .adm-timeline-dot { background: #7c3aed; box-shadow: 0 0 0 2px #7c3aed; }
 
 .adm-timeline-num {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: #9ca3af;
+  color: #111827;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -2274,7 +2272,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 .adm-matrix-header {
   display: grid;
-  grid-template-columns: 52px 1fr 1fr;
+  grid-template-columns: 52px 1fr 1fr 64px;
   gap: 0;
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
@@ -2291,7 +2289,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 .adm-matrix-row {
   display: grid;
-  grid-template-columns: 52px 1fr 1fr;
+  grid-template-columns: 52px 1fr 1fr 64px;
   gap: 0;
   padding: 7px 10px;
   border-bottom: 1px solid #f3f4f6;
@@ -2327,6 +2325,14 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   color: #9ca3af;
   font-size: 9px;
   cursor: help;
+}
+
+.adm-matrix-trigger {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
 }
 
 .adm-device-chip {
@@ -2551,21 +2557,32 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   color: #fff;
 }
 
-/* Chart wrapper + variants */
+/* Chart wrapper + canvas */
 .adm-chart-wrapper {
   position: relative;
-  min-height: 80px;
+  height: 210px;
 }
 
-.adm-chart-variant {
-  display: none;
-}
-
-.adm-chart-variant.is-active {
+.adm-chart-canvas {
   display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* Legend */
+/* Secondary chart wrappers (DOW + HOD) */
+.adm-chart-canvas-wrap {
+  position: relative;
+}
+
+.adm-chart-canvas-wrap--dow {
+  height: 148px;
+}
+
+.adm-chart-canvas-wrap--hod {
+  height: 120px;
+}
+
+/* Legend (kept for Chart.js built-in legend) */
 .adm-chart-legend {
   display: flex;
   flex-wrap: wrap;
@@ -3165,10 +3182,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   color: #e2e8f0;
 }
 
-.adm-overlay[data-theme="dark"] .adm-chart-wrapper text,
-.adm-overlay[data-theme="dark"] .adm-chart-wrapper .axis-label {
-  fill: #64748b;
-}
+/* Chart.js canvas — dark mode tick/grid colours are set via plugin options */
 
 .adm-overlay[data-theme="dark"] .adm-dow-chart {
   border-color: #2a2b3d;
@@ -3191,6 +3205,10 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 .adm-overlay[data-theme="dark"] .adm-matrix-row:hover {
   background: #252636;
+}
+
+.adm-overlay[data-theme="dark"] .adm-matrix-trigger {
+  color: #94a3b8;
 }
 
 .adm-overlay[data-theme="dark"] .adm-report-toolbar input[type="date"],
