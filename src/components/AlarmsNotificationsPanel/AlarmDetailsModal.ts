@@ -60,6 +60,14 @@ function buildTimeline(alarm: Alarm): string {
   const lastMs = new Date(alarm.lastOccurrence).getTime();
   const interval = count > 1 ? (lastMs - firstMs) / (count - 1) : 0;
 
+  // Build extra info lines: device + trigger value
+  const deviceLabel = alarm.source
+    ? `<div class="adm-timeline-device">${escHtml(alarm.source)}</div>`
+    : '';
+  const valueLabel = alarm.triggerValue != null
+    ? `<div class="adm-timeline-value">Valor: <strong>${escHtml(String(alarm.triggerValue))}</strong></div>`
+    : '';
+
   function occItem(
     n: number,
     tsMs: number,
@@ -73,6 +81,7 @@ function buildTimeline(alarm: Alarm): string {
           <div class="adm-timeline-num">Ocorrência #${n}</div>
           <div class="adm-timeline-time">${fmt(tsMs)}</div>
           ${meta ? `<div class="adm-timeline-meta">${meta}</div>` : ''}
+          ${deviceLabel}${valueLabel}
         </div>
       </div>`;
   }
@@ -476,16 +485,6 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
   const devices = parseDevices(alarm.source);
   const deviceCount = devices.length;
 
-  const tagEntries = Object.entries(alarm.tags || {});
-  const tagsHtml =
-    tagEntries.length > 0
-      ? tagEntries
-          .map(
-            ([k, v]) =>
-              `<span class="adm-tag"><span class="adm-tag-key">${escHtml(k)}</span>: ${escHtml(v)}</span>`
-          )
-          .join('')
-      : '<span class="adm-empty-inline">Nenhuma tag</span>';
 
   // Conditional rows helper
   const row = (label: string, value: string | undefined | null) =>
@@ -633,14 +632,6 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
             ${alarm.closedReason ? row('Motivo', alarm.closedReason) : ''}
           </div>
 
-          ${
-            tagEntries.length > 0
-              ? `<div class="adm-section">
-              <div class="adm-section-title">Tags</div>
-              <div class="adm-tags">${tagsHtml}</div>
-            </div>`
-              : ''
-          }
         </div>
 
         <!-- TIMELINE -->
@@ -685,14 +676,6 @@ export function openAlarmDetailsModal(alarm: Alarm): void {
             </div>
           </div>
 
-          ${
-            tagEntries.length > 0
-              ? `<div class="adm-section">
-            <div class="adm-section-title">Atributos</div>
-            <div class="adm-tags">${tagsHtml}</div>
-          </div>`
-              : ''
-          }
         </div>
 
         <!-- RELATÓRIO -->

@@ -2105,6 +2105,22 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   margin-top: 2px;
 }
 
+.adm-timeline-device {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.adm-timeline-value {
+  font-size: 11px;
+  color: #374151;
+  margin-top: 2px;
+}
+
 .adm-timeline-ellipsis {
   display: flex;
   align-items: center;

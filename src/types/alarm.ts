@@ -61,6 +61,8 @@ export interface Alarm {
   closedBy?: string;
   /** Reason for closing */
   closedReason?: string;
+  /** Measured value that triggered the rule (from api.metadata.value) */
+  triggerValue?: number | string;
 }
 
 /**

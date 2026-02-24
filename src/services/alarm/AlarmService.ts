@@ -28,7 +28,7 @@ function mapApiAlarm(api: import('./types').AlarmApiResponse, customerMap?: Map<
     id: api.id,
     customerId: api.customerId ?? api.tenantId,
     customerName: customerMap?.get(api.customerId ?? '') ?? '',
-    source: api.deviceName || api.deviceId,
+    source: api.deviceId || api.deviceName, // RFC-0179: prefer full UUID so gcdrDeviceNameMap lookup works
     severity: api.severity as Alarm['severity'],
     state: api.state as Alarm['state'],
     title: api.title,
@@ -46,6 +46,7 @@ function mapApiAlarm(api: import('./types').AlarmApiResponse, customerMap?: Map<
     closedAt: api.closedAt || undefined,
     closedBy: api.closedBy,
     closedReason: api.resolution,
+    triggerValue: api.metadata?.value as number | string | undefined,
   };
 }
 
