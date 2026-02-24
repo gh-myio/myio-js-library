@@ -317,13 +317,13 @@ async function _fetchAndUpdate() {
     const summary   = response.summary;
 
     // RFC-0179: Enrich alarm sources with TB device names.
-    // Three-layer strategy — first match wins:
-    //   1. gcdrMap.get(source)       — old format (alarm.source IS the GCDR UUID)
+    // Four-layer strategy — first match wins:
+    //   1. gcdrMap.get(source)       — source IS GCDR UUID or "gcdr:<shortcode>"
     //   2. gcdrMap.get(centralId)    — new format: numeric localId, centralId is GCDR UUID
     //   3. stateMap.get(centralId)   — window.STATE._raw (same data TELEMETRY uses)
-    //      window.STATE items have centralId + label ("Elevador 7 L2") from MAIN_VIEW,
-    //      no extra datakey config needed — already populated for TELEMETRY.
-    const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+    //   4. nameMap.get(source)       — TB entityName → entityLabel ("3F SCMOX..." → "Elevador 7 L2")
+    const gcdrMap  = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+    const nameMap  = window.MyIOOrchestrator?.entityNameToLabelMap;
 
     // Build centralId→label map from window.STATE (all domains)
     const stateMap = new Map();
@@ -336,13 +336,14 @@ async function _fetchAndUpdate() {
         }
       }
     }
-    LogHelper.log(`[ALARM] enrich maps — gcdrMap: ${gcdrMap?.size ?? 0}, stateMap: ${stateMap.size}`);
+    LogHelper.log(`[ALARM] enrich maps — gcdrMap: ${gcdrMap?.size ?? 0}, stateMap: ${stateMap.size}, nameMap: ${nameMap?.size ?? 0}`);
 
     const alarms = rawAlarms.map((a) => {
       const isNumericSrc = /^\d+$/.test(a.source);
       const tbName = gcdrMap?.get(a.source)
         || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
-        || stateMap.get(a.centralId);
+        || stateMap.get(a.centralId)
+        || nameMap?.get(a.source);
       return tbName ? { ...a, source: tbName } : a;
     });
 

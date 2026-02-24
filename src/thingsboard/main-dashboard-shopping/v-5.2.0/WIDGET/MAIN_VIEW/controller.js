@@ -1500,29 +1500,55 @@ Object.assign(window.MyIOUtils, {
       }
     }
 
-    // RFC-0179: Build gcdrDeviceId → TB device name map from any datasource alias.
-    // Scans all rows for the 'gcdrDeviceId' attribute key and stores
-    // gcdrId → entityName in window.MyIOOrchestrator.gcdrDeviceNameMap so the
-    // ALARM widget can enrich alarm sources with human-readable device names.
+    // RFC-0179: Build enrichment maps for ALARM widget device name resolution.
     if (window.MyIOOrchestrator) {
+      // Map 1: gcdrDeviceId (UUID) → human-readable label
+      // Also indexed by short code "gcdr:<first8>" for old alarm format.
       const gcdrMap = window.MyIOOrchestrator.gcdrDeviceNameMap instanceof Map
-        ? window.MyIOOrchestrator.gcdrDeviceNameMap
-        : new Map();
-      let mapChanged = false;
+        ? window.MyIOOrchestrator.gcdrDeviceNameMap : new Map();
+
+      // Map 2: TB entityName ("3F SCMOXUARAAC_EL7_L2") → entityLabel ("Elevador 7 L2")
+      // Built from ALL datasource rows — no specific datakey needed.
+      const nameMap = window.MyIOOrchestrator.entityNameToLabelMap instanceof Map
+        ? window.MyIOOrchestrator.entityNameToLabelMap : new Map();
+
+      let gcdrChanged = false;
+      let nameChanged = false;
+
       for (const row of ctxDataRows) {
+        const entityName  = row?.datasource?.entityName  || '';
+        const entityLabel = row?.datasource?.entityLabel || '';
+        // Prefer entityLabel (human-readable) over entityName (raw TB name)
+        const label = entityLabel || entityName;
+
+        // Map 2: entityName → label (for any row that has both values different)
+        if (entityName && label && entityName !== label && !nameMap.has(entityName)) {
+          nameMap.set(entityName, label);
+          nameChanged = true;
+        }
+
+        // Map 1: gcdrDeviceId rows only
         const keyName = (row?.dataKey?.name || '').toLowerCase();
         if (keyName !== 'gcdrdeviceid') continue;
         const gcdrId = row?.data?.[0]?.[1];
-        if (!gcdrId) continue;
-        const tbName = row?.datasource?.entityName || row?.datasource?.entityLabel || '';
-        if (tbName && !gcdrMap.has(String(gcdrId))) {
-          gcdrMap.set(String(gcdrId), tbName);
-          mapChanged = true;
+        if (!gcdrId || !label) continue;
+        const gcdrKey = String(gcdrId);
+        if (!gcdrMap.has(gcdrKey)) {
+          gcdrMap.set(gcdrKey, label);
+          // Also index by short code "gcdr:<first8>" for old-format alarm sources
+          const shortCode = 'gcdr:' + gcdrKey.substring(0, 8);
+          if (!gcdrMap.has(shortCode)) gcdrMap.set(shortCode, label);
+          gcdrChanged = true;
         }
       }
-      if (mapChanged) {
+
+      if (gcdrChanged) {
         window.MyIOOrchestrator.gcdrDeviceNameMap = gcdrMap;
         LogHelper.log(`[MAIN_VIEW] gcdrDeviceNameMap updated: ${gcdrMap.size} entries`);
+      }
+      if (nameChanged) {
+        window.MyIOOrchestrator.entityNameToLabelMap = nameMap;
+        LogHelper.log(`[MAIN_VIEW] entityNameToLabelMap updated: ${nameMap.size} entries`);
       }
     }
   };
