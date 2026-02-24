@@ -1442,7 +1442,7 @@ export class SettingsModalView {
 
         .identity-grid {
           display: grid;
-          grid-template-columns: 300px 1fr auto;
+          grid-template-columns: minmax(350px, auto) 1fr minmax(350px, auto);
           grid-template-rows: repeat(6, auto);
           gap: 6px 16px;
           align-items: center;
@@ -1457,6 +1457,8 @@ export class SettingsModalView {
           justify-content: center;
           gap: 3px;
           overflow: hidden;
+          padding-right: 16px;
+          border-right: 1px solid #e9ecef;
         }
 
         .identity-name-text {
@@ -1475,6 +1477,8 @@ export class SettingsModalView {
           display: flex;
           align-items: center;
           justify-content: center;
+          padding-right: 16px;
+          border-right: 1px solid #e9ecef;
         }
 
         .identity-device-image {

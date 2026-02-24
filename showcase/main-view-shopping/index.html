@@ -647,11 +647,40 @@
     const _GCDR_CUSTOMER_ID = 'gcdr-customer-mestre-alvaro';
 
     // Mock devices with GCDR IDs for Settings modal RFC-0180 test
+    const _NOW = Date.now();
     const _RFC180_TEST_DEVICES = [
-      { id: 'device-1', name: '3F_MEDIDOR_001', label: 'Loja 101', gcdrDeviceId: 'gcdr-uuid-dev01-0000-000000000001', deviceType: '3F_MEDIDOR', domain: 'energy' },
-      { id: 'device-2', name: '3F_ELEVADOR_002', label: 'Elevador 1 L2', gcdrDeviceId: 'gcdr-uuid-dev02-0000-000000000001', deviceType: 'ELEVADOR', domain: 'energy' },
-      { id: 'device-3', name: '3F_CHILLER_003', label: 'Chiller Norte', gcdrDeviceId: 'gcdr-uuid-dev03-0000-000000000001', deviceType: 'CHILLER', domain: 'energy' },
-      { id: 'device-99', name: '3F_MEDIDOR_099', label: 'Loja 250 (sem GCDR)', gcdrDeviceId: null, deviceType: '3F_MEDIDOR', domain: 'energy' },
+      {
+        id: 'device-1', name: '3F_MEDIDOR_001', label: 'Loja 101',
+        floor: '1º Andar', identifier: 'LUC-0101',
+        gcdrDeviceId: 'gcdr-uuid-dev01-0000-000000000001',
+        deviceType: '3F_MEDIDOR', domain: 'energy',
+        createdTime:      _NOW - 730 * 24 * 3600000,   // ~2 anos atrás
+        lastActivityTime: _NOW - 5 * 60 * 1000,        // 5 min atrás
+      },
+      {
+        id: 'device-2', name: '3F_ELEVADOR_002', label: 'Elevador 1 L2',
+        floor: 'Subsolo', identifier: 'ELV-01-L2',
+        gcdrDeviceId: 'gcdr-uuid-dev02-0000-000000000001',
+        deviceType: 'ELEVADOR', domain: 'energy',
+        createdTime:      _NOW - 400 * 24 * 3600000,
+        lastActivityTime: _NOW - 2 * 3600000,
+      },
+      {
+        id: 'device-3', name: '3F_CHILLER_003', label: 'Chiller Norte',
+        floor: 'Cobertura', identifier: 'CHI-NORTE-01',
+        gcdrDeviceId: 'gcdr-uuid-dev03-0000-000000000001',
+        deviceType: 'CHILLER', domain: 'energy',
+        createdTime:      _NOW - 180 * 24 * 3600000,
+        lastActivityTime: _NOW - 30 * 60 * 1000,
+      },
+      {
+        id: 'device-99', name: '3F_MEDIDOR_099', label: 'Loja 250 (sem GCDR)',
+        floor: '2º Andar', identifier: 'LUC-0250',
+        gcdrDeviceId: null,
+        deviceType: '3F_MEDIDOR', domain: 'energy',
+        createdTime:      _NOW - 60 * 24 * 3600000,
+        lastActivityTime: _NOW - 24 * 3600000,
+      },
     ];
 
     // Mock GCDR bundle — simulates what MAIN_VIEW pre-fetches at startup
@@ -1975,17 +2004,17 @@
         return;
       }
 
-      // Look up GCDR data from mock test devices (matched by entityId)
+      // Look up GCDR + seed data from mock test devices (matched by entityId)
       const mockDevice = _RFC180_TEST_DEVICES.find(d => d.id === device.entityId);
       const gcdrDeviceId = mockDevice?.gcdrDeviceId ?? null;
 
-      logEvent('SETTINGS', `Opening for "${device.labelOrName}" (${device.entityId})`, 'info');
+      logEvent('SETTINGS', `Opening for "${mockDevice?.label || device.labelOrName}" (${device.entityId})`, 'info');
 
       try {
         MyIOLibrary.openDashboardPopupSettings({
           deviceId: device.entityId,
           deviceName: device.deviceIdentifier || device.entityId,
-          label: device.labelOrName,
+          label: mockDevice?.label || device.labelOrName,
           deviceType: device.deviceType,
           deviceProfile: device.deviceProfile,
           domain: device.domain || 'energy',
@@ -1997,6 +2026,15 @@
             clientSecret: _CLIENT_SECRET,
             ingestionToken: _CUSTOMER_ING_ID,
           },
+          // Pre-populate form with mock values (bypasses TB fetch in showcase)
+          seed: {
+            label:      mockDevice?.label      || device.labelOrName || '',
+            floor:      mockDevice?.floor      || '',
+            identifier: mockDevice?.identifier || '',
+          },
+          // Device timestamps
+          createdTime:      mockDevice?.createdTime      ?? (_NOW - 180 * 24 * 3600000),
+          lastActivityTime: mockDevice?.lastActivityTime ?? (_NOW - 3600000),
           // RFC-0180: GCDR params (from mock or orchestrator)
           gcdrDeviceId,
           gcdrCustomerId: _GCDR_CUSTOMER_ID,
@@ -2051,9 +2089,15 @@
             clientSecret: _CLIENT_SECRET,
             ingestionToken: _CUSTOMER_ING_ID,
           },
+          // Pre-populate form with mock values (bypasses TB fetch in showcase)
+          seed: {
+            label:      device.label,
+            floor:      device.floor      || '',
+            identifier: device.identifier || '',
+          },
           // Device timestamps
-          createdTime: device.entityId ? (Date.now() - Math.random() * 365 * 24 * 3600000) : null,
-          lastActivityTime: device.entityId ? (Date.now() - Math.random() * 3600000) : null,
+          createdTime:      device.createdTime,
+          lastActivityTime: device.lastActivityTime,
           // RFC-0180: GCDR params for Alarms tab
           gcdrDeviceId: device.gcdrDeviceId,
           gcdrCustomerId: _GCDR_CUSTOMER_ID,
