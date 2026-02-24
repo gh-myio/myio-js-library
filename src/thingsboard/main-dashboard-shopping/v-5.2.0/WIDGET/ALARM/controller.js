@@ -317,12 +317,15 @@ async function _fetchAndUpdate() {
     const summary   = response.summary;
 
     // RFC-0179: Enrich alarm sources with TB device names.
-    // MAIN_VIEW builds gcdrDeviceNameMap (gcdrDeviceId → TB entityName) from the
-    // 'gcdrDeviceId' datasource attribute and exposes it via MyIOOrchestrator.
+    // Strategy:
+    //   1. Try gcdrMap.get(a.source)  — works for old format (UUID as source)
+    //   2. If source is numeric (localId like "188"), fall back to gcdrMap.get(a.centralId)
+    //      Each device has a unique centralId UUID that IS in the gcdrDeviceNameMap.
     const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
     const alarms = (gcdrMap && gcdrMap.size > 0)
       ? rawAlarms.map((a) => {
-          const tbName = gcdrMap.get(a.source);
+          const tbName = gcdrMap.get(a.source)
+            || (/^\d+$/.test(a.source) ? gcdrMap.get(a.centralId) : null);
           return tbName ? { ...a, source: tbName } : a;
         })
       : rawAlarms;

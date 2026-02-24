@@ -47,6 +47,7 @@ function mapApiAlarm(api: import('./types').AlarmApiResponse, customerMap?: Map<
     closedBy: api.closedBy,
     closedReason: api.resolution,
     triggerValue: api.metadata?.value as number | string | undefined,
+    centralId: api.centralId || undefined,
   };
 }
 
