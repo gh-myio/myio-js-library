@@ -878,8 +878,9 @@ export class AllReportModal {
       return [];
     }
 
-    // 2a) When no itemsList is provided, map directly from the API array
-    if (!this.params.itemsList || this.params.itemsList.length === 0) {
+    // 2a) When no itemsList is provided (undefined/null), map directly from the API array.
+    //     An explicitly provided empty itemsList means the group has no devices → return [].
+    if (!this.params.itemsList) {
       this.debugLog('📋 No itemsList provided — mapping directly from API array');
       return apiArray.map((item) => ({
         identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
