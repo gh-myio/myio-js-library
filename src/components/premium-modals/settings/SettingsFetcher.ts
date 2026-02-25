@@ -100,7 +100,7 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
 
     const device = await response.json();
     return {
-      label: device.label || device.name || "",
+      label: device.label || "",
     };
   }
 
@@ -148,6 +148,8 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
           attributes.minTemperature = attr.value;
         } else if (attr.key === "maxTemperature") {
           attributes.maxTemperature = attr.value;
+        } else if (attr.key === "lastUpdatedTime") {
+          attributes.lastUpdatedTime = attr.value;
         }
       }
     }
@@ -226,6 +228,14 @@ static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
             sanitized[field] = num;
           }
         }
+      }
+    }
+
+    // 2c. lastUpdatedTime (UTC long ms — stored as a number)
+    if (data["lastUpdatedTime"] !== undefined && data["lastUpdatedTime"] !== null) {
+      const ts = Number(data["lastUpdatedTime"]);
+      if (!isNaN(ts) && ts > 0) {
+        sanitized["lastUpdatedTime"] = ts;
       }
     }
 

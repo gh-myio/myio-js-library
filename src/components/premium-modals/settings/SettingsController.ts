@@ -101,31 +101,29 @@ export class SettingsController {
       }
     }
 
-    // Load current settings if no seed provided
-    let initialData = this.params.seed || {};
-    if (!this.params.seed) {
-      try {
-        const fetchedData = await this.fetcher.fetchCurrentSettings(
-          this.params.deviceId,
-          this.params.jwtToken,
-          this.params.scope || 'SERVER_SCOPE'
-        );
+    // Always fetch current settings; seed provides fallback values for missing attributes
+    let initialData: Record<string, any> = this.params.seed ? { ...this.params.seed } : {};
+    try {
+      const fetchedData = await this.fetcher.fetchCurrentSettings(
+        this.params.deviceId,
+        this.params.jwtToken,
+        this.params.scope || 'SERVER_SCOPE'
+      );
 
-        // Merge fetched data with any seed data
-        initialData = DefaultSettingsFetcher.mergeWithSeed(fetchedData, this.params.seed);
+      // Merge: seed is the base, fetched entity/attributes override it
+      initialData = DefaultSettingsFetcher.mergeWithSeed(fetchedData, this.params.seed);
 
-        // Sanitize the data
-        initialData = DefaultSettingsFetcher.sanitizeFetchedData(initialData);
-      } catch (error) {
-        console.warn('[SettingsModal] Failed to fetch current settings:', error);
-        // Continue with empty form or seed data
-        if (this.params.onError) {
-          this.params.onError({
-            code: 'NETWORK_ERROR',
-            message: 'Failed to load current settings',
-            cause: error,
-          });
-        }
+      // Sanitize the data
+      initialData = DefaultSettingsFetcher.sanitizeFetchedData(initialData);
+    } catch (error) {
+      console.warn('[SettingsModal] Failed to fetch current settings:', error);
+      // Continue with seed data (or empty) as fallback
+      if (this.params.onError) {
+        this.params.onError({
+          code: 'NETWORK_ERROR',
+          message: 'Failed to load current settings',
+          cause: error,
+        });
       }
     }
 

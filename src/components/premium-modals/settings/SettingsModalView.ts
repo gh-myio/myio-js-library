@@ -75,6 +75,12 @@ export class SettingsModalView {
     // Preenche o formulário com os dados processados
     this.populateForm(formData);
 
+    // Patch "Data Última Alteração" from fetched attributes (not available at HTML build time)
+    const lastUpdatedEl = this.modal.querySelector('#identity-last-updated-value') as HTMLElement;
+    if (lastUpdatedEl) {
+      lastUpdatedEl.textContent = formData.lastUpdatedTime ? this.formatTs(formData.lastUpdatedTime) : '—';
+    }
+
     // --- Resto do método render continua igual ---
     this.attachEventListeners();
     this.setupAccessibility();
@@ -348,25 +354,30 @@ export class SettingsModalView {
 
   private createModal(): void {
     this.container = document.createElement('div');
-    this.container.className = 'myio-settings-modal-overlay';
+    this.container.className = 'myio-device-settings-overlay';
     this.container.innerHTML = this.getModalHTML();
-    this.modal = this.container.querySelector('.myio-settings-modal') as HTMLElement;
+    this.modal = this.container.querySelector('.myio-device-settings-modal') as HTMLElement;
     this.form = this.modal.querySelector('form') as HTMLFormElement;
   }
 
   private getModalHTML(): string {
-    // Width is controlled by CSS (.myio-settings-modal { width: 1700px })
+    // Width is controlled by CSS (.myio-device-settings-modal { width: 1700px })
     // Config width can override if explicitly provided
     const widthStyle = this.config.width
       ? `style="width: ${typeof this.config.width === 'number' ? `${this.config.width}px` : this.config.width}"`
       : '';
 
     return `
-      <div class="myio-settings-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="myio-settings-modal" ${widthStyle}>
+      <div class="myio-device-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="myio-device-settings-modal" ${widthStyle}>
           <div class="modal-header">
             <h3 id="modal-title">Configurações</h3>
-            <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
+            <div class="modal-header-actions">
+              <button type="button" class="maximize-btn" aria-label="Maximizar" title="Maximizar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              </button>
+              <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
+            </div>
           </div>
           <!-- RFC-0104: Tab Navigation -->
           <div class="modal-tabs">
@@ -501,7 +512,7 @@ export class SettingsModalView {
               </div>
               <div class="identity-date-row">
                 <div class="identity-date-label">Data Última Alteração</div>
-                <div class="identity-date-value">${this.formatTs((this.config as any).createdTime)}</div>
+                <div class="identity-date-value" id="identity-last-updated-value">—</div>
               </div>
               <div class="identity-date-row">
                 <div class="identity-date-label">Data Última Atividade</div>
@@ -516,7 +527,7 @@ export class SettingsModalView {
         ${this.getConnectionInfoHTML()}
 
         <!-- RFC-0077: Power Limits Configuration (only for energy domain, when deviceType is available, and not a store meter) -->
-        ${this.config.domain === 'energy' && this.config.deviceType && this.config.deviceProfile !== '3F_MEDIDOR' ? this.getPowerLimitsHTML() : ''}
+        ${this.config.domain === 'energy' && this.config.deviceType && this.config.deviceType !== '3F_MEDIDOR' && this.config.deviceProfile !== '3F_MEDIDOR' ? this.getPowerLimitsHTML() : ''}
       </div>
     `;
   }
@@ -1184,7 +1195,7 @@ export class SettingsModalView {
   private getModalCSS(): string {
     return `
       <style>
-        .myio-settings-modal-overlay {
+        .myio-device-settings-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -1198,7 +1209,7 @@ export class SettingsModalView {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
-        .myio-settings-modal {
+        .myio-device-settings-modal {
           background: white;
           border-radius: 8px;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
@@ -1211,7 +1222,7 @@ export class SettingsModalView {
           box-sizing: border-box;
         }
 
-        .myio-settings-modal * {
+        .myio-device-settings-modal * {
           box-sizing: border-box;
         }
         
@@ -1248,6 +1259,39 @@ export class SettingsModalView {
         
         .close-btn:hover {
           background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .maximize-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: white;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+        }
+
+        .maximize-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .myio-device-settings-modal.is-maximized {
+          width: 100vw !important;
+          max-width: 100vw !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          border-radius: 0;
+          margin: 0;
         }
 
         /* RFC-0104: Tab Navigation Styles */
@@ -1726,7 +1770,7 @@ export class SettingsModalView {
         
         /* Responsive design */
         @media (max-width: 1024px) {
-          .myio-settings-modal {
+          .myio-device-settings-modal {
             width: 95vw !important;
           }
           
@@ -1740,7 +1784,7 @@ export class SettingsModalView {
         }
         
         @media (max-width: 768px) {
-          .myio-settings-modal {
+          .myio-device-settings-modal {
             width: 95vw !important;
             margin: 10px;
           }
@@ -2170,12 +2214,12 @@ export class SettingsModalView {
 
         /* Mobile-specific responsive styles (< 480px) */
         @media (max-width: 480px) {
-          .myio-settings-modal-overlay {
+          .myio-device-settings-overlay {
             padding: 8px;
             overflow-x: hidden;
           }
 
-          .myio-settings-modal {
+          .myio-device-settings-modal {
             width: calc(100% - 16px) !important;
             max-width: calc(100vw - 16px);
             height: auto;
@@ -2467,6 +2511,22 @@ export class SettingsModalView {
       this.config.onSave(formData);
     });
 
+    // Handle maximize button
+    const maximizeBtn = this.modal.querySelector('.maximize-btn') as HTMLButtonElement;
+    if (maximizeBtn) {
+      maximizeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const isMaximized = this.modal.classList.toggle('is-maximized');
+        maximizeBtn.setAttribute('aria-label', isMaximized ? 'Restaurar' : 'Maximizar');
+        maximizeBtn.title = isMaximized ? 'Restaurar' : 'Maximizar';
+        // Toggle icon between maximize and restore
+        maximizeBtn.innerHTML = isMaximized
+          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>`
+          : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
+      });
+    }
+
     // Handle close button (X button)
     const closeBtn = this.modal.querySelector('.close-btn') as HTMLButtonElement;
     if (closeBtn) {
@@ -2545,7 +2605,7 @@ export class SettingsModalView {
     this.container.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
 
-      if (target.classList.contains('myio-settings-modal-overlay') && this.config.closeOnBackdrop !== false) {
+      if (target.classList.contains('myio-device-settings-overlay') && this.config.closeOnBackdrop !== false) {
         this.config.onClose();
       }
     });
@@ -2592,7 +2652,7 @@ export class SettingsModalView {
         css += `--myio-${property}: ${value};\n`;
       }
 
-      style.textContent = `.myio-settings-modal { ${css} }`;
+      style.textContent = `.myio-device-settings-modal { ${css} }`;
       this.container.appendChild(style);
     }
   }

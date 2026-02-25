@@ -418,7 +418,7 @@ function createDefaultActionHandlers(config, entityObject, item) {
             }
           },
           onClose: () => {
-            const settingsOverlay = document.querySelector('.myio-settings-modal-overlay');
+            const settingsOverlay = document.querySelector('.myio-device-settings-overlay');
             if (settingsOverlay) settingsOverlay.remove();
             const overlay = document.querySelector('.myio-modal-overlay');
             if (overlay) overlay.remove();
