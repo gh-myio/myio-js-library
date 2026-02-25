@@ -223,8 +223,12 @@ export function createAlarmCardElement(
   if (snoozeBtn) {
     snoozeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Emit custom event for snooze action
-      card.dispatchEvent(new CustomEvent('alarm-snooze', { bubbles: true, detail: { alarmId: alarm.id } }));
+      if (params?.onSnooze) {
+        params.onSnooze(alarm.id);
+      } else {
+        // Fallback: custom event for backward compatibility
+        card.dispatchEvent(new CustomEvent('alarm-snooze', { bubbles: true, detail: { alarmId: alarm.id } }));
+      }
     });
   }
 
@@ -232,8 +236,12 @@ export function createAlarmCardElement(
   if (escalateBtn) {
     escalateBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Emit custom event for escalate action
-      card.dispatchEvent(new CustomEvent('alarm-escalate', { bubbles: true, detail: { alarmId: alarm.id } }));
+      if (params?.onEscalate) {
+        params.onEscalate(alarm.id);
+      } else {
+        // Fallback: custom event for backward compatibility
+        card.dispatchEvent(new CustomEvent('alarm-escalate', { bubbles: true, detail: { alarmId: alarm.id } }));
+      }
     });
   }
 

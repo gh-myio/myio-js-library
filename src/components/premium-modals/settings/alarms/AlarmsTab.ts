@@ -405,31 +405,36 @@ export class AlarmsTab {
         showCustomerName: false,
         showDeviceBadge:  false,
         alarmTypes:       alarm._alarmTypes,
-        onAcknowledge: async (/* groupRuleId */) => {
-          // Apply acknowledge to all raw alarms in this group
+        onAcknowledge: async () => {
           await Promise.all(
             group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'acknowledge')),
           );
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
+        onSnooze: async () => {
+          await Promise.all(
+            group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
+          );
+          await this.refreshAlarmsGrid(alarmsBaseUrl);
+        },
+        onEscalate: async () => {
+          await Promise.all(
+            group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
+          );
+          await this.refreshAlarmsGrid(alarmsBaseUrl);
+        },
+        onDetails: () => {
+          // Expand card info — log group for now; replace with detail panel when available
+          console.info('[AlarmsTab] Alarm group details:', {
+            ruleId:    group.ruleId,
+            title:     group.title,
+            alarmIds:  group.alarmIds,
+            stateCounts: group.stateCounts,
+          });
+        },
       };
 
       const el = createAlarmCardElement(alarm, params);
-
-      // snooze/escalate fire as bubbling CustomEvents
-      el.addEventListener('alarm-snooze', async () => {
-        await Promise.all(
-          group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
-        );
-        await this.refreshAlarmsGrid(alarmsBaseUrl);
-      });
-      el.addEventListener('alarm-escalate', async () => {
-        await Promise.all(
-          group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
-        );
-        await this.refreshAlarmsGrid(alarmsBaseUrl);
-      });
-
       grid.appendChild(el);
     }
   }

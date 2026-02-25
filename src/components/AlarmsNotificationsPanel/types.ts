@@ -199,6 +199,10 @@ export interface AlarmCardParams {
   onCardClick?: (alarm: import('../../types/alarm').Alarm) => void;
   /** Callback when acknowledge button is clicked */
   onAcknowledge?: (alarmId: string) => void;
+  /** Callback when snooze (adiar) button is clicked */
+  onSnooze?: (alarmId: string) => void;
+  /** Callback when escalate button is clicked */
+  onEscalate?: (alarmId: string) => void;
   /** Callback when details button is clicked */
   onDetails?: (alarmId: string) => void;
   /** Callback when more button is clicked */

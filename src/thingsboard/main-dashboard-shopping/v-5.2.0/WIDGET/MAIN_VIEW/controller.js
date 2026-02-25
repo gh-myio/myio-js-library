@@ -2073,45 +2073,39 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
  */
 function categorizeItemsByGroup(items) {
   const ENTRADA_PROFILES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
-  const ENTRADA_TYPES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
 
-  const lojas = [];
-  const entrada = [];
+  const lojas    = [];
+  const entrada  = [];
   const areacomum = [];
-  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
+  const ocultos  = [];
 
-  // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
-    const deviceType = toStr(item.deviceType);
-    const deviceProfile = toStr(item.deviceProfile);
-
-    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    // RULE 0: ocultos
     if (isOcultosDevice(item)) {
       ocultos.push(item);
       continue;
     }
 
-    // Rule 1: LOJAS - use centralized isStoreDevice
-    if (isStoreDevice(item)) {
+    const dp = toStr(item.deviceProfile);
+
+    // Rule 1: LOJAS — deviceProfile = 3F_MEDIDOR
+    if (dp === '3F_MEDIDOR') {
       lojas.push(item);
       continue;
     }
 
-    // Rule 2: ENTRADA - deviceType = 3F_MEDIDOR with entrada profile, OR deviceType is entrada type
-    const isEntradaByProfile = deviceType === '3F_MEDIDOR' && ENTRADA_PROFILES.has(deviceProfile);
-    const isEntradaByType = ENTRADA_TYPES.has(deviceType);
-    if (isEntradaByProfile || isEntradaByType) {
+    // Rule 2: ENTRADA — deviceProfile ∈ {TRAFO, ENTRADA, RELOGIO, SUBESTACAO}
+    if (ENTRADA_PROFILES.has(dp)) {
       entrada.push(item);
       continue;
     }
 
-    // Rule 3: AREACOMUM - everything else
+    // Rule 3: AREACOMUM — everything else
     areacomum.push(item);
   }
 
-  // RFC-0142: Log ocultos devices for debugging
   if (ocultos.length > 0) {
     LogHelper.log(
       `[RFC-0142] Classified ${ocultos.length} devices as "ocultos" (hidden):`,
@@ -2138,85 +2132,52 @@ function categorizeItemsByGroup(items) {
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroupWater(items) {
-  const BANHEIRO_PATTERNS = ['BANHEIRO', 'WC', 'SANITARIO', 'TOALETE', 'LAVABO'];
-  const ENTRADA_PATTERNS = ['ENTRADA', 'PRINCIPAL', 'RELOGIO', 'NASCENTE'];
+  const entrada    = [];
+  const lojas      = [];
+  const banheiros  = [];
+  const areacomum  = [];
+  const caixadagua = [];
+  const ocultos    = [];
 
-  const entrada = [];
-  const lojas = [];
-  const banheiros = [];
-  const areacomum = [];
-  const caixadagua = []; // RFC-0107: Category for tanks
-  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
-
-  // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
-    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    // RULE 0: ocultos
     if (isOcultosDevice(item)) {
       ocultos.push(item);
       continue;
     }
 
-    const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
-    const identifier = toStr(item.identifier);
-    const label = toStr(item.label);
-    const lw = toStr(item.labelWidget);
-    const combined = `${identifier} ${label} ${lw}`;
 
-    // ========== PRIMARY RULES: Based on deviceType AND deviceProfile ==========
-
-    // Rule 1: ENTRADA - deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-    // RFC-0107: Also check for _isHidrometerDevice flag (from ctx.data hidrometro items)
-    if (
-      dt === 'HIDROMETRO_SHOPPING' ||
-      (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING') ||
-      item._isHidrometerDevice
-    ) {
+    // Rule 1: ENTRADA — deviceProfile = HIDROMETRO_SHOPPING
+    if (dp === 'HIDROMETRO_SHOPPING') {
       entrada.push(item);
       continue;
     }
 
-    // Rule 2: AREACOMUM - deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
-    // NOTE: Banheiros with deviceType HIDROMETRO_AREA_COMUM go here too - they are extracted later by TELEMETRY widget
-    if (dt === 'HIDROMETRO_AREA_COMUM' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_AREA_COMUM')) {
+    // Rule 2: ÁREA COMUM — deviceProfile = HIDROMETRO_AREA_COMUM
+    if (dp === 'HIDROMETRO_AREA_COMUM') {
       areacomum.push(item);
       continue;
     }
 
-    // Rule 3: BANHEIROS - check identifier for bathroom patterns (only for HIDROMETRO devices not in areacomum)
-    // These are standalone bathroom meters with deviceType = HIDROMETRO
-    if (BANHEIRO_PATTERNS.some((p) => identifier.includes(p) || label.includes(p))) {
-      banheiros.push(item);
-      continue;
-    }
-
-    // Rule 4: LOJAS - deviceType = HIDROMETRO AND (deviceProfile = HIDROMETRO OR deviceProfile is empty/missing)
-    if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '')) {
+    // Rule 3: LOJAS — deviceProfile = HIDROMETRO
+    if (dp === 'HIDROMETRO') {
       lojas.push(item);
       continue;
     }
 
-    // Rule 5: CAIXA D'ÁGUA - tanks (deviceType = TANK or CAIXA_DAGUA, or labelWidget = "Caixa D'Água")
-    if (dt === 'TANK' || dt === 'CAIXA_DAGUA' || lw === "CAIXA D'ÁGUA" || item._isTankDevice) {
+    // Rule 4: CAIXA D'ÁGUA — deviceProfile = TANK or CAIXA_DAGUA
+    if (dp === 'TANK' || dp === 'CAIXA_DAGUA') {
       caixadagua.push(item);
       continue;
     }
 
-    // ========== FALLBACK RULES: Pattern matching for other deviceTypes ==========
-
-    // Fallback 1: ENTRADA - main water entry points
-    if (ENTRADA_PATTERNS.some((p) => combined.includes(p))) {
-      entrada.push(item);
-      continue;
-    }
-
-    // Fallback 2: AREACOMUM - everything else
+    // Fallback: tudo que não encaixou vai para areacomum
     areacomum.push(item);
   }
 
-  // RFC-0142: Log ocultos devices for debugging
   if (ocultos.length > 0) {
     LogHelper.log(
       `[RFC-0142] Classified ${ocultos.length} water devices as "ocultos" (hidden):`,
