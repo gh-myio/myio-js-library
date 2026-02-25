@@ -143,7 +143,7 @@ export interface SettingsEvent {
 
 export interface SettingsFetcher {
   fetchCurrentSettings(deviceId: string, jwtToken: string, scope: TbScope): Promise<{
-    entity?: { label?: string };
+    entity?: { label?: string; createdTime?: number | null };
     attributes?: Record<string, unknown>;
   }>;
 }

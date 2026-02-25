@@ -2452,7 +2452,6 @@ function renderList(visible) {
             enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
             createdTime: it.createdTime || null,
             lastActivityTime: it.lastActivityTime || null,
-            seed: it.identifier ? { identifier: it.identifier } : undefined,
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,

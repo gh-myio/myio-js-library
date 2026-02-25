@@ -75,10 +75,19 @@ export class SettingsModalView {
     // Preenche o formulário com os dados processados
     this.populateForm(formData);
 
-    // Patch "Data Última Alteração" from fetched attributes (not available at HTML build time)
+    // Patch date cells from fetched data (not available at HTML build time)
+    const createdTimeEl = this.modal.querySelector('#identity-created-time-value') as HTMLElement;
+    if (createdTimeEl && formData.createdTime) {
+      createdTimeEl.textContent = this.formatTs(formData.createdTime);
+    }
     const lastUpdatedEl = this.modal.querySelector('#identity-last-updated-value') as HTMLElement;
     if (lastUpdatedEl) {
       lastUpdatedEl.textContent = formData.lastUpdatedTime ? this.formatTs(formData.lastUpdatedTime) : '—';
+    }
+
+    // Patch gcdrDeviceId from SERVER_SCOPE attribute if not already provided
+    if (!this.config.gcdrDeviceId && formData.gcdrDeviceId) {
+      this.config.gcdrDeviceId = formData.gcdrDeviceId;
     }
 
     // --- Resto do método render continua igual ---
@@ -508,7 +517,7 @@ export class SettingsModalView {
             <div class="identity-dates-block">
               <div class="identity-date-row">
                 <div class="identity-date-label">Data Criação</div>
-                <div class="identity-date-value">${this.formatTs((this.config as any).createdTime)}</div>
+                <div class="identity-date-value" id="identity-created-time-value">${this.formatTs((this.config as any).createdTime)}</div>
               </div>
               <div class="identity-date-row">
                 <div class="identity-date-label">Data Última Alteração</div>
