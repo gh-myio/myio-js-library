@@ -7,7 +7,7 @@
 import { ModalHeader } from '../../../utils/ModalHeader';
 import { CSS_TOKENS } from '../internal/styles/tokens';
 import { OnOffDeviceModalView } from './OnOffDeviceModalView';
-import { getDeviceConfig, getModalTitle } from './deviceConfig';
+import { getDeviceConfigByType, getModalTitle } from './deviceConfig';
 import { ON_OFF_MODAL_CSS_PREFIX, injectOnOffDeviceModalStyles } from './styles';
 import type {
   OnOffDeviceModalParams,
@@ -37,7 +37,7 @@ export class OnOffDeviceModalController {
     this.state = {
       theme: this.params.themeMode,
       isMaximized: false,
-      deviceConfig: getDeviceConfig(params.device.deviceProfile),
+      deviceConfig: getDeviceConfigByType(params.deviceType, params.device.deviceProfile),
     };
 
     if (params.enableDebugMode) {
@@ -112,7 +112,7 @@ export class OnOffDeviceModalController {
         width: 100%;
         height: 100%;
         background: rgba(0, 0, 0, 0.5);
-        z-index: 9998;
+        z-index: 10001;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -201,6 +201,7 @@ export class OnOffDeviceModalController {
         device: this.params.device,
         themeMode: this.state.theme,
         deviceConfig: this.state.deviceConfig,
+        deviceType: this.params.deviceType,
         onToggleView: () => this.handleToggleView(),
         onDeviceToggle: (newState) => this.handleDeviceToggle(newState),
         onScheduleSave: (schedules) => this.handleScheduleSave(schedules),

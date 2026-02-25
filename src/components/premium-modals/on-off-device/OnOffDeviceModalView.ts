@@ -36,6 +36,8 @@ export interface OnOffDeviceModalViewOptions {
   device: OnOffDeviceData;
   themeMode: OnOffDeviceThemeMode;
   deviceConfig: DeviceTypeConfig;
+  /** Explicit device type — determines which control component to render */
+  deviceType?: string;
   onToggleView: () => void;
   onDeviceToggle: (newState: boolean) => void;
   onScheduleSave?: (schedules: OnOffScheduleEntry[]) => void;
@@ -52,6 +54,7 @@ export class OnOffDeviceModalView {
   private device: OnOffDeviceData;
   private themeMode: OnOffDeviceThemeMode;
   private deviceConfig: DeviceTypeConfig;
+  private deviceType: string;
   private state: OnOffDeviceModalState;
 
   // Child elements
@@ -89,6 +92,7 @@ export class OnOffDeviceModalView {
     this.device = options.device;
     this.themeMode = options.themeMode;
     this.deviceConfig = options.deviceConfig;
+    this.deviceType = options.deviceType || '';
     this.onToggleView = options.onToggleView;
     this.onDeviceToggle = options.onDeviceToggle;
     this.onScheduleSave = options.onScheduleSave;
@@ -607,6 +611,16 @@ export class OnOffDeviceModalView {
   private initializeSolenoidControl(): void {
     if (!this.controlContainer) return;
 
+    // Only use createSolenoidControl for actual solenoid devices
+    const isSolenoid = this.deviceType === 'solenoid' ||
+      (this.device.deviceProfile || '').toUpperCase().includes('SOLENOIDE') ||
+      (this.device.deviceType || '').toUpperCase().includes('SOLENOIDE');
+
+    if (!isSolenoid) {
+      this.renderFallbackControl();
+      return;
+    }
+
     // Check if MyIOLibrary is available
     const MyIOLibrary = (window as any).MyIOLibrary;
     if (!MyIOLibrary?.createSolenoidControl) {
@@ -841,6 +855,16 @@ export class OnOffDeviceModalView {
       this.solenoidControlInstance.updateState({
         status: state ? 'on' : 'off',
       });
+    } else if (this.controlContainer) {
+      // Fallback control: update button visuals and re-bind click
+      const btn = this.controlContainer.querySelector<HTMLButtonElement>('[data-action="toggle"]');
+      if (btn) {
+        btn.textContent = state ? this.deviceConfig.labelOn : this.deviceConfig.labelOff;
+        btn.style.background = state ? '#22c55e' : '#ef4444';
+        const fresh = btn.cloneNode(true) as HTMLButtonElement;
+        btn.replaceWith(fresh);
+        fresh.addEventListener('click', () => this.onDeviceToggle(!state));
+      }
     }
   }
 
