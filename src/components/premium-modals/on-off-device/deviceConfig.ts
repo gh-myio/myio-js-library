@@ -78,6 +78,28 @@ export function getDeviceConfig(deviceProfile: string | undefined): DeviceTypeCo
   return DEVICE_CONFIG[profile] || DEFAULT_DEVICE_CONFIG;
 }
 
+const TYPE_TO_PROFILE: Record<string, string> = {
+  solenoid: 'SOLENOIDE',
+  switch: 'INTERRUPTOR',
+  relay: 'RELE',
+  pump: 'BOMBA',
+};
+
+/**
+ * Get device configuration preferring explicit deviceType over deviceProfile.
+ * Use this when the caller passes deviceType explicitly (e.g., deviceType: 'switch').
+ */
+export function getDeviceConfigByType(
+  deviceType: OnOffDeviceType | undefined,
+  deviceProfile: string | undefined
+): DeviceTypeConfig {
+  if (deviceType && deviceType !== 'generic') {
+    const profile = TYPE_TO_PROFILE[deviceType];
+    if (profile) return DEVICE_CONFIG[profile] || DEFAULT_DEVICE_CONFIG;
+  }
+  return getDeviceConfig(deviceProfile);
+}
+
 /**
  * Map device profile to device type
  * @param deviceProfile - Device profile string

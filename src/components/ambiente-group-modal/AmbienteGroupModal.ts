@@ -12,6 +12,8 @@ import type {
   AggregatedGroupMetrics,
 } from './types';
 import type { AmbienteData, AmbienteRemoteDevice } from '../ambiente-detail-modal/types';
+import { openOnOffDeviceModal } from '../premium-modals/on-off-device';
+import type { OnOffDeviceData } from '../premium-modals/on-off-device';
 
 /**
  * Format temperature value
@@ -107,29 +109,69 @@ function getDisplayDeviceProfile(device: { deviceProfile?: string; deviceType?: 
   return 'Dispositivo';
 }
 
+
 /**
  * Calculate aggregated metrics from sub-ambientes
  */
 export function calculateGroupMetrics(subAmbientes: SubAmbienteItem[]): AggregatedGroupMetrics {
   const temps: number[] = [];
   const humids: number[] = [];
+  
   let consumptionTotal = 0;
-  let deviceCount = 0;
+  const uniqueDeviceIds = new Set<string>();
+  const processedEnergyDeviceIds = new Set<string>();
+  
+  let fallbackDeviceCount = 0;
   let onlineCount = 0;
   let offlineCount = 0;
 
   subAmbientes.forEach((sub) => {
     const data = sub.ambienteData;
+    
     if (data.temperature !== null && data.temperature !== undefined && !isNaN(data.temperature)) {
       temps.push(data.temperature);
     }
     if (data.humidity !== null && data.humidity !== undefined && !isNaN(data.humidity)) {
       humids.push(data.humidity);
     }
+
     if (data.consumption !== null && data.consumption !== undefined && !isNaN(data.consumption)) {
-      consumptionTotal += data.consumption;
+      // CORREÇÃO AQUI: Lidando com a tipagem estrita do TypeScript
+      const energyDevices = data.energyDevices?.length 
+        ? data.energyDevices 
+        : (data.devices?.filter(d => {
+            // Verifica se é medidor pelo deviceType (que deve estar na sua interface)
+            const isMedidor = d.deviceType && d.deviceType.includes('MEDIDOR');
+            // Verifica o domain forçando o tipo para evitar o erro TS(2339)
+            const hasEnergyDomain = (d as any).domain === 'energy';
+            
+            return isMedidor || hasEnergyDomain;
+          }) || []);
+
+      if (energyDevices.length > 0) {
+        const mainEnergyDeviceId = energyDevices[0].id;
+        
+        if (!processedEnergyDeviceIds.has(mainEnergyDeviceId)) {
+          consumptionTotal += data.consumption;
+          
+          energyDevices.forEach(ed => {
+            if (ed.id) processedEnergyDeviceIds.add(ed.id);
+          });
+        }
+      } else {
+        consumptionTotal += data.consumption;
+      }
     }
-    deviceCount += data.childDeviceCount || data.devices?.length || 0;
+
+    if (data.devices && Array.isArray(data.devices) && data.devices.length > 0) {
+      data.devices.forEach(device => {
+        if (device && device.id) {
+          uniqueDeviceIds.add(device.id);
+        }
+      });
+    } else if (data.childDeviceCount) {
+      fallbackDeviceCount += data.childDeviceCount;
+    }
 
     if (data.status === 'online') {
       onlineCount++;
@@ -138,13 +180,15 @@ export function calculateGroupMetrics(subAmbientes: SubAmbienteItem[]): Aggregat
     }
   });
 
+  const finalDeviceCount = uniqueDeviceIds.size + fallbackDeviceCount;
+
   return {
     temperatureAvg: temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : null,
     temperatureMin: temps.length > 0 ? Math.min(...temps) : null,
     temperatureMax: temps.length > 0 ? Math.max(...temps) : null,
     humidityAvg: humids.length > 0 ? humids.reduce((a, b) => a + b, 0) / humids.length : null,
     consumptionTotal: consumptionTotal > 0 ? consumptionTotal : null,
-    deviceCount,
+    deviceCount: finalDeviceCount,
     onlineCount,
     offlineCount,
     subAmbienteCount: subAmbientes.length,
@@ -386,17 +430,36 @@ export function createAmbienteGroupModal(
       });
     });
 
-    // Remote toggle buttons
+    // Remote toggle buttons — abre o modal on-off-device no modo switch (Liga/Desliga)
     remoteButtons.forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const index = parseInt((btn as HTMLElement).dataset.subambienteIndex || '0', 10);
         const remoteId = (btn as HTMLElement).dataset.remoteId || '';
-        const currentState = (btn as HTMLElement).dataset.remoteState === 'on';
         const subAmbiente = data.subAmbientes[index];
-        if (subAmbiente && config.onRemoteToggle) {
-          config.onRemoteToggle(!currentState, subAmbiente, remoteId);
-        }
+        if (!subAmbiente) return;
+
+        const remoteDevice = subAmbiente.ambienteData.remoteDevices?.find(r => r.id === remoteId);
+        if (!remoteDevice) return;
+
+        const deviceData: OnOffDeviceData = {
+          id: remoteDevice.id,
+          label: remoteDevice.label || remoteDevice.name,
+          name: remoteDevice.name,
+          deviceType: remoteDevice.deviceType,
+          deviceProfile: remoteDevice.deviceProfile,
+          status: remoteDevice.status as 'online' | 'offline' | 'unknown',
+        };
+
+        openOnOffDeviceModal(deviceData, {
+          deviceType: 'switch',
+          themeMode: config.themeMode ?? 'dark',
+          onStateChange: (_deviceId, isOn) => {
+            if (config.onRemoteToggle) {
+              config.onRemoteToggle(isOn, subAmbiente, remoteId);
+            }
+          },
+        });
       });
     });
   }
