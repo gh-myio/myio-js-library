@@ -43,6 +43,7 @@ export class TelemetryGridShoppingView {
   // Card instances for cleanup
   private cardInstances: Map<string, CardInstance> = new Map();
   private isMaximized = false;
+  private _alarmBadgeStylesInjected = false;
   private originalParent: HTMLElement | null = null;
   private originalNextSibling: Node | null = null;
 
@@ -493,6 +494,17 @@ export class TelemetryGridShoppingView {
           if (cardElement) {
             wrapper.appendChild(cardElement);
             this.cardInstances.set(device.entityId, $card);
+
+            // RFC-0183: Inject alarm badge if device has active alarms
+            const aso = (window as unknown as { AlarmServiceOrchestrator?: {
+              getAlarmCountForDevice: (id: string) => number;
+            } }).AlarmServiceOrchestrator;
+            if (aso && device.gcdrDeviceId) {
+              const count = aso.getAlarmCountForDevice(device.gcdrDeviceId);
+              if (count > 0) {
+                wrapper.appendChild(this._createAlarmBadge(count));
+              }
+            }
           } else {
             this.log('Card element not found for:', device.labelOrName);
             wrapper.innerHTML = this.buildFallbackCard(device);
@@ -601,6 +613,52 @@ export class TelemetryGridShoppingView {
         textEl.textContent = message;
       }
     }
+  }
+
+  // =========================================================================
+  // RFC-0183: Alarm Badge
+  // =========================================================================
+
+  private _createAlarmBadge(count: number): HTMLElement {
+    this._injectAlarmBadgeStyles();
+    const badge = document.createElement('div');
+    badge.className = 'myio-alarm-badge';
+    badge.title = `${count} alarme${count !== 1 ? 's' : ''} ativo${count !== 1 ? 's' : ''}`;
+    badge.innerHTML = `
+      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">
+        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+      </svg>
+      <span>${count > 99 ? '99+' : count}</span>
+    `;
+    return badge;
+  }
+
+  private _injectAlarmBadgeStyles(): void {
+    if (this._alarmBadgeStylesInjected) return;
+    this._alarmBadgeStylesInjected = true;
+    if (document.getElementById('myio-alarm-badge-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'myio-alarm-badge-styles';
+    s.textContent = `
+      .myio-alarm-badge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        background: #dc2626;
+        color: #fff;
+        border-radius: 10px;
+        padding: 2px 5px;
+        font-size: 10px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        z-index: 10;
+        pointer-events: none;
+        line-height: 1.3;
+      }
+    `;
+    document.head.appendChild(s);
   }
 
   destroy(): void {

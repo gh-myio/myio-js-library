@@ -33,7 +33,7 @@
           }
         },
         "minItems": 1,
-        "maxItems": 5
+        "maxItems": 8
       }
     }
   }

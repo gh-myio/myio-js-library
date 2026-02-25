@@ -889,156 +889,42 @@ export class AllReportModal {
       }));
     }
 
-    // 2b) Build primary index by ID (with aggregation for duplicate IDs)
-    const sumByApiId = new Map<string, number>();
-    let apiItemsWithoutId = 0;
-    let totalApiConsumption = 0;
+    // 2b) API-driven filter: keep only API items whose id matches an orchestrator ingestionId.
+    //     Discards API items that don't belong to this group (e.g. area_comum filters out lojas,
+    //     entrada, etc. from the full 271-device energy response).
+    //     Uses total_value from the API item (picked via pickConsumption).
 
-    this.debugLog('🔨 Building ID index from API data...');
-    for (const [index, item] of apiArray.entries()) {
-      const consumption = this.pickConsumption(item);
-      totalApiConsumption += consumption;
+    // Build O(1) lookup structures from itemsList
+    const orchIdSet = new Set(this.params.itemsList.map((item) => String(item.id)));
+    const orchMeta  = new Map(this.params.itemsList.map((item) => [String(item.id), item]));
 
-      // Log first few items for debugging
-      if (index < 3) {
-        this.debugLog(`[AllReportModal] NEW MAPPING - API item ${index}:`, {
-          id: item?.id,
-          name: item?.name,
-          assetName: item?.assetName,
-          total_value: item?.total_value,
-          extractedConsumption: consumption,
-        });
-      }
+    this.debugLog('[AllReportModal] API-driven filter — orchestrator devices:', orchIdSet.size);
+    this.debugLog('[AllReportModal] API-driven filter — API total devices:', apiArray.length);
 
-      this.debugLog(`📊 Processing API item ${index}`, {
-        item,
-        extractedConsumption: consumption,
-        hasId: !!item?.id,
-      });
-
-      if (item?.id) {
-        const id = String(item.id);
-        const previousSum = sumByApiId.get(id) || 0;
-        sumByApiId.set(id, previousSum + consumption);
-        this.debugLog(
-          `✅ Added to ID index: ${id} = ${previousSum} + ${consumption} = ${previousSum + consumption}`
-        );
-      } else {
-        apiItemsWithoutId++;
-        this.debugLog(`❌ API item without ID:`, item);
-      }
-    }
-
-    this.debugLog('[AllReportModal] NEW MAPPING - Total API consumption:', totalApiConsumption);
-    this.debugLog('[AllReportModal] NEW MAPPING - Unique API IDs:', sumByApiId.size);
-
-    this.debugLog('📊 ID index built', {
-      sumByApiIdSize: sumByApiId.size,
-      sumByApiIdEntries: Array.from(sumByApiId.entries()),
-      apiItemsWithoutId,
-    });
-
-    // 3) Map itemsList to rows with fallback strategy
-    let matchedById = 0,
-      matchedBySubstring = 0;
+    const rows: StoreReading[] = [];
     let totalMappedConsumption = 0;
 
-    this.debugLog('🎯 Starting itemsList mapping...');
-    const rows: StoreReading[] = this.params.itemsList.map((listItem, index) => {
-      this.debugLog(`🔍 Processing listItem ${index}`, listItem);
+    for (const apiItem of apiArray) {
+      const apiId = String(apiItem?.id || '');
+      if (!apiId || !orchIdSet.has(apiId)) continue; // discard: not in this group
 
-      // Primary: exact ID match
-      let consumption = sumByApiId.get(listItem.id) ?? 0;
-      this.debugLog(`🎯 Primary ID match for ${listItem.id}: ${consumption}`);
-
-      // Log first few items for debugging
-      if (index < 3) {
-        this.debugLog(`[AllReportModal] NEW MAPPING - ItemsList item ${index}:`, {
-          id: listItem.id,
-          identifier: listItem.identifier,
-          label: listItem.label,
-          idMatchConsumption: consumption,
-        });
-      }
-
-      if (consumption > 0) {
-        matchedById++;
-        this.debugLog(`✅ Matched by ID: ${listItem.id} -> ${consumption}`);
-      } else {
-        this.debugLog(`🔄 No ID match, trying substring fallback for identifier: ${listItem.identifier}`);
-
-        // Fallback: substring match in name/assetName
-        for (const [apiIndex, apiItem] of apiArray.entries()) {
-          const assetName = apiItem?.assetName || '';
-          const name = apiItem?.name || '';
-
-          const assetNameMatch = assetName.includes(listItem.identifier);
-          const nameMatch = name.includes(listItem.identifier);
-
-          if (assetNameMatch || nameMatch) {
-            const itemConsumption = this.pickConsumption(apiItem);
-            consumption += itemConsumption;
-
-            // Log substring matches for debugging
-            if (index < 3) {
-              this.debugLog(`[AllReportModal] NEW MAPPING - Substring match for ${listItem.identifier}:`, {
-                apiItemName: name,
-                apiItemAssetName: assetName,
-                itemConsumption,
-                totalConsumption: consumption,
-              });
-            }
-
-            this.debugLog(`✅ Substring match found in API item ${apiIndex}`, {
-              listItemIdentifier: listItem.identifier,
-              apiItemAssetName: assetName,
-              apiItemName: name,
-              assetNameMatch,
-              nameMatch,
-              itemConsumption,
-              totalConsumption: consumption,
-            });
-          }
-        }
-
-        if (consumption > 0) {
-          matchedBySubstring++;
-          this.debugLog(`✅ Matched by substring: ${listItem.identifier} -> ${consumption}`);
-        } else {
-          this.debugLog(`❌ No match found for: ${listItem.identifier}`);
-        }
-      }
+      const meta        = orchMeta.get(apiId);
+      const consumption = Math.round(this.pickConsumption(apiItem) * 100) / 100;
 
       const result: StoreReading = {
-        identifier: listItem.identifier,
-        name: listItem.label,
-        consumption: Math.round(consumption * 100) / 100,
-        ...(listItem.groupLabel ? { groupLabel: listItem.groupLabel } : {}),
+        identifier: meta?.identifier || apiItem.name || apiId,
+        name:       meta?.label      || apiItem.name || apiId,
+        consumption,
+        ...(meta?.groupLabel ? { groupLabel: meta.groupLabel } : {}),
       };
 
-      totalMappedConsumption += result.consumption;
+      totalMappedConsumption += consumption;
+      rows.push(result);
+    }
 
-      this.debugLog(`📝 Final row for ${listItem.identifier}:`, result);
-      return result;
-    });
-
-    const stats = {
-      apiItems: apiArray.length,
-      uniqueApiIds: sumByApiId.size,
-      itemsInList: this.params.itemsList.length,
-      matchedById,
-      matchedBySubstring,
-      unmatched: this.params.itemsList.length - matchedById - matchedBySubstring,
-      apiItemsWithoutId,
-      totalApiConsumption,
-      totalMappedConsumption,
-    };
-
-    // Always log final stats (survives minification)
-    this.debugLog('[AllReportModal] NEW MAPPING - Final stats:', stats);
-
-    this.debugLog('📊 Final mapping stats:', stats);
-    this.debugLog('[AllReportModal] Mapping stats:', stats);
+    this.debugLog('[AllReportModal] API-driven filter — matched:', rows.length,
+      '| discarded:', apiArray.length - rows.length,
+      '| total consumption:', totalMappedConsumption);
 
     return rows;
   }

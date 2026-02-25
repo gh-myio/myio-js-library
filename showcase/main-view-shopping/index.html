@@ -600,6 +600,67 @@
         </div>
       </div>
 
+
+      <!-- RFC-0183: Alarm Badge (AlarmServiceOrchestrator) -->
+      <div class="controls-panel" id="alarmBadgeControls">
+        <h3>&#x1F514; RFC-0183 Alarm Badge</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Mock alarms mapeados para</label>
+          <select class="ctrl-select" id="alarmBadgePreset">
+            <option value="3">3 devices (dev01, 02, 03)</option>
+            <option value="5" selected>5 devices (dev01 .. 05)</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="injectMockAlarmServiceOrchestrator()">&#x1F489; Inject ASO</button>
+          <button class="ctrl-btn secondary" onclick="inspectAlarmServiceOrchestrator()">&#x1F50D; Inspect ASO</button>
+        </div>
+        <div id="asoStatus" style="margin-top:6px; font-size:10px; color:#64748b; line-height:1.4">
+          AlarmServiceOrchestrator: not injected
+        </div>
+        <div style="margin-top:6px; padding:6px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3); border-radius:6px; font-size:10px; color:#fca5a5; line-height:1.5">
+          <strong>Como validar:</strong><br>
+          1. Clique <em>onInit</em> (ASO é built pelo controller.js)<br>
+          2. Ou clique <em>&#x1F489; Inject ASO</em> para mock imediato<br>
+          3. Cards com gcdrDeviceId 1-5 exibem badge &#x1F534;&#x1F514;<br>
+          &nbsp;&nbsp;• dev01: 2 alarmes (CRITICAL)<br>
+          &nbsp;&nbsp;• dev02..05: 1 alarme (HIGH) cada
+        </div>
+      </div>
+
+      <!-- RFC-0182: AllReportModal API-driven filter test -->
+      <div class="controls-panel" id="allReportControls">
+        <h3>&#x1F4CA; RFC-0182 AllReportModal</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Dom&#xED;nio / Grupo</label>
+          <select class="ctrl-select" id="reportDomainGroup">
+            <option value="energy|lojas">energy &#x203A; lojas</option>
+            <option value="energy|areacomum">energy &#x203A; area_comum</option>
+            <option value="energy|entrada">energy &#x203A; entrada</option>
+            <option value="temperature|climatizavel">temperature &#x203A; climatizavel</option>
+            <option value="water|lojas">water &#x203A; lojas</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Modo itemsList</label>
+          <select class="ctrl-select" id="reportItemsMode">
+            <option value="from_state">From STATE (API-driven filter)</option>
+            <option value="none">Sem itemsList (API completa)</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="openAllReportShowcase()">&#x1F4CB; Open Report</button>
+        </div>
+        <div style="margin-top:6px; padding:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:6px; font-size:10px; color:#93c5fd; line-height:1.5">
+          <strong>Valida&#xE7;&#xE3;o RFC-0182:</strong><br>
+          1. Carregue dados reais (<em>Load Real Devices</em>)<br>
+          2. Selecione dom&#xED;nio/grupo &#x2192; <em>From STATE</em><br>
+          3. Report mostra apenas o subconjunto:<br>
+          &nbsp;&nbsp;&#x2022; temperature &#x203A; climatizavel &#x2192; 13 sensores (n&#xE3;o 99)<br>
+          &nbsp;&nbsp;&#x2022; energy &#x203A; lojas &#x2192; apenas medidores 3F_MEDIDOR
+        </div>
+      </div>
+
       </div><!-- /.sidebar-controls -->
 
       <!-- Event Log -->
@@ -1141,7 +1202,8 @@
       logEvent('REAL-DATA', 'Real Moxuara data loaded and STATE populated!', 'info');
 
       // RFC-0180: Pre-fetch customer alarms in parallel (non-blocking)
-      fetchCustomerAlarms();
+      // RFC-0183: ASO will be built by controller.js inside _prefetchCustomerAlarms after alarms arrive
+      fetchCustomerAlarms().then(() => setTimeout(updateAsoStatus, 500));
     }
 
     // Builds window.STATE from ctx.data rows (device metadata, consumption=0)
@@ -2065,6 +2127,195 @@
       updateStateDisplay();
     }
 
+    // =========================================================================
+    // RFC-0183: AlarmServiceOrchestrator Mock Injection
+    // =========================================================================
+
+    function injectMockAlarmServiceOrchestrator() {
+      const count = parseInt(document.getElementById('alarmBadgePreset')?.value || '5', 10);
+
+      // Build mock alarms using gcdrDeviceIds from generateMockDevices (devices 1..N)
+      const MOCK_TITLES = [
+        'Demanda Alta', 'Falta de Energia', 'Comunicação Perdida',
+        'Temperatura Fora da Faixa', 'Consumo Anômalo Noturno',
+      ];
+      const mockAlarms = [];
+      for (let i = 1; i <= count; i++) {
+        const gcdrId = `gcdr-uuid-dev${String(i).padStart(2, '0')}-0000-000000000001`;
+        const alarmCount = (i === 1) ? 2 : 1; // device-1 gets 2 alarms to test count display
+        for (let j = 0; j < alarmCount; j++) {
+          mockAlarms.push({
+            id: `ALM-MOCK-${String(i * 10 + j).padStart(3, '0')}`,
+            deviceId: gcdrId,
+            alarmType: MOCK_TITLES[(i + j) % MOCK_TITLES.length],
+            title:     MOCK_TITLES[(i + j) % MOCK_TITLES.length],
+            severity:  i === 1 ? 'CRITICAL' : 'HIGH',
+            state:     'OPEN',
+          });
+        }
+      }
+
+      // Build maps — same logic as _buildAlarmServiceOrchestrator in MAIN_VIEW/controller.js
+      const deviceAlarmMap = new Map();
+      for (const alarm of mockAlarms) {
+        const did = alarm.deviceId;
+        if (!did) continue;
+        if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+        deviceAlarmMap.get(did).push(alarm);
+      }
+      const deviceAlarmTypes = new Map();
+      deviceAlarmMap.forEach((devAlarms, did) => {
+        deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
+      });
+
+      window.AlarmServiceOrchestrator = {
+        alarms: mockAlarms,
+        deviceAlarmMap,
+        deviceAlarmTypes,
+        getAlarmCountForDevice(gcdrDeviceId) { return deviceAlarmMap.get(gcdrDeviceId)?.length ?? 0; },
+        getAlarmsForDevice(gcdrDeviceId)     { return deviceAlarmMap.get(gcdrDeviceId) ?? []; },
+        getAlarmTypesForDevice(gcdrDeviceId) { return deviceAlarmTypes.get(gcdrDeviceId) ?? new Set(); },
+        async refresh() { /* showcase mock: no-op */ },
+      };
+
+      logEvent('ASO', `Mock ASO injetado: ${deviceAlarmMap.size} devices, ${mockAlarms.length} alarms`, 'info');
+      updateAsoStatus();
+
+      // Re-render grids so badges appear immediately
+      ['gridEntrada', 'gridAreaComum', 'gridLojas'].forEach(key => {
+        const inst = componentInstances[key];
+        if (inst && typeof inst.refresh === 'function') inst.refresh();
+        else if (inst && typeof inst.update === 'function') inst.update();
+      });
+      logEvent('ASO', `Grids refreshed — badges devem aparecer nos cards 1–${count}`, 'info');
+    }
+
+    function inspectAlarmServiceOrchestrator() {
+      const aso = window.AlarmServiceOrchestrator;
+      if (!aso) {
+        logEvent('ASO', 'window.AlarmServiceOrchestrator não criado ainda', 'warn');
+        updateAsoStatus();
+        return;
+      }
+      const d = aso.deviceAlarmMap?.size ?? 0;
+      const t = aso.alarms?.length ?? 0;
+      logEvent('ASO', `${d} devices com alarmes, ${t} alarmes totais`, 'info');
+      console.log('[Showcase] AlarmServiceOrchestrator:', {
+        devicesWithAlarms: d,
+        total: t,
+        deviceIds: Array.from(aso.deviceAlarmMap?.keys() ?? []),
+      });
+      updateAsoStatus();
+    }
+
+    function updateAsoStatus() {
+      const el = document.getElementById('asoStatus');
+      if (!el) return;
+      const aso = window.AlarmServiceOrchestrator;
+      if (!aso) {
+        el.textContent = 'AlarmServiceOrchestrator: não criado';
+        el.style.color = '#64748b';
+      } else {
+        const d = aso.deviceAlarmMap?.size ?? 0;
+        const t = aso.alarms?.length ?? 0;
+        el.textContent = `ASO pronto: ${d} dispositivos, ${t} alarmes`;
+        el.style.color = '#22c55e';
+      }
+    }
+
+    // =========================================================================
+    // RFC-0182: AllReportModal showcase test (API-driven itemsList filter)
+    // =========================================================================
+
+    function _buildShowcaseItemsList(domain, group) {
+      // Prefer STATE from loadRealData (real ingestionIds from TB)
+      const s = window.STATE;
+      if (s) {
+        const domainState = s[domain] || {};
+        const groupKey = group === 'area_comum' ? 'areacomum'
+                       : group === 'areacomum'   ? 'areacomum'
+                       : group === 'climatizavel' ? 'lojas'
+                       : group;
+        const items = (domainState[groupKey] || domainState.lojas || { items: [] }).items || [];
+        if (items.length > 0) {
+          logEvent('ALL-REPORT', `itemsList from STATE.${domain}.${groupKey}: ${items.length} devices`, 'info');
+          return items.map(d => ({
+            id:         d.ingestionId || d.entityId || '',
+            identifier: d.identifier  || d.entityName || '',
+            label:      d.labelOrName || d.label || d.entityLabel || d.entityName || '',
+          }));
+        }
+      }
+
+      // Fallback: build subset from ctx.data mock
+      const rows = self.ctx.data || [];
+      const deviceMap = {};
+      rows.forEach(row => {
+        const id = row.datasource?.entityId;
+        if (!id) return;
+        if (!deviceMap[id]) deviceMap[id] = { ingestionId: null, deviceType: null, entityName: row.datasource?.entityName || id };
+        const key = row.dataKey?.name;
+        const val = row.data?.[0]?.[1];
+        if (key && val !== undefined) deviceMap[id][key] = val;
+      });
+      let filtered = Object.values(deviceMap);
+      if (domain === 'temperature') filtered = filtered.filter(d => /TERMOSTATO/i.test(d.deviceType || ''));
+      else if (domain === 'water')  filtered = filtered.filter(d => /HIDROMETRO/i.test(d.deviceType || ''));
+      else {
+        filtered = filtered.filter(d => !/TERMOSTATO|HIDROMETRO/i.test(d.deviceType || ''));
+        if (group === 'lojas')   filtered = filtered.filter(d => /3F_MEDIDOR/i.test(d.deviceType || ''));
+        if (group === 'entrada') filtered = filtered.filter(d => /ENTRADA|RELOGIO|TRAFO|SUBESTACAO/i.test(d.deviceType || ''));
+      }
+      logEvent('ALL-REPORT', `itemsList from ctx.data mock (${domain}>${group}): ${filtered.length} devices`, 'warn');
+      return filtered.slice(0, 30).map(d => ({
+        id: d.ingestionId || d.entityId || '',
+        identifier: d.identifier || d.entityName || '',
+        label: d.labelOrName || d.entityName || '',
+      }));
+    }
+
+    function openAllReportShowcase() {
+      if (typeof MyIOLibrary?.openDashboardPopupAllReport !== 'function') {
+        logEvent('ERROR', 'openDashboardPopupAllReport não disponível — rebuild', 'error');
+        return;
+      }
+      const [domain, group] = (document.getElementById('reportDomainGroup')?.value || 'energy|lojas').split('|');
+      const mode = document.getElementById('reportItemsMode')?.value || 'from_state';
+      const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+
+      const params = {
+        customerId: _CUSTOMER_ING_ID,
+        domain,
+        group,
+        debug: 1,
+        ui: { theme: themeMode },
+        api: {
+          clientId:       _CLIENT_ID,
+          clientSecret:   _CLIENT_SECRET,
+          dataApiBaseUrl: _DATA_API_HOST,
+          ingestionToken: _CUSTOMER_ING_ID,
+        },
+      };
+
+      if (mode === 'from_state') {
+        const itemsList = _buildShowcaseItemsList(domain, group);
+        if (itemsList.length === 0) {
+          logEvent('WARN', 'itemsList vazio — carregue dados reais primeiro (Load Real Devices)', 'warn');
+        }
+        params.itemsList = itemsList;
+        logEvent('ALL-REPORT', `Opening ${domain}>${group} com itemsList[${itemsList.length}] (API-driven filter)`, 'info');
+      } else {
+        logEvent('ALL-REPORT', `Opening ${domain}>${group} sem itemsList (API completa)`, 'info');
+      }
+
+      try {
+        MyIOLibrary.openDashboardPopupAllReport(params);
+      } catch (err) {
+        logEvent('ERROR', err.message, 'error');
+        console.error('[Showcase] openAllReportShowcase error:', err);
+      }
+    }
+
     // ===== LIFECYCLE CONTROLS =====
     async function triggerOnInit() {
       if (widgetInitialized) {
@@ -2142,6 +2393,8 @@
         }
 
         updateStateDisplay();
+        // RFC-0183: update ASO status (built by controller.js inside _prefetchCustomerAlarms)
+        setTimeout(updateAsoStatus, 1500);
 
       } catch (error) {
         logEvent('ERROR', error.message, 'error');

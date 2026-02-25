@@ -112,6 +112,56 @@ function injectBadgeStyles() {
   document.head.appendChild(style);
 }
 
+// RFC-0183: Inject alarm badge CSS (once, idempotent)
+function injectAlarmBadgeStyles() {
+  if (document.getElementById('myio-alarm-badge-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'myio-alarm-badge-styles';
+  s.textContent = `
+    .myio-alarm-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: #dc2626;
+      color: #fff;
+      border-radius: 10px;
+      padding: 2px 5px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// RFC-0183: Append alarm badge to a card element if the device has active alarms.
+// gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
+function addAlarmBadge(cardElement, gcdrDeviceId) {
+  if (!cardElement || !gcdrDeviceId) return;
+  const aso = window.AlarmServiceOrchestrator;
+  if (!aso) return;
+  const count = aso.getAlarmCountForDevice(gcdrDeviceId);
+  if (!count) return;
+
+  injectAlarmBadgeStyles();
+  if (cardElement.style) cardElement.style.position = 'relative';
+
+  const badge = document.createElement('div');
+  badge.className = 'myio-alarm-badge';
+  badge.title = count + ' alarme' + (count !== 1 ? 's' : '') + ' ativo' + (count !== 1 ? 's' : '');
+  badge.innerHTML =
+    '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' +
+    '</svg>' +
+    '<span>' + (count > 99 ? '99+' : count) + '</span>';
+  cardElement.appendChild(badge);
+}
+
 /**
  * RFC-0105: Build annotation type tooltip content using InfoTooltip classes
  * @param {string} type - Annotation type (pending, maintenance, activity, observation)
@@ -2501,6 +2551,11 @@ function renderList(visible) {
     // Append the returned element to wrapper
     if ($card && $card[0] && entityObject.log_annotations) {
       addAnnotationIndicator($card[0], entityObject);
+    }
+
+    // RFC-0183: Alarm badge — red bell icon if device has active alarms in AlarmServiceOrchestrator
+    if ($card && $card[0]) {
+      addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
     $ul.append($card);

@@ -1907,9 +1907,68 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
     const alarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
     if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerAlarms = alarms;
     LogHelper.log('[MAIN_VIEW] RFC-0180: customerAlarms pre-fetched:', alarms.length, 'alarms');
+    _buildAlarmServiceOrchestrator(alarms);
   } catch (err) {
     LogHelper.warn('[MAIN_VIEW] _prefetchCustomerAlarms error:', err);
   }
+}
+
+// RFC-0183: Build window.AlarmServiceOrchestrator — device-keyed alarm maps.
+function _buildAlarmServiceOrchestrator(alarms) {
+  // Map: gcdrDeviceId → GCDRAlarm[]
+  const deviceAlarmMap = new Map();
+  for (const alarm of (alarms || [])) {
+    const did = alarm.deviceId;
+    if (!did) continue;
+    if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+    deviceAlarmMap.get(did).push(alarm);
+  }
+
+  // Map: gcdrDeviceId → Set<alarmType>
+  const deviceAlarmTypes = new Map();
+  deviceAlarmMap.forEach((devAlarms, did) => {
+    deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
+  });
+
+  window.AlarmServiceOrchestrator = {
+    /** Array of all raw customer alarms */
+    alarms,
+
+    /** Map<gcdrDeviceId, GCDRAlarm[]> */
+    deviceAlarmMap,
+
+    /** Map<gcdrDeviceId, Set<alarmType>> */
+    deviceAlarmTypes,
+
+    /** Returns alarm count for a device */
+    getAlarmCountForDevice(gcdrDeviceId) {
+      return deviceAlarmMap.get(gcdrDeviceId)?.length ?? 0;
+    },
+
+    /** Returns alarm array for a device */
+    getAlarmsForDevice(gcdrDeviceId) {
+      return deviceAlarmMap.get(gcdrDeviceId) ?? [];
+    },
+
+    /** Returns Set of alarm types for a device */
+    getAlarmTypesForDevice(gcdrDeviceId) {
+      return deviceAlarmTypes.get(gcdrDeviceId) ?? new Set();
+    },
+
+    /** Re-fetches from server and rebuilds maps */
+    async refresh() {
+      const orch = window.MyIOOrchestrator;
+      const gcdrCustomerId = orch?.gcdrCustomerId || '';
+      const gcdrTenantId   = orch?.gcdrTenantId   || '';
+      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+      await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl);
+    },
+  };
+
+  LogHelper.log('[AlarmServiceOrchestrator] Built —',
+    deviceAlarmMap.size, 'devices with alarms,',
+    alarms.length, 'total alarms'
+  );
 }
 
 async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {

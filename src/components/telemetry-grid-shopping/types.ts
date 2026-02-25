@@ -74,6 +74,9 @@ export interface TelemetryDevice {
   // Additional metadata
   domain?: TelemetryDomain;
   log_annotations?: Record<string, unknown>;
+
+  // RFC-0183: alarm badge count (resolved at render time from AlarmServiceOrchestrator)
+  alarmCount?: number;
 }
 
 // ============================================

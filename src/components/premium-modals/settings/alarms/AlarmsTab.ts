@@ -166,16 +166,22 @@ export class AlarmsTab {
       const gcdrBaseUrl   = this.config.gcdrApiBaseUrl   || GCDR_DEFAULT_BASE_URL;
       const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
 
-      // Use pre-fetched customer alarms (filtered by gcdrDeviceId) when available;
-      // otherwise fall back to per-device API call.
+      // Prefer AlarmServiceOrchestrator (device-keyed map from MAIN_VIEW prefetch),
+      // then fall back to prefetchedAlarms (filtered array), then per-device API call.
+      const aso = (window as unknown as {
+        AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
+      }).AlarmServiceOrchestrator;
+      const fromOrch = this.config.gcdrDeviceId ? aso?.getAlarmsForDevice(this.config.gcdrDeviceId) ?? null : null;
       const prefetched = this.config.prefetchedAlarms;
-      const alarmsPromise = prefetched != null
-        ? Promise.resolve(
-            (prefetched as GCDRAlarm[]).filter(
-              (a) => a.deviceId === this.config.gcdrDeviceId,
-            ),
-          )
-        : this.fetchActiveAlarms(alarmsBaseUrl);
+      const alarmsPromise = (fromOrch != null && fromOrch.length > 0)
+        ? Promise.resolve(fromOrch)
+        : prefetched != null
+          ? Promise.resolve(
+              (prefetched as GCDRAlarm[]).filter(
+                (a) => a.deviceId === this.config.gcdrDeviceId,
+              ),
+            )
+          : this.fetchActiveAlarms(alarmsBaseUrl);
 
       const [alarms, rules] = await Promise.all([
         alarmsPromise,
@@ -397,6 +403,17 @@ export class AlarmsTab {
     grid.innerHTML = '';
 
     const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
+    const AlarmService = (window as unknown as {
+      MyIOLibrary?: {
+        AlarmService?: {
+          batchAcknowledge?: (ids: string[], email: string) => Promise<void>;
+          batchSilence?:     (ids: string[], email: string, duration: string) => Promise<void>;
+          batchEscalate?:    (ids: string[], email: string) => Promise<void>;
+        };
+      };
+    }).MyIOLibrary?.AlarmService;
+    const userEmail = (window as unknown as { MyIOUtils?: { currentUserEmail?: string } })
+      .MyIOUtils?.currentUserEmail || '';
 
     for (const group of this.alarmGroups) {
       const alarm = this.mapGroupToAlarm(group);
@@ -406,21 +423,33 @@ export class AlarmsTab {
         showDeviceBadge:  false,
         alarmTypes:       alarm._alarmTypes,
         onAcknowledge: async () => {
-          await Promise.all(
-            group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'acknowledge')),
-          );
+          if (AlarmService?.batchAcknowledge) {
+            await AlarmService.batchAcknowledge(group.alarmIds, userEmail);
+          } else {
+            await Promise.all(
+              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'acknowledge')),
+            );
+          }
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onSnooze: async () => {
-          await Promise.all(
-            group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
-          );
+          if (AlarmService?.batchSilence) {
+            await AlarmService.batchSilence(group.alarmIds, userEmail, '4h');
+          } else {
+            await Promise.all(
+              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
+            );
+          }
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onEscalate: async () => {
-          await Promise.all(
-            group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
-          );
+          if (AlarmService?.batchEscalate) {
+            await AlarmService.batchEscalate(group.alarmIds, userEmail);
+          } else {
+            await Promise.all(
+              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
+            );
+          }
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onDetails: () => {
@@ -442,6 +471,13 @@ export class AlarmsTab {
   private async refreshAlarmsGrid(alarmsBaseUrl: string): Promise<void> {
     this.activeAlarms = await this.fetchActiveAlarms(alarmsBaseUrl);
     this.alarmGroups  = this.groupAlarms(this.activeAlarms);
+
+    // RFC-0183: Rebuild AlarmServiceOrchestrator maps after action
+    const aso = (window as unknown as { AlarmServiceOrchestrator?: { refresh: () => Promise<void> } })
+      .AlarmServiceOrchestrator;
+    if (aso) {
+      await aso.refresh().catch(() => { /* non-blocking */ });
+    }
 
     // Update count badge (shows group count, not raw alarm count)
     const badge = this.config.container.querySelector<HTMLElement>('#at-alarms-count');

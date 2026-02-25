@@ -270,6 +270,7 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   justify-content: center;
   box-sizing: border-box;
   overflow: visible;
+  position: relative;
 }
 
 /* ============ Loading Overlay ============ */

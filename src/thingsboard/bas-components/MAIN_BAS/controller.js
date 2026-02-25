@@ -1428,14 +1428,23 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
     var waterDevices = getWaterDevicesFromClassified(classified);
     var enrichedCount = 0;
 
+    // DEBUG: log IDs from ingestion vs IDs from classified (helps diagnose ID mismatch)
+    var hydrometerDevices = waterDevices.filter(function (d) { return d.type === 'hydrometer'; });
+    LogHelper.log('[MAIN_BAS] enrichWater — shoppingData keys (ingestion IDs):', Object.keys(result.shoppingData));
+    LogHelper.log('[MAIN_BAS] enrichWater — hydrometer device.id (TB entityIds):', hydrometerDevices.map(function (d) { return d.id + ' (' + d.name + ')'; }));
+
     waterDevices.forEach(function (device) {
       // Only enrich HIDROMETRO devices — tanks show level %, solenoids show on/off
       if (device.type !== 'hydrometer') return;
 
       var deviceTotals = result.shoppingData[device.id];
-      if (!deviceTotals) return;
+      if (!deviceTotals) {
+        LogHelper.log('[MAIN_BAS] enrichWater — no match for device:', device.id, device.name);
+        return;
+      }
 
       var total7d = deviceTotals.reduce(function (sum, v) { return sum + (Number(v) || 0); }, 0);
+      LogHelper.log('[MAIN_BAS] enrichWater — device', device.name, '7d total:', total7d);
       if (total7d > 0) {
         device.value = parseFloat(total7d.toFixed(3));
         device.valueSource = 'ingestion_7d';
@@ -1443,7 +1452,7 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
       }
     });
 
-    LogHelper.log('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: enriched', enrichedCount, 'of', waterDevices.filter(function(d){ return d.type === 'hydrometer'; }).length, 'HIDROMETRO devices');
+    LogHelper.log('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: enriched', enrichedCount, 'of', hydrometerDevices.length, 'HIDROMETRO devices');
 
     if (enrichedCount > 0 && panel) {
       var enrichedItems = buildWaterCardItems(classified, null);
