@@ -565,7 +565,7 @@ function renderList(visible) {
               showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $(".myio-settings-modal-overlay").remove();
+              $(".myio-device-settings-overlay").remove();
               hideBusy();
             }
           });

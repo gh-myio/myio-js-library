@@ -183,7 +183,7 @@ self.onInit = async function () {
           window.location.reload();
         },
         onClose: () => {
-          $(".myio-settings-modal-overlay").remove();
+          $(".myio-device-settings-overlay").remove();
         }
       });
     } catch (e) {

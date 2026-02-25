@@ -903,7 +903,7 @@ async function renderList(visible) {
               showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $('.myio-settings-modal-overlay').remove();
+              $('.myio-device-settings-overlay').remove();
               const overlay = document.querySelector('.myio-modal-overlay');
               if (overlay) {
                 overlay.remove();

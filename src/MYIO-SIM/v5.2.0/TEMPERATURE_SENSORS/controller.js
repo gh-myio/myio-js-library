@@ -265,7 +265,7 @@ function initializeSensorCards(sensors) {
               temperatureMax: sensor.temperatureMax,
               ui: { title: 'Configurações', width: 900 },
               onClose: () => {
-                $('.myio-settings-modal-overlay').remove();
+                $('.myio-device-settings-overlay').remove();
               },
             });
           }
@@ -329,7 +329,7 @@ function handleSettingsClick(sensor) {
       domain: WIDGET_DOMAIN,
       // ... resto dos parametros
       onClose: () => {
-        $('.myio-settings-modal-overlay').remove();
+        $('.myio-device-settings-overlay').remove();
       },
     });
   }

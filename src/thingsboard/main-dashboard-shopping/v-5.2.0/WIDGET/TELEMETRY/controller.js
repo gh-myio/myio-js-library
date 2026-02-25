@@ -2442,14 +2442,17 @@ function renderList(visible) {
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
+            deviceName: it.name, // Raw device name (shown as subtitle in identity card)
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
+            deviceProfile: it.deviceProfile || null, // RFC-0086: needed for 3F_MEDIDOR detection
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
             enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
             createdTime: it.createdTime || null,
             lastActivityTime: it.lastActivityTime || null,
+            seed: it.identifier ? { identifier: it.identifier } : undefined,
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,
@@ -2457,7 +2460,7 @@ function renderList(visible) {
               timeVal: it.timeVal || null,
               deviceStatus: it.deviceStatus || 'no_info',
             },
-            ui: { title: 'Configurações', width: 900 },
+            ui: { title: 'Configurações', width: 1100 },
             mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
             // RFC-0091: Pass device-specific power limits (TIER 0 - highest priority)
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
@@ -2475,7 +2478,7 @@ function renderList(visible) {
               // showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $('.myio-settings-modal-overlay').remove();
+              $('.myio-device-settings-overlay').remove();
               hideBusy();
             },
           });
