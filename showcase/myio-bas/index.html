@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RFC-0160: MAIN_BAS Dashboard Simulation</title>
+  <title>MAIN_BAS — BAS Dashboard Widget Showcase</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Load 100% of MAIN_BAS styles -->
   <link rel="stylesheet" href="../../src/thingsboard/bas-components/MAIN_BAS/styles.css">
@@ -339,8 +339,8 @@
     <!-- Header -->
     <header class="showcase-header">
       <div>
-        <h1>RFC-0160: MAIN_BAS Dashboard Simulation</h1>
-        <p>BAS - Card V6, Card Ambiente V6, EntityListPanel, CardGridPanel, HeaderPanelComponent</p>
+        <h1>MAIN_BAS — BAS Dashboard Widget</h1>
+        <p>RFC-0158/0160/0165/0168/0173 — EntityListPanel · CardGridPanel (ambiente) · ConsumptionChartWidget · CardV6</p>
       </div>
       <div class="header-status">
         <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
@@ -350,16 +350,21 @@
       </div>
     </header>
 
-    <!-- Widget Mount Area - Template from MAIN_BAS/template.html -->
+    <!-- Widget Mount Area — mirrors MAIN_BAS/template.html exactly (RFC-0173) -->
     <main class="widget-area">
       <div id="bas-dashboard-root" class="bas-dashboard-container">
-        <div class="bas-header" id="bas-header"></div>
-        <div class="bas-content-layout">
-          <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
-          <div class="bas-water-slot" id="bas-water-host"></div>
-          <div class="bas-charts-slot" id="bas-charts-host"></div>
-          <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
-          <div class="bas-motors-slot" id="bas-motors-host"></div>
+        <!-- RFC-0173: Premium Sidebar Menu (retractable) -->
+        <div id="bas-sidebar-menu-host"></div>
+        <!-- Main Dashboard Content -->
+        <div id="bas-main-content">
+          <div class="bas-header" id="bas-header"></div>
+          <div class="bas-content-layout">
+            <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
+            <div class="bas-water-slot" id="bas-water-host"></div>
+            <div class="bas-charts-slot" id="bas-charts-host"></div>
+            <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+            <div class="bas-motors-slot" id="bas-motors-host"></div>
+          </div>
         </div>
       </div>
     </main>
@@ -412,6 +417,16 @@
           <button class="ctrl-btn secondary" onclick="simulateDataUpdate()">
             &#x1F4E1; Simulate
           </button>
+        </div>
+      </div>
+
+      <!-- Ghost Auth — Real TB API -->
+      <div class="controls-panel">
+        <h3>🔑 TB Real Auth</h3>
+        <div id="ghostAuthStatus" style="font-size:10px;padding:4px 6px;border-radius:4px;background:#0f172a;color:#64748b;margin-bottom:8px;font-family:'Fira Code',monospace;word-break:break-all;">Não autenticado</div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="doGhostAuth()">&#x1F511; Re-Auth</button>
+          <button class="ctrl-btn success" onclick="loadRealData()">&#x2601;&#xFE0F; Real Data</button>
         </div>
       </div>
 
@@ -486,10 +501,129 @@
     </aside>
   </div>
 
+  <!-- jQuery (required by some controller dependencies) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <!-- MyIO Library -->
   <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <!-- ===================================================================
+       REAL CUSTOMER ENVIRONMENT SETUP
+       Mirrors the pattern from main-view-shopping/index.html.
+       Set _CUSTOMER_TB_ID, _CLIENT_ID, _CLIENT_SECRET, _CUSTOMER_ING_ID
+       with real values for a BAS customer to enable ghost auth + real data.
+       =================================================================== -->
+  <script>
+    // ===== CREDENTIALS (BAS Dashboard — fill in for a real customer) =====
+    const _TB_URL         = 'https://dashboard.myio-bas.com';
+    const _SERVICE_USER   = 'alarmes@myio.com.br';
+    const _SERVICE_PASS   = 'hubmyio@2025!';
+    const _CUSTOMER_TB_ID = '';   // <-- Fill: Customer ThingsBoard UUID
+    const _CUSTOMER_ING_ID = '';  // <-- Fill: Customer Ingestion ID
+    const _CLIENT_ID      = '';   // <-- Fill: MQTT Client ID
+    const _CLIENT_SECRET  = '';   // <-- Fill: MQTT Client Secret
+
+    // Keep token in memory for in-page calls (ctx.$injector.get('authService'))
+    let ghostAuthToken = localStorage.getItem('jwt_token') || null;
+
+    // ===== window.self.ctx MOCK =====
+    // Must be defined BEFORE controller.js loads so self.onInit() finds it.
+    window.self = window.self || {};
+    window.self.ctx = {
+      settings: {
+        customerTB_ID:        _CUSTOMER_TB_ID,
+        tbBaseUrl:            _TB_URL,
+        enableDebugMode:      true,
+        defaultThemeMode:     'dark',
+        showSidebar:          true,
+        showSidebarMenu:      true,
+        showWaterInfrastructure: true,
+        showEnvironments:     true,
+        showPumpsMotors:      true,
+        showCharts:           true,
+        sidebarMenuTitle:     'MYIO BAS',
+        customerName:         'Showcase',
+        dashboardTitle:       'DASHBOARD',
+      },
+      data: [],
+      datasources: [{ type: 'entity', name: 'AllDevices', aliasName: 'AllDevices' }],
+      $injector: {
+        get: function(serviceName) {
+          if (serviceName === 'authService') {
+            return { getJwtToken: function() { return localStorage.getItem('jwt_token') || ghostAuthToken; } };
+          }
+          return null;
+        },
+      },
+      $scope: {},
+      detectChanges: function() {},
+      updateWidgetParams: function() {},
+    };
+
+    // ===== GHOST AUTHENTICATION =====
+    async function authenticateGhost() {
+      try {
+        const res = await fetch(_TB_URL + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: _SERVICE_USER, password: _SERVICE_PASS }),
+        });
+        if (!res.ok) throw new Error('Auth failed: ' + res.status);
+        const data = await res.json();
+        if (!data.token) throw new Error('No token in response');
+        ghostAuthToken = data.token;
+        localStorage.setItem('jwt_token', data.token);
+        if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken);
+        console.log('[Showcase] Ghost auth OK');
+        return data.token;
+      } catch (err) {
+        console.error('[Showcase] Ghost auth failed:', err);
+        return null;
+      }
+    }
+
+    // Exposed to onclick="doGhostAuth()" button
+    async function doGhostAuth() {
+      const el = document.getElementById('ghostAuthStatus');
+      if (el) { el.textContent = 'Autenticando...'; el.style.color = '#fbbf24'; }
+      localStorage.removeItem('jwt_token');
+      const token = await authenticateGhost();
+      if (el) {
+        el.textContent = token ? ('Autenticado ✓ ' + token.substring(0, 20) + '…') : 'Falha na autenticação ✗';
+        el.style.color = token ? '#4ade80' : '#f87171';
+      }
+    }
+
+    // Auto-auth on page load (non-blocking — just to prime jwt_token for real data)
+    window.addEventListener('DOMContentLoaded', function() {
+      const el = document.getElementById('ghostAuthStatus');
+      const cached = localStorage.getItem('jwt_token');
+      if (cached) {
+        ghostAuthToken = cached;
+        if (el) { el.textContent = 'Token em cache ✓'; el.style.color = '#4ade80'; }
+      } else if (_CUSTOMER_TB_ID) {
+        // Only attempt if credentials are filled in
+        authenticateGhost().then(function(token) {
+          if (el) {
+            el.textContent = token ? ('Autenticado ✓ ' + token.substring(0, 20) + '…') : 'Sem credenciais / falha';
+            el.style.color = token ? '#4ade80' : '#94a3b8';
+          }
+        });
+      } else {
+        if (el) el.textContent = 'Credenciais não configuradas';
+      }
+
+      // Override fetchThingsboardCustomerAttrsFromStorage after library loads
+      if (typeof MyIOLibrary !== 'undefined' && _CLIENT_ID) {
+        MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage = async function(customerId, jwt) {
+          console.log('[Showcase] fetchThingsboardCustomerAttrsFromStorage — returning showcase credentials');
+          return { client_id: _CLIENT_ID, client_secret: _CLIENT_SECRET, ingestionId: _CUSTOMER_ING_ID };
+        };
+      }
+    });
+  </script>
+
   <!-- Load MAIN_BAS controller.js dynamically -->
   <script>
     (function loadController() {
@@ -564,17 +698,26 @@
       return devices;
     }
 
-    function generateHVACDevices(floors, preset) {
+    // RFC-0168: Generate HVAC devices per ambiente (not per floor)
+    // Uses ambienteIds so buildAmbienteData can correctly correlate devices
+    function generateHVACDevices(ambienteIds, preset) {
       if (preset === 'water-only' || preset === 'motors-only' || preset === 'empty') return [];
       const devices = [];
       let id = 1;
 
-      floors.forEach(floor => {
-        const count = preset === 'partial' ? 2 : Math.floor(Math.random() * 3) + 2;
+      ambienteIds.forEach(ambienteId => {
+        const count = preset === 'partial' ? 1 : Math.floor(Math.random() * 2) + 1;
         const names = [...HVAC_NAMES].sort(() => Math.random() - 0.5).slice(0, count);
         names.forEach(name => {
           const isActive = Math.random() > 0.3;
-          devices.push({ id: `hvac-${id++}`, name: `${name} - ${floor}`, floor, temperature: isActive ? Math.random() * 10 + 18 : null, status: isActive ? 'active' : 'inactive' });
+          devices.push({
+            id: `hvac-${id++}`,
+            name: name,
+            floor: ambienteId, // Use ambiente ID for correlation with buildAmbienteData
+            temperature: isActive ? +(Math.random() * 10 + 18).toFixed(1) : null,
+            consumption: isActive ? +(Math.random() * 3 + 0.5).toFixed(2) : null,
+            status: isActive ? 'active' : 'inactive'
+          });
         });
       });
       return devices;
@@ -603,7 +746,8 @@
       const preset = document.getElementById('dataPreset').value;
       const floorCount = parseInt(document.getElementById('floorCount').value);
       const floors = generateFloors(floorCount);
-      return { floors, waterDevices: generateWaterDevices(floors, preset), hvacDevices: generateHVACDevices(floors, preset), motorDevices: generateMotorDevices(floors, preset) };
+      const ambienteIds = AMBIENTE_NAMES.map(a => a.id);
+      return { floors, waterDevices: generateWaterDevices(floors, preset), hvacDevices: generateHVACDevices(ambienteIds, preset), motorDevices: generateMotorDevices(floors, preset) };
     }
 
     // =========================================================================
@@ -619,17 +763,23 @@
     // Using renderCardComponentV6 for individual device cards
     // =========================================================================
     function waterToEntity(d) {
+      const isTank = d.type === 'tank' || d.type === 'cistern';
+      const isSolenoid = d.type === 'solenoid';
       return {
         entityId: d.id,
         labelOrName: d.name,
         deviceIdentifier: `WAT-${d.id.split('-')[1] || '001'}`,
         entityType: 'DEVICE',
         deviceType: WATER_TYPE_MAP[d.type] || 'HIDROMETRO',
+        // RFC-0175: deviceProfile needed for SOLENOIDE detection in card component
+        deviceProfile: isSolenoid ? 'SOLENOIDE' : isTank ? 'CAIXA_DAGUA' : 'HIDROMETRO',
         val: d.value,
-        perc: d.type === 'cistern' || d.type === 'tank' ? d.value : 0,
-        deviceStatus: WATER_STATUS_MAP[d.status] || 'no_info',
-        waterLevel: d.type === 'tank' ? d.value : null,
-        waterPercentage: d.type === 'cistern' ? d.value : null,
+        perc: isTank ? d.value : 0,
+        deviceStatus: 'online', // Force online for showcase presentation
+        solenoidStatus: isSolenoid ? (d.value === 1 ? 'on' : 'off') : undefined,
+        waterLevel: isTank ? d.value : undefined,
+        waterPercentage: isTank ? d.value / 100 : undefined,
+        isTank: isTank,
       };
     }
 
@@ -666,24 +816,31 @@
     // AMBIENTE V6 DATA CONVERTERS
     // Using renderCardAmbienteV6 for ambiente cards with aggregated data
     // =========================================================================
+    // RFC-0168: Build AmbienteData from HVAC devices for a given ambiente
+    // HVAC devices now have floor === ambiente.id (fixed in generateHVACDevices)
     function buildAmbienteData(ambiente, hvacDevices) {
-      // Get HVAC devices for this ambiente
       const ambienteHvac = hvacDevices.filter(d => d.floor === ambiente.id);
-      const temps = ambienteHvac.filter(d => d.temperature !== null).map(d => d.temperature);
-      const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
-      const totalConsumption = ambienteHvac.reduce((sum, d) => sum + (d.consumption || Math.random() * 2), 0);
-      const hasOnline = ambienteHvac.some(d => d.status === 'active');
-      const hasRemote = ambienteHvac.length > 0;
+      const temps = ambienteHvac.filter(d => d.temperature != null).map(d => d.temperature);
+      const avgTemp = temps.length > 0 ? +(temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
+      const totalConsumption = ambienteHvac.reduce((sum, d) => sum + (d.consumption != null ? d.consumption : 0), 0);
+      const onlineDevices = ambienteHvac.filter(d => d.status === 'active');
+      const offlineDevices = ambienteHvac.filter(d => d.status !== 'active');
+      const hasOnline = onlineDevices.length > 0;
+      // Simulate some ambientes having remote-controlled devices
+      const hasRemote = ambienteHvac.length > 0 && ['001', '003', '007'].includes(ambiente.id);
 
       return {
         id: ambiente.id,
         label: ambiente.name,
         identifier: `AMB-${ambiente.id}`,
         temperature: avgTemp,
-        consumption: totalConsumption > 0 ? totalConsumption : null,
-        isOn: hasRemote && Math.random() > 0.3,
+        humidity: avgTemp != null ? +(45 + Math.random() * 25).toFixed(0) : null,
+        consumption: totalConsumption > 0 ? +totalConsumption.toFixed(2) : null,
+        isOn: hasRemote && hasOnline,
         hasRemote: hasRemote,
-        status: hasOnline ? 'online' : 'offline',
+        status: hasOnline && offlineDevices.length === 0 ? 'online' : hasOnline ? 'warning' : 'offline',
+        hasSetupWarning: ambienteHvac.length === 0,
+        childDeviceCount: ambienteHvac.length,
         devices: ambienteHvac.map(d => ({
           id: d.id,
           type: 'temperature',
@@ -713,6 +870,8 @@
     let chartInstance = null;
     let currentChartDomain = 'energy';
     let maximizedPanel = null; // Track which panel is maximized
+    let _waterItems = []; // All water items for tab filtering
+    let _sidebarMenu = null; // RFC-0173: Premium retractable sidebar menu instance
 
     // =========================================================================
     // MAXIMIZE PANEL LOGIC
@@ -762,9 +921,9 @@
     }
 
     const CHART_CONFIG = {
-      energy: { unit: 'kWh', label: 'Energia' },
-      water: { unit: 'L', label: 'Agua' },
-      temperature: { unit: '\u00B0C', label: 'Temperatura' }
+      energy: { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia', icon: '⚡' },
+      water: { unit: 'L', unitLarge: 'm³', threshold: 1000, label: 'Água', icon: '💧' },
+      temperature: { unit: '°C', unitLarge: '°C', threshold: 999, label: 'Temperatura', icon: '🌡️' },
     };
 
     let currentState = { isInitialized: false, selectedFloor: null, data: null };
@@ -794,40 +953,243 @@
       };
     }
 
+    // RFC-0098: Use createConsumptionChartWidget (full tabs) if available, fallback to simple chart
     function switchChartDomain(domain, chartCard) {
-      if (!MyIOLibrary.createConsumption7DaysChart) return;
-      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      if (chartInstance) {
+        if (typeof chartInstance.destroy === 'function') chartInstance.destroy();
+        chartInstance = null;
+      }
       currentChartDomain = domain;
       chartCard.innerHTML = '';
-      const canvas = document.createElement('canvas'); canvas.id = 'bas-chart-canvas'; chartCard.appendChild(canvas);
       const cfg = CHART_CONFIG[domain];
-      chartInstance = MyIOLibrary.createConsumption7DaysChart({ domain, containerId: 'bas-chart-canvas', unit: cfg.unit, fetchData: createFetchData(domain), defaultPeriod: 7, defaultChartType: domain === 'temperature' ? 'line' : 'bar', theme: 'dark', showLegend: true, fill: domain === 'temperature' });
-      chartInstance.render();
+      const containerId = 'bas-chart-widget-' + domain + '-' + Date.now();
+      const wrapper = document.createElement('div');
+      wrapper.id = containerId;
+      wrapper.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;';
+      chartCard.appendChild(wrapper);
+
+      if (MyIOLibrary.createConsumptionChartWidget) {
+        chartInstance = MyIOLibrary.createConsumptionChartWidget({
+          domain,
+          containerId,
+          title: cfg.label + ' — Últimos 7 dias',
+          unit: cfg.unit,
+          unitLarge: cfg.unitLarge,
+          thresholdForLargeUnit: cfg.threshold,
+          decimalPlaces: domain === 'temperature' ? 1 : 2,
+          chartHeight: '100%',
+          fullHeight: true,
+          defaultPeriod: 7,
+          defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+          defaultVizMode: 'total',
+          theme: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+          showSettingsButton: false,
+          showMaximizeButton: false,
+          showVizModeTabs: true,
+          showChartTypeTabs: true,
+          headerStyles: { padding: '6px 12px', gap: '8px', titleFontSize: '11px', tabPadding: '3px 8px', tabFontSize: '10px' },
+          fetchData: createFetchData(domain),
+          onDataLoaded: (d) => log('info', 'Chart', `${cfg.label}: ${d.labels?.length} dias`),
+          onError: (err) => log('error', 'Chart', String(err)),
+        });
+        chartInstance.render().catch(err => log('error', 'Chart render', String(err)));
+      } else if (MyIOLibrary.createConsumption7DaysChart) {
+        const canvas = document.createElement('canvas');
+        canvas.id = containerId + '-canvas';
+        wrapper.appendChild(canvas);
+        chartInstance = MyIOLibrary.createConsumption7DaysChart({
+          domain, containerId: canvas.id, unit: cfg.unit, fetchData: createFetchData(domain),
+          defaultPeriod: 7, defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+          theme: 'dark', showLegend: true, fill: domain === 'temperature',
+        });
+        chartInstance.render();
+      } else {
+        wrapper.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;">Chart library not available</div>';
+      }
       log('info', 'Chart', `Switched to ${cfg.label}`);
     }
 
+    // RFC-0098: mountChartPanel uses myio-cgp classes + HeaderPanelComponent (matching controller.js)
     function mountChartPanel(hostEl) {
       if (!hostEl) return;
       hostEl.innerHTML = '';
       const domains = ['energy', 'water', 'temperature'];
-      const tabBar = document.createElement('div'); tabBar.className = 'bas-chart-tabs';
-      const chartCard = document.createElement('div'); chartCard.className = 'bas-chart-card';
+      const MyIO = window.MyIOLibrary;
+
+      // Panel wrapper (matches controller: myio-cgp bas-chart-panel)
+      const panelWrapper = document.createElement('div');
+      panelWrapper.className = 'myio-cgp bas-chart-panel';
+      panelWrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;background:#faf8f1;';
+
+      // Header using HeaderPanelComponent if available
+      if (MyIO.HeaderPanelComponent) {
+        const headerStyle = MyIO.HEADER_STYLE_PREMIUM_GREEN || {
+          height: '36px', fontSize: '0.7rem', fontWeight: '600', color: '#ffffff',
+          letterSpacing: '0.5px', textTransform: 'uppercase',
+          backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+          topBorderColor: 'transparent', bottomBorderColor: 'transparent',
+          iconColor: '#a7d4c0', quantityBackground: 'rgba(255,255,255,0.2)',
+          buttonColor: 'rgba(255,255,255,0.7)', buttonHoverBackground: 'rgba(255,255,255,0.15)',
+        };
+        const headerComp = new MyIO.HeaderPanelComponent({
+          title: 'Consumo', icon: '📊',
+          style: headerStyle,
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => {
+            if (isMax) showMaximizeOverlay(panelWrapper, 'Consumo', null);
+            else closeMaximizeOverlay();
+          },
+        });
+        panelWrapper.appendChild(headerComp.getElement());
+      }
+
+      // Tabs using myio-cgp__tabs-* classes (matches controller.js)
+      const tabsWrapper = document.createElement('div');
+      tabsWrapper.className = 'myio-cgp__tabs-wrapper';
+      const tabsContainer = document.createElement('div');
+      tabsContainer.className = 'myio-cgp__tabs-container';
 
       domains.forEach(domain => {
-        const btn = document.createElement('button');
-        btn.className = 'bas-chart-tab' + (domain === currentChartDomain ? ' bas-chart-tab--active' : '');
-        btn.textContent = CHART_CONFIG[domain].label;
-        btn.addEventListener('click', () => {
-          tabBar.querySelectorAll('.bas-chart-tab').forEach(t => t.classList.remove('bas-chart-tab--active'));
-          btn.classList.add('bas-chart-tab--active');
+        const tab = document.createElement('button');
+        tab.className = 'myio-cgp__tab' + (domain === currentChartDomain ? ' myio-cgp__tab--selected' : '');
+        tab.dataset.tabId = domain;
+        const cfg = CHART_CONFIG[domain];
+        tab.textContent = (cfg.icon || '') + ' ' + cfg.label;
+        tab.addEventListener('click', () => {
+          tabsContainer.querySelectorAll('.myio-cgp__tab').forEach(t => t.classList.remove('myio-cgp__tab--selected'));
+          tab.classList.add('myio-cgp__tab--selected');
           switchChartDomain(domain, chartCard);
         });
-        tabBar.appendChild(btn);
+        tabsContainer.appendChild(tab);
       });
 
-      hostEl.appendChild(tabBar);
-      hostEl.appendChild(chartCard);
+      tabsWrapper.appendChild(tabsContainer);
+      panelWrapper.appendChild(tabsWrapper);
+
+      const chartCard = document.createElement('div');
+      chartCard.className = 'bas-chart-card myio-cgp__content';
+      chartCard.style.cssText = 'flex:1;overflow:hidden;background:#ffffff;';
+      panelWrapper.appendChild(chartCard);
+
+      hostEl.appendChild(panelWrapper);
       switchChartDomain(currentChartDomain, chartCard);
+    }
+
+    // =========================================================================
+    // REAL DEVICE LOADER (TB API — requires ghost auth)
+    // Mirrors the pattern from main-view-shopping/index.html.
+    // =========================================================================
+    async function fetchRealDevices() {
+      const jwt = ghostAuthToken || localStorage.getItem('jwt_token');
+      if (!jwt) { log('error', 'Real Data', 'Sem JWT — clique Re-Auth primeiro'); return null; }
+      if (!_CUSTOMER_TB_ID) { log('warn', 'Real Data', '_CUSTOMER_TB_ID não configurado'); return null; }
+
+      const headers = { 'Content-Type': 'application/json', 'X-Authorization': 'Bearer ' + jwt };
+      log('info', 'Real Data', 'Buscando devices do TB...');
+
+      // Step 1: paginated device list
+      let rawDevices = [];
+      let page = 0;
+      const pageSize = 100;
+      while (true) {
+        const res = await fetch(
+          _TB_URL + '/api/customer/' + _CUSTOMER_TB_ID + '/deviceInfos?pageSize=' + pageSize + '&page=' + page + '&sortProperty=label&sortOrder=ASC',
+          { headers }
+        );
+        if (!res.ok) { log('error', 'Real Data', 'deviceInfos falhou: ' + res.status); return null; }
+        const payload = await res.json();
+        rawDevices = rawDevices.concat(payload.data);
+        log('info', 'Real Data', 'Página ' + page + ': ' + rawDevices.length + ' devices carregados');
+        if (!payload.hasNext) break;
+        page++;
+      }
+
+      log('info', 'Real Data', 'Total: ' + rawDevices.length + ' devices — buscando atributos...');
+
+      // Step 2: batch-fetch SERVER_SCOPE attrs (chunks of 20)
+      const ATTR_KEYS = 'deviceType,deviceProfile,identifier,floor,connectionStatus,lastActivityTime,temperature,humidity,level,state,consumption,centralId,centralName,slaveId,lastConnectTime,lastDisconnectTime';
+      const attrMap = {};
+      const chunkSize = 20;
+      for (let i = 0; i < rawDevices.length; i += chunkSize) {
+        const chunk = rawDevices.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (dev) => {
+          try {
+            const r = await fetch(
+              _TB_URL + '/api/plugins/telemetry/DEVICE/' + dev.id.id + '/values/attributes/SERVER_SCOPE?keys=' + ATTR_KEYS,
+              { headers }
+            );
+            if (r.ok) {
+              const attrs = await r.json();
+              attrMap[dev.id.id] = {};
+              attrs.forEach(a => { attrMap[dev.id.id][a.key] = a.value; });
+            }
+          } catch (e) { /* ignore single device failure */ }
+        }));
+      }
+
+      // Step 3: build ctx.data rows (one row per attribute per device)
+      const now  = Date.now();
+      const rows = [];
+
+      rawDevices.forEach(dev => {
+        const entityId    = dev.id.id;
+        const entityName  = dev.name;
+        const entityLabel = dev.label || dev.name;
+        const attrs       = attrMap[entityId] || {};
+
+        const deviceType       = attrs.deviceType       || dev.deviceProfileName || 'UNKNOWN';
+        const deviceProfile    = attrs.deviceProfile    || deviceType;
+        const identifier       = attrs.identifier       || '';
+        const floor            = attrs.floor            || '';
+        const connectionStatus = attrs.connectionStatus || 'offline';
+        const lastActivityTime = attrs.lastActivityTime || dev.lastActivityTime || now;
+        const temperature      = attrs.temperature      || null;
+        const humidity         = attrs.humidity         || null;
+        const level            = attrs.level            || null;
+        const state            = attrs.state            || null;
+        const consumption      = attrs.consumption      || 0;
+        const centralId        = attrs.centralId        || '';
+        const centralName      = attrs.centralName      || '';
+        const slaveId          = attrs.slaveId          || '';
+
+        const ds = { type: 'entity', entityId, entityName, entityLabel, aliasName: 'AllDevices' };
+
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceType',         type: 'attribute'  }, data: [[now, deviceType]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceProfile',      type: 'attribute'  }, data: [[now, deviceProfile]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'identifier',         type: 'attribute'  }, data: [[now, identifier]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'floor',              type: 'attribute'  }, data: [[now, floor]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'connectionStatus',   type: 'attribute'  }, data: [[now, connectionStatus]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastActivityTime',   type: 'attribute'  }, data: [[now, lastActivityTime]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'consumption',        type: 'timeseries' }, data: [[now, consumption]] });
+        if (temperature !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'temperature', type: 'timeseries' }, data: [[now, temperature]] });
+        if (humidity    !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'humidity',    type: 'timeseries' }, data: [[now, humidity]] });
+        if (level       !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'level',       type: 'timeseries' }, data: [[now, level]] });
+        if (state       !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'state',       type: 'attribute'  }, data: [[now, state]] });
+        if (centralId)  rows.push({ datasource: { ...ds }, dataKey: { name: 'centralId',   type: 'attribute'  }, data: [[now, centralId]] });
+        if (centralName) rows.push({ datasource: { ...ds }, dataKey: { name: 'centralName', type: 'attribute'  }, data: [[now, centralName]] });
+        if (slaveId)    rows.push({ datasource: { ...ds }, dataKey: { name: 'slaveId',     type: 'attribute'  }, data: [[now, slaveId]] });
+      });
+
+      log('info', 'Real Data', rawDevices.length + ' devices → ' + rows.length + ' linhas ctx.data');
+      return rows;
+    }
+
+    async function loadRealData() {
+      log('info', 'Real Data', 'Carregando dados reais do ThingsBoard...');
+      updateWidgetStatus('running');
+      const rows = await fetchRealDevices();
+      if (!rows) { updateWidgetStatus('error'); return; }
+
+      // Update ctx.data
+      window.self.ctx.data = rows;
+
+      // Re-initialize dashboard with real data
+      if (currentState.isInitialized) {
+        triggerOnDestroy();
+        setTimeout(triggerOnInit, 200);
+      }
+      log('success', 'Real Data', 'ctx.data atualizado com ' + rows.length + ' linhas!');
+      updateWidgetStatus('ready');
     }
 
     // =========================================================================
@@ -848,20 +1210,22 @@
       const ambientesHost = document.getElementById('bas-ambientes-host');
       const motorsHost = document.getElementById('bas-motors-host');
 
+      // Icons shared by EntityListPanel sidebar AND the premium sidebar menu (RFC-0173)
+      const AMBIENTE_ICONS = {
+        '001': '🌊', // Deck
+        '002': '⚡', // Sala do Nobreak
+        '003': '🎤', // Auditório
+        '004': '👥', // Staff Rio de Janeiro
+        '005': '💧', // Bombas
+        '006': '🚰', // Água
+        '007': '⚙️', // Configuração
+        '008': '🔗', // Integrações
+      };
+
       // Sidebar - using ambiente names with prefix pattern like controller.js
       // Including new icon and notification features
       if (settings.showFloorsSidebar && sidebarHost && MyIO.EntityListPanel) {
         sidebarHost.innerHTML = '';
-        const AMBIENTE_ICONS = {
-          '001': '🌊', // Deck
-          '002': '⚡', // Sala do Nobreak
-          '003': '🎤', // Auditório
-          '004': '👥', // Staff Rio de Janeiro
-          '005': '💧', // Bombas
-          '006': '🚰', // Água
-          '007': '⚙️', // Configuração
-          '008': '🔗', // Integrações
-        };
         const ambienteItems = AMBIENTE_NAMES.map((a, index) => ({
           id: a.id,
           label: `(${a.id})-${a.name}`,
@@ -899,6 +1263,82 @@
         sidebarHost.appendChild(floorListPanel.getElement());
       }
 
+      // RFC-0173: Premium Sidebar Menu (retractable) — mirrors mountSidebarMenu() in controller.js
+      const sidebarMenuHost = document.getElementById('bas-sidebar-menu-host');
+      if (sidebarMenuHost && MyIO.createSidebarMenu) {
+        sidebarMenuHost.innerHTML = '';
+        // Build ambiente items using same (NNN)- pattern as controller.js
+        const ambienteMenuItems = AMBIENTE_NAMES.map(a => ({
+          id: 'ambiente:' + a.id,
+          label: a.name,
+          icon: AMBIENTE_ICONS[a.id] || (MyIO.SIDEBAR_ICONS?.building) || '🏢',
+          data: { ambienteId: a.id },
+        }));
+        const sidebarMenuSections = [{
+          id: 'navigation',
+          title: null, // No section header — items flow directly
+          items: [
+            { id: 'dashboard', label: 'Dashboard', icon: (MyIO.SIDEBAR_ICONS?.home) || '🏠' },
+          ].concat(ambienteMenuItems),
+        }];
+
+        try { localStorage.removeItem('myio-bas-sidebar-menu-state'); } catch(e) {}
+
+        _sidebarMenu = MyIO.createSidebarMenu(sidebarMenuHost, {
+          themeMode: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+          initialState: 'expanded',
+          persistState: false,
+          showSearch: false,
+          header: {
+            title: 'MYIO BAS',
+            subtitle: 'Showcase',
+            showThemeToggle: true,
+            userInfo: { name: 'Showcase User', email: 'showcase@myio.com.br' },
+          },
+          sections: sidebarMenuSections,
+          footer: {
+            showLogout: true,
+            logoutLabel: 'Sair',
+            showVersion: true,
+            version: MyIO.version || '0.1.x',
+          },
+          onItemClick: (item /*, section */) => {
+            log('event', 'Sidebar Menu', 'Clicado: ' + item.id);
+            if (item.id === 'dashboard') {
+              currentState.selectedFloor = null;
+              if (_sidebarMenu) _sidebarMenu.setActiveItem('dashboard');
+              refreshPanels();
+            } else if (item.id && item.id.startsWith('ambiente:')) {
+              const ambienteId = (item.data && item.data.ambienteId) || item.id.replace('ambiente:', '');
+              currentState.selectedFloor = ambienteId;
+              refreshPanels();
+            }
+          },
+          onThemeToggle: (newTheme) => {
+            document.body.classList.toggle('light-mode', newTheme === 'light');
+            document.getElementById('themeIcon').innerHTML = newTheme === 'light' ? '&#x1F319;' : '&#x2600;&#xfe0f;';
+            log('info', 'Theme', newTheme);
+          },
+          onStateChange: (state) => {
+            window.dispatchEvent(new CustomEvent('bas:sidebar-menu-state', { detail: { state } }));
+          },
+          onLogout: () => {
+            log('info', 'Sidebar Menu', 'Logout clicado');
+            localStorage.removeItem('jwt_token');
+            ghostAuthToken = null;
+            const el = document.getElementById('ghostAuthStatus');
+            if (el) { el.textContent = 'Deslogado'; el.style.color = '#94a3b8'; }
+          },
+        });
+
+        if (_sidebarMenu && _sidebarMenu.setActiveItem) {
+          _sidebarMenu.setActiveItem('dashboard');
+        }
+        log('info', 'Sidebar Menu', 'Montado com ' + (ambienteMenuItems.length + 1) + ' itens (RFC-0173)');
+      } else if (!MyIO.createSidebarMenu) {
+        log('warn', 'Sidebar Menu', 'MyIOLibrary.createSidebarMenu não disponível — verifique a versão do bundle');
+      }
+
       // Premium green header style for all panels
       const premiumGreenStyle = MyIO.HEADER_STYLE_PREMIUM_GREEN || {
         height: '36px',
@@ -922,27 +1362,42 @@
       };
       const cardStyle = { height: '120px' };
 
-      // Water
+      // Water — with tabs (Todos / Caixa d'Água / Hidrômetro / Solenóide), matches controller.js
       if (settings.showWaterInfrastructure && waterHost && MyIO.CardGridPanel) {
         waterHost.innerHTML = '';
-        const waterItems = buildWaterItems(mockData.waterDevices, null);
+        _waterItems = buildWaterItems(mockData.waterDevices, null);
+
+        const waterTabs = [
+          { id: 'all', label: 'Todos', selected: true,
+            handleClick: () => { waterPanel && waterPanel.setItems(_waterItems); waterPanel && waterPanel.setQuantity(_waterItems.length); } },
+          { id: 'tank', label: "Caixa d'Água", selected: false,
+            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'tank' || i.source?.type === 'cistern'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
+          { id: 'hydrometer', label: 'Hidrômetro', selected: false,
+            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'hydrometer'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
+          { id: 'solenoid', label: 'Solenóide', selected: false,
+            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'solenoid'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
+        ];
+
         waterPanel = new MyIO.CardGridPanel({
-          title: 'Infraestrutura Hidrica',
+          title: 'Infraestrutura Hídrica',
           icon: '💧',
-          quantity: waterItems.length,
-          items: waterItems,
+          quantity: _waterItems.length,
+          items: _waterItems,
+          tabs: waterTabs,
           cardCustomStyle: cardStyle,
           titleStyle: premiumGreenStyle,
-          panelBackground: '#f8f9fa',
+          panelBackground: '#e8f4fc',
+          gridMinCardWidth: '160px',
+          maxCardWidth: '200px',
+          gridGap: '8px',
           emptyMessage: 'Nenhum dispositivo',
-          // HeaderPanelComponent features
           showSearch: true,
           searchPlaceholder: 'Buscar dispositivo...',
           onSearchChange: (text) => { log('event', 'Search Water', text || '(cleared)'); },
           showFilter: true,
           handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Water', waterPanel); else closeMaximizeOverlay(); }
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Infraestrutura Hídrica', waterPanel); else closeMaximizeOverlay(); }
         });
         waterHost.appendChild(waterPanel.getElement());
       }
@@ -950,76 +1405,48 @@
       // Charts
       if (settings.showCharts && chartsHost) { mountChartPanel(chartsHost); }
 
-      // Ambientes - Using Card Ambiente V6 for aggregated ambiente data
-      if (settings.showEnvironments && ambientesHost && MyIO.renderCardAmbienteV6) {
+      // RFC-0168: Ambientes — CardGridPanel with cardType:'ambiente' (matches controller.js)
+      // Uses buildAmbienteItems to get AmbienteData[], wraps as { id, ambienteData } for CardGridPanel
+      if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
         ambientesHost.innerHTML = '';
-
-        // Create container with header
-        const ambientesContainer = document.createElement('div');
-        ambientesContainer.className = 'bas-panel-container';
-        ambientesContainer.style.cssText = 'height: 100%; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 8px; overflow: hidden;';
-
-        // Header
-        const header = document.createElement('div');
-        header.style.cssText = 'padding: 8px 12px; background: linear-gradient(135deg, #2F5848, #3d7a62); color: white; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;';
-        header.innerHTML = '<span>❄️</span><span>AMBIENTES HVAC (Card Ambiente V6)</span>';
-        ambientesContainer.appendChild(header);
-
-        // Cards grid
-        const cardsGrid = document.createElement('div');
-        cardsGrid.style.cssText = 'flex: 1; overflow-y: auto; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; align-content: start;';
-
-        // Build ambiente data from AMBIENTE_NAMES + hvacDevices
         const ambienteDataList = buildAmbienteItems(AMBIENTE_NAMES, mockData.hvacDevices);
+        const ambienteCardItems = ambienteDataList.map(data => ({ id: data.id, ambienteData: data }));
 
-        ambienteDataList.forEach(ambienteData => {
-          const [cardEl, api] = MyIO.renderCardAmbienteV6({
-            ambienteData,
-            handleClickCard: (data) => {
-              log('event', 'Ambiente Click', `${data.label} (${data.id})`);
-              currentState.selectedFloor = data.id;
-              refreshPanels();
-            },
-            handleToggleRemote: (isOn, data) => {
-              log('event', 'Remote Toggle', `${data.label}: ${isOn ? 'ON' : 'OFF'}`);
-            },
-            handleActionSettings: (data) => {
-              log('event', 'Settings', `Open settings for ${data.label}`);
-            },
-            enableSelection: false,
-            enableDragDrop: false,
-            customStyle: {
-              width: '100%',
-              height: '130px',
-            },
-          });
-          cardsGrid.appendChild(cardEl);
-        });
-
-        ambientesContainer.appendChild(cardsGrid);
-        ambientesHost.appendChild(ambientesContainer);
-        log('info', 'Ambientes', `Rendered ${ambienteDataList.length} ambiente cards (V6)`);
-      } else if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
-        // Fallback to CardGridPanel if renderCardAmbienteV6 not available
-        ambientesHost.innerHTML = '';
-        const hvacItems = buildHVACItems(mockData.hvacDevices, null);
         ambientesPanel = new MyIO.CardGridPanel({
-          title: 'Ambientes HVAC',
-          icon: '❄️',
-          quantity: hvacItems.length,
-          items: hvacItems,
-          cardCustomStyle: cardStyle,
+          title: 'Ambientes',
+          icon: '🌡️',
+          quantity: ambienteCardItems.length,
+          items: ambienteCardItems,
+          cardType: 'ambiente', // KEY: render as AmbienteCard (renderCardAmbienteV6 internally)
+          panelBackground: '#fef7e8',
+          cardCustomStyle: { zoomMultiplier: 0.9, padding: '15px' },
           titleStyle: premiumGreenStyle,
+          gridMinCardWidth: '140px',
+          gridGap: '8px',
+          singleColumn: true,
+          maxCardWidth: '280px',
           emptyMessage: 'Nenhum ambiente',
           showSearch: true,
           searchPlaceholder: 'Buscar ambiente...',
-          onSearchChange: (text) => { log('event', 'Search HVAC', text || '(cleared)'); },
+          onSearchChange: (text) => { log('event', 'Search Ambientes', text || '(cleared)'); },
           showFilter: true,
-          handleActionFilter: () => { log('event', 'Filter', 'HVAC filter clicked'); },
+          handleActionFilter: () => { log('event', 'Filter', 'Ambientes filter clicked'); },
           showMaximize: true,
-          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'HVAC', ambientesPanel); else closeMaximizeOverlay(); }
+          onMaximizeToggle: (isMax) => {
+            if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'Ambientes', ambientesPanel);
+            else closeMaximizeOverlay();
+          },
+          handleClickCard: (item) => {
+            log('event', 'Ambiente Click', `${item.ambienteData?.label} (${item.ambienteData?.id})`);
+            currentState.selectedFloor = item.ambienteData?.id;
+            refreshPanels();
+          },
+          handleToggleRemote: (isOn, item) => {
+            log('event', 'Remote Toggle', `${item.ambienteData?.label}: ${isOn ? 'ON' : 'OFF'}`);
+          },
         });
         ambientesHost.appendChild(ambientesPanel.getElement());
+        log('info', 'Ambientes', `Rendered ${ambienteCardItems.length} ambiente cards (CardGridPanel+cardType:ambiente)`);
       }
 
       // Motors
@@ -1056,12 +1483,28 @@
     }
 
     function refreshPanels() {
-      const floor = currentState.selectedFloor;
+      const ambienteId = currentState.selectedFloor; // selectedFloor is actually an ambienteId
       const data = currentState.data;
-      if (waterPanel) waterPanel.setItems(buildWaterItems(data.waterDevices, floor));
-      if (ambientesPanel) ambientesPanel.setItems(buildHVACItems(data.hvacDevices, floor));
-      if (motorsPanel) motorsPanel.setItems(buildMotorItems(data.motorDevices, floor));
-      if (floorListPanel) floorListPanel.setSelectedId(floor);
+
+      // Water: filter by ambient if selected
+      if (waterPanel) {
+        _waterItems = buildWaterItems(data.waterDevices, null);
+        waterPanel.setItems(ambienteId ? _waterItems.filter(i => i.source?.floor === ambienteId) : _waterItems);
+        waterPanel.setQuantity(ambienteId ? _waterItems.filter(i => i.source?.floor === ambienteId).length : _waterItems.length);
+      }
+
+      // RFC-0168: Ambientes panel uses AmbienteData wrapped in { id, ambienteData }
+      if (ambientesPanel) {
+        const ambienteDataList = buildAmbienteItems(AMBIENTE_NAMES, data.hvacDevices);
+        const filtered = ambienteId ? ambienteDataList.filter(d => d.id === ambienteId) : ambienteDataList;
+        ambientesPanel.setItems(filtered.map(d => ({ id: d.id, ambienteData: d })));
+        ambientesPanel.setQuantity(filtered.length);
+      }
+
+      // Motors: filter by floor if selected (motor devices use regular floor IDs)
+      if (motorsPanel) motorsPanel.setItems(buildMotorItems(data.motorDevices, null));
+
+      if (floorListPanel) floorListPanel.setSelectedId(ambienteId);
       updateStateDisplay();
     }
 
@@ -1069,7 +1512,6 @@
       if (!currentState.isInitialized) { log('warn', 'onDataUpdated', 'Not initialized'); return; }
       const mockData = generateMockData();
       currentState.data = mockData;
-      // Ambiente items stay the same (static list from AMBIENTE_NAMES)
       refreshPanels();
       log('info', 'onDataUpdated', `Updated: ${mockData.waterDevices.length + mockData.hvacDevices.length + mockData.motorDevices.length} devices`);
     }
@@ -1081,11 +1523,14 @@
       if (waterPanel?.destroy) { waterPanel.destroy(); waterPanel = null; }
       if (ambientesPanel?.destroy) { ambientesPanel.destroy(); ambientesPanel = null; }
       if (motorsPanel?.destroy) { motorsPanel.destroy(); motorsPanel = null; }
+      // RFC-0173: destroy premium sidebar menu
+      if (_sidebarMenu?.destroy) { _sidebarMenu.destroy(); _sidebarMenu = null; }
 
-      ['bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+      ['bas-sidebar-menu-host', 'bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
 
       currentState = { isInitialized: false, selectedFloor: null, data: null };
       currentChartDomain = 'energy';
+      _waterItems = [];
       updateWidgetStatus('stopped');
       log('info', 'onDestroy', 'Dashboard destroyed');
       document.getElementById('btnOnInit').disabled = false;
@@ -1366,6 +1811,8 @@
     window.toggleStatePanel = toggleStatePanel;
     window.openBASModalTest = openBASModalTest;
     window.openBASModalTestRemote = openBASModalTestRemote;
+    // Ghost auth + real data (defined inside IIFE to share log() context)
+    window.loadRealData = loadRealData;
   })(); // End IIFE
   </script>
 </body>
