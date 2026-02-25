@@ -148,11 +148,39 @@ export class AllReportModal {
     return 0;
   }
 
+  private resolveTitle(): string {
+    const domain = this.params.domain || 'energy';
+    const group  = this.params.group  || 'lojas';
+
+    const TITLES: Record<string, Record<string, string>> = {
+      energy: {
+        lojas:           'Relatório Geral - Todas as Lojas',
+        entrada:         'Relatório Geral - Dispositivos de Entrada',
+        area_comum:      'Relatório Geral - Equipamentos em Área Comum',
+        todos:           'Relatório Geral - Todos os Dispositivos de Energia',
+      },
+      water: {
+        lojas:           'Relatório Geral - Todas as Lojas',
+        entrada:         'Relatório Geral - Dispositivos de Entrada',
+        area_comum:      'Relatório Geral - Equipamentos em Área Comum',
+        banheiros:       'Relatório Geral - Banheiros',
+        todos:           'Relatório Geral - Todos os Dispositivos de Água',
+      },
+      temperature: {
+        climatizavel:     'Relatório Geral - Ambientes Climatizáveis',
+        nao_climatizavel: 'Relatório Geral - Ambientes Não Climatizáveis',
+        todos:            'Relatório Geral - Todos os Ambientes',
+      },
+    };
+
+    return TITLES[domain]?.[group] ?? `Relatório Geral - ${group}`;
+  }
+
   public show(): ModalHandle {
     this.debugLog('🎭 Modal show() called - creating modal UI');
 
     this.modal = createModal({
-      title: `Relatório Geral - Todas as Lojas${this.debugEnabled ? ' [DEBUG MODE]' : ''}`,
+      title: `${this.resolveTitle()}${this.debugEnabled ? ' [DEBUG MODE]' : ''}`,
       width: '85vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light'
@@ -455,7 +483,7 @@ export class AllReportModal {
           <tr>
             <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
             <td data-label="Name"><strong>${row.name}</strong></td>
-            <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
+            <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
           </tr>
         `).join('');
 
@@ -547,7 +575,7 @@ export class AllReportModal {
         <tr>
           <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
           <td data-label="Name"><strong>${row.name}</strong></td>
-          <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
+          <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
         </tr>`).join('');
 
       return header + dataRows;

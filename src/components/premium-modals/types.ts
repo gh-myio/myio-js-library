@@ -70,6 +70,7 @@ export interface StoreItem {
 export interface OpenAllReportParams {
   customerId: string;
   domain?: 'energy' | 'water' | 'temperature'; // Data domain (default: 'energy')
+  group?: string; // RFC-0182: e.g. 'lojas' | 'entrada' | 'area_comum' | 'todos' | 'climatizavel' | 'nao_climatizavel'
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response

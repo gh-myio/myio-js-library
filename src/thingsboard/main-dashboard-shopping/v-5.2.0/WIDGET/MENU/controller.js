@@ -1326,6 +1326,7 @@ self.onInit = function () {
     MyIOLib.openDashboardPopupAllReport({
       ...baseParams,
       domain,
+      group,
       itemsList,
     });
   }
