@@ -494,9 +494,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         return;
       }
 
-      // Restore alarm report button and show general report for non-alarm domains
+      // Read enableReportButton flag from MAIN_VIEW (default: false = hidden)
+      const enableReportButton = window.MyIOUtils?.enableReportButton ?? false;
+
+      // Restore alarm report button and show/hide general report for non-alarm domains
       if (btnAlarmReport) btnAlarmReport.style.display = 'none';
-      if (btnGen)         btnGen.style.display         = '';
+      if (btnGen)         btnGen.style.display         = enableReportButton ? '' : 'none';
 
       const domainLabels = {
         energy: 'Relatório Consumo Geral de Energia por Loja',
@@ -506,11 +509,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Only energy and water are supported for all controls
       const isSupported = domain === 'energy' || domain === 'water';
 
-      // Read enableReportButton flag from MAIN_VIEW (default: false = disabled)
-      const enableReportButton = window.MyIOUtils?.enableReportButton ?? false;
-
-      // Update report button text and state
-      if (btnGen) {
+      // Update report button text and state (only when visible)
+      if (btnGen && enableReportButton) {
         if (btnText && domainLabels[domain]) {
           btnText.textContent = domainLabels[domain];
           btnGen.title = domainLabels[domain];
@@ -519,9 +519,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           btnGen.title = 'Relatório Consumo Geral';
         }
 
-        btnGen.disabled = !isSupported || !enableReportButton;
+        btnGen.disabled = !isSupported;
         LogHelper.log(
-          `[HEADER] Relatório Geral button ${btnGen.disabled ? 'disabled' : 'enabled'} for domain: ${domain} (enableReportButton=${enableReportButton})`
+          `[HEADER] Relatório Geral button ${btnGen.disabled ? 'disabled' : 'enabled'} for domain: ${domain}`
         );
       }
 
