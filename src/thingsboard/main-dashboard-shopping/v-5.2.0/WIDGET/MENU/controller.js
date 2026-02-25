@@ -1164,45 +1164,49 @@ self.onInit = function () {
         .rp-card__text{display:flex;flex-direction:column;gap:2px;min-width:0;}
         .rp-card__title{font-size:14px;font-weight:600;color:#1f2937;}
         .rp-card__desc{font-size:11px;color:#6b7280;}
-        .rp-badge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;color:#9ca3af;background:#f3f4f6;border:1px solid #e5e7eb;padding:2px 6px;border-radius:20px;}
+        .rp-badge{position:absolute;top:8px;right:8px;font-size:12px;color:#9ca3af;background:#f3f4f6;border:1px solid #e5e7eb;padding:2px 5px;border-radius:20px;line-height:1.4;}
         .rp-card[data-enabled="true"] .rp-badge{display:none;}
       `;
       topDoc.head.appendChild(s);
     }
 
+    // RFC-0182: read enabled report items from MAIN_VIEW settings (via window.MyIOUtils)
+    const enabledItems = window.MyIOUtils?.enabledReportItems || {};
+    const ei = (key, def = false) => enabledItems[key] ?? def;
+
     const DOMAINS = [
       {
         id: 'energy', label: '⚡ Energia',
         items: [
-          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: true },
-          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: true },
-          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e8f5e9', color: '#2e7d32', desc: 'Consumo por loja',         enabled: true },
-          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os medidores',       enabled: true },
+          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: ei('energy_entrada')    },
+          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: ei('energy_area_comum') },
+          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e8f5e9', color: '#2e7d32', desc: 'Consumo por loja',         enabled: ei('energy_lojas', true)},
+          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os medidores',       enabled: ei('energy_todos')      },
         ],
       },
       {
         id: 'water', label: '💧 Água',
         items: [
-          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: true },
-          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: true },
-          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e0f2f1', color: '#00695c', desc: 'Consumo por loja',         enabled: true },
-          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os hidrômetros',    enabled: true },
+          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: ei('water_entrada')    },
+          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: ei('water_area_comum') },
+          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e0f2f1', color: '#00695c', desc: 'Consumo por loja',         enabled: ei('water_lojas')      },
+          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os hidrômetros',    enabled: ei('water_todos')      },
         ],
       },
       {
         id: 'temperature', label: '🌡️ Temperatura',
         items: [
-          { id: 'climatizavel',     label: 'Ambientes Climatizáveis',     icon: '❄️', bg: '#e1f5fe', color: '#0277bd', desc: 'Ambientes com termostato',    enabled: true },
-          { id: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️', bg: '#fff3e0', color: '#e65100', desc: 'Ambientes sem climatização', enabled: true },
-          { id: 'todos',            label: 'Todos Ambientes',             icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os termostatos',         enabled: true },
+          { id: 'climatizavel',     label: 'Ambientes Climatizáveis',     icon: '❄️', bg: '#e1f5fe', color: '#0277bd', desc: 'Ambientes com termostato',    enabled: ei('temperature_climatizavel')     },
+          { id: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️', bg: '#fff3e0', color: '#e65100', desc: 'Ambientes sem climatização', enabled: ei('temperature_nao_climatizavel') },
+          { id: 'todos',            label: 'Todos Ambientes',             icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os termostatos',         enabled: ei('temperature_todos')            },
         ],
       },
       {
         id: 'alarms', label: '🔔 Alarmes',
         items: [
-          { id: 'por_dispositivo',      label: 'Por Dispositivo',           icon: '📟', bg: '#fce4ec', color: '#880e4f', desc: 'Alarmes por dispositivo',         enabled: false },
-          { id: 'dispositivo_x_alarme', label: 'Por Dispositivo × Tipo',   icon: '🔀', bg: '#fff3e0', color: '#bf360c', desc: 'Cruzamento dispositivo × regra',  enabled: false },
-          { id: 'por_tipo',             label: 'Por Tipo de Alarme',        icon: '🏷️', bg: '#ede7f6', color: '#4527a0', desc: 'Alarmes agrupados por tipo',      enabled: false },
+          { id: 'por_dispositivo',      label: 'Por Dispositivo',           icon: '📟', bg: '#fce4ec', color: '#880e4f', desc: 'Alarmes por dispositivo',         enabled: ei('alarms_por_dispositivo')      },
+          { id: 'dispositivo_x_alarme', label: 'Por Dispositivo × Tipo',   icon: '🔀', bg: '#fff3e0', color: '#bf360c', desc: 'Cruzamento dispositivo × regra',  enabled: ei('alarms_dispositivo_x_alarme') },
+          { id: 'por_tipo',             label: 'Por Tipo de Alarme',        icon: '🏷️', bg: '#ede7f6', color: '#4527a0', desc: 'Alarmes agrupados por tipo',      enabled: ei('alarms_por_tipo')             },
         ],
       },
     ];
@@ -1221,7 +1225,7 @@ self.onInit = function () {
                 <span class="rp-card__title">${item.label}</span>
                 <span class="rp-card__desc">${item.desc}</span>
               </span>
-              ${!item.enabled ? '<span class="rp-badge">Em breve</span>' : ''}
+              ${!item.enabled ? '<span class="rp-badge">🔒</span>' : ''}
             </button>
           `).join('')}
         </div>

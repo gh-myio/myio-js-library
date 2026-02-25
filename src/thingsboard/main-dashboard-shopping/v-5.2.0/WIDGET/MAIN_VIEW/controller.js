@@ -1208,6 +1208,19 @@ Object.assign(window.MyIOUtils, {
     window.MyIOUtils.enableReportButton = widgetSettings.enableReportButton;
     LogHelper.log('[Orchestrator] enableReportButton:', widgetSettings.enableReportButton);
 
+    // RFC-0182: Load enabledReportItems and expose for MENU widget
+    const rawItems = self.ctx.settings?.enabledReportItems || {};
+    const REPORT_ITEM_DEFAULTS = {
+      energy_lojas: true, energy_entrada: false, energy_area_comum: false, energy_todos: false,
+      water_lojas: false, water_entrada: false, water_area_comum: false, water_todos: false,
+      temperature_climatizavel: false, temperature_nao_climatizavel: false, temperature_todos: false,
+      alarms_por_dispositivo: false, alarms_dispositivo_x_alarme: false, alarms_por_tipo: false,
+    };
+    window.MyIOUtils.enabledReportItems = Object.fromEntries(
+      Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
+    );
+    LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
+
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {
       stores: self.ctx.settings?.delayTimeConnectionInMinsToStore ?? 86400, // 60 days default

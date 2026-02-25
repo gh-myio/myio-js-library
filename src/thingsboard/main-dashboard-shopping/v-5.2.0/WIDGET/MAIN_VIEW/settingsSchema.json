@@ -109,6 +109,27 @@
         "type": "boolean",
         "default": false,
         "description": "Habilita o botão Relatório no HEADER widget. Por padrão desabilitado — ative apenas quando a integração de relatórios estiver configurada para o cliente."
+      },
+      "enabledReportItems": {
+        "title": "Itens de Relatório Habilitados",
+        "type": "object",
+        "description": "RFC-0182: Controla quais sub-itens do modal de Relatórios estão disponíveis. Itens desabilitados aparecem opacos com ícone de cadeado.",
+        "properties": {
+          "energy_lojas":           { "title": "Energia — Lojas",                       "type": "boolean", "default": true  },
+          "energy_entrada":         { "title": "Energia — Entrada",                     "type": "boolean", "default": false },
+          "energy_area_comum":      { "title": "Energia — Área Comum",                  "type": "boolean", "default": false },
+          "energy_todos":           { "title": "Energia — Todos os Dispositivos",       "type": "boolean", "default": false },
+          "water_lojas":            { "title": "Água — Lojas",                          "type": "boolean", "default": false },
+          "water_entrada":          { "title": "Água — Entrada",                        "type": "boolean", "default": false },
+          "water_area_comum":       { "title": "Água — Área Comum",                     "type": "boolean", "default": false },
+          "water_todos":            { "title": "Água — Todos os Dispositivos",          "type": "boolean", "default": false },
+          "temperature_climatizavel":     { "title": "Temperatura — Climatizável",      "type": "boolean", "default": false },
+          "temperature_nao_climatizavel": { "title": "Temperatura — Não Climatizável",  "type": "boolean", "default": false },
+          "temperature_todos":            { "title": "Temperatura — Todos os Ambientes","type": "boolean", "default": false },
+          "alarms_por_dispositivo":       { "title": "Alarmes — Por Dispositivo",       "type": "boolean", "default": false },
+          "alarms_dispositivo_x_alarme":  { "title": "Alarmes — Por Dispositivo × Tipo","type": "boolean", "default": false },
+          "alarms_por_tipo":              { "title": "Alarmes — Por Tipo de Alarme",    "type": "boolean", "default": false }
+        }
       }
     }
   },
@@ -129,6 +150,20 @@
     "gcdrCustomerId",
     "gcdrTenantId",
     "gcdrApiBaseUrl",
-    "enableReportButton"
+    "enableReportButton",
+    "enabledReportItems.energy_lojas",
+    "enabledReportItems.energy_entrada",
+    "enabledReportItems.energy_area_comum",
+    "enabledReportItems.energy_todos",
+    "enabledReportItems.water_lojas",
+    "enabledReportItems.water_entrada",
+    "enabledReportItems.water_area_comum",
+    "enabledReportItems.water_todos",
+    "enabledReportItems.temperature_climatizavel",
+    "enabledReportItems.temperature_nao_climatizavel",
+    "enabledReportItems.temperature_todos",
+    "enabledReportItems.alarms_por_dispositivo",
+    "enabledReportItems.alarms_dispositivo_x_alarme",
+    "enabledReportItems.alarms_por_tipo"
   ]
 }

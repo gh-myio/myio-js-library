@@ -8,7 +8,7 @@ import { attach as attachDateRangePicker, DateRangeControl } from '../internal/D
 import {
   attachFilterOrderingModal,
   FilterModalHandle,
-  SortMode
+  SortMode,
 } from '../internal/filter-ordering/FilterOrderingModal';
 import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 
@@ -16,10 +16,10 @@ import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 type Domain = 'energy' | 'water';
 
 interface DomainConfig {
-  endpoint: string;     // API endpoint path
-  unit: string;         // Display unit (kWh, m³)
-  label: string;        // Column label
-  totalLabel: string;   // Total section label
+  endpoint: string; // API endpoint path
+  unit: string; // Display unit (kWh, m³)
+  label: string; // Column label
+  totalLabel: string; // Total section label
 }
 
 const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
@@ -27,21 +27,21 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     endpoint: 'energy',
     unit: 'kWh',
     label: 'Consumption (kWh)',
-    totalLabel: 'Total kWh'
+    totalLabel: 'Total kWh',
   },
   water: {
     endpoint: 'water',
     unit: 'm³',
     label: 'Consumo (m³)',
-    totalLabel: 'Total m³'
-  }
+    totalLabel: 'Total m³',
+  },
 };
 
 interface StoreReading {
-  identifier: string;   // e.g., "SCMAL1230B" - unique store identifier
-  name: string;         // e.g., "McDonalds" - human-readable name
-  consumption: number;  // e.g., 152.43 - consumption in kWh or m³
-  groupLabel?: string;  // RFC-0182: present when "todos" mode — triggers section headers
+  identifier: string; // e.g., "SCMAL1230B" - unique store identifier
+  name: string; // e.g., "McDonalds" - human-readable name
+  consumption: number; // e.g., 152.43 - consumption in kWh or m³
+  groupLabel?: string; // RFC-0182: present when "todos" mode — triggers section headers
 }
 
 export class AllReportModal {
@@ -72,7 +72,7 @@ export class AllReportModal {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
       clientSecret: params.api.clientSecret,
-      base: params.api.dataApiBaseUrl
+      base: params.api.dataApiBaseUrl,
     });
 
     // Set domain configuration
@@ -90,8 +90,8 @@ export class AllReportModal {
       debugParam: params.debug,
       apiConfig: {
         hasIngestionToken: !!params.api.ingestionToken,
-        dataApiBaseUrl: params.api.dataApiBaseUrl
-      }
+        dataApiBaseUrl: params.api.dataApiBaseUrl,
+      },
     });
   }
 
@@ -130,18 +130,16 @@ export class AllReportModal {
     }
 
     // Fallback: first token that looks like a code
-    const maybe = tokens.find(t => /[A-Za-z0-9]{3,}/.test(t));
+    const maybe = tokens.find((t) => /[A-Za-z0-9]{3,}/.test(t));
     return maybe || null;
   }
 
   // Helper: pick a numeric consumption from an API item
   private pickConsumption(item: any): number {
-    const fields = ['total_value','totalValue','consumption','value','total','energy','kwh'];
+    const fields = ['total_value', 'totalValue', 'consumption', 'value', 'total', 'energy', 'kwh'];
     for (const f of fields) {
       if (item?.[f] !== undefined && item?.[f] !== null) {
-        const n = typeof item[f] === 'string'
-          ? parseFloat(item[f].replace(',', '.'))
-          : Number(item[f]);
+        const n = typeof item[f] === 'string' ? parseFloat(item[f].replace(',', '.')) : Number(item[f]);
         if (!Number.isNaN(n)) return n;
       }
     }
@@ -150,26 +148,26 @@ export class AllReportModal {
 
   private resolveTitle(): string {
     const domain = this.params.domain || 'energy';
-    const group  = this.params.group  || 'lojas';
+    const group = this.params.group || 'lojas';
 
     const TITLES: Record<string, Record<string, string>> = {
       energy: {
-        lojas:           'Relatório Geral - Todas as Lojas',
-        entrada:         'Relatório Geral - Dispositivos de Entrada',
-        area_comum:      'Relatório Geral - Equipamentos em Área Comum',
-        todos:           'Relatório Geral - Todos os Dispositivos de Energia',
+        lojas: 'Relatório Geral - Todas as Lojas',
+        entrada: 'Relatório Geral - Dispositivos de Entrada',
+        area_comum: 'Relatório Geral - Equipamentos em Área Comum',
+        todos: 'Relatório Geral - Todos os Dispositivos de Energia',
       },
       water: {
-        lojas:           'Relatório Geral - Todas as Lojas',
-        entrada:         'Relatório Geral - Dispositivos de Entrada',
-        area_comum:      'Relatório Geral - Equipamentos em Área Comum',
-        banheiros:       'Relatório Geral - Banheiros',
-        todos:           'Relatório Geral - Todos os Dispositivos de Água',
+        lojas: 'Relatório Geral - Todas as Lojas',
+        entrada: 'Relatório Geral - Dispositivos de Entrada',
+        area_comum: 'Relatório Geral - Equipamentos em Área Comum',
+        banheiros: 'Relatório Geral - Banheiros',
+        todos: 'Relatório Geral - Todos os Dispositivos de Água',
       },
       temperature: {
-        climatizavel:     'Relatório Geral - Ambientes Climatizáveis',
+        climatizavel: 'Relatório Geral - Ambientes Climatizáveis',
         nao_climatizavel: 'Relatório Geral - Ambientes Não Climatizáveis',
-        todos:            'Relatório Geral - Todos os Ambientes',
+        todos: 'Relatório Geral - Todos os Ambientes',
       },
     };
 
@@ -183,13 +181,13 @@ export class AllReportModal {
       title: `${this.resolveTitle()}${this.debugEnabled ? ' [DEBUG MODE]' : ''}`,
       width: '85vw',
       height: '90vh',
-      theme: this.params.ui?.theme || 'light'
+      theme: this.params.ui?.theme || 'light',
     });
 
     this.renderContent();
     this.modal.on('close', () => {
       this.debugLog('🚪 Modal closing - cleaning up resources');
-      
+
       // Cleanup DateRangePicker
       if (this.dateRangePicker) {
         this.dateRangePicker.destroy();
@@ -210,7 +208,7 @@ export class AllReportModal {
 
     return {
       close: () => this.modal.close(),
-      on: (event, handler) => this.on(event, handler)
+      on: (event, handler) => this.on(event, handler),
     };
   }
 
@@ -272,7 +270,7 @@ export class AllReportModal {
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
-    
+
     // Fix search input event listener
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
@@ -301,7 +299,7 @@ export class AllReportModal {
         onApply: ({ startISO, endISO }) => {
           this.hideError();
           this.debugLog('Date range selected:', { startISO, endISO });
-        }
+        },
       });
     } catch (error) {
       this.debugLog('DateRangePicker initialization failed, using fallback:', error);
@@ -343,27 +341,25 @@ export class AllReportModal {
       this.debugLog('🌐 Fetching customer totals from API...');
       const customerTotalsData = await this.fetchCustomerTotals(startISO, endISO);
       this.debugLog('✅ API response received', customerTotalsData);
-      
+
       // Process and map the API response
       this.debugLog('🔄 Processing API response...');
       this.data = this.mapCustomerTotalsResponse(customerTotalsData);
       this.debugLog('✅ Data mapping completed', {
         mappedDataLength: this.data.length,
         mappedData: this.data,
-        totalConsumption: this.calculateTotalConsumption()
+        totalConsumption: this.calculateTotalConsumption(),
       });
 
       // RFC-0061: Initialize all stores as selected by default (use identifier for uniqueness)
-      this.selectedStoreIds = new Set(
-        this.data.map(store => this.generateStoreId(store.identifier))
-      );
+      this.selectedStoreIds = new Set(this.data.map((store) => this.generateStoreId(store.identifier)));
       this.debugLog('🎯 Store IDs initialized', {
         selectedStoreIdsSize: this.selectedStoreIds.size,
-        selectedStoreIds: Array.from(this.selectedStoreIds)
+        selectedStoreIds: Array.from(this.selectedStoreIds),
       });
 
       this.currentPage = 1;
-      
+
       this.debugLog('🎨 Rendering UI components...');
       this.renderSummary();
       this.renderTable();
@@ -375,9 +371,8 @@ export class AllReportModal {
       this.emit('loaded', {
         date: { start: startDate, end: endDate },
         stores: this.data.length,
-        totalConsumption: this.calculateTotalConsumption()
+        totalConsumption: this.calculateTotalConsumption(),
       });
-
     } catch (error) {
       this.debugLog('❌ Error in loadData', error);
       this.showError('Erro ao carregar dados: ' + (error as Error).message);
@@ -395,7 +390,7 @@ export class AllReportModal {
 
     // RFC-0061: Apply filter modal selections (if any stores are selected)
     if (this.selectedStoreIds.size > 0) {
-      filtered = this.data.filter(store => {
+      filtered = this.data.filter((store) => {
         const storeId = this.generateStoreId(store.identifier);
         return this.selectedStoreIds.has(storeId);
       });
@@ -403,7 +398,7 @@ export class AllReportModal {
 
     // Apply quick search filter
     if (this.searchFilter) {
-      filtered = filtered.filter(store => {
+      filtered = filtered.filter((store) => {
         const name = (store.name || '').toString().toLowerCase();
         const identifier = (store.identifier || '').toString().toLowerCase();
         return name.includes(this.searchFilter) || identifier.includes(this.searchFilter);
@@ -415,9 +410,7 @@ export class AllReportModal {
       const bVal = b[this.sortField];
 
       if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return this.sortDirection === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
+        return this.sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       } else {
         return this.sortDirection === 'asc'
           ? (aVal as number) - (bVal as number)
@@ -442,7 +435,7 @@ export class AllReportModal {
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: var(--myio-bg); border-radius: 6px;">
         <div style="text-align: center;">
           <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${storeCount}</div>
-          <div style="color: var(--myio-text-muted);">Lojas</div>
+          <div style="color: var(--myio-text-muted);">Dispositivos</div>
         </div>
         <div style="text-align: center;">
           <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption)}</div>
@@ -450,7 +443,7 @@ export class AllReportModal {
         </div>
         <div style="text-align: center;">
           <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption / storeCount)}</div>
-          <div style="color: var(--myio-text-muted);">Média por Loja</div>
+          <div style="color: var(--myio-text-muted);">Média por Dispositivo</div>
         </div>
       </div>
     `;
@@ -475,17 +468,21 @@ export class AllReportModal {
     }
 
     // RFC-0182: grouped mode when items carry groupLabel
-    const isGrouped = paginatedData.some(r => r.groupLabel);
+    const isGrouped = paginatedData.some((r) => r.groupLabel);
 
     const tableRows = isGrouped
       ? this.renderGroupedRows(paginatedData)
-      : paginatedData.map(row => `
+      : paginatedData
+          .map(
+            (row) => `
           <tr>
             <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
             <td data-label="Name"><strong>${row.name}</strong></td>
             <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
           </tr>
-        `).join('');
+        `
+          )
+          .join('');
 
     container.innerHTML = `
       <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--myio-border); border-radius: 6px;">
@@ -559,11 +556,12 @@ export class AllReportModal {
       byGroup.get(g)!.push(row);
     }
 
-    return groupOrder.map(groupLabel => {
-      const items = byGroup.get(groupLabel)!;
-      const groupTotal = items.reduce((s, r) => s + r.consumption, 0);
+    return groupOrder
+      .map((groupLabel) => {
+        const items = byGroup.get(groupLabel)!;
+        const groupTotal = items.reduce((s, r) => s + r.consumption, 0);
 
-      const header = `
+        const header = `
         <tr class="rp-group-header">
           <td colspan="3">
             ${groupLabel}
@@ -571,15 +569,20 @@ export class AllReportModal {
           </td>
         </tr>`;
 
-      const dataRows = items.map(row => `
+        const dataRows = items
+          .map(
+            (row) => `
         <tr>
           <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
           <td data-label="Name"><strong>${row.name}</strong></td>
           <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-        </tr>`).join('');
+        </tr>`
+          )
+          .join('');
 
-      return header + dataRows;
-    }).join('');
+        return header + dataRows;
+      })
+      .join('');
   }
 
   private getSortIcon(field: keyof StoreReading): string {
@@ -593,7 +596,7 @@ export class AllReportModal {
 
   private setupTableSorting(): void {
     const headers = document.querySelectorAll('[data-sort]');
-    headers.forEach(header => {
+    headers.forEach((header) => {
       header.addEventListener('click', () => {
         const sortKey = header.getAttribute('data-sort') as keyof StoreReading;
 
@@ -601,7 +604,7 @@ export class AllReportModal {
           this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
           this.sortField = sortKey;
-          this.sortDirection = (sortKey === 'identifier' || sortKey === 'name') ? 'asc' : 'desc';
+          this.sortDirection = sortKey === 'identifier' || sortKey === 'name' ? 'asc' : 'desc';
         }
 
         this.currentPage = 1;
@@ -683,7 +686,7 @@ export class AllReportModal {
         },
         onClose: () => {
           // Optional: handle close event
-        }
+        },
       });
     } else {
       // Update existing modal with current data
@@ -697,12 +700,12 @@ export class AllReportModal {
   private convertToStoreItems(): StoreItem[] {
     // RFC-0061: Detect duplicate labels to append identifier
     const labelCounts = new Map<string, number>();
-    this.data.forEach(store => {
+    this.data.forEach((store) => {
       const count = labelCounts.get(store.name) || 0;
       labelCounts.set(store.name, count + 1);
     });
 
-    return this.data.map(store => {
+    return this.data.map((store) => {
       // If label appears more than once, append identifier in small italic font
       const isDuplicate = labelCounts.get(store.name)! > 1;
       const label = isDuplicate
@@ -713,7 +716,7 @@ export class AllReportModal {
         id: this.generateStoreId(store.identifier), // Use identifier for unique ID
         identifier: store.identifier,
         label: label,
-        consumption: store.consumption
+        consumption: store.consumption,
       };
     });
   }
@@ -721,7 +724,10 @@ export class AllReportModal {
   private generateStoreId(storeName: string | undefined | null): string {
     // Generate consistent ID from store name or identifier
     const name = (storeName || 'SEM-ID').toString();
-    return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
   }
 
   private applyFiltersAndSort(selectedIds: string[], sortMode: SortMode): void {
@@ -774,7 +780,7 @@ export class AllReportModal {
       // Header row only
       ['Identificador', 'Nome', `Consumo (${this.domainConfig.unit})`],
       // Data rows
-      ...sortedData.map(row => [row.identifier, row.name, row.consumption.toFixed(2)])
+      ...sortedData.map((row) => [row.identifier, row.name, row.consumption.toFixed(2)]),
     ];
 
     const csvContent = toCsv(csvData);
@@ -785,13 +791,13 @@ export class AllReportModal {
     // Check if custom fetcher is provided (for testing/demo)
     if (this.params.fetcher) {
       // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
-      const token = this.params.api.ingestionToken || await this.authClient.getBearer();
+      const token = this.params.api.ingestionToken || (await this.authClient.getBearer());
       return await this.params.fetcher({
         baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
         token: token,
         customerId: this.params.customerId,
         startISO,
-        endISO
+        endISO,
       });
     }
 
@@ -801,25 +807,29 @@ export class AllReportModal {
     if (!token) {
       throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
     }
-    
+
     const baseUrl = this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com';
-    
+
     // Format timestamps for API call
     const startTime = encodeURIComponent(startISO);
     const endTime = encodeURIComponent(endISO);
-    
+
     const endpoint = this.domainConfig.endpoint;
     const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}`;
 
-    this.debugLog('[AllReportModal] Fetching customer totals:', { url, customerId: this.params.customerId, domain: this.params.domain || 'energy' });
+    this.debugLog('[AllReportModal] Fetching customer totals:', {
+      url,
+      customerId: this.params.customerId,
+      domain: this.params.domain || 'energy',
+    });
 
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         // Using ingestionToken for Data API endpoints (data.apps.myio-bas.com)
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -828,7 +838,7 @@ export class AllReportModal {
 
     const data = await response.json();
     this.debugLog('[AllReportModal] Customer totals response:', data);
-    
+
     return data;
   }
 
@@ -844,13 +854,16 @@ export class AllReportModal {
 
     // Always log this for debugging (survives minification)
     this.debugLog('[AllReportModal] NEW MAPPING - API array length:', apiArray.length);
-    this.debugLog('[AllReportModal] NEW MAPPING - ItemsList length:', this.params.itemsList?.length ?? 'N/A (direct mode)');
+    this.debugLog(
+      '[AllReportModal] NEW MAPPING - ItemsList length:',
+      this.params.itemsList?.length ?? 'N/A (direct mode)'
+    );
 
     this.debugLog('📋 API data array extracted', {
       isDataProperty: !!apiResponse?.data,
       isDirectArray: Array.isArray(apiResponse),
       apiArrayLength: apiArray.length,
-      firstFewItems: apiArray.slice(0, 3)
+      firstFewItems: apiArray.slice(0, 3),
     });
 
     if (!apiArray.length) {
@@ -862,10 +875,10 @@ export class AllReportModal {
     // 2a) When no itemsList is provided, map directly from the API array
     if (!this.params.itemsList || this.params.itemsList.length === 0) {
       this.debugLog('📋 No itemsList provided — mapping directly from API array');
-      return apiArray.map(item => ({
+      return apiArray.map((item) => ({
         identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
         name: item.name || item.assetName || item.id || '',
-        consumption: this.pickConsumption(item)
+        consumption: this.pickConsumption(item),
       }));
     }
 
@@ -878,7 +891,7 @@ export class AllReportModal {
     for (const [index, item] of apiArray.entries()) {
       const consumption = this.pickConsumption(item);
       totalApiConsumption += consumption;
-      
+
       // Log first few items for debugging
       if (index < 3) {
         this.debugLog(`[AllReportModal] NEW MAPPING - API item ${index}:`, {
@@ -886,21 +899,23 @@ export class AllReportModal {
           name: item?.name,
           assetName: item?.assetName,
           total_value: item?.total_value,
-          extractedConsumption: consumption
+          extractedConsumption: consumption,
         });
       }
-      
+
       this.debugLog(`📊 Processing API item ${index}`, {
         item,
         extractedConsumption: consumption,
-        hasId: !!item?.id
+        hasId: !!item?.id,
       });
-      
+
       if (item?.id) {
         const id = String(item.id);
         const previousSum = sumByApiId.get(id) || 0;
         sumByApiId.set(id, previousSum + consumption);
-        this.debugLog(`✅ Added to ID index: ${id} = ${previousSum} + ${consumption} = ${previousSum + consumption}`);
+        this.debugLog(
+          `✅ Added to ID index: ${id} = ${previousSum} + ${consumption} = ${previousSum + consumption}`
+        );
       } else {
         apiItemsWithoutId++;
         this.debugLog(`❌ API item without ID:`, item);
@@ -913,13 +928,14 @@ export class AllReportModal {
     this.debugLog('📊 ID index built', {
       sumByApiIdSize: sumByApiId.size,
       sumByApiIdEntries: Array.from(sumByApiId.entries()),
-      apiItemsWithoutId
+      apiItemsWithoutId,
     });
 
     // 3) Map itemsList to rows with fallback strategy
-    let matchedById = 0, matchedBySubstring = 0;
+    let matchedById = 0,
+      matchedBySubstring = 0;
     let totalMappedConsumption = 0;
-    
+
     this.debugLog('🎯 Starting itemsList mapping...');
     const rows: StoreReading[] = this.params.itemsList.map((listItem, index) => {
       this.debugLog(`🔍 Processing listItem ${index}`, listItem);
@@ -927,45 +943,45 @@ export class AllReportModal {
       // Primary: exact ID match
       let consumption = sumByApiId.get(listItem.id) ?? 0;
       this.debugLog(`🎯 Primary ID match for ${listItem.id}: ${consumption}`);
-      
+
       // Log first few items for debugging
       if (index < 3) {
         this.debugLog(`[AllReportModal] NEW MAPPING - ItemsList item ${index}:`, {
           id: listItem.id,
           identifier: listItem.identifier,
           label: listItem.label,
-          idMatchConsumption: consumption
+          idMatchConsumption: consumption,
         });
       }
-      
+
       if (consumption > 0) {
         matchedById++;
         this.debugLog(`✅ Matched by ID: ${listItem.id} -> ${consumption}`);
       } else {
         this.debugLog(`🔄 No ID match, trying substring fallback for identifier: ${listItem.identifier}`);
-        
+
         // Fallback: substring match in name/assetName
         for (const [apiIndex, apiItem] of apiArray.entries()) {
           const assetName = apiItem?.assetName || '';
           const name = apiItem?.name || '';
-          
+
           const assetNameMatch = assetName.includes(listItem.identifier);
           const nameMatch = name.includes(listItem.identifier);
-          
+
           if (assetNameMatch || nameMatch) {
             const itemConsumption = this.pickConsumption(apiItem);
             consumption += itemConsumption;
-            
+
             // Log substring matches for debugging
             if (index < 3) {
               this.debugLog(`[AllReportModal] NEW MAPPING - Substring match for ${listItem.identifier}:`, {
                 apiItemName: name,
                 apiItemAssetName: assetName,
                 itemConsumption,
-                totalConsumption: consumption
+                totalConsumption: consumption,
               });
             }
-            
+
             this.debugLog(`✅ Substring match found in API item ${apiIndex}`, {
               listItemIdentifier: listItem.identifier,
               apiItemAssetName: assetName,
@@ -973,11 +989,11 @@ export class AllReportModal {
               assetNameMatch,
               nameMatch,
               itemConsumption,
-              totalConsumption: consumption
+              totalConsumption: consumption,
             });
           }
         }
-        
+
         if (consumption > 0) {
           matchedBySubstring++;
           this.debugLog(`✅ Matched by substring: ${listItem.identifier} -> ${consumption}`);
@@ -1008,7 +1024,7 @@ export class AllReportModal {
       unmatched: this.params.itemsList.length - matchedById - matchedBySubstring,
       apiItemsWithoutId,
       totalApiConsumption,
-      totalMappedConsumption
+      totalMappedConsumption,
     };
 
     // Always log final stats (survives minification)
@@ -1022,22 +1038,13 @@ export class AllReportModal {
 
   private parseConsumptionValue(item: any): number {
     // Try various possible field names for consumption value
-    const possibleFields = [
-      'total_value',
-      'totalValue', 
-      'consumption',
-      'value',
-      'total',
-      'energy',
-      'kwh'
-    ];
+    const possibleFields = ['total_value', 'totalValue', 'consumption', 'value', 'total', 'energy', 'kwh'];
 
     for (const field of possibleFields) {
       if (item[field] !== undefined && item[field] !== null) {
-        const value = typeof item[field] === 'string' 
-          ? parseFloat(item[field].replace(',', '.')) 
-          : Number(item[field]);
-        
+        const value =
+          typeof item[field] === 'string' ? parseFloat(item[field].replace(',', '.')) : Number(item[field]);
+
         if (!isNaN(value)) {
           return Math.round(value * 100) / 100; // Round to 2 decimal places
         }
@@ -1098,7 +1105,7 @@ export class AllReportModal {
 
   private emit(event: string, payload?: any): void {
     if (this.eventHandlers[event]) {
-      this.eventHandlers[event].forEach(handler => handler());
+      this.eventHandlers[event].forEach((handler) => handler());
     }
   }
 }
