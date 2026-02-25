@@ -1395,6 +1395,66 @@ function buildWaterCardItems(classified, selectedAmbienteId) {
   });
 }
 
+/**
+ * RFC-0152: Enrich HIDROMETRO devices with 7-day consumption totals from ingestion API.
+ *
+ * Calls createRealFetchData('water', { preferCache: true })(7) — reuses the chart's cache
+ * if the water chart was already rendered, making this effectively free in most cases.
+ *
+ * Updates device.value in-place on classified.water.* hydrometer devices, then refreshes
+ * the CardGridPanel so cards show real 7-day m³ totals instead of the instantaneous
+ * `consumption` attribute snapshot from ThingsBoard SERVER_SCOPE.
+ *
+ * CAIXA_DAGUA (level %) and SOLENOIDE (on/off) are intentionally skipped.
+ *
+ * @param {Object} classified - Classified device structure (hydrometers mutated in-place)
+ * @param {Object} panel - CardGridPanel instance to refresh after enrichment
+ */
+async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
+  if (!MAP_CUSTOMER_CREDENTIALS || !MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id) {
+    LogHelper.log('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: no ingestion credentials, skipping');
+    return;
+  }
+
+  try {
+    var fetchData = createRealFetchData('water', { preferCache: true });
+    var result = await fetchData(7);
+
+    if (!result || !result.shoppingData) {
+      LogHelper.warn('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: no shoppingData in result');
+      return;
+    }
+
+    var waterDevices = getWaterDevicesFromClassified(classified);
+    var enrichedCount = 0;
+
+    waterDevices.forEach(function (device) {
+      // Only enrich HIDROMETRO devices — tanks show level %, solenoids show on/off
+      if (device.type !== 'hydrometer') return;
+
+      var deviceTotals = result.shoppingData[device.id];
+      if (!deviceTotals) return;
+
+      var total7d = deviceTotals.reduce(function (sum, v) { return sum + (Number(v) || 0); }, 0);
+      if (total7d > 0) {
+        device.value = parseFloat(total7d.toFixed(3));
+        device.valueSource = 'ingestion_7d';
+        enrichedCount++;
+      }
+    });
+
+    LogHelper.log('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: enriched', enrichedCount, 'of', waterDevices.filter(function(d){ return d.type === 'hydrometer'; }).length, 'HIDROMETRO devices');
+
+    if (enrichedCount > 0 && panel) {
+      var enrichedItems = buildWaterCardItems(classified, null);
+      panel.setItems(enrichedItems);
+      panel.setQuantity(enrichedItems.length);
+    }
+  } catch (e) {
+    LogHelper.warn('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals failed:', e.message);
+  }
+}
+
 // ============================================================================
 // HVAC device type/status mappings
 // ============================================================================
@@ -2522,6 +2582,12 @@ function mountWaterPanel(waterHost, settings, classified) {
   });
 
   waterHost.appendChild(panel.getElement());
+
+  // RFC-0152: Async enrich HIDROMETRO cards with 7-day totals from ingestion API.
+  // Cards are already visible with the TB attribute snapshot; this updates val when the API responds.
+  // Uses preferCache:true so if the water chart already fetched, this is instant (no extra request).
+  enrichWaterDevicesWithIngestionTotals(classified, panel);
+
   return panel;
 }
 
