@@ -13,7 +13,7 @@ import {
 import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 
 // Domain configuration
-type Domain = 'energy' | 'water';
+type Domain = 'energy' | 'water' | 'temperature';
 
 interface DomainConfig {
   endpoint: string; // API endpoint path
@@ -34,6 +34,12 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     unit: 'm³',
     label: 'Consumo (m³)',
     totalLabel: 'Total m³',
+  },
+  temperature: {
+    endpoint: 'temperature',
+    unit: '°C',
+    label: 'Temperatura (°C)',
+    totalLabel: 'Média °C',
   },
 };
 
