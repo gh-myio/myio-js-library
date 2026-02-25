@@ -321,15 +321,6 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
   input.readOnly = true;
   input.setAttribute('aria-label', 'Período de datas');
   
-  // Add helper text container for proper alignment
-  const helpText = document.createElement('div');
-  helpText.className = 'myio-text-muted';
-  helpText.style.fontSize = '12px';
-  helpText.style.marginTop = '4px';
-  helpText.style.display = 'flex';
-  helpText.style.alignItems = 'center';
-  input.parentNode?.appendChild(helpText);
-  
   // RFC-0086: Determine if we need time precision
   const includeTime = opts.includeTime === true;
   const timePrecision = opts.timePrecision || 'minute';
@@ -465,8 +456,6 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
     // Clear data
     $input.removeData('daterangepicker');
     
-    // Remove helper text
-    helpText?.remove();
   }
   
   return { getDates, setDates, destroy };

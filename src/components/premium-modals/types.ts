@@ -61,17 +61,18 @@ export type CustomerTotalsFetcher = (args: {
 }) => Promise<any[]>;
 
 export interface StoreItem {
-  id: string;         // Device ID to match with API response
-  identifier: string; // Display identifier (e.g., "SCMAL1230B")
-  label: string;      // Display name (e.g., "McDonalds")
+  id: string;           // ingestionId to match with API response (device.ingestionId)
+  identifier: string;   // Display identifier (e.g., "SCMAL1230B")
+  label: string;        // Display name (e.g., "McDonalds")
+  groupLabel?: string;  // RFC-0182: Optional group for "todos" mode — triggers section headers
 }
 
 export interface OpenAllReportParams {
   customerId: string;
-  domain?: 'energy' | 'water'; // Data domain (default: 'energy') - only energy and water supported
+  domain?: 'energy' | 'water' | 'temperature'; // Data domain (default: 'energy')
   ui?: BaseUiCfg;
   api: BaseApiCfg;
-  itemsList: StoreItem[]; // Mandatory list of items to display
+  itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response
   fetcher?: CustomerTotalsFetcher; // Optional dependency injection for testing
   debug?: 1 | 0; // Optional debug logging flag (1 = enabled, 0 = disabled)
 }

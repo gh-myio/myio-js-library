@@ -943,6 +943,10 @@ Object.assign(window.MyIOUtils, {
   categoryToLabelWidget,
   inferLabelWidget,
   EQUIPMENT_EXCLUSION_PATTERN,
+  // RFC-0182: Expose categorization helpers so MENU/TELEMETRY can split items by group
+  categorizeItemsByGroup,
+  categorizeItemsByGroupWater,
+  categorizeItemsByGroupTemperature,
 });
 
 // ============================================================================
@@ -2208,6 +2212,37 @@ function categorizeItemsByGroupWater(items) {
   }
 
   return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
+}
+
+/**
+ * RFC-0182: Categorize temperature items into groups by deviceProfile
+ *
+ * RULE ORDER:
+ * 0. OCULTOS  - deviceProfile contains ARQUIVADO, SEM_DADOS, etc.
+ * 1. NAO_CLIMATIZAVEL - deviceProfile === 'TERMOSTATO_EXTERNAL'
+ * 2. CLIMATIZAVEL     - deviceProfile === 'TERMOSTATO' (or any remaining termostato variant)
+ */
+function categorizeItemsByGroupTemperature(items) {
+  const climatizavel     = [];
+  const nao_climatizavel = [];
+  const ocultos          = [];
+
+  const toStr = (val) => String(val || '').toUpperCase();
+
+  for (const item of items) {
+    if (isOcultosDevice(item)) {
+      ocultos.push(item);
+      continue;
+    }
+    const dp = toStr(item.deviceProfile);
+    if (dp === 'TERMOSTATO_EXTERNAL') {
+      nao_climatizavel.push(item);
+    } else {
+      climatizavel.push(item); // TERMOSTATO or any other termostato variant
+    }
+  }
+
+  return { climatizavel, nao_climatizavel, ocultos };
 }
 
 /**
@@ -6072,6 +6107,22 @@ const MyIOOrchestrator = (() => {
 
     // Expose widget busy monitor
     widgetBusyMonitor,
+
+    // RFC-0181: Return classified groups from cached domain data
+    // Returns { lojas, entrada, areacomum, ocultos } for energy
+    // Returns { lojas, entrada, areacomum, banheiros, ocultos } for water
+    getEnergyGroups: () => {
+      const items = window.MyIOOrchestratorData?.energy?.items || [];
+      return categorizeItemsByGroup(items);
+    },
+    getWaterGroups: () => {
+      const items = window.MyIOOrchestratorData?.water?.items || [];
+      return categorizeItemsByGroupWater(items);
+    },
+    getTemperatureGroups: () => {
+      const items = window.MyIOOrchestratorData?.temperature?.items || [];
+      return categorizeItemsByGroupTemperature(items);
+    },
 
     setCredentials: (customerId, clientId, clientSecret) => {
       LogHelper.log(`[Orchestrator] 🔐 setCredentials called with:`, {

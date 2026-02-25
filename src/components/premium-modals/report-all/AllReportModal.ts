@@ -38,9 +38,10 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
 };
 
 interface StoreReading {
-  identifier: string;  // e.g., "SCMAL1230B" - unique store identifier
-  name: string;        // e.g., "McDonalds" - human-readable name
-  consumption: number; // e.g., 152.43 - consumption in kWh or m³
+  identifier: string;   // e.g., "SCMAL1230B" - unique store identifier
+  name: string;         // e.g., "McDonalds" - human-readable name
+  consumption: number;  // e.g., 152.43 - consumption in kWh or m³
+  groupLabel?: string;  // RFC-0182: present when "todos" mode — triggers section headers
 }
 
 export class AllReportModal {
@@ -445,44 +446,49 @@ export class AllReportModal {
       return;
     }
 
+    // RFC-0182: grouped mode when items carry groupLabel
+    const isGrouped = paginatedData.some(r => r.groupLabel);
+
+    const tableRows = isGrouped
+      ? this.renderGroupedRows(paginatedData)
+      : paginatedData.map(row => `
+          <tr>
+            <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
+            <td data-label="Name"><strong>${row.name}</strong></td>
+            <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
+          </tr>
+        `).join('');
+
     container.innerHTML = `
       <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--myio-border); border-radius: 6px;">
         <style>
+          .rp-group-header td {
+            background: var(--myio-bg, #f3f4f6);
+            font-weight: 700;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--myio-text-muted, #6b7280);
+            padding: 8px 12px !important;
+            border-top: 2px solid var(--myio-border, #e5e7eb);
+          }
+          .rp-group-total {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--myio-primary, #1565c0);
+            margin-left: 8px;
+          }
           @media (max-width: 768px) {
-            .myio-table-mobile {
-              display: block !important;
-            }
+            .myio-table-mobile { display: block !important; }
             .myio-table-mobile thead,
             .myio-table-mobile tbody,
             .myio-table-mobile th,
             .myio-table-mobile td,
-            .myio-table-mobile tr {
-              display: block !important;
-            }
-            .myio-table-mobile thead tr {
-              position: absolute !important;
-              top: -9999px !important;
-              left: -9999px !important;
-            }
-            .myio-table-mobile tbody tr {
-              border: 1px solid var(--myio-border) !important;
-              border-radius: 8px !important;
-              margin-bottom: 16px !important;
-              padding: 16px !important;
-              background: white !important;
-            }
-            .myio-table-mobile tbody td {
-              border: none !important;
-              padding: 8px 0 !important;
-              position: relative !important;
-            }
-            .myio-table-mobile tbody td:before {
-              content: attr(data-label) ": " !important;
-              font-weight: bold !important;
-              display: inline-block !important;
-              width: 120px !important;
-              color: var(--myio-text-muted) !important;
-            }
+            .myio-table-mobile tr { display: block !important; }
+            .myio-table-mobile thead tr { position: absolute !important; top: -9999px !important; left: -9999px !important; }
+            .myio-table-mobile tbody tr { border: 1px solid var(--myio-border) !important; border-radius: 8px !important; margin-bottom: 16px !important; padding: 16px !important; background: white !important; }
+            .myio-table-mobile tbody td { border: none !important; padding: 8px 0 !important; position: relative !important; }
+            .myio-table-mobile tbody td:before { content: attr(data-label) ": " !important; font-weight: bold !important; display: inline-block !important; width: 120px !important; color: var(--myio-text-muted) !important; }
           }
         </style>
         <table class="myio-table myio-table-mobile" style="table-layout: fixed; width: 100%;">
@@ -502,20 +508,50 @@ export class AllReportModal {
               </th>
             </tr>
           </thead>
-          <tbody>
-            ${paginatedData.map(row => `
-              <tr>
-                <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
-                <td data-label="Name"><strong>${row.name}</strong></td>
-                <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
+          <tbody>${tableRows}</tbody>
         </table>
       </div>
     `;
 
     this.setupTableSorting();
+  }
+
+  // RFC-0182: Render rows grouped by groupLabel with section headers (Option B)
+  private renderGroupedRows(rows: StoreReading[]): string {
+    // Preserve group order (order of first occurrence)
+    const groupOrder: string[] = [];
+    const byGroup = new Map<string, StoreReading[]>();
+
+    for (const row of rows) {
+      const g = row.groupLabel || '—';
+      if (!byGroup.has(g)) {
+        byGroup.set(g, []);
+        groupOrder.push(g);
+      }
+      byGroup.get(g)!.push(row);
+    }
+
+    return groupOrder.map(groupLabel => {
+      const items = byGroup.get(groupLabel)!;
+      const groupTotal = items.reduce((s, r) => s + r.consumption, 0);
+
+      const header = `
+        <tr class="rp-group-header">
+          <td colspan="3">
+            ${groupLabel}
+            <span class="rp-group-total">${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}</span>
+          </td>
+        </tr>`;
+
+      const dataRows = items.map(row => `
+        <tr>
+          <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
+          <td data-label="Name"><strong>${row.name}</strong></td>
+          <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
+        </tr>`).join('');
+
+      return header + dataRows;
+    }).join('');
   }
 
   private getSortIcon(field: keyof StoreReading): string {
@@ -780,7 +816,7 @@ export class AllReportModal {
 
     // Always log this for debugging (survives minification)
     this.debugLog('[AllReportModal] NEW MAPPING - API array length:', apiArray.length);
-    this.debugLog('[AllReportModal] NEW MAPPING - ItemsList length:', this.params.itemsList.length);
+    this.debugLog('[AllReportModal] NEW MAPPING - ItemsList length:', this.params.itemsList?.length ?? 'N/A (direct mode)');
 
     this.debugLog('📋 API data array extracted', {
       isDataProperty: !!apiResponse?.data,
@@ -795,7 +831,17 @@ export class AllReportModal {
       return [];
     }
 
-    // 2) Build primary index by ID (with aggregation for duplicate IDs)
+    // 2a) When no itemsList is provided, map directly from the API array
+    if (!this.params.itemsList || this.params.itemsList.length === 0) {
+      this.debugLog('📋 No itemsList provided — mapping directly from API array');
+      return apiArray.map(item => ({
+        identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
+        name: item.name || item.assetName || item.id || '',
+        consumption: this.pickConsumption(item)
+      }));
+    }
+
+    // 2b) Build primary index by ID (with aggregation for duplicate IDs)
     const sumByApiId = new Map<string, number>();
     let apiItemsWithoutId = 0;
     let totalApiConsumption = 0;
@@ -912,10 +958,11 @@ export class AllReportModal {
         }
       }
 
-      const result = {
+      const result: StoreReading = {
         identifier: listItem.identifier,
         name: listItem.label,
-        consumption: Math.round(consumption * 100) / 100
+        consumption: Math.round(consumption * 100) / 100,
+        ...(listItem.groupLabel ? { groupLabel: listItem.groupLabel } : {}),
       };
 
       totalMappedConsumption += result.consumption;

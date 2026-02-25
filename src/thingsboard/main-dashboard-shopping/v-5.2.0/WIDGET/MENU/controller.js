@@ -211,8 +211,7 @@ self.onInit = function () {
         updateShoppingLabel();
       }
 
-      // RFC-0181: Reports button — available to all authenticated users
-      addReportsButton();
+      // (RFC-0181: reports intercept is handled inside changeDashboardState)
     } catch (err) {
       LogHelper.error('[MENU] Error fetching user info:', err);
 
@@ -235,6 +234,14 @@ self.onInit = function () {
 
   scope.changeDashboardState = function (e, stateId, index) {
     e.preventDefault();
+
+    // RFC-0181: Intercept Relatórios link — open picker instead of navigating
+    const clickedLink = scope.links[index];
+    if (clickedLink && /relat/i.test(clickedLink.content || '')) {
+      LogHelper.log('[MENU RFC-0181] Relatórios link clicked – opening reports picker');
+      openReportsPickerModal();
+      return;
+    }
 
     // Marca o link selecionado e desmarca os outros
     scope.links.forEach((link, i) => (link.enableLink = i === index));
@@ -1100,51 +1107,17 @@ self.onInit = function () {
     LogHelper.log('[MENU] Measurement setup button added successfully');
   }
 
-  // ─── RFC-0181: Reports Menu Button ──────────────────────────────────────────
-
-  function addReportsButton() {
-    if (document.getElementById('reports-menu-btn')) {
-      return;
-    }
-
-    const menuFooter = document.querySelector('.shops-menu-root .menu-footer');
-    const logoutBtn = document.getElementById('logout-btn');
-    if (!menuFooter) {
-      LogHelper.error('[MENU RFC-0181] Menu footer not found');
-      return;
-    }
-
-    const btn = document.createElement('button');
-    btn.id = 'reports-menu-btn';
-    btn.className = 'reports-menu-btn';
-    btn.type = 'button';
-    btn.setAttribute('aria-label', 'Relatórios');
-    btn.innerHTML = `
-      <span class="reports-icon">📊</span>
-      <span class="reports-text">Relatórios</span>
-    `;
-
-    if (logoutBtn) menuFooter.insertBefore(btn, logoutBtn);
-    else menuFooter.appendChild(btn);
-
-    btn.addEventListener('click', () => {
-      LogHelper.log('[MENU RFC-0181] Reports button clicked');
-      openReportsPickerModal();
-    });
-
-    LogHelper.log('[MENU RFC-0181] Reports button added');
-  }
-
   function openReportsPickerModal() {
-    const orch = window.MyIOOrchestrator || {};
+    const orch  = window.MyIOOrchestrator || {};
+    const creds = orch.getCredentials?.() || {};
     const baseParams = {
-      customerId: orch.ingestionId || '',
+      customerId: creds.CUSTOMER_ING_ID || '',
       debug: 0,
       api: {
-        clientId:       orch.clientId       || '',
-        clientSecret:   orch.clientSecret   || '',
-        dataApiBaseUrl: orch.dataApiBaseUrl  || '',
-        ingestionToken: orch.ingestionToken  || '',
+        clientId:       creds.CLIENT_ID     || '',
+        clientSecret:   creds.CLIENT_SECRET || '',
+        dataApiBaseUrl: window.MyIOUtils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com',
+        ingestionToken: orch.tokenManager?.getToken('ingestionToken') || '',
       },
       ui: { theme: 'light' },
     };
@@ -1201,27 +1174,27 @@ self.onInit = function () {
       {
         id: 'energy', label: '⚡ Energia',
         items: [
-          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',   enabled: false },
-          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: false },
-          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e8f5e9', color: '#2e7d32', desc: 'Consumo por loja',        enabled: true  },
-          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os medidores',      enabled: false },
+          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: true },
+          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: true },
+          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e8f5e9', color: '#2e7d32', desc: 'Consumo por loja',         enabled: true },
+          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os medidores',       enabled: true },
         ],
       },
       {
         id: 'water', label: '💧 Água',
         items: [
-          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',   enabled: false },
-          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: false },
-          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e0f2f1', color: '#00695c', desc: 'Consumo por loja',        enabled: true  },
-          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os hidrômetros',   enabled: false },
+          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: true },
+          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: true },
+          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e0f2f1', color: '#00695c', desc: 'Consumo por loja',         enabled: true },
+          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os hidrômetros',    enabled: true },
         ],
       },
       {
         id: 'temperature', label: '🌡️ Temperatura',
         items: [
-          { id: 'climatizavel',     label: 'Ambientes Climatizáveis',     icon: '❄️', bg: '#e1f5fe', color: '#0277bd', desc: 'Ambientes com termostato',    enabled: false },
-          { id: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️', bg: '#fff3e0', color: '#e65100', desc: 'Ambientes sem climatização', enabled: false },
-          { id: 'todos',            label: 'Todos Ambientes',             icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os termostatos',        enabled: false },
+          { id: 'climatizavel',     label: 'Ambientes Climatizáveis',     icon: '❄️', bg: '#e1f5fe', color: '#0277bd', desc: 'Ambientes com termostato',    enabled: true },
+          { id: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️', bg: '#fff3e0', color: '#e65100', desc: 'Ambientes sem climatização', enabled: true },
+          { id: 'todos',            label: 'Todos Ambientes',             icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os termostatos',         enabled: true },
         ],
       },
       {
@@ -1289,11 +1262,9 @@ self.onInit = function () {
     overlay.querySelectorAll('.rp-card[data-enabled="true"]').forEach(card => {
       card.addEventListener('click', () => {
         const domain = card.dataset.domain;
-        const item   = card.dataset.item;
-        if ((domain === 'energy' || domain === 'water') && item === 'lojas') {
-          closeModal();
-          _openLojasReport(domain, baseParams);
-        }
+        const group  = card.dataset.item;
+        closeModal();
+        _openGroupReport(domain, group, baseParams);
       });
     });
 
@@ -1301,16 +1272,61 @@ self.onInit = function () {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
   }
 
-  function _openLojasReport(domain, baseParams) {
+  // RFC-0182: group → itemsList mapping using orchestrator classified groups
+  const GROUP_LABELS = {
+    lojas:           'Lojas',
+    entrada:         'Entrada',
+    area_comum:      'Área Comum',
+    banheiros:       'Banheiros',
+    climatizavel:    'Climatizável',
+    nao_climatizavel:'Não Climatizável',
+  };
+
+  function _buildItemsList(domain, group) {
+    const orch = window.MyIOOrchestrator;
+    let groups;
+    if (domain === 'water') {
+      groups = orch?.getWaterGroups?.()       || {};
+    } else if (domain === 'temperature') {
+      groups = orch?.getTemperatureGroups?.() || {};
+    } else {
+      groups = orch?.getEnergyGroups?.()      || {};
+    }
+
+    const toItem = (d, groupLabel) => ({
+      id:         d.ingestionId || d.id || '',
+      identifier: d.identifier  || d.label || d.name || '',
+      label:      d.label       || d.name  || d.identifier || '',
+      ...(groupLabel ? { groupLabel } : {}),
+    });
+
+    if (group === 'todos') {
+      // Combine all groups (except ocultos), each item carries its groupLabel
+      return Object.entries(groups)
+        .filter(([key]) => key !== 'ocultos')
+        .flatMap(([key, items]) => (items || []).map(d => toItem(d, GROUP_LABELS[key] || key)));
+    }
+
+    // Map group id → key in getXGroups() result
+    // 'area_comum' in DOMAINS maps to 'areacomum' key returned by categorizeItemsByGroup
+    const groupKey = group === 'area_comum' ? 'areacomum' : group;
+    return (groups[groupKey] || []).map(d => toItem(d, null));
+  }
+
+  function _openGroupReport(domain, group, baseParams) {
     const MyIOLib = window.MyIOLibrary;
     if (!MyIOLib?.openDashboardPopupAllReport) {
       LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
       return;
     }
-    LogHelper.log(`[MENU RFC-0181] Opening AllReport for domain: ${domain}`);
+
+    const itemsList = _buildItemsList(domain, group);
+    LogHelper.log(`[MENU RFC-0181] Opening report domain=${domain} group=${group} items=${itemsList.length}`);
+
     MyIOLib.openDashboardPopupAllReport({
       ...baseParams,
-      domain: domain,
+      domain,
+      itemsList,
     });
   }
 
