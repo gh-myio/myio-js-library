@@ -6014,6 +6014,8 @@ function extractDeviceMetadataFromRows(rows) {
     centralName: dataKeyValues['centralName'] || '',
     slaveId: dataKeyValues['slaveId'] || '',
     centralId: dataKeyValues['centralId'] || '',
+    gcdrDeviceId: dataKeyValues['gcdrDeviceId'] || '', // RFC-0180: GCDR device UUID for Alarms tab
+    floor: dataKeyValues['floor'] || '',
 
     // Customer info
     customerId: dataKeyValues['customerId'] || datasource.entity?.customerId?.id || '',

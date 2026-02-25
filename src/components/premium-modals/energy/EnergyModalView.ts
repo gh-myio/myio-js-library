@@ -387,7 +387,7 @@ export class EnergyModalView {
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
-            ${this.config.params.readingType === 'energy' && this.config.params.mode !== 'comparison' ? `
+            ${this.config.params.readingType === 'energy' && this.config.params.mode !== 'comparison' && this.config.params.deviceProfile !== '3F_MEDIDOR' ? `
             <button id="view-demand-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%);
               color: white;

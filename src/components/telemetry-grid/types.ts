@@ -92,6 +92,13 @@ export interface TelemetryDevice {
   aliasName?: string;
   domain?: TelemetryDomain;
   mapInstantaneousPower?: string;
+
+  // GCDR / connection identifiers (RFC-0180)
+  gcdrDeviceId?: string;
+  centralId?: string;
+  slaveId?: string;
+  floor?: string;
+  identifier?: string;
 }
 
 // ============================================

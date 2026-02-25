@@ -158,6 +158,7 @@ export interface AnnotationsTabConfig {
   container: HTMLElement;
   deviceId: string;
   jwtToken: string;
+  tbBaseUrl?: string;
   currentUser: UserInfo;
   permissions: PermissionSet;
   onAnnotationChange?: (annotations: Annotation[]) => void;

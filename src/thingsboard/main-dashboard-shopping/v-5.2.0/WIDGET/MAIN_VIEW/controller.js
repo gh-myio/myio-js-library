@@ -1093,7 +1093,8 @@ Object.assign(window.MyIOUtils, {
     }
 
     try {
-      const response = await fetch('/api/auth/user', {
+      const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+      const response = await fetch(`${tbBase}/api/auth/user`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1296,17 +1297,27 @@ Object.assign(window.MyIOUtils, {
         let CLIENT_SECRET = '';
         let CUSTOMER_ING_ID = '';
 
+        // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
+        let gcdrCustomerId = self.ctx.settings?.gcdrCustomerId || '';
+        let gcdrTenantId   = self.ctx.settings?.gcdrTenantId   || '';
+        const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+
         if (customerTB_ID && jwt) {
           try {
             LogHelper.log('[MAIN_VIEW] 📡 Fetching customer attributes from ThingsBoard...');
             // Fetch customer attributes
-            const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+            const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+            const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt, tbBase);
 
             LogHelper.log('[MAIN_VIEW] 📦 Received attrs:', attrs);
 
             CLIENT_ID = attrs?.client_id || '';
             CLIENT_SECRET = attrs?.client_secret || '';
             CUSTOMER_ING_ID = attrs?.ingestionId || '';
+
+            // RFC-0180: Fallback GCDR IDs from attrs when not set in widget settings
+            if (!gcdrCustomerId) gcdrCustomerId = attrs?.gcdrCustomerId || attrs?.gcdrId || '';
+            if (!gcdrTenantId)   gcdrTenantId   = attrs?.gcdrTenantId  || '';
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1330,6 +1341,21 @@ Object.assign(window.MyIOUtils, {
           LogHelper.warn('[MAIN_VIEW] ⚠️ Cannot fetch credentials - missing required data:');
           if (!customerTB_ID) LogHelper.warn('[MAIN_VIEW]   - customerTB_ID is missing from settings');
           if (!jwt) LogHelper.warn('[MAIN_VIEW]   - JWT token is missing from localStorage');
+        }
+
+        // RFC-0180: Publish GCDR identifiers to orchestrator for ALARM and SETTINGS widgets
+        if (window.MyIOOrchestrator) {
+          window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
+          window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
+          window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
+        }
+        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
+        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
+
+        // RFC-0180: Pre-fetch all customer alarms (non-blocking) so AlarmsTab can use them
+        // without a per-device fetch when the Settings modal is opened.
+        if (gcdrCustomerId) {
+          _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com');
         }
 
         // Check if credentials are present
@@ -1837,14 +1863,41 @@ function parseDeviceCountAttributes(attributes) {
  * @param {string} entityType - Entity type (default: 'CUSTOMER')
  * @returns {Promise<Object|null>} Device counts object or null on error
  */
-async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
+// RFC-0180: Pre-fetch all customer alarms so AlarmsTab can filter without a per-device call.
+// Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
+async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
+  try {
+    const ALARMS_API_KEY = 'gcdr_cust_tb_integration_key_2026';
+    const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+    const response = await fetch(url, {
+      headers: {
+        'X-API-Key':    ALARMS_API_KEY,
+        'X-Tenant-ID':  gcdrTenantId || '',
+        'Accept':       'application/json',
+      },
+    });
+    if (!response.ok) {
+      LogHelper.warn('[MAIN_VIEW] _prefetchCustomerAlarms failed:', response.status);
+      return;
+    }
+    const json = await response.json();
+    const alarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
+    if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerAlarms = alarms;
+    LogHelper.log('[MAIN_VIEW] RFC-0180: customerAlarms pre-fetched:', alarms.length, 'alarms');
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] _prefetchCustomerAlarms error:', err);
+  }
+}
+
+async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {
   const token = localStorage.getItem('jwt_token');
   if (!token) {
     LogHelper.warn('[RFC-0107] JWT token not found');
     return null;
   }
 
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const tbBase = tbBaseUrl || self.ctx?.settings?.tbBaseUrl || '';
+  const url = `${tbBase}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -3414,7 +3467,9 @@ const MyIOOrchestrator = (() => {
     }
 
     // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
-    if (window.MyIOOrchestrator?.widgetBusyMonitor) {
+    // Only monitor real data domains — 'contract' and other UI-only domains must not trigger hydrateDomain
+    const REAL_DATA_DOMAINS = ['energy', 'water', 'temperature'];
+    if (window.MyIOOrchestrator?.widgetBusyMonitor && REAL_DATA_DOMAINS.includes(domain)) {
       window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
     }
 
@@ -5461,6 +5516,11 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 🔄 Finally block - hiding busy for ${domain}`);
         hideGlobalBusy(domain);
 
+        // RFC-0048 FIX: Always stop this domain's monitor regardless of other active domains.
+        // hideGlobalBusy returns early when total > 0 (e.g. 'contract' still active),
+        // which would leave the energy/water/temperature monitor running and fire 30s later.
+        widgetBusyMonitor.stopMonitoring(domain);
+
         // Release mutex
         sharedWidgetState.mutexMap.set(domain, false);
         LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain}`);
@@ -6203,7 +6263,7 @@ async function initializeContractLoading() {
 
   try {
     // Fetch device counts from SERVER_SCOPE
-    const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID);
+    const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID, 'CUSTOMER', self.ctx?.settings?.tbBaseUrl || '');
 
     if (deviceCounts) {
       LogHelper.log('[RFC-0107] Device counts fetched:', deviceCounts);

@@ -1,31 +1,57 @@
 /**
  * RFC-0180: Alarms Tab Component
  *
- * Section 1 — Active alarm rules for this device (from GCDR bundle).
+ * Section 1 — Active alarms for this device, grouped by ruleId.
+ *             GET /api/v1/alarms?deviceId={gcdrDeviceId}&state=OPEN,ACK,ESCALATED,SNOOZED&limit=100&page=1
+ *             Each group = 1 alarm-card with occurrenceCount + state-count chips.
+ *             Rendered via createAlarmCardElement (same card as AlarmsNotificationsPanel).
+ *
  * Section 2 — Multi-select of all customer rules; Save updates scope.entityIds
  *              via PUT /rules/{id} (full array replacement — no granular API).
  */
 
-import type { GCDRCustomerBundle, GCDRBundleDevice, GCDRBundleRule } from '../../gcdr-sync/types';
+import { createAlarmCardElement } from '../../../AlarmsNotificationsPanel/AlarmCard';
+import { ALARMS_NOTIFICATIONS_PANEL_STYLES } from '../../../AlarmsNotificationsPanel/styles';
+import type { AlarmCardParams } from '../../../AlarmsNotificationsPanel/types';
+import type { Alarm, AlarmSeverity, AlarmState } from '../../../../types/alarm';
+import type { GCDRCustomerBundle } from '../../gcdr-sync/types';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 const GCDR_INTEGRATION_API_KEY = 'gcdr_cust_tb_integration_key_2026';
-const GCDR_DEFAULT_BASE_URL = 'https://gcdr-api.a.myio-bas.com';
+const GCDR_DEFAULT_BASE_URL    = 'https://gcdr-api.a.myio-bas.com';
+const ALARMS_DEFAULT_BASE_URL  = 'https://alarms-api.a.myio-bas.com';
 
 const PRIORITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#dc2626',
-  HIGH: '#f59e0b',
-  MEDIUM: '#3b82f6',
-  LOW: '#6b7280',
+  HIGH:     '#f59e0b',
+  MEDIUM:   '#3b82f6',
+  LOW:      '#6b7280',
 };
 
 const OPERATOR_LABELS: Record<string, string> = {
   LT: '<', GT: '>', LTE: '≤', GTE: '≥', EQ: '=',
+};
+
+/** Most-critical first */
+const STATE_PRIORITY: Record<string, number> = {
+  OPEN: 0, ESCALATED: 1, SNOOZED: 2, ACK: 3, CLOSED: 4,
+};
+
+const SEVERITY_PRIORITY: Record<string, number> = {
+  CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4,
+};
+
+const STATE_LABELS: Record<string, string> = {
+  OPEN:      'Aberto',
+  ACK:       'Reconhecido',
+  ESCALATED: 'Escalado',
+  SNOOZED:   'Silenciado',
+  CLOSED:    'Fechado',
 };
 
 // ============================================================================
@@ -42,12 +68,59 @@ export interface AlarmsTabConfig {
   gcdrTenantId: string;
   /** GCDR API base URL. Defaults to https://gcdr-api.a.myio-bas.com */
   gcdrApiBaseUrl?: string;
-  /** ThingsBoard device UUID — used to match device in bundle */
+  /** Alarms API base URL. Defaults to https://alarms-api.a.myio-bas.com */
+  alarmsApiBaseUrl?: string;
+  /** ThingsBoard device UUID */
   tbDeviceId: string;
   /** JWT token — available for future use */
   jwtToken: string;
-  /** Pre-fetched bundle from MAIN_VIEW orchestrator. May be null if not yet loaded. */
+  /** Pre-fetched bundle from MAIN_VIEW orchestrator (reserved) */
   prefetchedBundle?: GCDRCustomerBundle | null;
+  /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format, `unknown[]`).
+   *  When provided, AlarmsTab casts to GCDRAlarm[], filters by gcdrDeviceId, and skips
+   *  the per-device API call. */
+  prefetchedAlarms?: unknown[] | null;
+}
+
+/** Raw alarm returned by GET /api/v1/alarms */
+interface GCDRAlarm {
+  id: string;
+  title: string;
+  severity: string;
+  state: string;
+  alarmType?: string;
+  description?: string;
+  deviceId?: string;
+  deviceName?: string;
+  raisedAt?: string;
+  lastUpdatedAt?: string;
+  acknowledgedAt?: string;
+  metadata?: {
+    value?: number | string;
+    threshold?: number | string;
+    operator?: string;
+    ruleId?: string;
+    tbDeviceId?: string;
+    [key: string]: unknown;
+  };
+}
+
+/** Aggregated group of alarms sharing the same ruleId */
+interface GCDRAlarmGroup {
+  ruleId: string;
+  title: string;
+  alarmType?: string;
+  /** Highest severity across group */
+  severity: string;
+  /** Most-critical state across group */
+  dominantState: string;
+  /** Count per state: { OPEN: 44, ACK: 2, ... } */
+  stateCounts: Record<string, number>;
+  totalCount: number;
+  firstOccurrence: string;
+  lastOccurrence: string;
+  /** All raw alarm IDs in this group — used for bulk actions */
+  alarmIds: string[];
 }
 
 /** Rule object returned by GET /customers/:gcdrCustomerId/rules */
@@ -59,7 +132,6 @@ interface GCDRCustomerRule {
   enabled: boolean;
   scope: {
     type: string;
-    /** Device UUIDs (GCDR) associated with this rule */
     entityIds: string[];
   };
   alarmConfig?: {
@@ -77,9 +149,9 @@ interface GCDRCustomerRule {
 export class AlarmsTab {
   private config: AlarmsTabConfig;
   private customerRules: GCDRCustomerRule[] = [];
-  /** Rule IDs checked at init — used to detect changes on Save */
+  private activeAlarms: GCDRAlarm[] = [];
+  private alarmGroups: GCDRAlarmGroup[] = [];
   private initialCheckedRuleIds = new Set<string>();
-  private bundle: GCDRCustomerBundle | null = null;
 
   constructor(config: AlarmsTabConfig) {
     this.config = config;
@@ -91,23 +163,36 @@ export class AlarmsTab {
     container.innerHTML = this.getLoadingHTML();
 
     try {
-      const baseUrl = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
+      const gcdrBaseUrl   = this.config.gcdrApiBaseUrl   || GCDR_DEFAULT_BASE_URL;
+      const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
 
-      // 1. Use pre-fetched bundle or skip bundle (customerTB_ID not available here)
-      this.bundle = this.config.prefetchedBundle ?? null;
+      // Use pre-fetched customer alarms (filtered by gcdrDeviceId) when available;
+      // otherwise fall back to per-device API call.
+      const prefetched = this.config.prefetchedAlarms;
+      const alarmsPromise = prefetched != null
+        ? Promise.resolve(
+            (prefetched as GCDRAlarm[]).filter(
+              (a) => a.deviceId === this.config.gcdrDeviceId,
+            ),
+          )
+        : this.fetchActiveAlarms(alarmsBaseUrl);
 
-      // 2. Fetch all customer rules (needed for Section 2)
-      this.customerRules = await this.fetchCustomerRules(baseUrl);
+      const [alarms, rules] = await Promise.all([
+        alarmsPromise,
+        this.fetchCustomerRules(gcdrBaseUrl),
+      ]);
+      this.activeAlarms  = alarms;
+      this.customerRules = rules;
+      this.alarmGroups   = this.groupAlarms(alarms);
 
-      // 3. Determine which rules are already associated with this device
       for (const rule of this.customerRules) {
         if (rule.scope?.entityIds?.includes(this.config.gcdrDeviceId)) {
           this.initialCheckedRuleIds.add(rule.id);
         }
       }
 
-      // 4. Render
       container.innerHTML = this.renderTab();
+      this.populateAlarmsGrid();
       this.attachTabListeners();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -120,11 +205,106 @@ export class AlarmsTab {
   }
 
   // ============================================================================
+  // Grouping
+  // ============================================================================
+
+  /**
+   * Group raw alarms by metadata.ruleId (fallback: title).
+   * One card per group; occurrenceCount = total alarms in group.
+   */
+  private groupAlarms(alarms: GCDRAlarm[]): GCDRAlarmGroup[] {
+    const map = new Map<string, GCDRAlarmGroup>();
+
+    for (const alarm of alarms) {
+      const key = alarm.metadata?.ruleId || alarm.title || alarm.id;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          ruleId:          key,
+          title:           alarm.title    || '',
+          alarmType:       alarm.alarmType,
+          severity:        alarm.severity || 'LOW',
+          dominantState:   alarm.state    || 'OPEN',
+          stateCounts:     {},
+          totalCount:      0,
+          firstOccurrence: alarm.raisedAt      || '',
+          lastOccurrence:  alarm.lastUpdatedAt || alarm.raisedAt || '',
+          alarmIds:        [],
+        });
+      }
+
+      const g = map.get(key)!;
+      g.totalCount++;
+      g.alarmIds.push(alarm.id);
+      g.stateCounts[alarm.state] = (g.stateCounts[alarm.state] || 0) + 1;
+
+      // Escalate dominant state to most-critical
+      if ((STATE_PRIORITY[alarm.state] ?? 99) < (STATE_PRIORITY[g.dominantState] ?? 99)) {
+        g.dominantState = alarm.state;
+      }
+
+      // Escalate severity to highest
+      if ((SEVERITY_PRIORITY[alarm.severity] ?? 99) < (SEVERITY_PRIORITY[g.severity] ?? 99)) {
+        g.severity = alarm.severity;
+      }
+
+      // Track earliest firstOccurrence
+      if (alarm.raisedAt && (!g.firstOccurrence || alarm.raisedAt < g.firstOccurrence)) {
+        g.firstOccurrence = alarm.raisedAt;
+      }
+
+      // Track latest lastOccurrence
+      const lastTs = alarm.lastUpdatedAt || alarm.raisedAt || '';
+      if (lastTs && lastTs > g.lastOccurrence) {
+        g.lastOccurrence = lastTs;
+      }
+    }
+
+    // Sort: most-critical dominant state first, then highest severity
+    return [...map.values()].sort((a, b) => {
+      const sd = (STATE_PRIORITY[a.dominantState] ?? 99) - (STATE_PRIORITY[b.dominantState] ?? 99);
+      if (sd !== 0) return sd;
+      return (SEVERITY_PRIORITY[a.severity] ?? 99) - (SEVERITY_PRIORITY[b.severity] ?? 99);
+    });
+  }
+
+  /**
+   * Map an aggregated GCDRAlarmGroup → Alarm so createAlarmCardElement can be used.
+   * State-count chips go into _alarmTypes → rendered as type chips in the card body.
+   */
+  private mapGroupToAlarm(group: GCDRAlarmGroup): Alarm {
+    // Build chips sorted most-critical first: "Aberto × 44", "Reconhecido × 2"
+    const stateChips = Object.entries(group.stateCounts)
+      .sort((a, b) => (STATE_PRIORITY[a[0]] ?? 99) - (STATE_PRIORITY[b[0]] ?? 99))
+      .map(([state, count]) => `${STATE_LABELS[state] || state} × ${count}`);
+
+    return {
+      id:              group.ruleId,
+      customerId:      this.config.gcdrCustomerId,
+      customerName:    '',
+      source:          '',
+      severity:        group.severity      as AlarmSeverity,
+      state:           group.dominantState as AlarmState,
+      title:           group.title,
+      description:     '',
+      tags:            {},
+      firstOccurrence: group.firstOccurrence,
+      lastOccurrence:  group.lastOccurrence,
+      occurrenceCount: group.totalCount,
+      _alarmTypes:     stateChips,
+    };
+  }
+
+  // ============================================================================
   // Data fetching
   // ============================================================================
 
-  private async fetchCustomerRules(baseUrl: string): Promise<GCDRCustomerRule[]> {
-    const url = `${baseUrl}/customers/${encodeURIComponent(this.config.gcdrCustomerId)}/rules`;
+  private async fetchActiveAlarms(baseUrl: string): Promise<GCDRAlarm[]> {
+    const url =
+      `${baseUrl}/api/v1/alarms` +
+      `?deviceId=${encodeURIComponent(this.config.gcdrDeviceId)}` +
+      `&state=OPEN,ACK,ESCALATED,SNOOZED&limit=100&page=1`;
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -134,11 +314,31 @@ export class AlarmsTab {
       },
     });
 
-    if (response.status === 404) {
-      // No rules configured — not an error
-      return [];
+    if (response.status === 404) return [];
+    if (!response.ok) {
+      throw new Error(`Alarms API error (${response.status}): ${response.statusText}`);
     }
 
+    const json = (await response.json()) as {
+      items?: GCDRAlarm[];
+      data?: GCDRAlarm[] | { items?: GCDRAlarm[] };
+    };
+    if (Array.isArray(json.data)) return json.data;
+    return json.items ?? (json.data as { items?: GCDRAlarm[] } | undefined)?.items ?? [];
+  }
+
+  private async fetchCustomerRules(baseUrl: string): Promise<GCDRCustomerRule[]> {
+    const url = `${baseUrl}/api/v1/customers/${encodeURIComponent(this.config.gcdrCustomerId)}/rules`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': GCDR_INTEGRATION_API_KEY,
+        'X-Tenant-ID': this.config.gcdrTenantId,
+        Accept: 'application/json',
+      },
+    });
+
+    if (response.status === 404) return [];
     if (!response.ok) {
       throw new Error(`GCDR error fetching rules (${response.status}): ${response.statusText}`);
     }
@@ -150,13 +350,28 @@ export class AlarmsTab {
     return json.items ?? json.data?.items ?? [];
   }
 
+  private async postAlarmAction(baseUrl: string, alarmId: string, action: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${baseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': GCDR_INTEGRATION_API_KEY,
+          'X-Tenant-ID': this.config.gcdrTenantId,
+        },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   private async putRuleScope(
     baseUrl: string,
     ruleId: string,
     entityIds: string[],
   ): Promise<boolean> {
     try {
-      const url = `${baseUrl}/rules/${encodeURIComponent(ruleId)}`;
+      const url = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -173,31 +388,90 @@ export class AlarmsTab {
   }
 
   // ============================================================================
-  // Bundle helpers
+  // Alarm grid population
   // ============================================================================
 
-  private matchDeviceInBundle(): GCDRBundleDevice | null {
-    if (!this.bundle) return null;
-    return (
-      this.bundle.devices.find(
-        (d) =>
-          d.externalId === this.config.tbDeviceId ||
-          d.metadata?.tbId === this.config.tbDeviceId,
-      ) ?? null
-    );
+  private populateAlarmsGrid(): void {
+    const grid = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
+
+    for (const group of this.alarmGroups) {
+      const alarm = this.mapGroupToAlarm(group);
+
+      const params: AlarmCardParams = {
+        showCustomerName: false,
+        showDeviceBadge:  false,
+        alarmTypes:       alarm._alarmTypes,
+        onAcknowledge: async (/* groupRuleId */) => {
+          // Apply acknowledge to all raw alarms in this group
+          await Promise.all(
+            group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'acknowledge')),
+          );
+          await this.refreshAlarmsGrid(alarmsBaseUrl);
+        },
+      };
+
+      const el = createAlarmCardElement(alarm, params);
+
+      // snooze/escalate fire as bubbling CustomEvents
+      el.addEventListener('alarm-snooze', async () => {
+        await Promise.all(
+          group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
+        );
+        await this.refreshAlarmsGrid(alarmsBaseUrl);
+      });
+      el.addEventListener('alarm-escalate', async () => {
+        await Promise.all(
+          group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
+        );
+        await this.refreshAlarmsGrid(alarmsBaseUrl);
+      });
+
+      grid.appendChild(el);
+    }
   }
 
-  private getActiveRulesFromBundle(): GCDRBundleRule[] {
-    const device = this.matchDeviceInBundle();
-    if (!device?.ruleIds?.length) return [];
-    return device.ruleIds
-      .map((id) => this.bundle!.rules[id])
-      .filter(Boolean) as GCDRBundleRule[];
+  private async refreshAlarmsGrid(alarmsBaseUrl: string): Promise<void> {
+    this.activeAlarms = await this.fetchActiveAlarms(alarmsBaseUrl);
+    this.alarmGroups  = this.groupAlarms(this.activeAlarms);
+
+    // Update count badge (shows group count, not raw alarm count)
+    const badge = this.config.container.querySelector<HTMLElement>('#at-alarms-count');
+    if (badge) {
+      badge.textContent    = String(this.alarmGroups.length);
+      badge.style.display  = this.alarmGroups.length > 0 ? '' : 'none';
+    }
+    const sub = this.config.container.querySelector<HTMLElement>('#at-alarms-sub');
+    if (sub) {
+      sub.textContent = this.buildSectionSubtitle();
+    }
+
+    const grid  = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
+    const empty = this.config.container.querySelector<HTMLElement>('#at-alarms-empty');
+
+    if (this.alarmGroups.length === 0) {
+      if (grid)  grid.style.display  = 'none';
+      if (empty) empty.style.display = '';
+    } else {
+      if (grid)  grid.style.display  = '';
+      if (empty) empty.style.display = 'none';
+      this.populateAlarmsGrid();
+    }
   }
 
   // ============================================================================
   // Rendering
   // ============================================================================
+
+  private buildSectionSubtitle(): string {
+    const total = this.activeAlarms.length;
+    const groups = this.alarmGroups.length;
+    if (total === 0) return 'Nenhum alarme ativo para este dispositivo';
+    return `${total} ocorrência${total !== 1 ? 's' : ''} em ${groups} tipo${groups !== 1 ? 's' : ''}`;
+  }
 
   private renderTab(): string {
     return `
@@ -209,36 +483,32 @@ export class AlarmsTab {
   }
 
   private renderSection1(): string {
-    // Prefer bundle for active rules; fall back to customer rules list
-    const bundleRules = this.getActiveRulesFromBundle();
-    const hasBundleData = this.bundle !== null;
-
-    // Fallback: filter customer rules where gcdrDeviceId is in entityIds
-    const fallbackRules = hasBundleData
-      ? null
-      : this.customerRules.filter((r) => r.scope?.entityIds?.includes(this.config.gcdrDeviceId));
-
-    const isEmpty = hasBundleData ? bundleRules.length === 0 : (fallbackRules?.length ?? 0) === 0;
-
+    const groups = this.alarmGroups.length;
     return `
       <div class="at-section">
         <div class="at-section-header">
           <span class="at-section-icon">🔔</span>
           <div>
-            <div class="at-section-title">Active Alarm Rules</div>
-            <div class="at-section-sub">Rules currently associated with this device</div>
+            <div class="at-section-title">Alarmes Ativos</div>
+            <div class="at-section-sub" id="at-alarms-sub">${this.buildSectionSubtitle()}</div>
           </div>
+          <span class="at-count-badge" id="at-alarms-count"
+                style="${groups === 0 ? 'display:none;' : ''}">${groups}</span>
         </div>
-        ${
-          isEmpty
-            ? `<div class="at-empty">No alarm rules are currently associated with this device.</div>`
-            : hasBundleData
-              ? `<div class="at-rule-list">${bundleRules.map((r) => this.renderBundleRule(r)).join('')}</div>`
-              : `<div class="at-rule-list">${(fallbackRules ?? []).map((r) => this.renderCustomerRuleReadonly(r)).join('')}</div>`
-        }
+        <!-- .myio-alarms-panel wrapper so panel CSS variables / alarm-card styles apply -->
+        <div class="myio-alarms-panel at-alarms-panel-host">
+          <div class="at-empty" id="at-alarms-empty"
+               style="${groups > 0 ? 'display:none;' : ''}">
+            Nenhum alarme ativo para este dispositivo.
+          </div>
+          <div class="alarms-grid" id="at-alarms-grid"
+               style="${groups === 0 ? 'display:none;' : ''}"></div>
+        </div>
       </div>
     `;
   }
+
+  // ---------- Section 2: Parametrize rules (multi-select + save) ----------
 
   private renderSection2(): string {
     const sorted = [...this.customerRules].sort(
@@ -250,20 +520,20 @@ export class AlarmsTab {
         <div class="at-section-header">
           <span class="at-section-icon">⚙️</span>
           <div>
-            <div class="at-section-title">Parametrize Alarm Rules</div>
-            <div class="at-section-sub">Select which alarm rules apply to this device, then save</div>
+            <div class="at-section-title">Parametrizar Regras de Alarme</div>
+            <div class="at-section-sub">Selecione as regras de alarme aplicáveis a este dispositivo e salve</div>
           </div>
         </div>
         ${
           sorted.length === 0
-            ? `<div class="at-empty">No alarm rules configured for this customer in GCDR.</div>`
+            ? `<div class="at-empty">Nenhuma regra de alarme configurada para este cliente no GCDR.</div>`
             : `
               <div class="at-rule-list at-rule-list--selectable">
                 ${sorted.map((r) => this.renderCustomerRuleSelectable(r)).join('')}
               </div>
               <div class="at-footer">
                 <span class="at-save-msg" id="at-save-msg" style="display:none;"></span>
-                <button type="button" class="at-btn-save" id="at-save-btn">Save Alarms</button>
+                <button type="button" class="at-btn-save" id="at-save-btn">Salvar Alarmes</button>
               </div>
             `
         }
@@ -271,41 +541,12 @@ export class AlarmsTab {
     `;
   }
 
-  private renderBundleRule(rule: GCDRBundleRule): string {
-    const op = OPERATOR_LABELS[rule.operator] ?? rule.operator;
-    return `
-      <div class="at-rule-row">
-        <div class="at-rule-info">
-          <span class="at-rule-name">${this.esc(rule.name)}</span>
-          <span class="at-rule-chip">📊 ${this.esc(rule.metric)} ${this.esc(op)} ${rule.value}</span>
-        </div>
-        <span class="at-priority-badge at-priority--active">active</span>
-      </div>
-    `;
-  }
-
-  private renderCustomerRuleReadonly(rule: GCDRCustomerRule): string {
-    const color = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
-    const metric = rule.alarmConfig?.metric ?? '';
-    const op = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
-    const val = rule.alarmConfig?.value ?? '';
-    return `
-      <div class="at-rule-row">
-        <div class="at-rule-info">
-          <span class="at-rule-name">${this.esc(rule.name)}</span>
-          ${metric ? `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(op))} ${val}</span>` : ''}
-        </div>
-        <span class="at-priority-badge" style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
-      </div>
-    `;
-  }
-
   private renderCustomerRuleSelectable(rule: GCDRCustomerRule): string {
     const checked = this.initialCheckedRuleIds.has(rule.id);
-    const color = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
-    const metric = rule.alarmConfig?.metric ?? '';
-    const op = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
-    const val = rule.alarmConfig?.value ?? '';
+    const color   = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
+    const metric  = rule.alarmConfig?.metric ?? '';
+    const op      = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
+    const val     = rule.alarmConfig?.value ?? '';
     return `
       <div class="at-rule-row at-rule-row--selectable ${checked ? 'at-rule-row--checked' : ''}">
         <label class="at-rule-label">
@@ -337,7 +578,6 @@ export class AlarmsTab {
       saveBtn.addEventListener('click', () => this.handleSave());
     }
 
-    // Highlight row when checkbox changes
     container.querySelectorAll('.at-rule-check').forEach((cb) => {
       cb.addEventListener('change', () => {
         const row = (cb as HTMLElement).closest('.at-rule-row');
@@ -349,27 +589,23 @@ export class AlarmsTab {
   private async handleSave(): Promise<void> {
     const container = this.config.container;
     const saveBtn = container.querySelector('#at-save-btn') as HTMLButtonElement | null;
-    const msgEl = container.querySelector('#at-save-msg') as HTMLElement | null;
+    const msgEl   = container.querySelector('#at-save-msg') as HTMLElement | null;
     const baseUrl = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
 
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
-    }
-    if (msgEl) msgEl.style.display = 'none';
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando…'; }
+    if (msgEl)   msgEl.style.display = 'none';
 
-    // Collect current state
     const currentChecked = new Set<string>();
     container.querySelectorAll<HTMLInputElement>('.at-rule-check').forEach((cb) => {
       if (cb.checked && cb.dataset.ruleId) currentChecked.add(cb.dataset.ruleId);
     });
 
-    const toAdd = [...currentChecked].filter((id) => !this.initialCheckedRuleIds.has(id));
+    const toAdd    = [...currentChecked].filter((id) => !this.initialCheckedRuleIds.has(id));
     const toRemove = [...this.initialCheckedRuleIds].filter((id) => !currentChecked.has(id));
 
     if (toAdd.length === 0 && toRemove.length === 0) {
-      this.showMsg(msgEl, 'No changes to save.', '#6b7280');
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Alarms'; }
+      this.showMsg(msgEl, 'Nenhuma alteração para salvar.', '#6b7280');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Alarmes'; }
       return;
     }
 
@@ -382,12 +618,8 @@ export class AlarmsTab {
       const ids = [...(rule.scope?.entityIds ?? [])];
       if (!ids.includes(this.config.gcdrDeviceId)) ids.push(this.config.gcdrDeviceId);
       const ok = await this.putRuleScope(baseUrl, ruleId, ids);
-      if (ok) {
-        // Update in-memory rule so future saves are accurate
-        rule.scope = { ...rule.scope, entityIds: ids };
-      } else {
-        errors.push(rule.name);
-      }
+      if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
+      else    { errors.push(rule.name); }
     }
 
     for (const ruleId of toRemove) {
@@ -395,27 +627,24 @@ export class AlarmsTab {
       if (!rule) continue;
       const ids = (rule.scope?.entityIds ?? []).filter((id) => id !== this.config.gcdrDeviceId);
       const ok = await this.putRuleScope(baseUrl, ruleId, ids);
-      if (ok) {
-        rule.scope = { ...rule.scope, entityIds: ids };
-      } else {
-        errors.push(rule.name);
-      }
+      if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
+      else    { errors.push(rule.name); }
     }
 
     if (errors.length === 0) {
       this.initialCheckedRuleIds = new Set(currentChecked);
-      this.showMsg(msgEl, 'Alarms saved successfully.', '#16a34a');
+      this.showMsg(msgEl, 'Alarmes salvos com sucesso.', '#16a34a');
     } else {
-      this.showMsg(msgEl, `Errors saving: ${errors.join(', ')}`, '#dc2626');
+      this.showMsg(msgEl, `Erro ao salvar: ${errors.join(', ')}`, '#dc2626');
     }
 
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Alarms'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Alarmes'; }
   }
 
   private showMsg(el: HTMLElement | null, text: string, color: string): void {
     if (!el) return;
-    el.textContent = text;
-    el.style.color = color;
+    el.textContent   = text;
+    el.style.color   = color;
     el.style.display = 'inline';
   }
 
@@ -435,7 +664,7 @@ export class AlarmsTab {
     return `
       <div style="padding:32px;text-align:center;color:#6c757d;">
         <div class="at-spinner"></div>
-        <p>Loading alarm data…</p>
+        <p>Carregando dados de alarme…</p>
       </div>
     `;
   }
@@ -451,11 +680,22 @@ export class AlarmsTab {
   }
 
   private injectStyles(): void {
-    const STYLE_ID = 'myio-alarms-tab-styles';
-    if (document.getElementById(STYLE_ID)) return;
+    // Panel card styles (alarm-card, severity/state badges, footer buttons, etc.)
+    const PANEL_STYLE_ID = 'myio-alarms-panel-styles';
+    if (!document.getElementById(PANEL_STYLE_ID)) {
+      const s = document.createElement('style');
+      s.id = PANEL_STYLE_ID;
+      s.textContent = ALARMS_NOTIFICATIONS_PANEL_STYLES;
+      document.head.appendChild(s);
+    }
+
+    // AlarmsTab-specific overrides
+    const TAB_STYLE_ID = 'myio-alarms-tab-styles';
+    if (document.getElementById(TAB_STYLE_ID)) return;
     const style = document.createElement('style');
-    style.id = STYLE_ID;
+    style.id = TAB_STYLE_ID;
     style.textContent = `
+      /* ===== AlarmsTab layout ===== */
       .alarms-tab {
         display: flex;
         flex-direction: column;
@@ -489,6 +729,16 @@ export class AlarmsTab {
         color: #6c757d;
         margin-top: 2px;
       }
+      .at-count-badge {
+        margin-left: auto;
+        background: #3e1a7d;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        flex-shrink: 0;
+      }
       .at-empty {
         padding: 20px;
         text-align: center;
@@ -496,6 +746,22 @@ export class AlarmsTab {
         font-size: 14px;
         font-style: italic;
       }
+
+      /* ===== Panel host reset ===== */
+      .at-alarms-panel-host {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 12px !important;
+        min-height: unset !important;
+        height: auto !important;
+        display: block !important;
+      }
+      .at-alarms-panel-host .alarms-grid {
+        padding: 0 !important;
+      }
+
+      /* ===== Rule list (Section 2) ===== */
       .at-rule-list { padding: 4px 0; }
       .at-rule-row {
         display: flex;
@@ -507,7 +773,6 @@ export class AlarmsTab {
         transition: background 0.1s;
       }
       .at-rule-row:last-child { border-bottom: none; }
-      .at-rule-row--selectable { }
       .at-rule-row--checked { background: #f0fdf4; }
       .at-rule-label {
         display: flex;
@@ -558,10 +823,8 @@ export class AlarmsTab {
         flex-shrink: 0;
         white-space: nowrap;
       }
-      .at-priority--active {
-        background: #e6f9f0;
-        color: #16a34a;
-      }
+
+      /* ===== Footer / save ===== */
       .at-footer {
         padding: 12px 20px;
         display: flex;
@@ -585,6 +848,8 @@ export class AlarmsTab {
       }
       .at-btn-save:hover:not(:disabled) { background: #2d1458; }
       .at-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+      /* ===== Spinner ===== */
       .at-spinner {
         width: 28px;
         height: 28px;

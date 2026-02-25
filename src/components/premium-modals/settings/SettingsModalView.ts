@@ -105,7 +105,7 @@ export class SettingsModalView {
 
     try {
       // Fetch permissions
-      const permissions = await getAnnotationPermissions(this.config.customerId, this.config.jwtToken);
+      const permissions = await getAnnotationPermissions(this.config.customerId, this.config.jwtToken, this.config.tbBaseUrl);
 
       if (!permissions.currentUser) {
         console.warn('[SettingsModalView] Could not get current user for annotations');
@@ -126,6 +126,7 @@ export class SettingsModalView {
         container: annotationsContainer,
         deviceId: this.config.deviceId,
         jwtToken: this.config.jwtToken,
+        tbBaseUrl: this.config.tbBaseUrl,
         currentUser: this.currentUser,
         permissions: this.permissions,
         enableAnnotationsOnboarding: this.config.enableAnnotationsOnboarding ?? false, // RFC-0144
@@ -145,7 +146,7 @@ export class SettingsModalView {
     const container = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     if (!container) return;
 
-    const { gcdrDeviceId, gcdrCustomerId, gcdrTenantId, gcdrApiBaseUrl, prefetchedBundle, deviceId, jwtToken } =
+    const { gcdrDeviceId, gcdrCustomerId, gcdrTenantId, gcdrApiBaseUrl, prefetchedBundle, prefetchedAlarms, deviceId, jwtToken } =
       this.config;
 
     if (!gcdrDeviceId || !gcdrCustomerId || !gcdrTenantId) {
@@ -164,6 +165,7 @@ export class SettingsModalView {
         tbDeviceId: deviceId ?? '',
         jwtToken: jwtToken ?? '',
         prefetchedBundle: prefetchedBundle ?? null,
+        prefetchedAlarms: prefetchedAlarms ?? null,
       });
       await this.alarmsTab.init();
       console.log('[SettingsModalView] RFC-0180: Alarms tab initialized');
@@ -463,21 +465,21 @@ export class SettingsModalView {
         <div class="form-card identity-card">
           <div class="identity-grid">
 
-            <!-- Col 1, rows 1-2: device label (display) -->
-            <div class="identity-name-block">
-              <div class="identity-name-text">${this.config.deviceLabel || '—'}</div>
-              ${this.config.deviceName ? `<div class="device-name-subtitle">${this.config.deviceName}</div>` : ''}
+            <!-- Col 1, rows 1-6: single wrapper → borda contínua -->
+            <div class="identity-col1">
+              <div class="identity-name-block">
+                <div class="identity-name-text">${this.config.deviceLabel || '—'}</div>
+                ${this.config.deviceName ? `<div class="device-name-subtitle">${this.config.deviceName}</div>` : ''}
+              </div>
+              <div class="identity-icon-cell">
+                ${this.getDeviceImage(deviceType)}
+              </div>
             </div>
 
             <!-- Col 2, row 1: "Etiqueta" label -->
             <div class="identity-field-label">Etiqueta</div>
             <!-- Col 2, row 2: input etiqueta -->
             <input type="text" id="label" name="label" class="identity-input" required maxlength="255">
-
-            <!-- Col 1, rows 3-6: device image -->
-            <div class="identity-icon-cell">
-              ${this.getDeviceImage(deviceType)}
-            </div>
 
             <!-- Col 2, row 3: "Andar" label -->
             <div class="identity-field-label">Andar / Localização</div>
@@ -513,8 +515,8 @@ export class SettingsModalView {
         <!-- Bottom Row: Connection Info spanning full width -->
         ${this.getConnectionInfoHTML()}
 
-        <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
-        ${this.config.domain === 'energy' && this.config.deviceType ? this.getPowerLimitsHTML() : ''}
+        <!-- RFC-0077: Power Limits Configuration (only for energy domain, when deviceType is available, and not a store meter) -->
+        ${this.config.domain === 'energy' && this.config.deviceType && this.config.deviceProfile !== '3F_MEDIDOR' ? this.getPowerLimitsHTML() : ''}
       </div>
     `;
   }
@@ -1448,17 +1450,24 @@ export class SettingsModalView {
           align-items: center;
         }
 
-        /* Col 1, rows 1-2: device name block */
-        .identity-name-block {
+        /* Col 1, rows 1-6: wrapper único para borda contínua */
+        .identity-col1 {
           grid-column: 1;
-          grid-row: 1 / 3;
+          grid-row: 1 / 7;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding-right: 16px;
+          border-right: 1px solid #e9ecef;
+        }
+
+        .identity-name-block {
           display: flex;
           flex-direction: column;
           justify-content: center;
           gap: 3px;
           overflow: hidden;
-          padding-right: 16px;
-          border-right: 1px solid #e9ecef;
+          flex: 0 0 auto;
         }
 
         .identity-name-text {
@@ -1470,15 +1479,12 @@ export class SettingsModalView {
           white-space: nowrap;
         }
 
-        /* Col 1, rows 3-6: device image */
+        /* Ícone ocupa o restante do espaço de col 1 */
         .identity-icon-cell {
-          grid-column: 1;
-          grid-row: 3 / 7;
+          flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding-right: 16px;
-          border-right: 1px solid #e9ecef;
         }
 
         .identity-device-image {
@@ -1528,7 +1534,7 @@ export class SettingsModalView {
           display: flex;
           flex-direction: column;
           justify-content: space-around;
-          gap: 6px;
+          gap: 16px;
           padding-left: 16px;
           border-left: 1px solid #e9ecef;
           min-width: 160px;
@@ -1537,7 +1543,7 @@ export class SettingsModalView {
         .identity-date-row {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 3px;
         }
 
         .identity-date-label {

@@ -139,25 +139,11 @@ self.onInit = async function () {
   const labelEl = document.getElementById('labelWidgetId');
   if (labelEl) labelEl.textContent = labelWidget;
 
-  // --- Fetch gcdrCustomerId from TB SERVER_SCOPE attributes ---
-  const jwt = localStorage.getItem('jwt_token') || '';
-  if (!jwt) {
-    LogHelper.warn('JWT token not found in localStorage');
-  }
-
-  try {
-    if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
-      const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-      _customerIngId = attrs?.gcdrCustomerId || attrs?.gcdrId || '';
-      _gcdrTenantId  = attrs?.gcdrTenantId || '';
-      LogHelper.log('gcdrCustomerId resolved:', _customerIngId || '(empty)');
-      LogHelper.log('GCDR Tenant ID resolved:', _gcdrTenantId || '(empty)');
-    } else {
-      LogHelper.warn('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
-    }
-  } catch (err) {
-    LogHelper.error('Failed to fetch customer attributes:', err);
-  }
+  // --- RFC-0180: GCDR IDs are resolved by MAIN_VIEW and stored in window.MyIOOrchestrator ---
+  _customerIngId = window.MyIOOrchestrator?.gcdrCustomerId || '';
+  _gcdrTenantId  = window.MyIOOrchestrator?.gcdrTenantId  || '';
+  LogHelper.log('gcdrCustomerId (from orchestrator):', _customerIngId || '(empty — will retry on fetch)');
+  LogHelper.log('gcdrTenantId   (from orchestrator):', _gcdrTenantId  || '(empty)');
 
   // --- Mount AlarmsNotificationsPanel component ---
   const container = document.getElementById('alarmPanelContainer');
@@ -288,9 +274,10 @@ async function _fetchAndUpdate() {
     return;
   }
 
-  // RFC-0178: customerId is mandatory — abort if empty
-  if (!_customerIngId) {
-    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty (check TB SERVER_SCOPE attr gcdrCustomerId)');
+  // RFC-0178/0180: customerId is mandatory — read from cache or orchestrator (late-binding)
+  const resolvedCustomerId = _customerIngId || window.MyIOOrchestrator?.gcdrCustomerId || '';
+  if (!resolvedCustomerId) {
+    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty (check MyIOOrchestrator.gcdrCustomerId)');
     _isRefreshing = false;
     return;
   }
@@ -306,11 +293,11 @@ async function _fetchAndUpdate() {
       AlarmService.getAlarms({
         state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
         limit:      _maxAlarms,
-        customerId: _customerIngId,                    // always required
+        customerId: resolvedCustomerId,                // always required
         from:       _activeFilters.from || undefined,
         to:         _activeFilters.to   || undefined,
       }),
-      AlarmService.getAlarmTrend(_customerIngId, 'week', 'day'),
+      AlarmService.getAlarmTrend(resolvedCustomerId, 'week', 'day'),
     ]);
 
     const rawAlarms = response.data;

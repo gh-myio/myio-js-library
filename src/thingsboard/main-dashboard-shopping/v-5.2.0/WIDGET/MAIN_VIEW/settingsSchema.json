@@ -85,6 +85,24 @@
         "type": "string",
         "default": "gcdr_cust_tb_integration_key_2026",
         "description": "RFC-0178: API key for the Alarms Backend REST API (X-API-Key header)."
+      },
+      "gcdrCustomerId": {
+        "title": "GCDR Customer ID",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0180: GCDR customer identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrCustomerId' (or 'gcdrId')."
+      },
+      "gcdrTenantId": {
+        "title": "GCDR Tenant ID",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0180: GCDR tenant identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrTenantId'."
+      },
+      "gcdrApiBaseUrl": {
+        "title": "GCDR API Base URL",
+        "type": "string",
+        "default": "https://gcdr-api.a.myio-bas.com",
+        "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
       }
     }
   },
@@ -101,6 +119,9 @@
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
     "alarmsApiBaseUrl",
-    "alarmsApiKey"
+    "alarmsApiKey",
+    "gcdrCustomerId",
+    "gcdrTenantId",
+    "gcdrApiBaseUrl"
   ]
 }

@@ -2169,6 +2169,7 @@ function renderList(visible) {
             const modal = MyIO.openDashboardPopupEnergy({
               deviceId: it.id,
               readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
+              deviceProfile: it.deviceProfile || null,
               startDate: self.ctx.scope.startDateISO,
               endDate: self.ctx.scope.endDateISO,
               tbJwtToken: jwtToken,
@@ -2460,6 +2461,13 @@ function renderList(visible) {
             mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
             // RFC-0091: Pass device-specific power limits (TIER 0 - highest priority)
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
+            // RFC-0180: GCDR params for Alarms tab
+            gcdrDeviceId: it.gcdrDeviceId || null,
+            gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || null,
+            gcdrTenantId: window.MyIOOrchestrator?.gcdrTenantId || null,
+            gcdrApiBaseUrl: window.MyIOOrchestrator?.gcdrApiBaseUrl || null,
+            prefetchedBundle:  window.MyIOOrchestrator?.alarmBundle       ?? null,
+            prefetchedAlarms:  window.MyIOOrchestrator?.customerAlarms    ?? null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();

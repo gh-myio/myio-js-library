@@ -3110,6 +3110,7 @@ export class AnnotationsTab {
   private container: HTMLElement;
   private deviceId: string;
   private jwtToken: string;
+  private tbBaseUrl: string;
   private currentUser: UserInfo;
   private permissions: PermissionSet;
   private annotations: Annotation[] = [];
@@ -3140,6 +3141,7 @@ export class AnnotationsTab {
     this.container = config.container;
     this.deviceId = config.deviceId;
     this.jwtToken = config.jwtToken;
+    this.tbBaseUrl = config.tbBaseUrl || '';
     this.currentUser = config.currentUser;
     this.permissions = config.permissions;
     this.onAnnotationChange = config.onAnnotationChange;
@@ -3708,7 +3710,7 @@ export class AnnotationsTab {
   private async loadAnnotations(): Promise<void> {
     try {
       const response = await fetch(
-        `/api/plugins/telemetry/DEVICE/${this.deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
+        `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${this.deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
         {
           headers: {
             'X-Authorization': `Bearer ${this.jwtToken}`,
@@ -3888,7 +3890,7 @@ export class AnnotationsTab {
       };
 
       const response = await fetch(
-        `/api/plugins/telemetry/DEVICE/${this.deviceId}/SERVER_SCOPE`,
+        `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${this.deviceId}/SERVER_SCOPE`,
         {
           method: 'POST',
           headers: {

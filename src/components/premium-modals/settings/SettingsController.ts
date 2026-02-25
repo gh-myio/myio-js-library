@@ -40,6 +40,7 @@ export class SettingsController {
       customerId: params.customerId, // RFC-0080: Pass customerId for fetching GLOBAL mapInstantaneousPower
       deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
+      tbBaseUrl: params.api?.tbBaseUrl, // Pass tbBaseUrl for superAdmin API calls
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles
@@ -292,6 +293,10 @@ export class SettingsController {
 
     // 2. Update SERVER_SCOPE attributes (all fields except label)
     const attributes = this.extractAttributes(formData);
+
+    // Always stamp lastUpdatedTime on every save (UTC ms long)
+    attributes.lastUpdatedTime = Date.now();
+
     if (Object.keys(attributes).length > 0) {
       try {
         const attributesResult = await this.persister.saveServerScopeAttributes(

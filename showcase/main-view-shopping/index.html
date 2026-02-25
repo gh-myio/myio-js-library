@@ -165,14 +165,26 @@
     .ctrl-label { font-size: 10px; color: #94a3b8; margin-bottom: 4px; display: block; }
     .ctrl-group { margin-bottom: 6px; }
 
+    /* ===== SIDEBAR CONTROLS (scrollable) ===== */
+    .sidebar-controls {
+      overflow-y: auto;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+    .sidebar-controls::-webkit-scrollbar { width: 4px; }
+    .sidebar-controls::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-controls::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+
     /* ===== EVENT LOG ===== */
     .event-log-panel {
-      flex: 1;
+      flex: 0 0 220px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       padding: 12px;
+      border-top: 1px solid #334155;
     }
+    body.light-mode .event-log-panel { border-top-color: #e2e8f0; }
     .event-log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
     .event-log-header h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
     .event-log-clear { font-size: 10px; color: #64748b; cursor: pointer; padding: 3px 6px; border-radius: 4px; background: transparent; border: none; }
@@ -403,6 +415,7 @@
 
     <!-- Sidebar Controls -->
     <aside class="showcase-sidebar">
+      <div class="sidebar-controls">
       <!-- Lifecycle Controls -->
       <div class="controls-panel">
         <h3>Widget Lifecycle</h3>
@@ -421,6 +434,17 @@
           <button class="ctrl-btn secondary" onclick="switchTab('water')">&#128167; Water</button>
           <button class="ctrl-btn secondary" onclick="switchTab('temperature')">&#127777; Temp</button>
           <button class="ctrl-btn secondary" onclick="switchTab('alarms')">&#128276; Alarms</button>
+        </div>
+      </div>
+
+      <!-- Real Data Controls -->
+      <div class="controls-panel">
+        <h3>&#x1F4E1; Dados Reais (Moxuara)</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" style="grid-column:1/-1" onclick="loadRealData()">&#x2B07; Load Real Devices</button>
+        </div>
+        <div style="margin-top:6px; font-size:10px; color:#64748b; line-height:1.4">
+          Busca devices reais do TB Moxuara via API e popula ctx.data
         </div>
       </div>
 
@@ -465,7 +489,7 @@
       <div class="controls-panel">
         <h3>Ghost Auth (ThingsBoard)</h3>
         <div class="ctrl-group">
-          <label class="ctrl-label">Customer: Mestre Alvaro</label>
+          <label class="ctrl-label">Customer: Moxuara</label>
         </div>
         <div class="controls-grid">
           <button class="ctrl-btn success" onclick="authenticateGhost().then(t => t && logEvent('RE-AUTH', 'Token refreshed'))">
@@ -576,6 +600,8 @@
         </div>
       </div>
 
+      </div><!-- /.sidebar-controls -->
+
       <!-- Event Log -->
       <div class="event-log-panel">
         <div class="event-log-header">
@@ -635,16 +661,38 @@
     const _SERVICE_PASS = 'hubmyio@2025!';
 
     // Customer and Ingestion credentials
-    const _CUSTOMER_TB_ID = '20b93da0-9011-11f0-a06d-e9509531b1d5';
-    const _CUSTOMER_ING_ID = 'e01bdd22-3be6-4b75-9dae-442c8b8c186e';
-    const _CLIENT_ID = 'mestreal_mfh4e642_4flnuh';
-    const _CLIENT_SECRET = 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
+    const _CUSTOMER_TB_ID = '5085bf40-b4dd-11f0-be7f-e760d1498268';
+    const _CUSTOMER_ING_ID = '211ae3f9-935d-43f7-8ffe-61801595f2a8';
+    const _CLIENT_ID = 'moxuaraa_mhdlrl92_zzf8pi';
+    const _CLIENT_SECRET = 'B4SzLCzWYaCBJzxY2wwxjmLW67N2IeHltLhZQV7FtXRPEUPb9x8HFhjylENbM23F';
     const _DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 
     // RFC-0180: GCDR identifiers for Alarms tab testing
     const _GCDR_API_BASE_URL = 'https://gcdr-api.a.myio-bas.com';
-    const _GCDR_TENANT_ID = 'mestre-alvaro-tenant-001';
-    const _GCDR_CUSTOMER_ID = 'gcdr-customer-mestre-alvaro';
+    const _GCDR_TENANT_ID = '11111111-1111-1111-1111-111111111111';
+    const _GCDR_CUSTOMER_ID = '84e0370e-636a-4741-9874-504b5e0b3577';
+
+    // Alarms API
+    const alarmsApiBaseUrl = 'https://alarms-api.a.myio-bas.com';
+    const alarmsApiKey     = 'gcdr_cust_tb_integration_key_2026';
+
+    // RFC-0180: Pre-fetched customer alarms (populated by fetchCustomerAlarms in loadRealData)
+    let _cachedCustomerAlarms = null;
+
+    async function fetchCustomerAlarms() {
+      try {
+        const url = `${alarmsApiBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(_GCDR_CUSTOMER_ID)}&limit=100`;
+        const res = await fetch(url, {
+          headers: { 'X-API-Key': alarmsApiKey, 'X-Tenant-ID': _GCDR_TENANT_ID, Accept: 'application/json' },
+        });
+        if (!res.ok) { console.warn('[Showcase] fetchCustomerAlarms failed:', res.status); return; }
+        const json = await res.json();
+        _cachedCustomerAlarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
+        logEvent('ALARMS', `Customer alarms pre-fetched: ${_cachedCustomerAlarms.length}`, 'info');
+      } catch (err) {
+        console.warn('[Showcase] fetchCustomerAlarms error:', err);
+      }
+    }
 
     // Mock devices with GCDR IDs for Settings modal RFC-0180 test
     const _NOW = Date.now();
@@ -755,7 +803,11 @@
     window.self.ctx = {
       settings: {
         customerTB_ID: _CUSTOMER_TB_ID,
+        tbBaseUrl: _TB_URL,
         dataApiHost: _DATA_API_HOST,
+        gcdrCustomerId: _GCDR_CUSTOMER_ID,
+        gcdrTenantId: _GCDR_TENANT_ID,
+        gcdrApiBaseUrl: _GCDR_API_BASE_URL,
         debugMode: true,
         enableDebugMode: true,
         domainsEnabled: { energy: true, water: true, temperature: true },
@@ -802,6 +854,35 @@
         };
       };
     }
+
+    // ===== Bridge: myio:telemetry:provide-data → myio:provide-data =====
+    // Orchestrator emits 'myio:telemetry:provide-data' but TelemetryGridShoppingComponent
+    // listens for 'myio:provide-data'. Bridge re-dispatches so components receive enriched data.
+    window.addEventListener('myio:telemetry:provide-data', (e) => {
+      const domain = e.detail?.domain;
+      if (domain) {
+        logEvent('BRIDGE', `myio:telemetry:provide-data → myio:provide-data (${domain})`, 'info');
+        window.dispatchEvent(new CustomEvent('myio:provide-data', { detail: { domain } }));
+      }
+    });
+
+    // ===== Showcase: suppress DATA API retry loop =====
+    // In the showcase, the DATA API (api.data.apps.myio-bas.com) may fail or be slow.
+    // The orchestrator's handleDataLoadError would normally retry → 30s monitor → retry loop.
+    // We override it here to log + suppress retries — STATE is populated by loadRealData instead.
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        if (window.MyIOUtils) {
+          const _origHandleDataLoadError = window.MyIOUtils.handleDataLoadError;
+          window.MyIOUtils.handleDataLoadError = (domain, reason) => {
+            logEvent('DATA-API', `DATA API error for "${domain}" (suppressed in showcase): ${reason}`, 'warn');
+            console.warn(`[Showcase] DATA API error suppressed for ${domain}: ${reason}`);
+            // Do NOT retry — STATE is populated by populateStateFromRows()
+          };
+          logEvent('SHOWCASE', 'handleDataLoadError override active (no DATA API retries)', 'info');
+        }
+      }, 500); // Wait for MyIOUtils to be created by the controller
+    });
 
     // ===== PRE-CREATE MyIOOrchestrator STUB =====
     // The controller.js creates MyIOOrchestrator at module load time.
@@ -852,6 +933,8 @@
       gcdrCustomerId: _GCDR_CUSTOMER_ID,
       alarmBundle: null,
       alarmBundleFetchedAt: null,
+      alarmsApiBaseUrl: alarmsApiBaseUrl,
+      alarmsApiKey: alarmsApiKey,
       // RFC-0179: Device name enrichment maps (pre-populated with mock data)
       // gcdrDeviceNameMap: UUID / "gcdr:<first8>" → human-readable label
       // UUIDs must be unique in first 8 chars for short-code indexing to work
@@ -931,6 +1014,206 @@
       self.ctx.data = devices;
       console.log(`[Showcase] PRE-POPULATED ctx.data with ${devices.length} rows (${deviceIndex} devices) BEFORE controller loads`);
     })();
+
+    // ===== REAL DEVICE LOADER (Moxuara / TB API) =====
+    // Fetches real devices from ThingsBoard and maps to ctx.data format
+    async function fetchRealDevices() {
+      const jwt = ghostAuthToken || localStorage.getItem('jwt_token');
+      if (!jwt) { logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error'); return null; }
+
+      const customerId = _CUSTOMER_TB_ID;
+      const tbBase     = _TB_URL;
+      const headers    = { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${jwt}` };
+
+      logEvent('REAL-DATA', 'Fetching devices from TB...', 'info');
+
+      // --- Step 1: paginated device list ---
+      let rawDevices = [];
+      let page = 0;
+      const pageSize = 100;
+      while (true) {
+        const res = await fetch(
+          `${tbBase}/api/customer/${customerId}/deviceInfos?pageSize=${pageSize}&page=${page}&sortProperty=label&sortOrder=ASC`,
+          { headers }
+        );
+        if (!res.ok) { logEvent('ERROR', `deviceInfos failed: ${res.status}`, 'error'); return null; }
+        const payload = await res.json();
+        rawDevices = rawDevices.concat(payload.data);
+        logEvent('REAL-DATA', `Page ${page}: ${rawDevices.length} devices loaded`, 'info');
+        if (!payload.hasNext) break;
+        page++;
+      }
+
+      logEvent('REAL-DATA', `Total: ${rawDevices.length} devices — fetching attributes...`, 'info');
+
+      // --- Step 2: batch-fetch SERVER_SCOPE attrs (chunks of 20) ---
+      const ATTR_KEYS = 'deviceType,deviceProfile,identifier,floor,gcdrDeviceId,connectionStatus,ingestionId,createdtime,centralId,centralName,slaveId,lastConnectTime,lastDisconnectTime';
+      const attrMap = {};
+      const chunkSize = 20;
+      for (let i = 0; i < rawDevices.length; i += chunkSize) {
+        const chunk = rawDevices.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (dev) => {
+          try {
+            const r = await fetch(
+              `${tbBase}/api/plugins/telemetry/DEVICE/${dev.id.id}/values/attributes/SERVER_SCOPE?keys=${ATTR_KEYS}`,
+              { headers }
+            );
+            if (r.ok) {
+              const attrs = await r.json();
+              attrMap[dev.id.id] = {};
+              attrs.forEach(a => { attrMap[dev.id.id][a.key] = a.value; });
+            }
+          } catch (e) { /* ignore single device failure */ }
+        }));
+      }
+
+      // --- Step 3: build ctx.data rows ---
+      const now  = Date.now();
+      const rows = [];
+
+      rawDevices.forEach(dev => {
+        const entityId    = dev.id.id;
+        const entityName  = dev.name;
+        const entityLabel = dev.label || dev.name;
+        const attrs       = attrMap[entityId] || {};
+
+        const deviceType       = attrs.deviceType       || dev.type || dev.deviceProfileName || 'UNKNOWN';
+        const deviceProfile    = attrs.deviceProfile    || deviceType;
+        const identifier       = attrs.identifier       || '';
+        const floor            = attrs.floor            || '';
+        const gcdrDeviceId     = attrs.gcdrDeviceId     || '';
+        const connectionStatus = attrs.connectionStatus || 'offline';
+        const ingestionId      = attrs.ingestionId      || '';
+        const createdTime      = attrs.createdtime      || dev.createdTime || null;
+        const centralId        = attrs.centralId        || '';
+        const centralName      = attrs.centralName      || '';
+        const slaveId          = attrs.slaveId          || '';
+        const lastConnectTime  = attrs.lastConnectTime  || null;
+        const lastDisconnectTime = attrs.lastDisconnectTime || null;
+
+        const aliasName = /TERMOSTATO/i.test(deviceType) ? 'AllTempDevices'
+                        : /HIDROMETRO/i.test(deviceType) ? 'AllHidrosDevices'
+                        : 'All3Fs';
+
+        const ds = { type: 'entity', entityId, entityName, entityLabel, aliasName };
+
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'consumption',       type: 'timeseries' }, data: [[now, 0]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceType',         type: 'attribute'  }, data: [[now, deviceType]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceProfile',      type: 'attribute'  }, data: [[now, deviceProfile]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'ingestionId',        type: 'attribute'  }, data: [[now, ingestionId]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'connectionStatus',   type: 'attribute'  }, data: [[now, connectionStatus]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastActivityTime',   type: 'attribute'  }, data: [[now, dev.lastActivityTime || dev.createdTime || now]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'identifier',         type: 'attribute'  }, data: [[now, identifier]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'floor',              type: 'attribute'  }, data: [[now, floor]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'gcdrDeviceId',       type: 'attribute'  }, data: [[now, gcdrDeviceId]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'createdTime',        type: 'attribute'  }, data: [[now, createdTime]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'centralId',          type: 'attribute'  }, data: [[now, centralId]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'centralName',        type: 'attribute'  }, data: [[now, centralName]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'slaveId',            type: 'attribute'  }, data: [[now, slaveId]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastConnectTime',    type: 'attribute'  }, data: [[now, lastConnectTime]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastDisconnectTime', type: 'attribute'  }, data: [[now, lastDisconnectTime]] });
+      });
+
+      const keysPerDevice = 15;
+      logEvent('REAL-DATA', `ctx.data built: ${rawDevices.length} devices × ${keysPerDevice} keys = ${rows.length} rows`, 'info');
+      return rows;
+    }
+
+    async function loadRealData() {
+      updateStatus('running');
+      const rows = await fetchRealDevices();
+      if (!rows) { updateStatus('error'); return; }
+      self.ctx.data = rows;
+
+      // ---- Populate window.STATE directly from real device metadata ----
+      // This allows TelemetryGridShoppingComponent to render immediately,
+      // without waiting for the async DATA API (fetchAndEnrich). Consumption = 0.
+      populateStateFromRows(rows);
+
+      // ---- Dispatch myio:provide-data for each domain ----
+      // Component listens to 'myio:provide-data' (not 'myio:telemetry:provide-data')
+      ['energy', 'water', 'temperature'].forEach(domain => {
+        window.dispatchEvent(new CustomEvent('myio:provide-data', { detail: { domain } }));
+      });
+
+      if (widgetInitialized) triggerOnDataUpdated();
+      updateStatus('ready');
+      logEvent('REAL-DATA', 'Real Moxuara data loaded and STATE populated!', 'info');
+
+      // RFC-0180: Pre-fetch customer alarms in parallel (non-blocking)
+      fetchCustomerAlarms();
+    }
+
+    // Builds window.STATE from ctx.data rows (device metadata, consumption=0)
+    // Mirrors the orchestrator's populateState() but without DATA API enrichment
+    function populateStateFromRows(rows) {
+      if (!window.STATE) window.STATE = { _lastUpdate: {} };
+      if (!window.STATE._lastUpdate) window.STATE._lastUpdate = {};
+      const now = Date.now();
+
+      // Collapse rows into device map (one object per entityId)
+      const deviceMap = {};
+      rows.forEach(row => {
+        const id = row.datasource?.entityId;
+        if (!id) return;
+        if (!deviceMap[id]) {
+          deviceMap[id] = {
+            entityId: id,
+            labelOrName: row.datasource.entityLabel || row.datasource.entityName || id,
+            name: row.datasource.entityName || id,
+            value: 0,
+            _aliasName: row.datasource.aliasName,
+          };
+        }
+        const key = row.dataKey?.name;
+        const val  = row.data?.[0]?.[1];
+        if (key && val !== undefined) deviceMap[id][key] = val;
+      });
+
+      const allItems = Object.values(deviceMap);
+
+      // Categorise energy items
+      const energyItems = allItems.filter(d => !/TERMOSTATO|HIDROMETRO/i.test(d.deviceType || ''));
+      const ENTRADA_SET = new Set(['TRAFO','ENTRADA','RELOGIO','SUBESTACAO']);
+      const energyEntrada  = energyItems.filter(d => ENTRADA_SET.has((d.deviceType||'').toUpperCase()) || ENTRADA_SET.has((d.deviceProfile||'').toUpperCase()));
+      const energyLojas    = energyItems.filter(d => (d.deviceType||'').toUpperCase() === '3F_MEDIDOR' && (d.deviceProfile||'').toUpperCase() === '3F_MEDIDOR');
+      const energyAreaComum = energyItems.filter(d => !energyEntrada.includes(d) && !energyLojas.includes(d));
+
+      const buildGroup = items => ({ items, total: 0, count: items.length });
+
+      window.STATE.energy = {
+        lojas: buildGroup(energyLojas),
+        entrada: buildGroup(energyEntrada),
+        areacomum: buildGroup(energyAreaComum),
+        _raw: energyItems,
+      };
+      window.STATE._lastUpdate.energy = now;
+
+      // Water
+      const waterItems = allItems.filter(d => /HIDROMETRO/i.test(d.deviceType || ''));
+      const waterEntrada   = waterItems.filter(d => /ENTRADA/i.test(d.deviceType || ''));
+      const waterAreaComum = waterItems.filter(d => /AREA_COMUM/i.test(d.deviceType || ''));
+      const waterLojas     = waterItems.filter(d => !waterEntrada.includes(d) && !waterAreaComum.includes(d));
+      window.STATE.water = {
+        lojas: buildGroup(waterLojas),
+        entrada: buildGroup(waterEntrada),
+        areacomum: buildGroup(waterAreaComum),
+        banheiros: buildGroup([]),
+        caixadagua: buildGroup([]),
+        _raw: waterItems,
+      };
+      window.STATE._lastUpdate.water = now;
+
+      // Temperature
+      const tempItems = allItems.filter(d => /TERMOSTATO/i.test(d.deviceType || ''));
+      window.STATE.temperature = {
+        lojas: buildGroup(tempItems),
+        _raw: tempItems,
+      };
+      window.STATE._lastUpdate.temperature = now;
+
+      logEvent('REAL-DATA', `STATE populated: energy=${energyItems.length} water=${waterItems.length} temp=${tempItems.length}`, 'info');
+    }
 
     // ===== MOCK DATA GENERATOR =====
     // ThingsBoard ctx.data structure: each dataKey subscription is a separate row
@@ -1993,6 +2276,32 @@
 
     // ===== CARD SETTINGS HANDLER (shared by all grids) =====
     async function handleCardSettings(device) {
+      // [Orchestrator] 🔍 DEBUG Sample from 'all3fs': log everything if device matches "Elevador 1 L2"
+      const _debugName = (device.labelOrName || device.deviceName || device.name || '').toLowerCase();
+      const _debugLabel = (device.label || device.deviceLabel || '').toLowerCase();
+      if (_debugName.includes('elevador 1 l2') || _debugLabel.includes('elevador 1 l2')) {
+        console.group('%c[Orchestrator] 🔍 DEBUG Sample from \'all3fs\': Elevador 1 L2', 'color:#f59e0b;font-weight:bold');
+        console.log('device (full object):', JSON.parse(JSON.stringify(device)));
+        console.log('device.entityId:', device.entityId);
+        console.log('device.labelOrName:', device.labelOrName);
+        console.log('device.deviceName:', device.deviceName);
+        console.log('device.label:', device.label);
+        console.log('device.deviceLabel:', device.deviceLabel);
+        console.log('device.deviceType:', device.deviceType);
+        console.log('device.deviceProfile:', device.deviceProfile);
+        console.log('device.domain:', device.domain);
+        console.log('device.gcdrDeviceId:', device.gcdrDeviceId);
+        console.log('device.ingestionId:', device.ingestionId);
+        console.log('device.status:', device.status);
+        console.log('device.createdTime:', device.createdTime);
+        console.log('device.lastActivityTime:', device.lastActivityTime);
+        const _mockDeviceDebug = _RFC180_TEST_DEVICES.find(d => d.id === device.entityId);
+        console.log('mockDevice match (_RFC180_TEST_DEVICES):', _mockDeviceDebug || '(no match)');
+        console.log('gcdrDeviceId resolved:', _mockDeviceDebug?.gcdrDeviceId ?? '(null — will block Alarms tab)');
+        console.groupEnd();
+        logEvent('DEBUG', `[Elevador 1 L2] entityId=${device.entityId} gcdrDeviceId=${_mockDeviceDebug?.gcdrDeviceId ?? '(empty)'}`, 'warn');
+      }
+
       const token = ghostAuthToken || localStorage.getItem('jwt_token');
       if (!token) {
         logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
@@ -2004,16 +2313,17 @@
         return;
       }
 
-      // Look up GCDR + seed data from mock test devices (matched by entityId)
+      // Look up GCDR + seed data from mock test devices (matched by entityId).
+      // For real devices (Load Real Devices), entityId is a TB UUID and won't match — fall back to device fields.
       const mockDevice = _RFC180_TEST_DEVICES.find(d => d.id === device.entityId);
-      const gcdrDeviceId = mockDevice?.gcdrDeviceId ?? null;
+      const gcdrDeviceId = mockDevice?.gcdrDeviceId ?? device.gcdrDeviceId ?? null;
 
-      logEvent('SETTINGS', `Opening for "${mockDevice?.label || device.labelOrName}" (${device.entityId})`, 'info');
+      logEvent('SETTINGS', `Opening for "${mockDevice?.label || device.labelOrName}" (${device.entityId}) gcdrDeviceId=${gcdrDeviceId || '(empty)'}`, 'info');
 
       try {
         MyIOLibrary.openDashboardPopupSettings({
           deviceId: device.entityId,
-          deviceName: device.deviceIdentifier || device.entityId,
+          deviceName: device.name || device.deviceIdentifier || device.entityId,
           label: mockDevice?.label || device.labelOrName,
           deviceType: device.deviceType,
           deviceProfile: device.deviceProfile,
@@ -2026,22 +2336,23 @@
             clientSecret: _CLIENT_SECRET,
             ingestionToken: _CUSTOMER_ING_ID,
           },
-          // Pre-populate form with mock values (bypasses TB fetch in showcase)
+          // Pre-populate form — prefer mock values, fall back to real device attrs
           seed: {
             label:      mockDevice?.label      || device.labelOrName || '',
-            floor:      mockDevice?.floor      || '',
-            identifier: mockDevice?.identifier || '',
+            floor:      mockDevice?.floor      || device.floor       || '',
+            identifier: mockDevice?.identifier || device.identifier  || '',
           },
           // Device timestamps
-          createdTime:      mockDevice?.createdTime      ?? (_NOW - 180 * 24 * 3600000),
-          lastActivityTime: mockDevice?.lastActivityTime ?? (_NOW - 3600000),
-          // RFC-0180: GCDR params (from mock or orchestrator)
+          createdTime:      mockDevice?.createdTime      ?? device.createdTime      ?? (_NOW - 180 * 24 * 3600000),
+          lastActivityTime: mockDevice?.lastActivityTime ?? device.lastActivityTime ?? (_NOW - 3600000),
+          // RFC-0180: GCDR params — prefer mock, fall back to real attrs fetched from TB
           gcdrDeviceId,
           gcdrCustomerId: _GCDR_CUSTOMER_ID,
           gcdrTenantId: _GCDR_TENANT_ID,
           gcdrApiBaseUrl: _GCDR_API_BASE_URL,
           prefetchedBundle: _MOCK_GCDR_BUNDLE,
-          customerName: device.customerName || 'Mestre Alvaro',
+          prefetchedAlarms: _cachedCustomerAlarms,
+          customerName: device.customerName || 'Moxuara',
           customerId: device.customerId || _CUSTOMER_TB_ID,
           enableAnnotationsOnboarding: false,
           onSaved: (result) => logEvent('SETTINGS-SAVED', JSON.stringify(result).substring(0, 80), 'info'),
@@ -2104,6 +2415,7 @@
           gcdrTenantId: _GCDR_TENANT_ID,
           gcdrApiBaseUrl: _GCDR_API_BASE_URL,
           prefetchedBundle,
+          prefetchedAlarms: _cachedCustomerAlarms,
           customerName: 'Mestre Alvaro',
           customerId: _CUSTOMER_TB_ID,
           enableAnnotationsOnboarding: false,
@@ -2205,6 +2517,12 @@
           }
         }
       }, 100); // Small delay to let orchestrator initialize
+
+      // RFC-0180: Ensure alarms API credentials are set on orchestrator
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
+        window.MyIOOrchestrator.alarmsApiKey     = alarmsApiKey;
+      }
     };
     scriptEl.onerror = (e) => console.error('[Showcase] Failed to load controller.js:', e);
     document.body.appendChild(scriptEl);

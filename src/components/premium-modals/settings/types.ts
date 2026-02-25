@@ -91,6 +91,9 @@ export interface OpenDashboardPopupSettingsParams {
   gcdrApiBaseUrl?: string;
   /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
   prefetchedBundle?: GCDRCustomerBundle | null;
+  /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format).
+   *  AlarmsTab filters by gcdrDeviceId — no per-device fetch needed. */
+  prefetchedAlarms?: unknown[] | null;
 
   // Pre-populate form with existing values
   seed?: {
@@ -169,6 +172,7 @@ export interface ModalConfig {
   deviceMapInstaneousPower: object;
   deviceId?: string; // ThingsBoard device ID for fetching device-level attributes
   jwtToken?: string; // JWT token for API calls
+  tbBaseUrl?: string; // ThingsBoard base URL for API calls (defaults to window.location.origin)
   connectionData?: { // Connection info from card v5
     centralName?: string;
     connectionStatusTime?: string;
@@ -196,6 +200,8 @@ export interface ModalConfig {
   gcdrApiBaseUrl?: string;
   /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
   prefetchedBundle?: GCDRCustomerBundle | null;
+  /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format). */
+  prefetchedAlarms?: unknown[] | null;
 
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
