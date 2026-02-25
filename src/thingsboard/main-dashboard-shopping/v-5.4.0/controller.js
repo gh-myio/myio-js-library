@@ -48,6 +48,8 @@ Object.assign(window.MyIOUtils, {
   temperatureLimits: { minTemperature: 18, maxTemperature: 26 },
   mapInstantaneousPower: null,
   SuperAdmin: false,
+  currentUserEmail: null,
+  enableAnnotationsOnboarding: false,
   currentTheme: 'light',
   setTheme: (theme) => {
     window.MyIOUtils.currentTheme = theme;
@@ -441,10 +443,44 @@ async function fetchCredentials(customerTbId) {
       clientId: get('clientId') || '',
       clientSecret: get('clientSecret') || '',
       ingestionId: get('customerId') || '',
+      gcdrCustomerId: get('gcdrCustomerId') || get('gcdrId') || '',
+      gcdrTenantId: get('gcdrTenantId') || '',
     };
   } catch (err) {
     LogHelper.error('Failed to fetch credentials:', err);
     return null;
+  }
+}
+
+// ============================================================================
+// Alarms Pre-fetching (RFC-0180)
+// ============================================================================
+
+/**
+ * RFC-0180: Pre-fetch all customer alarms so AlarmsTab can filter without a per-device call.
+ * Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
+ */
+async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
+  try {
+    const ALARMS_API_KEY = window.MyIOOrchestrator?.alarmsApiKey || 'gcdr_cust_tb_integration_key_2026';
+    const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+    const response = await fetch(url, {
+      headers: {
+        'X-API-Key': ALARMS_API_KEY,
+        'X-Tenant-ID': gcdrTenantId || '',
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      LogHelper.warn('[MAIN] _prefetchCustomerAlarms failed:', response.status);
+      return;
+    }
+    const json = await response.json();
+    const alarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
+    if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerAlarms = alarms;
+    LogHelper.log('[MAIN] RFC-0180: customerAlarms pre-fetched:', alarms.length, 'alarms');
+  } catch (err) {
+    LogHelper.warn('[MAIN] _prefetchCustomerAlarms error:', err);
   }
 }
 
@@ -463,6 +499,9 @@ async function fetchAndUpdateUserInfo() {
     const fullName =
       `${ctxUser.firstName || ''} ${ctxUser.lastName || ''}`.trim() || ctxUser.name || 'Usuário';
     const isAdmin = ctxUser.authority === 'TENANT_ADMIN' || window.MyIOUtils.SuperAdmin;
+
+    // RFC-0171: Store currentUserEmail for use in Settings modal
+    window.MyIOUtils.currentUserEmail = (ctxUser.email || '').toLowerCase().trim();
 
     if (_menuInstance) {
       _menuInstance.updateUserInfo({
@@ -502,6 +541,9 @@ async function fetchAndUpdateUserInfo() {
     const user = await response.json();
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Usuário';
     const isAdmin = user.authority === 'TENANT_ADMIN' || window.MyIOUtils.SuperAdmin;
+
+    // RFC-0171: Store currentUserEmail for use in Settings modal
+    window.MyIOUtils.currentUserEmail = (user.email || '').toLowerCase().trim();
 
     if (_menuInstance) {
       _menuInstance.updateUserInfo({
@@ -930,9 +972,56 @@ self.onInit = async function () {
   LogHelper.log('Initial theme mode from settings:', _currentThemeMode, '(settings.defaultThemeMode:', settings.defaultThemeMode, ')');
   applyBackgroundToPage(_currentThemeMode, settings);
 
-  // Detect SuperAdmin
+  // RFC-0144: Load annotations onboarding setting
+  const enableAnnotationsOnboarding = settings.enableAnnotationsOnboarding ?? false;
+  window.MyIOUtils.enableAnnotationsOnboarding = enableAnnotationsOnboarding;
+  LogHelper.log('RFC-0144: enableAnnotationsOnboarding:', enableAnnotationsOnboarding);
+
+  // RFC-0178: Alarms API config from settings
+  const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  const alarmsApiKey = settings.alarmsApiKey || 'gcdr_cust_tb_integration_key_2026';
+
+  // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
+  let gcdrCustomerId = settings.gcdrCustomerId || '';
+  let gcdrTenantId   = settings.gcdrTenantId   || '';
+  const gcdrApiBaseUrl = settings.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+
+  // Detect SuperAdmin from context (quick check; currentUserEmail refined later via fetchAndUpdateUserInfo)
   const userEmail = self.ctx?.currentUser?.email || '';
   window.MyIOUtils.SuperAdmin = userEmail.includes('@myio.com.br') && !userEmail.includes('alarme');
+  if (userEmail) window.MyIOUtils.currentUserEmail = userEmail.toLowerCase().trim();
+
+  // RFC-0051.2: Expose orchestrator stub IMMEDIATELY before createComponents()
+  // so TELEMETRY grids and Settings modal can reference it during initialization
+  if (!window.MyIOOrchestrator) {
+    window.MyIOOrchestrator = {
+      isReady: false,
+      customerTB_ID: customerTbId,
+      alarmsApiBaseUrl: alarmsApiBaseUrl,
+      alarmsApiKey: alarmsApiKey,
+      gcdrCustomerId: gcdrCustomerId,
+      gcdrTenantId: gcdrTenantId,
+      gcdrApiBaseUrl: gcdrApiBaseUrl,
+      customerAlarms: null,
+      getCurrentPeriod: () => null,
+      getCredentials: () => null,
+      setCredentials: async (_customerId, _clientId, _clientSecret) => {
+        LogHelper.warn('[MAIN] setCredentials called before orchestrator is ready');
+      },
+      tokenManager: {
+        setToken: (_key, _token) => {
+          LogHelper.warn('[MAIN] tokenManager.setToken called before orchestrator is ready');
+        },
+      },
+      inFlight: {},
+    };
+    LogHelper.log('[MAIN] MyIOOrchestrator stub created');
+  } else {
+    // Orchestrator already exists (e.g. from another widget) — update relevant fields
+    window.MyIOOrchestrator.customerTB_ID = customerTbId;
+    window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
+    window.MyIOOrchestrator.alarmsApiKey = alarmsApiKey;
+  }
 
   // Fetch credentials
   if (customerTbId) {
@@ -940,7 +1029,11 @@ self.onInit = async function () {
     if (_credentials) {
       LogHelper.log('Credentials fetched');
 
-      // Set in orchestrator if available
+      // RFC-0180: Fallback GCDR IDs from TB attrs when not set in widget settings
+      if (!gcdrCustomerId) gcdrCustomerId = _credentials.gcdrCustomerId || '';
+      if (!gcdrTenantId)   gcdrTenantId   = _credentials.gcdrTenantId   || '';
+
+      // Set credentials in orchestrator
       if (window.MyIOOrchestrator?.setCredentials) {
         window.MyIOOrchestrator.setCredentials(
           _credentials.ingestionId,
@@ -949,6 +1042,19 @@ self.onInit = async function () {
         );
       }
     }
+  }
+
+  // RFC-0180: Publish final GCDR identifiers to orchestrator
+  if (window.MyIOOrchestrator) {
+    window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
+    window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
+    window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
+  }
+  LogHelper.log('[MAIN] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
+
+  // RFC-0180: Pre-fetch all customer alarms (non-blocking)
+  if (gcdrCustomerId) {
+    _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
   }
 
   // Create components

@@ -498,6 +498,7 @@ let widgetSettings = {
   domainsEnabled: { energy: true, water: true, temperature: true },
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
   enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
+  enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
 
 // Config object (populated in onInit from widgetSettings)
@@ -1197,6 +1198,11 @@ Object.assign(window.MyIOUtils, {
     // Expose via window.MyIOUtils for TELEMETRY widget
     window.MyIOUtils.enableAnnotationsOnboarding = widgetSettings.enableAnnotationsOnboarding;
     LogHelper.log('[Orchestrator] RFC-0144: enableAnnotationsOnboarding:', widgetSettings.enableAnnotationsOnboarding);
+
+    // Load enableReportButton setting and expose via window.MyIOUtils for HEADER widget
+    widgetSettings.enableReportButton = self.ctx.settings?.enableReportButton ?? false;
+    window.MyIOUtils.enableReportButton = widgetSettings.enableReportButton;
+    LogHelper.log('[Orchestrator] enableReportButton:', widgetSettings.enableReportButton);
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {

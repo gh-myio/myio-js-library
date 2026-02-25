@@ -489,7 +489,7 @@ export class SettingsModalView {
             <div class="identity-col1">
               <div class="identity-name-block">
                 <div class="identity-name-text">${this.config.deviceLabel || '—'}</div>
-                ${this.config.deviceName ? `<div class="device-name-subtitle">${this.config.deviceName}</div>` : ''}
+                <div class="device-name-subtitle">${this.config.deviceName || ''}</div>
               </div>
               <div class="identity-icon-cell">
                 ${this.getDeviceImage(deviceType)}
@@ -1497,7 +1497,7 @@ export class SettingsModalView {
 
         .identity-grid {
           display: grid;
-          grid-template-columns: minmax(350px, auto) 1fr minmax(350px, auto);
+          grid-template-columns: minmax(250px, auto) 1fr minmax(250px, auto);
           grid-template-rows: repeat(6, auto);
           gap: 6px 16px;
           align-items: center;
@@ -1624,6 +1624,10 @@ export class SettingsModalView {
           text-overflow: ellipsis;
           margin-top: 2px;
           margin-bottom: 0;
+        }
+
+        .device-name-subtitle:empty {
+          display: none;
         }
 
         .section-title {

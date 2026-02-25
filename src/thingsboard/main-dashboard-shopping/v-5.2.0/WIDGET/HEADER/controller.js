@@ -506,6 +506,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Only energy and water are supported for all controls
       const isSupported = domain === 'energy' || domain === 'water';
 
+      // Read enableReportButton flag from MAIN_VIEW (default: false = disabled)
+      const enableReportButton = window.MyIOUtils?.enableReportButton ?? false;
+
       // Update report button text and state
       if (btnGen) {
         if (btnText && domainLabels[domain]) {
@@ -516,9 +519,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           btnGen.title = 'Relatório Consumo Geral';
         }
 
-        btnGen.disabled = !isSupported;
+        btnGen.disabled = !isSupported || !enableReportButton;
         LogHelper.log(
-          `[HEADER] Relatório Geral button ${btnGen.disabled ? 'disabled' : 'enabled'} for domain: ${domain}`
+          `[HEADER] Relatório Geral button ${btnGen.disabled ? 'disabled' : 'enabled'} for domain: ${domain} (enableReportButton=${enableReportButton})`
         );
       }
 

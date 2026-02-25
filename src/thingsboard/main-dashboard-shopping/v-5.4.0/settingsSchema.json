@@ -157,6 +157,42 @@
         },
         "default": [],
         "description": "Lista de Entity IDs do ThingsBoard que serão excluídos do cálculo de consumo no summary CAG (Climatização, Áreas Comuns, etc). Ex: ['abc123-def456-...', 'xyz789-...']"
+      },
+      "enableAnnotationsOnboarding": {
+        "title": "Enable Annotations Onboarding",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0144: Habilita o onboarding de Anotações do Dispositivo no modal de Settings. Se false, o onboarding nunca é exibido."
+      },
+      "alarmsApiBaseUrl": {
+        "title": "Alarms API Base URL",
+        "type": "string",
+        "default": "https://alarms-api.a.myio-bas.com",
+        "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
+      },
+      "alarmsApiKey": {
+        "title": "Alarms API Key",
+        "type": "string",
+        "default": "gcdr_cust_tb_integration_key_2026",
+        "description": "RFC-0178: API key for the Alarms Backend REST API (X-API-Key header)."
+      },
+      "gcdrCustomerId": {
+        "title": "GCDR Customer ID",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0180: GCDR customer identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrCustomerId' (or 'gcdrId')."
+      },
+      "gcdrTenantId": {
+        "title": "GCDR Tenant ID",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0180: GCDR tenant identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrTenantId'."
+      },
+      "gcdrApiBaseUrl": {
+        "title": "GCDR API Base URL",
+        "type": "string",
+        "default": "https://gcdr-api.a.myio-bas.com",
+        "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
       }
     }
   },
@@ -242,6 +278,12 @@
         "domainsEnabled.temperature"
       ]
     },
-    "excludeDevicesAtCountSubtotalCAG"
+    "excludeDevicesAtCountSubtotalCAG",
+    "enableAnnotationsOnboarding",
+    "alarmsApiBaseUrl",
+    "alarmsApiKey",
+    "gcdrCustomerId",
+    "gcdrTenantId",
+    "gcdrApiBaseUrl"
   ]
 }

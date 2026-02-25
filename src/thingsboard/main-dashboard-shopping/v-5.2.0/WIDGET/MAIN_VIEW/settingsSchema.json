@@ -103,6 +103,12 @@
         "type": "string",
         "default": "https://gcdr-api.a.myio-bas.com",
         "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
+      },
+      "enableReportButton": {
+        "title": "Enable Report Button",
+        "type": "boolean",
+        "default": false,
+        "description": "Habilita o botão Relatório no HEADER widget. Por padrão desabilitado — ative apenas quando a integração de relatórios estiver configurada para o cliente."
       }
     }
   },
@@ -122,6 +128,7 @@
     "alarmsApiKey",
     "gcdrCustomerId",
     "gcdrTenantId",
-    "gcdrApiBaseUrl"
+    "gcdrApiBaseUrl",
+    "enableReportButton"
   ]
 }
