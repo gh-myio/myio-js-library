@@ -26,9 +26,9 @@ export class BASControlPanel {
     this.container.className = 'myio-bas-control-panel';
     this.render();
 
-    // Start auto-refresh if callback provided
-    if (options.onTelemetryRefresh && options.refreshInterval !== 0) {
-      this.startAutoRefresh(options.refreshInterval || 10000);
+    // Start auto-refresh only when refreshInterval is explicitly a positive number
+    if (options.onTelemetryRefresh && (options.refreshInterval ?? 0) > 0) {
+      this.startAutoRefresh(options.refreshInterval!);
     }
   }
 
@@ -253,16 +253,26 @@ export class BASControlPanel {
   }
 
   public updateTelemetry(telemetry: BASDeviceTelemetry): void {
-    this.device.telemetry = telemetry;
+    if (!telemetry) return;
+
+    // Merge: preserve existing valid values when new values are null/undefined/NaN
+    const existing = this.device.telemetry || ({} as BASDeviceTelemetry);
+    const merged = { ...existing };
+    for (const [key, val] of Object.entries(telemetry) as [keyof BASDeviceTelemetry, any][]) {
+      if (val !== null && val !== undefined && !(typeof val === 'number' && isNaN(val))) {
+        (merged as any)[key] = val;
+      }
+    }
+    this.device.telemetry = merged;
 
     const grid = this.container.querySelector('#bas-telemetry-grid');
     if (grid) {
-      grid.innerHTML = this.renderTelemetryItems(telemetry);
+      grid.innerHTML = this.renderTelemetryItems(merged);
     }
 
     const updatedEl = this.container.querySelector('#bas-telemetry-updated');
-    if (updatedEl && telemetry.lastUpdate) {
-      updatedEl.textContent = `Atualizado: ${this.formatTime(telemetry.lastUpdate)}`;
+    if (updatedEl && merged.lastUpdate) {
+      updatedEl.textContent = `Atualizado: ${this.formatTime(merged.lastUpdate)}`;
     }
   }
 
