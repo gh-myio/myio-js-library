@@ -536,15 +536,18 @@ const i18n = {
 // ============================================================================
 
 type CustomerSortField = 'name' | 'createdTime' | 'parentName';
-type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile';
+type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile' | 'centralId' | 'slaveId';
 type SortOrder = 'asc' | 'desc';
 
 // Column widths for drag-resize
 interface ColumnWidths {
+  name: number;
   label: number;
   type: number;
   createdTime: number;
   relationTo: number;
+  centralId: number;
+  slaveId: number;
   deviceType: number;
   deviceProfile: number;
   telemetry: number;
@@ -712,6 +715,14 @@ function sortDevices(devices: Device[], field: DeviceSortField, order: SortOrder
       compare = (a.serverAttrs?.deviceProfile || '')
         .toLowerCase()
         .localeCompare((b.serverAttrs?.deviceProfile || '').toLowerCase());
+    } else if (field === 'centralId') {
+      compare = (a.serverAttrs?.centralId || '')
+        .toLowerCase()
+        .localeCompare((b.serverAttrs?.centralId || '').toLowerCase());
+    } else if (field === 'slaveId') {
+      const sA = String(a.serverAttrs?.slaveId ?? '');
+      const sB = String(b.serverAttrs?.slaveId ?? '');
+      compare = sA.localeCompare(sB, undefined, { numeric: true });
     }
     return order === 'asc' ? compare : -compare;
   });
@@ -757,10 +768,13 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
     bulkOwnerModal: { open: false, saving: false },
     columnWidths: {
-      label: 280,
-      type: 180,
-      createdTime: 100,
-      relationTo: 120,
+      name: 180,
+      label: 120,
+      type: 140,
+      createdTime: 90,
+      relationTo: 110,
+      centralId: 80,
+      slaveId: 60,
       deviceType: 80,
       deviceProfile: 90,
       telemetry: 100,
@@ -793,6 +807,15 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
   const savedTheme = localStorage.getItem('myio-upsell-modal-theme') as 'dark' | 'light';
   if (savedTheme) state.theme = savedTheme;
 
+  // Pre-select customer (skips Step 1 when caller already has a customer selected)
+  if (params.preselectedCustomer) {
+    state.selectedCustomer = {
+      id: { entityType: 'CUSTOMER', id: params.preselectedCustomer.id },
+      name: params.preselectedCustomer.name,
+    };
+    state.currentStep = 2;
+  }
+
   // Create modal container
   const modalContainer = document.createElement('div');
   modalContainer.id = modalId;
@@ -802,7 +825,12 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
   renderModal(modalContainer, state, modalId, t);
 
   // Fetch initial data
-  loadCustomers(state, modalContainer, modalId, t, params.onClose);
+  if (params.preselectedCustomer) {
+    // Skip customer list — load devices for the pre-selected customer directly
+    loadDevices(state, modalContainer, modalId, t, params.onClose);
+  } else {
+    loadCustomers(state, modalContainer, modalId, t, params.onClose);
+  }
 
   // Return instance
   return {
@@ -1779,7 +1807,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     return true;
   });
 
-  // Apply search term filter for display count
+  // Apply search term filter — hybrid across name, label, type, devType, devProfile, slaveId, status
   const searchFilteredDevices = searchTerm
     ? filteredDevices.filter((d) => {
         const name = (d.name || '').toLowerCase();
@@ -1787,18 +1815,22 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         const type = (d.type || '').toLowerCase();
         const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
         const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+        const slaveId = String(d.serverAttrs?.slaveId ?? '').toLowerCase();
+        const status = (d.latestTelemetry?.connectionStatus?.value || '').toLowerCase();
         return (
           name.includes(searchTerm) ||
           label.includes(searchTerm) ||
           type.includes(searchTerm) ||
           deviceType.includes(searchTerm) ||
-          deviceProfile.includes(searchTerm)
+          deviceProfile.includes(searchTerm) ||
+          slaveId.includes(searchTerm) ||
+          status.includes(searchTerm)
         );
       })
     : filteredDevices;
 
-  // Sort devices
-  const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
+  // Sort devices (use searchFilteredDevices so the text search also filters the grid)
+  const sortedDevices = sortDevices(searchFilteredDevices, sortField, sortOrder);
 
   // Grid height based on maximize state
   const gridHeight = state.isMaximized ? 'calc(100vh - 340px)' : '360px';
@@ -2091,6 +2123,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     ">
       ${state.deviceSelectionMode === 'multi' ? `<div style="width: 28px; text-align: center;">☑</div>` : ''}
       <div style="width: 28px;"></div>
+      ${renderSortableHeader('name', 'Name', 'name', state.columnWidths.name)}
       ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
       ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
       ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
@@ -2099,6 +2132,8 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
         relTO ${!state.relationsLoaded ? '⏳' : ''}
       </div>
+      ${renderSortableHeader('centralId', 'centralId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'centralId', state.columnWidths.centralId)}
+      ${renderSortableHeader('slaveId', 'slaveId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'slaveId', state.columnWidths.slaveId)}
       <div style="width: ${
         state.columnWidths.deviceType
       }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
@@ -2338,20 +2373,27 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       }
       <div style="width: 28px; font-size: 16px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
       <div style="width: ${
-        state.columnWidths.label
+        state.columnWidths.name
       }px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px;">
-        <div style="font-weight: 500; color: ${
+        <div style="font-weight: 600; color: ${
           colors.text
-        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${
-    device.label || device.name
-  }">
-          ${device.label || device.name}
+        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${device.name}">
+          ${device.name}
         </div>
         <span class="myio-info-btn" data-device-info="${encodeURIComponent(tooltipContent)}" style="
           cursor: pointer; font-size: 12px; color: ${colors.textMuted}; flex-shrink: 0;
           width: 16px; height: 16px; border-radius: 50%; background: ${colors.cardBg};
           display: flex; align-items: center; justify-content: center; border: 1px solid ${colors.border};
         " title="Ver detalhes">ⓘ</span>
+      </div>
+      <div style="width: ${
+        state.columnWidths.label
+      }px; padding: 0 6px; overflow: hidden; flex-shrink: 0;">
+        <div style="font-size: 10px; color: ${
+          colors.textMuted
+        }; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.label ?? ''}">
+          ${device.label ?? ''}
+        </div>
       </div>
       <div style="width: ${
         state.columnWidths.type
@@ -2377,6 +2419,26 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
             ? `<span style="font-size: 9px; color: ${colors.text};" title="${assetName}">${assetName}</span>`
             : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
         })()}
+      </div>
+      <div style="width: ${
+        state.columnWidths.centralId
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${!state.deviceAttrsLoaded
+          ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
+          : attrs.centralId
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.centralId}">${attrs.centralId}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
+        }
+      </div>
+      <div style="width: ${
+        state.columnWidths.slaveId
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${!state.deviceAttrsLoaded
+          ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
+          : attrs.slaveId != null && attrs.slaveId !== ''
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.slaveId}">${attrs.slaveId}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
+        }
       </div>
       <div style="width: ${
         state.columnWidths.deviceType
@@ -3318,11 +3380,16 @@ function setupEventListeners(
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Sortable column headers - click to sort
+  // Sortable column headers - click to sort (must match renderSortableHeader col names in the grid header)
   const sortableColumns: Array<{ col: string; field: DeviceSortField }> = [
-    { col: 'label', field: 'label' },
-    { col: 'type', field: 'type' },
-    { col: 'createdTime', field: 'createdTime' },
+    { col: 'name',          field: 'name'          },
+    { col: 'label',         field: 'label'         },
+    { col: 'type',          field: 'type'          },
+    { col: 'createdTime',   field: 'createdTime'   },
+    { col: 'deviceType',    field: 'deviceType'    },
+    { col: 'deviceProfile', field: 'deviceProfile' },
+    { col: 'centralId',     field: 'centralId'     },
+    { col: 'slaveId',       field: 'slaveId'       },
   ];
 
   sortableColumns.forEach(({ col, field }) => {

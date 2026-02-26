@@ -784,6 +784,229 @@ The showcase allows testing:
 
 ---
 
+## Version 1.3.0 — GCDR-Upsell-Setup Widget, preselectedCustomer, Grid UX Enhancements
+
+**Date:** 2026-02-26
+**Branch:** `fix/rfc-0152-real-data`
+
+### Motivation
+
+1. The Upsell modal was embedded inside `Pre-Setup-Constructor`, making it unavailable to other panels.
+2. Opening the modal from a panel that already knows the active customer forced the user to re-select it at Step 1.
+3. The device grid lacked `name` as a distinct column (previously merged with `label`), had no `centralId`/`slaveId` columns, could not sort by every column, and searched only a subset of fields.
+
+---
+
+### New Widget: `GCDR-Upsell-Setup/v.1.0.0`
+
+A dedicated, standalone ThingsBoard widget that wraps the Upsell modal.
+
+| File | Description |
+|------|-------------|
+| `src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js` | Widget controller — calls `openUpsellModal` from `myio-js-library` |
+| `src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/template.html` | Widget HTML template |
+| `src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/styles.css` | Widget styles |
+
+**UI Elements:**
+
+| Element | Description |
+|---------|-------------|
+| Customer search dropdown | Searches ThingsBoard customers and displays the selected one |
+| "Carregar Cliente" button | Opens the Upsell modal, skipping Step 1 if a customer is already selected |
+
+**Library Loading:**
+The controller calls `guLoadMyIOLibrary()` which checks `window.MyIOLibrary` first. If already loaded (e.g., by showcase pre-load or another widget), the CDN load is skipped. Otherwise it loads from the npm CDN.
+
+---
+
+### Updated Widget: `Pre-Setup-Constructor/v.2.0.0`
+
+A cleaned version of `v.1.0.9` with the following removed:
+
+| Removed | Notes |
+|---------|-------|
+| `loadMyIOLibrary()` function | Delegated to `GCDR-Upsell-Setup` |
+| Upsell button (`upsell-modal`) | Moved to `GCDR-Upsell-Setup` |
+| GCDR Sync button (`gcdr-sync`) | Moved to `GCDR-Upsell-Setup` |
+| Two toolbar buttons HTML | Clean toolbar |
+
+**File:** `src/thingsboard/WIDGET/Pre-Setup-Constructor/v.2.0.0/controller.js`
+
+---
+
+### New Parameter: `preselectedCustomer`
+
+Added to `UpsellModalParams` in `src/components/premium-modals/upsell/types.ts`:
+
+```typescript
+preselectedCustomer?: { id: string; name: string };
+```
+
+**Behavior:**
+
+| `preselectedCustomer` | Opens at | First load call |
+|-----------------------|----------|-----------------|
+| Not provided | Step 1 (Customer Selection) | `loadCustomers()` |
+| Provided | Step 2 (Device List) | `loadDevices()` |
+
+**Implementation in `openUpsellModal.ts`:**
+
+```typescript
+if (params.preselectedCustomer) {
+  state.selectedCustomer = {
+    id: { entityType: 'CUSTOMER', id: params.preselectedCustomer.id },
+    name: params.preselectedCustomer.name,
+  };
+  state.currentStep = 2;
+}
+
+// ...after container creation...
+
+if (params.preselectedCustomer) {
+  loadDevices(state, modalContainer, modalId, t, params.onClose);
+} else {
+  loadCustomers(state, modalContainer, modalId, t, params.onClose);
+}
+```
+
+**Usage in GCDR-Upsell-Setup controller:**
+
+```javascript
+openUpsellModal({
+  // ...other params...
+  preselectedCustomer: { id: selectedCustomer.id, name: selectedCustomer.name },
+});
+```
+
+---
+
+### Grid: Separated `name` and `label` Columns
+
+Previously `label` fell back to `name` when null. Now they are distinct:
+
+| Column | Content | Fallback |
+|--------|---------|---------|
+| `name` | `device.name` (bold) | — (always has value) |
+| `label` | `device.label` | Empty string (never falls back to name) |
+
+**Column widths updated:**
+
+| Column | Width |
+|--------|-------|
+| `name` | 180px |
+| `label` | 120px (reduced from 280px) |
+
+---
+
+### Grid: `centralId` and `slaveId` Columns
+
+Two new columns appear after `relationTo`:
+
+| Column | Source | State: not loaded | State: loaded |
+|--------|--------|-------------------|---------------|
+| `centralId 🔒` | `device.serverAttrs.centralId` | Empty | Populated |
+| `slaveId 🔒` | `device.serverAttrs.slaveId` | Empty | Populated |
+
+The `🔒` lock icon is removed from the header label once `state.deviceAttrsLoaded === true` (i.e., after "Carregar Atributos" is clicked), matching the existing pattern for `devType` and `devProfile`.
+
+**Column widths:**
+
+| Column | Width |
+|--------|-------|
+| `centralId` | 80px |
+| `slaveId` | 60px |
+
+---
+
+### Grid: All Columns Sortable
+
+All 8 device columns now support ascending/descending sort toggle:
+
+| Column | Sort Type |
+|--------|-----------|
+| `name` | String (localeCompare) |
+| `label` | String (localeCompare) |
+| `type` | String (localeCompare) |
+| `createdTime` | Numeric |
+| `deviceType` | String (localeCompare) |
+| `deviceProfile` | String (localeCompare) |
+| `centralId` | String (localeCompare, lowercased) |
+| `slaveId` | Numeric (localeCompare with `{ numeric: true }`) |
+
+Click once → ascending (`▲`). Click again → descending (`▼`). Default state indicator: `▽`.
+
+**`DeviceSortField` type updated:**
+
+```typescript
+type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile' | 'centralId' | 'slaveId';
+```
+
+---
+
+### Grid: Hybrid Search (7 Fields)
+
+The single search input now searches across 7 fields simultaneously:
+
+| Field | Source |
+|-------|--------|
+| `name` | `device.name` |
+| `label` | `device.label` |
+| `type` | `device.type` |
+| `deviceType` | `device.serverAttrs.deviceType` |
+| `deviceProfile` | `device.serverAttrs.deviceProfile` |
+| `slaveId` | `device.serverAttrs.slaveId` |
+| `status` | `device.latestTelemetry.connectionStatus.value` |
+
+**Bug fixed in this version:** `sortedDevices` was previously built from `filteredDevices` (only dropdown filters applied), ignoring the search text. Now correctly uses `searchFilteredDevices` — so both dropdown filters and text search apply before sorting.
+
+---
+
+### Showcase: `showcase/gcdr-upsell-setup/`
+
+New showcase for the `GCDR-Upsell-Setup` widget, port **3340**:
+
+| File | Description |
+|------|-------------|
+| `showcase/gcdr-upsell-setup/index.html` | Main showcase page |
+| `showcase/gcdr-upsell-setup/start-server.bat` | Windows: starts `npx serve` on port 3340 |
+| `showcase/gcdr-upsell-setup/start-server.sh` | Unix: starts `npx serve` on port 3340 |
+| `showcase/gcdr-upsell-setup/stop-server.bat` | Windows: kills process on port 3340 |
+| `showcase/gcdr-upsell-setup/stop-server.sh` | Unix: kills process on port 3340 |
+
+**Key features:**
+
+- **Ghost auth**: auto-runs on `DOMContentLoaded`, stores JWT in `localStorage.jwt_token`
+- **Fetch proxy**: intercepts relative `/api/*` calls and redirects to `https://dashboard.myio-bas.com` with `X-Authorization` header
+- **Local UMD pre-load**: loads `../../dist/myio-js-library.umd.js` before `controller.js` so `guLoadMyIOLibrary()` finds `window.MyIOLibrary` already set and skips CDN (required for testing features not yet on `@latest`)
+
+```html
+<!-- Load local build first so controller.js uses it instead of CDN -->
+<script>
+  document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
+</script>
+<script src="../../src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js"></script>
+```
+
+---
+
+### Implementation Checklist (v1.3.0)
+
+- [x] Add `preselectedCustomer` to `UpsellModalParams` (`types.ts`)
+- [x] Handle `preselectedCustomer` in `openUpsellModal` — set state and skip Step 1
+- [x] Separate `name` and `label` into distinct grid columns
+- [x] Add `centralId` column to grid (locked until attrs loaded)
+- [x] Add `slaveId` column to grid (locked until attrs loaded)
+- [x] Add `centralId` and `slaveId` sort cases to `sortDevices()`
+- [x] Extend `DeviceSortField` type with `centralId | slaveId`
+- [x] Make all 8 columns sortable via `renderSortableHeader`
+- [x] Extend hybrid search to 7 fields (add `slaveId`, `status`)
+- [x] Fix search bug: `sortedDevices` now uses `searchFilteredDevices`
+- [x] Create `GCDR-Upsell-Setup/v.1.0.0` widget (controller, template, styles)
+- [x] Create `Pre-Setup-Constructor/v.2.0.0` (clean version without upsell/gcdr)
+- [x] Create `showcase/gcdr-upsell-setup/` with ghost auth, fetch proxy, local UMD pre-load
+
+---
+
 ## Conclusion
 
 RFC-0109 introduces a comprehensive Upsell Post-Setup modal that streamlines device configuration for operators. By combining customer/device search, attribute validation with intelligent suggestions, and relationship verification in a single workflow, this feature significantly reduces the time and effort required to onboard or migrate devices in the MYIO ecosystem.
