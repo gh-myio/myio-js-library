@@ -3877,6 +3877,8 @@ self.onInit = async function () {
                 connectionStatus: connectionStatus,
                 labelWidget: item.labelWidget || self.ctx.settings?.labelWidget,
                 log_annotations: item.log_annotations || null,
+                // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
+                gcdrDeviceId: item.gcdrDeviceId || null,
               };
             });
 
@@ -4024,6 +4026,8 @@ self.onInit = async function () {
         waterPercentage: item.waterPercentage ?? null,
         _isTankDevice: item._isTankDevice || false,
         _isHidrometerDevice: item._isHidrometerDevice || false,
+        // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
+        gcdrDeviceId: item.gcdrDeviceId || null,
       };
     });
 
