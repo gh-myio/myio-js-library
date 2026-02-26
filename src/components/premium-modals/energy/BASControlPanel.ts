@@ -48,15 +48,6 @@ export class BASControlPanel {
         </button>
       </div>
 
-      <!-- Status Section -->
-      <div class="myio-bas-section">
-        <div class="myio-bas-section__title">Status</div>
-        <div class="myio-bas-status">
-          <span class="myio-bas-status__dot myio-bas-status__dot--${device.status}"></span>
-          <span class="myio-bas-status__text">${this.getStatusText(device.status)}</span>
-        </div>
-      </div>
-
       <!-- Remote Control Section -->
       ${hasRemote ? `
       <div class="myio-bas-section">
@@ -277,17 +268,6 @@ export class BASControlPanel {
 
   public updateStatus(status: 'online' | 'offline' | 'unknown'): void {
     this.device.status = status;
-
-    const dot = this.container.querySelector('.myio-bas-status__dot');
-    const text = this.container.querySelector('.myio-bas-status__text');
-
-    if (dot) {
-      dot.className = `myio-bas-status__dot myio-bas-status__dot--${status}`;
-    }
-    if (text) {
-      text.textContent = this.getStatusText(status);
-    }
-
     // Disable remote buttons if offline
     const buttons = this.container.querySelectorAll('.myio-bas-remote-btn');
     buttons.forEach(btn => {
@@ -332,14 +312,6 @@ export class BASControlPanel {
   public destroy(): void {
     this.stopAutoRefresh();
     this.container.innerHTML = '';
-  }
-
-  private getStatusText(status: string): string {
-    switch (status) {
-      case 'online': return 'Online';
-      case 'offline': return 'Offline';
-      default: return 'Desconhecido';
-    }
   }
 
   private formatTime(timestamp: number): string {
@@ -459,45 +431,6 @@ export class BASControlPanel {
       .myio-bas-device-type {
         font-size: 12px;
         color: var(--myio-energy-text-secondary, #6b7280);
-      }
-
-      /* Status */
-      .myio-bas-status {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .myio-bas-status__dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-
-      .myio-bas-status__dot--online {
-        background: #10b981;
-        box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-      }
-
-      .myio-bas-status__dot--offline {
-        background: #ef4444;
-        animation: pulse-offline 1.5s ease-in-out infinite;
-      }
-
-      .myio-bas-status__dot--unknown {
-        background: #9ca3af;
-      }
-
-      @keyframes pulse-offline {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-
-      .myio-bas-status__text {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--myio-energy-text, #1f2937);
       }
 
       /* Remote Control */
