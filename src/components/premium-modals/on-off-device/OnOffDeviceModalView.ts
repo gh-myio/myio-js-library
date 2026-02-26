@@ -768,6 +768,8 @@ export class OnOffDeviceModalView {
       this.scheduleOnOffInstance = MyIOLibrary.createScheduleOnOff(this.scheduleContent, {
         settings: {
           themeMode: this.themeMode,
+          labelOn:  this.deviceConfig.labelOn,
+          labelOff: this.deviceConfig.labelOff,
         },
         initialState: {
           entityName: this.device.label || this.device.name || 'Dispositivo',
