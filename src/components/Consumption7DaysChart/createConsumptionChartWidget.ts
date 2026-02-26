@@ -1014,7 +1014,8 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
                     </div>
                   </div>
 
-                  <!-- Viz Mode -->
+                  <!-- Viz Mode (hidden when showVizModeTabs is false) -->
+                  ${showVizModeTabs ? `
                   <div class="myio-settings-field" style="flex: 1; min-width: 200px;">
                     <label class="myio-settings-field-label">Agrupamento</label>
                     <div class="myio-settings-tabs" id="${widgetId}-settings-viz-mode">
@@ -1026,6 +1027,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
                       }" data-viz="separate">${porShoppingIcon} Por Shopping</button>
                     </div>
                   </div>
+                  ` : ''}
 
                   <!-- Theme -->
                   <div class="myio-settings-field" style="flex: 1; min-width: 160px;">
