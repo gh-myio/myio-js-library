@@ -10,10 +10,11 @@ Bem-vindo ao time! Este manual consolida o conhecimento sobre o ecossistema inte
 4. [Integração GCDR x Alarmes](#4-integração-gcdr-x-alarmes)
 5. [Arquitetura Consolidada](#5-arquitetura-consolidada)
 6. [Fluxo de Dados End-to-End](#6-fluxo-de-dados-end-to-end)
-7. [Configuração do Ambiente](#7-configuração-do-ambiente)
-8. [Stack Tecnológica](#8-stack-tecnológica)
-9. [Padrões e Convenções](#9-padrões-e-convenções)
-10. [Checklist de Onboarding](#10-checklist-de-onboarding)
+7. [Camada de Dashboard (myio-js-library)](#7-camada-de-dashboard-myio-js-library)
+8. [Configuração do Ambiente](#8-configuração-do-ambiente)
+9. [Stack Tecnológica](#9-stack-tecnológica)
+10. [Padrões e Convenções](#10-padrões-e-convenções)
+11. [Checklist de Onboarding](#11-checklist-de-onboarding)
 
 ---
 
@@ -474,7 +475,99 @@ O GCDR emite eventos via EventBridge quando dados mudam:
 
 ---
 
-## 7. Configuração do Ambiente
+## 7. Camada de Dashboard (myio-js-library)
+
+A biblioteca `myio-js-library` é a **camada de apresentação** que integra os dados de alarmes
+do ecossistema GCDR diretamente nos dashboards ThingsBoard.
+
+### `window.AlarmServiceOrchestrator` (RFC-0183)
+
+Criado no widget `MAIN_VIEW` após o prefetch de alarmes (`_prefetchCustomerAlarms`):
+
+```javascript
+window.AlarmServiceOrchestrator = {
+  alarms,            // GCDRAlarm[] — array bruto completo do customer
+  deviceAlarmMap,    // Map<gcdrDeviceId, GCDRAlarm[]>
+  deviceAlarmTypes,  // Map<gcdrDeviceId, Set<alarmType>>
+
+  getAlarmCountForDevice(gcdrDeviceId),  // → number
+  getAlarmsForDevice(gcdrDeviceId),      // → GCDRAlarm[]
+  getAlarmTypesForDevice(gcdrDeviceId),  // → Set<string>
+  async refresh(),                       // re-fetcha e reconstrói os mapas
+};
+```
+
+A chave de ligação entre ThingsBoard e GCDR é o atributo `gcdrDeviceId`:
+
+```
+ThingsBoard device attr: gcdrDeviceId = "gcdr-uuid-xxx"
+    ↓  ctx.data → MAIN_VIEW buildMetadataMapFromCtxData
+    ↓  createOrchestratorItem → window.STATE items
+    ↓  TELEMETRY STATE.itemsBase
+    ↓
+addAlarmBadge(cardElement, gcdrDeviceId) → AlarmServiceOrchestrator lookup → badge
+```
+
+### Alarm Badge nos Device Cards
+
+Badge vermelho (🔴 sino + contador) injetado sobre cada card com alarmes ativos:
+
+| Widget | Função | Onde |
+|--------|--------|------|
+| TELEMETRY v5.2.0 | `addAlarmBadge(cardElement, gcdrDeviceId)` | Após `addAnnotationIndicator()` |
+| TelemetryGridShoppingView (v5.4.0) | `_createAlarmBadge(count)` | Após `wrapper.appendChild(card)` |
+
+CSS: `.myio-alarm-badge { position: absolute; top: 6px; left: 6px; background: #dc2626 }`
+
+### AlarmsTab — Aba de Alarmes no SettingsModal
+
+Localização: `src/components/premium-modals/settings/alarms/AlarmsTab.ts`
+
+**Fonte de dados** (prioridade):
+1. `AlarmServiceOrchestrator.getAlarmsForDevice(gcdrDeviceId)` — pré-fetchados (zero latência)
+2. `config.prefetchedAlarms` filtrados por `deviceId`
+3. `fetchActiveAlarms(alarmsBaseUrl)` — chamada à API (fallback)
+
+**Ações** (com fallback):
+- `batchAcknowledge` / `batchSilence('4h')` / `batchEscalate` via `window.MyIOLibrary.AlarmService`
+- Após ação: `AlarmServiceOrchestrator.refresh()` reconstrói os mapas
+
+### AllReportModal — Filtro API-driven por grupo (RFC-0182)
+
+Quando o MENU abre um relatório de grupo (ex.: `temperature > climatizavel`), o AllReportModal
+recebe um `itemsList` com os `ingestionId`s do orquestrador. A API retorna **todos** os devices
+do customer (ex.: 99 mistos), mas apenas os que fazem match com `orchIdSet` são renderizados:
+
+```
+Menu clica "Ambientes Climatizáveis"
+    ↓  _buildItemsList('temperature', 'climatizavel') → 13 ingestionIds
+    ↓  openDashboardPopupAllReport({ itemsList: [13 items] })
+    ↓  API retorna 99 devices (temperature + water misturados)
+    ↓  mapCustomerTotalsResponse: filtra por orchIdSet → 13 devices ✓
+```
+
+### Globals do Dashboard Relevantes para Alarmes
+
+| Global | Quem cria | O que contém |
+|--------|-----------|--------------|
+| `window.MyIOOrchestrator.customerAlarms` | MAIN_VIEW `_prefetchCustomerAlarms()` | Array bruto de GCDRAlarm[] |
+| `window.AlarmServiceOrchestrator` | MAIN_VIEW `_buildAlarmServiceOrchestrator()` | Mapas device×alarme + métodos |
+| `window.MyIOOrchestrator.gcdrCustomerId` | MAIN_VIEW onInit | UUID do customer no GCDR |
+| `window.MyIOOrchestrator.gcdrTenantId` | MAIN_VIEW onInit | UUID do tenant no GCDR |
+| `window.MyIOOrchestrator.alarmsApiBaseUrl` | MAIN_VIEW onInit | Ex.: `https://alarms-api.a.myio-bas.com` |
+
+### RFCs Relevantes do Dashboard
+
+| RFC | Título |
+|-----|--------|
+| RFC-0180 | NewAlarmsTab — aba de alarmes no SettingsModal |
+| RFC-0181 | ReportsMenuItem — botões de relatório no menu |
+| RFC-0182 | OrchestratorGroupClassification — classificação de grupos |
+| RFC-0183 | AlarmServiceOrchestrator + AlarmBadge nos device cards |
+
+---
+
+## 8. Configuração do Ambiente
 
 ### Setup Completo (Todos os Serviços)
 
@@ -541,7 +634,7 @@ NEXT_PUBLIC_GCDR_URL=http://localhost:3000/dev
 
 ---
 
-## 8. Stack Tecnológica
+## 9. Stack Tecnológica
 
 ### Comparativo das Tecnologias
 
@@ -568,7 +661,7 @@ NEXT_PUBLIC_GCDR_URL=http://localhost:3000/dev
 
 ---
 
-## 9. Padrões e Convenções
+## 10. Padrões e Convenções
 
 ### Convenções Comuns a Todos os Projetos
 
@@ -606,7 +699,7 @@ hotfix/*       # Correções urgentes em produção
 
 ---
 
-## 10. Checklist de Onboarding
+## 11. Checklist de Onboarding
 
 ### Fase 1: Entendimento Conceitual
 
@@ -655,6 +748,15 @@ hotfix/*       # Correções urgentes em produção
 - [ ] Estudou a estrutura de Customer no GCDR
 - [ ] Entendeu os eventos do EventBridge
 - [ ] Configurou debugging no VS Code
+
+### Fase 7: Dashboard (myio-js-library)
+
+- [ ] Entendeu o papel do `window.AlarmServiceOrchestrator` (RFC-0183)
+- [ ] Sabe identificar um device card com alarm badge
+- [ ] Verificou `window.AlarmServiceOrchestrator.deviceAlarmMap` no console do showcase
+- [ ] Abriu a `AlarmsTab` de um device com `gcdrDeviceId` válido
+- [ ] Testou o AllReportModal com `itemsList` filtrado (RFC-0182)
+- [ ] Leu RFC-0180, RFC-0181, RFC-0182, RFC-0183
 
 ---
 
