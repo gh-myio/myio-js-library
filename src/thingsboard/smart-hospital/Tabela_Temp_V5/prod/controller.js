@@ -1170,7 +1170,10 @@ async function getData() {
 
 // -------- View mode & render --------
 function renderData(data) {
-  if (self.ctx.$scope.isCardView) {
+  const s = self.ctx.$scope;
+  s.totalReadings = data.length;
+  s.totalDevices = new Set(data.map((r) => r.deviceName)).size;
+  if (s.isCardView) {
     renderCardView(data);
   } else {
     renderListView(data);
@@ -1437,6 +1440,8 @@ self.onInit = function () {
   self.ctx.$scope.isCardView = true;
   self.ctx.$scope.groupedData = {};
   self.ctx.$scope.expandedDevices = {};
+  self.ctx.$scope.totalReadings = 0;
+  self.ctx.$scope.totalDevices = 0;
 
   self.ctx.$scope.toggleViewMode = toggleViewMode;
   self.ctx.$scope.toggleDeviceExpansion = (name) => {

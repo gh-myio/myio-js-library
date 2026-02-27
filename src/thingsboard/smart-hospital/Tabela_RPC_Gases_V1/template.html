@@ -1,47 +1,155 @@
 <div class="wat">
   <header id="ReportHeader">
-    <div>
+    <div class="brand">
       <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
-      <p>Sistema Myio | Registro de Aferição de Gases | Complexo Hospitalar Municipal Souza Aguiar</p>
-      <p>UNIDADE SOUZA AGUIAR - HMSA</p>
-      <p>Data de Emissão: <span id="issue-date"></span></p>
-      <button class="hide-in-pdf button" (click)="downloadPDF()">
-        <i class="fa-solid fa-file-arrow-down" style="color: #0a0a0a"></i>
-      </button>
-      <button class="hide-in-csv button" (click)="downloadCSV()">
-        <i class="fa-solid fa-file-csv" style="color: #0a0a0a"></i>
-      </button>
+      <div class="headline">
+        <p>Sistema Myio v.2 | Registro de Aferição de Gases Medicinais | Complexo Hospitalar Municipal Souza Aguiar</p>
+        <p>UNIDADE SOUZA AGUIAR - HMSA</p>
+        <p>Data de Emissão: <span id="issue-date"></span></p>
+      </div>
     </div>
-    <div id="datePicker">
-      <mat-form-field class="example-form-field hide-in-pdf">
-        <mat-label>Selecione um intervalo</mat-label>
-        <mat-date-range-input [rangePicker]="rangePicker">
-          <input matStartDate placeholder="Data Inicial" (dateChange)="handleStartDateChange($event)" />
-          <input matEndDate placeholder="Data Final" (dateChange)="handleEndDateChange($event)" />
-        </mat-date-range-input>
-        <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
-        <mat-date-range-picker #rangePicker>
-          <mat-date-range-picker-actions>
-            <button mat-button matDateRangePickerCancel>Cancelar</button>
-            <button mat-raised-button matDateRangePickerApply>Selecionar</button>
-          </mat-date-range-picker-actions>
-        </mat-date-range-picker>
-      </mat-form-field>
+
+    <div class="actions">
+      <button class="hide-in-pdf icon-btn" (click)="downloadPDF()" title="Exportar PDF">
+        <i class="fa-solid fa-file-arrow-down"></i>
+      </button>
+      <button class="hide-in-csv icon-btn" (click)="downloadCSV()" title="Exportar CSV">
+        <i class="fa-solid fa-file-csv"></i>
+      </button>
+
+      <div id="datePicker">
+        <mat-form-field class="example-form-field hide-in-pdf">
+          <mat-label>Selecione um intervalo</mat-label>
+          <mat-date-range-input [rangePicker]="rangePicker">
+            <input matStartDate placeholder="Data Inicial" (dateChange)="handleStartDateChange($event)" />
+            <input matEndDate placeholder="Data Final" (dateChange)="handleEndDateChange($event)" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
+          <mat-date-range-picker #rangePicker (closed)="applyDateRange()">
+            <mat-date-range-picker-actions>
+              <button mat-button matDateRangePickerCancel>Cancelar</button>
+              <button mat-raised-button matDateRangePickerApply>Selecionar</button>
+            </mat-date-range-picker-actions>
+          </mat-date-range-picker>
+        </mat-form-field>
+      </div>
     </div>
   </header>
-  <div id="main" class="loading" *ngIf="loading">
-    <mat-progress-spinner mode="indeterminate" color="accent" style="width: 32px"></mat-progress-spinner>
+
+  <!-- Controles de visão -->
+  <div class="view-controls hide-in-pdf" *ngIf="totalReadings > 0">
+    <div class="view-toggle">
+      <button mat-button [class.active]="!isCardView" (click)="toggleViewMode('list')" title="Lista">
+        <mat-icon>view_list</mat-icon> Lista
+      </button>
+      <button mat-button [class.active]="isCardView" (click)="toggleViewMode('card')" title="Cards">
+        <mat-icon>view_module</mat-icon> Cards
+      </button>
+    </div>
+
+    <!-- Badge premium: totais do relatório -->
+    <div class="summary-badges">
+      <span class="summary-badge badge-devices">
+        <i class="fa-solid fa-microchip"></i>
+        <span class="badge-value">{{ totalDevices }}</span>
+        <span class="badge-label">dispositivos</span>
+      </span>
+      <span class="summary-badge badge-readings">
+        <i class="fa-solid fa-chart-bar"></i>
+        <span class="badge-value">{{ totalReadings }}</span>
+        <span class="badge-label">leituras</span>
+      </span>
+    </div>
+
+    <div class="expand-controls" *ngIf="isCardView">
+      <button mat-button (click)="expandAllDevices()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
+      <button mat-button (click)="collapseAllDevices()">
+        <mat-icon>expand_less</mat-icon> Recolher Todos
+      </button>
+    </div>
   </div>
-  <mat-table [dataSource]="transformedData" matSort class="mat-elevation-z8">
+
+  <!-- Loading overlay premium -->
+  <div id="premium-loading-overlay" *ngIf="premiumLoading">
+    <div class="premium-loading-content">
+      <div class="premium-spinner"></div>
+      <div class="loading-status">{{ premiumLoadingStatus }}</div>
+      <div class="loading-timer">{{ premiumLoadingTimer }}</div>
+      <div class="loading-progress">
+        <div class="progress-bar" [style.width.%]="premiumLoadingProgress"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela Pivô (visão Lista): linhas = datas, colunas = dispositivos -->
+  <mat-table
+    [dataSource]="transformedData"
+    matSort
+    class="mat-elevation-z8 fullwidth"
+    *ngIf="!isCardView && transformedData && transformedData.length > 0"
+  >
     <ng-container matColumnDef="date">
-      <mat-header-cell *matHeaderCellDef mat-sort-header> Data </mat-header-cell>
-      <mat-cell *matCellDef="let row"> {{ row.date }} </mat-cell>
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Data/Hora </mat-header-cell>
+      <mat-cell *matCellDef="let row">{{ row.date }}</mat-cell>
     </ng-container>
+
     <ng-container *ngFor="let device of devices" [matColumnDef]="device">
-      <mat-header-cell *matHeaderCellDef mat-sort-header> {{ device }} </mat-header-cell>
-      <mat-cell *matCellDef="let row"> {{ row[device] }} </mat-cell>
+      <mat-header-cell *matHeaderCellDef mat-sort-header>{{ device }}</mat-header-cell>
+      <mat-cell *matCellDef="let row">{{ row[device] }}</mat-cell>
     </ng-container>
+
     <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
     <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
   </mat-table>
+
+  <!-- Cards (visão premium) -->
+  <div class="card-view-container" *ngIf="isCardView && groupedData">
+    <div
+      class="device-card"
+      *ngFor="let device of groupedData | keyvalue"
+      [class.expanded]="expandedDevices[device.key]"
+    >
+      <div class="device-card-header" (click)="toggleDeviceExpansion(device.key)">
+        <div class="device-info">
+          <h3 class="device-name">{{ device.key }}</h3>
+          <div class="device-stats">
+            <span class="stat gas-stat">
+              <i class="fa-solid fa-lungs"></i>
+              {{ getLatestGas(device.value) }}
+            </span>
+            <span class="stat stat-count">
+              <i class="fa-solid fa-list"></i>
+              {{ getDeviceReadingCount(device.value) }} registros
+            </span>
+          </div>
+        </div>
+        <div class="expand-icon">
+          <mat-icon>{{ expandedDevices[device.key] ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </div>
+      </div>
+
+      <div class="device-card-content" *ngIf="expandedDevices[device.key]">
+        <div class="readings-table">
+          <div class="reading-row header-row">
+            <div class="reading-gas">Leitura</div>
+            <div class="reading-date">Data/Hora</div>
+          </div>
+          <div
+            class="reading-row"
+            *ngFor="let reading of device.value"
+          >
+            <div class="reading-gas">{{ reading.gas }}</div>
+            <div class="reading-date">{{ reading.reading_date }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sem dados -->
+  <div class="no-data-message" *ngIf="!premiumLoading && totalReadings === 0">
+    <mat-icon>air</mat-icon>
+    <p>Nenhum dado disponível para o período selecionado.</p>
+    <p>Selecione um intervalo de datas para gerar o relatório.</p>
+  </div>
 </div>

@@ -150,6 +150,8 @@ function rebuildView(flatData) {
   s.dados = flatData;
   s.groupedData = buildGroupedData(flatData);
   s.isCardView = currentViewMode === VIEW_MODES.CARD;
+  s.totalReadings = flatData.length;
+  s.totalDevices = Object.keys(s.groupedData).length;
   // Recolhido por padrão — usuário expande manualmente
   const keys = Object.keys(s.groupedData);
   if (!s.expandedDevices) s.expandedDevices = {};
@@ -588,6 +590,8 @@ self.onInit = function () {
   s.dados = [];
   s.groupedData = {};
   s.expandedDevices = {};
+  s.totalReadings = 0;
+  s.totalDevices = 0;
   s.isCardView = currentViewMode === VIEW_MODES.CARD;
   s.premiumLoading = false;
   s.premiumLoadingStatus = '';

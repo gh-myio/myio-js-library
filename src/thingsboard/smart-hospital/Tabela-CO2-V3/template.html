@@ -133,6 +133,20 @@
       </button>
     </div>
 
+    <!-- Badge premium: totais do relatório -->
+    <div class="summary-badges">
+      <span class="summary-badge badge-devices">
+        <i class="fa-solid fa-microchip"></i>
+        <span class="badge-value">{{ totalDevices }}</span>
+        <span class="badge-label">dispositivos</span>
+      </span>
+      <span class="summary-badge badge-readings">
+        <i class="fa-solid fa-chart-bar"></i>
+        <span class="badge-value">{{ totalReadings }}</span>
+        <span class="badge-label">leituras</span>
+      </span>
+    </div>
+
     <div class="expand-controls" *ngIf="isCardView">
       <button mat-button (click)="expandAllDevices()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
       <button mat-button (click)="collapseAllDevices()">

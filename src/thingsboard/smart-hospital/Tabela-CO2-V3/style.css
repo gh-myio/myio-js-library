@@ -79,6 +79,54 @@
   margin-left: 8px;
 }
 
+/* -------- Summary badges (totais do relatório) -------- */
+.summary-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.summary-badge i {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.badge-value {
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.badge-label {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+.badge-devices {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.badge-devices i {
+  color: #3b82f6;
+}
+.badge-readings {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+.badge-readings i {
+  color: #22c55e;
+}
+
 /* -------- Card Grid -------- */
 .card-view-container {
   display: grid;
