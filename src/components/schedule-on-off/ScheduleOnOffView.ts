@@ -192,6 +192,45 @@ export class ScheduleOnOffView {
     );
     frag.appendChild(endInput);
 
+    // Action selector (Ligar/Desligar, Aberta/Fechada, etc.)
+    const labelOn  = this.settings.labelOn  || 'Ligar';
+    const labelOff = this.settings.labelOff || 'Desligar';
+    const currentAction = schedule.action ?? 'on';
+
+    const actionRow = document.createElement('div');
+    actionRow.className = `${SCHED_CSS_PREFIX}__action-row`;
+
+    const actionLabel = document.createElement('span');
+    actionLabel.className = `${SCHED_CSS_PREFIX}__action-label`;
+    actionLabel.textContent = 'Ação:';
+    actionRow.appendChild(actionLabel);
+
+    const actionBtns = document.createElement('div');
+    actionBtns.className = `${SCHED_CSS_PREFIX}__action-btns`;
+
+    (['on', 'off'] as const).forEach((value) => {
+      const text = value === 'on' ? labelOn : labelOff;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `${SCHED_CSS_PREFIX}__action-btn` +
+        (currentAction === value ? ` ${SCHED_CSS_PREFIX}__action-btn--active` : '');
+      btn.textContent = text;
+      btn.disabled = disabled;
+      if (!disabled) {
+        btn.addEventListener('click', () => {
+          schedule.action = value;
+          actionBtns.querySelectorAll(`.${SCHED_CSS_PREFIX}__action-btn`).forEach(b => {
+            b.classList.toggle(`${SCHED_CSS_PREFIX}__action-btn--active`, b === btn);
+          });
+          this.onChange?.();
+        });
+      }
+      actionBtns.appendChild(btn);
+    });
+
+    actionRow.appendChild(actionBtns);
+    frag.appendChild(actionRow);
+
     // Retain checkbox
     const retainRow = document.createElement('div');
     retainRow.className = `${SCHED_CSS_PREFIX}__retain-row`;

@@ -15,6 +15,7 @@ export interface OnOffScheduleEntry extends ScheduleEntryBase {
   startHour: string;   // HH:MM
   endHour: string;     // HH:MM
   retain: boolean;     // Pulse (false) or retain (true)
+  action?: 'on' | 'off'; // 'on' = ligar/abrir, 'off' = desligar/fechar (default: 'on')
 }
 
 export interface OnOffGroupScheduleEntry extends OnOffScheduleEntry {
@@ -24,6 +25,8 @@ export interface OnOffGroupScheduleEntry extends OnOffScheduleEntry {
 
 export interface ScheduleOnOffSettings extends SchedulingBaseSettings {
   themeMode?: SchedulingThemeMode;
+  labelOn?: string;   // Label for 'on' action (e.g. "Ligar", "Aberta")
+  labelOff?: string;  // Label for 'off' action (e.g. "Desligar", "Fechada")
 }
 
 export interface ScheduleOnOffState {
@@ -59,6 +62,7 @@ export const DEFAULT_ON_OFF_SCHEDULE: OnOffScheduleEntry = {
   },
   holiday: false,
   retain: false,
+  action: 'on',
 };
 
 export const DEFAULT_ON_OFF_STATE: ScheduleOnOffState = {
@@ -71,4 +75,6 @@ export const DEFAULT_ON_OFF_STATE: ScheduleOnOffState = {
 export const DEFAULT_ON_OFF_SETTINGS: Required<ScheduleOnOffSettings> = {
   themeMode: 'dark',
   enableDebugMode: false,
+  labelOn: 'Ligar',
+  labelOff: 'Desligar',
 };

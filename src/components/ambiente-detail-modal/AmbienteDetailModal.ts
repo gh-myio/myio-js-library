@@ -58,17 +58,6 @@ function formatConsumption(value: number | null): string {
   }) + ' W';
 }
 
-/**
- * Get status label
- */
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    online: 'Ambiente Online',
-    offline: 'Ambiente Offline',
-    warning: 'Configuracao Necessaria',
-  };
-  return labels[status] || 'Status Desconhecido';
-}
 
 /**
  * Get device type icon
@@ -108,7 +97,6 @@ function renderModalHTML(
   config: AmbienteDetailModalConfig
 ): string {
   const themeClass = config.themeMode === 'dark' ? `${AMBIENTE_MODAL_CSS_PREFIX}--dark` : '';
-  const status = data.status || 'offline';
 
   // Metrics section
   const metricsHTML = `
@@ -284,10 +272,6 @@ function renderModalHTML(
       <div class="${AMBIENTE_MODAL_CSS_PREFIX} ${themeClass}">
         ${headerHTML}
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__body">
-          <div class="${AMBIENTE_MODAL_CSS_PREFIX}__status-banner ${status}">
-            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__status-dot ${status}"></span>
-            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__status-text ${status}">${getStatusLabel(status)}</span>
-          </div>
           ${metricsHTML}
           ${data.hasSetupWarning ? warningHTML : ''}
           ${energyDevicesHTML}

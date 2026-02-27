@@ -86,6 +86,7 @@ export class OnOffDeviceModalView {
   private currentEndISO: string;
   private isLoadingChart: boolean = false;
   private currentTimelineData: OnOffTimelineData | null = null;
+  private fallbackIsToggling = false;
 
   constructor(options: OnOffDeviceModalViewOptions) {
     this.container = options.container;
@@ -734,7 +735,20 @@ export class OnOffDeviceModalView {
     if (!isOffline) {
       const toggleBtn = this.controlContainer.querySelector('[data-action="toggle"]');
       toggleBtn?.addEventListener('click', () => {
-        this.onDeviceToggle(!isOn);
+        if (this.fallbackIsToggling) return;
+        this.fallbackIsToggling = true;
+        const label = isOn ? this.deviceConfig.labelOff : this.deviceConfig.labelOn;
+        this.showFallbackModal(
+          'confirm',
+          `Deseja alterar o estado do dispositivo para "${label}"?`,
+          () => {
+            this.onDeviceToggle(!isOn);
+            this.showFallbackModal('success', `${label} com sucesso!`);
+            this.fallbackIsToggling = false;
+          },
+        );
+        // Reset guard if user dismisses without confirming
+        setTimeout(() => { this.fallbackIsToggling = false; }, 30000);
       });
     }
   }
@@ -754,6 +768,8 @@ export class OnOffDeviceModalView {
       this.scheduleOnOffInstance = MyIOLibrary.createScheduleOnOff(this.scheduleContent, {
         settings: {
           themeMode: this.themeMode,
+          labelOn:  this.deviceConfig.labelOn,
+          labelOff: this.deviceConfig.labelOff,
         },
         initialState: {
           entityName: this.device.label || this.device.name || 'Dispositivo',
@@ -771,6 +787,90 @@ export class OnOffDeviceModalView {
       console.error('[OnOffDeviceModalView] Error creating ScheduleOnOff:', error);
       this.renderFallbackSchedule();
     }
+  }
+
+  private showFallbackModal(
+    type: 'confirm' | 'success' | 'error',
+    message: string,
+    onConfirm?: () => void,
+  ): void {
+    // Remove any existing fallback modals
+    document.querySelectorAll('[data-fallback-modal]').forEach(el => el.remove());
+
+    const overlay = document.createElement('div');
+    overlay.setAttribute('data-fallback-modal', 'true');
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 10002;
+      display: flex; align-items: center; justify-content: center;
+    `;
+
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText = `
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.5);
+    `;
+
+    const box = document.createElement('div');
+    box.style.cssText = `
+      position: relative; background: #1f2937; color: #f9fafb;
+      border-radius: 12px; padding: 24px 28px; min-width: 280px; max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5); text-align: center;
+      font-family: sans-serif;
+    `;
+
+    const msg = document.createElement('p');
+    msg.style.cssText = 'margin: 0 0 20px; font-size: 15px; line-height: 1.5;';
+    msg.textContent = message;
+    box.appendChild(msg);
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display: flex; justify-content: center; gap: 12px;';
+
+    const close = () => overlay.remove();
+
+    if (type === 'confirm') {
+      const btnYes = document.createElement('button');
+      btnYes.textContent = 'Sim';
+      btnYes.style.cssText = `
+        padding: 8px 24px; border: none; border-radius: 6px;
+        background: #22c55e; color: white; font-size: 14px; font-weight: 600;
+        cursor: pointer;
+      `;
+      btnYes.addEventListener('click', () => { close(); onConfirm?.(); });
+
+      const btnNo = document.createElement('button');
+      btnNo.textContent = 'Não';
+      btnNo.style.cssText = `
+        padding: 8px 24px; border: none; border-radius: 6px;
+        background: #ef4444; color: white; font-size: 14px; font-weight: 600;
+        cursor: pointer;
+      `;
+      btnNo.addEventListener('click', close);
+
+      actions.appendChild(btnYes);
+      actions.appendChild(btnNo);
+    } else {
+      const icon = type === 'success' ? '✅' : '❌';
+      msg.textContent = `${icon} ${message}`;
+
+      const btnClose = document.createElement('button');
+      btnClose.textContent = 'Fechar';
+      btnClose.style.cssText = `
+        padding: 8px 24px; border: none; border-radius: 6px;
+        background: #4b5563; color: white; font-size: 14px; font-weight: 600;
+        cursor: pointer;
+      `;
+      btnClose.addEventListener('click', close);
+      actions.appendChild(btnClose);
+
+      setTimeout(close, 2000);
+    }
+
+    box.appendChild(actions);
+    overlay.appendChild(backdrop);
+    overlay.appendChild(box);
+    backdrop.addEventListener('click', close);
+    document.body.appendChild(overlay);
   }
 
   private renderFallbackSchedule(): void {
@@ -856,14 +956,28 @@ export class OnOffDeviceModalView {
         status: state ? 'on' : 'off',
       });
     } else if (this.controlContainer) {
-      // Fallback control: update button visuals and re-bind click
+      // Fallback control: update button visuals and re-bind click with confirm flow
       const btn = this.controlContainer.querySelector<HTMLButtonElement>('[data-action="toggle"]');
       if (btn) {
         btn.textContent = state ? this.deviceConfig.labelOn : this.deviceConfig.labelOff;
         btn.style.background = state ? '#22c55e' : '#ef4444';
         const fresh = btn.cloneNode(true) as HTMLButtonElement;
         btn.replaceWith(fresh);
-        fresh.addEventListener('click', () => this.onDeviceToggle(!state));
+        fresh.addEventListener('click', () => {
+          if (this.fallbackIsToggling) return;
+          this.fallbackIsToggling = true;
+          const label = state ? this.deviceConfig.labelOff : this.deviceConfig.labelOn;
+          this.showFallbackModal(
+            'confirm',
+            `Deseja alterar o estado do dispositivo para "${label}"?`,
+            () => {
+              this.onDeviceToggle(!state);
+              this.showFallbackModal('success', `${label} com sucesso!`);
+              this.fallbackIsToggling = false;
+            },
+          );
+          setTimeout(() => { this.fallbackIsToggling = false; }, 30000);
+        });
       }
     }
   }

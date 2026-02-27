@@ -26,9 +26,9 @@ export class BASControlPanel {
     this.container.className = 'myio-bas-control-panel';
     this.render();
 
-    // Start auto-refresh if callback provided
-    if (options.onTelemetryRefresh && options.refreshInterval !== 0) {
-      this.startAutoRefresh(options.refreshInterval || 10000);
+    // Start auto-refresh only when refreshInterval is explicitly a positive number
+    if (options.onTelemetryRefresh && (options.refreshInterval ?? 0) > 0) {
+      this.startAutoRefresh(options.refreshInterval!);
     }
   }
 
@@ -46,15 +46,6 @@ export class BASControlPanel {
           <span class="myio-bas-settings-icon">⚙️</span>
           <span class="myio-bas-settings-text">Configurações</span>
         </button>
-      </div>
-
-      <!-- Status Section -->
-      <div class="myio-bas-section">
-        <div class="myio-bas-section__title">Status</div>
-        <div class="myio-bas-status">
-          <span class="myio-bas-status__dot myio-bas-status__dot--${device.status}"></span>
-          <span class="myio-bas-status__text">${this.getStatusText(device.status)}</span>
-        </div>
       </div>
 
       <!-- Remote Control Section -->
@@ -262,32 +253,31 @@ export class BASControlPanel {
   }
 
   public updateTelemetry(telemetry: BASDeviceTelemetry): void {
-    this.device.telemetry = telemetry;
+    if (!telemetry) return;
+
+    // Merge: preserve existing valid values when new values are null/undefined/NaN
+    const existing = this.device.telemetry || ({} as BASDeviceTelemetry);
+    const merged = { ...existing };
+    for (const [key, val] of Object.entries(telemetry) as [keyof BASDeviceTelemetry, any][]) {
+      if (val !== null && val !== undefined && !(typeof val === 'number' && isNaN(val))) {
+        (merged as any)[key] = val;
+      }
+    }
+    this.device.telemetry = merged;
 
     const grid = this.container.querySelector('#bas-telemetry-grid');
     if (grid) {
-      grid.innerHTML = this.renderTelemetryItems(telemetry);
+      grid.innerHTML = this.renderTelemetryItems(merged);
     }
 
     const updatedEl = this.container.querySelector('#bas-telemetry-updated');
-    if (updatedEl && telemetry.lastUpdate) {
-      updatedEl.textContent = `Atualizado: ${this.formatTime(telemetry.lastUpdate)}`;
+    if (updatedEl && merged.lastUpdate) {
+      updatedEl.textContent = `Atualizado: ${this.formatTime(merged.lastUpdate)}`;
     }
   }
 
   public updateStatus(status: 'online' | 'offline' | 'unknown'): void {
     this.device.status = status;
-
-    const dot = this.container.querySelector('.myio-bas-status__dot');
-    const text = this.container.querySelector('.myio-bas-status__text');
-
-    if (dot) {
-      dot.className = `myio-bas-status__dot myio-bas-status__dot--${status}`;
-    }
-    if (text) {
-      text.textContent = this.getStatusText(status);
-    }
-
     // Disable remote buttons if offline
     const buttons = this.container.querySelectorAll('.myio-bas-remote-btn');
     buttons.forEach(btn => {
@@ -332,14 +322,6 @@ export class BASControlPanel {
   public destroy(): void {
     this.stopAutoRefresh();
     this.container.innerHTML = '';
-  }
-
-  private getStatusText(status: string): string {
-    switch (status) {
-      case 'online': return 'Online';
-      case 'offline': return 'Offline';
-      default: return 'Desconhecido';
-    }
   }
 
   private formatTime(timestamp: number): string {
@@ -459,45 +441,6 @@ export class BASControlPanel {
       .myio-bas-device-type {
         font-size: 12px;
         color: var(--myio-energy-text-secondary, #6b7280);
-      }
-
-      /* Status */
-      .myio-bas-status {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .myio-bas-status__dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-
-      .myio-bas-status__dot--online {
-        background: #10b981;
-        box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-      }
-
-      .myio-bas-status__dot--offline {
-        background: #ef4444;
-        animation: pulse-offline 1.5s ease-in-out infinite;
-      }
-
-      .myio-bas-status__dot--unknown {
-        background: #9ca3af;
-      }
-
-      @keyframes pulse-offline {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-
-      .myio-bas-status__text {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--myio-energy-text, #1f2937);
       }
 
       /* Remote Control */
