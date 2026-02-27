@@ -139,10 +139,175 @@ function injectAlarmBadgeStyles() {
   document.head.appendChild(s);
 }
 
+// RFC-0184: Inject filter modal CSS into <head> to bypass ThingsBoard widget CSS scoping.
+// The modal is portalled to document.body so TB-scoped styles.css rules won't reach it.
+// Using .telemetry-filter-overlay as scoping class (present on #filterModal element).
+function injectFilterModalStyles() {
+  // Use ownerDocument so styles go to the correct document (iframe or main page)
+  const doc = (_filterModalElement && _filterModalElement.ownerDocument) || document;
+  if (doc.getElementById('telemetry-filter-modal-styles')) return;
+  const style = doc.createElement('style');
+  style.id = 'telemetry-filter-modal-styles';
+  style.textContent = `
+    .telemetry-filter-overlay.hidden { display: none !important; pointer-events: none !important; }
+    .telemetry-filter-overlay {
+      --ink-1: #1c2743; --ink-2: #6b7a90; --bd: #e8eef4; --bd-2: #d6e1ec;
+      --brand: #1f6fb5; --bg-soft: #f7fbff;
+      --font-ui: Inter,'Inter var','Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+      position: fixed; inset: 0;
+      background: rgba(17,24,39,0.35);
+      z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .telemetry-filter-overlay .shops-modal-card {
+      max-width: 774px; width: 100%; max-height: calc(100% - 48px);
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .telemetry-filter-overlay .shops-modal-header {
+      position: sticky; top: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-bottom: 1px solid var(--bd); background: #fff;
+    }
+    .telemetry-filter-overlay .shops-modal-header h3 {
+      margin: 0; font: 900 14px/1 var(--font-ui);
+      letter-spacing: 0.3px; color: #3e1a7d;
+      text-shadow: 0 1px 2px rgba(62,26,125,0.1);
+    }
+    .telemetry-filter-overlay .shops-modal-body {
+      flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px;
+    }
+    .telemetry-filter-overlay .shops-modal-footer {
+      position: sticky; bottom: 0; z-index: 2;
+      display: flex; gap: 8px; justify-content: flex-end;
+      padding: 10px 12px; border-top: 1px solid var(--bd); background: #fff;
+    }
+    .telemetry-filter-overlay .icon-btn {
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--bd); background: #fff; border-radius: 10px;
+      padding: 6px; cursor: pointer;
+    }
+    .telemetry-filter-overlay .icon-btn svg { fill: #44506b; display: block; width: 14px; height: 14px; }
+    .telemetry-filter-overlay .btn,
+    .telemetry-filter-overlay .tiny-btn {
+      border: 1px solid var(--bd); background: #fff; cursor: pointer;
+      border-radius: 10px;
+    }
+    .telemetry-filter-overlay .btn { padding: 8px 12px; font: 700 10px var(--font-ui); }
+    .telemetry-filter-overlay .btn.primary {
+      background: #3e1a7d; color: #fff; border-color: #3e1a7d;
+      box-shadow: 0 4px 12px rgba(62,26,125,0.25); transition: all 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn.primary:hover {
+      background: #2f1460; border-color: #2f1460; transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(62,26,125,0.35);
+    }
+    .telemetry-filter-overlay .btn.primary:active {
+      transform: translateY(0); box-shadow: 0 2px 8px rgba(62,26,125,0.25);
+    }
+    .telemetry-filter-overlay .tiny-btn {
+      padding: 8px 12px; letter-spacing: 0.3px; font: 700 11px var(--font-ui);
+      background: linear-gradient(135deg,rgba(62,26,125,0.05) 0%,rgba(62,26,125,0.08) 100%);
+      border-color: rgba(62,26,125,0.2); color: #3e1a7d; transition: all 0.15s ease;
+    }
+    .telemetry-filter-overlay .tiny-btn:hover {
+      background: linear-gradient(135deg,rgba(62,26,125,0.08) 0%,rgba(62,26,125,0.12) 100%);
+      border-color: rgba(62,26,125,0.3); transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(62,26,125,0.15);
+    }
+    .telemetry-filter-overlay .filter-block { margin-bottom: 16px; }
+    .telemetry-filter-overlay .filter-block:last-child { margin-bottom: 0; }
+    .telemetry-filter-overlay .block-label {
+      display: block; margin-bottom: 10px; font: 800 12px/1.2 var(--font-ui);
+      letter-spacing: 0.3px; color: #3e1a7d;
+      text-shadow: 0 1px 2px rgba(62,26,125,0.1);
+    }
+    .telemetry-filter-overlay .inline-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+    .telemetry-filter-overlay .filter-search { position: relative; margin: 8px 0 12px; }
+    .telemetry-filter-overlay .filter-search input {
+      width: 100%; border: 1px solid var(--bd-2); border-radius: 12px;
+      padding: 10px 36px; outline: 0; font: 600 13px/1.2 var(--font-ui);
+      letter-spacing: 0.2px; background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .telemetry-filter-overlay .filter-search input:focus {
+      border-color: var(--brand); box-shadow: 0 0 0 3px rgba(31,111,181,0.15);
+    }
+    .telemetry-filter-overlay .filter-search svg {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; pointer-events: none; fill: #44506b;
+    }
+    .telemetry-filter-overlay .filter-search .clear-x {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 26px; border: 0; background: transparent;
+      cursor: pointer; border-radius: 8px;
+    }
+    .telemetry-filter-overlay .filter-search .clear-x:hover { background: rgba(0,0,0,0.06); }
+    .telemetry-filter-overlay .radio-grid {
+      display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px;
+    }
+    .telemetry-filter-overlay .alarm-filter-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .telemetry-filter-overlay .radio-grid label { font: 600 13px/1.2 var(--font-ui); color: var(--ink-1); }
+    .telemetry-filter-overlay .muted { color: var(--ink-2); font: 500 12px/1.2 var(--font-ui); margin-top: 8px; }
+    .telemetry-filter-overlay .checklist {
+      display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 10px;
+    }
+    .telemetry-filter-overlay .check-item {
+      position: relative; display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px 10px 44px; background: #fff; border: 2px solid var(--bd-2);
+      border-radius: 12px; box-shadow: 0 6px 14px rgba(0,0,0,0.05); cursor: pointer;
+    }
+    .telemetry-filter-overlay .check-item:hover { border-color: var(--brand); background: var(--bg-soft); }
+    .telemetry-filter-overlay .check-item:active { transform: translateY(1px); }
+    .telemetry-filter-overlay .check-item input[type='checkbox'] {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; margin: 0; opacity: 0; cursor: pointer;
+    }
+    .telemetry-filter-overlay .check-item::before {
+      content: ''; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; border: 2px solid var(--bd-2); border-radius: 6px;
+      background: #fff; z-index: 1;
+    }
+    .telemetry-filter-overlay .check-item::after {
+      content: '✓'; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; opacity: 0; display: flex; align-items: center;
+      justify-content: center; font-size: 14px; font-weight: 900; color: #fff; z-index: 2;
+    }
+    .telemetry-filter-overlay .check-item.selected,
+    .telemetry-filter-overlay .check-item[data-checked='true'] {
+      background: rgba(62,26,125,0.08); border-color: #3e1a7d;
+      box-shadow: 0 8px 18px rgba(62,26,125,0.15);
+    }
+    .telemetry-filter-overlay .check-item.selected::before,
+    .telemetry-filter-overlay .check-item[data-checked='true']::before {
+      background: #3e1a7d; border-color: #3e1a7d;
+    }
+    .telemetry-filter-overlay .check-item.selected::after,
+    .telemetry-filter-overlay .check-item[data-checked='true']::after { opacity: 1; }
+    @supports selector(:has(*)) {
+      .telemetry-filter-overlay .check-item:has(input[type='checkbox']:checked) {
+        background: rgba(62,26,125,0.08); border-color: #3e1a7d;
+        box-shadow: 0 8px 18px rgba(62,26,125,0.15);
+      }
+      .telemetry-filter-overlay .check-item:has(input[type='checkbox']:checked)::before {
+        background: #3e1a7d; border-color: #3e1a7d;
+      }
+      .telemetry-filter-overlay .check-item:has(input[type='checkbox']:checked)::after { opacity: 1; }
+    }
+    .telemetry-filter-overlay .check-item span {
+      font: 700 13.5px/1.25 var(--font-ui); letter-spacing: 0.15px; color: var(--ink-1);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
 // RFC-0183: Append alarm badge to a card element if the device has active alarms.
 // gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
 function addAlarmBadge(cardElement, gcdrDeviceId) {
   if (!cardElement || !gcdrDeviceId) return;
+  if (STATE.alarmFilter === 'desativado') return; // badge hidden when alarm display is off
   const aso = window.AlarmServiceOrchestrator;
   if (!aso) return;
   const count = aso.getAlarmCountForDevice(gcdrDeviceId);
@@ -967,6 +1132,8 @@ const STATE = {
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
   sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
+  /** @type {'ativado'|'desativado'|'apenas_ativados'} */
+  alarmFilter: 'ativado',
   firstHydrates: 0,
 };
 
@@ -977,7 +1144,9 @@ const $root = () => $(self.ctx.$container[0]);
 const $list = () => $root().find('#shopsList');
 const $count = () => $root().find('#shopsCount');
 const $total = () => $root().find('#shopsTotal');
-const $modal = () => $root().find('#filterModal');
+// Direct reference set during onInit (before portal). Always valid regardless of TB isolation.
+let _filterModalElement = null;
+const $modal = () => $(_filterModalElement || $root()[0].querySelector('#filterModal'));
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
 const BUSY_ID = 'myio-busy-modal';
@@ -1342,11 +1511,19 @@ function buildTbIdIndexes() {
 }
 
 /** ===================== FILTERS / SORT / PERC ===================== **/
-function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
+function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) {
   let v = enriched.slice();
 
   if (selectedIds && selectedIds.size) {
     v = v.filter((x) => selectedIds.has(x.id));
+  }
+
+  // Alarm filter: 'apenas_ativados' → show only cards with active alarms
+  if (alarmFilter === 'apenas_ativados') {
+    const aso = window.AlarmServiceOrchestrator;
+    if (aso) {
+      v = v.filter((x) => x.gcdrDeviceId && aso.getAlarmCountForDevice(x.gcdrDeviceId) > 0);
+    }
   }
 
   const q = (searchTerm || '').trim().toLowerCase();
@@ -2576,7 +2753,13 @@ function bindHeader() {
     reflowFromState();
   });
 
-  $root().on('click', '#btnFilter', () => openFilterModal());
+  // Bind filter button — triple approach for maximum TB compatibility
+  const _btnFilter = ($root()[0] || self.ctx.$container[0]).querySelector('#btnFilter');
+  if (_btnFilter) {
+    _btnFilter.onclick = openFilterModal;                   // inline property (visible in devtools)
+    _btnFilter.addEventListener('click', openFilterModal);  // native listener
+  }
+  $root().on('click', '#btnFilter', openFilterModal);       // jQuery delegation (fallback)
 }
 
 function openFilterModal() {
@@ -2619,6 +2802,7 @@ function openFilterModal() {
 
   $cl[0].appendChild(frag);
   $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop('checked', true);
+  $m.find(`input[name="alarmFilter"][value="${STATE.alarmFilter || 'ativado'}"]`).prop('checked', true);
 
   const $footer = $m.find('.shops-modal-footer');
   if ($footer.length) $footer.show().find('#applyFilters, #resetFilters').show();
@@ -2631,66 +2815,70 @@ function closeFilterModal() {
 }
 
 function bindModal() {
-  $root().on('click', '#closeFilter', closeFilterModal);
+  // $m uses the stored direct reference — valid before AND after portal
+  const $m = $modal();
 
-  $root().on('click', '#selectAll', (ev) => {
+  $m.on('click', '#closeFilter', closeFilterModal);
+
+  $m.on('click', '#selectAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
+    $m.find('.check-item input[type="checkbox"]').prop('checked', true);
     syncChecklistSelectionVisual();
   });
 
-  $root().on('click', '#clearAll', (ev) => {
+  $m.on('click', '#clearAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop('checked', false);
+    $m.find('.check-item input[type="checkbox"]').prop('checked', false);
     syncChecklistSelectionVisual();
   });
 
-  $root().on('click', '#resetFilters', (ev) => {
+  $m.on('click', '#resetFilters', (ev) => {
     ev.preventDefault();
     STATE.selectedIds = null;
     STATE.sortMode = 'cons_desc';
-    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
-    $modal().find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
+    STATE.alarmFilter = 'ativado';
+    $m.find('.check-item input[type="checkbox"]').prop('checked', true);
+    $m.find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
+    $m.find('input[name="alarmFilter"][value="ativado"]').prop('checked', true);
     syncChecklistSelectionVisual();
     reflowFromState();
   });
 
-  $root().on('click', '#applyFilters', (ev) => {
+  $m.on('click', '#applyFilters', (ev) => {
     ev.preventDefault();
     const set = new Set();
-    $modal()
-      .find('.check-item input[type="checkbox"]:checked')
-      .each((_, el) => {
-        const id = $(el).data('entity');
-        if (id) set.add(id);
-      });
+    $m.find('.check-item input[type="checkbox"]:checked').each((_, el) => {
+      const id = $(el).data('entity');
+      if (id) set.add(id);
+    });
 
     STATE.selectedIds = set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
-    STATE.sortMode = String($modal().find('input[name="sortMode"]:checked').val() || 'cons_desc');
+    STATE.sortMode = String($m.find('input[name="sortMode"]:checked').val() || 'cons_desc');
+    STATE.alarmFilter = /** @type {'ativado'|'desativado'|'apenas_ativados'} */ (
+      String($m.find('input[name="alarmFilter"]:checked').val() || 'ativado')
+    );
 
     reflowFromState();
     closeFilterModal();
   });
 
-  $root().on('input', '#filterDeviceSearch', (ev) => {
+  $m.on('input', '#filterDeviceSearch', (ev) => {
     const q = (ev.target.value || '').trim().toLowerCase();
-    $modal()
-      .find('.check-item')
-      .each((_, node) => {
-        const txt = $(node).text().trim().toLowerCase();
-        $(node).toggle(txt.includes(q));
-      });
+    $m.find('.check-item').each((_, node) => {
+      const txt = $(node).text().trim().toLowerCase();
+      $(node).toggle(txt.includes(q));
+    });
   });
 
-  $root().on('click', '#filterDeviceClear', (ev) => {
+  $m.on('click', '#filterDeviceClear', (ev) => {
     ev.preventDefault();
-    const $inp = $modal().find('#filterDeviceSearch');
+    const $inp = $m.find('#filterDeviceSearch');
     $inp.val('');
-    $modal().find('.check-item').show();
+    $m.find('.check-item').show();
     $inp.trigger('focus');
   });
 
-  $root().on('click', '#deviceChecklist .check-item', function (ev) {
+  $m.on('click', '#deviceChecklist .check-item', function (ev) {
     if (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase() === 'input') return;
     ev.preventDefault();
     ev.stopPropagation();
@@ -2698,7 +2886,7 @@ function bindModal() {
     $chk.prop('checked', !$chk.prop('checked')).trigger('change');
   });
 
-  $root().on('change', '#deviceChecklist input[type="checkbox"]', function () {
+  $m.on('change', '#deviceChecklist input[type="checkbox"]', function () {
     const $wrap = $(this).closest('.check-item');
     const on = this.checked;
     $wrap.toggleClass('selected', on).attr('data-checked', on ? 'true' : 'false');
@@ -3367,7 +3555,7 @@ function emitWaterTelemetry(widgetType, periodKey) {
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
-  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode, STATE.alarmFilter);
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
@@ -4323,6 +4511,20 @@ self.onInit = async function () {
     LogHelper.error('[DeviceCards] Auth init FAIL', err);
   }
 
+  // Grab modal reference BEFORE portal (querySelector works inside widget root)
+  _filterModalElement = $root()[0].querySelector('#filterModal');
+
+  // Inject CSS into the widget's ownerDocument (correct for iframe OR main page)
+  injectFilterModalStyles();
+
+  // Portal: move modal to widget's body so position:fixed is relative to the viewport
+  if (_filterModalElement) {
+    const _widgetBody = (_filterModalElement.ownerDocument || document).body;
+    if (_filterModalElement.parentElement !== _widgetBody) {
+      _widgetBody.appendChild(_filterModalElement);
+    }
+  }
+
   // Bind UI
   bindHeader();
   bindModal();
@@ -4418,6 +4620,16 @@ self.onDestroy = function () {
     _tempTooltipCleanup();
     _tempTooltipCleanup = null;
     LogHelper.log('[TELEMETRY] TempSensorSummaryTooltip cleanup executed.');
+  }
+
+  // Remove portalled filter modal from body
+  try {
+    if (_filterModalElement && _filterModalElement.parentElement) {
+      _filterModalElement.parentElement.removeChild(_filterModalElement);
+    }
+    _filterModalElement = null;
+  } catch {
+    // non-critical cleanup
   }
 
   try {

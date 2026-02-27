@@ -568,6 +568,11 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: var(--alarms-card-hover);
 }
 
+/* Grouped modes (consolidado/porDispositivo): whole card is the click target */
+.alarm-card--clickable {
+  cursor: pointer;
+}
+
 /* Severity border colors */
 .alarm-card[data-severity="CRITICAL"] {
   border-left-color: var(--severity-critical);

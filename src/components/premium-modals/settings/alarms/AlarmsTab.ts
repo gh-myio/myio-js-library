@@ -1,9 +1,9 @@
 /**
  * RFC-0180: Alarms Tab Component
  *
- * Section 1 — Active alarms for this device, grouped by ruleId.
+ * Section 1 — Active alarms for this device, "separado" (Disp. + Tipo) view.
  *             GET /api/v1/alarms?deviceId={gcdrDeviceId}&state=OPEN,ACK,ESCALATED,SNOOZED&limit=100&page=1
- *             Each group = 1 alarm-card with occurrenceCount + state-count chips.
+ *             One alarm-card per individual alarm; ACK/Snooze/Escalate visible; Qte. hidden.
  *             Rendered via createAlarmCardElement (same card as AlarmsNotificationsPanel).
  *
  * Section 2 — Multi-select of all customer rules; Save updates scope.entityIds
@@ -36,23 +36,6 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 const OPERATOR_LABELS: Record<string, string> = {
   LT: '<', GT: '>', LTE: '≤', GTE: '≥', EQ: '=',
-};
-
-/** Most-critical first */
-const STATE_PRIORITY: Record<string, number> = {
-  OPEN: 0, ESCALATED: 1, SNOOZED: 2, ACK: 3, CLOSED: 4,
-};
-
-const SEVERITY_PRIORITY: Record<string, number> = {
-  CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4,
-};
-
-const STATE_LABELS: Record<string, string> = {
-  OPEN:      'Aberto',
-  ACK:       'Reconhecido',
-  ESCALATED: 'Escalado',
-  SNOOZED:   'Silenciado',
-  CLOSED:    'Fechado',
 };
 
 // ============================================================================
@@ -106,24 +89,6 @@ interface GCDRAlarm {
   };
 }
 
-/** Aggregated group of alarms sharing the same ruleId */
-interface GCDRAlarmGroup {
-  ruleId: string;
-  title: string;
-  alarmType?: string;
-  /** Highest severity across group */
-  severity: string;
-  /** Most-critical state across group */
-  dominantState: string;
-  /** Count per state: { OPEN: 44, ACK: 2, ... } */
-  stateCounts: Record<string, number>;
-  totalCount: number;
-  firstOccurrence: string;
-  lastOccurrence: string;
-  /** All raw alarm IDs in this group — used for bulk actions */
-  alarmIds: string[];
-}
-
 /** Rule object returned by GET /customers/:gcdrCustomerId/rules */
 interface GCDRCustomerRule {
   id: string;
@@ -151,7 +116,6 @@ export class AlarmsTab {
   private config: AlarmsTabConfig;
   private customerRules: GCDRCustomerRule[] = [];
   private activeAlarms: GCDRAlarm[] = [];
-  private alarmGroups: GCDRAlarmGroup[] = [];
   private initialCheckedRuleIds = new Set<string>();
 
   constructor(config: AlarmsTabConfig) {
@@ -190,7 +154,6 @@ export class AlarmsTab {
       ]);
       this.activeAlarms  = alarms;
       this.customerRules = rules;
-      this.alarmGroups   = this.groupAlarms(alarms);
 
       for (const rule of this.customerRules) {
         if (rule.scope?.entityIds?.includes(this.config.gcdrDeviceId)) {
@@ -212,93 +175,27 @@ export class AlarmsTab {
   }
 
   // ============================================================================
-  // Grouping
+  // Card mapping — separado (Disp. + Tipo) view: one card per individual alarm
   // ============================================================================
 
   /**
-   * Group raw alarms by metadata.ruleId (fallback: title).
-   * One card per group; occurrenceCount = total alarms in group.
+   * Map a raw GCDRAlarm → Alarm for createAlarmCardElement.
+   * Each alarm is its own card (no grouping by ruleId).
    */
-  private groupAlarms(alarms: GCDRAlarm[]): GCDRAlarmGroup[] {
-    const map = new Map<string, GCDRAlarmGroup>();
-
-    for (const alarm of alarms) {
-      const key = alarm.metadata?.ruleId || alarm.title || alarm.id;
-
-      if (!map.has(key)) {
-        map.set(key, {
-          ruleId:          key,
-          title:           alarm.title    || '',
-          alarmType:       alarm.alarmType,
-          severity:        alarm.severity || 'LOW',
-          dominantState:   alarm.state    || 'OPEN',
-          stateCounts:     {},
-          totalCount:      0,
-          firstOccurrence: alarm.raisedAt      || '',
-          lastOccurrence:  alarm.lastUpdatedAt || alarm.raisedAt || '',
-          alarmIds:        [],
-        });
-      }
-
-      const g = map.get(key)!;
-      g.totalCount++;
-      g.alarmIds.push(alarm.id);
-      g.stateCounts[alarm.state] = (g.stateCounts[alarm.state] || 0) + 1;
-
-      // Escalate dominant state to most-critical
-      if ((STATE_PRIORITY[alarm.state] ?? 99) < (STATE_PRIORITY[g.dominantState] ?? 99)) {
-        g.dominantState = alarm.state;
-      }
-
-      // Escalate severity to highest
-      if ((SEVERITY_PRIORITY[alarm.severity] ?? 99) < (SEVERITY_PRIORITY[g.severity] ?? 99)) {
-        g.severity = alarm.severity;
-      }
-
-      // Track earliest firstOccurrence
-      if (alarm.raisedAt && (!g.firstOccurrence || alarm.raisedAt < g.firstOccurrence)) {
-        g.firstOccurrence = alarm.raisedAt;
-      }
-
-      // Track latest lastOccurrence
-      const lastTs = alarm.lastUpdatedAt || alarm.raisedAt || '';
-      if (lastTs && lastTs > g.lastOccurrence) {
-        g.lastOccurrence = lastTs;
-      }
-    }
-
-    // Sort: most-critical dominant state first, then highest severity
-    return [...map.values()].sort((a, b) => {
-      const sd = (STATE_PRIORITY[a.dominantState] ?? 99) - (STATE_PRIORITY[b.dominantState] ?? 99);
-      if (sd !== 0) return sd;
-      return (SEVERITY_PRIORITY[a.severity] ?? 99) - (SEVERITY_PRIORITY[b.severity] ?? 99);
-    });
-  }
-
-  /**
-   * Map an aggregated GCDRAlarmGroup → Alarm so createAlarmCardElement can be used.
-   * State-count chips go into _alarmTypes → rendered as type chips in the card body.
-   */
-  private mapGroupToAlarm(group: GCDRAlarmGroup): Alarm {
-    // Build chips sorted most-critical first: "Aberto × 44", "Reconhecido × 2"
-    const stateChips = Object.entries(group.stateCounts)
-      .sort((a, b) => (STATE_PRIORITY[a[0]] ?? 99) - (STATE_PRIORITY[b[0]] ?? 99))
-      .map(([state, count]) => `${STATE_LABELS[state] || state} × ${count}`);
-
+  private mapAlarmToCard(alarm: GCDRAlarm): Alarm {
     return {
-      id:              group.ruleId,
+      id:              alarm.id,
       customerId:      this.config.gcdrCustomerId,
       customerName:    '',
-      source:          '',
-      severity:        group.severity      as AlarmSeverity,
-      state:           group.dominantState as AlarmState,
-      title:           group.title,
-      description:     '',
+      source:          alarm.deviceName || '',
+      severity:        (alarm.severity || 'LOW') as AlarmSeverity,
+      state:           (alarm.state    || 'OPEN') as AlarmState,
+      title:           alarm.title || '',
+      description:     alarm.description || '',
       tags:            {},
-      firstOccurrence: group.firstOccurrence,
-      lastOccurrence:  group.lastOccurrence,
-      occurrenceCount: group.totalCount,
-      _alarmTypes:     stateChips,
+      firstOccurrence: alarm.raisedAt || '',
+      lastOccurrence:  alarm.lastUpdatedAt || alarm.raisedAt || '',
+      occurrenceCount: 1,
     };
   }
 
@@ -416,45 +313,67 @@ export class AlarmsTab {
     const userEmail = (window as unknown as { MyIOUtils?: { currentUserEmail?: string } })
       .MyIOUtils?.currentUserEmail || '';
 
-    for (const group of this.alarmGroups) {
-      const alarm = this.mapGroupToAlarm(group);
+    // Separado view: one card per individual alarm (Disp. + Tipo unit)
+    for (const rawAlarm of this.activeAlarms) {
+      const alarm = this.mapAlarmToCard(rawAlarm);
+
+      // onAction callback forwarded to AlarmDetailsModal → Timeline tab
+      const onAction = (action: 'acknowledge' | 'snooze' | 'escalate', alarmId: string): void => {
+        const doAction = async () => {
+          if (action === 'acknowledge') {
+            if (AlarmService?.batchAcknowledge) {
+              await AlarmService.batchAcknowledge([alarmId], userEmail);
+            } else {
+              await this.postAlarmAction(alarmsBaseUrl, alarmId, 'acknowledge');
+            }
+          } else if (action === 'snooze') {
+            if (AlarmService?.batchSilence) {
+              await AlarmService.batchSilence([alarmId], userEmail, '4h');
+            } else {
+              await this.postAlarmAction(alarmsBaseUrl, alarmId, 'snooze');
+            }
+          } else if (action === 'escalate') {
+            if (AlarmService?.batchEscalate) {
+              await AlarmService.batchEscalate([alarmId], userEmail);
+            } else {
+              await this.postAlarmAction(alarmsBaseUrl, alarmId, 'escalate');
+            }
+          }
+          await this.refreshAlarmsGrid(alarmsBaseUrl);
+        };
+        doAction().catch(() => { /* non-blocking */ });
+      };
 
       const params: AlarmCardParams = {
-        showCustomerName: false,
-        showDeviceBadge:  false,
-        alarmTypes:       alarm._alarmTypes,
+        showCustomerName:    false,
+        showDeviceBadge:     false,
+        hideOccurrenceCount: true,  // always 1 in separado — not meaningful
         onAcknowledge: async () => {
           if (AlarmService?.batchAcknowledge) {
-            await AlarmService.batchAcknowledge(group.alarmIds, userEmail);
+            await AlarmService.batchAcknowledge([rawAlarm.id], userEmail);
           } else {
-            await Promise.all(
-              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'acknowledge')),
-            );
+            await this.postAlarmAction(alarmsBaseUrl, rawAlarm.id, 'acknowledge');
           }
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onSnooze: async () => {
           if (AlarmService?.batchSilence) {
-            await AlarmService.batchSilence(group.alarmIds, userEmail, '4h');
+            await AlarmService.batchSilence([rawAlarm.id], userEmail, '4h');
           } else {
-            await Promise.all(
-              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
-            );
+            await this.postAlarmAction(alarmsBaseUrl, rawAlarm.id, 'snooze');
           }
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onEscalate: async () => {
           if (AlarmService?.batchEscalate) {
-            await AlarmService.batchEscalate(group.alarmIds, userEmail);
+            await AlarmService.batchEscalate([rawAlarm.id], userEmail);
           } else {
-            await Promise.all(
-              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
-            );
+            await this.postAlarmAction(alarmsBaseUrl, rawAlarm.id, 'escalate');
           }
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onDetails: () => {
-          openAlarmDetailsModal(alarm);
+          openAlarmDetailsModal(alarm, 'light', 'separado', onAction);
         },
       };
 
@@ -465,7 +384,6 @@ export class AlarmsTab {
 
   private async refreshAlarmsGrid(alarmsBaseUrl: string): Promise<void> {
     this.activeAlarms = await this.fetchActiveAlarms(alarmsBaseUrl);
-    this.alarmGroups  = this.groupAlarms(this.activeAlarms);
 
     // RFC-0183: Rebuild AlarmServiceOrchestrator maps after action
     const aso = (window as unknown as { AlarmServiceOrchestrator?: { refresh: () => Promise<void> } })
@@ -474,11 +392,12 @@ export class AlarmsTab {
       await aso.refresh().catch(() => { /* non-blocking */ });
     }
 
-    // Update count badge (shows group count, not raw alarm count)
+    const count = this.activeAlarms.length;
+
     const badge = this.config.container.querySelector<HTMLElement>('#at-alarms-count');
     if (badge) {
-      badge.textContent    = String(this.alarmGroups.length);
-      badge.style.display  = this.alarmGroups.length > 0 ? '' : 'none';
+      badge.textContent   = String(count);
+      badge.style.display = count > 0 ? '' : 'none';
     }
     const sub = this.config.container.querySelector<HTMLElement>('#at-alarms-sub');
     if (sub) {
@@ -488,7 +407,7 @@ export class AlarmsTab {
     const grid  = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
     const empty = this.config.container.querySelector<HTMLElement>('#at-alarms-empty');
 
-    if (this.alarmGroups.length === 0) {
+    if (count === 0) {
       if (grid)  grid.style.display  = 'none';
       if (empty) empty.style.display = '';
     } else {
@@ -504,9 +423,8 @@ export class AlarmsTab {
 
   private buildSectionSubtitle(): string {
     const total = this.activeAlarms.length;
-    const groups = this.alarmGroups.length;
     if (total === 0) return 'Nenhum alarme ativo para este dispositivo';
-    return `${total} ocorrência${total !== 1 ? 's' : ''} em ${groups} tipo${groups !== 1 ? 's' : ''}`;
+    return `${total} alarme${total !== 1 ? 's' : ''} ativo${total !== 1 ? 's' : ''} para este dispositivo`;
   }
 
   private renderTab(): string {
@@ -519,7 +437,7 @@ export class AlarmsTab {
   }
 
   private renderSection1(): string {
-    const groups = this.alarmGroups.length;
+    const count = this.activeAlarms.length;
     return `
       <div class="at-section">
         <div class="at-section-header">
@@ -529,16 +447,16 @@ export class AlarmsTab {
             <div class="at-section-sub" id="at-alarms-sub">${this.buildSectionSubtitle()}</div>
           </div>
           <span class="at-count-badge" id="at-alarms-count"
-                style="${groups === 0 ? 'display:none;' : ''}">${groups}</span>
+                style="${count === 0 ? 'display:none;' : ''}">${count}</span>
         </div>
         <!-- .myio-alarms-panel wrapper so panel CSS variables / alarm-card styles apply -->
         <div class="myio-alarms-panel at-alarms-panel-host">
           <div class="at-empty" id="at-alarms-empty"
-               style="${groups > 0 ? 'display:none;' : ''}">
+               style="${count > 0 ? 'display:none;' : ''}">
             Nenhum alarme ativo para este dispositivo.
           </div>
           <div class="alarms-grid" id="at-alarms-grid"
-               style="${groups === 0 ? 'display:none;' : ''}"></div>
+               style="${count === 0 ? 'display:none;' : ''}"></div>
         </div>
       </div>
     `;

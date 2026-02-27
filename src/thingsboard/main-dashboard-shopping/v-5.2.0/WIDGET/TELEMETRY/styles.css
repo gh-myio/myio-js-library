@@ -174,16 +174,19 @@
   margin: 0 !important;
 }
 
-/* ============ Modal (fixed sizing) ============ */
+/* ============ Modal ============ */
+/* Overlay CSS is injected via injectFilterModalStyles() in controller.js
+   to escape ThingsBoard widget CSS scoping when portalled to document.body */
 .shops-root .shops-modal.hidden {
-  display: none;
+  display: none !important;
+  pointer-events: none !important;
 }
 
 .shops-root .shops-modal {
   position: fixed;
   inset: 0;
   background: rgba(17, 24, 39, 0.35);
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -363,6 +366,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.shops-root .alarm-filter-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .shops-root .radio-grid label {

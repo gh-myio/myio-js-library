@@ -520,7 +520,7 @@ export function openAlarmDetailsModal(
 
         <!-- RESUMO -->
         <div class="adm-panel is-active" data-panel="resumo">
-          <div class="adm-kpi-grid">
+          ${groupMode !== 'separado' ? `<div class="adm-kpi-grid">
             <div class="adm-kpi">
               <div class="adm-kpi-value" style="color:${sev.text}">${count}</div>
               <div class="adm-kpi-label">Ocorrências</div>
@@ -533,7 +533,7 @@ export function openAlarmDetailsModal(
               <div class="adm-kpi-value">${durLabel}</div>
               <div class="adm-kpi-label">Duração</div>
             </div>
-          </div>
+          </div>` : ''}
 
           ${alarm.description ? `<div class="adm-description">${escHtml(alarm.description)}</div>` : ''}
 

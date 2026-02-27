@@ -221,6 +221,12 @@ export interface AlarmCardParams {
   alarmTypes?: string[];
   /** Hide ACK / Snooze / Escalate action buttons (consolidado and porDispositivo modes) */
   hideActions?: boolean;
+  /** Hide the bulk-select checkbox (consolidado and porDispositivo modes) */
+  hideSelect?: boolean;
+  /** Hide the inline Details button — card click opens the modal instead */
+  hideDetails?: boolean;
+  /** Hide the Qte. (occurrenceCount) stat — not meaningful in separado (always 1) */
+  hideOccurrenceCount?: boolean;
 }
 
 // =====================================================================

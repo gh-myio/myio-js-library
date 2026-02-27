@@ -489,7 +489,10 @@ export class AlarmsNotificationsPanelView {
       (grid as HTMLElement).className = 'alarms-grid';
       cards.forEach((alarm) => {
         const card = createAlarmCardElement(alarm, {
-          onCardClick: (a) => this.handleAlarmClick(a),
+          // Card click: in grouped modes opens modal directly; in separado fires generic click
+          onCardClick: isSeparado
+            ? (a) => this.handleAlarmClick(a)
+            : (a) => this.handleDetails(a.id),
           onAcknowledge: (id) => this.openAlarmActionModal('acknowledge', id),
           onDetails: (id) => this.handleDetails(id),
           onMore: (id, e) => this.handleMore(id, e),
@@ -499,6 +502,9 @@ export class AlarmsNotificationsPanelView {
           showDeviceBadge: isSeparado,             // separado: show device badge in header
           alarmTypes: isPorDispositivo ? (alarm._alarmTypes ?? []) : undefined,
           hideActions: !isSeparado,                // ACK/Snooze/Escalate only in separado (unit alarm)
+          hideSelect: !isSeparado,                 // bulk-select only meaningful in separado
+          hideDetails: !isSeparado,                // card click opens modal in grouped modes
+          hideOccurrenceCount: isSeparado,         // Qte. always 1 in separado — not useful
         });
         grid.appendChild(card);
       });

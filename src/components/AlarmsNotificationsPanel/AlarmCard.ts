@@ -133,11 +133,15 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
     </div>`
     : '';
 
-  return `<article class="alarm-card${isSelected ? ' alarm-card--selected' : ''}" data-alarm-id="${alarm.id}" data-severity="${alarm.severity}" data-state="${alarm.state}">
+  const hideSelect          = _params?.hideSelect ?? false;
+  const hideDetails         = _params?.hideDetails ?? false;
+  const hideOccurrenceCount = _params?.hideOccurrenceCount ?? false;
+
+  return `<article class="alarm-card${isSelected ? ' alarm-card--selected' : ''}${hideDetails ? ' alarm-card--clickable' : ''}" data-alarm-id="${alarm.id}" data-severity="${alarm.severity}" data-state="${alarm.state}">
   <header class="alarm-card-header">
-    <label class="alarm-card-checkbox-wrap" title="Selecionar para ação em lote" onclick="event.stopPropagation()">
+    ${!hideSelect ? `<label class="alarm-card-checkbox-wrap" title="Selecionar para ação em lote" onclick="event.stopPropagation()">
       <input type="checkbox" class="alarm-card-select" data-alarm-id="${alarm.id}" data-alarm-title="${escapeHtml(rawTitle)}"${isSelected ? ' checked' : ''}>
-    </label>
+    </label>` : ''}
     ${showDeviceBadge && safeSource ? `<span class="alarm-card-device-badge" title="${safeSource}"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M4 6h16v10H4zm8 12c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-4 0h8v-1H8v1z"/></svg>${safeSource}</span>` : ''}
     <div class="alarm-card-badges">
       <span class="alarm-severity-badge" data-severity="${alarm.severity}" title="${severityConfig.label}">${severityConfig.icon}</span>
@@ -149,10 +153,10 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
     ${typeChipsHtml}
     ${showCustomer ? `<span class="alarm-shopping-chip">${BUILDING_ICON}<span class="chip-text">${safeCustomerName}</span></span>` : ''}
     <div class="alarm-card-stats">
-      <div class="alarm-stat">
+      ${!hideOccurrenceCount ? `<div class="alarm-stat">
         <span class="alarm-stat-value alarm-stat-value--large">${safeOccurrences}</span>
         <span class="alarm-stat-label">Qte.</span>
-      </div>
+      </div>` : ''}
       <div class="alarm-stat">
         <span class="alarm-stat-value">${firstSeenRelative}</span>
         <span class="alarm-stat-label">1a. Ocorrência</span>
@@ -167,7 +171,7 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
     ${!_params?.hideActions && isActive ? `<button class="btn btn-ack" data-action="acknowledge" data-alarm-id="${alarm.id}" title="Reconhecer"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>` : ''}
     ${!_params?.hideActions && alarm.state !== 'CLOSED' ? `<button class="btn btn-snooze" data-action="snooze" data-alarm-id="${alarm.id}" title="Adiar"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg></button>` : ''}
     ${!_params?.hideActions && alarm.state !== 'CLOSED' ? `<button class="btn btn-escalate" data-action="escalate" data-alarm-id="${alarm.id}" title="Escalar"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg></button>` : ''}
-    <button class="btn btn-details" data-action="details" data-alarm-id="${alarm.id}" title="Detalhes"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></button>
+    ${!hideDetails ? `<button class="btn btn-details" data-action="details" data-alarm-id="${alarm.id}" title="Detalhes"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></button>` : ''}
   </footer>
 </article>`;
 }

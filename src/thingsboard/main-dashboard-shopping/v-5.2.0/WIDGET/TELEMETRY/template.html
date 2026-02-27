@@ -54,10 +54,10 @@
 
   <section id="shopsList" class="shops-list"></section>
 
-  <!-- Modal de filtros -->
+  <!-- Modal de filtros — classe telemetry-filter-overlay garante position:fixed relativo ao viewport mesmo com transforms do TB -->
   <div
     id="filterModal"
-    class="shops-modal hidden"
+    class="shops-modal telemetry-filter-overlay hidden"
     role="dialog"
     aria-modal="true"
     aria-labelledby="filterTitle"
@@ -75,6 +75,27 @@
       </header>
 
       <section class="shops-modal-body">
+        <div class="filter-block">
+          <label class="block-label">Filtro de Alarmes</label>
+          <div class="radio-grid alarm-filter-grid">
+            <label><input type="radio" name="alarmFilter" value="ativado" checked /> Ativado (todos visíveis)</label>
+            <label><input type="radio" name="alarmFilter" value="apenas_ativados" /> Apenas com alarmes</label>
+            <label><input type="radio" name="alarmFilter" value="desativado" /> Desativado (sem badges)</label>
+          </div>
+          <p class="muted">Em <strong>Apenas com alarmes</strong> somente cards com alarme ativo são exibidos.</p>
+        </div>
+
+        <div class="filter-block">
+          <label class="block-label">Ordenação</label>
+          <div class="radio-grid">
+            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓ (padrão)</label>
+            <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
+            <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
+            <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
+          </div>
+          <p class="muted">Caso o consumo seja o mesmo é considerada a ordem alfabética.</p>
+        </div>
+
         <div class="filter-block">
           <label class="block-label">Selecionar Lojas</label>
           <div class="inline-actions">
@@ -99,17 +120,6 @@
             </button>
           </div>
           <div id="deviceChecklist" class="checklist" role="listbox" aria-multiselectable="true"></div>
-        </div>
-
-        <div class="filter-block">
-          <label class="block-label">Ordenação</label>
-          <div class="radio-grid">
-            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓ (padrão)</label>
-            <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
-            <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
-            <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
-          </div>
-          <p class="muted">Caso o consumo seja o mesmo é considerada a ordem alfabética.</p>
         </div>
       </section>
 
