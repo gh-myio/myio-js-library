@@ -3,8 +3,9 @@
  * DOM rendering and event handling
  */
 
-import type { Alarm, AlarmFilters, AlarmSeverity, AlarmState } from '../../types/alarm';
+import type { Alarm, AlarmFilters, AlarmSeverity, AlarmState, AlarmTrendDataPoint } from '../../types/alarm';
 import { SEVERITY_CONFIG, STATE_CONFIG } from '../../types/alarm';
+import { AlarmService } from '../../services/alarm/AlarmService';
 import type {
   AlarmsNotificationsPanelParams,
   AlarmsNotificationsPanelState,
@@ -32,6 +33,10 @@ export class AlarmsNotificationsPanelView {
 
   // View mode: 'card' (default) or 'list' (table)
   private viewMode: 'card' | 'list' = 'card';
+
+  // Trend chart data (fetched once when Dashboard tab first opens)
+  private trendData: AlarmTrendDataPoint[] = [];
+  private trendFetched = false;
 
   // Group mode:
   //   'consolidado'    – Por Tipo de Alarme  (one row per alarm type, all devices merged)
@@ -514,7 +519,8 @@ export class AlarmsNotificationsPanelView {
   }
 
   /**
-   * Render dashboard tab content
+   * Render dashboard tab content.
+   * Trend data is fetched asynchronously on first open and injected when ready.
    */
   private renderDashboardContent(state: AlarmsNotificationsPanelState): void {
     if (!this.root) return;
@@ -522,16 +528,30 @@ export class AlarmsNotificationsPanelView {
     const container = this.root.querySelector('#dashboardContent');
     if (!container) return;
 
-    // Check if dashboard is already rendered
     if (container.children.length > 0) {
-      // Update existing dashboard
-      updateDashboard(container as HTMLElement, state.stats);
+      updateDashboard(container as HTMLElement, state.stats, this.trendData);
     } else {
-      // Initial render
-      container.innerHTML = renderDashboard(state.stats);
+      container.innerHTML = renderDashboard(state.stats, this.trendData);
     }
 
     this.emit('stats-updated', state.stats);
+
+    // Fetch trend data once (async) — inject into chart area when resolved
+    if (!this.trendFetched && this.params.tenantId) {
+      this.trendFetched = true;
+      AlarmService.getAlarmTrend(this.params.tenantId, 'week', 'day')
+        .then((data) => {
+          this.trendData = data;
+          // Update only the trend chart area without re-rendering the full dashboard
+          const trendArea = (container as HTMLElement).querySelector(
+            '.alarms-chart-card:nth-child(1) .alarms-chart-area',
+          );
+          if (trendArea) {
+            updateDashboard(container as HTMLElement, this.controller.getState().stats, this.trendData);
+          }
+        })
+        .catch(() => { /* trend fetch is non-blocking — chart stays empty */ });
+    }
   }
 
   // =====================================================================

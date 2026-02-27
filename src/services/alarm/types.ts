@@ -134,6 +134,13 @@ export interface AlarmStatsApiResponse {
 
 export interface AlarmTrendApiPoint {
   period: string;
+  /** Pre-formatted display label returned by the API (e.g. "23/02") */
+  label?: string;
+  /** Millisecond timestamp returned by the API */
+  timestamp?: number;
+  /** Total alarm count (preferred field) */
+  total?: number;
+  /** Total alarm count (alias — same value as total) */
   count: number;
   bySeverity?: Record<string, number>;
 }

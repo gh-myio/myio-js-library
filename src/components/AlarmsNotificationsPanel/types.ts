@@ -57,6 +57,8 @@ export interface AlarmsNotificationsPanelParams {
   alarmsApiBaseUrl?: string;
   /** Alarms API key (required — no hardcoded fallback) */
   alarmsApiKey?: string;
+  /** GCDR Tenant ID — required for trend/stats API calls (query param tenantId) */
+  tenantId?: string;
   /** Theme mode (default: 'dark') */
   themeMode?: ThemeMode;
   /** Enable debug logging */
