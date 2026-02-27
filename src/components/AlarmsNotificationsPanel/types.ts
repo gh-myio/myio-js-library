@@ -219,6 +219,8 @@ export interface AlarmCardParams {
   showDeviceBadge?: boolean;
   /** Alarm type titles to show as chips inside card body (Por Dispositivo mode) */
   alarmTypes?: string[];
+  /** Hide ACK / Snooze / Escalate action buttons (consolidado and porDispositivo modes) */
+  hideActions?: boolean;
 }
 
 // =====================================================================

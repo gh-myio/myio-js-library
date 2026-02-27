@@ -37,7 +37,7 @@ export class AlarmsNotificationsPanelView {
   //   'consolidado'    – Por Tipo de Alarme  (one row per alarm type, all devices merged)
   //   'separado'       – Por Dispositivo - Tipo  (one row per device × alarm type pair)
   //   'porDispositivo' – Por Dispositivo  (one row per device, all alarm types merged)
-  private groupMode: 'consolidado' | 'separado' | 'porDispositivo' = 'consolidado';
+  private groupMode: 'consolidado' | 'separado' | 'porDispositivo' = 'separado';
 
   // Table sort state
   private sortCol: string = '';
@@ -498,6 +498,7 @@ export class AlarmsNotificationsPanelView {
           selected: this.selectedTitles.has(alarm.title),
           showDeviceBadge: isSeparado,             // separado: show device badge in header
           alarmTypes: isPorDispositivo ? (alarm._alarmTypes ?? []) : undefined,
+          hideActions: !isSeparado,                // ACK/Snooze/Escalate only in separado (unit alarm)
         });
         grid.appendChild(card);
       });
@@ -1447,7 +1448,12 @@ export class AlarmsNotificationsPanelView {
       this.groupedAlarms.find((a) => a.id === alarmId) ??
       this.controller.getAlarms().find((a) => a.id === this.stripSeparadoId(alarmId));
     if (alarm) {
-      openAlarmDetailsModal(alarm, this.controller.getState().themeMode, this.groupMode);
+      openAlarmDetailsModal(
+        alarm,
+        this.controller.getState().themeMode,
+        this.groupMode,
+        (action, id) => this.openAlarmActionModal(action, id)
+      );
       this.emit('alarm-click', alarm);
     }
   }
