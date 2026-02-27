@@ -101,6 +101,7 @@ export interface DeviceServerAttrs {
   slaveId?: string | number;
   identifier?: string;
   ingestionId?: string;
+  gcdrDeviceId?: string;
 }
 
 /** Latest telemetry for device (loaded separately) */
