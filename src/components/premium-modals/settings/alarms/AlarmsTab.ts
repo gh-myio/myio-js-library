@@ -11,6 +11,7 @@
  */
 
 import { createAlarmCardElement } from '../../../AlarmsNotificationsPanel/AlarmCard';
+import { openAlarmDetailsModal } from '../../../AlarmsNotificationsPanel/AlarmDetailsModal';
 import { ALARMS_NOTIFICATIONS_PANEL_STYLES } from '../../../AlarmsNotificationsPanel/styles';
 import type { AlarmCardParams } from '../../../AlarmsNotificationsPanel/types';
 import type { Alarm, AlarmSeverity, AlarmState } from '../../../../types/alarm';
@@ -453,13 +454,7 @@ export class AlarmsTab {
           await this.refreshAlarmsGrid(alarmsBaseUrl);
         },
         onDetails: () => {
-          // Expand card info — log group for now; replace with detail panel when available
-          console.info('[AlarmsTab] Alarm group details:', {
-            ruleId:    group.ruleId,
-            title:     group.title,
-            alarmIds:  group.alarmIds,
-            stateCounts: group.stateCounts,
-          });
+          openAlarmDetailsModal(alarm);
         },
       };
 
