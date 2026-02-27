@@ -1,0 +1,267 @@
+<div class="wat">
+  <header id="ReportHeader">
+    <div class="brand">
+      <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
+      <div class="headline">
+        <p>
+          Sistema Myio v.5 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal Souza Aguiar
+        </p>
+        <p>UNIDADE SOUZA AGUIAR - HMSA</p>
+        <p>Data de Emissão: <span id="issue-date"></span></p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="hide-in-settings icon-btn" (click)="openSettingsModal()" title="Configurações">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+      <button class="hide-in-pdf icon-btn" (click)="downloadPDF()" title="Exportar PDF">
+        <i class="fa-solid fa-file-arrow-down"></i>
+      </button>
+      <button class="hide-in-csv icon-btn" (click)="downloadCSV()" title="Exportar CSV">
+        <i class="fa-solid fa-file-csv"></i>
+      </button>
+
+      <div id="datePicker">
+        <!-- Device Filter Dropdown (Admin Only) -->
+        <div class="device-filter-container hide-in-pdf" *ngIf="adminMode">
+          <button class="device-filter-btn" (click)="toggleDeviceFilter()" [class.active]="showDeviceFilter">
+            <i class="fa-solid fa-filter"></i>
+            <span>Ambientes ({{ selectedDevicesCount }}/{{ allDevicesCount }})</span>
+            <i class="fa-solid" [ngClass]="showDeviceFilter ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+          </button>
+
+          <div class="device-filter-dropdown" *ngIf="showDeviceFilter">
+            <div class="device-filter-header">
+              <input
+                type="text"
+                class="device-filter-search"
+                placeholder="Filtrar ambientes..."
+                [ngModel]="deviceFilterText"
+                (ngModelChange)="onDeviceFilterTextChange($event)"
+              />
+              <div class="device-filter-actions">
+                <button class="btn-small" (click)="selectAllDevices()" title="Marcar todos">
+                  <i class="fa-solid fa-check-double"></i> Todos
+                </button>
+                <button class="btn-small" (click)="deselectAllDevices()" title="Desmarcar todos">
+                  <i class="fa-solid fa-xmark"></i> Nenhum
+                </button>
+              </div>
+            </div>
+            <div class="device-filter-list">
+              <label
+                class="device-filter-item"
+                *ngFor="let device of filteredDevicesList"
+                [class.selected]="device.selected"
+              >
+                <input type="checkbox" [checked]="device.selected" (change)="toggleDeviceSelection(device)" />
+                <span class="device-label">{{ device.label }}</span>
+              </label>
+              <div class="no-devices" *ngIf="filteredDevicesList?.length === 0">
+                Nenhum ambiente encontrado
+              </div>
+            </div>
+            <div class="device-filter-footer">
+              <span class="selection-count">{{ selectedDevicesCount }} selecionado(s)</span>
+              <button class="btn-apply" (click)="applyDeviceFilter()">Aplicar</button>
+            </div>
+          </div>
+        </div>
+
+        <mat-form-field class="example-form-field hide-in-pdf">
+          <mat-label>Selecione um intervalo</mat-label>
+          <mat-date-range-input [rangePicker]="rangePicker">
+            <input matStartDate placeholder="Data Inicial" (dateChange)="handleStartDateChange($event)" />
+            <input matEndDate placeholder="Data Final" (dateChange)="handleEndDateChange($event)" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
+          <mat-date-range-picker #rangePicker (closed)="applyDateRange()">
+            <mat-date-range-picker-actions>
+              <button mat-button matDateRangePickerCancel>Cancelar</button>
+              <button mat-raised-button matDateRangePickerApply>Selecionar</button>
+            </mat-date-range-picker-actions>
+          </mat-date-range-picker>
+        </mat-form-field>
+
+        <!-- Settings Modal -->
+        <div class="settings-backdrop" *ngIf="showSettings">
+          <div class="settings-modal">
+            <h3>Configurações</h3>
+
+            <div class="settings-section" *ngIf="!adminVerified">
+              <label for="admin-pass">Senha de Admin</label>
+              <input
+                id="admin-pass"
+                type="password"
+                placeholder="Digite a senha"
+                (input)="onAdminPasswordInput($event)"
+              />
+              <div class="actions-row">
+                <button class="btn" (click)="verifyAdminPassword()">Validar</button>
+                <button class="btn ghost" (click)="closeSettingsModal()">Fechar</button>
+              </div>
+            </div>
+
+            <div class="settings-section" *ngIf="adminVerified">
+              <div class="row">
+                <label class="switch">
+                  <input type="checkbox" [checked]="adminMode" (change)="setAdminMode($event)" />
+                  <span class="slider"></span>
+                </label>
+                <span>Habilitar modo Admin</span>
+              </div>
+              <p class="muted">
+                No modo Admin exibimos selos e estatísticas de interpolação (17+, Interpolado, contadores).
+              </p>
+              <div class="actions-row end">
+                <button class="btn ghost" (click)="closeSettingsModal()">Fechar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controles Premium -->
+  <div class="view-controls hide-in-pdf" *ngIf="dados && dados.length > 0">
+    <div class="view-toggle">
+      <button mat-button [class.active]="!isCardView" (click)="toggleViewMode('list')" title="Lista">
+        <mat-icon>view_list</mat-icon> Lista
+      </button>
+      <button mat-button [class.active]="isCardView" (click)="toggleViewMode('card')" title="Cards">
+        <mat-icon>view_module</mat-icon> Cards
+      </button>
+    </div>
+
+    <div class="expand-controls" *ngIf="isCardView">
+      <button mat-button (click)="expandAllDevices()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
+      <button mat-button (click)="collapseAllDevices()">
+        <mat-icon>expand_less</mat-icon> Recolher Todos
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading overlay premium -->
+  <div id="premium-loading-overlay" *ngIf="premiumLoading">
+    <div class="premium-loading-content">
+      <div class="premium-spinner"></div>
+      <div class="loading-status">{{ premiumLoadingStatus }}</div>
+      <div class="loading-timer">{{ premiumLoadingTimer }}</div>
+      <div class="loading-progress">
+        <div class="progress-bar" [style.width.%]="premiumLoadingProgress"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de bloqueio -->
+  <div class="block-modal-backdrop" *ngIf="isBlocking">
+    <div class="block-modal">
+      <h3>{{ blockTitle || 'Sincronizando...' }}</h3>
+      <p>{{ blockMessage || 'Aguarde a conclusão da operação.' }}</p>
+      <div class="premium-spinner small"></div>
+      <button class="close-btn" (click)="closeBlockModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Tabela (Lista) -->
+  <mat-table
+    [dataSource]="dados"
+    matSort
+    class="mat-elevation-z8 fullwidth"
+    *ngIf="!isCardView && dados && dados.length > 0"
+  >
+    <ng-container matColumnDef="deviceName">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Dispositivo </mat-header-cell>
+      <mat-cell *matCellDef="let row">
+        {{ row.deviceName }}
+        <span class="badge interp" *ngIf="adminMode && row.interpolated" title="Valor interpolado"
+          >interp</span
+        >
+        <span class="badge clamp" *ngIf="adminMode && row.correctedBelowThreshold" title="Clamped a 17.00°C"
+          >17+</span
+        >
+      </mat-cell>
+    </ng-container>
+
+    <ng-container matColumnDef="temperature">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Temperatura </mat-header-cell>
+      <mat-cell *matCellDef="let row">{{ row.temperature }}°C</mat-cell>
+    </ng-container>
+
+    <ng-container matColumnDef="reading_date">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Data </mat-header-cell>
+      <mat-cell *matCellDef="let row">{{ row.reading_date }}</mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="['deviceName','temperature','reading_date']"></mat-header-row>
+    <mat-row *matRowDef="let row; columns: ['deviceName','temperature','reading_date']"></mat-row>
+  </mat-table>
+
+  <!-- Cards (Premium) -->
+  <div class="card-view-container" *ngIf="isCardView && groupedData">
+    <div
+      class="device-card"
+      *ngFor="let device of groupedData | keyvalue"
+      [class.expanded]="expandedDevices[device.key]"
+    >
+      <div class="device-card-header" (click)="toggleDeviceExpansion(device.key)">
+        <div class="device-info">
+          <h3 class="device-name">{{ device.key }}</h3>
+          <div class="device-stats">
+            <span class="stat">
+              <mat-icon>device_thermostat</mat-icon>
+              {{ getLatestTemperature(device.value) }}°C
+            </span>
+            <span class="stat" *ngIf="adminMode">
+              <mat-icon>timeline</mat-icon>
+              {{ getDeviceReadingCount(device.value) }} leituras
+            </span>
+            <span class="stat warn" *ngIf="adminMode && getInterpolatedCount(device.value) > 0">
+              <mat-icon>auto_fix_high</mat-icon>
+              {{ getInterpolatedCount(device.value) }} interp.
+            </span>
+          </div>
+        </div>
+        <div class="expand-icon">
+          <mat-icon>{{ expandedDevices[device.key] ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </div>
+      </div>
+
+      <div class="device-card-content" *ngIf="expandedDevices[device.key]">
+        <!-- Tabela premium apenas desse device -->
+        <div class="readings-table">
+          <div class="reading-row header-row">
+            <div class="reading-temp">Temperatura</div>
+            <div class="reading-date">Data/Hora</div>
+            <div class="reading-status" *ngIf="adminMode">Status</div>
+          </div>
+          <div
+            class="reading-row"
+            *ngFor="let reading of device.value"
+            [class.interpolated]="reading.interpolated"
+            [class.clamped]="reading.correctedBelowThreshold"
+          >
+            <div class="reading-temp">
+              {{ reading.temperature }}°C
+              <span class="badge clamp" *ngIf="adminMode && reading.correctedBelowThreshold">17+</span>
+            </div>
+            <div class="reading-date">{{ reading.reading_date }}</div>
+            <div class="reading-status" *ngIf="adminMode && reading.interpolated">
+              <span *ngIf="adminMode && reading.interpolated" class="badge interp">Interpolado</span>
+              <!-- removido o status "Original" definitivamente -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sem dados -->
+  <div class="no-data-message" *ngIf="!premiumLoading && (!dados || dados.length === 0)">
+    <mat-icon>info</mat-icon>
+    <p>Nenhum dado disponível para o período selecionado.</p>
+    <p>Selecione um intervalo de datas para gerar o relatório.</p>
+  </div>
+</div>
