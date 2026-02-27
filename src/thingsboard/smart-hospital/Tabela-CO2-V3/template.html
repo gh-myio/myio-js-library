@@ -204,9 +204,9 @@
               <i class="fa-solid fa-wind"></i>
               {{ getLatestCO2(device.value) }} ppm
             </span>
-            <span class="stat" *ngIf="adminMode">
-              <mat-icon>table_rows</mat-icon>
-              {{ getDeviceReadingCount(device.value) }} leituras
+            <span class="stat stat-count">
+              <i class="fa-solid fa-list"></i>
+              {{ getDeviceReadingCount(device.value) }} registros
             </span>
           </div>
         </div>

@@ -143,6 +143,14 @@
 .stat.co2-stat i {
   color: #0284c7;
 }
+.stat.stat-count {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.stat.stat-count i {
+  color: #6b7280;
+  font-size: 11px;
+}
 
 .device-card-content {
   padding: 8px 12px 14px;

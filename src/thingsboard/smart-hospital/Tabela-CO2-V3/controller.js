@@ -150,11 +150,11 @@ function rebuildView(flatData) {
   s.dados = flatData;
   s.groupedData = buildGroupedData(flatData);
   s.isCardView = currentViewMode === VIEW_MODES.CARD;
-  // Expande todos por padrão na primeira carga
+  // Recolhido por padrão — usuário expande manualmente
   const keys = Object.keys(s.groupedData);
   if (!s.expandedDevices) s.expandedDevices = {};
   keys.forEach((k) => {
-    if (!(k in s.expandedDevices)) s.expandedDevices[k] = true;
+    if (!(k in s.expandedDevices)) s.expandedDevices[k] = false;
   });
   self.ctx.detectChanges();
 }
