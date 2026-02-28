@@ -44,11 +44,14 @@ export function mapAssetToGCDR(
   parentGcdrAssetId?: string,
 ): CreateAssetDto {
   const name = tbAsset.label || tbAsset.name;
-  const dto: CreateAssetDto = {
+  return {
     name,
     type: mapAssetType(tbAsset.type),
     customerId: parentGcdrCustomerId,
     externalId: tbAsset.id.id, // RFC-0176-v2: forward-compat, external_id column pending RFC-0017
+    // Always send parentAssetId explicitly: null when absent so the GCDR API receives
+    // JSON null (DB NULL) instead of omitting the key (which the server defaults to '' → UUID error)
+    parentAssetId: parentGcdrAssetId || null,
     metadata: {
       tbEntityType: 'ASSET',
       tbId: tbAsset.id.id,
@@ -56,10 +59,6 @@ export function mapAssetToGCDR(
       tbName: tbAsset.name,
     },
   };
-  if (parentGcdrAssetId) {
-    dto.parentAssetId = parentGcdrAssetId;
-  }
-  return dto;
 }
 
 /**

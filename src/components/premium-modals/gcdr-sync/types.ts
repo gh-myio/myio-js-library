@@ -86,7 +86,8 @@ export interface CreateAssetDto {
   customerId: string; // GCDR customer ID (from create response)
   /** TB Asset UUID — forward-compat, external_id column pending RFC-0017 (RFC-0176-v2) */
   externalId?: string;
-  parentAssetId?: string;
+  /** Explicit null = no parent (sends null to GCDR so DB gets NULL, not empty string) */
+  parentAssetId?: string | null;
   metadata?: Record<string, unknown>;
 }
 
