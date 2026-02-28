@@ -94,8 +94,15 @@ export function mapDeviceToGCDR(
     },
   };
 
-  if (attrs.slaveId)    dto.slaveId    = String(attrs.slaveId);
-  if (attrs.centralId)  dto.centralId  = String(attrs.centralId);
+  // GCDR Zod schema requires slaveId / centralId as number, not string
+  if (attrs.slaveId != null) {
+    const n = Number(attrs.slaveId);
+    if (!isNaN(n)) dto.slaveId = n;
+  }
+  if (attrs.centralId != null) {
+    const n = Number(attrs.centralId);
+    if (!isNaN(n)) dto.centralId = n;
+  }
   if (attrs.identifier) dto.identifier = String(attrs.identifier);
 
   return dto;
