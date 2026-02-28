@@ -4219,6 +4219,65 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   padding-top: 4px;
 }
 
+/* =====================================================================
+   Closed History Mode — "Histórico de Alarmes Fechados" activated
+   ===================================================================== */
+
+/* Subtle red outline on the panel root */
+.myio-alarms-panel.closed-history-active {
+  outline: 1.5px solid rgba(220, 38, 38, 0.3);
+  border-radius: var(--alarms-radius-lg);
+}
+
+/* History button — same base as alarms-tab-map-btn */
+.myio-alarms-tabs .alarms-tab-history-btn {
+  margin-left: 8px;
+  flex-shrink: 0;
+  align-self: center;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.myio-alarms-tabs .alarms-tab-history-btn.is-active {
+  background: rgba(220, 38, 38, 0.1) !important;
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.35) !important;
+}
+
+/* "ALARMES FECHADOS › ATIVADO" label */
+.closed-alarms-mode-label {
+  align-self: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 4px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-left: 4px;
+  animation: closed-label-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes closed-label-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* Hide action buttons in closed mode — table rows */
+.myio-alarms-panel.closed-history-active .atbl-row [data-action="acknowledge"],
+.myio-alarms-panel.closed-history-active .atbl-row [data-action="snooze"],
+.myio-alarms-panel.closed-history-active .atbl-row [data-action="escalate"] {
+  display: none !important;
+}
+
 `;
 
 /**

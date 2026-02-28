@@ -1969,6 +1969,12 @@ function _buildAlarmServiceOrchestrator(alarms) {
     deviceAlarmMap.size, 'devices with alarms,',
     alarms.length, 'total alarms'
   );
+
+  // Notify all subscribers that alarm data is fresh.
+  // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
+  window.dispatchEvent(new CustomEvent('myio:alarms-updated', {
+    detail: { alarms, count: alarms.length },
+  }));
 }
 
 async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {

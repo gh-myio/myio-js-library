@@ -44,6 +44,9 @@ export class AlarmsNotificationsPanelView {
   //   'porDispositivo' – Por Dispositivo  (one row per device, all alarm types merged)
   private groupMode: 'consolidado' | 'separado' | 'porDispositivo' = 'separado';
 
+  // Closed history mode — fetches CLOSED alarms, hides action buttons
+  private closedHistoryMode = false;
+
   // Table sort state
   private sortCol: string = '';
   private sortDir: 'asc' | 'desc' = 'asc';
@@ -118,6 +121,11 @@ export class AlarmsNotificationsPanelView {
           <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
           REGRAS DE ALARMES
         </button>
+        <button class="alarm-text-btn alarms-tab-history-btn" id="btnClosedAlarmsHistory" title="Histórico de Alarmes Fechados" aria-label="Histórico de Alarmes Fechados" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          Histórico Fechados
+        </button>
+        <span class="closed-alarms-mode-label" id="closedAlarmsModeLabel" aria-live="polite" style="display:none">ALARMES FECHADOS › ATIVADO</span>
         <span class="alarm-count-badge alarms-tab-count-badge" id="alarmCountBadge" style="display: none">0</span>
       </nav>
 
@@ -312,6 +320,11 @@ export class AlarmsNotificationsPanelView {
       if ((e.target as HTMLElement).closest('#exportBtn')) this.openExportModal();
     });
 
+    // Closed history mode toggle
+    this.root.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('#btnClosedAlarmsHistory')) this.toggleClosedHistory();
+    });
+
     // Delegated checkbox change (works for both card grid and table view)
     this.root.addEventListener('change', (e) => {
       const input = e.target as HTMLInputElement;
@@ -452,6 +465,26 @@ export class AlarmsNotificationsPanelView {
   /**
    * Render list tab content
    */
+  /**
+   * Toggle closed history mode.
+   * When active: fetches CLOSED alarms, hides action buttons, shows red outline + label.
+   */
+  private toggleClosedHistory(): void {
+    this.closedHistoryMode = !this.closedHistoryMode;
+
+    const btn   = this.root?.querySelector('#btnClosedAlarmsHistory') as HTMLElement | null;
+    const label = this.root?.querySelector('#closedAlarmsModeLabel') as HTMLElement | null;
+
+    btn?.classList.toggle('is-active', this.closedHistoryMode);
+    btn?.setAttribute('aria-pressed', String(this.closedHistoryMode));
+    this.root?.classList.toggle('closed-history-active', this.closedHistoryMode);
+    if (label) label.style.display = this.closedHistoryMode ? '' : 'none';
+
+    window.dispatchEvent(new CustomEvent('myio:closed-alarms-toggle', {
+      detail: { enabled: this.closedHistoryMode },
+    }));
+  }
+
   private renderListContent(state: AlarmsNotificationsPanelState): void {
     if (!this.root) return;
 
@@ -464,7 +497,19 @@ export class AlarmsNotificationsPanelView {
     grid.innerHTML = '';
 
     if (state.filteredAlarms.length === 0) {
-      if (emptyState) emptyState.style.display = 'flex';
+      if (emptyState) {
+        emptyState.style.display = 'flex';
+        // Update empty state message based on current mode
+        const title = emptyState.querySelector('.alarms-empty-title');
+        const text  = emptyState.querySelector('.alarms-empty-text');
+        if (this.closedHistoryMode) {
+          if (title) title.textContent = 'Nenhum alarme fechado encontrado';
+          if (text)  text.textContent  = 'Não há alarmes fechados no período selecionado.';
+        } else {
+          if (title) title.textContent = 'Nenhum alarme encontrado';
+          if (text)  text.textContent  = 'Ajuste os filtros ou aguarde novos alarmes.';
+        }
+      }
       return;
     }
 
@@ -506,8 +551,8 @@ export class AlarmsNotificationsPanelView {
           selected: this.selectedTitles.has(alarm.title),
           showDeviceBadge: isSeparado,             // separado: show device badge in header
           alarmTypes: isPorDispositivo ? (alarm._alarmTypes ?? []) : undefined,
-          hideActions: !isSeparado,                // ACK/Snooze/Escalate only in separado (unit alarm)
-          hideSelect: !isSeparado,                 // bulk-select only meaningful in separado
+          hideActions: this.closedHistoryMode || !isSeparado, // no actions on closed alarms or grouped modes
+          hideSelect: this.closedHistoryMode || !isSeparado, // no bulk-select in closed mode or grouped
           hideDetails: !isSeparado,                // card click opens modal in grouped modes
           hideOccurrenceCount: isSeparado,         // Qte. always 1 in separado — not useful
         });

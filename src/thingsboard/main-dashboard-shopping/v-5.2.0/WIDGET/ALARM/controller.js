@@ -32,6 +32,9 @@ let _themeChangeHandler     = null;
 let _filterChangeHandler    = null;
 let _activationHandler      = null;
 let _activeFilters          = {}; // { from?, to? }
+let _closedAlarmsMode       = false; // true = fetch CLOSED alarms (history mode)
+let _closedAlarmsHandler    = null;
+let _alarmsUpdatedHandler   = null; // receives myio:alarms-updated from MAIN_VIEW
 
 let LogHelper = {
   log:   (...a) => {},
@@ -55,6 +58,7 @@ self.onInit = async function () {
   _gcdrTenantId        = '';
   _isRefreshing        = false;
   _activeFilters       = {};
+  _closedAlarmsMode    = false;
 
   // --- Library reference ---
   const MyIOLibrary = window.MyIOLibrary;
@@ -134,6 +138,25 @@ self.onInit = async function () {
     _debouncedFetchAndUpdate(300);
   };
   window.addEventListener('myio:alarm-content-activated', _activationHandler);
+
+  // --- Closed alarms history mode — toggled from AlarmsNotificationsPanelView ---
+  _closedAlarmsHandler = (ev) => {
+    _closedAlarmsMode = !!ev.detail?.enabled;
+    LogHelper.log('Closed alarms mode:', _closedAlarmsMode ? 'ENABLED' : 'DISABLED');
+    window.MyIOLibrary?.AlarmService?.clearCache?.();
+    _debouncedFetchAndUpdate(200);
+  };
+  window.addEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
+
+  // --- myio:alarms-updated — fired by MAIN_VIEW after each ASO rebuild ---
+  // In normal (active) mode, this is the authoritative alarm update.
+  // Closed-history mode ignores this event (its own fetch supplies the data).
+  _alarmsUpdatedHandler = () => {
+    if (_closedAlarmsMode) return; // closed mode manages its own fetch
+    LogHelper.log('[ALARM] myio:alarms-updated received — refreshing panel from ASO');
+    _updatePanelFromASO();
+  };
+  window.addEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
 
   // --- Label ---
   const labelEl = document.getElementById('labelWidgetId');
@@ -234,6 +257,14 @@ self.onDestroy = function () {
     window.removeEventListener('myio:alarm-content-activated', _activationHandler);
     _activationHandler = null;
   }
+  if (_closedAlarmsHandler) {
+    window.removeEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
+    _closedAlarmsHandler = null;
+  }
+  if (_alarmsUpdatedHandler) {
+    window.removeEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
+    _alarmsUpdatedHandler = null;
+  }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);
     _refreshTimer = null;
@@ -266,83 +297,43 @@ async function _fetchAndUpdate() {
   if (_isRefreshing) return;
   _isRefreshing = true;
 
-  const AlarmService = window.MyIOLibrary?.AlarmService;
-
-  if (!AlarmService) {
-    LogHelper.warn('AlarmService not available in MyIOLibrary');
-    _isRefreshing = false;
-    return;
-  }
-
-  // RFC-0178/0180: customerId is mandatory — read from cache or orchestrator (late-binding)
   const resolvedCustomerId = _customerIngId || window.MyIOOrchestrator?.gcdrCustomerId || '';
   if (!resolvedCustomerId) {
-    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty (check MyIOOrchestrator.gcdrCustomerId)');
+    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty');
     _isRefreshing = false;
     return;
   }
 
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) btnRefresh.classList.add('is-spinning');
+  _panelInstance?.setLoading?.(true);
 
   try {
-    _panelInstance?.setLoading?.(true);
+    if (_closedAlarmsMode) {
+      // ── Closed-history mode: direct API call (MAIN does not cache CLOSED alarms) ──
+      await _fetchClosedAlarmsAndUpdate(resolvedCustomerId);
+    } else {
+      // ── Normal mode: MAIN is the single source of truth ──
+      // ASO.refresh() → _prefetchCustomerAlarms → _buildAlarmServiceOrchestrator
+      //   → dispatches myio:alarms-updated → _updatePanelFromASO() via event handler.
+      // We also await it directly so the panel is ready before the spinner stops.
+      const ASO = window.AlarmServiceOrchestrator;
+      if (ASO) {
+        await ASO.refresh();
+        // _updatePanelFromASO() already called by the myio:alarms-updated handler,
+        // but also call directly here to handle the trend fetch result.
+      } else {
+        LogHelper.warn('[ALARM] AlarmServiceOrchestrator not available yet — skipping refresh');
+      }
 
-    // RFC-0178: Single getAlarms call with summary + parallel trend fetch
-    const [response, trend] = await Promise.all([
-      AlarmService.getAlarms({
-        state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
-        limit:      _maxAlarms,
-        customerId: resolvedCustomerId,                // always required
-        from:       _activeFilters.from || undefined,
-        to:         _activeFilters.to   || undefined,
-      }),
-      AlarmService.getAlarmTrend(resolvedCustomerId, 'week', 'day'),
-    ]);
-
-    const rawAlarms = response.data;
-    const summary   = response.summary;
-
-    // RFC-0179: Enrich alarm sources with TB device names.
-    // Four-layer strategy — first match wins:
-    //   1. gcdrMap.get(source)       — source IS GCDR UUID or "gcdr:<shortcode>"
-    //   2. gcdrMap.get(centralId)    — new format: numeric localId, centralId is GCDR UUID
-    //   3. stateMap.get(centralId)   — window.STATE._raw (same data TELEMETRY uses)
-    //   4. nameMap.get(source)       — TB entityName → entityLabel ("3F SCMOX..." → "Elevador 7 L2")
-    const gcdrMap  = window.MyIOOrchestrator?.gcdrDeviceNameMap;
-    const nameMap  = window.MyIOOrchestrator?.entityNameToLabelMap;
-
-    // Build centralId→label map from window.STATE (all domains)
-    const stateMap = new Map();
-    if (window.STATE) {
-      for (const domain of ['energy', 'water', 'temperature']) {
-        const raw = window.STATE[domain]?._raw || [];
-        for (const item of raw) {
-          const name = item.label || item.name || '';
-          if (name && item.centralId) stateMap.set(String(item.centralId), name);
-        }
+      // Trend is independent of state — fetch separately (non-blocking for panel)
+      const AlarmService = window.MyIOLibrary?.AlarmService;
+      if (AlarmService && resolvedCustomerId) {
+        AlarmService.getAlarmTrend(resolvedCustomerId, 'week', 'day')
+          .then((trend) => { if (trend?.length) _panelInstance?.updateTrendData?.(trend); })
+          .catch(() => { /* non-blocking */ });
       }
     }
-    LogHelper.log(`[ALARM] enrich maps — gcdrMap: ${gcdrMap?.size ?? 0}, stateMap: ${stateMap.size}, nameMap: ${nameMap?.size ?? 0}`);
-
-    const alarms = rawAlarms.map((a) => {
-      const isNumericSrc = /^\d+$/.test(a.source);
-      const tbName = gcdrMap?.get(a.source)
-        || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
-        || stateMap.get(a.centralId)
-        || nameMap?.get(a.source);
-      return tbName ? { ...a, source: tbName } : a;
-    });
-
-    _panelInstance?.updateAlarms?.(alarms);
-    if (summary) _panelInstance?.updateStats?.(summary);
-    if (trend?.length) _panelInstance?.updateTrendData?.(trend);
-
-    // Count badge: open + escalated from embedded summary
-    const openCount = (summary?.byState?.OPEN ?? 0) + (summary?.byState?.ESCALATED ?? 0);
-    _updateCountBadge(openCount);
-
-    LogHelper.log('Panel updated —', alarms.length, 'alarms, openCount:', openCount);
   } catch (err) {
     LogHelper.error('_fetchAndUpdate failed:', err);
   } finally {
@@ -350,6 +341,105 @@ async function _fetchAndUpdate() {
     if (btnRefresh) btnRefresh.classList.remove('is-spinning');
     _isRefreshing = false;
   }
+}
+
+/**
+ * Called by myio:alarms-updated event (normal mode) and directly after ASO.refresh().
+ * Reads from AlarmServiceOrchestrator, enriches device names, and updates the panel.
+ */
+function _updatePanelFromASO() {
+  const ASO = window.AlarmServiceOrchestrator;
+  if (!ASO || !_panelInstance) return;
+
+  const rawAlarms = ASO.alarms || [];
+
+  // RFC-0179: Enrich alarm sources with TB device names (four-layer strategy).
+  const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+  const nameMap = window.MyIOOrchestrator?.entityNameToLabelMap;
+
+  const stateMap = new Map();
+  if (window.STATE) {
+    for (const domain of ['energy', 'water', 'temperature']) {
+      const raw = window.STATE[domain]?._raw || [];
+      for (const item of raw) {
+        const name = item.label || item.name || '';
+        if (name && item.centralId) stateMap.set(String(item.centralId), name);
+      }
+    }
+  }
+
+  const alarms = rawAlarms.map((a) => {
+    const isNumericSrc = /^\d+$/.test(a.source);
+    const tbName = gcdrMap?.get(a.source)
+      || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
+      || stateMap.get(a.centralId)
+      || nameMap?.get(a.source);
+    return tbName ? { ...a, source: tbName } : a;
+  });
+
+  // Compute summary from the alarm array (MAIN does not return a pre-built summary object)
+  const byState = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
+  for (const a of alarms) { if (a.state in byState) byState[a.state]++; }
+  const summary = { byState };
+
+  _panelInstance.updateAlarms?.(alarms);
+  _panelInstance.updateStats?.(summary);
+
+  const openCount = byState.OPEN + byState.ESCALATED;
+  _updateCountBadge(openCount);
+
+  LogHelper.log('[ALARM] Panel updated from ASO —', alarms.length, 'alarms, open:', openCount);
+}
+
+/**
+ * Closed-history mode: fetches CLOSED alarms directly from alarms-api
+ * using the date range supplied by the HEADER widget (stored in _activeFilters).
+ */
+async function _fetchClosedAlarmsAndUpdate(resolvedCustomerId) {
+  const AlarmService = window.MyIOLibrary?.AlarmService;
+  if (!AlarmService) {
+    LogHelper.warn('[ALARM] AlarmService not available — cannot fetch closed alarms');
+    return;
+  }
+
+  const response = await AlarmService.getAlarms({
+    state:      ['CLOSED'],
+    limit:      _maxAlarms,
+    customerId: resolvedCustomerId,
+    from:       _activeFilters.from || undefined,
+    to:         _activeFilters.to   || undefined,
+  });
+
+  const rawAlarms = response.data ?? [];
+  const summary   = response.summary;
+
+  const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+  const nameMap = window.MyIOOrchestrator?.entityNameToLabelMap;
+  const stateMap = new Map();
+  if (window.STATE) {
+    for (const domain of ['energy', 'water', 'temperature']) {
+      const raw = window.STATE[domain]?._raw || [];
+      for (const item of raw) {
+        const name = item.label || item.name || '';
+        if (name && item.centralId) stateMap.set(String(item.centralId), name);
+      }
+    }
+  }
+
+  const alarms = rawAlarms.map((a) => {
+    const isNumericSrc = /^\d+$/.test(a.source);
+    const tbName = gcdrMap?.get(a.source)
+      || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
+      || stateMap.get(a.centralId)
+      || nameMap?.get(a.source);
+    return tbName ? { ...a, source: tbName } : a;
+  });
+
+  _panelInstance?.updateAlarms?.(alarms);
+  if (summary) _panelInstance?.updateStats?.(summary);
+  _updateCountBadge(alarms.length);
+
+  LogHelper.log('[ALARM] Closed alarms fetched —', alarms.length, 'total');
 }
 
 async function _handleBatchAction(action, alarmIds, userEmail, opts) {
@@ -374,9 +464,14 @@ async function _handleBatchAction(action, alarmIds, userEmail, opts) {
     }
     LogHelper.log('Batch action completed:', action, `${result?.successCount ?? 0}/${alarmIds.length} succeeded`);
 
-    // Invalidate cache so fresh data is fetched
+    // Trigger MAIN to re-fetch and rebuild ASO → myio:alarms-updated → all components update
     AlarmService.clearCache?.();
-    await _fetchAndUpdate();
+    const ASO = window.AlarmServiceOrchestrator;
+    if (ASO) {
+      await ASO.refresh(); // fires myio:alarms-updated → updates panel, TELEMETRY badges, AlarmsTab
+    } else {
+      await _fetchAndUpdate();
+    }
   } catch (err) {
     LogHelper.error('Batch action failed:', action, err);
   }

@@ -117,6 +117,7 @@ export class AlarmsTab {
   private customerRules: GCDRCustomerRule[] = [];
   private activeAlarms: GCDRAlarm[] = [];
   private initialCheckedRuleIds = new Set<string>();
+  private alarmsUpdatedHandler: (() => void) | null = null;
 
   constructor(config: AlarmsTabConfig) {
     this.config = config;
@@ -128,30 +129,14 @@ export class AlarmsTab {
     container.innerHTML = this.getLoadingHTML();
 
     try {
-      const gcdrBaseUrl   = this.config.gcdrApiBaseUrl   || GCDR_DEFAULT_BASE_URL;
-      const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
+      const gcdrBaseUrl = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
 
-      // Prefer AlarmServiceOrchestrator (device-keyed map from MAIN_VIEW prefetch),
-      // then fall back to prefetchedAlarms (filtered array), then per-device API call.
-      const aso = (window as unknown as {
-        AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
-      }).AlarmServiceOrchestrator;
-      const fromOrch = this.config.gcdrDeviceId ? aso?.getAlarmsForDevice(this.config.gcdrDeviceId) ?? null : null;
-      const prefetched = this.config.prefetchedAlarms;
-      const alarmsPromise = (fromOrch != null && fromOrch.length > 0)
-        ? Promise.resolve(fromOrch)
-        : prefetched != null
-          ? Promise.resolve(
-              (prefetched as GCDRAlarm[]).filter(
-                (a) => a.deviceId === this.config.gcdrDeviceId,
-              ),
-            )
-          : this.fetchActiveAlarms(alarmsBaseUrl);
+      // MAIN_VIEW is the single source of truth for alarm data.
+      // AlarmServiceOrchestrator (ASO) is always built by MAIN before any Settings modal opens.
+      // We read from ASO directly — no independent API call to alarms-api.
+      const alarms = this.readAlarmsFromASO();
 
-      const [alarms, rules] = await Promise.all([
-        alarmsPromise,
-        this.fetchCustomerRules(gcdrBaseUrl),
-      ]);
+      const rules = await this.fetchCustomerRules(gcdrBaseUrl);
       this.activeAlarms  = alarms;
       this.customerRules = rules;
 
@@ -164,6 +149,14 @@ export class AlarmsTab {
       container.innerHTML = this.renderTab();
       this.populateAlarmsGrid();
       this.attachTabListeners();
+
+      // Re-read from ASO whenever MAIN refreshes alarm data (e.g. after ACK/snooze in ALARM widget)
+      this.alarmsUpdatedHandler = () => {
+        const fresh = this.readAlarmsFromASO();
+        this.activeAlarms = fresh;
+        this.refreshAlarmsGridFromCurrentData();
+      };
+      window.addEventListener('myio:alarms-updated', this.alarmsUpdatedHandler);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       container.innerHTML = this.getErrorHTML(msg);
@@ -171,7 +164,34 @@ export class AlarmsTab {
   }
 
   destroy(): void {
-    // No persistent subscriptions
+    if (this.alarmsUpdatedHandler) {
+      window.removeEventListener('myio:alarms-updated', this.alarmsUpdatedHandler);
+      this.alarmsUpdatedHandler = null;
+    }
+  }
+
+  /**
+   * Read device-specific alarms from AlarmServiceOrchestrator (built by MAIN_VIEW).
+   * Falls back to prefetchedAlarms prop when ASO is not available (e.g. standalone showcase).
+   */
+  private readAlarmsFromASO(): GCDRAlarm[] {
+    const aso = (window as unknown as {
+      AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
+    }).AlarmServiceOrchestrator;
+
+    if (aso && this.config.gcdrDeviceId) {
+      return aso.getAlarmsForDevice(this.config.gcdrDeviceId) as GCDRAlarm[];
+    }
+
+    // Fallback: prefetchedAlarms filtered by deviceId
+    const prefetched = this.config.prefetchedAlarms;
+    if (prefetched != null) {
+      return (prefetched as GCDRAlarm[]).filter(
+        (a) => a.deviceId === this.config.gcdrDeviceId,
+      );
+    }
+
+    return [];
   }
 
   // ============================================================================
@@ -382,16 +402,28 @@ export class AlarmsTab {
     }
   }
 
-  private async refreshAlarmsGrid(alarmsBaseUrl: string): Promise<void> {
-    this.activeAlarms = await this.fetchActiveAlarms(alarmsBaseUrl);
+  /**
+   * After an alarm action (ACK/snooze/escalate), trigger MAIN to refresh the ASO.
+   * The myio:alarms-updated event will update this component automatically.
+   * Also updates the grid immediately from the post-action ASO data.
+   */
+  private async refreshAlarmsGrid(_alarmsBaseUrl?: string): Promise<void> {
+    const aso = (window as unknown as {
+      AlarmServiceOrchestrator?: { refresh: () => Promise<void> };
+    }).AlarmServiceOrchestrator;
 
-    // RFC-0183: Rebuild AlarmServiceOrchestrator maps after action
-    const aso = (window as unknown as { AlarmServiceOrchestrator?: { refresh: () => Promise<void> } })
-      .AlarmServiceOrchestrator;
     if (aso) {
+      // Refresh MAIN source → fires myio:alarms-updated → our handler calls refreshAlarmsGridFromCurrentData
       await aso.refresh().catch(() => { /* non-blocking */ });
+    } else {
+      // Fallback: re-read from ASO directly (may not have new data yet)
+      this.activeAlarms = this.readAlarmsFromASO();
+      this.refreshAlarmsGridFromCurrentData();
     }
+  }
 
+  /** Update the alarm grid DOM from this.activeAlarms (no network call). */
+  private refreshAlarmsGridFromCurrentData(): void {
     const count = this.activeAlarms.length;
 
     const badge = this.config.container.querySelector<HTMLElement>('#at-alarms-count');

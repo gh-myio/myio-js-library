@@ -318,6 +318,7 @@ function addAlarmBadge(cardElement, gcdrDeviceId) {
 
   const badge = document.createElement('div');
   badge.className = 'myio-alarm-badge';
+  badge.setAttribute('data-alarm-device-id', gcdrDeviceId); // for live updates via myio:alarms-updated
   badge.title = count + ' alarme' + (count !== 1 ? 's' : '') + ' ativo' + (count !== 1 ? 's' : '');
   badge.innerHTML =
     '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
@@ -325,6 +326,29 @@ function addAlarmBadge(cardElement, gcdrDeviceId) {
     '</svg>' +
     '<span>' + (count > 99 ? '99+' : count) + '</span>';
   cardElement.appendChild(badge);
+}
+
+/**
+ * Called on myio:alarms-updated: refreshes alarm badge counts on all visible TELEMETRY cards
+ * without re-rendering the entire grid.
+ */
+function refreshAlarmBadges() {
+  const aso = window.AlarmServiceOrchestrator;
+  if (!aso) return;
+
+  document.querySelectorAll('.myio-alarm-badge[data-alarm-device-id]').forEach((badge) => {
+    const gcdrDeviceId = badge.getAttribute('data-alarm-device-id');
+    if (!gcdrDeviceId) return;
+    const count = aso.getAlarmCountForDevice(gcdrDeviceId);
+    const span = badge.querySelector('span');
+    if (count > 0) {
+      badge.style.display = '';
+      badge.title = count + ' alarme' + (count !== 1 ? 's' : '') + ' ativo' + (count !== 1 ? 's' : '');
+      if (span) span.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.style.display = 'none'; // alarm resolved — hide badge
+    }
+  });
 }
 
 /**
@@ -4283,6 +4307,10 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
+  // myio:alarms-updated — fired by MAIN_VIEW after each ASO rebuild.
+  // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
+  window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
+
   // RFC-0136: Intelligent retry with backoff for late-arriving widgets
   // Instead of single 500ms timeout, use multiple retries with increasing delays
   const RETRY_INTERVALS = [500, 1000, 2000, 3000, 4000, 5000]; // Backoff: 500ms, 1s, 2s
@@ -4614,6 +4642,7 @@ self.onDestroy = function () {
     window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
+  window.removeEventListener('myio:alarms-updated', refreshAlarmBadges);
 
   // Cleanup TempSensorSummaryTooltip if attached
   if (_tempTooltipCleanup) {
