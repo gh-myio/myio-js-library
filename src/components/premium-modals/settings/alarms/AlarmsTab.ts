@@ -306,18 +306,29 @@ export class AlarmsTab {
     entityIds: string[],
   ): Promise<boolean> {
     try {
-      const url = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
+      const url        = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
+      const resolvedKey = this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY;
+      const body       = { scope: { type: 'DEVICE', entityIds } };
+      console.group('[AlarmsTab] patchRuleScope');
+      console.log('url         :', url);
+      console.log('ruleId      :', ruleId);
+      console.log('apiKey (used):', resolvedKey);
+      console.log('tenantId    :', this.config.gcdrTenantId);
+      console.log('body        :', body);
+      console.groupEnd();
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
-          'X-API-Key': this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY,
+          'X-API-Key': resolvedKey,
           'X-Tenant-ID': this.config.gcdrTenantId,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
+        body: JSON.stringify(body),
       });
+      console.log(`[AlarmsTab] patchRuleScope response: ${response.status} ${response.statusText} ok=${response.ok}`);
       return response.ok;
-    } catch {
+    } catch (err) {
+      console.error('[AlarmsTab] patchRuleScope error:', err);
       return false;
     }
   }
@@ -328,18 +339,29 @@ export class AlarmsTab {
     alarmConfig: GCDRCustomerRule['alarmConfig'],
   ): Promise<boolean> {
     try {
-      const url = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
+      const url         = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
+      const resolvedKey = this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY;
+      const body        = { alarmConfig };
+      console.group('[AlarmsTab] patchRuleValue');
+      console.log('url          :', url);
+      console.log('ruleId       :', ruleId);
+      console.log('apiKey (used):', resolvedKey);
+      console.log('tenantId     :', this.config.gcdrTenantId);
+      console.log('body         :', body);
+      console.groupEnd();
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
-          'X-API-Key': this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY,
+          'X-API-Key': resolvedKey,
           'X-Tenant-ID': this.config.gcdrTenantId,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ alarmConfig }),
+        body: JSON.stringify(body),
       });
+      console.log(`[AlarmsTab] patchRuleValue response: ${response.status} ${response.statusText} ok=${response.ok}`);
       return response.ok;
-    } catch {
+    } catch (err) {
+      console.error('[AlarmsTab] patchRuleValue error:', err);
       return false;
     }
   }

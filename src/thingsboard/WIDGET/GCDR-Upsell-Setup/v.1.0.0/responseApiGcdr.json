@@ -1,0 +1,3979 @@
+{
+  "data": [
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "3d4485b0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706416523,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1116G",
+      "type": "HIDROMETRO",
+      "label": "Multcoisas",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "3df203c0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706417660,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1109C",
+      "type": "3F_MEDIDOR",
+      "label": "Casa Do Celular",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "3e9e2240-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706418788,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1104G",
+      "type": "3F_MEDIDOR",
+      "label": "Millennium Store",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "3f4ead90-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706419945,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1110E",
+      "type": "3F_MEDIDOR",
+      "label": "PARAÍSO MAKEUP",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 3,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "3ffd6420-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706421090,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1110D",
+      "type": "3F_MEDIDOR",
+      "label": "ICE CREAM ROLL 110D",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "408001a0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706421946,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1110D",
+      "type": "HIDROMETRO",
+      "label": "ICE ROLL 110D",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "40dc5f60-a8b0-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1760413540438,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1103DEF",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "413288c0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706423116,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1115J",
+      "type": "3F_MEDIDOR",
+      "label": "Pipocando",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "41b1cae0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706423950,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1115J",
+      "type": "HIDROMETRO",
+      "label": "Pipocando",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "42603350-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706425093,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1112H",
+      "type": "3F_MEDIDOR",
+      "label": "Paraíso Makeup",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 3,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "42e7d9e0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706425982,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1112H",
+      "type": "HIDROMETRO",
+      "label": "Paraiso Makeup",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 3,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "439509d0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706427117,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1102C",
+      "type": "3F_MEDIDOR",
+      "label": "MC DONALD´S",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 4,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "44ccf000-9e27-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759255194368,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "DEV. Repetidor 4",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "739bcec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "44f472c0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706429420,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1104D",
+      "type": "3F_MEDIDOR",
+      "label": "Pimenta Dance",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "459e4750-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706430533,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1102B",
+      "type": "3F_MEDIDOR",
+      "label": "Imperador Burguer",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "46259fc0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706431420,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1102B",
+      "type": "HIDROMETRO",
+      "label": "Imperador Burguer",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "46d6a040-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706432580,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1113B",
+      "type": "3F_MEDIDOR",
+      "label": "Patroni",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4760dee0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706433486,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1113B",
+      "type": "HIDROMETRO",
+      "label": "Patroni Pizza",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4813b420-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706434658,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1117A",
+      "type": "3F_MEDIDOR",
+      "label": "Castorino",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "48bf3660-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706435782,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1109D",
+      "type": "3F_MEDIDOR",
+      "label": "Barbarella",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "496c8d60-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706436918,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1102A",
+      "type": "3F_MEDIDOR",
+      "label": "Vivenda Do Camarão",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "49f96410-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706437841,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1102A",
+      "type": "HIDROMETRO",
+      "label": "vivenda do camarão",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4aa88fd0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706438989,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1105C",
+      "type": "3F_MEDIDOR",
+      "label": "Chicken Town",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4b295890-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706439833,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1105C",
+      "type": "HIDROMETRO",
+      "label": "Chicken Town",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4bd947a0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706440986,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1102L",
+      "type": "3F_MEDIDOR",
+      "label": "Móveis Simonetti",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4c88e890-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706442137,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1115H",
+      "type": "3F_MEDIDOR",
+      "label": "Yaz",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4d3b96c0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706443308,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1104H",
+      "type": "3F_MEDIDOR",
+      "label": "GO PLAY",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4deb5ec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706444460,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F 106AB108AH",
+      "type": "3F_MEDIDOR",
+      "label": "Allegria",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4e757650-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706445365,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. 106AB108AH",
+      "type": "HIDROMETRO",
+      "label": "Allegria",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4f21bbe0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706446494,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1113CD",
+      "type": "3F_MEDIDOR",
+      "label": "Burguer  king",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "4fa60710-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706447361,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1113CD",
+      "type": "HIDROMETRO",
+      "label": "Burguer  king",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "50550bc0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706448508,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1116BC",
+      "type": "3F_MEDIDOR",
+      "label": "Casas Bahia",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "50d5fb90-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706449353,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1116BC",
+      "type": "HIDROMETRO",
+      "label": "Casas Bahia",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "518d8bc0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706450556,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1107D",
+      "type": "3F_MEDIDOR",
+      "label": "Grilleto",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "52150b40-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706451444,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1107D",
+      "type": "HIDROMETRO",
+      "label": "Grilleto",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "538711d0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706453869,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1103DEF",
+      "type": "3F_MEDIDOR",
+      "label": "Correios",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "54e39490-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706456153,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q104A",
+      "type": "3F_MEDIDOR",
+      "label": "CHAVE DO TESOURO",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5682b1a0-eb42-11f0-998e-25174baff087"
+      },
+      "createdTime": 1767733060026,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL3L4401 x10",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "579d3650-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706460725,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. 104ABCJKL",
+      "type": "HIDROMETRO",
+      "label": "são Jose Super",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "57bed590-dc64-11f0-998e-25174baff087"
+      },
+      "createdTime": 1766098397545,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL001ABodytech",
+      "type": "3F_MEDIDOR",
+      "label": "Bodytech",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 3,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "57feb350-fd56-11f0-998e-25174baff087"
+      },
+      "createdTime": 1769720773381,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMADPChiquinho_L1",
+      "type": "3F_MEDIDOR",
+      "label": "CHIQUINHO DEPOSITO",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "581ee970-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706461575,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F 104ABCJKL",
+      "type": "3F_MEDIDOR",
+      "label": "São Jose Super",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 3,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "58619fe0-9584-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1758305609950,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "Saida ,Wm2",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "739bcec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "58ced880-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706462728,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1107A",
+      "type": "HIDROMETRO",
+      "label": "Pecada da Carne",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "595afd90-dc5d-11f0-998e-25174baff087"
+      },
+      "createdTime": 1766095393769,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMALinplayVR",
+      "type": "3F_MEDIDOR",
+      "label": "InplayVR",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 4,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5961c9b0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706463691,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1107A",
+      "type": "3F_MEDIDOR",
+      "label": "Pecado de Carne",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5a0ed290-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706464825,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1110A",
+      "type": "HIDROMETRO",
+      "label": "Lojas Americanas",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5ac21d00-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706466000,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1114B",
+      "type": "HIDROMETRO",
+      "label": "Pastiola",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5b48d930-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706466883,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1114B",
+      "type": "3F_MEDIDOR",
+      "label": "Pastiola",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5c05c090-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706468121,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1105D",
+      "type": "3F_MEDIDOR",
+      "label": "CHOPP BRAHMA",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5cb69a00-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706469280,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1116F",
+      "type": "3F_MEDIDOR",
+      "label": "Casa & Video",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5deb7080-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706471304,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1107C",
+      "type": "HIDROMETRO",
+      "label": "Green Station",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 3,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "5f562410-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706473681,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1103BC",
+      "type": "3F_MEDIDOR",
+      "label": "Shopping do Imóvel",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "600528c0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706474828,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q107",
+      "type": "3F_MEDIDOR",
+      "label": "MUNDO DE CHOCOLATE",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 5,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "61348100-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706476816,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q104B",
+      "type": "3F_MEDIDOR",
+      "label": "PLAY TOY PARK",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 5,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "gateway": false,
+        "overwriteActivityTime": false,
+        "description": "Precisa Corrigir no Dashboard.  O produto Correto lá é de nome Fantasia Q104B. Está correta a Medição. Precisa Mudar o nome fantasia para Play Toy Park",
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "61b6a950-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706477669,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q104B_2",
+      "type": "3F_MEDIDOR",
+      "label": "PLAY TOY PARK ( ENCAMINHADO DESENVOLVIMENTO)",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 6,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "gateway": false,
+        "overwriteActivityTime": false,
+        "description": "Precisa Corrigir no Dashboard.  O produto Correto lá é de nome Fantasia Q104B. Está correta a Medição. Precisa Mudar o nome fantasia para Play Toy Park. 07/01 já tem um dispositivo com esse nome e Luc funcionando, portanto foi retirado para evitar duplicidade.",
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "62614130-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706478787,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q113",
+      "type": "3F_MEDIDOR",
+      "label": "ESPAÇO KIDS",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 8,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "gateway": false,
+        "overwriteActivityTime": false,
+        "description": "Adicionar o Produto 3F SCMAL0L1Q113 no Dashboard.",
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6395c990-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706480809,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1105AB",
+      "type": "HIDROMETRO",
+      "label": "Don Burguer",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "644e4420-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706482018,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1107B",
+      "type": "HIDROMETRO",
+      "label": "Milky Moo",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64ae0050-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241503957,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL3L4306M",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64ae7580-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241503960,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL3L4305E",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64af11c0-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241503964,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL3L4303A",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64af38d0-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241503965,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL3L4304G",
+      "type": "3F_MEDIDOR",
+      "label": "304G - LOJA FECHADA",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 4,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64af86f0-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241503967,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL3L4305F",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64affc20-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241503970,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL3L4301A",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64df6090-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706482969,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1107B",
+      "type": "3F_MEDIDOR",
+      "label": "Milky Moo",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "64f0b940-ce18-11f0-998e-25174baff087"
+      },
+      "createdTime": 1764526461652,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL3L4301G x 10",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "65914b70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706484135,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1114C",
+      "type": "HIDROMETRO",
+      "label": "Subway",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "66126250-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706484981,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1114C",
+      "type": "3F_MEDIDOR",
+      "label": "Subway",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "663b61b0-ce18-11f0-998e-25174baff087"
+      },
+      "createdTime": 1764526463819,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL3L4301G x10",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "bf63d500-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "66bf1d10-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706486113,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1109A",
+      "type": "3F_MEDIDOR",
+      "label": "ORTOBOM",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6782f240-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508708,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q102",
+      "type": "3F_MEDIDOR",
+      "label": "DOUTOR MASSAGIO",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 6,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "67834060-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508710,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1102JK",
+      "type": "3F_MEDIDOR",
+      "label": "SEM LOJA COM CONSUMO - 102JK",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 4,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "67836770-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508711,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1116ADE",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "67838e80-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508712,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1112A",
+      "type": "3F_MEDIDOR",
+      "label": "PRAÇA PET",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 9,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6783dca0-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508714,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1103G",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "678478e0-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508718,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1103A",
+      "type": "3F_MEDIDOR",
+      "label": "SEM LOJA - 103A",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 7,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "67856340-9e07-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759241508724,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1109B",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "681cff60-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706488406,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q109",
+      "type": "3F_MEDIDOR",
+      "label": "SOLIV",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "68d0bf00-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706489584,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q105",
+      "type": "3F_MEDIDOR",
+      "label": "CHUTE CERTO",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6ae4d1f0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706493071,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1102CDE",
+      "type": "HIDROMETRO",
+      "label": "Mc donalds",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6b981c60-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706494246,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1114D",
+      "type": "HIDROMETRO",
+      "label": "Farinella",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6c1effa0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706495130,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1114D",
+      "type": "3F_MEDIDOR",
+      "label": "Farinella",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6cd29830-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706496307,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1112FG",
+      "type": "3F_MEDIDOR",
+      "label": "FRAGRANCE",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 4,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6cdd6aa0-a149-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759599717962,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL2ACACHIPRNA x10",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "739bcec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6cdd91b0-a149-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759599717963,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL2ACACHINATORE x10",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "739bcec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6cde06e0-a149-11f0-afe1-175479a33d89"
+      },
+      "createdTime": 1759599717966,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL2ACACHINABAL2 x10",
+      "type": "default",
+      "label": null,
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "lastConnectedGateway": "739bcec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6e331290-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706498617,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q114",
+      "type": "3F_MEDIDOR",
+      "label": "PORTO VITORIA ESPORTE",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "6f969a30-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706500947,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q102A",
+      "type": "3F_MEDIDOR",
+      "label": "PRESENTAÇO QUIOSQUE",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "704be070-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706502135,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q103",
+      "type": "3F_MEDIDOR",
+      "label": "CHIQUINHOS SORVETES",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "70d7ccc0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706503052,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1Q103",
+      "type": "HIDROMETRO",
+      "label": "Chiquinhos Sorvetes Quiosque",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "71930670-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706504279,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL0L1Q110F",
+      "type": "3F_MEDIDOR",
+      "label": "PRIZE STATION",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 5,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "gateway": false,
+        "overwriteActivityTime": false,
+        "description": "",
+        "lastConnectedGateway": "21158e70-9011-11f0-a06d-e9509531b1d5"
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "72416ee0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706505422,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL0L1102LM",
+      "type": "HIDROMETRO",
+      "label": "Móveis Simonetti",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "739bcec0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706507692,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "Central L2AC (Mestre Álvare)",
+      "type": "default",
+      "label": "Central L2AC (Mestre Álvare)",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "e7d0f5c0-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": {
+        "gateway": true
+      },
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "73dcf670-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706508119,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL2AC203",
+      "type": "HIDROMETRO",
+      "label": "Riachuelo",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "75449cc0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706510476,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL2AC201IJ",
+      "type": "3F_MEDIDOR",
+      "label": "Santa Lolla",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "76a6ebe0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706512798,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL2AC202C",
+      "type": "3F_MEDIDOR",
+      "label": "Barbearia Los Manos",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "77572910-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706513953,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL2AC205KL",
+      "type": "3F_MEDIDOR",
+      "label": "EMPÓRIO MAIA",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "77d8b520-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706514802,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "HIDR. SCMAL2AC205KL",
+      "type": "HIDROMETRO",
+      "label": "EMPÓRIO MAIA",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "a603a7d0-8b74-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 2,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    },
+    {
+      "id": {
+        "entityType": "DEVICE",
+        "id": "79390870-9011-11f0-a06d-e9509531b1d5"
+      },
+      "createdTime": 1757706517111,
+      "tenantId": {
+        "entityType": "TENANT",
+        "id": "e784aa80-e7cc-11ee-a1c3-ef5befd2d893"
+      },
+      "customerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "name": "3F SCMAL2AC207J",
+      "type": "3F_MEDIDOR",
+      "label": "Cris Lu",
+      "deviceProfileId": {
+        "entityType": "DEVICE_PROFILE",
+        "id": "6b31e2a0-8c02-11f0-a06d-e9509531b1d5"
+      },
+      "firmwareId": null,
+      "softwareId": null,
+      "externalId": null,
+      "version": 1,
+      "ownerId": {
+        "entityType": "CUSTOMER",
+        "id": "20b93da0-9011-11f0-a06d-e9509531b1d5"
+      },
+      "additionalInfo": null,
+      "deviceData": {
+        "configuration": {
+          "type": "DEFAULT"
+        },
+        "transportConfiguration": {
+          "type": "DEFAULT"
+        }
+      }
+    }
+  ],
+  "totalPages": 5,
+  "totalElements": 445,
+  "hasNext": true
+}
