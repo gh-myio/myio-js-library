@@ -210,7 +210,26 @@ export class GCDRSyncController {
     let customerCreateFailed = false;
     const failedAssetTbIds = new Set<string>(); // assets that failed CREATE/RECREATE
 
+    // Fallback GCDR asset ID for orphan devices (no TB asset relation).
+    // Resolved lazily between asset and device phases.
+    let fallbackGcdrAssetId: string | undefined;
+    let fallbackResolved = false;
+
     for (const action of orderedActions) {
+      // Between asset and device phases: ensure fallback asset exists for orphan devices.
+      if (!fallbackResolved && action.entityKind === 'device') {
+        fallbackResolved = true;
+        const hasOrphans = orderedActions.some(
+          (a) => a.entityKind === 'device' && !bundle.deviceAssetMap.has(a.tbId),
+        );
+        if (hasOrphans) {
+          try {
+            fallbackGcdrAssetId = await this.ensureFallbackGcdrAsset(bundle, resolvedGcdrIds);
+          } catch {
+            // Non-fatal: orphan devices will still fail individually with a clear message
+          }
+        }
+      }
       if (action.type === 'SKIP') {
         skipped.push({ action, success: true });
         continue;
@@ -235,7 +254,7 @@ export class GCDRSyncController {
       onProgress?.(current, total, action.tbName);
 
       try {
-        const gcdrId = await this.executeAction(action, bundle, resolvedGcdrIds, jwt);
+        const gcdrId = await this.executeAction(action, bundle, resolvedGcdrIds, jwt, fallbackGcdrAssetId);
         if (gcdrId) {
           resolvedGcdrIds.set(action.tbId, gcdrId);
         }
@@ -264,6 +283,7 @@ export class GCDRSyncController {
     bundle: TBDataBundle,
     resolvedGcdrIds: Map<string, string>,
     jwt: string,
+    fallbackGcdrAssetId?: string,
   ): Promise<string | undefined> {
     const { entityKind, type, tbId } = action;
 
@@ -282,7 +302,7 @@ export class GCDRSyncController {
         if (changedFields.includes('type')) patchDto.type = resolvedDto.type;
         await this.gcdrClient.updateAsset(gcdrId, patchDto);
       } else {
-        await this.gcdrClient.updateDevice(gcdrId, this.resolveDeviceDto(action, bundle, resolvedGcdrIds));
+        await this.gcdrClient.updateDevice(gcdrId, this.resolveDeviceDto(action, bundle, resolvedGcdrIds, fallbackGcdrAssetId));
       }
       return gcdrId;
     }
@@ -296,7 +316,7 @@ export class GCDRSyncController {
         const dto = this.resolveAssetDto(action, bundle, resolvedGcdrIds);
         gcdrEntity = await this.gcdrClient.createAsset(dto);
       } else {
-        const dto = this.resolveDeviceDto(action, bundle, resolvedGcdrIds);
+        const dto = this.resolveDeviceDto(action, bundle, resolvedGcdrIds, fallbackGcdrAssetId);
         gcdrEntity = await this.gcdrClient.createDevice(dto);
       }
 
@@ -330,6 +350,7 @@ export class GCDRSyncController {
     action: SyncAction,
     bundle: TBDataBundle,
     resolvedGcdrIds: Map<string, string>,
+    fallbackGcdrAssetId?: string,
   ): CreateDeviceDto {
     const device = bundle.devices.find((d) => d.id.id === action.tbId);
     const attrs = bundle.deviceAttrs.get(action.tbId) ?? {};
@@ -337,14 +358,72 @@ export class GCDRSyncController {
 
     // Resolve the correct asset for this device via the device→asset map
     const parentAssetTbId = bundle.deviceAssetMap.get(action.tbId);
-    if (!parentAssetTbId) {
-      throw new Error(`Device "${action.tbName}" não tem asset pai no ThingsBoard — sem assetId para GCDR`);
-    }
-    const assetGcdrId = resolvedGcdrIds.get(parentAssetTbId);
-    if (!assetGcdrId) {
-      throw new Error(`Asset pai do device "${action.tbName}" ainda não tem GCDR ID — verifique se o asset foi criado`);
+    let assetGcdrId: string | undefined;
+
+    if (parentAssetTbId) {
+      assetGcdrId = resolvedGcdrIds.get(parentAssetTbId);
+      if (!assetGcdrId) {
+        throw new Error(`Asset pai do device "${action.tbName}" ainda não tem GCDR ID — verifique se o asset foi criado`);
+      }
+    } else {
+      // Orphan device: no TB asset relation — use fallback asset if available
+      if (!fallbackGcdrAssetId) {
+        throw new Error(`Device "${action.tbName}" não tem asset pai no ThingsBoard — sem assetId para GCDR`);
+      }
+      assetGcdrId = fallbackGcdrAssetId;
     }
 
     return mapDeviceToGCDR(device!, attrs, assetGcdrId, customerGcdrId);
+  }
+
+  // ============================================================================
+  // Fallback asset for orphan devices (no TB asset relation)
+  // ============================================================================
+
+  /**
+   * Ensures a fallback GCDR asset exists for orphan devices.
+   * Resolution order:
+   *   1. Customer SERVER_SCOPE attr `gcdrFallbackAssetTbId` → find TB asset in bundle → use its GCDR ID
+   *   2. Any asset in bundle.assets named starting with "DevicesSemAsset" → use its GCDR ID
+   *   3. Auto-create a new GCDR asset named `DevicesSemAsset{CustomerName}` linked to the customer
+   */
+  private async ensureFallbackGcdrAsset(
+    bundle: TBDataBundle,
+    resolvedGcdrIds: Map<string, string>,
+  ): Promise<string> {
+    const customerName = bundle.customer.title || bundle.customer.name;
+
+    // 1. Explicit TB asset ID via customer attr
+    const explicitTbId = bundle.customerAttrs.gcdrFallbackAssetTbId as string | undefined;
+    if (explicitTbId) {
+      const gcdrId = resolvedGcdrIds.get(explicitTbId);
+      if (gcdrId) return gcdrId;
+    }
+
+    // 2. Auto-detect asset named "DevicesSemAsset*" already in bundle
+    const namedFallback = bundle.assets.find((a) => {
+      const n = (a.label || a.name || '').toUpperCase();
+      return n.startsWith('DEVICESSEMAS');
+    });
+    if (namedFallback) {
+      const gcdrId = resolvedGcdrIds.get(namedFallback.id.id);
+      if (gcdrId) return gcdrId;
+    }
+
+    // 3. Auto-create in GCDR
+    const customerGcdrId = resolvedGcdrIds.get(bundle.customer.id.id) ?? '__unknown_customer__';
+    const fallbackDto: CreateAssetDto = {
+      name: `DevicesSemAsset${customerName}`,
+      type: 'OTHER',
+      customerId: customerGcdrId,
+      parentAssetId: null,
+      metadata: {
+        autoCreated: true,
+        purpose: 'fallback-for-orphan-devices',
+        tbCustomerName: customerName,
+      },
+    };
+    const created = await this.gcdrClient.createAsset(fallbackDto);
+    return created.id;
   }
 }

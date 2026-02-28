@@ -151,6 +151,8 @@ export interface TBServerScopeAttrs {
   gcdrDeviceId?: string;
   gcdrSyncedAt?: string;
   gcdrTenantId?: string;
+  /** TB Asset ID to use as fallback parent when a device has no asset relation in TB */
+  gcdrFallbackAssetTbId?: string;
   slaveId?: string | number;  // TB stores as string or number; coerced to number for GCDR
   centralId?: string;          // string in both TB and GCDR
   identifier?: string;
