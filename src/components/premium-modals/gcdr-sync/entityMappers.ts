@@ -94,15 +94,12 @@ export function mapDeviceToGCDR(
     },
   };
 
-  // GCDR Zod schema requires slaveId / centralId as number, not string
+  // GCDR Zod schema: slaveId = number, centralId = string
   if (attrs.slaveId != null) {
     const n = Number(attrs.slaveId);
     if (!isNaN(n)) dto.slaveId = n;
   }
-  if (attrs.centralId != null) {
-    const n = Number(attrs.centralId);
-    if (!isNaN(n)) dto.centralId = n;
-  }
+  if (attrs.centralId)  dto.centralId  = String(attrs.centralId);
   if (attrs.identifier) dto.identifier = String(attrs.identifier);
 
   return dto;

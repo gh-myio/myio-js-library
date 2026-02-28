@@ -273,7 +273,14 @@ export class GCDRSyncController {
       if (entityKind === 'customer') {
         await this.gcdrClient.updateCustomer(gcdrId, action.dto as CreateCustomerDto);
       } else if (entityKind === 'asset') {
-        await this.gcdrClient.updateAsset(gcdrId, this.resolveAssetDto(action, bundle, resolvedGcdrIds));
+        // Only send changed fields (name/type) — never include parentAssetId in PATCH.
+        // Sending parentAssetId: null in a PATCH causes the server to write '' → Postgres UUID error.
+        const resolvedDto = this.resolveAssetDto(action, bundle, resolvedGcdrIds);
+        const changedFields = action.changedFields ?? [];
+        const patchDto: Partial<CreateAssetDto> = {};
+        if (changedFields.includes('name')) patchDto.name = resolvedDto.name;
+        if (changedFields.includes('type')) patchDto.type = resolvedDto.type;
+        await this.gcdrClient.updateAsset(gcdrId, patchDto);
       } else {
         await this.gcdrClient.updateDevice(gcdrId, this.resolveDeviceDto(action, bundle, resolvedGcdrIds));
       }

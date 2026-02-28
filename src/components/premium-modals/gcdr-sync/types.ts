@@ -97,8 +97,8 @@ export interface CreateDeviceDto {
   externalId?: string; // TB device ID (externalId exists for devices only)
   assetId: string;
   customerId: string;
-  slaveId?: number;    // GCDR Zod schema: number
-  centralId?: number;  // GCDR Zod schema: number
+  slaveId?: number;   // GCDR Zod schema: number
+  centralId?: string; // GCDR Zod schema: string
   identifier?: string;
   metadata?: Record<string, unknown>;
 }
@@ -151,8 +151,8 @@ export interface TBServerScopeAttrs {
   gcdrDeviceId?: string;
   gcdrSyncedAt?: string;
   gcdrTenantId?: string;
-  slaveId?: string | number;   // TB stores as string or number; coerce to number for GCDR
-  centralId?: string | number; // TB stores as string or number; coerce to number for GCDR
+  slaveId?: string | number;  // TB stores as string or number; coerced to number for GCDR
+  centralId?: string;          // string in both TB and GCDR
   identifier?: string;
 }
 
