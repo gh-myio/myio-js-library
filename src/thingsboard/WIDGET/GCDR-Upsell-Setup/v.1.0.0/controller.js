@@ -878,6 +878,7 @@ self.onInit = function () {
   // --- State ---
   let selectedCustomer = null; // { id, name }
   let gcdrTenantId = null;
+  let gcdrApiKey   = null; // customer-specific GCDR API key (gcdrApiKey SERVER_SCOPE attr)
   let allCustomersSorted = []; // [[key, {id,name}], ...]
 
   // --- Helpers ---
@@ -980,10 +981,11 @@ self.onInit = function () {
     setStatus(gcdrStatusEl, '', '');
     setStatus(upsellStatusEl, '', '');
 
-    // Fetch gcdrTenantId from SERVER_SCOPE
+    // Fetch gcdrTenantId + gcdrApiKey from SERVER_SCOPE
     try {
       const attrs = await guFetchCustomerServerScopeAttrs(c.id);
       gcdrTenantId = attrs.gcdrTenantId ?? null;
+      gcdrApiKey   = attrs.gcdrApiKey   ?? null;
       if (gcdrTenantId) {
         setAttr(gcdrTenantEl, gcdrTenantId, 'success');
       } else {
@@ -1032,9 +1034,40 @@ self.onInit = function () {
   });
 
   // ================================================================
-  // GCDR Sync Force ID — fetch bundle from GCDR, match by externalId,
-  // write gcdrDeviceId back to TB SERVER_SCOPE
+  // GCDR Sync Force ID — fetch ALL GCDR customer devices (paginated),
+  // match by centralId+slaveId (primary) or externalId (fallback),
+  // write gcdrDeviceId back to TB SERVER_SCOPE.
+  // API key: gcdrApiKey from customer SERVER_SCOPE attr.
   // ================================================================
+
+  // Fetch ALL devices for a GCDR customer (paginated, limit=100).
+  // Endpoint: GET /api/v1/customers/{gcdrCustomerId}/devices
+  async function guFetchGCDRCustomerDevices(gcdrCustomerId, tenantId, apiKey) {
+    const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const headers = {
+      'X-API-Key':   apiKey || 'gcdr_cust_tb_master_key_2026',
+      'x-tenant-id': tenantId || '',
+      'Accept':      'application/json',
+    };
+    const devices = [];
+    let page = 1;
+    while (true) {
+      if (page > 1) await sleep(500);
+      const url =
+        `${GCDR_BASE}/api/v1/customers/${encodeURIComponent(gcdrCustomerId)}/devices` +
+        `?limit=100&page=${page}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`GCDR devices HTTP ${res.status} ${res.statusText}`);
+      const json = await res.json();
+      const data = Array.isArray(json.data) ? json.data : (json.items ?? []);
+      devices.push(...data);
+      const hasMore = json.pagination?.hasMore ?? json.hasMore ?? false;
+      if (!hasMore || data.length === 0) break;
+      page++;
+    }
+    return devices;
+  }
 
   async function guFetchGCDRCustomerBundle(tbCustomerId, tenantId) {
     const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
@@ -1113,7 +1146,7 @@ self.onInit = function () {
             <div style="background:#f3f4f6;border-radius:8px;padding:12px">
               <div style="font-size:11px;color:#6b7280;margin-bottom:4px">Devices no GCDR</div>
               <div style="font-size:20px;font-weight:700;color:#1f2937">${stats.gcdrTotal ?? '—'}</div>
-              <div style="font-size:10px;color:#9ca3af">externalId disponíveis</div>
+              <div style="font-size:10px;color:#9ca3af">match por centralId+slaveId</div>
             </div>
             <div style="background:#f3f4f6;border-radius:8px;padding:12px">
               <div style="font-size:11px;color:#6b7280;margin-bottom:4px">Total no TB</div>
@@ -1216,11 +1249,30 @@ self.onInit = function () {
       guFetchCustomerDevices(selectedCustomer.id),
     ])
       .then(async ([bundle, tbDevices]) => {
-        // Build map: tbDeviceId → gcdrDevice (by externalId or metadata.tbId)
-        const gcdrDeviceMap = new Map();
-        const gcdrDevices = bundle?.devices ?? [];
+        // Fetch ALL GCDR customer devices via dedicated paginated endpoint.
+        // Uses gcdrApiKey from customer SERVER_SCOPE; falls back to bundle.devices if no GCDR ID.
+        const gcdrCustomerId = bundle?.customer?.id ?? null;
+        let gcdrDevices;
+        if (gcdrCustomerId) {
+          gcdrDevices = await guFetchGCDRCustomerDevices(gcdrCustomerId, gcdrTenantId, gcdrApiKey);
+        } else {
+          gcdrDevices = bundle?.devices ?? []; // fallback if bundle has no customer.id
+        }
+
+        // Build match maps for ALL GCDR customer devices.
+        // Primary key:  "${centralId}:${slaveId}"  — most reliable, works even without externalId.
+        // Fallback key: externalId (TB device UUID) — covers devices already linked in GCDR.
+        const gcdrDeviceMap = new Map(); // composite key OR externalId → gcdrDevice
         for (const gd of gcdrDevices) {
+          // Primary: centralId + slaveId (same fields stored in TB SERVER_SCOPE)
+          const gdCentralId = gd.centralId ?? gd.metadata?.sourceCentralId ?? '';
+          const gdSlaveId   = String(gd.slaveId ?? gd.metadata?.localId ?? gd.metadata?.slaveId ?? '');
+          if (gdCentralId && gdSlaveId) {
+            gcdrDeviceMap.set(`${gdCentralId}:${gdSlaveId}`, gd);
+          }
+          // Fallback: externalId === tbDeviceId (when already populated in GCDR)
           if (gd.externalId) gcdrDeviceMap.set(gd.externalId, gd);
+          // Fallback: metadata.tbId
           if (gd.metadata?.tbId && !gcdrDeviceMap.has(gd.metadata.tbId)) {
             gcdrDeviceMap.set(gd.metadata.tbId, gd);
           }
@@ -1263,7 +1315,13 @@ self.onInit = function () {
           const tbId  = dev.id.id;
           const name  = dev.name || dev.label || tbId;
           const attrs = deviceAttrsMap.get(tbId) || {};
-          const gcdrDev = gcdrDeviceMap.get(tbId);
+
+          // Lookup: primary by centralId+slaveId (TB SERVER_SCOPE attrs), fallback by tbId (externalId)
+          const tbCentralId    = attrs.centralId ?? '';
+          const tbSlaveId      = String(attrs.slaveId ?? '');
+          const compositeKey   = (tbCentralId && tbSlaveId) ? `${tbCentralId}:${tbSlaveId}` : null;
+          const gcdrDev        = (compositeKey ? gcdrDeviceMap.get(compositeKey) : null)
+                               ?? gcdrDeviceMap.get(tbId);
 
           if (!gcdrDev) {
             stats.notFound++;

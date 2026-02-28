@@ -67,9 +67,12 @@ export interface AlarmsTabConfig {
   /** Pre-fetched customer rules (GCDRCustomerRule[]).
    *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
   prefetchedRules?: unknown[] | null;
-  /** API key used for rule-mutation calls (PATCH /rules/:id alarmConfig).
+  /** API key for GCDR API calls (GET /customers/.../rules, PATCH /rules/:id).
    *  Overrides the module-level GCDR_INTEGRATION_API_KEY when provided. */
   gcdrApiKey?: string;
+  /** API key for Alarms API calls (POST /alarms/:id/acknowledge|snooze|escalate).
+   *  Overrides the module-level GCDR_INTEGRATION_API_KEY when provided. */
+  alarmsApiKey?: string;
 }
 
 /** Raw alarm returned by GET /api/v1/alarms */
@@ -240,7 +243,7 @@ export class AlarmsTab {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'X-API-Key': GCDR_INTEGRATION_API_KEY,
+        'X-API-Key': this.config.alarmsApiKey ?? GCDR_INTEGRATION_API_KEY,
         'X-Tenant-ID': this.config.gcdrTenantId,
         Accept: 'application/json',
       },
@@ -264,7 +267,7 @@ export class AlarmsTab {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'X-API-Key': GCDR_INTEGRATION_API_KEY,
+        'X-API-Key': this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY,
         'X-Tenant-ID': this.config.gcdrTenantId,
         Accept: 'application/json',
       },
@@ -287,7 +290,7 @@ export class AlarmsTab {
       const response = await fetch(`${baseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`, {
         method: 'POST',
         headers: {
-          'X-API-Key': GCDR_INTEGRATION_API_KEY,
+          'X-API-Key': this.config.alarmsApiKey ?? GCDR_INTEGRATION_API_KEY,
           'X-Tenant-ID': this.config.gcdrTenantId,
         },
       });
@@ -307,7 +310,7 @@ export class AlarmsTab {
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
-          'X-API-Key': GCDR_INTEGRATION_API_KEY,
+          'X-API-Key': this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY,
           'X-Tenant-ID': this.config.gcdrTenantId,
           'Content-Type': 'application/json',
         },

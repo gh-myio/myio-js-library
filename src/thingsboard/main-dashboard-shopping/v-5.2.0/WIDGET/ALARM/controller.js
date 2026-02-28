@@ -374,7 +374,13 @@ function _updatePanelFromASO() {
       || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
       || stateMap.get(a.centralId)
       || nameMap?.get(a.source);
-    return tbName ? { ...a, source: tbName } : a;
+    // Normalize GCDR date fields → Alarm interface (firstOccurrence / lastOccurrence)
+    return {
+      ...a,
+      ...(tbName ? { source: tbName } : {}),
+      firstOccurrence: a.firstOccurrence || a.raisedAt || '',
+      lastOccurrence:  a.lastOccurrence  || a.lastUpdatedAt || a.raisedAt || '',
+    };
   });
 
   // Compute summary from the alarm array (MAIN does not return a pre-built summary object)
@@ -432,7 +438,13 @@ async function _fetchClosedAlarmsAndUpdate(resolvedCustomerId) {
       || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
       || stateMap.get(a.centralId)
       || nameMap?.get(a.source);
-    return tbName ? { ...a, source: tbName } : a;
+    // Normalize GCDR date fields → Alarm interface (firstOccurrence / lastOccurrence)
+    return {
+      ...a,
+      ...(tbName ? { source: tbName } : {}),
+      firstOccurrence: a.firstOccurrence || a.raisedAt || '',
+      lastOccurrence:  a.lastOccurrence  || a.lastUpdatedAt || a.raisedAt || '',
+    };
   });
 
   _panelInstance?.updateAlarms?.(alarms);

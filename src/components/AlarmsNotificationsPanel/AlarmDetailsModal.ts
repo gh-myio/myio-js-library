@@ -33,6 +33,7 @@ function fmtDateInput(ms: number): string {
 }
 
 function durationLabel(ms: number): string {
+  if (!isFinite(ms) || ms < 0) return '-';
   if (ms < 60_000) return '< 1 min';
   const mins = Math.floor(ms / 60_000);
   if (mins < 60) return `${mins} min`;
@@ -402,8 +403,8 @@ export function openAlarmDetailsModal(
 
   const count = alarm.occurrenceCount || 1;
   const firstMs = new Date(alarm.firstOccurrence).getTime();
-  const lastMs = new Date(alarm.lastOccurrence).getTime();
-  const durMs = Math.max(0, lastMs - firstMs);
+  const lastMs  = new Date(alarm.lastOccurrence).getTime();
+  const durMs   = (isNaN(firstMs) || isNaN(lastMs)) ? 0 : Math.max(0, lastMs - firstMs);
   const durLabel = durationLabel(durMs);
   const avgFreq =
     count > 1
