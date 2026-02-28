@@ -593,10 +593,12 @@
         </div>
         <div style="margin-top:8px; padding:6px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:6px; font-size:10px; color:#6ee7b7; line-height:1.5">
           <strong>RFC-0180 — Alarms Tab:</strong><br>
-          &#x2705; General: identity + placeholder card<br>
-          &#x2705; Aba Alarmes: regras GCDR ativas<br>
+          &#x2705; Aba Alarmes: regras GCDR ativas (API real)<br>
           &#x2705; Multiselect: associar/dissociar regras<br>
-          &#x1F504; Bundle: mock (offline) ou null
+          &#x270F;&#xFE0F; Lápis inline: editar alarmConfig.value (PUT /rules/{id})<br>
+          &nbsp;&nbsp;• Mock bundle inclui alarmConfig em todas as regras<br>
+          &nbsp;&nbsp;• API real: pencil aparece se regra tem alarmConfig<br>
+          &#x1F504; Bundle: mock (offline) → regras com alarmConfig pré-definido
         </div>
       </div>
 
@@ -621,7 +623,9 @@
         <div style="margin-top:6px; padding:6px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3); border-radius:6px; font-size:10px; color:#fca5a5; line-height:1.5">
           <strong>Como validar:</strong><br>
           1. Clique <em>onInit</em> (ASO é built pelo controller.js)<br>
+          &nbsp;&nbsp;• alarms terão source=deviceId (fix RFC) → nome correto<br>
           2. Ou clique <em>&#x1F489; Inject ASO</em> para mock imediato<br>
+          &nbsp;&nbsp;• mock alarms agora têm source=gcdrId (normalizado)<br>
           3. Cards com gcdrDeviceId 1-5 exibem badge &#x1F534;&#x1F514;<br>
           &nbsp;&nbsp;• dev01: 2 alarmes (CRITICAL)<br>
           &nbsp;&nbsp;• dev02..05: 1 alarme (HIGH) cada
@@ -792,7 +796,9 @@
       },
     ];
 
-    // Mock GCDR bundle — simulates what MAIN_VIEW pre-fetches at startup
+    // Mock GCDR bundle — simulates what MAIN_VIEW pre-fetches at startup.
+    // rules[] shape matches GCDRCustomerRule: priority (not severity), type, alarmConfig.
+    // alarmConfig enables the pencil-edit inline feature (RFC-0180 AlarmsTab).
     const _MOCK_GCDR_BUNDLE = {
       customer: { id: _GCDR_CUSTOMER_ID, name: 'Mestre Alvaro', tenantId: _GCDR_TENANT_ID },
       assets: [],
@@ -801,12 +807,34 @@
         { id: 'gcdr-uuid-dev02-0000-000000000001', externalId: 'device-2', metadata: { tbId: 'device-2' }, name: '3F_ELEVADOR_002', ruleIds: ['rule-002'] },
         { id: 'gcdr-uuid-dev03-0000-000000000001', externalId: 'device-3', metadata: { tbId: 'device-3' }, name: '3F_CHILLER_003', ruleIds: ['rule-001', 'rule-002'] },
       ],
-      rules: {
-        'rule-001': { id: 'rule-001', name: 'Alerta Demanda Alta', severity: 'WARNING', enabled: true, scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] } },
-        'rule-002': { id: 'rule-002', name: 'Falta de Energia', severity: 'CRITICAL', enabled: true, scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] } },
-        'rule-003': { id: 'rule-003', name: 'Consumo Anomalo Noturno', severity: 'MAJOR', enabled: false, scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001'] } },
-        'rule-004': { id: 'rule-004', name: 'Pico de Temperatura', severity: 'WARNING', enabled: true, scope: { type: 'DEVICE', entityIds: [] } },
-      },
+      // rules as array — matches GET /api/v1/customers/{id}/rules response shape
+      rules: [
+        {
+          id: 'rule-001', name: 'Elevador parado (seg-sáb)', type: 'threshold', priority: 'MEDIUM', enabled: true,
+          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] },
+          alarmConfig: { metric: 'instantaneous_power', operator: 'LT', value: 300 },
+        },
+        {
+          id: 'rule-002', name: 'Falta de Energia', type: 'threshold', priority: 'CRITICAL', enabled: true,
+          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] },
+          alarmConfig: { metric: 'active_power', operator: 'LT', value: 10 },
+        },
+        {
+          id: 'rule-003', name: 'Consumo Anômalo Noturno', type: 'threshold', priority: 'HIGH', enabled: false,
+          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001'] },
+          alarmConfig: { metric: 'energy_consumption', operator: 'GT', value: 50, valueHigh: 200 },
+        },
+        {
+          id: 'rule-004', name: 'Pico de Temperatura', type: 'threshold', priority: 'LOW', enabled: true,
+          scope: { type: 'DEVICE', entityIds: [] },
+          alarmConfig: { metric: 'temperature', operator: 'GT', value: 28 },
+        },
+        {
+          id: 'rule-005', name: 'Escada Rolante parada (seg-sáb)', type: 'threshold', priority: 'MEDIUM', enabled: true,
+          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001'] },
+          alarmConfig: { metric: 'instantaneous_power', operator: 'LT', value: 1200 },
+        },
+      ],
     };
 
     const DEVICE_TYPES = {
@@ -2146,11 +2174,18 @@
         for (let j = 0; j < alarmCount; j++) {
           mockAlarms.push({
             id: `ALM-MOCK-${String(i * 10 + j).padStart(3, '0')}`,
-            deviceId: gcdrId,
+            deviceId:   gcdrId,
+            // source = deviceId so _updatePanelFromASO → gcdrDeviceNameMap lookup resolves name
+            // (mirrors the normalization done by _buildAlarmServiceOrchestrator in MAIN_VIEW)
+            source:     gcdrId,
+            deviceName: `Dev Mock ${i}`,
             alarmType: MOCK_TITLES[(i + j) % MOCK_TITLES.length],
             title:     MOCK_TITLES[(i + j) % MOCK_TITLES.length],
             severity:  i === 1 ? 'CRITICAL' : 'HIGH',
             state:     'OPEN',
+            raisedAt:  new Date(Date.now() - (i * 600000)).toISOString(),
+            lastUpdatedAt: new Date(Date.now() - (i * 300000)).toISOString(),
+            centralId: gcdrId,
           });
         }
       }
@@ -2667,7 +2702,9 @@
           gcdrCustomerId: _GCDR_CUSTOMER_ID,
           gcdrTenantId: _GCDR_TENANT_ID,
           gcdrApiBaseUrl: _GCDR_API_BASE_URL,
+          gcdrApiKey: 'gcdr_alarm_integration_key_2026',
           prefetchedBundle,
+          prefetchedRules: bundleMode === 'mock' ? _MOCK_GCDR_BUNDLE.rules : null,
           prefetchedAlarms: _cachedCustomerAlarms,
           customerName: 'Mestre Alvaro',
           customerId: _CUSTOMER_TB_ID,

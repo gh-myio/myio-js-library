@@ -606,6 +606,23 @@ self.onInit = function () {
     .gu-btn-force:hover:not(:disabled) { background: #92400e; }
     .gu-btn-force:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    .gu-btn-sync-id {
+      background: #1d4ed8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .gu-btn-sync-id:hover:not(:disabled) { background: #1e40af; }
+    .gu-btn-sync-id:disabled { opacity: 0.45; cursor: not-allowed; }
+
     /* Force Update Modal overlay */
     .gu-fu-overlay {
       position: fixed;
@@ -806,6 +823,9 @@ self.onInit = function () {
                 <button id="gu-btn-force-update" class="gu-btn gu-btn-force" disabled>
                   <span>⚡</span><span>Force Update IDs</span>
                 </button>
+                <button id="gu-btn-sync-force-id" class="gu-btn gu-btn-sync-id" disabled>
+                  <span>🔄</span><span>GCDR Sync Force ID</span>
+                </button>
               </div>
             </div>
           </div>
@@ -853,6 +873,7 @@ self.onInit = function () {
   const btnGCDR        = root.querySelector('#gu-btn-gcdr');
   const btnUpsell      = root.querySelector('#gu-btn-upsell');
   const btnForceUpdate = root.querySelector('#gu-btn-force-update');
+  const btnSyncForceId = root.querySelector('#gu-btn-sync-force-id');
 
   // --- State ---
   let selectedCustomer = null; // { id, name }
@@ -881,8 +902,9 @@ self.onInit = function () {
       btn.disabled = !selectedCustomer;
       const s = btn.querySelector('[data-spinner]');
       if (s) s.remove();
-      // Sync force-update btn state
+      // Sync secondary button states
       if (btnForceUpdate) btnForceUpdate.disabled = !selectedCustomer;
+      if (btnSyncForceId) btnSyncForceId.disabled = !selectedCustomer;
     }
   }
 
@@ -950,6 +972,7 @@ self.onInit = function () {
     btnGCDR.disabled = false;
     btnUpsell.disabled = false;
     btnForceUpdate.disabled = false;
+    if (btnSyncForceId) btnSyncForceId.disabled = false;
 
     // Reset card attrs
     setAttr(gcdrTenantEl, 'Carregando...', '');
@@ -1007,6 +1030,322 @@ self.onInit = function () {
       setBtnLoading(btnGCDR, false);
     }
   });
+
+  // ================================================================
+  // GCDR Sync Force ID — fetch bundle from GCDR, match by externalId,
+  // write gcdrDeviceId back to TB SERVER_SCOPE
+  // ================================================================
+
+  async function guFetchGCDRCustomerBundle(tbCustomerId, tenantId) {
+    const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
+    const GCDR_KEY  = 'gcdr_cust_tb_master_key_2026';
+    const res = await fetch(
+      `${GCDR_BASE}/api/v1/customers/external/${encodeURIComponent(tbCustomerId)}?deep=1`,
+      {
+        headers: {
+          'X-API-Key':    GCDR_KEY,
+          'x-tenant-id':  tenantId || '',
+          'Accept':       'application/json',
+        },
+      }
+    );
+    if (res.status === 404) return null; // customer not synced in GCDR yet
+    if (!res.ok) throw new Error(`GCDR bundle HTTP ${res.status} ${res.statusText}`);
+    const json = await res.json();
+    return json.data ?? json; // { customer, assets, devices, rules }
+  }
+
+  function openSyncForceIdModal() {
+    if (!selectedCustomer) return;
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let overlay;
+
+    function closeModal() {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    // ── Modal shell ──
+    overlay = document.createElement('div');
+    overlay.className = 'gu-fu-overlay'; // reuse same overlay/modal CSS
+    document.body.appendChild(overlay);
+
+    function showError(msg) {
+      overlay.querySelector('#gsfi-body').innerHTML =
+        `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${msg}</div>`;
+      overlay.querySelector('#gsfi-footer').innerHTML =
+        `<button class="gu-fu-btn gu-fu-btn-secondary" id="gsfi-close">Fechar</button>`;
+      overlay.querySelector('#gsfi-close').addEventListener('click', closeModal);
+    }
+
+    function renderShell(bodyHtml, footerHtml) {
+      overlay.innerHTML = `
+        <div class="gu-fu-modal" style="max-width:920px">
+          <div class="gu-fu-header">
+            <div>
+              <div class="gu-fu-title">🔄 GCDR Sync Force ID</div>
+              <div class="gu-fu-subtitle">Customer: ${selectedCustomer.name}</div>
+            </div>
+            <button class="gu-fu-close" id="gsfi-x">✕</button>
+          </div>
+          <div class="gu-fu-body" id="gsfi-body">${bodyHtml}</div>
+          <div class="gu-fu-footer" id="gsfi-footer">${footerHtml}</div>
+        </div>`;
+      overlay.querySelector('#gsfi-x').addEventListener('click', closeModal);
+    }
+
+    // ── Phase 1: Loading ──
+    function renderLoadingBody(stats) {
+      const pct = (stats.total > 0) ? Math.round(((stats.foundInGcdr + stats.notFound) / stats.total) * 100) : 0;
+      return `
+        <div style="padding:4px 0">
+          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:14px">
+            ⏳ Buscando devices do TB e bundle do GCDR…
+          </div>
+          <div class="gu-fu-progress-bar-bg" style="margin-bottom:6px">
+            <div class="gu-fu-progress-bar" id="gsfi-prog" style="width:${pct}%;background:#1d4ed8"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:18px">
+            <div class="gu-fu-progress-label" id="gsfi-phase">${stats.phase || 'Iniciando…'}</div>
+            <div style="font-size:13px;font-weight:700;color:#1d4ed8">${pct}%</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+            <div style="background:#f3f4f6;border-radius:8px;padding:12px">
+              <div style="font-size:11px;color:#6b7280;margin-bottom:4px">Devices no GCDR</div>
+              <div style="font-size:20px;font-weight:700;color:#1f2937">${stats.gcdrTotal ?? '—'}</div>
+              <div style="font-size:10px;color:#9ca3af">externalId disponíveis</div>
+            </div>
+            <div style="background:#f3f4f6;border-radius:8px;padding:12px">
+              <div style="font-size:11px;color:#6b7280;margin-bottom:4px">Total no TB</div>
+              <div style="font-size:20px;font-weight:700;color:#1f2937">${stats.total > 0 ? stats.total : '—'}</div>
+              <div style="font-size:10px;color:#9ca3af">devices do customer</div>
+            </div>
+            <div style="background:#d1fae5;border-radius:8px;padding:12px">
+              <div style="font-size:11px;color:#065f46;margin-bottom:4px">Encontrados no GCDR</div>
+              <div style="font-size:20px;font-weight:700;color:#065f46">${stats.foundInGcdr}</div>
+              <div style="font-size:10px;color:#6ee7b7">match por externalId</div>
+            </div>
+            <div style="background:#fee2e2;border-radius:8px;padding:12px">
+              <div style="font-size:11px;color:#991b1b;margin-bottom:4px">Não encontrados</div>
+              <div style="font-size:20px;font-weight:700;color:#991b1b">${stats.notFound}</div>
+              <div style="font-size:10px;color:#fca5a5">sem externalId no GCDR</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ── Phase 2: Results table ──
+    function renderResultsBody(rows) {
+      const nMatch   = rows.filter((r) => r.status === 'MATCH').length;
+      const nSynced  = rows.filter((r) => r.status === 'SYNCED').length;
+      const nNoMatch = rows.filter((r) => r.status === 'NOMATCH').length;
+
+      const tableRows = rows.map((r) => {
+        const statusCell =
+          r.status === 'MATCH'
+            ? '<span class="gu-fu-status MATCH">✓ MATCH</span>'
+            : r.status === 'SYNCED'
+            ? '<span class="gu-fu-status MATCH" style="background:#d1fae5;color:#065f46">✓ SYNCED</span>'
+            : '<span class="gu-fu-status FAIL">✗ NO MATCH</span>';
+        const gcdrCell = r.gcdrDeviceId
+          ? `<span class="gu-fu-uuid" title="${r.gcdrDeviceId}">${r.gcdrDeviceId.substring(0, 8)}…</span>`
+          : '<span style="color:#9ca3af">—</span>';
+        const slaveCell  = r.slaveId   ?? '<span style="color:#9ca3af">—</span>';
+        const centralCell = r.centralId
+          ? `<span class="gu-fu-uuid" title="${r.centralId}">${r.centralId.substring(0, 8)}…</span>`
+          : '<span style="color:#9ca3af">—</span>';
+        const assetCell = r.gcdrAssetId
+          ? `<span class="gu-fu-uuid" title="${r.gcdrAssetId}">${r.gcdrAssetId.substring(0, 8)}…</span>`
+          : '<span style="color:#9ca3af">—</span>';
+        return `<tr>
+          <td>${statusCell}</td>
+          <td title="${r.tbId}">${r.name}<br><span style="color:#9ca3af;font-size:10px;font-family:monospace">${r.tbId.substring(0,8)}…</span></td>
+          <td>${gcdrCell}</td>
+          <td>${assetCell}</td>
+          <td>${slaveCell}</td>
+          <td>${centralCell}</td>
+        </tr>`;
+      }).join('');
+
+      return `
+        <div class="gu-fu-summary">
+          <span class="gu-fu-badge match">✓ ${nMatch} para atualizar</span>
+          ${nSynced ? `<span class="gu-fu-badge" style="background:#d1fae5;color:#065f46">✓ ${nSynced} já sincronizados</span>` : ''}
+          <span class="gu-fu-badge fail">✗ ${nNoMatch} não encontrados no GCDR</span>
+        </div>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="gu-fu-table">
+            <thead><tr>
+              <th>Status</th><th>Device TB</th><th>GCDR ID</th>
+              <th>Asset GCDR</th><th>slaveId (TB)</th><th>centralId (TB)</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── Phase 3: Execute results ──
+    function renderExecBody(results) {
+      const ok  = results.filter((r) => r.ok);
+      const err = results.filter((r) => !r.ok);
+      const items = results.map((r) => `
+        <li class="gu-fu-result-item">
+          <span class="gu-fu-result-icon">${r.ok ? '✅' : '❌'}</span>
+          <div>
+            <div class="gu-fu-result-name">${r.name}</div>
+            ${r.ok
+              ? `<div class="gu-fu-result-msg">gcdrDeviceId → <code>${r.gcdrDeviceId}</code></div>`
+              : `<div class="gu-fu-result-err">${r.error}</div>`}
+          </div>
+        </li>`).join('');
+      return `
+        <div class="gu-fu-summary" style="margin-bottom:16px">
+          <span class="gu-fu-badge match">✓ ${ok.length} atualizados</span>
+          ${err.length ? `<span class="gu-fu-badge fail">✗ ${err.length} erros</span>` : ''}
+        </div>
+        <ul class="gu-fu-result-list">${items}</ul>`;
+    }
+
+    // ── Start: open modal immediately with loading state ──
+    const initStats = { phase: 'Buscando bundle do GCDR e devices do TB…', gcdrTotal: null, total: 0, foundInGcdr: 0, notFound: 0 };
+    renderShell(renderLoadingBody(initStats), '');
+
+    // ── Fetch GCDR bundle + TB devices in parallel ──
+    Promise.all([
+      guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId),
+      guFetchCustomerDevices(selectedCustomer.id),
+    ])
+      .then(async ([bundle, tbDevices]) => {
+        // Build map: tbDeviceId → gcdrDevice (by externalId or metadata.tbId)
+        const gcdrDeviceMap = new Map();
+        const gcdrDevices = bundle?.devices ?? [];
+        for (const gd of gcdrDevices) {
+          if (gd.externalId) gcdrDeviceMap.set(gd.externalId, gd);
+          if (gd.metadata?.tbId && !gcdrDeviceMap.has(gd.metadata.tbId)) {
+            gcdrDeviceMap.set(gd.metadata.tbId, gd);
+          }
+        }
+
+        const stats = {
+          phase: `Buscando atributos SERVER_SCOPE (0/${tbDevices.length})…`,
+          gcdrTotal: gcdrDevices.length,
+          total: tbDevices.length,
+          foundInGcdr: 0,
+          notFound: 0,
+        };
+
+        function updateLoadingUI() {
+          const body = overlay.querySelector('#gsfi-body');
+          if (body) body.innerHTML = renderLoadingBody(stats);
+        }
+        updateLoadingUI();
+
+        // Fetch SERVER_SCOPE attrs for all TB devices (batched: 10 at a time, 1s delay)
+        const deviceAttrsMap = new Map(); // tbDeviceId → attrs
+        const chunks = [];
+        for (let i = 0; i < tbDevices.length; i += 10) chunks.push(tbDevices.slice(i, i + 10));
+
+        for (let ci = 0; ci < chunks.length; ci++) {
+          if (ci > 0) await sleep(1000);
+          stats.phase = `Atributos: lote ${ci + 1}/${chunks.length}…`;
+          updateLoadingUI();
+          await Promise.all(chunks[ci].map(async (dev) => {
+            const tbId = dev.id.id;
+            try {
+              const attrs = await guFetchDeviceServerScopeAttrs(tbId);
+              deviceAttrsMap.set(tbId, attrs);
+            } catch { /* non-fatal */ }
+          }));
+        }
+
+        // Build match results
+        const rows = tbDevices.map((dev) => {
+          const tbId  = dev.id.id;
+          const name  = dev.name || dev.label || tbId;
+          const attrs = deviceAttrsMap.get(tbId) || {};
+          const gcdrDev = gcdrDeviceMap.get(tbId);
+
+          if (!gcdrDev) {
+            stats.notFound++;
+            return { status: 'NOMATCH', tbId, name, gcdrDeviceId: null, gcdrAssetId: null,
+                     slaveId: attrs.slaveId ?? null, centralId: attrs.centralId ?? null };
+          }
+
+          stats.foundInGcdr++;
+          const alreadySynced = attrs.gcdrDeviceId === gcdrDev.id;
+          return {
+            status:       alreadySynced ? 'SYNCED' : 'MATCH',
+            tbId,
+            name,
+            gcdrDeviceId: gcdrDev.id,
+            gcdrAssetId:  gcdrDev.assetId ?? null,
+            slaveId:      attrs.slaveId ?? null,
+            centralId:    attrs.centralId ?? null,
+          };
+        });
+
+        // Show results
+        const nToWrite = rows.filter((r) => r.status === 'MATCH').length;
+        const nSynced  = rows.filter((r) => r.status === 'SYNCED').length;
+        overlay.querySelector('#gsfi-body').innerHTML = renderResultsBody(rows);
+        overlay.querySelector('#gsfi-footer').innerHTML = `
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gsfi-cancel">Cancelar</button>
+          <button class="gu-fu-btn gu-fu-btn-primary" id="gsfi-apply"
+            ${nToWrite === 0 ? 'disabled' : ''}>
+            🔄 Aplicar (${nToWrite + nSynced} devices)
+          </button>`;
+
+        overlay.querySelector('#gsfi-cancel').addEventListener('click', closeModal);
+        overlay.querySelector('#gsfi-apply')?.addEventListener('click', async () => {
+          // ── Execute: write gcdrDeviceId to TB ──
+          overlay.querySelector('#gsfi-footer').innerHTML = '';
+          overlay.querySelector('#gsfi-body').innerHTML = `
+            <div class="gu-fu-progress-wrap">
+              <div class="gu-fu-progress-bar-bg">
+                <div class="gu-fu-progress-bar" id="gsfi-exec-prog" style="width:0%;background:#1d4ed8"></div>
+              </div>
+              <div class="gu-fu-progress-label" id="gsfi-exec-label">Aplicando…</div>
+            </div>`;
+
+          const toWrite = rows.filter((r) => r.status === 'MATCH' || r.status === 'SYNCED');
+          const total   = toWrite.length;
+          const results = [];
+          const syncedAt = new Date().toISOString();
+
+          const writeChunks = [];
+          for (let i = 0; i < toWrite.length; i += 10) writeChunks.push(toWrite.slice(i, i + 10));
+
+          let done = 0;
+          for (let ci = 0; ci < writeChunks.length; ci++) {
+            if (ci > 0) await sleep(1000);
+            await Promise.all(writeChunks[ci].map(async (row) => {
+              done++;
+              const pct = Math.round((done / total) * 100);
+              const progEl = overlay.querySelector('#gsfi-exec-prog');
+              const lblEl  = overlay.querySelector('#gsfi-exec-label');
+              if (progEl) progEl.style.width = pct + '%';
+              if (lblEl)  lblEl.textContent  = `${done}/${total} — ${row.name}`;
+              try {
+                await guSaveDeviceServerScopeAttrs(row.tbId, {
+                  gcdrDeviceId: row.gcdrDeviceId,
+                  ...(row.gcdrAssetId ? { gcdrAssetId: row.gcdrAssetId } : {}),
+                  gcdrSyncedAt: syncedAt,
+                });
+                results.push({ ...row, ok: true });
+              } catch (err) {
+                results.push({ ...row, ok: false, error: err.message });
+              }
+            }));
+          }
+
+          overlay.querySelector('#gsfi-body').innerHTML = renderExecBody(results);
+          overlay.querySelector('#gsfi-footer').innerHTML =
+            `<button class="gu-fu-btn gu-fu-btn-success" id="gsfi-done">Fechar</button>`;
+          overlay.querySelector('#gsfi-done').addEventListener('click', closeModal);
+        });
+      })
+      .catch((err) => showError(err.message));
+  }
 
   // ================================================================
   // Force Update GCDR Sync IDs — Modal
@@ -1368,6 +1707,12 @@ self.onInit = function () {
     }
     return results;
   }
+
+  // --- GCDR Sync Force ID button ---
+  btnSyncForceId.addEventListener('click', () => {
+    if (!selectedCustomer) return;
+    openSyncForceIdModal();
+  });
 
   // --- Force Update button ---
   btnForceUpdate.addEventListener('click', () => {

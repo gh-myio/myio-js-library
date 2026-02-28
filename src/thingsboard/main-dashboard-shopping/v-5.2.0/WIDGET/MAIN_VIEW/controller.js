@@ -1915,9 +1915,18 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
 
 // RFC-0183: Build window.AlarmServiceOrchestrator — device-keyed alarm maps.
 function _buildAlarmServiceOrchestrator(alarms) {
+  // Normalize: set source = deviceId (GCDR UUID) so _updatePanelFromASO can resolve
+  // the display name via gcdrDeviceNameMap.get(source). The API returns deviceId but not
+  // a "source" field, so without this step source is undefined and the enrichment falls
+  // through to the stateMap gateway-key fallback (which returns a wrong device name).
+  const normalizedAlarms = (alarms || []).map((a) => ({
+    ...a,
+    source: a.source || a.deviceId || '',
+  }));
+
   // Map: gcdrDeviceId → GCDRAlarm[]
   const deviceAlarmMap = new Map();
-  for (const alarm of (alarms || [])) {
+  for (const alarm of normalizedAlarms) {
     const did = alarm.deviceId;
     if (!did) continue;
     if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
@@ -1931,8 +1940,8 @@ function _buildAlarmServiceOrchestrator(alarms) {
   });
 
   window.AlarmServiceOrchestrator = {
-    /** Array of all raw customer alarms */
-    alarms,
+    /** Array of all raw customer alarms (source normalized to deviceId) */
+    alarms: normalizedAlarms,
 
     /** Map<gcdrDeviceId, GCDRAlarm[]> */
     deviceAlarmMap,
@@ -1967,13 +1976,13 @@ function _buildAlarmServiceOrchestrator(alarms) {
 
   LogHelper.log('[AlarmServiceOrchestrator] Built —',
     deviceAlarmMap.size, 'devices with alarms,',
-    alarms.length, 'total alarms'
+    normalizedAlarms.length, 'total alarms'
   );
 
   // Notify all subscribers that alarm data is fresh.
   // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
   window.dispatchEvent(new CustomEvent('myio:alarms-updated', {
-    detail: { alarms, count: alarms.length },
+    detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
   }));
 }
 

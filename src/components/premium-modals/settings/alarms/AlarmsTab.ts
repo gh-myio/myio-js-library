@@ -64,6 +64,12 @@ export interface AlarmsTabConfig {
    *  When provided, AlarmsTab casts to GCDRAlarm[], filters by gcdrDeviceId, and skips
    *  the per-device API call. */
   prefetchedAlarms?: unknown[] | null;
+  /** Pre-fetched customer rules (GCDRCustomerRule[]).
+   *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
+  prefetchedRules?: unknown[] | null;
+  /** API key used for rule-mutation calls (PATCH /rules/:id alarmConfig).
+   *  Overrides the module-level GCDR_INTEGRATION_API_KEY when provided. */
+  gcdrApiKey?: string;
 }
 
 /** Raw alarm returned by GET /api/v1/alarms */
@@ -136,7 +142,9 @@ export class AlarmsTab {
       // We read from ASO directly — no independent API call to alarms-api.
       const alarms = this.readAlarmsFromASO();
 
-      const rules = await this.fetchCustomerRules(gcdrBaseUrl);
+      const rules = this.config.prefetchedRules != null
+        ? (this.config.prefetchedRules as GCDRCustomerRule[])
+        : await this.fetchCustomerRules(gcdrBaseUrl);
       this.activeAlarms  = alarms;
       this.customerRules = rules;
 
@@ -289,7 +297,7 @@ export class AlarmsTab {
     }
   }
 
-  private async putRuleScope(
+  private async patchRuleScope(
     baseUrl: string,
     ruleId: string,
     entityIds: string[],
@@ -297,13 +305,35 @@ export class AlarmsTab {
     try {
       const url = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
       const response = await fetch(url, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'X-API-Key': GCDR_INTEGRATION_API_KEY,
           'X-Tenant-ID': this.config.gcdrTenantId,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  private async patchRuleValue(
+    baseUrl: string,
+    ruleId: string,
+    alarmConfig: GCDRCustomerRule['alarmConfig'],
+  ): Promise<boolean> {
+    try {
+      const url = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'X-API-Key': this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY,
+          'X-Tenant-ID': this.config.gcdrTenantId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ alarmConfig }),
       });
       return response.ok;
     } catch {
@@ -528,26 +558,41 @@ export class AlarmsTab {
   }
 
   private renderCustomerRuleSelectable(rule: GCDRCustomerRule): string {
-    const checked = this.initialCheckedRuleIds.has(rule.id);
-    const color   = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
-    const metric  = rule.alarmConfig?.metric ?? '';
-    const op      = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
-    const val     = rule.alarmConfig?.value ?? '';
+    const checked    = this.initialCheckedRuleIds.has(rule.id);
+    const color      = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
+    const hasConfig  = !!rule.alarmConfig;
+    const metric     = rule.alarmConfig?.metric ?? '';
+    const op         = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
+    const val        = rule.alarmConfig?.value ?? '';
+    const ruleIdEsc  = this.esc(rule.id);
     return `
-      <div class="at-rule-row at-rule-row--selectable ${checked ? 'at-rule-row--checked' : ''}">
+      <div class="at-rule-row at-rule-row--selectable ${checked ? 'at-rule-row--checked' : ''}" data-rule-id="${ruleIdEsc}">
         <label class="at-rule-label">
           <input
             type="checkbox"
             class="at-rule-check"
-            data-rule-id="${this.esc(rule.id)}"
+            data-rule-id="${ruleIdEsc}"
             ${checked ? 'checked' : ''}
           >
           <div class="at-rule-info">
             <span class="at-rule-name">${this.esc(rule.name)}</span>
-            ${metric ? `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(op))} ${val}</span>` : ''}
+            ${metric
+              ? `<div class="at-rule-chip-wrap" id="at-chip-wrap-${ruleIdEsc}">
+                   <span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(op))} ${val}</span>
+                 </div>`
+              : ''}
           </div>
         </label>
-        <span class="at-priority-badge" style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
+        <div class="at-rule-actions">
+          ${hasConfig ? `
+            <button type="button" class="at-rule-edit-btn" data-rule-id="${ruleIdEsc}" title="Editar valor da regra">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>` : ''}
+          <span class="at-priority-badge" style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
+        </div>
       </div>
     `;
   }
@@ -570,6 +615,96 @@ export class AlarmsTab {
         row?.classList.toggle('at-rule-row--checked', (cb as HTMLInputElement).checked);
       });
     });
+
+    // Pencil button — inline edit of alarmConfig.value
+    container.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.at-rule-edit-btn') as HTMLElement | null;
+      if (!btn) return;
+      const ruleId = btn.dataset.ruleId;
+      if (!ruleId) return;
+      this.openInlineEdit(ruleId, btn);
+    });
+  }
+
+  private openInlineEdit(ruleId: string, editBtn: HTMLElement): void {
+    const rule = this.customerRules.find((r) => r.id === ruleId);
+    if (!rule?.alarmConfig) return;
+
+    const container = this.config.container;
+    const chipWrap  = container.querySelector<HTMLElement>(`#at-chip-wrap-${ruleId}`);
+    if (!chipWrap) return;
+
+    // Already in edit mode — don't open twice
+    if (chipWrap.querySelector('.at-rule-edit-inline')) return;
+
+    const { metric, operator, value, valueHigh } = rule.alarmConfig;
+    const opLabel  = OPERATOR_LABELS[operator] ?? operator;
+    const baseUrl  = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
+    const statusId = `at-edit-status-${ruleId}`;
+
+    chipWrap.innerHTML = `
+      <div class="at-rule-edit-inline">
+        <span class="at-rule-edit-ctx">${this.esc(metric)} ${this.esc(String(opLabel))}</span>
+        <input class="at-rule-edit-input" type="number" step="any"
+               value="${value}" aria-label="Valor da regra">
+        ${valueHigh != null ? `
+          <span class="at-rule-edit-ctx">até</span>
+          <input class="at-rule-edit-input at-rule-edit-input--high" type="number" step="any"
+                 value="${valueHigh}" aria-label="Valor alto">
+        ` : ''}
+        <button type="button" class="at-rule-edit-confirm" title="Confirmar">✓</button>
+        <button type="button" class="at-rule-edit-cancel"  title="Cancelar">✗</button>
+        <span class="at-rule-edit-status" id="${statusId}"></span>
+      </div>
+    `;
+    editBtn.style.display = 'none';
+
+    const confirmBtn = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-confirm');
+    const cancelBtn  = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-cancel');
+    const statusEl   = chipWrap.querySelector<HTMLElement>(`#${statusId}`);
+    const inputLow   = chipWrap.querySelector<HTMLInputElement>('.at-rule-edit-input:not(.at-rule-edit-input--high)');
+    const inputHigh  = chipWrap.querySelector<HTMLInputElement>('.at-rule-edit-input--high');
+
+    const restoreChip = (v: number, vh: number | null | undefined) => {
+      const vhStr = vh != null ? ` – ${vh}` : '';
+      chipWrap.innerHTML =
+        `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(opLabel))} ${v}${vhStr}</span>`;
+      editBtn.style.display = '';
+    };
+
+    cancelBtn?.addEventListener('click', () => restoreChip(value, valueHigh));
+
+    confirmBtn?.addEventListener('click', async () => {
+      const newVal     = parseFloat(inputLow?.value ?? '');
+      const newValHigh = inputHigh ? parseFloat(inputHigh.value) : undefined;
+
+      if (isNaN(newVal)) {
+        if (statusEl) { statusEl.textContent = 'Valor inválido'; statusEl.style.color = '#dc2626'; }
+        return;
+      }
+
+      if (confirmBtn) confirmBtn.disabled = true;
+      if (statusEl)   { statusEl.textContent = '…'; statusEl.style.color = '#6b7280'; }
+
+      const updatedConfig: GCDRCustomerRule['alarmConfig'] = {
+        ...rule.alarmConfig!,
+        value: newVal,
+        ...(newValHigh !== undefined && !isNaN(newValHigh) ? { valueHigh: newValHigh } : {}),
+      };
+
+      const ok = await this.patchRuleValue(baseUrl, ruleId, updatedConfig);
+
+      if (ok) {
+        rule.alarmConfig = updatedConfig;
+        restoreChip(newVal, updatedConfig.valueHigh ?? null);
+      } else {
+        if (statusEl) { statusEl.textContent = 'Erro ao salvar'; statusEl.style.color = '#dc2626'; }
+        if (confirmBtn) confirmBtn.disabled = false;
+      }
+    });
+
+    inputLow?.focus();
+    inputLow?.select();
   }
 
   private async handleSave(): Promise<void> {
@@ -603,7 +738,7 @@ export class AlarmsTab {
       if (!rule) continue;
       const ids = [...(rule.scope?.entityIds ?? [])];
       if (!ids.includes(this.config.gcdrDeviceId)) ids.push(this.config.gcdrDeviceId);
-      const ok = await this.putRuleScope(baseUrl, ruleId, ids);
+      const ok = await this.patchRuleScope(baseUrl, ruleId, ids);
       if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
       else    { errors.push(rule.name); }
     }
@@ -612,7 +747,7 @@ export class AlarmsTab {
       const rule = ruleMap.get(ruleId);
       if (!rule) continue;
       const ids = (rule.scope?.entityIds ?? []).filter((id) => id !== this.config.gcdrDeviceId);
-      const ok = await this.putRuleScope(baseUrl, ruleId, ids);
+      const ok = await this.patchRuleScope(baseUrl, ruleId, ids);
       if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
       else    { errors.push(rule.name); }
     }
@@ -809,6 +944,76 @@ export class AlarmsTab {
         flex-shrink: 0;
         white-space: nowrap;
       }
+      .at-rule-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .at-rule-chip-wrap { display: block; }
+      .at-rule-edit-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.12s, color 0.12s;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-btn:hover { background: #ede9ff; color: #3e1a7d; }
+      .at-rule-edit-inline {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: nowrap;
+      }
+      .at-rule-edit-ctx {
+        font-size: 11px;
+        color: #6b7280;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-input {
+        width: 216px;
+        height: 26px;
+        border: 1.5px solid #3e1a7d;
+        border-radius: 4px;
+        padding: 0 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1a1a1a;
+        outline: none;
+        background: #faf9ff;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-input:focus { border-color: #2d1458; box-shadow: 0 0 0 2px rgba(62,26,125,0.12); }
+      .at-rule-edit-confirm,
+      .at-rule-edit-cancel {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: background 0.1s;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-confirm { background: #d1fae5; color: #065f46; }
+      .at-rule-edit-confirm:hover:not(:disabled) { background: #a7f3d0; }
+      .at-rule-edit-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+      .at-rule-edit-cancel { background: #fee2e2; color: #991b1b; }
+      .at-rule-edit-cancel:hover { background: #fecaca; }
+      .at-rule-edit-status { font-size: 11px; white-space: nowrap; }
 
       /* ===== Footer / save ===== */
       .at-footer {
