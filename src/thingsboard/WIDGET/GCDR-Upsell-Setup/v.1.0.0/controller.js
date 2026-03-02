@@ -186,12 +186,17 @@ async function guSaveDeviceServerScopeAttrs(deviceId, attrs) {
  * Delete specific SERVER_SCOPE attributes from a TB device.
  * DELETE /api/plugins/telemetry/DEVICE/{id}/attributes/SERVER_SCOPE?keys=a,b,c
  */
+/**
+ * Delete specific SERVER_SCOPE attributes from a TB device.
+ * TB DELETE endpoint uses /{entityType}/{entityId}/{scope} (no "attributes/" prefix).
+ * DELETE /api/plugins/telemetry/DEVICE/{id}/SERVER_SCOPE?keys=a,b,c
+ */
 async function guDeleteDeviceServerScopeAttrs(deviceId, keys) {
   const token = localStorage.getItem('jwt_token');
   if (!token) throw new Error('JWT não disponível');
-  const qs  = keys.map(encodeURIComponent).join(',');
+  const qs  = keys.join(',');
   const res = await fetch(
-    `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE?keys=${qs}`,
+    `/api/plugins/telemetry/DEVICE/${deviceId}/SERVER_SCOPE?keys=${qs}`,
     { method: 'DELETE', headers: { 'X-Authorization': `Bearer ${token}` } }
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
