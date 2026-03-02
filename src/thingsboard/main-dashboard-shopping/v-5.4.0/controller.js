@@ -462,7 +462,11 @@ async function fetchCredentials(customerTbId) {
  */
 async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
   try {
-    const ALARMS_API_KEY = window.MyIOOrchestrator?.alarmsApiKey || 'gcdr_cust_tb_integration_key_2026';
+    const ALARMS_API_KEY = window.MyIOOrchestrator?.alarmsApiKey || '';
+    if (!ALARMS_API_KEY) {
+      window.MyIOLibrary?.MyIOToast?.error('[v5.4.0] alarmsApiKey não configurado. Configure em Widget Settings → alarmsApiKey.');
+      return;
+    }
     const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
     const response = await fetch(url, {
       headers: {
@@ -979,7 +983,10 @@ self.onInit = async function () {
 
   // RFC-0178: Alarms API config from settings
   const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
-  const alarmsApiKey = settings.alarmsApiKey || 'gcdr_cust_tb_integration_key_2026';
+  const alarmsApiKey = settings.alarmsApiKey || '';
+  if (!alarmsApiKey) {
+    window.MyIOLibrary?.MyIOToast?.error('[MAIN_VIEW v5.4.0] alarmsApiKey não configurado nas settings do widget. Configure em Widget Settings → alarmsApiKey.');
+  }
 
   // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
   let gcdrCustomerId = settings.gcdrCustomerId || '';

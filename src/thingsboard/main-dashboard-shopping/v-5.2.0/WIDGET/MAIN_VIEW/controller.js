@@ -1181,7 +1181,10 @@ Object.assign(window.MyIOUtils, {
 
     // RFC-0178: Expose alarmsApiBaseUrl and alarmsApiKey for ALARM widget
     const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
-    const alarmsApiKey     = self.ctx.settings?.alarmsApiKey     || 'gcdr_cust_tb_integration_key_2026';
+    const alarmsApiKey     = self.ctx.settings?.alarmsApiKey     || '';
+    if (!alarmsApiKey) {
+      MyIOLibrary.MyIOToast?.error('[MAIN_VIEW] alarmsApiKey não configurado. Configure em Widget Settings → alarmsApiKey.');
+    }
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
       window.MyIOOrchestrator.alarmsApiKey     = alarmsApiKey;

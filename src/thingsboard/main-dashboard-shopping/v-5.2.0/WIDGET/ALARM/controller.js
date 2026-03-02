@@ -79,6 +79,9 @@ self.onInit = async function () {
   // API credentials: from MAIN_VIEW orchestrator (configured in MAIN_VIEW settingsSchema)
   const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || '';
   const alarmsApiKey     = window.MyIOOrchestrator?.alarmsApiKey     || '';
+  if (!alarmsApiKey) {
+    MyIOLibrary.MyIOToast?.error('[ALARM] alarmsApiKey não encontrado em window.MyIOOrchestrator. Configure em MAIN_VIEW Widget Settings → alarmsApiKey.');
+  }
 
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
