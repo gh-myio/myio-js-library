@@ -902,6 +902,8 @@ export class AlarmsTab {
         min-height: unset !important;
         height: auto !important;
         display: block !important;
+        max-height: 320px;
+        overflow-y: auto;
       }
       .at-alarms-panel-host .alarms-grid {
         padding: 0 !important;

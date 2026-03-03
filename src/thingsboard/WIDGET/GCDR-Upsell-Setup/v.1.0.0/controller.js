@@ -154,6 +154,40 @@ async function guFetchCustomerDevices(customerId) {
   return devices;
 }
 
+async function guFetchCustomerTBAssets(customerId) {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('JWT não disponível');
+  const headers = { 'X-Authorization': `Bearer ${token}` };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let assets = [];
+  let page = 0;
+  while (true) {
+    if (page > 0) await sleep(500);
+    const res = await fetch(`/api/customer/${customerId}/assets?pageSize=1000&page=${page}`, { headers });
+    if (!res.ok) throw new Error(`Erro ao buscar assets TB: HTTP ${res.status}`);
+    const data = await res.json();
+    assets = assets.concat(data.data || []);
+    if (!data.hasNext) break;
+    page++;
+  }
+  return assets;
+}
+
+async function guFetchDeviceParentAssetId(deviceTbId) {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) return null;
+  try {
+    const res = await fetch(
+      `/api/relations?entityId=${deviceTbId}&entityType=DEVICE&direction=TO`,
+      { headers: { 'X-Authorization': `Bearer ${token}` } }
+    );
+    if (!res.ok) return null;
+    const relations = await res.json();
+    const assetRel = (relations || []).find((r) => r.from?.entityType === 'ASSET');
+    return assetRel?.from?.id ?? null;
+  } catch { return null; }
+}
+
 async function guFetchDeviceServerScopeAttrs(deviceId) {
   const token = localStorage.getItem('jwt_token');
   if (!token) throw new Error('JWT não disponível');
@@ -851,6 +885,10 @@ self.onInit = function () {
                 <div class="gu-attr-label">Customer ID</div>
                 <div id="gu-gcdr-customer-id" class="gu-attr-value muted">—</div>
               </div>
+              <div class="gu-attr-row">
+                <div class="gu-attr-label">API Key</div>
+                <div id="gu-gcdr-api-key" class="gu-attr-value muted">—</div>
+              </div>
             </div>
             <div class="gu-card-footer">
               <div id="gu-gcdr-status" class="gu-status-msg"></div>
@@ -909,6 +947,7 @@ self.onInit = function () {
   const selectionBar  = root.querySelector('#gu-selection-bar');
   const gcdrTenantEl  = root.querySelector('#gu-gcdr-tenant-id');
   const gcdrCustEl    = root.querySelector('#gu-gcdr-customer-id');
+  const gcdrApiKeyEl  = root.querySelector('#gu-gcdr-api-key');
   const gcdrStatusEl  = root.querySelector('#gu-gcdr-status');
   const upsellStatusEl = root.querySelector('#gu-upsell-status');
   const btnGCDR        = root.querySelector('#gu-btn-gcdr');
@@ -918,9 +957,10 @@ self.onInit = function () {
   const btnForceClear  = root.querySelector('#gu-btn-force-clear');
 
   // --- State ---
-  let selectedCustomer = null; // { id, name }
-  let gcdrTenantId = null;
-  let gcdrApiKey   = null; // customer-specific GCDR API key (gcdrApiKey SERVER_SCOPE attr)
+  let selectedCustomer  = null; // { id, name }
+  let gcdrTenantId      = null;
+  let gcdrCustomerId    = null; // GCDR customer UUID (SERVER_SCOPE attr gcdrCustomerId / gcdrId)
+  let gcdrApiKey        = null; // customer-specific GCDR API key (gcdrApiKey SERVER_SCOPE attr)
   let allCustomersSorted = []; // [[key, {id,name}], ...]
 
   // --- Helpers ---
@@ -1021,22 +1061,38 @@ self.onInit = function () {
 
     // Reset card attrs
     setAttr(gcdrTenantEl, 'Carregando...', '');
-    setAttr(gcdrCustEl, c.id, '');
+    setAttr(gcdrCustEl,   'Carregando...', '');
+    setAttr(gcdrApiKeyEl, 'Carregando...', '');
     setStatus(gcdrStatusEl, '', '');
     setStatus(upsellStatusEl, '', '');
+    gcdrCustomerId = null;
 
-    // Fetch gcdrTenantId + gcdrApiKey from SERVER_SCOPE
+    // Fetch gcdrTenantId + gcdrCustomerId + gcdrApiKey from SERVER_SCOPE
     try {
       const attrs = await guFetchCustomerServerScopeAttrs(c.id);
-      gcdrTenantId = attrs.gcdrTenantId ?? null;
-      gcdrApiKey   = attrs.gcdrApiKey   ?? null;
+      gcdrTenantId   = attrs.gcdrTenantId  ?? null;
+      gcdrApiKey     = attrs.gcdrApiKey    ?? null;
+      gcdrCustomerId = attrs.gcdrCustomerId || attrs.gcdrId || null;
+
       if (gcdrTenantId) {
         setAttr(gcdrTenantEl, gcdrTenantId, 'success');
       } else {
         setAttr(gcdrTenantEl, 'Não configurado', 'warn');
       }
+      if (gcdrCustomerId) {
+        setAttr(gcdrCustEl, gcdrCustomerId, 'success');
+      } else {
+        setAttr(gcdrCustEl, 'Não configurado — defina gcdrCustomerId em SERVER_SCOPE', 'warn');
+      }
+      if (gcdrApiKey) {
+        setAttr(gcdrApiKeyEl, gcdrApiKey, 'success');
+      } else {
+        setAttr(gcdrApiKeyEl, 'Não configurado — defina gcdrApiKey em SERVER_SCOPE', 'warn');
+      }
     } catch (err) {
       setAttr(gcdrTenantEl, 'Erro ao buscar attrs', 'error');
+      setAttr(gcdrCustEl,   'Erro ao buscar attrs', 'error');
+      setAttr(gcdrApiKeyEl, 'Erro ao buscar attrs', 'error');
       console.warn('[GU] fetchCustomerServerScopeAttrs failed:', err.message);
     }
   }
@@ -1293,19 +1349,81 @@ self.onInit = function () {
     overlay.className = 'gu-fu-overlay';
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
     document.body.appendChild(overlay);
-    renderShell(renderLoading('Buscando bundle GCDR e devices do TB…', 0, 0), '');
+    renderShell(renderLoading('Buscando bundle GCDR, assets e devices do TB…', 0, 0), '');
 
     // ── Phase 1: Fetch in parallel ──
     Promise.all([
       guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId),
       guFetchCustomerDevices(selectedCustomer.id),
-    ]).then(async ([bundle, tbDevices]) => {
+      guFetchCustomerTBAssets(selectedCustomer.id),
+    ]).then(async ([bundle, tbDevices, tbAssets]) => {
       const gcdrDevices    = Array.isArray(bundle?.devices) ? bundle.devices : [];
       const gcdrCustomerId = bundle?.customer?.id ?? null;
-      console.log(`[GCDR Sync] bundle: ${gcdrDevices.length} GCDR devices, gcdrCustomerId=${gcdrCustomerId}`);
+      console.log(`[GCDR Sync] bundle: ${gcdrDevices.length} GCDR devices, ${bundle?.assets?.length ?? 0} GCDR assets, gcdrCustomerId=${gcdrCustomerId}`);
 
       if (!gcdrCustomerId) {
         throw new Error('Customer não encontrado no GCDR. Sincronize o customer primeiro.');
+      }
+
+      // ── Phase 0: Sync TB assets → GCDR assets ──
+      // Build map: tbAssetId → gcdrAssetId (from bundle)
+      const gcdrAssetByTbId = new Map();
+      for (const ga of (bundle?.assets ?? [])) {
+        if (ga.metadata?.tbId) gcdrAssetByTbId.set(ga.metadata.tbId, ga.id);
+      }
+
+      const missingAssets = tbAssets.filter((a) => !gcdrAssetByTbId.has(a.id.id));
+      console.log(`[GCDR Sync] Assets TB: ${tbAssets.length} | GCDR: ${gcdrAssetByTbId.size} | Faltando: ${missingAssets.length}`);
+
+      if (missingAssets.length > 0) {
+        const bEl = overlay.querySelector('#gcs-body');
+        if (bEl) bEl.innerHTML = renderLoading(`Criando ${missingAssets.length} assets no GCDR…`, 0, missingAssets.length);
+
+        let doneA = 0;
+        const assetChunks = [];
+        for (let i = 0; i < missingAssets.length; i += 5) assetChunks.push(missingAssets.slice(i, i + 5));
+
+        for (let ci = 0; ci < assetChunks.length; ci++) {
+          if (ci > 0) await sleep(1000);
+          await Promise.all(assetChunks[ci].map(async (tbAsset) => {
+            const tbAssetId = tbAsset.id.id;
+            try {
+              const created = await guGCDRFetch('POST', '/api/v1/assets', {
+                customerId: gcdrCustomerId,
+                parentAssetId: null,
+                name:        tbAsset.name,
+                displayName: tbAsset.label || tbAsset.name,
+                code:        tbAsset.name,
+                type:        'OTHER',
+                metadata: {
+                  tbId:         tbAssetId,
+                  tbName:       tbAsset.name,
+                  tbType:       tbAsset.type || 'default',
+                  tbEntityType: 'ASSET',
+                },
+              });
+              if (created?.id) gcdrAssetByTbId.set(tbAssetId, created.id);
+              console.log(`[GCDR Sync] Asset criado: ${tbAsset.name} → ${created?.id}`);
+            } catch (err) {
+              console.warn(`[GCDR Sync] Falha ao criar asset ${tbAsset.name}:`, err.message);
+            }
+            doneA++;
+            const b2 = overlay.querySelector('#gcs-body');
+            if (b2) b2.innerHTML = renderLoading(`Criando assets no GCDR…`, doneA, missingAssets.length);
+          }));
+        }
+        console.log(`[GCDR Sync] Phase 0 concluída: ${gcdrAssetByTbId.size} assets disponíveis`);
+      }
+
+      // Helper: find GCDR asset for a TB device (from TB relations → gcdrAssetByTbId)
+      async function resolveDeviceGCDRAsset(deviceTbId, attrsGcdrAssetId) {
+        if (attrsGcdrAssetId) return attrsGcdrAssetId;
+        const parentTbAssetId = await guFetchDeviceParentAssetId(deviceTbId);
+        if (parentTbAssetId && gcdrAssetByTbId.has(parentTbAssetId)) {
+          return gcdrAssetByTbId.get(parentTbAssetId);
+        }
+        // Fallback: first available GCDR asset
+        return gcdrAssetByTbId.size > 0 ? gcdrAssetByTbId.values().next().value : null;
       }
 
       // ── Build multi-strategy match maps (same as Force ID) ──
@@ -1336,6 +1454,24 @@ self.onInit = function () {
         return null;
       }
 
+      // Map TB device type → valid GCDR type enum
+      // GCDR accepted: SENSOR | ACTUATOR | GATEWAY | CONTROLLER | METER | CAMERA | OUTLET | INFRARED | OTHER
+      const GCDR_TYPES = new Set(['SENSOR','ACTUATOR','GATEWAY','CONTROLLER','METER','CAMERA','OUTLET','INFRARED','OTHER']);
+      function mapToGCDRType(tbType) {
+        if (!tbType) return 'OTHER';
+        const u = tbType.toUpperCase();
+        if (GCDR_TYPES.has(u)) return u;
+        if (u.includes('HIDROMETRO') || u.includes('HYDROMETER'))                        return 'METER';
+        if (u.includes('MEDIDOR') || u.includes('RELOGIO') || u.includes('METER'))       return 'METER';
+        if (u.includes('ENTRADA') || u.includes('TRAFO') || u.includes('SUBESTACAO'))    return 'METER';
+        if (u.includes('TERMOSTATO') || u.includes('SENSOR') || u.includes('TEMP'))      return 'SENSOR';
+        if (u.includes('CHILLER') || u.includes('FANCOIL') || u.includes('HVAC')
+            || u.includes('AR_CONDICIONADO') || u.includes('BOMBA'))                     return 'ACTUATOR';
+        if (u.includes('ELEVADOR') || u.includes('ESCADA') || u.includes('CONTROLLER')) return 'CONTROLLER';
+        if (u.includes('GATEWAY') || u.includes('CENTRAL'))                              return 'GATEWAY';
+        return 'OTHER';
+      }
+
       // ── Phase 2: Fetch SERVER_SCOPE attrs in batches ──
       const deviceAttrsMap = new Map();
       const chunks = [];
@@ -1356,8 +1492,12 @@ self.onInit = function () {
         if (b) b.innerHTML = renderLoading('Buscando atributos SERVER_SCOPE…', done, tbDevices.length);
       }
 
-      // ── Phase 3: Build rows ──
-      const rows = tbDevices.map((dev) => {
+      // ── Phase 3: Build rows (async — resolves asset per device) ──
+      const bElP3 = overlay.querySelector('#gcs-body');
+      if (bElP3) bElP3.innerHTML = renderLoading('Resolvendo assets por device…', 0, tbDevices.length);
+
+      let doneP3 = 0;
+      const rows = await Promise.all(tbDevices.map(async (dev) => {
         const tbId  = dev.id.id;
         const name  = dev.name || dev.label || tbId;
         const label = dev.label || '';
@@ -1372,7 +1512,7 @@ self.onInit = function () {
         const gcdrPayload = {
           name,
           displayName: label || name,
-          type:        deviceType || 'SENSOR',
+          type:        mapToGCDRType(deviceType),
           ...(slaveId !== undefined ? { slaveId } : {}),
           ...(centralId             ? { centralId } : {}),
           identifier: attrs.identifier || name,
@@ -1382,30 +1522,36 @@ self.onInit = function () {
 
         const match = findGCDRDevice(tbId, attrs, name);
 
+        let row;
         if (!match) {
-          return {
+          const assetId = await resolveDeviceGCDRAsset(tbId, attrs.gcdrAssetId || null);
+          row = {
             action: 'CREATE', tbId, name, label, type,
             gcdrDeviceId: null,
-            gcdrAssetId:  attrs.gcdrAssetId || null,
+            gcdrAssetId:  assetId,
             matchedBy:    null,
-            payload: { ...gcdrPayload, assetId: attrs.gcdrAssetId || null, customerId: gcdrCustomerId },
+            payload: { ...gcdrPayload, assetId, customerId: gcdrCustomerId },
+          };
+        } else {
+          const { dev: gcdrDev, by: matchedBy } = match;
+          const tbSynced   = attrs.gcdrDeviceId === gcdrDev.id;
+          const gcdrSynced = gcdrDev.externalId === tbId && gcdrDev.metadata?.tbId === tbId;
+          const assetId    = gcdrDev.assetId ?? attrs.gcdrAssetId ?? null;
+          row = {
+            action:       (tbSynced && gcdrSynced) ? 'SYNCED' : 'UPDATE',
+            tbId, name, label, type,
+            gcdrDeviceId: gcdrDev.id,
+            gcdrAssetId:  assetId,
+            matchedBy,
+            payload:      { ...gcdrPayload, assetId },
           };
         }
 
-        const { dev: gcdrDev, by: matchedBy } = match;
-        // SYNCED = TB attr already set correctly AND GCDR already has externalId + metadata.tbId
-        const tbSynced   = attrs.gcdrDeviceId === gcdrDev.id;
-        const gcdrSynced = gcdrDev.externalId === tbId && gcdrDev.metadata?.tbId === tbId;
-
-        return {
-          action:       (tbSynced && gcdrSynced) ? 'SYNCED' : 'UPDATE',
-          tbId, name, label, type,
-          gcdrDeviceId: gcdrDev.id,
-          gcdrAssetId:  gcdrDev.assetId || attrs.gcdrAssetId || null,
-          matchedBy,
-          payload:      { ...gcdrPayload, assetId: gcdrDev.assetId ?? attrs.gcdrAssetId ?? null },
-        };
-      });
+        doneP3++;
+        const bP3 = overlay.querySelector('#gcs-body');
+        if (bP3 && doneP3 % 10 === 0) bP3.innerHTML = renderLoading('Resolvendo assets por device…', doneP3, tbDevices.length);
+        return row;
+      }));
 
       // ── Show preview ──
       overlay.querySelector('#gcs-body').innerHTML = renderPreview(rows);

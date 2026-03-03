@@ -1672,3 +1672,18 @@ export type {
 // RFC-0179: GCDR Alarm Bundle Map Modal
 export { openAlarmBundleMapModal, fetchGCDRBundle } from './components/premium-modals/alarm-bundle-map';
 export type { AlarmBundleMapParams } from './components/premium-modals/alarm-bundle-map';
+
+// RFC-0180: PresetupGateway — single-gateway device pre-setup + Ingestion API + Provisioning API
+export { createPresetupGateway } from './components/PresetupGateway';
+export type {
+  PresetupGatewayOptions,
+  PresetupGatewayInstance,
+  PresetupDevice,
+  GatewayInfo,
+  DeviceType,
+  DeviceMultipliers,
+  SyncResult,
+} from './components/PresetupGateway/types';
+export { DEVICE_TYPES } from './components/PresetupGateway/types';
+export type { PdfLayout } from './components/PresetupGateway/utils/pdf';
+
