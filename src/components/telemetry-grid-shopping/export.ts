@@ -18,22 +18,21 @@ interface RowData {
   idx: string;
   nome: string;
   identificador: string;
-  tipo: string;
-  status: string;
   consumo: string;
   perc: string;
-  shopping: string;
+}
+
+export interface ExportPeriod {
+  startISO?: string | null;
+  endISO?: string | null;
 }
 
 const COLS: Col[] = [
-  { key: 'idx',          label: '#',           pdfW: 10  },
-  { key: 'nome',         label: 'Nome',        pdfW: 65  },
-  { key: 'identificador',label: 'Identificador',pdfW: 32 },
-  { key: 'tipo',         label: 'Tipo',        pdfW: 34  },
-  { key: 'status',       label: 'Status',      pdfW: 26  },
-  { key: 'consumo',      label: 'Consumo',     pdfW: 30  },
-  { key: 'perc',         label: '%',           pdfW: 15  },
-  { key: 'shopping',     label: 'Shopping',    pdfW: 65  },
+  { key: 'idx',          label: '#',            pdfW: 10  },
+  { key: 'nome',         label: 'Nome',         pdfW: 100 },
+  { key: 'identificador',label: 'Identificador', pdfW: 60 },
+  { key: 'consumo',      label: 'Consumo',      pdfW: 50  },
+  { key: 'perc',         label: '%',            pdfW: 20  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,12 +46,17 @@ function buildRow(d: TelemetryDevice, idx: number, unit: string): RowData {
     idx:           String(idx + 1),
     nome:          d.labelOrName || d.name || '—',
     identificador: d.deviceIdentifier || '—',
-    tipo:          d.deviceType || '—',
-    status:        d.deviceStatus || '—',
     consumo:       fmtVal(),
     perc:          d.perc !== undefined ? `${d.perc.toFixed(1)}%` : '—',
-    shopping:      d.customerName || d.customerId || '—',
   };
+}
+
+function fmtPeriod(period?: ExportPeriod | null): string {
+  if (!period?.startISO) return '';
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+  return period.endISO
+    ? `${fmt(period.startISO)} — ${fmt(period.endISO)}`
+    : fmt(period.startISO);
 }
 
 function slugify(s: string): string {
@@ -97,14 +101,23 @@ export function exportGridCsv(
   devices: TelemetryDevice[],
   label: string,
   unit: string,
+  period?: ExportPeriod | null,
 ): void {
+  const periodLabel = fmtPeriod(period);
+  const metaRows = [
+    `"${label}"`,
+    periodLabel ? `"Período";"${periodLabel}"` : null,
+    `"Gerado em";"${new Date().toLocaleString('pt-BR')}"`,
+    '',
+  ].filter(v => v !== null);
+
   const header = COLS.map(c => `"${c.label}"`).join(';');
   const rows = devices.map((d, i) => {
     const r = buildRow(d, i, unit);
     return COLS.map(c => `"${String(r[c.key]).replace(/"/g, '""')}"`).join(';');
   });
 
-  const csv = '\uFEFF' + [header, ...rows].join('\r\n'); // BOM for Excel
+  const csv = '\uFEFF' + [...metaRows, header, ...rows].join('\r\n'); // BOM for Excel
   triggerDownload(
     new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
     `${slugify(label)}-${datestamp()}.csv`,
@@ -117,7 +130,15 @@ export function exportGridXls(
   devices: TelemetryDevice[],
   label: string,
   unit: string,
+  period?: ExportPeriod | null,
 ): void {
+  const periodLabel = fmtPeriod(period);
+  const span = COLS.length - 1; // MergeAcross = span cols - 1
+
+  const metaRow = (key: string, val: string) =>
+    `<Row><Cell ss:StyleID="m"><Data ss:Type="String">${escXml(key)}</Data></Cell>` +
+    `<Cell ss:MergeAcross="${span - 1}"><Data ss:Type="String">${escXml(val)}</Data></Cell></Row>`;
+
   const headerCells = COLS.map(
     c => `<Cell ss:StyleID="h"><Data ss:Type="String">${escXml(c.label)}</Data></Cell>`,
   ).join('');
@@ -141,9 +162,17 @@ export function exportGridXls(
       <Font ss:Bold="1" ss:Color="#FFFFFF"/>
       <Interior ss:Color="#3E1A7D" ss:Pattern="Solid"/>
     </Style>
+    <Style ss:ID="m">
+      <Font ss:Bold="1"/>
+      <Interior ss:Color="#F0EDF9" ss:Pattern="Solid"/>
+    </Style>
   </Styles>
   <Worksheet ss:Name="${escXml(label.slice(0, 31))}">
     <Table>
+      ${metaRow('Relatório', label)}
+      ${periodLabel ? metaRow('Período', periodLabel) : ''}
+      ${metaRow('Gerado em', new Date().toLocaleString('pt-BR'))}
+      <Row/>
       <Row>${headerCells}</Row>
       ${dataRows}
     </Table>
@@ -162,6 +191,7 @@ export function exportGridPdf(
   devices: TelemetryDevice[],
   label: string,
   unit: string,
+  period?: ExportPeriod | null,
 ): void {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const PW = doc.internal.pageSize.getWidth();   // 297
@@ -198,7 +228,9 @@ export function exportGridPdf(
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    const info = `${devices.length} dispositivo(s)  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
+    const periodLabel = fmtPeriod(period);
+    const periodPart = periodLabel ? `Período: ${periodLabel}  •  ` : '';
+    const info = `${periodPart}${devices.length} dispositivo(s)  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
     doc.text(info, PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
   }
 

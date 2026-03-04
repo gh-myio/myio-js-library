@@ -34,7 +34,6 @@ let _activationHandler      = null;
 let _activeFilters          = {}; // { from?, to? }
 let _closedAlarmsMode       = false; // true = fetch CLOSED alarms (history mode)
 let _closedAlarmsHandler    = null;
-let _alarmsUpdatedHandler   = null; // receives myio:alarms-updated from MAIN_VIEW
 
 let LogHelper = {
   log:   (...a) => {},
@@ -155,15 +154,10 @@ self.onInit = async function () {
   };
   window.addEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
 
-  // --- myio:alarms-updated — fired by MAIN_VIEW after each ASO rebuild ---
-  // Panel now fetches directly via _fetchAlarmsAndUpdate (with date range).
-  // This handler is kept only to trigger a debounced re-fetch when ASO updates externally.
-  _alarmsUpdatedHandler = () => {
-    if (_closedAlarmsMode) return;
-    LogHelper.log('[ALARM] myio:alarms-updated received — debouncing re-fetch');
-    _debouncedFetchAndUpdate(200);
-  };
-  window.addEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
+  // NOTE: myio:alarms-updated is NOT handled here.
+  // The ALARM widget fetches directly from the API on its own timer (_refreshTimer).
+  // Reacting to myio:alarms-updated would create a loop:
+  //   _fetchAndUpdate → ASO.refresh() → myio:alarms-updated → _fetchAndUpdate → …
 
   // --- Label ---
   const labelEl = document.getElementById('labelWidgetId');
@@ -267,10 +261,6 @@ self.onDestroy = function () {
   if (_closedAlarmsHandler) {
     window.removeEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
     _closedAlarmsHandler = null;
-  }
-  if (_alarmsUpdatedHandler) {
-    window.removeEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
-    _alarmsUpdatedHandler = null;
   }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);

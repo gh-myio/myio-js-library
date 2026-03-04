@@ -104,74 +104,121 @@
   height: 14px;
 }
 
-.shops-root .maximize-btn svg {
-  fill: var(--ink-2, #6b7a90);
+
+/* Export icon buttons */
+.shops-root .export-icon-btn {
+  position: relative;
+  flex-direction: column;
+  gap: 2px;
+  width: auto;
+  padding: 4px 6px;
 }
 
-/* Export buttons */
-.shops-root .export-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
+.shops-root .export-fmt {
+  font: 600 7px/1 var(--font-ui, sans-serif);
+  letter-spacing: 0.4px;
+  color: var(--ink-2, #6b7a90);
+  text-transform: uppercase;
+}
+
+/* CSS tooltip */
+.shops-root .export-icon-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e2638;
+  color: #fff;
+  font: 500 11px/1.4 var(--font-ui, sans-serif);
+  white-space: nowrap;
   padding: 4px 8px;
-  font: 700 10px/1 var(--font-ui);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  letter-spacing: 0.3px;
+  border-radius: 5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
 }
 
-.shops-root .export-btn:hover {
-  opacity: 0.85;
-  transform: translateY(-1px);
+.shops-root .export-icon-btn:hover::after {
+  opacity: 1;
 }
 
-.shops-root .export-btn--pdf {
-  background: #dc2626;
-  color: #fff;
-  border-color: #dc2626;
-}
 
-.shops-root .export-btn--xls {
-  background: #16a34a;
-  color: #fff;
-  border-color: #16a34a;
-}
-
-.shops-root .export-btn--csv {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-}
-
-/* Maximized state */
-.shops-root.maximized {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 99998 !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-  height: 100vh !important;
-}
-
+/* ── Search wrap — grows into collapsed space ── */
 .shops-root .search-wrap {
-  width: 0;
+  flex: 0 0 0px;      /* no growth when inactive — avoids blank space on left */
+  min-width: 0;
+  max-width: 0;
   overflow: hidden;
-  transition: width 0.25s ease;
+  opacity: 0;
+  margin-right: -6px; /* cancel flex-gap contribution when collapsed */
+  transition:
+    max-width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease 0.05s,
+    flex-basis 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    margin 0.28s ease;
 }
 
 .shops-root .search-wrap.active {
-  width: 180px;
+  flex: 1 1 auto;
+  max-width: 600px;
+  opacity: 1;
+  margin-right: 0;
 }
 
 .shops-root #shopsSearch {
   width: 100%;
   border: 1px solid var(--bd);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   outline: 0;
   font: 500 12px/1.2 var(--font-ui);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.shops-root #shopsSearch:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(31, 111, 181, 0.12);
+}
+
+/* ── Collapsible buttons (filter + presetup + exports) ── */
+.shops-root #btnFilter,
+.shops-root #btnPresetup,
+.shops-root .export-icon-btn {
+  transition:
+    max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s ease,
+    padding 0.28s ease,
+    margin 0.28s ease;
+  max-width: 60px;
+  overflow: hidden;
+}
+
+.shops-root .shops-header-btns.search-mode #btnFilter,
+.shops-root .shops-header-btns.search-mode #btnPresetup,
+.shops-root .shops-header-btns.search-mode .export-icon-btn {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  padding-left: 0;
+  padding-right: 0;
+  margin: 0;
+}
+
+/* ── Presetup button accent ── */
+.shops-root #btnPresetup svg {
+  fill: #3e1a7d;
+}
+
+/* ── Search button: tinted when active ── */
+.shops-root .shops-header-btns.search-mode #btnSearch {
+  background: rgba(31, 111, 181, 0.08);
+  border-color: #1f6fb5;
+}
+
+.shops-root .shops-header-btns.search-mode #btnSearch svg {
+  fill: #1f6fb5;
 }
 
 .shops-root .shops-total {

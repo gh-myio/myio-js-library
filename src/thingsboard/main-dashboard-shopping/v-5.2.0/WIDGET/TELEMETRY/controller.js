@@ -1162,10 +1162,6 @@ const STATE = {
   firstHydrates: 0,
 };
 
-// Maximize state
-let _isMaximized = false;
-let _maxOriginalParent = null;
-let _maxOriginalNext = null;
 
 let hydrating = false;
 
@@ -2804,43 +2800,77 @@ function _getExportLabel() {
   return self.ctx.settings?.labelWidget || WIDGET_DOMAIN || 'Dispositivos';
 }
 
-/** ===================== MAXIMIZE ===================== **/
-
-function _toggleMaximize() {
-  const shopsRoot = ($root()[0] || self.ctx.$container[0]).querySelector('.shops-root');
-  if (!shopsRoot) return;
-
-  _isMaximized = !_isMaximized;
-
-  if (_isMaximized) {
-    _maxOriginalParent = shopsRoot.parentElement;
-    _maxOriginalNext   = shopsRoot.nextSibling;
-    document.body.appendChild(shopsRoot);
-    shopsRoot.classList.add('maximized');
-  } else {
-    shopsRoot.classList.remove('maximized');
-    if (_maxOriginalParent) {
-      if (_maxOriginalNext) _maxOriginalParent.insertBefore(shopsRoot, _maxOriginalNext);
-      else _maxOriginalParent.appendChild(shopsRoot);
-    }
-  }
-
-  const btn = shopsRoot.querySelector('#btnMaximize');
-  if (btn) {
-    const icon = _isMaximized
-      ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
-      : '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
-    btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18">${icon}</svg>`;
-  }
+function _getExportPeriod() {
+  const s = self.ctx?.scope?.startDateISO;
+  const e = self.ctx?.scope?.endDateISO;
+  if (s || e) return { startISO: s || null, endISO: e || null };
+  return null;
 }
+
+function _openPresetupModal() {
+  const lib = window.MyIOLibrary;
+  if (!lib?.createPresetupGateway) {
+    LogHelper.warn('[TELEMETRY] createPresetupGateway não disponível em MyIOLibrary');
+    return;
+  }
+  const s = self.ctx.settings || {};
+  const gatewayId     = s.presetupGatewayId    || '';
+  const clientId      = s.presetupClientId     || '';
+  const clientSecret  = s.presetupClientSecret  || '';
+  if (!gatewayId || !clientId || !clientSecret) {
+    lib.MyIOToast?.warn('[TELEMETRY] Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget.');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
+
+  const container = document.createElement('div');
+  container.style.cssText = 'background:#fff;border-radius:14px;width:min(900px,95vw);height:min(700px,90vh);overflow:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.style.cssText = 'position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;z-index:2;color:#555;line-height:1;';
+  closeBtn.onclick = () => overlay.remove();
+
+  container.appendChild(closeBtn);
+  overlay.appendChild(container);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  lib.createPresetupGateway({
+    mount: container,
+    gatewayId,
+    clientId,
+    clientSecret,
+    ingestionApiUrl:    s.presetupIngestionApiUrl    || undefined,
+    ingestionAuthUrl:   s.presetupIngestionAuthUrl   || undefined,
+    provisioningApiUrl: s.presetupProvisioningApiUrl || undefined,
+  });
+}
+
 
 /** ===================== UI BINDINGS ===================== **/
 function bindHeader() {
   $root().on('click', '#btnSearch', () => {
     STATE.searchActive = !STATE.searchActive;
-    $root().find('#searchWrap').toggleClass('active', STATE.searchActive);
+    const $btns = $root().find('.shops-header-btns');
+    const $wrap = $root().find('#searchWrap');
 
-    if (STATE.searchActive) setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 30);
+    $btns.toggleClass('search-mode', STATE.searchActive);
+    $wrap.toggleClass('active', STATE.searchActive);
+
+    if (STATE.searchActive) {
+      setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 50);
+    } else {
+      STATE.searchTerm = '';
+      $root().find('#shopsSearch').val('');
+      reflowFromState();
+    }
+  });
+
+  $root().on('keydown', '#shopsSearch', (ev) => {
+    if (ev.key === 'Escape') $root().find('#btnSearch').trigger('click');
   });
 
   $root().on('input', '#shopsSearch', (ev) => {
@@ -2860,23 +2890,24 @@ function bindHeader() {
   $root().on('click', '#btnExportPdf', () => {
     const lib = window.MyIOLibrary;
     if (!lib?.exportGridPdf) { LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary'); return; }
-    lib.exportGridPdf(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit());
+    lib.exportGridPdf(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit(), _getExportPeriod());
   });
 
   $root().on('click', '#btnExportXls', () => {
     const lib = window.MyIOLibrary;
     if (!lib?.exportGridXls) { LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary'); return; }
-    lib.exportGridXls(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit());
+    lib.exportGridXls(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit(), _getExportPeriod());
   });
 
   $root().on('click', '#btnExportCsv', () => {
     const lib = window.MyIOLibrary;
     if (!lib?.exportGridCsv) { LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary'); return; }
-    lib.exportGridCsv(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit());
+    lib.exportGridCsv(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit(), _getExportPeriod());
   });
 
-  // Maximize
-  $root().on('click', '#btnMaximize', _toggleMaximize);
+  // Presetup button
+  $root().on('click', '#btnPresetup', _openPresetupModal);
+
 }
 
 function openFilterModal() {
@@ -4650,6 +4681,12 @@ self.onInit = async function () {
   // Bind UI
   bindHeader();
   bindModal();
+
+  // Show presetup button if credentials are configured in widget settings
+  if (self.ctx.settings?.presetupGatewayId && self.ctx.settings?.presetupClientId && self.ctx.settings?.presetupClientSecret) {
+    const btnPresetup = $root().find('#btnPresetup')[0];
+    if (btnPresetup) btnPresetup.style.display = '';
+  }
 
   // ---------- Datas iniciais: "Current Month So Far" ----------
   if (!self.ctx?.scope?.startDateISO || !self.ctx?.scope?.endDateISO) {
