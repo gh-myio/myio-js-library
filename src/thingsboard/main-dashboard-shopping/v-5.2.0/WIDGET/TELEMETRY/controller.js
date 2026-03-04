@@ -2818,12 +2818,16 @@ function _openPresetupModal() {
   const clientId      = s.presetupClientId     || '';
   const clientSecret  = s.presetupClientSecret  || '';
   if (!gatewayId || !clientId || !clientSecret) {
-    const toast = lib.MyIOToast || window.MyIOToast;
-    if (toast) toast.error('Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget.');
-    else alert('Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget.');
+    _openPresetupConfigPrompt(s, (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
+      _launchPresetupGateway(lib, s, resolvedGatewayId, resolvedClientId, resolvedClientSecret);
+    });
     return;
   }
 
+  _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret);
+}
+
+function _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
@@ -2849,6 +2853,64 @@ function _openPresetupModal() {
     ingestionAuthUrl:   s.presetupIngestionAuthUrl   || undefined,
     provisioningApiUrl: s.presetupProvisioningApiUrl || undefined,
   });
+}
+
+function _openPresetupConfigPrompt(s, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
+
+  card.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;">
+      <svg style="flex-shrink:0;margin-top:2px;" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="#c0392b" stroke="none"/>
+      </svg>
+      <div>
+        <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração incompleta</p>
+        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget, ou preencha abaixo para continuar.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <label style="font-size:12px;color:#555;font-weight:600;">Gateway ID
+        <input id="_psgw" type="text" value="${(s.presetupGatewayId||'').replace(/"/g,'&quot;')}" placeholder="UUID do gateway" autocomplete="off"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
+      </label>
+      <label style="font-size:12px;color:#555;font-weight:600;">Client ID
+        <input id="_psci" type="text" value="${(s.presetupClientId||'').replace(/"/g,'&quot;')}" placeholder="client_id" autocomplete="off"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
+      </label>
+      <label style="font-size:12px;color:#555;font-weight:600;">Client Secret
+        <input id="_pscs" type="password" value="${(s.presetupClientSecret||'').replace(/"/g,'&quot;')}" placeholder="client_secret"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button id="_psCancelBtn" style="padding:8px 18px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;color:#555;font-size:13px;cursor:pointer;">Cancelar</button>
+      <button id="_psConfirmBtn" style="padding:8px 20px;border:none;border-radius:7px;background:#3e1a7d;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Continuar</button>
+    </div>`;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  card.querySelector('#_psCancelBtn').onclick = () => overlay.remove();
+  card.querySelector('#_psConfirmBtn').onclick = () => {
+    const gw = card.querySelector('#_psgw').value.trim();
+    const ci = card.querySelector('#_psci').value.trim();
+    const cs = card.querySelector('#_pscs').value.trim();
+    if (!gw || !ci || !cs) {
+      card.querySelectorAll('input').forEach(inp => {
+        inp.style.borderColor = inp.value.trim() ? '#ddd' : '#c0392b';
+      });
+      return;
+    }
+    overlay.remove();
+    onConfirm(gw, ci, cs);
+  };
+
+  setTimeout(() => card.querySelector('#_psgw').focus(), 50);
 }
 
 
