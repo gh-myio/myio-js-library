@@ -142,10 +142,10 @@ export function renderAlarmCard(alarm: Alarm, _params?: AlarmCardParams): string
     ${!hideSelect ? `<label class="alarm-card-checkbox-wrap" title="Selecionar para ação em lote" onclick="event.stopPropagation()">
       <input type="checkbox" class="alarm-card-select" data-alarm-id="${alarm.id}" data-alarm-title="${escapeHtml(rawTitle)}"${isSelected ? ' checked' : ''}>
     </label>` : ''}
-    ${showDeviceBadge && safeSource ? `<span class="alarm-card-device-badge" title="${safeSource}"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M4 6h16v10H4zm8 12c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-4 0h8v-1H8v1z"/></svg>${safeSource}</span>` : ''}
+    ${showDeviceBadge && safeSource ? `<span class="alarm-card-device-badge" title="${safeSource}">${safeSource}</span>` : ''}
     <div class="alarm-card-badges">
-      <span class="alarm-severity-badge" data-severity="${alarm.severity}" title="${severityConfig.label}">${severityConfig.icon}</span>
-      <span class="alarm-state-badge" data-state="${alarm.state}">${stateConfig.label}</span>
+      <span class="alarm-severity-badge" data-severity="${alarm.severity}" data-tooltip="${severityConfig.label}" data-initial="${severityConfig.label.charAt(0).toUpperCase()}"></span>
+      <span class="alarm-state-badge" data-state="${alarm.state}" data-tooltip="${stateConfig.label}" data-initial="${stateConfig.label.charAt(0).toUpperCase()}"></span>
     </div>
   </header>
   <div class="alarm-card-body">

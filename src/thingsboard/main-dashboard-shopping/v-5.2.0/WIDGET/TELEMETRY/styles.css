@@ -33,8 +33,8 @@
 .shops-root .shops-header {
   flex: 0 0 auto; /* ✅ Header ocupa apenas o espaço necessário */
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
   background: linear-gradient(180deg, #fff 0, #f7fbff 100%);
   border: 1px solid var(--bd);
   border-radius: 12px;
@@ -44,6 +44,21 @@
   position: sticky; /* ✅ Sticky para fixar no topo */
   top: 0;
   z-index: 10; /* ✅ Fica acima da lista quando rolar */
+}
+
+/* Row 1: action buttons */
+.shops-root .shops-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Row 2: label + total */
+.shops-root .shops-header-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .shops-root .shops-header-left {
@@ -64,12 +79,6 @@
   font: 700 11px/1 var(--font-ui);
   color: #3e1a7d;
   padding: 3px 6px;
-}
-
-.shops-root .shops-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .shops-root .icon-btn {
@@ -93,6 +102,57 @@
   display: block;
   width: 14px;
   height: 14px;
+}
+
+.shops-root .maximize-btn svg {
+  fill: var(--ink-2, #6b7a90);
+}
+
+/* Export buttons */
+.shops-root .export-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font: 700 10px/1 var(--font-ui);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  letter-spacing: 0.3px;
+}
+
+.shops-root .export-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.shops-root .export-btn--pdf {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.shops-root .export-btn--xls {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}
+
+.shops-root .export-btn--csv {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+/* Maximized state */
+.shops-root.maximized {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99998 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  height: 100vh !important;
 }
 
 .shops-root .search-wrap {

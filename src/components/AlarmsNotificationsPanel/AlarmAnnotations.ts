@@ -22,11 +22,118 @@ export interface AlarmAnnotation {
   archived: boolean;
 }
 
+/**
+ * Config for persisting alarm annotations to ThingsBoard log_annotations (SERVER_SCOPE).
+ * Schema 1.1.0 — extends existing device annotations with alarmGroups map.
+ */
+export interface TbSaveConfig {
+  deviceId: string;
+  tbBaseUrl: string;
+  jwtToken: string;
+  /** Key in alarmGroups — normalized alarm type/title (UPPER_SNAKE_CASE) */
+  alarmType: string;
+  /** Human-readable alarm title for display */
+  alarmTitle: string;
+}
+
 // =====================================================================
 // Module-level store (persists across modal open/close within a session)
 // =====================================================================
 
 const _store = new Map<string, AlarmAnnotation[]>();
+
+// =====================================================================
+// ThingsBoard persistence — schema v1.1.0
+// =====================================================================
+
+async function _persistToDevice(tbConfig: TbSaveConfig, alarmId: string): Promise<void> {
+  const { deviceId, tbBaseUrl, jwtToken, alarmType, alarmTitle } = tbConfig;
+  const base = tbBaseUrl.replace(/\/$/, '');
+  const authHdr: Record<string, string> = { 'X-Authorization': `Bearer ${jwtToken}` };
+
+  // 1. Read current log_annotations from TB
+  let existing: Record<string, unknown> = {};
+  try {
+    const resp = await fetch(
+      `${base}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
+      { headers: authHdr }
+    );
+    if (resp.ok) {
+      const arr: Array<{ key: string; value: unknown }> = await resp.json();
+      const kv = arr.find((x) => x.key === 'log_annotations');
+      if (kv?.value) {
+        existing =
+          typeof kv.value === 'string'
+            ? JSON.parse(kv.value)
+            : (kv.value as Record<string, unknown>);
+      }
+    }
+  } catch (_) {}
+
+  // 2. Merge alarmGroups[alarmType] with current in-memory annotations
+  const annotations = _store.get(alarmId) ?? [];
+  const alarmGroups: Record<string, unknown> =
+    (existing.alarmGroups as Record<string, unknown>) ?? {};
+  alarmGroups[alarmType] = {
+    alarmType,
+    alarmTitle,
+    lastUpdated: new Date().toISOString(),
+    annotations,
+  };
+
+  const myioUtils = (window as unknown as Record<string, unknown>).MyIOUtils as
+    | Record<string, unknown>
+    | undefined;
+  const userEmail = (myioUtils?.currentUserEmail as string) || 'sistema';
+  const userId = (myioUtils?.currentUserId as string) || null;
+
+  const payload = {
+    schemaVersion: '1.1.0',
+    deviceId,
+    lastModified: new Date().toISOString(),
+    lastModifiedBy: { id: userId, email: userEmail, name: userEmail },
+    annotations: (existing.annotations as AlarmAnnotation[]) ?? [],
+    alarmGroups,
+  };
+
+  // 3. POST updated attribute back
+  await fetch(`${base}/api/plugins/telemetry/DEVICE/${deviceId}/SERVER_SCOPE`, {
+    method: 'POST',
+    headers: { ...authHdr, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ log_annotations: payload }),
+  });
+}
+
+/**
+ * Load alarm annotations for a given alarmType from the device's log_annotations
+ * SERVER_SCOPE attribute and populate the in-memory store.
+ */
+export async function loadAlarmAnnotationsFromDevice(
+  tbConfig: TbSaveConfig,
+  alarmId: string
+): Promise<void> {
+  const { deviceId, tbBaseUrl, jwtToken, alarmType } = tbConfig;
+  const base = tbBaseUrl.replace(/\/$/, '');
+  try {
+    const resp = await fetch(
+      `${base}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
+      { headers: { 'X-Authorization': `Bearer ${jwtToken}` } }
+    );
+    if (!resp.ok) return;
+    const arr: Array<{ key: string; value: unknown }> = await resp.json();
+    const kv = arr.find((x) => x.key === 'log_annotations');
+    if (!kv?.value) return;
+    const data: Record<string, unknown> =
+      typeof kv.value === 'string' ? JSON.parse(kv.value) : (kv.value as Record<string, unknown>);
+    const groups = data?.alarmGroups as
+      | Record<string, { annotations?: AlarmAnnotation[] }>
+      | undefined;
+    const group = groups?.[alarmType];
+    if (group?.annotations?.length) {
+      _store.set(alarmId, group.annotations);
+    }
+  } catch (_) {}
+}
 
 export function getActiveAnnotationCount(alarmId: string): number {
   return (_store.get(alarmId) ?? []).filter((a) => !a.archived).length;
@@ -268,7 +375,8 @@ export function bindAnnotationsPanelEvents(
   panel: HTMLElement,
   alarmId: string,
   currentUser: string,
-  onCountChange: (n: number) => void
+  onCountChange: (n: number) => void,
+  tbConfig?: TbSaveConfig
 ): void {
   const refresh = () => {
     const listEl = panel.querySelector<HTMLElement>('#admAnnotList');
@@ -346,6 +454,7 @@ export function bindAnnotationsPanelEvents(
       }
       closeForm();
       refresh();
+      if (tbConfig) _persistToDevice(tbConfig, alarmId).catch(() => {});
     });
   };
 
@@ -361,6 +470,7 @@ export function bindAnnotationsPanelEvents(
         archiveAlarmAnnotation(alarmId, btn.dataset.annId!);
         closeForm();
         refresh();
+        if (tbConfig) _persistToDevice(tbConfig, alarmId).catch(() => {});
       });
     });
   };
@@ -373,4 +483,9 @@ export function bindAnnotationsPanelEvents(
   });
 
   bindCardBtns();
+
+  // Auto-load from TB if config provided (async; refresh panel once done)
+  if (tbConfig) {
+    loadAlarmAnnotationsFromDevice(tbConfig, alarmId).then(() => refresh()).catch(() => {});
+  }
 }

@@ -1152,6 +1152,7 @@ let MyIOAuth = null;
 const STATE = {
   itemsBase: [], // lista autoritativa (TB)
   itemsEnriched: [], // lista com totals + perc
+  lastVisible: [], // último lote filtrado visível (para export)
   searchActive: false,
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
@@ -1160,6 +1161,11 @@ const STATE = {
   alarmFilter: 'ativado',
   firstHydrates: 0,
 };
+
+// Maximize state
+let _isMaximized = false;
+let _maxOriginalParent = null;
+let _maxOriginalNext = null;
 
 let hydrating = false;
 
@@ -2763,6 +2769,71 @@ function renderList(visible) {
   });
 }
 
+/** ===================== EXPORT HELPERS ===================== **/
+
+/**
+ * Maps STATE items to TelemetryDevice-compatible objects for the export functions.
+ * @param {Array} items
+ * @returns {Array}
+ */
+function _buildExportDevices(items) {
+  return (items || []).map((it) => ({
+    entityId:         it.id || '',
+    ingestionId:      it.ingestionId || '',
+    labelOrName:      it.label || it.identifier || '',
+    deviceIdentifier: it.identifier || '',
+    deviceType:       it.deviceType || '',
+    deviceProfile:    it.deviceProfile || '',
+    deviceStatus:     it.deviceStatus || '',
+    connectionStatus: it.connectionStatus || '',
+    customerId:       '',
+    customerName:     it.customerName || '',
+    val:              it.value ?? null,
+    perc:             it.perc,
+  }));
+}
+
+function _getExportUnit() {
+  if (WIDGET_DOMAIN === 'energy') return 'kWh';
+  if (WIDGET_DOMAIN === 'water') return 'm³';
+  if (WIDGET_DOMAIN === 'temperature') return '°C';
+  return '';
+}
+
+function _getExportLabel() {
+  return self.ctx.settings?.labelWidget || WIDGET_DOMAIN || 'Dispositivos';
+}
+
+/** ===================== MAXIMIZE ===================== **/
+
+function _toggleMaximize() {
+  const shopsRoot = ($root()[0] || self.ctx.$container[0]).querySelector('.shops-root');
+  if (!shopsRoot) return;
+
+  _isMaximized = !_isMaximized;
+
+  if (_isMaximized) {
+    _maxOriginalParent = shopsRoot.parentElement;
+    _maxOriginalNext   = shopsRoot.nextSibling;
+    document.body.appendChild(shopsRoot);
+    shopsRoot.classList.add('maximized');
+  } else {
+    shopsRoot.classList.remove('maximized');
+    if (_maxOriginalParent) {
+      if (_maxOriginalNext) _maxOriginalParent.insertBefore(shopsRoot, _maxOriginalNext);
+      else _maxOriginalParent.appendChild(shopsRoot);
+    }
+  }
+
+  const btn = shopsRoot.querySelector('#btnMaximize');
+  if (btn) {
+    const icon = _isMaximized
+      ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+      : '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18">${icon}</svg>`;
+  }
+}
+
 /** ===================== UI BINDINGS ===================== **/
 function bindHeader() {
   $root().on('click', '#btnSearch', () => {
@@ -2784,6 +2855,28 @@ function bindHeader() {
     _btnFilter.addEventListener('click', openFilterModal);  // native listener
   }
   $root().on('click', '#btnFilter', openFilterModal);       // jQuery delegation (fallback)
+
+  // Export buttons
+  $root().on('click', '#btnExportPdf', () => {
+    const lib = window.MyIOLibrary;
+    if (!lib?.exportGridPdf) { LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary'); return; }
+    lib.exportGridPdf(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit());
+  });
+
+  $root().on('click', '#btnExportXls', () => {
+    const lib = window.MyIOLibrary;
+    if (!lib?.exportGridXls) { LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary'); return; }
+    lib.exportGridXls(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit());
+  });
+
+  $root().on('click', '#btnExportCsv', () => {
+    const lib = window.MyIOLibrary;
+    if (!lib?.exportGridCsv) { LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary'); return; }
+    lib.exportGridCsv(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit());
+  });
+
+  // Maximize
+  $root().on('click', '#btnMaximize', _toggleMaximize);
 }
 
 function openFilterModal() {
@@ -3581,6 +3674,7 @@ function emitWaterTelemetry(widgetType, periodKey) {
 function reflowFromState() {
   const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode, STATE.alarmFilter);
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
+  STATE.lastVisible = withPerc;
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
 }

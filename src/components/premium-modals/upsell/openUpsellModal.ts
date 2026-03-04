@@ -753,6 +753,11 @@ interface ModalState {
     search: string;
     newAssetName: string;
     assetsLoaded: boolean;
+    /** Override the selected customer as relation target (empty = use selectedCustomer) */
+    overrideCustomerId: string;
+    overrideCustomerName: string;
+    customerSearch: string;
+    customerPickerOpen: boolean;
   };
   deviceToAssetMap: Map<string, string>; // deviceId → asset name
   relationsLoaded: boolean;
@@ -910,7 +915,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     lojasDataLoading: false,
     lojasConfig: null,
     customModeModal: { open: false },
-    bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false },
+    bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false, overrideCustomerId: '', overrideCustomerName: '', customerSearch: '', customerPickerOpen: false },
     checkFixLoading: false,
     checkFixReport: null,
     checkFixFilter: 'all',
@@ -1555,10 +1560,15 @@ function renderModal(
       state.bulkRelationModal.open
         ? (() => {
             const rel = state.bulkRelationModal;
-            const customerName = state.selectedCustomer?.name || state.selectedCustomer?.title || '';
+            const defaultCustomerName = state.selectedCustomer?.name || state.selectedCustomer?.title || '';
+            const effectiveCustomerId = rel.overrideCustomerId || getEntityId(state.selectedCustomer);
+            const effectiveCustomerName = rel.overrideCustomerName || defaultCustomerName;
             const filteredAssets = rel.search
               ? state.customerAssets.filter(a => a.name.toLowerCase().includes(rel.search.toLowerCase()))
               : state.customerAssets;
+            const filteredCustomers = rel.customerSearch
+              ? state.customers.filter(c => (c.name || c.title || '').toLowerCase().includes(rel.customerSearch.toLowerCase()))
+              : state.customers;
             return `
       <!-- Bulk Force Relation Modal -->
       <div style="
@@ -1568,7 +1578,8 @@ function renderModal(
       ">
         <div style="
           background: ${colors.surface}; border-radius: 12px; padding: 24px;
-          max-width: 480px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+          max-width: 480px; width: 90%; max-height: 90vh; overflow-y: auto;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         ">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">🔗 Forçar Relação em Lote</h3>
@@ -1578,6 +1589,46 @@ function renderModal(
             Remove todas as relações TO existentes dos <strong>${state.selectedDevices.length}</strong> devices e cria uma nova relação para o destino escolhido.
           </p>
 
+          <!-- Customer de destino -->
+          <div style="margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; background: ${colors.cardBg}; border: 1px solid ${rel.overrideCustomerId ? '#0a6d5e' : colors.border};">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+              <div>
+                <div style="font-size: 11px; color: ${colors.textMuted}; margin-bottom: 2px;">Customer de destino</div>
+                <div style="font-size: 13px; font-weight: 600; color: ${rel.overrideCustomerId ? '#0a6d5e' : colors.text};">
+                  ${effectiveCustomerName}${rel.overrideCustomerId ? ' <span style="font-size:10px;background:#e6f4f1;color:#0a6d5e;border-radius:4px;padding:1px 5px;margin-left:4px;">alterado</span>' : ''}
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                ${rel.overrideCustomerId ? `<button id="${modalId}-bulk-rel-cust-clear" style="background: none; border: 1px solid ${colors.border}; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: ${colors.textMuted};">↩ Original</button>` : ''}
+                <button id="${modalId}-bulk-rel-cust-toggle" style="background: ${rel.customerPickerOpen ? '#0a6d5e' : colors.surface}; color: ${rel.customerPickerOpen ? '#fff' : colors.text}; border: 1px solid ${rel.customerPickerOpen ? '#0a6d5e' : colors.border}; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; font-weight: 500;">
+                  ${rel.customerPickerOpen ? '✕ Fechar' : '🔄 Alterar'}
+                </button>
+              </div>
+            </div>
+            ${rel.customerPickerOpen ? `
+              <div style="margin-top: 10px;">
+                <input
+                  id="${modalId}-bulk-rel-cust-search"
+                  type="text"
+                  placeholder="Buscar customer..."
+                  value="${rel.customerSearch}"
+                  style="width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; border: 1px solid ${colors.border}; background: ${colors.surface}; color: ${colors.text}; font-size: 13px; margin-bottom: 6px;"
+                />
+                <div style="max-height: 160px; overflow-y: auto; border: 1px solid ${colors.border}; border-radius: 6px;">
+                  ${filteredCustomers.length === 0
+                    ? `<div style="padding: 10px; text-align: center; color: ${colors.textMuted}; font-size: 13px;">Nenhum customer encontrado.</div>`
+                    : filteredCustomers.slice(0, 30).map(c => {
+                        const cId = c.id?.id || '';
+                        const cName = c.name || c.title || '';
+                        const isSelected = cId === effectiveCustomerId;
+                        return `<div class="bulk-rel-cust-item" data-cust-id="${cId}" data-cust-name="${cName.replace(/"/g, '&quot;')}" style="padding: 8px 12px; cursor: pointer; font-size: 13px; color: ${isSelected ? '#0a6d5e' : colors.text}; background: ${isSelected ? '#e6f4f1' : 'transparent'}; font-weight: ${isSelected ? '600' : '400'}; border-bottom: 1px solid ${colors.border};">${cName}</div>`;
+                      }).join('')
+                  }
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
           <!-- Target: Customer -->
           <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 8px; border: 2px solid ${rel.target === 'CUSTOMER' ? '#0a6d5e' : colors.border}; cursor: pointer; margin-bottom: 8px;">
             <input type="radio" name="${modalId}-bulk-rel-target" value="CUSTOMER"
@@ -1586,7 +1637,7 @@ function renderModal(
               style="margin-top: 2px; accent-color: #0a6d5e;">
             <div>
               <div style="font-weight: 600; color: ${colors.text}; font-size: 14px;">Customer</div>
-              <div style="font-size: 12px; color: ${colors.textMuted};">${customerName}</div>
+              <div style="font-size: 12px; color: ${colors.textMuted};">${effectiveCustomerName}</div>
             </div>
           </label>
 
@@ -4379,6 +4430,10 @@ function setupEventListeners(
     state.bulkRelationModal.selectedAssetName = '';
     state.bulkRelationModal.search = '';
     state.bulkRelationModal.newAssetName = '';
+    state.bulkRelationModal.overrideCustomerId = '';
+    state.bulkRelationModal.overrideCustomerName = '';
+    state.bulkRelationModal.customerSearch = '';
+    state.bulkRelationModal.customerPickerOpen = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -4408,11 +4463,11 @@ function setupEventListeners(
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Load assets button
+  // Load assets button — uses override customer if set
   document.getElementById(`${modalId}-bulk-rel-load-assets`)?.addEventListener('click', async () => {
     if (!state.selectedCustomer) return;
-    const customerId = getEntityId(state.selectedCustomer);
-    state.customerAssets = await fetchCustomerAssets(state, customerId);
+    const effectiveId = state.bulkRelationModal.overrideCustomerId || getEntityId(state.selectedCustomer);
+    state.customerAssets = await fetchCustomerAssets(state, effectiveId);
     state.bulkRelationModal.assetsLoaded = true;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
@@ -4423,6 +4478,54 @@ function setupEventListeners(
     (el as HTMLElement).addEventListener('click', () => {
       state.bulkRelationModal.selectedAssetId = (el as HTMLElement).dataset.assetId || '';
       state.bulkRelationModal.selectedAssetName = (el as HTMLElement).dataset.assetName || '';
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    });
+  });
+
+  // Customer picker: toggle open/close
+  document.getElementById(`${modalId}-bulk-rel-cust-toggle`)?.addEventListener('click', () => {
+    state.bulkRelationModal.customerPickerOpen = !state.bulkRelationModal.customerPickerOpen;
+    state.bulkRelationModal.customerSearch = '';
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Customer picker: clear override → revert to selectedCustomer
+  document.getElementById(`${modalId}-bulk-rel-cust-clear`)?.addEventListener('click', () => {
+    state.bulkRelationModal.overrideCustomerId = '';
+    state.bulkRelationModal.overrideCustomerName = '';
+    state.bulkRelationModal.customerPickerOpen = false;
+    state.bulkRelationModal.customerSearch = '';
+    state.bulkRelationModal.selectedAssetId = '';
+    state.bulkRelationModal.selectedAssetName = '';
+    state.customerAssets = [];
+    state.bulkRelationModal.assetsLoaded = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Customer picker: search input
+  document.getElementById(`${modalId}-bulk-rel-cust-search`)?.addEventListener('input', (e) => {
+    state.bulkRelationModal.customerSearch = (e.target as HTMLInputElement).value;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Customer picker: item selection
+  container.querySelectorAll('.bulk-rel-cust-item').forEach((el) => {
+    (el as HTMLElement).addEventListener('click', () => {
+      const cId = (el as HTMLElement).dataset.custId || '';
+      const cName = (el as HTMLElement).dataset.custName || '';
+      state.bulkRelationModal.overrideCustomerId = cId;
+      state.bulkRelationModal.overrideCustomerName = cName;
+      state.bulkRelationModal.customerPickerOpen = false;
+      state.bulkRelationModal.customerSearch = '';
+      // Reset asset selection — assets belong to previous customer
+      state.bulkRelationModal.selectedAssetId = '';
+      state.bulkRelationModal.selectedAssetName = '';
+      state.customerAssets = [];
+      state.bulkRelationModal.assetsLoaded = false;
       renderModal(container, state, modalId, t);
       setupEventListeners(container, state, modalId, t, onClose);
     });
@@ -5359,7 +5462,8 @@ async function handleBatchForceRelation(
 
   const rel = state.bulkRelationModal;
   const devices = state.selectedDevices;
-  const customerId = getEntityId(state.selectedCustomer);
+  const effectiveCustomerId = rel.overrideCustomerId || getEntityId(state.selectedCustomer);
+  const effectiveCustomerName = rel.overrideCustomerName || state.selectedCustomer.name || state.selectedCustomer.title || 'Customer';
 
   // Determine target entity
   let fromEntityType: 'CUSTOMER' | 'ASSET';
@@ -5368,15 +5472,15 @@ async function handleBatchForceRelation(
 
   if (rel.target === 'CUSTOMER') {
     fromEntityType = 'CUSTOMER';
-    fromEntityId = customerId;
-    fromEntityName = state.selectedCustomer.name || state.selectedCustomer.title || 'Customer';
+    fromEntityId = effectiveCustomerId;
+    fromEntityName = effectiveCustomerName;
   } else if (rel.target === 'ASSET_EXISTING') {
     if (!rel.selectedAssetId) return;
     fromEntityType = 'ASSET';
     fromEntityId = rel.selectedAssetId;
     fromEntityName = rel.selectedAssetName;
   } else {
-    // ASSET_NEW: create the asset first
+    // ASSET_NEW: create the asset first under the effective customer
     const newAssetName = rel.newAssetName.trim();
     if (!newAssetName) return;
     fromEntityType = 'ASSET';
@@ -5385,7 +5489,7 @@ async function handleBatchForceRelation(
       const created = await tbPost<{ id: { id: string } }>(state, '/api/asset', {
         name: newAssetName,
         type: 'default',
-        customerId: { entityType: 'CUSTOMER', id: customerId },
+        customerId: { entityType: 'CUSTOMER', id: effectiveCustomerId },
       });
       fromEntityId = created.id.id;
     } catch (err) {

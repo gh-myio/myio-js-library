@@ -458,6 +458,8 @@ export class WaterTankModalView {
 
     const firstTs = chartPoints[0]?.ts;
     const lastTs = chartPoints[chartPoints.length - 1]?.ts;
+    const { params } = this.config;
+    const limitReached = chartPoints.length >= (params.limit || 1000);
 
     return `
       <div id="myio-water-tank-chart-panel" style="
@@ -521,9 +523,11 @@ export class WaterTankModalView {
             font-size: 11px;
             color: #7f8c8d;
             text-align: center;
+            line-height: 1.5;
           ">
-            ${this.formatDate(firstTs, false)} — ${this.formatDate(lastTs, false)}
-            (${chartPoints.length} leituras)
+            ${this.formatDate(params.startTs, false)} — ${this.formatDate(params.endTs, false)}
+            · ${chartPoints.length} leituras
+            ${limitReached ? `<br><span style="color: #e67e22; font-weight: 600;">⚠ limite atingido — exibindo de ${this.formatDate(firstTs, false)} a ${this.formatDate(lastTs, false)}</span>` : ''}
           </div>
         ` : ''}
       </div>
@@ -701,6 +705,8 @@ export class WaterTankModalView {
 
     const firstTs = chartPoints[0]?.ts;
     const lastTs = chartPoints[chartPoints.length - 1]?.ts;
+    const { params } = this.config;
+    const limitReached = chartPoints.length >= (params.limit || 1000);
     const chartTitle = this.chartDisplayMode === 'water_percentage'
       ? 'Water Level History (%)'
       : this.i18n.levelChart;
@@ -751,9 +757,11 @@ export class WaterTankModalView {
             font-size: 12px;
             color: #7f8c8d;
             text-align: center;
+            line-height: 1.5;
           ">
-            ${this.formatDate(firstTs, false)} — ${this.formatDate(lastTs, false)}
-            (${chartPoints.length} readings)
+            ${this.formatDate(params.startTs, false)} — ${this.formatDate(params.endTs, false)}
+            · ${chartPoints.length} leituras
+            ${limitReached ? `<br><span style="color: #e67e22; font-weight: 600;">⚠ limite atingido — exibindo de ${this.formatDate(firstTs, false)} a ${this.formatDate(lastTs, false)}</span>` : ''}
           </div>
         ` : ''}
       </div>
@@ -1164,19 +1172,26 @@ export class WaterTankModalView {
     const xLabelCount = Math.min(6, points.length);
     const xLabelStep = Math.floor(points.length / xLabelCount);
 
+    // Show time when data spans less than 3 days (avoids repetitive day/month labels)
+    const dataRangeMs = (points[points.length - 1]?.ts ?? 0) - (points[0]?.ts ?? 0);
+    const showTime = dataRangeMs < 3 * 24 * 3600 * 1000;
+
+    const formatXLabel = (ts: number): string => {
+      const d = new Date(ts);
+      const datePart = `${d.getDate()}/${d.getMonth() + 1}`;
+      if (!showTime) return datePart;
+      return `${datePart} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+
     for (let i = 0; i < points.length; i += xLabelStep) {
       const x = padding.left + i * xScale;
-      const date = new Date(points[i].ts);
-      const label = `${date.getDate()}/${date.getMonth() + 1}`;
-      ctx.fillText(label, x, height - padding.bottom + 16);
+      ctx.fillText(formatXLabel(points[i].ts), x, height - padding.bottom + 16);
     }
 
     // Draw last point label
     if (points.length > 1) {
       const lastX = padding.left + (points.length - 1) * xScale;
-      const lastDate = new Date(points[points.length - 1].ts);
-      const lastLabel = `${lastDate.getDate()}/${lastDate.getMonth() + 1}`;
-      ctx.fillText(lastLabel, lastX, height - padding.bottom + 16);
+      ctx.fillText(formatXLabel(points[points.length - 1].ts), lastX, height - padding.bottom + 16);
     }
   }
 

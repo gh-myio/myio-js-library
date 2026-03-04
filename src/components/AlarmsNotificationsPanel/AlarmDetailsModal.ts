@@ -9,6 +9,7 @@ import {
   buildAnnotationsPanelHtml,
   bindAnnotationsPanelEvents,
   getActiveAnnotationCount,
+  type TbSaveConfig,
 } from './AlarmAnnotations';
 
 // =====================================================================
@@ -386,6 +387,38 @@ function parseDevices(source: string): string[] {
     .split(/[,;]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+// =====================================================================
+// TB persistence helpers
+// =====================================================================
+
+/** Convert an alarm title to UPPER_SNAKE_CASE for use as alarmGroups key */
+function normalizeAlarmType(title: string): string {
+  return title
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Resolve the ThingsBoard device UUID from alarm.centralId
+ * by looking up window.STATE[domain]._raw items.
+ */
+function resolveDeviceTbId(alarm: Alarm): string | null {
+  const state = (window as unknown as Record<string, unknown>).STATE as
+    | Record<string, { _raw?: Array<{ centralId?: string; id?: string }> }>
+    | undefined;
+  if (!state) return null;
+  for (const domain of ['energy', 'water', 'temperature']) {
+    const raw = state[domain]?._raw ?? [];
+    const found = raw.find((item) => item.centralId && item.centralId === alarm.centralId);
+    if (found?.id) return found.id;
+  }
+  return null;
 }
 
 // =====================================================================
@@ -1149,6 +1182,25 @@ export function openAlarmDetailsModal(
   const annotPanelEl = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="anotacoes"]');
   if (annotPanelEl) {
     const currentUser = (window as any).MyIOUtils?.currentUserEmail || alarm.acknowledgedBy || alarm.customerName || 'Usuário';
+
+    // Build TB persistence config if credentials are available
+    let tbCfg: TbSaveConfig | undefined;
+    const tbBaseUrl: string =
+      (window as any).__myioTbBaseUrl ||
+      (window as any).MyIOOrchestrator?.tbBaseUrl ||
+      '';
+    const jwtToken: string = localStorage.getItem('jwt_token') || '';
+    const tbDeviceId = resolveDeviceTbId(alarm);
+    if (tbBaseUrl && jwtToken && tbDeviceId) {
+      tbCfg = {
+        deviceId: tbDeviceId,
+        tbBaseUrl,
+        jwtToken,
+        alarmType: normalizeAlarmType(alarm.title),
+        alarmTitle: alarm.title,
+      };
+    }
+
     bindAnnotationsPanelEvents(annotPanelEl, alarm.id, currentUser, (n) => {
       const tabBtn = overlay.querySelector<HTMLElement>('.adm-tab[data-panel="anotacoes"]');
       if (!tabBtn) return;
@@ -1163,7 +1215,7 @@ export function openAlarmDetailsModal(
       } else if (badge) {
         badge.remove();
       }
-    });
+    }, tbCfg);
   }
 
   // Maximize / restore

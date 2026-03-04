@@ -948,7 +948,7 @@ export type {
 export { MENU_SHOPPING_CSS_PREFIX, DEFAULT_MENU_SHOPPING_CONFIG } from './components/menu-shopping';
 
 // RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
-export { createTelemetryGridShoppingComponent } from './components/telemetry-grid-shopping';
+export { createTelemetryGridShoppingComponent, exportGridCsv, exportGridXls, exportGridPdf } from './components/telemetry-grid-shopping';
 
 export type {
   TelemetryGridShoppingParams,

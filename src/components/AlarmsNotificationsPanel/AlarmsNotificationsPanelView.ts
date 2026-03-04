@@ -47,6 +47,9 @@ export class AlarmsNotificationsPanelView {
   // Closed history mode — fetches CLOSED alarms, hides action buttons
   private closedHistoryMode = false;
 
+  // Floating tooltip (appended to body to escape overflow:hidden ancestors)
+  private tooltipEl: HTMLElement | null = null;
+
   // Table sort state
   private sortCol: string = '';
   private sortDir: 'asc' | 'desc' = 'asc';
@@ -384,6 +387,61 @@ export class AlarmsNotificationsPanelView {
       const alarm = this.groupedAlarms.find((a) => a.id === alarmId);
       if (alarm) this.handleAlarmClick(alarm);
     });
+
+    this.bindTooltip();
+  }
+
+  private bindTooltip(): void {
+    if (!this.root) return;
+
+    const show = (target: HTMLElement, mouseX: number, mouseY: number) => {
+      const label = target.getAttribute('data-tooltip');
+      if (!label) return;
+
+      if (!this.tooltipEl) {
+        const el = document.createElement('div');
+        el.style.cssText = [
+          'position:fixed',
+          'background:#1e293b',
+          'color:#f1f5f9',
+          'font-size:11px',
+          'font-weight:500',
+          'padding:5px 10px',
+          'border-radius:6px',
+          'box-shadow:0 4px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2)',
+          'white-space:nowrap',
+          'pointer-events:none',
+          'z-index:99999',
+          'opacity:0',
+          'transition:opacity 0.15s ease',
+          'letter-spacing:0.015em',
+        ].join(';');
+        document.body.appendChild(el);
+        this.tooltipEl = el;
+      }
+
+      const tip = this.tooltipEl;
+      tip.textContent = label;
+      tip.style.left = `${mouseX + 12}px`;
+      tip.style.top  = `${mouseY + 12}px`;
+      requestAnimationFrame(() => { if (this.tooltipEl) this.tooltipEl.style.opacity = '1'; });
+    };
+
+    const hide = () => {
+      if (this.tooltipEl) this.tooltipEl.style.opacity = '0';
+    };
+
+    this.root.addEventListener('mouseover', (e) => {
+      const target = (e.target as HTMLElement).closest('[data-tooltip]') as HTMLElement | null;
+      if (target) show(target, (e as MouseEvent).clientX, (e as MouseEvent).clientY);
+    });
+
+    this.root.addEventListener('mouseout', (e) => {
+      const target = (e.target as HTMLElement).closest('[data-tooltip]') as HTMLElement | null;
+      if (!target) return;
+      const rel = (e as MouseEvent).relatedTarget as HTMLElement | null;
+      if (!rel || !target.contains(rel)) hide();
+    });
   }
 
   // =====================================================================
@@ -660,7 +718,7 @@ export class AlarmsNotificationsPanelView {
 
     // When no filter is active for a group, treat all options as selected (show-all default)
     const allSeverities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
-    const allStates     = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'];
+    const allStates     = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
     const selSeverity  = new Set<string>(filters.severity?.length  ? filters.severity  : allSeverities);
     const selState     = new Set<string>(filters.state?.length     ? filters.state     : allStates);
     const selAlarmType = new Set<string>(filters.alarmType?.length ? filters.alarmType : alarmTypes);
@@ -673,7 +731,7 @@ export class AlarmsNotificationsPanelView {
         return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="severity" data-value="${s}">${cfg.icon} ${cfg.label}</div>`;
       }).join('');
 
-    const stateChips = (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED', 'CLOSED'] as AlarmState[])
+    const stateChips = (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'] as AlarmState[])
       .map((s) => {
         const cfg = STATE_CONFIG[s];
         const checked = selState.has(s);
@@ -701,7 +759,7 @@ export class AlarmsNotificationsPanelView {
     overlay.innerHTML = `
       <div class="afm-modal" role="dialog" aria-modal="true" aria-label="Filtros avançados">
         <div class="afm-header">
-          <span class="afm-title">Filtros</span>
+          <span class="afm-title">Filtros de Alarmes e Notificações</span>
           <button class="afm-close" aria-label="Fechar">✕</button>
         </div>
         <div class="afm-body">
@@ -1791,6 +1849,10 @@ export class AlarmsNotificationsPanelView {
     }
     this.root = null;
     this.eventHandlers.clear();
+    if (this.tooltipEl && this.tooltipEl.parentNode) {
+      this.tooltipEl.parentNode.removeChild(this.tooltipEl);
+      this.tooltipEl = null;
+    }
   }
 
   // =====================================================================

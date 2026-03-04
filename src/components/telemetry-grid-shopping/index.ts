@@ -4,6 +4,7 @@
  */
 
 export { createTelemetryGridShoppingComponent } from './createTelemetryGridShoppingComponent';
+export { exportGridCsv, exportGridXls, exportGridPdf } from './export';
 
 export type {
   TelemetryGridShoppingParams,
