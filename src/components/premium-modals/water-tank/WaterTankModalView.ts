@@ -134,7 +134,10 @@ export class WaterTankModalView {
    */
   private formatDateForInput(ts: number): string {
     const date = new Date(ts);
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
@@ -902,8 +905,8 @@ export class WaterTankModalView {
     const limitSelect = this.modal.querySelector('#myio-water-tank-limit') as HTMLSelectElement;
 
     if (startInput && endInput) {
-      const startTs = new Date(startInput.value).setHours(0, 0, 0, 0);
-      const endTs = new Date(endInput.value).setHours(23, 59, 59, 999);
+      const startTs = new Date(startInput.value + 'T00:00:00').getTime();
+      const endTs = new Date(endInput.value + 'T23:59:59.999').getTime();
 
       if (startTs >= endTs) {
         alert('Start date must be before end date');
