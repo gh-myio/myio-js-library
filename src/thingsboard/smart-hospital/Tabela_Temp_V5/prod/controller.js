@@ -1014,9 +1014,11 @@ async function getData() {
 
       const { results: rpcResponses, errors: rpcErrors } = await sendRPCTemp(bodiesPerCentral);
 
-      // Acumular erros de conexão para mostrar toast depois
+      // Se qualquer central falhou: abortar tudo, sem renderizar dados parciais
       if (rpcErrors && rpcErrors.length > 0) {
         allRpcErrors.push(...rpcErrors);
+        console.warn('[DR] Aborting report — central(s) failed:', rpcErrors.map((e) => e.centralId));
+        break; // interrompe loop de chunks
       }
 
       for (const [centralId, readings] of Object.entries(rpcResponses || {})) {
@@ -1029,7 +1031,6 @@ async function getData() {
         // Centrais com backend v3.1 retornam UTC direto (sem correção)
         const CENTRALS_WITH_OLD_BACKEND = [
           '295628b1-75c6-4854-8031-107cd9a2ab91', // Souza Aguiar CO2 (original)
-          'df3f846e-b69c-45ce-9475-bd90570b24d0', // Souza Aguiar T&D (original)
         ];
 
         const needsLegacyNormalization = CENTRALS_WITH_OLD_BACKEND.includes(centralId);
@@ -1167,7 +1168,7 @@ async function getData() {
 
     setPremiumLoading(true, LOADING_STATES.INTERPOLATING, 90);
 
-    // Exibir banner premium de indisponibilidade se houve erros de conexão com centrais
+    // Se houve erros: exibir banner, não renderizar nenhum dado
     if (allRpcErrors.length > 0) {
       const uniqueErrors = [...new Map(allRpcErrors.map((e) => [e.centralId, e])).values()];
       self.ctx.$scope.rpcConnectionErrors = uniqueErrors.map((e) => {
@@ -1177,13 +1178,18 @@ async function getData() {
         else if (e.status === 503) statusInfo = '503 Serviço indisponível';
         else if (e.status === 0) statusInfo = 'Sem resposta (CORS/Rede)';
         else statusInfo = `Status ${e.status}`;
-        const label = centralIdToLabelMap[e.centralId] || e.centralId.substring(0, 8) + '…';
-        return { centralId: e.centralId, label, statusInfo };
+        return { centralId: e.centralId, statusInfo };
       });
+      self.ctx.$scope.dados = [];
+      self.ctx.$scope.loading = false;
+      setPremiumLoading(false);
+      // Permite nova tentativa ao clicar em "Tentar novamente"
+      _lastQueryKey = null;
       self.ctx.detectChanges();
+      return;
     }
 
-    // UI: finalizar
+    // UI: finalizar (somente quando todas as centrais responderam com sucesso)
     setTimeout(() => {
       console.log('[TOTAL PROCESSADO]', allProcessed.length, 'linhas');
       self.ctx.$scope.dados = allProcessed;

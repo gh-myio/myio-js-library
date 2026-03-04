@@ -232,13 +232,13 @@
       </p>
       <ul class="rpc-unavail-list">
         <li *ngFor="let e of rpcConnectionErrors">
-          <span class="rpc-central-name">{{ e.label }}</span>
+          <span class="rpc-central-name">{{ e.centralId }}</span>
           <span class="rpc-status-badge">{{ e.statusInfo }}</span>
         </li>
       </ul>
       <p class="rpc-unavail-hint">
-        Os dados das {{ rpcConnectionErrors.length === 1 ? 'central acima estão' : 'centrais acima estão' }} temporariamente inacessíveis.
-        O relatório foi gerado com os dados disponíveis. Tente novamente em alguns instantes.
+        {{ rpcConnectionErrors.length === 1 ? 'A central acima está' : 'As centrais acima estão' }} temporariamente inacessível{{ rpcConnectionErrors.length === 1 ? '' : 'is' }}.
+        Nenhum dado foi exibido. Tente novamente em alguns instantes.
       </p>
       <button class="rpc-retry-btn" (click)="retryReport()">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
