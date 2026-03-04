@@ -114,6 +114,19 @@
               <p class="muted">
                 No modo Admin exibimos selos e estatísticas de interpolação (17+, Interpolado, contadores).
               </p>
+
+              <div class="row" style="margin-top:10px">
+                <label class="switch">
+                  <input type="checkbox" [checked]="interpolationEnabled" (change)="setInterpolationEnabled($event)" />
+                  <span class="slider"></span>
+                </label>
+                <span>Habilitar Interpolação</span>
+              </div>
+              <p class="muted">
+                Quando desabilitada, lacunas preenchíveis são exibidas com <strong>=</strong> em vez de valor estimado.
+                A mudança aplica-se ao próximo carregamento do relatório.
+              </p>
+
               <div class="actions-row end">
                 <button class="btn ghost" (click)="closeSettingsModal()">Fechar</button>
               </div>
@@ -201,7 +214,7 @@
 
     <ng-container matColumnDef="temperature">
       <mat-header-cell *matHeaderCellDef mat-sort-header> Temperatura </mat-header-cell>
-      <mat-cell *matCellDef="let row">{{ row.temperature }}°C</mat-cell>
+      <mat-cell *matCellDef="let row" [class.equal-sign-cell]="row.equalSign">{{ row.equalSign ? '=' : (row.temperature + '°C') }}</mat-cell>
     </ng-container>
 
     <ng-container matColumnDef="reading_date">
@@ -256,9 +269,10 @@
             *ngFor="let reading of device.value"
             [class.interpolated]="reading.interpolated"
             [class.clamped]="reading.correctedBelowThreshold"
+            [class.equal-sign-row]="reading.equalSign"
           >
             <div class="reading-temp">
-              {{ reading.temperature }}°C
+              {{ reading.equalSign ? '=' : (reading.temperature + '°C') }}
               <span class="badge clamp" *ngIf="adminMode && reading.correctedBelowThreshold">17+</span>
             </div>
             <div class="reading-date">{{ reading.reading_date }}</div>

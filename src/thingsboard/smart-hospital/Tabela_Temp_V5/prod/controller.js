@@ -17,6 +17,9 @@ let adminVerified = false;
 let showSettings = false;
 let adminPasswordInput = '';
 
+// Interpolation flag — disabled by default; admin can enable via settings modal
+let interpolationEnabled = false;
+
 // -------- Consts / Estado --------
 const telemetryCache = new Map();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 min
@@ -398,15 +401,26 @@ function interpolateDay(
       const gapInfo = findGapForSlot(gaps, i);
 
       if (gapInfo && canInterpolate(gapInfo, maxGapSlots, allowCrossMidnight)) {
-        // Gap pequeno e dentro do mesmo dia - interpolar
-        const interpolatedValue = generateInterpolatedValue(slotISO, existingBySlot, fullSlots, i);
-        result.push({
-          time_interval: slotISO,
-          value: interpolatedValue,
-          interpolated: true,
-          gapSize: gapInfo.size,
-        });
-        interpolatedCount++;
+        if (interpolationEnabled) {
+          // Interpolação habilitada: calcular valor estimado
+          const interpolatedValue = generateInterpolatedValue(slotISO, existingBySlot, fullSlots, i);
+          result.push({
+            time_interval: slotISO,
+            value: interpolatedValue,
+            interpolated: true,
+            gapSize: gapInfo.size,
+          });
+          interpolatedCount++;
+        } else {
+          // Interpolação desabilitada: marcar slot com "=" (gap preenchível mas não estimado)
+          result.push({
+            time_interval: slotISO,
+            value: null,
+            interpolated: false,
+            equalSign: true,
+            gapSize: gapInfo.size,
+          });
+        }
       } else {
         // Gap muito grande ou cruza meia-noite - marcar como missing
         // Se includeMissingInOutput = false, não adiciona ao resultado (simplesmente pula)
@@ -480,11 +494,11 @@ function clampTemperature(val) {
   if (!isFinite(num)) return { value: null, clamped: false };
   let v = num,
     clamped = false;
-  if (num < 17) {
-    v = 17.0;
+  if (num < 5) {
+    v = 5.0;
     clamped = true;
-  } else if (num > 25) {
-    v = 25.0;
+  } else if (num > 50) {
+    v = 50.0;
     clamped = true;
   }
   return { value: Number(v.toFixed(2)), clamped };
@@ -583,7 +597,7 @@ function showToast(message, type = 'error', duration = 8000) {
 }
 
 // -------- RPC --------
-const RPC_TIMEOUT_MS = 120000; // 120 segundos
+const RPC_TIMEOUT_MS = 300000; // 300 segundos (5 minutos)
 
 /**
  * sendRPCTemp v2
@@ -686,14 +700,26 @@ function exportToCSV(rowsInput) {
     alert('Erro: Nenhum dado para exportar.');
     return;
   }
-  const rows = [['Nome do Dispositivo', 'Temperatura', 'Data']];
-  rowsInput.forEach((r) => rows.push([r.deviceName, r.temperature, r.reading_date]));
-  const csv = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(';')).join('\n');
+  const rows = [['Nome do Dispositivo', 'Temperatura (°C)', 'Data']];
+  rowsInput.forEach((r) => {
+    // Garantir 2 casas decimais: valores numéricos com vírgula (Excel PT-BR); = e - inalterados
+    let temp = r.temperature;
+    if (temp !== '=' && temp !== '-' && temp != null) {
+      const num = parseFloat(temp);
+      if (!isNaN(num)) temp = num.toFixed(2).replace('.', ',');
+    }
+    rows.push([r.deviceName, temp, r.reading_date]);
+  });
+  const bom = '\uFEFF'; // UTF-8 BOM para Excel reconhecer acentuação
+  const csv = bom + rows.map((e) => e.join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = encodeURI(csv);
+  a.href = url;
   a.download = 'dispositivo_temperatura_horario.csv';
   document.body.appendChild(a);
   a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
 }
 
 function exportToPDF(data) {
@@ -1082,8 +1108,9 @@ async function getData() {
               deviceName: deviceLabel,
               reading_date: brDatetime(r.time_interval),
               sort_ts: new Date(r.time_interval).getTime(),
-              temperature: value == null ? '-' : value.toFixed(2),
+              temperature: r.equalSign ? '=' : (value == null ? '-' : value.toFixed(2)),
               interpolated: !!r.interpolated,
+              equalSign: !!r.equalSign,
               correctedBelowThreshold: !!clamped,
               // Novos campos para interpolação limitada
               missing: !!r.missing,
@@ -1171,7 +1198,7 @@ async function getData() {
 // -------- View mode & render --------
 function renderData(data) {
   const s = self.ctx.$scope;
-  s.totalReadings = data.length;
+  s.totalReadings = data.filter((r) => r.temperature !== '-').length;
   s.totalDevices = new Set(data.map((r) => r.deviceName)).size;
   if (s.isCardView) {
     renderCardView(data);
@@ -1460,12 +1487,22 @@ self.onInit = function () {
     );
     self.ctx.detectChanges();
   };
-  self.ctx.$scope.getLatestTemperature = (arr) => (arr?.length ? arr[arr.length - 1].temperature : '-');
+  // Returns last real temperature (skips equalSign/missing/null rows) with guaranteed 2 decimal places
+  self.ctx.$scope.getLatestTemperature = (arr) => {
+    if (!arr?.length) return '-';
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const r = arr[i];
+      if (!r.equalSign && !r.missing && r.temperature !== '-') {
+        return Number(r.temperature).toFixed(2);
+      }
+    }
+    return '-';
+  };
   self.ctx.$scope.getDeviceReadingCount = (arr) => arr?.length || 0;
   self.ctx.$scope.getInterpolatedCount = (arr) =>
     (arr || []).filter((r) => r.interpolated && !r.missing).length;
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
-  self.ctx.$scope.getRealCount = (arr) => (arr || []).filter((r) => !r.interpolated && !r.missing).length;
+  self.ctx.$scope.getRealCount = (arr) => (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
 
   // Overlay inicial
   self.ctx.$scope.premiumLoading = false;
@@ -1507,6 +1544,14 @@ self.onInit = function () {
     const checked = !!evt?.target?.checked;
     adminMode = checked;
     self.ctx.$scope.adminMode = checked;
+    self.ctx.detectChanges();
+  };
+
+  self.ctx.$scope.interpolationEnabled = interpolationEnabled;
+  self.ctx.$scope.setInterpolationEnabled = function (evt) {
+    const checked = !!evt?.target?.checked;
+    interpolationEnabled = checked;
+    self.ctx.$scope.interpolationEnabled = checked;
     self.ctx.detectChanges();
   };
 

@@ -226,6 +226,12 @@
 .reading-row.clamped {
   box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 0.15);
 }
+.reading-row.equal-sign-row .reading-temp,
+.equal-sign-cell {
+  color: #9ca3af;
+  font-style: italic;
+  letter-spacing: 0.5px;
+}
 
 .badge {
   display: inline-flex;

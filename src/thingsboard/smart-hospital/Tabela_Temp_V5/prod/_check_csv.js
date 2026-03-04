@@ -1,0 +1,10 @@
+const fs = require('fs');
+const csv = fs.readFileSync('C:/Projetos/GitHub/myio/myio-js-library-PROD.git/src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/dispositivo_temperatura_horario-2026-03-03-16-26-Do-Dia-01-ao-28-fev-2026.csv', 'utf8');
+const lines = csv.split('\n');
+const temps = lines.slice(1).map(l => l.split(';')[1]).filter(Boolean);
+const withDecimals = temps.filter(t => t.includes(','));
+const without = temps.filter(t => t !== '=' && t !== '-' && !t.includes(','));
+console.log('Total linhas de dados:', lines.length - 1);
+console.log('Com decimais (xx,xx):', withDecimals.length);
+console.log('Sem decimais:', without.length);
+console.log('Amostras sem decimal:', without.slice(0, 10));
