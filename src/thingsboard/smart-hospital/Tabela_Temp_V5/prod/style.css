@@ -255,6 +255,86 @@
   color: #0c4a6e;
 }
 
+/* ── Banner de indisponibilidade de acesso remoto ── */
+.rpc-unavail-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 18px 20px;
+  background: #fff8f0;
+  border: 1.5px solid #f59e0b;
+  border-left: 5px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.12);
+}
+.rpc-unavail-icon {
+  flex-shrink: 0;
+  color: #d97706;
+  margin-top: 2px;
+}
+.rpc-unavail-body {
+  flex: 1;
+  min-width: 0;
+}
+.rpc-unavail-title {
+  margin: 0 0 10px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #92400e;
+}
+.rpc-unavail-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rpc-unavail-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #78350f;
+}
+.rpc-central-name {
+  font-weight: 600;
+}
+.rpc-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 20px;
+  font-size: 11px;
+  color: #92400e;
+  font-weight: 500;
+}
+.rpc-unavail-hint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: #78350f;
+  line-height: 1.55;
+}
+.rpc-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  background: #d97706;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rpc-retry-btn:hover {
+  background: #b45309;
+}
+
 .no-data-message {
   display: flex;
   flex-direction: column;
@@ -423,6 +503,44 @@
 .muted {
   color: #6b7280;
   margin-top: 6px;
+}
+.group-label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: #374151;
+  margin-bottom: 2px;
+}
+.clamp-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.clamp-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  gap: 4px;
+}
+.clamp-input {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  text-align: center;
+}
+.clamp-input:focus {
+  border-color: #6d28d9;
+}
+.clamp-sep {
+  color: #9ca3af;
+  font-size: 16px;
+  margin-top: 14px;
 }
 
 /* iOS-like switch */

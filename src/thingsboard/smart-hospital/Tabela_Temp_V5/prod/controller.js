@@ -20,6 +20,10 @@ let adminPasswordInput = '';
 // Interpolation flag — disabled by default; admin can enable via settings modal
 let interpolationEnabled = false;
 
+// Clamp limits for real sensor readings (admin-configurable)
+let clampMin = 14;
+let clampMax = 30;
+
 // -------- Consts / Estado --------
 const telemetryCache = new Map();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 min
@@ -48,6 +52,9 @@ let deviceList = [],
 
 // v2: Mapa device -> centralId para filtrar devices por central no RPC
 let deviceToCentralMap = {};
+
+// Mapa centralId -> nome amigável (construído em onInit/onDataUpdated)
+let centralIdToLabelMap = {};
 
 // Device filter state
 let showDeviceFilter = false;
@@ -494,11 +501,11 @@ function clampTemperature(val) {
   if (!isFinite(num)) return { value: null, clamped: false };
   let v = num,
     clamped = false;
-  if (num < 5) {
-    v = 5.0;
+  if (num < clampMin) {
+    v = clampMin;
     clamped = true;
-  } else if (num > 50) {
-    v = 50.0;
+  } else if (num > clampMax) {
+    v = clampMax;
     clamped = true;
   }
   return { value: Number(v.toFixed(2)), clamped };
@@ -942,6 +949,10 @@ async function getData() {
   _inFlight = true;
   _lastQueryKey = queryKey;
 
+  // Limpa erros de conexão anteriores ao iniciar nova busca
+  self.ctx.$scope.rpcConnectionErrors = [];
+  self.ctx.detectChanges();
+
   // Cache
   const cached = getCache(centrals, keyStart, keyEnd);
   if (cached) {
@@ -1156,22 +1167,20 @@ async function getData() {
 
     setPremiumLoading(true, LOADING_STATES.INTERPOLATING, 90);
 
-    // Mostrar toast se houve erros de conexão com centrais
+    // Exibir banner premium de indisponibilidade se houve erros de conexão com centrais
     if (allRpcErrors.length > 0) {
       const uniqueErrors = [...new Map(allRpcErrors.map((e) => [e.centralId, e])).values()];
-      const errorMessages = uniqueErrors.map((e) => {
+      self.ctx.$scope.rpcConnectionErrors = uniqueErrors.map((e) => {
         let statusInfo;
-        if (e.status === 'timeout') statusInfo = `Timeout ${RPC_TIMEOUT_MS / 1000}s`;
+        if (e.status === 'timeout') statusInfo = `Timeout após ${RPC_TIMEOUT_MS / 1000}s`;
         else if (e.status === 502) statusInfo = '502 Bad Gateway';
-        else if (e.status === 0) statusInfo = 'CORS/Rede';
+        else if (e.status === 503) statusInfo = '503 Serviço indisponível';
+        else if (e.status === 0) statusInfo = 'Sem resposta (CORS/Rede)';
         else statusInfo = `Status ${e.status}`;
-        return `<strong>${e.centralId.substring(0, 8)}...</strong> (${statusInfo})`;
+        const label = centralIdToLabelMap[e.centralId] || e.centralId.substring(0, 8) + '…';
+        return { centralId: e.centralId, label, statusInfo };
       });
-      const toastMessage =
-        uniqueErrors.length === 1
-          ? `Central inacessível:<br>${errorMessages[0]}`
-          : `${uniqueErrors.length} centrais inacessíveis:<br>${errorMessages.join('<br>')}`;
-      showToast(toastMessage, 'warning', 30000);
+      self.ctx.detectChanges();
     }
 
     // UI: finalizar
@@ -1431,6 +1440,14 @@ self.onInit = function () {
     }
   });
 
+  // Construir centralIdToLabelMap: centralId -> label amigável do dispositivo
+  centralIdToLabelMap = {};
+  Object.entries(deviceToCentralMap).forEach(([deviceName, cid]) => {
+    if (!centralIdToLabelMap[cid]) {
+      centralIdToLabelMap[cid] = deviceNameLabelMap[deviceName.split(' ')[0]] || deviceName || cid;
+    }
+  });
+
   // Apply normalization to centralIds (TEMPORARY FIX)
   const normalizedCentralIds = rawCentralIds.map(normalizeCentralId);
   self.ctx.$scope.centralIdList = [...new Set(normalizedCentralIds)];
@@ -1446,6 +1463,14 @@ self.onInit = function () {
     self.ctx.$scope.dados?.length ? exportToPDF(self.ctx.$scope.dados) : alert('Sem dados para exportar.');
   self.ctx.$scope.downloadCSV = () =>
     self.ctx.$scope.dados?.length ? exportToCSV(self.ctx.$scope.dados) : alert('Sem dados para exportar.');
+
+  // RPC connection errors (exibidos no banner premium de indisponibilidade)
+  self.ctx.$scope.rpcConnectionErrors = [];
+  self.ctx.$scope.retryReport = function () {
+    self.ctx.$scope.rpcConnectionErrors = [];
+    self.ctx.detectChanges();
+    applyDateRange();
+  };
 
   // Date pickers
   self.ctx.$scope.handleStartDateChange = handleStartDateChange;
@@ -1553,6 +1578,17 @@ self.onInit = function () {
     interpolationEnabled = checked;
     self.ctx.$scope.interpolationEnabled = checked;
     self.ctx.detectChanges();
+  };
+
+  self.ctx.$scope.clampMin = clampMin;
+  self.ctx.$scope.clampMax = clampMax;
+  self.ctx.$scope.setClampMin = function (evt) {
+    const v = parseFloat(evt?.target?.value);
+    if (!isNaN(v)) { clampMin = v; self.ctx.$scope.clampMin = v; self.ctx.detectChanges(); }
+  };
+  self.ctx.$scope.setClampMax = function (evt) {
+    const v = parseFloat(evt?.target?.value);
+    if (!isNaN(v)) { clampMax = v; self.ctx.$scope.clampMax = v; self.ctx.detectChanges(); }
   };
 
   self.ctx.detectChanges();
