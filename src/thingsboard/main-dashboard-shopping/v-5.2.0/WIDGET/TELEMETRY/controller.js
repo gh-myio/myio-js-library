@@ -2818,7 +2818,9 @@ function _openPresetupModal() {
   const clientId      = s.presetupClientId     || '';
   const clientSecret  = s.presetupClientSecret  || '';
   if (!gatewayId || !clientId || !clientSecret) {
-    lib.MyIOToast?.warn('[TELEMETRY] Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget.');
+    const toast = lib.MyIOToast || window.MyIOToast;
+    if (toast) toast.error('Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget.');
+    else alert('Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget.');
     return;
   }
 
