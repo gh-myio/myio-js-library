@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 /* Row 2: label + total */
@@ -88,7 +88,8 @@
   border: 1px solid var(--bd);
   background: #fff;
   border-radius: 10px;
-  padding: 6px;
+  padding: 7px 12px;
+  min-width: 36px;
   cursor: pointer;
   box-shadow: var(--shadow);
 }
@@ -100,8 +101,8 @@
 .shops-root .icon-btn svg {
   fill: #44506b;
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 
@@ -111,7 +112,7 @@
   flex-direction: column;
   gap: 2px;
   width: auto;
-  padding: 4px 6px;
+  padding: 5px 10px;
 }
 
 .shops-root .export-fmt {
@@ -191,7 +192,7 @@
     opacity 0.18s ease,
     padding 0.28s ease,
     margin 0.28s ease;
-  max-width: 60px;
+  max-width: 80px;
   overflow: hidden;
 }
 

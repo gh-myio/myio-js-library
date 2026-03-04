@@ -4436,6 +4436,17 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
+  // Show #btnPresetup only for MyIO users (isSuperAdmin = @myio.com.br, exceto alarme/alarmes)
+  function _applyPresetupVisibility(isSuperAdmin) {
+    const btn = $root().find('#btnPresetup')[0];
+    if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+  }
+  // Check immediately in case event already fired before this widget loaded
+  _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
+  window.addEventListener('myio:user-info-ready', (ev) => {
+    _applyPresetupVisibility(ev.detail?.isSuperAdmin === true);
+  });
+
   // RFC-0136: Intelligent retry with backoff for late-arriving widgets
   // Instead of single 500ms timeout, use multiple retries with increasing delays
   const RETRY_INTERVALS = [500, 1000, 2000, 3000, 4000, 5000]; // Backoff: 500ms, 1s, 2s
@@ -4681,12 +4692,6 @@ self.onInit = async function () {
   // Bind UI
   bindHeader();
   bindModal();
-
-  // Show presetup button if credentials are configured in widget settings
-  if (self.ctx.settings?.presetupGatewayId && self.ctx.settings?.presetupClientId && self.ctx.settings?.presetupClientSecret) {
-    const btnPresetup = $root().find('#btnPresetup')[0];
-    if (btnPresetup) btnPresetup.style.display = '';
-  }
 
   // ---------- Datas iniciais: "Current Month So Far" ----------
   if (!self.ctx?.scope?.startDateISO || !self.ctx?.scope?.endDateISO) {
