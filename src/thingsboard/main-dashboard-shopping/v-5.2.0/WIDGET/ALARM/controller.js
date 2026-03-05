@@ -16,6 +16,12 @@
 /* eslint-disable no-undef, no-unused-vars */
 
 // ============================================================================
+// Maintenance mode flag — set to true to display maintenance overlay
+// ============================================================================
+
+const _MAINTENANCE_MODE = false;
+
+// ============================================================================
 // Module-level state (reset on every onInit)
 // ============================================================================
 
@@ -238,8 +244,59 @@ self.onInit = async function () {
   // --- Bind header buttons ---
   _bindHeaderButtons();
 
+  // --- Maintenance overlay ---
+  if (_MAINTENANCE_MODE) _showMaintenanceOverlay();
+
   LogHelper.log('onInit complete');
 };
+
+// ============================================================================
+// Maintenance overlay
+// ============================================================================
+
+function _showMaintenanceOverlay() {
+  const OVERLAY_ID = 'alarm-maintenance-overlay';
+  if (document.getElementById(OVERLAY_ID)) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.style.cssText = [
+    'position:absolute', 'inset:0', 'z-index:9999',
+    'display:flex', 'flex-direction:column', 'align-items:center', 'justify-content:center',
+    'background:rgba(255,255,255,0.92)', 'backdrop-filter:blur(3px)',
+    'border-radius:inherit', 'pointer-events:all',
+  ].join(';');
+
+  overlay.innerHTML = `
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px;opacity:.7">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    </svg>
+    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#475569;letter-spacing:.01em">Em manutenção</p>
+    <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;max-width:220px;line-height:1.5">
+      Este widget está em atualização.<br>Aguarde alguns instantes.
+    </p>
+    <button id="alarm-maintenance-unlock"
+      title="Desbloquear"
+      style="position:absolute;bottom:10px;right:12px;background:none;border:none;cursor:pointer;padding:4px;opacity:.15;transition:opacity .2s;line-height:0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  `;
+
+  // Position relative to the widget root
+  const root = document.getElementById('alarmWidgetRoot') || document.body;
+  const parent = root.parentElement || root;
+  if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+  parent.appendChild(overlay);
+
+  const unlockBtn = overlay.querySelector('#alarm-maintenance-unlock');
+  if (unlockBtn) {
+    unlockBtn.addEventListener('mouseenter', () => { unlockBtn.style.opacity = '0.6'; });
+    unlockBtn.addEventListener('mouseleave', () => { unlockBtn.style.opacity = '0.15'; });
+    unlockBtn.addEventListener('click', () => { overlay.remove(); });
+  }
+}
 
 // ============================================================================
 // onDestroy
@@ -309,28 +366,23 @@ function _getActiveDates() {
 }
 
 /**
- * Enriches alarm source fields with TB device names (four-layer strategy).
- * RFC-0179: gcdrDeviceNameMap → centralId map → entityNameToLabelMap
+ * Enriches alarm source fields with TB device names.
+ * RFC-0179: Only enriches when source is an opaque identifier (UUID or gcdr: short-code).
+ * If source is already a human-readable device name (from GCDR deviceName field), it is
+ * left unchanged to avoid wrong overrides from stale/cross-customer map data.
  */
 function _enrichAlarms(rawAlarms) {
   const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
   const nameMap = window.MyIOOrchestrator?.entityNameToLabelMap;
-  const stateMap = new Map();
-  if (window.STATE) {
-    for (const domain of ['energy', 'water', 'temperature']) {
-      const raw = window.STATE[domain]?._raw || [];
-      for (const item of raw) {
-        const name = item.label || item.name || '';
-        if (name && item.centralId) stateMap.set(String(item.centralId), name);
-      }
-    }
-  }
+  const UUID_RE     = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const SHORTCODE_RE = /^gcdr:[0-9a-f]{8}/;
   return rawAlarms.map((a) => {
-    const isNumericSrc = /^\d+$/.test(a.source);
-    const tbName = gcdrMap?.get(a.source)
-      || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
-      || stateMap.get(a.centralId)
-      || nameMap?.get(a.source);
+    const src = a.source || '';
+    // Only attempt lookup when source is an opaque ID, not a human-readable device name.
+    const isOpaqueId = UUID_RE.test(src) || SHORTCODE_RE.test(src);
+    const tbName = isOpaqueId
+      ? (gcdrMap?.get(src) || nameMap?.get(src) || null)
+      : null;
     return {
       ...a,
       ...(tbName ? { source: tbName } : {}),
@@ -352,8 +404,11 @@ async function _fetchAlarmsAndUpdate(resolvedCustomerId, states) {
     return;
   }
 
-  const { from, to } = _getActiveDates();
-  LogHelper.log('[ALARM] Fetching alarms — states:', states, '| from:', from, '| to:', to);
+  // Filtro de data só faz sentido para histórico (alarms CLOSED).
+  // Alarms ativos (OPEN/ACK/SNOOZED/ESCALATED) devem aparecer sempre, independente de quando foram abertos.
+  const isClosedQuery = states.length === 1 && states[0] === 'CLOSED';
+  const { from, to } = isClosedQuery ? _getActiveDates() : { from: null, to: null };
+  LogHelper.log('[ALARM] Fetching alarms — states:', states, '| from:', from ?? '(sem filtro)', '| to:', to ?? '(sem filtro)');
 
   const response = await AlarmService.getAlarms({
     state:      states,

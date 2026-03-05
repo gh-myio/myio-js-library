@@ -1252,6 +1252,13 @@ Object.assign(window.MyIOUtils, {
     // This fetches device counts from SERVER_SCOPE and shows the contract loading modal
     initializeContractLoading();
 
+    // Resetar mapas de enriquecimento a cada onInit para evitar contaminação cross-customer.
+    // O guard abaixo cria o objeto apenas uma vez, mas os mapas acumulam entre reloads sem esse reset.
+    if (window.MyIOOrchestrator) {
+      window.MyIOOrchestrator.gcdrDeviceNameMap    = new Map();
+      window.MyIOOrchestrator.entityNameToLabelMap = new Map();
+    }
+
     // RFC-0051.2: Expose orchestrator stub IMMEDIATELY
     // This prevents race conditions with TELEMETRY widgets that check for orchestrator
     // We expose a stub with isReady flag that will be set to true when fully initialized
