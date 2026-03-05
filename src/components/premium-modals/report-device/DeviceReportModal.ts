@@ -52,12 +52,12 @@ interface DailyReading {
 }
 
 // Default energy fetcher implementation
-const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetcher => {
+// getGranularity is a callback so the fetcher always reads the live value at call time
+const createDefaultEnergyFetcher = (params: OpenDeviceReportParams, getGranularity: () => string): EnergyFetcher => {
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
     const domain = params.domain || 'energy';
     const endpoint = DOMAIN_CONFIG[domain].endpoint;
-    const granularity = params.granularity || '1d';
-    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${granularity}&page=1&pageSize=1000&deep=0`;
+    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${getGranularity()}&page=1&pageSize=1000&deep=0`;
 
     // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
     // This token provides access to telemetry data from the ingestion system
@@ -92,6 +92,7 @@ export class DeviceReportModal {
   private dateRangePicker: DateRangeControl | null = null;
   private sortState: { key: keyof DailyReading | null; direction: 'asc' | 'desc' } = { key: null, direction: 'asc' };
   private domainConfig: DomainConfig;
+  private granularity: '1d' | '1h' = '1d';
 
   constructor(private params: OpenDeviceReportParams) {
     this.authClient = new AuthClient({
@@ -104,8 +105,8 @@ export class DeviceReportModal {
     const domain = params.domain || 'energy';
     this.domainConfig = DOMAIN_CONFIG[domain];
 
-    // Use injected fetcher or create default with params
-    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params);
+    // Use injected fetcher or create default with params; getter ensures live granularity
+    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity);
   }
 
   public show(): ModalHandle {
@@ -144,6 +145,10 @@ export class DeviceReportModal {
               <label class="myio-label" for="date-range">Período</label>
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
+            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:inline-flex;align-items:center;border:1px solid var(--myio-border,#e5e7eb);border-radius:8px;overflow:hidden;background:#f3f4f6;flex-shrink:0;height:36px;">
+              <button type="button" data-gran="1d" style="height:36px;padding:0 12px;font-size:13px;font-weight:600;border:none;background:var(--myio-primary,#1565c0);color:#fff;cursor:pointer;white-space:nowrap;">1d</button>
+              <button type="button" data-gran="1h" style="height:36px;padding:0 12px;font-size:13px;font-weight:600;border:none;background:transparent;color:#6b7280;cursor:pointer;white-space:nowrap;">1h</button>
+            </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
               Carregar
@@ -176,6 +181,19 @@ export class DeviceReportModal {
 
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
+
+    // Granularity toggle
+    const granToggle = document.getElementById('granularity-toggle');
+    granToggle?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-gran]') as HTMLElement | null;
+      if (!btn) return;
+      this.granularity = btn.dataset.gran as '1d' | '1h';
+      granToggle.querySelectorAll<HTMLElement>('[data-gran]').forEach((b) => {
+        const isActive = b === btn;
+        b.style.background = isActive ? 'var(--myio-primary,#1565c0)' : 'transparent';
+        b.style.color = isActive ? '#fff' : '#6b7280';
+      });
+    });
 
     // Initialize DateRangePicker with default current month range
     try {
@@ -262,7 +280,7 @@ export class DeviceReportModal {
   private processApiResponse(apiResponse: any, dateRange: string[]): DailyReading[] {
     // Handle response - expect array with data property
     const dataArray = Array.isArray(apiResponse) ? apiResponse : (apiResponse.data || []);
-    const isHourly = (this.params.granularity || '1d') === '1h';
+    const isHourly = (this.granularity) === '1h';
 
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
@@ -336,7 +354,7 @@ export class DeviceReportModal {
           <thead>
             <tr>
               <th style="cursor: pointer;" data-sort="date">
-                ${(this.params.granularity || '1d') === '1h' ? 'Data/Hora' : 'Data'}
+                ${(this.granularity) === '1h' ? 'Data/Hora' : 'Data'}
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">

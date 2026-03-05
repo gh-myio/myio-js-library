@@ -74,6 +74,9 @@ export class AllReportModal {
   // Domain configuration
   private domainConfig: DomainConfig;
 
+  // Granularity: '1d' (daily) | '1h' (hourly)
+  private granularity: '1d' | '1h' = '1d';
+
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
@@ -228,6 +231,10 @@ export class AllReportModal {
               <label class="myio-label" for="date-range">Período</label>
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
+            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:inline-flex;align-items:center;border:1px solid var(--myio-border,#e5e7eb);border-radius:8px;overflow:hidden;background:#f3f4f6;flex-shrink:0;height:36px;">
+              <button type="button" data-gran="1d" style="height:36px;padding:0 12px;font-size:13px;font-weight:600;border:none;background:var(--myio-primary,#1565c0);color:#fff;cursor:pointer;white-space:nowrap;">1d</button>
+              <button type="button" data-gran="1h" style="height:36px;padding:0 12px;font-size:13px;font-weight:600;border:none;background:transparent;color:#6b7280;cursor:pointer;white-space:nowrap;">1h</button>
+            </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
               Carregar
@@ -276,6 +283,19 @@ export class AllReportModal {
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
+
+    // Granularity toggle
+    const granToggle = document.getElementById('granularity-toggle');
+    granToggle?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-gran]') as HTMLElement | null;
+      if (!btn) return;
+      this.granularity = btn.dataset.gran as '1d' | '1h';
+      granToggle.querySelectorAll<HTMLElement>('[data-gran]').forEach((b) => {
+        const isActive = b === btn;
+        b.style.background = isActive ? 'var(--myio-primary,#1565c0)' : 'transparent';
+        b.style.color = isActive ? '#fff' : '#6b7280';
+      });
+    });
 
     // Fix search input event listener
     if (searchInput) {
@@ -821,8 +841,7 @@ export class AllReportModal {
     const endTime = encodeURIComponent(endISO);
 
     const endpoint = this.domainConfig.endpoint;
-    const granularity = this.params.granularity || '1d';
-    const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}&granularity=${granularity}`;
+    const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}&granularity=${this.granularity}`;
 
     this.debugLog('[AllReportModal] Fetching customer totals:', {
       url,
