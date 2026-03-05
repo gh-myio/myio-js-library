@@ -2105,6 +2105,8 @@ self.onInit = function () {
 
         // Garante que cada GCDR device é consumido por no máximo 1 TB device
         const consumedGcdrDeviceIds = new Set();
+        // Rastreia identifiers já usados por asset para evitar colisão GCDR upsert silencioso
+        const assetIdentifiersSeen = new Map(); // gcdrAssetId → Set<string>
 
         for (const tbDev of allTbDevices) {
           doneDevices++;
@@ -2148,6 +2150,35 @@ self.onInit = function () {
           // Marcar o GCDR device como consumido imediatamente após o match
           if (matchResult) consumedGcdrDeviceIds.add(matchResult.device.id);
 
+          // --- Resolver identifier único por asset ---
+          // GCDR tem constraint (assetId, identifier) — dois TB devices com mesmo identifier
+          // no mesmo asset causam upsert silencioso (GCDR retorna o ID do primeiro).
+          // Fallback: nome normalizado quando scope.identifier é nulo (evita HTTP 500 por NOT NULL).
+          const rawIdentifier = scope.identifier || null;
+          let resolvedIdentifier;
+          {
+            if (!assetIdentifiersSeen.has(gcdrAssetId)) {
+              assetIdentifiersSeen.set(gcdrAssetId, new Set());
+            }
+            const seenForAsset = assetIdentifiersSeen.get(gcdrAssetId);
+            const base = rawIdentifier
+              ? rawIdentifier
+              : (tbDev.label || tbDev.name)
+                  .replace(/\s+/g, '_')
+                  .replace(/[^a-zA-Z0-9_-]/g, '')
+                  .toLowerCase();
+            // Desambiguar colisão adicionando slaveId ou trecho do tbId
+            let candidate = base;
+            if (seenForAsset.has(candidate)) {
+              candidate =
+                slaveId != null
+                  ? `${base}_s${slaveId}`
+                  : `${base}_${tbDev.id.substring(0, 8)}`;
+            }
+            resolvedIdentifier = candidate;
+            seenForAsset.add(resolvedIdentifier);
+          }
+
           const deviceType = scope.deviceType || scope.deviceProfile || tbDev.type || '';
           const updatePayload = {
             name: tbDev.name,
@@ -2158,7 +2189,7 @@ self.onInit = function () {
             status: 'ACTIVE',
             ...(slaveId != null ? { slaveId: Number(slaveId) } : {}),
             ...(centralId ? { centralId } : {}),
-            ...(scope.identifier ? { identifier: scope.identifier } : {}),
+            identifier: resolvedIdentifier,
             ...(scope.deviceProfile ? { deviceProfile: scope.deviceProfile } : {}),
             ...(scope.deviceType ? { deviceType: scope.deviceType } : {}),
             ...(scope.ingestionId ? { ingestionId: scope.ingestionId } : {}),
@@ -2220,6 +2251,14 @@ self.onInit = function () {
               const createPayload = { ...updatePayload, assetId: gcdrAssetId, customerId: gcdrCustomerId };
               const created = await guGCDRFetch('POST', '/api/v1/devices', createPayload);
               gcdrDeviceId = created?.id ?? null;
+
+              // Detectar upsert silencioso: GCDR constraint (assetId, identifier) pode retornar
+              // o ID de um device já existente em vez de criar um novo.
+              if (gcdrDeviceId && consumedGcdrDeviceIds.has(gcdrDeviceId)) {
+                throw new Error(
+                  `GCDR upsert silencioso: gcdrDeviceId=${gcdrDeviceId} já foi consumido por outro TB device — colisão de identifier "${resolvedIdentifier}" no asset ${gcdrAssetId}`
+                );
+              }
 
               await guSaveDeviceServerScopeAttrs(tbDev.id, {
                 gcdrDeviceId,

@@ -942,9 +942,11 @@ export class AllReportModal {
       rows.push(result);
     }
 
-    this.debugLog('[AllReportModal] API-driven filter — matched:', rows.length,
-      '| discarded:', apiArray.length - rows.length,
-      '| total consumption:', totalMappedConsumption);
+    this.debugLog('[AllReportModal] API-driven filter', {
+      matched: rows.length,
+      discarded: apiArray.length - rows.length,
+      totalConsumption: totalMappedConsumption,
+    });
 
     return rows;
   }
