@@ -12,6 +12,11 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
 // MyIO Authentication instance - will be initialized after credentials are loaded
 let MyIOAuth = null;
 
+// Granularity state shared across widgets (default: daily)
+if (!window.__myioReportGranularity) {
+  window.__myioReportGranularity = '1d';
+}
+
 // RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
 // This prevents race conditions when multiple widgets are loaded
 // VERSION: 2025-10-23-v2
@@ -361,6 +366,26 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const btnForceRefresh = q('#tbx-btn-force-refresh');
   const btnGen = q('#tbx-btn-report-general');
   const btnAlarmReport = q('#tbx-btn-report-alarm');
+  const granularityToggle = q('#tbx-granularity-toggle');
+
+  // Bind granularity toggle
+  if (granularityToggle) {
+    // Restore active state from global
+    granularityToggle.querySelectorAll('.tbx-gran-btn').forEach((btn) => {
+      btn.classList.toggle('tbx-gran-active', btn.dataset.gran === window.__myioReportGranularity);
+    });
+
+    granularityToggle.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tbx-gran-btn');
+      if (!btn) return;
+      const gran = btn.dataset.gran;
+      window.__myioReportGranularity = gran;
+      granularityToggle.querySelectorAll('.tbx-gran-btn').forEach((b) =>
+        b.classList.toggle('tbx-gran-active', b === btn)
+      );
+      LogHelper.log(`[HEADER] Granularity changed to: ${gran}`);
+    });
+  }
 
   setupTooltipPremium(inputRange, '📅 Clique para alterar o intervalo de datas');
 
@@ -983,6 +1008,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         MyIOLibrary.openDashboardPopupAllReport({
           customerId: INGESTION_ID,
           domain: domain, // ← NEW: pass domain ('energy' or 'water')
+          granularity: window.__myioReportGranularity || '1d',
           debug: 0,
           api: {
             clientId: CLIENT_ID,
