@@ -21,8 +21,16 @@ let adminPasswordInput = '';
 let interpolationEnabled = false;
 
 // Clamp limits for real sensor readings (admin-configurable)
-let clampMin = 14;
-let clampMax = 30;
+let clampMin = 17;
+let clampMax = 25;
+
+// Central ID → friendly name map (for error banner display)
+const CENTRAL_NAMES = {
+  'cea3473b-6e46-4a2f-85b8-f228d2a8347a': 'Central Maternidade',
+  'df3f846e-b69c-45ce-9475-bd90570b24d0': 'Central T&D',
+  'b93e4ee6-e002-43ce-83c6-58928d1fd319': 'Central Ar Comprimido',
+  '295628b1-75c6-4854-8031-107cd9a2ab91': 'Central CO2',
+};
 
 // -------- Consts / Estado --------
 const telemetryCache = new Map();
@@ -501,11 +509,12 @@ function clampTemperature(val) {
   if (!isFinite(num)) return { value: null, clamped: false };
   let v = num,
     clamped = false;
+  const frac = num - Math.trunc(num); // parte decimal original, ex: 12.633 → 0.633
   if (num < clampMin) {
-    v = clampMin;
+    v = Math.trunc(clampMin) + frac; // ex: 14 + 0.633 = 14.633
     clamped = true;
   } else if (num > clampMax) {
-    v = clampMax;
+    v = Math.trunc(clampMax) + frac; // ex: 30 + 0.25 = 30.25
     clamped = true;
   }
   return { value: Number(v.toFixed(2)), clamped };
@@ -726,7 +735,10 @@ function exportToCSV(rowsInput) {
   a.download = 'dispositivo_temperatura_horario.csv';
   document.body.appendChild(a);
   a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 1000);
 }
 
 function exportToPDF(data) {
@@ -1017,7 +1029,10 @@ async function getData() {
       // Se qualquer central falhou: abortar tudo, sem renderizar dados parciais
       if (rpcErrors && rpcErrors.length > 0) {
         allRpcErrors.push(...rpcErrors);
-        console.warn('[DR] Aborting report — central(s) failed:', rpcErrors.map((e) => e.centralId));
+        console.warn(
+          '[DR] Aborting report — central(s) failed:',
+          rpcErrors.map((e) => e.centralId)
+        );
         break; // interrompe loop de chunks
       }
 
@@ -1029,9 +1044,7 @@ async function getData() {
         // Centrais com backend ORIGINAL precisam de -3h de correção
         // O backend original usa AT TIME ZONE que adiciona +3h ao UTC real
         // Centrais com backend v3.1 retornam UTC direto (sem correção)
-        const CENTRALS_WITH_OLD_BACKEND = [
-          '295628b1-75c6-4854-8031-107cd9a2ab91', // Souza Aguiar CO2 (original)
-        ];
+        const CENTRALS_WITH_OLD_BACKEND = [];
 
         const needsLegacyNormalization = CENTRALS_WITH_OLD_BACKEND.includes(centralId);
         const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
@@ -1120,7 +1133,7 @@ async function getData() {
               deviceName: deviceLabel,
               reading_date: brDatetime(r.time_interval),
               sort_ts: new Date(r.time_interval).getTime(),
-              temperature: r.equalSign ? '=' : (value == null ? '-' : value.toFixed(2)),
+              temperature: r.equalSign ? '=' : value == null ? '-' : value.toFixed(2),
               interpolated: !!r.interpolated,
               equalSign: !!r.equalSign,
               correctedBelowThreshold: !!clamped,
@@ -1178,7 +1191,7 @@ async function getData() {
         else if (e.status === 503) statusInfo = '503 Serviço indisponível';
         else if (e.status === 0) statusInfo = 'Sem resposta (CORS/Rede)';
         else statusInfo = `Status ${e.status}`;
-        return { centralId: e.centralId, statusInfo };
+        return { centralId: e.centralId, centralName: CENTRAL_NAMES[e.centralId] || null, statusInfo };
       });
       self.ctx.$scope.dados = [];
       self.ctx.$scope.loading = false;
@@ -1533,7 +1546,8 @@ self.onInit = function () {
   self.ctx.$scope.getInterpolatedCount = (arr) =>
     (arr || []).filter((r) => r.interpolated && !r.missing).length;
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
-  self.ctx.$scope.getRealCount = (arr) => (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
+  self.ctx.$scope.getRealCount = (arr) =>
+    (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
 
   // Overlay inicial
   self.ctx.$scope.premiumLoading = false;
@@ -1590,11 +1604,19 @@ self.onInit = function () {
   self.ctx.$scope.clampMax = clampMax;
   self.ctx.$scope.setClampMin = function (evt) {
     const v = parseFloat(evt?.target?.value);
-    if (!isNaN(v)) { clampMin = v; self.ctx.$scope.clampMin = v; self.ctx.detectChanges(); }
+    if (!isNaN(v)) {
+      clampMin = v;
+      self.ctx.$scope.clampMin = v;
+      self.ctx.detectChanges();
+    }
   };
   self.ctx.$scope.setClampMax = function (evt) {
     const v = parseFloat(evt?.target?.value);
-    if (!isNaN(v)) { clampMax = v; self.ctx.$scope.clampMax = v; self.ctx.detectChanges(); }
+    if (!isNaN(v)) {
+      clampMax = v;
+      self.ctx.$scope.clampMax = v;
+      self.ctx.detectChanges();
+    }
   };
 
   self.ctx.detectChanges();

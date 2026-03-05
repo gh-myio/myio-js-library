@@ -232,7 +232,7 @@
       </p>
       <ul class="rpc-unavail-list">
         <li *ngFor="let e of rpcConnectionErrors">
-          <span class="rpc-central-name">{{ e.centralId }}</span>
+          <span class="rpc-central-name">{{ e.centralId }}{{ e.centralName ? ' — ' + e.centralName : '' }}</span>
           <span class="rpc-status-badge">{{ e.statusInfo }}</span>
         </li>
       </ul>
