@@ -163,7 +163,7 @@
 
 .shops-root .search-wrap.active {
   flex: 1 1 auto;
-  max-width: 600px;
+  max-width: none; /* fill all available space up to btnSearch */
   opacity: 1;
   margin-right: 0;
 }
@@ -181,6 +181,11 @@
 .shops-root #shopsSearch:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(31, 111, 181, 0.12);
+}
+
+/* ── In search mode: align left so the input fills full width to btnSearch ── */
+.shops-root .shops-header-btns.search-mode {
+  justify-content: flex-start;
 }
 
 /* ── Collapsible buttons (filter + presetup + exports) ── */
