@@ -1,0 +1,22 @@
+{
+  "displayName": "Laboratório Bloco A (reformado)",
+  "description": "Laboratório reformado em 2026 - capacidade ampliada",
+  "specs": {
+    "area": 145.0,
+    "capacity": 70,
+    "powerRating": 45.0,
+    "voltage": 220.0
+  },
+  "location": {
+    "floor": "Térreo",
+    "room": "Lab 01-A",
+    "zone": "Zona Elétrica Norte"
+  },
+  "tags": ["laboratorio", "eletrica", "bloco-a", "reformado"],
+  "metadata": {
+    "tbId": "tb-asset-uuid-do-thingsboard",
+    "tbAssetName": "Bloco A - Laboratório",
+    "syncedAt": "2026-03-05T12:00:00.000Z"
+  },
+  "status": "ACTIVE"
+}

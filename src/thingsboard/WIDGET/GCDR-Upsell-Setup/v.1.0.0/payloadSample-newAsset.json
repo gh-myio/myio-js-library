@@ -1,0 +1,38 @@
+{
+  "customerId": "customer-uuid-aqui",
+  "parentAssetId": "parent-asset-uuid-aqui",
+  "name": "Bloco A - Laboratório",
+  "displayName": "Laboratório Bloco A",
+  "code": "BLK-A-LAB",
+  "type": "ROOM",
+  "description": "Laboratório de análise elétrica - Bloco A, Térreo",
+  "location": {
+    "address": "Av. Industrial, 1500",
+    "city": "São Paulo",
+    "state": "SP",
+    "country": "BR",
+    "postalCode": "04000-000",
+    "coordinates": {
+      "lat": -23.5505,
+      "lng": -46.6333
+    },
+    "floor": "Térreo",
+    "room": "Lab 01",
+    "zone": "Zona Elétrica"
+  },
+  "specs": {
+    "area": 120.5,
+    "capacity": 50,
+    "powerRating": 30.0,
+    "voltage": 220.0,
+    "manufacturer": "N/A",
+    "installationDate": "2023-01-15T00:00:00.000Z"
+  },
+  "tags": ["laboratorio", "eletrica", "bloco-a"],
+  "metadata": {
+    "tbId": "tb-asset-uuid-do-thingsboard",
+    "tbAssetName": "Bloco A - Laboratório",
+    "tbAssetType": "building",
+    "syncedAt": "2026-03-05T10:00:00.000Z"
+  }
+}

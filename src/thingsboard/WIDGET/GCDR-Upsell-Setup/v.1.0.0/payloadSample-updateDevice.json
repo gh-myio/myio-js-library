@@ -1,0 +1,18 @@
+{
+  "displayName": "Medidor Energia Laboratório (atualizado)",
+  "externalId": "tb-device-uuid-do-thingsboard",
+  "slaveId": 5,
+  "specs": {
+    "firmwareVersion": "1.5.0",
+    "protocol": "MODBUS",
+    "addrLow": 100,
+    "addrHigh": 200,
+    "frequency": 60
+  },
+  "metadata": {
+    "tbId": "tb-device-uuid-do-thingsboard",
+    "tbDeviceName": "Energy Meter Lab 01",
+    "syncedAt": "2026-03-05T12:00:00.000Z"
+  },
+  "status": "ACTIVE"
+}

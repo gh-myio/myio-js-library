@@ -1,0 +1,41 @@
+{
+  "assetId": "asset-uuid-aqui",
+  "name": "Energy Meter Lab 01",
+  "displayName": "Medidor Energia Laboratório",
+  "type": "METER",
+  "serialNumber": "TB-ENM-001",
+  "externalId": "tb-device-uuid-do-thingsboard",
+  "slaveId": 4,
+  "centralId": "central-uuid-aqui",
+  "label": "ENM-LAB-01",
+  "code": "LAB01",
+  "identifier": "modbus://central-uuid/slave/4",
+  "deviceProfile": "energy-meter-modbus",
+  "deviceType": "ENERGY_METER",
+  "description": "Medidor de energia trifásico do laboratório - Modbus RTU",
+  "specs": {
+    "manufacturer": "Schneider Electric",
+    "model": "iEM3155",
+    "firmwareVersion": "1.4.2",
+    "protocol": "MODBUS",
+    "addrLow": 100,
+    "addrHigh": 200,
+    "frequency": 60
+  },
+  "telemetryConfig": {
+    "reportingInterval": 30,
+    "telemetryKeys": ["energy_kwh", "power_kw", "voltage_v", "current_a"],
+    "attributeKeys": ["firmware_version", "serial_number"]
+  },
+  "tags": ["energia", "laboratorio", "modbus"],
+  "metadata": {
+    "tbId": "tb-device-uuid-do-thingsboard",
+    "tbDeviceName": "Energy Meter Lab 01",
+    "tbProfile": "energy-meter-modbus",
+    "syncedAt": "2026-03-05T10:00:00.000Z"
+  },
+  "attributes": {
+    "location": "Laboratório 1 - Bloco A",
+    "installationDate": "2024-06-01"
+  }
+}
