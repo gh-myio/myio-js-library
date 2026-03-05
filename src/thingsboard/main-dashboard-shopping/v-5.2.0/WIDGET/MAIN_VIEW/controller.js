@@ -1989,6 +1989,40 @@ function _buildAlarmServiceOrchestrator(alarms) {
     normalizedAlarms.length, 'total alarms'
   );
 
+  // ── Contamination detector ──────────────────────────────────────────────
+  // Scans STATE.itemsBase for TB devices that share the same gcdrDeviceId.
+  // If multiple TB items have the same gcdrDeviceId that matches an active alarm,
+  // ALL those cards show the badge even though only 1 GCDR device has the alarm.
+  // Root cause: GCDR sync re-match bug (fixed via consumedGcdrDeviceIds).
+  // Resolution: Force Clear + re-sync the customer in GCDR-Upsell-Setup widget.
+  if (window.STATE) {
+    const gcdrIdToItems = new Map(); // gcdrDeviceId → [{tbId, label}]
+    for (const domain of ['energy', 'water', 'temperature']) {
+      const items = window.STATE[domain]?._raw || [];
+      for (const item of items) {
+        const gid = item.gcdrDeviceId;
+        if (!gid || !deviceAlarmMap.has(gid)) continue; // only care about alarm-matched IDs
+        if (!gcdrIdToItems.has(gid)) gcdrIdToItems.set(gid, []);
+        gcdrIdToItems.get(gid).push({ tbId: item.id || item.tbId || '?', label: item.label || item.name || '?' });
+      }
+    }
+    let extraBadges = 0;
+    gcdrIdToItems.forEach((items, gid) => {
+      if (items.length > 1) {
+        extraBadges += items.length - 1;
+        LogHelper.warn(
+          `[AlarmServiceOrchestrator] ⚠️ gcdrDeviceId contamination detected: "${gid}" is shared by ${items.length} TB devices.`,
+          'Expected 1, found:', items.map(i => `${i.label} (${i.tbId})`).join(', '),
+          '→ Run Force Clear + re-sync to fix.'
+        );
+      }
+    });
+    if (extraBadges > 0) {
+      LogHelper.warn(`[AlarmServiceOrchestrator] ⚠️ ${extraBadges} extra badge(s) will appear in TELEMETRY due to contamination.`);
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   // Notify all subscribers that alarm data is fresh.
   // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
   window.dispatchEvent(new CustomEvent('myio:alarms-updated', {

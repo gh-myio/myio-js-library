@@ -846,16 +846,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           `[HEADER] ✅ RFC-0053: Emitted clear event for domain: ${currentDomain.value} (single context)`
         );
 
-        // Show success message only for manual clicks
-        if (!isProgrammatic) {
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
-          if (MyIOToast) {
-            MyIOToast.success(
-              "Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.",
-              5000
-            );
+        LogHelper.log('[HEADER] 🔄 Force Refresh — cache cleared, triggering load...');
+
+        // After clearing, automatically trigger load so the user doesn't need to click "Carregar".
+        // Use a short delay to let the clear events propagate before fetching new data.
+        setTimeout(() => {
+          if (btnLoad && !btnLoad.disabled) {
+            LogHelper.log('[HEADER] 🔄 Auto-triggering Carregar after Limpar');
+            btnLoad.click();
+          } else {
+            // btnLoad disabled (unsupported domain) — just notify the user
+            const MyIOToast = window.MyIOLibrary?.MyIOToast;
+            if (MyIOToast && !isProgrammatic) {
+              MyIOToast.success('Cache limpo com sucesso!', 3000);
+            }
           }
-        }
+        }, 150);
 
         LogHelper.log('[HEADER] 🔄 Force Refresh completed successfully');
       } catch (err) {
