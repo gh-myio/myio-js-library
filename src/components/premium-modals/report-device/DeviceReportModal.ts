@@ -56,7 +56,8 @@ const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetch
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
     const domain = params.domain || 'energy';
     const endpoint = DOMAIN_CONFIG[domain].endpoint;
-    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=1d&page=1&pageSize=1000&deep=0`;
+    const granularity = params.granularity || '1d';
+    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${granularity}&page=1&pageSize=1000&deep=0`;
 
     // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
     // This token provides access to telemetry data from the ingestion system
@@ -261,18 +262,29 @@ export class DeviceReportModal {
   private processApiResponse(apiResponse: any, dateRange: string[]): DailyReading[] {
     // Handle response - expect array with data property
     const dataArray = Array.isArray(apiResponse) ? apiResponse : (apiResponse.data || []);
-    
+    const isHourly = (this.params.granularity || '1d') === '1h';
+
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
+      if (isHourly) return [];
       return dateRange.map(date => ({ date, consumption: 0 }));
     }
 
     const deviceData = dataArray[0]; // First (and likely only) device
     const consumption = deviceData.consumption || [];
 
-    // Build daily consumption map
+    if (isHourly) {
+      // Hourly: keep full timestamp, no zero-fill
+      return consumption
+        .filter((item: any) => item.timestamp && item.value != null)
+        .map((item: any) => ({
+          date: item.timestamp,
+          consumption: Number(item.value),
+        }));
+    }
+
+    // Daily: build map and zero-fill with date range
     const dailyMap: { [key: string]: number } = {};
-    
     consumption.forEach((item: any) => {
       if (item.timestamp && item.value != null) {
         const date = item.timestamp.slice(0, 10); // Extract YYYY-MM-DD
@@ -282,10 +294,9 @@ export class DeviceReportModal {
       }
     });
 
-    // Generate complete date range with zero-fill for missing dates
     return dateRange.map(date => ({
       date,
-      consumption: dailyMap[date] || 0
+      consumption: dailyMap[date] || 0,
     }));
   }
 
@@ -325,7 +336,7 @@ export class DeviceReportModal {
           <thead>
             <tr>
               <th style="cursor: pointer;" data-sort="date">
-                Data
+                ${(this.params.granularity || '1d') === '1h' ? 'Data/Hora' : 'Data'}
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">
@@ -391,6 +402,16 @@ export class DeviceReportModal {
   }
 
   private formatDate(dateStr: string): string {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) {
+      // Hourly timestamp: YYYY-MM-DDTHH:mm:ss
+      const date = new Date(dateStr);
+      return (
+        date.toLocaleDateString('pt-BR') +
+        ' ' +
+        date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      );
+    }
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('pt-BR');
   }

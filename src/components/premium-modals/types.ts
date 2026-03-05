@@ -46,6 +46,7 @@ export interface OpenDeviceReportParams {
   identifier?: string;    // NEW: replaces deviceLabel (device identifier/code)
   label?: string;         // NEW: replaces storeLabel (human-readable name)
   domain?: 'energy' | 'water' | 'temperature'; // NEW: data domain (default: 'energy')
+  granularity?: '1d' | '1h'; // API data granularity (default: '1d')
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   fetcher?: EnergyFetcher; // Optional dependency injection for testing
@@ -71,6 +72,7 @@ export interface OpenAllReportParams {
   customerId: string;
   domain?: 'energy' | 'water' | 'temperature'; // Data domain (default: 'energy')
   group?: string; // RFC-0182: e.g. 'lojas' | 'entrada' | 'area_comum' | 'todos' | 'climatizavel' | 'nao_climatizavel'
+  granularity?: '1d' | '1h'; // API data granularity (default: '1d')
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response
