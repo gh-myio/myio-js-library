@@ -2080,52 +2080,44 @@ function validateDeviceCounts(serverCounts) {
   const state = window.STATE;
   const discrepancies = [];
 
-  // Validate Energy
+  function pushIf(domain, category, expected, actual) {
+    if (expected > 0 && actual !== expected) {
+      discrepancies.push({ domain, category, expected, actual });
+    }
+  }
+
+  // Validate Energy — total + per-category
   if (state?.energy) {
-    const stateEnergyTotal =
-      (state.energy.lojas?.count || 0) +
-      (state.energy.entrada?.count || 0) +
-      (state.energy.areacomum?.count || 0);
+    const lojas   = state.energy.lojas?.count   || 0;
+    const entrada = state.energy.entrada?.count  || 0;
+    const area    = state.energy.areacomum?.count || 0;
 
-    if (serverCounts.energy.total > 0 && stateEnergyTotal !== serverCounts.energy.total) {
-      discrepancies.push({
-        domain: 'energy',
-        expected: serverCounts.energy.total,
-        actual: stateEnergyTotal,
-      });
-    }
+    pushIf('energy', 'total',      serverCounts.energy.total,      lojas + entrada + area);
+    pushIf('energy', 'stores',     serverCounts.energy.stores,     lojas);
+    pushIf('energy', 'entries',    serverCounts.energy.entries,    entrada);
+    pushIf('energy', 'commonArea', serverCounts.energy.commonArea, area);
   }
 
-  // Validate Water
+  // Validate Water — total + per-category
   if (state?.water) {
-    const stateWaterTotal =
-      (state.water.lojas?.count || 0) +
-      (state.water.entrada?.count || 0) +
-      (state.water.areacomum?.count || 0);
+    const lojas   = state.water.lojas?.count   || 0;
+    const entrada = state.water.entrada?.count  || 0;
+    const area    = state.water.areacomum?.count || 0;
 
-    if (serverCounts.water.total > 0 && stateWaterTotal !== serverCounts.water.total) {
-      discrepancies.push({
-        domain: 'water',
-        expected: serverCounts.water.total,
-        actual: stateWaterTotal,
-      });
-    }
+    pushIf('water', 'total',      serverCounts.water.total,      lojas + entrada + area);
+    pushIf('water', 'stores',     serverCounts.water.stores,     lojas);
+    pushIf('water', 'entries',    serverCounts.water.entries,    entrada);
+    pushIf('water', 'commonArea', serverCounts.water.commonArea, area);
   }
 
-  // Validate Temperature
+  // Validate Temperature — total only (no sub-categories stored in STATE)
   if (state?.temperature) {
-    const stateTempTotal =
-      (state.temperature.lojas?.count || 0) +
-      (state.temperature.entrada?.count || 0) +
+    const total =
+      (state.temperature.lojas?.count   || 0) +
+      (state.temperature.entrada?.count  || 0) +
       (state.temperature.areacomum?.count || 0);
 
-    if (serverCounts.temperature.total > 0 && stateTempTotal !== serverCounts.temperature.total) {
-      discrepancies.push({
-        domain: 'temperature',
-        expected: serverCounts.temperature.total,
-        actual: stateTempTotal,
-      });
-    }
+    pushIf('temperature', 'total', serverCounts.temperature.total, total);
   }
 
   const isValid = discrepancies.length === 0;
