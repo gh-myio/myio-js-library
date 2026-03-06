@@ -162,14 +162,15 @@
 }
 
 .shops-root .search-wrap.active {
-  flex: 1 1 auto;
-  max-width: none; /* fill all available space up to btnSearch */
+  flex: 1 1 0%;   /* grow from 0 — avoids intrinsic-size ambiguity of flex-basis:auto */
+  max-width: 100%; /* numeric value — enables CSS transition and proper fill */
   opacity: 1;
   margin-right: 0;
 }
 
 .shops-root #shopsSearch {
   width: 100%;
+  box-sizing: border-box; /* padding + border included in width — prevents overflow of search-wrap */
   border: 1px solid var(--bd);
   border-radius: 8px;
   padding: 6px 10px;
@@ -205,6 +206,7 @@
 .shops-root .shops-header-btns.search-mode #btnPresetup,
 .shops-root .shops-header-btns.search-mode .export-icon-btn {
   max-width: 0;
+  min-width: 0;  /* sobrescreve .icon-btn min-width:32px — sem isso min-width>max-width e cada botão ocupa 32px mesmo "colapsado" */
   opacity: 0;
   pointer-events: none;
   padding-left: 0;
