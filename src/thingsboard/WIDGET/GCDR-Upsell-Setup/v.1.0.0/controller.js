@@ -2105,8 +2105,23 @@ self.onInit = function () {
 
         // Garante que cada GCDR device é consumido por no máximo 1 TB device
         const consumedGcdrDeviceIds = new Set();
-        // Rastreia identifiers já usados por asset para evitar colisão GCDR upsert silencioso
-        const assetIdentifiersSeen = new Map(); // gcdrAssetId → Set<string>
+
+        // Rastreia identifiers globalmente — GCDR tem constraint única de identifier
+        // por tenant/customer (NÃO por asset), então o Set deve ser global ao sync.
+        // Pré-popular com identifiers já existentes no GCDR para evitar HTTP 500
+        // em runs subsequentes (identifiers de runs anteriores já estão no DB).
+        const identifiersSeen = new Set();
+        for (const d of gcdrDeviceList) {
+          if (d.identifier) identifiersSeen.add(d.identifier);
+        }
+
+        // Mapa global externalId (= tbId) → gcdrDevice para match cross-asset.
+        // Devices criados em runs anteriores ficam num asset diferente (novo gcdrAssetId),
+        // por isso guMatchDevice (per-asset) não os encontra → 409 CONFLICT no CREATE.
+        const gcdrDeviceByExternalId = new Map();
+        for (const d of gcdrDeviceList) {
+          if (d.externalId) gcdrDeviceByExternalId.set(d.externalId, d);
+        }
 
         for (const tbDev of allTbDevices) {
           doneDevices++;
@@ -2145,38 +2160,39 @@ self.onInit = function () {
           const gcdrDevicesForAsset = (gcdrAssetMap.get(gcdrAssetId)?.devices ?? [])
             .filter((d) => !consumedGcdrDeviceIds.has(d.id));
 
-          const matchResult = guMatchDevice(tbDev, scope, gcdrDevicesForAsset);
+          // Match: primeiro por asset (slaveId/nome), depois global por externalId
+          // (device pode estar num asset diferente de um run anterior — evita 409 CONFLICT)
+          let matchResult = guMatchDevice(tbDev, scope, gcdrDevicesForAsset);
+          if (!matchResult) {
+            const byExtId = gcdrDeviceByExternalId.get(tbDev.id);
+            if (byExtId && !consumedGcdrDeviceIds.has(byExtId.id)) {
+              matchResult = { device: byExtId, by: 'externalId' };
+            }
+          }
 
           // Marcar o GCDR device como consumido imediatamente após o match
           if (matchResult) consumedGcdrDeviceIds.add(matchResult.device.id);
 
-          // --- Resolver identifier único por asset ---
-          // GCDR tem constraint (assetId, identifier) — dois TB devices com mesmo identifier
-          // no mesmo asset causam upsert silencioso (GCDR retorna o ID do primeiro).
-          // Fallback: nome normalizado quando scope.identifier é nulo (evita HTTP 500 por NOT NULL).
+          // --- Resolver identifier globalmente único ---
+          // GCDR tem constraint única de identifier por tenant/customer (global, não por asset).
+          // Normalizar sempre: remove espaços, chars inválidos, lowercase.
+          // Fallback para nome normalizado quando scope.identifier é nulo (evita HTTP 500 NOT NULL).
+          // Colisão → sufixo com 8 chars do tbId (UUID garante unicidade global).
           const rawIdentifier = scope.identifier || null;
           let resolvedIdentifier;
           {
-            if (!assetIdentifiersSeen.has(gcdrAssetId)) {
-              assetIdentifiersSeen.set(gcdrAssetId, new Set());
-            }
-            const seenForAsset = assetIdentifiersSeen.get(gcdrAssetId);
-            const base = rawIdentifier
-              ? rawIdentifier
-              : (tbDev.label || tbDev.name)
-                  .replace(/\s+/g, '_')
-                  .replace(/[^a-zA-Z0-9_-]/g, '')
-                  .toLowerCase();
-            // Desambiguar colisão adicionando slaveId ou trecho do tbId
-            let candidate = base;
-            if (seenForAsset.has(candidate)) {
-              candidate =
-                slaveId != null
-                  ? `${base}_s${slaveId}`
-                  : `${base}_${tbDev.id.substring(0, 8)}`;
-            }
+            const normalize = (s) =>
+              s.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || null;
+            const base =
+              (rawIdentifier ? normalize(rawIdentifier) : null) ||
+              normalize(tbDev.label || tbDev.name) ||
+              `dev_${tbDev.id.substring(0, 8)}`;
+            // identifiersSeen é global a todos os assets do sync
+            const candidate = identifiersSeen.has(base)
+              ? `${base}_${tbDev.id.substring(0, 8)}`
+              : base;
             resolvedIdentifier = candidate;
-            seenForAsset.add(resolvedIdentifier);
+            identifiersSeen.add(resolvedIdentifier);
           }
 
           const deviceType = scope.deviceType || scope.deviceProfile || tbDev.type || '';
@@ -2214,6 +2230,7 @@ self.onInit = function () {
 
               // Move se assetId diferir
               if (gcdrDev.assetId !== gcdrAssetId) {
+                await sleep(400); // pausa entre chamadas GCDR consecutivas
                 await guGCDRFetch('POST', `/api/v1/devices/${gcdrDeviceId}/move`, {
                   newAssetId: gcdrAssetId,
                 });
@@ -2305,7 +2322,8 @@ self.onInit = function () {
             console.error(`[GCDR Sync] Device failed "${tbDev.name}":`, err);
           }
 
-          await sleep(200); // rate-limit gentil
+          // Rate-limit GCDR: CREATE precisa de mais folga para o servidor processar
+          await sleep(matchResult ? 500 : 800);
         }
 
         // ── Resultado final ────────────────────────────────────────
