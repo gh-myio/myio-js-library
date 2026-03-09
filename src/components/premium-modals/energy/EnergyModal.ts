@@ -322,6 +322,7 @@ export class EnergyModal {
         startISO,
         endISO,
         granularity: this.params.granularity || '1d',
+        readingType: this.params.readingType,
       });
 
       console.log('[EnergyModal] Energy data loaded:', {
@@ -436,6 +437,7 @@ export class EnergyModal {
         startISO,
         endISO,
         granularity: this.params.granularity || '1d',
+        readingType: this.params.readingType,
       });
 
       console.log('[EnergyModal] Energy data reloaded:', {

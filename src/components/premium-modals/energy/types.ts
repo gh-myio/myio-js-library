@@ -168,6 +168,7 @@ export interface EnergyDataParams {
   startISO: string;
   endISO: string;
   granularity: string;
+  readingType?: 'energy' | 'water' | 'tank' | 'temperature';
 }
 
 export interface DataFetcherConfig {
