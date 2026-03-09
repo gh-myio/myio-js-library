@@ -1249,7 +1249,7 @@ export class AlarmsNotificationsPanelView {
       const allSources = [...new Set(group.map((a) => a.source).filter(Boolean))];
       const source = allSources.join(',');
 
-      return { ...rep, occurrenceCount, firstOccurrence, lastOccurrence, severity, state, customerName, source };
+      return { ...rep, occurrenceCount, firstOccurrence, lastOccurrence, severity, state, customerName, source, _groupAlarmIds: group.map((a) => a.id) };
     });
   }
 
@@ -1320,6 +1320,7 @@ export class AlarmsNotificationsPanelView {
         lastOccurrence,
         severity,
         state,
+        _groupAlarmIds: rawAlarms.map((a) => a.id),
       };
     });
   }
@@ -1418,6 +1419,7 @@ export class AlarmsNotificationsPanelView {
         state,
         _alarmTypes: alarmTypes,
         _alarmTypeGroups: alarmTypeGroups,
+        _groupAlarmIds: rawAlarms.map((a) => a.id),
       };
     });
   }
@@ -1631,7 +1633,14 @@ export class AlarmsNotificationsPanelView {
     const confirmAction = () => {
       if (cfg.textRequired && !textarea.value.trim()) return;
 
-      const ids = [this.stripSeparadoId(alarmId)];
+      // Every group mode (consolidado/separado/porDispositivo) stores _groupAlarmIds on the
+      // grouped card. Look up by the original compound id (before stripping) so separado
+      // ("uuid__device") and porDispositivo ("uuid__dev__device") are found correctly.
+      // Fall back to the stripped UUID for raw/ungrouped alarms.
+      const baseId = this.stripSeparadoId(alarmId);
+      const groupedAlarm = this.groupedAlarms?.find((a) => a.id === alarmId);
+      const ids = groupedAlarm?._groupAlarmIds ?? [baseId];
+
       if (type === 'acknowledge') {
         this.controller.handleAcknowledge(ids);
         this.emit('alarm-acknowledge', alarmId);

@@ -67,6 +67,8 @@ export interface Alarm {
   centralId?: string;
   /** Virtual: unique alarm type titles aggregated under this device (Por Dispositivo grouping only) */
   _alarmTypes?: string[];
+  /** Virtual: all raw alarm IDs merged into this group card (consolidado/separado modes) */
+  _groupAlarmIds?: string[];
   /** Virtual: per-type stats for porDispositivo grouped timeline */
   _alarmTypeGroups?: Array<{
     title: string;

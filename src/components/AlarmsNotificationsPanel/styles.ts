@@ -1540,7 +1540,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100002;
+  z-index: 10000010;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -1811,7 +1811,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   inset: 0;
   background: rgba(0, 0, 0, 0.52);
   backdrop-filter: blur(4px);
-  z-index: 100004;
+  z-index: 10000010;
   display: flex;
   align-items: center;
   justify-content: center;

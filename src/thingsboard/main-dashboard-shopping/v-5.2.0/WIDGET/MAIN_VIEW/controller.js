@@ -4237,6 +4237,9 @@ const MyIOOrchestrator = (() => {
       // Annotations
       log_annotations: meta.log_annotations || null,
 
+      // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
+      gcdrDeviceId: meta.gcdrDeviceId || null,
+
       // Metadata flags
       _hasMetadata: true,
     };
@@ -4381,6 +4384,8 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
+      // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
+      else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
       // Only override label if dataKey has a non-empty value
       // Otherwise keep the entityLabel/entityName fallback from initialization
       else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;

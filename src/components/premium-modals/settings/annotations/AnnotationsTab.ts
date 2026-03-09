@@ -6708,10 +6708,16 @@ export class AnnotationsTab {
             </div>
           ` : ''}
           <div class="annotation-detail__history">
-            <div class="annotation-detail__history-title">Histórico (${annotation.history.length} eventos)</div>
+            <div class="annotation-detail__history-title">Histórico (${annotation.history.length + (annotation.responses?.length || 0)} eventos)</div>
             ${annotation.history.map((h) => `
               <div class="annotation-detail__history-item">
                 <strong>${h.action}</strong> por ${h.userName} em ${this.formatDate(h.timestamp)}
+              </div>
+            `).join('')}
+            ${(annotation.responses || []).map((r) => `
+              <div class="annotation-detail__history-item">
+                <strong>${RESPONSE_TYPE_ICONS[r.type as ResponseType] || ''} ${RESPONSE_TYPE_LABELS[r.type as ResponseType] || r.type}</strong> por ${r.createdBy?.name || '—'} em ${this.formatDate(r.createdAt)}
+                ${r.text ? `<div style="margin-top:4px;font-style:italic;color:#555;">${r.text}</div>` : ''}
               </div>
             `).join('')}
           </div>

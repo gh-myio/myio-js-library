@@ -29,6 +29,13 @@ export interface UpsellModalParams {
 
   /** Language (default: 'pt') */
   lang?: 'pt' | 'en';
+
+  /**
+   * Pre-selected customer — skips Step 1 (customer selection) and opens directly
+   * at Step 2 (device list) for the given customer.
+   * Used by external widgets that already have a customer selected (e.g. GCDR-Upsell-Setup).
+   */
+  preselectedCustomer?: { id: string; name: string };
 }
 
 /** Modal instance returned after creation */
@@ -94,6 +101,7 @@ export interface DeviceServerAttrs {
   slaveId?: string | number;
   identifier?: string;
   ingestionId?: string;
+  gcdrDeviceId?: string;
 }
 
 /** Latest telemetry for device (loaded separately) */

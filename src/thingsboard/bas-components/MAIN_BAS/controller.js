@@ -69,6 +69,10 @@ let _ambientesPanel = null;
 let _motorsPanel = null;
 let _chartInstance = null;
 let _currentChartDomain = 'energy';
+// RFC-0152: Shared date range for chart + water panel enrichment
+// { startTs: number|null, endTs: number|null } — null = "last _currentChartPeriod days"
+var _chartDateRange = { startTs: null, endTs: null };
+var _currentChartPeriod = 7; // days (used when _chartDateRange is null/relative)
 let _selectedAmbiente = null;
 let _ctx = null;
 let _settings = null;
@@ -1417,8 +1421,9 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
   }
 
   try {
+    // createRealFetchData reads _chartDateRange automatically; preferCache reuses chart's result
     var fetchData = createRealFetchData('water', { preferCache: true });
-    var result = await fetchData(7);
+    var result = await fetchData(_currentChartPeriod);
 
     if (!result || !result.shoppingData) {
       LogHelper.warn('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: no shoppingData in result');
@@ -4225,26 +4230,26 @@ function createRealFetchData(domain, options) {
   var maxAgeMs = typeof opts.maxAgeMs === 'number' ? opts.maxAgeMs : 5 * 60 * 1000;
 
   return async function fetchData(period) {
-    var cacheKey = domain;
+    // RFC-0152: Use shared date range if set; otherwise compute relative to now
+    var endTs = (_chartDateRange.endTs) || Date.now();
+    var startTs = (_chartDateRange.startTs) || (endTs - period * 24 * 60 * 60 * 1000);
+    var actualPeriod = Math.max(1, Math.round((endTs - startTs) / (24 * 60 * 60 * 1000)));
+
+    // Cache key includes the actual date range (rounded to hours) so different
+    // ranges never share the same cache slot
+    var cacheKey = domain + ':' + Math.floor(startTs / 3600000) + '-' + Math.floor(endTs / 3600000);
     var cached = _chartDataCache[cacheKey];
-    if (cached && cached.period === period) {
+    if (cached) {
       var ageMs = Date.now() - cached.timestamp;
       if (preferCache || ageMs <= maxAgeMs) {
         return cached.data;
       }
     }
 
+    // Build labels from startTs → endTs
     var labels = [];
-    var now = new Date();
-
-    // Calculate date range
-    var endTs = now.getTime();
-    var startTs = endTs - period * 24 * 60 * 60 * 1000;
-
-    // Generate labels for all days
-    for (var i = period - 1; i >= 0; i--) {
-      var d = new Date(now);
-      d.setDate(d.getDate() - i);
+    for (var i = 0; i < actualPeriod; i++) {
+      var d = new Date(startTs + i * 24 * 60 * 60 * 1000);
       labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
     }
 
@@ -4255,28 +4260,18 @@ function createRealFetchData(domain, options) {
 
     if (!customerId || !clientId || !clientSecret) {
       LogHelper.warn('[MAIN_BAS] Chart: No credentials available, returning empty data');
-      return { labels: labels, dailyTotals: new Array(period).fill(0), shoppingData: {}, shoppingNames: {} };
+      return { labels: labels, dailyTotals: new Array(actualPeriod).fill(0), shoppingData: {}, shoppingNames: {} };
     }
 
     try {
       var result;
       if (domain === 'temperature') {
-        // Temperature: fetch from ingestion API (returns full structure with per-device data)
-        result = await fetchTemperatureData(period, startTs, endTs);
+        result = await fetchTemperatureData(actualPeriod, startTs, endTs);
       } else {
-        // Energy/Water: fetch from ingestion API with per-customer breakdown
-        result = await fetchIngestionData(domain, customerId, clientId, clientSecret, period, startTs, endTs);
+        result = await fetchIngestionData(domain, customerId, clientId, clientSecret, actualPeriod, startTs, endTs);
       }
 
-      LogHelper.log(
-        '[MAIN_BAS] Chart data fetched for',
-        domain,
-        ':',
-        result.dailyTotals.length,
-        'points,',
-        Object.keys(result.shoppingData).length,
-        'shoppings'
-      );
+      LogHelper.log('[MAIN_BAS] Chart data fetched for', domain, ':', result.dailyTotals.length, 'points,', Object.keys(result.shoppingData).length, 'devices');
       var resultData = {
         labels: labels,
         dailyTotals: result.dailyTotals,
@@ -4284,17 +4279,17 @@ function createRealFetchData(domain, options) {
         shoppingNames: result.shoppingNames || {},
         fetchTimestamp: Date.now(),
       };
-      _chartDataCache[cacheKey] = { period: period, timestamp: Date.now(), data: resultData };
+      _chartDataCache[cacheKey] = { period: actualPeriod, timestamp: Date.now(), data: resultData };
       return resultData;
     } catch (error) {
       LogHelper.error('[MAIN_BAS] Chart fetch error for', domain, ':', error);
       var errorData = {
         labels: labels,
-        dailyTotals: new Array(period).fill(0),
+        dailyTotals: new Array(actualPeriod).fill(0),
         shoppingData: {},
         shoppingNames: {},
       };
-      _chartDataCache[cacheKey] = { period: period, timestamp: Date.now(), data: errorData };
+      _chartDataCache[cacheKey] = { period: actualPeriod, timestamp: Date.now(), data: errorData };
       return errorData;
     }
   };
@@ -4618,24 +4613,30 @@ function switchChartDomain(domain, chartContainer) {
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
     LogHelper.log('[MAIN_BAS] Using createConsumptionChartWidget for domain:', domain);
 
+    // RFC-0152: Title reflects current date range (fixed or relative)
+    var chartTitle = cfg.label + ' \u2014 ' +
+      (_chartDateRange.startTs
+        ? _formatChartTitle(_chartDateRange.startTs, _chartDateRange.endTs)
+        : 'Últimos ' + _currentChartPeriod + ' dias');
+
     _chartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: domain,
       containerId: 'bas-chart-widget-' + domain,
-      title: cfg.label + ' - Últimos 7 dias',
+      title: chartTitle,
       unit: cfg.unit,
       unitLarge: cfg.unitLarge,
       thresholdForLargeUnit: cfg.threshold,
       decimalPlaces: domain === 'temperature' ? 1 : 2,
       chartHeight: '100%',
-      fullHeight: true, // Use all available height
-      defaultPeriod: 7,
+      fullHeight: true,
+      defaultPeriod: _currentChartPeriod,
       defaultChartType: domain === 'temperature' ? 'line' : 'bar',
       defaultVizMode: 'total',
       theme: (_settings && _settings.defaultThemeMode) || 'light',
-      showSettingsButton: false, // Settings handled by BAS header
-      showMaximizeButton: false, // Maximize handled by BAS header
-      showVizModeTabs: true, // Show Total/Por Shopping tabs
-      showChartTypeTabs: true, // Show Bar/Line tabs
+      showSettingsButton: false,
+      showMaximizeButton: false,
+      showVizModeTabs: true,
+      showChartTypeTabs: true,
 
       // Compact header styles for BAS panel
       headerStyles: {
@@ -4646,7 +4647,7 @@ function switchChartDomain(domain, chartContainer) {
         tabFontSize: '10px',
       },
 
-      // Data fetching
+      // Data fetching — reads _chartDateRange automatically
       fetchData: createRealFetchData(domain),
 
       // Callbacks
@@ -4692,6 +4693,38 @@ function switchChartDomain(domain, chartContainer) {
 }
 
 // NOTE: CHART_ICON_FILTER, CHART_ICON_MAXIMIZE were removed (unused)
+
+/**
+ * RFC-0152: Format a date range for chart titles and labels.
+ * @returns {string} e.g. "18/02 – 25/02"
+ */
+function _formatChartTitle(startTs, endTs) {
+  var fmt = function (ts) {
+    return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+  return fmt(startTs) + ' \u2013 ' + fmt(endTs);
+}
+
+/**
+ * RFC-0152: Apply a new date range to both the chart and Infraestrutura Hídrica cards.
+ * Invalidates _chartDataCache so the next fetch always goes to the API.
+ * @param {number} startTs - UTC ms start of range (midnight)
+ * @param {number} endTs   - UTC ms end of range (23:59:59)
+ */
+function applyChartDateRange(startTs, endTs) {
+  _chartDateRange = { startTs: startTs, endTs: endTs };
+  _currentChartPeriod = Math.max(1, Math.round((endTs - startTs) / (24 * 60 * 60 * 1000)));
+  // Wipe all cached data — new date range requires fresh API calls
+  _chartDataCache = {};
+  LogHelper.log('[MAIN_BAS] applyChartDateRange:', _formatChartTitle(startTs, endTs), '(', _currentChartPeriod, 'dias)');
+  // Re-render the active chart
+  var chartCard = document.querySelector('.bas-chart-card');
+  if (chartCard) switchChartDomain(_currentChartDomain, chartCard);
+  // Re-enrich HIDROMETRO cards with the new period
+  if (_waterPanel && _currentClassified) {
+    enrichWaterDevicesWithIngestionTotals(_currentClassified, _waterPanel);
+  }
+}
 
 /**
  * Mount chart panel using CardGridPanel with tabs feature
@@ -4799,6 +4832,52 @@ function mountChartPanel(hostEl, settings) {
     rightBtn.classList.add('myio-cgp__tabs-scroll-btn--visible');
   }
   tabsWrapper.appendChild(rightBtn);
+
+  // RFC-0152: Date range picker — same row as domain tabs, right-aligned
+  // Controls both the chart AND water card enrichment period.
+  (function buildDateRangePicker() {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:4px;padding:0 8px;flex-shrink:0;' +
+      'border-left:1px solid rgba(255,255,255,0.15);margin-left:4px;';
+
+    function makeDateInput(defaultValue) {
+      var inp = document.createElement('input');
+      inp.type = 'date';
+      inp.value = defaultValue;
+      inp.style.cssText = 'font-size:10px;padding:2px 5px;border-radius:4px;' +
+        'border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);' +
+        'color:#fff;cursor:pointer;width:100px;font-family:inherit;';
+      return inp;
+    }
+
+    // Default: last 7 days (today inclusive)
+    var today = new Date();
+    var startDefault = new Date(today);
+    startDefault.setDate(startDefault.getDate() - 6);
+
+    var inputStart = makeDateInput(startDefault.toISOString().split('T')[0]);
+    var inputEnd   = makeDateInput(today.toISOString().split('T')[0]);
+
+    var sep = document.createElement('span');
+    sep.textContent = '\u2013';
+    sep.style.cssText = 'color:rgba(255,255,255,0.4);font-size:10px;flex-shrink:0;';
+
+    function tryApply() {
+      if (!inputStart.value || !inputEnd.value) return;
+      var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
+      var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
+      if (s.getTime() >= e.getTime()) return;
+      applyChartDateRange(s.getTime(), e.getTime());
+    }
+
+    inputStart.addEventListener('change', tryApply);
+    inputEnd.addEventListener('change', tryApply);
+
+    wrap.appendChild(inputStart);
+    wrap.appendChild(sep);
+    wrap.appendChild(inputEnd);
+    tabsWrapper.appendChild(wrap);
+  })();
 
   // Scroll button handlers
   if (chartTabs.length >= 3) {

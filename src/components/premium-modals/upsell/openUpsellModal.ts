@@ -57,6 +57,81 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MYIO_PURPLE = '#3e1a7d';
 const MYIO_PURPLE_DARK = '#2d1360';
 
+// RFC-0184: domain classification by inferred deviceType
+const CHECK_FIX_DOMAIN: Record<string, string> = {
+  COMPRESSOR: 'energy', VENTILADOR: 'energy', ESCADA_ROLANTE: 'energy', ELEVADOR: 'energy',
+  MOTOR: 'energy', RELOGIO: 'energy', ENTRADA: 'energy', '3F_MEDIDOR': 'energy',
+  CHILLER: 'energy', FANCOIL: 'energy', BOMBA_CAG: 'energy',
+  HIDROMETRO: 'water', CAIXA_DAGUA: 'water', TANK: 'water',
+  TERMOSTATO: 'temperature', TERMOSTATO_EXTERNAL: 'temperature',
+  SOLENOIDE: 'remote', GLOBAL_AUTOMACAO: 'remote',
+  CONTROLE_REMOTO: 'remote', SELETOR_AUTO_MANUAL: 'remote',
+};
+
+// RFC-0184: group classification by actual deviceProfile
+const CHECK_FIX_GROUP: Record<string, string> = {
+  ENTRADA: 'energy_entry', SUBESTACAO: 'energy_entry', RELOGIO: 'energy_entry', TRAFO: 'energy_entry',
+  CHILLER: 'energy_common_area', FANCOIL: 'energy_common_area', BOMBA: 'energy_common_area',
+  BOMBA_HIDRAULICA: 'energy_common_area', BOMBA_PRIMARIA: 'energy_common_area',
+  BOMBA_CAG: 'energy_common_area', AR_CONDICIONADO: 'energy_common_area', HVAC: 'energy_common_area',
+  COMPRESSOR: 'energy_common_area', VENTILADOR: 'energy_common_area',
+  BOMBA_INCENDIO: 'energy_common_area', MOTOR: 'energy_common_area',
+  ESCADA_ROLANTE: 'energy_common_area', ELEVADOR: 'energy_common_area',
+  '3F_MEDIDOR': 'energy_store',
+  HIDROMETRO_SHOPPING: 'water_entry', HIDROMETRO_ENTRADA: 'water_entry',
+  HIDROMETRO_AREA_COMUM: 'water_common_area', TANK: 'water_common_area', CAIXA_DAGUA: 'water_common_area',
+  HIDROMETRO: 'water_store',
+  TERMOSTATO: 'temperature_internal', TERMOSTATO_EXTERNAL: 'temperature_external',
+  SOLENOIDE: 'remote_solenoid', GLOBAL_AUTOMACAO: 'remote_automation',
+  ILUMINACAO: 'remote_lighting', LAMP: 'remote_lighting', LAMPADA: 'remote_lighting',
+  REMOTE: 'remote_control', CONTROLE_REMOTO: 'remote_control', SELETOR_AUTO_MANUAL: 'remote_control',
+};
+
+// RFC-0184: telemetry keys fetched during scan (all domains, connectionStatus always)
+const CHECK_FIX_TELEMETRY_KEYS = 'consumption,pulses,temperature,connectionStatus,water_level,water_percentage,status';
+
+// RFC-0184: keys shown in VALUES column per domain
+const TELEMETRY_KEYS_BY_DOMAIN: Record<string, string[]> = {
+  energy:      ['consumption'],
+  water:       ['pulses', 'water_level', 'water_percentage'],
+  temperature: ['temperature'],
+  remote:      ['status'],
+};
+
+// RFC-0184: infer expected deviceType from device name (returns 'UNDEFINED' when nothing matches)
+function inferForCheckFix(name: string): string {
+  const upper = (name || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  if (upper.includes('COMPRESSOR'))                                      return 'COMPRESSOR';
+  if (upper.includes('VENT'))                                            return 'VENTILADOR';
+  if (upper.includes('ESRL') || upper.includes('ESCADA'))               return 'ESCADA_ROLANTE';
+  if (upper.includes('ELEV'))                                            return 'ELEVADOR';
+  if ((upper.includes('MOTR') && !upper.includes('CHILLER')) ||
+      upper.includes('MOTOR') || upper.includes('RECALQUE'))            return 'MOTOR';
+  if (upper.includes('RELOGIO') || upper.includes('RELOG') ||
+      upper.includes('REL '))                                            return 'RELOGIO';
+  if (upper.includes('ENTRADA') || upper.includes('SUBESTACAO') ||
+      upper.includes('SUBEST'))                                          return 'ENTRADA';
+  if (upper.includes('3F')) {
+    if (upper.includes('CHILLER'))  return 'CHILLER';
+    if (upper.includes('FANCOIL'))  return 'FANCOIL';
+    if (upper.includes('TRAFO') || upper.includes('ENTRADA')) return 'ENTRADA';
+    if (upper.includes('CAG'))      return 'BOMBA_CAG';
+    return '3F_MEDIDOR';
+  }
+  if (upper.includes('HIDR') || upper.includes('BANHEIRO'))             return 'HIDROMETRO';
+  if (upper.includes('CAIXA DAGUA') || upper.includes('CX DAGUA') ||
+      upper.includes('CXDAGUA') || upper.includes('SCD'))               return 'CAIXA_DAGUA';
+  if (upper.includes('TANK') || upper.includes('TANQUE') ||
+      upper.includes('RESERVATORIO'))                                    return 'TANK';
+  if (upper.includes('AUTOMATICO'))                                      return 'SELETOR_AUTO_MANUAL';
+  if (upper.includes('TERMOSTATO') || upper.includes('TERMO') ||
+      upper.includes('TEMP'))                                            return 'TERMOSTATO';
+  if (upper.includes('ABRE'))                                            return 'SOLENOIDE';
+  if (upper.includes('AUTOMACAO') || upper.includes('GW_AUTO'))         return 'GLOBAL_AUTOMACAO';
+  if (upper.includes(' AC ') || upper.endsWith(' AC'))                  return 'CONTROLE_REMOTO';
+  return 'UNDEFINED';
+}
+
 // ============================================================================
 // Busy Modal (Progress Indicator)
 // ============================================================================
@@ -311,6 +386,35 @@ interface IngestionPageResponse {
   };
 }
 
+// RFC-0184 — Check & Fix
+type CheckFixStatus = 'ok' | 'mismatch' | 'missing' | 'undefined';
+type CheckFixFilter = 'all' | 'ok' | 'mismatch' | 'missing' | 'undefined';
+
+interface DeviceDiagnosticRecord {
+  deviceId: string;
+  deviceName: string;
+  deviceLabel: string;
+  inferred: { deviceType: string; deviceProfile: string };
+  actual: { deviceType: string | null; deviceProfile: string | null; type: string | null };
+  domain: string | null;
+  group: string | null;
+  status: CheckFixStatus;
+  typeEqualsProfile: boolean; // actual.type === actual.deviceProfile → low-impact alert
+  telemetry: { ts: number | null; values: Record<string, number | string | null> };
+  connStatus: string | null;
+  gcdrDeviceId: string | null;
+  ingestionId: string | null;
+  centralId: string | null;
+  slaveId: string | null;
+}
+
+interface CheckFixReport {
+  customerName: string;
+  totalDevices: number;
+  records: DeviceDiagnosticRecord[];
+  runAt: number;
+}
+
 async function fetchIngestionDevicesPage(
   token: string,
   customerId: string,
@@ -536,15 +640,18 @@ const i18n = {
 // ============================================================================
 
 type CustomerSortField = 'name' | 'createdTime' | 'parentName';
-type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile';
+type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile' | 'centralId' | 'slaveId';
 type SortOrder = 'asc' | 'desc';
 
 // Column widths for drag-resize
 interface ColumnWidths {
+  name: number;
   label: number;
   type: number;
   createdTime: number;
   relationTo: number;
+  centralId: number;
+  slaveId: number;
   deviceType: number;
   deviceProfile: number;
   telemetry: number;
@@ -649,6 +756,11 @@ interface ModalState {
   };
   deviceToAssetMap: Map<string, string>; // deviceId → asset name
   relationsLoaded: boolean;
+  relationsLoading: boolean;
+  // RFC-0184 Check & Fix
+  checkFixLoading: boolean;
+  checkFixReport: CheckFixReport | null;
+  checkFixFilter: CheckFixFilter;
 }
 
 // Helper: format timestamp to locale date string
@@ -712,6 +824,14 @@ function sortDevices(devices: Device[], field: DeviceSortField, order: SortOrder
       compare = (a.serverAttrs?.deviceProfile || '')
         .toLowerCase()
         .localeCompare((b.serverAttrs?.deviceProfile || '').toLowerCase());
+    } else if (field === 'centralId') {
+      compare = (a.serverAttrs?.centralId || '')
+        .toLowerCase()
+        .localeCompare((b.serverAttrs?.centralId || '').toLowerCase());
+    } else if (field === 'slaveId') {
+      const sA = String(a.serverAttrs?.slaveId ?? '');
+      const sB = String(b.serverAttrs?.slaveId ?? '');
+      compare = sA.localeCompare(sB, undefined, { numeric: true });
     }
     return order === 'asc' ? compare : -compare;
   });
@@ -757,10 +877,13 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
     bulkOwnerModal: { open: false, saving: false },
     columnWidths: {
-      label: 280,
-      type: 180,
-      createdTime: 100,
-      relationTo: 120,
+      name: 180,
+      label: 120,
+      type: 140,
+      createdTime: 90,
+      relationTo: 110,
+      centralId: 80,
+      slaveId: 60,
       deviceType: 80,
       deviceProfile: 90,
       telemetry: 100,
@@ -776,6 +899,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     allRelations: [],
     deviceToAssetMap: new Map(),
     relationsLoaded: false,
+    relationsLoading: false,
     deviceProfiles: [],
     customerAssets: [],
     relationSelectorOpen: false,
@@ -787,11 +911,23 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     lojasConfig: null,
     customModeModal: { open: false },
     bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false },
+    checkFixLoading: false,
+    checkFixReport: null,
+    checkFixFilter: 'all',
   };
 
   // Load saved theme
   const savedTheme = localStorage.getItem('myio-upsell-modal-theme') as 'dark' | 'light';
   if (savedTheme) state.theme = savedTheme;
+
+  // Pre-select customer (skips Step 1 when caller already has a customer selected)
+  if (params.preselectedCustomer) {
+    state.selectedCustomer = {
+      id: { entityType: 'CUSTOMER', id: params.preselectedCustomer.id },
+      name: params.preselectedCustomer.name,
+    };
+    state.currentStep = 2;
+  }
 
   // Create modal container
   const modalContainer = document.createElement('div');
@@ -802,7 +938,12 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
   renderModal(modalContainer, state, modalId, t);
 
   // Fetch initial data
-  loadCustomers(state, modalContainer, modalId, t, params.onClose);
+  if (params.preselectedCustomer) {
+    // Skip customer list — load devices for the pre-selected customer directly
+    loadDevices(state, modalContainer, modalId, t, params.onClose);
+  } else {
+    loadCustomers(state, modalContainer, modalId, t, params.onClose);
+  }
 
   // Return instance
   return {
@@ -1732,6 +1873,219 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
 }
 
 // ============================================================================
+// RFC-0184: Check & Fix — single row for the integrated grid
+// ============================================================================
+
+function renderCheckFixRow(
+  r: DeviceDiagnosticRecord,
+  state: ModalState,
+  modalId: string,
+  colors: ThemeColors,
+  dupPairIds: Set<string>,
+  dupIngestionIds: Set<string>
+): string {
+  const isSelectedSingle = state.deviceSelectionMode === 'single' && getEntityId(state.selectedDevice) === r.deviceId;
+  const isSelectedMulti  = state.deviceSelectionMode === 'multi'  && state.selectedDevices.some(d => getEntityId(d) === r.deviceId);
+  const isSelected = isSelectedSingle || isSelectedMulti;
+
+  const STATUS_ICON:  Record<CheckFixStatus, string> = { ok: '✅', mismatch: '⚠️', missing: '❌', undefined: '❓' };
+  const STATUS_COLOR: Record<CheckFixStatus, string> = {
+    ok: colors.success, mismatch: colors.warning, missing: colors.danger, undefined: colors.textMuted,
+  };
+  const CONN_COLOR: Record<string, string> = {
+    online: colors.success, offline: colors.danger, waiting: colors.warning, bad: '#e879f9',
+  };
+  const dash = `<span style="color:${colors.textMuted}">—</span>`;
+
+  const cell = (hl: 'ok' | 'bad' | 'warn' | 'none' = 'none', mono = false): string => {
+    const b = `padding: 4px 6px; font-size: 10px; border-right: 1px solid ${colors.border}; vertical-align: middle; ${mono ? 'font-family: monospace;' : ''}`;
+    if (hl === 'bad')  return `${b} color:${colors.danger};  background:rgba(239,68,68,0.10); font-weight:700;`;
+    if (hl === 'ok')   return `${b} color:${colors.success}; font-weight:700;`;
+    if (hl === 'warn') return `${b} color:${colors.warning}; font-weight:600;`;
+    return b;
+  };
+
+  const isMismatch     = r.status === 'mismatch';
+  const typeActWrong   = isMismatch && r.actual.type          !== r.inferred.deviceType;
+  const devTypeWrong   = isMismatch && r.actual.deviceType    !== r.inferred.deviceType;
+  const devProfWrong   = isMismatch && r.actual.deviceProfile !== r.inferred.deviceProfile;
+
+  const tsStr = r.telemetry.ts
+    ? new Date(r.telemetry.ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : '—';
+
+  const unit: Record<string, string> = {
+    consumption:' kWh', pulses:' p', temperature:' °C',
+    water_level:' m', water_percentage:'%', status:'',
+  };
+  const valStr = Object.entries(r.telemetry.values)
+    .map(([k, v]) => v != null ? `${k}:<b>${v}${unit[k] ?? ''}</b>` : null)
+    .filter(Boolean).join(' · ') || '—';
+
+  const connColor = r.connStatus ? (CONN_COLOR[r.connStatus] || colors.textMuted) : colors.textMuted;
+
+  return `
+    <tr class="myio-list-item ${isSelected ? 'selected' : ''}" data-device-id="${r.deviceId}"
+        style="border-bottom:1px solid ${colors.border}; cursor:pointer;">
+      ${state.deviceSelectionMode === 'multi' ? `
+        <td style="${cell()} width:28px; text-align:center;">
+          <input type="checkbox" class="myio-device-checkbox" data-device-id="${r.deviceId}"
+            ${isSelectedMulti ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:${MYIO_PURPLE};"/>
+        </td>` : ''}
+      <td style="${cell()} max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.deviceName}">${r.deviceName}</td>
+      <td style="${cell()} max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
+      <td style="${cell(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${cell(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
+      <td style="${cell(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${cell(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
+      <td style="${cell(devProfWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
+      <td style="${cell(devProfWrong ? 'bad' : 'none', true)}" title="${devProfWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
+      <td style="${cell()} white-space:nowrap; color:${colors.textMuted}; font-size:9px;">${tsStr}</td>
+      <td style="${cell()} font-size:9px;">${valStr}</td>
+      <td style="${cell()} color:${connColor}; font-weight:600; white-space:nowrap;">${r.connStatus || dash}</td>
+      <td style="${cell()} font-size:9px; font-family:monospace; color:${colors.textMuted}; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.gcdrDeviceId || ''}">${r.gcdrDeviceId || dash}</td>
+      <td style="${cell(dupIngestionIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.ingestionId || ''}">${r.ingestionId || dash}</td>
+      <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.centralId || ''}">${r.centralId || dash}</td>
+      <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:50px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.slaveId || dash}</td>
+      <td style="padding:4px 6px; font-size:10px; color:${STATUS_COLOR[r.status]}; font-weight:700; white-space:nowrap;">${STATUS_ICON[r.status]} ${r.status}</td>
+    </tr>`;
+}
+
+// ============================================================================
+// RFC-0184: Check & Fix Panel (legacy — kept as fallback, grid integrated into renderStep2)
+// ============================================================================
+
+function renderCheckFixPanel(state: ModalState, modalId: string, colors: ThemeColors): string {
+  const report = state.checkFixReport;
+  if (!report) return '';
+
+  const counts = { ok: 0, mismatch: 0, missing: 0, undefined: 0 };
+  report.records.forEach((r) => counts[r.status]++);
+
+  const filtered = state.checkFixFilter === 'all'
+    ? report.records
+    : report.records.filter((r) => r.status === state.checkFixFilter);
+
+  const STATUS_ICON: Record<CheckFixStatus, string> = { ok: '✅', mismatch: '⚠️', missing: '❌', undefined: '❓' };
+  const STATUS_COLOR: Record<CheckFixStatus, string> = {
+    ok: colors.success, mismatch: colors.warning, missing: colors.danger, undefined: colors.textMuted,
+  };
+  const CONN_COLOR: Record<string, string> = {
+    online: colors.success, offline: colors.danger,
+    waiting: colors.warning, bad: '#e879f9',
+  };
+
+  const dash = `<span style="color:${colors.textMuted}">—</span>`;
+
+  // Shared cell style builders
+  const th = (extra = '') =>
+    `padding: 5px 6px; text-align: left; border-bottom: 1px solid ${colors.border}; border-right: 1px solid ${colors.border}; font-size: 9px; font-weight: 700; text-transform: uppercase; color: ${colors.textMuted}; background: ${colors.surface}; white-space: nowrap; ${extra}`;
+  const td = (highlight: 'ok' | 'bad' | 'warn' | 'none' = 'none', mono = false) => {
+    const base = `padding: 4px 6px; font-size: 11px; border-right: 1px solid ${colors.border}; ${mono ? 'font-family: monospace;' : ''}`;
+    if (highlight === 'bad')  return `${base} color: ${colors.danger};  background: rgba(239,68,68,0.10); font-weight: 700;`;
+    if (highlight === 'ok')   return `${base} color: ${colors.success}; font-weight: 700;`;
+    if (highlight === 'warn') return `${base} color: ${colors.warning}; font-weight: 600;`;
+    return base;
+  };
+
+  const rows = filtered.map((r) => {
+    const isMismatch = r.status === 'mismatch';
+    const typeActWrong    = isMismatch && r.actual.type        !== r.inferred.deviceType;
+    const devTypeWrong    = isMismatch && r.actual.deviceType  !== r.inferred.deviceType;
+    const devProfileWrong = isMismatch && r.actual.deviceProfile !== r.inferred.deviceProfile;
+
+    // Telemetry: last timestamp + formatted values
+    const tsStr = r.telemetry.ts
+      ? new Date(r.telemetry.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : '—';
+    const valueStr = Object.entries(r.telemetry.values)
+      .map(([k, v]) => {
+        if (v === null || v === undefined) return null;
+        const unit: Record<string, string> = {
+          consumption: ' kWh', pulses: ' p', temperature: ' °C',
+          water_level: ' m', water_percentage: '%', status: '',
+        };
+        return `${k}: <strong>${v}${unit[k] ?? ''}</strong>`;
+      })
+      .filter(Boolean)
+      .join(' · ') || '—';
+
+    const connColor = r.connStatus ? (CONN_COLOR[r.connStatus] || colors.textMuted) : colors.textMuted;
+
+    return `
+    <tr style="border-bottom: 1px solid ${colors.border};">
+      <td style="${td('none')} max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.deviceName}">${r.deviceName}</td>
+      <td style="${td('none')} max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
+      <td style="${td(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${td(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
+      <td style="${td(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${td(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
+      <td style="${td(devProfileWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
+      <td style="${td(devProfileWrong ? 'bad' : 'none', true)}" title="${devProfileWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
+      <td style="${td()} color: ${colors.textMuted}; white-space: nowrap; font-size: 10px;">${tsStr}</td>
+      <td style="${td()} font-size: 10px; color: ${colors.text};">${valueStr}</td>
+      <td style="${td()} color: ${connColor}; font-weight: 600; white-space: nowrap; font-size: 10px;">${r.connStatus || dash}</td>
+      <td style="padding: 4px 6px; font-size: 11px; color: ${STATUS_COLOR[r.status]}; font-weight: 700; white-space: nowrap;">${STATUS_ICON[r.status]} ${r.status}</td>
+    </tr>`;
+  }).join('');
+
+  const runAtStr = new Date(report.runAt).toLocaleTimeString();
+
+  return `
+    <div style="margin-top: 12px; border: 1px solid ${colors.border}; border-radius: 8px; background: ${colors.cardBg}; overflow: hidden;">
+      <div style="padding: 10px 14px; border-bottom: 1px solid ${colors.border}; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 13px; font-weight: 600; color: ${colors.text};">🔬 CHECK &amp; FIX Report</span>
+          <span style="font-size: 11px; color: ${colors.textMuted};">${report.customerName} · ${report.totalDevices} devices · ${runAtStr}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-size: 11px; color: ${colors.success};">✅ ${counts.ok}</span>
+          <span style="font-size: 11px; color: ${colors.warning};">⚠️ ${counts.mismatch}</span>
+          <span style="font-size: 11px; color: ${colors.danger};">❌ ${counts.missing}</span>
+          <span style="font-size: 11px; color: ${colors.textMuted};">❓ ${counts.undefined}</span>
+          <select id="${modalId}-checkfix-filter" style="padding: 3px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; background: ${colors.inputBg}; border: 1px solid ${colors.border}; color: ${colors.text};">
+            <option value="all" ${state.checkFixFilter === 'all' ? 'selected' : ''}>All (${report.totalDevices})</option>
+            <option value="ok" ${state.checkFixFilter === 'ok' ? 'selected' : ''}>ok (${counts.ok})</option>
+            <option value="mismatch" ${state.checkFixFilter === 'mismatch' ? 'selected' : ''}>mismatch (${counts.mismatch})</option>
+            <option value="missing" ${state.checkFixFilter === 'missing' ? 'selected' : ''}>missing (${counts.missing})</option>
+            <option value="undefined" ${state.checkFixFilter === 'undefined' ? 'selected' : ''}>undefined (${counts.undefined})</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x: auto; max-height: 340px; overflow-y: auto;">
+        <table style="border-collapse: collapse; min-width: 100%;">
+          <thead>
+            <!-- Row 1: group headers -->
+            <tr style="background: ${colors.surface};">
+              <th rowspan="2" style="${th('min-width:140px')}">Name</th>
+              <th rowspan="2" style="${th('min-width:90px')}">Label</th>
+              <th colspan="2" style="${th('text-align:center')}">TYPE</th>
+              <th colspan="2" style="${th('text-align:center')}">DevType</th>
+              <th colspan="2" style="${th('text-align:center')}">DevProfile</th>
+              <th colspan="2" style="${th('text-align:center')}">Last Telemetry</th>
+              <th rowspan="2" style="${th('min-width:70px')}">Conn.</th>
+              <th rowspan="2" style="${th()}">Result</th>
+            </tr>
+            <!-- Row 2: sub-headers -->
+            <tr style="background: ${colors.surface};">
+              <th style="${th()}">Exp</th><th style="${th()}">Act</th>
+              <th style="${th()}">Exp</th><th style="${th()}">Act</th>
+              <th style="${th()}">Exp</th><th style="${th()}">Act</th>
+              <th style="${th('min-width:90px')}">Date</th><th style="${th('min-width:120px')}">Values</th>
+            </tr>
+          </thead>
+          <tbody style="color: ${colors.text};">
+            ${filtered.length === 0
+              ? `<tr><td colspan="12" style="padding: 20px; text-align: center; color: ${colors.textMuted};">Nenhum resultado para este filtro.</td></tr>`
+              : rows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
 // Step 2: Device Selection
 // ============================================================================
 
@@ -1779,7 +2133,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     return true;
   });
 
-  // Apply search term filter for display count
+  // Apply search term filter — hybrid across name, label, type, devType, devProfile, slaveId, status
   const searchFilteredDevices = searchTerm
     ? filteredDevices.filter((d) => {
         const name = (d.name || '').toLowerCase();
@@ -1787,18 +2141,22 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         const type = (d.type || '').toLowerCase();
         const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
         const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+        const slaveId = String(d.serverAttrs?.slaveId ?? '').toLowerCase();
+        const status = (d.latestTelemetry?.connectionStatus?.value || '').toLowerCase();
         return (
           name.includes(searchTerm) ||
           label.includes(searchTerm) ||
           type.includes(searchTerm) ||
           deviceType.includes(searchTerm) ||
-          deviceProfile.includes(searchTerm)
+          deviceProfile.includes(searchTerm) ||
+          slaveId.includes(searchTerm) ||
+          status.includes(searchTerm)
         );
       })
     : filteredDevices;
 
-  // Sort devices
-  const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
+  // Sort devices (use searchFilteredDevices so the text search also filters the grid)
+  const sortedDevices = sortDevices(searchFilteredDevices, sortField, sortOrder);
 
   // Grid height based on maximize state
   const gridHeight = state.isMaximized ? 'calc(100vh - 340px)' : '360px';
@@ -1989,6 +2347,27 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
   })</span>
           </div>
           ${
+            state.relationsLoading
+              ? `
+            <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
+              ⏳ Relações...
+            </span>
+          `
+              : state.relationsLoaded
+              ? `
+            <span style="font-size: 10px; color: ${colors.success}; padding: 3px 8px;">
+              ✅ Relações OK
+            </span>
+          `
+              : `
+            <button id="${modalId}-load-relations" style="
+              padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
+              background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
+              display: flex; align-items: center; gap: 4px;
+            ">🔗 Carregar Relações</button>
+          `
+          }
+          ${
             state.attrsLoading
               ? `
             <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
@@ -2034,6 +2413,31 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
             </button>
           `
           }
+          ${
+            state.checkFixLoading
+              ? `<span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
+                  ⏳ CHECK &amp; FIX...
+                </span>`
+              : `<button id="${modalId}-check-fix" style="
+                  padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
+                  background: ${state.checkFixReport ? MYIO_PURPLE : colors.cardBg};
+                  border: ${state.checkFixReport ? 'none' : `1px solid ${colors.border}`};
+                  color: ${state.checkFixReport ? 'white' : colors.text};
+                  display: flex; align-items: center; gap: 4px;
+                ">🔬 ${state.checkFixReport ? 'Re-Check' : 'CHECK &amp; FIX'}</button>`
+          }
+          ${state.checkFixReport ? `
+            <select id="${modalId}-checkfix-filter" style="
+              padding: 3px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;
+              background: ${colors.inputBg}; border: 1px solid ${colors.border}; color: ${colors.text};
+            ">
+              <option value="all"       ${state.checkFixFilter === 'all'       ? 'selected' : ''}>Todos</option>
+              <option value="ok"        ${state.checkFixFilter === 'ok'        ? 'selected' : ''}>✅ ok</option>
+              <option value="mismatch"  ${state.checkFixFilter === 'mismatch'  ? 'selected' : ''}>⚠️ mismatch</option>
+              <option value="missing"   ${state.checkFixFilter === 'missing'   ? 'selected' : ''}>❌ missing</option>
+              <option value="undefined" ${state.checkFixFilter === 'undefined' ? 'selected' : ''}>❓ undefined</option>
+            </select>
+          ` : ''}
           <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: ${
             colors.surface
           }; border-radius: 6px; border: 1px solid ${colors.border};">
@@ -2082,56 +2486,124 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       </div>
     </div>
 
-    <!-- Device Grid Header with Sortable Columns -->
-    <div id="${modalId}-grid-header" style="
-      display: flex; align-items: center; gap: 0; padding: 8px 12px;
-      background: ${colors.cardBg}; border: 1px solid ${colors.border};
-      border-bottom: none; border-radius: 8px 8px 0 0; font-size: 9px;
-      font-weight: 600; color: ${colors.textMuted}; text-transform: uppercase;
-    ">
-      ${state.deviceSelectionMode === 'multi' ? `<div style="width: 28px; text-align: center;">☑</div>` : ''}
-      <div style="width: 28px;"></div>
-      ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
-      ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
-      ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
-      <div style="width: ${
-        state.columnWidths.relationTo
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        relTO ${!state.relationsLoaded ? '⏳' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.deviceType
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.deviceProfile
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        devProfile ${!state.deviceAttrsLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.telemetry
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        Telemetria ${!state.deviceTelemetryLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.status
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        Status ${!state.deviceTelemetryLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: 24px;"></div>
-    </div>
+    ${(() => {
+      const thStyle = (extra = '') =>
+        `padding:5px 6px; text-align:left; border-bottom:1px solid ${colors.border}; border-right:1px solid ${colors.border}; font-size:9px; font-weight:700; text-transform:uppercase; color:${colors.textMuted}; background:${colors.surface}; white-space:nowrap; position:sticky; top:0; z-index:1; ${extra}`;
+      const multiCol = state.deviceSelectionMode === 'multi';
 
-    <div style="
-      max-height: ${gridHeight}; overflow-y: auto; border: 1px solid ${colors.border};
-      border-radius: 0 0 8px 8px; background: ${colors.surface};
-    " id="${modalId}-device-list">
-      ${
-        sortedDevices.length === 0
-          ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-          : sortedDevices.map((device) => renderDeviceRow(device, state, modalId, colors)).join('')
+      if (state.checkFixReport) {
+        // CHECK & FIX mode: replace standard grid with diagnostic table
+        const idToRecord = new Map(state.checkFixReport.records.map(r => [r.deviceId, r]));
+        const cfRows = sortedDevices
+          .map(d => idToRecord.get(getEntityId(d)))
+          .filter((r): r is DeviceDiagnosticRecord => r !== undefined)
+          .filter(r => state.checkFixFilter === 'all' || r.status === state.checkFixFilter);
+
+        // Detect duplicate centralId+slaveId pairs
+        const pairCount = new Map<string, string[]>();
+        cfRows.forEach(r => {
+          if (r.centralId && r.slaveId != null) {
+            const key = `${r.centralId}::${r.slaveId}`;
+            if (!pairCount.has(key)) pairCount.set(key, []);
+            pairCount.get(key)!.push(r.deviceId);
+          }
+        });
+        const dupPairIds = new Set<string>();
+        pairCount.forEach(ids => { if (ids.length > 1) ids.forEach(id => dupPairIds.add(id)); });
+
+        // Detect duplicate ingestionIds
+        const ingCount = new Map<string, string[]>();
+        cfRows.forEach(r => {
+          if (r.ingestionId) {
+            if (!ingCount.has(r.ingestionId)) ingCount.set(r.ingestionId, []);
+            ingCount.get(r.ingestionId)!.push(r.deviceId);
+          }
+        });
+        const dupIngestionIds = new Set<string>();
+        ingCount.forEach(ids => { if (ids.length > 1) ids.forEach(id => dupIngestionIds.add(id)); });
+
+        const colSpan = multiCol ? 18 : 17;
+        return `
+        <div id="${modalId}-device-list" style="
+          overflow-x:auto; max-height:${gridHeight};
+          border:1px solid ${colors.border}; border-radius:8px; background:${colors.surface};
+        ">
+          <table style="border-collapse:collapse; min-width:100%;">
+            <thead>
+              <tr>
+                ${multiCol ? `<th rowspan="2" style="${thStyle('width:28px')}">☑</th>` : ''}
+                <th rowspan="2" style="${thStyle('min-width:140px')}">Name</th>
+                <th rowspan="2" style="${thStyle('min-width:90px')}">Label</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">TYPE</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">DevType</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">DevProfile</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">Last Telemetry</th>
+                <th rowspan="2" style="${thStyle('min-width:65px')}">Conn.</th>
+                <th rowspan="2" style="${thStyle('min-width:110px')}">gcdrId</th>
+                <th rowspan="2" style="${thStyle('min-width:110px')}">ingestionId</th>
+                <th rowspan="2" style="${thStyle('min-width:80px')}">centralId</th>
+                <th rowspan="2" style="${thStyle('min-width:50px')}">slave</th>
+                <th rowspan="2" style="${thStyle()}">Result</th>
+              </tr>
+              <tr>
+                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
+                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
+                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
+                <th style="${thStyle('min-width:80px')}">Date</th>
+                <th style="${thStyle('min-width:110px')}">Values</th>
+              </tr>
+            </thead>
+            <tbody style="color:${colors.text};">
+              ${cfRows.length === 0
+                ? `<tr><td colspan="${colSpan}" style="padding:20px; text-align:center; color:${colors.textMuted};">${t.noResults}</td></tr>`
+                : cfRows.map(r => renderCheckFixRow(r, state, modalId, colors, dupPairIds, dupIngestionIds)).join('')}
+            </tbody>
+          </table>
+        </div>`;
       }
-    </div>
+
+      // Standard mode: sortable header + device rows
+      return `
+      <div id="${modalId}-grid-header" style="
+        display:flex; align-items:center; gap:0; padding:8px 12px;
+        background:${colors.cardBg}; border:1px solid ${colors.border};
+        border-bottom:none; border-radius:8px 8px 0 0; font-size:9px;
+        font-weight:600; color:${colors.textMuted}; text-transform:uppercase;
+      ">
+        ${multiCol ? `<div style="width:28px; text-align:center;">☑</div>` : ''}
+        <div style="width:28px;"></div>
+        ${renderSortableHeader('name', 'Name', 'name', state.columnWidths.name)}
+        ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
+        ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
+        ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
+        <div style="width:${state.columnWidths.relationTo}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          relTO ${!state.relationsLoaded ? '⏳' : ''}
+        </div>
+        ${renderSortableHeader('centralId', 'centralId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'centralId', state.columnWidths.centralId)}
+        ${renderSortableHeader('slaveId', 'slaveId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'slaveId', state.columnWidths.slaveId)}
+        <div style="width:${state.columnWidths.deviceType}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:${state.columnWidths.deviceProfile}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          devProfile ${!state.deviceAttrsLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:${state.columnWidths.telemetry}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          Telemetria ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:${state.columnWidths.status}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          Status ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:24px;"></div>
+      </div>
+      <div style="
+        max-height:${gridHeight}; overflow-y:auto; border:1px solid ${colors.border};
+        border-radius:0 0 8px 8px; background:${colors.surface};
+      " id="${modalId}-device-list">
+        ${sortedDevices.length === 0
+          ? `<div style="padding:40px; text-align:center; color:${colors.textMuted};">${t.noResults}</div>`
+          : sortedDevices.map(device => renderDeviceRow(device, state, modalId, colors)).join('')}
+      </div>`;
+    })()}
   `;
 }
 
@@ -2338,20 +2810,27 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       }
       <div style="width: 28px; font-size: 16px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
       <div style="width: ${
-        state.columnWidths.label
+        state.columnWidths.name
       }px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px;">
-        <div style="font-weight: 500; color: ${
+        <div style="font-weight: 600; color: ${
           colors.text
-        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${
-    device.label || device.name
-  }">
-          ${device.label || device.name}
+        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${device.name}">
+          ${device.name}
         </div>
         <span class="myio-info-btn" data-device-info="${encodeURIComponent(tooltipContent)}" style="
           cursor: pointer; font-size: 12px; color: ${colors.textMuted}; flex-shrink: 0;
           width: 16px; height: 16px; border-radius: 50%; background: ${colors.cardBg};
           display: flex; align-items: center; justify-content: center; border: 1px solid ${colors.border};
         " title="Ver detalhes">ⓘ</span>
+      </div>
+      <div style="width: ${
+        state.columnWidths.label
+      }px; padding: 0 6px; overflow: hidden; flex-shrink: 0;">
+        <div style="font-size: 10px; color: ${
+          colors.textMuted
+        }; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.label ?? ''}">
+          ${device.label ?? ''}
+        </div>
       </div>
       <div style="width: ${
         state.columnWidths.type
@@ -2377,6 +2856,26 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
             ? `<span style="font-size: 9px; color: ${colors.text};" title="${assetName}">${assetName}</span>`
             : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
         })()}
+      </div>
+      <div style="width: ${
+        state.columnWidths.centralId
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${!state.deviceAttrsLoaded
+          ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
+          : attrs.centralId
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.centralId}">${attrs.centralId}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
+        }
+      </div>
+      <div style="width: ${
+        state.columnWidths.slaveId
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${!state.deviceAttrsLoaded
+          ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
+          : attrs.slaveId != null && attrs.slaveId !== ''
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.slaveId}">${attrs.slaveId}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
+        }
       </div>
       <div style="width: ${
         state.columnWidths.deviceType
@@ -3318,11 +3817,16 @@ function setupEventListeners(
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Sortable column headers - click to sort
+  // Sortable column headers - click to sort (must match renderSortableHeader col names in the grid header)
   const sortableColumns: Array<{ col: string; field: DeviceSortField }> = [
-    { col: 'label', field: 'label' },
-    { col: 'type', field: 'type' },
-    { col: 'createdTime', field: 'createdTime' },
+    { col: 'name',          field: 'name'          },
+    { col: 'label',         field: 'label'         },
+    { col: 'type',          field: 'type'          },
+    { col: 'createdTime',   field: 'createdTime'   },
+    { col: 'deviceType',    field: 'deviceType'    },
+    { col: 'deviceProfile', field: 'deviceProfile' },
+    { col: 'centralId',     field: 'centralId'     },
+    { col: 'slaveId',       field: 'slaveId'       },
   ];
 
   sortableColumns.forEach(({ col, field }) => {
@@ -3358,6 +3862,14 @@ function setupEventListeners(
     if (e.key === 'Escape') closeHandler();
   };
   document.addEventListener('keydown', escHandler);
+
+  // ========================
+  // Load Relations Button
+  // ========================
+
+  document.getElementById(`${modalId}-load-relations`)?.addEventListener('click', () => {
+    void loadDeviceRelations(state, container, modalId, t, onClose);
+  });
 
   // ========================
   // Load Attributes Button
@@ -3534,6 +4046,27 @@ function setupEventListeners(
 
     state.telemetryLoading = false;
     state.deviceTelemetryLoaded = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // ========================
+  // RFC-0184: CHECK & FIX
+  // ========================
+
+  document.getElementById(`${modalId}-check-fix`)?.addEventListener('click', async () => {
+    if (state.checkFixLoading) return;
+    state.checkFixLoading = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+    await runCheckFixRoutine(state, container, modalId, t, onClose);
+    state.checkFixLoading = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  document.getElementById(`${modalId}-checkfix-filter`)?.addEventListener('change', (e) => {
+    state.checkFixFilter = (e.target as HTMLSelectElement).value as CheckFixFilter;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -5290,13 +5823,12 @@ async function loadDevices(
     state.telemetryLoading = false;
     state.telemetryLoadedCount = 0;
     state.relationsLoaded = false;
+    state.relationsLoading = false;
     state.deviceToAssetMap = new Map();
     state.isLoading = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
-    // Attrs and telemetry are now loaded on demand via buttons
-    // Relations load in background automatically
-    void loadDeviceRelations(state, container, modalId, t, onClose);
+    // Attrs, telemetry and relations are all loaded on demand via buttons
   } catch (error) {
     console.error('[UpsellModal] Error loading devices:', error);
     state.isLoading = false;
@@ -5304,7 +5836,7 @@ async function loadDevices(
   }
 }
 
-// Load device→asset relations for all customer assets in background
+// Load device→asset relations on demand (user-triggered, parallel batches per asset)
 async function loadDeviceRelations(
   state: ModalState,
   container: HTMLElement,
@@ -5312,36 +5844,62 @@ async function loadDeviceRelations(
   t: typeof i18n.pt,
   onClose?: () => void
 ): Promise<void> {
-  if (!state.selectedCustomer) return;
+  if (!state.selectedCustomer || state.relationsLoading) return;
   const customerId = getEntityId(state.selectedCustomer);
 
-  // Ensure customer assets are loaded
-  if (state.customerAssets.length === 0) {
-    state.customerAssets = await fetchCustomerAssets(state, customerId);
-  }
-
-  const deviceToAssetMap = new Map<string, string>();
-
-  for (const asset of state.customerAssets) {
-    try {
-      const rels = await tbFetch<Array<{ from: { id: string; entityType: string }; to: { id: string; entityType: string }; type: string }>>(
-        state,
-        `/api/relations?fromId=${asset.id}&fromType=ASSET`
-      );
-      for (const rel of rels) {
-        if (rel.to.entityType === 'DEVICE') {
-          deviceToAssetMap.set(rel.to.id, asset.name);
-        }
-      }
-    } catch {
-      // ignore per-asset errors
-    }
-  }
-
-  state.deviceToAssetMap = deviceToAssetMap;
-  state.relationsLoaded = true;
+  state.relationsLoading = true;
+  state.relationsLoaded = false;
   renderModal(container, state, modalId, t);
   setupEventListeners(container, state, modalId, t, onClose);
+
+  try {
+    // Phase 1: 1 request to fetch all customer assets
+    if (state.customerAssets.length === 0) {
+      state.customerAssets = await fetchCustomerAssets(state, customerId);
+    }
+
+    const assets = state.customerAssets;
+    const BATCH_SIZE = 20; // parallel per batch — was 1 sequential per asset
+    const deviceToAssetMap = new Map<string, string>();
+
+    showBusyProgress('Carregando relações...', assets.length);
+
+    // Phase 2: parallel batches — N_assets/20 rounds instead of N_assets sequential rounds
+    for (let i = 0; i < assets.length; i += BATCH_SIZE) {
+      const batch = assets.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (asset) => {
+          try {
+            const rels = await tbFetch<Array<{ from: { id: string; entityType: string }; to: { id: string; entityType: string }; type: string }>>(
+              state,
+              `/api/relations?fromId=${asset.id}&fromType=ASSET`
+            );
+            rels.forEach((rel) => {
+              if (rel.to.entityType === 'DEVICE') {
+                deviceToAssetMap.set(rel.to.id, asset.name);
+              }
+            });
+          } catch {
+            // ignore per-asset errors
+          }
+        })
+      );
+      updateBusyProgress(Math.min(i + BATCH_SIZE, assets.length));
+    }
+
+    state.deviceToAssetMap = deviceToAssetMap;
+    state.relationsLoaded = true;
+    state.relationsLoading = false;
+    hideBusyProgress();
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  } catch (error) {
+    console.error('[UpsellModal] Error loading device relations:', error);
+    state.relationsLoading = false;
+    hideBusyProgress();
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  }
 }
 
 // Load server-scope attributes for all devices in batch
@@ -5524,6 +6082,127 @@ async function loadDeviceTelemetryInBatch(
     state.telemetryLoading = false;
     hideBusyProgress();
   }
+}
+
+// RFC-0184: Diagnostic scan — infer expected attrs from device names, compare against actual TB attrs
+async function runCheckFixRoutine(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  const devices = state.devices; // ALL devices — ignores active grid filter
+  if (devices.length === 0) return;
+
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 1500;
+  showBusyProgress('Executando diagnóstico CHECK & FIX...', devices.length);
+
+  const records: DeviceDiagnosticRecord[] = [];
+
+  for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+    const batch = devices.slice(i, i + BATCH_SIZE);
+
+    const promises = batch.map(async (device): Promise<DeviceDiagnosticRecord> => {
+      const deviceId = getEntityId(device);
+      const deviceName = device.name || device.label || '';
+      const deviceLabel = device.label || '';
+      const inferredType = inferForCheckFix(deviceName);
+      const inferredProfile = inferredType; // per RFC: same value at inference time
+
+      // Fetch SERVER_SCOPE attrs if not already present
+      if (!device.serverAttrs) {
+        try {
+          const attrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+            state,
+            `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`
+          );
+          device.serverAttrs = {};
+          attrs.forEach((a) => {
+            (device.serverAttrs as Record<string, unknown>)[a.key] = a.value;
+          });
+        } catch {
+          device.serverAttrs = {};
+        }
+      }
+
+      const actualDeviceType = (device.serverAttrs?.deviceType as string) || null;
+      const actualDeviceProfile = (device.serverAttrs?.deviceProfile as string) || null;
+      const actualType = device.type || null;
+      const domain = inferredType !== 'UNDEFINED' ? (CHECK_FIX_DOMAIN[inferredType] || null) : null;
+      const group = actualDeviceProfile ? (CHECK_FIX_GROUP[actualDeviceProfile] || null) : null;
+      const typeEqualsProfile = !!(actualType && actualDeviceProfile && actualType === actualDeviceProfile);
+
+      // Fetch latest telemetry independently (all keys, filter display by domain)
+      let telemetryTs: number | null = null;
+      const telemetryValues: Record<string, number | string | null> = {};
+      let connStatus: string | null = null;
+      try {
+        const telem = await tbFetch<Record<string, Array<{ ts: number; value: string | number }>>>(
+          state,
+          `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${CHECK_FIX_TELEMETRY_KEYS}`
+        );
+        // connectionStatus always parsed regardless of domain
+        if (telem.connectionStatus?.[0]) {
+          connStatus = String(telem.connectionStatus[0].value);
+          telemetryTs = telem.connectionStatus[0].ts;
+        }
+        // domain-specific value keys
+        const domainKeys = domain ? (TELEMETRY_KEYS_BY_DOMAIN[domain] ?? []) : [];
+        domainKeys.forEach((key) => {
+          const entry = telem[key]?.[0];
+          if (entry) {
+            telemetryValues[key] = entry.value as string | number;
+            if (!telemetryTs || entry.ts > telemetryTs) telemetryTs = entry.ts;
+          }
+        });
+      } catch { /* telemetry is informational — don't fail the scan */ }
+
+      let status: CheckFixStatus;
+      if (inferredType === 'UNDEFINED') {
+        status = 'undefined';
+      } else if (!actualDeviceType || !actualDeviceProfile) {
+        status = 'missing';
+      } else if (actualDeviceType !== inferredType || actualDeviceProfile !== inferredProfile) {
+        status = 'mismatch';
+      } else {
+        status = 'ok';
+      }
+
+      const gcdrDeviceId = (device.serverAttrs?.gcdrDeviceId as string) || null;
+      const ingestionId  = (device.serverAttrs?.ingestionId  as string) || null;
+      const centralId    = (device.serverAttrs?.centralId    as string) || null;
+      const slaveId      = device.serverAttrs?.slaveId != null ? String(device.serverAttrs.slaveId) : null;
+
+      return {
+        deviceId, deviceName, deviceLabel,
+        inferred: { deviceType: inferredType, deviceProfile: inferredProfile },
+        actual: { deviceType: actualDeviceType, deviceProfile: actualDeviceProfile, type: actualType },
+        domain, group, status, typeEqualsProfile,
+        telemetry: { ts: telemetryTs, values: telemetryValues },
+        connStatus, gcdrDeviceId, ingestionId, centralId, slaveId,
+      };
+    });
+
+    const batchResults = await Promise.all(promises);
+    records.push(...batchResults);
+    updateBusyProgress(Math.min(i + BATCH_SIZE, devices.length));
+
+    if (i + BATCH_SIZE < devices.length) {
+      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+    }
+  }
+
+  const customer = state.selectedCustomer as (Customer & { title?: string }) | null;
+  state.checkFixReport = {
+    customerName: customer?.name || customer?.title || '',
+    totalDevices: devices.length,
+    records,
+    runAt: Date.now(),
+  };
+
+  hideBusyProgress();
 }
 
 async function loadValidationData(
