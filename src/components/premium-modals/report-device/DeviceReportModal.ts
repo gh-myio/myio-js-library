@@ -145,9 +145,10 @@ export class DeviceReportModal {
               <label class="myio-label" for="date-range">Período</label>
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
-            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:inline-flex;align-items:center;border:1px solid var(--myio-border,#e5e7eb);border-radius:8px;overflow:hidden;background:#f3f4f6;flex-shrink:0;height:36px;">
-              <button type="button" data-gran="1d" style="height:36px;padding:0 12px;font-size:13px;font-weight:600;border:none;background:var(--myio-primary,#1565c0);color:#fff;cursor:pointer;white-space:nowrap;">1d</button>
-              <button type="button" data-gran="1h" style="height:36px;padding:0 12px;font-size:13px;font-weight:600;border:none;background:transparent;color:#6b7280;cursor:pointer;white-space:nowrap;">1h</button>
+            <!-- granularity-toggle hidden: 1h not yet supported, default stays 1d -->
+            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:none;">
+              <button type="button" data-gran="1d">1d</button>
+              <button type="button" data-gran="1h">1h</button>
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
