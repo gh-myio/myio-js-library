@@ -1161,6 +1161,11 @@ let busyTimeoutId = null; // Timeout ID for busy fallback
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 
+// RFC-0152: Per-widget export key — isolates _deviceDataExport per TELEMETRY instance
+// Set in onInit after WIDGET_DOMAIN + labelWidget are known.
+// Pattern: _deviceDataExport_{domain}_{group} (e.g. _deviceDataExport_energy_lojas)
+let _exportKey = '_deviceDataExport';
+
 // RFC-0063: Classification mode configuration
 let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
 let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
@@ -2077,7 +2082,7 @@ function renderHeader(count, groupSum) {
 function renderList(visible) {
   const $ul = $list().empty();
   // RFC-0152: Reset per-render device data export buffer
-  window._deviceDataExport = [];
+  window[_exportKey] = [];
 
   // Calculate average temperature for all temperature devices (for TempComparisonTooltip)
   // Only count active sensors, exclude offline devices
@@ -2785,7 +2790,7 @@ function renderList(visible) {
     }
 
     // RFC-0152: Collect TB↔GCDR mapping data for device export
-    window._deviceDataExport.push({
+    window[_exportKey].push({
       tbId: it.tbId || it.id || '',
       deviceName: it.entityName || '',
       label: it.label || '',
@@ -2804,10 +2809,10 @@ function renderList(visible) {
   });
 
   // RFC-0152: Log device export data if enabled via settings
-  if (window.MyIOUtils?.enableDeviceDataExport && window._deviceDataExport.length > 0) {
+  if (window.MyIOUtils?.enableDeviceDataExport && window[_exportKey].length > 0) {
     const header =
       'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
-    const rows = window._deviceDataExport.map((d) =>
+    const rows = window[_exportKey].map((d) =>
       [
         d.tbId,
         d.deviceName,
@@ -2824,7 +2829,7 @@ function renderList(visible) {
       ].join('|')
     );
     console.log(
-      `[RFC-0152] Device Data Export — ${window._deviceDataExport.length} devices (${WIDGET_DOMAIN}):\n` +
+      `[RFC-0152] Device Data Export — ${window[_exportKey].length} devices (${WIDGET_DOMAIN}):\n` +
         header +
         '\n' +
         rows.join('\n')
@@ -3133,7 +3138,7 @@ function bindModal() {
   // RFC-0152: Device map download — @myio.com.br only
   $m.on('click', '#btnDownloadDeviceMap', (ev) => {
     ev.preventDefault();
-    const data = window._deviceDataExport;
+    const data = window[_exportKey];
     if (!data || data.length === 0) {
       alert('Nenhum dado de dispositivo disponível. Abra o painel de dados primeiro.');
       return;
@@ -3998,7 +4003,10 @@ self.onInit = async function () {
   }
 
   WIDGET_DOMAIN = configuredDomain || 'energy'; // Keep fallback for backwards compatibility but log error above
-  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+  // RFC-0152: Build per-widget export key so multiple TELEMETRY instances don't share the buffer
+  const _lwGroup = mapLabelWidgetToStateGroup(self.ctx.settings?.labelWidget || '') || WIDGET_DOMAIN;
+  _exportKey = `_deviceDataExport_${WIDGET_DOMAIN}_${_lwGroup}`;
+  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, exportKey=${_exportKey}`);
 
   // Show temperature info icon for temperature domain
   if (WIDGET_DOMAIN === 'temperature') {
