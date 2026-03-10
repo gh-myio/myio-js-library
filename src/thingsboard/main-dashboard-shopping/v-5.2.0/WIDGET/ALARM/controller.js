@@ -83,9 +83,9 @@ self.onInit = async function () {
   const enableDebugMode        = settings.enableDebugMode        ?? false;
   // API credentials: from MAIN_VIEW orchestrator (configured in MAIN_VIEW settingsSchema)
   const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || '';
-  const alarmsApiKey     = window.MyIOOrchestrator?.alarmsApiKey     || '';
+  const alarmsApiKey     = window.MyIOOrchestrator?.gcdrApiKey     || '';
   if (!alarmsApiKey) {
-    MyIOLibrary.MyIOToast?.error('[ALARM] alarmsApiKey não encontrado em window.MyIOOrchestrator. Configure em MAIN_VIEW Widget Settings → alarmsApiKey.');
+    MyIOLibrary.MyIOToast?.error('[ALARM] gcdrApiKey não encontrado em window.MyIOOrchestrator. Verifique o atributo SERVER_SCOPE gcdrApiKey do customer.');
   }
 
   // Read theme from dashboard orchestrator; fallback to light
