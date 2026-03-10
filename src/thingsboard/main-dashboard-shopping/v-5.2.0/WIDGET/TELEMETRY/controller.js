@@ -2765,6 +2765,7 @@ function renderList(visible) {
       tbId:           it.tbId || it.id || '',
       deviceName:     it.entityName || '',
       label:          it.label || '',
+      identifier:     it.identifier || '',
       deviceType:     it.deviceType || '',
       deviceProfile:  it.deviceProfile || '',
       slaveId:        it.slaveId || '',
@@ -2780,9 +2781,15 @@ function renderList(visible) {
 
   // RFC-0152: Log device export data if enabled via settings
   if (window.MyIOUtils?.enableDeviceDataExport && window._deviceDataExport.length > 0) {
+    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const rows = window._deviceDataExport.map((d) =>
+      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
+       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+    );
     console.log(
-      `[RFC-0152] Device Data Export — ${window._deviceDataExport.length} devices (${WIDGET_DOMAIN}):`,
-      JSON.stringify(window._deviceDataExport, null, 2)
+      `[RFC-0152] Device Data Export — ${window._deviceDataExport.length} devices (${WIDGET_DOMAIN}):\n` +
+      header + '\n' +
+      rows.join('\n')
     );
   }
 }

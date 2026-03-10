@@ -4196,6 +4196,22 @@ const MyIOOrchestrator = (() => {
       lastActivityTime: meta.lastActivityTime,
     });
 
+    // RFC-0188: Log offline/bad decisions for water devices so we can trace bypass
+    if ((meta.connectionStatus === 'offline' || meta.connectionStatus === 'bad') && domain === 'water') {
+      const shortDelayMins = SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS;
+      LogHelper.log(
+        `[RFC-0188] Water device "${debugLabel}" connectionStatus=${meta.connectionStatus} → deviceStatus=${deviceStatus}`,
+        {
+          apiRowLastTs: apiRowLastTs ? new Date(apiRowLastTs).toISOString() : null,
+          overridesLastTs: overrides?.lastTelemetryTs ? new Date(overrides.lastTelemetryTs).toISOString() : null,
+          metaPulsesTs: meta.pulsesTs ? new Date(meta.pulsesTs).toISOString() : null,
+          telemetryTimestamp: telemetryTimestamp ? new Date(telemetryTimestamp).toISOString() : null,
+          shortDelayMins,
+          apiRow: apiRow ? '✅ present' : '❌ null',
+        }
+      );
+    }
+
     // RFC-0078: For energy devices with 'power_on' status, refine using power ranges
     const isEnergyDevice = domain === 'energy';
     if (isEnergyDevice && deviceStatus === 'power_on' && meta.consumption !== undefined) {
@@ -5402,23 +5418,41 @@ const MyIOOrchestrator = (() => {
           }
         }
 
-        // Merge API values into hidrometroItems (preserving pulses but using API total_value)
+        // Merge API values and deviceStatus into hidrometroItems
+        // RFC-0188 FIX: hidrometroItems are built BEFORE the API call (no apiRow → deviceStatus = offline).
+        // The enriched items (main loop) have the correct deviceStatus computed from apiRow.lastTelemetryTs.
+        // We must copy deviceStatus + lastTelemetryTs (and related fields) from the enriched item.
         let mergedCount = 0;
         for (const hidro of hidrometroItems) {
           const enrichedItem = enrichedItemsMap.get(hidro.tbId);
           if (enrichedItem && enrichedItem._hasApiData) {
-            hidro.value = enrichedItem.value; // Use API total_value
+            // Copy API consumption value
+            hidro.value = enrichedItem.value;
             hidro._hasApiData = true;
             hidro._matchedBy = enrichedItem._matchedBy;
+            // RFC-0188 FIX: copy deviceStatus computed with correct apiRow.lastTelemetryTs
+            const prevStatus = hidro.deviceStatus;
+            hidro.deviceStatus = enrichedItem.deviceStatus;
+            hidro.lastTelemetryTs = enrichedItem.lastTelemetryTs;
+            hidro.lastTelemetryTsFormatted = enrichedItem.lastTelemetryTs
+              ? new Date(enrichedItem.lastTelemetryTs).toISOString()
+              : null;
+            LogHelper.log(
+              `[RFC-0188] Hidrometro merge "${hidro.label}": deviceStatus ${prevStatus} → ${hidro.deviceStatus}` +
+              `, lastTelemetryTs=${hidro.lastTelemetryTsFormatted || 'null'}`
+            );
             mergedCount++;
+          } else {
+            LogHelper.log(
+              `[RFC-0188] Hidrometro "${hidro.label}" (tbId=${hidro.tbId}): no API match → deviceStatus kept as ${hidro.deviceStatus}`
+            );
           }
         }
 
         if (mergedCount > 0) {
           LogHelper.log(
-            `[Orchestrator] 🔄 RFC-0108: Merged API values into ${mergedCount}/${hidrometroItems.length} hidrometros`
+            `[Orchestrator] 🔄 RFC-0108/RFC-0188: Merged API values+status into ${mergedCount}/${hidrometroItems.length} hidrometros`
           );
-
         }
 
         // Create set of IDs already processed as tanks or hidrometros
