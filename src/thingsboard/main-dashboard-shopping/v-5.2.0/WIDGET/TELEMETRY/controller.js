@@ -180,8 +180,20 @@ function injectFilterModalStyles() {
     }
     .telemetry-filter-overlay .shops-modal-footer {
       position: sticky; bottom: 0; z-index: 2;
-      display: flex; gap: 8px; justify-content: flex-end;
+      display: flex; gap: 8px; align-items: center; justify-content: flex-end;
       padding: 10px 12px; border-top: 1px solid var(--bd); background: #fff;
+    }
+    .telemetry-filter-overlay .btn-device-map-download {
+      margin-right: auto;
+      background: #4a7c59; color: #fff; border-color: #3d6849;
+      display: inline-flex; align-items: center;
+      box-shadow: 0 2px 8px rgba(74,124,89,0.28);
+      font: 700 10px var(--font-ui);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn-device-map-download:hover {
+      background: #3d6849;
     }
     .telemetry-filter-overlay .icon-btn {
       display: flex; align-items: center; justify-content: center;
@@ -1212,11 +1224,8 @@ function ensureBusyModalDOM() {
 }
 // RFC-0044: Use centralized busy management
 function showBusy(message, timeoutMs = 35000) {
-  LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
-
   // Prevent multiple simultaneous busy calls
   if (window.busyInProgress) {
-    LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate showBusy() call`);
     return;
   }
 
@@ -3061,6 +3070,31 @@ function bindModal() {
 
   $m.on('click', '#closeFilter', closeFilterModal);
 
+  // RFC-0152: Device map download — @myio.com.br only
+  $m.on('click', '#btnDownloadDeviceMap', (ev) => {
+    ev.preventDefault();
+    const data = window._deviceDataExport;
+    if (!data || data.length === 0) {
+      alert('Nenhum dado de dispositivo disponível. Abra o painel de dados primeiro.');
+      return;
+    }
+    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const rows = data.map((d) =>
+      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
+       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+    );
+    const content = header + '\n' + rows.join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `device-map-${WIDGET_DOMAIN}-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
   $m.on('click', '#selectAll', (ev) => {
     ev.preventDefault();
     $m.find('.check-item input[type="checkbox"]').prop('checked', true);
@@ -3964,8 +3998,6 @@ self.onInit = async function () {
       tz: 'America/Sao_Paulo',
     };
 
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Requesting data${isRetry ? ' (RETRY)' : ''} period:`, period);
-
     // RFC-0053: Single window context - emit to current window only
     window.dispatchEvent(
       new CustomEvent('myio:telemetry:request-data', {
@@ -4017,8 +4049,6 @@ self.onInit = async function () {
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`);
       }
 
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
-
       // Datas mandatórias salvas no scope
       self.ctx.scope = self.ctx.scope || {};
       self.ctx.scope.startDateISO = startISO;
@@ -4027,12 +4057,9 @@ self.onInit = async function () {
       // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
       // This allows processing fresh data for the new period
       lastProcessedPeriodKey = null;
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`);
 
       // Exibe modal
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
       showBusy();
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
 
       // RFC-0045 FIX: Check if there's a pending provide-data event waiting for this period
       if (pendingProvideData) {
@@ -4062,10 +4089,6 @@ self.onInit = async function () {
         const orchestrator = window.MyIOOrchestrator;
 
         if (orchestrator) {
-          LogHelper.log(
-            `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`
-          );
-
           // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
           // This prevents the setTimeout(500ms) from making a duplicate request
           hasRequestedInitialData = true;
@@ -4088,9 +4111,7 @@ self.onInit = async function () {
     }
   };
 
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
   window.addEventListener('myio:update-date', dateUpdateHandler);
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
   // RFC-0130: Listen for dashboard state changes to react active visible domain
   const dashboardStateHandler = function (ev) {
@@ -4110,7 +4131,6 @@ self.onInit = async function () {
           }
         }
 
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Active but no data - requesting fresh dataset`);
         showBusy();
         requestDataFromOrchestrator();
       }
@@ -4188,27 +4208,6 @@ self.onInit = async function () {
       );
     }
   });
-
-  // Test if listener is working
-  setTimeout(() => {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
-    const testEvent = new CustomEvent('myio:update-date', {
-      detail: {
-        period: {
-          startISO: '2025-09-26T00:00:00-03:00',
-          endISO: '2025-10-02T23:59:59-03:00',
-          granularity: 'day',
-          tz: 'America/Sao_Paulo',
-        },
-      },
-    });
-    // Don't dispatch, just check if handler exists
-    if (typeof dateUpdateHandler === 'function') {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
-    } else {
-      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
-    }
-  }, 100);
 
   // RFC-0045 FIX: Store pending provide-data events that arrive before update-date
   let pendingProvideData = null;
@@ -4539,10 +4538,13 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
-  // Show #btnPresetup only for MyIO users (isSuperAdmin = @myio.com.br, exceto alarme/alarmes)
+  // Show #btnPresetup and #btnDownloadDeviceMap only for MyIO users (@myio.com.br)
   function _applyPresetupVisibility(isSuperAdmin) {
     const btn = $root().find('#btnPresetup')[0];
     if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+    // RFC-0152: Device map download button — visible only for @myio.com.br
+    const btnDl = (_filterModalElement || $root()[0])?.querySelector('#btnDownloadDeviceMap');
+    if (btnDl) btnDl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
   }
   // Check immediately in case event already fired before this widget loaded
   _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
@@ -4570,10 +4572,6 @@ self.onInit = async function () {
 
     const orchestratorData = window.MyIOOrchestratorData;
     const currentCustomerId = window.MyIOUtils?.customerTB_ID;
-
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] 🔍 RFC-0136: Retry #${attemptNumber} - Checking for stored orchestrator data...`
-    );
 
     // First, try stored data
     if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
@@ -4615,8 +4613,6 @@ self.onInit = async function () {
       } else {
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
       }
-    } else {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
     }
 
     // RFC-0136: Also check window.STATE directly as additional fallback
@@ -4692,11 +4688,6 @@ self.onInit = async function () {
   }
 
   // Start the retry mechanism
-  LogHelper.log(
-    `[TELEMETRY ${WIDGET_DOMAIN}] 🔄 RFC-0136: Starting intelligent retry with backoff [${RETRY_INTERVALS.join(
-      'ms, '
-    )}ms]`
-  );
   executeRetryWithBackoff();
 
   // Auth do cliente/ingestion
@@ -4808,7 +4799,6 @@ self.onInit = async function () {
   // ------------------------------------------------------------
 
   // RFC-0106: No ctx.data, no datasources - all data comes from orchestrator
-  LogHelper.log(`[RFC-0106] ${WIDGET_DOMAIN} widget waiting for orchestrator data...`);
 
   // RFC-0106 FIX: Temperature domain doesn't need period - check for stored data immediately
   if (WIDGET_DOMAIN === 'temperature') {
@@ -4851,10 +4841,7 @@ self.onInit = async function () {
 
   // Only show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
     showBusy();
-  } else {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
 };
 
