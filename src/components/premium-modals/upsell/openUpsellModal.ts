@@ -650,12 +650,20 @@ interface ColumnWidths {
   type: number;
   createdTime: number;
   relationTo: number;
+  relationFrom: number;
   centralId: number;
   slaveId: number;
   deviceType: number;
   deviceProfile: number;
   telemetry: number;
   status: number;
+}
+
+interface RelEntry {
+  id: string;
+  name: string;
+  entityType: string;
+  relationType: string;
 }
 
 interface LojasDeviceData {
@@ -759,7 +767,19 @@ interface ModalState {
     customerSearch: string;
     customerPickerOpen: boolean;
   };
-  deviceToAssetMap: Map<string, string>; // deviceId → asset name
+  /** deviceId → all entities pointing TO it (relTO, e.g. assets that contain this device) */
+  deviceRelToMap: Map<string, RelEntry[]>;
+  /** deviceId → all entities this device points FROM it (relFROM, e.g. assets/customers it references) */
+  deviceRelFromMap: Map<string, RelEntry[]>;
+  /** Sub-modal for showing all relations of a device in one direction */
+  relationsDetailModal: {
+    open: boolean;
+    deviceId: string;
+    deviceName: string;
+    direction: 'to' | 'from';
+    relations: RelEntry[];
+    removing: string | null; // relEntry.id being removed
+  };
   relationsLoaded: boolean;
   relationsLoading: boolean;
   // RFC-0184 Check & Fix
@@ -886,7 +906,8 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
       label: 120,
       type: 140,
       createdTime: 90,
-      relationTo: 110,
+      relationTo: 120,
+      relationFrom: 110,
       centralId: 80,
       slaveId: 60,
       deviceType: 80,
@@ -902,7 +923,9 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     telemetryLoadedCount: 0,
     deviceRelations: [],
     allRelations: [],
-    deviceToAssetMap: new Map(),
+    deviceRelToMap: new Map(),
+    deviceRelFromMap: new Map(),
+    relationsDetailModal: { open: false, deviceId: '', deviceName: '', direction: 'to', relations: [], removing: null },
     relationsLoaded: false,
     relationsLoading: false,
     deviceProfiles: [],
@@ -2615,11 +2638,13 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
 
       // Standard mode: sortable header + device rows
       return `
+      <div style="overflow-x:auto; overflow-y:visible;">
       <div id="${modalId}-grid-header" style="
         display:flex; align-items:center; gap:0; padding:8px 12px;
         background:${colors.cardBg}; border:1px solid ${colors.border};
         border-bottom:none; border-radius:8px 8px 0 0; font-size:9px;
         font-weight:600; color:${colors.textMuted}; text-transform:uppercase;
+        min-width:max-content;
       ">
         ${multiCol ? `<div style="width:28px; text-align:center;">☑</div>` : ''}
         <div style="width:28px;"></div>
@@ -2629,6 +2654,9 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
         <div style="width:${state.columnWidths.relationTo}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
           relTO ${!state.relationsLoaded ? '⏳' : ''}
+        </div>
+        <div style="width:${state.columnWidths.relationFrom}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          relFROM ${!state.relationsLoaded ? '⏳' : ''}
         </div>
         ${renderSortableHeader('centralId', 'centralId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'centralId', state.columnWidths.centralId)}
         ${renderSortableHeader('slaveId', 'slaveId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'slaveId', state.columnWidths.slaveId)}
@@ -2647,12 +2675,13 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         <div style="width:24px;"></div>
       </div>
       <div style="
-        max-height:${gridHeight}; overflow-y:auto; border:1px solid ${colors.border};
-        border-radius:0 0 8px 8px; background:${colors.surface};
+        max-height:${gridHeight}; overflow-y:auto; overflow-x:visible; border:1px solid ${colors.border};
+        border-radius:0 0 8px 8px; background:${colors.surface}; min-width:max-content;
       " id="${modalId}-device-list">
         ${sortedDevices.length === 0
           ? `<div style="padding:40px; text-align:center; color:${colors.textMuted};">${t.noResults}</div>`
           : sortedDevices.map(device => renderDeviceRow(device, state, modalId, colors)).join('')}
+      </div>
       </div>`;
     })()}
   `;
@@ -2897,15 +2926,32 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       }px; padding: 0 6px; text-align: center; flex-shrink: 0;">
         <span style="font-size: 9px; color: ${colors.textMuted};">${createdTimeStr}</span>
       </div>
-      <div style="width: ${
-        state.columnWidths.relationTo
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      <div style="width: ${state.columnWidths.relationTo}px; padding: 0 6px; flex-shrink: 0; overflow: hidden; display:flex; align-items:center; justify-content:center; gap:3px;">
         ${(() => {
           if (!state.relationsLoaded) return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
-          const assetName = state.deviceToAssetMap.get(deviceId);
-          return assetName
-            ? `<span style="font-size: 9px; color: ${colors.text};" title="${assetName}">${assetName}</span>`
-            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+          const rels = state.deviceRelToMap.get(deviceId) || [];
+          if (rels.length === 0) return `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+          const first = rels[0];
+          const more = rels.length - 1;
+          return `<span style="font-size:9px;color:${colors.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${more > 0 ? 68 : 108}px" title="${first.name}">${first.name}</span>${
+            more > 0
+              ? `<button data-show-relto="${deviceId}" data-device-name="${encodeURIComponent(device.name || '')}" style="flex-shrink:0;font-size:9px;background:#ede9ff;color:#4c1d95;border:none;border-radius:3px;padding:1px 4px;cursor:pointer;font-weight:700;line-height:1.4">+${more}</button>`
+              : ''
+          }`;
+        })()}
+      </div>
+      <div style="width: ${state.columnWidths.relationFrom}px; padding: 0 6px; flex-shrink: 0; overflow: hidden; display:flex; align-items:center; justify-content:center; gap:3px;">
+        ${(() => {
+          if (!state.relationsLoaded) return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
+          const rels = state.deviceRelFromMap.get(deviceId) || [];
+          if (rels.length === 0) return `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+          const first = rels[0];
+          const more = rels.length - 1;
+          return `<span style="font-size:9px;color:${colors.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${more > 0 ? 68 : 98}px" title="${first.name}">${first.name}</span>${
+            more > 0
+              ? `<button data-show-relfrom="${deviceId}" data-device-name="${encodeURIComponent(device.name || '')}" style="flex-shrink:0;font-size:9px;background:#dbeafe;color:#1e40af;border:none;border-radius:3px;padding:1px 4px;cursor:pointer;font-weight:700;line-height:1.4">+${more}</button>`
+              : ''
+          }`;
         })()}
       </div>
       <div style="width: ${
@@ -3646,6 +3692,142 @@ function renderEntityLabelRow(
 }
 
 // ============================================================================
+// Relations Detail Panel (sub-modal for relTO / relFROM full list)
+// ============================================================================
+
+function openRelationsDetailPanel(
+  deviceId: string,
+  deviceName: string,
+  direction: 'to' | 'from',
+  rels: RelEntry[],
+  state: ModalState,
+  t: typeof i18n.pt
+): void {
+  // Remove any existing panel
+  document.getElementById('myio-rel-detail-panel')?.remove();
+
+  const isDark = state.theme === 'dark';
+  const colors = {
+    bg: isDark ? '#1f2937' : '#ffffff',
+    border: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#f9fafb' : '#111827',
+    muted: isDark ? '#9ca3af' : '#6b7280',
+    surface: isDark ? '#111827' : '#f9fafb',
+    danger: '#dc2626',
+    dangerBg: '#fee2e2',
+  };
+
+  const dirLabel = direction === 'to' ? 'relTO' : 'relFROM';
+  const dirDesc = direction === 'to'
+    ? 'Entidades que apontam para este dispositivo'
+    : 'Entidades que este dispositivo aponta para';
+
+  const typeColor = (et: string) => ({
+    ASSET: ['#dbeafe', '#1e40af'],
+    CUSTOMER: ['#d1fae5', '#065f46'],
+    DEVICE: ['#ede9ff', '#4c1d95'],
+  }[et] || ['#f3f4f6', '#374151']);
+
+  let currentRels = [...rels];
+
+  function renderPanel(): void {
+    document.getElementById('myio-rel-detail-panel')?.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'myio-rel-detail-panel';
+    panel.style.cssText = `
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      z-index:99999; background:${colors.bg}; border:1px solid ${colors.border};
+      border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.35);
+      min-width:380px; max-width:500px; width:90vw; max-height:70vh;
+      display:flex; flex-direction:column; font-family:system-ui,sans-serif;
+    `;
+
+    const rows = currentRels.map((rel, idx) => {
+      const [tcBg, tcColor] = typeColor(rel.entityType);
+      return `
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid ${colors.border}">
+          <span style="font-size:9px;background:${tcBg};color:${tcColor};padding:2px 6px;border-radius:3px;font-weight:700;white-space:nowrap;flex-shrink:0">${rel.entityType}</span>
+          <div style="flex:1;overflow:hidden">
+            <div style="font-size:12px;font-weight:600;color:${colors.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rel.name}</div>
+            <div style="font-size:10px;color:${colors.muted};font-family:monospace">${rel.id}</div>
+            <div style="font-size:10px;color:${colors.muted}">tipo: <em>${rel.relationType}</em></div>
+          </div>
+          <button data-rel-remove="${idx}" style="flex-shrink:0;font-size:11px;background:${colors.dangerBg};color:${colors.danger};border:1px solid ${colors.danger};border-radius:5px;padding:3px 8px;cursor:pointer;font-weight:600">
+            Remover
+          </button>
+        </div>`;
+    }).join('');
+
+    panel.innerHTML = `
+      <div style="padding:14px 16px 10px;border-bottom:1px solid ${colors.border};display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${colors.text}">${dirLabel} — ${deviceName}</div>
+          <div style="font-size:11px;color:${colors.muted};margin-top:2px">${dirDesc}</div>
+        </div>
+        <button id="myio-rel-panel-close" style="font-size:16px;background:none;border:none;cursor:pointer;color:${colors.muted};padding:0 4px;line-height:1">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        ${currentRels.length === 0
+          ? `<div style="padding:24px;text-align:center;color:${colors.muted};font-size:12px">Nenhuma relação</div>`
+          : rows}
+      </div>
+    `;
+
+    // Overlay backdrop
+    const overlay = document.createElement('div');
+    overlay.id = 'myio-rel-detail-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.3)';
+    overlay.addEventListener('click', () => {
+      panel.remove();
+      overlay.remove();
+    });
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+
+    panel.querySelector('#myio-rel-panel-close')?.addEventListener('click', () => {
+      panel.remove();
+      overlay.remove();
+    });
+
+    panel.querySelectorAll('[data-rel-remove]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt((btn as HTMLElement).dataset.relRemove || '0', 10);
+        const rel = currentRels[idx];
+        if (!rel) return;
+        (btn as HTMLButtonElement).disabled = true;
+        (btn as HTMLButtonElement).textContent = '…';
+
+        try {
+          const fromId = direction === 'to' ? rel.id : deviceId;
+          const fromType = direction === 'to' ? rel.entityType : 'DEVICE';
+          const toId = direction === 'to' ? deviceId : rel.id;
+          const toType = direction === 'to' ? 'DEVICE' : rel.entityType;
+          const token = state.token;
+          const base = state.tbApiBase || '';
+          await fetch(
+            `${base}/api/relation?fromId=${fromId}&fromType=${fromType}&toId=${toId}&toType=${toType}&relationType=${encodeURIComponent(rel.relationType)}&typeGroup=COMMON`,
+            { method: 'DELETE', headers: { 'X-Authorization': `Bearer ${token}` } }
+          );
+          // Update state maps
+          currentRels = currentRels.filter((_, i) => i !== idx);
+          const map = direction === 'to' ? state.deviceRelToMap : state.deviceRelFromMap;
+          map.set(deviceId, [...currentRels]);
+          renderPanel(); // re-render with updated list
+        } catch {
+          (btn as HTMLButtonElement).disabled = false;
+          (btn as HTMLButtonElement).textContent = 'Remover';
+        }
+      });
+    });
+  }
+
+  renderPanel();
+  void t; // suppress unused warning
+}
+
+// ============================================================================
 // Event Listeners
 // ============================================================================
 
@@ -3920,6 +4102,24 @@ function setupEventListeners(
 
   document.getElementById(`${modalId}-load-relations`)?.addEventListener('click', () => {
     void loadDeviceRelations(state, container, modalId, t, onClose);
+  });
+
+  // ========================
+  // Relations Detail (+N) buttons — relTO and relFROM
+  // ========================
+  container.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest('[data-show-relto],[data-show-relfrom]') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+
+    const isTo = !!btn.dataset.showRelto;
+    const deviceId = (isTo ? btn.dataset.showRelto : btn.dataset.showRelfrom) as string;
+    const deviceName = decodeURIComponent(btn.dataset.deviceName || '');
+    const direction = isTo ? 'to' : 'from';
+    const rels = (isTo ? state.deviceRelToMap : state.deviceRelFromMap).get(deviceId) || [];
+
+    openRelationsDetailPanel(deviceId, deviceName, direction, rels, state, t);
   });
 
   // ========================
@@ -5928,7 +6128,9 @@ async function loadDevices(
     state.telemetryLoadedCount = 0;
     state.relationsLoaded = false;
     state.relationsLoading = false;
-    state.deviceToAssetMap = new Map();
+    state.deviceRelToMap = new Map();
+    state.deviceRelFromMap = new Map();
+    state.relationsDetailModal = { open: false, deviceId: '', deviceName: '', direction: 'to', relations: [], removing: null };
     state.isLoading = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
@@ -5963,12 +6165,12 @@ async function loadDeviceRelations(
     }
 
     const assets = state.customerAssets;
-    const BATCH_SIZE = 20; // parallel per batch — was 1 sequential per asset
-    const deviceToAssetMap = new Map<string, string>();
+    const BATCH_SIZE = 20;
+    const deviceRelToMap = new Map<string, RelEntry[]>();
+    const deviceRelFromMap = new Map<string, RelEntry[]>();
 
-    showBusyProgress('Carregando relações...', assets.length);
-
-    // Phase 2: parallel batches — N_assets/20 rounds instead of N_assets sequential rounds
+    // Phase 2: build relTO map — for each asset, get all devices it Contains
+    showBusyProgress('Carregando relações (relTO)...', assets.length);
     for (let i = 0; i < assets.length; i += BATCH_SIZE) {
       const batch = assets.slice(i, i + BATCH_SIZE);
       await Promise.all(
@@ -5980,18 +6182,47 @@ async function loadDeviceRelations(
             );
             rels.forEach((rel) => {
               if (rel.to.entityType === 'DEVICE') {
-                deviceToAssetMap.set(rel.to.id, asset.name);
+                const entry: RelEntry = { id: asset.id, name: asset.name, entityType: 'ASSET', relationType: rel.type || 'Contains' };
+                const list = deviceRelToMap.get(rel.to.id) || [];
+                list.push(entry);
+                deviceRelToMap.set(rel.to.id, list);
               }
             });
-          } catch {
-            // ignore per-asset errors
-          }
+          } catch { /* ignore per-asset errors */ }
         })
       );
       updateBusyProgress(Math.min(i + BATCH_SIZE, assets.length));
     }
 
-    state.deviceToAssetMap = deviceToAssetMap;
+    // Phase 3: build relFROM map — for each device, get what it points to
+    const allDeviceIds = state.devices.map((d) => getEntityId(d));
+    showBusyProgress('Carregando relações (relFROM)...', allDeviceIds.length);
+    for (let i = 0; i < allDeviceIds.length; i += BATCH_SIZE) {
+      const batch = allDeviceIds.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (devId) => {
+          try {
+            const rels = await tbFetch<Array<{ from: { id: string; entityType: string }; to: { id: string; entityType: string; name?: string }; type: string; toName?: string }>>(
+              state,
+              `/api/relations?fromId=${devId}&fromType=DEVICE`
+            );
+            if (rels.length > 0) {
+              const entries: RelEntry[] = rels.map((rel) => ({
+                id: rel.to.id,
+                name: rel.toName || rel.to.id,
+                entityType: rel.to.entityType,
+                relationType: rel.type || 'Contains',
+              }));
+              deviceRelFromMap.set(devId, entries);
+            }
+          } catch { /* ignore per-device errors */ }
+        })
+      );
+      updateBusyProgress(Math.min(i + BATCH_SIZE, allDeviceIds.length));
+    }
+
+    state.deviceRelToMap = deviceRelToMap;
+    state.deviceRelFromMap = deviceRelFromMap;
     state.relationsLoaded = true;
     state.relationsLoading = false;
     hideBusyProgress();

@@ -161,12 +161,34 @@ export class SettingsModalView {
     const container = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     if (!container) return;
 
-    const { gcdrDeviceId, gcdrCustomerId, gcdrTenantId, gcdrApiBaseUrl, prefetchedBundle, prefetchedAlarms, deviceId, jwtToken } =
+    const { gcdrDeviceId, prefetchedBundle, prefetchedAlarms, deviceId, jwtToken } =
       this.config;
 
-    if (!gcdrDeviceId || !gcdrCustomerId || !gcdrTenantId) {
-      container.innerHTML =
-        '<p style="color:#6c757d;padding:20px;text-align:center;font-style:italic;">Alarm data not available (missing GCDR identifiers).</p>';
+    if (!gcdrDeviceId) {
+      // Lock the tab button visually
+      const tabBtn = this.modal.querySelector<HTMLElement>('.modal-tab[data-tab="alarms"]');
+      if (tabBtn) tabBtn.classList.add('locked');
+
+      container.innerHTML = `
+        <div style="
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          min-height:320px; padding:40px 24px; text-align:center;
+        ">
+          <div style="
+            width:72px; height:72px; border-radius:50%;
+            background:#f3f4f6; border:1.5px solid #e5e7eb;
+            display:flex; align-items:center; justify-content:center;
+            font-size:32px; margin-bottom:20px; opacity:0.7;
+          ">🔒</div>
+          <div style="font-size:15px; font-weight:600; color:#374151; margin-bottom:8px;">
+            Alarmes não disponíveis
+          </div>
+          <div style="font-size:13px; color:#9ca3af; max-width:320px; line-height:1.6;">
+            Este dispositivo não está vinculado ao sistema GCDR.<br>
+            O identificador <code style="font-size:11px;background:#f3f4f6;padding:1px 5px;border-radius:3px;">gcdrDeviceId</code>
+            não foi encontrado nos atributos do servidor.
+          </div>
+        </div>`;
       return;
     }
 
@@ -174,9 +196,6 @@ export class SettingsModalView {
       this.alarmsTab = new AlarmsTab({
         container,
         gcdrDeviceId,
-        gcdrCustomerId,
-        gcdrTenantId,
-        gcdrApiBaseUrl,
         tbDeviceId: deviceId ?? '',
         jwtToken: jwtToken ?? '',
         prefetchedBundle: prefetchedBundle ?? null,
@@ -1336,6 +1355,12 @@ export class SettingsModalView {
           color: #3e1a7d;
           border-bottom-color: #3e1a7d;
           background: #fff;
+        }
+
+        .modal-tab.locked {
+          opacity: 0.5;
+          cursor: not-allowed;
+          pointer-events: none;
         }
 
         .modal-tab svg {

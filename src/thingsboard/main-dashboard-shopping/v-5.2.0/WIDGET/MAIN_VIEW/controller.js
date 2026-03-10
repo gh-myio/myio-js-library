@@ -1179,15 +1179,11 @@ Object.assign(window.MyIOUtils, {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
 
-    // RFC-0178: Expose alarmsApiBaseUrl and alarmsApiKey for ALARM widget
+    // RFC-0178: alarmsApiBaseUrl from settings (URL config); alarmsApiKey from SERVER_SCOPE attrs below
     const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
-    const alarmsApiKey     = self.ctx.settings?.alarmsApiKey     || '';
-    if (!alarmsApiKey) {
-      MyIOLibrary.MyIOToast?.error('[MAIN_VIEW] alarmsApiKey não configurado. Configure em Widget Settings → alarmsApiKey.');
-    }
+    let alarmsApiKey = '';
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
-      window.MyIOOrchestrator.alarmsApiKey     = alarmsApiKey;
     }
     LogHelper.log('[Orchestrator] RFC-0178: alarmsApiBaseUrl:', alarmsApiBaseUrl);
 
@@ -1294,6 +1290,12 @@ Object.assign(window.MyIOUtils, {
           },
         },
 
+        // RFC-0180: GCDR API method stubs (replaced by real impl after merge)
+        gcdrFetchCustomerRules: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready'); return []; },
+        gcdrPostAlarmAction: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPostAlarmAction called before orchestrator is ready'); return false; },
+        gcdrPatchRuleScope: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleScope called before orchestrator is ready'); return false; },
+        gcdrPatchRuleValue: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleValue called before orchestrator is ready'); return false; },
+
         // Internal state (will be populated later)
         inFlight: {},
       };
@@ -1330,9 +1332,10 @@ Object.assign(window.MyIOUtils, {
         let CLIENT_SECRET = '';
         let CUSTOMER_ING_ID = '';
 
-        // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
-        let gcdrCustomerId = self.ctx.settings?.gcdrCustomerId || '';
-        let gcdrTenantId   = self.ctx.settings?.gcdrTenantId   || '';
+        // RFC-0180: GCDR IDs and API keys — exclusively from TB SERVER_SCOPE attrs (see attrs block below)
+        let gcdrCustomerId = '';
+        let gcdrTenantId   = '';
+        let gcdrApiKey     = '';
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1348,9 +1351,11 @@ Object.assign(window.MyIOUtils, {
             CLIENT_SECRET = attrs?.client_secret || '';
             CUSTOMER_ING_ID = attrs?.ingestionId || '';
 
-            // RFC-0180: Fallback GCDR IDs from attrs when not set in widget settings
-            if (!gcdrCustomerId) gcdrCustomerId = attrs?.gcdrCustomerId || attrs?.gcdrId || '';
-            if (!gcdrTenantId)   gcdrTenantId   = attrs?.gcdrTenantId  || '';
+            // RFC-0180: GCDR IDs and API keys from SERVER_SCOPE attrs (single source of truth)
+            gcdrCustomerId = attrs?.gcdrCustomerId || '';
+            gcdrTenantId   = attrs?.gcdrTenantId  || '';
+            alarmsApiKey   = attrs?.alarmsApiKey   || '';
+            gcdrApiKey     = attrs?.gcdrApiKey     || '';
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1376,14 +1381,20 @@ Object.assign(window.MyIOUtils, {
           if (!jwt) LogHelper.warn('[MAIN_VIEW]   - JWT token is missing from localStorage');
         }
 
-        // RFC-0180: Publish GCDR identifiers to orchestrator for ALARM and SETTINGS widgets
+        // RFC-0180: Publish GCDR identifiers + API keys to orchestrator for ALARM and SETTINGS widgets
         if (window.MyIOOrchestrator) {
           window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
           window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
           window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
+          window.MyIOOrchestrator.gcdrApiKey      = gcdrApiKey;
+          window.MyIOOrchestrator.alarmsApiKey    = alarmsApiKey;
         }
+        if (!alarmsApiKey) LogHelper.warn('[MAIN_VIEW] alarmsApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
+        if (!gcdrApiKey)   LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
+        LogHelper.log('[MAIN_VIEW] RFC-0178: alarmsApiKey:', alarmsApiKey ? '✅ set' : '❌ empty');
+        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrApiKey:', gcdrApiKey ? '✅ set' : '❌ empty');
 
         // RFC-0180: Pre-fetch all customer alarms (non-blocking) so AlarmsTab can use them
         // without a per-device fetch when the Settings modal is opened.
@@ -1900,11 +1911,11 @@ function parseDeviceCountAttributes(attributes) {
 // Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
 async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
   try {
-    const ALARMS_API_KEY = 'gcdr_cust_tb_integration_key_2026';
+    const alarmsApiKey = window.MyIOOrchestrator?.alarmsApiKey || '';
     const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
     const response = await fetch(url, {
       headers: {
-        'X-API-Key':    ALARMS_API_KEY,
+        'X-API-Key':    alarmsApiKey,
         'X-Tenant-ID':  gcdrTenantId || '',
         'Accept':       'application/json',
       },
@@ -1979,7 +1990,7 @@ function _buildAlarmServiceOrchestrator(alarms) {
       const orch = window.MyIOOrchestrator;
       const gcdrCustomerId = orch?.gcdrCustomerId || '';
       const gcdrTenantId   = orch?.gcdrTenantId   || '';
-      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || '';
       await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl);
     },
   };
@@ -4158,11 +4169,16 @@ const MyIOOrchestrator = (() => {
     const isTempDevice =
       effectiveDeviceType.includes('termostato') || effectiveDeviceType.includes('temperature');
     const domain = isWaterDevice ? 'water' : isTempDevice ? 'temperature' : 'energy';
-    const telemetryTimestamp = isWaterDevice
-      ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
-      : isTempDevice
-        ? meta.temperatureTs
-        : meta.consumptionTs;
+    // RFC-0188: Prefer lastTelemetryTs from Data Apps API (ingestion backend) over TB broker timestamps.
+    // Falls back to domain-specific meta timestamps when apiRow was not available.
+    const apiLastTs = overrides?.lastTelemetryTs ?? null;
+    const telemetryTimestamp = apiLastTs ?? (
+      isWaterDevice
+        ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
+        : isTempDevice
+          ? meta.temperatureTs
+          : meta.consumptionTs
+    );
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     // RFC-0130: Pass deviceProfile for delay time calculation
@@ -5408,6 +5424,10 @@ const MyIOOrchestrator = (() => {
               customerId: apiRow?.customerId || null,
               assetId: apiRow?.assetId || null,
               assetName: apiRow?.assetName || null,
+              // RFC-0188: authoritative offline timestamp from ingestion backend (ISO-8601 → Unix ms)
+              lastTelemetryTs: apiRow?.lastTelemetryTs
+                ? new Date(apiRow.lastTelemetryTs).getTime()
+                : null,
               // Power limits and instantaneous power
               deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
               consumptionPower: meta.consumption || null,
@@ -6308,6 +6328,76 @@ const MyIOOrchestrator = (() => {
           detail: energySummary,
         })
       );
+    },
+
+    // ── RFC-0180: GCDR API methods ───────────────────────────────────────────
+    // Owned by the orchestrator so widgets (AlarmsTab, etc.) don't carry
+    // URL / API-key config — they always use the authoritative orchestrator state.
+
+    async gcdrFetchCustomerRules() {
+      const orch = window.MyIOOrchestrator;
+      const url = `${orch.gcdrApiBaseUrl}/api/v1/customers/${encodeURIComponent(orch.gcdrCustomerId)}/rules`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': orch.gcdrApiKey,
+          'X-Tenant-ID': orch.gcdrTenantId,
+          Accept: 'application/json',
+        },
+      });
+      if (response.status === 404) return [];
+      if (!response.ok) throw new Error(`GCDR rules HTTP ${response.status}: ${response.statusText}`);
+      const json = await response.json();
+      return json.items ?? json.data?.items ?? [];
+    },
+
+    async gcdrPostAlarmAction(alarmId, action) {
+      const orch = window.MyIOOrchestrator;
+      const response = await fetch(
+        `${orch.alarmsApiBaseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`,
+        {
+          method: 'POST',
+          headers: {
+            'X-API-Key': orch.alarmsApiKey,
+            'X-Tenant-ID': orch.gcdrTenantId,
+          },
+        }
+      );
+      return response.ok;
+    },
+
+    async gcdrPatchRuleScope(ruleId, entityIds) {
+      const orch = window.MyIOOrchestrator;
+      const response = await fetch(
+        `${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'X-API-Key': orch.gcdrApiKey,
+            'X-Tenant-ID': orch.gcdrTenantId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
+        }
+      );
+      return response.ok;
+    },
+
+    async gcdrPatchRuleValue(ruleId, alarmConfig) {
+      const orch = window.MyIOOrchestrator;
+      const response = await fetch(
+        `${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'X-API-Key': orch.gcdrApiKey,
+            'X-Tenant-ID': orch.gcdrTenantId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ alarmConfig }),
+        }
+      );
+      return response.ok;
     },
 
     destroy: () => {

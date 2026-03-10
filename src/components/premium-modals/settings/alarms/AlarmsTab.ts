@@ -21,21 +21,21 @@ import type { GCDRCustomerBundle } from '../../gcdr-sync/types';
 // Constants
 // ============================================================================
 
-const GCDR_INTEGRATION_API_KEY = 'gcdr_cust_tb_integration_key_2026';
-const GCDR_DEFAULT_BASE_URL    = 'https://gcdr-api.a.myio-bas.com';
-const ALARMS_DEFAULT_BASE_URL  = 'https://alarms-api.a.myio-bas.com';
-
 const PRIORITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#dc2626',
-  HIGH:     '#f59e0b',
-  MEDIUM:   '#3b82f6',
-  LOW:      '#6b7280',
+  HIGH: '#f59e0b',
+  MEDIUM: '#3b82f6',
+  LOW: '#6b7280',
 };
 
 const OPERATOR_LABELS: Record<string, string> = {
-  LT: '<', GT: '>', LTE: '≤', GTE: '≥', EQ: '=',
+  LT: '<',
+  GT: '>',
+  LTE: '≤',
+  GTE: '≥',
+  EQ: '=',
 };
 
 // ============================================================================
@@ -46,14 +46,6 @@ export interface AlarmsTabConfig {
   container: HTMLElement;
   /** GCDR UUID of this device (SERVER_SCOPE attr `gcdrDeviceId` on TB device) */
   gcdrDeviceId: string;
-  /** GCDR UUID of the customer (SERVER_SCOPE attr `gcdrCustomerId` on TB customer) */
-  gcdrCustomerId: string;
-  /** GCDR Tenant ID — X-Tenant-ID header */
-  gcdrTenantId: string;
-  /** GCDR API base URL. Defaults to https://gcdr-api.a.myio-bas.com */
-  gcdrApiBaseUrl?: string;
-  /** Alarms API base URL. Defaults to https://alarms-api.a.myio-bas.com */
-  alarmsApiBaseUrl?: string;
   /** ThingsBoard device UUID */
   tbDeviceId: string;
   /** JWT token — available for future use */
@@ -67,12 +59,6 @@ export interface AlarmsTabConfig {
   /** Pre-fetched customer rules (GCDRCustomerRule[]).
    *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
   prefetchedRules?: unknown[] | null;
-  /** API key for GCDR API calls (GET /customers/.../rules, PATCH /rules/:id).
-   *  Overrides the module-level GCDR_INTEGRATION_API_KEY when provided. */
-  gcdrApiKey?: string;
-  /** API key for Alarms API calls (POST /alarms/:id/acknowledge|snooze|escalate).
-   *  Overrides the module-level GCDR_INTEGRATION_API_KEY when provided. */
-  alarmsApiKey?: string;
 }
 
 /** Raw alarm returned by GET /api/v1/alarms */
@@ -137,18 +123,25 @@ export class AlarmsTab {
     this.injectStyles();
     container.innerHTML = this.getLoadingHTML();
 
+    const orch = this.orch;
+    if (!orch?.gcdrFetchCustomerRules) {
+      this.showToast('AlarmsTab: MyIOOrchestrator não inicializado');
+      container.innerHTML = this.getErrorHTML('MyIOOrchestrator não inicializado com API GCDR');
+      return;
+    }
+
     try {
-      const gcdrBaseUrl = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
 
       // MAIN_VIEW is the single source of truth for alarm data.
       // AlarmServiceOrchestrator (ASO) is always built by MAIN before any Settings modal opens.
       // We read from ASO directly — no independent API call to alarms-api.
       const alarms = this.readAlarmsFromASO();
 
-      const rules = this.config.prefetchedRules != null
-        ? (this.config.prefetchedRules as GCDRCustomerRule[])
-        : await this.fetchCustomerRules(gcdrBaseUrl);
-      this.activeAlarms  = alarms;
+      const rules =
+        this.config.prefetchedRules != null
+          ? (this.config.prefetchedRules as GCDRCustomerRule[])
+          : await this.orch.gcdrFetchCustomerRules();
+      this.activeAlarms = alarms;
       this.customerRules = rules;
 
       for (const rule of this.customerRules) {
@@ -186,9 +179,11 @@ export class AlarmsTab {
    * Falls back to prefetchedAlarms prop when ASO is not available (e.g. standalone showcase).
    */
   private readAlarmsFromASO(): GCDRAlarm[] {
-    const aso = (window as unknown as {
-      AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
-    }).AlarmServiceOrchestrator;
+    const aso = (
+      window as unknown as {
+        AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
+      }
+    ).AlarmServiceOrchestrator;
 
     if (aso && this.config.gcdrDeviceId) {
       return aso.getAlarmsForDevice(this.config.gcdrDeviceId) as GCDRAlarm[];
@@ -197,9 +192,7 @@ export class AlarmsTab {
     // Fallback: prefetchedAlarms filtered by deviceId
     const prefetched = this.config.prefetchedAlarms;
     if (prefetched != null) {
-      return (prefetched as GCDRAlarm[]).filter(
-        (a) => a.deviceId === this.config.gcdrDeviceId,
-      );
+      return (prefetched as GCDRAlarm[]).filter((a) => a.deviceId === this.config.gcdrDeviceId);
     }
 
     return [];
@@ -215,155 +208,19 @@ export class AlarmsTab {
    */
   private mapAlarmToCard(alarm: GCDRAlarm): Alarm {
     return {
-      id:              alarm.id,
-      customerId:      this.config.gcdrCustomerId,
-      customerName:    '',
-      source:          alarm.deviceName || '',
-      severity:        (alarm.severity || 'LOW') as AlarmSeverity,
-      state:           (alarm.state    || 'OPEN') as AlarmState,
-      title:           alarm.title || '',
-      description:     alarm.description || '',
-      tags:            {},
+      id: alarm.id,
+      customerId: this.orch?.gcdrCustomerId ?? '',
+      customerName: '',
+      source: alarm.deviceName || '',
+      severity: (alarm.severity || 'LOW') as AlarmSeverity,
+      state: (alarm.state || 'OPEN') as AlarmState,
+      title: alarm.title || '',
+      description: alarm.description || '',
+      tags: {},
       firstOccurrence: alarm.raisedAt || '',
-      lastOccurrence:  alarm.lastUpdatedAt || alarm.raisedAt || '',
+      lastOccurrence: alarm.lastUpdatedAt || alarm.raisedAt || '',
       occurrenceCount: 1,
     };
-  }
-
-  // ============================================================================
-  // Data fetching
-  // ============================================================================
-
-  private async fetchActiveAlarms(baseUrl: string): Promise<GCDRAlarm[]> {
-    const url =
-      `${baseUrl}/api/v1/alarms` +
-      `?deviceId=${encodeURIComponent(this.config.gcdrDeviceId)}` +
-      `&state=OPEN,ACK,ESCALATED,SNOOZED&limit=100&page=1`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.config.alarmsApiKey ?? GCDR_INTEGRATION_API_KEY,
-        'X-Tenant-ID': this.config.gcdrTenantId,
-        Accept: 'application/json',
-      },
-    });
-
-    if (response.status === 404) return [];
-    if (!response.ok) {
-      throw new Error(`Alarms API error (${response.status}): ${response.statusText}`);
-    }
-
-    const json = (await response.json()) as {
-      items?: GCDRAlarm[];
-      data?: GCDRAlarm[] | { items?: GCDRAlarm[] };
-    };
-    if (Array.isArray(json.data)) return json.data;
-    return json.items ?? (json.data as { items?: GCDRAlarm[] } | undefined)?.items ?? [];
-  }
-
-  private async fetchCustomerRules(baseUrl: string): Promise<GCDRCustomerRule[]> {
-    const url = `${baseUrl}/api/v1/customers/${encodeURIComponent(this.config.gcdrCustomerId)}/rules`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY,
-        'X-Tenant-ID': this.config.gcdrTenantId,
-        Accept: 'application/json',
-      },
-    });
-
-    if (response.status === 404) return [];
-    if (!response.ok) {
-      throw new Error(`GCDR error fetching rules (${response.status}): ${response.statusText}`);
-    }
-
-    const json = (await response.json()) as {
-      items?: GCDRCustomerRule[];
-      data?: { items?: GCDRCustomerRule[] };
-    };
-    return json.items ?? json.data?.items ?? [];
-  }
-
-  private async postAlarmAction(baseUrl: string, alarmId: string, action: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${baseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': this.config.alarmsApiKey ?? GCDR_INTEGRATION_API_KEY,
-          'X-Tenant-ID': this.config.gcdrTenantId,
-        },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  private async patchRuleScope(
-    baseUrl: string,
-    ruleId: string,
-    entityIds: string[],
-  ): Promise<boolean> {
-    try {
-      const url        = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
-      const resolvedKey = this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY;
-      const body       = { scope: { type: 'DEVICE', entityIds } };
-      console.group('[AlarmsTab] patchRuleScope');
-      console.log('url         :', url);
-      console.log('ruleId      :', ruleId);
-      console.log('apiKey (used):', resolvedKey);
-      console.log('tenantId    :', this.config.gcdrTenantId);
-      console.log('body        :', body);
-      console.groupEnd();
-      const response = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-          'X-API-Key': resolvedKey,
-          'X-Tenant-ID': this.config.gcdrTenantId,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-      console.log(`[AlarmsTab] patchRuleScope response: ${response.status} ${response.statusText} ok=${response.ok}`);
-      return response.ok;
-    } catch (err) {
-      console.error('[AlarmsTab] patchRuleScope error:', err);
-      return false;
-    }
-  }
-
-  private async patchRuleValue(
-    baseUrl: string,
-    ruleId: string,
-    alarmConfig: GCDRCustomerRule['alarmConfig'],
-  ): Promise<boolean> {
-    try {
-      const url         = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
-      const resolvedKey = this.config.gcdrApiKey ?? GCDR_INTEGRATION_API_KEY;
-      const body        = { alarmConfig };
-      console.group('[AlarmsTab] patchRuleValue');
-      console.log('url          :', url);
-      console.log('ruleId       :', ruleId);
-      console.log('apiKey (used):', resolvedKey);
-      console.log('tenantId     :', this.config.gcdrTenantId);
-      console.log('body         :', body);
-      console.groupEnd();
-      const response = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-          'X-API-Key': resolvedKey,
-          'X-Tenant-ID': this.config.gcdrTenantId,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-      console.log(`[AlarmsTab] patchRuleValue response: ${response.status} ${response.statusText} ok=${response.ok}`);
-      return response.ok;
-    } catch (err) {
-      console.error('[AlarmsTab] patchRuleValue error:', err);
-      return false;
-    }
   }
 
   // ============================================================================
@@ -375,18 +232,19 @@ export class AlarmsTab {
     if (!grid) return;
     grid.innerHTML = '';
 
-    const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
-    const AlarmService = (window as unknown as {
-      MyIOLibrary?: {
-        AlarmService?: {
-          batchAcknowledge?: (ids: string[], email: string) => Promise<void>;
-          batchSilence?:     (ids: string[], email: string, duration: string) => Promise<void>;
-          batchEscalate?:    (ids: string[], email: string) => Promise<void>;
+    const AlarmService = (
+      window as unknown as {
+        MyIOLibrary?: {
+          AlarmService?: {
+            batchAcknowledge?: (ids: string[], email: string) => Promise<void>;
+            batchSilence?: (ids: string[], email: string, duration: string) => Promise<void>;
+            batchEscalate?: (ids: string[], email: string) => Promise<void>;
+          };
         };
-      };
-    }).MyIOLibrary?.AlarmService;
-    const userEmail = (window as unknown as { MyIOUtils?: { currentUserEmail?: string } })
-      .MyIOUtils?.currentUserEmail || '';
+      }
+    ).MyIOLibrary?.AlarmService;
+    const userEmail =
+      (window as unknown as { MyIOUtils?: { currentUserEmail?: string } }).MyIOUtils?.currentUserEmail || '';
 
     // Separado view: one card per individual alarm (Disp. + Tipo unit)
     for (const rawAlarm of this.activeAlarms) {
@@ -399,53 +257,55 @@ export class AlarmsTab {
             if (AlarmService?.batchAcknowledge) {
               await AlarmService.batchAcknowledge([alarmId], userEmail);
             } else {
-              await this.postAlarmAction(alarmsBaseUrl, alarmId, 'acknowledge');
+              await this.orch.gcdrPostAlarmAction(alarmId, 'acknowledge');
             }
           } else if (action === 'snooze') {
             if (AlarmService?.batchSilence) {
               await AlarmService.batchSilence([alarmId], userEmail, '4h');
             } else {
-              await this.postAlarmAction(alarmsBaseUrl, alarmId, 'snooze');
+              await this.orch.gcdrPostAlarmAction(alarmId, 'snooze');
             }
           } else if (action === 'escalate') {
             if (AlarmService?.batchEscalate) {
               await AlarmService.batchEscalate([alarmId], userEmail);
             } else {
-              await this.postAlarmAction(alarmsBaseUrl, alarmId, 'escalate');
+              await this.orch.gcdrPostAlarmAction(alarmId, 'escalate');
             }
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         };
-        doAction().catch(() => { /* non-blocking */ });
+        doAction().catch(() => {
+          /* non-blocking */
+        });
       };
 
       const params: AlarmCardParams = {
-        showCustomerName:    false,
-        showDeviceBadge:     false,
-        hideOccurrenceCount: true,  // always 1 in separado — not meaningful
+        showCustomerName: false,
+        showDeviceBadge: false,
+        hideOccurrenceCount: true, // always 1 in separado — not meaningful
         onAcknowledge: async () => {
           if (AlarmService?.batchAcknowledge) {
             await AlarmService.batchAcknowledge([rawAlarm.id], userEmail);
           } else {
-            await this.postAlarmAction(alarmsBaseUrl, rawAlarm.id, 'acknowledge');
+            await this.orch.gcdrPostAlarmAction(rawAlarm.id, 'acknowledge');
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         },
         onSnooze: async () => {
           if (AlarmService?.batchSilence) {
             await AlarmService.batchSilence([rawAlarm.id], userEmail, '4h');
           } else {
-            await this.postAlarmAction(alarmsBaseUrl, rawAlarm.id, 'snooze');
+            await this.orch.gcdrPostAlarmAction(rawAlarm.id, 'snooze');
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         },
         onEscalate: async () => {
           if (AlarmService?.batchEscalate) {
             await AlarmService.batchEscalate([rawAlarm.id], userEmail);
           } else {
-            await this.postAlarmAction(alarmsBaseUrl, rawAlarm.id, 'escalate');
+            await this.orch.gcdrPostAlarmAction(rawAlarm.id, 'escalate');
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         },
         onDetails: () => {
           openAlarmDetailsModal(alarm, 'light', 'separado', onAction);
@@ -462,14 +322,18 @@ export class AlarmsTab {
    * The myio:alarms-updated event will update this component automatically.
    * Also updates the grid immediately from the post-action ASO data.
    */
-  private async refreshAlarmsGrid(_alarmsBaseUrl?: string): Promise<void> {
-    const aso = (window as unknown as {
-      AlarmServiceOrchestrator?: { refresh: () => Promise<void> };
-    }).AlarmServiceOrchestrator;
+  private async refreshAlarmsGrid(): Promise<void> {
+    const aso = (
+      window as unknown as {
+        AlarmServiceOrchestrator?: { refresh: () => Promise<void> };
+      }
+    ).AlarmServiceOrchestrator;
 
     if (aso) {
       // Refresh MAIN source → fires myio:alarms-updated → our handler calls refreshAlarmsGridFromCurrentData
-      await aso.refresh().catch(() => { /* non-blocking */ });
+      await aso.refresh().catch(() => {
+        /* non-blocking */
+      });
     } else {
       // Fallback: re-read from ASO directly (may not have new data yet)
       this.activeAlarms = this.readAlarmsFromASO();
@@ -483,7 +347,7 @@ export class AlarmsTab {
 
     const badge = this.config.container.querySelector<HTMLElement>('#at-alarms-count');
     if (badge) {
-      badge.textContent   = String(count);
+      badge.textContent = String(count);
       badge.style.display = count > 0 ? '' : 'none';
     }
     const sub = this.config.container.querySelector<HTMLElement>('#at-alarms-sub');
@@ -491,14 +355,14 @@ export class AlarmsTab {
       sub.textContent = this.buildSectionSubtitle();
     }
 
-    const grid  = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
+    const grid = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
     const empty = this.config.container.querySelector<HTMLElement>('#at-alarms-empty');
 
     if (count === 0) {
-      if (grid)  grid.style.display  = 'none';
+      if (grid) grid.style.display = 'none';
       if (empty) empty.style.display = '';
     } else {
-      if (grid)  grid.style.display  = '';
+      if (grid) grid.style.display = '';
       if (empty) empty.style.display = 'none';
       this.populateAlarmsGrid();
     }
@@ -553,7 +417,7 @@ export class AlarmsTab {
 
   private renderSection2(): string {
     const sorted = [...this.customerRules].sort(
-      (a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99),
+      (a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)
     );
 
     return `
@@ -583,13 +447,13 @@ export class AlarmsTab {
   }
 
   private renderCustomerRuleSelectable(rule: GCDRCustomerRule): string {
-    const checked    = this.initialCheckedRuleIds.has(rule.id);
-    const color      = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
-    const hasConfig  = !!rule.alarmConfig;
-    const metric     = rule.alarmConfig?.metric ?? '';
-    const op         = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
-    const val        = rule.alarmConfig?.value ?? '';
-    const ruleIdEsc  = this.esc(rule.id);
+    const checked = this.initialCheckedRuleIds.has(rule.id);
+    const color = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
+    const hasConfig = !!rule.alarmConfig;
+    const metric = rule.alarmConfig?.metric ?? '';
+    const op = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
+    const val = rule.alarmConfig?.value ?? '';
+    const ruleIdEsc = this.esc(rule.id);
     return `
       <div class="at-rule-row at-rule-row--selectable ${checked ? 'at-rule-row--checked' : ''}" data-rule-id="${ruleIdEsc}">
         <label class="at-rule-label">
@@ -601,21 +465,27 @@ export class AlarmsTab {
           >
           <div class="at-rule-info">
             <span class="at-rule-name">${this.esc(rule.name)}</span>
-            ${metric
-              ? `<div class="at-rule-chip-wrap" id="at-chip-wrap-${ruleIdEsc}">
+            ${
+              metric
+                ? `<div class="at-rule-chip-wrap" id="at-chip-wrap-${ruleIdEsc}">
                    <span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(op))} ${val}</span>
                  </div>`
-              : ''}
+                : ''
+            }
           </div>
         </label>
         <div class="at-rule-actions">
-          ${hasConfig ? `
+          ${
+            hasConfig
+              ? `
             <button type="button" class="at-rule-edit-btn" data-rule-id="${ruleIdEsc}" title="Editar valor da regra">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
-            </button>` : ''}
+            </button>`
+              : ''
+          }
           <span class="at-priority-badge" style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
         </div>
       </div>
@@ -656,15 +526,14 @@ export class AlarmsTab {
     if (!rule?.alarmConfig) return;
 
     const container = this.config.container;
-    const chipWrap  = container.querySelector<HTMLElement>(`#at-chip-wrap-${ruleId}`);
+    const chipWrap = container.querySelector<HTMLElement>(`#at-chip-wrap-${ruleId}`);
     if (!chipWrap) return;
 
     // Already in edit mode — don't open twice
     if (chipWrap.querySelector('.at-rule-edit-inline')) return;
 
     const { metric, operator, value, valueHigh } = rule.alarmConfig;
-    const opLabel  = OPERATOR_LABELS[operator] ?? operator;
-    const baseUrl  = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
+    const opLabel = OPERATOR_LABELS[operator] ?? operator;
     const statusId = `at-edit-status-${ruleId}`;
 
     chipWrap.innerHTML = `
@@ -672,11 +541,15 @@ export class AlarmsTab {
         <span class="at-rule-edit-ctx">${this.esc(metric)} ${this.esc(String(opLabel))}</span>
         <input class="at-rule-edit-input" type="number" step="any"
                value="${value}" aria-label="Valor da regra">
-        ${valueHigh != null ? `
+        ${
+          valueHigh != null
+            ? `
           <span class="at-rule-edit-ctx">até</span>
           <input class="at-rule-edit-input at-rule-edit-input--high" type="number" step="any"
                  value="${valueHigh}" aria-label="Valor alto">
-        ` : ''}
+        `
+            : ''
+        }
         <button type="button" class="at-rule-edit-confirm" title="Confirmar">✓</button>
         <button type="button" class="at-rule-edit-cancel"  title="Cancelar">✗</button>
         <span class="at-rule-edit-status" id="${statusId}"></span>
@@ -685,31 +558,38 @@ export class AlarmsTab {
     editBtn.style.display = 'none';
 
     const confirmBtn = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-confirm');
-    const cancelBtn  = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-cancel');
-    const statusEl   = chipWrap.querySelector<HTMLElement>(`#${statusId}`);
-    const inputLow   = chipWrap.querySelector<HTMLInputElement>('.at-rule-edit-input:not(.at-rule-edit-input--high)');
-    const inputHigh  = chipWrap.querySelector<HTMLInputElement>('.at-rule-edit-input--high');
+    const cancelBtn = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-cancel');
+    const statusEl = chipWrap.querySelector<HTMLElement>(`#${statusId}`);
+    const inputLow = chipWrap.querySelector<HTMLInputElement>(
+      '.at-rule-edit-input:not(.at-rule-edit-input--high)'
+    );
+    const inputHigh = chipWrap.querySelector<HTMLInputElement>('.at-rule-edit-input--high');
 
     const restoreChip = (v: number, vh: number | null | undefined) => {
       const vhStr = vh != null ? ` – ${vh}` : '';
-      chipWrap.innerHTML =
-        `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(opLabel))} ${v}${vhStr}</span>`;
+      chipWrap.innerHTML = `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(opLabel))} ${v}${vhStr}</span>`;
       editBtn.style.display = '';
     };
 
     cancelBtn?.addEventListener('click', () => restoreChip(value, valueHigh));
 
     confirmBtn?.addEventListener('click', async () => {
-      const newVal     = parseFloat(inputLow?.value ?? '');
+      const newVal = parseFloat(inputLow?.value ?? '');
       const newValHigh = inputHigh ? parseFloat(inputHigh.value) : undefined;
 
       if (isNaN(newVal)) {
-        if (statusEl) { statusEl.textContent = 'Valor inválido'; statusEl.style.color = '#dc2626'; }
+        if (statusEl) {
+          statusEl.textContent = 'Valor inválido';
+          statusEl.style.color = '#dc2626';
+        }
         return;
       }
 
       if (confirmBtn) confirmBtn.disabled = true;
-      if (statusEl)   { statusEl.textContent = '…'; statusEl.style.color = '#6b7280'; }
+      if (statusEl) {
+        statusEl.textContent = '…';
+        statusEl.style.color = '#6b7280';
+      }
 
       const updatedConfig: GCDRCustomerRule['alarmConfig'] = {
         ...rule.alarmConfig!,
@@ -717,13 +597,16 @@ export class AlarmsTab {
         ...(newValHigh !== undefined && !isNaN(newValHigh) ? { valueHigh: newValHigh } : {}),
       };
 
-      const ok = await this.patchRuleValue(baseUrl, ruleId, updatedConfig);
+      const ok = await this.orch.gcdrPatchRuleValue(ruleId, updatedConfig);
 
       if (ok) {
         rule.alarmConfig = updatedConfig;
         restoreChip(newVal, updatedConfig.valueHigh ?? null);
       } else {
-        if (statusEl) { statusEl.textContent = 'Erro ao salvar'; statusEl.style.color = '#dc2626'; }
+        if (statusEl) {
+          statusEl.textContent = 'Erro ao salvar';
+          statusEl.style.color = '#dc2626';
+        }
         if (confirmBtn) confirmBtn.disabled = false;
       }
     });
@@ -735,23 +618,27 @@ export class AlarmsTab {
   private async handleSave(): Promise<void> {
     const container = this.config.container;
     const saveBtn = container.querySelector('#at-save-btn') as HTMLButtonElement | null;
-    const msgEl   = container.querySelector('#at-save-msg') as HTMLElement | null;
-    const baseUrl = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
-
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando…'; }
-    if (msgEl)   msgEl.style.display = 'none';
+    const msgEl = container.querySelector('#at-save-msg') as HTMLElement | null;
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Salvando…';
+    }
+    if (msgEl) msgEl.style.display = 'none';
 
     const currentChecked = new Set<string>();
     container.querySelectorAll<HTMLInputElement>('.at-rule-check').forEach((cb) => {
       if (cb.checked && cb.dataset.ruleId) currentChecked.add(cb.dataset.ruleId);
     });
 
-    const toAdd    = [...currentChecked].filter((id) => !this.initialCheckedRuleIds.has(id));
+    const toAdd = [...currentChecked].filter((id) => !this.initialCheckedRuleIds.has(id));
     const toRemove = [...this.initialCheckedRuleIds].filter((id) => !currentChecked.has(id));
 
     if (toAdd.length === 0 && toRemove.length === 0) {
       this.showMsg(msgEl, 'Nenhuma alteração para salvar.', '#6b7280');
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Alarmes'; }
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Salvar Alarmes';
+      }
       return;
     }
 
@@ -763,18 +650,24 @@ export class AlarmsTab {
       if (!rule) continue;
       const ids = [...(rule.scope?.entityIds ?? [])];
       if (!ids.includes(this.config.gcdrDeviceId)) ids.push(this.config.gcdrDeviceId);
-      const ok = await this.patchRuleScope(baseUrl, ruleId, ids);
-      if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
-      else    { errors.push(rule.name); }
+      const ok = await this.orch.gcdrPatchRuleScope(ruleId, ids);
+      if (ok) {
+        rule.scope = { ...rule.scope, entityIds: ids };
+      } else {
+        errors.push(rule.name);
+      }
     }
 
     for (const ruleId of toRemove) {
       const rule = ruleMap.get(ruleId);
       if (!rule) continue;
       const ids = (rule.scope?.entityIds ?? []).filter((id) => id !== this.config.gcdrDeviceId);
-      const ok = await this.patchRuleScope(baseUrl, ruleId, ids);
-      if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
-      else    { errors.push(rule.name); }
+      const ok = await this.orch.gcdrPatchRuleScope(ruleId, ids);
+      if (ok) {
+        rule.scope = { ...rule.scope, entityIds: ids };
+      } else {
+        errors.push(rule.name);
+      }
     }
 
     if (errors.length === 0) {
@@ -784,13 +677,16 @@ export class AlarmsTab {
       this.showMsg(msgEl, `Erro ao salvar: ${errors.join(', ')}`, '#dc2626');
     }
 
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Alarmes'; }
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Salvar Alarmes';
+    }
   }
 
   private showMsg(el: HTMLElement | null, text: string, color: string): void {
     if (!el) return;
-    el.textContent   = text;
-    el.style.color   = color;
+    el.textContent = text;
+    el.style.color = color;
     el.style.display = 'inline';
   }
 
@@ -798,12 +694,37 @@ export class AlarmsTab {
   // Utilities
   // ============================================================================
 
+  /** Typed accessor to window.MyIOOrchestrator GCDR API methods. */
+  private get orch(): {
+    gcdrCustomerId: string;
+    gcdrFetchCustomerRules: () => Promise<GCDRCustomerRule[]>;
+    gcdrPostAlarmAction: (alarmId: string, action: string) => Promise<boolean>;
+    gcdrPatchRuleScope: (ruleId: string, entityIds: string[]) => Promise<boolean>;
+    gcdrPatchRuleValue: (ruleId: string, alarmConfig: GCDRCustomerRule['alarmConfig']) => Promise<boolean>;
+  } {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (window as any).MyIOOrchestrator;
+  }
+
   private esc(str: string): string {
     return String(str ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  private showToast(msg: string): void {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+      'background:#dc2626;color:#fff;font-size:13px;font-weight:600;' +
+      'padding:10px 20px;border-radius:8px;z-index:99999;' +
+      'box-shadow:0 4px 12px rgba(0,0,0,0.25);pointer-events:none;' +
+      'font-family:Inter,system-ui,-apple-system,sans-serif;white-space:nowrap;';
+    el.textContent = `⚠️ ${msg}`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
   }
 
   private getLoadingHTML(): string {

@@ -2718,11 +2718,8 @@ function renderList(visible) {
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
             // RFC-0180: GCDR params for Alarms tab
             gcdrDeviceId: it.gcdrDeviceId || null,
-            gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || null,
-            gcdrTenantId: window.MyIOOrchestrator?.gcdrTenantId || null,
-            gcdrApiBaseUrl: window.MyIOOrchestrator?.gcdrApiBaseUrl || null,
-            prefetchedBundle:  window.MyIOOrchestrator?.alarmBundle       ?? null,
-            prefetchedAlarms:  window.MyIOOrchestrator?.customerAlarms    ?? null,
+            prefetchedBundle: window.MyIOOrchestrator?.alarmBundle    ?? null,
+            prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();
