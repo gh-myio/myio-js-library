@@ -86,6 +86,18 @@
         "default": "https://gcdr-api.a.myio-bas.com",
         "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
       },
+      "shortDelayMinsToBypassOfflineStatus": {
+        "title": "Short Delay (min) to Bypass Offline Status",
+        "type": "number",
+        "default": 60,
+        "description": "RFC-0188: If a device is marked offline by ThingsBoard but its last telemetry timestamp (from Data Apps API) is more recent than this threshold (in minutes), it is rescued to online. Default: 60 min. Applies to all domains (energy, water, temperature)."
+      },
+      "enableTemperatureApiDataFetch": {
+        "title": "Enable Temperature API Fetch (offline detection)",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h to derive lastTelemetryTs for accurate offline detection (RFC-0188). One HTTP call per device at each data load. Enable for customers whose temperature devices are integrated into the Data Apps pipeline."
+      },
       "enableReportButton": {
         "title": "Enable Report Button",
         "type": "boolean",
@@ -125,6 +137,8 @@
     "domainsEnabled.energy",
     "domainsEnabled.water",
     "domainsEnabled.temperature",
+    "shortDelayMinsToBypassOfflineStatus",
+    "enableTemperatureApiDataFetch",
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
     "alarmsApiBaseUrl",
