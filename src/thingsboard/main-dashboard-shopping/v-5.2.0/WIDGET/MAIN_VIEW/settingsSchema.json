@@ -98,6 +98,12 @@
         "default": false,
         "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h to derive lastTelemetryTs for accurate offline detection (RFC-0188). One HTTP call per device at each data load. Enable for customers whose temperature devices are integrated into the Data Apps pipeline."
       },
+      "enableDeviceDataExport": {
+        "title": "Enable Device Data Export (console log)",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0152: When true, logs a JSON array to the console with TB↔GCDR mapping fields (tbId, deviceName, label, deviceType, deviceProfile, slaveId, centralId, gcdrCustomerId, gcdrAssetId, gcdrDeviceId, gcdrSyncAt) after each card render. Disable in production to avoid console noise."
+      },
       "enableReportButton": {
         "title": "Enable Report Button",
         "type": "boolean",
@@ -139,6 +145,7 @@
     "domainsEnabled.temperature",
     "shortDelayMinsToBypassOfflineStatus",
     "enableTemperatureApiDataFetch",
+    "enableDeviceDataExport",
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
     "alarmsApiBaseUrl",

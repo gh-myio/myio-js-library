@@ -2055,6 +2055,8 @@ function renderHeader(count, groupSum) {
 
 function renderList(visible) {
   const $ul = $list().empty();
+  // RFC-0152: Reset per-render device data export buffer
+  window._deviceDataExport = [];
 
   // Calculate average temperature for all temperature devices (for TempComparisonTooltip)
   // Only count active sensors, exclude offline devices
@@ -2758,8 +2760,31 @@ function renderList(visible) {
       addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
+    // RFC-0152: Collect TB↔GCDR mapping data for device export
+    window._deviceDataExport.push({
+      tbId:           it.tbId || it.id || '',
+      deviceName:     it.entityName || '',
+      label:          it.label || '',
+      deviceType:     it.deviceType || '',
+      deviceProfile:  it.deviceProfile || '',
+      slaveId:        it.slaveId || '',
+      centralId:      it.centralId || '',
+      gcdrCustomerId: it.gcdrCustomerId || '',
+      gcdrAssetId:    it.gcdrAssetId || '',
+      gcdrDeviceId:   it.gcdrDeviceId || '',
+      gcdrSyncAt:     it.gcdrSyncAt || '',
+    });
+
     $ul.append($card);
   });
+
+  // RFC-0152: Log device export data if enabled via settings
+  if (window.MyIOUtils?.enableDeviceDataExport && window._deviceDataExport.length > 0) {
+    console.log(
+      `[RFC-0152] Device Data Export — ${window._deviceDataExport.length} devices (${WIDGET_DOMAIN}):`,
+      JSON.stringify(window._deviceDataExport, null, 2)
+    );
+  }
 }
 
 /** ===================== EXPORT HELPERS ===================== **/
@@ -4277,6 +4302,11 @@ self.onInit = async function () {
                 log_annotations: item.log_annotations || null,
                 // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
                 gcdrDeviceId: item.gcdrDeviceId || null,
+                // RFC-0152: Per-device GCDR mapping fields (TB↔GCDR sync audit)
+                entityName: item.entityName || '',
+                gcdrCustomerId: item.gcdrCustomerId || null,
+                gcdrAssetId: item.gcdrAssetId || null,
+                gcdrSyncAt: item.gcdrSyncAt || null,
               };
             });
 
@@ -4426,6 +4456,11 @@ self.onInit = async function () {
         _isHidrometerDevice: item._isHidrometerDevice || false,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
         gcdrDeviceId: item.gcdrDeviceId || null,
+        // RFC-0152: Per-device GCDR mapping fields (TB↔GCDR sync audit)
+        entityName: item.entityName || '',
+        gcdrCustomerId: item.gcdrCustomerId || null,
+        gcdrAssetId: item.gcdrAssetId || null,
+        gcdrSyncAt: item.gcdrSyncAt || null,
       };
     });
 
