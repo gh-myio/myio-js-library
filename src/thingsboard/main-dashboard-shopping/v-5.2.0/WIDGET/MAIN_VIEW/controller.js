@@ -992,19 +992,12 @@ Object.assign(window.MyIOUtils, {
 
           // Segundo: dentro dos states, os widgets individuais tamb�m precisam de scroll
           const stateContainers = $$('[data-content-state]', content);
-          LogHelper.log(`[MAIN_VIEW] Found ${stateContainers.length} state containers`);
-          stateContainers.forEach((stateContainer, idx) => {
+          stateContainers.forEach((stateContainer) => {
             const widgetsInState = $$('.tb-child', stateContainer);
-            LogHelper.log(`[MAIN_VIEW] State ${idx}: ${widgetsInState.length} widgets found`, {
-              state: stateContainer.getAttribute('data-content-state'),
-              display: stateContainer.style.display,
-            });
-            widgetsInState.forEach((widget, widgetIdx) => {
-              const before = widget.style.overflow;
+            widgetsInState.forEach((widget) => {
               widget.style.overflow = 'auto';
               widget.style.width = '100%';
               widget.style.height = '100%';
-              LogHelper.log(`[MAIN_VIEW]   Widget ${widgetIdx}: overflow ${before} ? auto`);
             });
           });
 
@@ -1426,13 +1419,7 @@ Object.assign(window.MyIOUtils, {
 
           // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
           // This enables HEADER controls, even though data fetch will fail
-          LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
-          );
           setTimeout(() => {
-            LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)'
-            );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
                 detail: { tab: 'energy' },
@@ -1441,23 +1428,7 @@ Object.assign(window.MyIOUtils, {
           }, 100);
         } else {
           // Set credentials in orchestrator (only if present)
-          LogHelper.log('[MAIN_VIEW] 🔐 Calling MyIOOrchestrator.setCredentials...');
-          LogHelper.log('[MAIN_VIEW] 🔐 Arguments:', {
-            customerId: CUSTOMER_ING_ID,
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET.substring(0, 10) + '...',
-          });
-
           MyIOOrchestrator.setCredentials(CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET);
-
-          LogHelper.log('[MAIN_VIEW] 🔐 setCredentials completed, verifying...');
-          // Verify credentials were set
-          const currentCreds = MyIOOrchestrator.getCredentials?.();
-          if (currentCreds) {
-            LogHelper.log('[MAIN_VIEW] ✅ Credentials verified in orchestrator:', currentCreds);
-          } else {
-            LogHelper.warn('[MAIN_VIEW] ⚠️ Orchestrator does not have getCredentials method');
-          }
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
@@ -1470,17 +1441,9 @@ Object.assign(window.MyIOUtils, {
           const ingestionToken = await myIOAuth.getToken();
           MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
 
-          LogHelper.log('[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:', CLIENT_ID);
-
           // Dispatch initial tab event AFTER credentials AND with delay
           // Delay ensures HEADER has time to register its listener
-          LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
-          );
           setTimeout(() => {
-            LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)'
-            );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
                 detail: { tab: 'energy' },
@@ -1493,11 +1456,7 @@ Object.assign(window.MyIOUtils, {
 
         // RFC-0054 FIX: Dispatch initial tab event even on error (with delay)
         // This enables HEADER controls, even though data fetch will fail
-        LogHelper.log(
-          '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
-        );
         setTimeout(() => {
-          LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after error)');
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
               detail: { tab: 'energy' },
@@ -1510,11 +1469,7 @@ Object.assign(window.MyIOUtils, {
 
       // RFC-0054 FIX: Dispatch initial tab event even without MyIOLibrary (with delay)
       // This enables HEADER controls, even though data fetch will fail
-      LogHelper.log(
-        '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
-      );
       setTimeout(() => {
-        LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no MyIOLibrary)');
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
             detail: { tab: 'energy' },
@@ -3860,8 +3815,6 @@ const MyIOOrchestrator = (() => {
       }
 
       if (attempt < maxRetries) {
-        LogHelper.log(`[Orchestrator] ⏳ Waiting for period, attempt ${attempt}/${maxRetries}...`);
-
         // Force click no elemento energia
         const energiaElement = document.querySelector('a.menu-item.active[id="link0"][data-icon="⚡"]');
         if (energiaElement) {
@@ -4355,77 +4308,15 @@ const MyIOOrchestrator = (() => {
 
     const rows = Array.isArray(self?.ctx?.data) ? self.ctx.data : [];
 
-    // DEBUG: Log datasources configured in widget
-    const datasources = Array.isArray(self?.ctx?.datasources) ? self.ctx.datasources : [];
-    LogHelper.log(`[Orchestrator] 📋 Widget datasources configured: ${datasources.length}`);
-    if (datasources.length > 0) {
-      const dsInfo = datasources.map((ds) => ({
-        aliasName: ds.aliasName || ds.name || 'unknown',
-        entityCount: ds.dataKeys?.length || 0,
-        type: ds.type || 'unknown',
-      }));
-      LogHelper.log(`[Orchestrator] 📋 Datasource details:`, JSON.stringify(dsInfo));
-    }
-
     if (rows.length === 0) {
       LogHelper.warn(
-        `[Orchestrator] ⚠️ self.ctx.data is empty - no metadata available (${datasources.length} datasources configured)`
+        `[Orchestrator] ⚠️ self.ctx.data is empty - no metadata available`
       );
       return { byIngestion: metadataByIngestion, byEntityId: metadataByEntityId };
     }
 
     // RFC-0106: Use whitelist approach - only include the specific datasource for this domain
     const allowedAlias = ALLOWED_ALIASES_BY_DOMAIN[domain] || ALLOWED_ALIASES_BY_DOMAIN.energy;
-    LogHelper.log(`[Orchestrator] 📋 Using whitelist for domain '${domain}': only alias '${allowedAlias}'`);
-
-    // DEBUG: Log all unique aliasNames found in ctx.data
-    const allAliases = new Set();
-    for (const row of rows) {
-      const alias = row?.datasource?.aliasName || row?.datasource?.name || 'unknown';
-      allAliases.add(alias);
-    }
-    LogHelper.log(`[Orchestrator] 📋 Datasource aliases found: ${Array.from(allAliases).join(', ')}`);
-
-    // DEBUG: Log sample items from the allowed alias datasource
-    const aliasRows = rows.filter((r) => {
-      const alias = (r?.datasource?.aliasName || r?.datasource?.name || '').toLowerCase();
-      return alias === allowedAlias;
-    });
-    if (aliasRows.length > 0) {
-      // Get unique entityIds from this alias
-      const entityIds = [
-        ...new Set(aliasRows.map((r) => r?.datasource?.entityId?.id || r?.datasource?.entityId)),
-      ].filter(Boolean);
-      LogHelper.log(
-        `[Orchestrator] 🔍 DEBUG: Found ${entityIds.length} unique entities in '${allowedAlias}' datasource`
-      );
-
-      // Sample: first + 2 random
-      const sampleIds = [entityIds[0]];
-      if (entityIds.length > 1) sampleIds.push(entityIds[Math.floor(entityIds.length / 3)]);
-      if (entityIds.length > 2) sampleIds.push(entityIds[Math.floor((entityIds.length * 2) / 3)]);
-
-      for (const sampleId of sampleIds) {
-        const sampleRows = aliasRows.filter(
-          (r) => (r?.datasource?.entityId?.id || r?.datasource?.entityId) === sampleId
-        );
-        const sampleData = {};
-        for (const sr of sampleRows) {
-          const key = sr?.dataKey?.name || 'unknown';
-          sampleData[key] = sr?.data?.[0]?.[1] ?? null;
-        }
-        sampleData._entityId = sampleId;
-        sampleData._entityName = sampleRows[0]?.datasource?.entityName || 'N/A';
-        LogHelper.log(
-          `[Orchestrator] 🔍 DEBUG Sample from '${allowedAlias}':`,
-          JSON.stringify(sampleData, null, 2)
-        );
-      }
-    }
-
-    // DEBUG: Counter for consumption timestamp debugging
-    let _debugConsumptionCount = 0;
-    const _debugConsumptionMax = 8;
 
     // Group by entityId first - only process rows from allowed alias
     for (const row of rows) {
@@ -4486,19 +4377,6 @@ const MyIOOrchestrator = (() => {
         // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
         const ts = row?.data?.[0]?.[0];
         meta.consumptionTs = ts && ts > 0 ? ts : null;
-
-        // DEBUG: Log first 8 consumption timestamps
-        if (_debugConsumptionCount < _debugConsumptionMax) {
-          _debugConsumptionCount++;
-          console.log(`🔍 [DEBUG RFC-0110] consumption timestamp #${_debugConsumptionCount}:`, {
-            entityName: meta.entityName || meta.label,
-            consumption: val,
-            'row.data': row?.data,
-            'row.data[0]': row?.data?.[0],
-            'row.data[0][0] (ts)': ts,
-            'consumptionTs (final)': meta.consumptionTs,
-          });
-        }
       }
       // Water-specific fields
       else if (keyName === 'pulses') {
@@ -4566,10 +4444,6 @@ const MyIOOrchestrator = (() => {
         metadataByIngestion.set(ingestionId, meta);
       }
     }
-
-    LogHelper.log(
-      `[Orchestrator] 📋 Built metadata map: ${metadataByEntityId.size} entities, ${metadataByIngestion.size} with ingestionId`
-    );
 
     return { byIngestion: metadataByIngestion, byEntityId: metadataByEntityId };
   }
@@ -5117,7 +4991,6 @@ const MyIOOrchestrator = (() => {
 
       // Wait for credentials promise and refresh from global state
       // Don't trust local scope variables - they may be stale
-      LogHelper.log(`[Orchestrator] Credentials check: flag=${window.MyIOOrchestrator?.credentialsSet}`);
 
       // If credentials flag is not set, wait for them with timeout
       if (!window.MyIOOrchestrator?.credentialsSet) {
@@ -5128,13 +5001,10 @@ const MyIOOrchestrator = (() => {
         try {
           LogHelper.log(`[Orchestrator] ⏳ Waiting for credentials to be set...`);
           await Promise.race([credentialsPromise, timeoutPromise]);
-          LogHelper.log(`[Orchestrator] ✅ Credentials promise resolved`);
         } catch (err) {
           LogHelper.error(`[Orchestrator] ⚠️ Credentials timeout - ${err.message}`);
           throw new Error('Credentials not available - initialization timeout');
         }
-      } else {
-        LogHelper.log(`[Orchestrator] ✅ Credentials flag already set`);
       }
 
       // RFC-0082 FIX: Always refresh credentials from global state after waiting
@@ -5154,12 +5024,6 @@ const MyIOOrchestrator = (() => {
 
       const clientId = latestCreds.CLIENT_ID;
       const clientSecret = latestCreds.CLIENT_SECRET;
-
-      LogHelper.log(`[Orchestrator] 🔍 Using credentials:`, {
-        CLIENT_ID: clientId?.substring(0, 10) + '...',
-        CLIENT_SECRET_length: clientSecret?.length || 0,
-        CUSTOMER_ING_ID: latestCreds.CUSTOMER_ING_ID,
-      });
 
       // Create fresh MyIOAuth instance every time (like TELEMETRY widget)
       const MyIO =
@@ -6124,7 +5988,6 @@ const MyIOOrchestrator = (() => {
       // Resolve the promise to unblock waiting fetchAndEnrich calls
       if (credentialsResolver) {
         credentialsResolver();
-        LogHelper.log(`[Orchestrator] ✅ Credentials promise resolved - unblocking pending requests`);
       }
     },
 
