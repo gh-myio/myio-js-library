@@ -735,6 +735,25 @@ self.onInit = function () {
     .gu-btn-force-clear:hover:not(:disabled) { background: #b91c1c; }
     .gu-btn-force-clear:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    /* Raio X button */
+    .gu-btn-raiox {
+      background: linear-gradient(180deg, #7c3aed, #5b21b6);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+      box-shadow: 0 2px 8px rgba(91,33,182,0.3);
+    }
+    .gu-btn-raiox:hover:not(:disabled) { background: linear-gradient(180deg, #6d28d9, #4c1d95); }
+    .gu-btn-raiox:disabled { opacity: 0.45; cursor: not-allowed; }
+
     /* Force Update Modal overlay */
     .gu-fu-overlay {
       position: fixed;
@@ -945,6 +964,9 @@ self.onInit = function () {
                 <button id="gu-btn-force-clear" class="gu-btn gu-btn-force-clear" disabled>
                   <span>🧹</span><span>Force Clear GCDR IDs</span>
                 </button>
+                <button id="gu-btn-raiox" class="gu-btn gu-btn-raiox" disabled>
+                  <span>⚡</span><span>Raio X</span>
+                </button>
               </div>
             </div>
           </div>
@@ -995,6 +1017,7 @@ self.onInit = function () {
   const btnForceUpdate = root.querySelector('#gu-btn-force-update');
   const btnSyncForceId = root.querySelector('#gu-btn-sync-force-id');
   const btnForceClear = root.querySelector('#gu-btn-force-clear');
+  const btnRaioX = root.querySelector('#gu-btn-raiox');
 
   // --- State ---
   let selectedCustomer = null; // { id, name }
@@ -1029,6 +1052,7 @@ self.onInit = function () {
       if (btnForceUpdate) btnForceUpdate.disabled = !selectedCustomer;
       if (btnSyncForceId) btnSyncForceId.disabled = !selectedCustomer;
       if (btnForceClear) btnForceClear.disabled = !selectedCustomer;
+      if (btnRaioX) btnRaioX.disabled = !selectedCustomer;
     }
   }
 
@@ -1099,6 +1123,7 @@ self.onInit = function () {
     btnForceUpdate.disabled = false;
     if (btnSyncForceId) btnSyncForceId.disabled = false;
     if (btnForceClear) btnForceClear.disabled = false;
+    if (btnRaioX) btnRaioX.disabled = false;
 
     // Reset card attrs
     setAttr(gcdrTenantEl, 'Carregando...', '');
@@ -2688,6 +2713,565 @@ self.onInit = function () {
   }
 
   // ================================================================
+  // Raio X — Dry Run GCDR Sync Diagnostics
+  // Reads TB tree + GCDR bundle, compares side-by-side, NO writes.
+  // Status per entity:
+  //   SYNCED   — found in GCDR and TB already has the correct gcdrId
+  //   MATCH    — found in GCDR but TB attr missing/different (would update)
+  //   NEW      — not found in GCDR (would be created)
+  //   SKIPPED  — device has no slaveId+centralId (always ignored by sync)
+  //   NO_ASSET — parent asset wasn't mapped to GCDR
+  // ================================================================
+
+  function openGCDRRaioXModal() {
+    if (!selectedCustomer) return;
+
+    if (!gcdrTenantId || !gcdrCustomerId || !gcdrApiKey) {
+      const missing = [
+        !gcdrTenantId && 'gcdrTenantId',
+        !gcdrCustomerId && 'gcdrCustomerId',
+        !gcdrApiKey && 'gcdrApiKey',
+      ].filter(Boolean).join(', ');
+      window.alert(`Raio X bloqueado.\nAtributos SERVER_SCOPE ausentes no customer: ${missing}`);
+      return;
+    }
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let overlay;
+
+    function closeModal() {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    function renderShell(bodyHtml, footerHtml) {
+      overlay.innerHTML = `
+        <div class="gu-fu-modal" style="max-width:1200px">
+          <div class="gu-fu-header">
+            <div>
+              <div class="gu-fu-title">⚡ Raio X — Diagnóstico GCDR Sync</div>
+              <div class="gu-fu-subtitle">
+                Customer: ${selectedCustomer.name}
+                <span style="margin-left:10px;background:#ede9ff;color:#4c1d95;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">DRY RUN — somente leitura, nenhuma alteração será feita</span>
+              </div>
+            </div>
+            <button class="gu-fu-close" id="grx-x">✕</button>
+          </div>
+          <div class="gu-fu-body" id="grx-body">${bodyHtml}</div>
+          <div class="gu-fu-footer" id="grx-footer">${footerHtml}</div>
+        </div>`;
+      overlay.querySelector('#grx-x').addEventListener('click', closeModal);
+    }
+
+    function setBody(html) {
+      const el = overlay.querySelector('#grx-body');
+      if (el) el.innerHTML = html;
+    }
+
+    function renderProgress(phase, done, total, color) {
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const c = color || '#7c3aed';
+      return `
+        <div style="padding:4px 0">
+          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:14px">⏳ ${phase}</div>
+          <div class="gu-fu-progress-bar-bg" style="margin-bottom:6px">
+            <div class="gu-fu-progress-bar" style="width:${pct}%;background:${c}"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <div class="gu-fu-progress-label">${done > 0 ? `${done} / ${total}` : '…'}</div>
+            <div style="font-size:13px;font-weight:700;color:${c}">${pct > 0 ? pct + '%' : ''}</div>
+          </div>
+        </div>`;
+    }
+
+    function renderReport(assetReport, deviceReport) {
+      const aSynced  = assetReport.filter((r) => r.status === 'SYNCED').length;
+      const aMatch   = assetReport.filter((r) => r.status === 'MATCH').length;
+      const aNew     = assetReport.filter((r) => r.status === 'NEW').length;
+      const aErr     = assetReport.filter((r) => r.status === 'ERROR').length;
+      const dSynced  = deviceReport.filter((r) => r.status === 'SYNCED').length;
+      const dMatch   = deviceReport.filter((r) => r.status === 'MATCH').length;
+      const dNew     = deviceReport.filter((r) => r.status === 'NEW').length;
+      const dSkipped = deviceReport.filter((r) => r.status === 'SKIPPED').length;
+      const dNoAsset = deviceReport.filter((r) => r.status === 'NO_ASSET').length;
+      const dErr     = deviceReport.filter((r) => r.status === 'ERROR').length;
+
+      function statusChip(status) {
+        const map = {
+          SYNCED:   ['✅ SYNCED',    '#d1fae5', '#065f46'],
+          MATCH:    ['🔄 MATCH',     '#dbeafe', '#1e40af'],
+          NEW:      ['✨ NOVO',      '#ede9ff', '#4c1d95'],
+          SKIPPED:  ['⚠️ IGNORADO',  '#fef3c7', '#92400e'],
+          NO_ASSET: ['❌ SEM ASSET', '#fee2e2', '#991b1b'],
+          ERROR:    ['❌ ERRO',      '#fee2e2', '#991b1b'],
+        };
+        const [label, bg, color] = map[status] || [status, '#f3f4f6', '#374151'];
+        return `<span style="font-size:10px;background:${bg};color:${color};padding:2px 7px;border-radius:4px;font-weight:700;white-space:nowrap">${label}</span>`;
+      }
+
+      function uuid(id, full) {
+        if (!id) return '<span style="color:#9ca3af">—</span>';
+        const display = full ? id : id.substring(0, 8) + '…';
+        return `<code style="font-size:10px;background:#f3f4f6;padding:1px 4px;border-radius:3px;color:#374151" title="${id}">${display}</code>`;
+      }
+
+      // Shows the GCDR-side value vs what's currently stored in TB SERVER_SCOPE.
+      // Green tick = in sync. Orange = present but diverges. Red = missing in TB.
+      function diffCell(gcdrVal, tbVal) {
+        if (!gcdrVal) return '<span style="color:#9ca3af">—</span>';
+        if (gcdrVal === tbVal) {
+          return `${uuid(gcdrVal)} <span style="font-size:10px;color:#10b981;font-weight:600">✓ TB ok</span>`;
+        }
+        const tbPart = tbVal
+          ? `${uuid(tbVal)} <span style="font-size:10px;color:#92400e;font-weight:600">⚠ diverge</span>`
+          : '<span style="font-size:10px;color:#ef4444;font-weight:600">✗ ausente no TB</span>';
+        return `${uuid(gcdrVal)}<div style="margin-top:3px">${tbPart}</div>`;
+      }
+
+      const thStyle = 'padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#f9fafb;border-bottom:2px solid #e5e7eb';
+      const tableStyle = 'width:100%;border-collapse:collapse;font-size:12px';
+
+      const assetRows = assetReport.map((r) => `
+        <tr data-status="${r.status}" style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:7px 8px">${statusChip(r.status)}</td>
+          <td style="padding:7px 8px">
+            <div style="font-weight:600">${r.name}</div>
+            ${r.label && r.label !== r.name ? `<div style="font-size:10px;color:#9ca3af">${r.label}</div>` : ''}
+            <div style="font-size:10px;color:#d1d5db;font-family:monospace">${r.tbId}</div>
+          </td>
+          <td style="padding:7px 8px">${diffCell(r.gcdrAssetId, r.gcdrAssetIdInTB)}</td>
+          <td style="padding:7px 8px">${r.parentGcdrId ? uuid(r.parentGcdrId) : '<span style="color:#9ca3af">raiz</span>'}</td>
+          <td style="padding:7px 8px">
+            ${r.matchBy ? `<span style="font-size:10px;background:#f0fdf4;color:#166534;padding:1px 5px;border-radius:3px">${r.matchBy}</span>` : '<span style="color:#9ca3af">—</span>'}
+            ${r.wouldMove ? `<span style="font-size:10px;background:#fef9c3;color:#854d0e;padding:1px 5px;border-radius:3px;margin-left:4px">↪ mover</span>` : ''}
+          </td>
+          <td style="padding:7px 8px;color:#ef4444;font-size:11px">${r.error || ''}</td>
+        </tr>`).join('');
+
+      const deviceRows = deviceReport.map((r) => `
+        <tr data-status="${r.status}" style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:7px 8px">${statusChip(r.status)}</td>
+          <td style="padding:7px 8px">
+            <div style="font-weight:600">${r.name}</div>
+            ${r.label && r.label !== r.name ? `<div style="font-size:10px;color:#9ca3af">${r.label}</div>` : ''}
+            <div style="font-size:10px;color:#d1d5db;font-family:monospace">${r.tbId}</div>
+          </td>
+          <td style="padding:7px 8px">
+            ${r.slaveId != null ? `<span style="font-size:10px;background:#f0f9ff;color:#0369a1;padding:1px 5px;border-radius:3px">slave:${r.slaveId}</span>` : ''}
+            ${r.centralId ? `<div style="font-size:10px;color:#9ca3af;font-family:monospace;margin-top:2px" title="${r.centralId}">${r.centralId.substring(0, 8)}…</div>` : ''}
+          </td>
+          <td style="padding:7px 8px">${diffCell(r.gcdrDeviceId, r.gcdrDeviceIdInTB)}</td>
+          <td style="padding:7px 8px">
+            ${r.matchBy ? `<span style="font-size:10px;background:#f0fdf4;color:#166534;padding:1px 5px;border-radius:3px">${r.matchBy}</span>` : '<span style="color:#9ca3af">—</span>'}
+            ${r.wouldMove ? `<span style="font-size:10px;background:#fef9c3;color:#854d0e;padding:1px 5px;border-radius:3px;margin-left:4px">↪ mover</span>` : ''}
+          </td>
+          <td style="padding:7px 8px;color:#6b7280;font-size:11px">${r.note || r.error || ''}</td>
+        </tr>`).join('');
+
+      return `
+        <!-- Summary cards (clicáveis para filtrar) -->
+        <div id="grx-filter-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:6px">
+          ${[
+            { label: 'Assets TB',       val: assetReport.length,       color: '#374151', bg: '#f3f4f6', scope: 'assets',  fstatus: 'ALL'     },
+            { label: 'Assets OK',       val: aSynced,                  color: '#065f46', bg: '#d1fae5', scope: 'assets',  fstatus: 'SYNCED'  },
+            { label: 'Assets match',    val: aMatch,                   color: '#1e40af', bg: '#dbeafe', scope: 'assets',  fstatus: 'MATCH'   },
+            { label: 'Assets novos',    val: aNew,                     color: '#4c1d95', bg: '#ede9ff', scope: 'assets',  fstatus: 'NEW'     },
+            { label: 'Devices TB',      val: deviceReport.length,      color: '#374151', bg: '#f3f4f6', scope: 'devices', fstatus: 'ALL'     },
+            { label: 'Devices OK',      val: dSynced,                  color: '#065f46', bg: '#d1fae5', scope: 'devices', fstatus: 'SYNCED'  },
+            { label: 'Devices match',   val: dMatch,                   color: '#1e40af', bg: '#dbeafe', scope: 'devices', fstatus: 'MATCH'   },
+            { label: 'Devices novos',   val: dNew,                     color: '#4c1d95', bg: '#ede9ff', scope: 'devices', fstatus: 'NEW'     },
+            { label: 'Ignorados',       val: dSkipped,                 color: '#92400e', bg: '#fef3c7', scope: 'devices', fstatus: 'SKIPPED' },
+            { label: 'Erros/Sem asset', val: aErr + dNoAsset + dErr,   color: '#991b1b', bg: '#fee2e2', scope: 'both',   fstatus: 'ERRORS'  },
+          ].map(({ label, val, color, bg, scope, fstatus }) => `
+            <div data-grx-scope="${scope}" data-grx-fstatus="${fstatus}"
+                 style="background:${bg};border-radius:8px;padding:8px 10px;text-align:center;cursor:pointer;transition:box-shadow .15s,outline .15s"
+                 title="Clique para filtrar">
+              <div style="font-size:20px;font-weight:800;color:${color}">${val}</div>
+              <div style="font-size:10px;color:${color};font-weight:600;margin-top:1px">${label}</div>
+            </div>`).join('')}
+        </div>
+        <div id="grx-filter-badge" style="display:none;margin-bottom:10px;font-size:11px;color:#6b7280;padding:4px 0">
+          Filtro ativo: <span id="grx-filter-label" style="font-weight:700;color:#374151"></span>
+          <span id="grx-filter-clear" style="margin-left:8px;cursor:pointer;color:#3b82f6;text-decoration:underline">Limpar</span>
+        </div>
+
+        <!-- Legend -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb">
+          ${[
+            ['✅ SYNCED',    '#d1fae5', '#065f46', 'gcdrId em TB correto'],
+            ['🔄 MATCH',    '#dbeafe', '#1e40af', 'encontrado no GCDR, TB desatualizado'],
+            ['✨ NOVO',     '#ede9ff', '#4c1d95', 'não existe no GCDR ainda'],
+            ['⚠️ IGNORADO', '#fef3c7', '#92400e', 'sem slaveId+centralId'],
+            ['❌ SEM ASSET','#fee2e2', '#991b1b', 'asset pai não mapeado'],
+          ].map(([label, bg, c, desc]) =>
+            `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#374151">
+              <span style="background:${bg};color:${c};padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px;white-space:nowrap">${label}</span>
+              <span style="color:#6b7280">${desc}</span>
+            </span>`).join('')}
+        </div>
+
+        <!-- Assets table -->
+        <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">
+          📁 Assets (${assetReport.length})
+        </div>
+        <div style="overflow-x:auto;margin-bottom:18px">
+          <table style="${tableStyle}">
+            <thead><tr>
+              <th style="${thStyle}">Status</th>
+              <th style="${thStyle}">Nome TB</th>
+              <th style="${thStyle}">gcdrAssetId (GCDR → TB atual)</th>
+              <th style="${thStyle}">Pai GCDR</th>
+              <th style="${thStyle}">Match / Ação</th>
+              <th style="${thStyle}">Obs</th>
+            </tr></thead>
+            <tbody id="grx-asset-tbody">${assetRows || '<tr><td colspan="6" style="padding:12px;text-align:center;color:#9ca3af">Nenhum asset</td></tr>'}</tbody>
+          </table>
+        </div>
+
+        <!-- Devices table -->
+        <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">
+          📟 Devices (${deviceReport.length})
+        </div>
+        <div style="overflow-x:auto">
+          <table style="${tableStyle}">
+            <thead><tr>
+              <th style="${thStyle}">Status</th>
+              <th style="${thStyle}">Nome TB</th>
+              <th style="${thStyle}">slaveId / centralId</th>
+              <th style="${thStyle}">gcdrDeviceId (GCDR → TB atual)</th>
+              <th style="${thStyle}">Match / Ação</th>
+              <th style="${thStyle}">Obs</th>
+            </tr></thead>
+            <tbody id="grx-device-tbody">${deviceRows || '<tr><td colspan="6" style="padding:12px;text-align:center;color:#9ca3af">Nenhum device</td></tr>'}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function buildRaioXLog(aReport, dReport) {
+      const pad = (s, n) => String(s ?? '').slice(0, n).padEnd(n);
+      const hr = (n) => '─'.repeat(n);
+      const ts = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      const lines = [
+        '╔══════════════════════════════════════════════════════════════════════════════╗',
+        '║  RAIO X — Diagnóstico GCDR Sync                                            ║',
+        '╚══════════════════════════════════════════════════════════════════════════════╝',
+        `Customer : ${selectedCustomer.name}`,
+        `Gerado em: ${ts}`,
+        `Tipo     : DRY RUN — somente leitura, nenhuma alteração foi feita`,
+        '',
+        hr(80),
+        'RESUMO',
+        hr(80),
+        `Assets  : ${aReport.length} total | SYNCED:${aReport.filter((r) => r.status === 'SYNCED').length} | MATCH:${aReport.filter((r) => r.status === 'MATCH').length} | NEW:${aReport.filter((r) => r.status === 'NEW').length} | ERROR:${aReport.filter((r) => r.status === 'ERROR').length}`,
+        `Devices : ${dReport.length} total | SYNCED:${dReport.filter((r) => r.status === 'SYNCED').length} | MATCH:${dReport.filter((r) => r.status === 'MATCH').length} | NEW:${dReport.filter((r) => r.status === 'NEW').length} | SKIPPED:${dReport.filter((r) => r.status === 'SKIPPED').length} | NO_ASSET:${dReport.filter((r) => r.status === 'NO_ASSET').length} | ERROR:${dReport.filter((r) => r.status === 'ERROR').length}`,
+        '',
+        hr(80),
+        `ASSETS (${aReport.length})`,
+        hr(80),
+        `${pad('STATUS', 10)} ${pad('NOME TB', 40)} ${pad('gcdrAssetId', 38)} ${pad('MatchBy', 20)} Obs`,
+        hr(120),
+        ...aReport.map((r) => {
+          const obs = [
+            r.gcdrAssetIdInTB && r.gcdrAssetIdInTB !== r.gcdrAssetId ? `TB atual: ${r.gcdrAssetIdInTB}` : (r.gcdrAssetId && !r.gcdrAssetIdInTB ? 'ausente no TB' : ''),
+            r.wouldMove ? '[MOVE]' : '',
+            r.error || '',
+          ].filter(Boolean).join(' ');
+          return `${pad(r.status, 10)} ${pad(r.name, 40)} ${pad(r.gcdrAssetId || '—', 38)} ${pad(r.matchBy || '—', 20)} ${obs}`;
+        }),
+        '',
+        hr(80),
+        `DEVICES (${dReport.length})`,
+        hr(80),
+        `${pad('STATUS', 10)} ${pad('NOME TB', 40)} ${pad('slave', 8)} ${pad('gcdrDeviceId', 38)} ${pad('MatchBy', 20)} Obs`,
+        hr(130),
+        ...dReport.map((r) => {
+          const obs = [r.note || '', r.error || '', r.wouldMove ? '[MOVE]' : ''].filter(Boolean).join(' ');
+          return `${pad(r.status, 10)} ${pad(r.name, 40)} ${pad(r.slaveId ?? '—', 8)} ${pad(r.gcdrDeviceId || '—', 38)} ${pad(r.matchBy || '—', 20)} ${obs}`;
+        }),
+      ];
+      return lines.join('\n');
+    }
+
+    function bindRaioXInteractivity(aReport, dReport) {
+      let activeScope = null;
+      let activeFStatus = null;
+
+      function applyFilter(scope, fstatus) {
+        const assetTbody = overlay.querySelector('#grx-asset-tbody');
+        const deviceTbody = overlay.querySelector('#grx-device-tbody');
+        if (assetTbody) {
+          assetTbody.querySelectorAll('tr[data-status]').forEach((tr) => {
+            const s = tr.dataset.status;
+            let show;
+            if (scope === 'devices') show = false;
+            else if (fstatus === 'ALL') show = true;
+            else if (fstatus === 'ERRORS') show = s === 'ERROR';
+            else show = s === fstatus;
+            tr.style.display = show ? '' : 'none';
+          });
+        }
+        if (deviceTbody) {
+          deviceTbody.querySelectorAll('tr[data-status]').forEach((tr) => {
+            const s = tr.dataset.status;
+            let show;
+            if (scope === 'assets') show = false;
+            else if (fstatus === 'ALL') show = true;
+            else if (fstatus === 'ERRORS') show = s === 'NO_ASSET' || s === 'ERROR';
+            else show = s === fstatus;
+            tr.style.display = show ? '' : 'none';
+          });
+        }
+        overlay.querySelectorAll('[data-grx-scope]').forEach((card) => {
+          const isActive = card.dataset.grxScope === scope && card.dataset.grxFstatus === fstatus;
+          card.style.outline = isActive ? '2px solid #7c3aed' : '';
+          card.style.boxShadow = isActive ? '0 0 0 4px rgba(124,58,237,.2)' : '';
+        });
+        const badge = overlay.querySelector('#grx-filter-badge');
+        const labelEl = overlay.querySelector('#grx-filter-label');
+        if (badge && labelEl) {
+          const scopeLabel = { assets: 'Assets', devices: 'Devices', both: 'Assets + Devices' }[scope] || scope;
+          labelEl.textContent = `${scopeLabel} — ${fstatus === 'ALL' ? 'todos' : fstatus}`;
+          badge.style.display = 'block';
+        }
+      }
+
+      function resetFilter() {
+        activeScope = null;
+        activeFStatus = null;
+        overlay.querySelectorAll('#grx-asset-tbody tr[data-status], #grx-device-tbody tr[data-status]').forEach((tr) => {
+          tr.style.display = '';
+        });
+        overlay.querySelectorAll('[data-grx-scope]').forEach((card) => {
+          card.style.outline = '';
+          card.style.boxShadow = '';
+        });
+        const badge = overlay.querySelector('#grx-filter-badge');
+        if (badge) badge.style.display = 'none';
+      }
+
+      overlay.querySelectorAll('[data-grx-scope]').forEach((card) => {
+        card.addEventListener('click', () => {
+          const scope = card.dataset.grxScope;
+          const fstatus = card.dataset.grxFstatus;
+          if (activeScope === scope && activeFStatus === fstatus) {
+            resetFilter();
+          } else {
+            activeScope = scope;
+            activeFStatus = fstatus;
+            applyFilter(scope, fstatus);
+          }
+        });
+      });
+
+      const clearBtn = overlay.querySelector('#grx-filter-clear');
+      if (clearBtn) clearBtn.addEventListener('click', resetFilter);
+
+      const dlBtn = overlay.querySelector('#grx-download-log');
+      if (dlBtn) {
+        dlBtn.addEventListener('click', () => {
+          const txt = buildRaioXLog(aReport, dReport);
+          const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const safeName = selectedCustomer.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+          a.href = url;
+          a.download = `raiox-${safeName}-${new Date().toISOString().slice(0, 10)}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+
+    // ── Open modal ────────────────────────────────────────────────
+    overlay = document.createElement('div');
+    overlay.className = 'gu-fu-overlay';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    document.body.appendChild(overlay);
+    renderShell(renderProgress('Iniciando análise…', 0, 0), '');
+
+    (async () => {
+      try {
+        // ── FASE 0: Build TB tree ──────────────────────────────────
+        setBody(renderProgress('Fase 0/2 — Mapeando árvore ThingsBoard…', 0, 0));
+        console.log('[Raio X] Fase 0: guTbBuildTree');
+        const tbAssets = await guTbBuildTree(selectedCustomer.id, selectedCustomer.name);
+        const topoAssets = guTopoFlatten(tbAssets);
+        console.log(`[Raio X] TB tree: ${topoAssets.length} assets`);
+
+        // ── FASE 1: Fetch GCDR bundle ──────────────────────────────
+        setBody(renderProgress('Fase 1/2 — Carregando bundle GCDR…', 0, 0));
+        console.log('[Raio X] Fase 1: guFetchGCDRCustomerBundle');
+        const bundle = await guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId);
+        if (!bundle) throw new Error('Customer não encontrado no GCDR. Verifique gcdrCustomerId e tenant.');
+
+        const bundleAssets  = Array.isArray(bundle.assets)  ? bundle.assets  : [];
+        const bundleDevices = Array.isArray(bundle.devices) ? bundle.devices : [];
+        const gcdrAssetList  = bundleAssets.filter( (a) => !a.customerId || a.customerId === gcdrCustomerId);
+        const gcdrDeviceList = bundleDevices.filter((d) => !d.customerId || d.customerId === gcdrCustomerId);
+
+        const gcdrAssetMap = new Map(gcdrAssetList.map((a) => [a.id, { ...a, devices: [] }]));
+        for (const d of gcdrDeviceList) {
+          gcdrAssetMap.get(d.assetId)?.devices.push(d);
+        }
+        console.log(`[Raio X] bundle: ${gcdrAssetList.length} assets, ${gcdrDeviceList.length} devices`);
+
+        // ── FASE 2: Analyze assets (read-only) ────────────────────
+        const assetReport = [];
+        const gcdrAssetIdByTbId = new Map();
+        // Pre-populate from SERVER_SCOPE attrs already in the TB tree nodes
+        for (const a of topoAssets) {
+          if (a.scope?.gcdrAssetId) gcdrAssetIdByTbId.set(a.id, a.scope.gcdrAssetId);
+        }
+
+        const totalAssets = topoAssets.length;
+        let doneAssets = 0;
+
+        for (const tbAsset of topoAssets) {
+          doneAssets++;
+          setBody(renderProgress(
+            `Fase 2/2 — Analisando assets… (${doneAssets}/${totalAssets})`,
+            doneAssets, totalAssets, '#7c3aed'
+          ));
+
+          const matchedGcdr = guMatchAsset(tbAsset, gcdrAssetList);
+          const parentGcdrId = tbAsset._parentId
+            ? (gcdrAssetIdByTbId.get(tbAsset._parentId) ?? null)
+            : null;
+          const gcdrAssetIdInTB = tbAsset.scope?.gcdrAssetId ?? null;
+
+          if (matchedGcdr) {
+            gcdrAssetIdByTbId.set(tbAsset.id, matchedGcdr.id);
+            const synced = gcdrAssetIdInTB === matchedGcdr.id;
+            const wouldMove = !!(parentGcdrId && matchedGcdr.parentAssetId !== parentGcdrId);
+            assetReport.push({
+              name: tbAsset.name, tbId: tbAsset.id, label: tbAsset.label || '',
+              status: synced && !wouldMove ? 'SYNCED' : 'MATCH',
+              gcdrAssetId: matchedGcdr.id,
+              gcdrAssetIdInTB,
+              matchBy: [guNorm(tbAsset.name), guNorm(tbAsset.label)].filter(Boolean).join(' / '),
+              parentGcdrId: parentGcdrId || null,
+              wouldMove,
+            });
+          } else {
+            assetReport.push({
+              name: tbAsset.name, tbId: tbAsset.id, label: tbAsset.label || '',
+              status: 'NEW',
+              gcdrAssetId: null,
+              gcdrAssetIdInTB,
+              matchBy: null,
+              parentGcdrId: parentGcdrId || null,
+              wouldMove: false,
+            });
+          }
+          await sleep(30); // micro-delay so progress bar renders
+        }
+
+        // ── FASE 3: Analyze devices (read-only) ───────────────────
+        const allTbDevices = [];
+        for (const tbAsset of topoAssets) {
+          const gcdrAssetId = gcdrAssetIdByTbId.get(tbAsset.id) ?? null;
+          for (const dev of tbAsset.devices || []) {
+            allTbDevices.push({ ...dev, _tbAssetId: tbAsset.id, _gcdrAssetId: gcdrAssetId });
+          }
+        }
+
+        const deviceReport = [];
+        const consumedGcdrDeviceIds = new Set();
+        const gcdrDeviceByExternalId = new Map();
+        for (const d of gcdrDeviceList) {
+          if (d.externalId) gcdrDeviceByExternalId.set(d.externalId, d);
+        }
+
+        for (const tbDev of allTbDevices) {
+          const scope = tbDev.scope || {};
+          const slaveId = scope.slaveId != null ? scope.slaveId : null;
+          const centralId = scope.centralId ?? null;
+          const gcdrDeviceIdInTB = scope.gcdrDeviceId ?? null;
+
+          if (slaveId == null && !centralId) {
+            deviceReport.push({
+              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              status: 'SKIPPED',
+              gcdrDeviceId: null, gcdrDeviceIdInTB,
+              slaveId: null, centralId: null,
+              matchBy: null, wouldMove: false,
+              note: 'Sem slaveId e centralId',
+            });
+            continue;
+          }
+
+          const gcdrAssetId = tbDev._gcdrAssetId;
+          if (!gcdrAssetId) {
+            deviceReport.push({
+              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              status: 'NO_ASSET',
+              gcdrDeviceId: null, gcdrDeviceIdInTB,
+              slaveId, centralId,
+              matchBy: null, wouldMove: false,
+              note: 'Asset TB não foi mapeado ao GCDR',
+            });
+            continue;
+          }
+
+          const gcdrDevicesForAsset = (gcdrAssetMap.get(gcdrAssetId)?.devices ?? [])
+            .filter((d) => !consumedGcdrDeviceIds.has(d.id));
+
+          let matchResult = guMatchDevice(tbDev, scope, gcdrDevicesForAsset);
+          if (!matchResult) {
+            const byExtId = gcdrDeviceByExternalId.get(tbDev.id);
+            if (byExtId && !consumedGcdrDeviceIds.has(byExtId.id)) {
+              matchResult = { device: byExtId, by: 'externalId' };
+            }
+          }
+
+          if (matchResult) {
+            consumedGcdrDeviceIds.add(matchResult.device.id);
+            const gcdrDeviceId = matchResult.device.id;
+            const synced = gcdrDeviceIdInTB === gcdrDeviceId;
+            const wouldMove = matchResult.device.assetId !== gcdrAssetId;
+            deviceReport.push({
+              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              status: synced && !wouldMove ? 'SYNCED' : 'MATCH',
+              gcdrDeviceId,
+              gcdrDeviceIdInTB,
+              slaveId, centralId,
+              matchBy: matchResult.by,
+              wouldMove,
+              note: null,
+            });
+          } else {
+            deviceReport.push({
+              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              status: 'NEW',
+              gcdrDeviceId: null,
+              gcdrDeviceIdInTB,
+              slaveId, centralId,
+              matchBy: null,
+              wouldMove: false,
+              note: null,
+            });
+          }
+        }
+
+        // ── Render report ─────────────────────────────────────────
+        setBody(renderReport(assetReport, deviceReport));
+        overlay.querySelector('#grx-footer').innerHTML =
+          `<button class="gu-fu-btn" id="grx-download-log" style="background:linear-gradient(180deg,#7c3aed,#5b21b6);color:#fff">⬇ Baixar Log (.txt)</button>
+           <button class="gu-fu-btn gu-fu-btn-secondary" id="grx-done">Fechar</button>`;
+        bindRaioXInteractivity(assetReport, deviceReport);
+        overlay.querySelector('#grx-done').addEventListener('click', closeModal);
+      } catch (err) {
+        console.error('[Raio X] Erro:', err);
+        setBody(`<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${err.message}</div>`);
+        overlay.querySelector('#grx-footer').innerHTML =
+          `<button class="gu-fu-btn gu-fu-btn-secondary" id="grx-close">Fechar</button>`;
+        overlay.querySelector('#grx-close').addEventListener('click', closeModal);
+      }
+    })();
+  }
+
+  // ================================================================
   // Force Update GCDR Sync IDs — Modal
   // ================================================================
 
@@ -3356,6 +3940,14 @@ self.onInit = function () {
     if (!selectedCustomer) return;
     openSyncForceIdModal();
   });
+
+  // --- Raio X button ---
+  if (btnRaioX) {
+    btnRaioX.addEventListener('click', () => {
+      if (!selectedCustomer) return;
+      openGCDRRaioXModal();
+    });
+  }
 
   // --- Force Clear GCDR IDs button ---
   if (btnForceClear) {
