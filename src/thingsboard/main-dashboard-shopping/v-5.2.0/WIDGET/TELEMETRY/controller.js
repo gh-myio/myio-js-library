@@ -160,7 +160,7 @@ function injectFilterModalStyles() {
       display: flex; align-items: center; justify-content: center;
     }
     .telemetry-filter-overlay .shops-modal-card {
-      max-width: 774px; width: 100%; max-height: calc(100% - 48px);
+      max-width: 1006px; width: 100%; max-height: calc(100% - 48px);
       background: #fff; border-radius: 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.2);
       display: flex; flex-direction: column; overflow: hidden;
@@ -168,20 +168,40 @@ function injectFilterModalStyles() {
     .telemetry-filter-overlay .shops-modal-header {
       position: sticky; top: 0; z-index: 2;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 12px; border-bottom: 1px solid var(--bd); background: #fff;
+      padding: 12px 16px; border-bottom: 1px solid rgba(62,26,125,0.15);
+      background: linear-gradient(135deg, #3e1a7d 0%, #5b2d9e 100%);
     }
     .telemetry-filter-overlay .shops-modal-header h3 {
       margin: 0; font: 900 14px/1 var(--font-ui);
-      letter-spacing: 0.3px; color: #3e1a7d;
-      text-shadow: 0 1px 2px rgba(62,26,125,0.1);
+      letter-spacing: 0.4px; color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .telemetry-filter-overlay .shops-modal-header .icon-btn {
+      background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3);
+    }
+    .telemetry-filter-overlay .shops-modal-header .icon-btn svg { fill: #fff; }
+    .telemetry-filter-overlay .shops-modal-header .icon-btn:hover {
+      background: rgba(255,255,255,0.25);
     }
     .telemetry-filter-overlay .shops-modal-body {
       flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px;
     }
     .telemetry-filter-overlay .shops-modal-footer {
       position: sticky; bottom: 0; z-index: 2;
-      display: flex; gap: 8px; justify-content: flex-end;
+      display: flex; gap: 8px; align-items: center; justify-content: flex-end;
       padding: 10px 12px; border-top: 1px solid var(--bd); background: #fff;
+    }
+    .telemetry-filter-overlay .btn.btn-device-map-download {
+      margin-right: auto;
+      background: #4a7c59; color: #fff; border-color: #3d6849;
+      display: inline-flex; align-items: center;
+      box-shadow: 0 2px 8px rgba(74,124,89,0.28);
+      font: 700 10px var(--font-ui);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn.btn-device-map-download:hover {
+      background: #3d6849;
     }
     .telemetry-filter-overlay .icon-btn {
       display: flex; align-items: center; justify-content: center;
@@ -3110,6 +3130,35 @@ function bindModal() {
 
   $m.on('click', '#closeFilter', closeFilterModal);
 
+  // RFC-0152: Device map download — @myio.com.br only
+  $m.on('click', '#btnDownloadDeviceMap', (ev) => {
+    ev.preventDefault();
+    const data = window._deviceDataExport;
+    if (!data || data.length === 0) {
+      alert('Nenhum dado de dispositivo disponível. Abra o painel de dados primeiro.');
+      return;
+    }
+    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const rows = data.map((d) =>
+      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
+       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+    );
+    const content = header + '\n' + rows.join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const _groupSlugs = { lojas: 'stores', entrada: 'entry', areacomum: 'commonarea', caixadagua: 'tanks' };
+    const _labelWidget = self.ctx?.settings?.labelWidget || '';
+    const _stateGroup = mapLabelWidgetToStateGroup(_labelWidget) || WIDGET_DOMAIN;
+    const _groupSlug = _groupSlugs[_stateGroup] || _stateGroup;
+    a.download = `device-map-${WIDGET_DOMAIN}-${new Date().toISOString().slice(0, 10)}-${WIDGET_DOMAIN}-${_groupSlug}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
   $m.on('click', '#selectAll', (ev) => {
     ev.preventDefault();
     $m.find('.check-item input[type="checkbox"]').prop('checked', true);
@@ -4594,10 +4643,13 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
-  // Show #btnPresetup only for MyIO users (isSuperAdmin = @myio.com.br, exceto alarme/alarmes)
+  // Show #btnPresetup and #btnDownloadDeviceMap only for MyIO users (@myio.com.br)
   function _applyPresetupVisibility(isSuperAdmin) {
     const btn = $root().find('#btnPresetup')[0];
     if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+    // RFC-0152: Device map download button — visible only for @myio.com.br
+    const btnDl = (_filterModalElement || $root()[0])?.querySelector('#btnDownloadDeviceMap');
+    if (btnDl) btnDl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
   }
   // Check immediately in case event already fired before this widget loaded
   _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
