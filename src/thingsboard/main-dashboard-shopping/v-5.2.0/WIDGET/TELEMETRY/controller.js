@@ -180,20 +180,8 @@ function injectFilterModalStyles() {
     }
     .telemetry-filter-overlay .shops-modal-footer {
       position: sticky; bottom: 0; z-index: 2;
-      display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+      display: flex; gap: 8px; justify-content: flex-end;
       padding: 10px 12px; border-top: 1px solid var(--bd); background: #fff;
-    }
-    .telemetry-filter-overlay .btn-device-map-download {
-      margin-right: auto;
-      background: #4a7c59; color: #fff; border-color: #3d6849;
-      display: inline-flex; align-items: center;
-      box-shadow: 0 2px 8px rgba(74,124,89,0.28);
-      font: 700 10px var(--font-ui);
-      padding: 8px 12px; border-radius: 10px; cursor: pointer;
-      transition: background 0.15s ease;
-    }
-    .telemetry-filter-overlay .btn-device-map-download:hover {
-      background: #3d6849;
     }
     .telemetry-filter-overlay .icon-btn {
       display: flex; align-items: center; justify-content: center;
@@ -336,7 +324,9 @@ function addAlarmBadge(cardElement, gcdrDeviceId) {
     '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
     '<path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' +
     '</svg>' +
-    '<span>' + (count > 99 ? '99+' : count) + '</span>';
+    '<span>' +
+    (count > 99 ? '99+' : count) +
+    '</span>';
   cardElement.appendChild(badge);
 }
 
@@ -1174,7 +1164,6 @@ const STATE = {
   firstHydrates: 0,
 };
 
-
 let hydrating = false;
 
 /** ===================== HELPERS (DOM) ===================== **/
@@ -1224,8 +1213,11 @@ function ensureBusyModalDOM() {
 }
 // RFC-0044: Use centralized busy management
 function showBusy(message, timeoutMs = 35000) {
+  LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
+
   // Prevent multiple simultaneous busy calls
   if (window.busyInProgress) {
+    LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate showBusy() call`);
     return;
   }
 
@@ -2701,7 +2693,10 @@ function renderList(visible) {
           const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
 
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
-          console.log(`[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `, enableAnnotationsOnboarding);
+          console.log(
+            `[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `,
+            enableAnnotationsOnboarding
+          );
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
@@ -2729,7 +2724,7 @@ function renderList(visible) {
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
             // RFC-0180: GCDR params for Alarms tab
             gcdrDeviceId: it.gcdrDeviceId || null,
-            prefetchedBundle: window.MyIOOrchestrator?.alarmBundle    ?? null,
+            prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
             prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
@@ -2771,18 +2766,18 @@ function renderList(visible) {
 
     // RFC-0152: Collect TB↔GCDR mapping data for device export
     window._deviceDataExport.push({
-      tbId:           it.tbId || it.id || '',
-      deviceName:     it.entityName || '',
-      label:          it.label || '',
-      identifier:     it.identifier || '',
-      deviceType:     it.deviceType || '',
-      deviceProfile:  it.deviceProfile || '',
-      slaveId:        it.slaveId || '',
-      centralId:      it.centralId || '',
+      tbId: it.tbId || it.id || '',
+      deviceName: it.entityName || '',
+      label: it.label || '',
+      identifier: it.identifier || '',
+      deviceType: it.deviceType || '',
+      deviceProfile: it.deviceProfile || '',
+      slaveId: it.slaveId || '',
+      centralId: it.centralId || '',
       gcdrCustomerId: it.gcdrCustomerId || '',
-      gcdrAssetId:    it.gcdrAssetId || '',
-      gcdrDeviceId:   it.gcdrDeviceId || '',
-      gcdrSyncAt:     it.gcdrSyncAt || '',
+      gcdrAssetId: it.gcdrAssetId || '',
+      gcdrDeviceId: it.gcdrDeviceId || '',
+      gcdrSyncAt: it.gcdrSyncAt || '',
     });
 
     $ul.append($card);
@@ -2790,15 +2785,29 @@ function renderList(visible) {
 
   // RFC-0152: Log device export data if enabled via settings
   if (window.MyIOUtils?.enableDeviceDataExport && window._deviceDataExport.length > 0) {
-    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const header =
+      'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
     const rows = window._deviceDataExport.map((d) =>
-      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
-       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+      [
+        d.tbId,
+        d.deviceName,
+        d.label,
+        d.identifier,
+        d.deviceType,
+        d.deviceProfile,
+        d.slaveId,
+        d.centralId,
+        d.gcdrCustomerId,
+        d.gcdrAssetId,
+        d.gcdrDeviceId,
+        d.gcdrSyncAt,
+      ].join('|')
     );
     console.log(
       `[RFC-0152] Device Data Export — ${window._deviceDataExport.length} devices (${WIDGET_DOMAIN}):\n` +
-      header + '\n' +
-      rows.join('\n')
+        header +
+        '\n' +
+        rows.join('\n')
     );
   }
 }
@@ -2812,18 +2821,18 @@ function renderList(visible) {
  */
 function _buildExportDevices(items) {
   return (items || []).map((it) => ({
-    entityId:         it.id || '',
-    ingestionId:      it.ingestionId || '',
-    labelOrName:      it.label || it.identifier || '',
+    entityId: it.id || '',
+    ingestionId: it.ingestionId || '',
+    labelOrName: it.label || it.identifier || '',
     deviceIdentifier: it.identifier || '',
-    deviceType:       it.deviceType || '',
-    deviceProfile:    it.deviceProfile || '',
-    deviceStatus:     it.deviceStatus || '',
+    deviceType: it.deviceType || '',
+    deviceProfile: it.deviceProfile || '',
+    deviceStatus: it.deviceStatus || '',
     connectionStatus: it.connectionStatus || '',
-    customerId:       '',
-    customerName:     it.customerName || '',
-    val:              it.value ?? null,
-    perc:             it.perc,
+    customerId: '',
+    customerName: it.customerName || '',
+    val: it.value ?? null,
+    perc: it.perc,
   }));
 }
 
@@ -2852,9 +2861,9 @@ function _openPresetupModal() {
     return;
   }
   const s = self.ctx.settings || {};
-  const gatewayId     = s.presetupGatewayId    || '';
-  const clientId      = s.presetupClientId     || '';
-  const clientSecret  = s.presetupClientSecret  || '';
+  const gatewayId = s.presetupGatewayId || '';
+  const clientId = s.presetupClientId || '';
+  const clientSecret = s.presetupClientSecret || '';
   if (!gatewayId || !clientId || !clientSecret) {
     _openPresetupConfigPrompt(s, (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
       _launchPresetupGateway(lib, s, resolvedGatewayId, resolvedClientId, resolvedClientSecret);
@@ -2867,38 +2876,45 @@ function _openPresetupModal() {
 
 function _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret) {
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
   const container = document.createElement('div');
-  container.style.cssText = 'background:#fff;border-radius:14px;width:min(900px,95vw);height:min(700px,90vh);overflow:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+  container.style.cssText =
+    'background:#fff;border-radius:14px;width:min(900px,95vw);height:min(700px,90vh);overflow:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
 
   const closeBtn = document.createElement('button');
   closeBtn.innerHTML = '&times;';
-  closeBtn.style.cssText = 'position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;z-index:2;color:#555;line-height:1;';
+  closeBtn.style.cssText =
+    'position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;z-index:2;color:#555;line-height:1;';
   closeBtn.onclick = () => overlay.remove();
 
   container.appendChild(closeBtn);
   overlay.appendChild(container);
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
 
   lib.createPresetupGateway({
     mount: container,
     gatewayId,
     clientId,
     clientSecret,
-    ingestionApiUrl:    s.presetupIngestionApiUrl    || undefined,
-    ingestionAuthUrl:   s.presetupIngestionAuthUrl   || undefined,
+    ingestionApiUrl: s.presetupIngestionApiUrl || undefined,
+    ingestionAuthUrl: s.presetupIngestionAuthUrl || undefined,
     provisioningApiUrl: s.presetupProvisioningApiUrl || undefined,
   });
 }
 
 function _openPresetupConfigPrompt(s, onConfirm) {
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
   const card = document.createElement('div');
-  card.style.cssText = 'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
+  card.style.cssText =
+    'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
 
   card.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;">
@@ -2912,15 +2928,15 @@ function _openPresetupConfigPrompt(s, onConfirm) {
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <label style="font-size:12px;color:#555;font-weight:600;">Gateway ID
-        <input id="_psgw" type="text" value="${(s.presetupGatewayId||'').replace(/"/g,'&quot;')}" placeholder="UUID do gateway" autocomplete="off"
+        <input id="_psgw" type="text" value="${(s.presetupGatewayId || '').replace(/"/g, '&quot;')}" placeholder="UUID do gateway" autocomplete="off"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
       </label>
       <label style="font-size:12px;color:#555;font-weight:600;">Client ID
-        <input id="_psci" type="text" value="${(s.presetupClientId||'').replace(/"/g,'&quot;')}" placeholder="client_id" autocomplete="off"
+        <input id="_psci" type="text" value="${(s.presetupClientId || '').replace(/"/g, '&quot;')}" placeholder="client_id" autocomplete="off"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
       </label>
       <label style="font-size:12px;color:#555;font-weight:600;">Client Secret
-        <input id="_pscs" type="password" value="${(s.presetupClientSecret||'').replace(/"/g,'&quot;')}" placeholder="client_secret"
+        <input id="_pscs" type="password" value="${(s.presetupClientSecret || '').replace(/"/g, '&quot;')}" placeholder="client_secret"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
       </label>
     </div>
@@ -2931,7 +2947,9 @@ function _openPresetupConfigPrompt(s, onConfirm) {
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
 
   card.querySelector('#_psCancelBtn').onclick = () => overlay.remove();
   card.querySelector('#_psConfirmBtn').onclick = () => {
@@ -2939,7 +2957,7 @@ function _openPresetupConfigPrompt(s, onConfirm) {
     const ci = card.querySelector('#_psci').value.trim();
     const cs = card.querySelector('#_pscs').value.trim();
     if (!gw || !ci || !cs) {
-      card.querySelectorAll('input').forEach(inp => {
+      card.querySelectorAll('input').forEach((inp) => {
         inp.style.borderColor = inp.value.trim() ? '#ddd' : '#c0392b';
       });
       return;
@@ -2950,7 +2968,6 @@ function _openPresetupConfigPrompt(s, onConfirm) {
 
   setTimeout(() => card.querySelector('#_psgw').focus(), 50);
 }
-
 
 /** ===================== UI BINDINGS ===================== **/
 function bindHeader() {
@@ -2983,33 +3000,56 @@ function bindHeader() {
   // Bind filter button — triple approach for maximum TB compatibility
   const _btnFilter = ($root()[0] || self.ctx.$container[0]).querySelector('#btnFilter');
   if (_btnFilter) {
-    _btnFilter.onclick = openFilterModal;                   // inline property (visible in devtools)
-    _btnFilter.addEventListener('click', openFilterModal);  // native listener
+    _btnFilter.onclick = openFilterModal; // inline property (visible in devtools)
+    _btnFilter.addEventListener('click', openFilterModal); // native listener
   }
-  $root().on('click', '#btnFilter', openFilterModal);       // jQuery delegation (fallback)
+  $root().on('click', '#btnFilter', openFilterModal); // jQuery delegation (fallback)
 
   // Export buttons
   $root().on('click', '#btnExportPdf', () => {
     const lib = window.MyIOLibrary;
-    if (!lib?.exportGridPdf) { LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary'); return; }
-    lib.exportGridPdf(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit(), _getExportPeriod());
+    if (!lib?.exportGridPdf) {
+      LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary');
+      return;
+    }
+    lib.exportGridPdf(
+      _buildExportDevices(STATE.lastVisible),
+      _getExportLabel(),
+      _getExportUnit(),
+      _getExportPeriod()
+    );
   });
 
   $root().on('click', '#btnExportXls', () => {
     const lib = window.MyIOLibrary;
-    if (!lib?.exportGridXls) { LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary'); return; }
-    lib.exportGridXls(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit(), _getExportPeriod());
+    if (!lib?.exportGridXls) {
+      LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary');
+      return;
+    }
+    lib.exportGridXls(
+      _buildExportDevices(STATE.lastVisible),
+      _getExportLabel(),
+      _getExportUnit(),
+      _getExportPeriod()
+    );
   });
 
   $root().on('click', '#btnExportCsv', () => {
     const lib = window.MyIOLibrary;
-    if (!lib?.exportGridCsv) { LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary'); return; }
-    lib.exportGridCsv(_buildExportDevices(STATE.lastVisible), _getExportLabel(), _getExportUnit(), _getExportPeriod());
+    if (!lib?.exportGridCsv) {
+      LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary');
+      return;
+    }
+    lib.exportGridCsv(
+      _buildExportDevices(STATE.lastVisible),
+      _getExportLabel(),
+      _getExportUnit(),
+      _getExportPeriod()
+    );
   });
 
   // Presetup button
   $root().on('click', '#btnPresetup', _openPresetupModal);
-
 }
 
 function openFilterModal() {
@@ -3069,31 +3109,6 @@ function bindModal() {
   const $m = $modal();
 
   $m.on('click', '#closeFilter', closeFilterModal);
-
-  // RFC-0152: Device map download — @myio.com.br only
-  $m.on('click', '#btnDownloadDeviceMap', (ev) => {
-    ev.preventDefault();
-    const data = window._deviceDataExport;
-    if (!data || data.length === 0) {
-      alert('Nenhum dado de dispositivo disponível. Abra o painel de dados primeiro.');
-      return;
-    }
-    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
-    const rows = data.map((d) =>
-      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
-       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
-    );
-    const content = header + '\n' + rows.join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `device-map-${WIDGET_DOMAIN}-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
 
   $m.on('click', '#selectAll', (ev) => {
     ev.preventDefault();
@@ -3830,7 +3845,13 @@ function emitWaterTelemetry(widgetType, periodKey) {
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
-  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode, STATE.alarmFilter);
+  const visible = applyFilters(
+    STATE.itemsEnriched,
+    STATE.searchTerm,
+    STATE.selectedIds,
+    STATE.sortMode,
+    STATE.alarmFilter
+  );
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   STATE.lastVisible = withPerc;
   renderHeader(withPerc.length, groupSum);
@@ -3998,6 +4019,8 @@ self.onInit = async function () {
       tz: 'America/Sao_Paulo',
     };
 
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Requesting data${isRetry ? ' (RETRY)' : ''} period:`, period);
+
     // RFC-0053: Single window context - emit to current window only
     window.dispatchEvent(
       new CustomEvent('myio:telemetry:request-data', {
@@ -4049,6 +4072,8 @@ self.onInit = async function () {
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`);
       }
 
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
+
       // Datas mandatórias salvas no scope
       self.ctx.scope = self.ctx.scope || {};
       self.ctx.scope.startDateISO = startISO;
@@ -4057,9 +4082,12 @@ self.onInit = async function () {
       // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
       // This allows processing fresh data for the new period
       lastProcessedPeriodKey = null;
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`);
 
       // Exibe modal
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
       showBusy();
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
 
       // RFC-0045 FIX: Check if there's a pending provide-data event waiting for this period
       if (pendingProvideData) {
@@ -4089,6 +4117,10 @@ self.onInit = async function () {
         const orchestrator = window.MyIOOrchestrator;
 
         if (orchestrator) {
+          LogHelper.log(
+            `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`
+          );
+
           // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
           // This prevents the setTimeout(500ms) from making a duplicate request
           hasRequestedInitialData = true;
@@ -4111,7 +4143,9 @@ self.onInit = async function () {
     }
   };
 
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
   window.addEventListener('myio:update-date', dateUpdateHandler);
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
   // RFC-0130: Listen for dashboard state changes to react active visible domain
   const dashboardStateHandler = function (ev) {
@@ -4131,6 +4165,7 @@ self.onInit = async function () {
           }
         }
 
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Active but no data - requesting fresh dataset`);
         showBusy();
         requestDataFromOrchestrator();
       }
@@ -4208,6 +4243,27 @@ self.onInit = async function () {
       );
     }
   });
+
+  // Test if listener is working
+  setTimeout(() => {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
+    const testEvent = new CustomEvent('myio:update-date', {
+      detail: {
+        period: {
+          startISO: '2025-09-26T00:00:00-03:00',
+          endISO: '2025-10-02T23:59:59-03:00',
+          granularity: 'day',
+          tz: 'America/Sao_Paulo',
+        },
+      },
+    });
+    // Don't dispatch, just check if handler exists
+    if (typeof dateUpdateHandler === 'function') {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
+    } else {
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
+    }
+  }, 100);
 
   // RFC-0045 FIX: Store pending provide-data events that arrive before update-date
   let pendingProvideData = null;
@@ -4538,13 +4594,10 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
-  // Show #btnPresetup and #btnDownloadDeviceMap only for MyIO users (@myio.com.br)
+  // Show #btnPresetup only for MyIO users (isSuperAdmin = @myio.com.br, exceto alarme/alarmes)
   function _applyPresetupVisibility(isSuperAdmin) {
     const btn = $root().find('#btnPresetup')[0];
     if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
-    // RFC-0152: Device map download button — visible only for @myio.com.br
-    const btnDl = (_filterModalElement || $root()[0])?.querySelector('#btnDownloadDeviceMap');
-    if (btnDl) btnDl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
   }
   // Check immediately in case event already fired before this widget loaded
   _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
@@ -4572,6 +4625,10 @@ self.onInit = async function () {
 
     const orchestratorData = window.MyIOOrchestratorData;
     const currentCustomerId = window.MyIOUtils?.customerTB_ID;
+
+    LogHelper.log(
+      `[TELEMETRY ${WIDGET_DOMAIN}] 🔍 RFC-0136: Retry #${attemptNumber} - Checking for stored orchestrator data...`
+    );
 
     // First, try stored data
     if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
@@ -4613,6 +4670,8 @@ self.onInit = async function () {
       } else {
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
       }
+    } else {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
     }
 
     // RFC-0136: Also check window.STATE directly as additional fallback
@@ -4688,6 +4747,11 @@ self.onInit = async function () {
   }
 
   // Start the retry mechanism
+  LogHelper.log(
+    `[TELEMETRY ${WIDGET_DOMAIN}] 🔄 RFC-0136: Starting intelligent retry with backoff [${RETRY_INTERVALS.join(
+      'ms, '
+    )}ms]`
+  );
   executeRetryWithBackoff();
 
   // Auth do cliente/ingestion
@@ -4799,6 +4863,7 @@ self.onInit = async function () {
   // ------------------------------------------------------------
 
   // RFC-0106: No ctx.data, no datasources - all data comes from orchestrator
+  LogHelper.log(`[RFC-0106] ${WIDGET_DOMAIN} widget waiting for orchestrator data...`);
 
   // RFC-0106 FIX: Temperature domain doesn't need period - check for stored data immediately
   if (WIDGET_DOMAIN === 'temperature') {
@@ -4841,7 +4906,10 @@ self.onInit = async function () {
 
   // Only show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
     showBusy();
+  } else {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
 };
 
