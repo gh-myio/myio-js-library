@@ -94,6 +94,9 @@ export interface OpenDashboardPopupSettingsParams {
   /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format).
    *  AlarmsTab filters by gcdrDeviceId — no per-device fetch needed. */
   prefetchedAlarms?: unknown[] | null;
+  /** Pre-fetched customer rules (GCDRCustomerRule[]).
+   *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
+  prefetchedRules?: unknown[] | null;
 
   // Pre-populate form with existing values
   seed?: {
@@ -202,6 +205,9 @@ export interface ModalConfig {
   prefetchedBundle?: GCDRCustomerBundle | null;
   /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format). */
   prefetchedAlarms?: unknown[] | null;
+  /** Pre-fetched customer rules (GCDRCustomerRule[]).
+   *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
+  prefetchedRules?: unknown[] | null;
 
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;

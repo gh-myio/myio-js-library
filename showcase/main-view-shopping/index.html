@@ -884,7 +884,7 @@
         id: 'device-1', name: '3F_MEDIDOR_001', label: 'Loja 101',
         floor: '1º Andar', identifier: 'LUC-0101',
         gcdrDeviceId: 'gcdr-uuid-dev01-0000-000000000001',
-        deviceType: '3F_MEDIDOR', domain: 'energy',
+        deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR', domain: 'energy',
         createdTime:      _NOW - 730 * 24 * 3600000,   // ~2 anos atrás
         lastActivityTime: _NOW - 5 * 60 * 1000,        // 5 min atrás
       },
@@ -892,7 +892,7 @@
         id: 'device-2', name: '3F_ELEVADOR_002', label: 'Elevador 1 L2',
         floor: 'Subsolo', identifier: 'ELV-01-L2',
         gcdrDeviceId: 'gcdr-uuid-dev02-0000-000000000001',
-        deviceType: 'ELEVADOR', domain: 'energy',
+        deviceType: 'ELEVADOR', deviceProfile: 'ELEVADOR', domain: 'energy',
         createdTime:      _NOW - 400 * 24 * 3600000,
         lastActivityTime: _NOW - 2 * 3600000,
       },
@@ -900,7 +900,7 @@
         id: 'device-3', name: '3F_CHILLER_003', label: 'Chiller Norte',
         floor: 'Cobertura', identifier: 'CHI-NORTE-01',
         gcdrDeviceId: 'gcdr-uuid-dev03-0000-000000000001',
-        deviceType: 'CHILLER', domain: 'energy',
+        deviceType: 'CHILLER', deviceProfile: 'CHILLER', domain: 'energy',
         createdTime:      _NOW - 180 * 24 * 3600000,
         lastActivityTime: _NOW - 30 * 60 * 1000,
       },
@@ -908,7 +908,7 @@
         id: 'device-99', name: '3F_MEDIDOR_099', label: 'Loja 250 (sem GCDR)',
         floor: '2º Andar', identifier: 'LUC-0250',
         gcdrDeviceId: null,
-        deviceType: '3F_MEDIDOR', domain: 'energy',
+        deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR', domain: 'energy',
         createdTime:      _NOW - 60 * 24 * 3600000,
         lastActivityTime: _NOW - 24 * 3600000,
       },
@@ -930,26 +930,31 @@
         {
           id: 'rule-001', name: 'Elevador parado (seg-sáb)', type: 'threshold', priority: 'MEDIUM', enabled: true,
           scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] },
+          scopeProfiles: ['ELEVADOR'],
           alarmConfig: { metric: 'instantaneous_power', operator: 'LT', value: 300 },
         },
         {
           id: 'rule-002', name: 'Falta de Energia', type: 'threshold', priority: 'CRITICAL', enabled: true,
           scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] },
+          scopeProfiles: ['CHILLER'],
           alarmConfig: { metric: 'active_power', operator: 'LT', value: 10 },
         },
         {
           id: 'rule-003', name: 'Consumo Anômalo Noturno', type: 'threshold', priority: 'HIGH', enabled: false,
           scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001'] },
+          scopeProfiles: ['3F_MEDIDOR'],
           alarmConfig: { metric: 'energy_consumption', operator: 'GT', value: 50, valueHigh: 200 },
         },
         {
           id: 'rule-004', name: 'Pico de Temperatura', type: 'threshold', priority: 'LOW', enabled: true,
           scope: { type: 'DEVICE', entityIds: [] },
+          // no scopeProfiles — applies to all device profiles (fallback rule)
           alarmConfig: { metric: 'temperature', operator: 'GT', value: 28 },
         },
         {
           id: 'rule-005', name: 'Escada Rolante parada (seg-sáb)', type: 'threshold', priority: 'MEDIUM', enabled: true,
           scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001'] },
+          scopeProfiles: ['ELEVADOR'],
           alarmConfig: { metric: 'instantaneous_power', operator: 'LT', value: 1200 },
         },
       ],
@@ -2800,6 +2805,7 @@
           deviceName: device.name,
           label: device.label,
           deviceType: device.deviceType,
+          deviceProfile: device.deviceProfile,
           domain: device.domain,
           jwtToken: token,
           api: {

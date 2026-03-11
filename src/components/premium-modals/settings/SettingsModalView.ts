@@ -161,7 +161,7 @@ export class SettingsModalView {
     const container = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     if (!container) return;
 
-    const { gcdrDeviceId, prefetchedBundle, prefetchedAlarms, deviceId, jwtToken } =
+    const { gcdrDeviceId, prefetchedBundle, prefetchedAlarms, prefetchedRules, deviceId, jwtToken } =
       this.config;
 
     if (!gcdrDeviceId) {
@@ -200,6 +200,8 @@ export class SettingsModalView {
         jwtToken: jwtToken ?? '',
         prefetchedBundle: prefetchedBundle ?? null,
         prefetchedAlarms: prefetchedAlarms ?? null,
+        prefetchedRules: prefetchedRules ?? null,
+        deviceProfile: this.config.deviceProfile,
       });
       await this.alarmsTab.init();
       console.log('[SettingsModalView] RFC-0180: Alarms tab initialized');
