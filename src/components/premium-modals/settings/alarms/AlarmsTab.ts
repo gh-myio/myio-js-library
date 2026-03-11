@@ -59,6 +59,8 @@ export interface AlarmsTabConfig {
   /** Pre-fetched customer rules (GCDRCustomerRule[]).
    *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
   prefetchedRules?: unknown[] | null;
+  /** Device profile (e.g. FANCOIL, ELEVADOR) — used to filter rules by scopeProfiles */
+  deviceProfile?: string;
 }
 
 /** Raw alarm returned by GET /api/v1/alarms */
@@ -95,6 +97,7 @@ interface GCDRCustomerRule {
     type: string;
     entityIds: string[];
   };
+  scopeProfiles?: string[];
   alarmConfig?: {
     metric: string;
     operator: string;
@@ -416,7 +419,15 @@ export class AlarmsTab {
   // ---------- Section 2: Parametrize rules (multi-select + save) ----------
 
   private renderSection2(): string {
-    const sorted = [...this.customerRules].sort(
+    const deviceProfile = (this.config.deviceProfile ?? '').toUpperCase();
+    const compatible = this.customerRules.filter(
+      (rule) =>
+        rule.scopeProfiles &&
+        rule.scopeProfiles.length > 0 &&
+        rule.scopeProfiles.some((p) => p.toUpperCase() === deviceProfile)
+    );
+    const filtered = compatible.length > 0 ? compatible : this.customerRules;
+    const sorted = [...filtered].sort(
       (a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)
     );
 
