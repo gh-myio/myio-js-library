@@ -9,8 +9,12 @@ E esse menu vai abrir a modal premium que vai ser 16x9 COM blur no fundo, enfim,
 C:\Projetos\GitHub\myio\myio-js-library-PROD.git\src\components\premium-modals\settings
 e vamos ter várias TABS
 
-- Lista de usuários
+- Lista de usuários <com opção de filtro e cada linha podendo editar, ou view details>(se clicar em view detail do user, criar dinamicamente uma ABA com o prileiro nome a a primeira Letra do último nome tudo em uppercase como nova TAB, sempre com a opção de fechar claro))>
 - NOVO usuário
+- Gesgão de Perfis
+- Detalhamenho de cada usuário teremos o form sem editar e um botão de editar, um botão de reset de senha
+
+vamos fazer a v1 habilitada apenas para @ymio.com.br
 
 // --- // --- // --- // --- // --- // --- // --- // --- // --- // --- // --- // --- // --- // --- //
 
