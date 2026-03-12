@@ -726,6 +726,15 @@ export type { InferredDeviceType } from './classify/deviceType';
 // RFC-0109: Upsell Post-Setup Modal
 export { openUpsellModal } from './components/premium-modals/upsell';
 
+// RFC-0190: User Management Modal
+export { openUserManagementModal } from './components/premium-modals/user-management';
+export type {
+  OpenUserManagementParams,
+  TBCurrentUser,
+  TBUser,
+  TBUserPage,
+} from './components/premium-modals/user-management';
+
 export type {
   UpsellModalParams,
   UpsellModalInstance,

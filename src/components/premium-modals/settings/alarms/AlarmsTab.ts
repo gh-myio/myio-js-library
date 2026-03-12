@@ -116,6 +116,7 @@ export class AlarmsTab {
   private activeAlarms: GCDRAlarm[] = [];
   private initialCheckedRuleIds = new Set<string>();
   private alarmsUpdatedHandler: (() => void) | null = null;
+  private rulesFetchError: string | null = null;
 
   constructor(config: AlarmsTabConfig) {
     this.config = config;
@@ -133,41 +134,39 @@ export class AlarmsTab {
       return;
     }
 
+    // Section 1 — always available (reads from AlarmServiceOrchestrator, no network call)
+    this.activeAlarms = this.readAlarmsFromASO();
+
+    // Section 2 — rules fetch; failure is isolated so Section 1 still renders
+    let rulesFetchError: string | null = null;
     try {
-
-      // MAIN_VIEW is the single source of truth for alarm data.
-      // AlarmServiceOrchestrator (ASO) is always built by MAIN before any Settings modal opens.
-      // We read from ASO directly — no independent API call to alarms-api.
-      const alarms = this.readAlarmsFromASO();
-
-      const rules =
+      this.customerRules =
         this.config.prefetchedRules != null
           ? (this.config.prefetchedRules as GCDRCustomerRule[])
           : await this.orch.gcdrFetchCustomerRules();
-      this.activeAlarms = alarms;
-      this.customerRules = rules;
 
       for (const rule of this.customerRules) {
         if (rule.scope?.entityIds?.includes(this.config.gcdrDeviceId)) {
           this.initialCheckedRuleIds.add(rule.id);
         }
       }
-
-      container.innerHTML = this.renderTab();
-      this.populateAlarmsGrid();
-      this.attachTabListeners();
-
-      // Re-read from ASO whenever MAIN refreshes alarm data (e.g. after ACK/snooze in ALARM widget)
-      this.alarmsUpdatedHandler = () => {
-        const fresh = this.readAlarmsFromASO();
-        this.activeAlarms = fresh;
-        this.refreshAlarmsGridFromCurrentData();
-      };
-      window.addEventListener('myio:alarms-updated', this.alarmsUpdatedHandler);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      container.innerHTML = this.getErrorHTML(msg);
+      rulesFetchError = this.classifyRulesError(err);
+      this.customerRules = [];
     }
+
+    this.rulesFetchError = rulesFetchError;
+    container.innerHTML = this.renderTab();
+    this.populateAlarmsGrid();
+    this.attachTabListeners();
+
+    // Re-read from ASO whenever MAIN refreshes alarm data (e.g. after ACK/snooze in ALARM widget)
+    this.alarmsUpdatedHandler = () => {
+      const fresh = this.readAlarmsFromASO();
+      this.activeAlarms = fresh;
+      this.refreshAlarmsGridFromCurrentData();
+    };
+    window.addEventListener('myio:alarms-updated', this.alarmsUpdatedHandler);
   }
 
   destroy(): void {
@@ -419,6 +418,28 @@ export class AlarmsTab {
   // ---------- Section 2: Parametrize rules (multi-select + save) ----------
 
   private renderSection2(): string {
+    // Rules fetch failed — show friendly error, no save button
+    if (this.rulesFetchError) {
+      return `
+        <div class="at-section">
+          <div class="at-section-header">
+            <span class="at-section-icon">⚙️</span>
+            <div>
+              <div class="at-section-title">Parametrizar Regras de Alarme</div>
+              <div class="at-section-sub">Não foi possível carregar as regras</div>
+            </div>
+          </div>
+          <div class="at-rules-error">
+            <div class="at-rules-error-icon">⚠️</div>
+            <div class="at-rules-error-body">
+              <div class="at-rules-error-title">${this.esc(this.rulesFetchError)}</div>
+              <div class="at-rules-error-hint">Verifique a conexão com o servidor e tente reabrir este painel.</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     const deviceProfile = (this.config.deviceProfile ?? '').toUpperCase();
     const compatible = this.customerRules.filter(
       (rule) =>
@@ -455,6 +476,27 @@ export class AlarmsTab {
         }
       </div>
     `;
+  }
+
+  /**
+   * Translates a raw rules-fetch error into a user-friendly message.
+   * Hides internal HTTP codes and stack traces from the operator.
+   */
+  private classifyRulesError(err: unknown): string {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (/HTTP 5\d\d/i.test(raw)) {
+      return 'O servidor de regras está temporariamente indisponível. Tente novamente em instantes.';
+    }
+    if (/HTTP 401|HTTP 403|unauthorized|forbidden/i.test(raw)) {
+      return 'Sem permissão para carregar as regras de alarme deste cliente.';
+    }
+    if (/HTTP 404/i.test(raw)) {
+      return 'Nenhuma regra de alarme encontrada para este cliente.';
+    }
+    if (/network|failed to fetch|net::/i.test(raw)) {
+      return 'Erro de rede ao carregar as regras. Verifique a conexão e tente novamente.';
+    }
+    return 'Não foi possível carregar as regras de alarme.';
   }
 
   private renderCustomerRuleSelectable(rule: GCDRCustomerRule): string {
@@ -669,9 +711,23 @@ export class AlarmsTab {
       }
     }
 
+    // RFC-0191: for each rule being removed, show premium confirmation + enqueue-close
     for (const ruleId of toRemove) {
       const rule = ruleMap.get(ruleId);
       if (!rule) continue;
+
+      const confirmed = await this.confirmRuleUnassign(rule);
+      if (!confirmed) {
+        this.restoreRuleCheckbox(ruleId);
+        continue;
+      }
+
+      // Fire-and-forget: failure is non-blocking
+      const enqueued = await this.orch.gcdrEnqueueCloseAlarms(ruleId, this.config.gcdrDeviceId);
+      if (!enqueued) {
+        console.warn('[AlarmsTab] RFC-0191: enqueue-close failed for rule', ruleId);
+      }
+
       const ids = (rule.scope?.entityIds ?? []).filter((id) => id !== this.config.gcdrDeviceId);
       const ok = await this.orch.gcdrPatchRuleScope(ruleId, ids);
       if (ok) {
@@ -712,6 +768,7 @@ export class AlarmsTab {
     gcdrPostAlarmAction: (alarmId: string, action: string) => Promise<boolean>;
     gcdrPatchRuleScope: (ruleId: string, entityIds: string[]) => Promise<boolean>;
     gcdrPatchRuleValue: (ruleId: string, alarmConfig: GCDRCustomerRule['alarmConfig']) => Promise<boolean>;
+    gcdrEnqueueCloseAlarms: (ruleId: string, deviceId: string) => Promise<boolean>; // RFC-0191
   } {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (window as any).MyIOOrchestrator;
@@ -723,6 +780,85 @@ export class AlarmsTab {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ============================================================================
+  // RFC-0191: Confirmation modal + checkbox restore
+  // ============================================================================
+
+  /**
+   * Renders a premium confirmation modal and waits for the user's decision.
+   * Resolves true = confirmed (proceed with unassignment), false = cancelled.
+   */
+  private confirmRuleUnassign(rule: GCDRCustomerRule): Promise<boolean> {
+    return new Promise((resolve) => {
+      const PRIORITY_COLORS_LOCAL: Record<string, string> = {
+        CRITICAL: '#dc2626',
+        HIGH: '#f59e0b',
+        MEDIUM: '#3b82f6',
+        LOW: '#6b7280',
+      };
+      const color = PRIORITY_COLORS_LOCAL[rule.priority] ?? '#6b7280';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'at-confirm-overlay';
+      overlay.innerHTML = `
+        <div class="at-confirm-modal">
+          <div class="at-confirm-warning-bar"></div>
+          <div class="at-confirm-body">
+            <div class="at-confirm-icon">⚠️</div>
+            <div class="at-confirm-content">
+              <div class="at-confirm-title">Atenção — Remoção de Regra de Alarme</div>
+              <div class="at-confirm-text">
+                Você está removendo este dispositivo da regra de alarme:
+              </div>
+              <div class="at-confirm-rule-name">
+                ${this.esc(rule.name)}
+                <span class="at-confirm-priority-badge"
+                      style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
+              </div>
+              <div class="at-confirm-text at-confirm-text--sub">
+                Esta ação pode fechar alarmes abertos ou na fila associados a esta regra neste
+                dispositivo. O motor de alarmes irá enfileirar o fechamento; o histórico e os
+                registros de auditoria são preservados.
+              </div>
+            </div>
+          </div>
+          <div class="at-confirm-footer">
+            <button type="button" class="at-confirm-btn at-confirm-btn--cancel">Cancelar</button>
+            <button type="button" class="at-confirm-btn at-confirm-btn--confirm">Confirmar e Remover Regra</button>
+          </div>
+        </div>
+      `;
+
+      const close = (result: boolean) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      overlay.querySelector('.at-confirm-btn--cancel')!.addEventListener('click', () => close(false));
+      overlay.querySelector('.at-confirm-btn--confirm')!.addEventListener('click', () => close(true));
+
+      // Click outside = cancel
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close(false);
+      });
+
+      // Append to document.body with position:fixed so it renders above all modals
+      document.body.appendChild(overlay);
+    });
+  }
+
+  /**
+   * Restores the checkbox of a rule to checked after the user cancels the confirmation.
+   */
+  private restoreRuleCheckbox(ruleId: string): void {
+    const cb = this.config.container.querySelector<HTMLInputElement>(
+      `.at-rule-check[data-rule-id="${CSS.escape(ruleId)}"]`
+    );
+    if (!cb) return;
+    cb.checked = true;
+    cb.closest('.at-rule-row')?.classList.add('at-rule-row--checked');
   }
 
   private showToast(msg: string): void {
@@ -974,6 +1110,28 @@ export class AlarmsTab {
       .at-rule-edit-cancel:hover { background: #fecaca; }
       .at-rule-edit-status { font-size: 11px; white-space: nowrap; }
 
+      /* ===== Rules fetch error (Section 2) ===== */
+      .at-rules-error {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px 20px;
+      }
+      .at-rules-error-icon { font-size: 20px; flex-shrink: 0; line-height: 1.4; }
+      .at-rules-error-body { flex: 1; min-width: 0; }
+      .at-rules-error-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #92400e;
+        line-height: 1.5;
+      }
+      .at-rules-error-hint {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+
       /* ===== Footer / save ===== */
       .at-footer {
         padding: 12px 20px;
@@ -1010,6 +1168,104 @@ export class AlarmsTab {
         margin: 0 auto 12px;
       }
       @keyframes at-spin { to { transform: rotate(360deg); } }
+
+      /* ===== RFC-0191: Rule unassign confirmation modal ===== */
+      .at-confirm-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+      }
+      .at-confirm-modal {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+        max-width: 440px;
+        width: calc(100% - 32px);
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .at-confirm-warning-bar {
+        height: 4px;
+        background: #f59e0b;
+      }
+      .at-confirm-body {
+        display: flex;
+        gap: 14px;
+        padding: 20px 20px 16px;
+      }
+      .at-confirm-icon { font-size: 22px; flex-shrink: 0; line-height: 1.3; }
+      .at-confirm-content { flex: 1; min-width: 0; }
+      .at-confirm-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+      }
+      .at-confirm-text {
+        font-size: 13px;
+        color: #374151;
+        line-height: 1.5;
+        margin-bottom: 8px;
+      }
+      .at-confirm-text--sub {
+        color: #6b7280;
+        font-size: 12px;
+        margin-bottom: 0;
+      }
+      .at-confirm-rule-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1a1a;
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .at-confirm-priority-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+      }
+      .at-confirm-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 12px 20px;
+        border-top: 1px solid #e9ecef;
+        background: #fafafa;
+      }
+      .at-confirm-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      .at-confirm-btn--cancel {
+        background: #f1f3f5;
+        color: #374151;
+      }
+      .at-confirm-btn--cancel:hover { background: #e2e8f0; }
+      .at-confirm-btn--confirm {
+        background: #dc2626;
+        color: #fff;
+      }
+      .at-confirm-btn--confirm:hover { background: #b91c1c; }
     `;
     document.head.appendChild(style);
   }

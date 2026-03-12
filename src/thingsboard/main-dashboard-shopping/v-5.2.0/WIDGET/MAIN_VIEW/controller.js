@@ -1312,6 +1312,7 @@ Object.assign(window.MyIOUtils, {
         gcdrPostAlarmAction: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPostAlarmAction called before orchestrator is ready'); return false; },
         gcdrPatchRuleScope: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleScope called before orchestrator is ready'); return false; },
         gcdrPatchRuleValue: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleValue called before orchestrator is ready'); return false; },
+        gcdrEnqueueCloseAlarms: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrEnqueueCloseAlarms called before orchestrator is ready'); return false; }, // RFC-0191
 
         // Internal state (will be populated later)
         inFlight: {},
@@ -1920,6 +1921,123 @@ function parseDeviceCountAttributes(attributes) {
  * @param {string} entityType - Entity type (default: 'CUSTOMER')
  * @returns {Promise<Object|null>} Device counts object or null on error
  */
+// ── RFC-0192: New-alarm notification toast ────────────────────────────────
+// Tracks alarm IDs seen in the last ASO build so we can diff and surface only
+// truly new alarms on subsequent refreshes (first load never notifies).
+let _lastKnownAlarmIds = null; // null = first load not yet done
+let _alarmNotificationTimer = null;
+
+/**
+ * Show a floating notification toast when new alarms are detected.
+ * Managed entirely by MAIN_VIEW — no widget dependency.
+ *
+ * @param {Array} newAlarms - Array of new GCDRAlarm objects
+ */
+function _showNewAlarmNotification(newAlarms) {
+  if (!newAlarms || newAlarms.length === 0) return;
+
+  // Dismiss any existing notification
+  const existing = document.getElementById('myio-alarm-notification');
+  if (existing) existing.remove();
+  if (_alarmNotificationTimer) { clearTimeout(_alarmNotificationTimer); _alarmNotificationTimer = null; }
+
+  // Determine severity accent color (highest priority among new alarms)
+  const SEVERITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const SEVERITY_COLORS = { CRITICAL: '#dc2626', HIGH: '#f59e0b', MEDIUM: '#3b82f6', LOW: '#6b7280' };
+  const topAlarm = [...newAlarms].sort((a, b) =>
+    (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
+  )[0];
+  const accentColor = SEVERITY_COLORS[topAlarm?.severity] || '#f59e0b';
+
+  const count = newAlarms.length;
+  const label = count === 1 ? 'novo alarme detectado' : `novos alarmes detectados`;
+  const firstTitle = topAlarm?.title || topAlarm?.alarmType || 'Alarme';
+  const deviceName = topAlarm?.deviceName || '';
+
+  const el = document.createElement('div');
+  el.id = 'myio-alarm-notification';
+  el.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999999;
+    min-width: 280px;
+    max-width: 360px;
+    background: #1e293b;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    border-left: 4px solid ${accentColor};
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+  `;
+
+  el.innerHTML = `
+    <style>
+      @keyframes myio-notif-in {
+        from { opacity: 0; transform: translateX(60px) scale(0.95); }
+        to   { opacity: 1; transform: translateX(0)   scale(1);    }
+      }
+      @keyframes myio-notif-out {
+        to { opacity: 0; transform: translateX(60px) scale(0.95); }
+      }
+      @keyframes myio-notif-bar {
+        from { width: 100%; }
+        to   { width: 0%;   }
+      }
+      #myio-alarm-notification .notif-body {
+        display: flex; align-items: flex-start; gap: 10px; padding: 14px 14px 10px;
+      }
+      #myio-alarm-notification .notif-icon {
+        font-size: 20px; flex-shrink: 0; line-height: 1.2;
+      }
+      #myio-alarm-notification .notif-content { flex: 1; min-width: 0; }
+      #myio-alarm-notification .notif-count {
+        font-size: 13px; font-weight: 700; color: ${accentColor}; margin-bottom: 2px;
+      }
+      #myio-alarm-notification .notif-title {
+        font-size: 12px; font-weight: 600; color: #f1f5f9;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #myio-alarm-notification .notif-device {
+        font-size: 11px; color: #94a3b8; margin-top: 2px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #myio-alarm-notification .notif-close {
+        background: none; border: none; color: #64748b; font-size: 16px;
+        cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0;
+        align-self: flex-start; transition: color 0.15s;
+      }
+      #myio-alarm-notification .notif-close:hover { color: #f1f5f9; }
+      #myio-alarm-notification .notif-progress {
+        height: 3px; background: ${accentColor}; opacity: 0.7;
+        animation: myio-notif-bar 6s linear forwards;
+      }
+    </style>
+    <div class="notif-body">
+      <div class="notif-icon">🔔</div>
+      <div class="notif-content">
+        <div class="notif-count">${count} ${label}</div>
+        <div class="notif-title">${firstTitle}</div>
+        ${deviceName ? `<div class="notif-device">${deviceName}</div>` : ''}
+      </div>
+      <button class="notif-close" title="Fechar">✕</button>
+    </div>
+    <div class="notif-progress"></div>
+  `;
+
+  const dismiss = () => {
+    el.style.animation = 'myio-notif-out 0.2s ease forwards';
+    setTimeout(() => el.remove(), 200);
+    if (_alarmNotificationTimer) { clearTimeout(_alarmNotificationTimer); _alarmNotificationTimer = null; }
+  };
+
+  el.querySelector('.notif-close').addEventListener('click', dismiss);
+  document.body.appendChild(el);
+  _alarmNotificationTimer = setTimeout(dismiss, 6000);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // RFC-0180: Pre-fetch all customer alarms so AlarmsTab can filter without a per-device call.
 // Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
 async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
@@ -2046,6 +2164,19 @@ function _buildAlarmServiceOrchestrator(alarms) {
     }
   }
   // ────────────────────────────────────────────────────────────────────────
+
+  // RFC-0192: Detect new alarms by diffing against the previous known set.
+  // First call (_lastKnownAlarmIds === null) only populates the set — no toast.
+  // Subsequent calls (refresh) show a notification for alarms with IDs not seen before.
+  const currentIds = new Set(normalizedAlarms.map((a) => a.id).filter(Boolean));
+  if (_lastKnownAlarmIds !== null) {
+    const newAlarms = normalizedAlarms.filter((a) => a.id && !_lastKnownAlarmIds.has(a.id));
+    if (newAlarms.length > 0) {
+      LogHelper.log('[AlarmServiceOrchestrator] RFC-0192: detected', newAlarms.length, 'new alarm(s)');
+      _showNewAlarmNotification(newAlarms);
+    }
+  }
+  _lastKnownAlarmIds = currentIds;
 
   // Notify all subscribers that alarm data is fresh.
   // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
@@ -6264,6 +6395,52 @@ const MyIOOrchestrator = (() => {
         }
       );
       return response.ok;
+    },
+
+    // ── RFC-0191: Enqueue-Close Alarms on Rule Unassignment ───────────────────
+    /**
+     * Enqueue a close job for all alarms matching the given rule × device pair.
+     * Called by AlarmsTab when the user confirms removal of a pre-checked rule.
+     *
+     * POST {alarmsApiBaseUrl}/api/v1/alarms/enqueue-close
+     * Body: { customerId, ruleId, deviceId }
+     * 202 → { data: { alarmId, jobId, message } }
+     *
+     * Fire-and-forget: a non-202 response is logged as a warning but does NOT
+     * block the subsequent gcdrPatchRuleScope call.
+     *
+     * @param {string} ruleId   - GCDR rule UUID
+     * @param {string} deviceId - GCDR device UUID (gcdrDeviceId)
+     * @returns {Promise<boolean>} true if the job was accepted (HTTP 202)
+     */
+    async gcdrEnqueueCloseAlarms(ruleId, deviceId) {
+      const orch = window.MyIOOrchestrator;
+      const url  = `${orch.alarmsApiBaseUrl}/api/v1/alarms/enqueue-close`;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID':  orch.gcdrTenantId || '',
+            'X-API-KEY':    orch.gcdrApiKey    || '',
+          },
+          body: JSON.stringify({
+            customerId: orch.gcdrCustomerId,
+            ruleId,
+            deviceId,
+          }),
+        });
+        if (response.status === 202) {
+          const json = await response.json().catch(() => ({}));
+          LogHelper.log('[Orchestrator] RFC-0191 enqueue-close accepted:', json?.data);
+          return true;
+        }
+        LogHelper.warn('[Orchestrator] RFC-0191 enqueue-close unexpected status:', response.status);
+        return false;
+      } catch (err) {
+        LogHelper.warn('[Orchestrator] RFC-0191 enqueue-close network error:', err);
+        return false;
+      }
     },
 
     destroy: () => {

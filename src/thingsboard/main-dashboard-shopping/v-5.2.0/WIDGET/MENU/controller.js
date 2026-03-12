@@ -615,6 +615,14 @@ self.onInit = function () {
               <span class="myio-settings-option__desc">Ingestion · GCDR — apenas MyIO</span>
             </div>
           </button>` : ''}
+          ${isSuperAdmin ? `
+          <button class="myio-settings-option myio-settings-option--myio" data-action="user-management">
+            <span class="myio-settings-option__icon">👥</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Gestão de Usuários</span>
+              <span class="myio-settings-option__desc">Usuários e perfis — apenas MyIO</span>
+            </div>
+          </button>` : ''}
         </div>
       </div>
     `;
@@ -658,12 +666,37 @@ self.onInit = function () {
             openMeasurementSettings(user);
           } else if (action === 'integration') {
             openIntegrationSetupModal(user);
+          } else if (action === 'user-management') {
+            openUserManagementModal(user);
           }
         }, 250);
       });
     });
 
     LogHelper.log('[MENU] Settings modal opened');
+  }
+
+  // ── RFC-0190: Gestão de Usuários (apenas SuperAdmin MyIO) ───────────────────
+  function openUserManagementModal(user) {
+    if (!window.MyIOLibrary?.openUserManagementModal) {
+      LogHelper.warn('[MENU] openUserManagementModal not available in MyIOLibrary');
+      return;
+    }
+    const jwt = localStorage.getItem('jwt_token') || '';
+    const orch = window.MyIOOrchestrator;
+    window.MyIOLibrary.openUserManagementModal({
+      customerId:   orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
+      tenantId:     user.tenantId?.id || '',
+      customerName: orch?.customerName || '',
+      jwtToken:     jwt,
+      tbBaseUrl:    self.ctx.settings?.tbBaseUrl || '',
+      currentUser:  {
+        id:        user.id?.id || '',
+        email:     user.email || '',
+        firstName: user.firstName || '',
+        lastName:  user.lastName  || '',
+      },
+    });
   }
 
   // ── Setup de Integração (apenas MyIO) ────────────────────────────────────────

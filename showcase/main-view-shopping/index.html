@@ -600,6 +600,14 @@
           &nbsp;&nbsp;• API real: pencil aparece se regra tem alarmConfig<br>
           &#x1F504; Bundle: mock (offline) → regras com alarmConfig pré-definido
         </div>
+        <div style="margin-top:6px; padding:6px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:6px; font-size:10px; color:#fcd34d; line-height:1.6">
+          <strong>RFC-0191 — Enqueue-Close on Rule Unassign:</strong><br>
+          &#x26A0;&#xFE0F; Desmarcar regra <em>já associada</em> → modal de confirmação<br>
+          &nbsp;&nbsp;• Confirmar: <code style="font-size:8.5px">gcdrEnqueueCloseAlarms(ruleId, deviceId)</code><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&#x2192; <code style="font-size:8.5px">POST /api/v1/alarms/enqueue-close</code> (mock 202 no showcase)<br>
+          &nbsp;&nbsp;• Cancelar: checkbox restaurado, nenhuma alteração<br>
+          &#x1F4CB; Ver log de eventos: RFC-0191 enqueue-close call + 202 response
+        </div>
       </div>
 
 
@@ -638,7 +646,7 @@
         <div class="ctrl-group">
           <label class="ctrl-label">gcdrApiKey</label>
           <input class="ctrl-input" id="gcdrApiKey" type="password"
-            value="gcdr_cust_tb_integration_key_2026"
+            value="gcdr_cust_moxuara_tb_2026"
             style="font-size:9px; font-family:monospace;">
           <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
             &#x1F4CC; API Key do Alarms API (header <code style="font-size:8.5px; color:#fca5a5;">X-API-Key</code>)<br>
@@ -1180,6 +1188,7 @@
         window.MyIOOrchestrator.setCredentials(_CUSTOMER_ING_ID, _CLIENT_ID, _CLIENT_SECRET);
         console.log('[Showcase] ✅ Credentials set via setCredentials() on orchestrator:ready');
       }
+
     });
 
     console.log('[Showcase] Period set via __myioInitialPeriod:', _startDate.toISOString(), 'to', _endDate.toISOString());
@@ -2551,6 +2560,24 @@
           // Also update $scope for any code that reads directly from it
           self.ctx.$scope.startDateISO = startDate.toISOString();
           self.ctx.$scope.endDateISO = endDate.toISOString();
+
+          // Showcase-only: restore GCDR credentials if onInit()'s TB attr fetch returned empty.
+          // myio:orchestrator:ready fires at module-load (before onInit), so the restore there
+          // runs too early — onInit overwrites the fields afterward. This is the correct place.
+          const orch = window.MyIOOrchestrator;
+          if (!orch.gcdrCustomerId) {
+            orch.gcdrCustomerId = gcdrCid();
+            logEvent('GCDR', `↩️ gcdrCustomerId restored: ${orch.gcdrCustomerId || '⚠️ STILL EMPTY — fill sidebar'}`, orch.gcdrCustomerId ? 'info' : 'warn');
+          }
+          if (!orch.gcdrTenantId) {
+            orch.gcdrTenantId = gcdrTid();
+            logEvent('GCDR', `↩️ gcdrTenantId restored: ${orch.gcdrTenantId || '⚠️ STILL EMPTY'}`, orch.gcdrTenantId ? 'info' : 'warn');
+          }
+          if (!orch.gcdrApiKey) {
+            orch.gcdrApiKey = gcdrKey();
+            logEvent('GCDR', `↩️ gcdrApiKey restored: ${orch.gcdrApiKey ? '✅ set' : '⚠️ STILL EMPTY'}`, orch.gcdrApiKey ? 'info' : 'warn');
+          }
+          logEvent('GCDR', `gcdrCustomerId = ${orch.gcdrCustomerId || '(empty)'}`, orch.gcdrCustomerId ? 'info' : 'error');
         }
 
         updateStateDisplay();
@@ -2940,6 +2967,21 @@
       if (window.MyIOOrchestrator) {
         window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
         window.MyIOOrchestrator.alarmsApiKey     = gcdrKey();
+      }
+
+      // RFC-0191: Mock gcdrEnqueueCloseAlarms for showcase (real API unavailable offline)
+      // Simulates 202 Accepted so the AlarmsTab confirmation flow works end-to-end.
+      // In production, controller.js uses the real POST /api/v1/alarms/enqueue-close.
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.gcdrEnqueueCloseAlarms = async (ruleId, deviceId) => {
+          logEvent('RFC-0191', `⚠️ enqueue-close called → ruleId=${ruleId} | deviceId=${deviceId}`, 'warn');
+          console.log('[Showcase] RFC-0191 gcdrEnqueueCloseAlarms (mock):', { ruleId, deviceId });
+          // Simulate network latency + 202 Accepted
+          await new Promise(r => setTimeout(r, 350));
+          logEvent('RFC-0191', '✅ 202 Accepted (mock) — alarm close job enqueued', 'info');
+          return true;
+        };
+        console.log('[Showcase] RFC-0191: gcdrEnqueueCloseAlarms mock installed');
       }
     };
     scriptEl.onerror = (e) => console.error('[Showcase] Failed to load controller.js:', e);
