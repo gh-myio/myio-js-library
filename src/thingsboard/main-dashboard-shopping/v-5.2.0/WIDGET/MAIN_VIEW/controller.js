@@ -1354,6 +1354,7 @@ Object.assign(window.MyIOUtils, {
         let gcdrCustomerId = '';
         let gcdrTenantId   = '';
         let gcdrApiKey     = '';
+        let alarmNotificationsEnabled = true; // RFC-0193: default enabled; read from SERVER_SCOPE below
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1373,6 +1374,8 @@ Object.assign(window.MyIOUtils, {
             gcdrCustomerId = attrs?.gcdrCustomerId || '';
             gcdrTenantId   = attrs?.gcdrTenantId  || '';
             gcdrApiKey     = attrs?.gcdrApiKey     || '';
+            // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
+            alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1400,10 +1403,14 @@ Object.assign(window.MyIOUtils, {
 
         // RFC-0180: Publish GCDR identifiers + API keys to orchestrator for ALARM and SETTINGS widgets
         if (window.MyIOOrchestrator) {
-          window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
-          window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
-          window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
-          window.MyIOOrchestrator.gcdrApiKey      = gcdrApiKey;
+          window.MyIOOrchestrator.gcdrCustomerId    = gcdrCustomerId;
+          window.MyIOOrchestrator.gcdrTenantId     = gcdrTenantId;
+          window.MyIOOrchestrator.gcdrApiBaseUrl   = gcdrApiBaseUrl;
+          window.MyIOOrchestrator.gcdrApiKey       = gcdrApiKey;
+          // true only when both customerId and apiKey are present — used by tooltip/modal to gate alarm UI
+          window.MyIOOrchestrator.alarmsConfigured = !!(gcdrCustomerId && gcdrApiKey);
+          // RFC-0193: alarm notifications toggle — default true (undefined treated as enabled)
+          window.MyIOOrchestrator.alarmNotificationsEnabled = alarmNotificationsEnabled;
         }
         if (!gcdrApiKey) LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
@@ -1414,6 +1421,7 @@ Object.assign(window.MyIOUtils, {
         // without a per-device fetch when the Settings modal is opened.
         if (gcdrCustomerId) {
           _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com');
+          _fetchAlarmDayMap(); // RFC-0193: populate today's alarm history map (all states)
         }
 
         // Check if credentials are present
@@ -1922,10 +1930,16 @@ function parseDeviceCountAttributes(attributes) {
  * @returns {Promise<Object|null>} Device counts object or null on error
  */
 // ── RFC-0192: New-alarm notification toast ────────────────────────────────
+// ── RFC-0193: Closed-alarm notification toast ─────────────────────────────
 // Tracks alarm IDs seen in the last ASO build so we can diff and surface only
 // truly new alarms on subsequent refreshes (first load never notifies).
-let _lastKnownAlarmIds = null; // null = first load not yet done
+// _lastKnownAlarmMap also stores the full alarm objects so closed-alarm details
+// (title, deviceName) can be shown in the closure toast.
+let _lastKnownAlarmIds     = null; // null = first load not yet done
+let _lastKnownAlarmMap     = null; // Map<id, alarm>
 let _alarmNotificationTimer = null;
+let _alarmClosedNotifTimer  = null;
+let _alarmDayMap = new Map(); // id → alarm (all states, today only — RFC-0193)
 
 /**
  * Show a floating notification toast when new alarms are detected.
@@ -1935,6 +1949,8 @@ let _alarmNotificationTimer = null;
  */
 function _showNewAlarmNotification(newAlarms) {
   if (!newAlarms || newAlarms.length === 0) return;
+  // RFC-0193: Respect notification toggle (default: enabled)
+  if (window.MyIOOrchestrator?.alarmNotificationsEnabled === false) return;
 
   // Dismiss any existing notification
   const existing = document.getElementById('myio-alarm-notification');
@@ -1961,12 +1977,12 @@ function _showNewAlarmNotification(newAlarms) {
     top: 20px;
     right: 20px;
     z-index: 999999;
-    min-width: 280px;
-    max-width: 360px;
+    min-width: 365px;
+    max-width: 468px;
     background: #1e293b;
-    border-radius: 10px;
+    border-radius: 13px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-    border-left: 4px solid ${accentColor};
+    border-left: 5px solid ${accentColor};
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
     animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
@@ -1986,40 +2002,41 @@ function _showNewAlarmNotification(newAlarms) {
         to   { width: 0%;   }
       }
       #myio-alarm-notification .notif-body {
-        display: flex; align-items: flex-start; gap: 10px; padding: 14px 14px 10px;
+        display: flex; align-items: flex-start; gap: 13px; padding: 18px 18px 13px;
       }
       #myio-alarm-notification .notif-icon {
-        font-size: 20px; flex-shrink: 0; line-height: 1.2;
+        font-size: 26px; flex-shrink: 0; line-height: 1.2;
       }
       #myio-alarm-notification .notif-content { flex: 1; min-width: 0; }
+      #myio-alarm-notification .notif-device {
+        font-size: 16px; font-weight: 700; color: #f1f5f9;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin-bottom: 3px;
+      }
       #myio-alarm-notification .notif-count {
-        font-size: 13px; font-weight: 700; color: ${accentColor}; margin-bottom: 2px;
+        font-size: 14px; font-weight: 700; color: ${accentColor}; margin-bottom: 2px;
       }
       #myio-alarm-notification .notif-title {
-        font-size: 12px; font-weight: 600; color: #f1f5f9;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      #myio-alarm-notification .notif-device {
-        font-size: 11px; color: #94a3b8; margin-top: 2px;
+        font-size: 12px; font-weight: 500; color: #94a3b8;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       #myio-alarm-notification .notif-close {
-        background: none; border: none; color: #64748b; font-size: 16px;
+        background: none; border: none; color: #64748b; font-size: 21px;
         cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0;
         align-self: flex-start; transition: color 0.15s;
       }
       #myio-alarm-notification .notif-close:hover { color: #f1f5f9; }
       #myio-alarm-notification .notif-progress {
-        height: 3px; background: ${accentColor}; opacity: 0.7;
+        height: 4px; background: ${accentColor}; opacity: 0.7;
         animation: myio-notif-bar 6s linear forwards;
       }
     </style>
     <div class="notif-body">
       <div class="notif-icon">🔔</div>
       <div class="notif-content">
+        ${deviceName ? `<div class="notif-device">${deviceName}</div>` : ''}
         <div class="notif-count">${count} ${label}</div>
         <div class="notif-title">${firstTitle}</div>
-        ${deviceName ? `<div class="notif-device">${deviceName}</div>` : ''}
       </div>
       <button class="notif-close" title="Fechar">✕</button>
     </div>
@@ -2035,6 +2052,172 @@ function _showNewAlarmNotification(newAlarms) {
   el.querySelector('.notif-close').addEventListener('click', dismiss);
   document.body.appendChild(el);
   _alarmNotificationTimer = setTimeout(dismiss, 6000);
+}
+// ── RFC-0193: Closed-alarm notification toast ─────────────────────────────
+
+/**
+ * Show a floating notification toast when alarms disappear from the active queue
+ * (i.e., they were resolved/closed since the last refresh cycle).
+ *
+ * @param {Array} closedAlarms - Array of GCDRAlarm objects no longer in the active list
+ */
+function _showClosedAlarmNotification(closedAlarms) {
+  if (!closedAlarms || closedAlarms.length === 0) return;
+  // RFC-0193: Respect notification toggle (default: enabled)
+  if (window.MyIOOrchestrator?.alarmNotificationsEnabled === false) return;
+
+  // Dismiss any existing closed-alarm notification
+  const existing = document.getElementById('myio-alarm-closed-notification');
+  if (existing) existing.remove();
+  if (_alarmClosedNotifTimer) { clearTimeout(_alarmClosedNotifTimer); _alarmClosedNotifTimer = null; }
+
+  // If a new-alarm toast is already visible, stack below it
+  const newAlarmEl = document.getElementById('myio-alarm-notification');
+  const topOffset  = newAlarmEl ? (newAlarmEl.offsetHeight + 28) : 20;
+
+  const GREEN = '#10b981';
+  const count = closedAlarms.length;
+  const label = count === 1 ? 'alarme encerrado' : 'alarmes encerrados';
+  // Use the first closed alarm for the detail line
+  const topAlarm  = closedAlarms[0];
+  const firstTitle  = topAlarm?.title || topAlarm?.alarmType || 'Alarme';
+  const deviceName  = topAlarm?.deviceName || '';
+
+  const el = document.createElement('div');
+  el.id = 'myio-alarm-closed-notification';
+  el.style.cssText = `
+    position: fixed;
+    top: ${topOffset}px;
+    right: 20px;
+    z-index: 999999;
+    min-width: 365px;
+    max-width: 468px;
+    background: #1e293b;
+    border-radius: 13px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    border-left: 5px solid ${GREEN};
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+  `;
+
+  el.innerHTML = `
+    <style>
+      #myio-alarm-closed-notification .notif-body {
+        display: flex; align-items: flex-start; gap: 13px; padding: 18px 18px 13px;
+      }
+      #myio-alarm-closed-notification .notif-icon {
+        font-size: 26px; flex-shrink: 0; line-height: 1.2;
+      }
+      #myio-alarm-closed-notification .notif-content { flex: 1; min-width: 0; }
+      #myio-alarm-closed-notification .notif-device {
+        font-size: 16px; font-weight: 700; color: #f1f5f9;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin-bottom: 3px;
+      }
+      #myio-alarm-closed-notification .notif-count {
+        font-size: 14px; font-weight: 700; color: ${GREEN}; margin-bottom: 2px;
+      }
+      #myio-alarm-closed-notification .notif-title {
+        font-size: 12px; font-weight: 500; color: #94a3b8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #myio-alarm-closed-notification .notif-close {
+        background: none; border: none; color: #64748b; font-size: 21px;
+        cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0;
+        align-self: flex-start; transition: color 0.15s;
+      }
+      #myio-alarm-closed-notification .notif-close:hover { color: #f1f5f9; }
+      #myio-alarm-closed-notification .notif-progress {
+        height: 4px; background: ${GREEN}; opacity: 0.7;
+        animation: myio-notif-bar 5s linear forwards;
+      }
+    </style>
+    <div class="notif-body">
+      <div class="notif-icon">✅</div>
+      <div class="notif-content">
+        ${deviceName ? `<div class="notif-device">${deviceName}</div>` : ''}
+        <div class="notif-count">${count} ${label}</div>
+        <div class="notif-title">${firstTitle}</div>
+      </div>
+      <button class="notif-close" title="Fechar">✕</button>
+    </div>
+    <div class="notif-progress"></div>
+  `;
+
+  const dismiss = () => {
+    el.style.animation = 'myio-notif-out 0.2s ease forwards';
+    setTimeout(() => el.remove(), 200);
+    if (_alarmClosedNotifTimer) { clearTimeout(_alarmClosedNotifTimer); _alarmClosedNotifTimer = null; }
+  };
+
+  el.querySelector('.notif-close').addEventListener('click', dismiss);
+  document.body.appendChild(el);
+  _alarmClosedNotifTimer = setTimeout(dismiss, 5000);
+}
+// ── RFC-0193: Alarm Day Map ────────────────────────────────────────────────
+
+/**
+ * Rebuild window.MyIOOrchestrator.alarmDayMap from today's alarm list.
+ * Exposes .listAll(), .listByStatus(status|string[]), .add(alarm), .remove(id), .count()
+ */
+function _buildAlarmDayMap(alarms) {
+  _alarmDayMap = new Map((alarms || []).filter(a => a.id).map(a => [a.id, a]));
+  if (!window.MyIOOrchestrator) return;
+  window.MyIOOrchestrator.alarmDayMap = {
+    listAll:       ()         => [..._alarmDayMap.values()],
+    listByStatus:  (status)   => {
+      if (!status) return [..._alarmDayMap.values()];
+      const states = Array.isArray(status) ? status : [status];
+      return [..._alarmDayMap.values()].filter(a => states.includes(a.state));
+    },
+    add:    (alarm) => { if (alarm?.id) _alarmDayMap.set(alarm.id, alarm); },
+    remove: (id)    => { _alarmDayMap.delete(id); },
+    count:  ()      => _alarmDayMap.size,
+  };
+}
+
+/**
+ * Fetch all of today's alarms (no state filter) and populate alarmDayMap.
+ */
+async function _fetchAlarmDayMap() {
+  const orch           = window.MyIOOrchestrator;
+  const gcdrCustomerId = orch?.gcdrCustomerId;
+  const gcdrApiKey     = orch?.gcdrApiKey;
+  const gcdrTenantId   = orch?.gcdrTenantId || '';
+  const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  if (!gcdrCustomerId || !gcdrApiKey) {
+    LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap: missing gcdrCustomerId or gcdrApiKey');
+    return;
+  }
+  const now        = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const from       = encodeURIComponent(todayStart.toISOString());
+  const to         = encodeURIComponent(now.toISOString());
+  const baseUrl    = `${alarmsBaseUrl}/api/v1/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
+  const headers    = { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId, 'Accept': 'application/json' };
+  try {
+    let allAlarms  = [];
+    let page       = 1;
+    let totalPages = 1;
+    do {
+      const resp = await fetch(`${baseUrl}&page=${page}`, { headers });
+      if (!resp.ok) { LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap failed:', resp.status); break; }
+      const json       = await resp.json();
+      const pageAlarms = Array.isArray(json.data) ? json.data
+                       : (Array.isArray(json.items) ? json.items
+                       : (Array.isArray(json.data?.items) ? json.data.items : []));
+      allAlarms = allAlarms.concat(pageAlarms);
+      if (page === 1) {
+        totalPages = json.pagination?.totalPages ?? 1;
+      }
+      page++;
+    } while (page <= totalPages);
+    _buildAlarmDayMap(allAlarms);
+    LogHelper.log('[MAIN_VIEW] alarmDayMap populated:', allAlarms.length, 'alarms for today (pages:', totalPages, ')');
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap error:', err);
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2165,18 +2348,24 @@ function _buildAlarmServiceOrchestrator(alarms) {
   }
   // ────────────────────────────────────────────────────────────────────────
 
-  // RFC-0192: Detect new alarms by diffing against the previous known set.
-  // First call (_lastKnownAlarmIds === null) only populates the set — no toast.
-  // Subsequent calls (refresh) show a notification for alarms with IDs not seen before.
+  // RFC-0192/RFC-0193: Diff against the previous known set to detect new and closed alarms.
+  // First call (_lastKnownAlarmIds === null) only populates the structures — no toast.
   const currentIds = new Set(normalizedAlarms.map((a) => a.id).filter(Boolean));
+  const currentMap = new Map(normalizedAlarms.filter((a) => a.id).map((a) => [a.id, a]));
   if (_lastKnownAlarmIds !== null) {
-    const newAlarms = normalizedAlarms.filter((a) => a.id && !_lastKnownAlarmIds.has(a.id));
+    const newAlarms    = normalizedAlarms.filter((a) => a.id && !_lastKnownAlarmIds.has(a.id));
+    const closedAlarms = [..._lastKnownAlarmMap.values()].filter((a) => !currentIds.has(a.id));
     if (newAlarms.length > 0) {
       LogHelper.log('[AlarmServiceOrchestrator] RFC-0192: detected', newAlarms.length, 'new alarm(s)');
       _showNewAlarmNotification(newAlarms);
     }
+    if (closedAlarms.length > 0) {
+      LogHelper.log('[AlarmServiceOrchestrator] RFC-0193: detected', closedAlarms.length, 'closed alarm(s)');
+      _showClosedAlarmNotification(closedAlarms);
+    }
   }
   _lastKnownAlarmIds = currentIds;
+  _lastKnownAlarmMap = currentMap;
 
   // Notify all subscribers that alarm data is fresh.
   // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
