@@ -669,8 +669,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   right: 20px !important; bottom: 20px !important;
   width: auto !important; max-width: none !important;
 }
-.ant-tooltip.maximized .ant-content { width: 100%; height: 100%; max-width: none; display: flex; flex-direction: column; font-size: 14px; }
-.ant-tooltip.maximized .ant-body    { flex: 1; overflow-y: auto; }
+.ant-tooltip.maximized .ant-content { width: 100%; height: 100%; max-width: none; max-height: none; display: flex; flex-direction: column; font-size: 14px; }
+.ant-tooltip.maximized .ant-body    { flex: 1; overflow-y: auto; min-height: 0; }
 .ant-tooltip.maximized .ant-header-title { font-size: 16px; }
 .ant-tooltip.maximized .ant-toggle-label { font-size: 14px; }
 .ant-tooltip.maximized .ant-toggle-sub  { font-size: 12px; }
@@ -686,7 +686,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-content {
   background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
-  width: 720px; max-width: 95vw;
+  width: 720px; max-width: 95vw; max-height: 82vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px; color: #1e293b; overflow: hidden;
   display: flex; flex-direction: column;
@@ -710,7 +710,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-hbtn.pinned { background: #0a6d5e; color: #fff; }
 .ant-hbtn.pinned:hover { background: #084f44; color: #fff; }
 .ant-hbtn svg { width: 14px; height: 14px; }
-.ant-body { padding: 14px; max-height: 65vh; overflow-y: auto; flex: 1; }
+.ant-body { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; }
 
 /* Toggle row */
 .ant-toggle-row {
@@ -1138,9 +1138,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         container.innerHTML = this.renderHTML();
         this._bindEvents(container);
         this._setupDrag(container);
-        if (!this._isPinned) this._position(triggerElement);
         container.classList.remove('closing');
-        setTimeout(() => container.classList.add('visible'), 0);
+        // Position after layout so offsetWidth is available; then show
+        setTimeout(() => {
+          if (!this._isPinned) this._position(triggerElement);
+          container.classList.add('visible');
+        }, 0);
 
         container.addEventListener('mouseenter', () => { this._isMouseOver = true; });
         container.addEventListener('mouseleave', () => {
@@ -1165,13 +1168,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const container = document.getElementById(this.containerId);
         if (!container || !triggerElement) return;
         const rect = triggerElement.getBoundingClientRect();
-        const vw = window.innerWidth; const vh = window.innerHeight;
+        const vw   = window.innerWidth;
+        const vh   = window.innerHeight;
         container.style.position = 'fixed';
         container.style.removeProperty('right');
         container.style.removeProperty('bottom');
-        // Position below the trigger, right-aligned
+        // Use actual rendered width so it works regardless of CSS changes
+        const cw   = container.offsetWidth || 720;
         let top  = rect.bottom + 8;
-        let left = rect.right - 360; // anchor right edge
+        // Align right edge of tooltip to right edge of trigger, then clamp to viewport
+        let left = rect.right - cw;
+        if (left + cw > vw - 8) left = vw - cw - 8;
         if (left < 8) left = 8;
         if (top + 500 > vh) top = rect.top - 510;
         if (top < 8) top = 8;
