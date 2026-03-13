@@ -3954,6 +3954,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .atbl-th--num { width: 48px; text-align: center; }
 .atbl-th--date { width: 90px; }
 .atbl-th--device { width: 130px; }
+.atbl-th--device-primary { min-width: 160px; font-weight: 700; }
 .atbl-th--actions { width: 100px; }
 
 .atbl-th--sortable {
@@ -4021,6 +4022,29 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   font-size: 11px;
 }
 
+/* Separado mode: device column is primary (larger, bold) */
+.atbl-cell--device-primary {
+  min-width: 160px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--alarms-text-primary);
+}
+
+/* Separado mode: title (alarm type) column is secondary */
+.atbl-cell--title-secondary {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--alarms-text-muted);
+}
+
 .atbl-cell--customer {
   max-width: 120px;
   white-space: nowrap;
@@ -4071,6 +4095,25 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   letter-spacing: 0.3px;
   white-space: nowrap;
 }
+
+/* Table state chip — text-only badge for table rows */
+.atbl-state-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}
+.atbl-state-chip[data-state="OPEN"]      { color: var(--state-open); background: rgba(220,38,38,0.08); }
+.atbl-state-chip[data-state="ESCALATED"] { color: var(--state-escalated); background: rgba(234,179,8,0.08); }
+.atbl-state-chip[data-state="ACK"]       { color: var(--state-ack); background: rgba(59,130,246,0.08); }
+.atbl-state-chip[data-state="SNOOZED"]   { color: var(--state-snoozed); background: rgba(139,92,246,0.08); }
+.atbl-state-chip[data-state="CLOSED"]    { color: var(--state-closed); background: rgba(100,116,139,0.08); }
 
 .atbl-cell--actions {
   white-space: nowrap;

@@ -422,10 +422,30 @@ async function _fetchAlarmsAndUpdate(resolvedCustomerId, states) {
   const summary = response.summary;
 
   const byState = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
-  for (const a of alarms) { if (a.state in byState) byState[a.state]++; }
+  const bySev   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+  for (const a of alarms) {
+    if (a.state in byState) byState[a.state]++;
+    if (a.severity in bySev) bySev[a.severity]++;
+  }
+  const now = Date.now();
+  const last24h = now - 24 * 60 * 60 * 1000;
+
+  // Build a fully-shaped AlarmStats from summary (preferred) + local counts (fallback)
+  const stats = {
+    total:        summary?.total        ?? alarms.length,
+    bySeverity:   summary?.bySeverity   ?? bySev,
+    byState:      summary?.byState      ?? byState,
+    openCritical: (summary?.bySeverity?.CRITICAL != null)
+      ? (summary.bySeverity.CRITICAL)
+      : bySev.CRITICAL,
+    openHigh:     (summary?.bySeverity?.HIGH != null)
+      ? (summary.bySeverity.HIGH)
+      : bySev.HIGH,
+    last24Hours:  alarms.filter(a => new Date(a.firstOccurrence || a.lastOccurrence || 0).getTime() >= last24h).length,
+  };
 
   _panelInstance?.updateAlarms?.(alarms);
-  _panelInstance?.updateStats?.(summary || { byState });
+  _panelInstance?.updateStats?.(stats);
 
   const openCount = byState.OPEN + byState.ESCALATED;
   _updateCountBadge(openCount);
@@ -462,7 +482,7 @@ async function _fetchAndUpdate() {
       // Trend fetch (non-blocking)
       const AlarmService = window.MyIOLibrary?.AlarmService;
       if (AlarmService) {
-        AlarmService.getAlarmTrend(resolvedCustomerId, 'week', 'day')
+        AlarmService.getAlarmTrend(resolvedCustomerId, '7d', 'day')
           .then((trend) => { if (trend?.length) _panelInstance?.updateTrendData?.(trend); })
           .catch(() => {});
       }

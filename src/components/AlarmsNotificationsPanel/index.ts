@@ -164,6 +164,10 @@ export function createAlarmsNotificationsPanelComponent(
       controller.updateStats(stats);
     },
 
+    updateTrendData: (data) => {
+      view.updateTrendData(data);
+    },
+
     getAlarms: () => {
       return controller.getAlarms();
     },

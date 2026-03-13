@@ -38,6 +38,15 @@ export class AlarmsNotificationsPanelView {
   private trendData: AlarmTrendDataPoint[] = [];
   private trendFetched = false;
 
+  /** Called externally (e.g. from controller) to inject trend data and refresh the chart */
+  updateTrendData(data: AlarmTrendDataPoint[]): void {
+    this.trendData = data;
+    if (!this.root) return;
+    const container = this.root.querySelector('#dashboardContent') as HTMLElement | null;
+    if (!container || container.children.length === 0) return;
+    updateDashboard(container, this.controller.getState().stats, this.trendData);
+  }
+
   // Group mode:
   //   'consolidado'    – Por Tipo de Alarme  (one row per alarm type, all devices merged)
   //   'separado'       – Por Dispositivo - Tipo  (one row per device × alarm type pair)
@@ -904,21 +913,26 @@ export class AlarmsNotificationsPanelView {
             : '')
         : '';
 
+      const isSep = showDevice && !isPorDispositivo; // separado mode
       return `
         <tr class="atbl-row${sel ? ' atbl-row--selected' : ''}" data-alarm-id="${alarm.id}">
           <td class="atbl-cell atbl-cell--sel">
             <input type="checkbox" class="alarm-card-select" data-alarm-id="${alarm.id}" data-alarm-title="${escTitle}"${sel ? ' checked' : ''}>
           </td>
-          <td class="atbl-cell atbl-cell--title" title="${escTitle}">${escTitle}</td>
-          ${showDevice ? `<td class="atbl-cell atbl-cell--device" title="${escSource}">${escSource}</td>` : ''}
+          ${isSep
+            ? `<td class="atbl-cell atbl-cell--device atbl-cell--device-primary" title="${escSource}">${escSource}</td>
+               <td class="atbl-cell atbl-cell--title atbl-cell--title-secondary" title="${escTitle}">${escTitle}</td>`
+            : `<td class="atbl-cell atbl-cell--title" title="${escTitle}">${escTitle}</td>
+               ${showDevice ? `<td class="atbl-cell atbl-cell--device" title="${escSource}">${escSource}</td>` : ''}`
+          }
           <td class="atbl-cell atbl-cell--sev">
             <span class="atbl-sev-badge" style="background:${sev.bg};color:${sev.text}">${sev.icon} ${sev.label}</span>
           </td>
           <td class="atbl-cell atbl-cell--state">
-            <span class="alarm-state-badge" data-state="${alarm.state}">${st.label}</span>
+            <span class="atbl-state-chip" data-state="${alarm.state}">${st.label}</span>
           </td>
           ${showCustomer ? `<td class="atbl-cell atbl-cell--customer">${escCustomer}</td>` : ''}
-          <td class="atbl-cell atbl-cell--num">${alarm.occurrenceCount || 1}</td>
+          ${!isSep ? `<td class="atbl-cell atbl-cell--num">${alarm.occurrenceCount || 1}</td>` : ''}
           ${isPorDispositivo ? `<td class="atbl-cell atbl-cell--tipos">${tiposHtml}</td>` : ''}
           <td class="atbl-cell atbl-cell--date">${fmtDt(alarm.firstOccurrence)}</td>
           <td class="atbl-cell atbl-cell--date">${fmtDt(alarm.lastOccurrence)}</td>
@@ -933,12 +947,15 @@ export class AlarmsNotificationsPanelView {
         <thead>
           <tr class="atbl-head-row">
             <th class="atbl-th atbl-th--sel"><input type="checkbox" id="tblSelectAll"${allSelected ? ' checked' : ''}></th>
-            ${th(isPorDispositivo ? 'Dispositivo' : 'Tipo', 'title')}
-            ${showDevice ? th('Dispositivo', 'device', 'atbl-th--device') : ''}
+            ${(() => {
+              const isSep2 = showDevice && !isPorDispositivo;
+              if (isSep2) return th('Dispositivo', 'device', 'atbl-th--device-primary') + th('Tipo', 'title');
+              return th(isPorDispositivo ? 'Dispositivo' : 'Tipo', 'title') + (showDevice ? th('Dispositivo', 'device', 'atbl-th--device') : '');
+            })()}
             ${th('Severidade', 'severity')}
             ${th('Estado', 'state')}
             ${showCustomer ? th('Shopping', 'customer') : ''}
-            ${th('Qte.', 'count', 'atbl-th--num')}
+            ${!(showDevice && !isPorDispositivo) ? th('Qte.', 'count', 'atbl-th--num') : ''}
             ${isPorDispositivo ? th('Tipos de Alarme', 'tipos', 'atbl-th--tipos') : ''}
             ${th('1a Ocorrência', 'first', 'atbl-th--date')}
             ${th('Últ. Ocorrência', 'last', 'atbl-th--date')}

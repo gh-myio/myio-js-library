@@ -404,19 +404,56 @@ function normalizeAlarmType(title: string): string {
     .replace(/^_+|_+$/g, '');
 }
 
+type RawItem = {
+  centralId?: string;
+  gcdrDeviceId?: string;
+  id?: string;
+  tbId?: string;
+  identifier?: string;
+  label?: string;
+  name?: string;
+  entityName?: string;
+};
+
 /**
- * Resolve the ThingsBoard device UUID from alarm.centralId
+ * Resolve the ThingsBoard device UUID from alarm data
  * by looking up window.STATE[domain]._raw items.
+ *
+ * Match order (first hit wins, across all domains):
+ *   1. alarm.centralId === item.centralId
+ *   2. alarm.source tokens vs item.identifier / label / name / entityName
  */
 function resolveDeviceTbId(alarm: Alarm): string | null {
   const state = (window as unknown as Record<string, unknown>).STATE as
-    | Record<string, { _raw?: Array<{ centralId?: string; id?: string }> }>
+    | Record<string, { _raw?: RawItem[] }>
     | undefined;
   if (!state) return null;
+
+  // Parse source into individual device tokens (e.g. "MED-001, MED-002")
+  const sources = alarm.source
+    ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+
   for (const domain of ['energy', 'water', 'temperature']) {
     const raw = state[domain]?._raw ?? [];
-    const found = raw.find((item) => item.centralId && item.centralId === alarm.centralId);
-    if (found?.id) return found.id;
+
+    // 1. centralId exact match
+    if (alarm.centralId) {
+      const found = raw.find((item) => item.centralId && item.centralId === alarm.centralId);
+      if (found?.id || found?.tbId) return (found.id || found.tbId)!;
+    }
+
+    // 2. Source identifier / label match
+    for (const src of sources) {
+      const found = raw.find(
+        (item) =>
+          (item.identifier && item.identifier === src) ||
+          (item.label && item.label === src) ||
+          (item.name && item.name === src) ||
+          (item.entityName && item.entityName === src)
+      );
+      if (found?.id || found?.tbId) return (found.id || found.tbId)!;
+    }
   }
   return null;
 }

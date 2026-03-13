@@ -72,6 +72,7 @@ export const DEVICE_OPERATIONAL_CARD_STYLES = `
   padding: 16px 20px;
   background: var(--alarms-bg-secondary);
   border-bottom: 1px solid var(--alarms-border);
+  flex-shrink: 0;
 }
 
 .myio-alarms-header-top {
@@ -228,6 +229,7 @@ export const DEVICE_OPERATIONAL_CARD_STYLES = `
 
 .myio-alarms-grid {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px;
   display: grid;

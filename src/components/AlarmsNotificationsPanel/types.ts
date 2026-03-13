@@ -139,6 +139,8 @@ export interface AlarmsNotificationsPanelInstance {
   refresh: () => void;
   /** Destroy the component and cleanup */
   destroy: () => void;
+  /** Inject trend data from external fetch and refresh the trend chart */
+  updateTrendData: (data: import('../../types/alarm').AlarmTrendDataPoint[]) => void;
 }
 
 // =====================================================================
