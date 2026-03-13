@@ -408,16 +408,45 @@ function openInlineRuleEdit(
   const saveBtn = form.querySelector('#abm-ef-save') as HTMLButtonElement;
   const errorEl = form.querySelector('#abm-ef-error') as HTMLElement;
 
+  const toast = (window as unknown as Record<string, unknown>).MyIOLibrary as
+    | { MyIOToast?: { success: (msg: string, dur?: number) => void; error: (msg: string, dur?: number) => void } }
+    | undefined;
+
+  const showError = (msg: string) => {
+    errorEl.textContent = msg;
+    errorEl.style.display = '';
+    saveBtn.disabled = false;
+  };
+
   saveBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+
+    // --- Validation: value ---
     const newValue = parseFloat(valueInput.value);
     if (isNaN(newValue)) {
-      errorEl.textContent = 'Valor inválido.';
-      errorEl.style.display = '';
+      showError('Valor inválido.');
       return;
     }
 
     const startInput = form.querySelector('#abm-ef-start') as HTMLInputElement | null;
     const endInput   = form.querySelector('#abm-ef-end')   as HTMLInputElement | null;
+
+    // --- Validation: end time >= start time ---
+    if (startInput && endInput && startInput.value && endInput.value) {
+      if (endInput.value < startInput.value) {
+        showError('Horário de fim deve ser maior ou igual ao horário de início.');
+        return;
+      }
+    }
+
+    // --- Validation: at least one day selected (only when rule has daysOfWeek) ---
+    if (rule.daysOfWeek) {
+      const anyDayOn = Object.values(editDays).some(Boolean);
+      if (!anyDayOn) {
+        showError('Selecione ao menos um dia da semana.');
+        return;
+      }
+    }
 
     const newAlarmConfig: Record<string, unknown> = {
       metric: rule.metric,
@@ -429,7 +458,6 @@ function openInlineRuleEdit(
     if (rule.daysOfWeek) newAlarmConfig.daysOfWeek = { ...editDays };
 
     saveBtn.disabled = true;
-    errorEl.style.display = 'none';
 
     try {
       // Prefer orchestrator PATCH (carries proper auth); fall back to direct fetch
@@ -466,10 +494,12 @@ function openInlineRuleEdit(
       // Restore chips with updated values
       detailEl.innerHTML = renderRuleChips(updatedRule);
 
+      toast?.MyIOToast?.success(`Regra "${rule.name}" atualizada com sucesso.`, 4000);
+
     } catch (err) {
-      errorEl.textContent = err instanceof Error ? err.message : String(err);
-      errorEl.style.display = '';
-      saveBtn.disabled = false;
+      const msg = err instanceof Error ? err.message : String(err);
+      showError(msg);
+      toast?.MyIOToast?.error(`Erro ao salvar regra "${rule.name}": ${msg}`, 6000);
     }
   });
 }
