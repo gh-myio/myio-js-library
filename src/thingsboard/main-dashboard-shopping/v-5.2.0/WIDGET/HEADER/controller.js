@@ -686,7 +686,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-content {
   background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
-  width: 720px; max-width: 95vw; max-height: 82vh;
+  width: 504px; max-width: 95vw; max-height: 82vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px; color: #1e293b; overflow: hidden;
   display: flex; flex-direction: column;
@@ -770,7 +770,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-summary-card-lbl   { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
 
 /* Active breakdown grid */
-.ant-breakdown { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+.ant-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
 .ant-breakdown-item {
   padding: 7px 10px; border-radius: 8px; border: 1px solid #e2e8f0;
   background: #f8faf9; display: flex; align-items: center; gap: 8px;
@@ -814,7 +814,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-sev-chip.LOW      { background: #f3f4f6; color: #6b7280; }
 
 /* Alarm list */
-.ant-alarm-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.ant-alarm-list { display: flex; flex-direction: column; gap: 4px; }
 .ant-alarm-row {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 6px 8px; border-radius: 6px; background: #f8faf9;

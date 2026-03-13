@@ -1271,6 +1271,21 @@ Object.assign(window.MyIOUtils, {
       window.MyIOOrchestrator.gcdrDeviceNameMap    = new Map();
       window.MyIOOrchestrator.entityNameToLabelMap = new Map();
     }
+    // RFC-0193: Resetar estado de alarmes a cada onInit — evita dados do customer anterior
+    // aparecerem no badge/tooltip/toasts até o novo fetch retornar.
+    _lastKnownAlarmIds = null;
+    _lastKnownAlarmMap = null;
+    _alarmDayMap       = new Map();
+    if (window.MyIOOrchestrator?.alarmDayMap) {
+      // Zera o mapa exposto publicamente para badge e tooltip não mostrarem dados velhos
+      window.MyIOOrchestrator.alarmDayMap = {
+        listAll:       () => [],
+        listByStatus:  () => [],
+        add:    () => {},
+        remove: () => {},
+        count:  () => 0,
+      };
+    }
 
     // RFC-0051.2: Expose orchestrator stub IMMEDIATELY
     // This prevents race conditions with TELEMETRY widgets that check for orchestrator
@@ -2190,6 +2205,8 @@ async function _fetchAlarmDayMap() {
     LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap: missing gcdrCustomerId or gcdrApiKey');
     return;
   }
+  // Limpa imediatamente antes do fetch — badge vai a 0 enquanto os dados do novo customer chegam
+  _buildAlarmDayMap([]);
   const now        = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const from       = encodeURIComponent(todayStart.toISOString());
