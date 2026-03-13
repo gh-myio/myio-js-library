@@ -12,6 +12,7 @@ export class UserManagementController {
       jwtToken: params.jwtToken,
       tbBaseUrl: params.tbBaseUrl.replace(/\/$/, ''),
       currentUser: params.currentUser,
+      theme: params.theme ?? 'light',
       onClose: () => { /* handled by view */ },
     };
     this.view = new UserManagementModalView(config);
