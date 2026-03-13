@@ -638,6 +638,23 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     });
 
+    // RFC-0178: When user switches to "Histórico Fechados" in the alarm panel, auto-emit
+    // the current HEADER date range so the ALARM controller can filter CLOSED alarms
+    // by the selected period without requiring a manual "Carregar" click.
+    window.addEventListener('myio:closed-alarms-toggle', (ev) => {
+      if (currentDomain.value !== 'alarm') return;
+      if (!ev.detail?.enabled) return; // only emit when entering historical mode
+      const filters = self.getFilters();
+      if (filters.startAt && filters.endAt) {
+        LogHelper.log('[HEADER] Auto-emitting alarm-filter-change for closed-alarms-toggle:', filters.startAt, '→', filters.endAt);
+        window.dispatchEvent(new CustomEvent('myio:alarm-filter-change', {
+          detail: { from: filters.startAt, to: filters.endAt },
+        }));
+      } else {
+        LogHelper.warn('[HEADER] closed-alarms-toggle: no date range available, ALARM will use fallback period');
+      }
+    });
+
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
 
