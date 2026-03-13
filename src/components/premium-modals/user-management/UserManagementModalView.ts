@@ -1,7 +1,7 @@
 import { UserManagementConfig, TBUser } from './types';
 import { UserListTab } from './tabs/UserListTab';
 import { NewUserTab } from './tabs/NewUserTab';
-import { ProfileManagementTab } from './tabs/ProfileManagementTab';
+import { GroupManagementTab } from './tabs/GroupManagementTab';
 import { UserDetailTab } from './tabs/UserDetailTab';
 
 interface TabEntry {
@@ -127,11 +127,12 @@ export class UserManagementModalView {
       onSwitchToNewUser: () => this.activateTab('new-user'),
       showToast: (msg, type) => this.showToast(msg, type),
     });
+    let userListEl: HTMLElement | null = null;
     this.tabs.push({
       key: 'user-list',
       label: 'Usuários',
       closeable: false,
-      getEl: () => this.userListTab.render(),
+      getEl: () => { if (!userListEl) userListEl = this.userListTab.render(); return userListEl; },
     });
 
     // Tab 2: New User
@@ -143,21 +144,28 @@ export class UserManagementModalView {
       onCancel: () => this.activateTab('user-list'),
       showToast: (msg, type) => this.showToast(msg, type),
     });
+    let newUserEl: HTMLElement | null = null;
     this.tabs.push({
       key: 'new-user',
       label: 'Novo Usuário',
       closeable: false,
-      getEl: () => this.newUserTab.render(),
+      getEl: () => { if (!newUserEl) newUserEl = this.newUserTab.render(); return newUserEl; },
       onActivate: () => this.newUserTab.reset(),
     });
 
-    // Tab 3: Profiles (read-only V1)
-    const profileTab = new ProfileManagementTab(config);
+    // Tab 3: Group Management — Channels + GCDR groups + dispatch matrix
+    const groupTab = new GroupManagementTab(config, {
+      showToast: (msg, type) => this.showToast(msg, type),
+    });
+    let groupTabEl: HTMLElement | null = null;
     this.tabs.push({
-      key: 'profiles',
-      label: 'Perfis',
+      key: 'groups',
+      label: 'Grupos',
       closeable: false,
-      getEl: () => profileTab.render(),
+      getEl: () => {
+        if (!groupTabEl) groupTabEl = groupTab.render();
+        return groupTabEl;
+      },
     });
 
     this.rebuildTabBar();
@@ -227,9 +235,12 @@ export class UserManagementModalView {
     this.activeTabKey = key;
     entry.onActivate?.();
 
-    // Render content
-    this.contentEl.innerHTML = '';
-    this.contentEl.appendChild(entry.getEl());
+    // Move tab element into content area (reuse cached DOM — no re-render)
+    const tabEl = entry.getEl();
+    if (tabEl.parentElement !== this.contentEl) {
+      this.contentEl.innerHTML = '';
+      this.contentEl.appendChild(tabEl);
+    }
 
     this.rebuildTabBar();
   }
@@ -484,6 +495,140 @@ export class UserManagementModalView {
   border-radius: 50%; animation: um-spin 0.7s linear infinite;
 }
 @keyframes um-spin { to { transform: rotate(360deg); } }
+
+/* === GroupManagementTab === */
+.gm-subtabs {
+  display: flex; gap: 2px; margin-bottom: 16px;
+  border-bottom: 1px solid #1e2d4a;
+}
+.gm-subtab {
+  background: none; border: none; cursor: pointer;
+  color: #64748b; font-size: 12px; font-weight: 500;
+  padding: 8px 14px; border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.gm-subtab:hover { color: #94a3b8; }
+.gm-subtab--active { color: #60a5fa; border-bottom-color: #60a5fa; }
+
+.gm-section-toolbar, .gm-sidebar-toolbar {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+}
+.gm-section-label { font-size: 12px; color: #64748b; font-weight: 500; }
+
+/* Channels */
+.gm-channels-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.gm-channel-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #0f1829; border: 1px solid #1e2d4a; border-radius: 10px;
+  padding: 10px 14px; gap: 12px;
+}
+.gm-channel-card-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.gm-channel-card-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.gm-channel-icon { font-size: 16px; }
+.gm-channel-info { display: flex; flex-direction: column; min-width: 0; }
+.gm-channel-name { font-size: 13px; font-weight: 600; color: #c4ccd9; }
+.gm-channel-summary { font-size: 11px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Toggle switch */
+.gm-toggle { position: relative; display: inline-block; width: 34px; height: 18px; cursor: pointer; }
+.gm-toggle-input { opacity: 0; width: 0; height: 0; position: absolute; }
+.gm-toggle-slider {
+  position: absolute; inset: 0; background: #2a3352; border-radius: 9px;
+  transition: background 0.2s;
+}
+.gm-toggle-slider::before {
+  content: ''; position: absolute; width: 12px; height: 12px;
+  left: 3px; top: 3px; background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+}
+.gm-toggle-input:checked + .gm-toggle-slider { background: #22c55e; }
+.gm-toggle-input:checked + .gm-toggle-slider::before { transform: translateX(16px); }
+
+/* Groups layout */
+.gm-groups-layout { display: flex; gap: 16px; height: 100%; min-height: 0; }
+.gm-groups-sidebar {
+  width: 200px; flex-shrink: 0; border-right: 1px solid #1e2d4a; padding-right: 12px;
+}
+.gm-groups-detail { flex: 1; overflow-y: auto; min-width: 0; }
+.gm-group-item {
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  transition: background 0.15s; margin-bottom: 4px;
+}
+.gm-group-item:hover { background: #0f1829; }
+.gm-group-item--active { background: #0f1829; border: 1px solid #2a3b60; }
+.gm-group-item-name { font-size: 13px; color: #c4ccd9; font-weight: 500; margin-bottom: 4px; }
+.gm-group-item-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.gm-detail-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  height: 120px; color: #475569; font-size: 13px;
+}
+
+/* Badges */
+.gm-badge {
+  display: inline-block; font-size: 9px; font-weight: 600;
+  padding: 2px 6px; border-radius: 9999px;
+}
+.gm-badge--domain { background: #1a2537; color: #60a5fa; }
+.gm-badge--count { background: #1e2d4a; color: #94a3b8; }
+.gm-badge--sev { text-transform: uppercase; }
+.gm-badge--sev-critical { background: #3b1a1a; color: #f87171; }
+.gm-badge--sev-high    { background: #3b2a0f; color: #fbbf24; }
+.gm-badge--sev-medium  { background: #1a2a3b; color: #60a5fa; }
+.gm-badge--sev-low     { background: #1a2a24; color: #4ade80; }
+
+/* Detail */
+.gm-detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; gap: 8px;
+}
+.gm-detail-title { font-size: 15px; font-weight: 600; color: #e2e8f0; margin-right: 8px; }
+.gm-detail-section { margin-bottom: 20px; }
+.gm-detail-section-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+}
+.gm-detail-section-title { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Members */
+.gm-members-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.gm-member-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: #0f1829; border: 1px solid #1e2d4a; border-radius: 8px; padding: 5px 8px;
+}
+.gm-member-icon { font-size: 12px; }
+.gm-member-info { display: flex; flex-direction: column; }
+.gm-member-name { font-size: 12px; color: #c4ccd9; font-weight: 500; }
+.gm-member-role { font-size: 10px; color: #475569; }
+.gm-add-member-form {
+  background: #0a0f1e; border: 1px solid #1e2d4a; border-radius: 8px;
+  padding: 10px; display: flex; flex-direction: column; gap: 6px; max-width: 380px;
+}
+
+/* Dispatch matrix */
+.gm-dispatch-wrap { overflow-x: auto; }
+.gm-dispatch-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.gm-dispatch-table th {
+  padding: 6px 10px; color: #64748b; font-weight: 500; font-size: 10px;
+  border-bottom: 1px solid #1e2d4a; text-align: center;
+}
+.gm-dispatch-channel-col { text-align: left !important; min-width: 110px; }
+.gm-dispatch-action-col { min-width: 72px; }
+.gm-dispatch-table td {
+  padding: 7px 10px; border-bottom: 1px solid #0a0f1e; color: #c4ccd9;
+}
+.gm-dispatch-channel-name { font-size: 11px; font-weight: 500; }
+.gm-dispatch-cell { text-align: center; }
+.gm-dispatch-check { width: 14px; height: 14px; cursor: pointer; accent-color: #3b5bdb; }
+
+/* Misc */
+.gm-loading { text-align: center; padding: 20px; color: #475569; font-size: 13px; display: flex; align-items: center; gap: 8px; justify-content: center; }
+.gm-empty  { text-align: center; padding: 20px; color: #475569; font-size: 13px; }
+.gm-error  { padding: 10px 14px; background: #3b1a1a; border: 1px solid #991b1b; border-radius: 8px; color: #f87171; font-size: 12px; margin-bottom: 12px; }
+.gm-empty-inline { font-size: 12px; color: #475569; padding: 4px 0; display: block; }
+.gm-form-card {
+  background: #0f1829; border: 1px solid #1e2d4a; border-radius: 10px;
+  padding: 16px; max-width: 480px;
+}
+.gm-form-title { font-size: 14px; font-weight: 600; color: #c4ccd9; margin: 0 0 14px; }
     `;
     document.head.appendChild(style);
   }
