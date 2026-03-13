@@ -72,7 +72,7 @@ const STYLES = `
     color: #1a1a1a;
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.30);
-    width: min(775px, 96vw);
+    width: min(969px, 96vw);
     max-height: 88vh;
     display: flex;
     flex-direction: column;
@@ -193,6 +193,59 @@ const STYLES = `
   #${MODAL_ID} .abm-day-chip.off {
     background: #e8ecef; color: #aaa;
   }
+  #${MODAL_ID} .abm-rule-name {
+    justify-content: space-between;
+  }
+  #${MODAL_ID} .abm-edit-rule-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px; padding: 2px 5px; border-radius: 4px;
+    color: #888; line-height: 1; transition: background 0.12s, color 0.12s;
+    flex-shrink: 0;
+  }
+  #${MODAL_ID} .abm-edit-rule-btn:hover { background: #e6f4f1; color: ${TEAL}; }
+  #${MODAL_ID} .abm-edit-form {
+    margin-top: 8px; padding: 10px 12px;
+    background: #f4fbf9; border: 1px solid #c3e6e2; border-radius: 8px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  #${MODAL_ID} .abm-ef-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  #${MODAL_ID} .abm-ef-label {
+    font-size: 11px; font-weight: 600; color: #555; min-width: 60px; flex-shrink: 0;
+  }
+  #${MODAL_ID} .abm-ef-input {
+    border: 1px solid #b0d8d2; border-radius: 5px; padding: 4px 8px;
+    font-size: 13px; color: #1a1a1a; background: #fff;
+    outline: none; transition: border-color 0.15s;
+  }
+  #${MODAL_ID} .abm-ef-input:focus { border-color: ${TEAL}; }
+  #${MODAL_ID} .abm-ef-input--value { width: 80px; }
+  #${MODAL_ID} .abm-ef-input--time  { width: 88px; }
+  #${MODAL_ID} .abm-ef-days { display: flex; gap: 4px; flex-wrap: wrap; }
+  #${MODAL_ID} .abm-ef-day-btn {
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
+    cursor: pointer; border: 1px solid #b0d8d2; background: #e8ecef; color: #aaa;
+    transition: background 0.12s, color 0.12s;
+  }
+  #${MODAL_ID} .abm-ef-day-btn.on { background: ${TEAL}; color: #fff; border-color: ${TEAL}; }
+  #${MODAL_ID} .abm-ef-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  #${MODAL_ID} .abm-ef-save-btn {
+    padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    cursor: pointer; border: none; background: ${TEAL}; color: #fff;
+    transition: background 0.15s;
+  }
+  #${MODAL_ID} .abm-ef-save-btn:hover { background: ${TEAL_LIGHT}; }
+  #${MODAL_ID} .abm-ef-save-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  #${MODAL_ID} .abm-ef-cancel-btn {
+    padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; background: #e8ecef; color: #555; border: 1px solid #ccc;
+    transition: background 0.15s;
+  }
+  #${MODAL_ID} .abm-ef-cancel-btn:hover { background: #d8dfe0; }
+  #${MODAL_ID} .abm-ef-error {
+    font-size: 11px; color: #c0392b; font-weight: 600;
+  }
 `;
 
 // ============================================================================
@@ -244,7 +297,7 @@ function renderDaysOfWeek(daysOfWeek?: Record<string, boolean>): string {
   }).join('');
 }
 
-function renderRule(rule: GCDRBundleRule): string {
+function renderRuleChips(rule: GCDRBundleRule): string {
   const op = OPERATOR_LABELS[rule.operator] ?? rule.operator;
   const dur = formatDuration(rule.duration);
   const time = rule.startAt && rule.endAt ? `${rule.startAt} – ${rule.endAt}` : '';
@@ -258,16 +311,188 @@ function renderRule(rule: GCDRBundleRule): string {
   ].filter(Boolean).join('');
 
   const days = rule.daysOfWeek ? renderDaysOfWeek(rule.daysOfWeek) : '';
+  return chips + days;
+}
 
+function renderRule(rule: GCDRBundleRule): string {
   return `
-    <li class="abm-rule-item">
-      <div class="abm-rule-name">🔔 ${escHtml(rule.name)}</div>
-      <div class="abm-rule-detail">
-        ${chips}
-        ${days}
+    <li class="abm-rule-item" data-rule-id="${escHtml(rule.id)}">
+      <div class="abm-rule-name">
+        <span>🔔 ${escHtml(rule.name)}</span>
+        <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(rule.id)}" title="Editar regra">✏️</button>
       </div>
+      <div class="abm-rule-detail">${renderRuleChips(rule)}</div>
     </li>
   `;
+}
+
+// ============================================================================
+// Inline rule editing
+// ============================================================================
+
+function openInlineRuleEdit(
+  ruleItem: HTMLElement,
+  rule: GCDRBundleRule,
+  bundle: GCDRCustomerBundle,
+  gcdrTenantId: string,
+  baseUrl: string,
+): void {
+  const detailEl = ruleItem.querySelector('.abm-rule-detail') as HTMLElement | null;
+  if (!detailEl) return;
+
+  // Snapshot original chips HTML so we can restore on cancel
+  const originalChipsHtml = detailEl.innerHTML;
+
+  // Local state for day toggles
+  const editDays: Record<string, boolean> = { ...rule.daysOfWeek };
+
+  const dayBtns = Object.entries(DAY_NAMES).map(([key, label]) => {
+    const on = editDays[key] === true;
+    return `<button class="abm-ef-day-btn ${on ? 'on' : ''}" data-day-key="${key}" type="button">${label}</button>`;
+  }).join('');
+
+  const formHtml = `
+    <div class="abm-edit-form">
+      <div class="abm-ef-row">
+        <span class="abm-ef-label">Valor</span>
+        <input class="abm-ef-input abm-ef-input--value" id="abm-ef-value"
+          type="number" step="any" value="${rule.value}" />
+        <span style="font-size:11px;color:#888;">${escHtml(rule.metric)} ${escHtml(OPERATOR_LABELS[rule.operator] ?? rule.operator)} <strong id="abm-ef-value-preview">${rule.value}</strong></span>
+      </div>
+      ${rule.startAt !== undefined || rule.endAt !== undefined ? `
+      <div class="abm-ef-row">
+        <span class="abm-ef-label">Horário</span>
+        <input class="abm-ef-input abm-ef-input--time" id="abm-ef-start" type="time" value="${rule.startAt ?? ''}" />
+        <span style="font-size:12px;color:#888;">até</span>
+        <input class="abm-ef-input abm-ef-input--time" id="abm-ef-end"   type="time" value="${rule.endAt   ?? ''}" />
+      </div>` : ''}
+      ${rule.daysOfWeek ? `
+      <div class="abm-ef-row">
+        <span class="abm-ef-label">Dias</span>
+        <div class="abm-ef-days">${dayBtns}</div>
+      </div>` : ''}
+      <div class="abm-ef-actions">
+        <span class="abm-ef-error" id="abm-ef-error" style="display:none;"></span>
+        <button class="abm-ef-cancel-btn" id="abm-ef-cancel" type="button">Cancelar</button>
+        <button class="abm-ef-save-btn"   id="abm-ef-save"   type="button">Salvar</button>
+      </div>
+    </div>
+  `;
+
+  detailEl.innerHTML = formHtml;
+
+  const form = detailEl.querySelector('.abm-edit-form') as HTMLElement;
+
+  // Live value preview
+  const valueInput = form.querySelector('#abm-ef-value') as HTMLInputElement;
+  const valuePreview = form.querySelector('#abm-ef-value-preview') as HTMLElement | null;
+  valueInput?.addEventListener('input', () => {
+    if (valuePreview) valuePreview.textContent = valueInput.value;
+  });
+
+  // Day toggle buttons
+  form.querySelectorAll<HTMLButtonElement>('.abm-ef-day-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-day-key')!;
+      editDays[key] = !editDays[key];
+      btn.classList.toggle('on', editDays[key]);
+    });
+  });
+
+  // Cancel
+  form.querySelector('#abm-ef-cancel')?.addEventListener('click', () => {
+    detailEl.innerHTML = originalChipsHtml;
+  });
+
+  // Save
+  const saveBtn = form.querySelector('#abm-ef-save') as HTMLButtonElement;
+  const errorEl = form.querySelector('#abm-ef-error') as HTMLElement;
+
+  saveBtn.addEventListener('click', async () => {
+    const newValue = parseFloat(valueInput.value);
+    if (isNaN(newValue)) {
+      errorEl.textContent = 'Valor inválido.';
+      errorEl.style.display = '';
+      return;
+    }
+
+    const startInput = form.querySelector('#abm-ef-start') as HTMLInputElement | null;
+    const endInput   = form.querySelector('#abm-ef-end')   as HTMLInputElement | null;
+
+    const newAlarmConfig: Record<string, unknown> = {
+      metric: rule.metric,
+      operator: rule.operator,
+      value: newValue,
+    };
+    if (startInput)  newAlarmConfig.startAt = startInput.value || rule.startAt;
+    if (endInput)    newAlarmConfig.endAt   = endInput.value   || rule.endAt;
+    if (rule.daysOfWeek) newAlarmConfig.daysOfWeek = { ...editDays };
+
+    saveBtn.disabled = true;
+    errorEl.style.display = 'none';
+
+    try {
+      // Prefer orchestrator PATCH (carries proper auth); fall back to direct fetch
+      const orch = (window as unknown as Record<string, unknown>).MyIOOrchestrator as
+        | { gcdrPatchRuleValue?: (ruleId: string, config: unknown) => Promise<unknown> }
+        | undefined;
+
+      if (orch?.gcdrPatchRuleValue) {
+        await orch.gcdrPatchRuleValue(rule.id, newAlarmConfig);
+      } else {
+        const resp = await fetch(`${baseUrl}/api/v1/rules/${encodeURIComponent(rule.id)}`, {
+          method: 'PATCH',
+          headers: {
+            'X-API-Key': GCDR_INTEGRATION_API_KEY,
+            'X-Tenant-ID': gcdrTenantId,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ alarmConfig: newAlarmConfig }),
+        });
+        if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+      }
+
+      // Update in-memory rule so the view stays consistent
+      const updatedRule: GCDRBundleRule = {
+        ...rule,
+        value: newValue,
+        startAt: (newAlarmConfig.startAt as string | undefined) ?? rule.startAt,
+        endAt:   (newAlarmConfig.endAt   as string | undefined) ?? rule.endAt,
+        daysOfWeek: rule.daysOfWeek ? ({ ...editDays } as Record<string, boolean>) : rule.daysOfWeek,
+      };
+      bundle.rules[rule.id] = updatedRule;
+
+      // Restore chips with updated values
+      detailEl.innerHTML = renderRuleChips(updatedRule);
+
+    } catch (err) {
+      errorEl.textContent = err instanceof Error ? err.message : String(err);
+      errorEl.style.display = '';
+      saveBtn.disabled = false;
+    }
+  });
+}
+
+function bindRuleEditEvents(
+  card: HTMLElement,
+  bundle: GCDRCustomerBundle,
+  gcdrTenantId: string,
+  baseUrl: string,
+): void {
+  card.addEventListener('click', (e) => {
+    const editBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-edit-rule]');
+    if (!editBtn) return;
+    const ruleId = editBtn.getAttribute('data-edit-rule');
+    if (!ruleId) return;
+    const rule = bundle.rules[ruleId];
+    if (!rule) return;
+    const ruleItem = editBtn.closest<HTMLElement>('.abm-rule-item');
+    if (!ruleItem) return;
+    // Prevent double-opening
+    if (ruleItem.querySelector('.abm-edit-form')) return;
+    openInlineRuleEdit(ruleItem, rule, bundle, gcdrTenantId, baseUrl);
+  });
 }
 
 function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundleRule>): string {
@@ -488,6 +713,7 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
       || '';
 
     render(renderBundle(bundle), customerName);
+    bindRuleEditEvents(card, bundle, params.gcdrTenantId, baseUrl);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     render(`
