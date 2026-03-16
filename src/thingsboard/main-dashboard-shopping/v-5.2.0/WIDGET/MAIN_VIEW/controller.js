@@ -1204,9 +1204,11 @@ Object.assign(window.MyIOUtils, {
       SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS
     );
 
-    // RFC-0189: Temperature API fetch for offline detection
+    // RFC-0189: Temperature API fetch for offline detection + modal data source
     widgetSettings.enableTemperatureApiDataFetch =
       self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
+    // Expose via window.MyIOUtils for TELEMETRY widget (modal data source)
+    window.MyIOUtils.enableTemperatureApiDataFetch = widgetSettings.enableTemperatureApiDataFetch;
 
     // RFC-0152: Device data export to console (TB↔GCDR mapping audit)
     widgetSettings.enableDeviceDataExport = self.ctx.settings?.enableDeviceDataExport ?? false;
@@ -1270,6 +1272,9 @@ Object.assign(window.MyIOUtils, {
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.gcdrDeviceNameMap    = new Map();
       window.MyIOOrchestrator.entityNameToLabelMap = new Map();
+      // RFC-0194: reset to avoid stale config when switching customers
+      window.MyIOOrchestrator.defaultDashboardId  = null;
+      window.MyIOOrchestrator.defaultDashboardCfg = null;
     }
     // RFC-0193: Resetar estado de alarmes a cada onInit — evita dados do customer anterior
     // aparecerem no badge/tooltip/toasts até o novo fetch retornar.
@@ -1329,6 +1334,10 @@ Object.assign(window.MyIOUtils, {
         gcdrPatchRuleValue: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleValue called before orchestrator is ready'); return false; },
         gcdrEnqueueCloseAlarms: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrEnqueueCloseAlarms called before orchestrator is ready'); return false; }, // RFC-0191
 
+        // RFC-0194: customer default dashboard (populated after SERVER_SCOPE fetch)
+        defaultDashboardId:  null,
+        defaultDashboardCfg: null,
+
         // Internal state (will be populated later)
         inFlight: {},
       };
@@ -1370,6 +1379,7 @@ Object.assign(window.MyIOUtils, {
         let gcdrTenantId   = '';
         let gcdrApiKey     = '';
         let alarmNotificationsEnabled = true; // RFC-0193: default enabled; read from SERVER_SCOPE below
+        let defaultDashboardCfg      = null;  // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1391,6 +1401,8 @@ Object.assign(window.MyIOUtils, {
             gcdrApiKey     = attrs?.gcdrApiKey     || '';
             // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
             alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
+            // RFC-0194: customer default dashboard config (full object stored for management UI)
+            defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1426,6 +1438,9 @@ Object.assign(window.MyIOUtils, {
           window.MyIOOrchestrator.alarmsConfigured = !!(gcdrCustomerId && gcdrApiKey);
           // RFC-0193: alarm notifications toggle — default true (undefined treated as enabled)
           window.MyIOOrchestrator.alarmNotificationsEnabled = alarmNotificationsEnabled;
+          // RFC-0194: stable default dashboard ID + full config for management UI
+          window.MyIOOrchestrator.defaultDashboardId  = defaultDashboardCfg?.dashboardId ?? null;
+          window.MyIOOrchestrator.defaultDashboardCfg = defaultDashboardCfg;
         }
         if (!gcdrApiKey) LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
@@ -5104,9 +5119,10 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(`[Orchestrator] 🌡️ Found ${metadataByEntityId.size} temperature devices`);
 
-        // RFC-0189: Per-device API calls over the last 72h to derive lastTelemetryTs
-        // Key: ingestionId → Unix ms timestamp of last consumption entry
-        const apiTsMap = new Map();
+        // RFC-0189: Per-device API calls over the last 72h to derive lastTelemetryTs and last temperature value
+        // Key: ingestionId → Unix ms timestamp / raw sensor value of last consumption entry
+        const apiTsMap    = new Map();
+        const apiValueMap = new Map(); // ingestionId → last temperature value (°C, raw before offset)
 
         if (useApi) {
           try {
@@ -5165,14 +5181,20 @@ const MyIOOrchestrator = (() => {
                 const lastTelemetryTs = lastEntry?.timestamp
                   ? new Date(lastEntry.timestamp).getTime()
                   : null;
+                const lastValue = (lastEntry?.value !== undefined && lastEntry?.value !== null)
+                  ? Number(lastEntry.value)
+                  : null;
 
-                return lastTelemetryTs ? { ingestionId: meta.ingestionId, lastTelemetryTs } : null;
+                return lastTelemetryTs ? { ingestionId: meta.ingestionId, lastTelemetryTs, lastValue } : null;
               })
             );
 
             for (const result of results) {
               if (result.status === 'fulfilled' && result.value) {
                 apiTsMap.set(result.value.ingestionId, result.value.lastTelemetryTs);
+                if (result.value.lastValue !== null) {
+                  apiValueMap.set(result.value.ingestionId, result.value.lastValue);
+                }
               }
             }
 
@@ -5185,7 +5207,7 @@ const MyIOOrchestrator = (() => {
           }
         }
 
-        // Build items from metadata (value = meta.temperature from ctx.data — unchanged)
+        // Build items from metadata (value = meta.temperature from ctx.data — ThingsBoard real-time)
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
           const temperatureValue = Number(meta.temperature || 0);
@@ -5213,7 +5235,7 @@ const MyIOOrchestrator = (() => {
                 label:             meta.label || meta.identifier || 'Sensor',
                 entityLabel:       meta.label || meta.identifier || 'Sensor',
                 name:              meta.label || meta.identifier || 'Sensor',
-                value:             temperatureValue,   // unchanged — real-time from ctx.data
+                value:             temperatureValue,   // RFC-0189: API last value when enabled, else ctx.data
                 temperature:       temperatureValue,
                 deviceType:        meta.deviceType || 'TERMOSTATO',
                 offSetTemperature: tempOffset,

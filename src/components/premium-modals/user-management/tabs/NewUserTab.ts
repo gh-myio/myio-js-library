@@ -119,6 +119,11 @@ export class NewUserTab {
     try {
       const { tbBaseUrl, jwtToken, customerId, tenantId } = this.config;
       const url = `${tbBaseUrl}/api/user?sendActivationMail=${sendActivation}`;
+      // RFC-0194: stable default dashboard from SERVER_SCOPE attribute (MyIOOrchestrator)
+      const defaultDashboardId = (window as any).MyIOOrchestrator?.defaultDashboardId ?? null;
+      const additionalInfo: Record<string, unknown> = {};
+      if (data.description) additionalInfo.description = data.description;
+      if (defaultDashboardId) additionalInfo.defaultDashboardId = defaultDashboardId;
       const body = {
         email: data.email,
         firstName: data.firstName,
@@ -127,7 +132,7 @@ export class NewUserTab {
         authority: 'CUSTOMER_USER',
         customerId: { id: customerId, entityType: 'CUSTOMER' },
         tenantId: { id: tenantId, entityType: 'TENANT' },
-        additionalInfo: data.description ? { description: data.description } : undefined,
+        additionalInfo: Object.keys(additionalInfo).length ? additionalInfo : undefined,
       };
       const res = await fetch(url, {
         method: 'POST',

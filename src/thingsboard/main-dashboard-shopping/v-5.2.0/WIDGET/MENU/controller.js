@@ -623,6 +623,14 @@ self.onInit = function () {
               <span class="myio-settings-option__desc">Usuários e perfis — apenas MyIO</span>
             </div>
           </button>` : ''}
+          ${isSuperAdmin ? `
+          <button class="myio-settings-option myio-settings-option--myio" data-action="default-dashboard">
+            <span class="myio-settings-option__icon">🏠</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Dashboard Padrão</span>
+              <span class="myio-settings-option__desc">Dashboard exibido ao criar novos usuários — apenas MyIO</span>
+            </div>
+          </button>` : ''}
         </div>
       </div>
     `;
@@ -668,6 +676,8 @@ self.onInit = function () {
             openIntegrationSetupModal(user);
           } else if (action === 'user-management') {
             openUserManagementModal(user);
+          } else if (action === 'default-dashboard') {
+            openDefaultDashboardSettings(user);
           }
         }, 250);
       });
@@ -697,6 +707,269 @@ self.onInit = function () {
         lastName:  user.lastName  || '',
       },
     });
+  }
+
+  // ── RFC-0194: Dashboard Padrão (apenas SuperAdmin MyIO) ──────────────────────
+  // Lê/salva customerDefaultDashboard (SERVER_SCOPE) com changelog auditável.
+  function openDefaultDashboardSettings(user) {
+    const topWin = window.top || window;
+    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+
+    const jwtToken = localStorage.getItem('jwt_token');
+    if (!jwtToken) { window.alert('Token não encontrado. Faça login novamente.'); return; }
+
+    const orch = window.MyIOOrchestrator;
+    const customerId = orch?.customerTB_ID || user?.customerId?.id;
+    if (!customerId) { window.alert('ID do cliente não encontrado.'); return; }
+
+    const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+
+    // ── CSS ──────────────────────────────────────────────────────────────────
+    const STYLE_ID = 'myio-default-dashboard-styles';
+    if (!topDoc.getElementById(STYLE_ID)) {
+      const s = topDoc.createElement('style');
+      s.id = STYLE_ID;
+      s.textContent = `
+        .mdd-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .mdd-overlay.show{opacity:1;pointer-events:auto}
+        .mdd-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+        .mdd-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(1080px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+        .mdd-overlay.show .mdd-card{transform:translateY(0) scale(1)}
+        .mdd-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,#3E1A7D,#6A2FC0);color:#fff;flex-shrink:0}
+        .mdd-header h3{margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+        .mdd-close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:4px;transition:background .15s}.mdd-close:hover{background:rgba(255,255,255,.15)}
+        .mdd-body{overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+        .mdd-section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+        .mdd-section-title{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase}
+        .mdd-no-config{margin:12px 14px;font-size:13px;color:#6B7280}
+        .mdd-current{padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+        .mdd-current-name{font-size:14px;font-weight:600;color:#111827}
+        .mdd-current-id{font-size:11px;font-family:monospace;color:#6B7280}
+        .mdd-current-meta{font-size:12px;color:#9CA3AF;margin-top:2px}
+        .mdd-search-row{display:flex;gap:8px;padding:12px 14px}
+        .mdd-input{flex:1;border:1px solid #D1D5DB;border-radius:8px;padding:7px 10px;font-size:13px;color:#111827;outline:none;transition:border-color .15s;font-family:inherit}
+        .mdd-input:focus{border-color:#7B2FF7;box-shadow:0 0 0 3px rgba(123,47,247,.12)}
+        .mdd-results{max-height:200px;overflow-y:auto;padding:0 14px 12px}
+        .mdd-result-item{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .12s}
+        .mdd-result-item:hover{background:#F5F3FF}
+        .mdd-result-item.selected{background:#EDE9FE;border:1px solid #C4B5FD}
+        .mdd-result-name{font-size:13px;font-weight:500;color:#1F2937}
+        .mdd-result-id{font-size:11px;font-family:monospace;color:#9CA3AF}
+        .mdd-loading,.mdd-empty,.mdd-error{font-size:13px;color:#6B7280;text-align:center;padding:12px 0}
+        .mdd-error{color:#DC2626}
+        .mdd-btn{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:inherit}
+        .mdd-btn-primary{background:#7B2FF7;color:#fff}.mdd-btn-primary:hover:not(:disabled){background:#6320d4}.mdd-btn-primary:disabled{background:#D1D5DB;color:#9CA3AF;cursor:not-allowed}
+        .mdd-btn-secondary{background:#F3F4F6;color:#374151;border:1px solid #E5E7EB}.mdd-btn-secondary:hover{background:#E9EAEC}
+        .mdd-btn-search{background:#6B7280;color:#fff}.mdd-btn-search:hover{background:#4B5563}
+        .mdd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F3F4F6;flex-shrink:0}
+        .mdd-selection-label{flex:1;font-size:12px;color:#5B2D8E;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .mdd-changelog{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+        .mdd-changelog summary{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;list-style:none;user-select:none}
+        .mdd-changelog summary::after{content:' ▼';font-size:9px}.mdd-changelog[open] summary::after{content:' ▲';font-size:9px}
+        .mdd-changelog-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:220px;overflow-y:auto}
+        .mdd-log-entry{padding:8px 10px;background:#FAFAFA;border-radius:8px;border:1px solid #F3F4F6}
+        .mdd-log-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+        .mdd-log-actor{font-size:12px;font-weight:600;color:#374151}
+        .mdd-log-ts{font-size:11px;color:#9CA3AF;flex:1}
+        .mdd-log-ver{font-size:10px;color:#7B2FF7;font-weight:600;background:#F5F3FF;padding:1px 6px;border-radius:4px}
+        .mdd-log-change{font-size:12px;color:#4B5563}
+      `;
+      topDoc.head.appendChild(s);
+    }
+
+    // Remove modal existente
+    const existing = topDoc.getElementById('myio-default-dashboard');
+    if (existing) existing.remove();
+
+    const currentCfg = orch?.defaultDashboardCfg || null;
+
+    function renderCurrentState() {
+      if (!currentCfg) return `<p class="mdd-no-config">Nenhum dashboard padrão configurado.</p>`;
+      const last = currentCfg.changelog?.[0];
+      const ts = last?.changedAt ? new Date(last.changedAt).toLocaleString('pt-BR') : '—';
+      return `
+        <div class="mdd-current">
+          <div class="mdd-current-name">${currentCfg.dashboardName}</div>
+          <div class="mdd-current-id">${currentCfg.dashboardId}</div>
+          <div class="mdd-current-meta">Atualizado em ${ts}${last?.changedBy ? ` por ${last.changedBy.name}` : ''}</div>
+        </div>`;
+    }
+
+    function renderChangelog() {
+      const entries = currentCfg?.changelog;
+      if (!entries?.length) return '';
+      // Filtra entradas válidas (ignorar sentinels ou objetos malformados)
+      const valid = entries.filter(e => e && e.changedAt && e.next);
+      if (!valid.length) return '';
+      const rows = valid.map(e => {
+        const d = new Date(e.changedAt);
+        const ts = isNaN(d.getTime()) ? e.changedAt : d.toLocaleString('pt-BR');
+        const prev = e.previous?.dashboardName || '—';
+        const next = e.next?.dashboardName || '—';
+        return `
+          <div class="mdd-log-entry">
+            <div class="mdd-log-header">
+              <span class="mdd-log-actor">${e.changedBy?.name || 'Desconhecido'}</span>
+              <span class="mdd-log-ts">${ts}</span>
+              <span class="mdd-log-ver">v${e.version || '?'}</span>
+            </div>
+            <div class="mdd-log-change">${prev} → ${next}</div>
+          </div>`;
+      }).join('');
+      return `
+        <details class="mdd-changelog">
+          <summary>Histórico de Alterações (${valid.length})</summary>
+          <div class="mdd-changelog-body">${rows}</div>
+        </details>`;
+    }
+
+    // ── Modal ──────────────────────────────────────────────────────────────────
+    const modal = topDoc.createElement('div');
+    modal.id = 'myio-default-dashboard';
+    modal.className = 'mdd-overlay';
+    modal.innerHTML = `
+      <div class="mdd-bg"></div>
+      <div class="mdd-card">
+        <div class="mdd-header">
+          <h3>🏠 Dashboard Padrão</h3>
+          <button class="mdd-close" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="mdd-body">
+          <div class="mdd-section">
+            <div class="mdd-section-title">Configuração Atual</div>
+            ${renderCurrentState()}
+          </div>
+          <div class="mdd-section">
+            <div class="mdd-section-title">Alterar Dashboard</div>
+            <div class="mdd-search-row">
+              <input type="text" class="mdd-input" id="mdd-search-input" placeholder="Buscar por nome..." />
+              <button class="mdd-btn mdd-btn-search" id="mdd-search-btn">Buscar</button>
+            </div>
+            <div id="mdd-results" class="mdd-results"></div>
+          </div>
+          ${renderChangelog()}
+        </div>
+        <div class="mdd-footer">
+          <span id="mdd-selection-label" class="mdd-selection-label"></span>
+          <button class="mdd-btn mdd-btn-secondary mdd-cancel-btn">Cancelar</button>
+          <button class="mdd-btn mdd-btn-primary" id="mdd-save-btn" disabled>Salvar</button>
+        </div>
+      </div>
+    `;
+
+    topDoc.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('show'));
+
+    let selectedDashboard = null;
+
+    const closeModal = () => {
+      modal.classList.remove('show');
+      setTimeout(() => modal.remove(), 200);
+    };
+
+    modal.querySelector('.mdd-bg').addEventListener('click', closeModal);
+    modal.querySelector('.mdd-close').addEventListener('click', closeModal);
+    modal.querySelector('.mdd-cancel-btn').addEventListener('click', closeModal);
+
+    const escHandler = (e) => {
+      if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); }
+    };
+    topDoc.addEventListener('keydown', escHandler);
+
+    // ── Busca de dashboards ───────────────────────────────────────────────────
+    async function searchDashboards(query) {
+      const resultsEl = modal.querySelector('#mdd-results');
+      resultsEl.innerHTML = '<div class="mdd-loading">Buscando...</div>';
+      try {
+        const qs = `pageSize=20&page=0&sortProperty=title&sortOrder=ASC${query ? '&textSearch=' + encodeURIComponent(query) : ''}`;
+        const res = await fetch(`${tbBase}/api/customer/${customerId}/dashboards?${qs}`, {
+          headers: { 'X-Authorization': `Bearer ${jwtToken}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const items = json.data || [];
+        if (!items.length) {
+          resultsEl.innerHTML = '<div class="mdd-empty">Nenhum dashboard encontrado.</div>';
+          return;
+        }
+        resultsEl.innerHTML = items.map(d => `
+          <div class="mdd-result-item" data-id="${d.id.id}" data-title="${d.title}">
+            <span class="mdd-result-name">${d.title}</span>
+            <span class="mdd-result-id">${d.id.id}</span>
+          </div>
+        `).join('');
+        resultsEl.querySelectorAll('.mdd-result-item').forEach(item => {
+          item.addEventListener('click', () => {
+            resultsEl.querySelectorAll('.mdd-result-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            selectedDashboard = { id: item.dataset.id, title: item.dataset.title };
+            modal.querySelector('#mdd-selection-label').textContent = `Selecionado: ${selectedDashboard.title}`;
+            modal.querySelector('#mdd-save-btn').disabled = false;
+          });
+        });
+      } catch (err) {
+        resultsEl.innerHTML = `<div class="mdd-error">Erro ao buscar: ${err.message}</div>`;
+      }
+    }
+
+    modal.querySelector('#mdd-search-btn').addEventListener('click', () => {
+      searchDashboards(modal.querySelector('#mdd-search-input').value.trim());
+    });
+    modal.querySelector('#mdd-search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); searchDashboards(e.target.value.trim()); }
+    });
+
+    // ── Salvar ────────────────────────────────────────────────────────────────
+    modal.querySelector('#mdd-save-btn').addEventListener('click', async () => {
+      if (!selectedDashboard) return;
+      const saveBtn = modal.querySelector('#mdd-save-btn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Salvando...';
+      try {
+        const version = window.MyIOLibrary?.version || '0.0.0';
+        const now = new Date().toISOString();
+        const currentUserName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
+        const newEntry = {
+          changedAt: now,
+          version,
+          previous: currentCfg ? { dashboardId: currentCfg.dashboardId, dashboardName: currentCfg.dashboardName } : null,
+          next: { dashboardId: selectedDashboard.id, dashboardName: selectedDashboard.title },
+          changedBy: { userId: user?.id?.id || '', name: currentUserName, email: user?.email || '' },
+        };
+        const newCfg = {
+          dashboardName: selectedDashboard.title,
+          dashboardId:   selectedDashboard.id,
+          updatedAt:     now,
+          changelog:     [newEntry, ...(currentCfg?.changelog || [])],
+        };
+        const res = await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
+          method: 'POST',
+          headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerDefaultDashboard: newCfg }),
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
+        }
+        // Atualiza orquestrador em memória
+        if (window.MyIOOrchestrator) {
+          window.MyIOOrchestrator.defaultDashboardId  = selectedDashboard.id;
+          window.MyIOOrchestrator.defaultDashboardCfg = newCfg;
+        }
+        LogHelper.log('[MENU] RFC-0194: customerDefaultDashboard salvo:', newCfg.dashboardName);
+        closeModal();
+      } catch (err) {
+        LogHelper.error('[MENU] RFC-0194: Erro ao salvar customerDefaultDashboard:', err);
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Salvar';
+        window.alert('Erro ao salvar: ' + err.message);
+      }
+    });
+
+    // Busca inicial (sem filtro)
+    searchDashboards('');
+
+    LogHelper.log('[MENU] RFC-0194: Default Dashboard settings modal opened');
   }
 
   // ── Setup de Integração (apenas MyIO) ────────────────────────────────────────

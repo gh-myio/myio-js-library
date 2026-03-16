@@ -2308,6 +2308,54 @@ function renderList(visible) {
             const startDateISO = new Date(startTs).toISOString();
             const endDateISO = new Date(endTs).toISOString();
 
+            // RFC-0189: Build custom dataFetcher when ingestion API is enabled and device has ingestionId
+            const ingestionId = it.ingestionId || null;
+            const useIngestionApi = !!(window.MyIOUtils?.enableTemperatureApiDataFetch && ingestionId);
+            let ingestionDataFetcher = null;
+
+            if (useIngestionApi) {
+              try {
+                const creds = window.MyIOOrchestrator?.getCredentials?.();
+                if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+                  throw new Error('Missing credentials for ingestion API');
+                }
+                const dataApiHost = window.MyIOUtils.DATA_API_HOST;
+                const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+                  dataApiHost,
+                  clientId: creds.CLIENT_ID,
+                  clientSecret: creds.CLIENT_SECRET,
+                });
+
+                ingestionDataFetcher = async (fetchStartTs, fetchEndTs) => {
+                  const token = await myIOAuth.getToken();
+                  const url = new URL(`${dataApiHost}/api/v1/telemetry/devices/${ingestionId}/temperature`);
+                  url.searchParams.set('startTime', new Date(fetchStartTs).toISOString());
+                  url.searchParams.set('endTime', new Date(fetchEndTs).toISOString());
+                  url.searchParams.set('granularity', '1h');
+                  url.searchParams.set('deep', '0');
+
+                  const res = await fetch(url.toString(), {
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                  if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+
+                  const json = await res.json();
+                  const rows = Array.isArray(json) ? json : [];
+                  const row = rows.find((r) => r.id === ingestionId) || rows[0] || null;
+                  if (!row || !Array.isArray(row.consumption)) return [];
+
+                  // Transform to TemperatureTelemetry[] format: { ts: number, value: number }
+                  return row.consumption
+                    .filter((e) => e && e.timestamp !== undefined && e.value !== undefined)
+                    .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }));
+                };
+
+                LogHelper.log(`[TELEMETRY v5] 🌡️ RFC-0189: using ingestion API for modal (ingestionId: ${ingestionId})`);
+              } catch (authErr) {
+                LogHelper.warn('[TELEMETRY v5] 🌡️ RFC-0189: could not build ingestion fetcher, falling back to TB:', authErr.message);
+              }
+            }
+
             LogHelper.log('[TELEMETRY v5] Calling openTemperatureModal with params:', {
               deviceId: deviceId,
               startDate: startDateISO,
@@ -2317,6 +2365,7 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              useIngestionApi,
             });
 
             const modalHandle = MyIOLibrary.openTemperatureModal({
@@ -2332,6 +2381,7 @@ function renderList(visible) {
               theme: 'dark',
               locale: 'pt-BR',
               granularity: 'hour',
+              ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
               onClose: () => {
                 LogHelper.log('[TELEMETRY v5] Temperature modal closed via MyIOLibrary');
               },
@@ -2733,6 +2783,7 @@ function renderList(visible) {
             deviceProfile: it.deviceProfile || null, // RFC-0086: needed for 3F_MEDIDOR detection
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
+            userEmail: window.MyIOUtils?.currentUserEmail || '', // RFC-0171: needed for offSetTemperature field visibility
             enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
             createdTime: it.createdTime || null,
             lastActivityTime: it.lastActivityTime || null,
