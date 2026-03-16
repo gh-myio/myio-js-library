@@ -13,6 +13,7 @@ export class UserManagementController {
       tbBaseUrl: params.tbBaseUrl.replace(/\/$/, ''),
       currentUser: params.currentUser,
       onClose: () => { /* handled by view */ },
+      theme: params.theme ?? 'light',
     };
     this.view = new UserManagementModalView(config);
   }

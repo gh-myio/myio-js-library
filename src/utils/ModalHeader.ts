@@ -64,6 +64,8 @@ export interface ModalHeaderOptions {
   exportFormats?: ExportFormat[];
   /** Callback when export is clicked with format */
   onExport?: (format: ExportFormat) => void;
+  /** Whether the modal is draggable (controls cursor: move). Default: true */
+  draggable?: boolean;
 }
 
 export interface ModalHeaderHandlers {
@@ -162,6 +164,10 @@ const MODAL_HEADER_CSS = `
   color: white;
   min-height: 32px;
   user-select: none;
+  cursor: default;
+}
+
+.myio-modal-header--draggable {
   cursor: move;
 }
 
@@ -447,10 +453,12 @@ export const ModalHeader = {
       showExport = false,
       exportFormats = [],
       onExport,
+      draggable = true,
     } = options;
 
     const themeClass = theme === 'light' ? 'myio-modal-header--light' : '';
     const maximizedClass = isMaximized ? '' : 'myio-modal-header--not-maximized';
+    const draggableClass = draggable ? 'myio-modal-header--draggable' : '';
 
     // Export button (if enabled)
     const exportBtn = showExport ? generateExportHTML(modalId, exportFormats) : '';
@@ -484,7 +492,7 @@ export const ModalHeader = {
 
     return `
       <div
-        class="myio-modal-header ${themeClass} ${maximizedClass}"
+        class="myio-modal-header ${themeClass} ${maximizedClass} ${draggableClass}"
         id="${modalId}-header"
         style="--modal-header-bg: ${primaryColor}; --modal-header-radius: ${borderRadius};"
         data-drag-handle
@@ -519,6 +527,7 @@ export const ModalHeader = {
       showClose = true,
       primaryColor = '#3e1a7d',
       borderRadius = '10px 10px 0 0',
+      draggable = true,
     } = options;
 
     const isDark = theme === 'dark';
@@ -536,7 +545,7 @@ export const ModalHeader = {
       border-radius: ${isMaximized ? '0' : borderRadius};
       min-height: 32px;
       user-select: none;
-      cursor: move;
+      cursor: ${draggable ? 'move' : 'default'};
     `
       .replace(/\s+/g, ' ')
       .trim();

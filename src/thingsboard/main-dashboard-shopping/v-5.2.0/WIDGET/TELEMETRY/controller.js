@@ -2368,6 +2368,12 @@ function renderList(visible) {
               useIngestionApi,
             });
 
+            // RFC: use customer-level clamp range if configured, else library default
+            const customerClampRange = window.MyIOUtils?.temperatureClampRange;
+            const clampRange = (customerClampRange?.min !== undefined && customerClampRange?.max !== undefined)
+              ? { min: customerClampRange.min, max: customerClampRange.max }
+              : undefined;
+
             const modalHandle = MyIOLibrary.openTemperatureModal({
               token: jwtToken,
               deviceId: deviceId,
@@ -2381,6 +2387,7 @@ function renderList(visible) {
               theme: 'dark',
               locale: 'pt-BR',
               granularity: 'hour',
+              ...(clampRange ? { clampRange } : {}),
               ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
               onClose: () => {
                 LogHelper.log('[TELEMETRY v5] Temperature modal closed via MyIOLibrary');

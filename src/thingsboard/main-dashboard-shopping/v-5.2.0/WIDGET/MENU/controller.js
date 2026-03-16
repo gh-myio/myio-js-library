@@ -1561,9 +1561,17 @@ self.onInit = function () {
       token: jwtToken,
       customerId: customerId,
       customerName: customerName,
-      theme: 'dark',
+      theme: 'light',
+      isSuperAdmin: window.MyIOUtils?.SuperAdmin || false,
       onSave: (settings) => {
         LogHelper.log('[MENU] Temperature settings saved:', settings);
+        // Update in-memory clamp range when superadmin saves new values
+        if (settings.temperatureClampMin !== undefined && settings.temperatureClampMax !== undefined) {
+          window.MyIOUtils.temperatureClampRange = {
+            min: settings.temperatureClampMin,
+            max: settings.temperatureClampMax,
+          };
+        }
         window.dispatchEvent(new CustomEvent('myio:temperature-settings-updated', { detail: settings }));
       },
       onClose: () => LogHelper.log('[MENU] Temperature settings modal closed'),

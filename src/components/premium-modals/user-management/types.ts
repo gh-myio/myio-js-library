@@ -15,6 +15,8 @@ export interface OpenUserManagementParams {
   tbBaseUrl: string;
   /** Currently authenticated user */
   currentUser: TBCurrentUser;
+  /** Modal color theme — defaults to 'light' */
+  theme?: 'dark' | 'light';
 }
 
 export interface TBCurrentUser {
@@ -57,6 +59,7 @@ export interface UserManagementConfig {
   tbBaseUrl: string;
   currentUser: TBCurrentUser;
   onClose: () => void;
+  theme?: 'dark' | 'light';
 }
 
 /** Builds the dynamic tab label: "FIRSTNAME L." — uppercase */
