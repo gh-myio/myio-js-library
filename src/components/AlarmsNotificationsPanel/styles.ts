@@ -187,15 +187,17 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 
 .myio-alarms-content .tab-content {
   display: none;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 .myio-alarms-content .tab-content.active {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* =====================================================================

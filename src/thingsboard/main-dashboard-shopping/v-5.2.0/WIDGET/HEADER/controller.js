@@ -955,10 +955,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
 
         const adm = window.MyIOOrchestrator?.alarmDayMap;
-        const all      = adm ? adm.listAll() : [];
-        const active   = adm ? adm.listByStatus(['OPEN','ACK','ESCALATED','SNOOZED']) : [];
-        const closed   = adm ? adm.listByStatus('CLOSED') : [];
-        const enabled  = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
+        const all     = adm ? adm.listAll() : [];
+        const closed  = adm ? adm.listByStatus('CLOSED') : [];
+        const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
+
+        // "Ativos agora" = same source as the badge (customerAlarms = _prefetchCustomerAlarms result)
+        // alarmDayMap only covers today's date range — would under-count older open alarms
+        const customerAlarms = window.MyIOOrchestrator?.customerAlarms || [];
+        const active = customerAlarms.length > 0
+          ? customerAlarms
+          : (adm ? adm.listByStatus(['OPEN','ACK','ESCALATED','SNOOZED']) : []);
 
         // Severity breakdown of active alarms
         const sevCount   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
