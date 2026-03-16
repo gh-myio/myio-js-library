@@ -158,13 +158,15 @@ export class NewUserTab {
     submitBtn.textContent = 'Criando...';
 
     try {
-      const { customerId, tenantId } = this.config;
+      const { tbBaseUrl, jwtToken, customerId, tenantId } = this.config;
 
-      // Ensure pre-fetch has completed before building the body
       if (this.prefetchPromise) await this.prefetchPromise;
-
-      // ── Step 1: Create user ──────────────────────────────────────────────────
-      const userBody = {
+      // RFC-0194: stable default dashboard from SERVER_SCOPE attribute (MyIOOrchestrator)
+      const defaultDashboardId = (window as any).MyIOOrchestrator?.defaultDashboardId ?? null;
+      const additionalInfo: Record<string, unknown> = {};
+      if (data.description) additionalInfo.description = data.description;
+      if (defaultDashboardId) additionalInfo.defaultDashboardId = defaultDashboardId;
+      const body = {
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
@@ -172,20 +174,12 @@ export class NewUserTab {
         authority: 'CUSTOMER_USER',
         customerId: { id: customerId, entityType: 'CUSTOMER' },
         tenantId: { id: tenantId, entityType: 'TENANT' },
-        additionalInfo: {
-          description: data.description || '',
-          defaultDashboardId: this.defaultDashboardId ?? null,
-          defaultDashboardFullscreen: true,
-          homeDashboardId: null,
-          homeDashboardHideToolbar: true,
-          userCredentialsEnabled: false,
-          userActivated: false,
-        },
+        additionalInfo: Object.keys(additionalInfo).length ? additionalInfo : undefined,
       };
 
       const createRes = await this.tbPost(
         `/api/user?sendActivationMail=${sendActivation}`,
-        userBody
+        body
       );
       const created = await createRes.json();
       const newUserId: string = created?.id?.id;

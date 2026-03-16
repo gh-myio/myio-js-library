@@ -600,17 +600,19 @@ export class SettingsModalView {
   }
 
   private getThermostatAlarmsHTML(): string {
-    // RFC-0171: offSetTemperature field only visible for SuperAdmin (@myio.com.br users)
-    const offSetTemperatureField =
-      this.isSuperAdmin()
-        ? `
-        <div class="form-group">
-          <label for="offSetTemperature">Offset de Temperatura (°C)</label>
-          <input type="number" id="offSetTemperature" name="offSetTemperature" step="0.01" min="-99.99" max="99.99" placeholder="-99.99 a +99.99">
-          <small class="form-hint" style="color: #6b7280; font-size: 11px; margin-top: 4px; display: block;">Correção aplicada à leitura do sensor (valores negativos ou positivos)</small>
-        </div>
-      `
-        : '';
+    // RFC-0171: offSetTemperature always visible; editable only for SuperAdmin (@myio.com.br users)
+    const superAdmin = this.isSuperAdmin();
+    const offSetTemperatureField = `
+      <div class="form-group">
+        <label for="offSetTemperature">Offset de Temperatura (°C)</label>
+        <input type="number" id="offSetTemperature" name="offSetTemperature" step="0.01" min="-99.99" max="99.99" placeholder="-99.99 a +99.99"${superAdmin ? '' : ' readonly'}>
+        <small class="form-hint" style="color: #6b7280; font-size: 11px; margin-top: 4px; display: block;">${
+          superAdmin
+            ? 'Correção aplicada à leitura do sensor (valores negativos ou positivos)'
+            : 'Somente operadores MyIO podem alterar este valor'
+        }</small>
+      </div>
+    `;
 
     return `
       <div class="form-card">
