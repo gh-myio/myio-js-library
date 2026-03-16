@@ -85,28 +85,30 @@ export class NewUserTab {
   // ── Prefetch ──────────────────────────────────────────────────────────────────
 
   private async prefetch(): Promise<void> {
+    // defaultDashboardId vem do orquestrador (RFC-0194), não de fetch
+    this.defaultDashboardId = (window as any).MyIOOrchestrator?.defaultDashboardId ?? null;
+
     const { tbBaseUrl, jwtToken, customerId } = this.config;
     const headers = { 'X-Authorization': `Bearer ${jwtToken}` };
 
-    const [dashRes, groupRes] = await Promise.allSettled([
-      fetch(
-        `${tbBaseUrl}/api/customer/${customerId}/dashboards?pageSize=1&page=0&sortProperty=createdTime&sortOrder=DESC`,
+    try {
+      const res = await fetch(
+        `${tbBaseUrl}/api/entityGroups/CUSTOMER/${customerId}/USER`,
         { headers }
-      ),
-      fetch(`${tbBaseUrl}/api/entityGroups/CUSTOMER/${customerId}/USER`, { headers }),
-    ]);
-
-    if (dashRes.status === 'fulfilled' && dashRes.value.ok) {
-      const json = await dashRes.value.json().catch(() => null);
-      this.defaultDashboardId = json?.data?.[0]?.id?.id ?? null;
-    }
-
-    if (groupRes.status === 'fulfilled' && groupRes.value.ok) {
-      const raw = await groupRes.value.json().catch(() => []);
-      const groups: Array<{ id: { id: string }; name: string }> =
-        Array.isArray(raw) ? raw : (raw?.data ?? []);
-      this.customerUsersGroupId =
-        groups.find(g => g.name === 'Customer Users')?.id?.id ?? null;
+      );
+      if (res.ok) {
+        const raw = await res.json().catch(() => []);
+        const groups: Array<{ id: { id: string }; name: string }> =
+          Array.isArray(raw) ? raw : (raw?.data ?? []);
+        this.customerUsersGroupId = groups.find(g => g.name === 'Customer Users')?.id?.id ?? null;
+        if (!this.customerUsersGroupId) {
+          console.warn('[NewUserTab] prefetch: grupo "Customer Users" não encontrado na resposta', groups);
+        }
+      } else {
+        console.warn('[NewUserTab] prefetch: entityGroups fetch retornou', res.status);
+      }
+    } catch (err) {
+      console.warn('[NewUserTab] prefetch: falha ao buscar entityGroups', err);
     }
   }
 
@@ -178,7 +180,6 @@ export class NewUserTab {
           homeDashboardHideToolbar: true,
           userCredentialsEnabled: false,
           userActivated: false,
-          lastLoginTs: null,
         },
       };
 
