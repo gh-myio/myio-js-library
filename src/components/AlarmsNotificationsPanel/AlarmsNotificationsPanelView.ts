@@ -976,7 +976,7 @@ export class AlarmsNotificationsPanelView {
       close();
     });
 
-    document.body.appendChild(overlay);
+    (this.root ?? document.body).appendChild(overlay);
   }
 
   // =====================================================================
@@ -1146,7 +1146,7 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    (this.root ?? document.body).appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('aex-overlay--visible'));
 
     const close = () => {
@@ -1321,7 +1321,7 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    (this.root ?? document.body).appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('abm-overlay--visible'));
 
     const close = () => {
@@ -1445,7 +1445,7 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    (this.root ?? document.body).appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('alarm-action-modal-overlay--visible'));
 
     const textarea = overlay.querySelector('#aamText') as HTMLTextAreaElement;
@@ -2080,7 +2080,7 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    (this.root ?? document.body).appendChild(overlay);
 
     // Animate in
     requestAnimationFrame(() => overlay.classList.add('alarm-action-modal-overlay--visible'));
