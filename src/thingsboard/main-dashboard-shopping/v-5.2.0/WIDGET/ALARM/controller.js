@@ -164,12 +164,14 @@ self.onInit = async function () {
   // myio:alarms-updated — injected directly from MAIN_VIEW when it detects alarm changes.
   // We only call updateAlarms() here (NOT _fetchAndUpdate / ASO.refresh) to avoid a loop:
   //   _fetchAndUpdate → ASO.refresh() → myio:alarms-updated → _fetchAndUpdate → …
+  // _enrichAlarms is called here to normalize source (device name) and date fields,
+  // since myio:alarms-updated carries raw API data (no gcdrDeviceNameMap enrichment).
   _alarmsUpdatedHandler = (ev) => {
     if (_closedAlarmsMode) return; // closed-alarms view manages its own data
     const alarms = ev.detail?.alarms;
     if (Array.isArray(alarms)) {
       LogHelper.log('myio:alarms-updated → injecting', alarms.length, 'alarms into panel');
-      _panelInstance?.updateAlarms?.(alarms);
+      _panelInstance?.updateAlarms?.(_enrichAlarms(alarms));
     }
   };
   window.addEventListener('myio:alarms-updated', _alarmsUpdatedHandler);

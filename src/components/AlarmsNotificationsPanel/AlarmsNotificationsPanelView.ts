@@ -774,6 +774,31 @@ export class AlarmsNotificationsPanelView {
     badge.style.display = count === 0 ? 'none' : '';
   }
 
+  /**
+   * Copies CSS custom-property values from this.root into `el` so that
+   * `position:fixed` overlays appended to <body> can still resolve the
+   * --alarms-* / --severity-* / --state-* vars defined on .myio-alarms-panel.
+   */
+  private _applyCssVars(el: HTMLElement): void {
+    if (!this.root) return;
+    const cs = getComputedStyle(this.root);
+    const names = [
+      '--alarms-bg', '--alarms-bg-secondary', '--alarms-text', '--alarms-text-muted',
+      '--alarms-text-light', '--alarms-border', '--alarms-border-light',
+      '--alarms-card-bg', '--alarms-card-hover', '--alarms-input-bg', '--alarms-input-border',
+      '--alarms-primary', '--alarms-primary-light', '--alarms-shadow', '--alarms-shadow-lg',
+      '--alarms-radius', '--alarms-radius-lg',
+      '--severity-critical', '--severity-critical-bg', '--severity-high', '--severity-high-bg',
+      '--severity-medium', '--severity-medium-bg', '--severity-low', '--severity-low-bg',
+      '--severity-info', '--severity-info-bg',
+      '--state-open', '--state-ack', '--state-snoozed', '--state-escalated', '--state-closed',
+    ];
+    names.forEach((n) => {
+      const v = cs.getPropertyValue(n).trim();
+      if (v) el.style.setProperty(n, v);
+    });
+  }
+
   private openFilterModal(): void {
     const state = this.controller.getState();
     const filters = state.filters as AlarmFilters;
@@ -976,7 +1001,8 @@ export class AlarmsNotificationsPanelView {
       close();
     });
 
-    (this.root ?? document.body).appendChild(overlay);
+    this._applyCssVars(overlay);
+    document.body.appendChild(overlay);
   }
 
   // =====================================================================
@@ -1146,7 +1172,8 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    (this.root ?? document.body).appendChild(overlay);
+    this._applyCssVars(overlay);
+    document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('aex-overlay--visible'));
 
     const close = () => {
@@ -1321,7 +1348,8 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    (this.root ?? document.body).appendChild(overlay);
+    this._applyCssVars(overlay);
+    document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('abm-overlay--visible'));
 
     const close = () => {
@@ -1445,7 +1473,8 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    (this.root ?? document.body).appendChild(overlay);
+    this._applyCssVars(overlay);
+    document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('alarm-action-modal-overlay--visible'));
 
     const textarea = overlay.querySelector('#aamText') as HTMLTextAreaElement;
@@ -2080,7 +2109,8 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    (this.root ?? document.body).appendChild(overlay);
+    this._applyCssVars(overlay);
+    document.body.appendChild(overlay);
 
     // Animate in
     requestAnimationFrame(() => overlay.classList.add('alarm-action-modal-overlay--visible'));
