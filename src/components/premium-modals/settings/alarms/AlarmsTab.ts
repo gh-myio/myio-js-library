@@ -1177,7 +1177,7 @@ export class AlarmsTab {
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 99999;
+        z-index: 10000000;
       }
       .at-confirm-modal {
         background: #fff;
