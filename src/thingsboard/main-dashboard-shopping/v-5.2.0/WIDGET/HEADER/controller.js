@@ -14,10 +14,10 @@ let MyIOAuth = null;
 
 // RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
 // This prevents race conditions when multiple widgets are loaded
-// VERSION: 2025-10-23-v2
+// VERSION: 2026-03-17-rfc-0152
 if (!window.__myioCurrentDomain) {
   window.__myioCurrentDomain = null;
-  console.log('[HEADER] VERSION: 2025-10-23-v2 - Global currentDomain initialized');
+  console.log('[HEADER] VERSION: 2026-03-17-rfc-0152 - Global currentDomain initialized');
 }
 
 // RFC-0042: Track current domain from MENU widget (use global reference)
@@ -266,6 +266,21 @@ function setupTooltipPremium(target, text) {
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
+  // RFC-0152 FIX: Suppress ThingsBoard "No data to display on widget" overlay.
+  // HEADER does not consume TB datasource rows — it works entirely via custom window events.
+  // For water-only / temperature-only customers the TB datasource may have 0 rows, causing
+  // the overlay to cover the date-picker controls and make them inaccessible.
+  (function suppressTbNoDataOverlay() {
+    const styleId = 'myio-header-no-data-fix';
+    if (!document.getElementById(styleId)) {
+      const s = document.createElement('style');
+      s.id = styleId;
+      // Target common TB no-data overlay class names across versions
+      s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+      document.head.appendChild(s);
+    }
+  })();
+
   // RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
   const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
   if (!DATA_API_HOST) {
@@ -277,10 +292,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     console.error('[HEADER] customerTB_ID not available from window.MyIOUtils - MAIN widget must load first');
   }
   const tbToken = localStorage.getItem('jwt_token');
-  const customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
-    CUSTOMER_ID,
-    tbToken
-  );
+  let customerCredentials = {};
+  try {
+    customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
+      CUSTOMER_ID,
+      tbToken
+    );
+  } catch (credErr) {
+    LogHelper.warn(
+      '[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:',
+      credErr?.message
+    );
+    // Continue without credentials — controls will still be enabled via custom events
+  }
   const CLIENT_ID = customerCredentials.client_id || ' ';
   const CLIENT_SECRET = customerCredentials.client_secret || ' ';
   const INGESTION_ID = customerCredentials.ingestionId || ' ';
@@ -454,7 +478,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       day: now.date(),
       hour: 23,
       minute: 59,
-      second: 0,
+      second: 59,
     });
     return { start, end };
   }
@@ -590,10 +614,33 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0096 FIX: Check if domain was already set before listener was registered (race condition fix)
     // MENU may fire myio:dashboard-state before HEADER's onInit completes
     if (currentDomain.value && (currentDomain.value === 'energy' || currentDomain.value === 'water')) {
+      const raceDomain = currentDomain.value;
       LogHelper.log(
-        `[HEADER] 🔧 Race condition fix: Domain already set to ${currentDomain.value}, enabling controls`
+        `[HEADER] 🔧 RFC-0096 Race fix: Domain already set to ${raceDomain}, enabling controls and emitting period`
       );
-      updateControlsState(currentDomain.value);
+      updateControlsState(raceDomain);
+      hasEmittedInitialPeriod = true;
+
+      // Also emit period since we missed the myio:dashboard-state event.
+      // Without this the orchestrator waits ~20 s for its 15-attempt retry to exhaust
+      // before falling back to the default period.
+      setTimeout(() => {
+        if (self.__range.start && self.__range.end) {
+          const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
+          const endISO   = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
+          const racePeriod = {
+            startISO,
+            endISO,
+            granularity: calcGranularity(startISO, endISO),
+            tz: 'America/Sao_Paulo',
+          };
+          window.__myioInitialPeriod = racePeriod;
+          LogHelper.log(`[HEADER] 🚀 RFC-0096 Race fix: Emitting period for domain ${raceDomain}:`, racePeriod);
+          emitToAllContexts('myio:update-date', { period: racePeriod });
+        } else {
+          LogHelper.warn(`[HEADER] ⚠️ RFC-0096 Race fix: date range not ready, orchestrator will use its own fallback`);
+        }
+      }, 300);
     }
 
     // RFC-0130: Listen for data-ready events to enable controls after retry mechanism loads data
