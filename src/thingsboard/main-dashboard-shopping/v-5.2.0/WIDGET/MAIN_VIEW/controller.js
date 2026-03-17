@@ -503,6 +503,10 @@ let widgetSettings = {
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
 
+// Exclusão de Grupos: group exclusion config loaded from DEVICE SERVER_SCOPE via SettingsModal
+// { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
+let _excludeGroupsTotals = null;
+
 // Config object (populated in onInit from widgetSettings)
 let config = null;
 
@@ -1353,6 +1357,14 @@ Object.assign(window.MyIOUtils, {
     // RFC-XXXX: Detect SuperAdmin early (async, non-blocking)
     detectSuperAdmin();
 
+    // Determine the initial tab to dispatch — use the first enabled domain so that
+    // water-only / temperature-only dashboards don't trigger an energy retry-loop.
+    const _initialTab =
+      widgetSettings.domainsEnabled?.energy       !== false ? 'energy' :
+      widgetSettings.domainsEnabled?.water        !== false ? 'water'  :
+      widgetSettings.domainsEnabled?.temperature  !== false ? 'temperature' : 'energy';
+    LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
+
     // Initialize MyIO Library and Authentication
     const MyIO =
       (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
@@ -1405,6 +1417,15 @@ Object.assign(window.MyIOUtils, {
             alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
             // RFC-0194: customer default dashboard config (full object stored for management UI)
             defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
+
+            // Exclusão de Grupos: read from DEVICE SERVER_SCOPE (saved by SettingsModal)
+            const _rawExcludeGroups = attrs?.exclude_groups_totals;
+            if (_rawExcludeGroups) {
+              _excludeGroupsTotals = typeof _rawExcludeGroups === 'string'
+                ? JSON.parse(_rawExcludeGroups)
+                : _rawExcludeGroups;
+              LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
+            }
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1468,15 +1489,15 @@ Object.assign(window.MyIOUtils, {
           // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
           // This enables HEADER controls, even though data fetch will fail
           LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+            `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
           );
           setTimeout(() => {
             LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)'
+              `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no credentials)`
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' },
+                detail: { tab: _initialTab },
               })
             );
           }, 100);
@@ -1516,15 +1537,15 @@ Object.assign(window.MyIOUtils, {
           // Dispatch initial tab event AFTER credentials AND with delay
           // Delay ensures HEADER has time to register its listener
           LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+            `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
           );
           setTimeout(() => {
             LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)'
+              `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after credentials + delay)`
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' },
+                detail: { tab: _initialTab },
               })
             );
           }, 100);
@@ -1535,13 +1556,13 @@ Object.assign(window.MyIOUtils, {
         // RFC-0054 FIX: Dispatch initial tab event even on error (with delay)
         // This enables HEADER controls, even though data fetch will fail
         LogHelper.log(
-          '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+          `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
         );
         setTimeout(() => {
-          LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after error)');
+          LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after error)`);
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' },
+              detail: { tab: _initialTab },
             })
           );
         }, 100);
@@ -1552,13 +1573,13 @@ Object.assign(window.MyIOUtils, {
       // RFC-0054 FIX: Dispatch initial tab event even without MyIOLibrary (with delay)
       // This enables HEADER controls, even though data fetch will fail
       LogHelper.log(
-        '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+        `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
       );
       setTimeout(() => {
-        LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no MyIOLibrary)');
+        LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no MyIOLibrary)`);
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
-            detail: { tab: 'energy' },
+            detail: { tab: _initialTab },
           })
         );
       }, 100);
@@ -2746,9 +2767,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const lojasTotal = lojas.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const entradaTotal = entrada.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const areacomumTotal = areacomum.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const grandTotal = lojasTotal + entradaTotal + areacomumTotal;
+  // grandTotal uses `let` — re-assigned below if group exclusions are active
+  let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
 
   // ============ PERCENTAGE HELPER ============
+  // Reads grandTotal by reference — reflects exclusions after re-assignment below
   const calcPerc = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
@@ -2880,6 +2903,30 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const geradorTotal = geradorItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
 
+  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO ============
+  // Reads _excludeGroupsTotals set in onInit / myio:exclusion-groups-updated event.
+  // When a group is excluded, its value is zeroed in grandTotal.
+  // Individual category totals remain unchanged (devices still visible in panels).
+  const _exclEnabled = _excludeGroupsTotals?.enabled === true;
+  if (_exclEnabled) {
+    const _exclGroups = _excludeGroupsTotals.groups || {};
+    const _lojasEff          = _exclGroups.lojas           ? 0 : lojasTotal;
+    const _entradaEff        = _exclGroups.entrada          ? 0 : entradaTotal;
+    const _climatizacaoEff   = _exclGroups.climatizacao     ? 0 : climatizacaoTotal;
+    const _elevadoresEff     = _exclGroups.elevadores       ? 0 : elevadoresTotal;
+    const _escadasEff        = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
+    const _outrosEff         = _exclGroups.outros           ? 0 : outrosTotal;
+    const _areacomumSubtot   = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
+    const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
+    const _residualEff       = _exclGroups.area_comum ? 0 : _areacomumResidual;
+    const _areacomumEff      = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
+    grandTotal = _lojasEff + _entradaEff + _areacomumEff;
+    LogHelper.log(
+      '[buildSummary] 🚫 Exclusão de grupos aplicada:',
+      { excluded: Object.entries(_exclGroups).filter(([, v]) => v).map(([k]) => k), grandTotal }
+    );
+  }
+
   // ============ DEVICE STATUS AGGREGATION ============
   const allItems = [...lojas, ...entrada, ...areacomum];
   const statusAggregation = aggregateDeviceStatus(allItems);
@@ -2999,6 +3046,12 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
+
+    // ============ EXCLUSÃO DE GRUPOS ============
+    excludedGroups: _exclEnabled
+      ? Object.entries((_excludeGroupsTotals?.groups || {})).filter(([, v]) => v).map(([k]) => k)
+      : [],
+    exclusionGroupsEnabled: _exclEnabled,
   };
 }
 
@@ -3295,6 +3348,17 @@ function populateState(domain, items, periodKey) {
       areacomum: areacomum.length,
       total: items.length,
     });
+  }
+
+  // Expose unique centralIds from all domains for child widgets (e.g. PresetupGateway)
+  if (window.MyIOOrchestrator) {
+    const allRaw = [
+      ...(window.STATE.energy?._raw || []),
+      ...(window.STATE.water?._raw  || []),
+      ...(window.STATE.temperature?._raw || []),
+    ];
+    const centralIdSet = new Set(allRaw.map(i => i.centralId).filter(Boolean));
+    window.MyIOOrchestrator.centralIds = Array.from(centralIdSet).sort();
   }
 
   // Emit state-ready event for widgets that prefer to read from STATE
@@ -6299,6 +6363,15 @@ const MyIOOrchestrator = (() => {
     }
   });
 
+  // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
+  window.addEventListener('myio:exclusion-groups-updated', (ev) => {
+    _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
+    LogHelper.log('[MAIN_VIEW] exclusion groups updated — re-hydrating energy domain:', _excludeGroupsTotals);
+    if (currentPeriod) {
+      hydrateDomain('energy', currentPeriod, { force: true });
+    }
+  });
+
   // Request-data listener with pending listeners support
   // RFC-0130: Enhanced with retry logic for resilient data loading
   window.addEventListener('myio:telemetry:request-data', async (ev) => {
@@ -6307,6 +6380,13 @@ const MyIOOrchestrator = (() => {
     LogHelper.log(
       `[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority}, isRetry: ${!!isRetry})`
     );
+
+    // Skip disabled domains — prevents spurious retry loops when, e.g., an energy TELEMETRY
+    // widget or handleDataLoadError emits this event on a water-only/temperature-only dashboard.
+    if (widgetSettings.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[Orchestrator] ⏭️ Domain ${domain} is disabled (domainsEnabled), ignoring request`);
+      return;
+    }
 
     // Check if already loading
     if (OrchestratorState.loading[domain]) {
@@ -6730,8 +6810,16 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   // RFC-0130: Auto-trigger data fetch when both orchestrator is ready AND period is available
   // This solves the "data doesn't load automatically" issue
+  // FIX: do NOT fall back to 'energy' when no tab is visible yet — water-only/temperature-only
+  // customers would start an energy retry loop (handleDataLoadError → 15 retries × 20s timeout).
+  // myio:dashboard-state from MENU and myio:update-date from HEADER are the primary triggers
+  // and will fire shortly after, so skipping the auto-trigger here is safe.
   setTimeout(() => {
-    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.();
+    if (!domain) {
+      LogHelper.log('[Orchestrator] ⏳ RFC-0130: No visible tab yet, skipping auto-trigger (MENU will fire myio:dashboard-state)');
+      return;
+    }
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
 
     if (period) {
@@ -6756,8 +6844,10 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
 
   // RFC-0130: Auto-trigger for fallback case
+  // FIX: same as primary path — skip if no tab visible yet
   setTimeout(() => {
-    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.();
+    if (!domain) return;
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
 
     if (period) {
