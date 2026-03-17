@@ -293,6 +293,7 @@ function renderModal(
           showClose: true,
           primaryColor: '#3e1a7d',
           borderRadius: '10px 10px 0 0',
+          draggable: false,
         })}
 
         <!-- Body -->
@@ -1056,7 +1057,9 @@ async function setupEventListeners(
       state.label,
       state.stats,
       startDateStr,
-      endDateStr
+      endDateStr,
+      state.clampRange,
+      state.temperatureOffset
     );
   });
 }

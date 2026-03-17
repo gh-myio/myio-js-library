@@ -18,6 +18,8 @@ export interface MeasurementSetupViewConfig {
   styles?: MeasurementSetupModalStyles;
   onSave: () => Promise<void>;
   onClose: () => void;
+  /** Current user name/email shown in the modal header */
+  userName?: string;
 }
 
 export class MeasurementSetupView {
@@ -70,10 +72,16 @@ export class MeasurementSetupView {
   }
 
   private renderHeader(): string {
+    const userLabel = this.config.userName ? ` — ${this.config.userName}` : '';
     return `
       <div class="myio-modal-header">
-        <h2 class="myio-modal-title">📐 Configuração de Medidas</h2>
-        <button class="myio-modal-close" id="msm-close-btn" type="button" aria-label="Fechar modal">×</button>
+        <h2 class="myio-modal-title">📐 Configuração de Medidas${userLabel}</h2>
+        <div class="myio-modal-header-actions">
+          <button class="myio-modal-maximize" id="msm-maximize-btn" type="button" aria-label="Maximizar" title="Maximizar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <button class="myio-modal-close" id="msm-close-btn" type="button" aria-label="Fechar modal">×</button>
+        </div>
       </div>
     `;
   }
@@ -258,6 +266,12 @@ export class MeasurementSetupView {
     // Close button
     const closeBtn = this.overlayEl.querySelector('#msm-close-btn');
     closeBtn?.addEventListener('click', () => this.close());
+
+    // Maximize button
+    const maximizeBtn = this.overlayEl.querySelector('#msm-maximize-btn');
+    maximizeBtn?.addEventListener('click', () => {
+      this.container?.classList.toggle('is-maximized');
+    });
 
     // Overlay click to close
     this.overlayEl.addEventListener('click', (e) => {
@@ -583,35 +597,68 @@ export class MeasurementSetupView {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 6px 12px;
-        background: ${primaryColor};
-        border-radius: 8px 8px 0 0;
-        min-height: 18px;
+        padding: 20px 24px;
+        background: #3e1a7d;
+        color: white;
       }
 
       .myio-modal-title {
-        margin: 4px;
-        font-size: 14px;
+        margin: 0;
+        font-size: 18px;
         font-weight: 600;
         color: white;
-        line-height: 1.5;
+      }
+
+      .myio-modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .myio-modal-maximize {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: white;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+      }
+
+      .myio-modal-maximize:hover {
+        background: rgba(255, 255, 255, 0.1);
       }
 
       .myio-modal-close {
         background: none;
         border: none;
-        font-size: 18px;
+        font-size: 24px;
         cursor: pointer;
-        padding: 2px 8px;
+        color: white;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         border-radius: 4px;
-        color: rgba(255, 255, 255, 0.8);
-        transition: background-color 0.2s, color 0.2s;
         line-height: 1;
       }
 
       .myio-modal-close:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-        color: white;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .myio-measurement-setup-card.is-maximized {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0;
       }
 
       /* Body */

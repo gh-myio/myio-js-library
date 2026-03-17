@@ -54,6 +54,8 @@ Object.assign(window.MyIOUtils, {
     minTemperature: null,
     maxTemperature: null,
   },
+  // Outlier clamp range for temperature chart/CSV (superadmin-only, from SERVER_SCOPE)
+  temperatureClampRange: null, // { min, max } or null → falls back to DEFAULT_CLAMP_RANGE (15–40)
   // RFC-0106: Global mapInstantaneousPower from customer's parent entity
   // Used for deviceStatus calculation with power ranges
   mapInstantaneousPower: null,
@@ -1604,6 +1606,24 @@ Object.assign(window.MyIOUtils, {
         if (!isNaN(val) && window.MyIOUtils.temperatureLimits.maxTemperature !== val) {
           window.MyIOUtils.temperatureLimits.maxTemperature = val;
           LogHelper.log(`[MAIN_VIEW] Exposed global maxTemperature from customer: ${val}`);
+        }
+      }
+
+      if (keyName === 'temperatureclampmin' && rawValue !== undefined && rawValue !== null) {
+        const val = Number(rawValue);
+        if (!isNaN(val)) {
+          if (!window.MyIOUtils.temperatureClampRange) window.MyIOUtils.temperatureClampRange = {};
+          window.MyIOUtils.temperatureClampRange.min = val;
+          LogHelper.log(`[MAIN_VIEW] Exposed temperatureClampMin from customer: ${val}`);
+        }
+      }
+
+      if (keyName === 'temperatureclampmax' && rawValue !== undefined && rawValue !== null) {
+        const val = Number(rawValue);
+        if (!isNaN(val)) {
+          if (!window.MyIOUtils.temperatureClampRange) window.MyIOUtils.temperatureClampRange = {};
+          window.MyIOUtils.temperatureClampRange.max = val;
+          LogHelper.log(`[MAIN_VIEW] Exposed temperatureClampMax from customer: ${val}`);
         }
       }
 
@@ -3275,6 +3295,17 @@ function populateState(domain, items, periodKey) {
       areacomum: areacomum.length,
       total: items.length,
     });
+  }
+
+  // Expose unique centralIds from all domains for child widgets (e.g. PresetupGateway)
+  if (window.MyIOOrchestrator) {
+    const allRaw = [
+      ...(window.STATE.energy?._raw || []),
+      ...(window.STATE.water?._raw  || []),
+      ...(window.STATE.temperature?._raw || []),
+    ];
+    const centralIdSet = new Set(allRaw.map(i => i.centralId).filter(Boolean));
+    window.MyIOOrchestrator.centralIds = Array.from(centralIdSet).sort();
   }
 
   // Emit state-ready event for widgets that prefer to read from STATE

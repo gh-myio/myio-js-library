@@ -53,6 +53,15 @@ export class AlarmsNotificationsPanelView {
   //   'porDispositivo' – Por Dispositivo  (one row per device, all alarm types merged)
   private groupMode: 'consolidado' | 'separado' | 'porDispositivo' = 'separado';
 
+  // Hierarchy mode:
+  //   'groupFirst' – current default: Group/Device view controlled by groupMode buttons
+  //   'ruleFirst'  – Regras > Grupo > Devices: 3-level tree (rule → central → device)
+  private hierarchyMode: 'groupFirst' | 'ruleFirst' = 'groupFirst';
+
+  // Closed/open state of rule-first tree nodes
+  private ruleFirstOpenRules = new Set<string>();
+  private ruleFirstOpenGroups = new Set<string>();
+
   // Closed history mode — fetches CLOSED alarms, hides action buttons
   private closedHistoryMode = false;
 
@@ -207,7 +216,12 @@ export class AlarmsNotificationsPanelView {
           </button>
         </div>
 
-        <div class="alarms-group-toggle" role="group" aria-label="Modo de agrupamento">
+        <div class="alarms-hierarchy-toggle" role="group" aria-label="Modo de hierarquia">
+          <button class="alarms-hierarchy-btn${this.hierarchyMode === 'groupFirst' ? ' is-active' : ''}" data-hierarchy-mode="groupFirst" title="Visão por Grupo › Dispositivo">Grupo › Disp.</button>
+          <button class="alarms-hierarchy-btn${this.hierarchyMode === 'ruleFirst' ? ' is-active' : ''}" data-hierarchy-mode="ruleFirst" title="Visão por Regra › Grupo › Dispositivo">Regras › Grupo › Disp.</button>
+        </div>
+
+        <div class="alarms-group-toggle${this.hierarchyMode === 'ruleFirst' ? ' alarms-group-toggle--hidden' : ''}" role="group" aria-label="Modo de agrupamento">
           <button class="alarms-group-btn${isConsol ? ' is-active' : ''}" data-group-mode="consolidado" title="Por Tipo de Alarme — agrupa todas as ocorrências do mesmo tipo">Por Tipo</button>
           <button class="alarms-group-btn${isSep ? ' is-active' : ''}" data-group-mode="separado" title="Por Dispositivo - Tipo — um item por par dispositivo × tipo de alarme">Disp. + Tipo</button>
           <button class="alarms-group-btn${isPorDev ? ' is-active' : ''}" data-group-mode="porDispositivo" title="Por Dispositivo — um item por dispositivo com todos os tipos de alarme">Por Disp.</button>
@@ -311,6 +325,48 @@ export class AlarmsNotificationsPanelView {
       });
       const state = this.controller.getState();
       this.renderListContent(state);
+    });
+
+    // Hierarchy toggle (GROUP_FIRST | RULE_FIRST)
+    this.root.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-hierarchy-mode]') as HTMLElement | null;
+      if (!btn) return;
+      const mode = btn.getAttribute('data-hierarchy-mode') as 'groupFirst' | 'ruleFirst';
+      if (mode === this.hierarchyMode) return;
+      this.hierarchyMode = mode;
+      this.selectedTitles.clear();
+      this.root?.querySelectorAll('.alarms-hierarchy-btn').forEach((b) => {
+        b.classList.toggle('is-active', b.getAttribute('data-hierarchy-mode') === mode);
+      });
+      // Show/hide group-mode buttons — not relevant in ruleFirst mode
+      this.root?.querySelector('.alarms-group-toggle')
+        ?.classList.toggle('alarms-group-toggle--hidden', mode === 'ruleFirst');
+      this.renderListContent(this.controller.getState());
+    });
+
+    // Rule-first tree: toggle rule/group sections
+    this.root.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-rf-toggle]') as HTMLElement | null;
+      if (!btn) return;
+      const type = btn.getAttribute('data-rf-toggle') as 'rule' | 'group';
+      const key = btn.getAttribute('data-rf-key') || '';
+      if (type === 'rule') {
+        if (this.ruleFirstOpenRules.has(key)) this.ruleFirstOpenRules.delete(key);
+        else this.ruleFirstOpenRules.add(key);
+        const body = this.root?.querySelector(`[data-rf-rule-body="${CSS.escape(key)}"]`) as HTMLElement | null;
+        if (body) {
+          body.hidden = !this.ruleFirstOpenRules.has(key);
+          btn.setAttribute('aria-expanded', String(this.ruleFirstOpenRules.has(key)));
+        }
+      } else {
+        if (this.ruleFirstOpenGroups.has(key)) this.ruleFirstOpenGroups.delete(key);
+        else this.ruleFirstOpenGroups.add(key);
+        const body = this.root?.querySelector(`[data-rf-group-body="${CSS.escape(key)}"]`) as HTMLElement | null;
+        if (body) {
+          body.hidden = !this.ruleFirstOpenGroups.has(key);
+          btn.setAttribute('aria-expanded', String(this.ruleFirstOpenGroups.has(key)));
+        }
+      }
     });
 
     // Table column sort
@@ -451,6 +507,9 @@ export class AlarmsNotificationsPanelView {
       const rel = (e as MouseEvent).relatedTarget as HTMLElement | null;
       if (!rel || !target.contains(rel)) hide();
     });
+
+    // Always hide when mouse leaves the panel entirely
+    this.root.addEventListener('mouseleave', () => hide());
   }
 
   // =====================================================================
@@ -560,6 +619,9 @@ export class AlarmsNotificationsPanelView {
 
     if (!grid) return;
 
+    // Hide any lingering tooltip before replacing cards
+    if (this.tooltipEl) this.tooltipEl.style.opacity = '0';
+
     // Clear existing cards
     grid.innerHTML = '';
 
@@ -581,6 +643,14 @@ export class AlarmsNotificationsPanelView {
     }
 
     if (emptyState) emptyState.style.display = 'none';
+
+    // Rule-first hierarchy mode: separate 3-level tree view
+    if (this.hierarchyMode === 'ruleFirst') {
+      (grid as HTMLElement).className = 'alarms-grid';
+      (grid as HTMLElement).innerHTML = this.renderRuleFirstView(state.filteredAlarms, state.themeMode);
+      this.emit('cards-rendered', state.filteredAlarms.length);
+      return;
+    }
 
     // Group alarms based on active groupMode
     this.groupedAlarms =
@@ -713,19 +783,15 @@ export class AlarmsNotificationsPanelView {
     const state = this.controller.getState();
     const filters = state.filters as AlarmFilters;
 
-    // Extract unique alarm types from all alarms
+    // Extract unique alarm types and devices
     const alarmTypes = [...new Set(state.allAlarms.map((a) => a.title).filter(Boolean))].sort();
-
-    // Extract unique devices from alarm.source (comma-separated)
     const deviceSet = new Set<string>();
     state.allAlarms.forEach((a) => {
-      if (a.source) {
-        a.source.split(',').map((s) => s.trim()).filter(Boolean).forEach((d) => deviceSet.add(d));
-      }
+      if (a.source) a.source.split(',').map((s) => s.trim()).filter(Boolean).forEach((d) => deviceSet.add(d));
     });
     const allDevices = [...deviceSet].sort();
 
-    // When no filter is active for a group, treat all options as selected (show-all default)
+    // Active selections (empty = all selected = show-all default)
     const allSeverities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
     const allStates     = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
     const selSeverity  = new Set<string>(filters.severity?.length  ? filters.severity  : allSeverities);
@@ -733,112 +799,189 @@ export class AlarmsNotificationsPanelView {
     const selAlarmType = new Set<string>(filters.alarmType?.length ? filters.alarmType : alarmTypes);
     const selDevices   = new Set<string>(filters.devices?.length   ? filters.devices   : allDevices);
 
-    const severityChips = (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] as AlarmSeverity[])
-      .map((s) => {
+    type AfmTab = { id: string; label: string; icon: string; count: number };
+    const tabs: AfmTab[] = [
+      { id: 'severity', label: 'Severidade', icon: '⚡', count: selSeverity.size < allSeverities.length ? allSeverities.length - selSeverity.size : 0 },
+      { id: 'state',    label: 'Estado',     icon: '🔖', count: selState.size    < allStates.length     ? allStates.length    - selState.size    : 0 },
+      { id: 'type',     label: 'Tipo',       icon: '🏷️', count: selAlarmType.size < alarmTypes.length   ? alarmTypes.length   - selAlarmType.size : 0 },
+      { id: 'devices',  label: 'Dispositivos', icon: '📡', count: selDevices.size < allDevices.length   ? allDevices.length   - selDevices.size   : 0 },
+    ];
+
+    const renderSeverityPanel = () =>
+      (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] as AlarmSeverity[]).map((s) => {
         const cfg = SEVERITY_CONFIG[s];
-        const checked = selSeverity.has(s);
-        return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="severity" data-value="${s}">${cfg.icon} ${cfg.label}</div>`;
+        return `<div class="afm-chip${selSeverity.has(s) ? ' is-checked' : ''}" data-group="severity" data-value="${s}">
+          <span class="afm-chip-check">✓</span>
+          <span class="afm-chip-sev-dot" style="background:${cfg.border}"></span>
+          ${cfg.icon} ${cfg.label}
+        </div>`;
       }).join('');
 
-    const stateChips = (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'] as AlarmState[])
-      .map((s) => {
+    const renderStatePanel = () =>
+      (['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'] as AlarmState[]).map((s) => {
         const cfg = STATE_CONFIG[s];
-        const checked = selState.has(s);
-        return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="state" data-value="${s}">${cfg.label}</div>`;
+        return `<div class="afm-chip${selState.has(s) ? ' is-checked' : ''}" data-group="state" data-value="${s}">
+          <span class="afm-chip-check">✓</span>
+          <span class="afm-chip-state-dot" style="background:${cfg.color}"></span>
+          ${cfg.label}
+        </div>`;
       }).join('');
 
-    const alarmTypeChips = alarmTypes.length > 0
-      ? alarmTypes.map((t) => {
-          const checked = selAlarmType.has(t);
-          const esc = this.esc(t);
-          return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="alarmType" data-value="${esc}">${esc}</div>`;
-        }).join('')
-      : '<span class="afm-empty">Nenhum tipo encontrado</span>';
+    const renderListPanel = (group: 'alarmType' | 'devices', items: string[], sel: Set<string>) => {
+      if (items.length === 0) return '<div class="afm-empty">Nenhum item encontrado</div>';
+      return items.map((item) => {
+        const esc = this.esc(item);
+        return `<label class="afm-check-item">
+          <input type="checkbox" class="afm-checkbox" data-group="${group}" data-value="${esc}"${sel.has(item) ? ' checked' : ''}>
+          <span class="afm-check-label">${esc}</span>
+        </label>`;
+      }).join('');
+    };
 
-    const deviceChips = allDevices.length > 0
-      ? allDevices.map((d) => {
-          const checked = selDevices.has(d);
-          const esc = this.esc(d);
-          return `<div class="afm-chip${checked ? ' is-checked' : ''}" data-group="devices" data-value="${esc}">${esc}</div>`;
-        }).join('')
-      : '<span class="afm-empty">Nenhum dispositivo encontrado</span>';
+    const tabSidebarHtml = tabs.map((t) =>
+      `<button class="afm-tab-btn${t.id === 'severity' ? ' is-active' : ''}" data-afm-tab="${t.id}">
+        <span class="afm-tab-icon">${t.icon}</span>
+        <span class="afm-tab-label">${t.label}</span>
+        ${t.count > 0 ? `<span class="afm-tab-badge">${t.count}</span>` : ''}
+      </button>`
+    ).join('');
 
     const overlay = document.createElement('div');
     overlay.className = 'afm-overlay';
     overlay.innerHTML = `
-      <div class="afm-modal" role="dialog" aria-modal="true" aria-label="Filtros avançados">
+      <div class="afm-modal" role="dialog" aria-modal="true" aria-label="Filtros de Alarmes">
         <div class="afm-header">
-          <span class="afm-title">Filtros de Alarmes e Notificações</span>
-          <button class="afm-close" aria-label="Fechar">✕</button>
+          <div class="afm-header-left">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" class="afm-header-icon"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+            <span class="afm-title">Filtrar Alarmes</span>
+          </div>
+          <button class="afm-close" aria-label="Fechar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
         </div>
         <div class="afm-body">
-          <div class="afm-section">
-            <div class="afm-section-label">Severidade</div>
-            <div class="afm-chips" data-group="severity">${severityChips}</div>
+          <div class="afm-sidebar">
+            ${tabSidebarHtml}
           </div>
-          <div class="afm-section">
-            <div class="afm-section-label">Estado</div>
-            <div class="afm-chips" data-group="state">${stateChips}</div>
-          </div>
-          <div class="afm-section">
-            <div class="afm-section-label">Tipo de Alarme</div>
-            <div class="afm-chips afm-chips--scroll" data-group="alarmType">${alarmTypeChips}</div>
-          </div>
-          <div class="afm-section">
-            <div class="afm-section-label">Dispositivos</div>
-            <div class="afm-chips afm-chips--scroll" data-group="devices">${deviceChips}</div>
+          <div class="afm-content">
+            <div class="afm-panel is-active" data-afm-panel="severity">
+              <div class="afm-panel-title">Severidade</div>
+              <div class="afm-chips-grid" data-group="severity">${renderSeverityPanel()}</div>
+            </div>
+            <div class="afm-panel" data-afm-panel="state">
+              <div class="afm-panel-title">Estado do Alarme</div>
+              <div class="afm-chips-grid" data-group="state">${renderStatePanel()}</div>
+            </div>
+            <div class="afm-panel" data-afm-panel="type">
+              <div class="afm-panel-title">Tipo de Alarme</div>
+              <div class="afm-list-actions">
+                <button class="afm-tiny-btn" data-afm-action="select-all" data-afm-target="alarmType">Selecionar Todos</button>
+                <button class="afm-tiny-btn" data-afm-action="clear-all" data-afm-target="alarmType">Limpar</button>
+              </div>
+              <div class="afm-search-wrap">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input type="text" class="afm-search-input" data-afm-search="alarmType" placeholder="Buscar tipo...">
+              </div>
+              <div class="afm-checklist" data-group="alarmType">${renderListPanel('alarmType', alarmTypes, selAlarmType)}</div>
+            </div>
+            <div class="afm-panel" data-afm-panel="devices">
+              <div class="afm-panel-title">Dispositivos</div>
+              <div class="afm-list-actions">
+                <button class="afm-tiny-btn" data-afm-action="select-all" data-afm-target="devices">Selecionar Todos</button>
+                <button class="afm-tiny-btn" data-afm-action="clear-all" data-afm-target="devices">Limpar</button>
+              </div>
+              <div class="afm-search-wrap">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input type="text" class="afm-search-input" data-afm-search="devices" placeholder="Buscar dispositivo...">
+              </div>
+              <div class="afm-checklist" data-group="devices">${renderListPanel('devices', allDevices, selDevices)}</div>
+            </div>
           </div>
         </div>
         <div class="afm-footer">
-          <button class="afm-btn-clear" id="afmClearBtn">Limpar filtros</button>
-          <button class="afm-btn-apply" id="afmApplyBtn">Aplicar</button>
+          <button class="afm-btn-clear" id="afmClearBtn">Limpar todos os filtros</button>
+          <div class="afm-footer-right">
+            <button class="afm-btn-cancel" id="afmCancelBtn">Cancelar</button>
+            <button class="afm-btn-apply" id="afmApplyBtn">Aplicar filtros</button>
+          </div>
         </div>
       </div>
     `;
 
     const close = () => overlay.remove();
 
+    // Tab switching
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
+      const tabBtn = (e.target as HTMLElement).closest('[data-afm-tab]') as HTMLElement | null;
+      if (!tabBtn) return;
+      const tab = tabBtn.getAttribute('data-afm-tab')!;
+      overlay.querySelectorAll('.afm-tab-btn').forEach((b) => b.classList.toggle('is-active', b.getAttribute('data-afm-tab') === tab));
+      overlay.querySelectorAll('.afm-panel').forEach((p) => p.classList.toggle('is-active', p.getAttribute('data-afm-panel') === tab));
     });
 
-    overlay.querySelector('.afm-close')!.addEventListener('click', close);
-
+    // Chip toggle (severity/state panels)
     overlay.addEventListener('click', (e) => {
       const chip = (e.target as HTMLElement).closest('.afm-chip') as HTMLElement | null;
       if (!chip) return;
       chip.classList.toggle('is-checked');
     });
 
-    overlay.querySelector('#afmClearBtn')!.addEventListener('click', () => {
-      overlay.querySelectorAll<HTMLElement>('.afm-chip.is-checked').forEach((chip) => {
-        chip.classList.remove('is-checked');
+    // Select all / Clear all for checklist panels
+    overlay.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-afm-action]') as HTMLElement | null;
+      if (!btn) return;
+      const action = btn.getAttribute('data-afm-action');
+      const target = btn.getAttribute('data-afm-target');
+      const checkboxes = overlay.querySelectorAll<HTMLInputElement>(`.afm-checklist[data-group="${target}"] .afm-checkbox`);
+      checkboxes.forEach((cb) => { cb.checked = action === 'select-all'; });
+    });
+
+    // Search filtering for checklist panels
+    overlay.addEventListener('input', (e) => {
+      const input = e.target as HTMLInputElement;
+      const group = input.getAttribute('data-afm-search');
+      if (!group) return;
+      const q = input.value.toLowerCase();
+      const checklist = overlay.querySelector(`.afm-checklist[data-group="${group}"]`);
+      checklist?.querySelectorAll<HTMLElement>('.afm-check-item').forEach((item) => {
+        const label = item.querySelector('.afm-check-label')?.textContent?.toLowerCase() ?? '';
+        item.style.display = label.includes(q) ? '' : 'none';
       });
     });
 
-    overlay.querySelector('#afmApplyBtn')!.addEventListener('click', () => {
-      const getGroup = (group: string): string[] =>
-        [...overlay.querySelectorAll<HTMLElement>(`.afm-chip.is-checked[data-group="${group}"]`)]
-          .map((el) => el.getAttribute('data-value') || '')
-          .filter(Boolean);
+    overlay.querySelector('.afm-close')!.addEventListener('click', close);
+    overlay.querySelector('#afmCancelBtn')!.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-      const severity = getGroup('severity') as AlarmSeverity[];
-      const stateVal = getGroup('state') as AlarmState[];
-      const alarmType = getGroup('alarmType');
-      const devices = getGroup('devices');
+    overlay.querySelector('#afmClearBtn')!.addEventListener('click', () => {
+      overlay.querySelectorAll<HTMLElement>('.afm-chip.is-checked').forEach((c) => c.classList.remove('is-checked'));
+      overlay.querySelectorAll<HTMLInputElement>('.afm-checkbox').forEach((cb) => { cb.checked = false; });
+    });
+
+    overlay.querySelector('#afmApplyBtn')!.addEventListener('click', () => {
+      const getChips = (group: string): string[] =>
+        [...overlay.querySelectorAll<HTMLElement>(`.afm-chip.is-checked[data-group="${group}"]`)]
+          .map((el) => el.getAttribute('data-value') || '').filter(Boolean);
+      const getChecks = (group: string): string[] =>
+        [...overlay.querySelectorAll<HTMLInputElement>(`.afm-checkbox[data-group="${group}"]:checked`)]
+          .map((el) => el.getAttribute('data-value') || '').filter(Boolean);
+
+      const severity = getChips('severity') as AlarmSeverity[];
+      const stateVal = getChips('state') as AlarmState[];
+      const alarmType = getChecks('alarmType');
+      const devices   = getChecks('devices');
 
       this.controller.setFilters({
-        severity: severity.length ? severity : undefined,
-        state: stateVal.length ? stateVal : undefined,
-        alarmType: alarmType.length ? alarmType : undefined,
-        devices: devices.length ? devices : undefined,
+        severity:  severity.length   ? severity   : undefined,
+        state:     stateVal.length   ? stateVal   : undefined,
+        alarmType: alarmType.length  ? alarmType  : undefined,
+        devices:   devices.length    ? devices    : undefined,
       });
-
       this.updateFilterBadge();
       close();
     });
 
-    (this.root || document.body).appendChild(overlay);
+    document.body.appendChild(overlay);
   }
 
   // =====================================================================
@@ -846,7 +989,7 @@ export class AlarmsNotificationsPanelView {
   // =====================================================================
 
   private renderAlarmsTable(alarms: import('../../types/alarm').Alarm[], showDevice = false, isPorDispositivo = false): string {
-    const showCustomer = this.params.showCustomerName ?? true;
+    const showCustomer = (this.params.showCustomerName ?? true) && alarms.some((a) => !!a.customerName);
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '-';
       const d = new Date(iso as string);
@@ -954,7 +1097,7 @@ export class AlarmsNotificationsPanelView {
             })()}
             ${th('Severidade', 'severity')}
             ${th('Estado', 'state')}
-            ${showCustomer ? th('Shopping', 'customer') : ''}
+            ${showCustomer ? th('Cliente', 'customer') : ''}
             ${!(showDevice && !isPorDispositivo) ? th('Qte.', 'count', 'atbl-th--num') : ''}
             ${isPorDispositivo ? th('Tipos de Alarme', 'tipos', 'atbl-th--tipos') : ''}
             ${th('1a Ocorrência', 'first', 'atbl-th--date')}
@@ -1036,17 +1179,18 @@ export class AlarmsNotificationsPanelView {
   }
 
   private getCsvRows(): string[][] {
-    const header = ['Tipo', 'Severidade', 'Estado', 'Shopping', 'Fonte', 'Qte.', '1a Ocorrência', 'Últ. Ocorrência'];
+    const hasCustomer = this.groupedAlarms.some((a) => !!a.customerName);
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '';
       const d = new Date(iso as string);
       return isNaN(d.getTime()) ? '' : d.toLocaleString('pt-BR');
     };
+    const header = ['Tipo', 'Severidade', 'Estado', ...(hasCustomer ? ['Cliente'] : []), 'Fonte', 'Qte.', '1a Ocorrência', 'Últ. Ocorrência'];
     const dataRows = this.groupedAlarms.map((a) => [
       a.title || '',
       a.severity,
       a.state,
-      a.customerName || '',
+      ...(hasCustomer ? [a.customerName || ''] : []),
       a.source || '',
       String(a.occurrenceCount || 1),
       fmtDt(a.firstOccurrence),
@@ -1340,6 +1484,160 @@ export class AlarmsNotificationsPanelView {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // =====================================================================
+  // Rule-First Hierarchy View (Regras > Grupo > Devices)
+  // =====================================================================
+
+  /**
+   * Renders a 3-level collapsible tree:
+   *   Level 1 — Rule (alarm.title)
+   *   Level 2 — Central/Group (alarm.centralId || 'Sem Central')
+   *   Level 3 — Device (alarm.source token)
+   */
+  private renderRuleFirstView(alarms: Alarm[], themeMode: ThemeMode): string {
+    const SEVERITY_ORDER: AlarmSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+    const STATE_ORDER: AlarmState[] = ['OPEN', 'ESCALATED', 'ACK', 'SNOOZED', 'CLOSED'];
+
+    // ── helpers ─────────────────────────────────────────────────────────
+    const worstSeverity = (list: Alarm[]): AlarmSeverity =>
+      list.reduce<AlarmSeverity>((best, a) =>
+        SEVERITY_ORDER.indexOf(a.severity) < SEVERITY_ORDER.indexOf(best) ? a.severity : best,
+        list[0]?.severity ?? 'INFO');
+
+    const worstState = (list: Alarm[]): AlarmState =>
+      list.reduce<AlarmState>((best, a) =>
+        STATE_ORDER.indexOf(a.state) < STATE_ORDER.indexOf(best) ? a.state : best,
+        list[0]?.state ?? 'OPEN');
+
+    const totalOcc = (list: Alarm[]): number =>
+      list.reduce((s, a) => s + (a.occurrenceCount || 1), 0);
+
+    const severityCfg = (sev: AlarmSeverity) => SEVERITY_CONFIG[sev] ?? SEVERITY_CONFIG['INFO'];
+    const stateCfg    = (st: AlarmState)     => STATE_CONFIG[st]   ?? STATE_CONFIG['OPEN'];
+
+    // ── build 3-level map: rule → centralId → atoms ──────────────────────
+    type Atom = { alarm: Alarm; device: string };
+    const ruleMap = new Map<string, Map<string, Atom[]>>();
+
+    for (const alarm of alarms) {
+      const rule = alarm.title || 'Sem Título';
+      const central = alarm.centralId || 'Sem Central';
+      const devices = alarm.source
+        ? alarm.source.split(',').map((s) => s.trim()).filter(Boolean)
+        : ['Sem Dispositivo'];
+
+      if (!ruleMap.has(rule)) ruleMap.set(rule, new Map());
+      const centralMap = ruleMap.get(rule)!;
+      if (!centralMap.has(central)) centralMap.set(central, []);
+      const atoms = centralMap.get(central)!;
+      for (const dev of devices) {
+        atoms.push({ alarm, device: dev });
+      }
+    }
+
+    const fmtDt = (iso?: string | null): string => {
+      if (!iso) return '—';
+      try { return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso)); }
+      catch { return iso; }
+    };
+
+    // ── render ───────────────────────────────────────────────────────────
+    let html = '<div class="rf-tree">';
+
+    for (const [rule, centralMap] of ruleMap.entries()) {
+      const allAlarmsForRule = [...centralMap.values()].flatMap((atoms) => atoms.map((a) => a.alarm));
+      const sev   = worstSeverity(allAlarmsForRule);
+      const st    = worstState(allAlarmsForRule);
+      const occ   = totalOcc(allAlarmsForRule);
+      const sCfg  = severityCfg(sev);
+      const stCfg = stateCfg(st);
+      const isRuleOpen = this.ruleFirstOpenRules.has(rule);
+      const escRule = this.esc(rule);
+      const ruleKey = rule;
+
+      html += `
+        <div class="rf-rule">
+          <button class="rf-rule-header" data-rf-toggle="rule" data-rf-key="${escRule}" aria-expanded="${isRuleOpen}">
+            <span class="rf-chevron${isRuleOpen ? ' rf-chevron--open' : ''}">›</span>
+            <span class="rf-sev-dot" style="background:${sCfg.border}" title="${sCfg.label}"></span>
+            <span class="rf-rule-name">${escRule}</span>
+            <span class="rf-badge rf-badge--sev" style="background:${sCfg.bg};color:${sCfg.text}">${sCfg.icon} ${sCfg.label}</span>
+            <span class="rf-badge rf-badge--state" style="background:${stCfg.color}20;color:${stCfg.color}">${stCfg.label}</span>
+            <span class="rf-badge rf-badge--count">${occ} ocorr.</span>
+            <span class="rf-badge rf-badge--groups">${centralMap.size} grupo${centralMap.size !== 1 ? 's' : ''}</span>
+          </button>
+          <div class="rf-rule-body" data-rf-rule-body="${escRule}" ${isRuleOpen ? '' : 'hidden'}>`;
+
+      for (const [central, atoms] of centralMap.entries()) {
+        const groupAlarms = atoms.map((a) => a.alarm);
+        const gSev  = worstSeverity(groupAlarms);
+        const gSt   = worstState(groupAlarms);
+        const gOcc  = totalOcc(groupAlarms);
+        const gSCfg = severityCfg(gSev);
+        const gStCfg = stateCfg(gSt);
+        const groupKey = `${ruleKey}||${central}`;
+        const isGroupOpen = this.ruleFirstOpenGroups.has(groupKey);
+        const escCentral = this.esc(central);
+        const escGroupKey = this.esc(groupKey);
+
+        // Unique devices in this group
+        const deviceMap = new Map<string, Atom[]>();
+        for (const atom of atoms) {
+          if (!deviceMap.has(atom.device)) deviceMap.set(atom.device, []);
+          deviceMap.get(atom.device)!.push(atom);
+        }
+
+        html += `
+            <div class="rf-group">
+              <button class="rf-group-header" data-rf-toggle="group" data-rf-key="${escGroupKey}" aria-expanded="${isGroupOpen}">
+                <span class="rf-chevron${isGroupOpen ? ' rf-chevron--open' : ''}">›</span>
+                <span class="rf-group-icon">🏢</span>
+                <span class="rf-group-name">${escCentral}</span>
+                <span class="rf-badge rf-badge--sev" style="background:${gSCfg.bg};color:${gSCfg.text}">${gSCfg.icon} ${gSCfg.label}</span>
+                <span class="rf-badge rf-badge--state" style="background:${gStCfg.color}20;color:${gStCfg.color}">${gStCfg.label}</span>
+                <span class="rf-badge rf-badge--count">${gOcc} ocorr.</span>
+                <span class="rf-badge rf-badge--devs">${deviceMap.size} disp.</span>
+              </button>
+              <div class="rf-group-body" data-rf-group-body="${escGroupKey}" ${isGroupOpen ? '' : 'hidden'}>
+                <div class="rf-device-list">`;
+
+        for (const [device, devAtoms] of deviceMap.entries()) {
+          const devAlarms = devAtoms.map((a) => a.alarm);
+          const dSev   = worstSeverity(devAlarms);
+          const dSt    = worstState(devAlarms);
+          const dOcc   = totalOcc(devAlarms);
+          const dSCfg  = severityCfg(dSev);
+          const dStCfg = stateCfg(dSt);
+          const lastOcc = devAlarms.reduce(
+            (max, a) => (!max || (a.lastOccurrence && a.lastOccurrence > max) ? a.lastOccurrence : max),
+            devAlarms[0].lastOccurrence
+          );
+
+          html += `
+                  <div class="rf-device-row">
+                    <span class="rf-sev-dot rf-sev-dot--sm" style="background:${dSCfg.border}" title="${dSCfg.label}"></span>
+                    <span class="rf-device-name">${this.esc(device || 'Sem Dispositivo')}</span>
+                    <span class="rf-badge rf-badge--state" style="background:${dStCfg.color}20;color:${dStCfg.color}">${dStCfg.label}</span>
+                    <span class="rf-badge rf-badge--count">${dOcc}×</span>
+                    <span class="rf-device-last">${fmtDt(lastOcc)}</span>
+                  </div>`;
+        }
+
+        html += `
+                </div>
+              </div>
+            </div>`;
+      }
+
+      html += `
+          </div>
+        </div>`;
+    }
+
+    html += '</div>';
+    return html;
   }
 
   // =====================================================================

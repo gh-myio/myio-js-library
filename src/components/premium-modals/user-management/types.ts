@@ -59,7 +59,7 @@ export interface UserManagementConfig {
   tbBaseUrl: string;
   currentUser: TBCurrentUser;
   onClose: () => void;
-  theme: 'light' | 'dark';
+  theme?: 'light' | 'dark';
 }
 
 /** Builds the dynamic tab label: "FIRSTNAME L." — uppercase */

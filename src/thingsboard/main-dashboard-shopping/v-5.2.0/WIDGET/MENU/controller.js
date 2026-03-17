@@ -470,7 +470,7 @@ self.onInit = function () {
           background: #FFFFFF;
           border-radius: 16px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-          width: min(400px, 90vw);
+          width: min(640px, 90vw);
           max-height: 90vh;
           overflow: hidden;
           transform: translateY(10px) scale(0.98);
@@ -511,8 +511,8 @@ self.onInit = function () {
         }
         .myio-conf-picker__body {
           padding: 16px;
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
           gap: 10px;
         }
         .myio-settings-option {
@@ -574,6 +574,7 @@ self.onInit = function () {
     if (existingModal) existingModal.remove();
 
     const isSuperAdmin = window.MyIOUtils?.SuperAdmin === true;
+    const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
 
     const modal = topDoc.createElement('div');
     modal.id = 'myio-conf-picker';
@@ -582,7 +583,7 @@ self.onInit = function () {
       <div class="myio-conf-picker__overlay"></div>
       <div class="myio-conf-picker__content">
         <div class="myio-conf-picker__header">
-          <h3>⚙️ Configurações</h3>
+          <h3>⚙️ Configurações${customerName ? ` — ${customerName}` : ''}</h3>
           <button class="myio-conf-picker__close" aria-label="Fechar">&times;</button>
         </div>
         <div class="myio-conf-picker__body">
@@ -722,6 +723,8 @@ self.onInit = function () {
     const customerId = orch?.customerTB_ID || user?.customerId?.id;
     if (!customerId) { window.alert('ID do cliente não encontrado.'); return; }
 
+    const customerName = orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
+
     const tbBase = self.ctx?.settings?.tbBaseUrl || '';
 
     // ── CSS ──────────────────────────────────────────────────────────────────
@@ -735,9 +738,12 @@ self.onInit = function () {
         .mdd-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .mdd-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(1080px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
         .mdd-overlay.show .mdd-card{transform:translateY(0) scale(1)}
-        .mdd-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,#3E1A7D,#6A2FC0);color:#fff;flex-shrink:0}
-        .mdd-header h3{margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
-        .mdd-close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:4px;transition:background .15s}.mdd-close:hover{background:rgba(255,255,255,.15)}
+        .mdd-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;background:#3e1a7d;color:#fff;flex-shrink:0}
+        .mdd-header h3{margin:0;font-size:18px;font-weight:600;color:#fff}
+        .mdd-header-actions{display:flex;align-items:center;gap:8px}
+        .mdd-maximize{background:none;border:none;cursor:pointer;color:#fff;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px}.mdd-maximize:hover{background:rgba(255,255,255,.1)}
+        .mdd-close{background:none;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px}.mdd-close:hover{background:rgba(255,255,255,.1)}
+        .mdd-card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
         .mdd-body{overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
         .mdd-section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
         .mdd-section-title{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase}
@@ -831,8 +837,13 @@ self.onInit = function () {
       <div class="mdd-bg"></div>
       <div class="mdd-card">
         <div class="mdd-header">
-          <h3>🏠 Dashboard Padrão</h3>
-          <button class="mdd-close" aria-label="Fechar">&times;</button>
+          <h3>🏠 Dashboard Padrão${customerName ? ` — ${customerName}` : ''}</h3>
+          <div class="mdd-header-actions">
+            <button class="mdd-maximize" aria-label="Maximizar" title="Maximizar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+            <button class="mdd-close" aria-label="Fechar">&times;</button>
+          </div>
         </div>
         <div class="mdd-body">
           <div class="mdd-section">
@@ -870,6 +881,9 @@ self.onInit = function () {
     modal.querySelector('.mdd-bg').addEventListener('click', closeModal);
     modal.querySelector('.mdd-close').addEventListener('click', closeModal);
     modal.querySelector('.mdd-cancel-btn').addEventListener('click', closeModal);
+    modal.querySelector('.mdd-maximize').addEventListener('click', () => {
+      modal.querySelector('.mdd-card').classList.toggle('is-maximized');
+    });
 
     const escHandler = (e) => {
       if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); }
@@ -1561,9 +1575,17 @@ self.onInit = function () {
       token: jwtToken,
       customerId: customerId,
       customerName: customerName,
-      theme: 'dark',
+      theme: 'light',
+      isSuperAdmin: window.MyIOUtils?.SuperAdmin || false,
       onSave: (settings) => {
         LogHelper.log('[MENU] Temperature settings saved:', settings);
+        // Update in-memory clamp range when superadmin saves new values
+        if (settings.temperatureClampMin !== undefined && settings.temperatureClampMax !== undefined) {
+          window.MyIOUtils.temperatureClampRange = {
+            min: settings.temperatureClampMin,
+            max: settings.temperatureClampMax,
+          };
+        }
         window.dispatchEvent(new CustomEvent('myio:temperature-settings-updated', { detail: settings }));
       },
       onClose: () => LogHelper.log('[MENU] Temperature settings modal closed'),
@@ -1648,6 +1670,7 @@ self.onInit = function () {
       token: jwtToken,
       customerId: customerId,
       existingSettings: existingSettings,
+      userName: user?.firstName || user?.email || '',
       onSave: (settings) => {
         LogHelper.log('[MENU] Measurement settings saved:', settings);
         if (window.MyIOUtils?.updateMeasurementSettings) {
@@ -1962,6 +1985,7 @@ self.onInit = function () {
         token: jwtToken,
         customerId: customerId,
         existingSettings: existingSettings,
+        userName: user?.firstName || user?.email || '',
         onSave: (settings) => {
           LogHelper.log('[MENU] Measurement settings saved:', settings);
           // RFC-0108: Update MyIOUtils shared settings directly

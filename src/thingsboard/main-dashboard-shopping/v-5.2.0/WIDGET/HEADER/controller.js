@@ -1324,6 +1324,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     window.addEventListener('myio:alarms-updated', (e) => {
       _updateAlarmNotifBadge(e.detail?.count ?? 0);
     });
+    // Seed badge if myio:alarms-updated already fired before this listener was registered
+    const _cachedAlarmCount = window.MyIOOrchestrator?.customerAlarms?.length ?? 0;
+    if (_cachedAlarmCount > 0) _updateAlarmNotifBadge(_cachedAlarmCount);
 
     // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates
