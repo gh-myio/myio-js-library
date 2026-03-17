@@ -87,6 +87,7 @@
       position: relative;
       overflow: hidden;
       background: var(--myio-bg);
+      height: 100%; /* required: grid items need explicit height for children's height:100% to resolve */
     }
 
     .widget-mount {
@@ -298,9 +299,10 @@
     }
 
     /* ===== ALARM WIDGET AREA ===== */
-    /* Alarm section must be a bounded flex column so the panel can scroll internally */
+    /* alarm_content [data-content-state] is shown as display:flex → alarm-section flex-fills it */
     .myio-alarm-section {
-      height: 100%;
+      flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -1669,7 +1671,9 @@
       const targetState = stateMap[tab] || 'telemetry_content';
       const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
       if (targetEl) {
-        targetEl.style.display = 'block';
+        // alarm_content needs flex to propagate height into the scroll chain
+        targetEl.style.display = tab === 'alarms' ? 'flex' : 'block';
+        if (tab === 'alarms') targetEl.style.flexDirection = 'column';
         targetEl.querySelector('.placeholder-component')?.classList.add('active');
       }
 

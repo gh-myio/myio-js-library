@@ -289,6 +289,45 @@ const STYLES = `
     flex: 1; min-width: 0; resize: vertical;
     font-family: inherit; line-height: 1.4;
   }
+  /* Override value chip in por-regra device row */
+  #${MODAL_ID} .abm-override-value {
+    font-size: 12px; font-weight: 600; color: #e67e22;
+    background: #fef3e8; border-radius: 4px; padding: 1px 6px;
+  }
+  /* Confirmation modal — value edit overwrite warning */
+  .abm-confirm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    z-index: 99999; display: flex; align-items: center; justify-content: center;
+    font-family: 'Roboto', Inter, system-ui, -apple-system, sans-serif;
+  }
+  .abm-confirm-modal {
+    background: #fff; border-radius: 10px; width: min(420px, 94vw);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25); overflow: hidden;
+  }
+  .abm-confirm-warning-bar { height: 4px; background: #f59e0b; }
+  .abm-confirm-body { display: flex; gap: 14px; padding: 20px 20px 16px; }
+  .abm-confirm-icon { font-size: 22px; flex-shrink: 0; line-height: 1.3; }
+  .abm-confirm-content { flex: 1; min-width: 0; }
+  .abm-confirm-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+  .abm-confirm-text { font-size: 13px; color: #374151; line-height: 1.5; margin-bottom: 8px; }
+  .abm-confirm-text--sub { color: #6b7280; font-size: 12px; margin-bottom: 0; }
+  .abm-confirm-rule-name {
+    font-size: 13px; font-weight: 600; color: #1a1a1a;
+    background: #f8faf9; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;
+  }
+  .abm-confirm-footer {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    padding: 14px 20px; background: #fafafa; border-top: 1px solid #e8ecef;
+  }
+  .abm-confirm-btn {
+    border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .abm-confirm-btn--cancel { background: #f1f3f5; color: #374151; }
+  .abm-confirm-btn--cancel:hover { background: #e2e8f0; }
+  .abm-confirm-btn--confirm { background: #e67e22; color: #fff; }
+  .abm-confirm-btn--confirm:hover { background: #cf6d17; }
 `;
 
 // ============================================================================
@@ -313,6 +352,40 @@ function escHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function showConfirmModal(
+  title: string,
+  body: string,
+  ruleName: string,
+  confirmLabel: string,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'abm-confirm-overlay';
+    overlay.innerHTML = `
+      <div class="abm-confirm-modal">
+        <div class="abm-confirm-warning-bar"></div>
+        <div class="abm-confirm-body">
+          <div class="abm-confirm-icon">⚠️</div>
+          <div class="abm-confirm-content">
+            <div class="abm-confirm-title">${escHtml(title)}</div>
+            <div class="abm-confirm-text">${escHtml(body)}</div>
+            <div class="abm-confirm-rule-name">${escHtml(ruleName)}</div>
+          </div>
+        </div>
+        <div class="abm-confirm-footer">
+          <button type="button" class="abm-confirm-btn abm-confirm-btn--cancel">Cancelar</button>
+          <button type="button" class="abm-confirm-btn abm-confirm-btn--confirm">${escHtml(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    const close = (result: boolean) => { overlay.remove(); resolve(result); };
+    overlay.querySelector('.abm-confirm-btn--cancel')!.addEventListener('click', () => close(false));
+    overlay.querySelector('.abm-confirm-btn--confirm')!.addEventListener('click', () => close(true));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+    document.body.appendChild(overlay);
+  });
 }
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -529,6 +602,11 @@ function openFullRuleEdit(
         <span class="abm-ef-label">Descrição</span>
         <textarea class="abm-ef-input abm-ef-input--desc" id="abm-ef-desc" rows="2">${escHtml(rule.description ?? '')}</textarea>
       </div>
+      <div class="abm-ef-row">
+        <span class="abm-ef-label">Valor</span>
+        <input class="abm-ef-input abm-ef-input--value" id="abm-ef-value" type="number" step="any" value="${rule.value}" />
+        <span style="font-size:11px;color:#888;">${escHtml(rule.metric)} ${escHtml(OPERATOR_LABELS[rule.operator] ?? rule.operator)}</span>
+      </div>
       ${rule.startAt !== undefined || rule.endAt !== undefined ? `
       <div class="abm-ef-row">
         <span class="abm-ef-label">Horário</span>
@@ -583,6 +661,10 @@ function openFullRuleEdit(
     const startInput = form.querySelector('#abm-ef-start') as HTMLInputElement | null;
     const endInput   = form.querySelector('#abm-ef-end')   as HTMLInputElement | null;
     const descInput  = form.querySelector('#abm-ef-desc')  as HTMLTextAreaElement | null;
+    const valueInput = form.querySelector('#abm-ef-value') as HTMLInputElement | null;
+
+    const newValue = valueInput ? parseFloat(valueInput.value) : rule.value;
+    if (valueInput && isNaN(newValue)) { showError('Valor inválido.'); return; }
 
     if (startInput && endInput && startInput.value && endInput.value) {
       if (endInput.value < startInput.value) {
@@ -598,10 +680,29 @@ function openFullRuleEdit(
       }
     }
 
+    // If value changed, check for existing device overrides and warn
+    if (newValue !== rule.value) {
+      const overrideDevices = bundle.devices.filter((d) =>
+        (d.ruleIds ?? []).some((rid) => {
+          const r = bundle.rules[rid];
+          return r && r.parentRuleId === rule.id;
+        })
+      );
+      if (overrideDevices.length > 0) {
+        const confirmed = await showConfirmModal(
+          'Atenção — Sobrescrita de Override de Dispositivo',
+          `${overrideDevices.length} dispositivo(s) possuem override de valor para esta regra. Alterar o valor base irá sobrescrever esses overrides.`,
+          rule.name,
+          'Confirmar e Alterar',
+        );
+        if (!confirmed) { saveBtn.disabled = false; return; }
+      }
+    }
+
     const newAlarmConfig: Record<string, unknown> = {
       metric: rule.metric,
       operator: rule.operator,
-      value: rule.value,
+      value: newValue,
     };
     if (startInput) newAlarmConfig.startAt = startInput.value || rule.startAt;
     if (endInput)   newAlarmConfig.endAt   = endInput.value   || rule.endAt;
@@ -626,6 +727,7 @@ function openFullRuleEdit(
       const updatedRule: GCDRBundleRule = {
         ...rule,
         description: newDescription || undefined,
+        value: newValue,
         startAt: (newAlarmConfig.startAt as string | undefined) ?? rule.startAt,
         endAt:   (newAlarmConfig.endAt   as string | undefined) ?? rule.endAt,
         daysOfWeek: rule.daysOfWeek ? ({ ...editDays } as Record<string, boolean>) : rule.daysOfWeek,
@@ -646,12 +748,13 @@ function openFullRuleEdit(
 // ============================================================================
 
 async function restoreRuleOverride(
-  ruleItem: HTMLElement,
+  container: HTMLElement,  // .abm-rule-item (granular) or .abm-rule-group-device (por-regra)
   rule: GCDRBundleRule,
   device: GCDRBundleDevice,
   bundle: GCDRCustomerBundle,
   gcdrTenantId: string,
   baseUrl: string,
+  isDeviceRow = false,
 ): Promise<void> {
   const toast = (window as unknown as Record<string, unknown>).MyIOLibrary as
     | { MyIOToast?: { success: (msg: string, dur?: number) => void; error: (msg: string, dur?: number) => void } }
@@ -678,13 +781,17 @@ async function restoreRuleOverride(
     }
     delete bundle.rules[rule.id];
 
-    // Refresh chips from base rule
-    const baseRule = bundle.rules[rule.parentRuleId!];
-    const detailEl = ruleItem.querySelector('.abm-rule-detail') as HTMLElement | null;
-    if (detailEl && baseRule) detailEl.innerHTML = renderRuleChips(baseRule);
-
-    // Hide restore button, hide override badge
-    ruleItem.querySelectorAll('.abm-restore-btn, .abm-override-badge').forEach((el) => el.remove());
+    if (isDeviceRow) {
+      // Por-regra device row: remove override indicators
+      container.querySelectorAll('.abm-restore-btn, .abm-override-badge, .abm-override-value')
+        .forEach((el) => el.remove());
+    } else {
+      // Granular: refresh chips from base rule
+      const baseRule = bundle.rules[rule.parentRuleId!];
+      const detailEl = container.querySelector('.abm-rule-detail') as HTMLElement | null;
+      if (detailEl && baseRule) detailEl.innerHTML = renderRuleChips(baseRule);
+      container.querySelectorAll('.abm-restore-btn, .abm-override-badge').forEach((el) => el.remove());
+    }
 
     toast?.MyIOToast?.success(`Override removido. Valor padrão restaurado.`, 4000);
 
@@ -716,8 +823,10 @@ function bindRuleEditEvents(
       const device = bundle.devices.find((d) => d.id === deviceId);
       if (!rule || !device) return;
       const ruleItem = restoreBtn.closest<HTMLElement>('.abm-rule-item');
-      if (!ruleItem) return;
-      await restoreRuleOverride(ruleItem, rule, device, bundle, gcdrTenantId, baseUrl);
+      const deviceRow = restoreBtn.closest<HTMLElement>('.abm-rule-group-device');
+      const container = ruleItem ?? deviceRow;
+      if (!container) return;
+      await restoreRuleOverride(container, rule, device, bundle, gcdrTenantId, baseUrl, !!deviceRow);
       return;
     }
 
@@ -805,13 +914,23 @@ function renderByRuleView(bundle: GCDRCustomerBundle): string {
           ${renderRuleDetailContent(baseRule)}
         </div>
         <ul class="abm-rule-group-devices">
-          ${devs.map((d) => `
+          ${devs.map((d) => {
+            const overrideRule = (d.ruleIds ?? [])
+              .map((rid) => rules[rid])
+              .find((r): r is GCDRBundleRule => !!r && r.parentRuleId === baseRuleId);
+            const overridePart = overrideRule
+              ? `<span class="abm-override-badge">override</span>
+                 <span class="abm-override-value">${escHtml(overrideRule.metric)} ${escHtml(OPERATOR_LABELS[overrideRule.operator] ?? overrideRule.operator)} ${overrideRule.value}</span>
+                 <button class="abm-restore-btn" data-restore-rule="${escHtml(overrideRule.id)}" data-device-id="${escHtml(d.id)}" title="Restaurar valor padrão da regra">↩</button>`
+              : '';
+            return `
             <li class="abm-rule-group-device" data-device-id="${escHtml(d.id)}">
               <span style="font-size:13px;">📡</span>
               <span>${escHtml(d.displayName || d.name)}</span>
               <span style="font-size:11px;color:#888;">${escHtml(d.type)}</span>
-            </li>
-          `).join('')}
+              ${overridePart}
+            </li>`;
+          }).join('')}
         </ul>
       </div>
     `;
