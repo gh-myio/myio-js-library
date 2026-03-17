@@ -2945,10 +2945,14 @@ function _openPresetupModal() {
   }
   const s = self.ctx.settings || {};
   const gatewayId = s.presetupGatewayId || '';
-  const clientId = s.presetupClientId || '';
-  const clientSecret = s.presetupClientSecret || '';
+
+  // Fallback: use credentials already loaded by MAIN_VIEW into MyIOOrchestrator
+  const orchCreds = window.MyIOOrchestrator?.getCredentials?.() || {};
+  const clientId = s.presetupClientId || orchCreds.CLIENT_ID || '';
+  const clientSecret = s.presetupClientSecret || orchCreds.CLIENT_SECRET || '';
+
   if (!gatewayId || !clientId || !clientSecret) {
-    _openPresetupConfigPrompt(s, (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
+    _openPresetupConfigPrompt(s, clientId, clientSecret, (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
       _launchPresetupGateway(lib, s, resolvedGatewayId, resolvedClientId, resolvedClientSecret);
     });
     return;
@@ -2990,14 +2994,60 @@ function _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret) {
   });
 }
 
-function _openPresetupConfigPrompt(s, onConfirm) {
+function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onConfirm) {
+  // Collect unique centralIds: first from MAIN_VIEW orchestrator, fallback to local STATE
+  const orchCentralIds = window.MyIOOrchestrator?.centralIds || [];
+  const localCentralIds = STATE.itemsBase
+    ? [...new Set(STATE.itemsBase.map(i => i.centralId).filter(Boolean))].sort()
+    : [];
+  const centralIds = orchCentralIds.length ? orchCentralIds : localCentralIds;
+
+  const inputStyle = 'display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;';
+  const labelStyle = 'font-size:12px;color:#555;font-weight:600;';
+
+  // Build Gateway ID field: select when centralIds available, plain input otherwise
+  const gwPreset = (s.presetupGatewayId || '').replace(/"/g, '&quot;');
+  const gwIsPreset = !!s.presetupGatewayId;
+
+  let gatewayField;
+  if (centralIds.length > 0) {
+    const options = centralIds.map(id => {
+      const sel = id === gwPreset ? ' selected' : '';
+      return `<option value="${id}"${sel}>${id}</option>`;
+    }).join('');
+    gatewayField = `
+      <label style="${labelStyle}">Gateway ID (Central)
+        <select id="_psgw" style="${inputStyle}background:#fff;cursor:pointer;">
+          <option value="">— selecione —</option>
+          ${options}
+          <option value="__outro__"${!gwIsPreset && gwPreset ? ' selected' : ''}>Outro…</option>
+        </select>
+      </label>
+      <div id="_psgwCustomWrap" style="display:${!gwIsPreset && gwPreset ? 'block' : 'none'};">
+        <label style="${labelStyle}">Gateway ID (manual)
+          <input id="_psgwCustom" type="text" value="${!gwIsPreset ? gwPreset : ''}" placeholder="UUID do gateway" autocomplete="off"
+            style="${inputStyle}" />
+        </label>
+      </div>`;
+  } else {
+    gatewayField = `
+      <label style="${labelStyle}">Gateway ID
+        <input id="_psgw" type="text" value="${gwPreset}" placeholder="UUID do gateway" autocomplete="off"
+          style="${inputStyle}" />
+      </label>`;
+  }
+
+  const ciVal = (prefillClientId || '').replace(/"/g, '&quot;');
+  const csVal = (prefillClientSecret || '').replace(/"/g, '&quot;');
+  const hasCredentials = !!(prefillClientId && prefillClientSecret);
+
   const overlay = document.createElement('div');
   overlay.style.cssText =
     'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
   const card = document.createElement('div');
   card.style.cssText =
-    'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
+    'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
 
   card.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;">
@@ -3005,22 +3055,19 @@ function _openPresetupConfigPrompt(s, onConfirm) {
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="#c0392b" stroke="none"/>
       </svg>
       <div>
-        <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração incompleta</p>
-        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Configure presetupGatewayId, presetupClientId e presetupClientSecret nas configurações do widget, ou preencha abaixo para continuar.</p>
+        <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração do Gateway</p>
+        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Selecione ou informe o Gateway ID para continuar.${hasCredentials ? ' Credenciais carregadas automaticamente.' : ''}</p>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;">
-      <label style="font-size:12px;color:#555;font-weight:600;">Gateway ID
-        <input id="_psgw" type="text" value="${(s.presetupGatewayId || '').replace(/"/g, '&quot;')}" placeholder="UUID do gateway" autocomplete="off"
-          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
+      ${gatewayField}
+      <label style="${labelStyle}">Client ID${hasCredentials ? ' <span style="color:#16a34a;font-weight:400;">(preenchido)</span>' : ''}
+        <input id="_psci" type="text" value="${ciVal}" placeholder="client_id" autocomplete="off"
+          style="${inputStyle}${hasCredentials ? 'background:#f0fdf4;border-color:#86efac;' : ''}" />
       </label>
-      <label style="font-size:12px;color:#555;font-weight:600;">Client ID
-        <input id="_psci" type="text" value="${(s.presetupClientId || '').replace(/"/g, '&quot;')}" placeholder="client_id" autocomplete="off"
-          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
-      </label>
-      <label style="font-size:12px;color:#555;font-weight:600;">Client Secret
-        <input id="_pscs" type="password" value="${(s.presetupClientSecret || '').replace(/"/g, '&quot;')}" placeholder="client_secret"
-          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;" />
+      <label style="${labelStyle}">Client Secret${hasCredentials ? ' <span style="color:#16a34a;font-weight:400;">(preenchido)</span>' : ''}
+        <input id="_pscs" type="password" value="${csVal}" placeholder="client_secret"
+          style="${inputStyle}${hasCredentials ? 'background:#f0fdf4;border-color:#86efac;' : ''}" />
       </label>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
@@ -3034,22 +3081,46 @@ function _openPresetupConfigPrompt(s, onConfirm) {
     if (e.target === overlay) overlay.remove();
   });
 
+  // Show/hide custom input when "Outro…" selected
+  const gwSelect = card.querySelector('#_psgw');
+  if (gwSelect && gwSelect.tagName === 'SELECT') {
+    gwSelect.addEventListener('change', () => {
+      const wrap = card.querySelector('#_psgwCustomWrap');
+      if (wrap) wrap.style.display = gwSelect.value === '__outro__' ? 'block' : 'none';
+    });
+  }
+
   card.querySelector('#_psCancelBtn').onclick = () => overlay.remove();
   card.querySelector('#_psConfirmBtn').onclick = () => {
-    const gw = card.querySelector('#_psgw').value.trim();
+    let gw;
+    if (gwSelect && gwSelect.tagName === 'SELECT') {
+      gw = gwSelect.value === '__outro__'
+        ? (card.querySelector('#_psgwCustom')?.value.trim() || '')
+        : gwSelect.value.trim();
+    } else {
+      gw = gwSelect?.value.trim() || '';
+    }
     const ci = card.querySelector('#_psci').value.trim();
     const cs = card.querySelector('#_pscs').value.trim();
     if (!gw || !ci || !cs) {
-      card.querySelectorAll('input').forEach((inp) => {
-        inp.style.borderColor = inp.value.trim() ? '#ddd' : '#c0392b';
-      });
+      if (!gw) {
+        if (gwSelect) gwSelect.style.borderColor = '#c0392b';
+        const custom = card.querySelector('#_psgwCustom');
+        if (custom && !custom.value.trim()) custom.style.borderColor = '#c0392b';
+      }
+      if (!ci) card.querySelector('#_psci').style.borderColor = '#c0392b';
+      if (!cs) card.querySelector('#_pscs').style.borderColor = '#c0392b';
       return;
     }
     overlay.remove();
     onConfirm(gw, ci, cs);
   };
 
-  setTimeout(() => card.querySelector('#_psgw').focus(), 50);
+  // Focus first incomplete field
+  setTimeout(() => {
+    const firstEmpty = card.querySelector('select,input');
+    if (firstEmpty) firstEmpty.focus();
+  }, 50);
 }
 
 /** ===================== UI BINDINGS ===================== **/

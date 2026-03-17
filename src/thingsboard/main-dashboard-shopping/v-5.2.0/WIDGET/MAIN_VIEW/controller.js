@@ -3297,6 +3297,17 @@ function populateState(domain, items, periodKey) {
     });
   }
 
+  // Expose unique centralIds from all domains for child widgets (e.g. PresetupGateway)
+  if (window.MyIOOrchestrator) {
+    const allRaw = [
+      ...(window.STATE.energy?._raw || []),
+      ...(window.STATE.water?._raw  || []),
+      ...(window.STATE.temperature?._raw || []),
+    ];
+    const centralIdSet = new Set(allRaw.map(i => i.centralId).filter(Boolean));
+    window.MyIOOrchestrator.centralIds = Array.from(centralIdSet).sort();
+  }
+
   // Emit state-ready event for widgets that prefer to read from STATE
   window.dispatchEvent(
     new CustomEvent('myio:state:ready', {

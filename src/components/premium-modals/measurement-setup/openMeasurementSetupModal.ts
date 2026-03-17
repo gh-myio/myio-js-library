@@ -46,6 +46,7 @@ export async function openMeasurementSetupModal(
   // Create view
   const view = new MeasurementSetupView({
     styles: params.styles,
+    userName: params.userName,
     onSave: async () => {
       const formData = view.getFormData();
       const settings = persister.formDataToSettings(formData, existingSettings);

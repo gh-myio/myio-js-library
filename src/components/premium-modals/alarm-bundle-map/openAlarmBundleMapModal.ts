@@ -246,6 +246,49 @@ const STYLES = `
   #${MODAL_ID} .abm-ef-error {
     font-size: 11px; color: #c0392b; font-weight: 600;
   }
+  #${MODAL_ID} .abm-view-toggle {
+    display: flex; gap: 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; overflow: hidden;
+    margin-left: auto; flex-shrink: 0;
+  }
+  #${MODAL_ID} .abm-view-btn {
+    background: none; border: none; color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600;
+    padding: 5px 12px; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;
+  }
+  #${MODAL_ID} .abm-view-btn.active { background: rgba(255,255,255,0.25); color: #fff; }
+  #${MODAL_ID} .abm-view-btn:hover:not(.active) { background: rgba(255,255,255,0.1); color: #fff; }
+  #${MODAL_ID} .abm-restore-btn {
+    background: none; border: none; cursor: pointer; font-size: 13px;
+    padding: 2px 4px; border-radius: 4px; color: #e67e22; line-height: 1;
+    flex-shrink: 0; transition: background 0.12s;
+    title: "Restaurar valor padrão";
+  }
+  #${MODAL_ID} .abm-restore-btn:hover { background: #fef0e4; }
+  #${MODAL_ID} .abm-override-badge {
+    font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+    background: #e67e22; color: #fff; letter-spacing: 0.03em;
+  }
+  #${MODAL_ID} .abm-rule-group {
+    border: 1px solid #e0eceb; border-radius: 10px; margin-bottom: 16px; overflow: hidden;
+  }
+  #${MODAL_ID} .abm-rule-group-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #f0f9f7; border-bottom: 1px solid #e0eceb;
+  }
+  #${MODAL_ID} .abm-rule-group-name { flex: 1; font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  #${MODAL_ID} .abm-rule-group-devices { padding: 0; list-style: none; margin: 0; }
+  #${MODAL_ID} .abm-rule-group-device {
+    padding: 8px 14px; border-bottom: 1px solid #f0f4f3;
+    font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px;
+  }
+  #${MODAL_ID} .abm-rule-group-device:last-child { border-bottom: none; }
+  #${MODAL_ID} .abm-rule-description {
+    font-size: 12px; color: #777; font-style: italic;
+    margin: 2px 0 6px; line-height: 1.4;
+  }
+  #${MODAL_ID} .abm-ef-input--desc {
+    flex: 1; min-width: 0; resize: vertical;
+    font-family: inherit; line-height: 1.4;
+  }
 `;
 
 // ============================================================================
@@ -297,6 +340,14 @@ function renderDaysOfWeek(daysOfWeek?: Record<string, boolean>): string {
   }).join('');
 }
 
+/** Returns description line + chips, used for both initial render and post-save restore. */
+function renderRuleDetailContent(rule: GCDRBundleRule): string {
+  const desc = rule.description
+    ? `<div class="abm-rule-description">${escHtml(rule.description)}</div>`
+    : '';
+  return desc + renderRuleChips(rule);
+}
+
 function renderRuleChips(rule: GCDRBundleRule): string {
   const op = OPERATOR_LABELS[rule.operator] ?? rule.operator;
   const dur = formatDuration(rule.duration);
@@ -314,25 +365,34 @@ function renderRuleChips(rule: GCDRBundleRule): string {
   return chips + days;
 }
 
-function renderRule(rule: GCDRBundleRule): string {
+function renderRule(rule: GCDRBundleRule, device?: GCDRBundleDevice, viewMode: 'granular' | 'por-regra' = 'granular'): string {
+  const isOverride = !!rule.parentRuleId;
+  const overrideBadge = isOverride ? `<span class="abm-override-badge">override</span>` : '';
+  const restoreBtn = isOverride && viewMode === 'granular'
+    ? `<button class="abm-restore-btn" data-restore-rule="${escHtml(rule.id)}" data-parent-rule="${escHtml(rule.parentRuleId!)}" data-device-id="${escHtml(device?.id ?? '')}" title="Restaurar valor padrão da regra">↩</button>`
+    : '';
   return `
-    <li class="abm-rule-item" data-rule-id="${escHtml(rule.id)}">
+    <li class="abm-rule-item" data-rule-id="${escHtml(rule.id)}" data-device-id="${escHtml(device?.id ?? '')}">
       <div class="abm-rule-name">
-        <span>🔔 ${escHtml(rule.name)}</span>
-        <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(rule.id)}" title="Editar regra">✏️</button>
+        <span>🔔 ${escHtml(rule.name)} ${overrideBadge}</span>
+        <span style="display:flex;align-items:center;gap:4px;">
+          ${restoreBtn}
+          <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(rule.id)}" title="Editar regra">✏️</button>
+        </span>
       </div>
-      <div class="abm-rule-detail">${renderRuleChips(rule)}</div>
+      <div class="abm-rule-detail">${renderRuleDetailContent(rule)}</div>
     </li>
   `;
 }
 
 // ============================================================================
-// Inline rule editing
+// Inline rule editing — Granular (value-only override)
 // ============================================================================
 
-function openInlineRuleEdit(
+function openGranularValueEdit(
   ruleItem: HTMLElement,
   rule: GCDRBundleRule,
+  device: GCDRBundleDevice,
   bundle: GCDRCustomerBundle,
   gcdrTenantId: string,
   baseUrl: string,
@@ -340,16 +400,9 @@ function openInlineRuleEdit(
   const detailEl = ruleItem.querySelector('.abm-rule-detail') as HTMLElement | null;
   if (!detailEl) return;
 
-  // Snapshot original chips HTML so we can restore on cancel
   const originalChipsHtml = detailEl.innerHTML;
-
-  // Local state for day toggles
-  const editDays: Record<string, boolean> = { ...rule.daysOfWeek };
-
-  const dayBtns = Object.entries(DAY_NAMES).map(([key, label]) => {
-    const on = editDays[key] === true;
-    return `<button class="abm-ef-day-btn ${on ? 'on' : ''}" data-day-key="${key}" type="button">${label}</button>`;
-  }).join('');
+  const baseRuleId = rule.parentRuleId ?? rule.id;
+  const isOverride = !!rule.parentRuleId;
 
   const formHtml = `
     <div class="abm-edit-form">
@@ -358,6 +411,123 @@ function openInlineRuleEdit(
         <input class="abm-ef-input abm-ef-input--value" id="abm-ef-value"
           type="number" step="any" value="${rule.value}" />
         <span style="font-size:11px;color:#888;">${escHtml(rule.metric)} ${escHtml(OPERATOR_LABELS[rule.operator] ?? rule.operator)} <strong id="abm-ef-value-preview">${rule.value}</strong></span>
+      </div>
+      <div class="abm-ef-actions">
+        <span class="abm-ef-error" id="abm-ef-error" style="display:none;"></span>
+        <button class="abm-ef-cancel-btn" id="abm-ef-cancel" type="button">Cancelar</button>
+        <button class="abm-ef-save-btn"   id="abm-ef-save"   type="button">Salvar override</button>
+      </div>
+    </div>
+  `;
+
+  detailEl.innerHTML = formHtml;
+  const form = detailEl.querySelector('.abm-edit-form') as HTMLElement;
+
+  const valueInput = form.querySelector('#abm-ef-value') as HTMLInputElement;
+  const valuePreview = form.querySelector('#abm-ef-value-preview') as HTMLElement | null;
+  valueInput?.addEventListener('input', () => {
+    if (valuePreview) valuePreview.textContent = valueInput.value;
+  });
+
+  form.querySelector('#abm-ef-cancel')?.addEventListener('click', () => {
+    detailEl.innerHTML = originalChipsHtml;
+  });
+
+  const saveBtn = form.querySelector('#abm-ef-save') as HTMLButtonElement;
+  const errorEl = form.querySelector('#abm-ef-error') as HTMLElement;
+
+  const toast = (window as unknown as Record<string, unknown>).MyIOLibrary as
+    | { MyIOToast?: { success: (msg: string, dur?: number) => void; error: (msg: string, dur?: number) => void } }
+    | undefined;
+
+  const showError = (msg: string) => {
+    errorEl.textContent = msg;
+    errorEl.style.display = '';
+    saveBtn.disabled = false;
+  };
+
+  saveBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    const newValue = parseFloat(valueInput.value);
+    if (isNaN(newValue)) { showError('Valor inválido.'); return; }
+
+    saveBtn.disabled = true;
+    try {
+      const resp = await fetch(
+        `${baseUrl}/api/v1/rules/${encodeURIComponent(baseRuleId)}/overrides/${encodeURIComponent(device.id)}`,
+        {
+          method: 'PUT',
+          headers: {
+            'X-API-Key': GCDR_INTEGRATION_API_KEY,
+            'X-Tenant-ID': gcdrTenantId,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ value: newValue }),
+        },
+      );
+      if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+
+      // Update in-memory: the override rule gets the new value
+      const overrideId = isOverride ? rule.id : `${baseRuleId}_${device.id}`;
+      const updatedRule: GCDRBundleRule = {
+        ...(bundle.rules[overrideId] ?? rule),
+        id: overrideId,
+        value: newValue,
+        parentRuleId: baseRuleId,
+      };
+      bundle.rules[overrideId] = updatedRule;
+
+      // Update device ruleIds so next render reflects override
+      if (!isOverride) {
+        const dev = bundle.devices.find((d) => d.id === device.id);
+        if (dev?.ruleIds) {
+          const idx = dev.ruleIds.indexOf(rule.id);
+          if (idx >= 0) dev.ruleIds[idx] = overrideId;
+        }
+      }
+
+      detailEl.innerHTML = renderRuleChips(updatedRule)
+        + `<span class="abm-override-badge">override</span>`;
+      toast?.MyIOToast?.success(`Override de valor criado para "${rule.name}".`, 4000);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showError(msg);
+    }
+  });
+}
+
+// ============================================================================
+// Inline rule editing — Por Regra (time + days on base rule)
+// ============================================================================
+
+function openFullRuleEdit(
+  ruleItemOrDetail: HTMLElement,
+  rule: GCDRBundleRule,
+  bundle: GCDRCustomerBundle,
+  gcdrTenantId: string,
+  baseUrl: string,
+): void {
+  // Accept either a .abm-rule-item (granular) or a .abm-rule-detail (por-regra group header)
+  const detailEl = (ruleItemOrDetail.classList.contains('abm-rule-detail')
+    ? ruleItemOrDetail
+    : ruleItemOrDetail.querySelector('.abm-rule-detail')) as HTMLElement | null;
+  if (!detailEl) return;
+
+  const originalChipsHtml = detailEl.innerHTML;
+  const editDays: Record<string, boolean> = { ...(rule.daysOfWeek ?? {}) };
+
+  const dayBtns = Object.entries(DAY_NAMES).map(([key, label]) => {
+    const on = editDays[key] === true;
+    return `<button class="abm-ef-day-btn ${on ? 'on' : ''}" data-day-key="${key}" type="button">${label}</button>`;
+  }).join('');
+
+  const formHtml = `
+    <div class="abm-edit-form">
+      <div class="abm-ef-row" style="align-items:flex-start;">
+        <span class="abm-ef-label">Descrição</span>
+        <textarea class="abm-ef-input abm-ef-input--desc" id="abm-ef-desc" rows="2">${escHtml(rule.description ?? '')}</textarea>
       </div>
       ${rule.startAt !== undefined || rule.endAt !== undefined ? `
       <div class="abm-ef-row">
@@ -380,17 +550,8 @@ function openInlineRuleEdit(
   `;
 
   detailEl.innerHTML = formHtml;
-
   const form = detailEl.querySelector('.abm-edit-form') as HTMLElement;
 
-  // Live value preview
-  const valueInput = form.querySelector('#abm-ef-value') as HTMLInputElement;
-  const valuePreview = form.querySelector('#abm-ef-value-preview') as HTMLElement | null;
-  valueInput?.addEventListener('input', () => {
-    if (valuePreview) valuePreview.textContent = valueInput.value;
-  });
-
-  // Day toggle buttons
   form.querySelectorAll<HTMLButtonElement>('.abm-ef-day-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.getAttribute('data-day-key')!;
@@ -399,12 +560,10 @@ function openInlineRuleEdit(
     });
   });
 
-  // Cancel
   form.querySelector('#abm-ef-cancel')?.addEventListener('click', () => {
     detailEl.innerHTML = originalChipsHtml;
   });
 
-  // Save
   const saveBtn = form.querySelector('#abm-ef-save') as HTMLButtonElement;
   const errorEl = form.querySelector('#abm-ef-error') as HTMLElement;
 
@@ -421,28 +580,19 @@ function openInlineRuleEdit(
   saveBtn.addEventListener('click', async () => {
     errorEl.style.display = 'none';
 
-    // --- Validation: value ---
-    const newValue = parseFloat(valueInput.value);
-    if (isNaN(newValue)) {
-      showError('Valor inválido.');
-      return;
-    }
-
     const startInput = form.querySelector('#abm-ef-start') as HTMLInputElement | null;
     const endInput   = form.querySelector('#abm-ef-end')   as HTMLInputElement | null;
+    const descInput  = form.querySelector('#abm-ef-desc')  as HTMLTextAreaElement | null;
 
-    // --- Validation: end time >= start time ---
     if (startInput && endInput && startInput.value && endInput.value) {
       if (endInput.value < startInput.value) {
-        showError('Horário de fim deve ser maior ou igual ao horário de início.');
+        showError('Horário de fim deve ser maior ou igual ao de início.');
         return;
       }
     }
 
-    // --- Validation: at least one day selected (only when rule has daysOfWeek) ---
     if (rule.daysOfWeek) {
-      const anyDayOn = Object.values(editDays).some(Boolean);
-      if (!anyDayOn) {
+      if (!Object.values(editDays).some(Boolean)) {
         showError('Selecione ao menos um dia da semana.');
         return;
       }
@@ -451,81 +601,157 @@ function openInlineRuleEdit(
     const newAlarmConfig: Record<string, unknown> = {
       metric: rule.metric,
       operator: rule.operator,
-      value: newValue,
+      value: rule.value,
     };
-    if (startInput)  newAlarmConfig.startAt = startInput.value || rule.startAt;
-    if (endInput)    newAlarmConfig.endAt   = endInput.value   || rule.endAt;
+    if (startInput) newAlarmConfig.startAt = startInput.value || rule.startAt;
+    if (endInput)   newAlarmConfig.endAt   = endInput.value   || rule.endAt;
     if (rule.daysOfWeek) newAlarmConfig.daysOfWeek = { ...editDays };
 
+    const newDescription = descInput ? descInput.value.trim() : rule.description;
+
     saveBtn.disabled = true;
-
     try {
-      // Prefer orchestrator PATCH (carries proper auth); fall back to direct fetch
-      const orch = (window as unknown as Record<string, unknown>).MyIOOrchestrator as
-        | { gcdrPatchRuleValue?: (ruleId: string, config: unknown) => Promise<unknown> }
-        | undefined;
+      const resp = await fetch(`${baseUrl}/api/v1/rules/${encodeURIComponent(rule.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'X-API-Key': GCDR_INTEGRATION_API_KEY,
+          'X-Tenant-ID': gcdrTenantId,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ alarmConfig: newAlarmConfig, description: newDescription }),
+      });
+      if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
 
-      if (orch?.gcdrPatchRuleValue) {
-        await orch.gcdrPatchRuleValue(rule.id, newAlarmConfig);
-      } else {
-        const resp = await fetch(`${baseUrl}/api/v1/rules/${encodeURIComponent(rule.id)}`, {
-          method: 'PATCH',
-          headers: {
-            'X-API-Key': GCDR_INTEGRATION_API_KEY,
-            'X-Tenant-ID': gcdrTenantId,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({ alarmConfig: newAlarmConfig }),
-        });
-        if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
-      }
-
-      // Update in-memory rule so the view stays consistent
       const updatedRule: GCDRBundleRule = {
         ...rule,
-        value: newValue,
+        description: newDescription || undefined,
         startAt: (newAlarmConfig.startAt as string | undefined) ?? rule.startAt,
         endAt:   (newAlarmConfig.endAt   as string | undefined) ?? rule.endAt,
         daysOfWeek: rule.daysOfWeek ? ({ ...editDays } as Record<string, boolean>) : rule.daysOfWeek,
       };
       bundle.rules[rule.id] = updatedRule;
-
-      // Restore chips with updated values
-      detailEl.innerHTML = renderRuleChips(updatedRule);
-
-      toast?.MyIOToast?.success(`Regra "${rule.name}" atualizada com sucesso.`, 4000);
+      detailEl.innerHTML = renderRuleDetailContent(updatedRule);
+      toast?.MyIOToast?.success(`Regra "${rule.name}" atualizada.`, 4000);
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       showError(msg);
-      toast?.MyIOToast?.error(`Erro ao salvar regra "${rule.name}": ${msg}`, 6000);
     }
   });
 }
+
+// ============================================================================
+// Restore override → DELETE
+// ============================================================================
+
+async function restoreRuleOverride(
+  ruleItem: HTMLElement,
+  rule: GCDRBundleRule,
+  device: GCDRBundleDevice,
+  bundle: GCDRCustomerBundle,
+  gcdrTenantId: string,
+  baseUrl: string,
+): Promise<void> {
+  const toast = (window as unknown as Record<string, unknown>).MyIOLibrary as
+    | { MyIOToast?: { success: (msg: string, dur?: number) => void; error: (msg: string, dur?: number) => void } }
+    | undefined;
+
+  try {
+    const resp = await fetch(
+      `${baseUrl}/api/v1/rules/${encodeURIComponent(rule.parentRuleId!)}/overrides/${encodeURIComponent(device.id)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'X-API-Key': GCDR_INTEGRATION_API_KEY,
+          'X-Tenant-ID': gcdrTenantId,
+        },
+      },
+    );
+    if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+
+    // Revert device ruleId to parent
+    const dev = bundle.devices.find((d) => d.id === device.id);
+    if (dev?.ruleIds) {
+      const idx = dev.ruleIds.indexOf(rule.id);
+      if (idx >= 0) dev.ruleIds[idx] = rule.parentRuleId!;
+    }
+    delete bundle.rules[rule.id];
+
+    // Refresh chips from base rule
+    const baseRule = bundle.rules[rule.parentRuleId!];
+    const detailEl = ruleItem.querySelector('.abm-rule-detail') as HTMLElement | null;
+    if (detailEl && baseRule) detailEl.innerHTML = renderRuleChips(baseRule);
+
+    // Hide restore button, hide override badge
+    ruleItem.querySelectorAll('.abm-restore-btn, .abm-override-badge').forEach((el) => el.remove());
+
+    toast?.MyIOToast?.success(`Override removido. Valor padrão restaurado.`, 4000);
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    toast?.MyIOToast?.error?.(`Erro ao restaurar override: ${msg}`, 6000);
+  }
+}
+
+// ============================================================================
+// Event binding
+// ============================================================================
 
 function bindRuleEditEvents(
   card: HTMLElement,
   bundle: GCDRCustomerBundle,
   gcdrTenantId: string,
   baseUrl: string,
+  getViewMode: () => 'granular' | 'por-regra',
 ): void {
-  card.addEventListener('click', (e) => {
+  card.addEventListener('click', async (e) => {
+    // Restore override
+    const restoreBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-restore-rule]');
+    if (restoreBtn) {
+      const ruleId = restoreBtn.getAttribute('data-restore-rule');
+      const deviceId = restoreBtn.getAttribute('data-device-id');
+      if (!ruleId || !deviceId) return;
+      const rule = bundle.rules[ruleId];
+      const device = bundle.devices.find((d) => d.id === deviceId);
+      if (!rule || !device) return;
+      const ruleItem = restoreBtn.closest<HTMLElement>('.abm-rule-item');
+      if (!ruleItem) return;
+      await restoreRuleOverride(ruleItem, rule, device, bundle, gcdrTenantId, baseUrl);
+      return;
+    }
+
+    // Edit rule
     const editBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-edit-rule]');
     if (!editBtn) return;
     const ruleId = editBtn.getAttribute('data-edit-rule');
     if (!ruleId) return;
     const rule = bundle.rules[ruleId];
     if (!rule) return;
+
+    const viewMode = getViewMode();
+
+    if (viewMode === 'por-regra') {
+      const ruleGroup = editBtn.closest<HTMLElement>('.abm-rule-group');
+      if (!ruleGroup) return;
+      const ruleDetailEl = ruleGroup.querySelector<HTMLElement>(`[data-rule-id="${CSS.escape(ruleId)}"]`);
+      if (!ruleDetailEl || ruleDetailEl.querySelector('.abm-edit-form')) return;
+      openFullRuleEdit(ruleDetailEl, rule, bundle, gcdrTenantId, baseUrl);
+      return;
+    }
+
+    // Granular view — edit is inside .abm-rule-item
     const ruleItem = editBtn.closest<HTMLElement>('.abm-rule-item');
     if (!ruleItem) return;
-    // Prevent double-opening
-    if (ruleItem.querySelector('.abm-edit-form')) return;
-    openInlineRuleEdit(ruleItem, rule, bundle, gcdrTenantId, baseUrl);
+    if (ruleItem.querySelector('.abm-edit-form')) return; // already open
+    const deviceId = ruleItem.getAttribute('data-device-id');
+    const device = bundle.devices.find((d) => d.id === deviceId);
+    if (!device) return;
+    openGranularValueEdit(ruleItem, rule, device, bundle, gcdrTenantId, baseUrl);
   });
 }
 
-function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundleRule>): string {
+function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundleRule>, viewMode: 'granular' | 'por-regra' = 'granular'): string {
   const deviceRules = (device.ruleIds ?? [])
     .map((rid) => rules[rid])
     .filter(Boolean) as GCDRBundleRule[];
@@ -539,7 +765,7 @@ function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundle
       </div>
       <ul class="abm-rule-list">
         ${deviceRules.length > 0
-          ? deviceRules.map(renderRule).join('')
+          ? deviceRules.map((r) => renderRule(r, device, viewMode)).join('')
           : `<li class="abm-rule-item" style="color:#888;">Sem regras associadas</li>`
         }
       </ul>
@@ -547,7 +773,53 @@ function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundle
   `;
 }
 
-function renderBundle(bundle: GCDRCustomerBundle): string {
+function renderByRuleView(bundle: GCDRCustomerBundle): string {
+  const { devices, rules } = bundle;
+  if (devices.length === 0) return '<div class="abm-empty-box">Nenhum dispositivo com regras configuradas.</div>';
+
+  // Build base-rule → devices mapping
+  const ruleDevicesMap = new Map<string, GCDRBundleDevice[]>();
+  for (const device of devices) {
+    for (const ruleId of (device.ruleIds ?? [])) {
+      const rule = rules[ruleId];
+      if (!rule) continue;
+      const baseId = rule.parentRuleId ?? rule.id;
+      if (!ruleDevicesMap.has(baseId)) ruleDevicesMap.set(baseId, []);
+      const arr = ruleDevicesMap.get(baseId)!;
+      if (!arr.includes(device)) arr.push(device);
+    }
+  }
+
+  let groups = '';
+  for (const [baseRuleId, devs] of ruleDevicesMap) {
+    const baseRule = rules[baseRuleId];
+    if (!baseRule) continue;
+    groups += `
+      <div class="abm-rule-group">
+        <div class="abm-rule-group-header">
+          <span style="font-size:16px;">🔔</span>
+          <span class="abm-rule-group-name">${escHtml(baseRule.name)}</span>
+          <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(baseRuleId)}" title="Editar dias/horário">✏️</button>
+        </div>
+        <div class="abm-rule-detail" style="padding:8px 14px;" data-rule-id="${escHtml(baseRuleId)}">
+          ${renderRuleDetailContent(baseRule)}
+        </div>
+        <ul class="abm-rule-group-devices">
+          ${devs.map((d) => `
+            <li class="abm-rule-group-device" data-device-id="${escHtml(d.id)}">
+              <span style="font-size:13px;">📡</span>
+              <span>${escHtml(d.displayName || d.name)}</span>
+              <span style="font-size:11px;color:#888;">${escHtml(d.type)}</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  }
+  return groups;
+}
+
+function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-regra' = 'granular'): string {
   const { customer, assets, devices, rules } = bundle;
 
   const deviceCount = devices.length;
@@ -590,6 +862,17 @@ function renderBundle(bundle: GCDRCustomerBundle): string {
     || (customer as { name?: string }).name
     || 'Cliente';
 
+  if (viewMode === 'por-regra') {
+    return `
+      <div class="abm-summary-bar">
+        <div class="abm-summary-item"><div class="abm-summary-num">${deviceCount}</div><div class="abm-summary-label">Dispositivos</div></div>
+        <div class="abm-summary-item"><div class="abm-summary-num">${ruleCount}</div><div class="abm-summary-label">Regras</div></div>
+        <div class="abm-summary-item"><div class="abm-summary-num">${assets.length}</div><div class="abm-summary-label">Assets</div></div>
+      </div>
+      ${renderByRuleView(bundle)}
+    `;
+  }
+
   let groups = '';
   for (const [assetId, devs] of byAsset) {
     const asset = assetMap.get(assetId);
@@ -597,7 +880,7 @@ function renderBundle(bundle: GCDRCustomerBundle): string {
     groups += `
       <div class="abm-asset-group">
         <div class="abm-asset-label">🏗️ ${escHtml(assetLabel)}</div>
-        ${devs.map((d) => renderDevice(d, rules)).join('')}
+        ${devs.map((d) => renderDevice(d, rules, viewMode)).join('')}
       </div>
     `;
   }
@@ -605,7 +888,7 @@ function renderBundle(bundle: GCDRCustomerBundle): string {
     groups += `
       <div class="abm-asset-group">
         <div class="abm-asset-label">— Sem Asset</div>
-        ${noAsset.map((d) => renderDevice(d, rules)).join('')}
+        ${noAsset.map((d) => renderDevice(d, rules, viewMode)).join('')}
       </div>
     `;
   }
@@ -709,8 +992,17 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
     if (e.target === overlay) closeModal();
   });
 
-  // ---- Render skeleton ----
-  function render(bodyHtml: string, subtitle = ''): void {
+  // ---- View mode state ----
+  let viewMode: 'granular' | 'por-regra' = 'granular';
+
+  // ---- Render skeleton (called initially and on view toggle) ----
+  function render(bodyHtml: string, subtitle = '', showToggle = false): void {
+    const toggleHtml = showToggle ? `
+      <div class="abm-view-toggle">
+        <button class="abm-view-btn ${viewMode === 'granular' ? 'active' : ''}" data-view="granular">Por Dispositivo</button>
+        <button class="abm-view-btn ${viewMode === 'por-regra' ? 'active' : ''}" data-view="por-regra">Por Regra</button>
+      </div>
+    ` : '';
     card.innerHTML = `
       <div class="abm-header">
         <div class="abm-header-icon">🔗</div>
@@ -718,6 +1010,7 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
           <p class="abm-header-title">Mapa de Alarmes GCDR</p>
           ${subtitle ? `<p class="abm-header-sub">${escHtml(subtitle)}</p>` : ''}
         </div>
+        ${toggleHtml}
         <button class="abm-close-btn" id="abm-close-btn" title="Fechar">✕</button>
       </div>
       <div class="abm-body">${bodyHtml}</div>
@@ -742,8 +1035,23 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
       || (bundle.customer as { name?: string }).name
       || '';
 
-    render(renderBundle(bundle), customerName);
-    bindRuleEditEvents(card, bundle, params.gcdrTenantId, baseUrl);
+    const rerenderBundle = () => {
+      render(renderBundle(bundle, viewMode), customerName, true);
+      bindRuleEditEvents(card, bundle, params.gcdrTenantId, baseUrl, () => viewMode);
+
+      // Wire view toggle buttons
+      card.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const newMode = btn.getAttribute('data-view') as 'granular' | 'por-regra';
+          if (newMode === viewMode) return;
+          viewMode = newMode;
+          rerenderBundle();
+        });
+      });
+    };
+
+    rerenderBundle();
+
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     render(`

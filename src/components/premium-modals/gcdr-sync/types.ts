@@ -207,6 +207,8 @@ export interface GCDRBundleDevice {
 export interface GCDRBundleRule {
   id: string;
   name: string;
+  /** Human-readable description of the rule */
+  description?: string;
   scope: { type: string; entityId: string; inherited?: boolean };
   metric: string;
   operator: string;
@@ -217,6 +219,8 @@ export interface GCDRBundleRule {
   endAt?: string;
   daysOfWeek?: Record<string, boolean>;
   keyMulti?: number;
+  /** Present when this rule is a device-specific value override; points to the base rule ID */
+  parentRuleId?: string;
 }
 
 export interface GCDRCustomerBundle {

@@ -40,6 +40,7 @@ let _activationHandler      = null;
 let _activeFilters          = {}; // { from?, to? }
 let _closedAlarmsMode       = false; // true = fetch CLOSED alarms (history mode)
 let _closedAlarmsHandler    = null;
+let _alarmsUpdatedHandler   = null;
 
 let LogHelper = {
   log:   (...a) => {},
@@ -160,13 +161,21 @@ self.onInit = async function () {
   };
   window.addEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
 
-  // NOTE: myio:alarms-updated is NOT handled here.
-  // The ALARM widget fetches directly from the API on its own timer (_refreshTimer).
-  // Reacting to myio:alarms-updated would create a loop:
+  // myio:alarms-updated — injected directly from MAIN_VIEW when it detects alarm changes.
+  // We only call updateAlarms() here (NOT _fetchAndUpdate / ASO.refresh) to avoid a loop:
   //   _fetchAndUpdate → ASO.refresh() → myio:alarms-updated → _fetchAndUpdate → …
+  _alarmsUpdatedHandler = (ev) => {
+    if (_closedAlarmsMode) return; // closed-alarms view manages its own data
+    const alarms = ev.detail?.alarms;
+    if (Array.isArray(alarms)) {
+      LogHelper.log('myio:alarms-updated → injecting', alarms.length, 'alarms into panel');
+      _panelInstance?.updateAlarms?.(alarms);
+    }
+  };
+  window.addEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
 
-  // --- Label ---
-  const labelEl = document.getElementById('labelWidgetId');
+  // --- Label (scoped to this widget's container to avoid clobbering other widgets) ---
+  const labelEl = self.ctx?.$container?.[0]?.querySelector?.('#labelWidgetId');
   if (labelEl) labelEl.textContent = labelWidget;
 
   // --- RFC-0180: GCDR IDs are resolved by MAIN_VIEW and stored in window.MyIOOrchestrator ---
@@ -318,6 +327,10 @@ self.onDestroy = function () {
   if (_closedAlarmsHandler) {
     window.removeEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
     _closedAlarmsHandler = null;
+  }
+  if (_alarmsUpdatedHandler) {
+    window.removeEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
+    _alarmsUpdatedHandler = null;
   }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);
