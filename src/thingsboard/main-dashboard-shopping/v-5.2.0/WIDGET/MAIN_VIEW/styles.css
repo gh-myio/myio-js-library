@@ -115,6 +115,24 @@
   height: 100%;
   min-height: 400px;
 }
+
+/* ---- Alarm widget: restaura flex chain que é quebrada pelo display:block acima ----
+   tb-dynamic-component > * { display: block } tem especificidade 1,2,2 e sobrescreve
+   .alarm-widget-root { display: flex } (0,1,0) do ALARM/styles.css.
+   !important é necessário aqui para garantir que o flex layout do painel funcione
+   e o scroll vertical interno seja ativado corretamente. */
+#myio-root .myio-content .alarm-widget-root {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+/* .tb-child { overflow: auto } faria o wrapper do TB scrollar ao invés do panel.
+   Para o alarm_content, o scroll deve ser gerenciado internamente pelo painel. */
+#myio-root .myio-content [data-content-state="alarm_content"] .tb-child {
+  overflow: hidden;
+}
 #myio-root .myio-footer .tb-child {
   /* Remove o padding padrão do Gridster */
   padding: 0 !important;
