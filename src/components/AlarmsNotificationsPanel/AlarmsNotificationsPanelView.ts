@@ -216,12 +216,7 @@ export class AlarmsNotificationsPanelView {
           </button>
         </div>
 
-        <div class="alarms-hierarchy-toggle" role="group" aria-label="Modo de hierarquia">
-          <button class="alarms-hierarchy-btn${this.hierarchyMode === 'groupFirst' ? ' is-active' : ''}" data-hierarchy-mode="groupFirst" title="Visão por Grupo › Dispositivo">Grupo › Disp.</button>
-          <button class="alarms-hierarchy-btn${this.hierarchyMode === 'ruleFirst' ? ' is-active' : ''}" data-hierarchy-mode="ruleFirst" title="Visão por Regra › Grupo › Dispositivo">Regras › Grupo › Disp.</button>
-        </div>
-
-        <div class="alarms-group-toggle${this.hierarchyMode === 'ruleFirst' ? ' alarms-group-toggle--hidden' : ''}" role="group" aria-label="Modo de agrupamento">
+        <div class="alarms-group-toggle" role="group" aria-label="Modo de agrupamento">
           <button class="alarms-group-btn${isConsol ? ' is-active' : ''}" data-group-mode="consolidado" title="Por Tipo de Alarme — agrupa todas as ocorrências do mesmo tipo">Por Tipo</button>
           <button class="alarms-group-btn${isSep ? ' is-active' : ''}" data-group-mode="separado" title="Por Dispositivo - Tipo — um item por par dispositivo × tipo de alarme">Disp. + Tipo</button>
           <button class="alarms-group-btn${isPorDev ? ' is-active' : ''}" data-group-mode="porDispositivo" title="Por Dispositivo — um item por dispositivo com todos os tipos de alarme">Por Disp.</button>
@@ -1179,12 +1174,41 @@ export class AlarmsNotificationsPanelView {
   }
 
   private getCsvRows(): string[][] {
-    const hasCustomer = this.groupedAlarms.some((a) => !!a.customerName);
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '';
       const d = new Date(iso as string);
       return isNaN(d.getTime()) ? '' : d.toLocaleString('pt-BR');
     };
+
+    // Separado mode: one row per individual alarm event × device — no aggregation
+    if (this.groupMode === 'separado') {
+      const rawAlarms = this.controller.getState().filteredAlarms;
+      const hasCustomer = rawAlarms.some((a) => !!a.customerName);
+      const header = ['Tipo', 'Severidade', 'Estado', ...(hasCustomer ? ['Cliente'] : []), 'Dispositivo', '1a Ocorrência', 'Último Evento', 'Fechado em', 'Motivo'];
+      const rows: string[][] = [header];
+      for (const alarm of rawAlarms) {
+        const devices = alarm.source
+          ? alarm.source.split(',').map((s) => s.trim()).filter(Boolean)
+          : [''];
+        for (const device of devices) {
+          rows.push([
+            alarm.title || '',
+            alarm.severity,
+            alarm.state,
+            ...(hasCustomer ? [alarm.customerName || ''] : []),
+            device,
+            fmtDt(alarm.firstOccurrence),
+            fmtDt(alarm.lastOccurrence),
+            fmtDt(alarm.closedAt),
+            alarm.closedReason || '',
+          ]);
+        }
+      }
+      return rows;
+    }
+
+    // Consolidado / Por Dispositivo: aggregated rows
+    const hasCustomer = this.groupedAlarms.some((a) => !!a.customerName);
     const header = ['Tipo', 'Severidade', 'Estado', ...(hasCustomer ? ['Cliente'] : []), 'Fonte', 'Qte.', '1a Ocorrência', 'Últ. Ocorrência'];
     const dataRows = this.groupedAlarms.map((a) => [
       a.title || '',
