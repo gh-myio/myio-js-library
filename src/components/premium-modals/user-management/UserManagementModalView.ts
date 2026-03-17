@@ -17,6 +17,7 @@ interface TabEntry {
 
 export class UserManagementModalView {
   private config: UserManagementConfig;
+  private themeMode: 'light' | 'dark';
   private backdrop!: HTMLElement;
   private modalEl!: HTMLElement;
   private tabBarEl!: HTMLElement;
@@ -29,6 +30,7 @@ export class UserManagementModalView {
 
   constructor(config: UserManagementConfig) {
     this.config = config;
+    this.themeMode = config.theme ?? 'light';
   }
 
   render(): void {
@@ -55,9 +57,7 @@ export class UserManagementModalView {
   private buildDOM(): void {
     this.backdrop = document.createElement('div');
     this.backdrop.className = 'um-backdrop';
-    if (this.config.theme === 'dark') {
-      this.backdrop.setAttribute('data-theme', 'dark');
-    }
+    this.backdrop.setAttribute('data-theme', this.themeMode);
 
     this.modalEl = document.createElement('div');
     this.modalEl.className = 'um-modal';
@@ -68,26 +68,17 @@ export class UserManagementModalView {
     const header = document.createElement('div');
     header.className = 'um-modal-header';
     header.innerHTML = `
-      <div class="um-modal-header-left">
-        <span class="um-modal-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-        </span>
-        <span class="um-modal-title">Gestão de Usuários</span>
-        ${customerName ? `<span class="um-modal-subtitle">· ${this.esc(customerName)}</span>` : ''}
+      <h3 class="um-modal-title">Gestão de Usuários${customerName ? ` — ${this.esc(customerName)}` : ''}</h3>
+      <div class="um-modal-header-actions">
+        <button class="um-modal-maximize" title="Maximizar" aria-label="Maximizar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <button class="um-modal-close" title="Fechar">×</button>
       </div>
-      <button class="um-modal-close" title="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
     `;
+    header.querySelector('.um-modal-maximize')!.addEventListener('click', () => {
+      this.modalEl.classList.toggle('is-maximized');
+    });
     header.querySelector('.um-modal-close')!.addEventListener('click', () => this.close());
 
     // Tab bar
@@ -404,19 +395,27 @@ export class UserManagementModalView {
 
 .um-modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; border-bottom: 1px solid var(--um-border); flex-shrink: 0;
+  padding: 20px 24px; background: #3e1a7d; color: white; flex-shrink: 0;
 }
-.um-modal-header-left { display: flex; align-items: center; gap: 10px; }
-.um-modal-icon { color: var(--um-accent); display: flex; }
-.um-modal-title { font-size: 15px; font-weight: 600; color: var(--um-text-primary); }
-.um-modal-subtitle { font-size: 13px; color: var(--um-text-muted); }
+.um-modal-title { margin: 0; font-size: 18px; font-weight: 600; color: white; }
+.um-modal-header-actions { display: flex; align-items: center; gap: 8px; }
+.um-modal-maximize {
+  background: none; border: none; cursor: pointer; color: white;
+  padding: 0; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center; border-radius: 4px;
+}
+.um-modal-maximize:hover { background: rgba(255,255,255,0.1); }
 .um-modal-close {
-  background: none; border: none; cursor: pointer;
-  color: var(--um-text-muted); padding: 4px; border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  transition: color 0.15s, background 0.15s;
+  background: none; border: none; cursor: pointer; color: white;
+  font-size: 24px; padding: 0; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center; border-radius: 4px;
 }
-.um-modal-close:hover { color: var(--um-text-primary); background: var(--um-bg-surface); }
+.um-modal-close:hover { background: rgba(255,255,255,0.1); }
+.um-modal.is-maximized {
+  width: 100vw !important; max-width: 100vw !important;
+  height: 100vh !important; max-height: 100vh !important;
+  border-radius: 0; aspect-ratio: unset;
+}
 
 .um-tab-bar {
   display: flex; gap: 2px; padding: 0 16px;

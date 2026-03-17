@@ -87,6 +87,7 @@
       position: relative;
       overflow: hidden;
       background: var(--myio-bg);
+      height: 100%; /* required: grid items need explicit height for children's height:100% to resolve */
     }
 
     .widget-mount {
@@ -298,9 +299,10 @@
     }
 
     /* ===== ALARM WIDGET AREA ===== */
-    /* Alarm section must be a bounded flex column so the panel can scroll internally */
+    /* alarm_content [data-content-state] is shown as display:flex → alarm-section flex-fills it */
     .myio-alarm-section {
-      height: 100%;
+      flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -787,6 +789,27 @@
           3. Report mostra apenas o subconjunto:<br>
           &nbsp;&nbsp;&#x2022; temperature &#x203A; climatizavel &#x2192; 13 sensores (n&#xE3;o 99)<br>
           &nbsp;&nbsp;&#x2022; energy &#x203A; lojas &#x2192; apenas medidores 3F_MEDIDOR
+        </div>
+      </div>
+
+      <!-- RFC-0190: User Management Modal -->
+      <div class="controls-panel" id="userManagementControls">
+        <h3>&#x1F465; RFC-0190 Gest&#xE3;o de Usu&#xE1;rios</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Tenant ID (ThingsBoard)</label>
+          <input class="ctrl-select" id="umTenantId" type="text"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            style="font-family:monospace; font-size:10px;"
+            value="">
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" style="grid-column:1/-1" onclick="openUserManagementShowcase()">&#x1F465; Open Gest&#xE3;o de Usu&#xE1;rios</button>
+        </div>
+        <div style="margin-top:6px; padding:6px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:6px; font-size:10px; color:#c4b5fd; line-height:1.5">
+          <strong>RFC-0190 — User Management:</strong><br>
+          &#x2705; Requer Re-Auth (JWT token)<br>
+          &#x2705; Tema herdado automaticamente (light/dark)<br>
+          &#x2705; Customer: Moxuara (<code style="font-size:8.5px">_CUSTOMER_TB_ID</code>)
         </div>
       </div>
 
@@ -1648,7 +1671,9 @@
       const targetState = stateMap[tab] || 'telemetry_content';
       const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
       if (targetEl) {
-        targetEl.style.display = 'block';
+        // alarm_content needs flex to propagate height into the scroll chain
+        targetEl.style.display = tab === 'alarms' ? 'flex' : 'block';
+        if (tab === 'alarms') targetEl.style.flexDirection = 'column';
         targetEl.querySelector('.placeholder-component')?.classList.add('active');
       }
 
@@ -2483,6 +2508,36 @@
       } catch (err) {
         logEvent('ERROR', err.message, 'error');
         console.error('[Showcase] openAllReportShowcase error:', err);
+      }
+    }
+
+    // ===== USER MANAGEMENT RFC-0190 =====
+    function openUserManagementShowcase() {
+      if (typeof MyIOLibrary?.openUserManagementModal !== 'function') {
+        logEvent('ERROR', 'openUserManagementModal not in MyIOLibrary — rebuild', 'error');
+        return;
+      }
+      const token = ghostAuthToken || localStorage.getItem('jwt_token');
+      if (!token) {
+        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
+        return;
+      }
+      const tenantId = document.getElementById('umTenantId')?.value.trim() || '';
+      const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+      logEvent('USER-MGMT', `Opening (customer=${_CUSTOMER_TB_ID}, tenant=${tenantId || '(empty)'}, theme=${themeMode})`, 'info');
+      try {
+        MyIOLibrary.openUserManagementModal({
+          customerId:   _CUSTOMER_TB_ID,
+          tenantId:     tenantId,
+          customerName: 'Moxuara',
+          jwtToken:     token,
+          tbBaseUrl:    _TB_URL,
+          currentUser:  { id: '', email: _SERVICE_USER },
+          theme:        themeMode,
+        });
+      } catch (err) {
+        logEvent('ERROR', err.message, 'error');
+        console.error('[Showcase] openUserManagementShowcase error:', err);
       }
     }
 
