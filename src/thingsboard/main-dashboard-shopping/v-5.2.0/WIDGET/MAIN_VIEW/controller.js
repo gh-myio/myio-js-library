@@ -1353,6 +1353,14 @@ Object.assign(window.MyIOUtils, {
     // RFC-XXXX: Detect SuperAdmin early (async, non-blocking)
     detectSuperAdmin();
 
+    // Determine the initial tab to dispatch — use the first enabled domain so that
+    // water-only / temperature-only dashboards don't trigger an energy retry-loop.
+    const _initialTab =
+      widgetSettings.domainsEnabled?.energy       !== false ? 'energy' :
+      widgetSettings.domainsEnabled?.water        !== false ? 'water'  :
+      widgetSettings.domainsEnabled?.temperature  !== false ? 'temperature' : 'energy';
+    LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
+
     // Initialize MyIO Library and Authentication
     const MyIO =
       (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
@@ -1468,15 +1476,15 @@ Object.assign(window.MyIOUtils, {
           // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
           // This enables HEADER controls, even though data fetch will fail
           LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+            `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
           );
           setTimeout(() => {
             LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)'
+              `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no credentials)`
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' },
+                detail: { tab: _initialTab },
               })
             );
           }, 100);
@@ -1516,15 +1524,15 @@ Object.assign(window.MyIOUtils, {
           // Dispatch initial tab event AFTER credentials AND with delay
           // Delay ensures HEADER has time to register its listener
           LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+            `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
           );
           setTimeout(() => {
             LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)'
+              `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after credentials + delay)`
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' },
+                detail: { tab: _initialTab },
               })
             );
           }, 100);
@@ -1535,13 +1543,13 @@ Object.assign(window.MyIOUtils, {
         // RFC-0054 FIX: Dispatch initial tab event even on error (with delay)
         // This enables HEADER controls, even though data fetch will fail
         LogHelper.log(
-          '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+          `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
         );
         setTimeout(() => {
-          LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after error)');
+          LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after error)`);
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' },
+              detail: { tab: _initialTab },
             })
           );
         }, 100);
@@ -1552,13 +1560,13 @@ Object.assign(window.MyIOUtils, {
       // RFC-0054 FIX: Dispatch initial tab event even without MyIOLibrary (with delay)
       // This enables HEADER controls, even though data fetch will fail
       LogHelper.log(
-        '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+        `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
       );
       setTimeout(() => {
-        LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no MyIOLibrary)');
+        LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no MyIOLibrary)`);
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
-            detail: { tab: 'energy' },
+            detail: { tab: _initialTab },
           })
         );
       }, 100);
@@ -6319,6 +6327,13 @@ const MyIOOrchestrator = (() => {
       `[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority}, isRetry: ${!!isRetry})`
     );
 
+    // Skip disabled domains — prevents spurious retry loops when, e.g., an energy TELEMETRY
+    // widget or handleDataLoadError emits this event on a water-only/temperature-only dashboard.
+    if (widgetSettings.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[Orchestrator] ⏭️ Domain ${domain} is disabled (domainsEnabled), ignoring request`);
+      return;
+    }
+
     // Check if already loading
     if (OrchestratorState.loading[domain]) {
       LogHelper.log(`[Orchestrator] ⏳ Already loading ${domain}, adding to pending listeners`);
@@ -6741,8 +6756,16 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   // RFC-0130: Auto-trigger data fetch when both orchestrator is ready AND period is available
   // This solves the "data doesn't load automatically" issue
+  // FIX: do NOT fall back to 'energy' when no tab is visible yet — water-only/temperature-only
+  // customers would start an energy retry loop (handleDataLoadError → 15 retries × 20s timeout).
+  // myio:dashboard-state from MENU and myio:update-date from HEADER are the primary triggers
+  // and will fire shortly after, so skipping the auto-trigger here is safe.
   setTimeout(() => {
-    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.();
+    if (!domain) {
+      LogHelper.log('[Orchestrator] ⏳ RFC-0130: No visible tab yet, skipping auto-trigger (MENU will fire myio:dashboard-state)');
+      return;
+    }
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
 
     if (period) {
@@ -6767,8 +6790,10 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
 
   // RFC-0130: Auto-trigger for fallback case
+  // FIX: same as primary path — skip if no tab visible yet
   setTimeout(() => {
-    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.();
+    if (!domain) return;
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
 
     if (period) {
