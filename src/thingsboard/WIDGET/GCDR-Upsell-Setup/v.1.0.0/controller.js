@@ -1133,12 +1133,32 @@ self.onInit = function () {
     setStatus(upsellStatusEl, '', '');
     gcdrCustomerId = null;
 
-    // Fetch gcdrTenantId + gcdrCustomerId + gcdrApiKey from SERVER_SCOPE
+    // Fetch gcdrTenantId + gcdrCustomerId + gcdrApiKey from SERVER_SCOPE.
+    // Priority: integration_setup.gcdr (JSON attr) → individual attrs (gcdrTenantId / gcdrCustomerId / gcdrApiKey)
     try {
       const attrs = await guFetchCustomerServerScopeAttrs(c.id);
-      gcdrTenantId = attrs.gcdrTenantId ?? null;
-      gcdrApiKey = attrs.gcdrApiKey ?? null;
-      gcdrCustomerId = attrs.gcdrCustomerId || attrs.gcdrId || null;
+
+      // 1) Try integration_setup.gcdr first
+      let gcdrCfg = null;
+      const rawIntegration = attrs.integration_setup;
+      if (rawIntegration) {
+        try {
+          const parsed = typeof rawIntegration === 'string' ? JSON.parse(rawIntegration) : rawIntegration;
+          gcdrCfg = parsed?.gcdr ?? null;
+          if (gcdrCfg) console.log('[GU] GCDR config from integration_setup.gcdr:', gcdrCfg);
+        } catch (e) {
+          console.warn('[GU] Failed to parse integration_setup:', e);
+        }
+      }
+
+      // 2) Resolve values — integration_setup.gcdr wins; individual attrs as fallback
+      gcdrTenantId  = gcdrCfg?.gcdrTenantId  ?? attrs.gcdrTenantId  ?? null;
+      gcdrApiKey    = gcdrCfg?.gcdrApiKey     ?? attrs.gcdrApiKey    ?? null;
+      gcdrCustomerId = gcdrCfg?.gcdrCustomerId ?? attrs.gcdrCustomerId ?? attrs.gcdrId ?? null;
+
+      if (!gcdrCfg) {
+        console.log('[GU] integration_setup.gcdr not found — using individual SERVER_SCOPE attrs');
+      }
 
       if (gcdrTenantId) {
         setAttr(gcdrTenantEl, gcdrTenantId, 'success');
