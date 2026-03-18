@@ -155,8 +155,7 @@ export class ExclusionGroupsTab {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            exclude_groups_totals: newState,
-            lastUpdatedTime: Date.now(),
+            exclude_groups_totals: { ...newState, lastUpdatedTime: Date.now() },
           }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

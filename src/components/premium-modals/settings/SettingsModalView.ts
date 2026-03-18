@@ -226,7 +226,10 @@ export class SettingsModalView {
 
   // Exclusão de Grupos: Initialize the tab (energy domain only)
   private async initExclusionGroupsTab(): Promise<void> {
-    if (this.config.domain !== 'energy') return;
+    if (this.config.domain !== 'energy') {
+      this.modal.querySelector('[data-tab="exclusion-groups"]')?.remove();
+      return;
+    }
 
     const container = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
     if (!container) return;
