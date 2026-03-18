@@ -186,7 +186,7 @@ export class ExclusionGroupsTab {
       this.showMsg(msgEl, 'Erro ao salvar. Tente novamente.', '#dc2626');
       console.error('[ExclusionGroupsTab] Save failed:', err);
     } finally {
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Exclusões'; }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar'; }
     }
   }
 
@@ -250,7 +250,7 @@ export class ExclusionGroupsTab {
           </div>
           <div class="egt-group-list">
             ${GROUP_DEFINITIONS.map((g) =>
-              this.renderGroupRow(g.key, g.label, g.description, !!(s.groups as Record<string, boolean>)[g.key])
+              this.renderGroupRow(g.key, g.label, g.description, !!(s.groups as Record<string, boolean>)[g.key], gridDisabled)
             ).join('')}
           </div>
           <div class="egt-info-banner">
@@ -263,19 +263,19 @@ export class ExclusionGroupsTab {
         <div class="egt-footer">
           <span class="egt-save-msg" id="egt-save-msg" style="display:none;"></span>
           <button type="button" class="egt-btn-save" id="egt-save-btn">
-            Salvar Exclusões
+            Salvar
           </button>
         </div>
 
       </div>`;
   }
 
-  private renderGroupRow(key: string, label: string, description: string, excluded: boolean): string {
+  private renderGroupRow(key: string, label: string, description: string, excluded: boolean, disabled: boolean): string {
     const isAreaComum = key === 'area_comum';
     return `
       <div class="egt-group-row${excluded ? ' egt-group-row--checked' : ''}" data-group="${this.esc(key)}">
         <label class="egt-group-label">
-          <input type="checkbox" class="egt-group-check" data-group="${this.esc(key)}" ${excluded ? 'checked' : ''}>
+          <input type="checkbox" class="egt-group-check" data-group="${this.esc(key)}" ${excluded ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
           <div class="egt-group-info">
             <span class="egt-group-name">${this.esc(label)}</span>
             <span class="egt-group-desc">${this.esc(description)}</span>
@@ -296,12 +296,14 @@ export class ExclusionGroupsTab {
     // Master toggle — enable/disable the groups grid
     const enabledCb = c.querySelector<HTMLInputElement>('#egt-enabled');
     const groupsSection = c.querySelector<HTMLElement>('#egt-groups-section');
+    const groupCheckboxes = c.querySelectorAll<HTMLInputElement>('.egt-group-check');
     enabledCb?.addEventListener('change', () => {
       const on = enabledCb.checked;
       if (groupsSection) {
         groupsSection.style.opacity = on ? '1' : '0.45';
         groupsSection.style.pointerEvents = on ? '' : 'none';
       }
+      groupCheckboxes.forEach((cb) => { cb.disabled = !on; });
     });
 
     // Group checkboxes — visual feedback on rows
@@ -346,7 +348,9 @@ export class ExclusionGroupsTab {
       .egt-tab {
         display: flex;
         flex-direction: column;
-        min-height: 400px;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
       }
 
       .egt-section {
@@ -356,7 +360,7 @@ export class ExclusionGroupsTab {
       }
 
       .egt-section--groups {
-        flex: 1;
+        /* no overflow — modal-body handles scrolling */
       }
 
       .egt-section-header {
@@ -558,8 +562,7 @@ export class ExclusionGroupsTab {
         gap: 12px;
         border-top: 1px solid #e5e7eb;
         background: #fff;
-        position: sticky;
-        bottom: 0;
+        flex-shrink: 0;
       }
 
       .egt-save-msg {
