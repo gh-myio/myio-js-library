@@ -30,6 +30,64 @@ let currentDomain = {
   },
 };
 
+// RFC-0152: Suppress TB "No data to display on widget" overlay at MODULE SCOPE.
+// This runs even if onInit is never called (e.g., when TB datasource resolves to
+// 0 entities — ThingsBoard may skip onInit in that case, showing the overlay
+// which blocks the date-picker controls).
+(function suppressTbNoDataOverlayEarly() {
+  const styleId = 'myio-header-no-data-fix';
+  if (!document.getElementById(styleId)) {
+    const s = document.createElement('style');
+    s.id = styleId;
+    s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+    document.head.appendChild(s);
+    console.log('[HEADER] RFC-0152: No-data overlay suppressed (module scope)');
+  }
+})();
+
+// RFC-0152 FALLBACK: If ThingsBoard does not call onInit (empty datasource scenario),
+// this module-scope listener emits a default period when myio:dashboard-state arrives,
+// preventing the orchestrator from waiting 20s before its own fallback kicks in.
+// onInit sets window.__myioHeaderOnInitRan = true to disable this fallback.
+window.__myioHeaderOnInitRan = false;
+(function installHeaderFallbackPeriodEmitter() {
+  // Only install once (guard against multiple HEADER instances)
+  if (window.__myioHeaderFallbackInstalled) return;
+  window.__myioHeaderFallbackInstalled = true;
+
+  function _fallbackHandler(e) {
+    // Give onInit 800ms to mark itself as started
+    setTimeout(function () {
+      if (window.__myioHeaderOnInitRan) {
+        window.removeEventListener('myio:dashboard-state', _fallbackHandler);
+        return;
+      }
+      const domain = e && e.detail && e.detail.tab;
+      if (domain !== 'energy' && domain !== 'water') return;
+
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
+      const fallbackPeriod = {
+        startISO:    startDate.toISOString(),
+        endISO:      endDate.toISOString(),
+        granularity: 'day',
+        tz:          'America/Sao_Paulo',
+      };
+      window.__myioInitialPeriod = fallbackPeriod;
+      console.warn(
+        '[HEADER] ⚠️ RFC-0152 FALLBACK: onInit not called — emitting default period for domain:',
+        domain, fallbackPeriod
+      );
+      window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period: fallbackPeriod } }));
+      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
+    }, 800);
+  }
+
+  window.addEventListener('myio:dashboard-state', _fallbackHandler);
+  console.log('[HEADER] RFC-0152: Fallback period emitter installed (module scope)');
+})();
+
 /* ==== RFC-0107: Contract Status Icon Management ==== */
 
 /**
@@ -264,9 +322,12 @@ function setupTooltipPremium(target, text) {
 }
 
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
+  // Signal to the module-scope fallback emitter that onInit IS running
+  window.__myioHeaderOnInitRan = true;
+
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
-  // RFC-0152 FIX: Suppress ThingsBoard "No data to display on widget" overlay.
+  // RFC-0152 FIX: Suppress ThingsBoard "No data to display on widget" overlay (also runs at module scope).
   // HEADER does not consume TB datasource rows — it works entirely via custom window events.
   // For water-only / temperature-only customers the TB datasource may have 0 rows, causing
   // the overlay to cover the date-picker controls and make them inaccessible.
