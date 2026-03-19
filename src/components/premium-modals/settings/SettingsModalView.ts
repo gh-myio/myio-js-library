@@ -2,6 +2,7 @@ import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
+import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
 
@@ -19,7 +20,9 @@ export class SettingsModalView {
   private annotationsTab: AnnotationsTab | null = null;
   // RFC-0180: Alarms Tab
   private alarmsTab: AlarmsTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' = 'general';
+  // Exclusão de Grupos tab
+  private exclusionGroupsTab: ExclusionGroupsTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'exclusion-groups' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -104,6 +107,8 @@ export class SettingsModalView {
     this.initAnnotationsTab();
     // RFC-0180: Initialize alarms tab (async)
     this.initAlarmsTab();
+    // Exclusão de Grupos tab (async, energy domain only)
+    this.initExclusionGroupsTab();
     // RFC-0190: Initialize exclude groups section (async, energy only)
     if (this.config.domain === 'energy') {
       this.initExcludeGroupsSection();
@@ -219,8 +224,50 @@ export class SettingsModalView {
     }
   }
 
+  // Exclusão de Grupos: Initialize the tab (energy domain only)
+  private async initExclusionGroupsTab(): Promise<void> {
+    if (this.config.domain !== 'energy') {
+      this.modal.querySelector('[data-tab="exclusion-groups"]')?.remove();
+      return;
+    }
+
+    const container = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
+    if (!container) return;
+
+    const { deviceId, jwtToken, tbBaseUrl } = this.config;
+
+    if (!deviceId || !jwtToken) {
+      container.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    min-height:320px;padding:40px 24px;text-align:center;">
+          <div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:8px;">
+            Exclusão de grupos não disponível
+          </div>
+          <div style="font-size:13px;color:#9ca3af;max-width:320px;line-height:1.6;">
+            deviceId ou jwtToken não disponíveis para carregar configurações.
+          </div>
+        </div>`;
+      return;
+    }
+
+    try {
+      this.exclusionGroupsTab = new ExclusionGroupsTab({
+        container,
+        deviceId,
+        jwtToken,
+        tbBaseUrl: tbBaseUrl ?? window.location.origin,
+      });
+      await this.exclusionGroupsTab.init();
+      console.log('[SettingsModalView] ExclusionGroupsTab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize ExclusionGroupsTab:', error);
+      container.innerHTML =
+        '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar configurações de exclusão</p>';
+    }
+  }
+
   // RFC-0104 / RFC-0180: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations' | 'alarms'): void {
+  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'exclusion-groups'): void {
     this.currentTab = tab;
 
     // Update tab buttons
@@ -233,12 +280,14 @@ export class SettingsModalView {
     const generalContent = this.modal.querySelector('#general-tab-content') as HTMLElement;
     const annotationsContent = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
     const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
+    const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
+    if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
 
-    // Update footer Save button (only on General tab)
+    // Update footer Save button (only on General tab; all other tabs have own save)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
 
@@ -261,6 +310,12 @@ export class SettingsModalView {
     if (this.alarmsTab) {
       this.alarmsTab.destroy();
       this.alarmsTab = null;
+    }
+
+    // Cleanup exclusion groups tab
+    if (this.exclusionGroupsTab) {
+      this.exclusionGroupsTab.destroy();
+      this.exclusionGroupsTab = null;
     }
 
     // Restore focus to original element
@@ -443,6 +498,14 @@ export class SettingsModalView {
               </svg>
               Alarmes
             </button>
+            <!-- Exclusão de Grupos Tab -->
+            <button type="button" class="modal-tab" data-tab="exclusion-groups">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              Excluir Grupos
+            </button>
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert" aria-live="polite"></div>
@@ -464,6 +527,13 @@ export class SettingsModalView {
               <div style="padding: 20px; text-align: center; color: #6c757d;">
                 <div class="loading-spinner"></div>
                 <p>Carregando alarmes...</p>
+              </div>
+            </div>
+            <!-- Exclusão de Grupos Tab Content -->
+            <div id="exclusion-groups-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando configurações de exclusão...</p>
               </div>
             </div>
           </div>
@@ -2691,7 +2761,7 @@ export class SettingsModalView {
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms';
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'exclusion-groups';
         if (tab) {
           this.switchTab(tab);
         }

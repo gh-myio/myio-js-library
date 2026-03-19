@@ -1696,3 +1696,10 @@ export type {
 export { DEVICE_TYPES } from './components/PresetupGateway/types';
 export type { PdfLayout } from './components/PresetupGateway/utils/pdf';
 
+// Exclusão de Grupos de Cálculo tab (SettingsModal 4th tab — energy domain)
+export { ExclusionGroupsTab } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
+export type {
+  ExclusionGroupsTabConfig,
+  ExcludeGroupsTotals,
+} from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
+

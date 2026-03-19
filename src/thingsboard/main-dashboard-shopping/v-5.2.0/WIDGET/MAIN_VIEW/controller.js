@@ -503,6 +503,10 @@ let widgetSettings = {
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
 
+// Exclusão de Grupos: group exclusion config loaded from DEVICE SERVER_SCOPE via SettingsModal
+// { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
+let _excludeGroupsTotals = null;
+
 // Config object (populated in onInit from widgetSettings)
 let config = null;
 
@@ -1413,6 +1417,15 @@ Object.assign(window.MyIOUtils, {
             alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
             // RFC-0194: customer default dashboard config (full object stored for management UI)
             defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
+
+            // Exclusão de Grupos: read from DEVICE SERVER_SCOPE (saved by SettingsModal)
+            const _rawExcludeGroups = attrs?.exclude_groups_totals;
+            if (_rawExcludeGroups) {
+              _excludeGroupsTotals = typeof _rawExcludeGroups === 'string'
+                ? JSON.parse(_rawExcludeGroups)
+                : _rawExcludeGroups;
+              LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
+            }
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -2754,9 +2767,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const lojasTotal = lojas.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const entradaTotal = entrada.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const areacomumTotal = areacomum.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const grandTotal = lojasTotal + entradaTotal + areacomumTotal;
+  // grandTotal uses `let` — re-assigned below if group exclusions are active
+  let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
 
   // ============ PERCENTAGE HELPER ============
+  // Reads grandTotal by reference — reflects exclusions after re-assignment below
   const calcPerc = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
@@ -2888,6 +2903,30 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const geradorTotal = geradorItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
 
+  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO ============
+  // Reads _excludeGroupsTotals set in onInit / myio:exclusion-groups-updated event.
+  // When a group is excluded, its value is zeroed in grandTotal.
+  // Individual category totals remain unchanged (devices still visible in panels).
+  const _exclEnabled = _excludeGroupsTotals?.enabled === true;
+  if (_exclEnabled) {
+    const _exclGroups = _excludeGroupsTotals.groups || {};
+    const _lojasEff          = _exclGroups.lojas           ? 0 : lojasTotal;
+    const _entradaEff        = _exclGroups.entrada          ? 0 : entradaTotal;
+    const _climatizacaoEff   = _exclGroups.climatizacao     ? 0 : climatizacaoTotal;
+    const _elevadoresEff     = _exclGroups.elevadores       ? 0 : elevadoresTotal;
+    const _escadasEff        = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
+    const _outrosEff         = _exclGroups.outros           ? 0 : outrosTotal;
+    const _areacomumSubtot   = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
+    const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
+    const _residualEff       = _exclGroups.area_comum ? 0 : _areacomumResidual;
+    const _areacomumEff      = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
+    grandTotal = _lojasEff + _entradaEff + _areacomumEff;
+    LogHelper.log(
+      '[buildSummary] 🚫 Exclusão de grupos aplicada:',
+      { excluded: Object.entries(_exclGroups).filter(([, v]) => v).map(([k]) => k), grandTotal }
+    );
+  }
+
   // ============ DEVICE STATUS AGGREGATION ============
   const allItems = [...lojas, ...entrada, ...areacomum];
   const statusAggregation = aggregateDeviceStatus(allItems);
@@ -3007,6 +3046,12 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
+
+    // ============ EXCLUSÃO DE GRUPOS ============
+    excludedGroups: _exclEnabled
+      ? Object.entries((_excludeGroupsTotals?.groups || {})).filter(([, v]) => v).map(([k]) => k)
+      : [],
+    exclusionGroupsEnabled: _exclEnabled,
   };
 }
 
@@ -6315,6 +6360,15 @@ const MyIOOrchestrator = (() => {
       LogHelper.log(
         `[Orchestrator] ⏭️ myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
       );
+    }
+  });
+
+  // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
+  window.addEventListener('myio:exclusion-groups-updated', (ev) => {
+    _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
+    LogHelper.log('[MAIN_VIEW] exclusion groups updated — re-hydrating energy domain:', _excludeGroupsTotals);
+    if (currentPeriod) {
+      hydrateDomain('energy', currentPeriod, { force: true });
     }
   });
 
