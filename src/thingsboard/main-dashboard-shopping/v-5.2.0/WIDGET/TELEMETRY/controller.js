@@ -228,7 +228,11 @@ function injectFilterModalStyles() {
     }
     .telemetry-sync-gcdr-card.sgj-expanded {
       width: 100vw !important; max-width: 100vw !important;
-      max-height: 100vh !important; border-radius: 0 !important;
+      height: 100vh !important; max-height: 100vh !important;
+      border-radius: 0 !important;
+    }
+    .telemetry-sync-gcdr-overlay.sgj-overlay-expanded {
+      align-items: stretch !important; justify-content: stretch !important;
     }
     .telemetry-sync-gcdr-header {
       display: flex; align-items: center; gap: 8px;
@@ -3478,6 +3482,7 @@ function _openSyncJobModal(data, creds) {
     const card = _el('#sgj-card');
     const icon = _el('#sgj-expand-icon');
     if (card) card.classList.toggle('sgj-expanded', _sgjExpanded);
+    overlay.classList.toggle('sgj-overlay-expanded', _sgjExpanded);
     if (icon) icon.innerHTML = _sgjExpanded
       ? '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line>'
       : '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
