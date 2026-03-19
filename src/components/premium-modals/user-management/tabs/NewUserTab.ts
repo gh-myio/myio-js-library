@@ -85,31 +85,46 @@ export class NewUserTab {
   // ── Prefetch ──────────────────────────────────────────────────────────────────
 
   private async prefetch(): Promise<void> {
-    // defaultDashboardId vem do orquestrador (RFC-0194), não de fetch
+    // Fast path: orchestrator já populado pelo MAIN_VIEW (RFC-0194)
     this.defaultDashboardId = (window as any).MyIOOrchestrator?.defaultDashboardId ?? null;
 
     const { tbBaseUrl, jwtToken, customerId } = this.config;
     const headers = { 'X-Authorization': `Bearer ${jwtToken}` };
 
-    try {
-      const res = await fetch(
-        `${tbBaseUrl}/api/entityGroups/CUSTOMER/${customerId}/USER`,
-        { headers }
-      );
-      if (res.ok) {
-        const raw = await res.json().catch(() => []);
-        const groups: Array<{ id: { id: string }; name: string }> =
-          Array.isArray(raw) ? raw : (raw?.data ?? []);
-        this.customerUsersGroupId = groups.find(g => g.name === 'Customer Users')?.id?.id ?? null;
-        if (!this.customerUsersGroupId) {
-          console.warn('[NewUserTab] prefetch: grupo "Customer Users" não encontrado na resposta', groups);
-        }
-      } else {
-        console.warn('[NewUserTab] prefetch: entityGroups fetch retornou', res.status);
-      }
-    } catch (err) {
-      console.warn('[NewUserTab] prefetch: falha ao buscar entityGroups', err);
-    }
+    await Promise.all([
+      // Fetch entity groups (Customer Users)
+      fetch(`${tbBaseUrl}/api/entityGroups/CUSTOMER/${customerId}/USER`, { headers })
+        .then(async res => {
+          if (res.ok) {
+            const raw = await res.json().catch(() => []);
+            const groups: Array<{ id: { id: string }; name: string }> =
+              Array.isArray(raw) ? raw : (raw?.data ?? []);
+            this.customerUsersGroupId = groups.find(g => g.name === 'Customer Users')?.id?.id ?? null;
+            if (!this.customerUsersGroupId) {
+              console.warn('[NewUserTab] prefetch: grupo "Customer Users" não encontrado na resposta', groups);
+            }
+          } else {
+            console.warn('[NewUserTab] prefetch: entityGroups fetch retornou', res.status);
+          }
+        })
+        .catch(err => console.warn('[NewUserTab] prefetch: falha ao buscar entityGroups', err)),
+
+      // Fallback: buscar customerDefaultDashboard direto do TB se o orchestrator não tiver
+      this.defaultDashboardId
+        ? Promise.resolve()
+        : fetch(
+            `${tbBaseUrl}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=customerDefaultDashboard`,
+            { headers }
+          )
+            .then(async res => {
+              if (!res.ok) return;
+              const raw: Array<{ key: string; value: unknown }> = await res.json().catch(() => []);
+              const entry = Array.isArray(raw) ? raw.find(a => a.key === 'customerDefaultDashboard') : null;
+              const cfg = entry?.value as { dashboardId?: string } | null;
+              if (cfg?.dashboardId) this.defaultDashboardId = cfg.dashboardId;
+            })
+            .catch(() => { /* silently ignore */ }),
+    ]);
   }
 
   // ── Validation ────────────────────────────────────────────────────────────────
@@ -158,14 +173,25 @@ export class NewUserTab {
     submitBtn.textContent = 'Criando...';
 
     try {
-      const { tbBaseUrl, jwtToken, customerId, tenantId } = this.config;
+      const { customerId, tenantId } = this.config;
 
       if (this.prefetchPromise) await this.prefetchPromise;
-      // RFC-0194: stable default dashboard from SERVER_SCOPE attribute (MyIOOrchestrator)
-      const defaultDashboardId = (window as any).MyIOOrchestrator?.defaultDashboardId ?? null;
-      const additionalInfo: Record<string, unknown> = {};
+
+      // RFC-0194: stable default dashboard from SERVER_SCOPE attribute (MyIOOrchestrator).
+      // defaultDashboard and homeDashboard are set to the same customer dashboard so the
+      // new user always lands on the correct dashboard for this shopping mall.
+      const defaultDashboardId =
+        (window as any).MyIOOrchestrator?.defaultDashboardId ?? this.defaultDashboardId ?? null;
+      const additionalInfo: Record<string, unknown> = {
+        defaultDashboardFullscreen: true,
+        hideHomeDashboardToolbar: true,
+      };
       if (data.description) additionalInfo.description = data.description;
-      if (defaultDashboardId) additionalInfo.defaultDashboardId = defaultDashboardId;
+      if (defaultDashboardId) {
+        additionalInfo.defaultDashboardId = defaultDashboardId;
+        additionalInfo.homeDashboardId = defaultDashboardId;
+      }
+
       const body = {
         email: data.email,
         firstName: data.firstName,
@@ -174,7 +200,7 @@ export class NewUserTab {
         authority: 'CUSTOMER_USER',
         customerId: { id: customerId, entityType: 'CUSTOMER' },
         tenantId: { id: tenantId, entityType: 'TENANT' },
-        additionalInfo: Object.keys(additionalInfo).length ? additionalInfo : undefined,
+        additionalInfo,
       };
 
       const createRes = await this.tbPost(
