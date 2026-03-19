@@ -10,7 +10,6 @@
 
 // Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
 let DEBUG_ACTIVE = true;
-const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 // RFC-0130: Retry configuration for resilient data loading
 const RETRY_CONFIG = {
@@ -61,6 +60,8 @@ Object.assign(window.MyIOUtils, {
   // RFC-XXXX: SuperAdmin flag - user with @myio.com.br email (except alarme/alarmes)
   // Populated by detectSuperAdmin() in onInit
   SuperAdmin: false,
+  // RFC-0171: Current user email - used for superadmin check in modals
+  currentUserEmail: null,
 
   // RFC-0139: Global theme state management
   // Default theme is 'light', MAIN is the single source of truth
@@ -305,6 +306,12 @@ Object.assign(window.MyIOUtils, {
   handleDataLoadError: (domain = 'unknown', reason = 'timeout') => {
     LogHelper.error(`[MyIOUtils] Data load error for ${domain}: ${reason}`);
 
+    // Stop retry loop after final error for this domain
+    window._dataLoadRetryLocked = window._dataLoadRetryLocked || {};
+    if (window._dataLoadRetryLocked[domain]) {
+      return;
+    }
+
     // Check if we already have data in window.STATE for this domain
     // If we have cached/existing data, don't reload - just log the error
     const existingData = window.STATE?.[domain];
@@ -378,8 +385,8 @@ Object.assign(window.MyIOUtils, {
     // Max retries exceeded - must reload
     LogHelper.error(`[MyIOUtils] Max retries (${maxRetries}) exceeded for ${domain} - reloading page`);
 
-    // Reset retry counter before reload
-    window._dataLoadRetryAttempts[domain] = 0;
+    // Lock retries for this domain to avoid looping after error
+    window._dataLoadRetryLocked[domain] = true;
 
     const MyIOToast = window.MyIOLibrary?.MyIOToast;
     const message = `Erro ao carregar dados (${domain}). Recarregue a página...`;
@@ -393,9 +400,9 @@ Object.assign(window.MyIOUtils, {
     }
 
     // Reload page after toast displays
-    setTimeout(() => {
-      window.location.reload();
-    }, 6000);
+    //setTimeout(() => {
+    //window.location.reload();
+    //}, 6000);
   },
 
   /**
@@ -490,6 +497,8 @@ let widgetSettings = {
   debugMode: false,
   domainsEnabled: { energy: true, water: true, temperature: true },
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
+  enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
+  enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
 
 // Config object (populated in onInit from widgetSettings)
@@ -934,6 +943,10 @@ Object.assign(window.MyIOUtils, {
   categoryToLabelWidget,
   inferLabelWidget,
   EQUIPMENT_EXCLUSION_PATTERN,
+  // RFC-0182: Expose categorization helpers so MENU/TELEMETRY can split items by group
+  categorizeItemsByGroup,
+  categorizeItemsByGroupWater,
+  categorizeItemsByGroupTemperature,
 });
 
 // ============================================================================
@@ -1072,18 +1085,21 @@ Object.assign(window.MyIOUtils, {
   }
 
   // RFC-XXXX: SuperAdmin detection
+  // RFC-0171: Also stores currentUserEmail for use in modals (openDashboardPopupSettings)
+  // RFC-0152: currentUserEmail is also used as the annotation author in alarm annotation panels
   // SuperAdmin = user with @myio.com.br email EXCEPT alarme@myio.com.br or alarmes@myio.com.br
   async function detectSuperAdmin() {
     const jwt = localStorage.getItem('jwt_token');
     if (!jwt) {
       window.MyIOUtils.SuperAdmin = false;
+      window.MyIOUtils.currentUserEmail = null;
       LogHelper.log('[MAIN_VIEW] SuperAdmin: false (no JWT token)');
       return;
     }
 
     try {
-      const urlAuthUser = `${THINGSBOARD_URL}/api/auth/user`;
-      const response = await fetch(urlAuthUser, {
+      const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+      const response = await fetch(`${tbBase}/api/auth/user`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1094,6 +1110,7 @@ Object.assign(window.MyIOUtils, {
 
       if (!response.ok) {
         window.MyIOUtils.SuperAdmin = false;
+        window.MyIOUtils.currentUserEmail = null;
         LogHelper.warn('[MAIN_VIEW] SuperAdmin: false (API error:', response.status, ')');
         return;
       }
@@ -1101,15 +1118,30 @@ Object.assign(window.MyIOUtils, {
       const user = await response.json();
       const email = (user.email || '').toLowerCase().trim();
 
+      // RFC-0171: Store email for use in modals
+      window.MyIOUtils.currentUserEmail = email;
+
       // Check: email ends with @myio.com.br AND is NOT alarme@ or alarmes@
       const isSuperAdmin =
         email.endsWith('@myio.com.br') && !email.startsWith('alarme@') && !email.startsWith('alarmes@');
 
       window.MyIOUtils.SuperAdmin = isSuperAdmin;
       LogHelper.log(`[MAIN_VIEW] SuperAdmin detection: ${email} -> ${isSuperAdmin}`);
+
+      // RFC-0171: Dispatch event for other widgets (MENU, etc.)
+      window.dispatchEvent(
+        new CustomEvent('myio:user-info-ready', {
+          detail: {
+            email: email,
+            isSuperAdmin: isSuperAdmin,
+            ts: Date.now(),
+          },
+        })
+      );
     } catch (err) {
       LogHelper.error('[MAIN_VIEW] SuperAdmin detection failed:', err);
       window.MyIOUtils.SuperAdmin = false;
+      window.MyIOUtils.currentUserEmail = null;
     }
   }
 
@@ -1147,6 +1179,15 @@ Object.assign(window.MyIOUtils, {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
 
+    // RFC-0178: Expose alarmsApiBaseUrl and alarmsApiKey for ALARM widget
+    const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+    const alarmsApiKey     = self.ctx.settings?.alarmsApiKey     || 'gcdr_cust_tb_integration_key_2026';
+    if (window.MyIOOrchestrator) {
+      window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
+      window.MyIOOrchestrator.alarmsApiKey     = alarmsApiKey;
+    }
+    LogHelper.log('[Orchestrator] RFC-0178: alarmsApiBaseUrl:', alarmsApiBaseUrl);
+
     widgetSettings.debugMode = self.ctx.settings?.debugMode ?? false;
     widgetSettings.domainsEnabled = self.ctx.settings?.domainsEnabled ?? {
       energy: true,
@@ -1155,6 +1196,30 @@ Object.assign(window.MyIOUtils, {
     };
     widgetSettings.excludeDevicesAtCountSubtotalCAG =
       self.ctx.settings?.excludeDevicesAtCountSubtotalCAG ?? [];
+
+    // RFC-0144: Load annotations onboarding setting
+    widgetSettings.enableAnnotationsOnboarding = self.ctx.settings?.enableAnnotationsOnboarding ?? false;
+    // Expose via window.MyIOUtils for TELEMETRY widget
+    window.MyIOUtils.enableAnnotationsOnboarding = widgetSettings.enableAnnotationsOnboarding;
+    LogHelper.log('[Orchestrator] RFC-0144: enableAnnotationsOnboarding:', widgetSettings.enableAnnotationsOnboarding);
+
+    // Load enableReportButton setting and expose via window.MyIOUtils for HEADER widget
+    widgetSettings.enableReportButton = self.ctx.settings?.enableReportButton ?? false;
+    window.MyIOUtils.enableReportButton = widgetSettings.enableReportButton;
+    LogHelper.log('[Orchestrator] enableReportButton:', widgetSettings.enableReportButton);
+
+    // RFC-0182: Load enabledReportItems and expose for MENU widget
+    const rawItems = self.ctx.settings?.enabledReportItems || {};
+    const REPORT_ITEM_DEFAULTS = {
+      energy_lojas: true, energy_entrada: false, energy_area_comum: false, energy_todos: false,
+      water_lojas: false, water_entrada: false, water_area_comum: false, water_todos: false,
+      temperature_climatizavel: false, temperature_nao_climatizavel: false, temperature_todos: false,
+      alarms_por_dispositivo: false, alarms_dispositivo_x_alarme: false, alarms_por_tipo: false,
+    };
+    window.MyIOUtils.enabledReportItems = Object.fromEntries(
+      Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
+    );
+    LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {
@@ -1195,6 +1260,9 @@ Object.assign(window.MyIOUtils, {
 
         // Customer ID from settings (for MENU and other widgets)
         customerTB_ID: null,
+
+        // RFC-0178: Alarms API base URL (for ALARM widget)
+        alarmsApiBaseUrl: null,
 
         // RFC-0108: Measurement display settings (units, decimal places)
         // Populated by MENU when user opens MeasurementSetupModal
@@ -1252,17 +1320,27 @@ Object.assign(window.MyIOUtils, {
         let CLIENT_SECRET = '';
         let CUSTOMER_ING_ID = '';
 
+        // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
+        let gcdrCustomerId = self.ctx.settings?.gcdrCustomerId || '';
+        let gcdrTenantId   = self.ctx.settings?.gcdrTenantId   || '';
+        const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+
         if (customerTB_ID && jwt) {
           try {
             LogHelper.log('[MAIN_VIEW] 📡 Fetching customer attributes from ThingsBoard...');
             // Fetch customer attributes
-            const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+            const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+            const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt, tbBase);
 
             LogHelper.log('[MAIN_VIEW] 📦 Received attrs:', attrs);
 
             CLIENT_ID = attrs?.client_id || '';
             CLIENT_SECRET = attrs?.client_secret || '';
             CUSTOMER_ING_ID = attrs?.ingestionId || '';
+
+            // RFC-0180: Fallback GCDR IDs from attrs when not set in widget settings
+            if (!gcdrCustomerId) gcdrCustomerId = attrs?.gcdrCustomerId || attrs?.gcdrId || '';
+            if (!gcdrTenantId)   gcdrTenantId   = attrs?.gcdrTenantId  || '';
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1286,6 +1364,21 @@ Object.assign(window.MyIOUtils, {
           LogHelper.warn('[MAIN_VIEW] ⚠️ Cannot fetch credentials - missing required data:');
           if (!customerTB_ID) LogHelper.warn('[MAIN_VIEW]   - customerTB_ID is missing from settings');
           if (!jwt) LogHelper.warn('[MAIN_VIEW]   - JWT token is missing from localStorage');
+        }
+
+        // RFC-0180: Publish GCDR identifiers to orchestrator for ALARM and SETTINGS widgets
+        if (window.MyIOOrchestrator) {
+          window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
+          window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
+          window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
+        }
+        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
+        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
+
+        // RFC-0180: Pre-fetch all customer alarms (non-blocking) so AlarmsTab can use them
+        // without a per-device fetch when the Settings modal is opened.
+        if (gcdrCustomerId) {
+          _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com');
         }
 
         // Check if credentials are present
@@ -1334,7 +1427,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: DATA_API_HOST,
+            dataApiHost: 'https://api.data.apps.myio-bas.com',
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -1453,6 +1546,58 @@ Object.assign(window.MyIOUtils, {
         } catch (err) {
           LogHelper.warn(`[MAIN_VIEW] Failed to parse mapInstantaneousPower: ${err.message}`);
         }
+      }
+    }
+
+    // RFC-0179: Build enrichment maps for ALARM widget device name resolution.
+    if (window.MyIOOrchestrator) {
+      // Map 1: gcdrDeviceId (UUID) → human-readable label
+      // Also indexed by short code "gcdr:<first8>" for old alarm format.
+      const gcdrMap = window.MyIOOrchestrator.gcdrDeviceNameMap instanceof Map
+        ? window.MyIOOrchestrator.gcdrDeviceNameMap : new Map();
+
+      // Map 2: TB entityName ("3F SCMOXUARAAC_EL7_L2") → entityLabel ("Elevador 7 L2")
+      // Built from ALL datasource rows — no specific datakey needed.
+      const nameMap = window.MyIOOrchestrator.entityNameToLabelMap instanceof Map
+        ? window.MyIOOrchestrator.entityNameToLabelMap : new Map();
+
+      let gcdrChanged = false;
+      let nameChanged = false;
+
+      for (const row of ctxDataRows) {
+        const entityName  = row?.datasource?.entityName  || '';
+        const entityLabel = row?.datasource?.entityLabel || '';
+        // Prefer entityLabel (human-readable) over entityName (raw TB name)
+        const label = entityLabel || entityName;
+
+        // Map 2: entityName → label (for any row that has both values different)
+        if (entityName && label && entityName !== label && !nameMap.has(entityName)) {
+          nameMap.set(entityName, label);
+          nameChanged = true;
+        }
+
+        // Map 1: gcdrDeviceId rows only
+        const keyName = (row?.dataKey?.name || '').toLowerCase();
+        if (keyName !== 'gcdrdeviceid') continue;
+        const gcdrId = row?.data?.[0]?.[1];
+        if (!gcdrId || !label) continue;
+        const gcdrKey = String(gcdrId);
+        if (!gcdrMap.has(gcdrKey)) {
+          gcdrMap.set(gcdrKey, label);
+          // Also index by short code "gcdr:<first8>" for old-format alarm sources
+          const shortCode = 'gcdr:' + gcdrKey.substring(0, 8);
+          if (!gcdrMap.has(shortCode)) gcdrMap.set(shortCode, label);
+          gcdrChanged = true;
+        }
+      }
+
+      if (gcdrChanged) {
+        window.MyIOOrchestrator.gcdrDeviceNameMap = gcdrMap;
+        LogHelper.log(`[MAIN_VIEW] gcdrDeviceNameMap updated: ${gcdrMap.size} entries`);
+      }
+      if (nameChanged) {
+        window.MyIOOrchestrator.entityNameToLabelMap = nameMap;
+        LogHelper.log(`[MAIN_VIEW] entityNameToLabelMap updated: ${nameMap.size} entries`);
       }
     }
   };
@@ -1741,14 +1886,100 @@ function parseDeviceCountAttributes(attributes) {
  * @param {string} entityType - Entity type (default: 'CUSTOMER')
  * @returns {Promise<Object|null>} Device counts object or null on error
  */
-async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
+// RFC-0180: Pre-fetch all customer alarms so AlarmsTab can filter without a per-device call.
+// Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
+async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
+  try {
+    const ALARMS_API_KEY = 'gcdr_cust_tb_integration_key_2026';
+    const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+    const response = await fetch(url, {
+      headers: {
+        'X-API-Key':    ALARMS_API_KEY,
+        'X-Tenant-ID':  gcdrTenantId || '',
+        'Accept':       'application/json',
+      },
+    });
+    if (!response.ok) {
+      LogHelper.warn('[MAIN_VIEW] _prefetchCustomerAlarms failed:', response.status);
+      return;
+    }
+    const json = await response.json();
+    const alarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
+    if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerAlarms = alarms;
+    LogHelper.log('[MAIN_VIEW] RFC-0180: customerAlarms pre-fetched:', alarms.length, 'alarms');
+    _buildAlarmServiceOrchestrator(alarms);
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] _prefetchCustomerAlarms error:', err);
+  }
+}
+
+// RFC-0183: Build window.AlarmServiceOrchestrator — device-keyed alarm maps.
+function _buildAlarmServiceOrchestrator(alarms) {
+  // Map: gcdrDeviceId → GCDRAlarm[]
+  const deviceAlarmMap = new Map();
+  for (const alarm of (alarms || [])) {
+    const did = alarm.deviceId;
+    if (!did) continue;
+    if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+    deviceAlarmMap.get(did).push(alarm);
+  }
+
+  // Map: gcdrDeviceId → Set<alarmType>
+  const deviceAlarmTypes = new Map();
+  deviceAlarmMap.forEach((devAlarms, did) => {
+    deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
+  });
+
+  window.AlarmServiceOrchestrator = {
+    /** Array of all raw customer alarms */
+    alarms,
+
+    /** Map<gcdrDeviceId, GCDRAlarm[]> */
+    deviceAlarmMap,
+
+    /** Map<gcdrDeviceId, Set<alarmType>> */
+    deviceAlarmTypes,
+
+    /** Returns alarm count for a device */
+    getAlarmCountForDevice(gcdrDeviceId) {
+      return deviceAlarmMap.get(gcdrDeviceId)?.length ?? 0;
+    },
+
+    /** Returns alarm array for a device */
+    getAlarmsForDevice(gcdrDeviceId) {
+      return deviceAlarmMap.get(gcdrDeviceId) ?? [];
+    },
+
+    /** Returns Set of alarm types for a device */
+    getAlarmTypesForDevice(gcdrDeviceId) {
+      return deviceAlarmTypes.get(gcdrDeviceId) ?? new Set();
+    },
+
+    /** Re-fetches from server and rebuilds maps */
+    async refresh() {
+      const orch = window.MyIOOrchestrator;
+      const gcdrCustomerId = orch?.gcdrCustomerId || '';
+      const gcdrTenantId   = orch?.gcdrTenantId   || '';
+      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+      await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl);
+    },
+  };
+
+  LogHelper.log('[AlarmServiceOrchestrator] Built —',
+    deviceAlarmMap.size, 'devices with alarms,',
+    alarms.length, 'total alarms'
+  );
+}
+
+async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {
   const token = localStorage.getItem('jwt_token');
   if (!token) {
     LogHelper.warn('[RFC-0107] JWT token not found');
     return null;
   }
 
-  const url = `${THINGSBOARD_URL}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+  const tbBase = tbBaseUrl || self.ctx?.settings?.tbBaseUrl || '';
+  const url = `${tbBase}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
@@ -1901,45 +2132,39 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
  */
 function categorizeItemsByGroup(items) {
   const ENTRADA_PROFILES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
-  const ENTRADA_TYPES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
 
-  const lojas = [];
-  const entrada = [];
+  const lojas    = [];
+  const entrada  = [];
   const areacomum = [];
-  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
+  const ocultos  = [];
 
-  // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
-    const deviceType = toStr(item.deviceType);
-    const deviceProfile = toStr(item.deviceProfile);
-
-    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    // RULE 0: ocultos
     if (isOcultosDevice(item)) {
       ocultos.push(item);
       continue;
     }
 
-    // Rule 1: LOJAS - use centralized isStoreDevice
-    if (isStoreDevice(item)) {
+    const dp = toStr(item.deviceProfile);
+
+    // Rule 1: LOJAS — deviceProfile = 3F_MEDIDOR
+    if (dp === '3F_MEDIDOR') {
       lojas.push(item);
       continue;
     }
 
-    // Rule 2: ENTRADA - deviceType = 3F_MEDIDOR with entrada profile, OR deviceType is entrada type
-    const isEntradaByProfile = deviceType === '3F_MEDIDOR' && ENTRADA_PROFILES.has(deviceProfile);
-    const isEntradaByType = ENTRADA_TYPES.has(deviceType);
-    if (isEntradaByProfile || isEntradaByType) {
+    // Rule 2: ENTRADA — deviceProfile ∈ {TRAFO, ENTRADA, RELOGIO, SUBESTACAO}
+    if (ENTRADA_PROFILES.has(dp)) {
       entrada.push(item);
       continue;
     }
 
-    // Rule 3: AREACOMUM - everything else
+    // Rule 3: AREACOMUM — everything else
     areacomum.push(item);
   }
 
-  // RFC-0142: Log ocultos devices for debugging
   if (ocultos.length > 0) {
     LogHelper.log(
       `[RFC-0142] Classified ${ocultos.length} devices as "ocultos" (hidden):`,
@@ -1966,85 +2191,52 @@ function categorizeItemsByGroup(items) {
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroupWater(items) {
-  const BANHEIRO_PATTERNS = ['BANHEIRO', 'WC', 'SANITARIO', 'TOALETE', 'LAVABO'];
-  const ENTRADA_PATTERNS = ['ENTRADA', 'PRINCIPAL', 'RELOGIO', 'NASCENTE'];
+  const entrada    = [];
+  const lojas      = [];
+  const banheiros  = [];
+  const areacomum  = [];
+  const caixadagua = [];
+  const ocultos    = [];
 
-  const entrada = [];
-  const lojas = [];
-  const banheiros = [];
-  const areacomum = [];
-  const caixadagua = []; // RFC-0107: Category for tanks
-  const ocultos = []; // RFC-0142: Hidden group for archived/inactive devices
-
-  // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
-    // RFC-0142: RULE 0 - Classify archived/inactive devices to "ocultos" group
+    // RULE 0: ocultos
     if (isOcultosDevice(item)) {
       ocultos.push(item);
       continue;
     }
 
-    const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
-    const identifier = toStr(item.identifier);
-    const label = toStr(item.label);
-    const lw = toStr(item.labelWidget);
-    const combined = `${identifier} ${label} ${lw}`;
 
-    // ========== PRIMARY RULES: Based on deviceType AND deviceProfile ==========
-
-    // Rule 1: ENTRADA - deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-    // RFC-0107: Also check for _isHidrometerDevice flag (from ctx.data hidrometro items)
-    if (
-      dt === 'HIDROMETRO_SHOPPING' ||
-      (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING') ||
-      item._isHidrometerDevice
-    ) {
+    // Rule 1: ENTRADA — deviceProfile = HIDROMETRO_SHOPPING
+    if (dp === 'HIDROMETRO_SHOPPING') {
       entrada.push(item);
       continue;
     }
 
-    // Rule 2: AREACOMUM - deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
-    // NOTE: Banheiros with deviceType HIDROMETRO_AREA_COMUM go here too - they are extracted later by TELEMETRY widget
-    if (dt === 'HIDROMETRO_AREA_COMUM' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_AREA_COMUM')) {
+    // Rule 2: ÁREA COMUM — deviceProfile = HIDROMETRO_AREA_COMUM
+    if (dp === 'HIDROMETRO_AREA_COMUM') {
       areacomum.push(item);
       continue;
     }
 
-    // Rule 3: BANHEIROS - check identifier for bathroom patterns (only for HIDROMETRO devices not in areacomum)
-    // These are standalone bathroom meters with deviceType = HIDROMETRO
-    if (BANHEIRO_PATTERNS.some((p) => identifier.includes(p) || label.includes(p))) {
-      banheiros.push(item);
-      continue;
-    }
-
-    // Rule 4: LOJAS - deviceType = HIDROMETRO AND (deviceProfile = HIDROMETRO OR deviceProfile is empty/missing)
-    if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '')) {
+    // Rule 3: LOJAS — deviceProfile = HIDROMETRO
+    if (dp === 'HIDROMETRO') {
       lojas.push(item);
       continue;
     }
 
-    // Rule 5: CAIXA D'ÁGUA - tanks (deviceType = TANK or CAIXA_DAGUA, or labelWidget = "Caixa D'Água")
-    if (dt === 'TANK' || dt === 'CAIXA_DAGUA' || lw === "CAIXA D'ÁGUA" || item._isTankDevice) {
+    // Rule 4: CAIXA D'ÁGUA — deviceProfile = TANK or CAIXA_DAGUA
+    if (dp === 'TANK' || dp === 'CAIXA_DAGUA') {
       caixadagua.push(item);
       continue;
     }
 
-    // ========== FALLBACK RULES: Pattern matching for other deviceTypes ==========
-
-    // Fallback 1: ENTRADA - main water entry points
-    if (ENTRADA_PATTERNS.some((p) => combined.includes(p))) {
-      entrada.push(item);
-      continue;
-    }
-
-    // Fallback 2: AREACOMUM - everything else
+    // Fallback: tudo que não encaixou vai para areacomum
     areacomum.push(item);
   }
 
-  // RFC-0142: Log ocultos devices for debugging
   if (ocultos.length > 0) {
     LogHelper.log(
       `[RFC-0142] Classified ${ocultos.length} water devices as "ocultos" (hidden):`,
@@ -2053,6 +2245,37 @@ function categorizeItemsByGroupWater(items) {
   }
 
   return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
+}
+
+/**
+ * RFC-0182: Categorize temperature items into groups by deviceProfile
+ *
+ * RULE ORDER:
+ * 0. OCULTOS  - deviceProfile contains ARQUIVADO, SEM_DADOS, etc.
+ * 1. NAO_CLIMATIZAVEL - deviceProfile === 'TERMOSTATO_EXTERNAL'
+ * 2. CLIMATIZAVEL     - deviceProfile === 'TERMOSTATO' (or any remaining termostato variant)
+ */
+function categorizeItemsByGroupTemperature(items) {
+  const climatizavel     = [];
+  const nao_climatizavel = [];
+  const ocultos          = [];
+
+  const toStr = (val) => String(val || '').toUpperCase();
+
+  for (const item of items) {
+    if (isOcultosDevice(item)) {
+      ocultos.push(item);
+      continue;
+    }
+    const dp = toStr(item.deviceProfile);
+    if (dp === 'TERMOSTATO_EXTERNAL') {
+      nao_climatizavel.push(item);
+    } else {
+      climatizavel.push(item); // TERMOSTATO or any other termostato variant
+    }
+  }
+
+  return { climatizavel, nao_climatizavel, ocultos };
 }
 
 /**
@@ -3318,7 +3541,9 @@ const MyIOOrchestrator = (() => {
     }
 
     // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
-    if (window.MyIOOrchestrator?.widgetBusyMonitor) {
+    // Only monitor real data domains — 'contract' and other UI-only domains must not trigger hydrateDomain
+    const REAL_DATA_DOMAINS = ['energy', 'water', 'temperature'];
+    if (window.MyIOOrchestrator?.widgetBusyMonitor && REAL_DATA_DOMAINS.includes(domain)) {
       window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
     }
 
@@ -3885,8 +4110,8 @@ const MyIOOrchestrator = (() => {
     const telemetryTimestamp = isWaterDevice
       ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
       : isTempDevice
-      ? meta.temperatureTs
-      : meta.consumptionTs;
+        ? meta.temperatureTs
+        : meta.consumptionTs;
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     // RFC-0130: Pass deviceProfile for delay time calculation
@@ -3994,6 +4219,7 @@ const MyIOOrchestrator = (() => {
       slaveId: meta.slaveId || apiRow?.slaveId || null,
 
       // Timestamps
+      createdTime: meta.createdTime || null,
       lastActivityTime: meta.lastActivityTime || null,
       lastConnectTime: meta.lastConnectTime || null,
       lastDisconnectTime: meta.lastDisconnectTime || null,
@@ -4005,8 +4231,14 @@ const MyIOOrchestrator = (() => {
       waterPercentageTs: meta.waterPercentageTs || null,
       temperatureTs: meta.temperatureTs || null,
 
+      // Temperature offset - used to adjust displayed temperature value
+      offSetTemperature: meta.offSetTemperature || 0,
+
       // Annotations
       log_annotations: meta.log_annotations || null,
+
+      // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
+      gcdrDeviceId: meta.gcdrDeviceId || null,
 
       // Metadata flags
       _hasMetadata: true,
@@ -4148,9 +4380,12 @@ const MyIOOrchestrator = (() => {
         // RFC-0110: Extract timestamp of connectionStatus for stale check
         meta.connectionStatusTs = row?.data?.[0]?.[0] ?? null;
       } else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
+      else if (keyName === 'createdtime') meta.createdTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
+      // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
+      else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
       // Only override label if dataKey has a non-empty value
       // Otherwise keep the entityLabel/entityName fallback from initialization
       else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;
@@ -4207,6 +4442,32 @@ const MyIOOrchestrator = (() => {
         const ts = row?.data?.[0]?.[0];
         meta.temperatureTs = ts && ts > 0 ? ts : null;
       }
+      // Temperature offset field - used to adjust displayed temperature
+      else if (
+        keyName === 'offsettemperature' ||
+        keyName === 'offSetTemperature' ||
+        keyName === 'offset_temperature'
+      ) {
+        meta.offSetTemperature = Number(val) || 0;
+        console.warn(
+          `🌡️ [MAIN_VIEW] Found offSetTemperature for device "${meta.label || meta.entityName}": ${meta.offSetTemperature}`
+        );
+      }
+    }
+
+    // DEBUG: Log all unique dataKeys found for temperature domain
+    if (domain === 'temperature') {
+      const allDataKeys = new Set();
+      for (const row of rows) {
+        const aliasName = (row?.datasource?.aliasName || row?.datasource?.name || '').toLowerCase();
+        if (aliasName === allowedAlias) {
+          allDataKeys.add(row?.dataKey?.name || 'unknown');
+        }
+      }
+      console.warn(
+        `🌡️ [MAIN_VIEW DEBUG] All dataKeys found for temperature domain:`,
+        Array.from(allDataKeys)
+      );
     }
 
     // Build map by ingestionId
@@ -4382,6 +4643,30 @@ const MyIOOrchestrator = (() => {
   function checkAndRefetchIfNeeded() {
     if (!ctxDataWasEmpty || !lastFetchDomain || !lastFetchPeriod) return;
 
+    // RFC-0140 FIX: Check if retry is locked for this domain to prevent infinite loop
+    // When metadataMap.size === 0 persists, don't keep retrying
+    if (window._dataLoadRetryLocked?.[lastFetchDomain]) {
+      LogHelper.log(
+        `[Orchestrator] ⏭️ checkAndRefetchIfNeeded: retry locked for ${lastFetchDomain}, stopping`
+      );
+      ctxDataWasEmpty = false;
+      lastFetchDomain = null;
+      lastFetchPeriod = null;
+      return;
+    }
+
+    // RFC-0140 FIX: Also check if data already exists in cache (another call succeeded)
+    const cachedData = window.MyIOOrchestratorData?.[lastFetchDomain];
+    if (cachedData?.items?.length > 0) {
+      LogHelper.log(
+        `[Orchestrator] ✅ checkAndRefetchIfNeeded: data already in cache for ${lastFetchDomain} (${cachedData.items.length} items), skipping re-fetch`
+      );
+      ctxDataWasEmpty = false;
+      lastFetchDomain = null;
+      lastFetchPeriod = null;
+      return;
+    }
+
     const rows = Array.isArray(self?.ctx?.data) ? self.ctx.data : [];
     if (rows.length > 0) {
       LogHelper.log(
@@ -4514,6 +4799,17 @@ const MyIOOrchestrator = (() => {
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
           const temperatureValue = Number(meta.temperature || 0);
+          const tempOffset = Number(meta.offSetTemperature || 0);
+
+          // Debug: Log if offset is found
+          if (tempOffset !== 0) {
+            console.warn(`🌡️ [MAIN_VIEW] Creating temperature item with offset:`, {
+              label: meta.label || meta.identifier,
+              rawTemperature: temperatureValue,
+              offSetTemperature: tempOffset,
+              adjustedTemperature: temperatureValue + tempOffset,
+            });
+          }
 
           // RFC-0111: Use centralized factory
           items.push(
@@ -4527,6 +4823,7 @@ const MyIOOrchestrator = (() => {
                 value: temperatureValue,
                 temperature: temperatureValue,
                 deviceType: meta.deviceType || 'TERMOSTATO',
+                offSetTemperature: tempOffset, // Pass offset to orchestrator item
               },
             })
           );
@@ -4559,14 +4856,21 @@ const MyIOOrchestrator = (() => {
       }
 
       if (!ctxDataReady) {
-        // Mark that ctx.data was empty - will trigger re-fetch when data arrives
-        ctxDataWasEmpty = true;
-        LogHelper.warn(
-          `[Orchestrator] ⚠️ ctx.data not ready - skipping API call, will auto-refetch when available`
-        );
+        // RFC-0140 FIX: Only mark for re-fetch if not already locked
+        if (!window._dataLoadRetryLocked?.[domain]) {
+          // Mark that ctx.data was empty - will trigger re-fetch when data arrives
+          ctxDataWasEmpty = true;
+          LogHelper.warn(
+            `[Orchestrator] ⚠️ ctx.data not ready - skipping API call, will auto-refetch when available`
+          );
 
-        // RFC-0106: Show toast and reload page when ctx.data fails to load
-        window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
+          // RFC-0106: Show toast and reload page when ctx.data fails to load
+          window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
+        } else {
+          LogHelper.warn(
+            `[Orchestrator] ⚠️ ctx.data not ready but retry locked for ${domain} - not retrying`
+          );
+        }
 
         return []; // DO NOT call API without metadata
       }
@@ -4689,11 +4993,52 @@ const MyIOOrchestrator = (() => {
       const waterDevicesFromCtx = [...tankItems, ...hidrometroItems];
 
       if (metadataMap.size === 0 && waterDevicesFromCtx.length === 0) {
+        // RFC-0140 FIX: Check if we have devices in metadataByEntityId (but without ingestionId)
+        // If so, create basic items without API enrichment instead of failing
+        if (metadataByEntityId.size > 0) {
+          LogHelper.warn(
+            `[Orchestrator] ⚠️ RFC-0140: No devices with ingestionId, but found ${metadataByEntityId.size} devices in ctx.data - creating basic items without API enrichment`
+          );
+
+          // Create basic items from metadataByEntityId
+          const basicItems = [];
+          for (const [entityId, meta] of metadataByEntityId.entries()) {
+            const item = createOrchestratorItem({
+              entityId,
+              meta,
+              apiRow: null, // No API data available
+              overrides: {
+                // RFC-0140: Use "-" (null) for consumption when no API enrichment
+                // This indicates "no data available" instead of showing 0
+                value: null,
+                consumption: null,
+                _noApiEnrich: true, // Flag to indicate no API enrichment
+              },
+            });
+            basicItems.push(item);
+          }
+
+          LogHelper.log(
+            `[Orchestrator] ✅ RFC-0140: Created ${basicItems.length} basic items from ctx.data (no API enrichment)`
+          );
+
+          // Populate state and return
+          const basicPeriodKey = `${domain}:${period.startISO}:${period.endISO}:${period.granularity}:basic`;
+          populateState(domain, basicItems, basicPeriodKey);
+          return basicItems;
+        }
+
         LogHelper.warn(`[Orchestrator] ⚠️ Metadata map is empty - no devices found in ctx.data`);
-        ctxDataWasEmpty = true;
+        // RFC-0140 FIX: Do NOT set ctxDataWasEmpty = true here!
+        // When metadataMap is empty but ctx.data has rows, it means the whitelist/alias
+        // filtering is not finding the expected datasource. Retrying won't help.
+        // Setting ctxDataWasEmpty would cause checkAndRefetchIfNeeded to loop infinitely.
 
         // RFC-0106: Show toast and reload page when metadata map is empty
-        window.MyIOUtils?.handleDataLoadError(domain, 'no devices found in datasource');
+        // RFC-0140 FIX: Only call handleDataLoadError if not already locked
+        if (!window._dataLoadRetryLocked?.[domain]) {
+          window.MyIOUtils?.handleDataLoadError(domain, 'no devices found in datasource');
+        }
 
         return []; // No metadata = no point calling API
       }
@@ -4819,7 +5164,7 @@ const MyIOOrchestrator = (() => {
         });
       }
 
-      const rows = Array.isArray(json) ? json : json?.data ?? [];
+      const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
       // RFC-0108 DEBUG: Log raw API response for water domain
       if (domain === 'water' && rows.length > 0) {
@@ -5250,6 +5595,11 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 🔄 Finally block - hiding busy for ${domain}`);
         hideGlobalBusy(domain);
 
+        // RFC-0048 FIX: Always stop this domain's monitor regardless of other active domains.
+        // hideGlobalBusy returns early when total > 0 (e.g. 'contract' still active),
+        // which would leave the energy/water/temperature monitor running and fire 30s later.
+        widgetBusyMonitor.stopMonitoring(domain);
+
         // Release mutex
         sharedWidgetState.mutexMap.set(domain, false);
         LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain}`);
@@ -5573,7 +5923,15 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
-    if (!tab) return;
+
+    // Alarm view — activate alarm panel and skip domain hydration
+    // Accept both 'alarm' (RFC-0178) and null/falsy (legacy, when MENU is not yet updated)
+    if (tab === 'alarm' || !tab) {
+      visibleTab = 'alarm';
+      LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
+      window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));
+      return;
+    }
 
     try {
       hideGlobalBusy(tab);
@@ -5682,13 +6040,16 @@ const MyIOOrchestrator = (() => {
 
   // Telemetry reporting
   if (!config?.debugMode && typeof window.tbClient !== 'undefined') {
-    setInterval(() => {
-      try {
-        window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
-      } catch (e) {
-        LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
-      }
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        try {
+          window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
+        } catch (e) {
+          LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
+        }
+      },
+      5 * 60 * 1000
+    );
   }
 
   // RFC-0048: Widget Busy Monitor - Detects stuck widgets showing busy for too long
@@ -5784,6 +6145,22 @@ const MyIOOrchestrator = (() => {
 
     // Expose widget busy monitor
     widgetBusyMonitor,
+
+    // RFC-0181: Return classified groups from cached domain data
+    // Returns { lojas, entrada, areacomum, ocultos } for energy
+    // Returns { lojas, entrada, areacomum, banheiros, ocultos } for water
+    getEnergyGroups: () => {
+      const items = window.MyIOOrchestratorData?.energy?.items || [];
+      return categorizeItemsByGroup(items);
+    },
+    getWaterGroups: () => {
+      const items = window.MyIOOrchestratorData?.water?.items || [];
+      return categorizeItemsByGroupWater(items);
+    },
+    getTemperatureGroups: () => {
+      const items = window.MyIOOrchestratorData?.temperature?.items || [];
+      return categorizeItemsByGroupTemperature(items);
+    },
 
     setCredentials: (customerId, clientId, clientSecret) => {
       LogHelper.log(`[Orchestrator] 🔐 setCredentials called with:`, {
@@ -5965,7 +6342,7 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
  * This function is called when the orchestrator becomes ready
  */
 async function initializeContractLoading() {
-  const customerTB_ID = '20b93da0-9011-11f0-a06d-e9509531b1d5'; //TODO REMOVER widgetSettings.customerTB_ID;
+  const customerTB_ID = widgetSettings.customerTB_ID;
   if (!customerTB_ID) {
     LogHelper.warn('[RFC-0107] customerTB_ID not available, skipping contract initialization');
     return;
@@ -5981,7 +6358,7 @@ async function initializeContractLoading() {
 
   try {
     // Fetch device counts from SERVER_SCOPE
-    const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID);
+    const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID, 'CUSTOMER', self.ctx?.settings?.tbBaseUrl || '');
 
     if (deviceCounts) {
       LogHelper.log('[RFC-0107] Device counts fetched:', deviceCounts);
@@ -6018,11 +6395,25 @@ async function initializeContractLoading() {
  * @param {Object} expectedCounts - Device counts from SERVER_SCOPE
  */
 function setupContractValidationListeners(expectedCounts) {
-  // FIX: Only track domains that are actually enabled in widgetSettings
+  // FIX: Only track domains that are enabled AND have configured devices (total > 0)
   const enabledDomains = widgetSettings.domainsEnabled || { energy: true, water: true, temperature: true };
-  const activeDomains = ['energy', 'water', 'temperature'].filter((d) => enabledDomains[d]);
+  const activeDomains = ['energy', 'water', 'temperature'].filter((d) => {
+    const isEnabled = enabledDomains[d];
+    const hasDevices = expectedCounts[d]?.total > 0;
+    if (isEnabled && !hasDevices) {
+      LogHelper.log(`[RFC-0107] Domain ${d} enabled but has no configured devices (total=0), skipping validation`);
+    }
+    return isEnabled && hasDevices;
+  });
 
   LogHelper.log('[RFC-0107] Active domains for validation:', activeDomains);
+
+  // If no domains have configured devices, finalize immediately with current state
+  if (activeDomains.length === 0) {
+    LogHelper.log('[RFC-0107] No domains with configured devices, finalizing contract validation immediately');
+    storeContractState(expectedCounts, { isValid: true, discrepancies: [] });
+    return;
+  }
 
   const domainsLoaded = {};
   const domainsFetchComplete = {};
@@ -6032,6 +6423,30 @@ function setupContractValidationListeners(expectedCounts) {
   });
 
   let validationFinalized = false;
+  let validationTimeoutId = null;
+
+  // RFC-0107 FIX: Fallback timeout - finalize validation after 15 seconds even if not all domains reported
+  // This prevents the user from having to navigate through all tabs to enable contract status
+  const VALIDATION_TIMEOUT_MS = 15000;
+
+  const finalizeWithTimeout = () => {
+    if (validationFinalized) return;
+
+    const loadedDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => loaded).map(([d]) => d);
+    const pendingDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => !loaded).map(([d]) => d);
+
+    LogHelper.warn(`[RFC-0107] Validation timeout after ${VALIDATION_TIMEOUT_MS}ms - finalizing with partial data`);
+    LogHelper.log(`[RFC-0107] Loaded domains: [${loadedDomains.join(', ')}], Pending: [${pendingDomains.join(', ')}]`);
+
+    validationFinalized = true;
+    window.removeEventListener('myio:state:ready', handleStateReady);
+    window.removeEventListener('myio:domain:fetch-complete', handleFetchComplete);
+
+    // Finalize with whatever data we have - skip validation for pending domains
+    storeContractState(expectedCounts, { isValid: true, discrepancies: [], partialLoad: pendingDomains.length > 0 });
+  };
+
+  validationTimeoutId = setTimeout(finalizeWithTimeout, VALIDATION_TIMEOUT_MS);
 
   // Listen for domain state-ready events (data is in STATE)
   const handleStateReady = (event) => {
@@ -6104,6 +6519,11 @@ function setupContractValidationListeners(expectedCounts) {
 
     if (allStateReady && allFetchComplete) {
       validationFinalized = true;
+      // Clear the fallback timeout since validation completed normally
+      if (validationTimeoutId) {
+        clearTimeout(validationTimeoutId);
+        validationTimeoutId = null;
+      }
       LogHelper.log('[RFC-0107] All domains loaded AND fetch complete - finalizing validation');
       finalizeContractValidation(expectedCounts);
       window.removeEventListener('myio:state:ready', handleStateReady);

@@ -21,6 +21,11 @@ let currentViewMode = VIEW_MODES.CARD; // default premium
 let startDate = null, endDate = null;
 let deviceList = [], deviceNameLabelMap = {};
 
+// Device filter state
+let showDeviceFilter = false;
+let deviceFilterText = '';
+let devicesSelectionList = []; // [{ name, label, selected }]
+
 // timers overlay
 let _timerHandle = null, _loadingStart = null;
 
@@ -368,14 +373,48 @@ async function getData(){
     return;
   }
 
+  // Use selected devices from filter (or all if none selected)
+  const selectedDevices = getSelectedDevices();
+  if (selectedDevices.length === 0) {
+    alert('Por favor, selecione ao menos um device para gerar o relatório.');
+    return;
+  }
+
   const centrals = self.ctx.$scope.centralIdList || [];
   if (!Array.isArray(centrals) || centrals.length === 0) {
     console.warn('[getData] Nenhum centralId disponível em $scope.centralIdList.');
   }
 
-  // Normaliza janela em UTC para key de cache e RPC
-  const s = new Date(startDate); s.setUTCHours(0, 0, 0, 0);
-  const e = new Date(endDate);   e.setUTCHours(23, 59, 59, 999);
+  console.log('[getData] Devices selecionados:', selectedDevices.length, '/', deviceList.length);
+
+  // Debug: log valores originais do date picker
+  console.log('[getData] startDate original:', startDate, startDate?.toISOString?.());
+  console.log('[getData] endDate original:', endDate, endDate?.toISOString?.());
+
+  // Normaliza janela preservando o DIA selecionado pelo usuário (ignora timezone do date picker)
+  // Extrai ano/mês/dia do objeto Date e recria no fuso local
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth();
+  const startDay = startDate.getDate();
+  const s = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth();
+  const endDay = endDate.getDate();
+  let e = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
+
+  // Se a data final for hoje ou no futuro, limita ao horário atual
+  const now = new Date();
+  if (e > now) {
+    e = new Date(now);
+    // Arredonda para o slot de 30min anterior mais próximo
+    const mins = e.getMinutes();
+    e.setMinutes(mins < 30 ? 0 : 30, 0, 0);
+    console.log('[getData] endDate limitado ao horário atual:', e.toISOString());
+  }
+
+  console.log('[getData] startDate normalizado:', s.toISOString(), '(local:', s.toLocaleString('pt-BR'), ')');
+  console.log('[getData] endDate normalizado:', e.toISOString(), '(local:', e.toLocaleString('pt-BR'), ')');
   const keyStart = s.toISOString();
   const keyEnd   = e.toISOString();
   const queryKey = `${(centrals.slice().sort()).join(',')}|${keyStart}|${keyEnd}`;
@@ -429,7 +468,7 @@ async function getData(){
       setPremiumLoading(true, chunkStatus, progress);
 
       const body = {
-        devices: deviceList, // pode estar vazio; servidor decide o comportamento
+        devices: selectedDevices, // usa devices selecionados no filtro
         dateStart: chunk.start.toISOString(),
         dateEnd:   chunk.end.toISOString()
       };
@@ -626,13 +665,99 @@ function handleEndDateChange(event){
   endDate = event?.value || null;
 }
 
+// -------- Device Filter Functions --------
+function initDeviceSelectionList() {
+  devicesSelectionList = deviceList.map(name => ({
+    name: name,
+    label: deviceNameLabelMap[name.split(' ')[0]] || name,
+    selected: true // default: all selected
+  }));
+  updateDeviceFilterScope();
+}
+
+function updateDeviceFilterScope() {
+  const s = self.ctx.$scope;
+  s.devicesSelectionList = devicesSelectionList;
+  s.filteredDevicesList = getFilteredDevicesList();
+  s.selectedDevicesCount = devicesSelectionList.filter(d => d.selected).length;
+  s.allDevicesCount = devicesSelectionList.length;
+  s.showDeviceFilter = showDeviceFilter;
+  s.deviceFilterText = deviceFilterText;
+}
+
+function getFilteredDevicesList() {
+  if (!deviceFilterText || deviceFilterText.trim() === '') {
+    return devicesSelectionList;
+  }
+  const searchTerm = deviceFilterText.toLowerCase().trim();
+  return devicesSelectionList.filter(d =>
+    d.name.toLowerCase().includes(searchTerm) ||
+    d.label.toLowerCase().includes(searchTerm)
+  );
+}
+
+function toggleDeviceFilter() {
+  showDeviceFilter = !showDeviceFilter;
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function onDeviceFilterTextChange(value) {
+  deviceFilterText = value || '';
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function toggleDeviceSelection(device) {
+  const found = devicesSelectionList.find(d => d.name === device.name);
+  if (found) {
+    found.selected = !found.selected;
+  }
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function selectAllDevices() {
+  const filtered = getFilteredDevicesList();
+  filtered.forEach(d => {
+    const found = devicesSelectionList.find(x => x.name === d.name);
+    if (found) found.selected = true;
+  });
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function deselectAllDevices() {
+  const filtered = getFilteredDevicesList();
+  filtered.forEach(d => {
+    const found = devicesSelectionList.find(x => x.name === d.name);
+    if (found) found.selected = false;
+  });
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function applyDeviceFilter() {
+  showDeviceFilter = false;
+  updateDeviceFilterScope();
+  self.ctx.detectChanges();
+}
+
+function getSelectedDevices() {
+  return devicesSelectionList.filter(d => d.selected).map(d => d.name);
+}
 
 function applyDateRange(){
-  if (startDate && endDate) {
-    getData();
-  } else {
+  if (!startDate || !endDate) {
     alert('Por favor, selecione ambas as datas (início e fim).');
+    return;
   }
+  const selectedDevices = getSelectedDevices();
+  if (selectedDevices.length === 0) {
+    alert('Por favor, selecione ao menos um device para gerar o relatório.');
+    return;
+  }
+  getData();
 }
 
 // -------- Modal de bloqueio --------
@@ -712,6 +837,17 @@ self.onInit = function () {
   self.ctx.$scope.handleStartDateChange = handleStartDateChange;
   self.ctx.$scope.handleEndDateChange = handleEndDateChange;
   self.ctx.$scope.applyDateRange = applyDateRange;
+
+  // Device filter bindings
+  self.ctx.$scope.toggleDeviceFilter = toggleDeviceFilter;
+  self.ctx.$scope.onDeviceFilterTextChange = onDeviceFilterTextChange;
+  self.ctx.$scope.toggleDeviceSelection = toggleDeviceSelection;
+  self.ctx.$scope.selectAllDevices = selectAllDevices;
+  self.ctx.$scope.deselectAllDevices = deselectAllDevices;
+  self.ctx.$scope.applyDeviceFilter = applyDeviceFilter;
+
+  // Initialize device selection list after deviceList is populated
+  initDeviceSelectionList();
 
   // View default: card view recolhido
   self.ctx.$scope.isCardView = true;

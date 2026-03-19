@@ -26,7 +26,8 @@ var deviceTypePatterns = [
   { patterns: ['TERMOSTATO', 'TERMO', 'TEMP'], type: 'TERMOSTATO' },
   { patterns: ['ABRE'], type: 'SOLENOIDE' },
   { patterns: ['AUTOMACAO', 'GW_AUTO'], type: 'GLOBAL_AUTOMACAO' },
-  { patterns: [' AC '], type: 'CONTROLE REMOTO' }
+  { patterns: [' AC ', 'AC '], type: 'CONTROLE_REMOTO' },
+  { patterns: ['ILUM', 'LAMP'], type: 'LAMP' },
 ];
 
 function handleDeviceType(name) {
@@ -61,7 +62,7 @@ function handleDeviceType(name) {
     return '3F_MEDIDOR';
   }
 
-  return '3F_MEDIDOR';
+  return 'UNDEFINED';
 }
 
 Object.keys(devices).forEach((key) => {

@@ -17,6 +17,7 @@ import {
   DEFAULT_LIGHT_THEME,
   DEFAULT_DARK_THEME,
   DEFAULT_TABS,
+  OPERATIONAL_INDICATORS_TAB,
 } from './types';
 
 import { ModalHeader } from '../../utils/ModalHeader';
@@ -50,6 +51,10 @@ export class MenuView {
   private unifiedModalMaximized = false;
   private unifiedModalTheme: 'dark' | 'light' = 'dark';
 
+  // RFC-0152: Operational Indicators tab state
+  private operationalTabEnabled = false;
+  private operationalAccessHandler: ((ev: Event) => void) | null = null;
+
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
     this.configTemplate = { ...DEFAULT_CONFIG_TEMPLATE, ...params.configTemplate };
@@ -76,15 +81,34 @@ export class MenuView {
 
   /**
    * Get the theme config based on current theme mode
+   * Also maps legacy properties (tabSelecionadoBackgroundColor, etc.) for backward compatibility
    */
   private getThemeConfig(): Required<MenuThemeConfig> {
     const defaults = this.themeMode === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
     const userTheme =
       this.themeMode === 'dark' ? this.configTemplate.darkMode : this.configTemplate.lightMode;
 
+    // Map legacy root-level properties to new theme properties
+    const legacyMapped: Partial<MenuThemeConfig> = {};
+    const ct = this.configTemplate as Record<string, unknown>;
+
+    if (ct.tabSelecionadoBackgroundColor) {
+      legacyMapped.tabActiveBackgroundColor = ct.tabSelecionadoBackgroundColor as string;
+    }
+    if (ct.tabSelecionadoFontColor) {
+      legacyMapped.tabActiveFontColor = ct.tabSelecionadoFontColor as string;
+    }
+    if (ct.tabNaoSelecionadoBackgroundColor) {
+      legacyMapped.tabInactiveBackgroundColor = ct.tabNaoSelecionadoBackgroundColor as string;
+    }
+    if (ct.tabNaoSelecionadoFontColor) {
+      legacyMapped.tabInactiveFontColor = ct.tabNaoSelecionadoFontColor as string;
+    }
+
     return {
       ...defaults,
-      ...userTheme,
+      ...legacyMapped, // Legacy properties override defaults
+      ...userTheme, // User theme overrides everything
     } as Required<MenuThemeConfig>;
   }
 
@@ -739,9 +763,9 @@ export class MenuView {
   background: var(--menu-filter-bg);
 }
 
-/* Filter Chips */
+/* Filter Chips - hidden for now (redundant with checklist) */
 .myio-menu-filter-chips {
-  display: flex;
+  display: none; /* TODO: decide if chips should be shown */
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -1225,7 +1249,7 @@ export class MenuView {
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   width: 90%;
-  max-width: 900px;
+  max-width: 1120px;
   max-height: 85vh;
   overflow: hidden;
   display: flex;
@@ -1263,7 +1287,7 @@ export class MenuView {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--menu-modal-border, #e2e8f0);
-  min-width: 0;
+  min-width: 280px;
 }
 
 .myio-unified-column:last-child {
@@ -1405,10 +1429,83 @@ export class MenuView {
   color: #e65100;
 }
 
+/* RFC-0152: Operational Indicators Column Styling */
+.myio-unified-column.operational .myio-unified-column-header {
+  background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
+}
+
+.myio-unified-option.operational:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.myio-unified-option.operational.is-active {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: #8b5cf6;
+}
+
+.myio-unified-option.operational .option-check {
+  color: #8b5cf6;
+}
+
+/* RFC-0152: 4-column layout when operational tab is enabled */
+.myio-unified-modal-body.four-columns {
+  min-width: 1120px;
+}
+
+.myio-unified-modal-body.four-columns .myio-unified-column {
+  min-width: 280px;
+}
+
 /* Responsive - Stack columns on smaller screens */
+@media (max-width: 1150px) {
+  .myio-unified-modal-body.four-columns {
+    flex-wrap: wrap;
+    min-width: auto;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column {
+    flex: 1 1 calc(50% - 1px);
+    min-width: 250px;
+    border-bottom: 1px solid var(--menu-modal-border, #e2e8f0);
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(2) {
+    border-right: none;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(3),
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(4) {
+    border-bottom: none;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column:nth-child(4) {
+    border-right: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .myio-unified-modal-content {
+    max-width: 95vw;
+  }
+
+  .myio-unified-column {
+    min-width: 200px;
+  }
+}
+
 @media (max-width: 700px) {
   .myio-unified-modal-body {
     flex-direction: column;
+  }
+
+  .myio-unified-modal-body.four-columns {
+    flex-wrap: nowrap;
+  }
+
+  .myio-unified-modal-body.four-columns .myio-unified-column {
+    flex: none;
+    width: 100%;
   }
 
   .myio-unified-column {
@@ -1578,7 +1675,7 @@ export class MenuView {
   }
 
   /**
-   * Build the unified context modal with 3 columns
+   * Build the unified context modal with dynamic columns (3 or 4 with RFC-0152 operational indicators)
    */
   private buildUnifiedContextModalHTML(): string {
     const headerHTML = ModalHeader.generateHTML({
@@ -1593,6 +1690,12 @@ export class MenuView {
       borderRadius: '16px 16px 0 0',
     });
 
+    // RFC-0152: Add four-columns class when operational tab is enabled
+    const bodyClasses = ['myio-unified-modal-body'];
+    if (this.tabs.length >= 4 || this.operationalTabEnabled) {
+      bodyClasses.push('four-columns');
+    }
+
     return `
       <div
         id="menuUnifiedContextModal"
@@ -1603,7 +1706,7 @@ export class MenuView {
       >
         <div class="myio-unified-modal-content">
           ${headerHTML}
-          <div class="myio-unified-modal-body">
+          <div class="${bodyClasses.join(' ')}">
             ${this.tabs.map((tab) => this.buildUnifiedColumnHTML(tab)).join('')}
           </div>
         </div>
@@ -1619,10 +1722,12 @@ export class MenuView {
     const isActiveTab = tab.id === this.activeTabId;
 
     // Define header background colors per domain
+    // RFC-0152: Added operational indicators column color
     const headerColors: Record<string, string> = {
       energy: 'linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%)', // Orange tone
       water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', // Blue tone
       temperature: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', // Reddish tone
+      operational: 'linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%)', // Purple tone
     };
 
     return `
@@ -1796,10 +1901,11 @@ export class MenuView {
    * Build Filter button HTML
    */
   private buildFilterButtonHTML(): string {
+    const filterLabel = this.configTemplate.shoppingFilterLabel || 'Filtro de Shoppings';
     return `
-      <button id="menuFilterBtn" class="myio-toolbar-item myio-toolbar-item--filter" type="button" title="Filtro de Shoppings">
+      <button id="menuFilterBtn" class="myio-toolbar-item myio-toolbar-item--filter" type="button" title="${filterLabel}">
         <span class="ico">🏢</span>
-        <span>Filtro de Shoppings</span>
+        <span>${filterLabel}</span>
       </button>
     `;
   }
@@ -1906,9 +2012,10 @@ export class MenuView {
    * Build Filter Modal HTML
    */
   private buildFilterModalHTML(): string {
+    const filterLabel = this.configTemplate.shoppingFilterLabel || 'Filtro de Shoppings';
     const headerHTML = ModalHeader.generateHTML({
       icon: '🏢',
-      title: 'Filtro de Shoppings',
+      title: filterLabel,
       modalId: 'menuFilter',
       theme: this.getFilterModalDefaultTheme(),
       isMaximized: false,
@@ -2170,6 +2277,45 @@ export class MenuView {
       // Also sync on input event
       desktopDateInput.addEventListener('change', syncDates);
     }
+
+    // ==========================================
+    // RFC-0152: Operational Indicators Access
+    // ==========================================
+    this.operationalAccessHandler = (ev: Event) => {
+      const customEv = ev as CustomEvent<{ enabled: boolean }>;
+      const enabled = customEv.detail?.enabled === true;
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] RFC-0152: Operational indicators access event received:', enabled);
+      }
+
+      if (enabled && !this.operationalTabEnabled) {
+        this.operationalTabEnabled = true;
+        // Add operational tab to tabs array
+        if (!this.tabs.find((t) => t.id === 'operational')) {
+          this.tabs = [...this.tabs, OPERATIONAL_INDICATORS_TAB];
+          // Initialize context for the new tab
+          this.contextsByTab.set(
+            OPERATIONAL_INDICATORS_TAB.id,
+            OPERATIONAL_INDICATORS_TAB.defaultContext ?? OPERATIONAL_INDICATORS_TAB.contexts[0]?.id ?? ''
+          );
+        }
+        // Rebuild the unified modal to include the 4th column
+        this.rebuildUnifiedModal();
+      }
+    };
+    window.addEventListener('myio:operational-indicators-access', this.operationalAccessHandler);
+
+    // Check if operational indicators is already enabled (e.g., from cached state)
+    const myioUtils = (window as Window & { MyIOUtils?: { operationalIndicators?: { enabled: boolean } } })
+      .MyIOUtils;
+    //if (myioUtils?.operationalIndicators?.enabled) {
+    this.operationalAccessHandler(
+      new CustomEvent('myio:operational-indicators-access', {
+        detail: { enabled: true },
+      })
+    );
+    //}
   }
 
   /**
@@ -2281,6 +2427,68 @@ export class MenuView {
         console.log('[MenuView] Unified modal closed');
       }
     }
+  }
+
+  /**
+   * RFC-0152: Rebuild the unified modal to include/exclude operational indicators column
+   * Called when operational indicators access changes
+   */
+  private rebuildUnifiedModal(): void {
+    const existingModal = this.root.querySelector('#menuUnifiedContextModal');
+    if (!existingModal) return;
+
+    // Close the modal first if it's open
+    this.closeUnifiedModal();
+
+    // Clear the header controller to force re-initialization
+    this.unifiedModalHeaderController = null;
+
+    // Generate new modal HTML
+    const newModalHTML = this.buildUnifiedContextModalHTML();
+
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = newModalHTML;
+    const newModal = tempDiv.firstElementChild as HTMLElement;
+
+    if (newModal) {
+      // Replace the existing modal
+      existingModal.replaceWith(newModal);
+
+      // Re-bind events for the new modal
+      this.rebindUnifiedModalEvents();
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] RFC-0152: Unified modal rebuilt with', this.tabs.length, 'columns');
+      }
+    }
+  }
+
+  /**
+   * RFC-0152: Re-bind event listeners for the unified modal after rebuild
+   */
+  private rebindUnifiedModalEvents(): void {
+    // Unified modal backdrop click - close
+    const unifiedModal = this.root.querySelector('#menuUnifiedContextModal');
+    if (unifiedModal) {
+      unifiedModal.addEventListener('click', (e) => {
+        if (e.target === unifiedModal) {
+          this.closeUnifiedModal();
+        }
+      });
+    }
+
+    // Unified option clicks
+    this.root.querySelectorAll('.myio-unified-option').forEach((option) => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const el = option as HTMLElement;
+        const tabId = el.dataset.tabId!;
+        const contextId = el.dataset.contextId!;
+        const target = el.dataset.target!;
+        this.handleUnifiedOptionSelect(tabId, contextId, target);
+      });
+    });
   }
 
   /**
@@ -2436,10 +2644,10 @@ export class MenuView {
       const tabId = col.classList.contains('energy')
         ? 'energy'
         : col.classList.contains('water')
-        ? 'water'
-        : col.classList.contains('temperature')
-        ? 'temperature'
-        : '';
+          ? 'water'
+          : col.classList.contains('temperature')
+            ? 'temperature'
+            : '';
       col.classList.toggle('is-active-column', tabId === this.activeTabId);
     });
   }
@@ -3439,6 +3647,12 @@ export class MenuView {
 
     this.unifiedModalHeaderController?.destroy();
     this.unifiedModalHeaderController = null;
+
+    // RFC-0152: Cleanup operational indicators event listener
+    if (this.operationalAccessHandler) {
+      window.removeEventListener('myio:operational-indicators-access', this.operationalAccessHandler);
+      this.operationalAccessHandler = null;
+    }
 
     if (this.root.parentNode) {
       this.root.parentNode.removeChild(this.root);

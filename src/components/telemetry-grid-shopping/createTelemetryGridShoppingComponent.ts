@@ -71,6 +71,14 @@ function mapStateItemToDevice(item: Record<string, unknown>): TelemetryDevice {
     // Timestamps
     lastConnectTime: item.lastConnectTime as number | undefined,
     lastActivityTime: item.lastActivityTime as number | undefined,
+    lastDisconnectTime: item.lastDisconnectTime as number | undefined,
+
+    // GCDR / connection identifiers (RFC-0180)
+    gcdrDeviceId: (item.gcdrDeviceId as string) || undefined,
+    centralId: (item.centralId as string) || undefined,
+    slaveId: (item.slaveId as string) || undefined,
+    floor: (item.floor as string) || undefined,
+    identifier: (item.identifier as string) || undefined,
 
     // Additional metadata
     domain: item.domain as TelemetryDomain | undefined,

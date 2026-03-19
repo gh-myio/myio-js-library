@@ -245,6 +245,8 @@ function normalizeParams(params) {
     // Debug options
     debugActive: params.debugActive ?? false,
     activeTooltipDebug: params.activeTooltipDebug ?? false,
+    // RFC-FIX: Option to hide value tooltip (for STORES widget where range tooltip is not relevant)
+    hideValueTooltip: params.hideValueTooltip ?? false,
     // LogHelper instance for this card
     LogHelper,
     callbacks: {
@@ -1387,7 +1389,8 @@ function bindEvents(root, state, callbacks) {
 
   // Temperature range tooltip (only for domain=temperature)
   // Uses delayed hide pattern: 1.5s delay before closing, allows hover on tooltip to copy data
-  if (entityObject.domain === 'temperature' && valueElement) {
+  // RFC-FIX: Skip tooltip if hideValueTooltip is set (used by STORES widget)
+  if (entityObject.domain === 'temperature' && valueElement && !state.hideValueTooltip) {
     const showTooltip = (e) => {
       // Cancel any pending hide when re-entering
       if (TempRangeTooltip._hideTimer) {
@@ -1413,7 +1416,8 @@ function bindEvents(root, state, callbacks) {
 
   // Energy range tooltip (only for domain=energy)
   // Uses delayed hide pattern: 1.5s delay before closing, allows hover on tooltip to copy data
-  if (entityObject.domain === 'energy' && valueElement) {
+  // RFC-FIX: Skip tooltip if hideValueTooltip is set (used by STORES widget)
+  if (entityObject.domain === 'energy' && valueElement && !state.hideValueTooltip) {
     const showEnergyTooltip = (e) => {
       // Cancel any pending hide when re-entering
       if (EnergyRangeTooltip._hideTimer) {
@@ -1562,7 +1566,29 @@ function bindEvents(root, state, callbacks) {
   if (state.enableDragDrop) {
     root.addEventListener('dragstart', (e) => {
       root.classList.add('is-dragging');
-      e.dataTransfer.setData('text/plain', entityObject.entityId);
+
+      // RFC-0144: Set all required data formats for footer drop
+      e.dataTransfer.setData('text/myio-id', entityObject.entityId || entityObject.id);
+      e.dataTransfer.setData('text/plain', entityObject.entityId || entityObject.id);
+
+      // RFC-0144: Set full entity data as JSON for footer registration
+      const entityPayload = {
+        id: entityObject.entityId || entityObject.id,
+        entityId: entityObject.entityId || entityObject.id,
+        name: entityObject.name || entityObject.labelOrName || entityObject.label,
+        label: entityObject.labelOrName || entityObject.name || entityObject.label,
+        domain: entityObject.domain || 'energy',
+        unit: entityObject.unit || (entityObject.domain === 'water' ? 'm³' : 'kWh'),
+        value: entityObject.value || entityObject.val || entityObject.lastValue || 0,
+        lastValue: entityObject.lastValue || entityObject.value || entityObject.val || 0,
+        customerName: entityObject.customerName || entityObject.ownerName || '',
+        ingestionId: entityObject.ingestionId || entityObject.entityId || entityObject.id,
+        status: entityObject.deviceStatus || entityObject.status || 'online',
+        deviceType: entityObject.deviceType,
+        deviceProfile: entityObject.deviceProfile,
+      };
+      e.dataTransfer.setData('application/json', JSON.stringify(entityPayload));
+      e.dataTransfer.effectAllowed = 'copy';
 
       // Custom event
       const customEvent = new CustomEvent('myio:dragstart', {

@@ -1,6 +1,7 @@
 /**
  * RFC-0148: TelemetryInfoShopping View
  * Renders category cards and pie chart
+ * All class names use tis- prefix to avoid conflicts
  */
 
 import {
@@ -33,7 +34,10 @@ type ChartConstructor = new (
   ctx: CanvasRenderingContext2D,
   config: {
     type: string;
-    data: { labels: string[]; datasets: { data: number[]; backgroundColor: string[]; borderWidth?: number }[] };
+    data: {
+      labels: string[];
+      datasets: { data: number[]; backgroundColor: string[]; borderWidth?: number }[];
+    };
     options: Record<string, unknown>;
   }
 ) => ChartInstance;
@@ -54,9 +58,17 @@ export class TelemetryInfoShoppingView {
   private mainChart: ChartInstance | null = null;
   private modalChart: ChartInstance | null = null;
   private modalOpen = false;
+  private chartInitRetries = 0;
+  private maxChartInitRetries = 10;
 
   // DOM references
   private modalEl: HTMLElement | null = null;
+  private maximizeBtnEl: HTMLElement | null = null;
+
+  // Maximize state
+  private isMaximized = false;
+  private originalParent: HTMLElement | null = null;
+  private originalNextSibling: Node | null = null;
 
   constructor(params: TelemetryInfoShoppingParams) {
     this.params = params;
@@ -82,7 +94,15 @@ export class TelemetryInfoShoppingView {
     this.root.innerHTML = this.buildHTML();
     this.cacheElements();
     this.bindEvents();
-    this.initCharts();
+    this.renderMaximizeButton();
+    // Defer chart init to ensure container has dimensions
+    // Use longer delay to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        this.log('Starting chart initialization after render...');
+        this.initCharts();
+      }, 300);
+    });
     return this.root;
   }
 
@@ -95,22 +115,27 @@ export class TelemetryInfoShoppingView {
   }
 
   private buildHTML(): string {
-    const title = this.params.labelWidget ||
+    const title =
+      this.params.labelWidget ||
       (this.domain === 'energy' ? 'Informações de Energia' : 'Informações de Água');
 
     return `
-      <header class="info-header">
-        <h2 class="info-title" id="infoTitleHeader">${title}</h2>
-        ${this.params.showExpandButton !== false ? `
-        <button class="btn-expand" id="btnExpandModal" title="Expandir visualização">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <header class="tis-header">
+        <h2 class="tis-title" id="infoTitleHeader">${title}</h2>
+        ${
+          this.params.showExpandButton !== false
+            ? `
+        <button class="tis-btn-expand" id="btnExpandModal" title="Expandir visualização">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
           </svg>
         </button>
-        ` : ''}
+        `
+            : ''
+        }
       </header>
 
-      <div class="info-grid" id="infoGrid">
+      <div class="tis-grid" id="infoGrid">
         ${this.domain === 'energy' ? this.buildEnergyCards() : this.buildWaterCards()}
         ${this.params.showChart !== false ? this.buildChartCard() : ''}
       </div>
@@ -123,112 +148,120 @@ export class TelemetryInfoShoppingView {
     const config = ENERGY_CATEGORY_CONFIG;
 
     return `
-      <!-- ROW 1: Entrada + Lojas -->
-      <div class="info-card entrada-card" data-category="entrada">
-        <div class="card-header">
-          <span class="card-icon">${config.entrada.icon}</span>
-          <h3 class="card-title">${config.entrada.label}</h3>
+      <div class="tis-card tis-entrada-card" data-category="entrada">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.entrada.icon}</span>
+          <h3 class="tis-card-title">${config.entrada.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="entradaTotal">0,00 kWh</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="entradaTotal">0,00 kWh</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card lojas-card" data-category="lojas">
-        <div class="card-header">
-          <span class="card-icon">${config.lojas.icon}</span>
-          <h3 class="card-title">${config.lojas.label}</h3>
+      <div class="tis-card tis-lojas-card" data-category="lojas">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.lojas.icon}</span>
+          <h3 class="tis-card-title">${config.lojas.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="lojasTotal">0,00 kWh</span>
-            <span class="stat-perc" id="lojasPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="lojasTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="lojasPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 2: Climatização + Elevadores -->
-      <div class="info-card climatizacao-card" data-category="climatizacao">
-        <div class="card-header">
-          <span class="card-icon">${config.climatizacao.icon}</span>
-          <h3 class="card-title">${config.climatizacao.label}</h3>
-          ${config.climatizacao.tooltip ? `<span class="info-tooltip" title="${config.climatizacao.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-climatizacao-card" data-category="climatizacao">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.climatizacao.icon}</span>
+          <h3 class="tis-card-title">${config.climatizacao.label}</h3>
+          ${
+            config.climatizacao.tooltip
+              ? `<span class="tis-tooltip" title="${config.climatizacao.tooltip}">ℹ️</span>`
+              : ''
+          }
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="climatizacaoTotal">0,00 kWh</span>
-            <span class="stat-perc" id="climatizacaoPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="climatizacaoTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="climatizacaoPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card elevadores-card" data-category="elevadores">
-        <div class="card-header">
-          <span class="card-icon">${config.elevadores.icon}</span>
-          <h3 class="card-title">${config.elevadores.label}</h3>
+      <div class="tis-card tis-elevadores-card" data-category="elevadores">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.elevadores.icon}</span>
+          <h3 class="tis-card-title">${config.elevadores.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="elevadoresTotal">0,00 kWh</span>
-            <span class="stat-perc" id="elevadoresPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="elevadoresTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="elevadoresPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 3: Esc. Rolantes + Outros -->
-      <div class="info-card escadas-card" data-category="escadasRolantes">
-        <div class="card-header">
-          <span class="card-icon">${config.escadasRolantes.icon}</span>
-          <h3 class="card-title">${config.escadasRolantes.label}</h3>
+      <div class="tis-card tis-escadas-card" data-category="escadasRolantes">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.escadasRolantes.icon}</span>
+          <h3 class="tis-card-title">${config.escadasRolantes.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="escadasRolantesTotal">0,00 kWh</span>
-            <span class="stat-perc" id="escadasRolantesPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="escadasRolantesTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="escadasRolantesPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card outros-card" data-category="outros">
-        <div class="card-header">
-          <span class="card-icon">${config.outros.icon}</span>
-          <h3 class="card-title">${config.outros.label}</h3>
-          ${config.outros.tooltip ? `<span class="info-tooltip" title="${config.outros.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-outros-card" data-category="outros">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.outros.icon}</span>
+          <h3 class="tis-card-title">${config.outros.label}</h3>
+          ${
+            config.outros.tooltip
+              ? `<span class="tis-tooltip" title="${config.outros.tooltip}">ℹ️</span>`
+              : ''
+          }
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="outrosTotal">0,00 kWh</span>
-            <span class="stat-perc" id="outrosPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="outrosTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="outrosPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 4: Área Comum + Total -->
-      <div class="info-card area-comum-card" data-category="areaComum">
-        <div class="card-header">
-          <span class="card-icon">${config.areaComum.icon}</span>
-          <h3 class="card-title">${config.areaComum.label}</h3>
-          ${config.areaComum.tooltip ? `<span class="info-tooltip" title="${config.areaComum.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-area-comum-card" data-category="areaComum">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.areaComum.icon}</span>
+          <h3 class="tis-card-title">${config.areaComum.label}</h3>
+          ${
+            config.areaComum.tooltip
+              ? `<span class="tis-tooltip" title="${config.areaComum.tooltip}">ℹ️</span>`
+              : ''
+          }
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="areaComumTotal">0,00 kWh</span>
-            <span class="stat-perc" id="areaComumPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="areaComumTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="areaComumPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card total-card" data-category="total">
-        <div class="card-header">
-          <span class="card-icon">📊</span>
-          <h3 class="card-title">Total Consumidores</h3>
+      <div class="tis-card tis-total-card" data-category="total">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">📊</span>
+          <h3 class="tis-card-title">Total Consumidores</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="consumidoresTotal">0,00 kWh</span>
-            <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="consumidoresTotal">0,00 kWh</span>
+            <span class="tis-stat-perc" id="consumidoresPerc">(100%)</span>
           </div>
         </div>
       </div>
@@ -239,84 +272,89 @@ export class TelemetryInfoShoppingView {
     const config = WATER_CATEGORY_CONFIG;
 
     return `
-      <!-- ROW 1: Entrada + Lojas -->
-      <div class="info-card entrada-card" data-category="entrada">
-        <div class="card-header">
-          <span class="card-icon">${config.entrada.icon}</span>
-          <h3 class="card-title">${config.entrada.label}</h3>
+      <div class="tis-card tis-entrada-card" data-category="entrada">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.entrada.icon}</span>
+          <h3 class="tis-card-title">${config.entrada.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="entradaTotal">0,000 m³</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="entradaTotal">0,000 m³</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card lojas-card" data-category="lojas">
-        <div class="card-header">
-          <span class="card-icon">${config.lojas.icon}</span>
-          <h3 class="card-title">${config.lojas.label}</h3>
+      <div class="tis-card tis-lojas-card" data-category="lojas">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.lojas.icon}</span>
+          <h3 class="tis-card-title">${config.lojas.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="lojasTotal">0,000 m³</span>
-            <span class="stat-perc" id="lojasPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="lojasTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="lojasPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 2: Banheiros + Área Comum -->
-      <div class="info-card banheiros-card" data-category="banheiros">
-        <div class="card-header">
-          <span class="card-icon">${config.banheiros.icon}</span>
-          <h3 class="card-title">${config.banheiros.label}</h3>
-          ${config.banheiros.tooltip ? `<span class="info-tooltip" title="${config.banheiros.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-banheiros-card" data-category="banheiros">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.banheiros.icon}</span>
+          <h3 class="tis-card-title">${config.banheiros.label}</h3>
+          ${
+            config.banheiros.tooltip
+              ? `<span class="tis-tooltip" title="${config.banheiros.tooltip}">ℹ️</span>`
+              : ''
+          }
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="banheirosTotal">0,000 m³</span>
-            <span class="stat-perc" id="banheirosPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="banheirosTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="banheirosPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card area-comum-card" data-category="areaComum">
-        <div class="card-header">
-          <span class="card-icon">${config.areaComum.icon}</span>
-          <h3 class="card-title">${config.areaComum.label}</h3>
+      <div class="tis-card tis-area-comum-card" data-category="areaComum">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.areaComum.icon}</span>
+          <h3 class="tis-card-title">${config.areaComum.label}</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="areaComumTotal">0,000 m³</span>
-            <span class="stat-perc" id="areaComumPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="areaComumTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="areaComumPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <!-- ROW 3: Pontos Não Mapeados + Total -->
-      <div class="info-card nao-mapeados-card" data-category="pontosNaoMapeados">
-        <div class="card-header">
-          <span class="card-icon">${config.pontosNaoMapeados.icon}</span>
-          <h3 class="card-title">${config.pontosNaoMapeados.label}</h3>
-          ${config.pontosNaoMapeados.tooltip ? `<span class="info-tooltip" title="${config.pontosNaoMapeados.tooltip}">ℹ️</span>` : ''}
+      <div class="tis-card tis-nao-mapeados-card" data-category="pontosNaoMapeados">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.pontosNaoMapeados.icon}</span>
+          <h3 class="tis-card-title">${config.pontosNaoMapeados.label}</h3>
+          ${
+            config.pontosNaoMapeados.tooltip
+              ? `<span class="tis-tooltip" title="${config.pontosNaoMapeados.tooltip}">ℹ️</span>`
+              : ''
+          }
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="pontosNaoMapeadosTotal">0,000 m³</span>
-            <span class="stat-perc" id="pontosNaoMapeadosPerc">(0%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="pontosNaoMapeadosTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="pontosNaoMapeadosPerc">(0%)</span>
           </div>
         </div>
       </div>
 
-      <div class="info-card total-card" data-category="total">
-        <div class="card-header">
-          <span class="card-icon">📊</span>
-          <h3 class="card-title">Total</h3>
+      <div class="tis-card tis-total-card" data-category="total">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">📊</span>
+          <h3 class="tis-card-title">Total</h3>
         </div>
-        <div class="card-body">
-          <div class="stat-row main-stat">
-            <span class="stat-value" id="consumidoresTotal">0,000 m³</span>
-            <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="consumidoresTotal">0,000 m³</span>
+            <span class="tis-stat-perc" id="consumidoresPerc">(100%)</span>
           </div>
         </div>
       </div>
@@ -325,45 +363,44 @@ export class TelemetryInfoShoppingView {
 
   private buildChartCard(): string {
     return `
-      <div class="info-card chart-card">
-        <div class="card-header">
-          <h3 class="card-title">Distribuição de Consumo</h3>
+      <div class="tis-card tis-chart-card">
+        <div class="tis-card-header">
+          <h3 class="tis-card-title">Distribuição de Consumo</h3>
         </div>
-        <div class="card-body">
-          <div class="chart-container">
-            <canvas id="consumptionPieChart"></canvas>
+        <div class="tis-card-body">
+          <div class="tis-chart-container">
+            <canvas id="consumptionPieChart" width="150" height="150" style="max-width: 150px; max-height: 150px;"></canvas>
           </div>
-          <div class="chart-legend" id="chartLegend"></div>
+          <div class="tis-chart-legend" id="chartLegend"></div>
         </div>
       </div>
     `;
   }
 
   private buildModalHTML(): string {
-    const title = this.domain === 'energy'
-      ? 'Distribuição de Consumo de Energia'
-      : 'Distribuição de Consumo de Água';
+    const title =
+      this.domain === 'energy' ? 'Distribuição de Consumo de Energia' : 'Distribuição de Consumo de Água';
 
     return `
-      <div class="modal-overlay hidden" id="modalExpanded">
-        <div class="modal-container">
-          <button class="btn-close-floating" id="btnCloseModal" title="Fechar">
+      <div class="tis-modal-overlay tis-hidden" id="modalExpanded">
+        <div class="tis-modal-container">
+          <button class="tis-btn-close" id="btnCloseModal" title="Fechar">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
 
-          <div class="modal-body-clean">
-            <h2 class="modal-title-clean" id="modalTitleHeader">${title}</h2>
+          <div class="tis-modal-body">
+            <h2 class="tis-modal-title" id="modalTitleHeader">${title}</h2>
 
-            <div class="modal-chart-inner-container">
-              <div class="modal-chart-wrapper">
+            <div class="tis-modal-chart-container">
+              <div class="tis-modal-chart-wrapper">
                 <canvas id="modalConsumptionPieChart"></canvas>
               </div>
             </div>
 
-            <div class="modal-legend-clean" id="modalChartLegend"></div>
+            <div class="tis-modal-legend" id="modalChartLegend"></div>
           </div>
         </div>
       </div>
@@ -375,23 +412,32 @@ export class TelemetryInfoShoppingView {
   }
 
   private bindEvents(): void {
-    // Expand button
-    const btnExpand = this.root.querySelector('#btnExpandModal');
-    btnExpand?.addEventListener('click', () => this.openModal());
+    // Listen for global theme changes
+    window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
+      this.setThemeMode(e.detail.mode);
+    }) as EventListener);
 
-    // Close modal
+    // Mouse events for maximize button visibility
+    this.root.addEventListener('mousemove', this.handleMouseMove.bind(this));
+    this.root.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+
+    // Expand button (now triggers maximize instead of modal)
+    const btnExpand = this.root.querySelector('#btnExpandModal');
+    btnExpand?.addEventListener('click', () => this.toggleMaximize());
+
+    // Close modal (keep for backwards compatibility)
     const btnClose = this.root.querySelector('#btnCloseModal');
     btnClose?.addEventListener('click', () => this.closeModal());
 
     // Modal backdrop click
     this.modalEl?.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).classList.contains('modal-overlay')) {
+      if ((e.target as HTMLElement).classList.contains('tis-modal-overlay')) {
         this.closeModal();
       }
     });
 
     // Category cards click
-    this.root.querySelectorAll('.info-card[data-category]').forEach((card) => {
+    this.root.querySelectorAll('.tis-card[data-category]').forEach((card) => {
       card.addEventListener('click', () => {
         const category = (card as HTMLElement).dataset.category as CategoryType;
         this.params.onCategoryClick?.(category);
@@ -406,28 +452,68 @@ export class TelemetryInfoShoppingView {
   private initCharts(): void {
     const Chart = (window as unknown as { Chart?: ChartConstructor }).Chart;
     if (!Chart) {
-      this.log('Chart.js not available');
+      this.chartInitRetries++;
+      if (this.chartInitRetries >= this.maxChartInitRetries) {
+        console.warn('[TelemetryInfoShoppingView] Chart.js not available after max retries - pie chart will not render');
+        return;
+      }
+
+      const retryDelay = Math.min(500 * this.chartInitRetries, 3000); // Progressive backoff up to 3s
+      this.log(
+        `Chart.js not available (retry ${this.chartInitRetries}/${this.maxChartInitRetries}) - will retry in ${retryDelay}ms`
+      );
+      setTimeout(() => this.initCharts(), retryDelay);
       return;
     }
 
+    // Reset retry counter on success
+    this.chartInitRetries = 0;
+    this.log('Chart.js found, initializing charts...');
+
     // Main chart
     const mainCanvas = this.root.querySelector('#consumptionPieChart') as HTMLCanvasElement;
-    if (mainCanvas) {
-      const ctx = mainCanvas.getContext('2d');
-      if (ctx) {
+    if (!mainCanvas) {
+      this.log('Main canvas not found');
+      return;
+    }
+
+    // Ensure canvas has dimensions
+    const container = mainCanvas.parentElement;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      this.log('Chart container dimensions:', rect.width, rect.height);
+      if (rect.width === 0 || rect.height === 0) {
+        this.log('Container has no dimensions, retrying...');
+        setTimeout(() => this.initCharts(), 200);
+        return;
+      }
+    }
+
+    // Destroy existing chart if any
+    if (this.mainChart) {
+      this.mainChart.destroy();
+      this.mainChart = null;
+    }
+
+    const ctx = mainCanvas.getContext('2d');
+    if (ctx) {
+      this.log('Creating main chart with canvas:', mainCanvas.width, mainCanvas.height);
+      try {
         this.mainChart = new Chart(ctx, {
           type: 'pie',
           data: {
-            labels: [],
-            datasets: [{
-              data: [],
-              backgroundColor: [],
-              borderWidth: 0,
-            }],
+            labels: ['Sem dados'],
+            datasets: [
+              {
+                data: [1],
+                backgroundColor: ['#e0e0e0'],
+                borderWidth: 0,
+              },
+            ],
           },
           options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             plugins: {
               legend: { display: false },
               tooltip: {
@@ -441,56 +527,80 @@ export class TelemetryInfoShoppingView {
             },
           },
         });
+        this.log('Main chart created successfully');
+      } catch (err) {
+        console.error('[TelemetryInfoShoppingView] Error creating chart:', err);
       }
+    } else {
+      this.log('Could not get 2D context from canvas');
     }
   }
 
   private initModalChart(): void {
     const Chart = (window as unknown as { Chart?: ChartConstructor }).Chart;
-    if (!Chart) return;
+    if (!Chart) {
+      this.log('Chart.js not available for modal');
+      return;
+    }
 
     const modalCanvas = this.root.querySelector('#modalConsumptionPieChart') as HTMLCanvasElement;
-    if (modalCanvas && !this.modalChart) {
-      const ctx = modalCanvas.getContext('2d');
-      if (ctx) {
-        this.modalChart = new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: [],
-            datasets: [{
+    if (!modalCanvas) {
+      this.log('Modal canvas not found');
+      return;
+    }
+
+    // Destroy existing chart if any
+    if (this.modalChart) {
+      this.modalChart.destroy();
+      this.modalChart = null;
+    }
+
+    const ctx = modalCanvas.getContext('2d');
+    if (ctx) {
+      this.log('Creating modal chart');
+      this.modalChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: [],
+          datasets: [
+            {
               data: [],
               backgroundColor: [],
               borderWidth: 0,
-            }],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (context: { label: string; parsed: number }) => {
-                    const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
-                    return `${context.label}: ${formatter(context.parsed)}`;
-                  },
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context: { label: string; parsed: number }) => {
+                  const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
+                  return `${context.label}: ${formatter(context.parsed)}`;
                 },
               },
             },
           },
-        });
-      }
+        },
+      });
     }
   }
 
   refreshChart(): void {
     const chartData = this.getChartData();
+    this.log('Refreshing chart with data:', chartData);
 
     if (this.mainChart) {
       this.mainChart.data.labels = chartData.labels;
       this.mainChart.data.datasets[0].data = chartData.values;
       this.mainChart.data.datasets[0].backgroundColor = chartData.colors;
       this.mainChart.update();
+      this.log('Main chart updated');
+    } else {
+      this.log('Main chart not initialized yet');
     }
 
     if (this.modalChart) {
@@ -498,6 +608,7 @@ export class TelemetryInfoShoppingView {
       this.modalChart.data.datasets[0].data = chartData.values;
       this.modalChart.data.datasets[0].backgroundColor = chartData.colors;
       this.modalChart.update();
+      this.log('Modal chart updated');
     }
 
     // Update legends
@@ -551,19 +662,26 @@ export class TelemetryInfoShoppingView {
     return { labels, values, colors };
   }
 
-  private updateLegend(elementId: string, chartData: { labels: string[]; values: number[]; colors: string[] }): void {
+  private updateLegend(
+    elementId: string,
+    chartData: { labels: string[]; values: number[]; colors: string[] }
+  ): void {
     const legendEl = this.root.querySelector(`#${elementId}`);
     if (!legendEl) return;
 
     const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
 
-    legendEl.innerHTML = chartData.labels.map((label, i) => `
-      <div class="legend-item">
-        <span class="legend-color" style="background-color: ${chartData.colors[i]}"></span>
-        <span class="legend-label">${label}</span>
-        <span class="legend-value">${formatter(chartData.values[i])}</span>
+    legendEl.innerHTML = chartData.labels
+      .map(
+        (label, i) => `
+      <div class="tis-legend-item">
+        <span class="tis-legend-color" style="background-color: ${chartData.colors[i]}"></span>
+        <span class="tis-legend-label">${label}</span>
+        <span class="tis-legend-value">${formatter(chartData.values[i])}</span>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   // =========================================================================
@@ -583,7 +701,7 @@ export class TelemetryInfoShoppingView {
     const totalConsumidores = lojas + climatizacao + elevadores + escadasRolantes + outros;
     const areaComum = Math.max(0, entrada - totalConsumidores);
 
-    const calcPerc = (val: number) => entrada > 0 ? (val / entrada) * 100 : 0;
+    const calcPerc = (val: number) => (entrada > 0 ? (val / entrada) * 100 : 0);
 
     this.energyState = {
       entrada: { total: entrada, perc: 100 },
@@ -616,7 +734,10 @@ export class TelemetryInfoShoppingView {
     this.updateElement('#elevadoresTotal', formatEnergy(state.consumidores.elevadores.total));
     this.updateElement('#elevadoresPerc', `(${formatPercentage(state.consumidores.elevadores.perc)})`);
     this.updateElement('#escadasRolantesTotal', formatEnergy(state.consumidores.escadasRolantes.total));
-    this.updateElement('#escadasRolantesPerc', `(${formatPercentage(state.consumidores.escadasRolantes.perc)})`);
+    this.updateElement(
+      '#escadasRolantesPerc',
+      `(${formatPercentage(state.consumidores.escadasRolantes.perc)})`
+    );
     this.updateElement('#outrosTotal', formatEnergy(state.consumidores.outros.total));
     this.updateElement('#outrosPerc', `(${formatPercentage(state.consumidores.outros.perc)})`);
     this.updateElement('#areaComumTotal', formatEnergy(state.consumidores.areaComum.total));
@@ -636,7 +757,7 @@ export class TelemetryInfoShoppingView {
     const pontosNaoMapeados = Math.max(0, entrada - totalMapeado);
     const hasInconsistency = pontosNaoMapeados < 0;
 
-    const calcPerc = (val: number) => entrada > 0 ? (val / entrada) * 100 : 0;
+    const calcPerc = (val: number) => (entrada > 0 ? (val / entrada) * 100 : 0);
 
     this.waterState = {
       entrada: { total: entrada, perc: 100 },
@@ -684,11 +805,11 @@ export class TelemetryInfoShoppingView {
     this.waterState = null;
 
     // Reset all values to zero
-    this.root.querySelectorAll('.stat-value').forEach((el) => {
+    this.root.querySelectorAll('.tis-stat-value').forEach((el) => {
       const isWater = this.domain === 'water';
       el.textContent = isWater ? '0,000 m³' : '0,00 kWh';
     });
-    this.root.querySelectorAll('.stat-perc').forEach((el) => {
+    this.root.querySelectorAll('.tis-stat-perc').forEach((el) => {
       el.textContent = '(0%)';
     });
 
@@ -706,12 +827,16 @@ export class TelemetryInfoShoppingView {
   openModal(): void {
     this.log('openModal');
     this.modalOpen = true;
-    this.modalEl?.classList.remove('hidden');
+    this.modalEl?.classList.remove('tis-hidden');
     document.body.classList.add('modal-open-telemetry-info');
 
-    // Initialize modal chart if not already
-    this.initModalChart();
-    this.refreshChart();
+    // Initialize modal chart with delay to ensure DOM is ready
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        this.initModalChart();
+        this.refreshChart();
+      }, 50);
+    });
 
     this.params.onExpandClick?.();
   }
@@ -719,7 +844,7 @@ export class TelemetryInfoShoppingView {
   closeModal(): void {
     this.log('closeModal');
     this.modalOpen = false;
-    this.modalEl?.classList.add('hidden');
+    this.modalEl?.classList.add('tis-hidden');
     document.body.classList.remove('modal-open-telemetry-info');
   }
 
@@ -739,7 +864,8 @@ export class TelemetryInfoShoppingView {
       // Re-render the grid with new domain cards
       const gridEl = this.root.querySelector('#infoGrid');
       if (gridEl) {
-        gridEl.innerHTML = (domain === 'energy' ? this.buildEnergyCards() : this.buildWaterCards()) +
+        gridEl.innerHTML =
+          (domain === 'energy' ? this.buildEnergyCards() : this.buildWaterCards()) +
           (this.params.showChart !== false ? this.buildChartCard() : '');
       }
 
@@ -750,9 +876,8 @@ export class TelemetryInfoShoppingView {
       // Update modal title
       const modalTitle = this.root.querySelector('#modalTitleHeader');
       if (modalTitle) {
-        modalTitle.textContent = domain === 'energy'
-          ? 'Distribuição de Consumo de Energia'
-          : 'Distribuição de Consumo de Água';
+        modalTitle.textContent =
+          domain === 'energy' ? 'Distribuição de Consumo de Energia' : 'Distribuição de Consumo de Água';
       }
     }
   }
@@ -783,5 +908,85 @@ export class TelemetryInfoShoppingView {
 
   getElement(): HTMLElement {
     return this.root;
+  }
+
+  // =========================================================================
+  // Maximize
+  // =========================================================================
+
+  private renderMaximizeButton(): void {
+    const maximizeBtnHTML = `
+      <button class="tis-maximize-btn" title="Maximizar">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" fill="currentColor"/>
+        </svg>
+      </button>
+    `;
+    this.root.insertAdjacentHTML('beforeend', maximizeBtnHTML);
+    this.maximizeBtnEl = this.root.querySelector('.tis-maximize-btn');
+    this.maximizeBtnEl?.addEventListener('click', this.toggleMaximize.bind(this));
+  }
+
+  private handleMouseMove(event: MouseEvent): void {
+    if (this.isMaximized || !this.maximizeBtnEl) return;
+
+    const rect = this.root.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const isNearTopRight = x > rect.width - 80 && y < 60;
+
+    this.maximizeBtnEl.style.opacity = isNearTopRight ? '1' : '0';
+  }
+
+  private handleMouseLeave(): void {
+    if (this.isMaximized || !this.maximizeBtnEl) return;
+    this.maximizeBtnEl.style.opacity = '0';
+  }
+
+  private toggleMaximize(): void {
+    this.isMaximized = !this.isMaximized;
+
+    if (this.isMaximized) {
+      // Save original position
+      this.originalParent = this.root.parentElement;
+      this.originalNextSibling = this.root.nextSibling;
+
+      // Move to body for fullscreen
+      document.body.appendChild(this.root);
+      this.root.classList.add('tis-maximized');
+
+      // Keep button visible when maximized
+      if (this.maximizeBtnEl) {
+        this.maximizeBtnEl.style.opacity = '1';
+      }
+    } else {
+      // Restore original position
+      this.root.classList.remove('tis-maximized');
+
+      if (this.originalParent) {
+        if (this.originalNextSibling) {
+          this.originalParent.insertBefore(this.root, this.originalNextSibling);
+        } else {
+          this.originalParent.appendChild(this.root);
+        }
+      }
+
+      // Reset button opacity
+      if (this.maximizeBtnEl) {
+        this.maximizeBtnEl.style.opacity = '0';
+      }
+    }
+
+    // Update icon
+    const icon = this.isMaximized
+      ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" fill="currentColor"/>'
+      : '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" fill="currentColor"/>';
+
+    if (this.maximizeBtnEl) {
+      this.maximizeBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18">${icon}</svg>`;
+    }
+
+    this.params.onExpandClick?.();
   }
 }

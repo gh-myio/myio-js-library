@@ -1,3 +1,5 @@
+import type { GCDRCustomerBundle } from '../gcdr-sync/types';
+
 export type TbScope = 'CLIENT_SCOPE' | 'SERVER_SCOPE';
 export type Domain = 'energy' | 'water' | 'temperature';
 
@@ -17,6 +19,9 @@ export interface OpenDashboardPopupSettingsParams {
 
   // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
   superadmin?: boolean;
+
+  // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
+  userEmail?: string;
 
   // Connection information (from card v5 info panel)
   connectionData?: {
@@ -68,7 +73,28 @@ export interface OpenDashboardPopupSettingsParams {
     i18n?: { t: (key: string, def?: string) => string }; // Internationalization
     consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   };
-  
+
+  /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
+  enableAnnotationsOnboarding?: boolean;
+
+  // RFC-0180: Raw TB device name (distinct from `label` which is user-editable)
+  deviceName?: string;
+
+  // Device timestamps (Unix ms)
+  createdTime?: number | null;
+  lastActivityTime?: number | null;
+
+  // RFC-0180: GCDR identifiers — required to power the Alarms tab
+  gcdrDeviceId?: string;
+  gcdrCustomerId?: string;
+  gcdrTenantId?: string;
+  gcdrApiBaseUrl?: string;
+  /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
+  prefetchedBundle?: GCDRCustomerBundle | null;
+  /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format).
+   *  AlarmsTab filters by gcdrDeviceId — no per-device fetch needed. */
+  prefetchedAlarms?: unknown[] | null;
+
   // Pre-populate form with existing values
   seed?: {
     label?: string;
@@ -117,7 +143,7 @@ export interface SettingsEvent {
 
 export interface SettingsFetcher {
   fetchCurrentSettings(deviceId: string, jwtToken: string, scope: TbScope): Promise<{
-    entity?: { label?: string };
+    entity?: { label?: string; createdTime?: number | null };
     attributes?: Record<string, unknown>;
   }>;
 }
@@ -146,6 +172,7 @@ export interface ModalConfig {
   deviceMapInstaneousPower: object;
   deviceId?: string; // ThingsBoard device ID for fetching device-level attributes
   jwtToken?: string; // JWT token for API calls
+  tbBaseUrl?: string; // ThingsBoard base URL for API calls (defaults to window.location.origin)
   connectionData?: { // Connection info from card v5
     centralName?: string;
     connectionStatusTime?: string;
@@ -155,6 +182,27 @@ export interface ModalConfig {
   };
   consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   superadmin?: boolean; // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
+  userEmail?: string; // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
+  /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
+  enableAnnotationsOnboarding?: boolean;
+
+  // RFC-0180: Raw TB device name shown as muted subtitle in identity card
+  deviceName?: string;
+
+  // Device timestamps (Unix ms)
+  createdTime?: number | null;
+  lastActivityTime?: number | null;
+
+  // RFC-0180: GCDR identifiers — required to power the Alarms tab
+  gcdrDeviceId?: string;
+  gcdrCustomerId?: string;
+  gcdrTenantId?: string;
+  gcdrApiBaseUrl?: string;
+  /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
+  prefetchedBundle?: GCDRCustomerBundle | null;
+  /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format). */
+  prefetchedAlarms?: unknown[] | null;
+
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

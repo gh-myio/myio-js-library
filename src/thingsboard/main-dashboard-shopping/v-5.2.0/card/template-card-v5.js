@@ -561,16 +561,16 @@ export function renderCardComponentV5({
         box-shadow: 1px 0 2px rgba(0, 0, 0, .1);
         display: flex;
         flex-direction: column;
-        padding: 0 4px;
-        justify-content: space-evenly;
+        padding: 4px;
+        justify-content: center;
         align-items: center;
-        gap: 8px;
+        gap: 2px;
       }
 
       .myio-enhanced-card-container-v5 .card-action {
-        width: 32px;
-        flex: 1;
-        min-height: 32px;
+        width: 28px;
+        height: 26px;
+        min-height: 26px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -578,7 +578,7 @@ export function renderCardComponentV5({
         transition: all 0.2s ease;
         cursor: pointer;
         border: none;
-        background: rgba(0, 0, 0, 0.05);
+        background: rgba(0, 0, 0, 0.03);
       }
 
       .myio-enhanced-card-container-v5 .card-action:hover {
@@ -1121,13 +1121,13 @@ export function renderCardComponentV5({
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
       }
 
-      /* Piano-Key Actions (3 BUTTONS - EVENLY DISTRIBUTED) */
+      /* Piano-Key Actions (3 BUTTONS - COMPACT) */
       .device-card-centered .card-actions {
         position: absolute;
         left: 12px;
-        top: 12px;
-        bottom: 12px;
-        padding: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 6px 0;
         display: flex;
         flex-direction: column;
         justify-content: space-evenly;
@@ -1138,14 +1138,15 @@ export function renderCardComponentV5({
         overflow: visible;
         box-shadow: none !important;
         z-index: 10;
+        max-height: 72%;
+        width: 34px;
       }
 
       .device-card-centered .card-action {
-        width: 36px !important;
-        flex: 1;
-        min-height: 36px !important;
+        width: 28px !important;
+        height: 26px !important;
+        min-height: 26px !important;
         border: 0;
-        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
         background: #fff !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
@@ -1156,18 +1157,11 @@ export function renderCardComponentV5({
         align-items: center;
         justify-content: center;
         margin: 0;
-        border-radius: 0;
+        border-radius: 6px;
       }
 
-      .device-card-centered .card-action:first-child {
-        border-top-left-radius: 7px;
-        border-top-right-radius: 7px;
-      }
-
-      .device-card-centered .card-action:last-child {
-        border-bottom: 0;
-        border-bottom-left-radius: 7px;
-        border-bottom-right-radius: 7px;
+      .device-card-centered .card-action:hover {
+        background: rgba(91, 46, 188, 0.1) !important;
       }
 
       .device-card-centered .card-action img {
@@ -1288,8 +1282,8 @@ export function renderCardComponentV5({
         }
 
         .device-card-centered .card-action {
-          width: 36px !important;
-          height: 36px !important;
+          width: 30px !important;
+          height: 28px !important;
         }
 
         .device-card-centered .device-percentage-badge {

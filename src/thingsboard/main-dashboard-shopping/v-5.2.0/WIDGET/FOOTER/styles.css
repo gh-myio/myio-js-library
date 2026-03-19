@@ -44,11 +44,7 @@
   /* Visual */
   font-family: var(--font-family);
   color: var(--color-text-primary);
-  background: linear-gradient(
-    180deg,
-    rgba(26, 31, 40, 0.98) 0%,
-    rgba(15, 20, 25, 0.98) 100%
-  );
+  background: linear-gradient(180deg, rgba(26, 31, 40, 0.98) 0%, rgba(15, 20, 25, 0.98) 100%);
   border-top: 2px solid rgba(0, 224, 158, 0.3);
   box-shadow:
     var(--shadow-lg),
@@ -110,11 +106,7 @@
   height: 64px;
   flex-shrink: 0;
 
-  background: linear-gradient(
-    135deg,
-    rgba(0, 224, 158, 0.12) 0%,
-    rgba(0, 224, 158, 0.06) 100%
-  );
+  background: linear-gradient(135deg, rgba(0, 224, 158, 0.12) 0%, rgba(0, 224, 158, 0.06) 100%);
   border: 1px solid rgba(0, 224, 158, 0.3);
   border-radius: var(--radius-lg);
   box-shadow:
@@ -137,11 +129,7 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(
-    circle,
-    rgba(0, 224, 158, 0.15) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, rgba(0, 224, 158, 0.15) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s;
 }
@@ -158,11 +146,7 @@
 }
 
 .myio-chip:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(0, 224, 158, 0.18) 0%,
-    rgba(0, 224, 158, 0.1) 100%
-  );
+  background: linear-gradient(135deg, rgba(0, 224, 158, 0.18) 0%, rgba(0, 224, 158, 0.1) 100%);
   border-color: rgba(0, 224, 158, 0.5);
   box-shadow:
     0 6px 16px rgba(0, 224, 158, 0.3),
@@ -280,7 +264,8 @@
 }
 
 @keyframes pulseGlow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.5;
     box-shadow: 0 0 0 rgba(0, 224, 158, 0.3);
   }
@@ -350,11 +335,7 @@
   letter-spacing: -0.01em;
   text-transform: uppercase;
 
-  background: linear-gradient(
-    135deg,
-    var(--color-primary) 0%,
-    var(--color-primary-dark) 100%
-  );
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   border: none;
   border-radius: var(--radius-md);
   color: var(--color-background);
@@ -377,12 +358,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   transition: left 0.5s;
 }
 
@@ -391,11 +367,7 @@
 }
 
 .myio-compare:hover {
-  background: linear-gradient(
-    135deg,
-    var(--color-primary-hover) 0%,
-    var(--color-primary) 100%
-  );
+  background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   box-shadow:
     0 0 0 1px rgba(0, 224, 158, 0.3),
     0 6px 24px rgba(0, 224, 158, 0.5),
@@ -511,8 +483,8 @@
   align-items: center;
   justify-content: center;
 
-  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
-  border: 2px solid #3E1A7D;
+  background: linear-gradient(135deg, #3e1a7d 0%, #2d1359 100%);
+  border: 2px solid #3e1a7d;
   border-radius: 50%;
 
   color: #ffffff;
@@ -548,7 +520,7 @@
   font-weight: 700;
   text-transform: uppercase;
 
-  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+  background: linear-gradient(135deg, #3e1a7d 0%, #2d1359 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
@@ -559,7 +531,7 @@
 }
 
 .myio-alert-button:hover {
-  background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
+  background: linear-gradient(135deg, #4e2a9d 0%, #3e1a7d 100%);
   box-shadow: 0 6px 24px rgba(62, 26, 125, 0.5);
   transform: translateY(-2px);
 }

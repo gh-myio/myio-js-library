@@ -62,10 +62,21 @@ export interface TelemetryDevice {
   // Timestamps
   lastConnectTime?: number;
   lastActivityTime?: number;
+  lastDisconnectTime?: number;
+
+  // GCDR / connection identifiers (RFC-0180)
+  gcdrDeviceId?: string;
+  centralId?: string;
+  slaveId?: string;
+  floor?: string;
+  identifier?: string;
 
   // Additional metadata
   domain?: TelemetryDomain;
   log_annotations?: Record<string, unknown>;
+
+  // RFC-0183: alarm badge count (resolved at render time from AlarmServiceOrchestrator)
+  alarmCount?: number;
 }
 
 // ============================================

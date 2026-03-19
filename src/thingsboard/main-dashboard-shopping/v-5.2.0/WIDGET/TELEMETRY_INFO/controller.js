@@ -118,7 +118,9 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
       const cachedPeriodKey = orchestratorData[domain].periodKey || '';
       const cachedCustomerId = cachedPeriodKey.split(':')[0];
       if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
-        LogHelper.warn(`[TELEMETRY_INFO] 🚫 MyIOOrchestratorData customer mismatch for ${domain} (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`);
+        LogHelper.warn(
+          `[TELEMETRY_INFO] 🚫 MyIOOrchestratorData customer mismatch for ${domain} (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`
+        );
         // Clear stale cache
         if (window.MyIOOrchestratorData) delete window.MyIOOrchestratorData[domain];
         items = [];
@@ -141,19 +143,18 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
 
   // RFC-0109: Status mapping for consumption categories (online devices only)
   const consumptionStatusMapping = {
-    'power_on': 'normal',
-    'warning': 'alert',
-    'failure': 'failure',
-    'standby': 'standby',
+    power_on: 'normal',
+    warning: 'alert',
+    failure: 'failure',
+    standby: 'standby',
   };
 
   items.forEach((item) => {
     // Build display label with identifier: "label (identifier)" format
     const baseLabel = item.label || item.entityLabel || item.name || '';
     const identifier = item.identifier || item.deviceIdentifier || '';
-    const displayLabel = (identifier && identifier !== baseLabel)
-      ? `${baseLabel} (${identifier})`
-      : baseLabel || identifier;
+    const displayLabel =
+      identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel || identifier;
 
     const deviceInfo = {
       id: item.id || item.deviceId || '',
@@ -169,9 +170,10 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
     // Priority: waiting > weakConnection > offline > noConsumption > consumption status
 
     // 1. WAITING (not_installed) - highest priority
-    const isWaiting = deviceStatus === 'not_installed' ||
-                      connectionStatus === 'waiting' ||
-                      ['waiting', 'connecting', 'pending'].includes(String(connectionStatus).toLowerCase());
+    const isWaiting =
+      deviceStatus === 'not_installed' ||
+      connectionStatus === 'waiting' ||
+      ['waiting', 'connecting', 'pending'].includes(String(connectionStatus).toLowerCase());
     if (isWaiting) {
       result.waiting++;
       result.waitingDevices.push(deviceInfo);
@@ -179,8 +181,9 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
     }
 
     // 2. WEAK CONNECTION
-    const isWeakConnection = deviceStatus === 'weak_connection' ||
-                              ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
+    const isWeakConnection =
+      deviceStatus === 'weak_connection' ||
+      ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
     if (isWeakConnection) {
       result.weakConnection++;
       result.weakConnectionDevices.push(deviceInfo);
@@ -188,8 +191,9 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
     }
 
     // 3. OFFLINE
-    const isOffline = ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
-                      ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
+    const isOffline =
+      ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
+      ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
     if (isOffline) {
       result.offline++;
       result.offlineDevices.push(deviceInfo);
@@ -238,15 +242,19 @@ function formatValue(value, domain = 'energy') {
     const decimals = settings.decimalPlaces ?? 2;
     if (settings.unit === 'liters') {
       const liters = value * 1000;
-      return liters.toLocaleString('pt-BR', {
+      return (
+        liters.toLocaleString('pt-BR', {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        }) + ' L'
+      );
+    }
+    return (
+      value.toLocaleString('pt-BR', {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
-      }) + ' L';
-    }
-    return value.toLocaleString('pt-BR', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }) + ' m³';
+      }) + ' m³'
+    );
   }
   // Default: energy (kWh)
   return formatEnergy(value);
@@ -620,7 +628,11 @@ function validateTotals() {
  */
 function formatEnergy(value) {
   // RFC-0108: Get settings for proper fallback unit
-  const settings = window.MyIOUtils?.measurementSettings?.energy || { unit: 'auto', decimalPlaces: 3, forceUnit: false };
+  const settings = window.MyIOUtils?.measurementSettings?.energy || {
+    unit: 'auto',
+    decimalPlaces: 3,
+    forceUnit: false,
+  };
   const fallbackUnit = settings.unit === 'mwh' ? 'MWh' : 'kWh';
   const fallbackZero = settings.unit === 'mwh' ? '0,000 MWh' : '0,00 kWh';
 
@@ -642,7 +654,9 @@ function formatEnergy(value) {
     value.toLocaleString('pt-BR', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
-    }) + ' ' + fallbackUnit
+    }) +
+    ' ' +
+    fallbackUnit
   );
 }
 
@@ -1434,9 +1448,7 @@ function processStateFromSummaryWater(summary, grandTotal) {
     areaComumDevices.forEach((device) => {
       const labelLower = (device.label || '').toLowerCase();
       const identifierLower = (device.identifier || device.id || '').toLowerCase();
-      const isBanheiro = BANHEIRO_PATTERNS.some(
-        (p) => labelLower.includes(p) || identifierLower.includes(p)
-      );
+      const isBanheiro = BANHEIRO_PATTERNS.some((p) => labelLower.includes(p) || identifierLower.includes(p));
 
       if (isBanheiro) {
         extractedBanheiros.push(device);
@@ -1488,7 +1500,8 @@ function processStateFromSummaryWater(summary, grandTotal) {
   STATE_WATER.pontosNaoMapeados.total = summary.pontosNaoMapeados?.summary?.total || 0;
   STATE_WATER.pontosNaoMapeados.perc = summary.pontosNaoMapeados?.summary?.perc || 0;
   STATE_WATER.pontosNaoMapeados.isCalculated = true;
-  STATE_WATER.pontosNaoMapeados.hasInconsistency = summary.pontosNaoMapeados?.summary?.hasInconsistency || false;
+  STATE_WATER.pontosNaoMapeados.hasInconsistency =
+    summary.pontosNaoMapeados?.summary?.hasInconsistency || false;
 
   STATE_WATER.grandTotal = grandTotal;
   STATE_WATER.periodKey = summary.periodKey;
@@ -1536,14 +1549,22 @@ function processStateFromSummaryWater(summary, grandTotal) {
   // If banheiros were extracted, create updated category objects with correct values
   const banheirosForTooltip = banheirosExtracted
     ? {
-        summary: { total: banheirosTotal, perc: grandTotal > 0 ? (banheirosTotal / grandTotal) * 100 : 0, count: banheirosDevices.length },
+        summary: {
+          total: banheirosTotal,
+          perc: grandTotal > 0 ? (banheirosTotal / grandTotal) * 100 : 0,
+          count: banheirosDevices.length,
+        },
         details: { devices: banheirosDevices },
       }
     : summary.banheiros;
 
   const areaComumForTooltip = banheirosExtracted
     ? {
-        summary: { total: areaComumTotal, perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0, count: areaComumDevices.length },
+        summary: {
+          total: areaComumTotal,
+          perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0,
+          count: areaComumDevices.length,
+        },
         details: { devices: areaComumDevices },
       }
     : summary.areaComum;
@@ -2818,12 +2839,10 @@ function buildPontosNaoMapeadosContent() {
 
   const entrada = STATE_WATER.entrada?.total || 0;
   const lojas = STATE_WATER.lojas?.total || 0;
-  const banheiros = STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0;
+  const banheiros = STATE_WATER.includeBathrooms ? STATE_WATER.banheiros?.total || 0 : 0;
   const areaComum = STATE_WATER.areaComum?.total || 0;
 
-  const formulaTerms = STATE_WATER.includeBathrooms
-    ? 'Lojas + Banheiros + Área Comum'
-    : 'Lojas + Área Comum';
+  const formulaTerms = STATE_WATER.includeBathrooms ? 'Lojas + Banheiros + Área Comum' : 'Lojas + Área Comum';
 
   const warningHtml = hasInconsistency
     ? `
@@ -2849,12 +2868,16 @@ function buildPontosNaoMapeadosContent() {
         <span class="myio-info-tooltip__label">➖ Lojas:</span>
         <span class="myio-info-tooltip__value">${formatValue(lojas, 'water')}</span>
       </div>
-      ${STATE_WATER.includeBathrooms ? `
+      ${
+        STATE_WATER.includeBathrooms
+          ? `
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Banheiros:</span>
         <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Área Comum:</span>
         <span class="myio-info-tooltip__value">${formatValue(areaComum, 'water')}</span>
@@ -3109,7 +3132,9 @@ function setupSummaryTooltip() {
     : window.MyIOLibrary?.EnergySummaryTooltip;
 
   if (!SummaryTooltip) {
-    console.error(`[RFC-0105] ${tooltipType}SummaryTooltip not available in MyIOLibrary. Tooltip will not work.`);
+    console.error(
+      `[RFC-0105] ${tooltipType}SummaryTooltip not available in MyIOLibrary. Tooltip will not work.`
+    );
     return;
   }
 
@@ -3178,40 +3203,45 @@ function setupSummaryTooltip() {
                 consumption: byCategory.climatizacao?.summary?.total || 0,
                 percentage: byCategory.climatizacao?.summary?.perc || 0,
                 // Subcategories within climatização
-                children: byCategory.climatizacao?.subcategories ? [
-                  {
-                    id: 'chillers',
-                    name: 'Chillers',
-                    icon: '🧊',
-                    deviceCount: byCategory.climatizacao.subcategories.chillers?.summary?.count || 0,
-                    consumption: byCategory.climatizacao.subcategories.chillers?.summary?.total || 0,
-                    percentage: byCategory.climatizacao.subcategories.chillers?.summary?.perc || 0,
-                  },
-                  {
-                    id: 'fancoils',
-                    name: 'Fancoils',
-                    icon: '💨',
-                    deviceCount: byCategory.climatizacao.subcategories.fancoils?.summary?.count || 0,
-                    consumption: byCategory.climatizacao.subcategories.fancoils?.summary?.total || 0,
-                    percentage: byCategory.climatizacao.subcategories.fancoils?.summary?.perc || 0,
-                  },
-                  {
-                    id: 'bombasHidraulicas',
-                    name: 'Bombas Hidráulicas',
-                    icon: '💧',
-                    deviceCount: byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.count || 0,
-                    consumption: byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.total || 0,
-                    percentage: byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.perc || 0,
-                  },
-                  {
-                    id: 'cag',
-                    name: 'CAG',
-                    icon: '🌡️',
-                    deviceCount: byCategory.climatizacao.subcategories.cag?.summary?.count || 0,
-                    consumption: byCategory.climatizacao.subcategories.cag?.summary?.total || 0,
-                    percentage: byCategory.climatizacao.subcategories.cag?.summary?.perc || 0,
-                  },
-                ].filter(c => c.deviceCount > 0) : undefined,
+                children: byCategory.climatizacao?.subcategories
+                  ? [
+                      {
+                        id: 'chillers',
+                        name: 'Chillers',
+                        icon: '🧊',
+                        deviceCount: byCategory.climatizacao.subcategories.chillers?.summary?.count || 0,
+                        consumption: byCategory.climatizacao.subcategories.chillers?.summary?.total || 0,
+                        percentage: byCategory.climatizacao.subcategories.chillers?.summary?.perc || 0,
+                      },
+                      {
+                        id: 'fancoils',
+                        name: 'Fancoils',
+                        icon: '💨',
+                        deviceCount: byCategory.climatizacao.subcategories.fancoils?.summary?.count || 0,
+                        consumption: byCategory.climatizacao.subcategories.fancoils?.summary?.total || 0,
+                        percentage: byCategory.climatizacao.subcategories.fancoils?.summary?.perc || 0,
+                      },
+                      {
+                        id: 'bombasHidraulicas',
+                        name: 'Bombas Hidráulicas',
+                        icon: '💧',
+                        deviceCount:
+                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.count || 0,
+                        consumption:
+                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.total || 0,
+                        percentage:
+                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.perc || 0,
+                      },
+                      {
+                        id: 'cag',
+                        name: 'CAG',
+                        icon: '🌡️',
+                        deviceCount: byCategory.climatizacao.subcategories.cag?.summary?.count || 0,
+                        consumption: byCategory.climatizacao.subcategories.cag?.summary?.total || 0,
+                        percentage: byCategory.climatizacao.subcategories.cag?.summary?.perc || 0,
+                      },
+                    ].filter((c) => c.deviceCount > 0)
+                  : undefined,
               },
               {
                 id: 'elevadores',
@@ -3237,32 +3267,34 @@ function setupSummaryTooltip() {
                 consumption: byCategory.outros?.summary?.total || 0,
                 percentage: byCategory.outros?.summary?.perc || 0,
                 // Subcategories within outros
-                children: byCategory.outros?.subcategories ? [
-                  {
-                    id: 'iluminacao',
-                    name: 'Iluminação',
-                    icon: '💡',
-                    deviceCount: byCategory.outros.subcategories.iluminacao?.summary?.count || 0,
-                    consumption: byCategory.outros.subcategories.iluminacao?.summary?.total || 0,
-                    percentage: byCategory.outros.subcategories.iluminacao?.summary?.perc || 0,
-                  },
-                  {
-                    id: 'bombasIncendio',
-                    name: 'Bombas Incêndio',
-                    icon: '🔥',
-                    deviceCount: byCategory.outros.subcategories.bombasIncendio?.summary?.count || 0,
-                    consumption: byCategory.outros.subcategories.bombasIncendio?.summary?.total || 0,
-                    percentage: byCategory.outros.subcategories.bombasIncendio?.summary?.perc || 0,
-                  },
-                  {
-                    id: 'geradores',
-                    name: 'Geradores',
-                    icon: '🔋',
-                    deviceCount: byCategory.outros.subcategories.geradores?.summary?.count || 0,
-                    consumption: byCategory.outros.subcategories.geradores?.summary?.total || 0,
-                    percentage: byCategory.outros.subcategories.geradores?.summary?.perc || 0,
-                  },
-                ].filter(c => c.deviceCount > 0) : undefined,
+                children: byCategory.outros?.subcategories
+                  ? [
+                      {
+                        id: 'iluminacao',
+                        name: 'Iluminação',
+                        icon: '💡',
+                        deviceCount: byCategory.outros.subcategories.iluminacao?.summary?.count || 0,
+                        consumption: byCategory.outros.subcategories.iluminacao?.summary?.total || 0,
+                        percentage: byCategory.outros.subcategories.iluminacao?.summary?.perc || 0,
+                      },
+                      {
+                        id: 'bombasIncendio',
+                        name: 'Bombas Incêndio',
+                        icon: '🔥',
+                        deviceCount: byCategory.outros.subcategories.bombasIncendio?.summary?.count || 0,
+                        consumption: byCategory.outros.subcategories.bombasIncendio?.summary?.total || 0,
+                        percentage: byCategory.outros.subcategories.bombasIncendio?.summary?.perc || 0,
+                      },
+                      {
+                        id: 'geradores',
+                        name: 'Geradores',
+                        icon: '🔋',
+                        deviceCount: byCategory.outros.subcategories.geradores?.summary?.count || 0,
+                        consumption: byCategory.outros.subcategories.geradores?.summary?.total || 0,
+                        percentage: byCategory.outros.subcategories.geradores?.summary?.perc || 0,
+                      },
+                    ].filter((c) => c.deviceCount > 0)
+                  : undefined,
               },
             ],
           },
@@ -3395,7 +3427,9 @@ self.onInit = async function () {
     const currentCustomerId = periodKey?.split(':')[0];
     const lastCustomerId = lastProcessedPeriodKey?.split(':')[0];
     if (lastCustomerId && currentCustomerId !== lastCustomerId) {
-      LogHelper.warn(`[TELEMETRY_INFO] 🔄 Shopping changed (${lastCustomerId} → ${currentCustomerId}) - clearing state`);
+      LogHelper.warn(
+        `[TELEMETRY_INFO] 🔄 Shopping changed (${lastCustomerId} → ${currentCustomerId}) - clearing state`
+      );
       // Clear all state to prevent stale devices from previous customer
       RECEIVED_ORCHESTRATOR_ITEMS = [];
       STATE.entrada = { devices: [], total: 0, perc: 100 };
@@ -3410,11 +3444,42 @@ self.onInit = async function () {
         percGeral: 0,
       };
       STATE.grandTotal = 0;
-      STATE_WATER.entrada = { context: 'entrada', devices: [], total: 0, perc: 100, source: 'widget-telemetry-entrada' };
-      STATE_WATER.lojas = { context: 'lojas', devices: [], total: 0, perc: 0, source: 'widget-telemetry-lojas' };
-      STATE_WATER.banheiros = { context: 'banheiros', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (banheiros breakdown)' };
-      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (outros)' };
-      STATE_WATER.pontosNaoMapeados = { context: 'pontosNaoMapeados', devices: [], total: 0, perc: 0, isCalculated: true, hasInconsistency: false };
+      STATE_WATER.entrada = {
+        context: 'entrada',
+        devices: [],
+        total: 0,
+        perc: 100,
+        source: 'widget-telemetry-entrada',
+      };
+      STATE_WATER.lojas = {
+        context: 'lojas',
+        devices: [],
+        total: 0,
+        perc: 0,
+        source: 'widget-telemetry-lojas',
+      };
+      STATE_WATER.banheiros = {
+        context: 'banheiros',
+        devices: [],
+        total: 0,
+        perc: 0,
+        source: 'widget-telemetry-area-comum (banheiros breakdown)',
+      };
+      STATE_WATER.areaComum = {
+        context: 'areaComum',
+        devices: [],
+        total: 0,
+        perc: 0,
+        source: 'widget-telemetry-area-comum (outros)',
+      };
+      STATE_WATER.pontosNaoMapeados = {
+        context: 'pontosNaoMapeados',
+        devices: [],
+        total: 0,
+        perc: 0,
+        isCalculated: true,
+        hasInconsistency: false,
+      };
       STATE_WATER.grandTotal = 0;
       STATE_WATER.periodKey = null;
       STATE_WATER.lastUpdate = null;
@@ -3617,7 +3682,9 @@ self.onInit = async function () {
       const cachedPeriodKey = storedData.periodKey || '';
       const cachedCustomerId = cachedPeriodKey.split(':')[0];
       if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
-        LogHelper.warn(`[TELEMETRY_INFO] 🚫 Stored data customer mismatch for ${domain} - ignoring stale cache`);
+        LogHelper.warn(
+          `[TELEMETRY_INFO] 🚫 Stored data customer mismatch for ${domain} - ignoring stale cache`
+        );
         if (window.MyIOOrchestratorData) delete window.MyIOOrchestratorData[domain];
       } else {
         // Use stored data if less than 30 seconds old

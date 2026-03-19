@@ -84,7 +84,7 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
 
   private async fetchDeviceEntity(
     deviceId: string
-  ): Promise<{ label?: string }> {
+  ): Promise<{ label?: string; createdTime?: number | null }> {
     const response = await this.fetchWithTimeout(
       `${this.tbBaseUrl}/api/device/${deviceId}`,
       {
@@ -100,7 +100,8 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
 
     const device = await response.json();
     return {
-      label: device.label || device.name || "",
+      label: device.label || "",
+      createdTime: device.createdTime ?? null,
     };
   }
 
@@ -148,6 +149,10 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
           attributes.minTemperature = attr.value;
         } else if (attr.key === "maxTemperature") {
           attributes.maxTemperature = attr.value;
+        } else if (attr.key === "lastUpdatedTime") {
+          attributes.lastUpdatedTime = attr.value;
+        } else if (attr.key === "gcdrDeviceId") {
+          attributes.gcdrDeviceId = attr.value;
         }
       }
     }
@@ -160,7 +165,7 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
    */
   static mergeWithSeed(
     fetchedData: {
-      entity?: { label?: string };
+      entity?: { label?: string; createdTime?: number | null };
       attributes?: Record<string, unknown>;
     },
     seedData?: Record<string, any>
@@ -175,6 +180,9 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
     // Override with fetched entity data
     if (fetchedData.entity?.label) {
       merged.label = fetchedData.entity.label;
+    }
+    if (fetchedData.entity?.createdTime != null) {
+      merged.createdTime = fetchedData.entity.createdTime;
     }
 
     // Override with fetched attributes
@@ -227,6 +235,22 @@ static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
           }
         }
       }
+    }
+
+    // 2c. Timestamp fields (UTC long ms — stored as numbers)
+    const tsFields = ["lastUpdatedTime", "createdTime"];
+    for (const field of tsFields) {
+      if (data[field] !== undefined && data[field] !== null) {
+        const ts = Number(data[field]);
+        if (!isNaN(ts) && ts > 0) {
+          sanitized[field] = ts;
+        }
+      }
+    }
+
+    // 2d. gcdrDeviceId — string identifier for GCDR integration
+    if (data["gcdrDeviceId"] && typeof data["gcdrDeviceId"] === "string") {
+      sanitized["gcdrDeviceId"] = data["gcdrDeviceId"].trim();
     }
 
     // 3. Campos de Objeto / JSON (ESSENCIAL PARA SUA ESTRATÉGIA)

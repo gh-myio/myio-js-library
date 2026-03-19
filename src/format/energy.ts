@@ -1,4 +1,37 @@
 /**
+ * Formats power values with appropriate units (W, kW, MW) using Brazilian locale formatting
+ * Use this for instantaneous power readings (not energy consumption)
+ * @param value - The power value in Watts to format
+ * @param decimals - Number of decimal places (default: 2)
+ * @returns Formatted power string with Brazilian locale number formatting
+ */
+export function formatPower(value: number, decimals: number = 2): string {
+  if (value === null || value === undefined || isNaN(value)) {
+    return '-';
+  }
+
+  let adjustedValue = value;
+  let unit: string;
+
+  if (value >= 1_000_000) {
+    adjustedValue = value / 1_000_000;
+    unit = 'MW';
+  } else if (value >= 1_000) {
+    adjustedValue = value / 1_000;
+    unit = 'kW';
+  } else {
+    unit = 'W';
+  }
+
+  const formattedValue = adjustedValue.toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+
+  return `${formattedValue} ${unit}`;
+}
+
+/**
  * Formats energy values with appropriate units (kWh, MWh, GWh) using Brazilian locale formatting
  * @param value - The energy value to format
  * @param unit - Optional unit of the energy value ('kWh', 'MWh', 'GWh')

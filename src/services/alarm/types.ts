@@ -1,0 +1,193 @@
+// RFC-0175: Alarms Backend API response types
+
+export type AvailabilityStatus = 'online' | 'offline' | 'maintenance' | 'warning';
+
+export interface DeviceAvailability {
+  deviceId: string;
+  deviceName: string;
+  deviceType: string;
+  customerId: string;
+  customerName: string;
+  location: string;
+  status: AvailabilityStatus;
+  availability: number;         // 0-100 percentage
+  mtbf: number;                 // hours
+  mttr: number;                 // hours
+  failureCount: number;
+  totalDowntimeHours: number;
+  openAlarmCount: number;
+  recentAlarmCount: number;
+  hasReversal: boolean;
+  lastActivityAt: string | null;    // ISO 8601
+  lastMaintenanceAt: string | null; // ISO 8601
+}
+
+export interface AvailabilitySummary {
+  total: number;
+  online: number;
+  offline: number;
+  maintenance: number;
+  warning: number;
+  avgAvailability: number;
+  avgMtbf: number;
+  avgMttr: number;
+  onlineStandby: number;
+  onlineNormal: number;
+  onlineAlert: number;
+  onlineFailure: number;
+  maintenanceOnline: number;
+  maintenanceOffline: number;
+}
+
+export interface AvailabilityFleet {
+  customerId: string;
+  periodStart: string;
+  periodEnd: string;
+  totalEquipmentCount: number;
+  periodTotalHours: number;
+}
+
+export interface AvailabilityResponse {
+  fleet: AvailabilityFleet;
+  summary: AvailabilitySummary;
+  byDevice: DeviceAvailability[];
+}
+
+export interface AvailabilityParams {
+  customerId: string;
+  startAt: string;          // ISO 8601
+  endAt: string;            // ISO 8601
+  deviceType?: string;      // Comma-separated: 'ESCADA_ROLANTE,ELEVADOR'
+  deviceIds?: string;       // Comma-separated device IDs
+  includeByDevice?: boolean; // Default: true
+}
+
+// =====================================================================
+// Raw Alarm API response types (GET /alarms)
+// =====================================================================
+
+export interface AlarmApiResponse {
+  id: string;
+  title: string;
+  alarmType: string;
+  severity: string;
+  state: string;
+  tenantId: string;
+  customerId?: string;
+  centralId?: string;
+  deviceId: string;
+  deviceType: string;
+  description?: string;
+  fingerprint: string;
+  metadata?: Record<string, unknown>;
+  raisedAt: string;          // ISO 8601
+  lastUpdatedAt?: string;    // ISO 8601 (real API field)
+  updatedAt?: string;        // ISO 8601 (legacy alias)
+  closedAt?: string;
+  closedBy?: string;
+  resolution?: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+  silencedUntil?: string;    // real API field
+  snoozedUntil?: string;     // legacy alias
+  escalatedAt?: string;
+  escalatedBy?: string;
+  dispatchCount?: number;    // real API field
+  occurrenceCount?: number;  // legacy alias
+  deviceName?: string;
+}
+
+export interface AlarmListSummary {
+  total:       number;
+  byState:     Record<string, number>;
+  bySeverity:  Record<string, number>;
+  byAlarmType: Record<string, number>;
+}
+
+export interface AlarmListApiResponse {
+  data: AlarmApiResponse[];
+  pagination: {
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  summary: AlarmListSummary;
+}
+
+// =====================================================================
+// Raw Stats API response types (GET /api/v1/alarms/stats)
+// =====================================================================
+
+export interface AlarmStatsApiResponse {
+  total: number;
+  bySeverity: Record<string, number>;
+  byState: Record<string, number>;
+  openCritical: number;
+  openHigh: number;
+  last24Hours: number;
+  avgResolutionTimeMinutes?: number;
+}
+
+// =====================================================================
+// Raw Trend API response types (GET /api/v1/alarms/stats/trend)
+// =====================================================================
+
+export interface AlarmTrendApiPoint {
+  period: string;
+  count: number;
+  bySeverity?: Record<string, number>;
+}
+
+// =====================================================================
+// Raw Top Offenders response (GET /api/v1/alarms/stats/top-offenders)
+// =====================================================================
+
+export interface TopOffenderApiItem {
+  deviceId: string;
+  deviceName: string;
+  customerId?: string;
+  customerName?: string;
+  alarmCount: number;
+  downtimeHours?: number;
+}
+
+// =====================================================================
+// Raw by-device stats (GET /api/v1/alarms/stats/by-device)
+// =====================================================================
+
+export interface DeviceAlarmStatApiItem {
+  deviceId: string;
+  alarmCount: number;
+}
+
+// =====================================================================
+// Batch action response types (POST /alarms/batch/*)
+// =====================================================================
+
+export interface AlarmBatchFailure {
+  id: string;
+  reason: string;
+  currentState?: string;
+}
+
+export interface AlarmBatchResult {
+  succeeded: string[];
+  failed: AlarmBatchFailure[];
+  successCount: number;
+  failureCount: number;
+}
+
+// =====================================================================
+// Request parameter types
+// =====================================================================
+
+export interface AlarmListParams {
+  state?:      string[];
+  severity?:   string[];
+  alarmType?:  string;
+  from?:       string;  // ISO 8601
+  to?:         string;  // ISO 8601
+  customerId?: string;  // gcdrCustomerId — mandatory at runtime (see guard in ALARM widget)
+  limit?:      number;  // page size (AlarmService.getAlarms paginates automatically)
+  page?:       number;  // 1-indexed page number (used internally by pagination loop)
+}

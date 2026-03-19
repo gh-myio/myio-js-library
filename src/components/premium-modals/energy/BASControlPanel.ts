@@ -1,0 +1,648 @@
+// energy/BASControlPanel.ts - RFC-0165: BAS Automation Control Panel
+// 30% left panel with device status, remote control, and telemetry
+
+import { BASDeviceData, BASDeviceTelemetry } from './types';
+
+export interface BASControlPanelOptions {
+  device: BASDeviceData;
+  onRemoteCommand?: (command: 'on' | 'off', device: BASDeviceData) => Promise<void>;
+  onTelemetryRefresh?: (device: BASDeviceData) => Promise<BASDeviceTelemetry>;
+  onSettingsClick?: (device: BASDeviceData) => void;
+  refreshInterval?: number; // ms, default 10000
+  theme?: 'dark' | 'light';
+}
+
+export class BASControlPanel {
+  private container: HTMLElement;
+  private device: BASDeviceData;
+  private options: BASControlPanelOptions;
+  private refreshIntervalId: number | null = null;
+  private isCommandPending = false;
+
+  constructor(options: BASControlPanelOptions) {
+    this.options = options;
+    this.device = { ...options.device };
+    this.container = document.createElement('div');
+    this.container.className = 'myio-bas-control-panel';
+    this.render();
+
+    // Start auto-refresh only when refreshInterval is explicitly a positive number
+    if (options.onTelemetryRefresh && (options.refreshInterval ?? 0) > 0) {
+      this.startAutoRefresh(options.refreshInterval!);
+    }
+  }
+
+  private render(): void {
+    const { device } = this;
+    const hasRemote = device.hasRemote;
+    const isOn = device.isRemoteOn ?? false;
+
+    this.container.innerHTML = `
+      <style>${this.getStyles()}</style>
+
+      <!-- Settings Button Section -->
+      <div class="myio-bas-section myio-bas-section--settings">
+        <button class="myio-bas-settings-btn" id="bas-settings-btn" title="Configurações do dispositivo">
+          <span class="myio-bas-settings-icon">⚙️</span>
+          <span class="myio-bas-settings-text">Configurações</span>
+        </button>
+      </div>
+
+      <!-- Remote Control Section -->
+      ${hasRemote ? `
+      <div class="myio-bas-section">
+        <div class="myio-bas-section__title">Controle Remoto</div>
+        <div class="myio-bas-remote-state">
+          <span class="myio-bas-remote-indicator ${isOn ? 'myio-bas-remote-indicator--on' : 'myio-bas-remote-indicator--off'}">
+            ${isOn ? '● Ligado' : '○ Desligado'}
+          </span>
+        </div>
+        <div class="myio-bas-remote-buttons">
+          <button class="myio-bas-remote-btn myio-bas-remote-btn--on ${isOn ? 'active' : ''}" data-command="on" ${device.status === 'offline' ? 'disabled' : ''}>
+            <span class="myio-bas-btn-icon">⚡</span>
+            Ligar
+          </button>
+          <button class="myio-bas-remote-btn myio-bas-remote-btn--off ${!isOn ? 'active' : ''}" data-command="off" ${device.status === 'offline' ? 'disabled' : ''}>
+            <span class="myio-bas-btn-icon">⏹</span>
+            Desligar
+          </button>
+        </div>
+        <div class="myio-bas-command-status" id="bas-command-status"></div>
+      </div>
+      ` : `
+      <div class="myio-bas-section myio-bas-section--muted">
+        <div class="myio-bas-section__title">Controle Remoto</div>
+        <div class="myio-bas-no-remote">
+          <span class="myio-bas-no-remote-icon">🔒</span>
+          <span>Dispositivo sem controle remoto</span>
+        </div>
+      </div>
+      `}
+
+      <!-- Telemetry Section -->
+      <div class="myio-bas-section myio-bas-section--telemetry">
+        <div class="myio-bas-section__header">
+          <div class="myio-bas-section__title">Telemetria</div>
+          <button class="myio-bas-refresh-btn" id="bas-refresh-btn" title="Atualizar telemetria">
+            <span class="myio-bas-refresh-icon">🔄</span>
+          </button>
+        </div>
+        <div class="myio-bas-telemetry-grid" id="bas-telemetry-grid">
+          ${this.renderTelemetryItems(device.telemetry)}
+        </div>
+        <div class="myio-bas-telemetry-updated" id="bas-telemetry-updated">
+          ${device.telemetry?.lastUpdate ? `Atualizado: ${this.formatTime(device.telemetry.lastUpdate)}` : ''}
+        </div>
+      </div>
+    `;
+
+    this.setupEventListeners();
+  }
+
+  private renderTelemetryItems(telemetry?: BASDeviceTelemetry): string {
+    if (!telemetry) {
+      return `
+        <div class="myio-bas-telemetry-empty">
+          <span>Sem dados de telemetria</span>
+        </div>
+      `;
+    }
+
+    const items: string[] = [];
+    const isEnergyDevice = (this.device as any).isEnergyDevice === true;
+
+    // Potência - convert W to kW if value > 1000
+    if (telemetry.power !== undefined && telemetry.power !== null && !isNaN(telemetry.power)) {
+      const powerValue = Number(telemetry.power);
+      if (powerValue >= 1000) {
+        items.push(this.renderTelemetryItem('Potência', (powerValue / 1000).toFixed(2), 'kW', '⚡'));
+      } else {
+        items.push(this.renderTelemetryItem('Potência', powerValue.toFixed(0), 'W', '⚡'));
+      }
+    }
+
+    // Corrente
+    if (telemetry.current !== undefined && telemetry.current !== null && !isNaN(telemetry.current)) {
+      items.push(this.renderTelemetryItem('Corrente', Number(telemetry.current).toFixed(1), 'A', '🔌'));
+    }
+
+    // Tensão
+    if (telemetry.voltage !== undefined && telemetry.voltage !== null && !isNaN(telemetry.voltage)) {
+      items.push(this.renderTelemetryItem('Tensão', Number(telemetry.voltage).toFixed(0), 'V', '⚡'));
+    }
+
+    // Temperatura - only show for non-energy devices
+    if (!isEnergyDevice && telemetry.temperature !== undefined && telemetry.temperature !== null && !isNaN(telemetry.temperature)) {
+      items.push(this.renderTelemetryItem('Temperatura', Number(telemetry.temperature).toFixed(1), '°C', '🌡️'));
+    }
+
+    if (items.length === 0) {
+      return `
+        <div class="myio-bas-telemetry-empty">
+          <span>Sem dados de telemetria</span>
+        </div>
+      `;
+    }
+
+    return items.join('');
+  }
+
+  private renderTelemetryItem(label: string, value: string, unit: string, icon: string): string {
+    return `
+      <div class="myio-bas-telemetry-item">
+        <span class="myio-bas-telemetry-icon">${icon}</span>
+        <div class="myio-bas-telemetry-content">
+          <span class="myio-bas-telemetry-label">${label}</span>
+          <span class="myio-bas-telemetry-value">${value} <span class="myio-bas-telemetry-unit">${unit}</span></span>
+        </div>
+      </div>
+    `;
+  }
+
+  private setupEventListeners(): void {
+    // Remote control buttons
+    const onBtn = this.container.querySelector('[data-command="on"]');
+    const offBtn = this.container.querySelector('[data-command="off"]');
+
+    if (onBtn) {
+      onBtn.addEventListener('click', () => this.sendCommand('on'));
+    }
+    if (offBtn) {
+      offBtn.addEventListener('click', () => this.sendCommand('off'));
+    }
+
+    // Refresh button
+    const refreshBtn = this.container.querySelector('#bas-refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => this.refreshTelemetry());
+    }
+
+    // Settings button
+    const settingsBtn = this.container.querySelector('#bas-settings-btn');
+    if (settingsBtn && this.options.onSettingsClick) {
+      settingsBtn.addEventListener('click', () => {
+        this.options.onSettingsClick?.(this.device);
+      });
+    }
+  }
+
+  private async sendCommand(command: 'on' | 'off'): Promise<void> {
+    if (this.isCommandPending || !this.options.onRemoteCommand) return;
+
+    const statusEl = this.container.querySelector('#bas-command-status');
+    const buttons = this.container.querySelectorAll('.myio-bas-remote-btn');
+
+    try {
+      this.isCommandPending = true;
+      buttons.forEach(btn => (btn as HTMLButtonElement).disabled = true);
+
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="myio-bas-command-pending">⏳ Enviando comando...</span>`;
+      }
+
+      await this.options.onRemoteCommand(command, this.device);
+
+      // Update local state
+      this.device.isRemoteOn = command === 'on';
+
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="myio-bas-command-success">✓ Comando enviado com sucesso</span>`;
+        setTimeout(() => {
+          if (statusEl) statusEl.innerHTML = '';
+        }, 3000);
+      }
+
+      // Update UI
+      this.updateRemoteState(command === 'on');
+
+    } catch (error) {
+      console.error('[BASControlPanel] Command error:', error);
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="myio-bas-command-error">✗ Erro ao enviar comando</span>`;
+      }
+    } finally {
+      this.isCommandPending = false;
+      buttons.forEach(btn => {
+        const btnEl = btn as HTMLButtonElement;
+        btnEl.disabled = this.device.status === 'offline';
+      });
+    }
+  }
+
+  private async refreshTelemetry(): Promise<void> {
+    if (!this.options.onTelemetryRefresh) return;
+
+    const refreshBtn = this.container.querySelector('#bas-refresh-btn') as HTMLButtonElement;
+    const refreshIcon = refreshBtn?.querySelector('.myio-bas-refresh-icon');
+
+    try {
+      if (refreshIcon) {
+        refreshIcon.classList.add('spinning');
+      }
+
+      const telemetry = await this.options.onTelemetryRefresh(this.device);
+      this.updateTelemetry(telemetry);
+
+    } catch (error) {
+      console.error('[BASControlPanel] Telemetry refresh error:', error);
+    } finally {
+      if (refreshIcon) {
+        refreshIcon.classList.remove('spinning');
+      }
+    }
+  }
+
+  public updateTelemetry(telemetry: BASDeviceTelemetry): void {
+    if (!telemetry) return;
+
+    // Merge: preserve existing valid values when new values are null/undefined/NaN
+    const existing = this.device.telemetry || ({} as BASDeviceTelemetry);
+    const merged = { ...existing };
+    for (const [key, val] of Object.entries(telemetry) as [keyof BASDeviceTelemetry, any][]) {
+      if (val !== null && val !== undefined && !(typeof val === 'number' && isNaN(val))) {
+        (merged as any)[key] = val;
+      }
+    }
+    this.device.telemetry = merged;
+
+    const grid = this.container.querySelector('#bas-telemetry-grid');
+    if (grid) {
+      grid.innerHTML = this.renderTelemetryItems(merged);
+    }
+
+    const updatedEl = this.container.querySelector('#bas-telemetry-updated');
+    if (updatedEl && merged.lastUpdate) {
+      updatedEl.textContent = `Atualizado: ${this.formatTime(merged.lastUpdate)}`;
+    }
+  }
+
+  public updateStatus(status: 'online' | 'offline' | 'unknown'): void {
+    this.device.status = status;
+    // Disable remote buttons if offline
+    const buttons = this.container.querySelectorAll('.myio-bas-remote-btn');
+    buttons.forEach(btn => {
+      (btn as HTMLButtonElement).disabled = status === 'offline';
+    });
+  }
+
+  public updateRemoteState(isOn: boolean): void {
+    this.device.isRemoteOn = isOn;
+
+    const indicator = this.container.querySelector('.myio-bas-remote-indicator');
+    if (indicator) {
+      indicator.className = `myio-bas-remote-indicator ${isOn ? 'myio-bas-remote-indicator--on' : 'myio-bas-remote-indicator--off'}`;
+      indicator.textContent = isOn ? '● Ligado' : '○ Desligado';
+    }
+
+    const onBtn = this.container.querySelector('[data-command="on"]');
+    const offBtn = this.container.querySelector('[data-command="off"]');
+
+    if (onBtn) onBtn.classList.toggle('active', isOn);
+    if (offBtn) offBtn.classList.toggle('active', !isOn);
+  }
+
+  public startAutoRefresh(intervalMs: number): void {
+    this.stopAutoRefresh();
+    this.refreshIntervalId = window.setInterval(() => {
+      this.refreshTelemetry();
+    }, intervalMs);
+  }
+
+  public stopAutoRefresh(): void {
+    if (this.refreshIntervalId !== null) {
+      clearInterval(this.refreshIntervalId);
+      this.refreshIntervalId = null;
+    }
+  }
+
+  public getElement(): HTMLElement {
+    return this.container;
+  }
+
+  public destroy(): void {
+    this.stopAutoRefresh();
+    this.container.innerHTML = '';
+  }
+
+  private formatTime(timestamp: number): string {
+    return new Date(timestamp).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  private getStyles(): string {
+    return `
+      .myio-bas-control-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        height: 100%;
+        overflow-y: auto;
+      }
+
+      .myio-bas-section {
+        background: var(--myio-energy-btn-bg, #f3f4f6);
+        border: 1px solid var(--myio-energy-border, #e5e7eb);
+        border-radius: 10px;
+        padding: 14px;
+      }
+
+      .myio-bas-section--muted {
+        opacity: 0.7;
+      }
+
+      .myio-bas-section--settings {
+        padding: 8px;
+      }
+
+      .myio-bas-settings-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--myio-energy-text, #1f2937);
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border: 1px solid var(--myio-energy-border, #d1d5db);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .myio-bas-settings-btn:hover {
+        background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .myio-bas-settings-btn:active {
+        transform: translateY(0);
+      }
+
+      .myio-bas-settings-icon {
+        font-size: 18px;
+      }
+
+      .myio-bas-settings-text {
+        letter-spacing: 0.3px;
+      }
+
+      .myio-bas-section--telemetry {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .myio-bas-section__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .myio-bas-section__title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--myio-energy-text-secondary, #6b7280);
+        margin-bottom: 10px;
+      }
+
+      .myio-bas-section__header .myio-bas-section__title {
+        margin-bottom: 0;
+      }
+
+      /* Device Info */
+      .myio-bas-device-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .myio-bas-device-label {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--myio-energy-text, #1f2937);
+      }
+
+      .myio-bas-device-type {
+        font-size: 12px;
+        color: var(--myio-energy-text-secondary, #6b7280);
+      }
+
+      /* Remote Control */
+      .myio-bas-remote-state {
+        margin-bottom: 12px;
+      }
+
+      .myio-bas-remote-indicator {
+        font-size: 13px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 12px;
+      }
+
+      .myio-bas-remote-indicator--on {
+        color: #059669;
+        background: rgba(16, 185, 129, 0.15);
+      }
+
+      .myio-bas-remote-indicator--off {
+        color: #6b7280;
+        background: rgba(107, 114, 128, 0.15);
+      }
+
+      .myio-bas-remote-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .myio-bas-remote-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+      }
+
+      .myio-bas-remote-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .myio-bas-remote-btn--on {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+      }
+
+      .myio-bas-remote-btn--on:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      }
+
+      .myio-bas-remote-btn--on.active {
+        border-color: #047857;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+      }
+
+      .myio-bas-remote-btn--off {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        color: white;
+      }
+
+      .myio-bas-remote-btn--off:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+      }
+
+      .myio-bas-remote-btn--off.active {
+        border-color: #374151;
+        box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+      }
+
+      .myio-bas-btn-icon {
+        font-size: 14px;
+      }
+
+      .myio-bas-command-status {
+        margin-top: 10px;
+        font-size: 12px;
+        min-height: 18px;
+      }
+
+      .myio-bas-command-pending {
+        color: #f59e0b;
+      }
+
+      .myio-bas-command-success {
+        color: #10b981;
+      }
+
+      .myio-bas-command-error {
+        color: #ef4444;
+      }
+
+      .myio-bas-no-remote {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--myio-energy-text-secondary, #6b7280);
+        font-size: 13px;
+      }
+
+      .myio-bas-no-remote-icon {
+        font-size: 16px;
+      }
+
+      /* Telemetry */
+      .myio-bas-refresh-btn {
+        background: transparent;
+        border: 1px solid var(--myio-energy-border, #e5e7eb);
+        border-radius: 6px;
+        padding: 4px 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .myio-bas-refresh-btn:hover {
+        background: var(--myio-energy-btn-hover, #e5e7eb);
+      }
+
+      .myio-bas-refresh-icon {
+        font-size: 14px;
+        display: inline-block;
+      }
+
+      .myio-bas-refresh-icon.spinning {
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        100% { transform: rotate(360deg); }
+      }
+
+      .myio-bas-telemetry-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .myio-bas-telemetry-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        background: var(--myio-energy-input-bg, #ffffff);
+        border: 1px solid var(--myio-energy-border, #e5e7eb);
+        border-radius: 8px;
+      }
+
+      .myio-bas-telemetry-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
+      .myio-bas-telemetry-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+      }
+
+      .myio-bas-telemetry-label {
+        font-size: 11px;
+        color: var(--myio-energy-text-secondary, #6b7280);
+      }
+
+      .myio-bas-telemetry-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--myio-energy-text, #1f2937);
+      }
+
+      .myio-bas-telemetry-unit {
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--myio-energy-text-secondary, #6b7280);
+      }
+
+      .myio-bas-telemetry-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        color: var(--myio-energy-text-secondary, #6b7280);
+        font-size: 13px;
+      }
+
+      .myio-bas-telemetry-updated {
+        font-size: 11px;
+        color: var(--myio-energy-text-secondary, #6b7280);
+        text-align: right;
+        margin-top: 8px;
+      }
+    `;
+  }
+}

@@ -1253,7 +1253,7 @@ function renderList(visible) {
               showGlobalSuccessModal(6);
             },
             onClose: () => {
-              const overlay = document.querySelector('.myio-settings-modal-overlay');
+              const overlay = document.querySelector('.myio-device-settings-overlay');
               if (overlay) overlay.remove();
               console.log('[STORES] [RFC-0072] Settings closed');
             },

@@ -20,6 +20,7 @@ import {
   filterByDayPeriods,
   getSelectedPeriodsLabel,
   DEFAULT_CLAMP_RANGE,
+  DEFAULT_TEMPERATURE_OFFSET,
   DAY_PERIODS,
   type TemperatureTelemetry,
   type TemperatureStats,
@@ -57,6 +58,8 @@ export interface TemperatureModalParams {
   temperatureMax?: number;
   /** Temperature status indicator */
   temperatureStatus?: 'ok' | 'above' | 'below';
+  /** Temperature offset to apply to all values (can be positive or negative) */
+  temperatureOffset?: number;
   /** Container element or selector */
   container?: HTMLElement | string;
   /** Callback when modal closes */
@@ -69,6 +72,8 @@ export interface TemperatureModalParams {
   granularity?: TemperatureGranularity;
   /** Initial theme */
   theme?: 'dark' | 'light';
+  /** IANA timezone string (e.g., 'America/Sao_Paulo'). Defaults to local timezone. */
+  timezone?: string;
 }
 
 export interface TemperatureModalInstance {
@@ -90,12 +95,14 @@ interface ModalState {
   temperatureMin: number | null;
   temperatureMax: number | null;
   temperatureStatus: 'ok' | 'above' | 'below' | null;
+  temperatureOffset: number;
   startTs: number;
   endTs: number;
   granularity: TemperatureGranularity;
   theme: 'dark' | 'light';
   clampRange: ClampRange;
   locale: string;
+  timezone: string;
   data: TemperatureTelemetry[];
   stats: TemperatureStats;
   isLoading: boolean;
@@ -115,8 +122,11 @@ export async function openTemperatureModal(
 ): Promise<TemperatureModalInstance> {
   const modalId = `myio-temp-modal-${Date.now()}`;
 
-  // Default to "Today So Far" if dates not provided
-  const defaultDateRange = getTodaySoFar();
+  // Default timezone to America/Sao_Paulo if not provided
+  const timezone = params.timezone || 'America/Sao_Paulo';
+
+  // Default to "Today So Far" if dates not provided (respecting timezone)
+  const defaultDateRange = getTodaySoFar(timezone);
   const startTs = params.startDate ? new Date(params.startDate).getTime() : defaultDateRange.startTs;
   const endTs = params.endDate ? new Date(params.endDate).getTime() : defaultDateRange.endTs;
 
@@ -129,18 +139,25 @@ export async function openTemperatureModal(
     temperatureMin: params.temperatureMin ?? null,
     temperatureMax: params.temperatureMax ?? null,
     temperatureStatus: params.temperatureStatus ?? null,
+    temperatureOffset: params.temperatureOffset ?? DEFAULT_TEMPERATURE_OFFSET,
     startTs,
     endTs,
     granularity: params.granularity || 'hour',
     theme: params.theme || 'light',
     clampRange: params.clampRange || DEFAULT_CLAMP_RANGE,
     locale: params.locale || 'pt-BR',
+    timezone,
     data: [],
     stats: { avg: 0, min: 0, max: 0, count: 0 },
     isLoading: true,
     dateRangePicker: null,
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'] // All periods selected by default
   };
+
+  // Log if offset is applied
+  if (state.temperatureOffset !== 0) {
+    console.log(`[TemperatureModal] Applying temperature offset: ${state.temperatureOffset}°C`);
+  }
 
   // Load saved preferences
   const savedGranularity = localStorage.getItem('myio-temp-modal-granularity') as TemperatureGranularity;
@@ -159,7 +176,7 @@ export async function openTemperatureModal(
   // Fetch initial data
   try {
     state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
-    state.stats = calculateStats(state.data, state.clampRange);
+    state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
     state.isLoading = false;
     renderModal(modalContainer, state, modalId);
     drawChart(modalId, state);
@@ -187,7 +204,7 @@ export async function openTemperatureModal(
 
       try {
         state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
-        state.stats = calculateStats(state.data, state.clampRange);
+        state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
         state.isLoading = false;
         renderModal(modalContainer, state, modalId);
         drawChart(modalId, state);
@@ -543,12 +560,14 @@ function drawChart(modalId: string, state: ModalState): void {
   let chartData: ChartPoint[];
 
   if (state.granularity === 'hour') {
-    // Interpolate to 30-minute intervals
+    // Interpolate to 30-minute intervals (respecting timezone to avoid future data)
     const interpolated = interpolateTemperature(filteredData, {
       intervalMinutes: 30,
       startTs: state.startTs,
       endTs: state.endTs,
-      clampRange: state.clampRange
+      clampRange: state.clampRange,
+      timezone: state.timezone,
+      offset: state.temperatureOffset
     });
     // Filter interpolated data by periods again (since interpolation may add points)
     const filteredInterpolated = filterByDayPeriods(interpolated, state.selectedPeriods);
@@ -560,7 +579,7 @@ function drawChart(modalId: string, state: ModalState): void {
     }));
   } else {
     // Aggregate by day
-    const daily = aggregateByDay(filteredData, state.clampRange);
+    const daily = aggregateByDay(filteredData, state.clampRange, state.temperatureOffset);
     chartData = daily.map(item => ({
       x: item.dateTs,
       y: item.avg,
@@ -998,7 +1017,7 @@ async function setupEventListeners(
 
     try {
       state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
-      state.stats = calculateStats(state.data, state.clampRange);
+      state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
       state.isLoading = false;
       renderModal(container, state, modalId);
       drawChart(modalId, state);

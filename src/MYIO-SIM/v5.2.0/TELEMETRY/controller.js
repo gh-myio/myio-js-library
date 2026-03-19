@@ -523,7 +523,7 @@ function initializeCards(devices) {
               LogHelper.log('Settings saved:', payload);
             },
             onClose: () => {
-              $('.myio-settings-modal-overlay').remove();
+              $('.myio-device-settings-overlay').remove();
               const overlay = document.querySelector('.myio-modal-overlay');
               if (overlay) overlay.remove();
               LogHelper.log('Settings modal closed');

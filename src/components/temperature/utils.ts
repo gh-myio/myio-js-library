@@ -59,20 +59,79 @@ export const DAY_PERIODS: DayPeriodConfig[] = [
 
 export const DEFAULT_CLAMP_RANGE: ClampRange = { min: 15, max: 40 };
 
+/**
+ * Default temperature offset (no adjustment)
+ */
+export const DEFAULT_TEMPERATURE_OFFSET = 0;
+
 // ============================================================================
 // Date Helpers
 // ============================================================================
 
 /**
- * Returns "Today So Far" date range: midnight today until now
+ * Gets current timestamp respecting timezone
+ * @param timezone - IANA timezone string (e.g., 'America/Sao_Paulo')
  */
-export function getTodaySoFar(): { startTs: number; endTs: number } {
+export function getCurrentTimestamp(timezone?: string): number {
+  if (!timezone) {
+    return Date.now();
+  }
+
+  // Get current time in the specified timezone
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  return {
-    startTs: startOfDay.getTime(),
-    endTs: now.getTime()
-  };
+  return now.getTime();
+}
+
+/**
+ * Gets start of day timestamp in the specified timezone
+ * @param date - Date to get start of day for
+ * @param timezone - IANA timezone string (e.g., 'America/Sao_Paulo')
+ */
+export function getStartOfDay(date: Date, timezone?: string): number {
+  if (!timezone) {
+    // Use local timezone
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0).getTime();
+  }
+
+  // Format date in target timezone to get the local date parts
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+  const month = parseInt(parts.find(p => p.type === 'month')?.value || '1') - 1;
+  const day = parseInt(parts.find(p => p.type === 'day')?.value || '1');
+
+  // Create date at midnight in the target timezone
+  // We need to find the UTC time that corresponds to midnight in the target timezone
+  const targetDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+
+  // Adjust for timezone offset
+  const tzFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    timeZoneName: 'shortOffset'
+  });
+  const tzString = tzFormatter.format(targetDate);
+  const offsetMatch = tzString.match(/GMT([+-]\d+)/);
+  const offsetHours = offsetMatch ? parseInt(offsetMatch[1]) : 0;
+
+  return targetDate.getTime() - (offsetHours * 60 * 60 * 1000);
+}
+
+/**
+ * Returns "Today So Far" date range: midnight today until now
+ * @param timezone - Optional IANA timezone string (e.g., 'America/Sao_Paulo')
+ */
+export function getTodaySoFar(timezone?: string): { startTs: number; endTs: number } {
+  const now = new Date();
+  const startTs = getStartOfDay(now, timezone);
+  const endTs = now.getTime();
+
+  return { startTs, endTs };
 }
 
 export const CHART_COLORS = [
@@ -126,14 +185,23 @@ export async function fetchTemperatureData(
 // ============================================================================
 
 /**
- * Clamps temperature value to avoid outliers
- * Values below min are clamped to min, values above max are clamped to max
+ * Applies temperature offset and clamps value to avoid outliers
+ * Offset is applied first, then values are clamped to range
+ * @param value - Raw temperature value
+ * @param range - Clamp range (default: 15-40°C)
+ * @param offset - Temperature offset to apply (can be positive or negative)
  */
 export function clampTemperature(
   value: number | string,
-  range: ClampRange = DEFAULT_CLAMP_RANGE
+  range: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): number {
-  const num = Number(value || 0);
+  let num = Number(value || 0);
+  // Apply offset first
+  if (offset !== 0) {
+    num = num + offset;
+  }
+  // Then clamp to range
   if (num < range.min) return range.min;
   if (num > range.max) return range.max;
   return num;
@@ -141,16 +209,20 @@ export function clampTemperature(
 
 /**
  * Calculates statistics from temperature data
+ * @param data - Temperature telemetry data
+ * @param clampRange - Clamp range for outliers
+ * @param offset - Temperature offset to apply to all values
  */
 export function calculateStats(
   data: TemperatureTelemetry[],
-  clampRange: ClampRange = DEFAULT_CLAMP_RANGE
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): TemperatureStats {
   if (data.length === 0) {
     return { avg: 0, min: 0, max: 0, count: 0 };
   }
 
-  const values = data.map(item => clampTemperature(item.value, clampRange));
+  const values = data.map(item => clampTemperature(item.value, clampRange, offset));
   const sum = values.reduce((acc, v) => acc + v, 0);
 
   return {
@@ -164,6 +236,18 @@ export function calculateStats(
 /**
  * Interpolates temperature data to fill gaps with 30-minute intervals
  * Uses 'repeat-last' strategy: if no reading in interval, repeats last known temperature
+ *
+ * IMPORTANT: This function will NOT generate data points in the future.
+ * If endTs is greater than the current time, it will be clamped to the current timestamp.
+ *
+ * @param data - Raw temperature telemetry data
+ * @param options - Interpolation options
+ * @param options.intervalMinutes - Interval between data points in minutes
+ * @param options.startTs - Start timestamp (UTC milliseconds)
+ * @param options.endTs - End timestamp (UTC milliseconds)
+ * @param options.clampRange - Range for clamping outlier values
+ * @param options.timezone - Optional IANA timezone string (e.g., 'America/Sao_Paulo')
+ * @param options.offset - Temperature offset to apply to all values
  */
 export function interpolateTemperature(
   data: TemperatureTelemetry[],
@@ -172,10 +256,17 @@ export function interpolateTemperature(
     startTs: number;
     endTs: number;
     clampRange?: ClampRange;
+    timezone?: string;
+    offset?: number;
   }
 ): TemperatureTelemetry[] {
-  const { intervalMinutes, startTs, endTs, clampRange = DEFAULT_CLAMP_RANGE } = options;
+  const { intervalMinutes, startTs, clampRange = DEFAULT_CLAMP_RANGE, offset = DEFAULT_TEMPERATURE_OFFSET } = options;
   const intervalMs = intervalMinutes * 60 * 1000;
+
+  // BUGFIX: Clamp endTs to current time to avoid generating future data points
+  // Use getCurrentTimestamp which respects timezone if provided
+  const now = getCurrentTimestamp(options.timezone);
+  const endTs = Math.min(options.endTs, now);
 
   if (data.length === 0) {
     return [];
@@ -184,9 +275,9 @@ export function interpolateTemperature(
   // Sort data by timestamp
   const sortedData = [...data].sort((a, b) => a.ts - b.ts);
 
-  // Generate all expected timestamps
+  // Generate all expected timestamps (only up to current time)
   const result: TemperatureTelemetry[] = [];
-  let lastKnownValue = clampTemperature(sortedData[0].value, clampRange);
+  let lastKnownValue = clampTemperature(sortedData[0].value, clampRange, offset);
   let dataIndex = 0;
 
   for (let ts = startTs; ts <= endTs; ts += intervalMs) {
@@ -198,7 +289,7 @@ export function interpolateTemperature(
     // Check if we have an exact or close match (within interval)
     const currentData = sortedData[dataIndex];
     if (currentData && Math.abs(currentData.ts - ts) < intervalMs) {
-      lastKnownValue = clampTemperature(currentData.value, clampRange);
+      lastKnownValue = clampTemperature(currentData.value, clampRange, offset);
     }
 
     result.push({
@@ -212,10 +303,14 @@ export function interpolateTemperature(
 
 /**
  * Aggregates temperature data by day, calculating daily statistics
+ * @param data - Temperature telemetry data
+ * @param clampRange - Clamp range for outliers
+ * @param offset - Temperature offset to apply to all values
  */
 export function aggregateByDay(
   data: TemperatureTelemetry[],
-  clampRange: ClampRange = DEFAULT_CLAMP_RANGE
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): DailyTemperatureStats[] {
   if (data.length === 0) {
     return [];
@@ -238,7 +333,7 @@ export function aggregateByDay(
   const result: DailyTemperatureStats[] = [];
 
   dayMap.forEach((dayData, dateKey) => {
-    const values = dayData.map(item => clampTemperature(item.value, clampRange));
+    const values = dayData.map(item => clampTemperature(item.value, clampRange, offset));
     const sum = values.reduce((acc, v) => acc + v, 0);
 
     result.push({

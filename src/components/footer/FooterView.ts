@@ -197,6 +197,11 @@ export class FooterView {
    * Bind event listeners
    */
   private bindEvents(): void {
+    // Listen for global theme changes
+    window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
+      this.setTheme(e.detail.mode);
+    }) as EventListener);
+
     // Compare button click
     if (this.compareBtnEl) {
       this.compareBtnEl.addEventListener('click', () => {

@@ -30,6 +30,46 @@ function cleanupAll() {
   cleanupFns = [];
 }
 
+// RFC-FIX: Debounce for chart refresh to prevent multiple API calls
+let chartRefreshDebounceTimer = null;
+let chartRefreshInProgress = false;
+const CHART_REFRESH_DEBOUNCE_MS = 1000; // 1 second debounce
+
+async function debouncedChartRefresh(source = 'unknown') {
+  // If a refresh is already scheduled, skip
+  if (chartRefreshDebounceTimer) {
+    LogHelper.log(`[WATER] Chart refresh debounced (source: ${source}), already scheduled`);
+    return;
+  }
+
+  // If a refresh is in progress, skip
+  if (chartRefreshInProgress) {
+    LogHelper.log(`[WATER] Chart refresh skipped (source: ${source}), refresh in progress`);
+    return;
+  }
+
+  // Schedule the refresh
+  chartRefreshDebounceTimer = setTimeout(async () => {
+    chartRefreshDebounceTimer = null;
+    chartRefreshInProgress = true;
+    LogHelper.log(`[WATER] Executing debounced chart refresh (source: ${source})`);
+
+    try {
+      cachedChartData = null; // Clear cache before refresh
+      if (consumptionChartInstance?.refresh) {
+        await consumptionChartInstance.refresh(true);
+      }
+      if (distributionChartInstance?.refresh) {
+        await distributionChartInstance.refresh();
+      }
+    } catch (error) {
+      LogHelper.error(`[WATER] Error in debounced chart refresh:`, error);
+    } finally {
+      chartRefreshInProgress = false;
+    }
+  }, CHART_REFRESH_DEBOUNCE_MS);
+}
+
 LogHelper.log('Script loaded, using shared utilities:', !!window.MyIOUtils?.LogHelper);
 
 // ============================================
@@ -366,60 +406,106 @@ function getSelectedShoppingIds() {
 }
 
 /**
- * RFC-0098: Fetch water consumption for a period, grouped by day
- * Water API (/water/devices/totals) returns total_value per device (not consumption array like energy)
- * So we need to make one API call per day to get daily breakdown.
- * Fetches in batches of 3 with delay between batches to avoid rate limiting.
- * @param {string} customerId - Customer ID (may be holding ID which returns all shoppings)
- * @param {number} startTs - Start timestamp (unused, we use dayBoundaries)
- * @param {number} endTs - End timestamp (unused, we use dayBoundaries)
+ * RFC-0098: Fetch water consumption for a period with ONE API call per day
+ * Makes N API calls (one per day) to get accurate daily consumption values
+ * RFC-FIX: Only counts devices that exist in ctx.data (orchestrator cache)
+ * @param {string} customerId - Customer ID (holding/parent)
+ * @param {number} startTs - Start timestamp (unused, using dayBoundaries)
+ * @param {number} endTs - End timestamp (unused, using dayBoundaries)
  * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
  * @returns {Promise<{dailyTotals: number[], byCustomerPerDay: Object[]}>} - Daily totals and per-customer breakdown
  */
 async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
-    const BATCH_SIZE = 3;
-    const BATCH_DELAY_MS = 500;
+    const numDays = dayBoundaries.length;
+    LogHelper.log(`[WATER] Fetching ${numDays} days with ${numDays} API calls (one per day)...`);
+
+    // RFC-FIX: Get valid device IDs from orchestrator cache (devices that exist in ctx.data)
+    // Only these devices should be counted in the chart totals
+    const waterClassified = window.MyIOOrchestratorData?.waterClassified;
+    const orchestratorItems = waterClassified?.all?.items || window.MyIOOrchestratorData?.water?.items || [];
+    const validIngestionIds = new Set();
+    orchestratorItems.forEach((item) => {
+      if (item.ingestionId) validIngestionIds.add(item.ingestionId);
+      if (item.id) validIngestionIds.add(item.id);
+    });
+
+    LogHelper.log(`[WATER] Valid devices from ctx.data: ${validIngestionIds.size}`);
+
     const dailyTotals = [];
     const byCustomerPerDay = [];
 
-    // Process in batches of 3
-    for (let i = 0; i < dayBoundaries.length; i += BATCH_SIZE) {
-      const batch = dayBoundaries.slice(i, i + BATCH_SIZE);
+    // Make one API call per day for accurate daily breakdown
+    for (let i = 0; i < numDays; i++) {
+      const day = dayBoundaries[i];
+      LogHelper.log(`[WATER] Fetching day ${i + 1}/${numDays}: ${day.label}`);
 
-      // Fetch batch in parallel
-      const batchPromises = batch.map(async (day) => {
-        try {
-          const result = await window.MyIOUtils.fetchWaterDayConsumption(customerId, day.startTs, day.endTs);
-          return {
-            total: result?.total || 0,
-            byCustomer: result?.byCustomer || {},
-          };
-        } catch (dayError) {
-          console.warn(`[WATER] [RFC-0098] Error fetching day ${day.label}:`, dayError);
-          return { total: 0, byCustomer: {} };
+      const result = await window.MyIOUtils.fetchWaterDayConsumption(
+        customerId,
+        day.startTs,
+        day.endTs,
+        '1d'
+      );
+
+      if (!result || !result.devices) {
+        LogHelper.warn(`[WATER] No data for day ${day.label}`);
+        dailyTotals.push(0);
+        byCustomerPerDay.push({});
+        continue;
+      }
+
+      const allDevices = result.devices || [];
+
+      // RFC-FIX: Filter devices to only include those that exist in ctx.data
+      const devices = validIngestionIds.size > 0
+        ? allDevices.filter((d) => validIngestionIds.has(d.id))
+        : allDevices;
+
+      const discardedCount = allDevices.length - devices.length;
+      if (discardedCount > 0) {
+        LogHelper.log(`[WATER] Day ${day.label}: Filtered out ${discardedCount} devices not in ctx.data`);
+      }
+
+      // Recalculate dayTotal from filtered devices only
+      const dayTotal = devices.reduce((sum, d) => sum + (d.total_value || 0), 0);
+
+      // Recalculate byCustomer from filtered devices only
+      const byCustomer = {};
+      devices.forEach((d) => {
+        const custId = d.customerId;
+        if (custId) {
+          if (!byCustomer[custId]) {
+            byCustomer[custId] = { name: d.customerName || custId, total: 0, deviceCount: 0 };
+          }
+          byCustomer[custId].total += d.total_value || 0;
+          byCustomer[custId].deviceCount++;
         }
       });
 
-      const batchResults = await Promise.all(batchPromises);
-      batchResults.forEach((res) => {
-        dailyTotals.push(res.total);
-        byCustomerPerDay.push(res.byCustomer);
-      });
+      dailyTotals.push(dayTotal);
 
-      // Add delay before next batch (except for last batch)
-      if (i + BATCH_SIZE < dayBoundaries.length) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
-      }
+      // Build byCustomerPerDay for this day
+      const dayByCustomer = {};
+      Object.entries(byCustomer).forEach(([custId, data]) => {
+        dayByCustomer[custId] = {
+          name: data.name,
+          total: data.total,
+          deviceCount: data.deviceCount,
+        };
+      });
+      byCustomerPerDay.push(dayByCustomer);
+
+      LogHelper.log(`[WATER] Day ${day.label}: ${dayTotal.toFixed(2)} m³ (${devices.length} devices)`);
     }
 
-    console.log(
-      `[WATER] [RFC-0098] Period consumption for ${customerId.slice(0, 8)}:`,
-      dailyTotals.map((v) => v.toFixed(2))
+    LogHelper.log(
+      `[WATER] Period consumption (${numDays} days):`,
+      dailyTotals.map((v) => v.toFixed(0)).join(', ')
     );
+
     return { dailyTotals, byCustomerPerDay };
   } catch (error) {
-    LogHelper.error(' Error fetching period consumption:', error);
+    LogHelper.error('[WATER] Error fetching period consumption:', error);
     return {
       dailyTotals: new Array(dayBoundaries.length).fill(0),
       byCustomerPerDay: new Array(dayBoundaries.length).fill({}),
@@ -1552,6 +1638,27 @@ self.onInit = async function () {
   // Listen for water data from MAIN
   cleanupFns.push(addListener('myio:water-data-ready', handleWaterDataReady));
 
+  // Fallback: react to provide-data for water to refresh totals/charts
+  cleanupFns.push(
+    addListener('myio:telemetry:provide-data', (ev) => {
+      const detail = ev?.detail || {};
+      if (detail.domain !== 'water') return;
+      const periodKey = detail.periodKey || 'N/A';
+      const items = Array.isArray(detail.items) ? detail.items : [];
+      LogHelper.log(`[WATER] provide-data received (periodKey=${periodKey}, items=${items.length})`);
+      if (items.length === 0) return;
+
+      const cache = new Map();
+      items.forEach((item) => {
+        if (item.tbId) cache.set(item.tbId, item);
+        if (item.ingestionId && item.ingestionId !== item.tbId) cache.set(item.ingestionId, item);
+        if (!item.tbId && !item.ingestionId && item.id) cache.set(item.id, item);
+      });
+
+      handleWaterDataReady({ detail: { cache, source: 'provide-data' } });
+    })
+  );
+
   // Listen for water totals calculated from valid TB aliases (Orchestrator)
   cleanupFns.push(
     addListener('myio:water-totals-updated', (ev) => {
@@ -1588,20 +1695,15 @@ self.onInit = async function () {
   cleanupFns.push(addListener('myio:update-date', handleDateUpdate));
 
   // Listen for shopping filter changes
+  // RFC-FIX: Use debounced refresh to prevent multiple API calls
   cleanupFns.push(
     addListener('myio:filter-applied', async (ev) => {
       const selection = ev.detail?.selection || [];
       LogHelper.log('Filter applied:', selection.length, 'shoppings');
       renderShoppingFilterChips(selection);
 
-      // Invalidate cache and refresh charts
-      cachedChartData = null;
-      if (consumptionChartInstance?.refresh) {
-        await consumptionChartInstance.refresh(true);
-      }
-      if (distributionChartInstance?.refresh) {
-        await distributionChartInstance.refresh();
-      }
+      // RFC-FIX: Use debounced chart refresh to prevent multiple API calls
+      debouncedChartRefresh('filter-applied');
 
       // FIX: Also recalculate and update consumption cards when filter changes
       const selectedShoppingIds = getSelectedShoppingIds();

@@ -1,36 +1,29 @@
 <section id="myio-root" class="myio-grid">
   <aside class="myio-sidebar">
-    <!-- RFC-0147: Menu component container (replaces tb-dashboard-state stateId="menu") -->
-    <section id="menuContainer" class="myio-menu-section"></section>
+    <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="menu"></tb-dashboard-state>
   </aside>
 
   <header class="myio-header">
-    <!-- RFC-0146: Header component container (replaces tb-dashboard-state stateId="header") -->
-    <section id="headerContainer" class="myio-header-section"></section>
+    <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="header"></tb-dashboard-state>
   </header>
 
   <main class="myio-content">
-    <!-- RFC-0053: Content states with show/hide logic -->
-    <!-- RFC-0145: TelemetryGrid component container -->
+    <!-- RFC-0053: All states pre-loaded with show/hide logic (no iframes!) -->
     <div data-content-state="telemetry_content" style="display: block; height: 100%; min-height: 400px">
-      <section id="telemetryContentContainer" class="myio-telemetry-section"></section>
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="telemetry_content"></tb-dashboard-state>
     </div>
     <div data-content-state="water_content" style="display: none; height: 100%; min-height: 400px">
-      <section id="waterContentContainer" class="myio-water-section"></section>
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="water_content"></tb-dashboard-state>
     </div>
     <div data-content-state="temperature_content" style="display: none; height: 100%; min-height: 400px">
-      <section id="temperatureContentContainer" class="myio-temperature-section"></section>
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="temperature_content"></tb-dashboard-state>
     </div>
     <div data-content-state="alarm_content" style="display: none; height: 100%; min-height: 400px">
-      <section id="alarmContentContainer" class="myio-alarm-section"></section>
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="alarm_content"></tb-dashboard-state>
     </div>
   </main>
 
   <footer class="myio-footer">
-    <!-- RFC-0149: Footer component container (replaces tb-dashboard-state stateId="footer") -->
-    <section id="footerContainer" class="myio-footer-section"></section>
+    <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="footer"></tb-dashboard-state>
   </footer>
-
-  <!-- Modal containers -->
-  <div id="panelModalContainer"></div>
 </section>

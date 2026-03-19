@@ -65,6 +65,16 @@ export function isHydrometerDevice(deviceType) {
 }
 
 /**
+ * Checks if device type is a solenoid valve (water infrastructure)
+ * @param {string} deviceType - Device type string
+ * @returns {boolean}
+ */
+export function isSolenoidDevice(deviceType) {
+  const dt = String(deviceType || '').toUpperCase();
+  return dt.includes('SOLENOIDE');
+}
+
+/**
  * Checks if device type is a temperature sensor
  * @param {string} deviceType - Device type string
  * @returns {boolean}
@@ -75,13 +85,56 @@ export function isTemperatureDevice(deviceType) {
 }
 
 /**
- * Checks if device type is an energy meter
- * @param {string} deviceType - Device type string
+ * Checks if device type is an energy device
+ * RFC-0128: Includes all energy equipment categories
+ * @param {string} deviceType - Device type or profile string
  * @returns {boolean}
  */
 export function isEnergyDevice(deviceType) {
   const dt = String(deviceType || '').toUpperCase();
-  return dt === '3F_MEDIDOR' || dt.includes('3F') || dt.includes('MEDIDOR');
+
+  // Explicitly exclude non-energy devices (lighting, remotes, solenoids)
+  // RFC-0175: SOLENOIDE is a control device, not an energy meter
+  if (dt.includes('LAMP') || dt.includes('REMOTE') || dt.includes('CONTROLE') || dt.includes('SOLENOIDE')) {
+    return false;
+  }
+
+  // Energy meters
+  if (dt === '3F_MEDIDOR' || dt.includes('3F') || dt.includes('MEDIDOR')) {
+    return true;
+  }
+
+  // Entrada (main power entry)
+  if (dt.includes('ENTRADA') || dt.includes('RELOGIO') || dt.includes('TRAFO') || dt.includes('SUBESTACAO')) {
+    return true;
+  }
+
+  // HVAC / Climatization
+  if (
+    dt.includes('CHILLER') ||
+    dt.includes('FANCOIL') ||
+    dt.includes('HVAC') ||
+    dt.includes('AR_CONDICIONADO') ||
+    dt.includes('BOMBA_CAG') ||
+    dt.includes('CAG')
+  ) {
+    return true;
+  }
+
+  // Motors, elevators, escalators
+  if (dt.includes('MOTOR') || dt.includes('ELEVADOR') || dt.includes('ESCADA_ROLANTE')) {
+    return true;
+  }
+
+  // Pumps (non-water), generators
+  if (dt.includes('BOMBA') && !dt.includes('AGUA') && !dt.includes('HIDRO')) {
+    return true;
+  }
+  if (dt.includes('GERADOR') || dt.includes('NOBREAK')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -90,7 +143,7 @@ export function isEnergyDevice(deviceType) {
  * @returns {string} Domain: 'energy', 'water', or 'temperature'
  */
 export function getDomainFromDeviceType(deviceType) {
-  if (isTankDevice(deviceType) || isHydrometerDevice(deviceType)) {
+  if (isTankDevice(deviceType) || isHydrometerDevice(deviceType) || isSolenoidDevice(deviceType)) {
     return DomainType.WATER;
   }
   if (isTemperatureDevice(deviceType)) {

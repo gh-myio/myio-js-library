@@ -35,6 +35,7 @@ const LogHelper = createLogHelper('DeviceGridWidgetFactory');
  * @property {boolean} hasRealTimeMode - Whether widget supports real-time mode
  * @property {string} summaryReadyEvent - Event name for summary data
  * @property {number} delayTimeConnectionInMins - Delay threshold for connection status
+ * @property {Object} [headerController] - Optional pre-built header controller
  */
 
 /**
@@ -206,9 +207,14 @@ export function buildEntityObject(config, item, context) {
 
   // Status calculation
   let deviceStatus;
+  let connectionStatus;
   if (config.statusCalculation === 'always_online') {
+    // RFC-0144: When always_online, force both deviceStatus AND connectionStatus to 'online'
+    // This prevents the card component from overriding deviceStatus based on connectionStatus
     deviceStatus = 'online';
+    connectionStatus = 'online';
   } else {
+    connectionStatus = mapConnectionStatus(item.connectionStatus);
     const calculateDeviceStatusMasterRules =
       typeof window !== 'undefined' && window.MyIOUtils?.calculateDeviceStatusMasterRules;
     if (calculateDeviceStatusMasterRules) {
@@ -217,7 +223,7 @@ export function buildEntityObject(config, item, context) {
         domain: config.domain,
       });
     } else {
-      deviceStatus = mapConnectionStatus(item.connectionStatus);
+      deviceStatus = connectionStatus;
     }
   }
 
@@ -259,6 +265,7 @@ export function buildEntityObject(config, item, context) {
     deviceType: item.deviceType,
     deviceProfile: item.deviceProfile || 'N/D',
     deviceStatus: deviceStatus,
+    connectionStatus: connectionStatus, // RFC-0144: Include connectionStatus for card component
     perc: item.perc ?? 0,
     slaveId: item.slaveId || 'N/A',
     ingestionId: item.ingestionId || 'N/A',
@@ -281,6 +288,148 @@ export function buildEntityObject(config, item, context) {
     mapInstantaneousPower: context?.mapInstantaneousPower || null,
     deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
     powerRanges: item.powerRanges || null,
+  };
+}
+
+/**
+ * RFC-0144: Create default action handlers for device cards
+ * These handlers use window globals to work without direct widget context
+ */
+function createDefaultActionHandlers(config, entityObject, item) {
+  const MyIOLibrary = typeof window !== 'undefined' && window.MyIOLibrary;
+  const MyIOUtils = typeof window !== 'undefined' && window.MyIOUtils;
+  const MyIOAuth = MyIOUtils?.MyIOAuth;
+  const CLIENT_ID = MyIOUtils?.CLIENT_ID;
+  const CLIENT_SECRET = MyIOUtils?.CLIENT_SECRET;
+  const getDataApiHost = MyIOUtils?.getDataApiHost || (() => 'https://api.data.apps.myio-bas.com');
+
+  return {
+    handleActionDashboard: async () => {
+      LogHelper.log(`[${config.widgetName}] Opening dashboard for:`, entityObject.entityId);
+      try {
+        if (typeof MyIOLibrary?.openDashboardPopupEnergy !== 'function') {
+          window.alert('Dashboard component não disponível');
+          return;
+        }
+        // Get dates from window.STATE or MyIOUtils
+        const startDate = window.STATE?.period?.startDateISO || MyIOUtils?.currentPeriod?.startDateISO;
+        const endDate = window.STATE?.period?.endDateISO || MyIOUtils?.currentPeriod?.endDateISO;
+        if (!startDate || !endDate) {
+          window.alert('Período de datas não definido.');
+          return;
+        }
+        if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+          LogHelper.error(`[${config.widgetName}] MyIOAuth not available`);
+          window.alert('Autenticação não disponível. Recarregue a página.');
+          return;
+        }
+        const tokenIngestionDashBoard = await MyIOAuth.getToken();
+        const myTbTokenDashBoard = localStorage.getItem('jwt_token');
+
+        MyIOLibrary.openDashboardPopupEnergy({
+          deviceId: entityObject.entityId,
+          readingType: config.domain, // 'water' or 'energy'
+          startDate,
+          endDate,
+          tbJwtToken: myTbTokenDashBoard,
+          ingestionToken: tokenIngestionDashBoard,
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          onClose: () => {
+            const o = document.querySelector('.myio-modal-overlay');
+            if (o) o.remove();
+          },
+        });
+      } catch (err) {
+        LogHelper.error(`[${config.widgetName}] Error opening dashboard:`, err);
+        window.alert('Erro ao abrir dashboard');
+      }
+    },
+
+    handleActionReport: async () => {
+      LogHelper.log(`[${config.widgetName}] Opening report for:`, item.ingestionId);
+      try {
+        if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+          LogHelper.error(`[${config.widgetName}] MyIOAuth not available for report`);
+          window.alert('Autenticação não disponível. Recarregue a página.');
+          return;
+        }
+        const ingestionToken = await MyIOAuth.getToken();
+        await MyIOLibrary?.openDashboardPopupReport?.({
+          ingestionId: item.ingestionId,
+          identifier: item.identifier,
+          label: item.label,
+          domain: config.domain,
+          api: {
+            dataApiBaseUrl: getDataApiHost(),
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            ingestionToken,
+          },
+        });
+      } catch (err) {
+        LogHelper.error(`[${config.widgetName}] Error opening report:`, err);
+        window.alert('Erro ao abrir relatório');
+      }
+    },
+
+    handleActionSettings: async () => {
+      LogHelper.log(`[${config.widgetName}] Opening settings for:`, entityObject.entityId);
+      const jwt = localStorage.getItem('jwt_token');
+
+      if (!jwt) {
+        LogHelper.error(`[${config.widgetName}] JWT token not found`);
+        window.alert('Token de autenticação não encontrado');
+        return;
+      }
+
+      const tbId = entityObject.entityId;
+      if (!tbId || tbId === item.ingestionId) {
+        window.alert('ID inválido');
+        return;
+      }
+
+      try {
+        await MyIOLibrary?.openDashboardPopupSettings?.({
+          deviceId: tbId,
+          label: item.label,
+          jwtToken: jwt,
+          domain: config.domain,
+          deviceType: entityObject.deviceType,
+          deviceProfile: entityObject.deviceProfile,
+          customerName: entityObject.customerName,
+          connectionData: {
+            centralName: entityObject.centralName,
+            connectionStatusTime: entityObject.connectionStatusTime,
+            timeVal: entityObject.timeVal || new Date('1970-01-01').getTime(),
+            deviceStatus:
+              entityObject.deviceStatus !== 'power_off' && entityObject.deviceStatus !== 'not_installed'
+                ? 'power_on'
+                : 'power_off',
+            lastDisconnectTime: entityObject.lastDisconnectTime || 0,
+          },
+          ui: { title: 'Configurações', width: 900 },
+          mapInstantaneousPower: entityObject.mapInstantaneousPower,
+          onSaved: (payload) => {
+            LogHelper.log(`[${config.widgetName}] Settings saved:`, payload);
+            // Try to show success modal if available
+            if (typeof window.showGlobalSuccessModal === 'function') {
+              window.showGlobalSuccessModal(6);
+            }
+          },
+          onClose: () => {
+            const settingsOverlay = document.querySelector('.myio-device-settings-overlay');
+            if (settingsOverlay) settingsOverlay.remove();
+            const overlay = document.querySelector('.myio-modal-overlay');
+            if (overlay) overlay.remove();
+            LogHelper.log(`[${config.widgetName}] Settings modal closed`);
+          },
+        });
+      } catch (e) {
+        LogHelper.error(`[${config.widgetName}] Error opening settings:`, e);
+        window.alert('Erro ao abrir configurações');
+      }
+    },
   };
 }
 
@@ -308,6 +457,9 @@ export async function renderList(config, STATE, visible, context) {
 
     const entityObject = buildEntityObject(config, item, context);
 
+    // RFC-0144: Create default handlers if none provided in context
+    const defaultHandlers = createDefaultActionHandlers(config, entityObject, item);
+
     if (MyIOLibrary?.renderCardComponentHeadOffice) {
       MyIOLibrary.renderCardComponentHeadOffice(container, {
         entityObject: entityObject,
@@ -317,15 +469,39 @@ export async function renderList(config, STATE, visible, context) {
         handleClickCard: (ev, entity) => {
           LogHelper.log(`[${config.widgetName}] Card clicked: ${entity.name}`);
         },
-        handleActionDashboard: () => context?.handleActionDashboard?.(entityObject, item),
-        handleActionReport: () => context?.handleActionReport?.(entityObject, item),
-        handleActionSettings: () => context?.handleActionSettings?.(entityObject, item),
+        // RFC-0144: Use context handlers if provided, otherwise use defaults
+        handleActionDashboard: context?.handleActionDashboard
+          ? () => context.handleActionDashboard(entityObject, item)
+          : defaultHandlers.handleActionDashboard,
+        handleActionReport: context?.handleActionReport
+          ? () => context.handleActionReport(entityObject, item)
+          : defaultHandlers.handleActionReport,
+        handleActionSettings: context?.handleActionSettings
+          ? () => context.handleActionSettings(entityObject, item)
+          : defaultHandlers.handleActionSettings,
         handleSelect: (checked, entity) => {
           if (!STATE.selectedIds) STATE.selectedIds = new Set();
+
+          // RFC-0144: Notify MyIOSelectionStore for FOOTER integration
+          const MyIOSelectionStore =
+            (typeof window !== 'undefined' && window.MyIOLibrary?.MyIOSelectionStore) ||
+            (typeof window !== 'undefined' && window.MyIOSelectionStore);
+
           if (checked) {
             STATE.selectedIds.add(String(entity.id));
+            // Register and add to selection store for FOOTER
+            if (MyIOSelectionStore) {
+              if (MyIOSelectionStore.registerEntity) {
+                MyIOSelectionStore.registerEntity(entity);
+              }
+              MyIOSelectionStore.add(entity.entityId || entity.id);
+            }
           } else {
             STATE.selectedIds.delete(String(entity.id));
+            // Remove from selection store
+            if (MyIOSelectionStore) {
+              MyIOSelectionStore.remove(entity.entityId || entity.id);
+            }
           }
         },
         useNewComponents: true,
@@ -381,11 +557,12 @@ export function updateStats(config, items, context) {
 
   const connectivityPercentage = total > 0 ? ((onlineCount / total) * 100).toFixed(1) : '0.0';
 
-  if (context?.headerController?.update) {
-    context.headerController.update({
-      connectivity: `${onlineCount}/${total} (${connectivityPercentage}%)`,
+  // RFC-0144 FIX: The header controller method is 'updateStats', not 'update'
+  if (context?.headerController?.updateStats) {
+    context.headerController.updateStats({
+      online: onlineCount,
       total: total,
-      consumption: config.formatValue(totalConsumption),
+      consumption: totalConsumption,
       zeroCount: zeroConsumptionCount,
     });
   }
@@ -459,20 +636,98 @@ export function createBusyModal(config, $root) {
 }
 
 /**
- * Get cached data from orchestrator
+ * Get cached data from orchestrator (MAIN v5.2.0 architecture)
+ * Data structures:
+ * - Energy: window.MyIOOrchestratorData[domain].items
+ * - Water: window.MyIOOrchestratorData.waterClassified.{stores|commonArea|entrada}.items
+ * Items are filtered using config.deviceFilter
  * @param {DeviceGridWidgetConfig} config - Widget configuration
  * @returns {Array|null} Cached device data
  */
 export function getCachedData(config) {
   if (typeof window === 'undefined') return null;
 
-  const classified = window.MyIOOrchestratorData?.classified;
-  if (!classified) return null;
+  const orchestratorData = window.MyIOOrchestratorData;
+  if (!orchestratorData) {
+    LogHelper.log(`[${config.widgetName}] getCachedData: MyIOOrchestratorData not available`);
+    return null;
+  }
 
-  const domainData = classified[config.domain];
-  if (!domainData) return null;
+  // Water domain uses waterClassified structure
+  if (config.domain === 'water') {
+    const waterClassified = orchestratorData.waterClassified;
+    if (waterClassified) {
+      // Map context to waterClassified category
+      // hidrometro (stores) -> waterClassified.stores
+      // hidrometro_area_comum -> waterClassified.commonArea
+      let categoryItems = null;
+      if (config.context === 'hidrometro' || config.context === 'stores') {
+        categoryItems = waterClassified.stores?.items;
+        if (categoryItems?.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${categoryItems.length} items via waterClassified.stores`
+          );
+          return categoryItems;
+        }
+      } else if (config.context === 'hidrometro_area_comum' || config.context === 'commonArea') {
+        categoryItems = waterClassified.commonArea?.items;
+        if (categoryItems?.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${categoryItems.length} items via waterClassified.commonArea`
+          );
+          return categoryItems;
+        }
+      } else if (config.context === 'entrada') {
+        categoryItems = waterClassified.entrada?.items;
+        if (categoryItems?.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${categoryItems.length} items via waterClassified.entrada`
+          );
+          return categoryItems;
+        }
+      }
 
-  return domainData[config.context] || null;
+      // Fallback: try 'all' items with deviceFilter
+      const allItems = waterClassified.all?.items;
+      if (allItems && Array.isArray(allItems) && config.deviceFilter) {
+        const filteredItems = allItems.filter(config.deviceFilter);
+        if (filteredItems.length > 0) {
+          LogHelper.log(
+            `[${config.widgetName}] getCachedData: Found ${filteredItems.length} items via waterClassified.all (filtered from ${allItems.length})`
+          );
+          return filteredItems;
+        }
+      }
+
+      LogHelper.log(`[${config.widgetName}] getCachedData: waterClassified exists but no items for context ${config.context}`);
+    } else {
+      LogHelper.log(`[${config.widgetName}] getCachedData: waterClassified not available`);
+    }
+    return null;
+  }
+
+  // Energy/Temperature domain: [domain].items
+  const domainCache = orchestratorData[config.domain];
+  if (domainCache?.items && Array.isArray(domainCache.items)) {
+    // Filter items using the deviceFilter from config
+    const filteredItems = config.deviceFilter
+      ? domainCache.items.filter(config.deviceFilter)
+      : domainCache.items;
+
+    if (filteredItems.length > 0) {
+      LogHelper.log(
+        `[${config.widgetName}] getCachedData: Found ${filteredItems.length} items via ${config.domain}.items (filtered from ${domainCache.items.length})`
+      );
+      return filteredItems;
+    }
+    LogHelper.log(
+      `[${config.widgetName}] getCachedData: ${config.domain}.items has ${domainCache.items.length} items but none matched deviceFilter`
+    );
+  } else {
+    LogHelper.log(`[${config.widgetName}] getCachedData: No cached data found for domain ${config.domain}`);
+  }
+
+  return null;
 }
 
 /**
@@ -512,6 +767,7 @@ export function createWidgetController(config) {
     debugActive: false,
     activeTooltipDebug: false,
     headerController: null,
+    headerControllerExternal: false, // RFC-0159: Flag to indicate if header was provided externally
     filterModalController: null,
     mapInstantaneousPower: null,
     MyIOAuth: null,
@@ -529,10 +785,19 @@ export function createWidgetController(config) {
     await renderList(config, STATE, visible, context);
   }
 
+  let busyModalRef = null; // RFC-0144: Store reference for onDataUpdated
+
   function registerEventHandlers(busyModal) {
+    busyModalRef = busyModal; // RFC-0144: Save reference
+
     const dataReadyHandler = () => {
       const items = getCachedData(config);
       if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] Data ready skipped: current ${STATE.itemsBase.length} items > cache ${items.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] Data ready event: ${items.length} items`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -554,7 +819,13 @@ export function createWidgetController(config) {
 
     const summaryReadyHandler = () => {
       const items = getCachedData(config);
-      if (items && items.length > 0 && STATE.itemsBase.length === 0) {
+      // RFC-0144 FIX: Always update data on summary-ready, not just the first time
+      if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] Summary ready skipped: current ${STATE.itemsBase.length} items > cache ${items.length} items`);
+          return;
+        }
         LogHelper.log(`[${config.widgetName}] Summary ready, loading from cache: ${items.length} items`);
         STATE.itemsBase = items;
         STATE.itemsEnriched = items.map((item) => ({
@@ -567,12 +838,83 @@ export function createWidgetController(config) {
       }
     };
 
+    // RFC-0143 FIX: Also listen to MAIN's provide-data event for compatibility
+    const provideDataHandler = (ev) => {
+      const { domain, items } = ev.detail || {};
+      // Only process if this event is for our domain
+      if (domain !== config.domain) return;
+
+      // Filter items using deviceFilter
+      const filteredItems = config.deviceFilter
+        ? items.filter(config.deviceFilter)
+        : items;
+
+      // RFC-0144 FIX: Only update if filtered result is better (more items) than current
+      // This prevents bad filtered data from overwriting good cached data
+      if (filteredItems && filteredItems.length > 0) {
+        // Skip if we already have more/equal items (don't overwrite good data with worse)
+        if (STATE.itemsBase.length > 0 && filteredItems.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] Provide-data event skipped: current ${STATE.itemsBase.length} items > filtered ${filteredItems.length} items`);
+          return;
+        }
+        LogHelper.log(`[${config.widgetName}] Provide-data event: ${filteredItems.length} items (from ${items?.length || 0})`);
+        STATE.itemsBase = filteredItems;
+        STATE.itemsEnriched = filteredItems.map((item) => ({
+          ...item,
+          value: Number(item.value || item.consumption || item.pulses || 0),
+        }));
+        STATE.dataFromMain = true;
+        busyModal.hideBusy();
+        reflow();
+      }
+    };
+
+    // RFC-0143 FIX: Listen to MAIN's water-tb-data-ready event for water domain
+    const waterTbDataReadyHandler = (ev) => {
+      // Only process for water domain widgets
+      if (config.domain !== 'water') return;
+
+      const waterClassified = ev.detail || {};
+      let items = null;
+
+      // Map context to waterClassified category
+      if (config.context === 'hidrometro' || config.context === 'stores') {
+        items = waterClassified.stores?.items;
+      } else if (config.context === 'hidrometro_area_comum' || config.context === 'commonArea') {
+        items = waterClassified.commonArea?.items;
+      } else if (config.context === 'entrada') {
+        items = waterClassified.entrada?.items;
+      }
+
+      // RFC-0144 FIX: Always update data, not just the first time
+      if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] water-tb-data-ready skipped: current ${STATE.itemsBase.length} items > event ${items.length} items`);
+          return;
+        }
+        LogHelper.log(`[${config.widgetName}] water-tb-data-ready event: ${items.length} items for context ${config.context}`);
+        STATE.itemsBase = items;
+        STATE.itemsEnriched = items.map((item) => ({
+          ...item,
+          value: Number(item.value || item.consumption || item.pulses || 0),
+        }));
+        STATE.dataFromMain = true;
+        busyModal.hideBusy();
+        reflow();
+      }
+    };
+
     window.addEventListener('myio:data-ready', dataReadyHandler);
+    window.addEventListener('myio:telemetry:provide-data', provideDataHandler);
+    window.addEventListener('myio:water-tb-data-ready', waterTbDataReadyHandler);
     window.addEventListener('myio:filter-applied', filterAppliedHandler);
     window.addEventListener(config.summaryReadyEvent, summaryReadyHandler);
 
     eventHandlers.push(
       { event: 'myio:data-ready', handler: dataReadyHandler },
+      { event: 'myio:telemetry:provide-data', handler: provideDataHandler },
+      { event: 'myio:water-tb-data-ready', handler: waterTbDataReadyHandler },
       { event: 'myio:filter-applied', handler: filterAppliedHandler },
       { event: config.summaryReadyEvent, handler: summaryReadyHandler }
     );
@@ -586,33 +928,28 @@ export function createWidgetController(config) {
   }
 
   return {
-    onInit: async function () {
+    onInit: async function (selfCtx) {
       LogHelper.log(`[${config.widgetName}] RFC-0143 Factory Controller - onInit`);
 
-      // eslint-disable-next-line no-undef
-      $root = () => $(self.ctx.$container[0]);
+      // RFC-0143 FIX: selfCtx is passed from widget controller (self.ctx)
+      // This is needed because 'self' is not available in the bundled library context
+      if (!selfCtx || !selfCtx.$container) {
+        LogHelper.error(`[${config.widgetName}] onInit: selfCtx or $container not provided`);
+        return;
+      }
+
+      $root = () => $(selfCtx.$container[0]);
 
       const busyModal = createBusyModal(config, $root);
 
-      if (typeof window !== 'undefined' && window.MyIOUtils?.buildHeaderDevicesGrid) {
-        context.headerController = window.MyIOUtils.buildHeaderDevicesGrid({
-          $container: $root(),
-          idPrefix: config.idPrefix,
-          labels: config.headerLabels,
-          onSortChange: (mode) => {
-            STATE.sortMode = mode;
-            reflow();
-          },
-          onSearchChange: (term) => {
-            STATE.searchTerm = term;
-            STATE.searchActive = term.length > 0;
-            reflow();
-          },
-        });
-      }
+      // RFC-0144: Initialize filter modal FIRST so we can reference it in header's onFilterClick
+      // RFC-0159: Use config.createFilterModal if provided, otherwise fallback to window.MyIOUtils
+      const createFilterModal =
+        config.createFilterModal ||
+        (typeof window !== 'undefined' && window.MyIOUtils?.createFilterModal);
 
-      if (typeof window !== 'undefined' && window.MyIOUtils?.createFilterModal) {
-        context.filterModalController = window.MyIOUtils.createFilterModal({
+      if (createFilterModal) {
+        context.filterModalController = createFilterModal({
           $container: $root(),
           tabs: config.filterTabs || [{ id: 'all', label: 'Todos', filter: () => true }],
           onApply: (selectedIds) => {
@@ -620,6 +957,24 @@ export function createWidgetController(config) {
             reflow();
           },
         });
+      }
+
+      // RFC-0144: Function to open filter modal (called by header's onFilterClick)
+      function openFilterModal() {
+        if (context.filterModalController?.open) {
+          context.filterModalController.open();
+        } else if (context.filterModalController?.show) {
+          context.filterModalController.show();
+        } else {
+          LogHelper.warn(`[${config.widgetName}] Filter modal controller has no open/show method`);
+        }
+      }
+
+      // RFC-0159: Use pre-built headerController if provided
+      if (config.headerController) {
+        context.headerController = config.headerController;
+        context.headerControllerExternal = true; // Don't destroy on cleanup
+        LogHelper.log(`[${config.widgetName}] Using pre-built header controller from config`);
       }
 
       context.handleActionDashboard = config.handleActionDashboard || null;
@@ -648,14 +1003,34 @@ export function createWidgetController(config) {
     },
 
     onDataUpdated: function () {
-      // No-op - data is received via events from MAIN/Orchestrator
+      // RFC-0144 FIX: Actually refresh data from cache when called
+      const items = getCachedData(config);
+      if (items && items.length > 0) {
+        // RFC-0144 FIX: Don't overwrite good data with worse data
+        if (STATE.itemsBase.length > 0 && items.length < STATE.itemsBase.length) {
+          LogHelper.log(`[${config.widgetName}] onDataUpdated skipped: current ${STATE.itemsBase.length} items > cache ${items.length} items`);
+          return;
+        }
+        LogHelper.log(`[${config.widgetName}] onDataUpdated: refreshing from cache with ${items.length} items`);
+        STATE.itemsBase = items;
+        STATE.itemsEnriched = items.map((item) => ({
+          ...item,
+          value: Number(item.value || item.consumption || item.pulses || 0),
+        }));
+        STATE.dataFromMain = true;
+        if (busyModalRef) busyModalRef.hideBusy();
+        reflow();
+      }
     },
 
     onDestroy: function () {
       LogHelper.log(`[${config.widgetName}] RFC-0143 Factory Controller - onDestroy`);
       unregisterEventHandlers();
 
-      context.headerController?.destroy?.();
+      // RFC-0159: Only destroy header if it was created internally
+      if (!context.headerControllerExternal) {
+        context.headerController?.destroy?.();
+      }
       context.filterModalController?.destroy?.();
 
       STATE.itemsBase = [];
@@ -664,6 +1039,8 @@ export function createWidgetController(config) {
     },
 
     getState: () => STATE,
+    getHeaderController: () => context.headerController,
+    getFilterModalController: () => context.filterModalController,
     reflow,
   };
 }

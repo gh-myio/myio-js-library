@@ -257,6 +257,9 @@ class MyIOSelectionStoreClass {
       status: entity.status || entity.deviceStatus || 'unknown',
       ingestionId: entity.ingestionId || entityId, // ⭐ ADD: Store ingestionId for API calls
       customerName: entity.customerName || entity.ownerName || entity.centralName || '',
+      // Optional metadata passthrough (used by alarm comparisons)
+      meta: entity.meta || entity.alarmMeta || null,
+      alarm: entity.alarm || null,
     };
 
     this.entities.set(entityId, normalizedEntity);

@@ -55,12 +55,30 @@ export interface ConsumptionWidgetConfig extends Omit<Consumption7DaysConfig, 'c
   showChartTypeTabs?: boolean;
   /** Chart height in pixels or CSS value (default: 300) */
   chartHeight?: number | string;
+  /** Enable full height mode - widget expands to fill parent container (default: false, auto-enabled when chartHeight is '100%') */
+  fullHeight?: boolean;
   /** Callback when settings button is clicked */
   onSettingsClick?: () => void;
   /** Callback when maximize button is clicked */
   onMaximizeClick?: () => void;
   /** Custom CSS class for the widget container */
   className?: string;
+  /**
+   * Custom header styles for compact layouts
+   * @example { padding: '8px 12px', fontSize: '12px', titleFontSize: '12px', tabPadding: '4px 10px', tabFontSize: '11px' }
+   */
+  headerStyles?: {
+    /** Header padding (default: '16px 20px') */
+    padding?: string;
+    /** Header gap between elements (default: '12px') */
+    gap?: string;
+    /** Title font size (default: '14px') */
+    titleFontSize?: string;
+    /** Tab padding (default: '6px 14px') */
+    tabPadding?: string;
+    /** Tab font size (default: '12px') */
+    tabFontSize?: string;
+  };
 }
 
 export interface ConsumptionWidgetInstance {
@@ -133,8 +151,20 @@ const DOMAIN_CONFIG: Record<string, { name: string; icon: string; color: string;
 // Styles
 // ============================================================================
 
-function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
+function getWidgetStyles(
+  theme: ThemeMode,
+  primaryColor: string,
+  headerStyles?: ConsumptionWidgetConfig['headerStyles']
+): string {
   const colors = THEME_COLORS[theme];
+  // Default header styles with custom overrides
+  const hStyles = {
+    padding: headerStyles?.padding ?? '16px 20px',
+    gap: headerStyles?.gap ?? '12px',
+    titleFontSize: headerStyles?.titleFontSize ?? '14px',
+    tabPadding: headerStyles?.tabPadding ?? '6px 14px',
+    tabFontSize: headerStyles?.tabFontSize ?? '12px',
+  };
 
   return `
     .myio-chart-widget {
@@ -146,6 +176,34 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
+    /* Full height mode - when parent has defined height */
+    .myio-chart-widget.full-height {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-header {
+      flex-shrink: 0;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-canvas-container {
+      flex: 1;
+      min-height: 0;
+      height: auto !important;
+    }
+
+    .myio-chart-widget.full-height .myio-chart-widget-footer {
+      flex-shrink: 0;
+    }
+
     .myio-chart-widget.dark {
       background: ${THEME_COLORS.dark.chartBackground};
       border-color: ${THEME_COLORS.dark.border};
@@ -155,10 +213,10 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 20px;
+      padding: ${hStyles.padding};
       border-bottom: 1px solid ${colors.border};
       flex-wrap: wrap;
-      gap: 12px;
+      gap: ${hStyles.gap};
     }
 
     .myio-chart-widget-title-group {
@@ -169,7 +227,7 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
 
     .myio-chart-widget-title {
       margin: 0;
-      font-size: 14px;
+      font-size: ${hStyles.titleFontSize};
       font-weight: 600;
       color: ${colors.text};
     }
@@ -183,8 +241,8 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
     }
 
     .myio-chart-widget-tab {
-      padding: 6px 14px;
-      font-size: 12px;
+      padding: ${hStyles.tabPadding};
+      font-size: ${hStyles.tabFontSize};
       font-weight: 500;
       border: none;
       background: transparent;
@@ -200,7 +258,7 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
     }
 
     .myio-chart-widget-tab.icon-only {
-      padding: 6px 10px;
+      padding: ${hStyles.tabPadding.split(' ')[0]} 10px;
     }
 
     .myio-chart-widget-tab svg {
@@ -677,6 +735,8 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
   const showChartTypeTabs = config.showChartTypeTabs ?? true;
   const chartHeight =
     typeof config.chartHeight === 'number' ? `${config.chartHeight}px` : config.chartHeight ?? '300px';
+  // Auto-enable fullHeight when chartHeight is '100%'
+  const isFullHeight = config.fullHeight ?? chartHeight === '100%';
 
   /**
    * Generate the widget title
@@ -700,7 +760,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
     const barChartIcon = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="0.5"/><rect x="6" y="5" width="3" height="10" rx="0.5"/><rect x="11" y="7" width="3" height="8" rx="0.5"/></svg>`;
 
     return `
-      <div id="${widgetId}" class="myio-chart-widget ${currentTheme === 'dark' ? 'dark' : ''} ${
+      <div id="${widgetId}" class="myio-chart-widget ${currentTheme === 'dark' ? 'dark' : ''} ${isFullHeight ? 'full-height' : ''} ${
       config.className || ''
     }">
         <div class="myio-chart-widget-header">
@@ -954,7 +1014,8 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
                     </div>
                   </div>
 
-                  <!-- Viz Mode -->
+                  <!-- Viz Mode (hidden when showVizModeTabs is false) -->
+                  ${showVizModeTabs ? `
                   <div class="myio-settings-field" style="flex: 1; min-width: 200px;">
                     <label class="myio-settings-field-label">Agrupamento</label>
                     <div class="myio-settings-tabs" id="${widgetId}-settings-viz-mode">
@@ -966,6 +1027,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
                       }" data-viz="separate">${porShoppingIcon} Por Shopping</button>
                     </div>
                   </div>
+                  ` : ''}
 
                   <!-- Theme -->
                   <div class="myio-settings-field" style="flex: 1; min-width: 160px;">
@@ -1000,7 +1062,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
 
     styleElement = document.createElement('style');
     styleElement.id = `${widgetId}-styles`;
-    styleElement.textContent = getWidgetStyles(currentTheme, primaryColor);
+    styleElement.textContent = getWidgetStyles(currentTheme, primaryColor, config.headerStyles);
     document.head.appendChild(styleElement);
   }
 
@@ -1009,7 +1071,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
    */
   function updateStyles(): void {
     if (styleElement) {
-      styleElement.textContent = getWidgetStyles(currentTheme, primaryColor);
+      styleElement.textContent = getWidgetStyles(currentTheme, primaryColor, config.headerStyles);
     }
   }
 

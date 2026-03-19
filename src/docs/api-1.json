@@ -1,0 +1,2616 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Myio Telemetry API",
+    "version": "1.0.0",
+    "description": "\n# Myio Telemetry API\n\nPublic API for accessing telemetry data from Myio's IoT energy and water monitoring platform.\n\n## Features\n- **Real-time telemetry data** from IoT devices\n- **Hierarchical data organization** (Customer → Asset → Device)\n- **Time-series aggregations** (hourly and daily)\n- **Timezone-aware data processing**\n- **Secure API access** with JWT authentication\n\n## Getting Started\n\n### Authentication\n1. **Get API Credentials**: Obtain client ID and secret from an administrator\n2. **Authenticate**: Use the `/api/v1/auth` endpoint to get a JWT access token\n3. **Make API Calls**: Include the token in the Authorization header as `Bearer <token>`\n\n## Data Types\n\n- **Energy**: Measured in kWh (kilowatt-hours)\n- **Water**: Measured in m³ (cubic meters)\n- **Timestamps**: ISO 8601 format with timezone offset (e.g., \"2025-06-01T10:30:00-03:00\")\n- **Timezone**: Extracted automatically from timestamp offset\n\n## Supported Granularities\n\n- **1h**: Hourly aggregation\n- **1d**: Daily aggregation\n\n## Rate Limits\n\nThe API implements **per-client tiered rate limiting** to ensure fair resource allocation and prevent abuse. Each API client has their own independent rate limits, and different endpoints have different limits based on their resource requirements.\n\n### How Rate Limiting Works\n\n1. **Per-Client Limits**: Each authenticated API client has separate rate limit counters\n2. **Sliding Windows**: Rate limits use sliding time windows (not fixed intervals)\n3. **Tier-Based**: Different endpoint types have different limits based on computational cost\n4. **Customizable**: Administrators can configure custom limits per API client\n\n### Rate Limit Tiers\n\n| Tier | Default Limit | Window | Applied To |\n|------|---------------|--------|------------|\n| **Authentication** | 5 requests | 15 minutes | Login endpoints (prevents brute force attacks) |\n| **Light** | 120 requests | 1 minute | Single device queries, status checks, lookups |\n| **Standard** | 60 requests | 1 minute | List operations, reading queries |\n| **Heavy** | 20 requests | 1 minute | Asset/customer aggregations, complex telemetry |\n| **Write** | 30 requests | 1 minute | Create, update, delete operations |\n| **Admin** | 30 requests | 1 minute | Administrative operations, settings |\n| **Backfill** | 5 requests | 1 hour | Resource-intensive data gap filling |\n\n**Examples:**\n- Light tier: `GET /api/v1/telemetry/devices/:id/energy` (optimized single-device query)\n- Heavy tier: `GET /api/v1/telemetry/customers/:id/energy` (aggregates across all devices)\n\n### Response Headers\n\nEvery API response includes these rate limit headers:\n\n| Header | Description | Example |\n|--------|-------------|---------|\n| `RateLimit-Limit` | Maximum requests allowed in the window | `120` |\n| `RateLimit-Policy` | Limit and window duration | `120;w=60` (120 requests per 60 seconds) |\n| `RateLimit-Remaining` | Requests remaining in current window | `117` |\n| `RateLimit-Reset` | Unix timestamp when the limit resets | `1704067200` |\n\n**Understanding RateLimit-Policy:**\n- Format: `<limit>;w=<seconds>`\n- `120;w=60` = 120 requests per 60 seconds (1 minute)\n- `5;w=900` = 5 requests per 900 seconds (15 minutes)\n\n### Rate Limit Exceeded (429)\n\nWhen you exceed the rate limit, you'll receive a `429 Too Many Requests` response with a `Retry-After` header:\n\n```json\n{\n  \"error\": \"Too Many Requests\",\n  \"message\": \"Rate limit exceeded. Please try again later.\",\n  \"retryAfter\": \"60\"\n}\n```\n\nThe `Retry-After` header indicates **seconds** to wait before retrying.\n\n### Custom Rate Limits\n\nAPI clients can have custom rate limits configured by administrators. For example:\n- A high-volume client might have `light: 500` instead of the default 120\n- A testing client might have `heavy: 5` for controlled testing\n\nCustom limits are configured per-client in the admin dashboard and override the defaults shown above.\n\n### Best Practices\n\n1. **Monitor Headers**: Check `RateLimit-Remaining` before making requests\n2. **Implement Retry Logic**: Use exponential backoff when receiving 429 responses\n3. **Respect Retry-After**: Wait the specified time before retrying\n4. **Optimize Queries**: Use device-level endpoints when possible (light tier)\n5. **Batch Operations**: Use batch endpoints to reduce total API calls\n6. **Cache Data**: Store frequently accessed data locally\n\n### Example Rate Limit Workflow\n\n```\n1. Client makes request\n   ← Response: RateLimit-Remaining: 119\n\n2. Client makes 118 more requests\n   ← Response: RateLimit-Remaining: 1\n\n3. Client makes one more request\n   ← Response: RateLimit-Remaining: 0\n\n4. Client exceeds limit\n   ← Response: 429 Too Many Requests\n   ← Retry-After: 45\n\n5. Client waits 45 seconds and retries\n   ← Response: 200 OK (limit reset)\n```\n\n**Note:** Management API endpoints (`/api/v1/management/*`) are **not rate limited** for administrative flexibility.\n      ",
+    "contact": {
+      "name": "Myio API Support",
+      "email": "suporte@myio.com.br"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://staging.ingestion.myio-bas.com",
+      "description": "Staging server"
+    },
+    {
+      "url": "https://api.ingestion.myio-bas.com",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token obtained from /api/v1/auth endpoint"
+      }
+    },
+    "schemas": {
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Bad Request",
+            "description": "Error type identifier"
+          },
+          "message": {
+            "type": "string",
+            "example": "Validation failed",
+            "description": "Human-readable error message"
+          },
+          "details": {
+            "type": "array",
+            "description": "Array of validation errors",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "example": "startTime",
+                  "description": "Field name that failed validation"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "Invalid datetime format. Use ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)",
+                  "description": "Validation error message"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "UnauthorizedError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Unauthorized",
+            "description": "Error type identifier"
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid or missing authentication token",
+            "description": "Human-readable error message"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "ForbiddenError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Forbidden",
+            "description": "Error type identifier"
+          },
+          "message": {
+            "type": "string",
+            "example": "Access denied to this resource",
+            "description": "Human-readable error message"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "NotFoundError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Not Found",
+            "description": "Error type identifier"
+          },
+          "message": {
+            "type": "string",
+            "example": "Resource not found",
+            "description": "Human-readable error message"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "InternalServerError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Internal Server Error",
+            "description": "Error type identifier"
+          },
+          "message": {
+            "type": "string",
+            "example": "An unexpected error occurred while processing your request",
+            "description": "Human-readable error message"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "TelemetryDataPoint": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp with timezone offset",
+            "example": "2025-06-15T14:30:00-03:00"
+          },
+          "value": {
+            "type": "number",
+            "format": "float",
+            "description": "Consumption value",
+            "example": 125.5
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measurement (kWh for energy, m³ for water)",
+            "example": "kWh"
+          }
+        },
+        "required": [
+          "timestamp",
+          "value"
+        ]
+      },
+      "Gateway": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Gateway identifier",
+            "example": "gateway-building-a-01"
+          },
+          "name": {
+            "type": "string",
+            "description": "Gateway name",
+            "example": "Building A Main Gateway"
+          },
+          "isRegistered": {
+            "type": "boolean",
+            "description": "Whether the gateway is registered",
+            "example": true
+          },
+          "isPaused": {
+            "type": "boolean",
+            "description": "Whether the gateway polling is paused",
+            "example": false
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last time gateway was seen online",
+            "example": "2025-06-15T14:30:00-03:00",
+            "nullable": true
+          },
+          "energyFetchIntervalMs": {
+            "type": "integer",
+            "description": "Energy data fetch interval in milliseconds",
+            "example": 300000
+          },
+          "waterFetchIntervalMs": {
+            "type": "integer",
+            "description": "Water data fetch interval in milliseconds",
+            "example": 300000
+          }
+        }
+      },
+      "Alert": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Alert unique identifier",
+            "example": "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+          },
+          "type": {
+            "type": "string",
+            "description": "Alert type",
+            "example": "high_consumption"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "description": "Alert severity level",
+            "example": "high"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "acknowledged",
+              "resolved"
+            ],
+            "description": "Current alert status",
+            "example": "active"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable alert message",
+            "example": "Energy consumption exceeded threshold by 25%"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Device that triggered the alert",
+            "example": "d1e2f3a4-b5c6-7890-1234-567890abcdef",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the alert was created",
+            "example": "2025-06-15T14:30:00-03:00"
+          },
+          "acknowledgedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the alert was acknowledged",
+            "example": "2025-06-15T15:00:00-03:00",
+            "nullable": true
+          },
+          "acknowledgedBy": {
+            "type": "string",
+            "description": "User who acknowledged the alert",
+            "example": "admin@example.com",
+            "nullable": true
+          }
+        }
+      },
+      "PaginationMetadata": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "example": 20
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items",
+            "example": 150
+          },
+          "pages": {
+            "type": "integer",
+            "description": "Total number of pages",
+            "example": 8
+          }
+        }
+      },
+      "DeviceTelemetryResponse": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Device unique identifier",
+            "example": "d1e2f3a4-b5c6-7890-1234-567890abcdef"
+          },
+          "deviceName": {
+            "type": "string",
+            "description": "Device name or label",
+            "example": "Building A - Main Meter"
+          },
+          "readingType": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "water"
+            ],
+            "description": "Type of reading",
+            "example": "energy"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Query start time",
+            "example": "2025-06-01T00:00:00-03:00"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Query end time",
+            "example": "2025-06-30T23:59:59-03:00"
+          },
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "1h",
+              "1d"
+            ],
+            "description": "Data aggregation granularity",
+            "example": "1h"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Timezone for the data",
+            "example": "America/Sao_Paulo"
+          },
+          "data": {
+            "type": "array",
+            "description": "Time-series consumption data",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryDataPoint"
+            }
+          },
+          "totalConsumption": {
+            "type": "number",
+            "format": "float",
+            "description": "Total consumption for the period",
+            "example": 3542.35
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measurement",
+            "example": "kWh"
+          }
+        }
+      },
+      "AssetTelemetryResponse": {
+        "type": "object",
+        "properties": {
+          "assetId": {
+            "type": "string",
+            "description": "Asset identifier",
+            "example": "asset-north-wing"
+          },
+          "assetName": {
+            "type": "string",
+            "description": "Asset name",
+            "example": "North Wing"
+          },
+          "readingType": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "water"
+            ],
+            "description": "Type of reading",
+            "example": "energy"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-01T00:00:00-03:00"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-30T23:59:59-03:00"
+          },
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "1h",
+              "1d"
+            ],
+            "example": "1d"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Sao_Paulo"
+          },
+          "data": {
+            "type": "array",
+            "description": "Aggregated consumption data across all devices in asset",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryDataPoint"
+            }
+          },
+          "totalConsumption": {
+            "type": "number",
+            "format": "float",
+            "example": 15234.75
+          },
+          "unit": {
+            "type": "string",
+            "example": "kWh"
+          },
+          "deviceCount": {
+            "type": "integer",
+            "description": "Number of devices in this asset",
+            "example": 12
+          }
+        }
+      },
+      "CustomerTelemetryResponse": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Customer unique identifier",
+            "example": "c1a2b3c4-d5e6-7890-1234-567890abcdef"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Customer name",
+            "example": "Acme Corporation"
+          },
+          "readingType": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "water"
+            ],
+            "example": "energy"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-01T00:00:00-03:00"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-30T23:59:59-03:00"
+          },
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "1h",
+              "1d"
+            ],
+            "example": "1d"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Sao_Paulo"
+          },
+          "data": {
+            "type": "array",
+            "description": "Aggregated consumption data across all customer devices",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryDataPoint"
+            }
+          },
+          "totalConsumption": {
+            "type": "number",
+            "format": "float",
+            "example": 45678.9
+          },
+          "unit": {
+            "type": "string",
+            "example": "kWh"
+          },
+          "deviceCount": {
+            "type": "integer",
+            "description": "Total number of devices for this customer",
+            "example": 35
+          }
+        }
+      },
+      "TotalConsumptionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Resource identifier (device, asset, or customer ID)",
+            "example": "d1e2f3a4-b5c6-7890-1234-567890abcdef"
+          },
+          "name": {
+            "type": "string",
+            "description": "Resource name",
+            "example": "Building A - Main Meter"
+          },
+          "readingType": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "water"
+            ],
+            "example": "energy"
+          },
+          "totalValue": {
+            "type": "number",
+            "format": "float",
+            "description": "Total consumption for the period",
+            "example": 3542.35
+          },
+          "unit": {
+            "type": "string",
+            "example": "kWh"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-01T00:00:00-03:00"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-30T23:59:59-03:00"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Sao_Paulo"
+          },
+          "deviceCount": {
+            "type": "integer",
+            "description": "Number of devices included in total",
+            "example": 1
+          },
+          "deviceIds": {
+            "type": "array",
+            "description": "List of device IDs included in total",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": [
+              "d1e2f3a4-b5c6-7890-1234-567890abcdef"
+            ]
+          }
+        }
+      },
+      "CustomerDevicesTotalsResponse": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "c1a2b3c4-d5e6-7890-1234-567890abcdef"
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Acme Corporation"
+          },
+          "readingType": {
+            "type": "string",
+            "enum": [
+              "energy",
+              "water"
+            ],
+            "example": "energy"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-01T00:00:00-03:00"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-06-30T23:59:59-03:00"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Sao_Paulo"
+          },
+          "devices": {
+            "type": "array",
+            "description": "Per-device consumption totals",
+            "items": {
+              "type": "object",
+              "properties": {
+                "deviceId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "d1e2f3a4-b5c6-7890-1234-567890abcdef"
+                },
+                "deviceName": {
+                  "type": "string",
+                  "example": "Building A - Floor 1"
+                },
+                "totalValue": {
+                  "type": "number",
+                  "format": "float",
+                  "example": 1234.56
+                },
+                "unit": {
+                  "type": "string",
+                  "example": "kWh"
+                }
+              }
+            }
+          },
+          "totalConsumption": {
+            "type": "number",
+            "format": "float",
+            "description": "Sum of all device totals",
+            "example": 45678.9
+          },
+          "unit": {
+            "type": "string",
+            "example": "kWh"
+          }
+        }
+      },
+      "AuthRequest": {
+        "type": "object",
+        "required": [
+          "client_id",
+          "client_secret"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "API client ID provided by administrator",
+            "example": "myio-client-001"
+          },
+          "client_secret": {
+            "type": "string",
+            "format": "password",
+            "description": "API client secret provided by administrator",
+            "example": "super-secret-key-123"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT access token to use in subsequent API requests",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6Im15aW8tY2xpZW50LTAwMSIsImlhdCI6MTcwNDA2NzIwMCwiZXhwIjoxNzA0MDcwODAwfQ.dGVzdF9zaWduYXR1cmVfaGVyZQ"
+          },
+          "token_type": {
+            "type": "string",
+            "description": "Token type (always \"Bearer\")",
+            "example": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Token expiration time in seconds",
+            "example": 3600
+          }
+        },
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in"
+        ]
+      },
+      "TimeRange": {
+        "type": "object",
+        "description": "A time range within a day",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Start time in HH:mm format",
+            "example": "08:00"
+          },
+          "endTime": {
+            "type": "string",
+            "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "End time in HH:mm format",
+            "example": "18:00"
+          },
+          "crossesMidnight": {
+            "type": "boolean",
+            "description": "Whether the time range crosses midnight (e.g., 22:00 to 06:00)",
+            "example": false
+          }
+        },
+        "required": [
+          "startTime",
+          "endTime"
+        ]
+      },
+      "TimeFilterConfiguration": {
+        "type": "object",
+        "description": "Configuration for a time filter",
+        "properties": {
+          "daysOfWeek": {
+            "type": "array",
+            "description": "Days of week to include/exclude (1=Monday, 7=Sunday)",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7
+            },
+            "example": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "timeRanges": {
+            "type": "array",
+            "description": "Time ranges within each day",
+            "items": {
+              "$ref": "#/components/schemas/TimeRange"
+            }
+          },
+          "logic": {
+            "type": "string",
+            "enum": [
+              "include",
+              "exclude"
+            ],
+            "description": "Whether to include or exclude data matching this filter",
+            "example": "include"
+          }
+        }
+      },
+      "TimeFilter": {
+        "type": "object",
+        "description": "A time-based filter for telemetry data",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier",
+            "example": "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name for the filter",
+            "example": "Weekdays"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-friendly identifier",
+            "example": "weekdays"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional description",
+            "example": "Monday through Friday"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/TimeFilterConfiguration"
+          },
+          "isSystem": {
+            "type": "boolean",
+            "description": "Whether this is a system-defined filter (cannot be deleted)",
+            "example": true
+          },
+          "readableDescription": {
+            "type": "string",
+            "description": "Human-readable description of the filter configuration",
+            "example": "Include Mon, Tue, Wed, Thu, Fri"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "configuration",
+          "isSystem"
+        ]
+      },
+      "TimeFilterListResponse": {
+        "type": "object",
+        "description": "Response for listing time filters",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeFilter"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of filters",
+            "example": 5
+          }
+        }
+      },
+      "TimeFilterResponse": {
+        "type": "object",
+        "description": "Response for a single time filter",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimeFilter"
+          }
+        }
+      }
+    },
+    "examples": {
+      "ValidationErrorDatetime": {
+        "summary": "Validation error - Invalid datetime format",
+        "description": "Example of validation failure when datetime parameter has incorrect format",
+        "value": {
+          "error": "Bad Request",
+          "message": "Validation failed",
+          "details": [
+            {
+              "field": "startTime",
+              "message": "Invalid datetime format. Use ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00 or 2025-06-01T00:00:00.000Z)"
+            }
+          ]
+        }
+      },
+      "ValidationErrorMissingParam": {
+        "summary": "Validation error - Missing required parameter",
+        "description": "Example when required query parameters are not provided",
+        "value": {
+          "error": "Bad Request",
+          "message": "Validation failed",
+          "details": [
+            {
+              "field": "endTime",
+              "message": "endTime is required"
+            }
+          ]
+        }
+      },
+      "ValidationErrorMultiple": {
+        "summary": "Validation error - Multiple field errors",
+        "description": "Example when multiple fields fail validation",
+        "value": {
+          "error": "Bad Request",
+          "message": "Validation failed",
+          "details": [
+            {
+              "field": "startTime",
+              "message": "Invalid datetime format. Use ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+            },
+            {
+              "field": "granularity",
+              "message": "Must be one of: 1h, 1d"
+            }
+          ]
+        }
+      },
+      "UnauthorizedInvalidCredentials": {
+        "summary": "Invalid credentials",
+        "description": "Example when client_id or client_secret is incorrect",
+        "value": {
+          "error": "Unauthorized",
+          "message": "Invalid client credentials"
+        }
+      },
+      "UnauthorizedMissingToken": {
+        "summary": "Missing authentication token",
+        "description": "Example when Authorization header is not provided",
+        "value": {
+          "error": "Unauthorized",
+          "message": "Invalid or missing authentication token"
+        }
+      },
+      "UnauthorizedExpiredToken": {
+        "summary": "Expired token",
+        "description": "Example when JWT token has expired",
+        "value": {
+          "error": "Unauthorized",
+          "message": "Token has expired"
+        }
+      },
+      "ForbiddenAccess": {
+        "summary": "Access denied",
+        "description": "Example when user does not have permission to access the resource",
+        "value": {
+          "error": "Forbidden",
+          "message": "Access denied to this customer"
+        }
+      },
+      "NotFoundDevice": {
+        "summary": "Device not found",
+        "description": "Example when specified device ID does not exist",
+        "value": {
+          "error": "Not Found",
+          "message": "Device not found"
+        }
+      },
+      "NotFoundAsset": {
+        "summary": "Asset not found",
+        "description": "Example when specified asset ID does not exist",
+        "value": {
+          "error": "Not Found",
+          "message": "Asset not found"
+        }
+      },
+      "NotFoundCustomer": {
+        "summary": "Customer not found",
+        "description": "Example when specified customer ID does not exist",
+        "value": {
+          "error": "Not Found",
+          "message": "Customer not found"
+        }
+      },
+      "NotFoundGateway": {
+        "summary": "Gateway not found",
+        "description": "Example when specified gateway ID does not exist",
+        "value": {
+          "error": "Not Found",
+          "message": "Gateway not found"
+        }
+      },
+      "InternalServerError": {
+        "summary": "Internal server error",
+        "description": "Example of unexpected server error",
+        "value": {
+          "error": "Internal Server Error",
+          "message": "An error occurred while processing your request"
+        }
+      },
+      "InternalServerErrorDatabase": {
+        "summary": "Database error",
+        "description": "Example when database operation fails",
+        "value": {
+          "error": "Internal Server Error",
+          "message": "An error occurred while fetching device telemetry"
+        }
+      },
+      "DeviceTelemetryEnergyHourly": {
+        "summary": "Device energy consumption - Hourly aggregation",
+        "description": "Example showing hourly energy consumption data for a single device",
+        "value": [
+          {
+            "deviceId": "d1e2f3a4-b5c6-7890-1234-567890abcdef",
+            "deviceName": "Building A - Main Meter",
+            "readingType": "energy",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-01T23:59:59-03:00",
+            "granularity": "1h",
+            "timezone": "America/Sao_Paulo",
+            "data": [
+              {
+                "timestamp": "2025-06-01T00:00:00-03:00",
+                "value": 125.5,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-01T01:00:00-03:00",
+                "value": 98.2,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-01T02:00:00-03:00",
+                "value": 87.3,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-01T03:00:00-03:00",
+                "value": 75.8,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-01T04:00:00-03:00",
+                "value": 82.4,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-01T05:00:00-03:00",
+                "value": 91.6,
+                "unit": "kWh"
+              }
+            ],
+            "totalConsumption": 560.8,
+            "unit": "kWh"
+          }
+        ]
+      },
+      "DeviceTelemetryWaterDaily": {
+        "summary": "Device water consumption - Daily aggregation",
+        "description": "Example showing daily water consumption data for a single device",
+        "value": [
+          {
+            "deviceId": "w1a2b3c4-d5e6-7890-1234-567890abcdef",
+            "deviceName": "Building B - Water Meter",
+            "readingType": "water",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "granularity": "1d",
+            "timezone": "America/Sao_Paulo",
+            "data": [
+              {
+                "timestamp": "2025-06-01T00:00:00-03:00",
+                "value": 45.8,
+                "unit": "m³"
+              },
+              {
+                "timestamp": "2025-06-02T00:00:00-03:00",
+                "value": 52.3,
+                "unit": "m³"
+              },
+              {
+                "timestamp": "2025-06-03T00:00:00-03:00",
+                "value": 48.7,
+                "unit": "m³"
+              },
+              {
+                "timestamp": "2025-06-04T00:00:00-03:00",
+                "value": 51.2,
+                "unit": "m³"
+              },
+              {
+                "timestamp": "2025-06-05T00:00:00-03:00",
+                "value": 49.5,
+                "unit": "m³"
+              }
+            ],
+            "totalConsumption": 247.5,
+            "unit": "m³"
+          }
+        ]
+      },
+      "AssetTelemetryEnergyDaily": {
+        "summary": "Asset energy consumption - Daily aggregation",
+        "description": "Example showing aggregated daily energy consumption for an asset containing multiple devices",
+        "value": [
+          {
+            "assetId": "asset-north-wing",
+            "assetName": "North Wing",
+            "readingType": "energy",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "granularity": "1d",
+            "timezone": "America/Sao_Paulo",
+            "data": [
+              {
+                "timestamp": "2025-06-01T00:00:00-03:00",
+                "value": 2450.8,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-02T00:00:00-03:00",
+                "value": 2398.6,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-03T00:00:00-03:00",
+                "value": 2512.4,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-04T00:00:00-03:00",
+                "value": 2467.9,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-05T00:00:00-03:00",
+                "value": 2505.3,
+                "unit": "kWh"
+              }
+            ],
+            "totalConsumption": 12335,
+            "unit": "kWh",
+            "deviceCount": 12
+          }
+        ]
+      },
+      "CustomerTelemetryEnergyDaily": {
+        "summary": "Customer energy consumption - Daily aggregation",
+        "description": "Example showing aggregated daily energy consumption for a customer across all devices",
+        "value": [
+          {
+            "customerId": "c1a2b3c4-d5e6-7890-1234-567890abcdef",
+            "customerName": "Acme Corporation",
+            "readingType": "energy",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "granularity": "1d",
+            "timezone": "America/Sao_Paulo",
+            "data": [
+              {
+                "timestamp": "2025-06-01T00:00:00-03:00",
+                "value": 5234.5,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-02T00:00:00-03:00",
+                "value": 5187.3,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-03T00:00:00-03:00",
+                "value": 5412.8,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-04T00:00:00-03:00",
+                "value": 5298.6,
+                "unit": "kWh"
+              },
+              {
+                "timestamp": "2025-06-05T00:00:00-03:00",
+                "value": 5345.2,
+                "unit": "kWh"
+              }
+            ],
+            "totalConsumption": 26478.4,
+            "unit": "kWh",
+            "deviceCount": 35
+          }
+        ]
+      },
+      "DeviceTotalEnergy": {
+        "summary": "Device total energy consumption",
+        "description": "Example showing total energy consumption for a device over a period",
+        "value": [
+          {
+            "id": "d1e2f3a4-b5c6-7890-1234-567890abcdef",
+            "name": "Building A - Main Meter",
+            "readingType": "energy",
+            "totalValue": 3567.8,
+            "unit": "kWh",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "timezone": "America/Sao_Paulo",
+            "deviceCount": 1,
+            "deviceIds": [
+              "d1e2f3a4-b5c6-7890-1234-567890abcdef"
+            ]
+          }
+        ]
+      },
+      "AssetTotalEnergy": {
+        "summary": "Asset total energy consumption",
+        "description": "Example showing total energy consumption for an asset (aggregated across devices)",
+        "value": [
+          {
+            "id": "asset-north-wing",
+            "name": "North Wing",
+            "readingType": "energy",
+            "totalValue": 45234.75,
+            "unit": "kWh",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "timezone": "America/Sao_Paulo",
+            "deviceCount": 12,
+            "deviceIds": [
+              "d1e2f3a4-b5c6-7890-1234-567890abcdef",
+              "d2e3f4a5-b6c7-7890-1234-567890abcdef",
+              "d3e4f5a6-b7c8-7890-1234-567890abcdef"
+            ]
+          }
+        ]
+      },
+      "CustomerTotalWater": {
+        "summary": "Customer total water consumption",
+        "description": "Example showing total water consumption for a customer",
+        "value": [
+          {
+            "id": "c1a2b3c4-d5e6-7890-1234-567890abcdef",
+            "name": "Acme Corporation",
+            "readingType": "water",
+            "totalValue": 1234.56,
+            "unit": "m³",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "timezone": "America/Sao_Paulo",
+            "deviceCount": 8,
+            "deviceIds": [
+              "w1a2b3c4-d5e6-7890-1234-567890abcdef",
+              "w2a3b4c5-d6e7-7890-1234-567890abcdef"
+            ]
+          }
+        ]
+      },
+      "CustomerDevicesTotals": {
+        "summary": "Per-device consumption totals for a customer",
+        "description": "Example showing consumption breakdown by device for a customer",
+        "value": [
+          {
+            "customerId": "c1a2b3c4-d5e6-7890-1234-567890abcdef",
+            "customerName": "Acme Corporation",
+            "readingType": "energy",
+            "startTime": "2025-06-01T00:00:00-03:00",
+            "endTime": "2025-06-30T23:59:59-03:00",
+            "timezone": "America/Sao_Paulo",
+            "devices": [
+              {
+                "deviceId": "d1e2f3a4-b5c6-7890-1234-567890abcdef",
+                "deviceName": "Building A - Floor 1",
+                "totalValue": 1234.56,
+                "unit": "kWh"
+              },
+              {
+                "deviceId": "d2e3f4a5-b6c7-7890-1234-567890abcdef",
+                "deviceName": "Building A - Floor 2",
+                "totalValue": 1345.67,
+                "unit": "kWh"
+              },
+              {
+                "deviceId": "d3e4f5a6-b7c8-7890-1234-567890abcdef",
+                "deviceName": "Building A - Floor 3",
+                "totalValue": 1456.78,
+                "unit": "kWh"
+              }
+            ],
+            "totalConsumption": 4037.01,
+            "unit": "kWh"
+          }
+        ]
+      },
+      "AuthSuccessResponse": {
+        "summary": "Successful authentication",
+        "description": "Example of successful authentication response with JWT token",
+        "value": {
+          "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6Im15aW8tY2xpZW50LTAwMSIsInNjb3BlcyI6WyJ0ZWxlbWV0cnkucmVhZCJdLCJpYXQiOjE3MDQwNjcyMDAsImV4cCI6MTcwNDA3MDgwMH0.dGVzdF9zaWduYXR1cmVfaGVyZQ",
+          "token_type": "Bearer",
+          "expires_in": 3600
+        }
+      },
+      "AuthRequestExample": {
+        "summary": "Authentication request",
+        "description": "Example of authentication request with client credentials",
+        "value": {
+          "client_id": "myio-client-001",
+          "client_secret": "super-secret-key-123"
+        }
+      }
+    },
+    "responses": {
+      "TooManyRequests": {
+        "description": "Too many requests - rate limit exceeded",
+        "headers": {
+          "RateLimit-Limit": {
+            "schema": {
+              "type": "integer",
+              "example": 120
+            },
+            "description": "Maximum number of requests allowed in the time window"
+          },
+          "RateLimit-Policy": {
+            "schema": {
+              "type": "string",
+              "example": "120;w=60"
+            },
+            "description": "Rate limit policy: <limit>;w=<window_seconds> (e.g., 120;w=60 means 120 requests per 60 seconds)"
+          },
+          "RateLimit-Remaining": {
+            "schema": {
+              "type": "integer",
+              "example": 0
+            },
+            "description": "Number of requests remaining in the current window (0 when limit exceeded)"
+          },
+          "RateLimit-Reset": {
+            "schema": {
+              "type": "integer",
+              "example": 1704067260
+            },
+            "description": "Unix timestamp (in seconds) when the rate limit window resets"
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "example": 60
+            },
+            "description": "Number of seconds to wait before retrying (respects the rate limit window)"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Too Many Requests"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "Rate limit exceeded. Please try again later."
+                },
+                "retryAfter": {
+                  "type": "string",
+                  "example": "900"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad request - validation failed or invalid parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "examples": {
+              "validationErrorDatetime": {
+                "$ref": "#/components/examples/ValidationErrorDatetime"
+              },
+              "validationErrorMissingParam": {
+                "$ref": "#/components/examples/ValidationErrorMissingParam"
+              },
+              "validationErrorMultiple": {
+                "$ref": "#/components/examples/ValidationErrorMultiple"
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized - invalid or missing authentication token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UnauthorizedError"
+            },
+            "examples": {
+              "invalidCredentials": {
+                "$ref": "#/components/examples/UnauthorizedInvalidCredentials"
+              },
+              "missingToken": {
+                "$ref": "#/components/examples/UnauthorizedMissingToken"
+              },
+              "expiredToken": {
+                "$ref": "#/components/examples/UnauthorizedExpiredToken"
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden - access denied to this resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ForbiddenError"
+            },
+            "examples": {
+              "accessDenied": {
+                "$ref": "#/components/examples/ForbiddenAccess"
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NotFoundError"
+            },
+            "examples": {
+              "device": {
+                "$ref": "#/components/examples/NotFoundDevice"
+              },
+              "asset": {
+                "$ref": "#/components/examples/NotFoundAsset"
+              },
+              "customer": {
+                "$ref": "#/components/examples/NotFoundCustomer"
+              },
+              "gateway": {
+                "$ref": "#/components/examples/NotFoundGateway"
+              }
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/InternalServerError"
+            },
+            "examples": {
+              "general": {
+                "$ref": "#/components/examples/InternalServerError"
+              },
+              "database": {
+                "$ref": "#/components/examples/InternalServerErrorDatabase"
+              }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "RateLimit-Limit": {
+        "description": "Maximum number of requests allowed in the time window",
+        "schema": {
+          "type": "integer",
+          "example": 120
+        }
+      },
+      "RateLimit-Policy": {
+        "description": "Rate limit policy showing limit and window duration in format: <limit>;w=<seconds>",
+        "schema": {
+          "type": "string",
+          "example": "120;w=60"
+        }
+      },
+      "RateLimit-Remaining": {
+        "description": "Number of requests remaining in the current window",
+        "schema": {
+          "type": "integer",
+          "example": 117
+        }
+      },
+      "RateLimit-Reset": {
+        "description": "Unix timestamp (in seconds) when the rate limit resets",
+        "schema": {
+          "type": "integer",
+          "example": 1704067200
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Authentication endpoints for obtaining JWT access tokens"
+    },
+    {
+      "name": "Telemetry",
+      "description": "Telemetry data endpoints for devices, assets, and customers"
+    },
+    {
+      "name": "Time Filters",
+      "description": "Time-based filters for filtering telemetry data by day-of-week and time-of-day"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/telemetry/devices/{device_id}/{reading_type}": {
+      "get": {
+        "summary": "Get telemetry data for a specific device",
+        "description": "Retrieves telemetry readings for a device within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique identifier of the device"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "1d"
+              ]
+            },
+            "description": "Data aggregation granularity"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed readings (1) or summary only (0)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Telemetry data retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceTelemetryResponse"
+                  }
+                },
+                "examples": {
+                  "energyHourly": {
+                    "$ref": "#/components/examples/DeviceTelemetryEnergyHourly"
+                  },
+                  "waterDaily": {
+                    "$ref": "#/components/examples/DeviceTelemetryWaterDaily"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/assets/{asset_id}/{reading_type}": {
+      "get": {
+        "summary": "Get telemetry data for a specific asset",
+        "description": "Retrieves telemetry readings for an asset within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier of the asset"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "1d"
+              ]
+            },
+            "description": "Data aggregation granularity"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed readings (1) or summary only (0)"
+          },
+          {
+            "in": "query",
+            "name": "profileIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of profile UUIDs to filter devices by"
+          },
+          {
+            "in": "query",
+            "name": "groupIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of group UUIDs to filter devices by"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Telemetry data retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetTelemetryResponse"
+                  }
+                },
+                "examples": {
+                  "energyDaily": {
+                    "$ref": "#/components/examples/AssetTelemetryEnergyDaily"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/customers/{customer_id}/{reading_type}": {
+      "get": {
+        "summary": "Get telemetry data for a specific customer",
+        "description": "Retrieves telemetry readings for a customer within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique identifier of the customer"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "1d"
+              ]
+            },
+            "description": "Data aggregation granularity"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed readings (1) or summary only (0)"
+          },
+          {
+            "in": "query",
+            "name": "profileIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of profile UUIDs to filter devices by"
+          },
+          {
+            "in": "query",
+            "name": "groupIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of group UUIDs to filter devices by"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Telemetry data retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerTelemetryResponse"
+                  }
+                },
+                "examples": {
+                  "energyDaily": {
+                    "$ref": "#/components/examples/CustomerTelemetryEnergyDaily"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/devices/{device_id}/{reading_type}/total": {
+      "get": {
+        "summary": "Get total consumption for a specific device",
+        "description": "Retrieves total consumption for a device within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique identifier of the device"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed breakdown (1) or summary only (0)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Total consumption retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TotalConsumptionResponse"
+                  }
+                },
+                "examples": {
+                  "deviceEnergy": {
+                    "$ref": "#/components/examples/DeviceTotalEnergy"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/assets/{asset_id}/{reading_type}/total": {
+      "get": {
+        "summary": "Get total consumption for a specific asset",
+        "description": "Retrieves total consumption for an asset within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier of the asset"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed breakdown (1) or summary only (0)"
+          },
+          {
+            "in": "query",
+            "name": "profileIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of profile UUIDs to filter devices by"
+          },
+          {
+            "in": "query",
+            "name": "groupIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of group UUIDs to filter devices by"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Total consumption retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TotalConsumptionResponse"
+                  }
+                },
+                "examples": {
+                  "assetEnergy": {
+                    "$ref": "#/components/examples/AssetTotalEnergy"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/customers/{customer_id}/{reading_type}/total": {
+      "get": {
+        "summary": "Get total consumption for a specific customer",
+        "description": "Retrieves total consumption for a customer within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique identifier of the customer"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed breakdown (1) or summary only (0)"
+          },
+          {
+            "in": "query",
+            "name": "profileIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of profile UUIDs to filter devices by"
+          },
+          {
+            "in": "query",
+            "name": "groupIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of group UUIDs to filter devices by"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Total consumption retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TotalConsumptionResponse"
+                  }
+                },
+                "examples": {
+                  "customerWater": {
+                    "$ref": "#/components/examples/CustomerTotalWater"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/customers/{customer_id}/{reading_type}/devices/totals": {
+      "get": {
+        "summary": "Get total consumption for all devices under a customer",
+        "description": "Retrieves total consumption breakdown by device for a customer within a specified time range",
+        "tags": [
+          "Telemetry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customer_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique identifier of the customer"
+          },
+          {
+            "in": "path",
+            "name": "reading_type",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "energy",
+                "water"
+              ]
+            },
+            "description": "Type of reading to retrieve"
+          },
+          {
+            "in": "query",
+            "name": "startTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start time in ISO 8601 format (e.g., 2025-06-01T00:00:00-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "endTime",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End time in ISO 8601 format (e.g., 2025-06-01T23:59:59-03:00)"
+          },
+          {
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "description": "Whether to include detailed device breakdown (1) or summary only (0)"
+          },
+          {
+            "in": "query",
+            "name": "profileIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of profile UUIDs to filter devices by"
+          },
+          {
+            "in": "query",
+            "name": "groupIds",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated list of group UUIDs to filter devices by"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device totals retrieved successfully",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerDevicesTotalsResponse"
+                  }
+                },
+                "examples": {
+                  "customerDevices": {
+                    "$ref": "#/components/examples/CustomerDevicesTotals"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth": {
+      "post": {
+        "summary": "API Client Authentication",
+        "tags": [
+          "Authentication"
+        ],
+        "description": "Authenticate an API client using client ID and secret to obtain a JWT access token.\n\n**Rate Limit:** 5 requests per 15 minutes (per IP address)\n\nThis strict rate limit helps prevent brute force attacks on API credentials.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthRequest"
+              },
+              "examples": {
+                "authRequest": {
+                  "$ref": "#/components/examples/AuthRequestExample"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                },
+                "examples": {
+                  "success": {
+                    "$ref": "#/components/examples/AuthSuccessResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/time-filters": {
+      "get": {
+        "summary": "List all available time filters",
+        "description": "Returns a list of all active time filters that can be used with telemetry queries.\nTime filters allow you to filter telemetry data by day-of-week and/or time-of-day.\n\n**Common use cases:**\n- Filter to weekdays only (exclude weekends)\n- Filter to business hours (e.g., 08:00-18:00)\n- Filter to night hours (e.g., 22:00-06:00)\n- Combine day and time filters (e.g., weekday business hours)\n\nUse the returned `id` or `slug` as the `timeFilterId` parameter in telemetry queries.\n",
+        "tags": [
+          "Time Filters"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of available time filters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeFilterListResponse"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
+                      "name": "Weekdays",
+                      "slug": "weekdays",
+                      "description": "Monday through Friday",
+                      "configuration": {
+                        "daysOfWeek": [
+                          1,
+                          2,
+                          3,
+                          4,
+                          5
+                        ],
+                        "logic": "include"
+                      },
+                      "isSystem": true,
+                      "readableDescription": "Include Mon, Tue, Wed, Thu, Fri"
+                    },
+                    {
+                      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "name": "Business Hours",
+                      "slug": "business-hours",
+                      "description": "Standard business hours",
+                      "configuration": {
+                        "timeRanges": [
+                          {
+                            "startTime": "08:00",
+                            "endTime": "18:00",
+                            "crossesMidnight": false
+                          }
+                        ],
+                        "logic": "include"
+                      },
+                      "isSystem": true,
+                      "readableDescription": "Include 08:00-18:00"
+                    }
+                  ],
+                  "total": 2
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/v1/time-filters/{idOrSlug}": {
+      "get": {
+        "summary": "Get a specific time filter",
+        "description": "Retrieves a single time filter by its UUID or slug.\nUse this to get detailed configuration of a specific filter.\n",
+        "tags": [
+          "Time Filters"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "idOrSlug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID or slug of the time filter",
+            "examples": {
+              "uuid": {
+                "value": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
+                "summary": "Using UUID"
+              },
+              "slug": {
+                "value": "weekdays",
+                "summary": "Using slug"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Time filter details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeFilterResponse"
+                },
+                "example": {
+                  "data": {
+                    "id": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
+                    "name": "Weekdays",
+                    "slug": "weekdays",
+                    "description": "Monday through Friday",
+                    "configuration": {
+                      "daysOfWeek": [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5
+                      ],
+                      "logic": "include"
+                    },
+                    "isSystem": true,
+                    "readableDescription": "Include Mon, Tue, Wed, Thu, Fri"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    }
+  }
+}

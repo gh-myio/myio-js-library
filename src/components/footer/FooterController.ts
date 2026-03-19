@@ -380,6 +380,9 @@ export class FooterController {
             icon: this.detectIconFromUnit(detectedUnit),
             customerName: entityData.customerName || entityData.ownerName || entityData.centralName || '',
             ingestionId: entityData.ingestionId || entityData.id || entityId,
+            meta: (entityData.meta as Record<string, unknown> | undefined) ?? null,
+            alarm: (entityData.alarm as Record<string, unknown> | undefined)
+              ?? ((entityData as Record<string, unknown>).severity ? entityData : null),
           };
 
           this.log.log('Adding entity from drop data:', entity.id, entity.name);
@@ -399,6 +402,7 @@ export class FooterController {
    */
   private detectUnitFromEntity(entityData: Record<string, unknown>): string {
     const domain = entityData.domain as string;
+    if (domain === 'alarms' || entityData.type === 'alarm' || entityData.icon === 'alarms') return 'alarms';
     if (domain === 'energy') return 'kWh';
     if (domain === 'water') return 'm³';
     if (domain === 'temperature') return '°C';
@@ -415,6 +419,7 @@ export class FooterController {
    * Detect icon (UnitType) from unit string
    */
   private detectIconFromUnit(unit: string): UnitType {
+    if (unit === 'alarms') return 'alarms';
     if (unit === 'm³' || unit === 'L' || unit.toLowerCase().includes('water')) return 'water';
     if (unit === '°C' || unit.toLowerCase().includes('temp')) return 'temperature';
     return 'energy';

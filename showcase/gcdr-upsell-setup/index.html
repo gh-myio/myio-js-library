@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>GCDR-Upsell-Setup - Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ===== SHOWCASE LAYOUT ===== */
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .showcase-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 10px 20px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    body.light-mode .showcase-header {
+      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+      border-color: #e2e8f0;
+    }
+
+    .showcase-header h1 { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+    body.light-mode .showcase-header h1 { color: #1e293b; }
+    .showcase-header h1 span { color: #a78bfa; }
+
+    .showcase-header p { color: #94a3b8; font-size: 10px; margin-top: 2px; font-family: 'Fira Code', 'Consolas', monospace; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .status-badge.ready   { background: #166534; color: #86efac; }
+    .status-badge.running { background: #1d4ed8; color: #93c5fd; }
+    .status-badge.error   { background: #7f1d1d; color: #fca5a5; }
+    .status-badge.stopped { background: #475569; color: #cbd5e1; }
+    .status-badge.authing { background: #78350f; color: #fcd34d; }
+
+    .ctrl-btn-icon {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: transparent;
+      color: #e2e8f0;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .ctrl-btn-icon:hover { background: #334155; }
+    body.light-mode .ctrl-btn-icon { border-color: #cbd5e1; color: #475569; }
+
+    /* ===== WIDGET AREA ===== */
+    .widget-area {
+      overflow: hidden;
+      background: #F6F7FB;
+      position: relative;
+    }
+    body.light-mode .widget-area { background: #F6F7FB; }
+
+    .widget-mount {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .showcase-sidebar {
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    body.light-mode .showcase-sidebar { background: #ffffff; border-color: #e2e8f0; }
+
+    .sidebar-controls {
+      overflow-y: auto;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+    .sidebar-controls::-webkit-scrollbar { width: 4px; }
+    .sidebar-controls::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+
+    /* ===== CONTROLS PANEL ===== */
+    .controls-panel {
+      padding: 12px;
+      border-bottom: 1px solid #334155;
+    }
+    body.light-mode .controls-panel { border-color: #e2e8f0; }
+
+    .controls-panel h3 {
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .controls-grid.cols-1 { grid-template-columns: 1fr; }
+    .controls-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    .ctrl-btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid transparent;
+    }
+    .ctrl-btn.primary   { background: #3b82f6; color: white; }
+    .ctrl-btn.primary:hover  { background: #2563eb; }
+    .ctrl-btn.success   { background: #16a34a; color: white; }
+    .ctrl-btn.success:hover  { background: #15803d; }
+    .ctrl-btn.danger    { background: #dc2626; color: white; }
+    .ctrl-btn.danger:hover   { background: #b91c1c; }
+    .ctrl-btn.secondary { background: transparent; color: #e2e8f0; border-color: #475569; }
+    .ctrl-btn.secondary:hover { background: #334155; }
+    .ctrl-btn.purple    { background: #7c3aed; color: white; }
+    .ctrl-btn.purple:hover   { background: #6d28d9; }
+    .ctrl-btn:disabled  { opacity: 0.45; cursor: not-allowed; }
+    body.light-mode .ctrl-btn.secondary { color: #475569; border-color: #cbd5e1; }
+    body.light-mode .ctrl-btn.secondary:hover { background: #f1f5f9; }
+
+    /* ===== AUTH STATUS ===== */
+    .auth-status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: #0f172a;
+      font-size: 11px;
+    }
+    body.light-mode .auth-status-row { background: #f8fafc; border: 1px solid #e2e8f0; }
+    .auth-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .auth-dot.ok     { background: #22c55e; }
+    .auth-dot.fail   { background: #ef4444; }
+    .auth-dot.pending { background: #f59e0b; }
+    .auth-text { color: #94a3b8; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ===== INFO BLOCK ===== */
+    .info-block {
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    .info-block.blue  { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+    .info-block.green { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.3);  color: #86efac; }
+    .info-block.amber { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+    .info-block ol, .info-block ul { padding-left: 14px; margin-top: 4px; }
+    .info-block li { margin-bottom: 2px; }
+
+    /* ===== EVENT LOG ===== */
+    .event-log-panel {
+      flex: 0 0 200px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 10px 12px;
+      border-top: 1px solid #334155;
+    }
+    body.light-mode .event-log-panel { border-top-color: #e2e8f0; }
+
+    .event-log-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .event-log-header h3 { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+    .event-log-clear {
+      font-size: 10px; color: #64748b; cursor: pointer;
+      padding: 2px 6px; border-radius: 4px; background: transparent; border: none;
+    }
+    .event-log-clear:hover { background: #334155; color: #e2e8f0; }
+    body.light-mode .event-log-clear:hover { background: #e2e8f0; color: #1e293b; }
+
+    .event-log {
+      flex: 1;
+      background: #0f172a;
+      border-radius: 6px;
+      padding: 6px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 9.5px;
+    }
+    body.light-mode .event-log { background: #f8fafc; border: 1px solid #e2e8f0; }
+    .event-log::-webkit-scrollbar { width: 3px; }
+    .event-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+    .log-entry { padding: 2px 5px; border-radius: 3px; margin-bottom: 2px; display: flex; gap: 5px; align-items: flex-start; }
+    .log-entry:hover { background: #1e293b; }
+    body.light-mode .log-entry:hover { background: #e2e8f0; }
+    .log-time  { color: #64748b; min-width: 48px; flex-shrink: 0; }
+    .log-event { color: #22c55e; min-width: 80px; font-weight: 500; flex-shrink: 0; }
+    .log-entry.error .log-event { color: #f87171; }
+    .log-entry.warn  .log-event { color: #fbbf24; }
+    .log-entry.info  .log-event { color: #60a5fa; }
+    .log-data  { color: #94a3b8; word-break: break-all; flex: 1; }
+  </style>
+</head>
+<body class="light-mode">
+
+  <div class="showcase-layout">
+
+    <!-- ===== HEADER ===== -->
+    <header class="showcase-header">
+      <div>
+        <h1>GCDR &amp; <span>Upsell</span> Setup — Showcase</h1>
+        <p>src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js</p>
+      </div>
+      <div class="header-right">
+        <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn-icon" id="themeToggle" title="Toggle theme">&#9790;</button>
+      </div>
+    </header>
+
+    <!-- ===== WIDGET AREA ===== -->
+    <main class="widget-area">
+      <div class="widget-mount" id="widgetMount"></div>
+    </main>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="showcase-sidebar">
+      <div class="sidebar-controls">
+
+        <!-- Lifecycle -->
+        <div class="controls-panel">
+          <h3>Widget Lifecycle</h3>
+          <div class="controls-grid">
+            <button class="ctrl-btn primary" id="btnOnInit" onclick="triggerOnInit()">&#x25B6; onInit</button>
+            <button class="ctrl-btn danger"  id="btnDestroy" onclick="triggerOnDestroy()" disabled>&#x23F9; Destroy</button>
+          </div>
+        </div>
+
+        <!-- Authentication -->
+        <div class="controls-panel">
+          <h3>&#x1F511; Ghost Auth (ThingsBoard)</h3>
+          <div class="auth-status-row">
+            <div class="auth-dot pending" id="authDot"></div>
+            <div class="auth-text" id="authText">Aguardando autenticação...</div>
+          </div>
+          <div class="controls-grid">
+            <button class="ctrl-btn success" onclick="authenticateGhost()">&#x1F511; Re-Auth</button>
+            <button class="ctrl-btn secondary" onclick="copyJwt()">&#x1F4CB; Copy JWT</button>
+          </div>
+        </div>
+
+        <!-- ThingsBoard info -->
+        <div class="controls-panel">
+          <h3>&#127760; ThingsBoard</h3>
+          <div style="font-size:10px; color:#94a3b8; line-height:1.6;">
+            <div>URL: <code style="color:#93c5fd">dashboard.myio-bas.com</code></div>
+            <div>Proxy: <code style="color:#86efac">/api/*</code> → TB API</div>
+            <div style="margin-top:4px; color:#64748b;">Chamadas relativas do controller são redirecionadas automaticamente via fetch proxy.</div>
+          </div>
+        </div>
+
+        <!-- Build requirement -->
+        <div class="controls-panel">
+          <h3>&#x26A0;&#xFE0F; Pré-requisito</h3>
+          <div class="info-block amber">
+            <strong>npm run build</strong> deve ser executado antes de abrir esta showcase.<br><br>
+            A lib local (<code>dist/myio-js-library.umd.js</code>) é carregada para garantir o suporte a <code>preselectedCustomer</code> — a versão CDN (<code>@latest</code>) não tem essa feature ainda.
+          </div>
+          <div id="libStatus" style="font-size:10px; color:#64748b; margin-top:4px;"></div>
+        </div>
+
+        <!-- Widget features -->
+        <div class="controls-panel">
+          <h3>&#x1F4E6; Features do Widget</h3>
+          <div class="info-block blue">
+            <strong>Painel Esquerdo</strong><br>
+            Lista de clientes do ThingsBoard com busca em tempo real.
+          </div>
+          <div class="info-block green">
+            <strong>GCDR Sync</strong><br>
+            Lê <code>gcdrTenantId</code> do SERVER_SCOPE e abre <code>lib.openGCDRSyncModal()</code>.
+          </div>
+          <div class="info-block amber">
+            <strong>Upsell Setup</strong><br>
+            Obtém token de ingestion via MyIOAuth e abre <code>lib.openUpsellModal()</code> já no Step 2.
+          </div>
+        </div>
+
+        <!-- How to use -->
+        <div class="controls-panel">
+          <h3>&#x1F4CB; Como usar</h3>
+          <div class="info-block blue">
+            <ol>
+              <li>Aguarde a autenticação automática</li>
+              <li>Clique <strong>&#x25B6; onInit</strong></li>
+              <li>Selecione um cliente na lista</li>
+              <li>Use <strong>GCDR Sync</strong> ou <strong>Upsell Setup</strong></li>
+            </ol>
+          </div>
+          <div style="margin-top:6px; font-size:10px; color:#64748b; line-height:1.5;">
+            <strong>Nota:</strong> o Upsell abre direto no Step 2 (lista de devices do cliente selecionado) — sem passar pelo Step 1.
+          </div>
+        </div>
+
+      </div><!-- /.sidebar-controls -->
+
+      <!-- Event Log -->
+      <div class="event-log-panel">
+        <div class="event-log-header">
+          <h3>Event Log</h3>
+          <button class="event-log-clear" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="event-log" id="eventLog">
+          <div class="log-entry info">
+            <span class="log-time">--:--:--</span>
+            <span class="log-event">READY</span>
+            <span class="log-data">Autenticando automaticamente...</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!--
+    Instructions:
+    1. Run: npm run build (generate dist/myio-js-library.umd.js)
+    2. Run: start-server.bat (port 3340)
+    3. Open: http://localhost:3340/showcase/gcdr-upsell-setup/
+  -->
+
+  <!-- MyIO Library — local build (has preselectedCustomer support).
+       Must load BEFORE controller.js so guLoadMyIOLibrary() finds window.MyIOLibrary
+       already set and skips the CDN (which is the published version without this feature). -->
+  <script>
+    document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
+  </script>
+
+  <!-- Widget controller — loaded before showcase JS so self.onInit is defined -->
+  <script src="../../src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js"></script>
+
+  <script>
+    // =========================================================================
+    // GCDR-Upsell-Setup Showcase
+    // Simulates ThingsBoard widget environment for GCDR-Upsell-Setup/v.1.0.0
+    // =========================================================================
+
+    // ===== CONFIG =====
+    const _TB_URL      = 'https://dashboard.myio-bas.com';
+    const _SVCUSER     = 'alarmes@myio.com.br';
+    const _SVCPASS     = 'hubmyio@2025!';
+
+    let ghostAuthToken = localStorage.getItem('jwt_token') || null;
+    let _widgetRunning = false;
+
+    // =========================================================================
+    // FETCH PROXY
+    // Intercepts relative /api/ calls from the widget controller and redirects
+    // them to the real ThingsBoard instance with the current JWT token.
+    // =========================================================================
+    (function installFetchProxy() {
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function (url, opts) {
+        if (typeof url === 'string' && url.startsWith('/api/')) {
+          const fullUrl = _TB_URL + url;
+          const o = Object.assign({}, opts || {});
+          o.headers = Object.assign({}, o.headers);
+          const jwt = localStorage.getItem('jwt_token') || ghostAuthToken;
+          if (jwt) o.headers['X-Authorization'] = 'Bearer ' + jwt;
+          if (!o.headers['Content-Type'] && o.method !== 'GET') {
+            o.headers['Content-Type'] = 'application/json';
+          }
+          logEvent('PROXY', url.split('?')[0], 'info');
+          return _origFetch(fullUrl, o);
+        }
+        return _origFetch(url, opts);
+      };
+      console.log('[Showcase] Fetch proxy installed — /api/* → ' + _TB_URL);
+    })();
+
+    // =========================================================================
+    // self.ctx MOCK
+    // The controller uses self.ctx.$container[0] as its mount element.
+    // =========================================================================
+    window.self = window.self || {};
+    window.self.ctx = {
+      $container: [document.getElementById('widgetMount')],
+      settings: {},
+      data: [],
+      $scope: {},
+      detectChanges: function () {},
+      updateWidgetParams: function () {},
+    };
+
+    // =========================================================================
+    // GHOST AUTHENTICATION
+    // =========================================================================
+    async function authenticateGhost() {
+      setAuthStatus('pending', 'Autenticando em dashboard.myio-bas.com...');
+      updateBadge('authing', 'AUTH...');
+      logEvent('AUTH', 'Ghost auth iniciada', 'info');
+      try {
+        const res = await fetch(_TB_URL + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: _SVCUSER, password: _SVCPASS }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!data.token) throw new Error('No token in response');
+
+        ghostAuthToken = data.token;
+        localStorage.setItem('jwt_token', data.token);
+        if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken);
+
+        setAuthStatus('ok', 'Autenticado como ' + _SVCUSER);
+        logEvent('AUTH', 'Ghost auth OK — JWT salvo em localStorage', 'info');
+        updateBadge('ready', 'READY');
+        document.getElementById('btnOnInit').disabled = false;
+        return data.token;
+      } catch (err) {
+        setAuthStatus('fail', 'Falha: ' + err.message);
+        logEvent('AUTH_ERROR', err.message, 'error');
+        updateBadge('error', 'AUTH FAIL');
+        return null;
+      }
+    }
+
+    function copyJwt() {
+      const t = localStorage.getItem('jwt_token');
+      if (!t) { logEvent('COPY', 'Sem JWT — faça Re-Auth primeiro', 'warn'); return; }
+      navigator.clipboard.writeText(t).then(() => logEvent('COPY', 'JWT copiado para clipboard', 'info'));
+    }
+
+    // =========================================================================
+    // WIDGET LIFECYCLE
+    // =========================================================================
+    function triggerOnInit() {
+      if (typeof self.onInit !== 'function') {
+        logEvent('ERROR', 'self.onInit não encontrado — controller.js não carregou?', 'error');
+        return;
+      }
+      // Reset mount area
+      const mount = document.getElementById('widgetMount');
+      mount.innerHTML = '';
+
+      // Re-point $container (in case mount was cleared)
+      window.self.ctx.$container = [mount];
+
+      logEvent('LIFECYCLE', 'onInit → chamado', 'info');
+      try {
+        self.onInit();
+        _widgetRunning = true;
+        updateBadge('running', 'RUNNING');
+        document.getElementById('btnOnInit').disabled = true;
+        document.getElementById('btnDestroy').disabled = false;
+        logEvent('LIFECYCLE', 'onInit → concluído', 'info');
+      } catch (err) {
+        logEvent('ERROR', 'onInit falhou: ' + err.message, 'error');
+        console.error('[Showcase] onInit error:', err);
+        updateBadge('error', 'ERROR');
+      }
+    }
+
+    function triggerOnDestroy() {
+      const mount = document.getElementById('widgetMount');
+      mount.innerHTML = '';
+      _widgetRunning = false;
+      updateBadge('stopped', 'STOPPED');
+      document.getElementById('btnOnInit').disabled = false;
+      document.getElementById('btnDestroy').disabled = true;
+      logEvent('LIFECYCLE', 'Destroyed — mount limpo', 'info');
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+    function updateBadge(cls, text) {
+      const el = document.getElementById('widgetStatus');
+      el.className = 'status-badge ' + cls;
+      el.textContent = text;
+    }
+
+    function setAuthStatus(state, msg) {
+      const dot  = document.getElementById('authDot');
+      const text = document.getElementById('authText');
+      dot.className  = 'auth-dot ' + (state === 'ok' ? 'ok' : state === 'fail' ? 'fail' : 'pending');
+      text.textContent = msg;
+    }
+
+    function logEvent(event, data, type) {
+      const log = document.getElementById('eventLog');
+      const now = new Date();
+      const time = now.toTimeString().slice(0, 8);
+      const entry = document.createElement('div');
+      entry.className = 'log-entry' + (type ? ' ' + type : '');
+      entry.innerHTML =
+        '<span class="log-time">' + time + '</span>' +
+        '<span class="log-event">' + event + '</span>' +
+        '<span class="log-data">' + (data || '') + '</span>';
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('eventLog').innerHTML = '';
+    }
+
+    // =========================================================================
+    // THEME TOGGLE
+    // =========================================================================
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      document.getElementById('themeToggle').innerHTML = isLight ? '&#9790;' : '&#9728;&#xfe0f;';
+    });
+
+    // =========================================================================
+    // AUTO-INIT
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Check if local lib loaded with preselectedCustomer support
+      const libEl = document.getElementById('libStatus');
+      if (typeof window.MyIOLibrary !== 'undefined' && typeof window.MyIOLibrary.openUpsellModal === 'function') {
+        libEl.style.color = '#22c55e';
+        libEl.textContent = '✓ myio-js-library local carregada com sucesso';
+        logEvent('LIB', 'Local build OK — preselectedCustomer ativo', 'info');
+      } else {
+        libEl.style.color = '#ef4444';
+        libEl.textContent = '✗ dist/myio-js-library.umd.js não encontrada — execute npm run build';
+        logEvent('LIB', 'ERRO: dist/ não encontrada — execute npm run build', 'error');
+      }
+
+      await authenticateGhost();
+    });
+  </script>
+</body>
+</html>

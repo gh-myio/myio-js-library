@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fancoil Remote Control - MYIO Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #fff;
+    }
+
+    .showcase-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .showcase-header h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #00e09e, #00b4d8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .showcase-header p {
+      color: #888;
+      font-size: 0.95em;
+    }
+
+    .showcase-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 40px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .showcase-section {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .showcase-section h2 {
+      font-size: 1.1em;
+      margin-bottom: 15px;
+      color: #00e09e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .fancoil-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 400px;
+    }
+
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      min-width: 300px;
+    }
+
+    .control-group {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    .control-group h3 {
+      font-size: 0.9em;
+      margin-bottom: 10px;
+      color: #aaa;
+      text-transform: uppercase;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .control-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+    }
+
+    .control-btn--primary {
+      background: #00e09e;
+      color: #000;
+    }
+
+    .control-btn--primary:hover {
+      background: #00c78a;
+      transform: scale(1.02);
+    }
+
+    .control-btn--secondary {
+      background: #444;
+      color: #fff;
+    }
+
+    .control-btn--secondary:hover {
+      background: #555;
+    }
+
+    .control-btn--danger {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .control-btn--danger:hover {
+      background: #c0392b;
+    }
+
+    .control-btn--warning {
+      background: #f39c12;
+      color: #000;
+    }
+
+    .control-btn--warning:hover {
+      background: #d68910;
+    }
+
+    .control-input {
+      padding: 8px 12px;
+      border: 1px solid #444;
+      border-radius: 6px;
+      background: #2a2a2a;
+      color: #fff;
+      font-size: 0.9em;
+      width: 100px;
+    }
+
+    .control-input:focus {
+      outline: none;
+      border-color: #00e09e;
+    }
+
+    .control-label {
+      font-size: 0.85em;
+      color: #888;
+      margin-right: 8px;
+    }
+
+    .event-log {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.8em;
+    }
+
+    .event-log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #333;
+      color: #aaa;
+    }
+
+    .event-log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .event-log-entry--success {
+      color: #4caf50;
+    }
+
+    .event-log-entry--warning {
+      color: #ff9800;
+    }
+
+    .event-log-entry--error {
+      color: #f44336;
+    }
+
+    .event-log-entry--info {
+      color: #2196f3;
+    }
+
+    .state-display {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.75em;
+      background: #1a1a1a;
+      padding: 10px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      color: #aaa;
+    }
+
+    .theme-toggle {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .theme-toggle input[type="checkbox"] {
+      width: 40px;
+      height: 20px;
+      appearance: none;
+      background: #444;
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .theme-toggle input[type="checkbox"]:checked {
+      background: #00e09e;
+    }
+
+    .theme-toggle input[type="checkbox"]::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s ease;
+    }
+
+    .theme-toggle input[type="checkbox"]:checked::before {
+      transform: translateX(20px);
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-header">
+    <h1>Fancoil Remote Control</h1>
+    <p>RFC-0158: HVAC Fancoil Remote Control Component - Migrated from ThingsBoard Widget</p>
+  </div>
+
+  <div class="showcase-container">
+    <!-- Fancoil Remote Component -->
+    <div class="showcase-section">
+      <h2>Remote Control</h2>
+      <div class="fancoil-container" id="fancoil-container"></div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="showcase-section controls-panel">
+      <h2>Controls</h2>
+
+      <!-- Theme Toggle -->
+      <div class="control-group">
+        <h3>Theme</h3>
+        <div class="theme-toggle">
+          <span class="control-label">Light</span>
+          <input type="checkbox" id="theme-toggle">
+          <span class="control-label">Dark</span>
+        </div>
+      </div>
+
+      <!-- Status Simulation -->
+      <div class="control-group">
+        <h3>Simulate Status</h3>
+        <div class="control-row">
+          <button class="control-btn control-btn--primary" onclick="setStatus('on')">ON</button>
+          <button class="control-btn control-btn--danger" onclick="setStatus('off')">OFF</button>
+          <button class="control-btn control-btn--secondary" onclick="setStatus('offline')">OFFLINE</button>
+        </div>
+      </div>
+
+      <!-- Mode Simulation -->
+      <div class="control-group">
+        <h3>Simulate Mode</h3>
+        <div class="control-row">
+          <button class="control-btn control-btn--primary" onclick="setMode('auto')">AUTO</button>
+          <button class="control-btn control-btn--warning" onclick="setMode('man')">MANUAL</button>
+        </div>
+      </div>
+
+      <!-- Temperature Simulation -->
+      <div class="control-group">
+        <h3>Ambient Temperature</h3>
+        <div class="control-row">
+          <input type="number" class="control-input" id="temp-input" value="24.5" step="0.5" min="10" max="40">
+          <button class="control-btn control-btn--primary" onclick="updateTemperature()">Update</button>
+        </div>
+      </div>
+
+      <!-- Consumption Simulation -->
+      <div class="control-group">
+        <h3>Consumption (kW)</h3>
+        <div class="control-row">
+          <button class="control-btn control-btn--secondary" onclick="setConsumption(0)">Off (0)</button>
+          <button class="control-btn control-btn--warning" onclick="setConsumption(0.1)">Fan (0.1)</button>
+          <button class="control-btn control-btn--primary" onclick="setConsumption(1.5)">On (1.5)</button>
+        </div>
+      </div>
+
+      <!-- Setpoint Toggle -->
+      <div class="control-group">
+        <h3>Setpoint Controls</h3>
+        <div class="control-row">
+          <button class="control-btn control-btn--primary" onclick="toggleSetpoint(true)">Enable</button>
+          <button class="control-btn control-btn--secondary" onclick="toggleSetpoint(false)">Disable</button>
+        </div>
+      </div>
+
+      <!-- Current State -->
+      <div class="control-group">
+        <h3>Current State</h3>
+        <div class="state-display" id="state-display"></div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="control-group">
+        <h3>Event Log</h3>
+        <div class="event-log" id="event-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load MYIO Library -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+  <script>
+    // Initialize the Fancoil Remote component
+    let fancoilInstance = null;
+    const eventLog = document.getElementById('event-log');
+    const stateDisplay = document.getElementById('state-display');
+
+    function logEvent(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `event-log-entry event-log-entry--${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      eventLog.insertBefore(entry, eventLog.firstChild);
+
+      // Keep only last 20 entries
+      while (eventLog.children.length > 20) {
+        eventLog.removeChild(eventLog.lastChild);
+      }
+    }
+
+    function updateStateDisplay() {
+      if (fancoilInstance) {
+        const state = fancoilInstance.getState();
+        stateDisplay.textContent = JSON.stringify(state, null, 2);
+      }
+    }
+
+    // Initialize the component
+    function initFancoil() {
+      const container = document.getElementById('fancoil-container');
+
+      fancoilInstance = MyIOLibrary.createFancoilRemote(container, {
+        settings: {
+          centralId: 'demo-central',
+          themeMode: 'light',
+          minTemperature: 16,
+          maxTemperature: 28,
+        },
+        initialState: {
+          status: 'on',
+          mode: 'auto',
+          ambientTemperature: 24.5,
+          consumption: 1.2,
+          temperatureSetpoint: 23,
+          isSetpointEnabled: true,
+          deviceName: 'Fancoil Demo',
+        },
+        onPowerToggle: async (currentStatus) => {
+          logEvent(`Power toggle requested. Current status: ${currentStatus}`, 'info');
+          // Simulate API call
+          await new Promise(resolve => setTimeout(resolve, 500));
+          logEvent(`Power toggled successfully!`, 'success');
+          updateStateDisplay();
+          return true;
+        },
+        onTemperatureChange: async (newTemperature) => {
+          logEvent(`Temperature change requested: ${newTemperature}C`, 'info');
+          // Simulate API call
+          await new Promise(resolve => setTimeout(resolve, 500));
+          logEvent(`Temperature set to ${newTemperature}C successfully!`, 'success');
+          updateStateDisplay();
+          return true;
+        },
+        onSettingsClick: () => {
+          logEvent('Settings button clicked', 'info');
+          alert('Settings clicked! This would navigate to the settings/calendar page.');
+        },
+      });
+
+      logEvent('Fancoil Remote initialized', 'success');
+      updateStateDisplay();
+    }
+
+    // Control functions
+    function setStatus(status) {
+      if (fancoilInstance) {
+        fancoilInstance.updateState({ status });
+        logEvent(`Status set to: ${status}`, 'info');
+        updateStateDisplay();
+      }
+    }
+
+    function setMode(mode) {
+      if (fancoilInstance) {
+        fancoilInstance.updateState({ mode });
+        logEvent(`Mode set to: ${mode}`, 'info');
+        updateStateDisplay();
+      }
+    }
+
+    function updateTemperature() {
+      const temp = parseFloat(document.getElementById('temp-input').value);
+      if (fancoilInstance && !isNaN(temp)) {
+        fancoilInstance.updateState({ ambientTemperature: temp });
+        logEvent(`Ambient temperature set to: ${temp}C`, 'info');
+        updateStateDisplay();
+      }
+    }
+
+    function setConsumption(consumption) {
+      if (fancoilInstance) {
+        fancoilInstance.updateState({ consumption });
+        logEvent(`Consumption set to: ${consumption} kW`, 'info');
+        updateStateDisplay();
+      }
+    }
+
+    function toggleSetpoint(enabled) {
+      if (fancoilInstance) {
+        fancoilInstance.updateState({ isSetpointEnabled: enabled });
+        logEvent(`Setpoint controls ${enabled ? 'enabled' : 'disabled'}`, 'info');
+        updateStateDisplay();
+      }
+    }
+
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('change', function() {
+      const mode = this.checked ? 'dark' : 'light';
+      if (fancoilInstance) {
+        fancoilInstance.setThemeMode(mode);
+        logEvent(`Theme changed to: ${mode}`, 'info');
+      }
+    });
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', initFancoil);
+  </script>
+</body>
+</html>

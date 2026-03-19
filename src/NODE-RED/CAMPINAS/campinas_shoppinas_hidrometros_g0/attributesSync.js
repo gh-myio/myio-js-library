@@ -1,64 +1,55 @@
-const devices = flow.get('devices');
+const devices = flow.get('devices'); 
 const centralId = env.get('CENTRAL_UUID');
 const newDeviceList = {};
 
-function getNameWithoutMultipliers(deviceName) {
-  return deviceName.replace(/ x\d+\.?\d*[AV]?/gi, '').trim();
+// Limpa o nome: remove multiplicador e leitura inicial
+// Ex: "Hidr. Colonial x1 0m3" -> "Hidr. Colonial"
+function getCleanName(deviceName) {
+    return deviceName
+        .replace(/ x\d+\.?\d*[AV]?/gi, '')  // Remove multiplicador (x1, x100, etc.)
+        .replace(/\s*\d+m[³3]?\s*$/i, '')   // Remove leitura inicial (0m3, 2810m3, etc.)
+        .trim();
 }
 
 function handleDeviceType(name) {
-  const upper = (name || '')
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
+  const upper = (name || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
   // ENERGY
   if (upper.includes('COMPRESSOR')) return 'COMPRESSOR';
   if (upper.includes('VENT')) return 'VENTILADOR';
   if (upper.includes('ESRL')) return 'ESCADA_ROLANTE';
   if (upper.includes('ELEV')) return 'ELEVADOR';
-  if (
-    (upper.includes('MOTR') && !upper.includes('CHILLER')) ||
-    upper.includes('MOTOR') ||
-    upper.includes('RECALQUE')
-  )
-    return 'MOTOR';
-
+  if ( 
+         (  upper.includes('MOTR') && !upper.includes('CHILLER') ) 
+      || upper.includes('MOTOR') 
+      || upper.includes('RECALQUE')
+     ) return 'MOTOR';
+     
   if (upper.includes('RELOGIO') || upper.includes('RELOG') || upper.includes('REL ')) return 'RELOGIO';
-  if (
-    upper.includes('ENTRADA') ||
-    upper.includes('SUBESTACAO') ||
-    upper.includes('SUBESTACAO') ||
-    upper.includes('SUBEST')
-  )
-    return 'ENTRADA';
-
-  if (upper.includes('3F')) {
-    if (upper.includes('CHILLER')) {
-      return 'CHILLER';
-    } else if (upper.includes('FANCOIL')) {
-      return 'FANCOIL';
-    } else if (upper.includes('TRAFO')) {
-      return 'ENTRADA';
-    } else if (upper.includes('ENTRADA')) {
-      return 'ENTRADA';
-    } else if (upper.includes('CAG')) {
-      return 'BOMBA_CAG';
-    } else {
-      return '3F_MEDIDOR';
-    }
-  }
+  if (upper.includes('ENTRADA') || upper.includes('SUBESTACAO') || upper.includes('SUBESTACAO') || upper.includes('SUBEST')) return 'ENTRADA';
+  
+  if (upper.includes('3F')) { 
+        if (upper.includes('CHILLER')) {
+            return 'CHILLER';
+        } else if (upper.includes('FANCOIL')) {
+            return 'FANCOIL';
+        } else if (upper.includes('TRAFO')) {
+            return 'ENTRADA';
+        } else if (upper.includes('ENTRADA')) {
+            return 'ENTRADA';
+        } else if (upper.includes('CAG')) {
+            return 'BOMBA_CAG';
+        } else {
+            return '3F_MEDIDOR';
+        }
+     }
+         
 
   // WATER
   if (upper.includes('HIDR') || upper.includes('BANHEIRO')) return 'HIDROMETRO';
 
   // Corrige para casar com o typeMap: CAIXA_DAGUA
-  if (
-    upper.includes('CAIXA DAGUA') ||
-    upper.includes('CX DAGUA') ||
-    upper.includes('CXDAGUA') ||
-    upper.includes('SCD')
-  )
+  if (upper.includes('CAIXA DAGUA') || upper.includes('CX DAGUA') || upper.includes('CXDAGUA') || upper.includes('SCD'))
     return 'CAIXA_DAGUA';
 
   // Novo (presentes no typeMap como water)
@@ -74,18 +65,19 @@ function handleDeviceType(name) {
   return '3F_MEDIDOR';
 }
 
+
 Object.keys(devices).forEach((key) => {
-  const device = devices[key];
-
-  if (devices[key].slaveId && devices[key].name) {
-    const cleanName = getNameWithoutMultipliers(device.name);
-
-    newDeviceList[cleanName] = {
-      deviceType: handleDeviceType(key),
-      centralId: centralId,
-      slaveId: device.slaveId,
-    };
-  }
+    const device = devices[key];
+    
+    if (devices[key].slaveId && devices[key].name) {
+        const cleanName = getCleanName(device.name);    
+    
+        newDeviceList[cleanName] = {
+            deviceType: handleDeviceType(key),
+            centralId: centralId.
+            slaveId: devices[key].slaveId
+        };
+    }
 });
 
 msg.payload = newDeviceList;

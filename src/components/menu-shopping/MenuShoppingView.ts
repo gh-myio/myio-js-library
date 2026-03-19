@@ -170,7 +170,7 @@ export class MenuShoppingView {
         showLibraryVersion
           ? `
       <!-- Version display (matches lib-version-display) -->
-      <div class="${PREFIX}-version">v--</div>
+      <div class="${PREFIX}-version" id="${PREFIX}-version-container"></div>
       `
           : ''
       }
@@ -201,6 +201,11 @@ export class MenuShoppingView {
    * Bind DOM event handlers
    */
   private bindEvents(): void {
+    // Listen for global theme changes
+    window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
+      this.setThemeMode(e.detail.mode);
+    }) as EventListener);
+
     // Hamburger toggle
     this.hamburgerBtn?.addEventListener('click', () => {
       this.emit('hamburger-click');

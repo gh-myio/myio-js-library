@@ -86,8 +86,8 @@ export interface FilterGroup {
 
 export const FILTER_GROUPS: FilterGroup[] = [
   { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline', 'notInstalled'] },
-  { id: 'status', label: 'Status', filters: ['normal', 'standby', 'alert', 'failure'] },
-  { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
+  { id: 'maintenance', label: 'Manutenção', filters: ['maintenance'] },
+  { id: 'status', label: 'Status', filters: ['alert', 'failure'] },
   {
     id: 'type',
     label: 'Tipo',
@@ -97,14 +97,11 @@ export const FILTER_GROUPS: FilterGroup[] = [
 
 export const FILTER_TAB_ICONS: Record<string, string> = {
   online: '⚡',
-  normal: '⚡',
   offline: '🔴',
   notInstalled: '📦',
-  standby: '🔌',
+  maintenance: '🔧',
   alert: '⚠️',
   failure: '🚨',
-  withConsumption: '✓',
-  noConsumption: '○',
   elevators: '🏙',
   escalators: '📶',
   hvac: '❄️',
@@ -115,9 +112,8 @@ export const FILTER_TAB_ICONS: Record<string, string> = {
 };
 
 export const STATUS_TO_CONNECTIVITY: Record<string, string> = {
-  normal: 'online',
-  standby: 'online',
   alert: 'online',
   failure: 'online',
+  maintenance: 'online',
   offline: 'offline',
 };

@@ -31,7 +31,7 @@ self.onInit = function () {
       self.ctx?.dashboard?.configuration?.title ||
       null;
 
-    console.log('self.ctx?.dashboard', self.ctx?.dashboard)
+    console.log('self.ctx?.dashboard', self.ctx?.dashboard);
     console.log('Dashboard title found:', name);
     console.log('Datasources:', self.ctx?.datasources);
 
@@ -210,6 +210,8 @@ self.onInit = function () {
         addSettingsMenuButton(user); // RFC-0108: Consolidated settings menu
         updateShoppingLabel();
       }
+
+      // (RFC-0181: reports intercept is handled inside changeDashboardState)
     } catch (err) {
       LogHelper.error('[MENU] Error fetching user info:', err);
 
@@ -227,11 +229,19 @@ self.onInit = function () {
     telemetry_content: 'energy',
     water_content: 'water',
     temperature_content: 'temperature',
-    alarm_content: null, // No domain for alarms
+    alarm_content: 'alarm',
   };
 
   scope.changeDashboardState = function (e, stateId, index) {
     e.preventDefault();
+
+    // RFC-0181: Intercept Relatórios link — open picker instead of navigating
+    const clickedLink = scope.links[index];
+    if (clickedLink && /relat/i.test(clickedLink.content || '')) {
+      LogHelper.log('[MENU RFC-0181] Relatórios link clicked – opening reports picker');
+      openReportsPickerModal();
+      return;
+    }
 
     // Marca o link selecionado e desmarca os outros
     scope.links.forEach((link, i) => (link.enableLink = i === index));
@@ -426,12 +436,12 @@ self.onInit = function () {
     })();
 
     // Inject styles if not present
-    const STYLE_ID = 'myio-settings-modal-styles';
+    const STYLE_ID = 'myio-conf-picker-styles';
     if (!topDoc.getElementById(STYLE_ID)) {
       const style = topDoc.createElement('style');
       style.id = STYLE_ID;
       style.textContent = `
-        .myio-settings-modal {
+        .myio-conf-picker {
           position: fixed;
           inset: 0;
           z-index: 999999;
@@ -443,17 +453,17 @@ self.onInit = function () {
           transition: opacity 0.2s ease;
           font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         }
-        .myio-settings-modal.show {
+        .myio-conf-picker.show {
           opacity: 1;
           pointer-events: auto;
         }
-        .myio-settings-modal__overlay {
+        .myio-conf-picker__overlay {
           position: absolute;
           inset: 0;
           background: rgba(0, 0, 0, 0.5);
           backdrop-filter: blur(4px);
         }
-        .myio-settings-modal__content {
+        .myio-conf-picker__content {
           position: relative;
           z-index: 2;
           background: #FFFFFF;
@@ -465,10 +475,10 @@ self.onInit = function () {
           transform: translateY(10px) scale(0.98);
           transition: transform 0.2s ease;
         }
-        .myio-settings-modal.show .myio-settings-modal__content {
+        .myio-conf-picker.show .myio-conf-picker__content {
           transform: translateY(0) scale(1);
         }
-        .myio-settings-modal__header {
+        .myio-conf-picker__header {
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -476,7 +486,7 @@ self.onInit = function () {
           background: linear-gradient(135deg, #7B1FA2, #9C27B0);
           color: white;
         }
-        .myio-settings-modal__header h3 {
+        .myio-conf-picker__header h3 {
           margin: 0;
           font-size: 16px;
           font-weight: 600;
@@ -484,7 +494,7 @@ self.onInit = function () {
           align-items: center;
           gap: 8px;
         }
-        .myio-settings-modal__close {
+        .myio-conf-picker__close {
           background: transparent;
           border: none;
           color: white;
@@ -495,10 +505,10 @@ self.onInit = function () {
           border-radius: 4px;
           transition: background 0.15s ease;
         }
-        .myio-settings-modal__close:hover {
+        .myio-conf-picker__close:hover {
           background: rgba(255, 255, 255, 0.15);
         }
-        .myio-settings-modal__body {
+        .myio-conf-picker__body {
           padding: 16px;
           display: flex;
           flex-direction: column;
@@ -559,20 +569,20 @@ self.onInit = function () {
     }
 
     // Remove existing modal if any
-    const existingModal = topDoc.getElementById('myio-settings-modal');
+    const existingModal = topDoc.getElementById('myio-conf-picker');
     if (existingModal) existingModal.remove();
 
     const modal = topDoc.createElement('div');
-    modal.id = 'myio-settings-modal';
-    modal.className = 'myio-settings-modal';
+    modal.id = 'myio-conf-picker';
+    modal.className = 'myio-conf-picker';
     modal.innerHTML = `
-      <div class="myio-settings-modal__overlay"></div>
-      <div class="myio-settings-modal__content">
-        <div class="myio-settings-modal__header">
+      <div class="myio-conf-picker__overlay"></div>
+      <div class="myio-conf-picker__content">
+        <div class="myio-conf-picker__header">
           <h3>⚙️ Configurações</h3>
-          <button class="myio-settings-modal__close" aria-label="Fechar">&times;</button>
+          <button class="myio-conf-picker__close" aria-label="Fechar">&times;</button>
         </div>
-        <div class="myio-settings-modal__body">
+        <div class="myio-conf-picker__body">
           <button class="myio-settings-option" data-action="temperature">
             <span class="myio-settings-option__icon">🌡️</span>
             <div class="myio-settings-option__text">
@@ -609,8 +619,8 @@ self.onInit = function () {
       setTimeout(() => modal.remove(), 200);
     };
 
-    modal.querySelector('.myio-settings-modal__overlay').addEventListener('click', closeModal);
-    modal.querySelector('.myio-settings-modal__close').addEventListener('click', closeModal);
+    modal.querySelector('.myio-conf-picker__overlay').addEventListener('click', closeModal);
+    modal.querySelector('.myio-conf-picker__close').addEventListener('click', closeModal);
 
     // ESC key to close
     const escHandler = (e) => {
@@ -706,6 +716,10 @@ self.onInit = function () {
       customerId: customerId,
       customerName: customerName,
       jwtToken: jwtToken,
+      userEmail: user?.email,
+      ui: {
+        width: 1100,
+      },
       onSaved: (result) => {
         LogHelper.log('[MENU] Contract devices saved:', result);
         window.dispatchEvent(new CustomEvent('myio:contract-devices-updated', { detail: result }));
@@ -739,12 +753,15 @@ self.onInit = function () {
       return;
     }
 
-    const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings ||
-      (window.MyIOUtils?.measurementSettings ? {
-        water: { ...window.MyIOUtils.measurementSettings.water },
-        energy: { ...window.MyIOUtils.measurementSettings.energy },
-        temperature: { ...window.MyIOUtils.measurementSettings.temperature },
-      } : null);
+    const existingSettings =
+      window.MyIOOrchestrator?.measurementDisplaySettings ||
+      (window.MyIOUtils?.measurementSettings
+        ? {
+            water: { ...window.MyIOUtils.measurementSettings.water },
+            energy: { ...window.MyIOUtils.measurementSettings.energy },
+            temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+          }
+        : null);
 
     MyIOLibrary.openMeasurementSetupModal({
       token: jwtToken,
@@ -962,6 +979,10 @@ self.onInit = function () {
         customerId: customerId,
         customerName: customerName,
         jwtToken: jwtToken,
+        userEmail: user?.email,
+        ui: {
+          width: 1100,
+        },
         onSaved: (result) => {
           LogHelper.log('[MENU] Contract devices saved:', result);
           // Dispatch event to notify other widgets
@@ -1046,12 +1067,15 @@ self.onInit = function () {
       LogHelper.log('[MENU] Opening measurement setup modal for customer:', { customerId, customerName });
 
       // RFC-0108: Get existing settings from orchestrator or MyIOUtils defaults
-      const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings ||
-        (window.MyIOUtils?.measurementSettings ? {
-          water: { ...window.MyIOUtils.measurementSettings.water },
-          energy: { ...window.MyIOUtils.measurementSettings.energy },
-          temperature: { ...window.MyIOUtils.measurementSettings.temperature },
-        } : null);
+      const existingSettings =
+        window.MyIOOrchestrator?.measurementDisplaySettings ||
+        (window.MyIOUtils?.measurementSettings
+          ? {
+              water: { ...window.MyIOUtils.measurementSettings.water },
+              energy: { ...window.MyIOUtils.measurementSettings.energy },
+              temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+            }
+          : null);
 
       MyIOLibrary.openMeasurementSetupModal({
         token: jwtToken,
@@ -1082,6 +1106,236 @@ self.onInit = function () {
 
     LogHelper.log('[MENU] Measurement setup button added successfully');
   }
+
+  function openReportsPickerModal() {
+    const orch  = window.MyIOOrchestrator || {};
+    const creds = orch.getCredentials?.() || {};
+    const baseParams = {
+      customerId: creds.CUSTOMER_ING_ID || '',
+      debug: 0,
+      api: {
+        clientId:       creds.CLIENT_ID     || '',
+        clientSecret:   creds.CLIENT_SECRET || '',
+        dataApiBaseUrl: window.MyIOUtils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com',
+        ingestionToken: orch.tokenManager?.getToken('ingestionToken') || '',
+      },
+      ui: { theme: 'light' },
+    };
+    _renderReportsPicker(baseParams);
+  }
+
+  function _renderReportsPicker(baseParams) {
+    const MODAL_ID = 'myio-reports-picker-modal';
+    const STYLE_ID = 'myio-reports-picker-styles';
+
+    // Inject at the highest accessible document level so modal covers full viewport
+    const topWin = window.top || window;
+    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+
+    // Second click on Reports closes the modal
+    const existing = topDoc.getElementById(MODAL_ID);
+    if (existing) { existing.remove(); return; }
+
+    // Inject styles once
+    if (!topDoc.getElementById(STYLE_ID)) {
+      const s = topDoc.createElement('style');
+      s.id = STYLE_ID;
+      s.textContent = `
+        .rp-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+        .rp-overlay.show{opacity:1;}
+        .rp-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(640px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
+        .rp-overlay.show .rp-modal{transform:translateY(0) scale(1);}
+        .rp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;flex-shrink:0;}
+        .rp-header h3{margin:0;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;}
+        .rp-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s;}
+        .rp-close:hover{background:rgba(255,255,255,.15);}
+        .rp-tabs{display:flex;border-bottom:1px solid #e5e7eb;background:#f9fafb;flex-shrink:0;overflow-x:auto;}
+        .rp-tab{flex:1 1 auto;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#6b7280;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap;}
+        .rp-tab:hover{color:#1565c0;background:#eff6ff;}
+        .rp-tab.active{color:#1565c0;border-bottom-color:#1565c0;background:#fff;}
+        .rp-body{padding:20px;overflow-y:auto;}
+        .rp-panel{display:none;flex-direction:column;gap:12px;}
+        .rp-panel.active{display:flex;}
+        .rp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;}
+        .rp-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fafafa;cursor:pointer;transition:all .15s;position:relative;text-align:left;width:100%;}
+        .rp-card[data-enabled="true"]:hover{background:#eff6ff;border-color:#90caf9;box-shadow:0 4px 12px rgba(21,101,192,.1);transform:translateY(-1px);}
+        .rp-card[data-enabled="false"]{opacity:.55;cursor:not-allowed;}
+        .rp-card__icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;flex-shrink:0;}
+        .rp-card__text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+        .rp-card__title{font-size:14px;font-weight:600;color:#1f2937;}
+        .rp-card__desc{font-size:11px;color:#6b7280;}
+        .rp-badge{position:absolute;top:8px;right:8px;font-size:12px;color:#9ca3af;background:#f3f4f6;border:1px solid #e5e7eb;padding:2px 5px;border-radius:20px;line-height:1.4;}
+        .rp-card[data-enabled="true"] .rp-badge{display:none;}
+      `;
+      topDoc.head.appendChild(s);
+    }
+
+    // RFC-0182: read enabled report items from MAIN_VIEW settings (via window.MyIOUtils)
+    const enabledItems = window.MyIOUtils?.enabledReportItems || {};
+    const ei = (key, def = false) => enabledItems[key] ?? def;
+
+    const DOMAINS = [
+      {
+        id: 'energy', label: '⚡ Energia',
+        items: [
+          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: ei('energy_entrada')    },
+          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: ei('energy_area_comum') },
+          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e8f5e9', color: '#2e7d32', desc: 'Consumo por loja',         enabled: ei('energy_lojas', true)},
+          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os medidores',       enabled: ei('energy_todos')      },
+        ],
+      },
+      {
+        id: 'water', label: '💧 Água',
+        items: [
+          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: ei('water_entrada')    },
+          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: ei('water_area_comum') },
+          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e0f2f1', color: '#00695c', desc: 'Consumo por loja',         enabled: ei('water_lojas')      },
+          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os hidrômetros',    enabled: ei('water_todos')      },
+        ],
+      },
+      {
+        id: 'temperature', label: '🌡️ Temperatura',
+        items: [
+          { id: 'climatizavel',     label: 'Ambientes Climatizáveis',     icon: '❄️', bg: '#e1f5fe', color: '#0277bd', desc: 'Ambientes com termostato',    enabled: ei('temperature_climatizavel')     },
+          { id: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️', bg: '#fff3e0', color: '#e65100', desc: 'Ambientes sem climatização', enabled: ei('temperature_nao_climatizavel') },
+          { id: 'todos',            label: 'Todos Ambientes',             icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os termostatos',         enabled: ei('temperature_todos')            },
+        ],
+      },
+      {
+        id: 'alarms', label: '🔔 Alarmes',
+        items: [
+          { id: 'por_dispositivo',      label: 'Por Dispositivo',           icon: '📟', bg: '#fce4ec', color: '#880e4f', desc: 'Alarmes por dispositivo',         enabled: ei('alarms_por_dispositivo')      },
+          { id: 'dispositivo_x_alarme', label: 'Por Dispositivo × Tipo',   icon: '🔀', bg: '#fff3e0', color: '#bf360c', desc: 'Cruzamento dispositivo × regra',  enabled: ei('alarms_dispositivo_x_alarme') },
+          { id: 'por_tipo',             label: 'Por Tipo de Alarme',        icon: '🏷️', bg: '#ede7f6', color: '#4527a0', desc: 'Alarmes agrupados por tipo',      enabled: ei('alarms_por_tipo')             },
+        ],
+      },
+    ];
+
+    const tabsHTML = DOMAINS.map((d, i) =>
+      `<button class="rp-tab${i === 0 ? ' active' : ''}" data-domain="${d.id}">${d.label}</button>`
+    ).join('');
+
+    const panelsHTML = DOMAINS.map((d, i) => `
+      <div class="rp-panel${i === 0 ? ' active' : ''}" data-domain="${d.id}">
+        <div class="rp-cards">
+          ${d.items.map(item => `
+            <button class="rp-card" data-domain="${d.id}" data-item="${item.id}" data-enabled="${item.enabled}" type="button">
+              <span class="rp-card__icon" style="background:${item.bg};color:${item.color};">${item.icon}</span>
+              <span class="rp-card__text">
+                <span class="rp-card__title">${item.label}</span>
+                <span class="rp-card__desc">${item.desc}</span>
+              </span>
+              ${!item.enabled ? '<span class="rp-badge">🔒</span>' : ''}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    const overlay = topDoc.createElement('div');
+    overlay.id = MODAL_ID;
+    overlay.className = 'rp-overlay';
+    overlay.innerHTML = `
+      <div class="rp-modal">
+        <div class="rp-header">
+          <h3>📊 Relatórios</h3>
+          <button class="rp-close" type="button" aria-label="Fechar">&#215;</button>
+        </div>
+        <div class="rp-tabs">${tabsHTML}</div>
+        <div class="rp-body">${panelsHTML}</div>
+      </div>
+    `;
+
+    topDoc.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+
+    function closeModal() {
+      overlay.classList.remove('show');
+      overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+    }
+
+    overlay.querySelectorAll('.rp-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        overlay.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('active'));
+        overlay.querySelectorAll('.rp-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        overlay.querySelector(`.rp-panel[data-domain="${tab.dataset.domain}"]`).classList.add('active');
+      });
+    });
+
+    overlay.querySelectorAll('.rp-card[data-enabled="true"]').forEach(card => {
+      card.addEventListener('click', () => {
+        const domain = card.dataset.domain;
+        const group  = card.dataset.item;
+        closeModal();
+        _openGroupReport(domain, group, baseParams);
+      });
+    });
+
+    overlay.querySelector('.rp-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  }
+
+  // RFC-0182: group → itemsList mapping using orchestrator classified groups
+  const GROUP_LABELS = {
+    lojas:           'Lojas',
+    entrada:         'Entrada',
+    area_comum:      'Área Comum',
+    banheiros:       'Banheiros',
+    climatizavel:    'Climatizável',
+    nao_climatizavel:'Não Climatizável',
+  };
+
+  function _buildItemsList(domain, group) {
+    const orch = window.MyIOOrchestrator;
+    let groups;
+    if (domain === 'water') {
+      groups = orch?.getWaterGroups?.()       || {};
+    } else if (domain === 'temperature') {
+      groups = orch?.getTemperatureGroups?.() || {};
+    } else {
+      groups = orch?.getEnergyGroups?.()      || {};
+    }
+
+    const toItem = (d, groupLabel) => ({
+      id:         d.ingestionId || d.id || '',
+      identifier: d.identifier  || d.label || d.name || '',
+      label:      d.label       || d.name  || d.identifier || '',
+      ...(groupLabel ? { groupLabel } : {}),
+    });
+
+    if (group === 'todos') {
+      // Combine all groups (except ocultos), each item carries its groupLabel
+      return Object.entries(groups)
+        .filter(([key]) => key !== 'ocultos')
+        .flatMap(([key, items]) => (items || []).map(d => toItem(d, GROUP_LABELS[key] || key)));
+    }
+
+    // Map group id → key in getXGroups() result
+    // 'area_comum' in DOMAINS maps to 'areacomum' key returned by categorizeItemsByGroup
+    const groupKey = group === 'area_comum' ? 'areacomum' : group;
+    return (groups[groupKey] || []).map(d => toItem(d, null));
+  }
+
+  function _openGroupReport(domain, group, baseParams) {
+    const MyIOLib = window.MyIOLibrary;
+    if (!MyIOLib?.openDashboardPopupAllReport) {
+      LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
+      return;
+    }
+
+    const itemsList = _buildItemsList(domain, group);
+    LogHelper.log(`[MENU RFC-0181] Opening report domain=${domain} group=${group} items=${itemsList.length}`);
+
+    MyIOLib.openDashboardPopupAllReport({
+      ...baseParams,
+      domain,
+      group,
+      itemsList,
+    });
+  }
+
+  // ─── end RFC-0181 ────────────────────────────────────────────────────────────
 
   // RFC-0055: Show modal with shopping options
   function showShoppingModal() {
@@ -1365,7 +1619,9 @@ self.onInit = function () {
         currentVersion: MyIOLib.version || 'unknown',
         theme: currentTheme, // Use current theme state
         onStatusChange: (status, currentVer, latestVer) => {
-          LogHelper.log(`[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`);
+          LogHelper.log(
+            `[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`
+          );
         },
       });
     } else {

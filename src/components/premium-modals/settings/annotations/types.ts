@@ -158,12 +158,15 @@ export interface AnnotationsTabConfig {
   container: HTMLElement;
   deviceId: string;
   jwtToken: string;
+  tbBaseUrl?: string;
   currentUser: UserInfo;
   permissions: PermissionSet;
   onAnnotationChange?: (annotations: Annotation[]) => void;
   i18n?: {
     t: (key: string, fallback?: string) => string;
   };
+  /** RFC-0144: If false, onboarding tour is never shown. Default: false */
+  enableAnnotationsOnboarding?: boolean;
 }
 
 export interface AnnotationFormConfig {

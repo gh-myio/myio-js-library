@@ -1,0 +1,1068 @@
+.top-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px;
+  background: #ffffff;
+  border-radius: 10px;
+  width: 92%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 300px;
+}
+
+.date-range input[type='date'] {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fafafa;
+}
+
+.date-range button.load-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #2196f3;
+  color: white;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.date-range button.load-button:hover {
+  background-color: #1976d2;
+}
+
+.search-bar {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 200px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.btn-report {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+}
+
+.btn-fullScreen {
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform 0.3s ease; /* animação suave ao transformar */
+}
+
+.btn-fullScreen:hover {
+  transform: scale(1.3); /* aumenta suavemente ao passar o mouse */
+}
+
+.status-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: hidden;
+  box-sizing: border-box;
+}
+
+.status-container,
+.main-content,
+.group-wrapper-columns,
+.group-card {
+  min-height: 0;
+}
+
+.group-wrapper-columns {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-grow: 1;
+  min-height: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 10px;
+}
+
+.group-card {
+  flex: 0 0 320px;
+  height: 94%;
+  display: flex;
+  flex-direction: column;
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  overflow-y: auto; /* <<< rolagem na coluna */
+}
+
+.group-card.entrada,
+.group-card.administracao,
+.group-card.lojas {
+  flex: 1 0 120px;
+}
+
+.group-card.area-comum {
+  flex: 2 0 100px;
+  /* Cresce o dobro dos outros */
+}
+
+.group-card.area-comum {
+  overflow-y: auto;
+}
+
+.group-title {
+  font-size: 0.82rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: #000;
+  margin-left: 6px;
+  gap: 4px;
+  flex-shrink: 0; /* <<< impede sumir no scroll */
+}
+
+.group-count::before {
+  content: '(';
+}
+
+.group-count::after {
+  content: ')';
+}
+
+.group-count {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.4);
+  margin: 0;
+  font-weight: 500;
+}
+
+.group-total {
+  font-size: 0.8rem;
+  color: #2196f3;
+  font-weight: 600;
+  margin: 0;
+}
+
+.card-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px 8px; /* 16 col / 8 row */
+  align-items: stretch;
+  align-content: flex-start;
+  padding: 0 6px 28px; /* calço no fim para não cortar o último card */
+  min-height: auto; /* <<< nada de 0/100% */
+  overflow: visible; /* <<< quem rola é a coluna */
+  background: transparent; /* remove overlay */
+  backdrop-filter: none;
+  z-index: auto;
+}
+
+.password-modal {
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.password-modal input {
+  padding: 6px 10px;
+  font-size: 1rem;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.password-modal button {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.password-modal button:hover {
+  background-color: #1976d2;
+}
+
+.area-pie-chart {
+  width: 70%;
+  height: 50px; /* altura efetiva */
+  margin: 0px auto; /* reduz espaçamento acima/abaixo */
+  display: block;
+}
+
+canvas + ul li {
+  position: relative;
+}
+
+canvas + ul li:hover::after {
+  content: attr(title);
+  position: absolute;
+  top: -1.5em;
+  left: 0;
+  background: #333;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.floating-report-menu {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 10;
+}
+
+.menu-toggle-btn {
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.menu-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.menu-dropdown .menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.menu-dropdown .menu-item:hover {
+  background: #f2f2f2;
+}
+
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 220px;
+  height: 100vh;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
+  padding: 10px 0;
+  z-index: 990;
+  display: none;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.menu-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.menu-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.menu-item.active,
+.menu-item:hover {
+  background-color: #fce4ec;
+  font-weight: bold;
+}
+
+.main-content {
+  margin-left: 5px;
+  /* esse valor precisa bater com o side-menu */
+  height: 100vh;
+  /* ajusta de acordo com header/footer */
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  /* impede scroll geral */
+}
+
+.group-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 100%;
+  padding-right: 8px;
+  /* opcional */
+}
+
+.report-buttons {
+  position: absolute;
+  top: 10px;
+  right: 30px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.btn-report:hover {
+  background: linear-gradient(135deg, #1976d2, #0d47a1);
+}
+
+.btn-report.lojas {
+  flex: 0 0 20%;
+}
+
+.btn-report.shopping {
+  flex: 0 0 25%;
+}
+
+.device-card-centered,
+.clickable {
+  width: 98%;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  transition: transform 0.2s;
+  position: relative;
+  min-height: 140px;
+  /* altura consistente */
+  box-sizing: border-box;
+  gap: 10px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+.device-card-centered:hover,
+.clickable:hover,
+.info-card:hover {
+  transform: scale(1.05);
+}
+
+.device-title-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 0 4px;
+  min-height: 22px;
+}
+
+.device-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+  line-height: 1.1;
+}
+
+.device-image {
+  max-height: 44px;
+  width: auto;
+  margin: 4px 0;
+  display: block;
+}
+
+.device-data-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: auto;
+  /* empurra pra baixo */
+  margin-bottom: 6px;
+  gap: 6px;
+  /* espaçamento horizontal entre itens */
+  width: 100%;
+}
+
+.consumption-main {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #28a745;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.device-title-percent {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.45);
+  font-weight: 500;
+  margin-left: 0;
+  /* removido para usar gap */
+}
+
+.flash {
+  animation: flash 1s infinite;
+  color: #ff9800;
+}
+
+@keyframes flash {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes flashAnim {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.card-actions {
+  gap: 13px;
+  width: 36px;
+  padding: 5px;
+  height: 100%;
+  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-action img {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.card-action img:hover {
+  transform: scale(1.15);
+}
+
+.alerta-mobile {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  /* Estilo base: alerta oculto por padrão */
+  .alerta-mobile {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #4b0082;
+    color: #4b0082;
+    color: white;
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .alerta-mobile img {
+    width: 25vw;
+    height: auto;
+  }
+
+  .alerta-mobile h1 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .alerta-mobile p {
+    font-size: 1.2rem;
+  }
+}
+
+/* area comum */
+
+/* Container pai com altura controlada e grid */
+#area-comum-list {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  /* ou 5, conforme seu layout */
+  row-gap: 4px;
+  column-gap: 12px;
+  padding: 8px;
+}
+
+/* Cada card ocupa a altura total disponível dentro da célula */
+.info-card {
+  grid-column: span 2;
+  height: 100%;
+  /* faz o filho preencher a altura da célula */
+  min-height: 0;
+  /* permite encolher */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.2s;
+  position: relative;
+  box-sizing: border-box;
+  gap: 20px;
+  overflow: hidden;
+}
+
+/* Primeira linha: dois filhos, 50% cada */
+#area-comum-list .info-card:nth-child(1),
+#area-comum-list .info-card:nth-child(2) {
+  grid-column: span 3;
+}
+
+/* Terceira linha: três filhos, 33% cada */
+#area-comum-list .info-card:nth-child(3),
+#area-comum-list .info-card:nth-child(4),
+#area-comum-list .info-card:nth-child(5) {
+  grid-column: span 2;
+}
+
+/* Conteúdo interno do card */
+.info-card .device-title {
+  font-size: 16px;
+  width: 80%;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.info-card .device-image {
+  max-width: 90px;
+  /* estava 50px */
+  max-height: 80px;
+  /* novo */
+  height: auto;
+  margin: 8px 0;
+}
+
+.info-card .device-data-row {
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+.info-card .device-title-percent {
+  font-size: 12px;
+  color: #999;
+}
+
+.info-card .flash-icon {
+  font-weight: bold;
+  color: #4caf50;
+  font-size: 14px;
+}
+
+#area-comum-list .card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  flex-grow: 1;
+  min-height: 0;
+  padding-bottom: 2px;
+  height: 90px;
+}
+
+.device-main-content {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* === Área Comum: cards rolam; gráfico sempre visível e sem espaço “sobrando” === */
+.group-card.area-comum {
+  display: flex;
+  flex-direction: column;
+}
+
+.group-card.area-comum .group-title {
+  margin-bottom: 6px;
+}
+
+/* a lista ocupa o espaço, com menos padding/gaps */
+.group-card.area-comum .card-list,
+#area-comum-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 8px 8px; /* antes havia 28px no .card-list global */
+  row-gap: 6px;
+  column-gap: 8px;
+}
+
+/* o gráfico fica fixo no “rodapé” da coluna */
+.area-pie-chart {
+  flex: 0 0 auto;
+  width: 100%; /* preencher a largura */
+  height: 220px; /* altura útil (ajuste se quiser) */
+  margin: 8px; /* encosta sem espaço exagerado */
+  position: sticky; /* mantém visível mesmo com scroll */
+  bottom: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 8px;
+  display: block;
+}
+
+/* === Área Comum: lista ocupa o espaço; gráfico fica compactado no fim === */
+.group-card.area-comum {
+  display: flex;
+  flex-direction: column;
+}
+
+.group-card.area-comum .group-title {
+  margin-bottom: 6px;
+}
+
+/* A lista ganha menos padding para “chegar” perto do gráfico */
+.group-card.area-comum .card-list,
+#area-comum-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 8px 8px; /* antes era maior; reduz o “calço” */
+  row-gap: 6px;
+  column-gap: 8px;
+}
+
+/* Canvas do gráfico: tamanho compacto, entra no fluxo (NÃO sticky) */
+.area-pie-chart {
+  position: static; /* remove sticky/absolute se houver */
+  flex: 0 0 160px; /* altura fixa compacta */
+  width: calc(100% - 16px); /* preenche a coluna com as bordas */
+  height: 160px; /* ajuste fino da altura */
+  margin: 6px 8px 8px; /* encosta sem criar espaço exagerado */
+  display: block;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  z-index: 0; /* garante que não cubra os cards */
+}
+
+/* --- Área Comum: layout em coluna (cards em cima, pizza embaixo) --- */
+.group-card.area-comum {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* evita que o canvas “vaze” */
+}
+
+/* a lista ocupa tudo que der; rola se precisar */
+.group-card.area-comum #area-comum-list {
+  flex: 1 1 auto;
+  min-height: 0; /* importantíssimo p/ flex */
+  overflow: auto;
+  padding: 6px 8px 6px;
+}
+
+/* derruba QUALQUER regra anterior do canvas */
+.group-card.area-comum > canvas.area-pie-chart {
+  position: static; /* nada de sticky/absolute */
+  flex: 0 0 180px; /* altura reservada */
+  height: 380px !important; /* vence inline-size do Chart.js */
+  width: calc(100% - 16px);
+  margin: 6px 8px 8px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  z-index: 0;
+}
+
+/* Canvas: grudado no topo do card e altura definida */
+.group-card.area-comum > canvas.area-pie-chart {
+  display: block;
+  width: calc(100% - 16px);
+  height: 380px !important; /* seu ajuste atual */
+  margin: 6px 8px 0; /* tira o espaço branco de cima */
+  padding: 0; /* garante sem “acolchoamento” */
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Legenda gerada como <ul> logo após o canvas */
+.group-card.area-comum > canvas.area-pie-chart + ul {
+  list-style: none;
+  margin: 6px 8px 8px; /* aproxima da pizza */
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap; /* quebra em múltiplas linhas */
+  gap: 4px 12px; /* compacto e legível */
+  justify-content: center;
+  width: calc(100% - 16px);
+}
+
+/* Itens da legenda mais “justos”, sem esticar */
+.group-card.area-comum > canvas.area-pie-chart + ul li {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/* Se quiser ainda mais compacto no texto da legenda */
+.group-card.area-comum > canvas.area-pie-chart + ul li span {
+  vertical-align: middle;
+  line-height: 1.1;
+}
+
+/* Canvas da Área Comum: centralizado, sem espaço acima */
+.group-card.area-comum > canvas.area-pie-chart {
+  display: block;
+  width: 100%;
+  height: 300px !important;
+  margin: 2px auto 0; /* gruda no topo do card */
+  padding: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Lista da Área Comum: sem “calço” que empurra a pizza */
+.group-card.area-comum #area-comum-list {
+  padding: 6px 8px 4px; /* reduz o bottom */
+  min-height: 0;
+}
+
+/* Legenda externa logo abaixo do canvas */
+.group-card.area-comum .chart-legend {
+  list-style: none;
+  margin: 6px auto 8px;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px; /* compacto e legível */
+  justify-content: center;
+}
+.group-card.area-comum .chart-legend li {
+  white-space: nowrap;
+  line-height: 1.1;
+  flex: 0 1 auto;
+}
+
+/* Corrige layout da Área Comum */
+.group-card.area-comum {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* centraliza conteúdo interno */
+  overflow: hidden;
+  padding: 10px; /* uniforme com outros cards */
+}
+
+/* Canvas reduzido e centralizado */
+.group-card.area-comum > canvas.area-pie-chart {
+  display: block;
+  width: 80%; /* 20% menor que 100% */
+  height: 300px !important; /* altura adequada */
+  margin: 0 auto 4px; /* elimina espaço em branco acima */
+  padding: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Legenda externa logo abaixo da pizza */
+.group-card.area-comum .chart-legend {
+  list-style: none;
+  margin: 4px 0 0; /* cola na pizza */
+  padding: 0;
+  width: 80%; /* igual ao canvas */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+}
+
+.group-card.area-comum .chart-legend li {
+  flex: 0 1 auto;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: #333;
+}
+
+/* Legenda da pizza (Área Comum) */
+.group-card.area-comum .chart-legend {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  width: 80%; /* mesma largura do canvas */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-size: 10px; /* <<< diminui bastante o tamanho */
+  line-height: 1.2;
+  color: #444;
+}
+
+.group-card.area-comum .chart-legend li {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/* === Área Comum: NÃO deixar a lista crescer e empurrar o gráfico === */
+.group-card.area-comum #area-comum-list {
+  flex: 0 0 auto; /* antes era 1 1 auto: tomava a coluna toda */
+  padding: 6px 8px 6px; /* aproxima a pizza dos cards */
+}
+
+/* === Canvas da pizza: 80% de largura, centralizado, sem “respiro” no topo === */
+.group-card.area-comum > canvas.area-pie-chart {
+  position: static;
+  display: block;
+  width: 80% !important; /* reduz 20% conforme pedido */
+  max-width: calc(100% - 16px); /* respeita as bordas do card */
+  height: 300px !important; /* ajuste fino (pode 320/340) */
+  margin: 6px auto 0; /* cola no topo do card branco */
+  padding: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* === Legenda externa, compacta e alinhada com o canvas === */
+.group-card.area-comum .chart-legend {
+  list-style: none;
+  margin: 6px auto 8px; /* bem perto da pizza */
+  padding: 0;
+  width: 80%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-size: 10px; /* menor, pode 9px/8px se quiser */
+  line-height: 1.2;
+  color: #444;
+}
+.group-card.area-comum .chart-legend li {
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
+
+/* Corrigir layout da Área Comum */
+.group-card.area-comum {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  padding: 10px;
+}
+
+/* Lista não cresce demais (evita espaço em branco antes da pizza) */
+.group-card.area-comum #area-comum-list {
+  flex: 0 0 auto; /* NÃO crescer */
+  padding: 6px 8px 4px;
+}
+
+/* Canvas da pizza: centralizado e 80% de largura */
+.group-card.area-comum > canvas.area-pie-chart {
+  display: block;
+  width: 80% !important; /* reduz em 20% */
+  max-width: 480px; /* limite opcional */
+  height: 280px !important; /* altura equilibrada */
+  margin: 8px auto 0; /* cola nos cards acima */
+  padding: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Legenda logo abaixo da pizza */
+.group-card.area-comum .chart-legend {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  width: 80%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-size: 9px; /* bem pequeno */
+  line-height: 1.2;
+  color: #444;
+}
+
+.group-card.area-comum .chart-legend li {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/* === ÁREA COMUM: pacotão de correções finais === */
+
+/* 1) A lista NÃO cresce (evita espaço branco antes da pizza) */
+.group-card.area-comum > #area-comum-list {
+  flex: 0 0 auto !important; /* não ocupa a coluna toda */
+  padding: 6px 12px 4px !important; /* tira calço no fundo */
+  margin: 0 !important;
+}
+
+/* 2) Canvas da pizza: 80% de largura, centralizado, sem respiro em cima */
+.group-card.area-comum > canvas.area-pie-chart {
+  position: static !important;
+  display: block !important;
+  width: 95% !important; /* reduz 20% */
+  max-width: 960px !important; /* opcional: limite em telas largas */
+  height: 200px !important; /* ajuste fino da altura */
+  margin: 6px auto 0 !important; /* cola nos cards acima */
+  padding: 0 !important;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  z-index: 0;
+}
+
+/* 3) Legenda HTML (ul) logo abaixo do canvas — visível e compacta */
+.group-card.area-comum > canvas.area-pie-chart + ul.chart-legend {
+  list-style: none;
+  margin: 6px auto 8px !important;
+  padding: 0;
+  width: 95%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 6px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #444;
+  height: 100px !important;
+}
+
+.group-card.area-comum > canvas.area-pie-chart + ul.chart-legend li {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/* === Área Comum: card único para pizza + legenda === */
+.group-card.area-comum .area-pie-card {
+  width: calc(100% - 24px); /* alinha às laterais dos cards acima */
+  margin: 8px 12px 12px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 12px 0; /* espaço interno vertical */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* centraliza pizza e legenda */
+}
+
+/* Pizza: 80% da largura do card, altura fixa e sem “respiro” no topo */
+.group-card.area-comum .area-pie-card .area-pie {
+  display: block;
+  width: 80% !important; /* <<< 80% (reduz 20%) */
+  height: 320px !important; /* ajuste fino da altura */
+  margin: 0 auto; /* centralizado */
+}
+
+/* A lista de info NÃO cresce e não empurra o card pra baixo */
+.group-card.area-comum #area-comum-list {
+  flex: 0 0 auto !important;
+  padding: 6px 12px 4px !important;
+  margin: 0 !important;
+}
+
+/* Legenda: sempre visível, compacta e dentro do mesmo card */
+.group-card.area-comum .area-pie-card .chart-legend {
+  list-style: none;
+  margin: 8px 0 4px;
+  padding: 0;
+  width: 80%; /* acompanha a pizza */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #444;
+}
+.group-card.area-comum .area-pie-card .chart-legend li {
+  white-space: nowrap;
+  flex: 0 1 auto;
+}

@@ -81,6 +81,9 @@ const DOMAIN_ALL_LIST = [DOMAIN_ENERGY, DOMAIN_WATER, DOMAIN_TEMPERATURE];
 let _apiEnrichmentDone = false;
 let _apiEnrichmentInProgress = false;
 
+// RFC-0175: Guard to prevent concurrent async renders of the operational grid
+let _isRenderingOperationalGrid = false;
+
 // Global counter for credentials retry attempts (max 10 attempts)
 let _credentialsRetryCount = 0;
 const MAX_CREDENTIALS_RETRIES = 10;
@@ -94,6 +97,18 @@ let _cachedDeviceCounts = null;
 let _menuInstanceRef = null;
 let _welcomeModalRef = null;
 let _headerInstanceRef = null;
+let _currentShoppingCards = null; // Shopping cards from datasource or DEFAULT_SHOPPING_CARDS
+let _forceRemovePartialOwnerName = ''; // Prefix to remove from ownerName
+
+// Helper to clean ownerName by removing configured prefix (module-level for use in buildMetadataMapFromCtxData)
+function cleanOwnerName(name) {
+  if (!name || !_forceRemovePartialOwnerName) return name;
+  const trimmed = name.trim();
+  if (trimmed.toLowerCase().startsWith(_forceRemovePartialOwnerName.toLowerCase())) {
+    return trimmed.substring(_forceRemovePartialOwnerName.length).trim();
+  }
+  return trimmed;
+}
 
 // ===================================================================
 // Data Cache Configuration (5-minute validity)
@@ -168,6 +183,7 @@ self.onInit = async function () {
   _menuInstanceRef = null;
   _headerInstanceRef = null;
   _welcomeModalRef = null;
+  _isRenderingOperationalGrid = false;
 
   // === 1. LIBRARY REFERENCE (must be first) ===
   const MyIOLibrary = window.MyIOLibrary;
@@ -180,6 +196,9 @@ self.onInit = async function () {
   const settings = self.ctx.settings || {};
   let currentThemeMode = settings.defaultThemeMode || 'dark';
   DEBUG_ACTIVE = settings.enableDebugMode ?? false;
+
+  // Set module-level variable for cleanOwnerName function
+  _forceRemovePartialOwnerName = (settings.forceRemovePartialOwnerName || '').trim();
 
   // RFC-0122: Initialize LogHelper from library
   if (!MyIOLibrary.createLogHelper) {
@@ -307,6 +326,48 @@ self.onInit = async function () {
     }
 
     return {};
+  };
+
+  // RFC-0152: Fetch Operational Indicators access from customer attributes
+  const fetchOperationalIndicatorsAccess = async () => {
+    const customerTB_ID = getCustomerTB_ID();
+    const jwt = getJwtToken();
+
+    LogHelper.log('RFC-0152: Checking operational indicators access for customer:', customerTB_ID);
+
+    if (!customerTB_ID || !jwt) {
+      LogHelper.warn('RFC-0152: Missing customerTB_ID or JWT token for operational indicators check');
+      return { showOperationalPanels: false };
+    }
+
+    try {
+      if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
+        const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+        const showOperationalPanels = attrs?.['show-indicators-operational-panels'] === 'true';
+
+        LogHelper.log('RFC-0152: Operational indicators access:', showOperationalPanels);
+
+        // Update MyIOUtils with operational indicators state
+        if (window.MyIOUtils) {
+          window.MyIOUtils.operationalIndicators = {
+            enabled: showOperationalPanels,
+          };
+        }
+
+        // Dispatch event for Menu component to react
+        window.dispatchEvent(
+          new CustomEvent('myio:operational-indicators-access', {
+            detail: { enabled: showOperationalPanels },
+          })
+        );
+
+        return { showOperationalPanels };
+      }
+    } catch (error) {
+      LogHelper.error('RFC-0152: Failed to fetch operational indicators access:', error);
+    }
+
+    return { showOperationalPanels: false };
   };
 
   // RFC-0093: Centralized Header CSS
@@ -2187,7 +2248,10 @@ body.filter-modal-open { overflow: hidden !important; }
 
     LogHelper.log('Device stats by ownerName:', Object.fromEntries(statsByOwnerName));
 
-    return DEFAULT_SHOPPING_CARDS.map((card) => {
+    // Use current shopping cards (from datasource) with fallback to defaults
+    const baseCards = _currentShoppingCards || DEFAULT_SHOPPING_CARDS;
+
+    return baseCards.map((card) => {
       if (!card.title) {
         LogHelper.log('Card has no title, skipping');
         return card;
@@ -2302,6 +2366,10 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0120: Theme state for child widgets
     currentThemeMode: currentThemeMode,
     getThemeMode: () => currentThemeMode,
+    // RFC-0152: Operational Indicators feature gating
+    operationalIndicators: {
+      enabled: false, // Will be set after attribute check
+    },
   };
 
   // RFC-0121: Helper to apply background to page and all relevant containers
@@ -2386,12 +2454,16 @@ body.filter-modal-open { overflow: hidden !important; }
   // Fetch credentials from ThingsBoard
   await fetchCredentialsFromThingsBoard();
 
+  // RFC-0152: Fetch Operational Indicators access
+  await fetchOperationalIndicatorsAccess();
+
   // === 3. EXTRACT WELCOME CONFIG FROM SETTINGS ===
   const welcomeConfig = {
     enableDebugMode: settings.enableDebugMode,
     defaultHeroTitle: settings.defaultHeroTitle,
     defaultHeroDescription: settings.defaultHeroDescription,
     defaultPrimaryLabel: settings.defaultPrimaryLabel,
+    defaultShortcutsTitle: settings.defaultShortcutsTitle,
     darkMode: settings.darkMode || {},
     lightMode: settings.lightMode || {},
   };
@@ -2411,13 +2483,17 @@ body.filter-modal-open { overflow: hidden !important; }
   const userInfo = userInfoRaw ? { fullName: userInfoRaw.name, email: userInfoRaw.email } : null;
   LogHelper.log('User info fetched:', userInfo);
 
+  // Build shopping cards from datasource with fallback to DEFAULT_SHOPPING_CARDS
+  _currentShoppingCards = buildShoppingCardsFromDatasource(self.ctx.data || []);
+  LogHelper.log('Initial shopping cards:', _currentShoppingCards.length, 'cards');
+
   const welcomeModal = MyIOLibrary.openWelcomeModal({
     ctx: self.ctx,
     themeMode: currentThemeMode,
     showThemeToggle: true,
     showUserMenu: true, // Explicitly enable user menu
     configTemplate: welcomeConfig,
-    shoppingCards: DEFAULT_SHOPPING_CARDS, // Initial with zeros, updated async below
+    shoppingCards: _currentShoppingCards, // From datasource or fallback to defaults
     cardVersion: 'v1', // Use original card style (not Metro UI v2)
     userInfo: userInfo, // Pass user info for display
     ctaLabel: welcomeConfig.defaultPrimaryLabel || 'ACESSAR PAINEL',
@@ -2429,6 +2505,7 @@ body.filter-modal-open { overflow: hidden !important; }
     showTempValue: false,
     countSizeMultiplier: 2,
     showFontSizeSlider: true,
+    entityLabel: settings.goalsEntityLabel || 'shopping',
     onThemeChange: (newTheme) => {
       currentThemeMode = newTheme;
       applyGlobalTheme(newTheme);
@@ -2542,6 +2619,9 @@ body.filter-modal-open { overflow: hidden !important; }
       ctx: self.ctx,
       themeMode: currentThemeMode,
       logoUrl: settings.darkMode?.logoUrl || settings.lightMode?.logoUrl,
+      configTemplate: {
+        logoBackgroundColor: settings.logoBackgroundColor,
+      },
       cardColors: {
         equipment: {
           background: settings.cardEquipamentosBackgroundColor,
@@ -2742,7 +2822,10 @@ body.filter-modal-open { overflow: hidden !important; }
   let telemetryGridInstance = null;
   let energyPanelInstance = null; // RFC-0132: Energy panel instance
   let waterPanelInstance = null; // RFC-0133: Water panel instance
-  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel'
+  let operationalGridInstance = null; // RFC-0152 Phase 3: Operational equipment grid instance
+  let operationalDashboardInstance = null; // RFC-0152 Phase 5: Operational dashboard instance
+  let alarmsNotificationsPanelInstance = null; // RFC-0152 Phase 4: Alarms notifications panel instance
+  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel' | 'operational-grid' | 'operational-dashboard' | 'alarms-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
 
@@ -2756,6 +2839,7 @@ body.filter-modal-open { overflow: hidden !important; }
         tabSelecionadoFontColor: settings.tabSelecionadoFontColor || '#F2F2F2',
         tabNaoSelecionadoBackgroundColor: settings.tabNaoSelecionadoBackgroundColor || '#FFFFFF',
         tabNaoSelecionadoFontColor: settings.tabNaoSelecionadoFontColor || '#1C2743',
+        shoppingFilterLabel: settings.shoppingFilterLabel,
         enableDebugMode: settings.enableDebugMode,
       },
       initialTab: DOMAIN_ENERGY,
@@ -3264,6 +3348,31 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0132/RFC-0133: Update panel themes
     if (energyPanelInstance) energyPanelInstance.setTheme?.(themeMode);
     if (waterPanelInstance) waterPanelInstance.setTheme?.(themeMode);
+    // RFC-0152: Update operational component themes
+    if (operationalDashboardInstance) operationalDashboardInstance.setThemeMode?.(themeMode);
+    if (alarmsNotificationsPanelInstance) alarmsNotificationsPanelInstance.setThemeMode?.(themeMode);
+    if (operationalGridInstance) operationalGridInstance.setThemeMode?.(themeMode);
+  });
+
+  // === RFC-0152: LISTEN FOR MENU NAVIGATION TO OPERATIONAL PANELS ===
+  window.addEventListener('myio:switch-main-state', (e) => {
+    // MenuController sends targetStateId, not stateId
+    const stateId = e.detail?.targetStateId || e.detail?.stateId || '';
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: switch-main-state received:', stateId);
+
+    const telemetryContainer = document.getElementById('telemetryGridContainer');
+    if (!telemetryContainer) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0152: telemetryGridContainer not found');
+      return;
+    }
+
+    if (stateId === 'operational_dashboard') {
+      renderOperationalDashboard(telemetryContainer);
+    } else if (stateId === 'operational_general_list') {
+      renderOperationalGeneralList(telemetryContainer);
+    } else if (stateId === 'operational_alarms') {
+      renderAlarmsNotificationsPanel(telemetryContainer);
+    }
   });
 
   // === 12. Issue 6 fix: LISTEN FOR CARD ACTIONS (dashboard/report/settings) ===
@@ -3344,6 +3453,8 @@ body.filter-modal-open { overflow: hidden !important; }
             deviceProfile: device.deviceProfile,
             customerName: device.customerName,
             customerId: device.customerId, // RFC-0080: Required for GLOBAL mapInstantaneousPower fetch
+            // RFC-0171: Pass userEmail for superadmin check (allows editing identifier field)
+            userEmail: window.MyIOUtils?.currentUserEmail || null,
             connectionData: {
               centralName: device.centralName || device.customerName,
               connectionStatusTime: device.lastConnectTime,
@@ -3550,6 +3661,7 @@ body.filter-modal-open { overflow: hidden !important; }
         },
         shoppingList: shoppingList,
         locale: 'pt-BR',
+        entityLabel: settings.goalsEntityLabel || 'Shopping',
         onSave: async (goalsData) => {
           LogHelper.log('[MAIN_UNIQUE] Goals saved:', goalsData?.version);
           window.dispatchEvent(
@@ -3671,7 +3783,8 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!document.getElementById('myio-menu-busy-style')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'myio-menu-busy-style';
-      styleEl.textContent = '@keyframes myioMenuSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
+      styleEl.textContent =
+        '@keyframes myioMenuSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
       document.head.appendChild(styleEl);
     }
 
@@ -3823,8 +3936,12 @@ body.filter-modal-open { overflow: hidden !important; }
 
     showMenuBusy(tabId, 'Carregando dados...');
 
-    // RFC-0132/RFC-0133: Check if this is a panel view request
-    if (contextId === 'energy_general') {
+    // RFC-0175: Operational tab is handled exclusively via myio:switch-main-state listener
+    // (renderOperationalGeneralList / renderAlarmsNotificationsPanel / renderOperationalDashboard)
+    if (tabId === 'operational') {
+      hideMenuBusy();
+    } else if (contextId === 'energy_general') {
+      // RFC-0132/RFC-0133: Check if this is a panel view request
       // Show Energy Panel in telemetryGridContainer
       LogHelper.log('[MAIN_UNIQUE] Switching to Energy Panel view');
       switchToEnergyPanel(telemetryContainer);
@@ -3866,6 +3983,11 @@ body.filter-modal-open { overflow: hidden !important; }
     if (waterPanelInstance) {
       waterPanelInstance.destroy?.();
       waterPanelInstance = null;
+    }
+    // RFC-0152: Destroy operational grid if exists
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
     }
 
     // If energy panel already exists, just return
@@ -3933,6 +4055,11 @@ body.filter-modal-open { overflow: hidden !important; }
       energyPanelInstance.destroy?.();
       energyPanelInstance = null;
     }
+    // RFC-0152: Destroy operational grid if exists
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
+    }
 
     // If water panel already exists, just return
     if (waterPanelInstance) {
@@ -3985,6 +4112,586 @@ body.filter-modal-open { overflow: hidden !important; }
     }
   }
 
+  // RFC-0152 Phase 3: Switch to Operational Equipment Grid view
+  function switchToOperationalGrid(container, contextId, target) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: switchToOperationalGrid called, context:', contextId);
+
+    // Destroy other views
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+
+    // If operational grid already exists, just return
+    if (operationalGridInstance) {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational Grid already active');
+      return;
+    }
+
+    container.innerHTML = '';
+
+    if (MyIOLibrary.createOperationalGeneralListComponent) {
+      // Generate mock equipment data for now (will be replaced with real API data later)
+      const mockEquipment = generateMockOperationalEquipment();
+      const normalizedEquipment = mockEquipment.map((eq) => ({
+        ...eq,
+        status: eq.status === 'warning' ? 'maintenance' : eq.status,
+      }));
+
+      const customers = Array.from(
+        normalizedEquipment.reduce((map, eq) => {
+          const id = eq.customerId || eq.customerName;
+          if (id && eq.customerName) {
+            map.set(id, eq.customerName);
+          }
+          return map;
+        }, new Map())
+      ).map(([id, name]) => ({ id, name }));
+
+      operationalGridInstance = MyIOLibrary.createOperationalGeneralListComponent({
+        container: container,
+        themeMode: currentThemeMode,
+        enableDebugMode: settings.enableDebugMode,
+        equipment: normalizedEquipment,
+        enableSelection: true,
+        enableDragDrop: true,
+        customers: customers,
+
+        onCardClick: (equipment) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Equipment clicked:', equipment.name);
+        },
+
+        onFilterChange: (filters) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational list filters changed:', filters);
+        },
+
+        onStatsUpdate: (stats) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational list stats updated:', stats);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: Operational General List created successfully');
+    } else {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">OperationalGeneralList component not available</div>';
+      LogHelper.log('[MAIN_UNIQUE] RFC-0152: createOperationalGeneralListComponent not found in MyIOLibrary');
+    }
+  }
+
+  // RFC-0175: Map DeviceAvailability API response to OperationalEquipment[]
+  function mapAvailabilityToEquipment(byDevice) {
+    return (byDevice || []).map((d) => ({
+      id: d.deviceId,
+      name: d.deviceName,
+      identifier: d.deviceName,
+      type:
+        d.deviceType === 'ESCADA_ROLANTE' ? 'escada'
+        : d.deviceType === 'ELEVADOR' ? 'elevador'
+        : 'other',
+      status: d.status || 'offline',
+      customerId: d.customerId || '',
+      customerName: d.customerName || '',
+      location: d.location || '',
+      availability: d.availability ?? 0,
+      mtbf: d.mtbf ?? 0,
+      mttr: d.mttr ?? 0,
+      hasReversal: d.hasReversal ?? false,
+      recentAlerts: d.recentAlarmCount ?? 0,
+      openAlarms: d.openAlarmCount ?? 0,
+      lastActivityTime: d.lastActivityAt ? new Date(d.lastActivityAt).getTime() : undefined,
+      lastMaintenanceTime: d.lastMaintenanceAt ? new Date(d.lastMaintenanceAt).getTime() : undefined,
+    }));
+  }
+
+  // RFC-0152 Phase 3: Generate mock operational equipment data
+  function generateMockOperationalEquipment() {
+    const shoppingNames = [
+      'Mestre Alvaro',
+      'Mont Serrat',
+      'Moxuara',
+      'Rio Poty',
+      'Shopping da Ilha',
+      'Metropole Para',
+    ];
+    const types = ['escada', 'elevador'];
+    const statuses = ['online', 'offline', 'maintenance', 'warning'];
+    const locations = ['Piso 1', 'Piso 2', 'Piso 3', 'Torre A', 'Torre B', 'Bloco Central'];
+
+    const equipment = [];
+
+    shoppingNames.forEach((shopping, si) => {
+      // Generate 2-4 escalators per shopping
+      const escCount = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < escCount; i++) {
+        equipment.push({
+          id: `esc-${si}-${i}`,
+          name: `ESC-${String(i + 1).padStart(2, '0')}`,
+          identifier: `ESC-${shopping.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(2, '0')}`,
+          type: 'escada',
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          customerId: `customer-${si}`,
+          customerName: shopping,
+          location: locations[Math.floor(Math.random() * locations.length)],
+          availability: 75 + Math.floor(Math.random() * 25),
+          mtbf: 100 + Math.floor(Math.random() * 400),
+          mttr: 1 + Math.floor(Math.random() * 8),
+          hasReversal: Math.random() < 0.1,
+          recentAlerts: Math.floor(Math.random() * 5),
+          openAlarms: Math.floor(Math.random() * 3),
+        });
+      }
+
+      // Generate 1-3 elevators per shopping
+      const elvCount = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < elvCount; i++) {
+        equipment.push({
+          id: `elv-${si}-${i}`,
+          name: `ELV-${String(i + 1).padStart(2, '0')}`,
+          identifier: `ELV-${shopping.substring(0, 3).toUpperCase()}-${String(i + 1).padStart(2, '0')}`,
+          type: 'elevador',
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          customerId: `customer-${si}`,
+          customerName: shopping,
+          location: locations[Math.floor(Math.random() * locations.length)],
+          availability: 80 + Math.floor(Math.random() * 20),
+          mtbf: 200 + Math.floor(Math.random() * 500),
+          mttr: 2 + Math.floor(Math.random() * 6),
+          hasReversal: false,
+          recentAlerts: Math.floor(Math.random() * 3),
+          openAlarms: Math.floor(Math.random() * 2),
+        });
+      }
+    });
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Generated', equipment.length, 'mock equipment items');
+    return equipment;
+  }
+
+  // RFC-0152 Phase 5: Render Operational Dashboard
+  // RFC-0175 Phase 5: Render Operational Dashboard with real data
+  async function renderOperationalDashboard(container) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalDashboard called');
+
+    // Destroy other views
+    destroyAllPanels();
+
+    if (!MyIOLibrary?.createOperationalDashboardComponent) {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">OperationalDashboard component not available</div>';
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createOperationalDashboardComponent not found in MyIOLibrary');
+      return;
+    }
+
+    container.innerHTML = '';
+    currentViewMode = 'operational-dashboard';
+
+    const defaultKPIs = {
+      fleetAvailability: 0,
+      availabilityTrend: 0,
+      fleetMTBF: 0,
+      fleetMTTR: 0,
+      totalEquipment: 0,
+      onlineCount: 0,
+      offlineCount: 0,
+      maintenanceCount: 0,
+    };
+
+    operationalDashboardInstance = MyIOLibrary.createOperationalDashboardComponent({
+      container,
+      themeMode: currentThemeMode,
+      enableDebugMode: settings.enableDebugMode,
+      initialPeriod: 'month',
+      kpis: defaultKPIs,
+      trendData: [],
+      downtimeList: [],
+      onPeriodChange: async (period) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Dashboard period changed:', period);
+        await fetchAndUpdateDashboard(period);
+      },
+      onRefresh: async () => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Dashboard refresh requested');
+        const period = operationalDashboardInstance?.getPeriod?.() || 'month';
+        MyIOLibrary.AlarmService?.clearCache?.();
+        await fetchAndUpdateDashboard(period);
+      },
+    });
+
+    // Initial data fetch
+    await fetchAndUpdateDashboard('month');
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: Operational Dashboard rendered');
+  }
+
+  // RFC-0175: Fetch real data and update the dashboard
+  async function fetchAndUpdateDashboard(period) {
+    const alarmService = MyIOLibrary?.AlarmService;
+    const tenantId = CUSTOMER_ING_ID;
+
+    if (!alarmService || !tenantId) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService or tenantId not available — using TB data only');
+      _updateDashboardFromTBOnly();
+      return;
+    }
+
+    try {
+      operationalDashboardInstance?.setLoading?.(true);
+
+      // Map UI period to API parameters
+      const apiPeriod = { today: 'day', week: 'week', month: 'month', quarter: 'month' }[period] || 'month';
+      const groupBy = { today: 'hour', week: 'day', month: 'day', quarter: 'week' }[period] || 'day';
+
+      const [alarmStats, trendData, topOffenders] = await Promise.all([
+        alarmService.getAlarmStats(tenantId, apiPeriod),
+        alarmService.getAlarmTrend(tenantId, apiPeriod, groupBy),
+        alarmService.getTopDowntime(tenantId, new Map(), 5),
+      ]);
+
+      // Compute fleet KPIs from TB device cache + alarm stats
+      const classifiedDevices = _cachedClassified || [];
+      const operationalDevices = classifiedDevices.filter((d) => {
+        const cat = MyIOLibrary.classifyEquipment?.(d);
+        return cat === 'escadas_rolantes' || cat === 'elevadores';
+      });
+
+      const total = operationalDevices.length;
+      const onlineCount = operationalDevices.filter((d) => {
+        const s = MyIOLibrary.calculateDeviceStatusMasterRules?.(d) || '';
+        return ['power_on', 'online', 'normal', 'ok', 'running', 'active'].includes(s);
+      }).length;
+      const offlineCount = total - onlineCount;
+
+      const kpis = {
+        fleetAvailability: total > 0 ? (onlineCount / total) * 100 : 0,
+        availabilityTrend: 0,
+        fleetMTBF: alarmStats.total > 0 ? Math.round((720 / alarmStats.total) * total) : 720,
+        fleetMTTR: 0,
+        totalEquipment: total,
+        onlineCount,
+        offlineCount,
+        maintenanceCount: 0,
+      };
+
+      operationalDashboardInstance?.updateKPIs?.(kpis);
+      if (trendData?.length) operationalDashboardInstance?.updateTrendData?.(trendData);
+      if (topOffenders?.length) operationalDashboardInstance?.updateDowntimeList?.(topOffenders);
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Dashboard updated — period:', period, 'total:', total);
+    } catch (error) {
+      LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch dashboard data:', error);
+      _updateDashboardFromTBOnly();
+    } finally {
+      operationalDashboardInstance?.setLoading?.(false);
+    }
+  }
+
+  // RFC-0175: Fallback — populate dashboard using only ThingsBoard device data
+  function _updateDashboardFromTBOnly() {
+    const classifiedDevices = _cachedClassified || [];
+    const operationalDevices = classifiedDevices.filter((d) => {
+      const cat = MyIOLibrary.classifyEquipment?.(d);
+      return cat === 'escadas_rolantes' || cat === 'elevadores';
+    });
+
+    const total = operationalDevices.length;
+    const onlineCount = operationalDevices.filter((d) => {
+      const s = MyIOLibrary.calculateDeviceStatusMasterRules?.(d) || '';
+      return ['power_on', 'online', 'normal', 'ok', 'running', 'active'].includes(s);
+    }).length;
+
+    operationalDashboardInstance?.updateKPIs?.({
+      fleetAvailability: total > 0 ? (onlineCount / total) * 100 : 0,
+      availabilityTrend: 0,
+      fleetMTBF: 0,
+      fleetMTTR: 0,
+      totalEquipment: total,
+      onlineCount,
+      offlineCount: total - onlineCount,
+      maintenanceCount: 0,
+    });
+  }
+
+  // RFC-0175: Render Operational General List with real data from Alarms Backend
+  async function renderOperationalGeneralList(container) {
+    if (!container) return;
+
+    // Guard: prevent concurrent async renders triggered by duplicate myio:switch-main-state events
+    if (_isRenderingOperationalGrid) {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList already in progress, skipping duplicate call');
+      return;
+    }
+    _isRenderingOperationalGrid = true;
+
+    try {
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList called');
+
+      // Destroy other views
+      destroyAllPanels();
+
+      if (!MyIOLibrary?.createDeviceOperationalCardGridComponent) {
+        container.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+        return;
+      }
+
+      container.innerHTML = '';
+      currentViewMode = 'operational-grid';
+
+      // Show loading message while fetching
+      container.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#94a3b8;font-size:14px;">Carregando dados de disponibilidade...</div>';
+
+      const customerId = CUSTOMER_ING_ID;
+
+      if (!customerId) {
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: CUSTOMER_ING_ID not set — cannot fetch availability data');
+        container.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#94a3b8;">ID do cliente não configurado. Verifique as credenciais.</div>';
+        return;
+      }
+
+      const alarmService = MyIOLibrary?.AlarmService;
+      if (!alarmService) {
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService not available in MyIOLibrary');
+        container.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#94a3b8;">AlarmService não disponível.</div>';
+        return;
+      }
+
+      // Last 30 days rolling window
+      const now = new Date();
+      const endAt = now.toISOString();
+      const startAt = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Fetching availability for customer:', customerId);
+      const response = await alarmService.getAvailability(customerId, startAt, endAt);
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Received', response.byDevice?.length ?? 0, 'devices');
+
+      const equipment = mapAvailabilityToEquipment(response.byDevice);
+
+      const customers = Array.from(
+        equipment.reduce((map, eq) => {
+          const id = eq.customerId || eq.customerName;
+          if (id && eq.customerName) map.set(id, eq.customerName);
+          return map;
+        }, new Map())
+      ).map(([id, name]) => ({ id, name }));
+
+      container.innerHTML = '';
+
+      operationalGridInstance = MyIOLibrary.createDeviceOperationalCardGridComponent({
+        container,
+        themeMode: currentThemeMode,
+        enableDebugMode: settings.enableDebugMode,
+        equipment,
+        customers,
+        includeSearch: true,
+        includeFilters: true,
+        includeStats: true,
+        enableSelection: true,
+        enableDragDrop: true,
+        onEquipmentClick: (eq) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0175: Equipment clicked:', eq.name);
+        },
+        onEquipmentAction: (action, eq) => {
+          LogHelper.log('[MAIN_UNIQUE] RFC-0175: Equipment action:', action, eq.name);
+        },
+      });
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Operational General List rendered with', equipment.length, 'devices');
+    } catch (err) {
+      LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch availability data:', err);
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#ef4444;">Erro ao carregar dados de disponibilidade. Tente novamente.</div>';
+    } finally {
+      _isRenderingOperationalGrid = false;
+    }
+  }
+
+  // RFC-0175 Phase 4: Render Alarms & Notifications Panel with real data
+  async function renderAlarmsNotificationsPanel(container) {
+    if (!container) return;
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderAlarmsNotificationsPanel called');
+
+    // Destroy other views
+    destroyAllPanels();
+
+    if (!MyIOLibrary?.createAlarmsNotificationsPanelComponent) {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">AlarmsNotificationsPanel component not available</div>';
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createAlarmsNotificationsPanelComponent not found in MyIOLibrary');
+      return;
+    }
+
+    container.innerHTML = '';
+    currentViewMode = 'alarms-panel';
+
+    const userEmail = window.MyIOUtils?.currentUser?.email || 'unknown';
+
+    // Create component with empty data — real data fetched async below
+    alarmsNotificationsPanelInstance = MyIOLibrary.createAlarmsNotificationsPanelComponent({
+      container,
+      themeMode: currentThemeMode,
+      enableDebugMode: settings.enableDebugMode,
+      alarms: [],
+      onAlarmClick: (alarm) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm clicked:', alarm.title || alarm.id);
+      },
+      onAlarmAction: async (action, alarm) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm action:', action, alarm.id);
+        const alarmService = MyIOLibrary?.AlarmService;
+        if (alarmService) {
+          try {
+            if (action === 'acknowledge') await alarmService.acknowledgeAlarm(alarm.id, userEmail);
+            else if (action === 'snooze') await alarmService.silenceAlarm(alarm.id, userEmail, '4h');
+            else if (action === 'escalate') await alarmService.escalateAlarm(alarm.id, userEmail);
+            else if (action === 'close') await alarmService.closeAlarm(alarm.id, userEmail);
+            // Refresh alarm list after action
+            await fetchAndUpdateAlarms();
+          } catch (err) {
+            LogHelper.error('[MAIN_UNIQUE] RFC-0175: Alarm action failed:', err);
+          }
+        }
+      },
+      onTabChange: (tab) => {
+        LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm tab changed:', tab);
+      },
+    });
+
+    // Fetch real data
+    await fetchAndUpdateAlarms();
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarms & Notifications Panel rendered');
+  }
+
+  // RFC-0175: Fetch real alarm data and update the panel
+  async function fetchAndUpdateAlarms() {
+    const alarmService = MyIOLibrary?.AlarmService;
+
+    if (!alarmService) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService not available — using mock alarms');
+      const mockAlarms = generateMockAlarms();
+      alarmsNotificationsPanelInstance?.updateAlarms?.(mockAlarms);
+      return;
+    }
+
+    try {
+      alarmsNotificationsPanelInstance?.setLoading?.(true);
+      const tenantId = CUSTOMER_ING_ID;
+
+      // RFC-0178: getAlarms now returns { data, summary }; summary replaces separate getAlarmStats
+      const [response, trend] = await Promise.all([
+        alarmService.getAlarms({
+          state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
+          limit:      500,
+          customerId: tenantId || undefined,
+        }),
+        tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),
+      ]);
+
+      const alarms  = response.data;
+      const summary = response.summary;
+
+      alarmsNotificationsPanelInstance?.updateAlarms?.(alarms);
+      if (summary) alarmsNotificationsPanelInstance?.updateStats?.(summary);
+      if (trend?.length) alarmsNotificationsPanelInstance?.updateTrendData?.(trend);
+
+      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm panel updated with', alarms.length, 'alarms');
+    } catch (error) {
+      LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch alarms:', error);
+      // Fallback to mock on error
+      const mockAlarms = generateMockAlarms();
+      alarmsNotificationsPanelInstance?.updateAlarms?.(mockAlarms);
+    } finally {
+      alarmsNotificationsPanelInstance?.setLoading?.(false);
+    }
+  }
+
+  // RFC-0152: Generate mock alarms data
+  function generateMockAlarms() {
+    const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const states = ['OPEN', 'ACK', 'SNOOZED']; // RFC-0152: Fixed - use 'ACK' not 'ACKNOWLEDGED'
+    const shoppingNames = ['Mestre Alvaro', 'Mont Serrat', 'Moxuara', 'Rio Poty', 'Shopping da Ilha'];
+    const alarmTitles = [
+      'Falha no motor',
+      'Temperatura elevada',
+      'Vibração anormal',
+      'Erro de comunicação',
+      'Manutenção necessária',
+      'Sobrecarga detectada',
+      'Reversão inesperada',
+    ];
+    const tagTypes = ['elevador', 'escada_rolante', 'hvac', 'iluminacao', 'bomba'];
+
+    const alarms = [];
+    const count = 10 + Math.floor(Math.random() * 10);
+
+    for (let i = 0; i < count; i++) {
+      const now = Date.now();
+      const createdAt = new Date(now - Math.random() * 7 * 24 * 60 * 60 * 1000);
+      const customerName = shoppingNames[Math.floor(Math.random() * shoppingNames.length)];
+
+      alarms.push({
+        id: `alarm-${i}`,
+        customerId: `customer-${Math.floor(Math.random() * 5)}`, // RFC-0152: Required field
+        customerName: customerName,
+        title: alarmTitles[Math.floor(Math.random() * alarmTitles.length)],
+        description: 'Detalhes do alarme detectado pelo sistema de monitoramento.',
+        severity: severities[Math.floor(Math.random() * severities.length)],
+        state: states[Math.floor(Math.random() * states.length)],
+        source: `${Math.random() < 0.5 ? 'ESC' : 'ELV'}-${String(Math.floor(Math.random() * 20) + 1).padStart(2, '0')}`,
+        tags: { type: tagTypes[Math.floor(Math.random() * tagTypes.length)] }, // RFC-0152: Required field
+        firstOccurrence: createdAt.toISOString(),
+        lastOccurrence: new Date(createdAt.getTime() + Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+        occurrenceCount: 1 + Math.floor(Math.random() * 10),
+      });
+    }
+
+    LogHelper.log('[MAIN_UNIQUE] RFC-0152: Generated', alarms.length, 'mock alarms');
+    return alarms;
+  }
+
+  // RFC-0152: Destroy all panels helper
+  function destroyAllPanels() {
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
+    }
+    if (operationalDashboardInstance) {
+      operationalDashboardInstance.destroy?.();
+      operationalDashboardInstance = null;
+    }
+    if (alarmsNotificationsPanelInstance) {
+      alarmsNotificationsPanelInstance.destroy?.();
+      alarmsNotificationsPanelInstance = null;
+    }
+  }
+
   // Switch back to Telemetry Grid view
   function switchToTelemetryGrid(container, tabId, contextId, target) {
     if (!container) return;
@@ -3997,6 +4704,21 @@ body.filter-modal-open { overflow: hidden !important; }
     if (waterPanelInstance) {
       waterPanelInstance.destroy?.();
       waterPanelInstance = null;
+    }
+    // RFC-0152: Destroy operational grid if exists
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
+    }
+    // RFC-0152: Destroy operational dashboard if exists
+    if (operationalDashboardInstance) {
+      operationalDashboardInstance.destroy?.();
+      operationalDashboardInstance = null;
+    }
+    // RFC-0152: Destroy alarms panel if exists
+    if (alarmsNotificationsPanelInstance) {
+      alarmsNotificationsPanelInstance.destroy?.();
+      alarmsNotificationsPanelInstance = null;
     }
 
     // Issue 8 fix: Map menu context to classified data key
@@ -4884,8 +5606,9 @@ function buildShoppingsEnergyBreakdown(classified) {
     const value = Number(device.value || device.consumption || 0);
 
     // Check if it's a store device (3F_MEDIDOR)
-    const deviceProfile = (device.deviceProfile || '').toUpperCase();
     const deviceType = (device.deviceType || '').toUpperCase();
+    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
+    const deviceProfile = (device.deviceProfile || device.deviceType || '').toUpperCase();
     const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
 
     if (isStore) {
@@ -5066,7 +5789,7 @@ function classifyAllDevices(data) {
   // Process each device with all its rows
   for (const rows of deviceRowsMap.values()) {
     const device = extractDeviceMetadataFromRows(rows);
-    const domain = window.MyIOLibrary.detectDomain(device);
+    const domain = window.MyIOLibrary.getDomainFromDeviceType(device.deviceType);
     const context = window.MyIOLibrary.detectContext(device, domain);
 
     if (classified[domain]?.[context]) {
@@ -5291,11 +6014,13 @@ function extractDeviceMetadataFromRows(rows) {
     centralName: dataKeyValues['centralName'] || '',
     slaveId: dataKeyValues['slaveId'] || '',
     centralId: dataKeyValues['centralId'] || '',
+    gcdrDeviceId: dataKeyValues['gcdrDeviceId'] || '', // RFC-0180: GCDR device UUID for Alarms tab
+    floor: dataKeyValues['floor'] || '',
 
     // Customer info
     customerId: dataKeyValues['customerId'] || datasource.entity?.customerId?.id || '',
-    customerName: dataKeyValues['customerName'] || dataKeyValues['ownerName'] || '',
-    ownerName: dataKeyValues['ownerName'] || '', // RFC-0111 FIX: Expose ownerName separately
+    customerName: cleanOwnerName(dataKeyValues['customerName'] || dataKeyValues['ownerName'] || ''),
+    ownerName: cleanOwnerName(dataKeyValues['ownerName'] || ''), // RFC-0111 FIX: Expose ownerName separately
 
     // Timestamps
     lastActivityTime: dataKeyValues['lastActivityTime'],
@@ -5505,6 +6230,75 @@ function buildShoppingsListFromAlias(data) {
     LogHelper.log('[buildShoppingsListFromAlias] Built shoppings list:', result.length, 'customers');
   }
   return result;
+}
+
+/**
+ * Build shopping cards from 'customers' datasource with fallback to DEFAULT_SHOPPING_CARDS
+ * Extracts: title, dashboardId, entityId, entityType, subtitle
+ * Cards without dashboardId are not clickable
+ */
+function buildShoppingCardsFromDatasource(data) {
+  const customerMap = new Map();
+
+  data.forEach((row) => {
+    const aliasName = row?.datasource?.aliasName || '';
+    // Check for 'Shopping' or 'customers' alias
+    if (aliasName === 'Shopping' || aliasName === 'customers') {
+      const entityId = row?.datasource?.entityId || '';
+      const entityLabel = row?.datasource?.entityLabel || '';
+      const entityType = row?.datasource?.entityType || 'CUSTOMER';
+      const dataKey = row?.dataKey?.name || '';
+      const latestValue = row?.data?.[row.data.length - 1]?.[1];
+
+      // Initialize customer card if not exists
+      if (entityId && !customerMap.has(entityId)) {
+        customerMap.set(entityId, {
+          title: entityLabel || 'Unknown',
+          subtitle: 'Dashboard Principal',
+          buttonId: `Shopping${entityLabel?.replace(/\s+/g, '') || entityId}`,
+          dashboardId: null, // Will be populated from dataKey
+          entityId: entityId,
+          entityType: entityType,
+          customerId: entityId,
+          ingestionId: null,
+          clickable: false, // Default false, set to true if dashboardId is found
+          deviceCounts: { energy: null, water: null, temperature: null },
+        });
+      }
+
+      // Update customer card with data key values
+      const card = customerMap.get(entityId);
+      if (card) {
+        if (dataKey === 'dashboardId' && latestValue) {
+          card.dashboardId = latestValue;
+          card.clickable = true; // Has dashboardId, so it's clickable
+        }
+        if (dataKey === 'ingestionId' && latestValue) {
+          card.ingestionId = latestValue;
+        }
+        if (dataKey === 'subtitle' && latestValue) {
+          card.subtitle = latestValue;
+        }
+      }
+    }
+  });
+
+  const cards = Array.from(customerMap.values());
+
+  if (cards.length > 0) {
+    LogHelper.log(
+      '[buildShoppingCardsFromDatasource] Built shopping cards from datasource:',
+      cards.length,
+      'cards'
+    );
+    return cards;
+  }
+
+  // Fallback to DEFAULT_SHOPPING_CARDS
+  LogHelper.log(
+    '[buildShoppingCardsFromDatasource] No customers in datasource, using DEFAULT_SHOPPING_CARDS'
+  );
+  return DEFAULT_SHOPPING_CARDS;
 }
 
 /**
@@ -5730,7 +6524,7 @@ async function enrichDevicesWithConsumption(classified) {
 
       if (res.ok) {
         const json = await res.json();
-        const rows = Array.isArray(json) ? json : json?.data ?? [];
+        const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
         LogHelper.log(`Energy API returned ${rows.length} rows`);
 
@@ -5777,7 +6571,7 @@ async function enrichDevicesWithConsumption(classified) {
 
       if (res.ok) {
         const json = await res.json();
-        const rows = Array.isArray(json) ? json : json?.data ?? [];
+        const rows = Array.isArray(json) ? json : (json?.data ?? []);
 
         LogHelper.log(`Water API returned ${rows.length} rows`);
 

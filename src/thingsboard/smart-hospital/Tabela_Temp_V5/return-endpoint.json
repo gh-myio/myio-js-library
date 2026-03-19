@@ -1,0 +1,5722 @@
+[
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "25.6985294117647059",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18.698529411764707
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "25.0156250000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18.015625
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "25.0220588235294118",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18.022058823529413
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "25.8540145985401460",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 18.854014598540147
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "26.2222222222222222",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 19.22222222222222
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "27.9055118110236220",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 20.905511811023622
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 44,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Cirurgia4",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "29.2564102564102564",
+    "deviceName": "Co2_CC_03",
+    "value": 21.256410256410255
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "29.9090909090909091",
+    "deviceName": "Co2_CC_03",
+    "value": 21.90909090909091
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "29.0489510489510490",
+    "deviceName": "Co2_CC_03",
+    "value": 21.04895104895105
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "28.5157232704402516",
+    "deviceName": "Co2_CC_03",
+    "value": 20.51572327044025
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "28.5212121212121212",
+    "deviceName": "Co2_CC_03",
+    "value": 20.52121212121212
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "28.1428571428571429",
+    "deviceName": "Co2_CC_03",
+    "value": 20.142857142857142
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "28.8375000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 20.8375
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "29.0382165605095541",
+    "deviceName": "Co2_CC_03",
+    "value": 21.038216560509554
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "29.9863013698630137",
+    "deviceName": "Co2_CC_03",
+    "value": 21.986301369863014
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "29.7839506172839506",
+    "deviceName": "Co2_CC_03",
+    "value": 21.78395061728395
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "28.8397435897435897",
+    "deviceName": "Co2_CC_03",
+    "value": 20.83974358974359
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 53,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CC_03",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "26.7741935483870968",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18.774193548387096
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "26.0196078431372549",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18.019607843137255
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "25.4571428571428571",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 17.457142857142856
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "25.0476190476190476",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 17.047619047619047
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "26.4590163934426230",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 18.459016393442624
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 74,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "27.3809523809523810",
+    "deviceName": "Co2_Sala_Vermelha_Adulto",
+    "value": 19.38095238095238
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "24.2187500000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.21875
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "24.0060606060606061",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.006060606060608
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "24.5493827160493827",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.549382716049383
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "24.9207317073170732",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.920731707317074
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "24.2345679012345679",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.234567901234566
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "24.7777777777777778",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.77777777777778
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 75,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "24.0062111801242236",
+    "deviceName": "Co2_Cirurgia1",
+    "value": 21.006211180124225
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "27.9743589743589744",
+    "deviceName": "Co2_Laboratorio",
+    "value": 21.974358974358974
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "27.9090909090909091",
+    "deviceName": "Co2_Laboratorio",
+    "value": 21.90909090909091
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "27.9782608695652174",
+    "deviceName": "Co2_Laboratorio",
+    "value": 21.97826086956522
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 80,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Laboratorio",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "26.7126436781609195",
+    "deviceName": "Co2_CTI_04",
+    "value": 21.71264367816092
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "26.4096385542168675",
+    "deviceName": "Co2_CTI_04",
+    "value": 21.40963855421687
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "26.4347826086956522",
+    "deviceName": "Co2_CTI_04",
+    "value": 21.434782608695652
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "26.2872340425531915",
+    "deviceName": "Co2_CTI_04",
+    "value": 21.28723404255319
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "25.0813953488372093",
+    "deviceName": "Co2_CTI_04",
+    "value": 20.08139534883721
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "25.8921568627450980",
+    "deviceName": "Co2_CTI_04",
+    "value": 20.892156862745097
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "25.5520833333333333",
+    "deviceName": "Co2_CTI_04",
+    "value": 20.552083333333332
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "25.9313725490196078",
+    "deviceName": "Co2_CTI_04",
+    "value": 20.931372549019606
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "25.7446808510638298",
+    "deviceName": "Co2_CTI_04",
+    "value": 20.74468085106383
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "26.4318181818181818",
+    "deviceName": "Co2_CTI_04",
+    "value": 21.431818181818183
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_04",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 84,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "27.4691358024691358",
+    "deviceName": "Co2_CTI_04",
+    "value": 22.469135802469136
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "21.9672131147540984",
+    "deviceName": "Co2_CTI_01",
+    "value": 19.9672131147541
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "21.9857142857142857",
+    "deviceName": "Co2_CTI_01",
+    "value": 19.985714285714284
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "21.3333333333333333",
+    "deviceName": "Co2_CTI_01",
+    "value": 19.333333333333332
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "21.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "21.0151515151515152",
+    "deviceName": "Co2_CTI_01",
+    "value": 19.015151515151516
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "21.7361111111111111",
+    "deviceName": "Co2_CTI_01",
+    "value": 19.73611111111111
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "21.9863013698630137",
+    "deviceName": "Co2_CTI_01",
+    "value": 19.986301369863014
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 88,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_CTI_01",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "22.5314685314685315",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.53146853146853
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "22.7702702702702703",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.77027027027027
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "22.8389261744966443",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.838926174496645
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "22.7042253521126761",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.704225352112676
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "22.6326530612244898",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.632653061224488
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "22.4068965517241379",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.406896551724138
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "22.4054054054054054",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.405405405405407
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "22.1666666666666667",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.166666666666668
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "22.2156862745098039",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.215686274509803
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "22.1654676258992806",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.165467625899282
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "22.1096774193548387",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.10967741935484
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "22.0347222222222222",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.03472222222222
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "22.0070422535211268",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.007042253521128
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "22.5625000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.5625
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "22.6197183098591549",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.619718309859156
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "22.1140939597315436",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.114093959731544
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "22.1548387096774194",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18.15483870967742
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 106,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia06",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "29.9473684210526316",
+    "deviceName": "CO2_RPA",
+    "value": 21.94736842105263
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "29.5306122448979592",
+    "deviceName": "CO2_RPA",
+    "value": 21.53061224489796
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "29.2112676056338028",
+    "deviceName": "CO2_RPA",
+    "value": 21.211267605633804
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "29.1052631578947368",
+    "deviceName": "CO2_RPA",
+    "value": 21.105263157894736
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "29.6333333333333333",
+    "deviceName": "CO2_RPA",
+    "value": 21.633333333333333
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "29.9930555555555556",
+    "deviceName": "CO2_RPA",
+    "value": 21.993055555555557
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "29.9852941176470588",
+    "deviceName": "CO2_RPA",
+    "value": 21.985294117647058
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "29.9863945578231293",
+    "deviceName": "CO2_RPA",
+    "value": 21.98639455782313
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "29.9064748201438849",
+    "deviceName": "CO2_RPA",
+    "value": 21.906474820143885
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "29.9626865671641791",
+    "deviceName": "CO2_RPA",
+    "value": 21.96268656716418
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 109,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "CO2_RPA",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "26.0838709677419355",
+    "deviceName": "CO2_CC02",
+    "value": 21.083870967741934
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "24.9526627218934911",
+    "deviceName": "CO2_CC02",
+    "value": 19.952662721893493
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "24.6060606060606061",
+    "deviceName": "CO2_CC02",
+    "value": 19.606060606060606
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "23.8012048192771084",
+    "deviceName": "CO2_CC02",
+    "value": 18.801204819277107
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "23.2873563218390805",
+    "deviceName": "CO2_CC02",
+    "value": 18.28735632183908
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "24.3410404624277457",
+    "deviceName": "CO2_CC02",
+    "value": 19.341040462427745
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "25.6625766871165644",
+    "deviceName": "CO2_CC02",
+    "value": 20.662576687116566
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "26.7058823529411765",
+    "deviceName": "CO2_CC02",
+    "value": 21.705882352941178
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "26.6400000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 21.64
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "23.8392857142857143",
+    "deviceName": "CO2_CC02",
+    "value": 18.839285714285715
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "22.9433962264150943",
+    "deviceName": "CO2_CC02",
+    "value": 17.943396226415093
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "22.2568306010928962",
+    "deviceName": "CO2_CC02",
+    "value": 17.256830601092897
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "23.5388601036269430",
+    "deviceName": "CO2_CC02",
+    "value": 18.53886010362694
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "24.8142076502732240",
+    "deviceName": "CO2_CC02",
+    "value": 19.814207650273225
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "24.6101694915254237",
+    "deviceName": "CO2_CC02",
+    "value": 19.610169491525422
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "23.8103448275862069",
+    "deviceName": "CO2_CC02",
+    "value": 18.810344827586206
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "25.0689655172413793",
+    "deviceName": "CO2_CC02",
+    "value": 20.06896551724138
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "24.8963414634146341",
+    "deviceName": "CO2_CC02",
+    "value": 19.896341463414632
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "25.4378698224852071",
+    "deviceName": "CO2_CC02",
+    "value": 20.437869822485208
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "25.5254237288135593",
+    "deviceName": "CO2_CC02",
+    "value": 20.52542372881356
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC02",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "25.5352941176470588",
+    "deviceName": "CO2_CC02",
+    "value": 20.53529411764706
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 111,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "26.1229050279329609",
+    "deviceName": "CO2_CC02",
+    "value": 21.122905027932962
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "26.6788321167883212",
+    "deviceName": "CO2_CC10",
+    "value": 21.67883211678832
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "25.6290322580645161",
+    "deviceName": "CO2_CC10",
+    "value": 20.629032258064516
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "25.0857142857142857",
+    "deviceName": "CO2_CC10",
+    "value": 20.085714285714285
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "25.0140845070422535",
+    "deviceName": "CO2_CC10",
+    "value": 20.014084507042252
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "24.9241379310344828",
+    "deviceName": "CO2_CC10",
+    "value": 19.924137931034483
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "24.1357142857142857",
+    "deviceName": "CO2_CC10",
+    "value": 19.135714285714286
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "24.0266666666666667",
+    "deviceName": "CO2_CC10",
+    "value": 19.026666666666667
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "24.8800000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 19.88
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 113,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "CO2_CC10",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "30.6134453781512605",
+    "deviceName": "Co2_CC05",
+    "value": 24.613445378151262
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "31.2820512820512821",
+    "deviceName": "Co2_CC05",
+    "value": 25.28205128205128
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "32.0808823529411765",
+    "deviceName": "Co2_CC05",
+    "value": 26.080882352941174
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 115,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "32.0000000000000000",
+    "deviceName": "Co2_CC05",
+    "value": 26
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "29.9767441860465116",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23.976744186046513
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "29.6724137931034483",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23.67241379310345
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "29.0070921985815603",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23.00709219858156
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "29.0077519379844961",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23.007751937984494
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 121,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_CME_SL01",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "27.0087719298245614",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21.00877192982456
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "27.0619469026548673",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21.061946902654867
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "27.1313131313131313",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21.13131313131313
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "27.9901960784313725",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 21.99019607843137
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 126,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CTI_Pediatrico",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "26.9420289855072464",
+    "deviceName": "Co2_CTI_03",
+    "value": 17.942028985507246
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "20.8039215686274510",
+    "deviceName": "Co2_CTI_03",
+    "value": 11.803921568627452
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "24.8730158730158730",
+    "deviceName": "Co2_CTI_03",
+    "value": 15.873015873015873
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "26.0156250000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 17.015625
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "26.2238805970149254",
+    "deviceName": "Co2_CTI_03",
+    "value": 17.223880597014926
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "26.7142857142857143",
+    "deviceName": "Co2_CTI_03",
+    "value": 17.714285714285715
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 128,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_CTI_03",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "28.4659090909090909",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22.46590909090909
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 130,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Hemodialise",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "27.0677966101694915",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19.06779661016949
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "26.9428571428571429",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.942857142857143
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "26.6875000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.6875
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "26.8333333333333333",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.833333333333332
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "26.6056338028169014",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.6056338028169
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "26.4347826086956522",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.434782608695652
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "26.0526315789473684",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.05263157894737
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "26.3125000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.3125
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "26.5555555555555556",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.555555555555557
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "26.5094339622641509",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.50943396226415
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "26.0540540540540541",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.054054054054053
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "26.1071428571428571",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.107142857142858
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "27.5074626865671642",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19.507462686567163
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "27.1029411764705882",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19.102941176470587
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "26.8867924528301887",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.88679245283019
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "26.4098360655737705",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.40983606557377
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "26.5932203389830508",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.593220338983052
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "26.5800000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.58
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "26.5890410958904110",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 18.589041095890412
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 135,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Sala_Vermelha_Infantil",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "28.8400000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.84
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "28.3461538461538462",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.346153846153847
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "28.4285714285714286",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.428571428571427
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "28.0937500000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.09375
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "28.0212765957446809",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.02127659574468
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "28.1250000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.125
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "28.7017543859649123",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.70175438596491
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "28.7234042553191489",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.72340425531915
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "28.9436619718309859",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.943661971830984
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "28.8170731707317073",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.817073170731707
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 24
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 137,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.8783783783783784",
+    "deviceName": "Co2_Agencia_Transfusional",
+    "value": 23.87837837837838
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "29.9740259740259740",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 22.974025974025974
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "30.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "28.9850746268656716",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21.98507462686567
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "27.7866666666666667",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 20.786666666666665
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "28.9538461538461538",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21.953846153846154
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "28.3620689655172414",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21.362068965517242
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "28.4905660377358491",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21.49056603773585
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "29.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "28.9411764705882353",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 21.941176470588236
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "26.3636363636363636",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 19.363636363636363
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "25.2678571428571429",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 18.267857142857142
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 140,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Farmácia_Satelite",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "20.2649572649572650",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.264957264957264
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "20.1219512195121951",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.121951219512194
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "20.0530973451327434",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.053097345132745
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "20.1304347826086957",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.130434782608695
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "20.2035398230088496",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.20353982300885
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "20.0725806451612903",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.072580645161292
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "20.1370967741935484",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.137096774193548
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "20.0344827586206897",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.03448275862069
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "20.1229508196721311",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.12295081967213
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "20.1048387096774194",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.10483870967742
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "20.0353982300884956",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.035398230088497
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "20.1130434782608696",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.11304347826087
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "20.0775862068965517",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.07758620689655
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "20.0373134328358209",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.03731343283582
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "20.0000000000000000",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "20.0000000000000000",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "19.9925925925925926",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 16.992592592592594
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "19.8000000000000000",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 16.8
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "19.9084507042253521",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 16.908450704225352
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "20.8769230769230769",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 17.876923076923077
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "21.6590909090909091",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 18.65909090909091
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "22.2615384615384615",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 19.26153846153846
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "22.8091603053435115",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 19.80916030534351
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "23.2406015037593985",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 20.2406015037594
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "23.7443609022556391",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 20.74436090225564
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 143,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "24.0416666666666667",
+    "deviceName": "Co2_Cirurgia8",
+    "value": 21.041666666666668
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "25.7031250000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 21.703125
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 144,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_CTI_02",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "28.7033898305084746",
+    "deviceName": "Co2_CAF",
+    "value": 21.703389830508474
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "28.9402985074626866",
+    "deviceName": "Co2_CAF",
+    "value": 21.940298507462686
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "28.4915254237288136",
+    "deviceName": "Co2_CAF",
+    "value": 21.491525423728813
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "28.3769230769230769",
+    "deviceName": "Co2_CAF",
+    "value": 21.376923076923077
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "28.8032786885245902",
+    "deviceName": "Co2_CAF",
+    "value": 21.80327868852459
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "28.9272727272727273",
+    "deviceName": "Co2_CAF",
+    "value": 21.927272727272726
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "28.5153846153846154",
+    "deviceName": "Co2_CAF",
+    "value": 21.515384615384615
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "28.0984848484848485",
+    "deviceName": "Co2_CAF",
+    "value": 21.098484848484848
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "28.0080645161290323",
+    "deviceName": "Co2_CAF",
+    "value": 21.008064516129032
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "28.2296296296296296",
+    "deviceName": "Co2_CAF",
+    "value": 21.22962962962963
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "28.1278195488721805",
+    "deviceName": "Co2_CAF",
+    "value": 21.127819548872182
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 149,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "28.0000000000000000",
+    "deviceName": "Co2_CAF",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "26.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 22
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 150,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "27.0000000000000000",
+    "deviceName": "Co2_Queimados",
+    "value": 23
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "22.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "21.8166666666666667",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18.816666666666666
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "21.3508771929824561",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18.350877192982455
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "21.0540540540540541",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18.054054054054053
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "21.0252100840336134",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18.025210084033613
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "21.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "21.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "21.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "21.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "21.8666666666666667",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 18.866666666666667
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "22.1370967741935484",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19.137096774193548
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "22.7027027027027027",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19.7027027027027
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "22.2480000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 19.248
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 155,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "23.0000000000000000",
+    "deviceName": "Co2_Cirurgia9",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T06:00:00.000Z",
+    "avg_value": "24.8582677165354331",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20.858267716535433
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T06:30:00.000Z",
+    "avg_value": "25.4057971014492754",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 21.405797101449277
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T07:00:00.000Z",
+    "avg_value": "24.7651515151515152",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20.765151515151516
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T07:30:00.000Z",
+    "avg_value": "24.5000000000000000",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20.5
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T08:00:00.000Z",
+    "avg_value": "24.5238095238095238",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20.523809523809526
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T08:30:00.000Z",
+    "avg_value": "24.4923076923076923",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20.49230769230769
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T09:00:00.000Z",
+    "avg_value": "23.9407407407407407",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 19.94074074074074
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T09:30:00.000Z",
+    "avg_value": "23.9785714285714286",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 19.978571428571428
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T10:00:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T10:30:00.000Z",
+    "avg_value": "24.0000000000000000",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T11:00:00.000Z",
+    "avg_value": "23.9838709677419355",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 19.983870967741936
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T11:30:00.000Z",
+    "avg_value": "24.0149253731343284",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 20.01492537313433
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T12:00:00.000Z",
+    "avg_value": "23.7372262773722628",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 19.73722627737226
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T12:30:00.000Z",
+    "avg_value": "23.4513888888888889",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 19.45138888888889
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T13:00:00.000Z",
+    "avg_value": "22.0588235294117647",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 18.058823529411764
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T13:30:00.000Z",
+    "avg_value": "21.6950354609929078",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.69503546099291
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T14:00:00.000Z",
+    "avg_value": "21.0070921985815603",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.00709219858156
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T14:30:00.000Z",
+    "avg_value": "21.3533834586466165",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.353383458646615
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T15:00:00.000Z",
+    "avg_value": "21.9139072847682119",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.91390728476821
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T15:30:00.000Z",
+    "avg_value": "21.9552238805970149",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.955223880597014
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T16:00:00.000Z",
+    "avg_value": "21.9145299145299145",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.914529914529915
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T16:30:00.000Z",
+    "avg_value": "21.8357142857142857",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 17.835714285714285
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T17:00:00.000Z",
+    "avg_value": "22.1344537815126050",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 18.134453781512605
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T17:30:00.000Z",
+    "avg_value": "23.8740740740740741",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 19.874074074074073
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T18:00:00.000Z",
+    "avg_value": "25.0000000000000000",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 21
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T18:30:00.000Z",
+    "avg_value": "25.9366197183098592",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 21.93661971830986
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T19:00:00.000Z",
+    "avg_value": "25.7421875000000000",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 21.7421875
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T19:30:00.000Z",
+    "avg_value": "25.9841269841269841",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 21.984126984126984
+  },
+  {
+    "reading_date": "2026-02-11T00:00:00.000Z",
+    "slave_id": 158,
+    "time_interval": "2026-02-11T20:00:00.000Z",
+    "avg_value": "26.1333333333333333",
+    "deviceName": "Co2_Cirurgia7_Apos_04_Fev_2026",
+    "value": 22.133333333333333
+  }
+]

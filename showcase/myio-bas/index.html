@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAIN_BAS — BAS Dashboard Widget Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Load 100% of MAIN_BAS styles -->
+  <link rel="stylesheet" href="../../src/thingsboard/bas-components/MAIN_BAS/styles.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    body.light-mode {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* ===== SHOWCASE LAYOUT ===== */
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .showcase-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #2F5848 0%, #1e3a2f 100%);
+      padding: 10px 20px;
+      border-bottom: 1px solid #3d7a62;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    body.light-mode .showcase-header {
+      background: linear-gradient(135deg, #2F5848 0%, #3d7a62 100%);
+      border-color: #1e3a2f;
+    }
+
+    .showcase-header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .showcase-header p {
+      color: #a7d4c0;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.ready { background: #166534; color: #86efac; }
+    .status-badge.running { background: #1d4ed8; color: #93c5fd; }
+    .status-badge.error { background: #7f1d1d; color: #fca5a5; }
+    .status-badge.stopped { background: #475569; color: #cbd5e1; }
+
+    /* ===== WIDGET AREA ===== */
+    .widget-area {
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .showcase-sidebar {
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body.light-mode .showcase-sidebar {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    /* ===== CONTROLS PANEL ===== */
+    .controls-panel {
+      padding: 12px;
+      border-bottom: 1px solid #334155;
+    }
+
+    body.light-mode .controls-panel { border-color: #e2e8f0; }
+
+    .controls-panel h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .controls-grid.cols-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .ctrl-btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid transparent;
+    }
+
+    .ctrl-btn.primary { background: #2F5848; color: white; }
+    .ctrl-btn.primary:hover { background: #3d7a62; }
+    .ctrl-btn.success { background: #16a34a; color: white; }
+    .ctrl-btn.success:hover { background: #15803d; }
+    .ctrl-btn.warning { background: #d97706; color: white; }
+    .ctrl-btn.warning:hover { background: #b45309; }
+    .ctrl-btn.danger { background: #dc2626; color: white; }
+    .ctrl-btn.danger:hover { background: #b91c1c; }
+    .ctrl-btn.secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border-color: #475569;
+    }
+    .ctrl-btn.secondary:hover { background: #334155; }
+    .ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    body.light-mode .ctrl-btn.secondary {
+      color: #475569;
+      border-color: #cbd5e1;
+    }
+
+    .ctrl-select {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    body.light-mode .ctrl-select {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #1e293b;
+    }
+
+    .ctrl-label {
+      font-size: 10px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .ctrl-group { margin-bottom: 6px; }
+
+    .ctrl-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+
+    body.light-mode .ctrl-checkbox { color: #1e293b; }
+
+    .ctrl-checkbox input {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* ===== EVENT LOG ===== */
+    .event-log-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px;
+    }
+
+    .event-log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .event-log-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .event-log-clear {
+      font-size: 10px;
+      color: #64748b;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: transparent;
+      border: none;
+    }
+    .event-log-clear:hover { background: #334155; color: #e2e8f0; }
+
+    .event-log {
+      flex: 1;
+      background: #0f172a;
+      border-radius: 6px;
+      padding: 6px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 10px;
+    }
+
+    body.light-mode .event-log {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .log-entry {
+      padding: 3px 6px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .log-entry:hover { background: #1e293b; }
+    body.light-mode .log-entry:hover { background: #e2e8f0; }
+
+    .log-time { color: #64748b; min-width: 55px; flex-shrink: 0; }
+    .log-event { color: #22c55e; min-width: 110px; font-weight: 500; flex-shrink: 0; }
+    .log-entry.error .log-event { color: #f87171; }
+    .log-entry.warn .log-event { color: #fbbf24; }
+    .log-entry.info .log-event { color: #60a5fa; }
+    .log-data { color: #94a3b8; word-break: break-all; flex: 1; }
+
+    /* ===== STATE PANEL ===== */
+    .state-panel {
+      border-top: 1px solid #334155;
+      max-height: 180px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.light-mode .state-panel { border-color: #e2e8f0; }
+
+    .state-header {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      background: #0f172a;
+    }
+
+    body.light-mode .state-header { background: #f1f5f9; }
+
+    .state-header h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .state-toggle { font-size: 11px; color: #64748b; }
+
+    .state-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 12px;
+    }
+
+    .state-content pre {
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 9px;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .showcase-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      .showcase-sidebar {
+        border-left: none;
+        border-top: 1px solid #334155;
+        max-height: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-layout">
+    <!-- Header -->
+    <header class="showcase-header">
+      <div>
+        <h1>MAIN_BAS — BAS Dashboard Widget</h1>
+        <p>RFC-0158/0160/0165/0168/0173 — EntityListPanel · CardGridPanel (ambiente) · ConsumptionChartWidget · CardV6</p>
+      </div>
+      <div class="header-status">
+        <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme" onclick="toggleTheme()">
+          <span id="themeIcon">&#x2600;&#xfe0f;</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Widget Mount Area — mirrors MAIN_BAS/template.html exactly (RFC-0173) -->
+    <main class="widget-area">
+      <div id="bas-dashboard-root" class="bas-dashboard-container">
+        <!-- RFC-0173: Premium Sidebar Menu (retractable) -->
+        <div id="bas-sidebar-menu-host"></div>
+        <!-- Main Dashboard Content -->
+        <div id="bas-main-content">
+          <div class="bas-header" id="bas-header"></div>
+          <div class="bas-content-layout">
+            <div class="bas-sidebar-slot" id="bas-sidebar-host"></div>
+            <div class="bas-water-slot" id="bas-water-host"></div>
+            <div class="bas-charts-slot" id="bas-charts-host"></div>
+            <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
+            <div class="bas-motors-slot" id="bas-motors-host"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Sidebar -->
+    <aside class="showcase-sidebar">
+      <!-- Lifecycle Controls -->
+      <div class="controls-panel">
+        <h3>Widget Lifecycle</h3>
+        <div class="controls-grid cols-3">
+          <button class="ctrl-btn primary" id="btnOnInit" onclick="triggerOnInit()">
+            &#x25B6; onInit
+          </button>
+          <button class="ctrl-btn warning" id="btnOnDataUpdated" onclick="triggerOnDataUpdated()" disabled>
+            &#x1F504; Update
+          </button>
+          <button class="ctrl-btn danger" id="btnOnDestroy" onclick="triggerOnDestroy()" disabled>
+            &#x23F9; Destroy
+          </button>
+        </div>
+      </div>
+
+      <!-- Data Controls -->
+      <div class="controls-panel">
+        <h3>Mock Data</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Data Preset</label>
+          <select class="ctrl-select" id="dataPreset" onchange="updateMockData()">
+            <option value="full">Full Building (All devices)</option>
+            <option value="partial">Partial (Some devices)</option>
+            <option value="water-only">Water Infrastructure Only</option>
+            <option value="hvac-only">HVAC Environments Only</option>
+            <option value="motors-only">Pumps & Motors Only</option>
+            <option value="empty">Empty (No devices)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Number of Floors</label>
+          <select class="ctrl-select" id="floorCount" onchange="updateMockData()">
+            <option value="3">3 Floors</option>
+            <option value="5" selected>5 Floors</option>
+            <option value="10">10 Floors</option>
+            <option value="20">20 Floors</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn success" onclick="generateRandomData()">
+            &#x1F3B2; Random
+          </button>
+          <button class="ctrl-btn secondary" onclick="simulateDataUpdate()">
+            &#x1F4E1; Simulate
+          </button>
+        </div>
+      </div>
+
+      <!-- Ghost Auth — Real TB API -->
+      <div class="controls-panel">
+        <h3>🔑 TB Real Auth</h3>
+        <div id="ghostAuthStatus" style="font-size:10px;padding:4px 6px;border-radius:4px;background:#0f172a;color:#64748b;margin-bottom:8px;font-family:'Fira Code',monospace;word-break:break-all;">Não autenticado</div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="doGhostAuth()">&#x1F511; Re-Auth</button>
+          <button class="ctrl-btn success" onclick="loadRealData()">&#x2601;&#xFE0F; Real Data</button>
+        </div>
+      </div>
+
+      <!-- RFC-0165: BAS Modal Test -->
+      <div class="controls-panel">
+        <h3>RFC-0165: BAS Modal</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="openBASModalTest()">
+            ⚡ Open BAS Modal
+          </button>
+          <button class="ctrl-btn secondary" onclick="openBASModalTestRemote()">
+            🔌 With Remote
+          </button>
+        </div>
+        <p style="font-size: 10px; color: #64748b; margin-top: 8px;">Test BAS device modal with 30% control panel + 70% chart</p>
+      </div>
+
+      <!-- Settings -->
+      <div class="controls-panel">
+        <h3>Dashboard Settings</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowFloors" checked onchange="updateSettings()">
+            Show Ambientes Sidebar
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowWater" checked onchange="updateSettings()">
+            Show Water Infrastructure
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowHVAC" checked onchange="updateSettings()">
+            Show HVAC Environments
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowMotors" checked onchange="updateSettings()">
+            Show Pumps & Motors
+          </label>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-checkbox">
+            <input type="checkbox" id="settingsShowCharts" checked onchange="updateSettings()">
+            Show Charts
+          </label>
+        </div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="event-log-panel">
+        <div class="event-log-header">
+          <h3>Event Log</h3>
+          <button class="event-log-clear" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="event-log" id="eventLog"></div>
+      </div>
+
+      <!-- State Panel -->
+      <div class="state-panel">
+        <div class="state-header" onclick="toggleStatePanel()">
+          <h3>Current State</h3>
+          <span class="state-toggle" id="stateToggle">&#x25BC;</span>
+        </div>
+        <div class="state-content" id="stateContent">
+          <pre id="stateJson">{}</pre>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- jQuery (required by some controller dependencies) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- MyIO Library -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <!-- ===================================================================
+       REAL CUSTOMER ENVIRONMENT SETUP
+       Mirrors the pattern from main-view-shopping/index.html.
+       Set _CUSTOMER_TB_ID, _CLIENT_ID, _CLIENT_SECRET, _CUSTOMER_ING_ID
+       with real values for a BAS customer to enable ghost auth + real data.
+       =================================================================== -->
+  <script>
+    // ===== CREDENTIALS (BAS Dashboard — fill in for a real customer) =====
+    const _TB_URL         = 'https://dashboard.myio-bas.com';
+    const _SERVICE_USER   = 'alarmes@myio.com.br';
+    const _SERVICE_PASS   = 'hubmyio@2025!';
+    const _CUSTOMER_TB_ID = '';   // <-- Fill: Customer ThingsBoard UUID
+    const _CUSTOMER_ING_ID = '';  // <-- Fill: Customer Ingestion ID
+    const _CLIENT_ID      = '';   // <-- Fill: MQTT Client ID
+    const _CLIENT_SECRET  = '';   // <-- Fill: MQTT Client Secret
+
+    // Keep token in memory for in-page calls (ctx.$injector.get('authService'))
+    let ghostAuthToken = localStorage.getItem('jwt_token') || null;
+
+    // ===== window.self.ctx MOCK =====
+    // Must be defined BEFORE controller.js loads so self.onInit() finds it.
+    window.self = window.self || {};
+    window.self.ctx = {
+      settings: {
+        customerTB_ID:        _CUSTOMER_TB_ID,
+        tbBaseUrl:            _TB_URL,
+        enableDebugMode:      true,
+        defaultThemeMode:     'dark',
+        showSidebar:          true,
+        showSidebarMenu:      true,
+        showWaterInfrastructure: true,
+        showEnvironments:     true,
+        showPumpsMotors:      true,
+        showCharts:           true,
+        sidebarMenuTitle:     'MYIO BAS',
+        customerName:         'Showcase',
+        dashboardTitle:       'DASHBOARD',
+      },
+      data: [],
+      datasources: [{ type: 'entity', name: 'AllDevices', aliasName: 'AllDevices' }],
+      $injector: {
+        get: function(serviceName) {
+          if (serviceName === 'authService') {
+            return { getJwtToken: function() { return localStorage.getItem('jwt_token') || ghostAuthToken; } };
+          }
+          return null;
+        },
+      },
+      $scope: {},
+      detectChanges: function() {},
+      updateWidgetParams: function() {},
+    };
+
+    // ===== GHOST AUTHENTICATION =====
+    async function authenticateGhost() {
+      try {
+        const res = await fetch(_TB_URL + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: _SERVICE_USER, password: _SERVICE_PASS }),
+        });
+        if (!res.ok) throw new Error('Auth failed: ' + res.status);
+        const data = await res.json();
+        if (!data.token) throw new Error('No token in response');
+        ghostAuthToken = data.token;
+        localStorage.setItem('jwt_token', data.token);
+        if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken);
+        console.log('[Showcase] Ghost auth OK');
+        return data.token;
+      } catch (err) {
+        console.error('[Showcase] Ghost auth failed:', err);
+        return null;
+      }
+    }
+
+    // Exposed to onclick="doGhostAuth()" button
+    async function doGhostAuth() {
+      const el = document.getElementById('ghostAuthStatus');
+      if (el) { el.textContent = 'Autenticando...'; el.style.color = '#fbbf24'; }
+      localStorage.removeItem('jwt_token');
+      const token = await authenticateGhost();
+      if (el) {
+        el.textContent = token ? ('Autenticado ✓ ' + token.substring(0, 20) + '…') : 'Falha na autenticação ✗';
+        el.style.color = token ? '#4ade80' : '#f87171';
+      }
+    }
+
+    // Auto-auth on page load (non-blocking — just to prime jwt_token for real data)
+    window.addEventListener('DOMContentLoaded', function() {
+      const el = document.getElementById('ghostAuthStatus');
+      const cached = localStorage.getItem('jwt_token');
+      if (cached) {
+        ghostAuthToken = cached;
+        if (el) { el.textContent = 'Token em cache ✓'; el.style.color = '#4ade80'; }
+      } else if (_CUSTOMER_TB_ID) {
+        // Only attempt if credentials are filled in
+        authenticateGhost().then(function(token) {
+          if (el) {
+            el.textContent = token ? ('Autenticado ✓ ' + token.substring(0, 20) + '…') : 'Sem credenciais / falha';
+            el.style.color = token ? '#4ade80' : '#94a3b8';
+          }
+        });
+      } else {
+        if (el) el.textContent = 'Credenciais não configuradas';
+      }
+
+      // Override fetchThingsboardCustomerAttrsFromStorage after library loads
+      if (typeof MyIOLibrary !== 'undefined' && _CLIENT_ID) {
+        MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage = async function(customerId, jwt) {
+          console.log('[Showcase] fetchThingsboardCustomerAttrsFromStorage — returning showcase credentials');
+          return { client_id: _CLIENT_ID, client_secret: _CLIENT_SECRET, ingestionId: _CUSTOMER_ING_ID };
+        };
+      }
+    });
+  </script>
+
+  <!-- Load MAIN_BAS controller.js dynamically -->
+  <script>
+    (function loadController() {
+      const scriptEl = document.createElement('script');
+      scriptEl.src = '../../src/thingsboard/bas-components/MAIN_BAS/controller.js?v=' + Date.now();
+      scriptEl.onload = function() {
+        console.log('[Showcase] MAIN_BAS controller.js loaded');
+      };
+      scriptEl.onerror = function() {
+        console.error('[Showcase] Failed to load MAIN_BAS controller.js');
+      };
+      document.body.appendChild(scriptEl);
+    })();
+  </script>
+
+  <script>
+  (function() { // IIFE to avoid conflicts with controller.js globals
+    // =========================================================================
+    // MOCK DATA GENERATORS
+    // =========================================================================
+
+    const WATER_DEVICE_NAMES = {
+      hydrometer: ['Hidr. Entrada Geral', 'Hidr. Torre', 'Hidr. Agua Refrigerada', 'Hidr. Piscina'],
+      cistern: ['Cisterna 01', 'Cisterna 02', 'Cisterna Principal'],
+      tank: ['Caixa Torre', 'Caixa Reservatorio', 'Tanque Elevado'],
+      solenoid: ['Solenoide 01', 'Solenoide 02', 'Valvula Principal']
+    };
+
+    // Ambiente names matching controller.js pattern
+    const AMBIENTE_NAMES = [
+      { id: '001', name: 'Deck' },
+      { id: '002', name: 'Sala do Nobreak' },
+      { id: '003', name: 'Auditório' },
+      { id: '004', name: 'Staff Rio de Janeiro' },
+      { id: '005', name: 'Bombas' },
+      { id: '006', name: 'Água' },
+      { id: '007', name: 'Configuração' },
+      { id: '008', name: 'Integrações' },
+    ];
+
+    const HVAC_NAMES = ['Escritorio', 'Sala de Reunioes', 'Recepcao', 'Auditorio', 'CPD', 'Refeitorio', 'Laboratorio', 'Almoxarifado'];
+
+    const MOTOR_NAMES = {
+      pump: ['Bomba Agua Fria 01', 'Bomba Agua Fria 02', 'Bomba CAG 01', 'Bomba Incendio', 'Bomba Recalque'],
+      motor: ['Motor Ventilador 01', 'Motor Exaustor', 'Motor Portao', 'Motor Elevador']
+    };
+
+    function generateFloors(count) {
+      return Array.from({ length: count }, (_, i) => String(i + 1).padStart(2, '0'));
+    }
+
+    function generateWaterDevices(floors, preset) {
+      if (preset === 'hvac-only' || preset === 'motors-only' || preset === 'empty') return [];
+      const devices = [];
+      let id = 1;
+
+      WATER_DEVICE_NAMES.hydrometer.slice(0, 2).forEach(name => {
+        devices.push({ id: `water-${id++}`, name, type: 'hydrometer', floor: null, value: Math.random() * 500 + 100, status: Math.random() > 0.1 ? 'online' : 'offline' });
+      });
+
+      WATER_DEVICE_NAMES.cistern.slice(0, 2).forEach(name => {
+        devices.push({ id: `water-${id++}`, name, type: 'cistern', floor: null, value: Math.random() * 100, status: Math.random() > 0.1 ? 'online' : 'offline' });
+      });
+
+      devices.push({ id: `water-${id++}`, name: WATER_DEVICE_NAMES.tank[0], type: 'tank', floor: null, value: Math.random() * 100, status: Math.random() > 0.1 ? 'online' : 'offline' });
+
+      if (preset !== 'partial') {
+        floors.slice(0, 3).forEach(floor => {
+          devices.push({ id: `water-${id++}`, name: `Solenoide ${floor}`, type: 'solenoid', floor, value: Math.random() > 0.5 ? 1 : 0, status: Math.random() > 0.1 ? 'online' : 'offline' });
+        });
+      }
+      return devices;
+    }
+
+    // RFC-0168: Generate HVAC devices per ambiente (not per floor)
+    // Uses ambienteIds so buildAmbienteData can correctly correlate devices
+    function generateHVACDevices(ambienteIds, preset) {
+      if (preset === 'water-only' || preset === 'motors-only' || preset === 'empty') return [];
+      const devices = [];
+      let id = 1;
+
+      ambienteIds.forEach(ambienteId => {
+        const count = preset === 'partial' ? 1 : Math.floor(Math.random() * 2) + 1;
+        const names = [...HVAC_NAMES].sort(() => Math.random() - 0.5).slice(0, count);
+        names.forEach(name => {
+          const isActive = Math.random() > 0.3;
+          devices.push({
+            id: `hvac-${id++}`,
+            name: name,
+            floor: ambienteId, // Use ambiente ID for correlation with buildAmbienteData
+            temperature: isActive ? +(Math.random() * 10 + 18).toFixed(1) : null,
+            consumption: isActive ? +(Math.random() * 3 + 0.5).toFixed(2) : null,
+            status: isActive ? 'active' : 'inactive'
+          });
+        });
+      });
+      return devices;
+    }
+
+    function generateMotorDevices(floors, preset) {
+      if (preset === 'water-only' || preset === 'hvac-only' || preset === 'empty') return [];
+      const devices = [];
+      let id = 1;
+
+      MOTOR_NAMES.pump.forEach(name => {
+        const isRunning = Math.random() > 0.4;
+        devices.push({ id: `motor-${id++}`, name, floor: null, consumption: isRunning ? Math.random() * 15 + 2 : 0, status: isRunning ? 'running' : 'stopped', type: 'pump' });
+      });
+
+      if (preset !== 'partial') {
+        floors.slice(0, 3).forEach(floor => {
+          const isRunning = Math.random() > 0.5;
+          devices.push({ id: `motor-${id++}`, name: `Ventilador ${floor}`, floor, consumption: isRunning ? Math.random() * 3 + 0.5 : 0, status: isRunning ? 'running' : 'stopped', type: 'motor' });
+        });
+      }
+      return devices;
+    }
+
+    function generateMockData() {
+      const preset = document.getElementById('dataPreset').value;
+      const floorCount = parseInt(document.getElementById('floorCount').value);
+      const floors = generateFloors(floorCount);
+      const ambienteIds = AMBIENTE_NAMES.map(a => a.id);
+      return { floors, waterDevices: generateWaterDevices(floors, preset), hvacDevices: generateHVACDevices(ambienteIds, preset), motorDevices: generateMotorDevices(floors, preset) };
+    }
+
+    // =========================================================================
+    // ENTITY CONVERTERS
+    // =========================================================================
+    const WATER_TYPE_MAP = { hydrometer: 'HIDROMETRO', cistern: 'CAIXA_DAGUA', tank: 'TANK', solenoid: 'BOMBA_HIDRAULICA' };
+    const WATER_STATUS_MAP = { online: 'online', offline: 'offline' };
+    const HVAC_STATUS_MAP = { active: 'online', inactive: 'offline' };
+    const MOTOR_STATUS_MAP = { running: 'online', stopped: 'offline' };
+
+    // =========================================================================
+    // CARD V6 ENTITY CONVERTERS
+    // Using renderCardComponentV6 for individual device cards
+    // =========================================================================
+    function waterToEntity(d) {
+      const isTank = d.type === 'tank' || d.type === 'cistern';
+      const isSolenoid = d.type === 'solenoid';
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `WAT-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: WATER_TYPE_MAP[d.type] || 'HIDROMETRO',
+        // RFC-0175: deviceProfile needed for SOLENOIDE detection in card component
+        deviceProfile: isSolenoid ? 'SOLENOIDE' : isTank ? 'CAIXA_DAGUA' : 'HIDROMETRO',
+        val: d.value,
+        perc: isTank ? d.value : 0,
+        deviceStatus: 'online', // Force online for showcase presentation
+        solenoidStatus: isSolenoid ? (d.value === 1 ? 'on' : 'off') : undefined,
+        waterLevel: isTank ? d.value : undefined,
+        waterPercentage: isTank ? d.value / 100 : undefined,
+        isTank: isTank,
+      };
+    }
+
+    function hvacToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `HVAC-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: 'TERMOSTATO',
+        val: d.temperature,
+        temperature: d.temperature,
+        temperatureMin: d.temperature ? d.temperature - 2 : null,
+        temperatureMax: d.temperature ? d.temperature + 2 : null,
+        deviceStatus: HVAC_STATUS_MAP[d.status] || 'no_info',
+        temperatureStatus: d.status === 'active' ? 'normal' : 'off',
+      };
+    }
+
+    function motorToEntity(d) {
+      return {
+        entityId: d.id,
+        labelOrName: d.name,
+        deviceIdentifier: `MOT-${d.id.split('-')[1] || '001'}`,
+        entityType: 'DEVICE',
+        deviceType: d.type === 'pump' ? 'BOMBA_HIDRAULICA' : 'MOTOR',
+        val: d.consumption,
+        perc: d.consumption > 0 ? Math.min(100, (d.consumption / 20) * 100) : 0,
+        deviceStatus: MOTOR_STATUS_MAP[d.status] || 'no_info',
+      };
+    }
+
+    // =========================================================================
+    // AMBIENTE V6 DATA CONVERTERS
+    // Using renderCardAmbienteV6 for ambiente cards with aggregated data
+    // =========================================================================
+    // RFC-0168: Build AmbienteData from HVAC devices for a given ambiente
+    // HVAC devices now have floor === ambiente.id (fixed in generateHVACDevices)
+    function buildAmbienteData(ambiente, hvacDevices) {
+      const ambienteHvac = hvacDevices.filter(d => d.floor === ambiente.id);
+      const temps = ambienteHvac.filter(d => d.temperature != null).map(d => d.temperature);
+      const avgTemp = temps.length > 0 ? +(temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
+      const totalConsumption = ambienteHvac.reduce((sum, d) => sum + (d.consumption != null ? d.consumption : 0), 0);
+      const onlineDevices = ambienteHvac.filter(d => d.status === 'active');
+      const offlineDevices = ambienteHvac.filter(d => d.status !== 'active');
+      const hasOnline = onlineDevices.length > 0;
+      // Simulate some ambientes having remote-controlled devices
+      const hasRemote = ambienteHvac.length > 0 && ['001', '003', '007'].includes(ambiente.id);
+
+      return {
+        id: ambiente.id,
+        label: ambiente.name,
+        identifier: `AMB-${ambiente.id}`,
+        temperature: avgTemp,
+        humidity: avgTemp != null ? +(45 + Math.random() * 25).toFixed(0) : null,
+        consumption: totalConsumption > 0 ? +totalConsumption.toFixed(2) : null,
+        isOn: hasRemote && hasOnline,
+        hasRemote: hasRemote,
+        status: hasOnline && offlineDevices.length === 0 ? 'online' : hasOnline ? 'warning' : 'offline',
+        hasSetupWarning: ambienteHvac.length === 0,
+        childDeviceCount: ambienteHvac.length,
+        devices: ambienteHvac.map(d => ({
+          id: d.id,
+          type: 'temperature',
+          deviceType: 'TERMOSTATO',
+          status: d.status === 'active' ? 'online' : 'offline',
+          value: d.temperature,
+        })),
+      };
+    }
+
+    function buildWaterItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: waterToEntity(d), source: d })); }
+    function buildHVACItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: hvacToEntity(d), source: d })); }
+    function buildMotorItems(devices, floor) { return (floor ? devices.filter(d => d.floor === floor) : devices).map(d => ({ id: d.id, entityObject: motorToEntity(d), source: d })); }
+
+    // Build ambiente items using renderCardAmbienteV6
+    function buildAmbienteItems(ambientes, hvacDevices) {
+      return ambientes.map(a => buildAmbienteData(a, hvacDevices));
+    }
+
+    // =========================================================================
+    // WIDGET STATE & INSTANCES
+    // =========================================================================
+    let floorListPanel = null;
+    let waterPanel = null;
+    let ambientesPanel = null;
+    let motorsPanel = null;
+    let chartInstance = null;
+    let currentChartDomain = 'energy';
+    let maximizedPanel = null; // Track which panel is maximized
+    let _waterItems = []; // All water items for tab filtering
+    let _sidebarMenu = null; // RFC-0173: Premium retractable sidebar menu instance
+
+    // =========================================================================
+    // MAXIMIZE PANEL LOGIC
+    // =========================================================================
+    function maximizePanel(panelHostId, isMaximized) {
+      const allSlots = ['bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'];
+      const contentLayout = document.querySelector('.bas-content-layout');
+
+      if (isMaximized) {
+        maximizedPanel = panelHostId;
+        // Hide all other panels and expand the maximized one
+        allSlots.forEach(slotId => {
+          const slot = document.getElementById(slotId);
+          if (slot) {
+            if (slotId === panelHostId) {
+              slot.style.gridColumn = '1 / -1';
+              slot.style.gridRow = '1 / -1';
+              slot.style.zIndex = '10';
+            } else {
+              slot.style.display = 'none';
+            }
+          }
+        });
+        // Force single column layout for maximized panel
+        if (contentLayout) {
+          contentLayout.style.gridTemplateColumns = '1fr';
+          contentLayout.style.gridTemplateRows = '1fr';
+        }
+      } else {
+        maximizedPanel = null;
+        // Restore all panels to original layout
+        allSlots.forEach(slotId => {
+          const slot = document.getElementById(slotId);
+          if (slot) {
+            slot.style.display = '';
+            slot.style.gridColumn = '';
+            slot.style.gridRow = '';
+            slot.style.zIndex = '';
+          }
+        });
+        // Restore grid layout
+        if (contentLayout) {
+          contentLayout.style.gridTemplateColumns = '';
+          contentLayout.style.gridTemplateRows = '';
+        }
+      }
+    }
+
+    const CHART_CONFIG = {
+      energy: { unit: 'kWh', unitLarge: 'MWh', threshold: 10000, label: 'Energia', icon: '⚡' },
+      water: { unit: 'L', unitLarge: 'm³', threshold: 1000, label: 'Água', icon: '💧' },
+      temperature: { unit: '°C', unitLarge: '°C', threshold: 999, label: 'Temperatura', icon: '🌡️' },
+    };
+
+    let currentState = { isInitialized: false, selectedFloor: null, data: null };
+
+    function getSettings() {
+      return {
+        showFloorsSidebar: document.getElementById('settingsShowFloors').checked,
+        showWaterInfrastructure: document.getElementById('settingsShowWater').checked,
+        showEnvironments: document.getElementById('settingsShowHVAC').checked,
+        showPumpsMotors: document.getElementById('settingsShowMotors').checked,
+        showCharts: document.getElementById('settingsShowCharts').checked
+      };
+    }
+
+    // =========================================================================
+    // CHART FUNCTIONS
+    // =========================================================================
+    function createFetchData(domain) {
+      return function(period) {
+        const labels = [], values = [], now = new Date();
+        for (let i = period - 1; i >= 0; i--) {
+          const d = new Date(now); d.setDate(d.getDate() - i);
+          labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+          values.push(domain === 'energy' ? Math.random() * 800 + 200 : domain === 'water' ? Math.random() * 50 + 10 : Math.random() * 8 + 18);
+        }
+        return Promise.resolve({ labels, dailyTotals: values });
+      };
+    }
+
+    // RFC-0098: Use createConsumptionChartWidget (full tabs) if available, fallback to simple chart
+    function switchChartDomain(domain, chartCard) {
+      if (chartInstance) {
+        if (typeof chartInstance.destroy === 'function') chartInstance.destroy();
+        chartInstance = null;
+      }
+      currentChartDomain = domain;
+      chartCard.innerHTML = '';
+      const cfg = CHART_CONFIG[domain];
+      const containerId = 'bas-chart-widget-' + domain + '-' + Date.now();
+      const wrapper = document.createElement('div');
+      wrapper.id = containerId;
+      wrapper.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;';
+      chartCard.appendChild(wrapper);
+
+      if (MyIOLibrary.createConsumptionChartWidget) {
+        chartInstance = MyIOLibrary.createConsumptionChartWidget({
+          domain,
+          containerId,
+          title: cfg.label + ' — Últimos 7 dias',
+          unit: cfg.unit,
+          unitLarge: cfg.unitLarge,
+          thresholdForLargeUnit: cfg.threshold,
+          decimalPlaces: domain === 'temperature' ? 1 : 2,
+          chartHeight: '100%',
+          fullHeight: true,
+          defaultPeriod: 7,
+          defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+          defaultVizMode: 'total',
+          theme: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+          showSettingsButton: false,
+          showMaximizeButton: false,
+          showVizModeTabs: true,
+          showChartTypeTabs: true,
+          headerStyles: { padding: '6px 12px', gap: '8px', titleFontSize: '11px', tabPadding: '3px 8px', tabFontSize: '10px' },
+          fetchData: createFetchData(domain),
+          onDataLoaded: (d) => log('info', 'Chart', `${cfg.label}: ${d.labels?.length} dias`),
+          onError: (err) => log('error', 'Chart', String(err)),
+        });
+        chartInstance.render().catch(err => log('error', 'Chart render', String(err)));
+      } else if (MyIOLibrary.createConsumption7DaysChart) {
+        const canvas = document.createElement('canvas');
+        canvas.id = containerId + '-canvas';
+        wrapper.appendChild(canvas);
+        chartInstance = MyIOLibrary.createConsumption7DaysChart({
+          domain, containerId: canvas.id, unit: cfg.unit, fetchData: createFetchData(domain),
+          defaultPeriod: 7, defaultChartType: domain === 'temperature' ? 'line' : 'bar',
+          theme: 'dark', showLegend: true, fill: domain === 'temperature',
+        });
+        chartInstance.render();
+      } else {
+        wrapper.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;">Chart library not available</div>';
+      }
+      log('info', 'Chart', `Switched to ${cfg.label}`);
+    }
+
+    // RFC-0098: mountChartPanel uses myio-cgp classes + HeaderPanelComponent (matching controller.js)
+    function mountChartPanel(hostEl) {
+      if (!hostEl) return;
+      hostEl.innerHTML = '';
+      const domains = ['energy', 'water', 'temperature'];
+      const MyIO = window.MyIOLibrary;
+
+      // Panel wrapper (matches controller: myio-cgp bas-chart-panel)
+      const panelWrapper = document.createElement('div');
+      panelWrapper.className = 'myio-cgp bas-chart-panel';
+      panelWrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;background:#faf8f1;';
+
+      // Header using HeaderPanelComponent if available
+      if (MyIO.HeaderPanelComponent) {
+        const headerStyle = MyIO.HEADER_STYLE_PREMIUM_GREEN || {
+          height: '36px', fontSize: '0.7rem', fontWeight: '600', color: '#ffffff',
+          letterSpacing: '0.5px', textTransform: 'uppercase',
+          backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+          topBorderColor: 'transparent', bottomBorderColor: 'transparent',
+          iconColor: '#a7d4c0', quantityBackground: 'rgba(255,255,255,0.2)',
+          buttonColor: 'rgba(255,255,255,0.7)', buttonHoverBackground: 'rgba(255,255,255,0.15)',
+        };
+        const headerComp = new MyIO.HeaderPanelComponent({
+          title: 'Consumo', icon: '📊',
+          style: headerStyle,
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => {
+            if (isMax) showMaximizeOverlay(panelWrapper, 'Consumo', null);
+            else closeMaximizeOverlay();
+          },
+        });
+        panelWrapper.appendChild(headerComp.getElement());
+      }
+
+      // Tabs using myio-cgp__tabs-* classes (matches controller.js)
+      const tabsWrapper = document.createElement('div');
+      tabsWrapper.className = 'myio-cgp__tabs-wrapper';
+      const tabsContainer = document.createElement('div');
+      tabsContainer.className = 'myio-cgp__tabs-container';
+
+      domains.forEach(domain => {
+        const tab = document.createElement('button');
+        tab.className = 'myio-cgp__tab' + (domain === currentChartDomain ? ' myio-cgp__tab--selected' : '');
+        tab.dataset.tabId = domain;
+        const cfg = CHART_CONFIG[domain];
+        tab.textContent = (cfg.icon || '') + ' ' + cfg.label;
+        tab.addEventListener('click', () => {
+          tabsContainer.querySelectorAll('.myio-cgp__tab').forEach(t => t.classList.remove('myio-cgp__tab--selected'));
+          tab.classList.add('myio-cgp__tab--selected');
+          switchChartDomain(domain, chartCard);
+        });
+        tabsContainer.appendChild(tab);
+      });
+
+      tabsWrapper.appendChild(tabsContainer);
+      panelWrapper.appendChild(tabsWrapper);
+
+      const chartCard = document.createElement('div');
+      chartCard.className = 'bas-chart-card myio-cgp__content';
+      chartCard.style.cssText = 'flex:1;overflow:hidden;background:#ffffff;';
+      panelWrapper.appendChild(chartCard);
+
+      hostEl.appendChild(panelWrapper);
+      switchChartDomain(currentChartDomain, chartCard);
+    }
+
+    // =========================================================================
+    // REAL DEVICE LOADER (TB API — requires ghost auth)
+    // Mirrors the pattern from main-view-shopping/index.html.
+    // =========================================================================
+    async function fetchRealDevices() {
+      const jwt = ghostAuthToken || localStorage.getItem('jwt_token');
+      if (!jwt) { log('error', 'Real Data', 'Sem JWT — clique Re-Auth primeiro'); return null; }
+      if (!_CUSTOMER_TB_ID) { log('warn', 'Real Data', '_CUSTOMER_TB_ID não configurado'); return null; }
+
+      const headers = { 'Content-Type': 'application/json', 'X-Authorization': 'Bearer ' + jwt };
+      log('info', 'Real Data', 'Buscando devices do TB...');
+
+      // Step 1: paginated device list
+      let rawDevices = [];
+      let page = 0;
+      const pageSize = 100;
+      while (true) {
+        const res = await fetch(
+          _TB_URL + '/api/customer/' + _CUSTOMER_TB_ID + '/deviceInfos?pageSize=' + pageSize + '&page=' + page + '&sortProperty=label&sortOrder=ASC',
+          { headers }
+        );
+        if (!res.ok) { log('error', 'Real Data', 'deviceInfos falhou: ' + res.status); return null; }
+        const payload = await res.json();
+        rawDevices = rawDevices.concat(payload.data);
+        log('info', 'Real Data', 'Página ' + page + ': ' + rawDevices.length + ' devices carregados');
+        if (!payload.hasNext) break;
+        page++;
+      }
+
+      log('info', 'Real Data', 'Total: ' + rawDevices.length + ' devices — buscando atributos...');
+
+      // Step 2: batch-fetch SERVER_SCOPE attrs (chunks of 20)
+      const ATTR_KEYS = 'deviceType,deviceProfile,identifier,floor,connectionStatus,lastActivityTime,temperature,humidity,level,state,consumption,centralId,centralName,slaveId,lastConnectTime,lastDisconnectTime';
+      const attrMap = {};
+      const chunkSize = 20;
+      for (let i = 0; i < rawDevices.length; i += chunkSize) {
+        const chunk = rawDevices.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (dev) => {
+          try {
+            const r = await fetch(
+              _TB_URL + '/api/plugins/telemetry/DEVICE/' + dev.id.id + '/values/attributes/SERVER_SCOPE?keys=' + ATTR_KEYS,
+              { headers }
+            );
+            if (r.ok) {
+              const attrs = await r.json();
+              attrMap[dev.id.id] = {};
+              attrs.forEach(a => { attrMap[dev.id.id][a.key] = a.value; });
+            }
+          } catch (e) { /* ignore single device failure */ }
+        }));
+      }
+
+      // Step 3: build ctx.data rows (one row per attribute per device)
+      const now  = Date.now();
+      const rows = [];
+
+      rawDevices.forEach(dev => {
+        const entityId    = dev.id.id;
+        const entityName  = dev.name;
+        const entityLabel = dev.label || dev.name;
+        const attrs       = attrMap[entityId] || {};
+
+        const deviceType       = attrs.deviceType       || dev.deviceProfileName || 'UNKNOWN';
+        const deviceProfile    = attrs.deviceProfile    || deviceType;
+        const identifier       = attrs.identifier       || '';
+        const floor            = attrs.floor            || '';
+        const connectionStatus = attrs.connectionStatus || 'offline';
+        const lastActivityTime = attrs.lastActivityTime || dev.lastActivityTime || now;
+        const temperature      = attrs.temperature      || null;
+        const humidity         = attrs.humidity         || null;
+        const level            = attrs.level            || null;
+        const state            = attrs.state            || null;
+        const consumption      = attrs.consumption      || 0;
+        const centralId        = attrs.centralId        || '';
+        const centralName      = attrs.centralName      || '';
+        const slaveId          = attrs.slaveId          || '';
+
+        const ds = { type: 'entity', entityId, entityName, entityLabel, aliasName: 'AllDevices' };
+
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceType',         type: 'attribute'  }, data: [[now, deviceType]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceProfile',      type: 'attribute'  }, data: [[now, deviceProfile]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'identifier',         type: 'attribute'  }, data: [[now, identifier]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'floor',              type: 'attribute'  }, data: [[now, floor]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'connectionStatus',   type: 'attribute'  }, data: [[now, connectionStatus]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastActivityTime',   type: 'attribute'  }, data: [[now, lastActivityTime]] });
+        rows.push({ datasource: { ...ds }, dataKey: { name: 'consumption',        type: 'timeseries' }, data: [[now, consumption]] });
+        if (temperature !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'temperature', type: 'timeseries' }, data: [[now, temperature]] });
+        if (humidity    !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'humidity',    type: 'timeseries' }, data: [[now, humidity]] });
+        if (level       !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'level',       type: 'timeseries' }, data: [[now, level]] });
+        if (state       !== null) rows.push({ datasource: { ...ds }, dataKey: { name: 'state',       type: 'attribute'  }, data: [[now, state]] });
+        if (centralId)  rows.push({ datasource: { ...ds }, dataKey: { name: 'centralId',   type: 'attribute'  }, data: [[now, centralId]] });
+        if (centralName) rows.push({ datasource: { ...ds }, dataKey: { name: 'centralName', type: 'attribute'  }, data: [[now, centralName]] });
+        if (slaveId)    rows.push({ datasource: { ...ds }, dataKey: { name: 'slaveId',     type: 'attribute'  }, data: [[now, slaveId]] });
+      });
+
+      log('info', 'Real Data', rawDevices.length + ' devices → ' + rows.length + ' linhas ctx.data');
+      return rows;
+    }
+
+    async function loadRealData() {
+      log('info', 'Real Data', 'Carregando dados reais do ThingsBoard...');
+      updateWidgetStatus('running');
+      const rows = await fetchRealDevices();
+      if (!rows) { updateWidgetStatus('error'); return; }
+
+      // Update ctx.data
+      window.self.ctx.data = rows;
+
+      // Re-initialize dashboard with real data
+      if (currentState.isInitialized) {
+        triggerOnDestroy();
+        setTimeout(triggerOnInit, 200);
+      }
+      log('success', 'Real Data', 'ctx.data atualizado com ' + rows.length + ' linhas!');
+      updateWidgetStatus('ready');
+    }
+
+    // =========================================================================
+    // LIFECYCLE FUNCTIONS
+    // =========================================================================
+    function triggerOnInit() {
+      log('info', 'onInit', 'Initializing BAS Dashboard...');
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO) { log('error', 'onInit', 'MyIOLibrary not loaded'); return; }
+
+      const settings = getSettings();
+      const mockData = generateMockData();
+      currentState.data = mockData;
+
+      const sidebarHost = document.getElementById('bas-sidebar-host');
+      const waterHost = document.getElementById('bas-water-host');
+      const chartsHost = document.getElementById('bas-charts-host');
+      const ambientesHost = document.getElementById('bas-ambientes-host');
+      const motorsHost = document.getElementById('bas-motors-host');
+
+      // Icons shared by EntityListPanel sidebar AND the premium sidebar menu (RFC-0173)
+      const AMBIENTE_ICONS = {
+        '001': '🌊', // Deck
+        '002': '⚡', // Sala do Nobreak
+        '003': '🎤', // Auditório
+        '004': '👥', // Staff Rio de Janeiro
+        '005': '💧', // Bombas
+        '006': '🚰', // Água
+        '007': '⚙️', // Configuração
+        '008': '🔗', // Integrações
+      };
+
+      // Sidebar - using ambiente names with prefix pattern like controller.js
+      // Including new icon and notification features
+      if (settings.showFloorsSidebar && sidebarHost && MyIO.EntityListPanel) {
+        sidebarHost.innerHTML = '';
+        const ambienteItems = AMBIENTE_NAMES.map((a, index) => ({
+          id: a.id,
+          label: `(${a.id})-${a.name}`,
+          icon: AMBIENTE_ICONS[a.id] || '📍',
+          // Simulate notification for some items (e.g., items with alerts)
+          notification: index === 2 || index === 5 ? {
+            show: true,
+            blink: index === 5, // Água has blinking notification
+            tooltip: index === 5 ? 'Alerta de vazamento!' : 'Atenção necessária'
+          } : undefined,
+          handleActionClick: () => {
+            log('event', 'Action', `Navigate to: ${a.name}`);
+            // In real app: self.ctx.stateController.openState(a.name.toLowerCase(), { entityId: a.id });
+          }
+        }));
+        floorListPanel = new MyIO.EntityListPanel({
+          title: 'Ambientes',
+          subtitle: 'Nome ↑',
+          icon: '🏢',
+          quantity: ambienteItems.length,
+          items: ambienteItems,
+          showAllOption: true,
+          allLabel: 'HOME',
+          sortOrder: 'asc',
+          excludePartOfLabel: '^\\(\\d{3}\\)-\\s*', // Remove (001)- prefix from display
+          titleStyle: MyIO.HEADER_STYLE_PREMIUM_GREEN || { fontSize: '0.7rem', fontWeight: '600', letterSpacing: '0.5px', color: '#ffffff', backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)' },
+          // HeaderPanelComponent features
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Open filter modal'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(floorListPanel.getElement(), 'Ambientes', floorListPanel); else closeMaximizeOverlay(); },
+          handleClickAll: () => { currentState.selectedFloor = null; refreshPanels(); log('event', 'Ambiente', 'HOME'); },
+          handleClickItem: (item) => { currentState.selectedFloor = item.id; refreshPanels(); log('event', 'Ambiente', item.label); }
+        });
+        sidebarHost.appendChild(floorListPanel.getElement());
+      }
+
+      // RFC-0173: Premium Sidebar Menu (retractable) — mirrors mountSidebarMenu() in controller.js
+      const sidebarMenuHost = document.getElementById('bas-sidebar-menu-host');
+      if (sidebarMenuHost && MyIO.createSidebarMenu) {
+        sidebarMenuHost.innerHTML = '';
+        // Build ambiente items using same (NNN)- pattern as controller.js
+        const ambienteMenuItems = AMBIENTE_NAMES.map(a => ({
+          id: 'ambiente:' + a.id,
+          label: a.name,
+          icon: AMBIENTE_ICONS[a.id] || (MyIO.SIDEBAR_ICONS?.building) || '🏢',
+          data: { ambienteId: a.id },
+        }));
+        const sidebarMenuSections = [{
+          id: 'navigation',
+          title: null, // No section header — items flow directly
+          items: [
+            { id: 'dashboard', label: 'Dashboard', icon: (MyIO.SIDEBAR_ICONS?.home) || '🏠' },
+          ].concat(ambienteMenuItems),
+        }];
+
+        try { localStorage.removeItem('myio-bas-sidebar-menu-state'); } catch(e) {}
+
+        _sidebarMenu = MyIO.createSidebarMenu(sidebarMenuHost, {
+          themeMode: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+          initialState: 'expanded',
+          persistState: false,
+          showSearch: false,
+          header: {
+            title: 'MYIO BAS',
+            subtitle: 'Showcase',
+            showThemeToggle: true,
+            userInfo: { name: 'Showcase User', email: 'showcase@myio.com.br' },
+          },
+          sections: sidebarMenuSections,
+          footer: {
+            showLogout: true,
+            logoutLabel: 'Sair',
+            showVersion: true,
+            version: MyIO.version || '0.1.x',
+          },
+          onItemClick: (item /*, section */) => {
+            log('event', 'Sidebar Menu', 'Clicado: ' + item.id);
+            if (item.id === 'dashboard') {
+              currentState.selectedFloor = null;
+              if (_sidebarMenu) _sidebarMenu.setActiveItem('dashboard');
+              refreshPanels();
+            } else if (item.id && item.id.startsWith('ambiente:')) {
+              const ambienteId = (item.data && item.data.ambienteId) || item.id.replace('ambiente:', '');
+              currentState.selectedFloor = ambienteId;
+              refreshPanels();
+            }
+          },
+          onThemeToggle: (newTheme) => {
+            document.body.classList.toggle('light-mode', newTheme === 'light');
+            document.getElementById('themeIcon').innerHTML = newTheme === 'light' ? '&#x1F319;' : '&#x2600;&#xfe0f;';
+            log('info', 'Theme', newTheme);
+          },
+          onStateChange: (state) => {
+            window.dispatchEvent(new CustomEvent('bas:sidebar-menu-state', { detail: { state } }));
+          },
+          onLogout: () => {
+            log('info', 'Sidebar Menu', 'Logout clicado');
+            localStorage.removeItem('jwt_token');
+            ghostAuthToken = null;
+            const el = document.getElementById('ghostAuthStatus');
+            if (el) { el.textContent = 'Deslogado'; el.style.color = '#94a3b8'; }
+          },
+        });
+
+        if (_sidebarMenu && _sidebarMenu.setActiveItem) {
+          _sidebarMenu.setActiveItem('dashboard');
+        }
+        log('info', 'Sidebar Menu', 'Montado com ' + (ambienteMenuItems.length + 1) + ' itens (RFC-0173)');
+      } else if (!MyIO.createSidebarMenu) {
+        log('warn', 'Sidebar Menu', 'MyIOLibrary.createSidebarMenu não disponível — verifique a versão do bundle');
+      }
+
+      // Premium green header style for all panels
+      const premiumGreenStyle = MyIO.HEADER_STYLE_PREMIUM_GREEN || {
+        height: '36px',
+        fontSize: '0.7rem',
+        fontWeight: '600',
+        color: '#ffffff',
+        letterSpacing: '0.5px',
+        textTransform: 'uppercase',
+        backgroundColor: 'linear-gradient(135deg, #2F5848 0%, #3d7a62 100%)',
+        topBorderColor: 'transparent',
+        bottomBorderColor: 'transparent',
+        iconColor: '#a7d4c0',
+        quantityBackground: 'rgba(255, 255, 255, 0.2)',
+        quantityColor: '#ffffff',
+        buttonColor: 'rgba(255, 255, 255, 0.7)',
+        buttonHoverBackground: 'rgba(255, 255, 255, 0.15)',
+        buttonHoverColor: '#ffffff',
+        searchBackground: 'rgba(255, 255, 255, 0.15)',
+        searchColor: '#ffffff',
+        searchPlaceholderColor: 'rgba(255, 255, 255, 0.5)',
+      };
+      const cardStyle = { height: '120px' };
+
+      // Water — with tabs (Todos / Caixa d'Água / Hidrômetro / Solenóide), matches controller.js
+      if (settings.showWaterInfrastructure && waterHost && MyIO.CardGridPanel) {
+        waterHost.innerHTML = '';
+        _waterItems = buildWaterItems(mockData.waterDevices, null);
+
+        const waterTabs = [
+          { id: 'all', label: 'Todos', selected: true,
+            handleClick: () => { waterPanel && waterPanel.setItems(_waterItems); waterPanel && waterPanel.setQuantity(_waterItems.length); } },
+          { id: 'tank', label: "Caixa d'Água", selected: false,
+            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'tank' || i.source?.type === 'cistern'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
+          { id: 'hydrometer', label: 'Hidrômetro', selected: false,
+            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'hydrometer'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
+          { id: 'solenoid', label: 'Solenóide', selected: false,
+            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'solenoid'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
+        ];
+
+        waterPanel = new MyIO.CardGridPanel({
+          title: 'Infraestrutura Hídrica',
+          icon: '💧',
+          quantity: _waterItems.length,
+          items: _waterItems,
+          tabs: waterTabs,
+          cardCustomStyle: cardStyle,
+          titleStyle: premiumGreenStyle,
+          panelBackground: '#e8f4fc',
+          gridMinCardWidth: '160px',
+          maxCardWidth: '200px',
+          gridGap: '8px',
+          emptyMessage: 'Nenhum dispositivo',
+          showSearch: true,
+          searchPlaceholder: 'Buscar dispositivo...',
+          onSearchChange: (text) => { log('event', 'Search Water', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Infraestrutura Hídrica', waterPanel); else closeMaximizeOverlay(); }
+        });
+        waterHost.appendChild(waterPanel.getElement());
+      }
+
+      // Charts
+      if (settings.showCharts && chartsHost) { mountChartPanel(chartsHost); }
+
+      // RFC-0168: Ambientes — CardGridPanel with cardType:'ambiente' (matches controller.js)
+      // Uses buildAmbienteItems to get AmbienteData[], wraps as { id, ambienteData } for CardGridPanel
+      if (settings.showEnvironments && ambientesHost && MyIO.CardGridPanel) {
+        ambientesHost.innerHTML = '';
+        const ambienteDataList = buildAmbienteItems(AMBIENTE_NAMES, mockData.hvacDevices);
+        const ambienteCardItems = ambienteDataList.map(data => ({ id: data.id, ambienteData: data }));
+
+        ambientesPanel = new MyIO.CardGridPanel({
+          title: 'Ambientes',
+          icon: '🌡️',
+          quantity: ambienteCardItems.length,
+          items: ambienteCardItems,
+          cardType: 'ambiente', // KEY: render as AmbienteCard (renderCardAmbienteV6 internally)
+          panelBackground: '#fef7e8',
+          cardCustomStyle: { zoomMultiplier: 0.9, padding: '15px' },
+          titleStyle: premiumGreenStyle,
+          gridMinCardWidth: '140px',
+          gridGap: '8px',
+          singleColumn: true,
+          maxCardWidth: '280px',
+          emptyMessage: 'Nenhum ambiente',
+          showSearch: true,
+          searchPlaceholder: 'Buscar ambiente...',
+          onSearchChange: (text) => { log('event', 'Search Ambientes', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Ambientes filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => {
+            if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'Ambientes', ambientesPanel);
+            else closeMaximizeOverlay();
+          },
+          handleClickCard: (item) => {
+            log('event', 'Ambiente Click', `${item.ambienteData?.label} (${item.ambienteData?.id})`);
+            currentState.selectedFloor = item.ambienteData?.id;
+            refreshPanels();
+          },
+          handleToggleRemote: (isOn, item) => {
+            log('event', 'Remote Toggle', `${item.ambienteData?.label}: ${isOn ? 'ON' : 'OFF'}`);
+          },
+        });
+        ambientesHost.appendChild(ambientesPanel.getElement());
+        log('info', 'Ambientes', `Rendered ${ambienteCardItems.length} ambiente cards (CardGridPanel+cardType:ambiente)`);
+      }
+
+      // Motors
+      if (settings.showPumpsMotors && motorsHost && MyIO.CardGridPanel) {
+        motorsHost.innerHTML = '';
+        const motorItems = buildMotorItems(mockData.motorDevices, null);
+        motorsPanel = new MyIO.CardGridPanel({
+          title: 'Bombas e Motores',
+          icon: '⚙️',
+          quantity: motorItems.length,
+          items: motorItems,
+          cardCustomStyle: cardStyle,
+          titleStyle: premiumGreenStyle,
+          emptyMessage: 'Nenhum equipamento',
+          // HeaderPanelComponent features
+          showSearch: true,
+          searchPlaceholder: 'Buscar motor...',
+          onSearchChange: (text) => { log('event', 'Search Motors', text || '(cleared)'); },
+          showFilter: true,
+          handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
+          showMaximize: true,
+          onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(motorsPanel.getElement(), 'Motors', motorsPanel); else closeMaximizeOverlay(); }
+        });
+        motorsHost.appendChild(motorsPanel.getElement());
+      }
+
+      currentState.isInitialized = true;
+      updateWidgetStatus('running');
+      log('success', 'onInit', `Initialized: ${mockData.floors.length} floors, ${mockData.waterDevices.length} water, ${mockData.hvacDevices.length} HVAC, ${mockData.motorDevices.length} motors`);
+      document.getElementById('btnOnInit').disabled = true;
+      document.getElementById('btnOnDataUpdated').disabled = false;
+      document.getElementById('btnOnDestroy').disabled = false;
+      updateStateDisplay();
+    }
+
+    function refreshPanels() {
+      const ambienteId = currentState.selectedFloor; // selectedFloor is actually an ambienteId
+      const data = currentState.data;
+
+      // Water: filter by ambient if selected
+      if (waterPanel) {
+        _waterItems = buildWaterItems(data.waterDevices, null);
+        waterPanel.setItems(ambienteId ? _waterItems.filter(i => i.source?.floor === ambienteId) : _waterItems);
+        waterPanel.setQuantity(ambienteId ? _waterItems.filter(i => i.source?.floor === ambienteId).length : _waterItems.length);
+      }
+
+      // RFC-0168: Ambientes panel uses AmbienteData wrapped in { id, ambienteData }
+      if (ambientesPanel) {
+        const ambienteDataList = buildAmbienteItems(AMBIENTE_NAMES, data.hvacDevices);
+        const filtered = ambienteId ? ambienteDataList.filter(d => d.id === ambienteId) : ambienteDataList;
+        ambientesPanel.setItems(filtered.map(d => ({ id: d.id, ambienteData: d })));
+        ambientesPanel.setQuantity(filtered.length);
+      }
+
+      // Motors: filter by floor if selected (motor devices use regular floor IDs)
+      if (motorsPanel) motorsPanel.setItems(buildMotorItems(data.motorDevices, null));
+
+      if (floorListPanel) floorListPanel.setSelectedId(ambienteId);
+      updateStateDisplay();
+    }
+
+    function triggerOnDataUpdated() {
+      if (!currentState.isInitialized) { log('warn', 'onDataUpdated', 'Not initialized'); return; }
+      const mockData = generateMockData();
+      currentState.data = mockData;
+      refreshPanels();
+      log('info', 'onDataUpdated', `Updated: ${mockData.waterDevices.length + mockData.hvacDevices.length + mockData.motorDevices.length} devices`);
+    }
+
+    function triggerOnDestroy() {
+      if (!currentState.isInitialized) { log('warn', 'onDestroy', 'Not initialized'); return; }
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      if (floorListPanel?.destroy) { floorListPanel.destroy(); floorListPanel = null; }
+      if (waterPanel?.destroy) { waterPanel.destroy(); waterPanel = null; }
+      if (ambientesPanel?.destroy) { ambientesPanel.destroy(); ambientesPanel = null; }
+      if (motorsPanel?.destroy) { motorsPanel.destroy(); motorsPanel = null; }
+      // RFC-0173: destroy premium sidebar menu
+      if (_sidebarMenu?.destroy) { _sidebarMenu.destroy(); _sidebarMenu = null; }
+
+      ['bas-sidebar-menu-host', 'bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+
+      currentState = { isInitialized: false, selectedFloor: null, data: null };
+      currentChartDomain = 'energy';
+      _waterItems = [];
+      updateWidgetStatus('stopped');
+      log('info', 'onDestroy', 'Dashboard destroyed');
+      document.getElementById('btnOnInit').disabled = false;
+      document.getElementById('btnOnDataUpdated').disabled = true;
+      document.getElementById('btnOnDestroy').disabled = true;
+      updateStateDisplay();
+    }
+
+    // =========================================================================
+    // CONTROL HANDLERS
+    // =========================================================================
+    function updateMockData() { if (currentState.isInitialized) triggerOnDataUpdated(); }
+    function generateRandomData() {
+      const presets = ['full', 'partial', 'water-only', 'hvac-only', 'motors-only'];
+      document.getElementById('dataPreset').value = presets[Math.floor(Math.random() * presets.length)];
+      document.getElementById('floorCount').value = ['3', '5', '10'][Math.floor(Math.random() * 3)];
+      if (currentState.isInitialized) triggerOnDataUpdated();
+      log('info', 'Random', 'Generated random config');
+    }
+    function simulateDataUpdate() {
+      if (!currentState.isInitialized || !currentState.data) { log('warn', 'Simulate', 'Not initialized'); return; }
+      currentState.data.waterDevices.forEach(d => { if (d.type === 'hydrometer') d.value += Math.random() * 0.5; });
+      currentState.data.hvacDevices.forEach(d => { if (d.temperature !== null) d.temperature += (Math.random() - 0.5) * 0.5; });
+      currentState.data.motorDevices.forEach(d => { if (d.status === 'running') d.consumption = Math.max(0, d.consumption + (Math.random() - 0.5) * 0.5); });
+      refreshPanels();
+      log('info', 'Simulate', 'Simulated update');
+    }
+    function updateSettings() { if (currentState.isInitialized) { triggerOnDestroy(); setTimeout(triggerOnInit, 100); } }
+    function toggleTheme() {
+      document.body.classList.toggle('light-mode');
+      document.getElementById('themeIcon').innerHTML = document.body.classList.contains('light-mode') ? '&#x1F319;' : '&#x2600;&#xfe0f;';
+      log('info', 'Theme', document.body.classList.contains('light-mode') ? 'Light' : 'Dark');
+    }
+
+    // =========================================================================
+    // MAXIMIZE OVERLAY (for showcase testing)
+    // =========================================================================
+    let _maxOverlay = null;
+    let _maxPanelInstance = null; // Track which panel instance is maximized
+
+    function showMaximizeOverlay(panelElement, title, panelInstance) {
+      closeMaximizeOverlay(); // close any existing
+
+      // Overlay (click outside to close)
+      _maxOverlay = document.createElement('div');
+      _maxOverlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s ease;
+      `;
+      _maxOverlay.addEventListener('click', function(e) { if (e.target === _maxOverlay) closeMaximizeOverlay(); });
+
+      // Panel container
+      var panel = document.createElement('div');
+      panel.style.cssText = `
+        width: 90vw; height: 85vh; max-width: 1400px; max-height: 900px;
+        background: #ffffff; border-radius: 16px;
+        box-shadow: 0 25px 80px rgba(0,0,0,0.3); border: 1px solid #e2e8f0;
+        overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease;
+        position: relative; display: flex; flex-direction: column;
+      `;
+      var clone = panelElement.cloneNode(true);
+      clone.style.width = '100%'; clone.style.height = '100%';
+      clone.style.maxWidth = 'none'; clone.style.maxHeight = 'none';
+      panel.appendChild(clone);
+      _maxOverlay.appendChild(panel);
+
+      // Wire up minimize button in clone (cloneNode doesn't copy event listeners)
+      var minimizeBtn = clone.querySelector('[title="Minimizar"]') || clone.querySelector('[title="Maximizar"]');
+      if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', function(e) { e.stopPropagation(); closeMaximizeOverlay(); });
+      }
+
+      _maxPanelInstance = panelInstance || null;
+      document.body.appendChild(_maxOverlay);
+
+      // Escape key
+      document.addEventListener('keydown', _maxEscHandler);
+
+      // Animate in
+      requestAnimationFrame(function() { _maxOverlay.style.opacity = '1'; panel.style.transform = 'scale(1)'; });
+      log('info', 'Maximize', 'Opened: ' + title);
+    }
+
+    function closeMaximizeOverlay() {
+      // Reset the panel's maximize state so button icon goes back to "maximize"
+      if (_maxPanelInstance && typeof _maxPanelInstance.setMaximized === 'function') {
+        _maxPanelInstance.setMaximized(false);
+      }
+      _maxPanelInstance = null;
+      if (_maxOverlay) { _maxOverlay.remove(); _maxOverlay = null; }
+      document.removeEventListener('keydown', _maxEscHandler);
+    }
+
+    function _maxEscHandler(e) { if (e.key === 'Escape') closeMaximizeOverlay(); }
+
+    // =========================================================================
+    // UI HELPERS
+    // =========================================================================
+    function updateWidgetStatus(status) { const b = document.getElementById('widgetStatus'); b.textContent = status.toUpperCase(); b.className = 'status-badge ' + status; }
+    function log(type, event, data) {
+      const logEl = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+      const entry = document.createElement('div'); entry.className = 'log-entry ' + type;
+      entry.innerHTML = `<span class="log-time">${time}</span><span class="log-event">${event}</span><span class="log-data">${data}</span>`;
+      logEl.insertBefore(entry, logEl.firstChild);
+      while (logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+    }
+    function clearLog() { document.getElementById('eventLog').innerHTML = ''; }
+    function updateStateDisplay() {
+      document.getElementById('stateJson').textContent = JSON.stringify({
+        isInitialized: currentState.isInitialized, selectedFloor: currentState.selectedFloor,
+        deviceCounts: currentState.data ? { water: currentState.data.waterDevices.length, hvac: currentState.data.hvacDevices.length, motors: currentState.data.motorDevices.length, floors: currentState.data.floors.length } : null
+      }, null, 2);
+    }
+    let statePanelOpen = true;
+    function toggleStatePanel() { statePanelOpen = !statePanelOpen; document.getElementById('stateContent').style.display = statePanelOpen ? 'block' : 'none'; document.getElementById('stateToggle').innerHTML = statePanelOpen ? '&#x25BC;' : '&#x25B6;'; }
+
+    // =========================================================================
+    // INIT
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => { log('info', 'Page Ready', 'Click "onInit" to start.'); updateStateDisplay(); });
+
+    // =========================================================================
+    // RFC-0165: BAS MODAL TEST FUNCTIONS
+    // =========================================================================
+    function openBASModalTest() {
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO || !MyIO.openDashboardPopupEnergy) {
+        log('error', 'BAS Modal', 'openDashboardPopupEnergy not available');
+        alert('openDashboardPopupEnergy not available in MyIOLibrary');
+        return;
+      }
+
+      const mockDevice = {
+        id: 'motor-001',
+        entityId: 'abc123-def456-motor-001',
+        label: 'Bomba Agua Fria 01',
+        deviceType: 'BOMBA_HIDRAULICA',
+        deviceProfile: 'BOMBA',
+        hasRemote: false,
+        isRemoteOn: false,
+        status: 'online',
+        telemetry: {
+          power: 2.5,
+          current: 11.4,
+          voltage: 220,
+          temperature: 45.2,
+          consumption: 18.7,
+          lastUpdate: Date.now()
+        }
+      };
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+
+      log('info', 'BAS Modal', 'Opening BAS modal (no remote)...');
+
+      MyIO.openDashboardPopupEnergy({
+        basMode: true,
+        basDevice: mockDevice,
+        deviceId: mockDevice.entityId,
+        deviceLabel: mockDevice.label,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        readingType: 'energy',
+        granularity: '1d',
+        theme: 'dark',
+        telemetryRefreshInterval: 5000,
+        onRemoteCommand: async (command, device) => {
+          log('event', 'Remote CMD', `${command.toUpperCase()} -> ${device.label}`);
+          await new Promise(r => setTimeout(r, 1000));
+          log('success', 'Remote CMD', 'Command executed');
+        },
+        onTelemetryRefresh: async (device) => {
+          log('info', 'Telemetry', `Refreshing ${device.label}...`);
+          await new Promise(r => setTimeout(r, 500));
+          return {
+            power: Math.random() * 5 + 1,
+            current: Math.random() * 15 + 5,
+            voltage: 220 + Math.random() * 5,
+            temperature: Math.random() * 20 + 35,
+            consumption: mockDevice.telemetry.consumption + Math.random() * 0.5,
+            lastUpdate: Date.now()
+          };
+        },
+        onClose: () => {
+          log('info', 'BAS Modal', 'Modal closed');
+        },
+        onError: (err) => {
+          log('error', 'BAS Modal', err.message);
+        }
+      });
+    }
+
+    function openBASModalTestRemote() {
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO || !MyIO.openDashboardPopupEnergy) {
+        log('error', 'BAS Modal', 'openDashboardPopupEnergy not available');
+        alert('openDashboardPopupEnergy not available in MyIOLibrary');
+        return;
+      }
+
+      const mockDevice = {
+        id: 'motor-002',
+        entityId: 'abc123-def456-motor-002',
+        label: 'Motor Ventilador CPD',
+        deviceType: 'MOTOR',
+        deviceProfile: 'REMOTE',
+        hasRemote: true,
+        isRemoteOn: true,
+        status: 'online',
+        telemetry: {
+          power: 1.2,
+          current: 5.5,
+          voltage: 220,
+          temperature: 38.5,
+          consumption: 8.3,
+          lastUpdate: Date.now()
+        }
+      };
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+
+      log('info', 'BAS Modal', 'Opening BAS modal (with remote)...');
+
+      MyIO.openDashboardPopupEnergy({
+        basMode: true,
+        basDevice: mockDevice,
+        deviceId: mockDevice.entityId,
+        deviceLabel: mockDevice.label,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        readingType: 'energy',
+        granularity: '1d',
+        theme: 'dark',
+        telemetryRefreshInterval: 5000,
+        onRemoteCommand: async (command, device) => {
+          log('event', 'Remote CMD', `${command.toUpperCase()} -> ${device.label}`);
+          await new Promise(r => setTimeout(r, 1000));
+          log('success', 'Remote CMD', 'Command executed');
+        },
+        onTelemetryRefresh: async (device) => {
+          log('info', 'Telemetry', `Refreshing ${device.label}...`);
+          await new Promise(r => setTimeout(r, 500));
+          return {
+            power: Math.random() * 3 + 0.5,
+            current: Math.random() * 8 + 2,
+            voltage: 220 + Math.random() * 5,
+            temperature: Math.random() * 15 + 30,
+            consumption: mockDevice.telemetry.consumption + Math.random() * 0.3,
+            lastUpdate: Date.now()
+          };
+        },
+        onClose: () => {
+          log('info', 'BAS Modal', 'Modal closed');
+        },
+        onError: (err) => {
+          log('error', 'BAS Modal', err.message);
+        }
+      });
+    }
+
+    // Expose functions to global scope for onclick handlers
+    window.triggerOnInit = triggerOnInit;
+    window.triggerOnDataUpdated = triggerOnDataUpdated;
+    window.triggerOnDestroy = triggerOnDestroy;
+    window.updateMockData = updateMockData;
+    window.generateRandomData = generateRandomData;
+    window.simulateDataUpdate = simulateDataUpdate;
+    window.updateSettings = updateSettings;
+    window.toggleTheme = toggleTheme;
+    window.clearLog = clearLog;
+    window.toggleStatePanel = toggleStatePanel;
+    window.openBASModalTest = openBASModalTest;
+    window.openBASModalTestRemote = openBASModalTestRemote;
+    // Ghost auth + real data (defined inside IIFE to share log() context)
+    window.loadRealData = loadRealData;
+  })(); // End IIFE
+  </script>
+</body>
+</html>

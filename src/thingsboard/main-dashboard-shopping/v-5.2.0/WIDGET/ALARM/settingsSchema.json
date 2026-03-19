@@ -1,0 +1,56 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Alarm Widget Settings",
+    "properties": {
+      "labelWidget": {
+        "type": "string",
+        "title": "Widget Label",
+        "default": "Alarmes e Notificações"
+      },
+      "defaultTab": {
+        "type": "string",
+        "title": "Default Tab",
+        "enum": ["list", "dashboard"],
+        "default": "list"
+      },
+      "showCustomerName": {
+        "type": "boolean",
+        "title": "Show Customer Name on Alarm Cards",
+        "default": false,
+        "description": "Redundant on single-shopping dashboards — enable only for cross-customer contexts."
+      },
+      "refreshIntervalSeconds": {
+        "type": "number",
+        "title": "Auto-Refresh Interval (seconds, 0 = disabled)",
+        "default": 180
+      },
+      "cacheIntervalSeconds": {
+        "type": "number",
+        "title": "Cache TTL (seconds)",
+        "default": 180,
+        "description": "How long alarm list results are cached before a new API call is made."
+      },
+      "maxAlarmsVisible": {
+        "type": "number",
+        "title": "Alarms Page Size (per fetch, auto-paginates)",
+        "default": 100
+      },
+      "enableDebugMode": {
+        "type": "boolean",
+        "title": "Enable Debug Mode",
+        "default": false
+      }
+    },
+    "required": []
+  },
+  "form": [
+    "labelWidget",
+    "defaultTab",
+    "showCustomerName",
+    "refreshIntervalSeconds",
+    "cacheIntervalSeconds",
+    "maxAlarmsVisible",
+    "enableDebugMode"
+  ]
+}

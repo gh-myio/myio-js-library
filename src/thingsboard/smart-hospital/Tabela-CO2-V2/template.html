@@ -1,0 +1,51 @@
+<div class="wat">
+  <header id="ReportHeader">
+    <div>
+      <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
+      <p>Sistema Myio | Registro de Aferição CO₂ | Complexo Hospitalar Municipal Souza Aguiar</p>
+      <p>UNIDADE SOUZA AGUIAR - HMSA</p>
+      <p>Data de Emissão: <span id="issue-date"></span></p>
+      <button class="hide-in-pdf button" (click)="downloadPDF()">
+        <i class="fa-solid fa-file-arrow-down" style="color: #0a0a0a"></i>
+      </button>
+      <button class="hide-in-csv button" (click)="downloadCSV()">
+        <i class="fa-solid fa-file-csv" style="color: #0a0a0a"></i>
+      </button>
+    </div>
+    <div id="datePicker">
+      <mat-form-field class="example-form-field hide-in-pdf">
+        <mat-label>Selecione um intervalo</mat-label>
+        <mat-date-range-input [rangePicker]="rangePicker">
+          <input matStartDate placeholder="Data Inicial" (dateChange)="handleStartDateChange($event)" />
+          <input matEndDate placeholder="Data Final" (dateChange)="handleEndDateChange($event)" />
+        </mat-date-range-input>
+        <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
+        <mat-date-range-picker #rangePicker>
+          <mat-date-range-picker-actions>
+            <button mat-button matDateRangePickerCancel>Cancelar</button>
+            <button mat-raised-button matDateRangePickerApply>Selecionar</button>
+          </mat-date-range-picker-actions>
+        </mat-date-range-picker>
+      </mat-form-field>
+    </div>
+  </header>
+  <div id="main" class="loading" *ngIf="loading">
+    <mat-progress-spinner mode="indeterminate" color="accent" style="width: 32px"></mat-progress-spinner>
+  </div>
+  <mat-table [dataSource]="dados" matSort class="mat-elevation-z8">
+    <ng-container matColumnDef="deviceName">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Dispositivo </mat-header-cell>
+      <mat-cell *matCellDef="let row"> {{ row.deviceName }} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="co2">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> CO₂ </mat-header-cell>
+      <mat-cell *matCellDef="let row"> {{ row.co2 }} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="reading_date">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Data </mat-header-cell>
+      <mat-cell *matCellDef="let row"> {{ row.reading_date }} </mat-cell>
+    </ng-container>
+    <mat-header-row *matHeaderRowDef="['deviceName', 'co2', 'reading_date']"></mat-header-row>
+    <mat-row *matRowDef="let row; columns: ['deviceName', 'co2', 'reading_date']"></mat-row>
+  </mat-table>
+</div>

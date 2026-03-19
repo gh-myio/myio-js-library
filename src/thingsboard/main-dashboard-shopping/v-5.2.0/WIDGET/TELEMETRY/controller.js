@@ -112,6 +112,56 @@ function injectBadgeStyles() {
   document.head.appendChild(style);
 }
 
+// RFC-0183: Inject alarm badge CSS (once, idempotent)
+function injectAlarmBadgeStyles() {
+  if (document.getElementById('myio-alarm-badge-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'myio-alarm-badge-styles';
+  s.textContent = `
+    .myio-alarm-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: #dc2626;
+      color: #fff;
+      border-radius: 10px;
+      padding: 2px 5px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// RFC-0183: Append alarm badge to a card element if the device has active alarms.
+// gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
+function addAlarmBadge(cardElement, gcdrDeviceId) {
+  if (!cardElement || !gcdrDeviceId) return;
+  const aso = window.AlarmServiceOrchestrator;
+  if (!aso) return;
+  const count = aso.getAlarmCountForDevice(gcdrDeviceId);
+  if (!count) return;
+
+  injectAlarmBadgeStyles();
+  if (cardElement.style) cardElement.style.position = 'relative';
+
+  const badge = document.createElement('div');
+  badge.className = 'myio-alarm-badge';
+  badge.title = count + ' alarme' + (count !== 1 ? 's' : '') + ' ativo' + (count !== 1 ? 's' : '');
+  badge.innerHTML =
+    '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' +
+    '</svg>' +
+    '<span>' + (count > 99 ? '99+' : count) + '</span>';
+  cardElement.appendChild(badge);
+}
+
 /**
  * RFC-0105: Build annotation type tooltip content using InfoTooltip classes
  * @param {string} type - Annotation type (pending, maintenance, activity, observation)
@@ -748,6 +798,45 @@ function getData(dataKeyName) {
 
   LogHelper.warn(`[getData] DataKey "${dataKeyName}" not found in ctx.data`);
   return null;
+}
+
+/**
+ * Get temperature offset for a specific device from ctx.data
+ * Looks for a dataKey named "offSetTemperature" for the given device
+ * @param {string} deviceId - The device TB ID to search for
+ * @returns {number} The offset value (positive or negative), or 0 if not found
+ */
+function getTemperatureOffset(deviceId) {
+  if (!self?.ctx?.data || !deviceId) {
+    return 0;
+  }
+
+  for (const device of self.ctx.data) {
+    const entityId = device.datasource?.entity?.id?.id;
+    if (entityId === deviceId && device.dataKey?.name === 'offSetTemperature') {
+      if (device.data && device.data.length > 0) {
+        const lastDataPoint = device.data[device.data.length - 1];
+        const offset = Number(lastDataPoint[1]) || 0;
+        LogHelper.log(`[getTemperatureOffset] Found offset ${offset} for device ${deviceId}`);
+        return offset;
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Apply temperature offset to a value
+ * @param {number} temperature - The original temperature value
+ * @param {number} offset - The offset to apply (can be positive or negative)
+ * @returns {number} The adjusted temperature
+ */
+function applyTemperatureOffset(temperature, offset) {
+  if (offset === 0) return temperature;
+  const adjusted = temperature + offset;
+  LogHelper.log(`[applyTemperatureOffset] ${temperature} + ${offset} = ${adjusted}`);
+  return adjusted;
 }
 
 let dateUpdateHandler = null;
@@ -1940,8 +2029,8 @@ function renderList(visible) {
           const loadingMsg = isTermostato
             ? 'Carregando dados de temperatura...'
             : isWaterTank
-            ? 'Loading water tank data...'
-            : 'Loading energy data...';
+              ? 'Loading water tank data...'
+              : 'Loading energy data...';
           loadingToast = MyIOToast.info(loadingMsg, 0);
         }
 
@@ -2130,6 +2219,7 @@ function renderList(visible) {
             const modal = MyIO.openDashboardPopupEnergy({
               deviceId: it.id,
               readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
+              deviceProfile: it.deviceProfile || null,
               startDate: self.ctx.scope.startDateISO,
               endDate: self.ctx.scope.endDateISO,
               tbJwtToken: jwtToken,
@@ -2211,6 +2301,12 @@ function renderList(visible) {
               identifier: it.identifier,
             });
 
+            // Get temperature offset for this device (will be applied to report values)
+            const reportTempOffset = it.temperatureOffset || getTemperatureOffset(tbId) || 0;
+            if (reportTempOffset !== 0) {
+              LogHelper.log(`[TELEMETRY v5] Temperature report will apply offset: ${reportTempOffset}`);
+            }
+
             // Create custom fetcher for ThingsBoard temperature data
             const temperatureFetcher = async ({ startISO, endISO }) => {
               const startTs = new Date(startISO).getTime();
@@ -2222,6 +2318,7 @@ function renderList(visible) {
                 startTs,
                 endTs,
                 tbId,
+                temperatureOffset: reportTempOffset,
               });
 
               // Fetch temperature data from ThingsBoard with daily aggregation
@@ -2257,10 +2354,14 @@ function renderList(visible) {
                 return [];
               }
 
-              // Helper function to clamp temperature values (avoid outliers)
-              // Values below 15°C are clamped to 15, values above 40°C are clamped to 40
+              // Helper function to apply offset and clamp temperature values (avoid outliers)
+              // Offset is applied first, then values below 15°C are clamped to 15, above 40°C to 40
               const clampTemp = (v) => {
-                const num = Number(v || 0);
+                let num = Number(v || 0);
+                // Apply temperature offset before clamping
+                if (reportTempOffset !== 0) {
+                  num = num + reportTempOffset;
+                }
                 if (num < 15) return 15;
                 if (num > 40) return 40;
                 return num;
@@ -2382,16 +2483,25 @@ function renderList(visible) {
           // RFC-XXXX: SuperAdmin flag from MAIN_VIEW
           const isSuperAdmin = window.MyIOUtils?.SuperAdmin || false;
 
+          // RFC-0144: Annotations onboarding flag from MAIN_VIEW settings
+          const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
+
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
+          console.log(`[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `, enableAnnotationsOnboarding);
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
+            deviceName: it.name, // Raw device name (shown as subtitle in identity card)
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
+            deviceProfile: it.deviceProfile || null, // RFC-0086: needed for 3F_MEDIDOR detection
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
+            enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
+            createdTime: it.createdTime || null,
+            lastActivityTime: it.lastActivityTime || null,
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,
@@ -2399,10 +2509,17 @@ function renderList(visible) {
               timeVal: it.timeVal || null,
               deviceStatus: it.deviceStatus || 'no_info',
             },
-            ui: { title: 'Configurações', width: 900 },
+            ui: { title: 'Configurações', width: 1100 },
             mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
             // RFC-0091: Pass device-specific power limits (TIER 0 - highest priority)
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
+            // RFC-0180: GCDR params for Alarms tab
+            gcdrDeviceId: it.gcdrDeviceId || null,
+            gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || null,
+            gcdrTenantId: window.MyIOOrchestrator?.gcdrTenantId || null,
+            gcdrApiBaseUrl: window.MyIOOrchestrator?.gcdrApiBaseUrl || null,
+            prefetchedBundle:  window.MyIOOrchestrator?.alarmBundle       ?? null,
+            prefetchedAlarms:  window.MyIOOrchestrator?.customerAlarms    ?? null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();
@@ -2410,7 +2527,7 @@ function renderList(visible) {
               // showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $('.myio-settings-modal-overlay').remove();
+              $('.myio-device-settings-overlay').remove();
               hideBusy();
             },
           });
@@ -2434,6 +2551,11 @@ function renderList(visible) {
     // Append the returned element to wrapper
     if ($card && $card[0] && entityObject.log_annotations) {
       addAnnotationIndicator($card[0], entityObject);
+    }
+
+    // RFC-0183: Alarm badge — red bell icon if device has active alarms in AlarmServiceOrchestrator
+    if ($card && $card[0]) {
+      addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
     $ul.append($card);
@@ -2488,8 +2610,8 @@ function openFilterModal() {
     label.setAttribute('role', 'option');
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
-      checked ? 'checked' : ''
-    }>
+        checked ? 'checked' : ''
+      }>
       <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
     `;
     frag.appendChild(label);
@@ -3755,6 +3877,8 @@ self.onInit = async function () {
                 connectionStatus: connectionStatus,
                 labelWidget: item.labelWidget || self.ctx.settings?.labelWidget,
                 log_annotations: item.log_annotations || null,
+                // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
+                gcdrDeviceId: item.gcdrDeviceId || null,
               };
             });
 
@@ -3810,7 +3934,16 @@ self.onInit = async function () {
       let temperatureStatus = null;
       const isTemperatureDomain = domain === 'temperature';
       const isEnergyDomain = domain === 'energy';
-      const temp = Number(item.value || 0);
+      const rawTemp = Number(item.value || 0);
+
+      // Apply temperature offset if available (from dataKey "offSetTemperature")
+      // The offset can be positive or negative and is added to the raw temperature
+      const deviceTbId = item.tbId || item.id;
+      const tempOffset = isTemperatureDomain
+        ? (item.offSetTemperature ?? getTemperatureOffset(deviceTbId))
+        : 0;
+      const temp =
+        isTemperatureDomain && tempOffset !== 0 ? applyTemperatureOffset(rawTemp, tempOffset) : rawTemp;
 
       if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
         if (temp > globalTempMax) {
@@ -3883,6 +4016,8 @@ self.onInit = async function () {
         consumptionPower: item.consumptionPower || null,
         // Temperature domain specific fields - use global limits from customer
         temperature: isTemperatureDomain ? temp : null,
+        temperatureRaw: isTemperatureDomain ? rawTemp : null, // Original value before offset
+        temperatureOffset: isTemperatureDomain ? tempOffset : null, // Offset applied (can be + or -)
         temperatureMin: isTemperatureDomain ? globalTempMin : null,
         temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
@@ -3891,6 +4026,8 @@ self.onInit = async function () {
         waterPercentage: item.waterPercentage ?? null,
         _isTankDevice: item._isTankDevice || false,
         _isHidrometerDevice: item._isHidrometerDevice || false,
+        // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
+        gcdrDeviceId: item.gcdrDeviceId || null,
       };
     });
 

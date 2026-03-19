@@ -40,6 +40,7 @@ export class SettingsController {
       customerId: params.customerId, // RFC-0080: Pass customerId for fetching GLOBAL mapInstantaneousPower
       deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
+      tbBaseUrl: params.api?.tbBaseUrl, // Pass tbBaseUrl for superAdmin API calls
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles
@@ -48,6 +49,22 @@ export class SettingsController {
       onClose: this.handleClose.bind(this),
       mapInstantaneousPower: params.mapInstantaneousPower, // RFC-0077: Pass instantaneous power map for Power Limits feature,
       deviceMapInstaneousPower: params.deviceMapInstaneousPower,
+      // RFC-0171: Pass superadmin and userEmail for field editing permissions
+      // Fallback to window.MyIOUtils.currentUserEmail if not provided (set by MAIN controller)
+      superadmin: params.superadmin,
+      userEmail: params.userEmail || (window as any).MyIOUtils?.currentUserEmail || null,
+      // RFC-0144: Pass enableAnnotationsOnboarding flag for onboarding control
+      enableAnnotationsOnboarding: params.enableAnnotationsOnboarding ?? false,
+      // RFC-0180: Raw device name + GCDR identifiers for Alarms tab
+      deviceName: params.deviceName,
+      gcdrDeviceId: params.gcdrDeviceId,
+      gcdrCustomerId: params.gcdrCustomerId,
+      gcdrTenantId: params.gcdrTenantId,
+      gcdrApiBaseUrl: params.gcdrApiBaseUrl,
+      prefetchedBundle: params.prefetchedBundle,
+      // Device timestamps
+      createdTime: params.createdTime ?? null,
+      lastActivityTime: params.lastActivityTime ?? null,
     });
   }
 
@@ -84,31 +101,29 @@ export class SettingsController {
       }
     }
 
-    // Load current settings if no seed provided
-    let initialData = this.params.seed || {};
-    if (!this.params.seed) {
-      try {
-        const fetchedData = await this.fetcher.fetchCurrentSettings(
-          this.params.deviceId,
-          this.params.jwtToken,
-          this.params.scope || 'SERVER_SCOPE'
-        );
+    // Always fetch current settings; seed provides fallback values for missing attributes
+    let initialData: Record<string, any> = this.params.seed ? { ...this.params.seed } : {};
+    try {
+      const fetchedData = await this.fetcher.fetchCurrentSettings(
+        this.params.deviceId,
+        this.params.jwtToken,
+        this.params.scope || 'SERVER_SCOPE'
+      );
 
-        // Merge fetched data with any seed data
-        initialData = DefaultSettingsFetcher.mergeWithSeed(fetchedData, this.params.seed);
+      // Merge: seed is the base, fetched entity/attributes override it
+      initialData = DefaultSettingsFetcher.mergeWithSeed(fetchedData, this.params.seed);
 
-        // Sanitize the data
-        initialData = DefaultSettingsFetcher.sanitizeFetchedData(initialData);
-      } catch (error) {
-        console.warn('[SettingsModal] Failed to fetch current settings:', error);
-        // Continue with empty form or seed data
-        if (this.params.onError) {
-          this.params.onError({
-            code: 'NETWORK_ERROR',
-            message: 'Failed to load current settings',
-            cause: error,
-          });
-        }
+      // Sanitize the data
+      initialData = DefaultSettingsFetcher.sanitizeFetchedData(initialData);
+    } catch (error) {
+      console.warn('[SettingsModal] Failed to fetch current settings:', error);
+      // Continue with seed data (or empty) as fallback
+      if (this.params.onError) {
+        this.params.onError({
+          code: 'NETWORK_ERROR',
+          message: 'Failed to load current settings',
+          cause: error,
+        });
       }
     }
 
@@ -276,6 +291,10 @@ export class SettingsController {
 
     // 2. Update SERVER_SCOPE attributes (all fields except label)
     const attributes = this.extractAttributes(formData);
+
+    // Always stamp lastUpdatedTime on every save (UTC ms long)
+    attributes.lastUpdatedTime = Date.now();
+
     if (Object.keys(attributes).length > 0) {
       try {
         const attributesResult = await this.persister.saveServerScopeAttributes(

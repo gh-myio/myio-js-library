@@ -54,6 +54,7 @@ const WIDGET_DOMAIN = 'temperature'; // Will be set in onInit
 // Card rendering options (from settings, with defaults)
 let USE_NEW_COMPONENTS = true;
 let ENABLE_SELECTION = true;
+let ENABLE_DRAG_DROP = true;
 let HIDE_INFO_MENU_ITEM = true;
 let DEBUG_ACTIVE = false;
 let ACTIVE_TOOLTIP_DEBUG = false;
@@ -264,20 +265,47 @@ function initializeSensorCards(sensors) {
               temperatureMax: sensor.temperatureMax,
               ui: { title: 'Configurações', width: 900 },
               onClose: () => {
-                $('.myio-settings-modal-overlay').remove();
+                $('.myio-device-settings-overlay').remove();
               },
             });
           }
         },
         handleSelect: (checked, entity) => {
           const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-          if (store) checked ? store.add(entity.entityId) : store.remove(entity.entityId);
+          if (!store) return;
+
+          if (checked) {
+            // RFC-FIX: Register entity with full metadata BEFORE adding to selection
+            // This is required for FOOTER to display the device correctly
+            store.registerEntity({
+              id: entity.entityId,
+              entityId: entity.entityId,
+              name: entity.labelOrName || entity.name || entity.label,
+              labelOrName: entity.labelOrName || entity.name || entity.label,
+              icon: 'temperature',
+              domain: 'temperature',
+              lastValue: entity.temperatureC || entity.val || entity.lastValue,
+              unit: '°C',
+              ingestionId: entity.tbId || entity.id || entity.entityId,
+              tbId: entity.tbId || entity.id,
+              customerName: entity.customerName,
+              deviceStatus: entity.deviceStatus,
+              temperatureMin: entity.temperatureMin,
+              temperatureMax: entity.temperatureMax,
+            });
+            store.add(entity.entityId);
+            LogHelper.log('[TEMPERATURE_SENSORS] Entity registered and added to selection:', entity.labelOrName);
+          } else {
+            store.remove(entity.entityId);
+            LogHelper.log('[TEMPERATURE_SENSORS] Entity removed from selection:', entity.labelOrName);
+          }
         },
         handleClickCard: (ev, entity) => {
           LogHelper.log(`Click: ${entity.labelOrName}`);
         },
         useNewComponents: USE_NEW_COMPONENTS,
         enableSelection: ENABLE_SELECTION,
+        enableDragDrop: ENABLE_DRAG_DROP,
         hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
       });
     } else {
@@ -301,7 +329,7 @@ function handleSettingsClick(sensor) {
       domain: WIDGET_DOMAIN,
       // ... resto dos parametros
       onClose: () => {
-        $('.myio-settings-modal-overlay').remove();
+        $('.myio-device-settings-overlay').remove();
       },
     });
   }
@@ -905,6 +933,7 @@ self.onInit = async function () {
   // Load card rendering options from settings
   USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
   ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
+  ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
   HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
   DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
   ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;

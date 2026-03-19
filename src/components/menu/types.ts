@@ -207,6 +207,10 @@ export interface MenuConfigTemplate {
   datePickerBackgroundColor?: string;
   /** Date picker font color (legacy) */
   datePickerFontColor?: string;
+
+  // Labels
+  /** Shopping filter button/modal title label (default: "Filtro de Shoppings") */
+  shoppingFilterLabel?: string;
 }
 
 /**
@@ -309,6 +313,7 @@ export const DEFAULT_CONFIG_TEMPLATE: MenuConfigTemplate = {
   themeMode: 'light',
   darkMode: DEFAULT_DARK_THEME,
   lightMode: DEFAULT_LIGHT_THEME,
+  shoppingFilterLabel: 'Filtro de Shoppings',
 };
 
 // Legacy exports for backwards compatibility
@@ -408,6 +413,40 @@ export const DEFAULT_TABS: TabConfig[] = [
     defaultContext: 'temperature_sensors',
   },
 ];
+
+/**
+ * RFC-0152: Operational Indicators Tab Configuration
+ * This tab is conditionally shown based on customer attribute 'show-indicators-operational-panels'
+ */
+export const OPERATIONAL_INDICATORS_TAB: TabConfig = {
+  id: 'operational',
+  label: 'Indicadores',
+  icon: '📊',
+  contexts: [
+    {
+      id: 'general-list',
+      target: 'operational_general_list',
+      title: 'Disp. Equipamentos',
+      description: 'Visao geral da disponibilidade operacional',
+      icon: '📋',
+    },
+    {
+      id: 'alarms',
+      target: 'operational_alarms',
+      title: 'Alarmes e Notificacoes',
+      description: 'Central de alarmes e alertas',
+      icon: '🔔',
+    },
+    {
+      id: 'dashboard',
+      target: 'operational_dashboard',
+      title: 'Dashboard Gerencial',
+      description: 'KPIs e indicadores de gestao',
+      icon: '📈',
+    },
+  ],
+  defaultContext: 'general-list',
+};
 
 /**
  * Parameters for creating the Menu Component

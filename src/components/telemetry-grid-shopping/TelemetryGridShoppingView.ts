@@ -38,9 +38,14 @@ export class TelemetryGridShoppingView {
   private searchInputEl: HTMLInputElement | null = null;
   private filterModalEl: HTMLElement | null = null;
   private loadingOverlayEl: HTMLElement | null = null;
+  private maximizeBtnEl: HTMLElement | null = null;
 
   // Card instances for cleanup
   private cardInstances: Map<string, CardInstance> = new Map();
+  private isMaximized = false;
+  private _alarmBadgeStylesInjected = false;
+  private originalParent: HTMLElement | null = null;
+  private originalNextSibling: Node | null = null;
 
   constructor(params: TelemetryGridShoppingParams, controller: TelemetryGridShoppingController) {
     this.params = params;
@@ -66,6 +71,7 @@ export class TelemetryGridShoppingView {
     this.bindEvents();
     this.renderCards();
     this.updateStats();
+    this.renderMaximizeButton();
 
     // Move filter modal to body to escape stacking context issues
     if (this.filterModalEl) {
@@ -85,7 +91,8 @@ export class TelemetryGridShoppingView {
   }
 
   private buildHTML(): string {
-    const labelWidget = this.params.labelWidget || CONTEXT_CONFIG[this.params.context]?.headerLabel || 'Dispositivos';
+    const labelWidget =
+      this.params.labelWidget || CONTEXT_CONFIG[this.params.context]?.headerLabel || 'Dispositivos';
 
     return `
       <!-- Header -->
@@ -194,9 +201,18 @@ export class TelemetryGridShoppingView {
     this.searchInputEl = this.root.querySelector('#shopsSearch');
     this.filterModalEl = this.root.querySelector('#filterModal');
     this.loadingOverlayEl = this.root.querySelector('#loadingOverlay');
+    this.maximizeBtnEl = this.root.querySelector('.maximize-btn');
   }
 
   private bindEvents(): void {
+    this.root.addEventListener('mousemove', this.handleMouseMove.bind(this));
+    this.root.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+
+    // Listen for global theme changes
+    window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
+      this.applyThemeMode(e.detail.mode);
+    }) as EventListener);
+
     // Search toggle
     const btnSearch = this.root.querySelector('#btnSearch');
     btnSearch?.addEventListener('click', () => this.toggleSearch());
@@ -209,35 +225,45 @@ export class TelemetryGridShoppingView {
       this.updateStats();
     });
 
-    // Filter button
+    // Filter button (this is in root)
     const btnFilter = this.root.querySelector('#btnFilter');
     btnFilter?.addEventListener('click', () => this.openFilterModal());
 
+    // Bind filter modal events after it's cached but before moving to body
+    this.bindFilterModalEvents();
+  }
+
+  /**
+   * Bind events for the filter modal (called before modal is moved to body)
+   */
+  private bindFilterModalEvents(): void {
+    if (!this.filterModalEl) return;
+
     // Filter modal close
-    const closeFilter = this.root.querySelector('#closeFilter');
+    const closeFilter = this.filterModalEl.querySelector('#closeFilter');
     closeFilter?.addEventListener('click', () => this.closeFilterModal());
 
     // Filter modal backdrop
-    this.filterModalEl?.addEventListener('click', (e) => {
+    this.filterModalEl.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).classList.contains('shops-modal')) {
         this.closeFilterModal();
       }
     });
 
     // Select all / Clear all
-    const selectAll = this.root.querySelector('#selectAll');
+    const selectAll = this.filterModalEl.querySelector('#selectAll');
     selectAll?.addEventListener('click', () => this.selectAllDevices());
 
-    const clearAll = this.root.querySelector('#clearAll');
+    const clearAll = this.filterModalEl.querySelector('#clearAll');
     clearAll?.addEventListener('click', () => this.clearAllDevices());
 
     // Filter device search
-    const filterDeviceSearch = this.root.querySelector('#filterDeviceSearch') as HTMLInputElement;
+    const filterDeviceSearch = this.filterModalEl.querySelector('#filterDeviceSearch') as HTMLInputElement;
     filterDeviceSearch?.addEventListener('input', (e) => {
       this.filterDeviceChecklist((e.target as HTMLInputElement).value);
     });
 
-    const filterDeviceClear = this.root.querySelector('#filterDeviceClear');
+    const filterDeviceClear = this.filterModalEl.querySelector('#filterDeviceClear');
     filterDeviceClear?.addEventListener('click', () => {
       if (filterDeviceSearch) {
         filterDeviceSearch.value = '';
@@ -246,7 +272,7 @@ export class TelemetryGridShoppingView {
     });
 
     // Sort mode
-    const sortRadios = this.root.querySelectorAll('input[name="sortMode"]');
+    const sortRadios = this.filterModalEl.querySelectorAll('input[name="sortMode"]');
     sortRadios.forEach((radio) => {
       radio.addEventListener('change', (e) => {
         const mode = (e.target as HTMLInputElement).value as SortMode;
@@ -255,7 +281,7 @@ export class TelemetryGridShoppingView {
     });
 
     // Apply filters
-    const applyFilters = this.root.querySelector('#applyFilters');
+    const applyFilters = this.filterModalEl.querySelector('#applyFilters');
     applyFilters?.addEventListener('click', () => {
       this.applySelectedFilters();
       this.closeFilterModal();
@@ -264,7 +290,7 @@ export class TelemetryGridShoppingView {
     });
 
     // Reset filters
-    const resetFilters = this.root.querySelector('#resetFilters');
+    const resetFilters = this.filterModalEl.querySelector('#resetFilters');
     resetFilters?.addEventListener('click', () => {
       this.controller.clearFilters();
       this.closeFilterModal();
@@ -307,12 +333,22 @@ export class TelemetryGridShoppingView {
   }
 
   private populateDeviceChecklist(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
-    if (!checklist) return;
+    // Modal is moved to body, so query from filterModalEl instead of root
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
+    if (!checklist) {
+      this.log('deviceChecklist not found in filterModalEl');
+      return;
+    }
 
     const devices = this.controller.getDevices();
+    this.log('populateDeviceChecklist: found', devices.length, 'devices');
     const filterState = this.controller.getFilterState();
     const selectedIds = new Set(filterState.selectedDeviceIds);
+
+    if (devices.length === 0) {
+      checklist.innerHTML = '<div class="empty-checklist">Nenhum dispositivo disponível</div>';
+      return;
+    }
 
     checklist.innerHTML = devices
       .map((d) => {
@@ -336,7 +372,7 @@ export class TelemetryGridShoppingView {
   }
 
   private filterDeviceChecklist(term: string): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     if (!checklist) return;
 
     const items = checklist.querySelectorAll('.check-item');
@@ -349,7 +385,7 @@ export class TelemetryGridShoppingView {
   }
 
   private selectAllDevices(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     checklist?.querySelectorAll('.check-item').forEach((item) => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       if (checkbox && (item as HTMLElement).style.display !== 'none') {
@@ -360,7 +396,7 @@ export class TelemetryGridShoppingView {
   }
 
   private clearAllDevices(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     checklist?.querySelectorAll('.check-item').forEach((item) => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       if (checkbox) {
@@ -371,7 +407,7 @@ export class TelemetryGridShoppingView {
   }
 
   private applySelectedFilters(): void {
-    const checklist = this.root.querySelector('#deviceChecklist');
+    const checklist = this.filterModalEl?.querySelector('#deviceChecklist');
     if (!checklist) return;
 
     const selectedIds: string[] = [];
@@ -415,7 +451,9 @@ export class TelemetryGridShoppingView {
     }
 
     // Check if MyIOLibrary.renderCardComponentV5 is available
-    const MyIOLibrary = (window as unknown as { MyIOLibrary?: { renderCardComponentV5?: (opts: unknown) => CardInstance } }).MyIOLibrary;
+    const MyIOLibrary = (
+      window as unknown as { MyIOLibrary?: { renderCardComponentV5?: (opts: unknown) => CardInstance } }
+    ).MyIOLibrary;
 
     if (MyIOLibrary?.renderCardComponentV5) {
       devices.forEach((device) => {
@@ -456,6 +494,17 @@ export class TelemetryGridShoppingView {
           if (cardElement) {
             wrapper.appendChild(cardElement);
             this.cardInstances.set(device.entityId, $card);
+
+            // RFC-0183: Inject alarm badge if device has active alarms
+            const aso = (window as unknown as { AlarmServiceOrchestrator?: {
+              getAlarmCountForDevice: (id: string) => number;
+            } }).AlarmServiceOrchestrator;
+            if (aso && device.gcdrDeviceId) {
+              const count = aso.getAlarmCountForDevice(device.gcdrDeviceId);
+              if (count > 0) {
+                wrapper.appendChild(this._createAlarmBadge(count));
+              }
+            }
           } else {
             this.log('Card element not found for:', device.labelOrName);
             wrapper.innerHTML = this.buildFallbackCard(device);
@@ -566,6 +615,52 @@ export class TelemetryGridShoppingView {
     }
   }
 
+  // =========================================================================
+  // RFC-0183: Alarm Badge
+  // =========================================================================
+
+  private _createAlarmBadge(count: number): HTMLElement {
+    this._injectAlarmBadgeStyles();
+    const badge = document.createElement('div');
+    badge.className = 'myio-alarm-badge';
+    badge.title = `${count} alarme${count !== 1 ? 's' : ''} ativo${count !== 1 ? 's' : ''}`;
+    badge.innerHTML = `
+      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">
+        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+      </svg>
+      <span>${count > 99 ? '99+' : count}</span>
+    `;
+    return badge;
+  }
+
+  private _injectAlarmBadgeStyles(): void {
+    if (this._alarmBadgeStylesInjected) return;
+    this._alarmBadgeStylesInjected = true;
+    if (document.getElementById('myio-alarm-badge-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'myio-alarm-badge-styles';
+    s.textContent = `
+      .myio-alarm-badge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        background: #dc2626;
+        color: #fff;
+        border-radius: 10px;
+        padding: 2px 5px;
+        font-size: 10px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        z-index: 10;
+        pointer-events: none;
+        line-height: 1.3;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
   destroy(): void {
     this.log('destroy');
     this.destroyCards();
@@ -576,5 +671,85 @@ export class TelemetryGridShoppingView {
 
   getElement(): HTMLElement {
     return this.root;
+  }
+
+  private renderMaximizeButton(): void {
+    const maximizeBtnHTML = this.buildMaximizeButtonHTML();
+    this.root.insertAdjacentHTML('beforeend', maximizeBtnHTML);
+    this.maximizeBtnEl = this.root.querySelector('.maximize-btn');
+    this.maximizeBtnEl?.addEventListener('click', this.toggleMaximize.bind(this));
+  }
+
+  private buildMaximizeButtonHTML(): string {
+    return `
+      <button class="maximize-btn" title="Maximizar">
+        <svg viewBox="0 0 24 24">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+      </button>
+    `;
+  }
+
+  private handleMouseMove(event: MouseEvent): void {
+    if (this.isMaximized) return;
+
+    const rect = this.root.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const isNearTopRight = x > rect.width - 100 && y < 100;
+
+    if (isNearTopRight) {
+      this.maximizeBtnEl!.style.opacity = '1';
+    } else {
+      this.maximizeBtnEl!.style.opacity = '0';
+    }
+  }
+
+  private handleMouseLeave(): void {
+    if (this.isMaximized) return;
+    this.maximizeBtnEl!.style.opacity = '0';
+  }
+
+  private toggleMaximize(): void {
+    this.isMaximized = !this.isMaximized;
+
+    if (this.isMaximized) {
+      // Save original position
+      this.originalParent = this.root.parentElement;
+      this.originalNextSibling = this.root.nextSibling;
+
+      // Move to body (like filter modal)
+      document.body.appendChild(this.root);
+      this.root.classList.add('maximized');
+
+      // Keep button visible when maximized
+      if (this.maximizeBtnEl) {
+        this.maximizeBtnEl.style.opacity = '1';
+      }
+    } else {
+      // Restore original position
+      this.root.classList.remove('maximized');
+
+      if (this.originalParent) {
+        if (this.originalNextSibling) {
+          this.originalParent.insertBefore(this.root, this.originalNextSibling);
+        } else {
+          this.originalParent.appendChild(this.root);
+        }
+      }
+
+      // Reset button opacity
+      if (this.maximizeBtnEl) {
+        this.maximizeBtnEl.style.opacity = '0';
+      }
+    }
+
+    // Update icon
+    const icon = this.isMaximized
+      ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+      : '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+
+    this.maximizeBtnEl!.innerHTML = `<svg viewBox="0 0 24 24">${icon}</svg>`;
   }
 }

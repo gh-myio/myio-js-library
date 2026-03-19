@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1.0.0",
+  "deviceId": "86bada50-b4dd-11f0-be7f-e760d1498268",
+  "lastModified": "2026-02-27T15:25:23.920Z",
+  "lastModifiedBy": {
+    "id": "2eb2d140-b682-11f0-9898-a53e89467408",
+    "email": "marcus.araujo@sacavalcante.com.br",
+    "name": "Marcus Araujo"
+  },
+  "annotations": [
+    {
+      "id": "6575ca33-fef4-4e59-8c73-5cc51a89db0f",
+      "version": 3,
+      "text": "PENDÊNCIA DE VERIFICAÇÃO TÉCNICA",
+      "type": "observation",
+      "importance": 3,
+      "status": "modified",
+      "createdAt": "2026-01-08T20:09:11.012Z",
+      "createdBy": {
+        "id": "42ded7d0-aaad-11f0-afe1-175479a33d89",
+        "email": "estevanroborges@myio.com.br",
+        "name": "Estevan Borges"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2026-01-08T20:09:11.012Z",
+          "userId": "42ded7d0-aaad-11f0-afe1-175479a33d89",
+          "userName": "Estevan Borges",
+          "userEmail": "estevanroborges@myio.com.br",
+          "action": "created"
+        },
+        {
+          "timestamp": "2026-01-08T22:16:53.901Z",
+          "userId": "42ded7d0-aaad-11f0-afe1-175479a33d89",
+          "userName": "Estevan Borges",
+          "userEmail": "estevanroborges@myio.com.br",
+          "action": "modified",
+          "previousVersion": 1,
+          "changes": {
+            "text": {
+              "from": "VERIFICAR sem consumo desde 15/12/25",
+              "to": "PENDÊNCIA DE VERIFICAÇÃO TÉCNICA"
+            }
+          }
+        },
+        {
+          "timestamp": "2026-02-27T15:25:23.920Z",
+          "userId": "2eb2d140-b682-11f0-9898-a53e89467408",
+          "userName": "Marcus Araujo",
+          "userEmail": "marcus.araujo@sacavalcante.com.br",
+          "action": "commented",
+          "previousVersion": 2
+        }
+      ],
+      "responses": [
+        {
+          "id": "abc73ffc-4a8f-4e1b-b407-cb4b4a6a2dfc",
+          "annotationId": "6575ca33-fef4-4e59-8c73-5cc51a89db0f",
+          "type": "comment",
+          "text": "Brunno,  Precisamos que as observações sejam mais detalhadas para o melhor entendimento. \nNesse caso a verificação técnica seria de responsabilidade de quem ? Myio ? SÁ?",
+          "createdAt": "2026-02-27T15:25:23.920Z",
+          "createdBy": {
+            "id": "2eb2d140-b682-11f0-9898-a53e89467408",
+            "email": "marcus.araujo@sacavalcante.com.br",
+            "name": "Marcus Araujo"
+          }
+        }
+      ]
+    }
+  ]
+}

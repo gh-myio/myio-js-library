@@ -1,8 +1,12 @@
 import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
+import { AlarmsTab } from './alarms/AlarmsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
+
+// RFC-0171: Allowed email domain for superadmin editing permissions
+const ALLOWED_EMAIL_DOMAIN = '@myio.com.br';
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -13,13 +17,37 @@ export class SettingsModalView {
   private originalActiveElement: Element | null = null;
   // RFC-0104: Annotations Tab
   private annotationsTab: AnnotationsTab | null = null;
-  private currentTab: 'general' | 'annotations' = 'general';
+  // RFC-0180: Alarms Tab
+  private alarmsTab: AlarmsTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
 
   constructor(config: ModalConfig) {
     this.config = config;
     this.createModal();
+  }
+
+  /**
+   * RFC-0171: Check if user has superadmin permissions
+   * Returns true if:
+   * - superadmin flag is explicitly set to true, OR
+   * - userEmail ends with @myio.com.br
+   */
+  private isSuperAdmin(): boolean {
+    // Explicit superadmin flag takes precedence
+    if (this.config.superadmin === true) {
+      return true;
+    }
+
+    // Check userEmail domain
+    const userEmail = this.config.userEmail;
+    if (!userEmail) {
+      return false;
+    }
+
+    const email = userEmail.toLowerCase().trim();
+    return email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
   }
 
   render(initialData: Record<string, any>): void {
@@ -47,6 +75,21 @@ export class SettingsModalView {
     // Preenche o formulário com os dados processados
     this.populateForm(formData);
 
+    // Patch date cells from fetched data (not available at HTML build time)
+    const createdTimeEl = this.modal.querySelector('#identity-created-time-value') as HTMLElement;
+    if (createdTimeEl && formData.createdTime) {
+      createdTimeEl.textContent = this.formatTs(formData.createdTime);
+    }
+    const lastUpdatedEl = this.modal.querySelector('#identity-last-updated-value') as HTMLElement;
+    if (lastUpdatedEl) {
+      lastUpdatedEl.textContent = formData.lastUpdatedTime ? this.formatTs(formData.lastUpdatedTime) : '—';
+    }
+
+    // Patch gcdrDeviceId from SERVER_SCOPE attribute if not already provided
+    if (!this.config.gcdrDeviceId && formData.gcdrDeviceId) {
+      this.config.gcdrDeviceId = formData.gcdrDeviceId;
+    }
+
     // --- Resto do método render continua igual ---
     this.attachEventListeners();
     this.setupAccessibility();
@@ -56,6 +99,8 @@ export class SettingsModalView {
 
     // RFC-0104: Initialize annotations tab (async)
     this.initAnnotationsTab();
+    // RFC-0180: Initialize alarms tab (async)
+    this.initAlarmsTab();
   }
 
   // RFC-0104: Initialize the Annotations Tab
@@ -75,7 +120,7 @@ export class SettingsModalView {
 
     try {
       // Fetch permissions
-      const permissions = await getAnnotationPermissions(this.config.customerId, this.config.jwtToken);
+      const permissions = await getAnnotationPermissions(this.config.customerId, this.config.jwtToken, this.config.tbBaseUrl);
 
       if (!permissions.currentUser) {
         console.warn('[SettingsModalView] Could not get current user for annotations');
@@ -96,8 +141,10 @@ export class SettingsModalView {
         container: annotationsContainer,
         deviceId: this.config.deviceId,
         jwtToken: this.config.jwtToken,
+        tbBaseUrl: this.config.tbBaseUrl,
         currentUser: this.currentUser,
         permissions: this.permissions,
+        enableAnnotationsOnboarding: this.config.enableAnnotationsOnboarding ?? false, // RFC-0144
       });
 
       await this.annotationsTab.init();
@@ -109,25 +156,61 @@ export class SettingsModalView {
     }
   }
 
-  // RFC-0104: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations'): void {
+  // RFC-0180: Initialize the Alarms Tab
+  private async initAlarmsTab(): Promise<void> {
+    const container = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
+    if (!container) return;
+
+    const { gcdrDeviceId, gcdrCustomerId, gcdrTenantId, gcdrApiBaseUrl, prefetchedBundle, prefetchedAlarms, deviceId, jwtToken } =
+      this.config;
+
+    if (!gcdrDeviceId || !gcdrCustomerId || !gcdrTenantId) {
+      container.innerHTML =
+        '<p style="color:#6c757d;padding:20px;text-align:center;font-style:italic;">Alarm data not available (missing GCDR identifiers).</p>';
+      return;
+    }
+
+    try {
+      this.alarmsTab = new AlarmsTab({
+        container,
+        gcdrDeviceId,
+        gcdrCustomerId,
+        gcdrTenantId,
+        gcdrApiBaseUrl,
+        tbDeviceId: deviceId ?? '',
+        jwtToken: jwtToken ?? '',
+        prefetchedBundle: prefetchedBundle ?? null,
+        prefetchedAlarms: prefetchedAlarms ?? null,
+      });
+      await this.alarmsTab.init();
+      console.log('[SettingsModalView] RFC-0180: Alarms tab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize alarms tab:', error);
+      container.innerHTML =
+        '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar alarmes</p>';
+    }
+  }
+
+  // RFC-0104 / RFC-0180: Switch between tabs
+  private switchTab(tab: 'general' | 'annotations' | 'alarms'): void {
     this.currentTab = tab;
 
     // Update tab buttons
-    const generalTabBtn = this.modal.querySelector('[data-tab="general"]');
-    const annotationsTabBtn = this.modal.querySelector('[data-tab="annotations"]');
-
-    generalTabBtn?.classList.toggle('active', tab === 'general');
-    annotationsTabBtn?.classList.toggle('active', tab === 'annotations');
+    this.modal.querySelectorAll('.modal-tab').forEach((btn) => {
+      const t = (btn as HTMLElement).dataset.tab;
+      btn.classList.toggle('active', t === tab);
+    });
 
     // Update tab content visibility
     const generalContent = this.modal.querySelector('#general-tab-content') as HTMLElement;
     const annotationsContent = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
+    const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
+    if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
 
-    // Update footer buttons visibility (only show Save on General tab)
+    // Update footer Save button (only on General tab)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
 
@@ -144,6 +227,12 @@ export class SettingsModalView {
     if (this.annotationsTab) {
       this.annotationsTab.destroy();
       this.annotationsTab = null;
+    }
+
+    // RFC-0180: Clean up alarms tab
+    if (this.alarmsTab) {
+      this.alarmsTab.destroy();
+      this.alarmsTab = null;
     }
 
     // Restore focus to original element
@@ -274,25 +363,30 @@ export class SettingsModalView {
 
   private createModal(): void {
     this.container = document.createElement('div');
-    this.container.className = 'myio-settings-modal-overlay';
+    this.container.className = 'myio-device-settings-overlay';
     this.container.innerHTML = this.getModalHTML();
-    this.modal = this.container.querySelector('.myio-settings-modal') as HTMLElement;
+    this.modal = this.container.querySelector('.myio-device-settings-modal') as HTMLElement;
     this.form = this.modal.querySelector('form') as HTMLFormElement;
   }
 
   private getModalHTML(): string {
-    // Width is controlled by CSS (.myio-settings-modal { width: 1700px })
+    // Width is controlled by CSS (.myio-device-settings-modal { width: 1700px })
     // Config width can override if explicitly provided
     const widthStyle = this.config.width
       ? `style="width: ${typeof this.config.width === 'number' ? `${this.config.width}px` : this.config.width}"`
       : '';
 
     return `
-      <div class="myio-settings-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="myio-settings-modal" ${widthStyle}>
+      <div class="myio-device-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="myio-device-settings-modal" ${widthStyle}>
           <div class="modal-header">
             <h3 id="modal-title">Configurações</h3>
-            <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
+            <div class="modal-header-actions">
+              <button type="button" class="maximize-btn" aria-label="Maximizar" title="Maximizar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              </button>
+              <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
+            </div>
           </div>
           <!-- RFC-0104: Tab Navigation -->
           <div class="modal-tabs">
@@ -313,6 +407,14 @@ export class SettingsModalView {
               </svg>
               Anotações
             </button>
+            <!-- RFC-0180: Alarms Tab -->
+            <button type="button" class="modal-tab" data-tab="alarms">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              Alarmes
+            </button>
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert" aria-live="polite"></div>
@@ -327,6 +429,13 @@ export class SettingsModalView {
               <div style="padding: 20px; text-align: center; color: #6c757d;">
                 <div class="loading-spinner"></div>
                 <p>Carregando anotações...</p>
+              </div>
+            </div>
+            <!-- RFC-0180: Alarms Tab Content -->
+            <div id="alarms-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando alarmes...</p>
               </div>
             </div>
           </div>
@@ -372,43 +481,62 @@ export class SettingsModalView {
             : ''
         }
 
-        <!-- Top Row: Two cards side by side -->
-        <div class="form-columns">
-          <!-- Left Column: Device Label -->
-          <div class="form-column">
-            <div class="form-card">
-              <h4 class="section-title device-label-title">${this.config.deviceLabel || 'NÃO INFORMADO'}</h4>
+        <!-- Identity card: 3-column × 6-row grid -->
+        <div class="form-card identity-card">
+          <div class="identity-grid">
 
-              <div class="form-group">
-                <label for="label">Etiqueta</label>
-                <input type="text" id="label" name="label" required maxlength="255">
+            <!-- Col 1, rows 1-6: single wrapper → borda contínua -->
+            <div class="identity-col1">
+              <div class="identity-name-block">
+                <div class="identity-name-text">${this.config.deviceLabel || '—'}</div>
+                <div class="device-name-subtitle">${this.config.deviceName || ''}</div>
               </div>
-
-              <div class="form-group">
-                <label for="floor">Andar</label>
-                <input type="text" id="floor" name="floor" maxlength="50">
-              </div>
-
-              <div class="form-group">
-                <label for="identifier">Identificador / LUC / SUC</label>
-                <input type="text" id="identifier" name="identifier" maxlength="20" ${
-                  this.config.superadmin ? '' : 'readonly'
-                }>
+              <div class="identity-icon-cell">
+                ${this.getDeviceImage(deviceType)}
               </div>
             </div>
-          </div>
 
-          <!-- Right Column: Alarms -->
-          <div class="form-column">
-            ${this.getAlarmsHTML(deviceType)}
+            <!-- Col 2, row 1: "Etiqueta" label -->
+            <div class="identity-field-label">Etiqueta</div>
+            <!-- Col 2, row 2: input etiqueta -->
+            <input type="text" id="label" name="label" class="identity-input" required maxlength="255">
+
+            <!-- Col 2, row 3: "Andar" label -->
+            <div class="identity-field-label">Andar / Localização</div>
+            <!-- Col 2, row 4: input andar -->
+            <input type="text" id="floor" name="floor" class="identity-input" maxlength="50">
+
+            <!-- Col 2, row 5: "Identificador" label -->
+            <div class="identity-field-label">Identificador / LUC / SUC</div>
+            <!-- Col 2, row 6: input identificador -->
+            <input type="text" id="identifier" name="identifier" class="identity-input" maxlength="20" ${
+              this.isSuperAdmin() ? '' : 'readonly'
+            }>
+
+            <!-- Col 3, rows 1-6: date info block -->
+            <div class="identity-dates-block">
+              <div class="identity-date-row">
+                <div class="identity-date-label">Data Criação</div>
+                <div class="identity-date-value" id="identity-created-time-value">${this.formatTs((this.config as any).createdTime)}</div>
+              </div>
+              <div class="identity-date-row">
+                <div class="identity-date-label">Data Última Alteração</div>
+                <div class="identity-date-value" id="identity-last-updated-value">—</div>
+              </div>
+              <div class="identity-date-row">
+                <div class="identity-date-label">Data Última Atividade</div>
+                <div class="identity-date-value">${this.formatTs((this.config as any).lastActivityTime)}</div>
+              </div>
+            </div>
+
           </div>
         </div>
 
         <!-- Bottom Row: Connection Info spanning full width -->
         ${this.getConnectionInfoHTML()}
 
-        <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
-        ${this.config.domain === 'energy' && this.config.deviceType ? this.getPowerLimitsHTML() : ''}
+        <!-- RFC-0077: Power Limits Configuration (only for energy domain, when deviceType is available, and not a store meter) -->
+        ${this.config.domain === 'energy' && this.config.deviceType && this.config.deviceType !== '3F_MEDIDOR' && this.config.deviceProfile !== '3F_MEDIDOR' ? this.getPowerLimitsHTML() : ''}
       </div>
     `;
   }
@@ -451,9 +579,9 @@ export class SettingsModalView {
   }
 
   private getThermostatAlarmsHTML(): string {
-    // RFC-XXXX: offSetTemperature field only visible for SuperAdmin
+    // RFC-0171: offSetTemperature field only visible for SuperAdmin (@myio.com.br users)
     const offSetTemperatureField =
-      this.config.superadmin || 3 > 2 // TODO Remover esse hardcode e ajustar a visão de superadmin
+      this.isSuperAdmin()
         ? `
         <div class="form-group">
           <label for="offSetTemperature">Offset de Temperatura (°C)</label>
@@ -568,6 +696,55 @@ export class SettingsModalView {
         </svg>
       `;
     }
+  }
+
+  /**
+   * Returns an <img> tag with the same image URL used by card v5 (DEVICE_TYPE_CONFIG).
+   * Applies the 3F_MEDIDOR → deviceProfile fallback rule (RFC-0076).
+   */
+  private formatTs(ts?: number | null): string {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  private getDeviceImage(deviceType?: string): string {
+    let normalized = (deviceType || '').toUpperCase();
+
+    // RFC-0076: 3F_MEDIDOR → deviceProfile fallback
+    if (normalized === '3F_MEDIDOR') {
+      const profile = (this.config as any).deviceProfile;
+      if (profile && profile !== 'N/D' && profile.trim() !== '') {
+        normalized = profile.toUpperCase();
+      }
+    }
+
+    const IMAGES: Record<string, string> = {
+      ESCADA_ROLANTE: 'https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp',
+      ELEVADOR:       'https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX',
+      MOTOR:          'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+      BOMBA_HIDRAULICA: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
+      BOMBA_CAG:      'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
+      BOMBA_INCENDIO: 'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',
+      BOMBA:          'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+      '3F_MEDIDOR':   'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
+      RELOGIO:        'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
+      ENTRADA:        'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
+      SUBESTACAO:     'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
+      FANCOIL:        'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
+      CHILLER:        'https://dashboard.myio-bas.com/api/images/public/27Rvy9HbNoPz8KKWPa0SBDwu4kQ827VU',
+      HIDROMETRO:     'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
+      HIDROMETRO_AREA_COMUM: 'https://dashboard.myio-bas.com/api/images/public/IbEhjsvixAxwKg1ntGGZc5xZwwvGKv2t',
+      HIDROMETRO_SHOPPING: 'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
+      CAIXA_DAGUA:    'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
+      TERMOSTATO:     'https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7',
+    };
+
+    const DEFAULT = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
+    const url = IMAGES[normalized] || DEFAULT;
+    return `<img src="${url}" class="identity-device-image" alt="${normalized}" />`;
   }
 
   private getConsumptionLimits() {
@@ -1027,7 +1204,7 @@ export class SettingsModalView {
   private getModalCSS(): string {
     return `
       <style>
-        .myio-settings-modal-overlay {
+        .myio-device-settings-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -1037,11 +1214,11 @@ export class SettingsModalView {
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 10000;
+          z-index: 9999999;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
-        .myio-settings-modal {
+        .myio-device-settings-modal {
           background: white;
           border-radius: 8px;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
@@ -1054,7 +1231,7 @@ export class SettingsModalView {
           box-sizing: border-box;
         }
 
-        .myio-settings-modal * {
+        .myio-device-settings-modal * {
           box-sizing: border-box;
         }
         
@@ -1091,6 +1268,39 @@ export class SettingsModalView {
         
         .close-btn:hover {
           background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .maximize-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: white;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+        }
+
+        .maximize-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .myio-device-settings-modal.is-maximized {
+          width: 100vw !important;
+          max-width: 100vw !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          border-radius: 0;
+          margin: 0;
         }
 
         /* RFC-0104: Tab Navigation Styles */
@@ -1280,6 +1490,146 @@ export class SettingsModalView {
           height: fit-content;
         }
 
+        /* RFC-0180: Identity card — 2-column × 6-row grid */
+        .identity-card {
+          padding: 16px 20px;
+        }
+
+        .identity-grid {
+          display: grid;
+          grid-template-columns: minmax(250px, auto) 1fr minmax(250px, auto);
+          grid-template-rows: repeat(6, auto);
+          gap: 6px 16px;
+          align-items: center;
+        }
+
+        /* Col 1, rows 1-6: wrapper único para borda contínua */
+        .identity-col1 {
+          grid-column: 1;
+          grid-row: 1 / 7;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding-right: 16px;
+          border-right: 1px solid #e9ecef;
+        }
+
+        .identity-name-block {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 3px;
+          overflow: hidden;
+          flex: 0 0 auto;
+        }
+
+        .identity-name-text {
+          font-size: 15px;
+          font-weight: 600;
+          color: #3e1a7d;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* Ícone ocupa o restante do espaço de col 1 */
+        .identity-icon-cell {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .identity-device-image {
+          width: 102px;
+          height: auto;
+          filter: drop-shadow(0 3px 6px rgba(0,0,0,0.12));
+          border-radius: 8px;
+        }
+
+        .identity-field-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #9ca3af;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          line-height: 1;
+        }
+
+        .identity-input {
+          width: 100%;
+          padding: 5px 10px;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          font-size: 13px;
+          color: #343a40;
+          background: #fff;
+          box-sizing: border-box;
+          transition: border-color 0.15s;
+        }
+
+        .identity-input:focus {
+          outline: none;
+          border-color: #3e1a7d;
+          box-shadow: 0 0 0 2px rgba(62,26,125,0.1);
+        }
+
+        .identity-input[readonly] {
+          background: #f8f9fa;
+          color: #6c757d;
+          cursor: default;
+        }
+
+        /* Col 3: date info block */
+        .identity-dates-block {
+          grid-column: 3;
+          grid-row: 1 / 7;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-around;
+          gap: 16px;
+          padding-left: 16px;
+          border-left: 1px solid #e9ecef;
+          min-width: 160px;
+        }
+
+        .identity-date-row {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .identity-date-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #9ca3af;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .identity-date-value {
+          font-size: 12px;
+          color: #495057;
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* RFC-0180: Muted raw deviceName shown below the user label */
+        .device-name-subtitle {
+          display: block;
+          font-size: 11px;
+          color: #9ca3af;
+          font-family: 'Courier New', Courier, monospace;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-top: 2px;
+          margin-bottom: 0;
+        }
+
+        .device-name-subtitle:empty {
+          display: none;
+        }
+
         .section-title {
           margin: 0 0 20px 0;
           font-size: 16px;
@@ -1433,7 +1783,7 @@ export class SettingsModalView {
         
         /* Responsive design */
         @media (max-width: 1024px) {
-          .myio-settings-modal {
+          .myio-device-settings-modal {
             width: 95vw !important;
           }
           
@@ -1447,7 +1797,7 @@ export class SettingsModalView {
         }
         
         @media (max-width: 768px) {
-          .myio-settings-modal {
+          .myio-device-settings-modal {
             width: 95vw !important;
             margin: 10px;
           }
@@ -1877,12 +2227,12 @@ export class SettingsModalView {
 
         /* Mobile-specific responsive styles (< 480px) */
         @media (max-width: 480px) {
-          .myio-settings-modal-overlay {
+          .myio-device-settings-overlay {
             padding: 8px;
             overflow-x: hidden;
           }
 
-          .myio-settings-modal {
+          .myio-device-settings-modal {
             width: calc(100% - 16px) !important;
             max-width: calc(100vw - 16px);
             height: auto;
@@ -2144,16 +2494,25 @@ export class SettingsModalView {
   }
 
   private attachEventListeners(): void {
-    // RFC-0104: Handle tab switching
+    // RFC-0104/0180: Handle tab switching (general | annotations | alarms)
     const tabButtons = this.modal.querySelectorAll('.modal-tab');
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations';
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms';
         if (tab) {
           this.switchTab(tab);
         }
       });
+    });
+
+    // RFC-0180: "Alarms tab" link button inside the alarm placeholder card
+    this.modal.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.dataset.tabLink === 'alarms') {
+        event.preventDefault();
+        this.switchTab('alarms');
+      }
     });
 
     // Handle form submission
@@ -2164,6 +2523,22 @@ export class SettingsModalView {
       const formData = this.getFormData();
       this.config.onSave(formData);
     });
+
+    // Handle maximize button
+    const maximizeBtn = this.modal.querySelector('.maximize-btn') as HTMLButtonElement;
+    if (maximizeBtn) {
+      maximizeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const isMaximized = this.modal.classList.toggle('is-maximized');
+        maximizeBtn.setAttribute('aria-label', isMaximized ? 'Restaurar' : 'Maximizar');
+        maximizeBtn.title = isMaximized ? 'Restaurar' : 'Maximizar';
+        // Toggle icon between maximize and restore
+        maximizeBtn.innerHTML = isMaximized
+          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>`
+          : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
+      });
+    }
 
     // Handle close button (X button)
     const closeBtn = this.modal.querySelector('.close-btn') as HTMLButtonElement;
@@ -2243,7 +2618,7 @@ export class SettingsModalView {
     this.container.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
 
-      if (target.classList.contains('myio-settings-modal-overlay') && this.config.closeOnBackdrop !== false) {
+      if (target.classList.contains('myio-device-settings-overlay') && this.config.closeOnBackdrop !== false) {
         this.config.onClose();
       }
     });
@@ -2290,7 +2665,7 @@ export class SettingsModalView {
         css += `--myio-${property}: ${value};\n`;
       }
 
-      style.textContent = `.myio-settings-modal { ${css} }`;
+      style.textContent = `.myio-device-settings-modal { ${css} }`;
       this.container.appendChild(style);
     }
   }

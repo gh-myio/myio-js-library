@@ -57,6 +57,81 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MYIO_PURPLE = '#3e1a7d';
 const MYIO_PURPLE_DARK = '#2d1360';
 
+// RFC-0184: domain classification by inferred deviceType
+const CHECK_FIX_DOMAIN: Record<string, string> = {
+  COMPRESSOR: 'energy', VENTILADOR: 'energy', ESCADA_ROLANTE: 'energy', ELEVADOR: 'energy',
+  MOTOR: 'energy', RELOGIO: 'energy', ENTRADA: 'energy', '3F_MEDIDOR': 'energy',
+  CHILLER: 'energy', FANCOIL: 'energy', BOMBA_CAG: 'energy',
+  HIDROMETRO: 'water', CAIXA_DAGUA: 'water', TANK: 'water',
+  TERMOSTATO: 'temperature', TERMOSTATO_EXTERNAL: 'temperature',
+  SOLENOIDE: 'remote', GLOBAL_AUTOMACAO: 'remote',
+  CONTROLE_REMOTO: 'remote', SELETOR_AUTO_MANUAL: 'remote',
+};
+
+// RFC-0184: group classification by actual deviceProfile
+const CHECK_FIX_GROUP: Record<string, string> = {
+  ENTRADA: 'energy_entry', SUBESTACAO: 'energy_entry', RELOGIO: 'energy_entry', TRAFO: 'energy_entry',
+  CHILLER: 'energy_common_area', FANCOIL: 'energy_common_area', BOMBA: 'energy_common_area',
+  BOMBA_HIDRAULICA: 'energy_common_area', BOMBA_PRIMARIA: 'energy_common_area',
+  BOMBA_CAG: 'energy_common_area', AR_CONDICIONADO: 'energy_common_area', HVAC: 'energy_common_area',
+  COMPRESSOR: 'energy_common_area', VENTILADOR: 'energy_common_area',
+  BOMBA_INCENDIO: 'energy_common_area', MOTOR: 'energy_common_area',
+  ESCADA_ROLANTE: 'energy_common_area', ELEVADOR: 'energy_common_area',
+  '3F_MEDIDOR': 'energy_store',
+  HIDROMETRO_SHOPPING: 'water_entry', HIDROMETRO_ENTRADA: 'water_entry',
+  HIDROMETRO_AREA_COMUM: 'water_common_area', TANK: 'water_common_area', CAIXA_DAGUA: 'water_common_area',
+  HIDROMETRO: 'water_store',
+  TERMOSTATO: 'temperature_internal', TERMOSTATO_EXTERNAL: 'temperature_external',
+  SOLENOIDE: 'remote_solenoid', GLOBAL_AUTOMACAO: 'remote_automation',
+  ILUMINACAO: 'remote_lighting', LAMP: 'remote_lighting', LAMPADA: 'remote_lighting',
+  REMOTE: 'remote_control', CONTROLE_REMOTO: 'remote_control', SELETOR_AUTO_MANUAL: 'remote_control',
+};
+
+// RFC-0184: telemetry keys fetched during scan (all domains, connectionStatus always)
+const CHECK_FIX_TELEMETRY_KEYS = 'consumption,pulses,temperature,connectionStatus,water_level,water_percentage,status';
+
+// RFC-0184: keys shown in VALUES column per domain
+const TELEMETRY_KEYS_BY_DOMAIN: Record<string, string[]> = {
+  energy:      ['consumption'],
+  water:       ['pulses', 'water_level', 'water_percentage'],
+  temperature: ['temperature'],
+  remote:      ['status'],
+};
+
+// RFC-0184: infer expected deviceType from device name (returns 'UNDEFINED' when nothing matches)
+function inferForCheckFix(name: string): string {
+  const upper = (name || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  if (upper.includes('COMPRESSOR'))                                      return 'COMPRESSOR';
+  if (upper.includes('VENT'))                                            return 'VENTILADOR';
+  if (upper.includes('ESRL') || upper.includes('ESCADA'))               return 'ESCADA_ROLANTE';
+  if (upper.includes('ELEV'))                                            return 'ELEVADOR';
+  if ((upper.includes('MOTR') && !upper.includes('CHILLER')) ||
+      upper.includes('MOTOR') || upper.includes('RECALQUE'))            return 'MOTOR';
+  if (upper.includes('RELOGIO') || upper.includes('RELOG') ||
+      upper.includes('REL '))                                            return 'RELOGIO';
+  if (upper.includes('ENTRADA') || upper.includes('SUBESTACAO') ||
+      upper.includes('SUBEST'))                                          return 'ENTRADA';
+  if (upper.includes('3F')) {
+    if (upper.includes('CHILLER'))  return 'CHILLER';
+    if (upper.includes('FANCOIL'))  return 'FANCOIL';
+    if (upper.includes('TRAFO') || upper.includes('ENTRADA')) return 'ENTRADA';
+    if (upper.includes('CAG'))      return 'BOMBA_CAG';
+    return '3F_MEDIDOR';
+  }
+  if (upper.includes('HIDR') || upper.includes('BANHEIRO'))             return 'HIDROMETRO';
+  if (upper.includes('CAIXA DAGUA') || upper.includes('CX DAGUA') ||
+      upper.includes('CXDAGUA') || upper.includes('SCD'))               return 'CAIXA_DAGUA';
+  if (upper.includes('TANK') || upper.includes('TANQUE') ||
+      upper.includes('RESERVATORIO'))                                    return 'TANK';
+  if (upper.includes('AUTOMATICO'))                                      return 'SELETOR_AUTO_MANUAL';
+  if (upper.includes('TERMOSTATO') || upper.includes('TERMO') ||
+      upper.includes('TEMP'))                                            return 'TERMOSTATO';
+  if (upper.includes('ABRE'))                                            return 'SOLENOIDE';
+  if (upper.includes('AUTOMACAO') || upper.includes('GW_AUTO'))         return 'GLOBAL_AUTOMACAO';
+  if (upper.includes(' AC ') || upper.endsWith(' AC'))                  return 'CONTROLE_REMOTO';
+  return 'UNDEFINED';
+}
+
 // ============================================================================
 // Busy Modal (Progress Indicator)
 // ============================================================================
@@ -311,6 +386,35 @@ interface IngestionPageResponse {
   };
 }
 
+// RFC-0184 — Check & Fix
+type CheckFixStatus = 'ok' | 'mismatch' | 'missing' | 'undefined';
+type CheckFixFilter = 'all' | 'ok' | 'mismatch' | 'missing' | 'undefined';
+
+interface DeviceDiagnosticRecord {
+  deviceId: string;
+  deviceName: string;
+  deviceLabel: string;
+  inferred: { deviceType: string; deviceProfile: string };
+  actual: { deviceType: string | null; deviceProfile: string | null; type: string | null };
+  domain: string | null;
+  group: string | null;
+  status: CheckFixStatus;
+  typeEqualsProfile: boolean; // actual.type === actual.deviceProfile → low-impact alert
+  telemetry: { ts: number | null; values: Record<string, number | string | null> };
+  connStatus: string | null;
+  gcdrDeviceId: string | null;
+  ingestionId: string | null;
+  centralId: string | null;
+  slaveId: string | null;
+}
+
+interface CheckFixReport {
+  customerName: string;
+  totalDevices: number;
+  records: DeviceDiagnosticRecord[];
+  runAt: number;
+}
+
 async function fetchIngestionDevicesPage(
   token: string,
   customerId: string,
@@ -536,18 +640,38 @@ const i18n = {
 // ============================================================================
 
 type CustomerSortField = 'name' | 'createdTime' | 'parentName';
-type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile';
+type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceType' | 'deviceProfile' | 'centralId' | 'slaveId';
 type SortOrder = 'asc' | 'desc';
 
 // Column widths for drag-resize
 interface ColumnWidths {
+  name: number;
   label: number;
   type: number;
   createdTime: number;
+  relationTo: number;
+  centralId: number;
+  slaveId: number;
   deviceType: number;
   deviceProfile: number;
   telemetry: number;
   status: number;
+}
+
+interface LojasDeviceData {
+  deviceId: string;
+  name: string;
+  centralId: string;
+  slaveId: string;
+  label: string;
+  identifier: string;
+  ingestionId: string;
+  currentRelations: Array<{
+    from: { entityType: string; id: string };
+    to: { entityType: string; id: string };
+    type: string;
+    typeGroup: string;
+  }>;
 }
 
 interface ModalState {
@@ -571,7 +695,7 @@ interface ModalState {
   customerSearchTerm: string;
   deviceSort: { field: DeviceSortField; order: SortOrder };
   deviceSearchTerm: string;
-  deviceFilters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[]; statuses: string[] };
+  deviceFilters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[]; statuses: string[]; telemetryKeys: string[] };
   deviceSelectionMode: 'single' | 'multi';
   selectedDevices: Device[];
   bulkAttributeModal: {
@@ -583,6 +707,10 @@ interface ModalState {
   bulkProfileModal: {
     open: boolean;
     selectedProfileId: string;
+    saving: boolean;
+  };
+  bulkOwnerModal: {
+    open: boolean;
     saving: boolean;
   };
   columnWidths: ColumnWidths;
@@ -602,6 +730,37 @@ interface ModalState {
   relationSelectorOpen: boolean;
   relationSelectorType: 'ASSET' | 'CUSTOMER';
   relationSelectorSearch: string;
+  // LOJAS mode (RFC-0160)
+  lojasMode: boolean;
+  lojasDeviceData: LojasDeviceData[];
+  lojasDataLoading: boolean;
+  // CUSTOM mode config (set when user picks a mode from the CUSTOM picker)
+  lojasConfig: {
+    id: string;
+    label: string;
+    profileId: string;
+    deviceType: string;
+    deviceProfile: string;
+  } | null;
+  // CUSTOM mode picker modal (replaces old LOJAS shortcut)
+  customModeModal: { open: boolean };
+  // Bulk Relation Modal (force relation in batch)
+  bulkRelationModal: {
+    open: boolean;
+    target: 'CUSTOMER' | 'ASSET_EXISTING' | 'ASSET_NEW';
+    selectedAssetId: string;
+    selectedAssetName: string;
+    search: string;
+    newAssetName: string;
+    assetsLoaded: boolean;
+  };
+  deviceToAssetMap: Map<string, string>; // deviceId → asset name
+  relationsLoaded: boolean;
+  relationsLoading: boolean;
+  // RFC-0184 Check & Fix
+  checkFixLoading: boolean;
+  checkFixReport: CheckFixReport | null;
+  checkFixFilter: CheckFixFilter;
 }
 
 // Helper: format timestamp to locale date string
@@ -665,6 +824,14 @@ function sortDevices(devices: Device[], field: DeviceSortField, order: SortOrder
       compare = (a.serverAttrs?.deviceProfile || '')
         .toLowerCase()
         .localeCompare((b.serverAttrs?.deviceProfile || '').toLowerCase());
+    } else if (field === 'centralId') {
+      compare = (a.serverAttrs?.centralId || '')
+        .toLowerCase()
+        .localeCompare((b.serverAttrs?.centralId || '').toLowerCase());
+    } else if (field === 'slaveId') {
+      const sA = String(a.serverAttrs?.slaveId ?? '');
+      const sB = String(b.serverAttrs?.slaveId ?? '');
+      compare = sA.localeCompare(sB, undefined, { numeric: true });
     }
     return order === 'asc' ? compare : -compare;
   });
@@ -703,15 +870,20 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     customerSearchTerm: '',
     deviceSort: { field: 'name', order: 'asc' },
     deviceSearchTerm: '',
-    deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [], statuses: [] },
+    deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [], statuses: [], telemetryKeys: [] },
     deviceSelectionMode: 'single',
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
+    bulkOwnerModal: { open: false, saving: false },
     columnWidths: {
-      label: 280,
-      type: 180,
-      createdTime: 100,
+      name: 180,
+      label: 120,
+      type: 140,
+      createdTime: 90,
+      relationTo: 110,
+      centralId: 80,
+      slaveId: 60,
       deviceType: 80,
       deviceProfile: 90,
       telemetry: 100,
@@ -725,16 +897,37 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     telemetryLoadedCount: 0,
     deviceRelations: [],
     allRelations: [],
+    deviceToAssetMap: new Map(),
+    relationsLoaded: false,
+    relationsLoading: false,
     deviceProfiles: [],
     customerAssets: [],
     relationSelectorOpen: false,
     relationSelectorType: 'ASSET',
     relationSelectorSearch: '',
+    lojasMode: false,
+    lojasDeviceData: [],
+    lojasDataLoading: false,
+    lojasConfig: null,
+    customModeModal: { open: false },
+    bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false },
+    checkFixLoading: false,
+    checkFixReport: null,
+    checkFixFilter: 'all',
   };
 
   // Load saved theme
   const savedTheme = localStorage.getItem('myio-upsell-modal-theme') as 'dark' | 'light';
   if (savedTheme) state.theme = savedTheme;
+
+  // Pre-select customer (skips Step 1 when caller already has a customer selected)
+  if (params.preselectedCustomer) {
+    state.selectedCustomer = {
+      id: { entityType: 'CUSTOMER', id: params.preselectedCustomer.id },
+      name: params.preselectedCustomer.name,
+    };
+    state.currentStep = 2;
+  }
 
   // Create modal container
   const modalContainer = document.createElement('div');
@@ -745,7 +938,12 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
   renderModal(modalContainer, state, modalId, t);
 
   // Fetch initial data
-  loadCustomers(state, modalContainer, modalId, t, params.onClose);
+  if (params.preselectedCustomer) {
+    // Skip customer list — load devices for the pre-selected customer directly
+    loadDevices(state, modalContainer, modalId, t, params.onClose);
+  } else {
+    loadCustomers(state, modalContainer, modalId, t, params.onClose);
+  }
 
   // Return instance
   return {
@@ -851,6 +1049,8 @@ function renderModal(
               ? renderStep1(state, modalId, colors, t)
               : state.currentStep === 2
               ? renderStep2(state, modalId, colors, t)
+              : state.currentStep === 3 && state.lojasMode
+              ? renderLojasStep3(state, modalId, colors, t)
               : renderStep3(state, modalId, colors, t)
           }
         </div>
@@ -892,6 +1092,42 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">🏷️ Forçar Profile (${state.selectedDevices.length})</button>
+              <button id="${modalId}-bulk-owner" style="
+                background: #10b981; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>👤 Atribuir Owner (${state.selectedDevices.length})</button>
+              <button id="${modalId}-bulk-relation" style="
+                background: #0a6d5e; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🔗 Forçar Relação (${state.selectedDevices.length})</button>
+              <button id="${modalId}-custom-shortcut" style="
+                background: #ef4444; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              ">🎛️ CUSTOM (${state.selectedDevices.length})</button>
+            `
+                : ''
+            }
+            ${
+              state.currentStep === 3 && state.lojasMode
+                ? `
+              <button id="${modalId}-lojas-sync" style="
+                background: #3b82f6; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${state.lojasDataLoading ? 'disabled' : ''}>🔄 Sync Ingestion</button>
+              <button id="${modalId}-lojas-apply" style="
+                background: #ef4444; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${state.lojasDataLoading ? 'disabled' : ''}>🏬 Aplicar ${state.lojasConfig?.label ?? 'LOJAS'} (${state.lojasDeviceData.length})</button>
             `
                 : ''
             }
@@ -912,6 +1148,8 @@ function renderModal(
                 state.deviceSelectionMode === 'multi' ? 'disabled title="Desabilitado no modo multi"' : ''
               }>${t.next}</button>
             `
+                : state.lojasMode
+                ? '' // LOJAS mode uses its own buttons (Sync Ingestion + Aplicar LOJAS)
                 : `
               <button id="${modalId}-save" style="
                 background: ${colors.success}; color: white; border: none;
@@ -1019,13 +1257,31 @@ function renderModal(
             }; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
               Valor
             </label>
-            <input type="text" id="${modalId}-bulk-attr-value" value="${
-            state.bulkAttributeModal.value
-          }" placeholder="Digite o valor..." style="
-              width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
-              border-radius: 6px; font-size: 14px; color: ${colors.text};
-              background: ${colors.inputBg}; box-sizing: border-box;
-            "/>
+            ${
+              state.bulkAttributeModal.attribute === 'deviceType' || state.bulkAttributeModal.attribute === 'deviceProfile'
+                ? `<select id="${modalId}-bulk-attr-value" style="
+                    width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
+                    border-radius: 6px; font-size: 14px; color: ${colors.text};
+                    background: ${colors.inputBg}; cursor: pointer; box-sizing: border-box;
+                  ">
+                    <option value="">— Selecione —</option>
+                    ${[
+                      'ELEVADOR', 'ESCADA_ROLANTE', 'MOTOR',
+                      'BOMBA_HIDRAULICA', 'BOMBA_CAG', 'BOMBA_INCENDIO',
+                      'CHILLER', 'FANCOIL', '3F_MEDIDOR',
+                      'RELOGIO', 'ENTRADA', 'SUBESTACAO', 'AR_CONDICIONADO',
+                      'HIDROMETRO', 'HIDROMETRO_AREA_COMUM', 'HIDROMETRO_SHOPPING',
+                      'CAIXA_DAGUA', 'TANK', 'TERMOSTATO',
+                    ].map((opt) => `<option value="${opt}" ${state.bulkAttributeModal.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                  </select>`
+                : `<input type="text" id="${modalId}-bulk-attr-value" value="${
+                    state.bulkAttributeModal.value
+                  }" placeholder="Digite o valor..." style="
+                    width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
+                    border-radius: 6px; font-size: 14px; color: ${colors.text};
+                    background: ${colors.inputBg}; box-sizing: border-box;
+                  "/>`
+            }
           </div>
 
           <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -1152,6 +1408,281 @@ function renderModal(
         </div>
       </div>
     `
+        : ''
+    }
+
+    ${
+      state.bulkOwnerModal.open
+        ? `
+      <!-- Bulk Owner Modal -->
+      <div class="myio-bulk-owner-overlay" style="
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 10001;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <div style="
+          background: ${colors.surface}; border-radius: 12px; padding: 24px;
+          max-width: 450px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        ">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">
+              👤 Atribuir Owner em Lote
+            </h3>
+            <button id="${modalId}-bulk-owner-close" style="
+              background: none; border: none; font-size: 20px; cursor: pointer;
+              color: ${colors.textMuted}; padding: 4px;
+            ">✕</button>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.surface
+          }; border-radius: 8px; border: 1px solid ${colors.border};">
+            <div style="font-size: 12px; color: ${
+              colors.textMuted
+            }; margin-bottom: 4px;">Devices selecionados:</div>
+            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${
+            state.selectedDevices.length
+          } dispositivos</div>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.success
+          }20; border-radius: 8px; border: 1px solid ${colors.success}40;">
+            <div style="font-size: 12px; color: ${
+              colors.textMuted
+            }; margin-bottom: 4px;">Novo Owner (Customer):</div>
+            <div style="font-size: 14px; color: ${colors.success}; font-weight: 600;">${
+            state.selectedCustomer?.name || state.selectedCustomer?.title || 'Não selecionado'
+          }</div>
+            <div style="font-size: 11px; color: ${colors.textMuted}; margin-top: 4px;">
+              ID: ${state.selectedCustomer?.id?.id || 'N/A'}
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${
+            colors.warning
+          }20; border-radius: 8px; border: 1px solid ${colors.warning}40;">
+            <div style="font-size: 12px; color: ${colors.warning}; font-weight: 500;">
+              ⚠️ Atenção: Esta ação irá atribuir todos os ${state.selectedDevices.length} devices selecionados ao customer "${state.selectedCustomer?.name || state.selectedCustomer?.title}".
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button id="${modalId}-bulk-owner-cancel" style="
+              background: ${colors.surface}; color: ${colors.text};
+              border: 1px solid ${colors.border}; padding: 10px 20px;
+              border-radius: 6px; cursor: pointer; font-size: 14px;
+            ">Cancelar</button>
+            <button id="${modalId}-bulk-owner-save" style="
+              background: #10b981; color: white; border: none;
+              padding: 10px 20px; border-radius: 6px; cursor: pointer;
+              font-size: 14px; font-weight: 500;
+            " ${state.bulkOwnerModal.saving || !state.selectedCustomer ? 'disabled' : ''}>
+              ${
+                state.bulkOwnerModal.saving
+                  ? 'Salvando...'
+                  : 'Atribuir Owner para ' + state.selectedDevices.length + ' devices'
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    `
+        : ''
+    }
+
+    ${
+      state.customModeModal.open
+        ? `
+      <!-- CUSTOM Mode Picker Modal -->
+      <div style="
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 10001;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <div style="
+          background: ${colors.surface}; border-radius: 12px; padding: 24px;
+          max-width: 520px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        ">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">🎛️ CUSTOM — Selecione o Tipo</h3>
+            <button id="${modalId}-custom-cancel" style="background: none; border: none; font-size: 20px; cursor: pointer; color: ${colors.textMuted}; padding: 4px;">✕</button>
+          </div>
+          <p style="margin: 0 0 16px; font-size: 13px; color: ${colors.textMuted};">
+            Escolha o tipo a aplicar em <strong>${state.selectedDevices.length} dispositivos</strong> selecionados.
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+            ${[
+              { id: 'lojas',           icon: '🏬', label: 'Lojas',              sub: '3F_MEDIDOR / 3F_MEDIDOR' },
+              { id: 'motor',           icon: '⚙️', label: 'Motor',              sub: '3F_MEDIDOR / MOTOR' },
+              { id: 'entrada_energia', icon: '🔌', label: 'Entrada Energia',    sub: '3F_MEDIDOR / ENTRADA' },
+              { id: 'hidrometro_lojas',icon: '💧', label: 'Hidrômetro Lojas',   sub: 'HIDROMETRO / HIDROMETRO' },
+              { id: 'area_comum_water',icon: '🌊', label: 'Área Comum Água',    sub: 'HIDROMETRO / HIDROMETRO_AREA_COMUM' },
+              { id: 'entrada_agua',    icon: '🚰', label: 'Entrada Água',       sub: 'HIDROMETRO / HIDROMETRO_SHOPPING' },
+              { id: 'temperatura',     icon: '🌡️', label: 'Temperatura',        sub: 'TERMOSTATO / TERMOSTATO' },
+            ].map(m => `
+              <button
+                id="${modalId}-custom-mode-${m.id}"
+                data-mode="${m.id}"
+                style="
+                  background: ${colors.cardBg}; border: 2px solid ${colors.border};
+                  border-radius: 10px; padding: 14px 12px; cursor: pointer; text-align: left;
+                  display: flex; flex-direction: column; gap: 4px; transition: border-color 0.15s;
+                "
+                onmouseover="this.style.borderColor='#ef4444'"
+                onmouseout="this.style.borderColor='${colors.border}'"
+              >
+                <span style="font-size: 22px;">${m.icon}</span>
+                <span style="font-size: 14px; font-weight: 600; color: ${colors.text};">${m.label}</span>
+                <span style="font-size: 11px; color: ${colors.textMuted};">${m.sub}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="${modalId}-custom-cancel-bottom" style="
+              background: ${colors.surface}; color: ${colors.text};
+              border: 1px solid ${colors.border}; padding: 10px 20px;
+              border-radius: 6px; cursor: pointer; font-size: 14px;
+            ">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    `
+        : ''
+    }
+
+    ${
+      state.bulkRelationModal.open
+        ? (() => {
+            const rel = state.bulkRelationModal;
+            const customerName = state.selectedCustomer?.name || state.selectedCustomer?.title || '';
+            const filteredAssets = rel.search
+              ? state.customerAssets.filter(a => a.name.toLowerCase().includes(rel.search.toLowerCase()))
+              : state.customerAssets;
+            return `
+      <!-- Bulk Force Relation Modal -->
+      <div style="
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 10001;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <div style="
+          background: ${colors.surface}; border-radius: 12px; padding: 24px;
+          max-width: 480px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        ">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">🔗 Forçar Relação em Lote</h3>
+            <button id="${modalId}-bulk-rel-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: ${colors.textMuted}; padding: 4px;">✕</button>
+          </div>
+          <p style="margin: 0 0 16px; font-size: 13px; color: ${colors.textMuted};">
+            Remove todas as relações TO existentes dos <strong>${state.selectedDevices.length}</strong> devices e cria uma nova relação para o destino escolhido.
+          </p>
+
+          <!-- Target: Customer -->
+          <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 8px; border: 2px solid ${rel.target === 'CUSTOMER' ? '#0a6d5e' : colors.border}; cursor: pointer; margin-bottom: 8px;">
+            <input type="radio" name="${modalId}-bulk-rel-target" value="CUSTOMER"
+              id="${modalId}-bulk-rel-customer"
+              ${rel.target === 'CUSTOMER' ? 'checked' : ''}
+              style="margin-top: 2px; accent-color: #0a6d5e;">
+            <div>
+              <div style="font-weight: 600; color: ${colors.text}; font-size: 14px;">Customer</div>
+              <div style="font-size: 12px; color: ${colors.textMuted};">${customerName}</div>
+            </div>
+          </label>
+
+          <!-- Target: Existing Asset -->
+          <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 8px; border: 2px solid ${rel.target === 'ASSET_EXISTING' ? '#0a6d5e' : colors.border}; cursor: pointer; margin-bottom: 8px; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+              <input type="radio" name="${modalId}-bulk-rel-target" value="ASSET_EXISTING"
+                id="${modalId}-bulk-rel-asset-existing"
+                ${rel.target === 'ASSET_EXISTING' ? 'checked' : ''}
+                style="accent-color: #0a6d5e;">
+              <div style="font-weight: 600; color: ${colors.text}; font-size: 14px;">Asset existente</div>
+            </div>
+            ${rel.target === 'ASSET_EXISTING' ? `
+              <div style="width: 100%; padding-left: 26px;">
+                ${rel.selectedAssetId ? `
+                  <div style="font-size: 13px; color: #0a6d5e; font-weight: 500; margin-bottom: 8px;">✅ ${rel.selectedAssetName}</div>
+                ` : ''}
+                <input
+                  id="${modalId}-bulk-rel-asset-search"
+                  type="text"
+                  placeholder="Buscar asset..."
+                  value="${rel.search}"
+                  style="width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; border: 1px solid ${colors.border}; background: ${colors.cardBg}; color: ${colors.text}; font-size: 13px; margin-bottom: 8px;"
+                />
+                ${!rel.assetsLoaded ? `
+                  <button id="${modalId}-bulk-rel-load-assets" style="
+                    background: #0a6d5e; color: white; border: none; padding: 6px 14px;
+                    border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 8px;
+                  ">Carregar Assets</button>
+                ` : ''}
+                <div style="max-height: 180px; overflow-y: auto; border: 1px solid ${colors.border}; border-radius: 6px;">
+                  ${filteredAssets.length === 0
+                    ? `<div style="padding: 12px; text-align: center; color: ${colors.textMuted}; font-size: 13px;">${rel.assetsLoaded ? 'Nenhum asset encontrado.' : 'Clique em "Carregar Assets".'}</div>`
+                    : filteredAssets.map(a => `
+                        <div
+                          class="bulk-rel-asset-item"
+                          data-asset-id="${a.id}"
+                          data-asset-name="${a.name}"
+                          style="
+                            padding: 8px 12px; cursor: pointer; font-size: 13px;
+                            color: ${a.id === rel.selectedAssetId ? '#0a6d5e' : colors.text};
+                            background: ${a.id === rel.selectedAssetId ? '#e6f4f1' : 'transparent'};
+                            font-weight: ${a.id === rel.selectedAssetId ? '600' : '400'};
+                            border-bottom: 1px solid ${colors.border};
+                          "
+                        >${a.name}${a.type ? ` <span style="color:${colors.textMuted};font-size:11px;">(${a.type})</span>` : ''}</div>
+                      `).join('')
+                  }
+                </div>
+              </div>
+            ` : ''}
+          </label>
+
+          <!-- Target: New Asset -->
+          <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 8px; border: 2px solid ${rel.target === 'ASSET_NEW' ? '#0a6d5e' : colors.border}; cursor: pointer; margin-bottom: 16px; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+              <input type="radio" name="${modalId}-bulk-rel-target" value="ASSET_NEW"
+                id="${modalId}-bulk-rel-asset-new"
+                ${rel.target === 'ASSET_NEW' ? 'checked' : ''}
+                style="accent-color: #0a6d5e;">
+              <div style="font-weight: 600; color: ${colors.text}; font-size: 14px;">Novo asset abaixo do customer</div>
+            </div>
+            ${rel.target === 'ASSET_NEW' ? `
+              <div style="width: 100%; padding-left: 26px;">
+                <input
+                  id="${modalId}-bulk-rel-new-asset-name"
+                  type="text"
+                  placeholder="Nome do novo asset..."
+                  value="${rel.newAssetName}"
+                  style="width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; border: 1px solid ${colors.border}; background: ${colors.cardBg}; color: ${colors.text}; font-size: 13px;"
+                />
+              </div>
+            ` : ''}
+          </label>
+
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="${modalId}-bulk-rel-cancel" style="
+              background: ${colors.surface}; color: ${colors.text};
+              border: 1px solid ${colors.border}; padding: 10px 20px;
+              border-radius: 6px; cursor: pointer; font-size: 14px;
+            ">Cancelar</button>
+            <button id="${modalId}-bulk-rel-save" style="
+              background: #0a6d5e; color: white; border: none;
+              padding: 10px 20px; border-radius: 6px; cursor: pointer;
+              font-size: 14px; font-weight: 500;
+            " ${
+              (rel.target === 'ASSET_EXISTING' && !rel.selectedAssetId) ||
+              (rel.target === 'ASSET_NEW' && !rel.newAssetName.trim())
+                ? 'disabled'
+                : ''
+            }>🔗 Forçar (${state.selectedDevices.length} dev)</button>
+          </div>
+        </div>
+      </div>
+            `;
+          })()
         : ''
     }
   `;
@@ -1342,6 +1873,219 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
 }
 
 // ============================================================================
+// RFC-0184: Check & Fix — single row for the integrated grid
+// ============================================================================
+
+function renderCheckFixRow(
+  r: DeviceDiagnosticRecord,
+  state: ModalState,
+  modalId: string,
+  colors: ThemeColors,
+  dupPairIds: Set<string>,
+  dupIngestionIds: Set<string>
+): string {
+  const isSelectedSingle = state.deviceSelectionMode === 'single' && getEntityId(state.selectedDevice) === r.deviceId;
+  const isSelectedMulti  = state.deviceSelectionMode === 'multi'  && state.selectedDevices.some(d => getEntityId(d) === r.deviceId);
+  const isSelected = isSelectedSingle || isSelectedMulti;
+
+  const STATUS_ICON:  Record<CheckFixStatus, string> = { ok: '✅', mismatch: '⚠️', missing: '❌', undefined: '❓' };
+  const STATUS_COLOR: Record<CheckFixStatus, string> = {
+    ok: colors.success, mismatch: colors.warning, missing: colors.danger, undefined: colors.textMuted,
+  };
+  const CONN_COLOR: Record<string, string> = {
+    online: colors.success, offline: colors.danger, waiting: colors.warning, bad: '#e879f9',
+  };
+  const dash = `<span style="color:${colors.textMuted}">—</span>`;
+
+  const cell = (hl: 'ok' | 'bad' | 'warn' | 'none' = 'none', mono = false): string => {
+    const b = `padding: 4px 6px; font-size: 10px; border-right: 1px solid ${colors.border}; vertical-align: middle; ${mono ? 'font-family: monospace;' : ''}`;
+    if (hl === 'bad')  return `${b} color:${colors.danger};  background:rgba(239,68,68,0.10); font-weight:700;`;
+    if (hl === 'ok')   return `${b} color:${colors.success}; font-weight:700;`;
+    if (hl === 'warn') return `${b} color:${colors.warning}; font-weight:600;`;
+    return b;
+  };
+
+  const isMismatch     = r.status === 'mismatch';
+  const typeActWrong   = isMismatch && r.actual.type          !== r.inferred.deviceType;
+  const devTypeWrong   = isMismatch && r.actual.deviceType    !== r.inferred.deviceType;
+  const devProfWrong   = isMismatch && r.actual.deviceProfile !== r.inferred.deviceProfile;
+
+  const tsStr = r.telemetry.ts
+    ? new Date(r.telemetry.ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : '—';
+
+  const unit: Record<string, string> = {
+    consumption:' kWh', pulses:' p', temperature:' °C',
+    water_level:' m', water_percentage:'%', status:'',
+  };
+  const valStr = Object.entries(r.telemetry.values)
+    .map(([k, v]) => v != null ? `${k}:<b>${v}${unit[k] ?? ''}</b>` : null)
+    .filter(Boolean).join(' · ') || '—';
+
+  const connColor = r.connStatus ? (CONN_COLOR[r.connStatus] || colors.textMuted) : colors.textMuted;
+
+  return `
+    <tr class="myio-list-item ${isSelected ? 'selected' : ''}" data-device-id="${r.deviceId}"
+        style="border-bottom:1px solid ${colors.border}; cursor:pointer;">
+      ${state.deviceSelectionMode === 'multi' ? `
+        <td style="${cell()} width:28px; text-align:center;">
+          <input type="checkbox" class="myio-device-checkbox" data-device-id="${r.deviceId}"
+            ${isSelectedMulti ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:${MYIO_PURPLE};"/>
+        </td>` : ''}
+      <td style="${cell()} max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.deviceName}">${r.deviceName}</td>
+      <td style="${cell()} max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
+      <td style="${cell(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${cell(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
+      <td style="${cell(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${cell(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
+      <td style="${cell(devProfWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
+      <td style="${cell(devProfWrong ? 'bad' : 'none', true)}" title="${devProfWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
+      <td style="${cell()} white-space:nowrap; color:${colors.textMuted}; font-size:9px;">${tsStr}</td>
+      <td style="${cell()} font-size:9px;">${valStr}</td>
+      <td style="${cell()} color:${connColor}; font-weight:600; white-space:nowrap;">${r.connStatus || dash}</td>
+      <td style="${cell()} font-size:9px; font-family:monospace; color:${colors.textMuted}; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.gcdrDeviceId || ''}">${r.gcdrDeviceId || dash}</td>
+      <td style="${cell(dupIngestionIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.ingestionId || ''}">${r.ingestionId || dash}</td>
+      <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.centralId || ''}">${r.centralId || dash}</td>
+      <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:50px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.slaveId || dash}</td>
+      <td style="padding:4px 6px; font-size:10px; color:${STATUS_COLOR[r.status]}; font-weight:700; white-space:nowrap;">${STATUS_ICON[r.status]} ${r.status}</td>
+    </tr>`;
+}
+
+// ============================================================================
+// RFC-0184: Check & Fix Panel (legacy — kept as fallback, grid integrated into renderStep2)
+// ============================================================================
+
+function renderCheckFixPanel(state: ModalState, modalId: string, colors: ThemeColors): string {
+  const report = state.checkFixReport;
+  if (!report) return '';
+
+  const counts = { ok: 0, mismatch: 0, missing: 0, undefined: 0 };
+  report.records.forEach((r) => counts[r.status]++);
+
+  const filtered = state.checkFixFilter === 'all'
+    ? report.records
+    : report.records.filter((r) => r.status === state.checkFixFilter);
+
+  const STATUS_ICON: Record<CheckFixStatus, string> = { ok: '✅', mismatch: '⚠️', missing: '❌', undefined: '❓' };
+  const STATUS_COLOR: Record<CheckFixStatus, string> = {
+    ok: colors.success, mismatch: colors.warning, missing: colors.danger, undefined: colors.textMuted,
+  };
+  const CONN_COLOR: Record<string, string> = {
+    online: colors.success, offline: colors.danger,
+    waiting: colors.warning, bad: '#e879f9',
+  };
+
+  const dash = `<span style="color:${colors.textMuted}">—</span>`;
+
+  // Shared cell style builders
+  const th = (extra = '') =>
+    `padding: 5px 6px; text-align: left; border-bottom: 1px solid ${colors.border}; border-right: 1px solid ${colors.border}; font-size: 9px; font-weight: 700; text-transform: uppercase; color: ${colors.textMuted}; background: ${colors.surface}; white-space: nowrap; ${extra}`;
+  const td = (highlight: 'ok' | 'bad' | 'warn' | 'none' = 'none', mono = false) => {
+    const base = `padding: 4px 6px; font-size: 11px; border-right: 1px solid ${colors.border}; ${mono ? 'font-family: monospace;' : ''}`;
+    if (highlight === 'bad')  return `${base} color: ${colors.danger};  background: rgba(239,68,68,0.10); font-weight: 700;`;
+    if (highlight === 'ok')   return `${base} color: ${colors.success}; font-weight: 700;`;
+    if (highlight === 'warn') return `${base} color: ${colors.warning}; font-weight: 600;`;
+    return base;
+  };
+
+  const rows = filtered.map((r) => {
+    const isMismatch = r.status === 'mismatch';
+    const typeActWrong    = isMismatch && r.actual.type        !== r.inferred.deviceType;
+    const devTypeWrong    = isMismatch && r.actual.deviceType  !== r.inferred.deviceType;
+    const devProfileWrong = isMismatch && r.actual.deviceProfile !== r.inferred.deviceProfile;
+
+    // Telemetry: last timestamp + formatted values
+    const tsStr = r.telemetry.ts
+      ? new Date(r.telemetry.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : '—';
+    const valueStr = Object.entries(r.telemetry.values)
+      .map(([k, v]) => {
+        if (v === null || v === undefined) return null;
+        const unit: Record<string, string> = {
+          consumption: ' kWh', pulses: ' p', temperature: ' °C',
+          water_level: ' m', water_percentage: '%', status: '',
+        };
+        return `${k}: <strong>${v}${unit[k] ?? ''}</strong>`;
+      })
+      .filter(Boolean)
+      .join(' · ') || '—';
+
+    const connColor = r.connStatus ? (CONN_COLOR[r.connStatus] || colors.textMuted) : colors.textMuted;
+
+    return `
+    <tr style="border-bottom: 1px solid ${colors.border};">
+      <td style="${td('none')} max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.deviceName}">${r.deviceName}</td>
+      <td style="${td('none')} max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
+      <td style="${td(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${td(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
+      <td style="${td(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td style="${td(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
+      <td style="${td(devProfileWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
+      <td style="${td(devProfileWrong ? 'bad' : 'none', true)}" title="${devProfileWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
+      <td style="${td()} color: ${colors.textMuted}; white-space: nowrap; font-size: 10px;">${tsStr}</td>
+      <td style="${td()} font-size: 10px; color: ${colors.text};">${valueStr}</td>
+      <td style="${td()} color: ${connColor}; font-weight: 600; white-space: nowrap; font-size: 10px;">${r.connStatus || dash}</td>
+      <td style="padding: 4px 6px; font-size: 11px; color: ${STATUS_COLOR[r.status]}; font-weight: 700; white-space: nowrap;">${STATUS_ICON[r.status]} ${r.status}</td>
+    </tr>`;
+  }).join('');
+
+  const runAtStr = new Date(report.runAt).toLocaleTimeString();
+
+  return `
+    <div style="margin-top: 12px; border: 1px solid ${colors.border}; border-radius: 8px; background: ${colors.cardBg}; overflow: hidden;">
+      <div style="padding: 10px 14px; border-bottom: 1px solid ${colors.border}; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 13px; font-weight: 600; color: ${colors.text};">🔬 CHECK &amp; FIX Report</span>
+          <span style="font-size: 11px; color: ${colors.textMuted};">${report.customerName} · ${report.totalDevices} devices · ${runAtStr}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-size: 11px; color: ${colors.success};">✅ ${counts.ok}</span>
+          <span style="font-size: 11px; color: ${colors.warning};">⚠️ ${counts.mismatch}</span>
+          <span style="font-size: 11px; color: ${colors.danger};">❌ ${counts.missing}</span>
+          <span style="font-size: 11px; color: ${colors.textMuted};">❓ ${counts.undefined}</span>
+          <select id="${modalId}-checkfix-filter" style="padding: 3px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; background: ${colors.inputBg}; border: 1px solid ${colors.border}; color: ${colors.text};">
+            <option value="all" ${state.checkFixFilter === 'all' ? 'selected' : ''}>All (${report.totalDevices})</option>
+            <option value="ok" ${state.checkFixFilter === 'ok' ? 'selected' : ''}>ok (${counts.ok})</option>
+            <option value="mismatch" ${state.checkFixFilter === 'mismatch' ? 'selected' : ''}>mismatch (${counts.mismatch})</option>
+            <option value="missing" ${state.checkFixFilter === 'missing' ? 'selected' : ''}>missing (${counts.missing})</option>
+            <option value="undefined" ${state.checkFixFilter === 'undefined' ? 'selected' : ''}>undefined (${counts.undefined})</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x: auto; max-height: 340px; overflow-y: auto;">
+        <table style="border-collapse: collapse; min-width: 100%;">
+          <thead>
+            <!-- Row 1: group headers -->
+            <tr style="background: ${colors.surface};">
+              <th rowspan="2" style="${th('min-width:140px')}">Name</th>
+              <th rowspan="2" style="${th('min-width:90px')}">Label</th>
+              <th colspan="2" style="${th('text-align:center')}">TYPE</th>
+              <th colspan="2" style="${th('text-align:center')}">DevType</th>
+              <th colspan="2" style="${th('text-align:center')}">DevProfile</th>
+              <th colspan="2" style="${th('text-align:center')}">Last Telemetry</th>
+              <th rowspan="2" style="${th('min-width:70px')}">Conn.</th>
+              <th rowspan="2" style="${th()}">Result</th>
+            </tr>
+            <!-- Row 2: sub-headers -->
+            <tr style="background: ${colors.surface};">
+              <th style="${th()}">Exp</th><th style="${th()}">Act</th>
+              <th style="${th()}">Exp</th><th style="${th()}">Act</th>
+              <th style="${th()}">Exp</th><th style="${th()}">Act</th>
+              <th style="${th('min-width:90px')}">Date</th><th style="${th('min-width:120px')}">Values</th>
+            </tr>
+          </thead>
+          <tbody style="color: ${colors.text};">
+            ${filtered.length === 0
+              ? `<tr><td colspan="12" style="padding: 20px; text-align: center; color: ${colors.textMuted};">Nenhum resultado para este filtro.</td></tr>`
+              : rows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
 // Step 2: Device Selection
 // ============================================================================
 
@@ -1362,6 +2106,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     deviceTypes: filterDeviceTypes,
     deviceProfiles: filterDeviceProfiles,
     statuses: filterStatuses,
+    telemetryKeys: filterTelemetryKeys,
   } = state.deviceFilters;
   const searchTerm = state.deviceSearchTerm.toLowerCase();
 
@@ -1376,10 +2121,19 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
       if (!filterStatuses.includes(status)) return false;
     }
+    if (filterTelemetryKeys.length > 0) {
+      const telem = d.latestTelemetry;
+      const hasMatch = filterTelemetryKeys.some((k) => {
+        if (k === 'pulses') return telem?.pulses != null;
+        if (k === 'consumption') return telem?.consumption != null;
+        return false;
+      });
+      if (!hasMatch) return false;
+    }
     return true;
   });
 
-  // Apply search term filter for display count
+  // Apply search term filter — hybrid across name, label, type, devType, devProfile, slaveId, status
   const searchFilteredDevices = searchTerm
     ? filteredDevices.filter((d) => {
         const name = (d.name || '').toLowerCase();
@@ -1387,18 +2141,22 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         const type = (d.type || '').toLowerCase();
         const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
         const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+        const slaveId = String(d.serverAttrs?.slaveId ?? '').toLowerCase();
+        const status = (d.latestTelemetry?.connectionStatus?.value || '').toLowerCase();
         return (
           name.includes(searchTerm) ||
           label.includes(searchTerm) ||
           type.includes(searchTerm) ||
           deviceType.includes(searchTerm) ||
-          deviceProfile.includes(searchTerm)
+          deviceProfile.includes(searchTerm) ||
+          slaveId.includes(searchTerm) ||
+          status.includes(searchTerm)
         );
       })
     : filteredDevices;
 
-  // Sort devices
-  const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
+  // Sort devices (use searchFilteredDevices so the text search also filters the grid)
+  const sortedDevices = sortDevices(searchFilteredDevices, sortField, sortOrder);
 
   // Grid height based on maximize state
   const gridHeight = state.isMaximized ? 'calc(100vh - 340px)' : '360px';
@@ -1407,7 +2165,8 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     filterTypes.length > 0 ||
     filterDeviceTypes.length > 0 ||
     filterDeviceProfiles.length > 0 ||
-    filterStatuses.length > 0;
+    filterStatuses.length > 0 ||
+    filterTelemetryKeys.length > 0;
 
   // Helper for sortable column header
   const renderSortableHeader = (col: string, label: string, field: DeviceSortField, width: number) => {
@@ -1543,6 +2302,28 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               .join('')}
           </select>
         </div>
+        <div style="min-width: 110px;">
+          <label style="color: ${
+            state.deviceTelemetryLoaded ? colors.textMuted : colors.warning
+          }; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            Telemetria ${filterTelemetryKeys.length > 0 ? `(${filterTelemetryKeys.length})` : ''} ${
+    !state.deviceTelemetryLoaded ? '🔒' : ''
+  }
+          </label>
+          <select id="${modalId}-device-telemetry-filter" multiple size="1" style="
+            width: 100%; padding: 7px 8px; border: 1px solid ${
+              filterTelemetryKeys.length > 0 ? MYIO_PURPLE : colors.border
+            };
+            border-radius: 6px; font-size: 11px; color: ${colors.text};
+            background: ${colors.inputBg}; cursor: ${
+    state.deviceTelemetryLoaded ? 'pointer' : 'not-allowed'
+  }; height: 32px;
+            opacity: ${state.deviceTelemetryLoaded ? '1' : '0.5'};
+          " ${!state.deviceTelemetryLoaded ? 'disabled' : ''}>
+            <option value="pulses" ${filterTelemetryKeys.includes('pulses') ? 'selected' : ''}>Litros (L)</option>
+            <option value="consumption" ${filterTelemetryKeys.includes('consumption') ? 'selected' : ''}>Watts (W)</option>
+          </select>
+        </div>
         ${
           hasActiveFilters
             ? `
@@ -1565,6 +2346,27 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     state.devices.length
   })</span>
           </div>
+          ${
+            state.relationsLoading
+              ? `
+            <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
+              ⏳ Relações...
+            </span>
+          `
+              : state.relationsLoaded
+              ? `
+            <span style="font-size: 10px; color: ${colors.success}; padding: 3px 8px;">
+              ✅ Relações OK
+            </span>
+          `
+              : `
+            <button id="${modalId}-load-relations" style="
+              padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
+              background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
+              display: flex; align-items: center; gap: 4px;
+            ">🔗 Carregar Relações</button>
+          `
+          }
           ${
             state.attrsLoading
               ? `
@@ -1611,6 +2413,31 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
             </button>
           `
           }
+          ${
+            state.checkFixLoading
+              ? `<span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
+                  ⏳ CHECK &amp; FIX...
+                </span>`
+              : `<button id="${modalId}-check-fix" style="
+                  padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
+                  background: ${state.checkFixReport ? MYIO_PURPLE : colors.cardBg};
+                  border: ${state.checkFixReport ? 'none' : `1px solid ${colors.border}`};
+                  color: ${state.checkFixReport ? 'white' : colors.text};
+                  display: flex; align-items: center; gap: 4px;
+                ">🔬 ${state.checkFixReport ? 'Re-Check' : 'CHECK &amp; FIX'}</button>`
+          }
+          ${state.checkFixReport ? `
+            <select id="${modalId}-checkfix-filter" style="
+              padding: 3px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;
+              background: ${colors.inputBg}; border: 1px solid ${colors.border}; color: ${colors.text};
+            ">
+              <option value="all"       ${state.checkFixFilter === 'all'       ? 'selected' : ''}>Todos</option>
+              <option value="ok"        ${state.checkFixFilter === 'ok'        ? 'selected' : ''}>✅ ok</option>
+              <option value="mismatch"  ${state.checkFixFilter === 'mismatch'  ? 'selected' : ''}>⚠️ mismatch</option>
+              <option value="missing"   ${state.checkFixFilter === 'missing'   ? 'selected' : ''}>❌ missing</option>
+              <option value="undefined" ${state.checkFixFilter === 'undefined' ? 'selected' : ''}>❓ undefined</option>
+            </select>
+          ` : ''}
           <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: ${
             colors.surface
           }; border-radius: 6px; border: 1px solid ${colors.border};">
@@ -1659,51 +2486,124 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       </div>
     </div>
 
-    <!-- Device Grid Header with Sortable Columns -->
-    <div id="${modalId}-grid-header" style="
-      display: flex; align-items: center; gap: 0; padding: 8px 12px;
-      background: ${colors.cardBg}; border: 1px solid ${colors.border};
-      border-bottom: none; border-radius: 8px 8px 0 0; font-size: 9px;
-      font-weight: 600; color: ${colors.textMuted}; text-transform: uppercase;
-    ">
-      ${state.deviceSelectionMode === 'multi' ? `<div style="width: 28px; text-align: center;">☑</div>` : ''}
-      <div style="width: 28px;"></div>
-      ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
-      ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
-      ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
-      <div style="width: ${
-        state.columnWidths.deviceType
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.deviceProfile
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        devProfile ${!state.deviceAttrsLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.telemetry
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        Telemetria ${!state.deviceTelemetryLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: ${
-        state.columnWidths.status
-      }px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
-        Status ${!state.deviceTelemetryLoaded ? '🔒' : ''}
-      </div>
-      <div style="width: 24px;"></div>
-    </div>
+    ${(() => {
+      const thStyle = (extra = '') =>
+        `padding:5px 6px; text-align:left; border-bottom:1px solid ${colors.border}; border-right:1px solid ${colors.border}; font-size:9px; font-weight:700; text-transform:uppercase; color:${colors.textMuted}; background:${colors.surface}; white-space:nowrap; position:sticky; top:0; z-index:1; ${extra}`;
+      const multiCol = state.deviceSelectionMode === 'multi';
 
-    <div style="
-      max-height: ${gridHeight}; overflow-y: auto; border: 1px solid ${colors.border};
-      border-radius: 0 0 8px 8px; background: ${colors.surface};
-    " id="${modalId}-device-list">
-      ${
-        sortedDevices.length === 0
-          ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-          : sortedDevices.map((device) => renderDeviceRow(device, state, modalId, colors)).join('')
+      if (state.checkFixReport) {
+        // CHECK & FIX mode: replace standard grid with diagnostic table
+        const idToRecord = new Map(state.checkFixReport.records.map(r => [r.deviceId, r]));
+        const cfRows = sortedDevices
+          .map(d => idToRecord.get(getEntityId(d)))
+          .filter((r): r is DeviceDiagnosticRecord => r !== undefined)
+          .filter(r => state.checkFixFilter === 'all' || r.status === state.checkFixFilter);
+
+        // Detect duplicate centralId+slaveId pairs
+        const pairCount = new Map<string, string[]>();
+        cfRows.forEach(r => {
+          if (r.centralId && r.slaveId != null) {
+            const key = `${r.centralId}::${r.slaveId}`;
+            if (!pairCount.has(key)) pairCount.set(key, []);
+            pairCount.get(key)!.push(r.deviceId);
+          }
+        });
+        const dupPairIds = new Set<string>();
+        pairCount.forEach(ids => { if (ids.length > 1) ids.forEach(id => dupPairIds.add(id)); });
+
+        // Detect duplicate ingestionIds
+        const ingCount = new Map<string, string[]>();
+        cfRows.forEach(r => {
+          if (r.ingestionId) {
+            if (!ingCount.has(r.ingestionId)) ingCount.set(r.ingestionId, []);
+            ingCount.get(r.ingestionId)!.push(r.deviceId);
+          }
+        });
+        const dupIngestionIds = new Set<string>();
+        ingCount.forEach(ids => { if (ids.length > 1) ids.forEach(id => dupIngestionIds.add(id)); });
+
+        const colSpan = multiCol ? 18 : 17;
+        return `
+        <div id="${modalId}-device-list" style="
+          overflow-x:auto; max-height:${gridHeight};
+          border:1px solid ${colors.border}; border-radius:8px; background:${colors.surface};
+        ">
+          <table style="border-collapse:collapse; min-width:100%;">
+            <thead>
+              <tr>
+                ${multiCol ? `<th rowspan="2" style="${thStyle('width:28px')}">☑</th>` : ''}
+                <th rowspan="2" style="${thStyle('min-width:140px')}">Name</th>
+                <th rowspan="2" style="${thStyle('min-width:90px')}">Label</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">TYPE</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">DevType</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">DevProfile</th>
+                <th colspan="2" style="${thStyle('text-align:center')}">Last Telemetry</th>
+                <th rowspan="2" style="${thStyle('min-width:65px')}">Conn.</th>
+                <th rowspan="2" style="${thStyle('min-width:110px')}">gcdrId</th>
+                <th rowspan="2" style="${thStyle('min-width:110px')}">ingestionId</th>
+                <th rowspan="2" style="${thStyle('min-width:80px')}">centralId</th>
+                <th rowspan="2" style="${thStyle('min-width:50px')}">slave</th>
+                <th rowspan="2" style="${thStyle()}">Result</th>
+              </tr>
+              <tr>
+                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
+                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
+                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
+                <th style="${thStyle('min-width:80px')}">Date</th>
+                <th style="${thStyle('min-width:110px')}">Values</th>
+              </tr>
+            </thead>
+            <tbody style="color:${colors.text};">
+              ${cfRows.length === 0
+                ? `<tr><td colspan="${colSpan}" style="padding:20px; text-align:center; color:${colors.textMuted};">${t.noResults}</td></tr>`
+                : cfRows.map(r => renderCheckFixRow(r, state, modalId, colors, dupPairIds, dupIngestionIds)).join('')}
+            </tbody>
+          </table>
+        </div>`;
       }
-    </div>
+
+      // Standard mode: sortable header + device rows
+      return `
+      <div id="${modalId}-grid-header" style="
+        display:flex; align-items:center; gap:0; padding:8px 12px;
+        background:${colors.cardBg}; border:1px solid ${colors.border};
+        border-bottom:none; border-radius:8px 8px 0 0; font-size:9px;
+        font-weight:600; color:${colors.textMuted}; text-transform:uppercase;
+      ">
+        ${multiCol ? `<div style="width:28px; text-align:center;">☑</div>` : ''}
+        <div style="width:28px;"></div>
+        ${renderSortableHeader('name', 'Name', 'name', state.columnWidths.name)}
+        ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
+        ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
+        ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
+        <div style="width:${state.columnWidths.relationTo}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          relTO ${!state.relationsLoaded ? '⏳' : ''}
+        </div>
+        ${renderSortableHeader('centralId', 'centralId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'centralId', state.columnWidths.centralId)}
+        ${renderSortableHeader('slaveId', 'slaveId' + (!state.deviceAttrsLoaded ? ' 🔒' : ''), 'slaveId', state.columnWidths.slaveId)}
+        <div style="width:${state.columnWidths.deviceType}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:${state.columnWidths.deviceProfile}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          devProfile ${!state.deviceAttrsLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:${state.columnWidths.telemetry}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          Telemetria ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:${state.columnWidths.status}px; padding:0 6px; text-align:center; border-right:1px solid ${colors.border};">
+          Status ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+        </div>
+        <div style="width:24px;"></div>
+      </div>
+      <div style="
+        max-height:${gridHeight}; overflow-y:auto; border:1px solid ${colors.border};
+        border-radius:0 0 8px 8px; background:${colors.surface};
+      " id="${modalId}-device-list">
+        ${sortedDevices.length === 0
+          ? `<div style="padding:40px; text-align:center; color:${colors.textMuted};">${t.noResults}</div>`
+          : sortedDevices.map(device => renderDeviceRow(device, state, modalId, colors)).join('')}
+      </div>`;
+    })()}
   `;
 }
 
@@ -1910,20 +2810,27 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       }
       <div style="width: 28px; font-size: 16px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
       <div style="width: ${
-        state.columnWidths.label
+        state.columnWidths.name
       }px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px;">
-        <div style="font-weight: 500; color: ${
+        <div style="font-weight: 600; color: ${
           colors.text
-        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${
-    device.label || device.name
-  }">
-          ${device.label || device.name}
+        }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${device.name}">
+          ${device.name}
         </div>
         <span class="myio-info-btn" data-device-info="${encodeURIComponent(tooltipContent)}" style="
           cursor: pointer; font-size: 12px; color: ${colors.textMuted}; flex-shrink: 0;
           width: 16px; height: 16px; border-radius: 50%; background: ${colors.cardBg};
           display: flex; align-items: center; justify-content: center; border: 1px solid ${colors.border};
         " title="Ver detalhes">ⓘ</span>
+      </div>
+      <div style="width: ${
+        state.columnWidths.label
+      }px; padding: 0 6px; overflow: hidden; flex-shrink: 0;">
+        <div style="font-size: 10px; color: ${
+          colors.textMuted
+        }; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.label ?? ''}">
+          ${device.label ?? ''}
+        </div>
       </div>
       <div style="width: ${
         state.columnWidths.type
@@ -1938,6 +2845,37 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
         state.columnWidths.createdTime
       }px; padding: 0 6px; text-align: center; flex-shrink: 0;">
         <span style="font-size: 9px; color: ${colors.textMuted};">${createdTimeStr}</span>
+      </div>
+      <div style="width: ${
+        state.columnWidths.relationTo
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${(() => {
+          if (!state.relationsLoaded) return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
+          const assetName = state.deviceToAssetMap.get(deviceId);
+          return assetName
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${assetName}">${assetName}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+        })()}
+      </div>
+      <div style="width: ${
+        state.columnWidths.centralId
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${!state.deviceAttrsLoaded
+          ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
+          : attrs.centralId
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.centralId}">${attrs.centralId}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
+        }
+      </div>
+      <div style="width: ${
+        state.columnWidths.slaveId
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${!state.deviceAttrsLoaded
+          ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
+          : attrs.slaveId != null && attrs.slaveId !== ''
+            ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.slaveId}">${attrs.slaveId}</span>`
+            : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
+        }
       </div>
       <div style="width: ${
         state.columnWidths.deviceType
@@ -2343,6 +3281,98 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
   `;
 }
 
+// ============================================================================
+// LOJAS Step 3 Rendering (RFC-0160)
+// ============================================================================
+
+function renderLojasStep3(state: ModalState, modalId: string, colors: ThemeColors, t: typeof i18n.pt): string {
+  if (state.lojasDataLoading) {
+    return `
+      <div style="padding: 40px; text-align: center; color: ${colors.textMuted};">
+        <div style="
+          display: inline-block; width: 28px; height: 28px;
+          border: 3px solid ${colors.border}; border-top-color: ${MYIO_PURPLE};
+          border-radius: 50%; animation: spin 0.8s linear infinite;
+        "></div>
+        <div style="margin-top: 12px; font-size: 14px;">Carregando dados dos dispositivos...</div>
+      </div>
+    `;
+  }
+
+  const data = state.lojasDeviceData;
+  const gridHeight = state.isMaximized ? 'calc(100vh - 340px)' : '400px';
+
+  return `
+    <div style="
+      padding: 16px; background: ${colors.cardBg}; border-radius: 8px;
+      border: 1px solid ${colors.border}; margin-bottom: 12px;
+    ">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: ${colors.text}; font-weight: 600;">
+          🏬 LOJAS — Configuração em Lote (${data.length} dispositivos)
+        </h3>
+        <div style="font-size: 11px; color: ${colors.textMuted};">
+          📍 <strong>${state.selectedCustomer?.name || state.selectedCustomer?.title || ''}</strong>
+        </div>
+      </div>
+
+      <div style="
+        max-height: ${gridHeight}; overflow-y: auto;
+        border: 1px solid ${colors.border}; border-radius: 8px;
+        background: ${colors.surface};
+      " id="${modalId}-lojas-table-container">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead>
+            <tr style="background: ${colors.cardBg}; position: sticky; top: 0; z-index: 1;">
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: center; width: 32px; color: ${colors.textMuted}; font-size: 10px;">#</th>
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: left; color: ${colors.textMuted}; font-size: 10px;">Nome</th>
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: left; color: ${colors.textMuted}; font-size: 10px; width: 110px;">centralId</th>
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: center; width: 55px; color: ${colors.textMuted}; font-size: 10px;">slaveId</th>
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: left; color: ${colors.textMuted}; font-size: 10px;">Etiqueta</th>
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: left; color: ${colors.textMuted}; font-size: 10px;">Identificador</th>
+              <th style="padding: 8px 6px; border-bottom: 2px solid ${colors.border}; text-align: left; width: 85px; color: ${colors.textMuted}; font-size: 10px;">ingestionId</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data
+              .map(
+                (d, i) => `
+              <tr style="border-bottom: 1px solid ${colors.border}; ${i % 2 === 1 ? `background: ${colors.cardBg};` : ''}">
+                <td style="padding: 6px; text-align: center; color: ${colors.textMuted}; font-size: 11px;">${i + 1}</td>
+                <td style="padding: 6px; color: ${colors.text}; font-weight: 500; font-size: 11px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${d.name}">${d.name}</td>
+                <td style="padding: 6px; color: ${colors.textMuted}; font-family: monospace; font-size: 10px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${d.centralId}">${d.centralId || `<span style="color: ${colors.warning};">—</span>`}</td>
+                <td style="padding: 6px; text-align: center; color: ${colors.textMuted}; font-size: 11px;">${d.slaveId || '—'}</td>
+                <td style="padding: 6px;">
+                  <input type="text" id="${modalId}-lojas-label-${i}" data-lojas-index="${i}" data-lojas-field="label" value="${(d.label || '').replace(/"/g, '&quot;')}" style="
+                    width: 100%; padding: 4px 6px; border: 1px solid ${colors.border}; border-radius: 4px;
+                    font-size: 11px; color: ${colors.text}; background: ${colors.inputBg}; box-sizing: border-box;
+                  "/>
+                </td>
+                <td style="padding: 6px;">
+                  <input type="text" id="${modalId}-lojas-identifier-${i}" data-lojas-index="${i}" data-lojas-field="identifier" value="${(d.identifier || '').replace(/"/g, '&quot;')}" style="
+                    width: 100%; padding: 4px 6px; border: 1px solid ${colors.border}; border-radius: 4px;
+                    font-size: 11px; color: ${colors.text}; background: ${colors.inputBg}; box-sizing: border-box;
+                  "/>
+                </td>
+                <td style="padding: 6px; font-family: monospace; font-size: 9px; color: ${d.ingestionId ? colors.success : colors.textMuted}; max-width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${d.ingestionId || ''}">${d.ingestionId || '—'}</td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 10px; font-size: 11px; color: ${colors.textMuted}; display: flex; gap: 16px; flex-wrap: wrap;">
+        <span>Profile alvo: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
+        <span>deviceType: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
+        <span>deviceProfile: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
+        <span>Relação: <strong style="color: ${colors.text};">CUSTOMER → DEVICE (Contains)</strong></span>
+      </div>
+    </div>
+  `;
+}
+
 function renderAttrRow(
   key: string,
   value: unknown,
@@ -2613,6 +3643,15 @@ function setupEventListeners(
 
   // Navigation buttons
   document.getElementById(`${modalId}-back`)?.addEventListener('click', () => {
+    if (state.lojasMode && state.currentStep === 3) {
+      // Return to Step 2 with same device selection preserved
+      state.lojasMode = false;
+      state.lojasDataLoading = false;
+      state.currentStep = 2;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+      return;
+    }
     if (state.currentStep > 1) {
       state.currentStep--;
       renderModal(container, state, modalId, t);
@@ -2701,7 +3740,20 @@ function setupEventListeners(
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-device-id');
       state.selectedDevice = state.devices.find((d) => d.id?.id === id) || null;
+
+      // Save scroll position before re-render
+      const listEl = document.getElementById(`${modalId}-device-list`);
+      const savedScrollTop = listEl ? listEl.scrollTop : 0;
+
       renderModal(container, state, modalId, t);
+
+      // Restore scroll position after re-render (double rAF ensures layout is settled)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const newListEl = document.getElementById(`${modalId}-device-list`);
+          if (newListEl) newListEl.scrollTop = savedScrollTop;
+        });
+      });
     });
   });
 
@@ -2747,18 +3799,34 @@ function setupEventListeners(
     }
   );
 
+  // Telemetry key filter (only works when telemetry is loaded)
+  (document.getElementById(`${modalId}-device-telemetry-filter`) as HTMLSelectElement | null)?.addEventListener(
+    'change',
+    (e) => {
+      const select = e.target as HTMLSelectElement;
+      state.deviceFilters.telemetryKeys = Array.from(select.selectedOptions).map((o) => o.value);
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    }
+  );
+
   // Clear filters button
   document.getElementById(`${modalId}-clear-filters`)?.addEventListener('click', () => {
-    state.deviceFilters = { types: [], deviceTypes: [], deviceProfiles: [], statuses: [] };
+    state.deviceFilters = { types: [], deviceTypes: [], deviceProfiles: [], statuses: [], telemetryKeys: [] };
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Sortable column headers - click to sort
+  // Sortable column headers - click to sort (must match renderSortableHeader col names in the grid header)
   const sortableColumns: Array<{ col: string; field: DeviceSortField }> = [
-    { col: 'label', field: 'label' },
-    { col: 'type', field: 'type' },
-    { col: 'createdTime', field: 'createdTime' },
+    { col: 'name',          field: 'name'          },
+    { col: 'label',         field: 'label'         },
+    { col: 'type',          field: 'type'          },
+    { col: 'createdTime',   field: 'createdTime'   },
+    { col: 'deviceType',    field: 'deviceType'    },
+    { col: 'deviceProfile', field: 'deviceProfile' },
+    { col: 'centralId',     field: 'centralId'     },
+    { col: 'slaveId',       field: 'slaveId'       },
   ];
 
   sortableColumns.forEach(({ col, field }) => {
@@ -2794,6 +3862,14 @@ function setupEventListeners(
     if (e.key === 'Escape') closeHandler();
   };
   document.addEventListener('keydown', escHandler);
+
+  // ========================
+  // Load Relations Button
+  // ========================
+
+  document.getElementById(`${modalId}-load-relations`)?.addEventListener('click', () => {
+    void loadDeviceRelations(state, container, modalId, t, onClose);
+  });
 
   // ========================
   // Load Attributes Button
@@ -2975,6 +4051,27 @@ function setupEventListeners(
   });
 
   // ========================
+  // RFC-0184: CHECK & FIX
+  // ========================
+
+  document.getElementById(`${modalId}-check-fix`)?.addEventListener('click', async () => {
+    if (state.checkFixLoading) return;
+    state.checkFixLoading = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+    await runCheckFixRoutine(state, container, modalId, t, onClose);
+    state.checkFixLoading = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  document.getElementById(`${modalId}-checkfix-filter`)?.addEventListener('change', (e) => {
+    state.checkFixFilter = (e.target as HTMLSelectElement).value as CheckFixFilter;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // ========================
   // Multiselect Mode Handlers
   // ========================
 
@@ -3002,6 +4099,8 @@ function setupEventListeners(
       types: filterTypes,
       deviceTypes: filterDeviceTypes,
       deviceProfiles: filterDeviceProfiles,
+      statuses: filterStatuses,
+      telemetryKeys: filterTelemetryKeys,
     } = state.deviceFilters;
     // Select all visible/filtered devices
     let filteredDevices = state.devices.filter((d) => {
@@ -3013,16 +4112,49 @@ function setupEventListeners(
         !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
       )
         return false;
+      if (filterStatuses.length > 0) {
+        const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
+        if (!filterStatuses.includes(status)) return false;
+      }
+      if (filterTelemetryKeys.length > 0) {
+        const telem = d.latestTelemetry;
+        const hasMatch = filterTelemetryKeys.some((k) => {
+          if (k === 'pulses') return telem?.pulses != null;
+          if (k === 'consumption') return telem?.consumption != null;
+          return false;
+        });
+        if (!hasMatch) return false;
+      }
       return true;
     });
     state.selectedDevices = [...filteredDevices];
+
+    // Save scroll position before re-render
+    const listEl = document.getElementById(`${modalId}-device-list`);
+    const savedScroll = listEl ? listEl.scrollTop : 0;
     renderModal(container, state, modalId, t);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`${modalId}-device-list`);
+        if (el) el.scrollTop = savedScroll;
+      });
+    });
   });
 
   // Clear Selection button
   document.getElementById(`${modalId}-clear-selection`)?.addEventListener('click', () => {
     state.selectedDevices = [];
+
+    // Save scroll position before re-render
+    const listEl = document.getElementById(`${modalId}-device-list`);
+    const savedScroll = listEl ? listEl.scrollTop : 0;
     renderModal(container, state, modalId, t);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`${modalId}-device-list`);
+        if (el) el.scrollTop = savedScroll;
+      });
+    });
   });
 
   // Checkbox handlers for multi-select
@@ -3052,9 +4184,21 @@ function setupEventListeners(
           state.selectedDevices = state.selectedDevices.filter((d) => d.id?.id !== deviceId);
         }
 
+        // Save scroll position before re-render
+        const listEl = document.getElementById(`${modalId}-device-list`);
+        const savedScroll = listEl ? listEl.scrollTop : 0;
+
         // Re-render and re-setup
         renderModal(container, state, modalId, t);
         setupEventListeners(container, state, modalId, t, onClose);
+
+        // Restore scroll position after re-render (double rAF ensures layout is settled)
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = document.getElementById(`${modalId}-device-list`);
+            if (el) el.scrollTop = savedScroll;
+          });
+        });
       }, 0);
     };
   });
@@ -3083,14 +4227,21 @@ function setupEventListeners(
     renderModal(container, state, modalId, t);
   });
 
-  // Attribute select change
+  // Attribute select change — reset value and re-render to switch input/select
   document.getElementById(`${modalId}-bulk-attr-select`)?.addEventListener('change', (e) => {
     state.bulkAttributeModal.attribute = (e.target as HTMLSelectElement).value;
+    state.bulkAttributeModal.value = '';
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Value input change
-  document.getElementById(`${modalId}-bulk-attr-value`)?.addEventListener('input', (e) => {
+  // Value input/select change (handles both text input and select dropdown)
+  const bulkAttrValueEl = document.getElementById(`${modalId}-bulk-attr-value`);
+  bulkAttrValueEl?.addEventListener('input', (e) => {
     state.bulkAttributeModal.value = (e.target as HTMLInputElement).value;
+  });
+  bulkAttrValueEl?.addEventListener('change', (e) => {
+    state.bulkAttributeModal.value = (e.target as HTMLSelectElement).value;
   });
 
   // Save bulk attributes
@@ -3149,6 +4300,178 @@ function setupEventListeners(
   document.getElementById(`${modalId}-bulk-profile-save`)?.addEventListener('click', async () => {
     await saveBulkProfile(state, container, modalId, t, onClose);
   });
+
+  // ========================
+  // Bulk Owner Modal Handlers
+  // ========================
+
+  // Open bulk owner modal
+  document.getElementById(`${modalId}-bulk-owner`)?.addEventListener('click', () => {
+    if (!state.selectedCustomer) {
+      alert('Selecione um Customer primeiro no Step 1');
+      return;
+    }
+    state.bulkOwnerModal.open = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Close bulk owner modal (X button)
+  document.getElementById(`${modalId}-bulk-owner-close`)?.addEventListener('click', () => {
+    state.bulkOwnerModal.open = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Cancel bulk owner modal
+  document.getElementById(`${modalId}-bulk-owner-cancel`)?.addEventListener('click', () => {
+    state.bulkOwnerModal.open = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Save bulk owner
+  document.getElementById(`${modalId}-bulk-owner-save`)?.addEventListener('click', async () => {
+    await saveBulkOwner(state, container, modalId, t, onClose);
+  });
+
+  // ========================
+  // CUSTOM Mode Picker (replaces old LOJAS shortcut)
+  // ========================
+
+  document.getElementById(`${modalId}-custom-shortcut`)?.addEventListener('click', () => {
+    if (state.selectedDevices.length === 0) return;
+    state.customModeModal.open = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  const closCustomModal = () => {
+    state.customModeModal.open = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  };
+  document.getElementById(`${modalId}-custom-cancel`)?.addEventListener('click', closCustomModal);
+  document.getElementById(`${modalId}-custom-cancel-bottom`)?.addEventListener('click', closCustomModal);
+
+  // Mode card clicks
+  CUSTOM_MODES.forEach((mode) => {
+    document.getElementById(`${modalId}-custom-mode-${mode.id}`)?.addEventListener('click', async () => {
+      state.customModeModal.open = false;
+      state.lojasConfig = mode;
+      state.lojasMode = true;
+      state.currentStep = 3;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+      await loadLojasData(state, container, modalId, t, onClose);
+    });
+  });
+
+  // ========================
+  // Bulk Force Relation Modal
+  // ========================
+
+  document.getElementById(`${modalId}-bulk-relation`)?.addEventListener('click', () => {
+    if (!state.selectedCustomer) { alert('Selecione um Customer primeiro no Step 1'); return; }
+    state.bulkRelationModal.open = true;
+    state.bulkRelationModal.target = 'CUSTOMER';
+    state.bulkRelationModal.selectedAssetId = '';
+    state.bulkRelationModal.selectedAssetName = '';
+    state.bulkRelationModal.search = '';
+    state.bulkRelationModal.newAssetName = '';
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  const closeBulkRelModal = () => {
+    state.bulkRelationModal.open = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  };
+  document.getElementById(`${modalId}-bulk-rel-close`)?.addEventListener('click', closeBulkRelModal);
+  document.getElementById(`${modalId}-bulk-rel-cancel`)?.addEventListener('click', closeBulkRelModal);
+
+  // Radio: change target
+  ['CUSTOMER', 'ASSET_EXISTING', 'ASSET_NEW'].forEach((val) => {
+    const radio = document.getElementById(`${modalId}-bulk-rel-${val === 'CUSTOMER' ? 'customer' : val === 'ASSET_EXISTING' ? 'asset-existing' : 'asset-new'}`) as HTMLInputElement | null;
+    radio?.addEventListener('change', () => {
+      state.bulkRelationModal.target = val as typeof state.bulkRelationModal.target;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    });
+  });
+
+  // Search input
+  document.getElementById(`${modalId}-bulk-rel-asset-search`)?.addEventListener('input', (e) => {
+    state.bulkRelationModal.search = (e.target as HTMLInputElement).value;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Load assets button
+  document.getElementById(`${modalId}-bulk-rel-load-assets`)?.addEventListener('click', async () => {
+    if (!state.selectedCustomer) return;
+    const customerId = getEntityId(state.selectedCustomer);
+    state.customerAssets = await fetchCustomerAssets(state, customerId);
+    state.bulkRelationModal.assetsLoaded = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Asset item clicks in the list
+  container.querySelectorAll('.bulk-rel-asset-item').forEach((el) => {
+    (el as HTMLElement).addEventListener('click', () => {
+      state.bulkRelationModal.selectedAssetId = (el as HTMLElement).dataset.assetId || '';
+      state.bulkRelationModal.selectedAssetName = (el as HTMLElement).dataset.assetName || '';
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    });
+  });
+
+  // New asset name input
+  document.getElementById(`${modalId}-bulk-rel-new-asset-name`)?.addEventListener('input', (e) => {
+    state.bulkRelationModal.newAssetName = (e.target as HTMLInputElement).value;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Save / execute
+  document.getElementById(`${modalId}-bulk-rel-save`)?.addEventListener('click', async () => {
+    await handleBatchForceRelation(state, container, modalId, t, onClose);
+  });
+
+  // ========================
+  // LOJAS Step 3 Handlers (RFC-0160) — kept for backward compat
+  // ========================
+
+  // LOJAS Sync Ingestion button
+  document.getElementById(`${modalId}-lojas-sync`)?.addEventListener('click', async () => {
+    await handleLojasSyncIngestion(state, container, modalId, t, onClose);
+  });
+
+  // LOJAS Apply button
+  document.getElementById(`${modalId}-lojas-apply`)?.addEventListener('click', async () => {
+    await handleLojasApply(state, container, modalId, t, onClose);
+  });
+
+  // LOJAS table input change handlers (save values on input change without re-render)
+  if (state.lojasMode && state.currentStep === 3) {
+    state.lojasDeviceData.forEach((_d, i) => {
+      const labelInput = document.getElementById(`${modalId}-lojas-label-${i}`) as HTMLInputElement;
+      const identifierInput = document.getElementById(`${modalId}-lojas-identifier-${i}`) as HTMLInputElement;
+
+      if (labelInput) {
+        labelInput.addEventListener('input', () => {
+          state.lojasDeviceData[i].label = labelInput.value;
+        });
+      }
+      if (identifierInput) {
+        identifierInput.addEventListener('input', () => {
+          state.lojasDeviceData[i].identifier = identifierInput.value;
+        });
+      }
+    });
+  }
 
   // ========================
   // Step 3: Owner & Relation Handlers
@@ -3988,6 +5311,465 @@ async function changeDeviceProfile(
   }
 }
 
+// ============================================================================
+// LOJAS Functions (RFC-0160)
+// ============================================================================
+
+const PROFILE_3F_MEDIDOR_ID = '6b31e2a0-8c02-11f0-a06d-e9509531b1d5';
+
+// ============================================================================
+// CUSTOM Mode — Profile IDs & Config
+// ============================================================================
+
+const PROFILE_MOTOR_ID                 = '36aad760-9181-11f0-a06d-e9509531b1d5';
+const PROFILE_ENERGIA_GERAL_ENTRADA_ID = '5c5b8010-b02e-11f0-9722-210aa9448abc';
+const PROFILE_HIDROMETRO_LOJAS_ID      = 'a603a7d0-8b74-11f0-a06d-e9509531b1d5';
+const PROFILE_HIDROMETRO_AREA_COMUM_ID = 'b8bb8ac0-9ef5-11f0-afe1-175479a33d89';
+const PROFILE_HIDROMETRO_SHOPPING_ID   = '8db30580-9fa7-11f0-afe1-175479a33d89';
+const PROFILE_TERMOSTATO_ID            = 'c4268e90-9c85-11f0-afe1-175479a33d89';
+
+const CUSTOM_MODES: Array<{
+  id: string;
+  label: string;
+  profileId: string;
+  deviceType: string;
+  deviceProfile: string;
+}> = [
+  { id: 'lojas',            label: 'Lojas',             profileId: PROFILE_3F_MEDIDOR_ID,         deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR'           },
+  { id: 'motor',            label: 'Motor',             profileId: PROFILE_MOTOR_ID,               deviceType: '3F_MEDIDOR', deviceProfile: 'MOTOR'                },
+  { id: 'entrada_energia',  label: 'Entrada Energia',   profileId: PROFILE_ENERGIA_GERAL_ENTRADA_ID, deviceType: '3F_MEDIDOR', deviceProfile: 'ENTRADA'            },
+  { id: 'hidrometro_lojas', label: 'Hidrômetro Lojas',  profileId: PROFILE_HIDROMETRO_LOJAS_ID,   deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO'           },
+  { id: 'area_comum_water', label: 'Área Comum Água',   profileId: PROFILE_HIDROMETRO_AREA_COMUM_ID, deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_AREA_COMUM' },
+  { id: 'entrada_agua',     label: 'Entrada Água',      profileId: PROFILE_HIDROMETRO_SHOPPING_ID, deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_SHOPPING' },
+  { id: 'temperatura',      label: 'Temperatura',       profileId: PROFILE_TERMOSTATO_ID,          deviceType: 'TERMOSTATO', deviceProfile: 'TERMOSTATO'          },
+];
+
+// ============================================================================
+// Bulk Force Relation Handler
+// ============================================================================
+
+async function handleBatchForceRelation(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  if (!state.selectedCustomer) return;
+
+  const rel = state.bulkRelationModal;
+  const devices = state.selectedDevices;
+  const customerId = getEntityId(state.selectedCustomer);
+
+  // Determine target entity
+  let fromEntityType: 'CUSTOMER' | 'ASSET';
+  let fromEntityId: string;
+  let fromEntityName: string;
+
+  if (rel.target === 'CUSTOMER') {
+    fromEntityType = 'CUSTOMER';
+    fromEntityId = customerId;
+    fromEntityName = state.selectedCustomer.name || state.selectedCustomer.title || 'Customer';
+  } else if (rel.target === 'ASSET_EXISTING') {
+    if (!rel.selectedAssetId) return;
+    fromEntityType = 'ASSET';
+    fromEntityId = rel.selectedAssetId;
+    fromEntityName = rel.selectedAssetName;
+  } else {
+    // ASSET_NEW: create the asset first
+    const newAssetName = rel.newAssetName.trim();
+    if (!newAssetName) return;
+    fromEntityType = 'ASSET';
+    fromEntityName = newAssetName;
+    try {
+      const created = await tbPost<{ id: { id: string } }>(state, '/api/asset', {
+        name: newAssetName,
+        type: 'default',
+        customerId: { entityType: 'CUSTOMER', id: customerId },
+      });
+      fromEntityId = created.id.id;
+    } catch (err) {
+      alert(`Erro ao criar asset "${newAssetName}": ${(err as Error).message}`);
+      return;
+    }
+  }
+
+  const confirmMsg =
+    `Forçar relação para ${devices.length} dispositivos?\n\n` +
+    `Destino: ${fromEntityType} → ${fromEntityName}\n\n` +
+    `Todas as relações TO existentes serão removidas e substituídas.\n\nDeseja continuar?`;
+  if (!confirm(confirmMsg)) return;
+
+  // Close the sub-modal before showing busy
+  state.bulkRelationModal.open = false;
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
+
+  showBusyProgress('Forçando relações em lote...', devices.length);
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < devices.length; i++) {
+    const device = devices[i];
+    const deviceId = getEntityId(device);
+    const deviceName = device.label || device.name;
+
+    try {
+      updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] ${deviceName}: Buscando relações...`);
+
+      // Fetch existing TO relations
+      const relationsResp = await tbFetch<Array<{ from: { id: string; entityType: string }; type: string; typeGroup: string }>>(
+        state,
+        `/api/relations?toId=${deviceId}&toType=DEVICE&relationTypeGroup=COMMON`
+      );
+      const existingRelations = Array.isArray(relationsResp) ? relationsResp : [];
+
+      // Delete all existing relations
+      if (existingRelations.length > 0) {
+        updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] ${deviceName}: Removendo relações...`);
+        for (const existing of existingRelations) {
+          try {
+            const params = new URLSearchParams({
+              fromId:            existing.from.id,
+              fromType:          existing.from.entityType,
+              toId:              deviceId,
+              toType:            'DEVICE',
+              relationType:      existing.type || 'Contains',
+              relationTypeGroup: existing.typeGroup || 'COMMON',
+            });
+            await tbDelete(state, `/api/relation?${params.toString()}`);
+          } catch (e) {
+            console.warn('[UpsellModal] Error deleting relation in batch:', e);
+          }
+        }
+      }
+
+      // Create new relation
+      updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] ${deviceName}: Criando relação...`);
+      await tbPost(state, '/api/relation', {
+        from: { entityType: fromEntityType, id: fromEntityId },
+        to:   { entityType: 'DEVICE', id: deviceId },
+        type: 'Contains',
+        typeGroup: 'COMMON',
+      });
+
+      successCount++;
+    } catch (err) {
+      errorCount++;
+      errors.push(`${deviceName}: ${(err as Error).message}`);
+      console.error(`[UpsellModal] Error forcing relation for ${deviceName}:`, err);
+    }
+
+    updateBusyProgress(i + 1);
+  }
+
+  hideBusyProgress();
+
+  if (errorCount === 0) {
+    alert(`Relações forçadas com sucesso para ${successCount} dispositivos!`);
+  } else {
+    alert(
+      `Relações forçadas para ${successCount} dispositivos.\n` +
+        `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+        (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+    );
+  }
+
+  state.selectedDevices = [];
+  state.deviceSelectionMode = 'single';
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
+}
+
+async function loadLojasData(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  state.lojasDataLoading = true;
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
+
+  const devices = state.selectedDevices;
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 1500;
+
+  showBusyProgress('Carregando dados para LOJAS...', devices.length);
+
+  // Initialize lojasDeviceData from selected devices
+  state.lojasDeviceData = devices.map((d) => ({
+    deviceId: getEntityId(d),
+    name: d.name || '',
+    centralId: '',
+    slaveId: '',
+    label: d.label || d.name || '',
+    identifier: '',
+    ingestionId: '',
+    currentRelations: [],
+  }));
+
+  try {
+    for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+      const batch = devices.slice(i, i + BATCH_SIZE);
+      const promises = batch.map(async (device, batchIdx) => {
+        const deviceId = getEntityId(device);
+        const idx = i + batchIdx;
+
+        // Load server-scope attributes
+        try {
+          const attrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+            state,
+            `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`
+          );
+          const attrMap: Record<string, string> = {};
+          attrs.forEach((a) => {
+            attrMap[a.key] = String(a.value ?? '');
+          });
+
+          state.lojasDeviceData[idx].centralId = attrMap.centralId || '';
+          state.lojasDeviceData[idx].slaveId = attrMap.slaveId || '';
+          state.lojasDeviceData[idx].identifier = attrMap.identifier || '';
+          state.lojasDeviceData[idx].ingestionId = attrMap.ingestionId || '';
+          // Use existing label from device, fallback to name
+          if (!state.lojasDeviceData[idx].label) {
+            state.lojasDeviceData[idx].label = device.name || '';
+          }
+        } catch (e) {
+          console.warn('[UpsellModal] Error loading attrs for LOJAS:', deviceId, e);
+        }
+
+        // Load existing relations (device is TO = contained by something)
+        try {
+          const relations = await tbFetch<
+            Array<{
+              from: { entityType: string; id: string };
+              to: { entityType: string; id: string };
+              type: string;
+              typeGroup: string;
+            }>
+          >(state, `/api/relations?toId=${deviceId}&toType=DEVICE&relationTypeGroup=COMMON`);
+          state.lojasDeviceData[idx].currentRelations = relations;
+        } catch (e) {
+          console.warn('[UpsellModal] Error loading relations for LOJAS:', deviceId, e);
+        }
+      });
+
+      await Promise.all(promises);
+      updateBusyProgress(Math.min(i + BATCH_SIZE, devices.length));
+
+      if (i + BATCH_SIZE < devices.length) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
+
+    hideBusyProgress();
+    state.lojasDataLoading = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  } catch (error) {
+    console.error('[UpsellModal] Error loading LOJAS data:', error);
+    hideBusyProgress();
+    state.lojasDataLoading = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  }
+}
+
+async function handleLojasSyncIngestion(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  if (!state.selectedCustomer) return;
+
+  // Read current input values before sync
+  for (let i = 0; i < state.lojasDeviceData.length; i++) {
+    const labelInput = document.getElementById(`${modalId}-lojas-label-${i}`) as HTMLInputElement;
+    const identifierInput = document.getElementById(`${modalId}-lojas-identifier-${i}`) as HTMLInputElement;
+    if (labelInput) state.lojasDeviceData[i].label = labelInput.value;
+    if (identifierInput) state.lojasDeviceData[i].identifier = identifierInput.value;
+  }
+
+  const customerId = getEntityId(state.selectedCustomer);
+
+  try {
+    // Get customer's ingestionId attribute
+    const customerAttrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+      state,
+      `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`
+    );
+    const ingestionCustomerIdAttr = customerAttrs.find((a) => a.key === 'ingestionId');
+    const ingestionCustomerId = ingestionCustomerIdAttr?.value as string;
+
+    if (!ingestionCustomerId) {
+      alert('Customer não tem atributo ingestionId configurado. Configure primeiro no ThingsBoard.');
+      return;
+    }
+
+    console.log('[UpsellModal] LOJAS sync - Customer ingestionId:', ingestionCustomerId);
+
+    // Fetch all ingestion devices (uses 5-minute cache)
+    showBusyProgress('Sincronizando ingestion...', state.lojasDeviceData.length);
+    const ingestionDevices = await fetchIngestionDevicesAllPaged(ingestionCustomerId);
+    console.log('[UpsellModal] LOJAS sync - Fetched', ingestionDevices.length, 'ingestion devices');
+
+    let matchCount = 0;
+    for (let i = 0; i < state.lojasDeviceData.length; i++) {
+      const d = state.lojasDeviceData[i];
+      if (d.centralId && d.slaveId) {
+        const match = findIngestionDeviceByCentralSlaveId(ingestionDevices, d.centralId, d.slaveId);
+        if (match) {
+          d.ingestionId = match.id;
+          matchCount++;
+        }
+      }
+      updateBusyProgress(i + 1);
+    }
+
+    hideBusyProgress();
+    alert(`Sync concluído! ${matchCount}/${state.lojasDeviceData.length} dispositivos sincronizados.`);
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  } catch (error) {
+    hideBusyProgress();
+    console.error('[UpsellModal] Error syncing LOJAS ingestion:', error);
+    alert('Erro ao sincronizar ingestion: ' + (error as Error).message);
+  }
+}
+
+async function handleLojasApply(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  if (!state.selectedCustomer) return;
+
+  const customerId = getEntityId(state.selectedCustomer);
+  const data = state.lojasDeviceData;
+  if (data.length === 0) return;
+
+  // Read current values from inputs
+  for (let i = 0; i < data.length; i++) {
+    const labelInput = document.getElementById(`${modalId}-lojas-label-${i}`) as HTMLInputElement;
+    const identifierInput = document.getElementById(`${modalId}-lojas-identifier-${i}`) as HTMLInputElement;
+    if (labelInput) data[i].label = labelInput.value;
+    if (identifierInput) data[i].identifier = identifierInput.value;
+  }
+
+  const activeConfig = state.lojasConfig ?? CUSTOM_MODES[0];
+  const confirmMsg =
+    `Aplicar configuração "${activeConfig.label}" para ${data.length} dispositivos?\n\n` +
+    `Cada device receberá:\n` +
+    `- Label atualizado (etiqueta)\n` +
+    `- Profile: ${activeConfig.deviceProfile}\n` +
+    `- deviceType/deviceProfile: ${activeConfig.deviceType} / ${activeConfig.deviceProfile}\n` +
+    `- Relações existentes removidas\n` +
+    `- Nova relação: Customer → Device (Contains)\n\n` +
+    `Deseja continuar?`;
+  if (!confirm(confirmMsg)) return;
+
+  showBusyProgress(`Aplicando ${activeConfig.label}...`, data.length);
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    const device = state.selectedDevices.find((dev) => getEntityId(dev) === d.deviceId);
+    if (!device) continue;
+
+    try {
+      // Step A: Update device label
+      updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Atualizando label...`);
+      const deviceData = await tbFetch<Record<string, unknown>>(state, `/api/device/${d.deviceId}`);
+      deviceData.label = d.label;
+      await tbPost(state, '/api/device', deviceData);
+
+      // Step B: Force device profile
+      updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Alterando profile...`);
+      await changeDeviceProfile(state, device, activeConfig.profileId);
+
+      // Step C: Set server-scope attributes
+      updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Salvando atributos...`);
+      const attrs: Record<string, string> = {
+        deviceType: activeConfig.deviceType,
+        deviceProfile: activeConfig.deviceProfile,
+        identifier: d.identifier,
+      };
+      if (d.ingestionId) {
+        attrs.ingestionId = d.ingestionId;
+      }
+      await tbPost(state, `/api/plugins/telemetry/DEVICE/${d.deviceId}/attributes/SERVER_SCOPE`, attrs);
+
+      // Step D: Delete existing relations (device is TO)
+      if (d.currentRelations.length > 0) {
+        updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Removendo relações...`);
+        for (const rel of d.currentRelations) {
+          try {
+            const params = new URLSearchParams({
+              fromId: rel.from.id,
+              fromType: rel.from.entityType,
+              toId: d.deviceId,
+              toType: 'DEVICE',
+              relationType: rel.type || 'Contains',
+              relationTypeGroup: rel.typeGroup || 'COMMON',
+            });
+            await tbDelete(state, `/api/relation?${params.toString()}`);
+          } catch (e) {
+            console.warn('[UpsellModal] Error deleting relation for LOJAS:', e);
+          }
+        }
+      }
+
+      // Step E: Create customer relation
+      updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Criando relação...`);
+      await tbPost(state, '/api/relation', {
+        from: { entityType: 'CUSTOMER', id: customerId },
+        to: { entityType: 'DEVICE', id: d.deviceId },
+        type: 'Contains',
+        typeGroup: 'COMMON',
+      });
+
+      successCount++;
+    } catch (error) {
+      errorCount++;
+      errors.push(`${d.name}: ${(error as Error).message}`);
+      console.error(`[UpsellModal] Error applying LOJAS for ${d.name}:`, error);
+    }
+
+    updateBusyProgress(i + 1);
+  }
+
+  hideBusyProgress();
+
+  if (errorCount === 0) {
+    alert(`"${activeConfig.label}" aplicado com sucesso para ${successCount} dispositivos!`);
+  } else {
+    alert(
+      `"${activeConfig.label}" aplicado para ${successCount} dispositivos.\n` +
+        `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+        (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+    );
+  }
+
+  // Return to Step 2
+  state.lojasMode = false;
+  state.lojasConfig = null;
+  state.currentStep = 2;
+  state.selectedDevices = [];
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
+}
+
 async function loadCustomers(
   state: ModalState,
   container: HTMLElement,
@@ -4040,14 +5822,83 @@ async function loadDevices(
     state.deviceTelemetryLoaded = false;
     state.telemetryLoading = false;
     state.telemetryLoadedCount = 0;
+    state.relationsLoaded = false;
+    state.relationsLoading = false;
+    state.deviceToAssetMap = new Map();
     state.isLoading = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
-    // Attrs and telemetry are now loaded on demand via buttons
+    // Attrs, telemetry and relations are all loaded on demand via buttons
   } catch (error) {
     console.error('[UpsellModal] Error loading devices:', error);
     state.isLoading = false;
     renderModal(container, state, modalId, t, error as Error);
+  }
+}
+
+// Load device→asset relations on demand (user-triggered, parallel batches per asset)
+async function loadDeviceRelations(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  if (!state.selectedCustomer || state.relationsLoading) return;
+  const customerId = getEntityId(state.selectedCustomer);
+
+  state.relationsLoading = true;
+  state.relationsLoaded = false;
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
+
+  try {
+    // Phase 1: 1 request to fetch all customer assets
+    if (state.customerAssets.length === 0) {
+      state.customerAssets = await fetchCustomerAssets(state, customerId);
+    }
+
+    const assets = state.customerAssets;
+    const BATCH_SIZE = 20; // parallel per batch — was 1 sequential per asset
+    const deviceToAssetMap = new Map<string, string>();
+
+    showBusyProgress('Carregando relações...', assets.length);
+
+    // Phase 2: parallel batches — N_assets/20 rounds instead of N_assets sequential rounds
+    for (let i = 0; i < assets.length; i += BATCH_SIZE) {
+      const batch = assets.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (asset) => {
+          try {
+            const rels = await tbFetch<Array<{ from: { id: string; entityType: string }; to: { id: string; entityType: string }; type: string }>>(
+              state,
+              `/api/relations?fromId=${asset.id}&fromType=ASSET`
+            );
+            rels.forEach((rel) => {
+              if (rel.to.entityType === 'DEVICE') {
+                deviceToAssetMap.set(rel.to.id, asset.name);
+              }
+            });
+          } catch {
+            // ignore per-asset errors
+          }
+        })
+      );
+      updateBusyProgress(Math.min(i + BATCH_SIZE, assets.length));
+    }
+
+    state.deviceToAssetMap = deviceToAssetMap;
+    state.relationsLoaded = true;
+    state.relationsLoading = false;
+    hideBusyProgress();
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  } catch (error) {
+    console.error('[UpsellModal] Error loading device relations:', error);
+    state.relationsLoading = false;
+    hideBusyProgress();
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
   }
 }
 
@@ -4231,6 +6082,127 @@ async function loadDeviceTelemetryInBatch(
     state.telemetryLoading = false;
     hideBusyProgress();
   }
+}
+
+// RFC-0184: Diagnostic scan — infer expected attrs from device names, compare against actual TB attrs
+async function runCheckFixRoutine(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  const devices = state.devices; // ALL devices — ignores active grid filter
+  if (devices.length === 0) return;
+
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 1500;
+  showBusyProgress('Executando diagnóstico CHECK & FIX...', devices.length);
+
+  const records: DeviceDiagnosticRecord[] = [];
+
+  for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+    const batch = devices.slice(i, i + BATCH_SIZE);
+
+    const promises = batch.map(async (device): Promise<DeviceDiagnosticRecord> => {
+      const deviceId = getEntityId(device);
+      const deviceName = device.name || device.label || '';
+      const deviceLabel = device.label || '';
+      const inferredType = inferForCheckFix(deviceName);
+      const inferredProfile = inferredType; // per RFC: same value at inference time
+
+      // Fetch SERVER_SCOPE attrs if not already present
+      if (!device.serverAttrs) {
+        try {
+          const attrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+            state,
+            `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`
+          );
+          device.serverAttrs = {};
+          attrs.forEach((a) => {
+            (device.serverAttrs as Record<string, unknown>)[a.key] = a.value;
+          });
+        } catch {
+          device.serverAttrs = {};
+        }
+      }
+
+      const actualDeviceType = (device.serverAttrs?.deviceType as string) || null;
+      const actualDeviceProfile = (device.serverAttrs?.deviceProfile as string) || null;
+      const actualType = device.type || null;
+      const domain = inferredType !== 'UNDEFINED' ? (CHECK_FIX_DOMAIN[inferredType] || null) : null;
+      const group = actualDeviceProfile ? (CHECK_FIX_GROUP[actualDeviceProfile] || null) : null;
+      const typeEqualsProfile = !!(actualType && actualDeviceProfile && actualType === actualDeviceProfile);
+
+      // Fetch latest telemetry independently (all keys, filter display by domain)
+      let telemetryTs: number | null = null;
+      const telemetryValues: Record<string, number | string | null> = {};
+      let connStatus: string | null = null;
+      try {
+        const telem = await tbFetch<Record<string, Array<{ ts: number; value: string | number }>>>(
+          state,
+          `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${CHECK_FIX_TELEMETRY_KEYS}`
+        );
+        // connectionStatus always parsed regardless of domain
+        if (telem.connectionStatus?.[0]) {
+          connStatus = String(telem.connectionStatus[0].value);
+          telemetryTs = telem.connectionStatus[0].ts;
+        }
+        // domain-specific value keys
+        const domainKeys = domain ? (TELEMETRY_KEYS_BY_DOMAIN[domain] ?? []) : [];
+        domainKeys.forEach((key) => {
+          const entry = telem[key]?.[0];
+          if (entry) {
+            telemetryValues[key] = entry.value as string | number;
+            if (!telemetryTs || entry.ts > telemetryTs) telemetryTs = entry.ts;
+          }
+        });
+      } catch { /* telemetry is informational — don't fail the scan */ }
+
+      let status: CheckFixStatus;
+      if (inferredType === 'UNDEFINED') {
+        status = 'undefined';
+      } else if (!actualDeviceType || !actualDeviceProfile) {
+        status = 'missing';
+      } else if (actualDeviceType !== inferredType || actualDeviceProfile !== inferredProfile) {
+        status = 'mismatch';
+      } else {
+        status = 'ok';
+      }
+
+      const gcdrDeviceId = (device.serverAttrs?.gcdrDeviceId as string) || null;
+      const ingestionId  = (device.serverAttrs?.ingestionId  as string) || null;
+      const centralId    = (device.serverAttrs?.centralId    as string) || null;
+      const slaveId      = device.serverAttrs?.slaveId != null ? String(device.serverAttrs.slaveId) : null;
+
+      return {
+        deviceId, deviceName, deviceLabel,
+        inferred: { deviceType: inferredType, deviceProfile: inferredProfile },
+        actual: { deviceType: actualDeviceType, deviceProfile: actualDeviceProfile, type: actualType },
+        domain, group, status, typeEqualsProfile,
+        telemetry: { ts: telemetryTs, values: telemetryValues },
+        connStatus, gcdrDeviceId, ingestionId, centralId, slaveId,
+      };
+    });
+
+    const batchResults = await Promise.all(promises);
+    records.push(...batchResults);
+    updateBusyProgress(Math.min(i + BATCH_SIZE, devices.length));
+
+    if (i + BATCH_SIZE < devices.length) {
+      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+    }
+  }
+
+  const customer = state.selectedCustomer as (Customer & { title?: string }) | null;
+  state.checkFixReport = {
+    customerName: customer?.name || customer?.title || '',
+    totalDevices: devices.length,
+    records,
+    runAt: Date.now(),
+  };
+
+  hideBusyProgress();
 }
 
 async function loadValidationData(
@@ -4499,6 +6471,84 @@ async function saveBulkProfile(
   } else {
     alert(
       `Profile alterado para ${successCount} dispositivos.\n` +
+        `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+        (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+    );
+  }
+
+  // Clear selection and re-render
+  state.selectedDevices = [];
+  renderModal(container, state, modalId, t);
+}
+
+/**
+ * Save owner (customer) to multiple devices in bulk
+ */
+async function saveBulkOwner(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  const devices = state.selectedDevices;
+  const newCustomerId = state.selectedCustomer?.id?.id;
+  const customerName = state.selectedCustomer?.name || state.selectedCustomer?.title || 'Unknown';
+
+  if (!newCustomerId) {
+    alert('Por favor, selecione um Customer no Step 1 primeiro.');
+    return;
+  }
+
+  if (devices.length === 0) {
+    alert('Nenhum dispositivo selecionado.');
+    return;
+  }
+
+  // Update modal state to show saving
+  state.bulkOwnerModal.saving = true;
+  renderModal(container, state, modalId, t);
+
+  // Show progress modal
+  showBusyProgress(`Atribuindo Owner "${customerName}"...`, devices.length);
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
+
+  // Change owner for each device
+  for (let i = 0; i < devices.length; i++) {
+    const device = devices[i];
+
+    try {
+      await changeDeviceOwner(state, device, newCustomerId);
+      successCount++;
+
+      // Update device in local state
+      device.customerId = { entityType: 'CUSTOMER', id: newCustomerId };
+    } catch (error) {
+      errorCount++;
+      errors.push(`${device.name}: ${(error as Error).message}`);
+      console.error(`[UpsellModal] Error changing owner for device ${device.name}:`, error);
+    }
+
+    // Update progress modal
+    updateBusyProgress(i + 1);
+  }
+
+  // Hide progress modal
+  hideBusyProgress();
+
+  // Reset modal state
+  state.bulkOwnerModal.saving = false;
+  state.bulkOwnerModal.open = false;
+
+  // Show result message
+  if (errorCount === 0) {
+    alert(`Owner alterado para "${customerName}" em ${successCount} dispositivos!`);
+  } else {
+    alert(
+      `Owner alterado para ${successCount} dispositivos.\n` +
         `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
         (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );

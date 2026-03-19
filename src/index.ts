@@ -4,7 +4,7 @@ import pkg from '../package.json';
 export const version: string = pkg.version || '0.0.0';
 
 // Format utilities
-export { formatEnergy, formatAllInSameUnit } from './format/energy';
+export { formatEnergy, formatPower, formatAllInSameUnit } from './format/energy';
 export { fmtPerc } from './format/percentage';
 export { formatNumberReadable } from './format/numbers';
 export {
@@ -101,6 +101,7 @@ export {
   DeviceCategory,
   isTankDevice,
   isHydrometerDevice,
+  isSolenoidDevice,
   isTemperatureDevice,
   isEnergyDevice,
   getDomainFromDeviceType,
@@ -114,7 +115,6 @@ export {
 export {
   DomainType as DeviceDomainType,
   ContextType as DeviceContextType,
-  detectDomain,
   detectContext,
   detectDomainAndContext,
   mapConnectionStatus,
@@ -225,6 +225,9 @@ export { addNamespace } from './utils/namespace';
 export { fmtPerc as fmtPercLegacy, toFixedSafe } from './utils/numbers';
 export { normalizeRecipients } from './utils/strings';
 
+// RFC-XXXX: Period utilities
+export { periodKey, type Period } from './utils/periodUtils';
+
 // Codec utilities
 export { decodePayload } from './codec/decodePayload';
 
@@ -245,6 +248,25 @@ export {
   renderCardComponent as renderCardComponentV5,
   renderCardComponentV5 as renderCardV5,
 } from './thingsboard/main-dashboard-shopping/v-5.2.0/card/template-card-v5.js';
+export {
+  renderCardComponentV6,
+  renderCardComponent as renderCardComponentV6Alias,
+} from './components/template-card-v6/template-card-v6.js';
+
+// Ambiente card component (v6) - for BAS dashboard
+export { renderCardAmbienteV6 } from './components/template-card-ambiente-v6/template-card-ambiente-v6.js';
+
+// HeaderPanelComponent — Reusable header component for panels
+export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK, HEADER_STYLE_PREMIUM_GREEN } from './components/header-panel/index';
+export type { HeaderPanelStyle, HeaderPanelOptions } from './components/header-panel/index';
+
+// EntityListPanel — Reusable sidebar list component
+export { EntityListPanel } from './components/entity-list-panel/index';
+export type { EntityListItem, EntityListPanelOptions } from './components/entity-list-panel/index';
+
+// CardGridPanel — Reusable card grid panel component
+export { CardGridPanel } from './components/card-grid-panel/index';
+export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions } from './components/card-grid-panel/index';
 
 // MYIO Components - Drag-to-Footer Dock Implementation
 export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';
@@ -432,6 +454,21 @@ export type {
   TemperatureGranularity,
   ClampRange,
 } from './components/temperature';
+
+// RFC-0153: Alarm Comparison Modal
+export {
+  openAlarmComparisonModal,
+  type AlarmComparisonModalParams,
+  type AlarmComparisonModalInstance,
+} from './components/alarms/AlarmComparisonModal';
+
+// RFC-0157: Operational Comparison Modal
+export {
+  openOperationalComparisonModal,
+  type OperationalComparisonModalParams,
+  type OperationalComparisonModalInstance,
+  type OperationalDevice,
+} from './components/operational-comparison-modal';
 
 // Temperature Range Tooltip (Reusable UI component)
 export { TempRangeTooltip } from './utils/TempRangeTooltip';
@@ -783,6 +820,23 @@ export { FILTER_GROUPS, FILTER_TAB_ICONS, STATUS_TO_CONNECTIVITY } from './compo
 
 export { generateFilterModalStyles } from './components/filter-modal';
 
+// RFC-0160: Simplified category-based filter modal for CardGridPanel
+export {
+  FilterModalComponent,
+  WATER_SORT_OPTIONS,
+  ENERGY_SORT_OPTIONS,
+  TEMPERATURE_SORT_OPTIONS,
+  MOTOR_SORT_OPTIONS,
+  WATER_DEVICE_CATEGORIES,
+} from './components/filter-modal';
+
+export type {
+  FilterCategory,
+  FilterSortOption,
+  FilterModalOptions,
+  FilterState as FilterCategoryState,
+} from './components/filter-modal';
+
 // RFC-0127: CustomerCard Components
 export { CustomerCardV1, createCustomerCardV1 } from './components/customer-card-v1';
 export { injectCustomerCardV1Styles } from './components/customer-card-v1';
@@ -853,18 +907,9 @@ export type {
 } from './components/water-panel';
 
 // RFC-0144: Onboard Modal Component (MYIO Academy)
-export {
-  openOnboardModal,
-  openTutorialModal,
-  openHelpModal,
-  OnboardModalView,
-} from './components/onboard';
+export { openOnboardModal, openTutorialModal, openHelpModal, OnboardModalView } from './components/onboard';
 
-export type {
-  OnboardModalConfig,
-  OnboardModalHandle,
-  OnboardFooterLink,
-} from './components/onboard';
+export type { OnboardModalConfig, OnboardModalHandle, OnboardFooterLink } from './components/onboard';
 
 // RFC-0139: HeaderShopping Component (Shopping Dashboard toolbar)
 export { createHeaderShoppingComponent } from './components/header-shopping';
@@ -881,10 +926,7 @@ export type {
   HeaderShoppingEventHandler,
 } from './components/header-shopping';
 
-export {
-  HEADER_SHOPPING_CSS_PREFIX,
-  DEFAULT_HEADER_SHOPPING_CONFIG,
-} from './components/header-shopping';
+export { HEADER_SHOPPING_CSS_PREFIX, DEFAULT_HEADER_SHOPPING_CONFIG } from './components/header-shopping';
 
 // RFC-0140: MenuShopping Component (Shopping Dashboard menu navigation)
 export { createMenuShoppingComponent } from './components/menu-shopping';
@@ -903,10 +945,7 @@ export type {
   MenuShoppingEventHandler,
 } from './components/menu-shopping';
 
-export {
-  MENU_SHOPPING_CSS_PREFIX,
-  DEFAULT_MENU_SHOPPING_CONFIG,
-} from './components/menu-shopping';
+export { MENU_SHOPPING_CSS_PREFIX, DEFAULT_MENU_SHOPPING_CONFIG } from './components/menu-shopping';
 
 // RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
 export { createTelemetryGridShoppingComponent } from './components/telemetry-grid-shopping';
@@ -957,3 +996,679 @@ export {
   formatWater as telemetryInfoFormatWater,
   formatPercentage as telemetryInfoFormatPercentage,
 } from './components/telemetry-info-shopping';
+
+// RFC-0152 Phase 3: Operational General List Component
+export { createOperationalGeneralListComponent } from './components/operational-general-list';
+export {
+  OperationalGeneralListView,
+  OperationalGeneralListController,
+} from './components/operational-general-list';
+
+export type {
+  OperationalGeneralListParams,
+  OperationalGeneralListInstance,
+  ThemeMode as OperationalListThemeMode,
+  OperationalGeneralListState,
+  OperationalListEventType,
+  OperationalListEventHandler,
+  StatusConfig as OperationalStatusConfig,
+  EquipmentType,
+  EquipmentStatus,
+  EquipmentCardData,
+  EquipmentStats,
+  EquipmentFilterState,
+} from './components/operational-general-list';
+
+export {
+  STATUS_CONFIG as OPERATIONAL_STATUS_CONFIG,
+  AVAILABILITY_THRESHOLDS as OPERATIONAL_AVAILABILITY_THRESHOLDS,
+  getAvailabilityColorFromThresholds,
+  getStatusColors as getOperationalStatusColors,
+  getAvailabilityColor as getOperationalAvailabilityColor,
+  calculateMTBF,
+  calculateMTTR,
+  calculateAvailability,
+  DEFAULT_EQUIPMENT_STATS,
+  DEFAULT_EQUIPMENT_FILTER_STATE,
+} from './components/operational-general-list';
+
+export {
+  OPERATIONAL_GENERAL_LIST_STYLES,
+  injectOperationalGeneralListStyles,
+  removeOperationalGeneralListStyles,
+} from './components/operational-general-list';
+
+// RFC-0152: Operational Indicators Types (shared across all operational panels)
+export type {
+  OperationalIndicatorsAttributes,
+  DashboardPeriod,
+  DashboardKPIs,
+  DowntimeEntry,
+  TrendDataPoint,
+  OperationalIndicatorsAccessEvent,
+  OperationalContextChangeEvent,
+  OperationalEquipmentReadyEvent,
+  OperationalStore,
+} from './types/operational';
+
+export { DEFAULT_DASHBOARD_KPIS } from './types/operational';
+
+// RFC-0152: Alarm Types (for Phase 4 - Alarms and Notifications Panel)
+export type { AlarmSeverity, AlarmState, Alarm, AlarmStats, AlarmFilters } from './types/alarm';
+
+export {
+  SEVERITY_CONFIG as ALARM_SEVERITY_CONFIG,
+  STATE_CONFIG as ALARM_STATE_CONFIG,
+  DEFAULT_ALARM_STATS,
+  DEFAULT_ALARM_FILTERS,
+  getSeverityConfig as getAlarmSeverityConfig,
+  getStateConfig as getAlarmStateConfig,
+  isAlarmActive,
+  formatAlarmRelativeTime,
+} from './types/alarm';
+
+// RFC-0152 Phase 4: Device Operational Card Component
+export { createDeviceOperationalCardComponent } from './components/device-operational-card';
+export {
+  DeviceOperationalCardView,
+  DeviceOperationalCardController,
+} from './components/device-operational-card';
+
+export type {
+  DeviceOperationalCardParams,
+  DeviceOperationalCardInstance,
+  ThemeMode as DeviceOperationalCardThemeMode,
+  DeviceOperationalCardState,
+  DeviceOperationalCardFilterState,
+  AlarmSortMode,
+  AlarmAction,
+  OnAlarmClickCallback,
+  OnAlarmActionCallback,
+  OnAlarmFilterChangeCallback,
+  OnAlarmStatsUpdateCallback,
+  DeviceOperationalCardEventType,
+  DeviceOperationalCardEventHandler,
+  AlarmSortOption,
+  AlarmFilterTab,
+} from './components/device-operational-card';
+
+export {
+  ALARM_SORT_OPTIONS,
+  SEVERITY_ORDER,
+  DEFAULT_DEVICE_OPERATIONAL_CARD_FILTER_STATE,
+  DEFAULT_ALARM_FILTER_TABS,
+} from './components/device-operational-card';
+
+export {
+  DEVICE_OPERATIONAL_CARD_STYLES,
+  injectDeviceOperationalCardStyles,
+  removeDeviceOperationalCardStyles,
+} from './components/device-operational-card';
+
+// RFC-0152 Phase 3: Device Operational Card Grid Component
+export { createDeviceOperationalCardGridComponent } from './components/device-operational-card-grid';
+export {
+  DeviceOperationalCardGridView,
+  DeviceOperationalCardGridController,
+} from './components/device-operational-card-grid';
+
+export type {
+  OperationalEquipment,
+  EquipmentType as GridEquipmentType,
+  EquipmentStatus as GridEquipmentStatus,
+  DeviceOperationalCardGridParams,
+  DeviceOperationalCardGridInstance,
+  ThemeMode as DeviceOperationalCardGridThemeMode,
+  SortMode as DeviceOperationalCardGridSortMode,
+  DeviceOperationalCardGridState,
+  DeviceOperationalCardGridFilterState,
+  DeviceOperationalCardGridStats,
+  EquipmentAction,
+  OnEquipmentClickCallback,
+  OnEquipmentActionCallback,
+  OnGridFilterChangeCallback,
+  OnGridStatsUpdateCallback,
+  DeviceOperationalCardGridEventType,
+  DeviceOperationalCardGridEventHandler,
+  GridSortOption,
+  GridFilterTab,
+  CustomerOption as GridCustomerOption,
+} from './components/device-operational-card-grid';
+
+export {
+  GRID_SORT_OPTIONS,
+  DEFAULT_GRID_FILTER_STATE,
+  DEFAULT_GRID_FILTER_TABS,
+  STATUS_CONFIG as EQUIPMENT_STATUS_CONFIG,
+  TYPE_CONFIG as EQUIPMENT_TYPE_CONFIG,
+} from './components/device-operational-card-grid';
+
+export {
+  DEVICE_OPERATIONAL_CARD_GRID_STYLES,
+  injectDeviceOperationalCardGridStyles,
+  removeDeviceOperationalCardGridStyles,
+} from './components/device-operational-card-grid';
+
+// RFC-0152: Operational Header Devices Grid Component (Premium Header)
+export { createOperationalHeaderDevicesGridComponent } from './components/operational-header-devices-grid';
+export { OperationalHeaderDevicesGridView } from './components/operational-header-devices-grid';
+
+export type {
+  OperationalHeaderDevicesGridParams,
+  OperationalHeaderDevicesGridInstance,
+  OperationalHeaderStats,
+  OperationalHeaderThemeMode,
+  OperationalHeaderLabels,
+  CustomerOption,
+} from './components/operational-header-devices-grid';
+
+export {
+  OPERATIONAL_HEADER_DEVICES_GRID_STYLES,
+  injectOperationalHeaderDevicesGridStyles,
+  removeOperationalHeaderDevicesGridStyles,
+} from './components/operational-header-devices-grid';
+// RFC-0152 Phase 4: Alarms Notifications Panel Component
+export { createAlarmsNotificationsPanelComponent } from './components/AlarmsNotificationsPanel';
+export {
+  AlarmsNotificationsPanelView,
+  AlarmsNotificationsPanelController,
+} from './components/AlarmsNotificationsPanel';
+export { renderAlarmCard, createAlarmCardElement } from './components/AlarmsNotificationsPanel';
+export {
+  renderKPICards,
+  renderTrendChart,
+  renderStateDonutChart,
+  renderSeverityBarChart,
+} from './components/AlarmsNotificationsPanel';
+
+export type {
+  AlarmsNotificationsPanelParams,
+  AlarmsNotificationsPanelInstance,
+  AlarmsTab,
+  AlarmsNotificationsPanelState,
+  AlarmsEventType,
+  AlarmsEventHandler,
+  AlarmCardParams,
+  TrendChartOptions,
+  DonutChartOptions,
+  BarChartOptions,
+} from './components/AlarmsNotificationsPanel';
+
+export {
+  ALARMS_NOTIFICATIONS_PANEL_STYLES,
+  injectAlarmsNotificationsPanelStyles,
+  removeAlarmsNotificationsPanelStyles,
+} from './components/AlarmsNotificationsPanel';
+
+// RFC-0152 Phase 4: Alarm Details Modal (tabs: Resumo, Timeline, Dispositivos, Gráfico, Relatório, Anotações)
+export { openAlarmDetailsModal } from './components/AlarmsNotificationsPanel/AlarmDetailsModal';
+
+// RFC-0152 Phase 4: Alarm Annotations store helpers
+export {
+  getActiveAnnotationCount,
+  getAlarmAnnotations,
+  upsertAlarmAnnotation,
+  archiveAlarmAnnotation,
+} from './components/AlarmsNotificationsPanel/AlarmAnnotations';
+export type { AlarmAnnotation } from './components/AlarmsNotificationsPanel/AlarmAnnotations';
+
+// RFC-0152 Phase 4: Annotation Tooltip (hover preview on alarm card badge)
+export { AnnotationTooltip } from './utils/AnnotationTooltip';
+
+// RFC-0152 Phase 5: Operational Dashboard Component
+export { createOperationalDashboardComponent } from './components/operational-dashboard';
+
+export type {
+  OperationalDashboardParams,
+  OperationalDashboardInstance,
+  DashboardKPIs as OperationalDashboardKPIs,
+  TrendDataPoint as OperationalTrendDataPoint,
+  DowntimeEntry as OperationalDowntimeEntry,
+  DashboardPeriod as OperationalDashboardPeriod,
+  DashboardThemeMode as OperationalDashboardThemeMode,
+} from './components/operational-dashboard';
+
+export {
+  DEFAULT_DASHBOARD_KPIS as OPERATIONAL_DASHBOARD_DEFAULT_KPIS,
+  PERIOD_OPTIONS as OPERATIONAL_DASHBOARD_PERIOD_OPTIONS,
+} from './components/operational-dashboard';
+
+export {
+  calculateMTBF as calculateDashboardMTBF,
+  calculateMTTR as calculateDashboardMTTR,
+  calculateAvailability as calculateDashboardAvailability,
+  calculateFleetKPIs,
+  formatHours,
+  formatPercentage as formatDashboardPercentage,
+  formatTrend,
+  getTrendIcon,
+  getTrendClass,
+  getPeriodDateRange,
+  generateMockTrendData,
+  generateMockDowntimeList,
+  generateMockKPIs,
+} from './components/operational-dashboard';
+
+export {
+  renderLineChart,
+  renderDualLineChart,
+  renderStatusDonutChart,
+  renderDowntimeList as renderDashboardDowntimeList,
+} from './components/operational-dashboard';
+
+export {
+  OPERATIONAL_DASHBOARD_STYLES,
+  injectOperationalDashboardStyles,
+  removeOperationalDashboardStyles,
+} from './components/operational-dashboard';
+
+// RFC-0158: BAS Dashboard Component (Building Automation System)
+export { createBASDashboard } from './components/bas-dashboard';
+export { BASDashboardView, BASDashboardController } from './components/bas-dashboard';
+
+export type {
+  BASDashboardParams,
+  BASDashboardInstance,
+  BASDashboardData,
+  BASDashboardThemeMode,
+  BASDashboardSettings,
+  WaterDevice as BASWaterDevice,
+  HVACDevice as BASHVACDevice,
+  MotorDevice as BASMotorDevice,
+  WaterDeviceType as BASWaterDeviceType,
+  WaterDeviceStatus as BASWaterDeviceStatus,
+  HVACDeviceStatus as BASHVACDeviceStatus,
+  MotorDeviceStatus as BASMotorDeviceStatus,
+  MotorDeviceType as BASMotorDeviceType,
+  BASDashboardState,
+  BASEventType,
+} from './components/bas-dashboard';
+
+export {
+  DEFAULT_BAS_SETTINGS,
+  BAS_DASHBOARD_CSS_PREFIX,
+  BAS_DASHBOARD_STYLES,
+  injectBASDashboardStyles,
+  removeBASDashboardStyles,
+} from './components/bas-dashboard';
+
+// RFC-0158: Fancoil Remote Control Component
+export { createFancoilRemote, FancoilRemoteController, FancoilRemoteView } from './components/fancoil-remote';
+
+export type {
+  FancoilStatus,
+  FancoilMode,
+  FancoilThemeMode,
+  FancoilRemoteSettings,
+  FancoilState,
+  FancoilRemoteParams,
+  FancoilRemoteInstance,
+} from './components/fancoil-remote';
+
+export {
+  FANCOIL_IMAGES,
+  DEFAULT_FANCOIL_SETTINGS,
+  DEFAULT_FANCOIL_STATE,
+  FANCOIL_REMOTE_CSS_PREFIX,
+  injectFancoilRemoteStyles,
+  getImageByConsumption,
+} from './components/fancoil-remote';
+
+// RFC-0158: Solenoid Control Component
+export { createSolenoidControl, SolenoidControlController, SolenoidControlView } from './components/solenoid-control';
+
+export type {
+  SolenoidStatus,
+  SolenoidThemeMode,
+  SolenoidControlSettings,
+  SolenoidState,
+  SolenoidControlParams,
+  SolenoidControlInstance,
+} from './components/solenoid-control';
+
+export {
+  SOLENOID_IMAGES,
+  DEFAULT_SOLENOID_SETTINGS,
+  DEFAULT_SOLENOID_STATE,
+  SOLENOID_CONTROL_CSS_PREFIX,
+  injectSolenoidControlStyles,
+} from './components/solenoid-control';
+
+// RFC-0172: Switch Control Component (On/Off Interruptor)
+export { createSwitchControl, SwitchControlController, SwitchControlView } from './components/switch-control';
+
+export type {
+  SwitchStatus,
+  SwitchThemeMode,
+  SwitchControlSettings,
+  SwitchState,
+  SwitchControlParams,
+  SwitchControlInstance,
+} from './components/switch-control';
+
+export {
+  DEFAULT_SWITCH_SETTINGS,
+  DEFAULT_SWITCH_STATE,
+  SWITCH_CONTROL_CSS_PREFIX,
+  injectSwitchControlStyles,
+} from './components/switch-control';
+
+// RFC-0158: Action Button Component
+export { createActionButton, ActionButtonController, ActionButtonView } from './components/action-button';
+
+export type {
+  ActionButtonThemeMode,
+  ActionButtonVariant,
+  ActionButtonSize,
+  ActionButtonSettings,
+  ActionButtonParams,
+  ActionButtonInstance,
+} from './components/action-button';
+
+export {
+  DEFAULT_ACTION_BUTTON_SETTINGS,
+  ACTION_BUTTON_CSS_PREFIX,
+  injectActionButtonStyles,
+} from './components/action-button';
+
+// Scheduling Shared Module
+export {
+  DEFAULT_DAYS_WEEK,
+  DAY_LABELS,
+  DAY_LABELS_FULL,
+  SCHED_CSS_PREFIX,
+  injectSchedulingSharedStyles,
+  removeSchedulingSharedStyles,
+  // View helpers
+  escapeHtml as schedEscapeHtml,
+  createDaysGrid,
+  createTimeInput as schedCreateTimeInput,
+  createNumberInput as schedCreateNumberInput,
+  createDateInput as schedCreateDateInput,
+  createScheduleCard,
+  createGroupScheduleCard,
+  showConfirmModal as schedShowConfirmModal,
+  showNotificationModal as schedShowNotificationModal,
+  createErrorSpan,
+  createToggleSwitch,
+  createButtonBar,
+  createSelect as schedCreateSelect,
+  // Validation
+  timeToMinutes,
+  isValidTimeFormat,
+  isEndAfterStart,
+  doSchedulesOverlap,
+  hasSelectedDays,
+  isInRange,
+} from './components/scheduling-shared';
+
+export type {
+  SchedulingThemeMode,
+  DaysWeek,
+  ScheduleEntryBase,
+  SchedulingBaseSettings,
+  NotifyFn as SchedulingNotifyFn,
+  ConfirmFn as SchedulingConfirmFn,
+} from './components/scheduling-shared';
+
+// Schedule On/Off Component
+export { createScheduleOnOff, ScheduleOnOffController, ScheduleOnOffView } from './components/schedule-on-off';
+
+export type {
+  OnOffScheduleEntry,
+  OnOffGroupScheduleEntry,
+  ScheduleOnOffSettings,
+  ScheduleOnOffState,
+  ScheduleOnOffParams,
+  ScheduleOnOffInstance,
+} from './components/schedule-on-off';
+
+export {
+  DEFAULT_ON_OFF_SCHEDULE,
+  DEFAULT_ON_OFF_STATE,
+  DEFAULT_ON_OFF_SETTINGS,
+  SCHEDULE_ON_OFF_CSS_PREFIX,
+  injectScheduleOnOffStyles,
+} from './components/schedule-on-off';
+
+// Schedule IR Component
+export { createScheduleIR, ScheduleIRController, ScheduleIRView } from './components/schedule-ir';
+
+export type {
+  IRCommand,
+  IRScheduleEntry,
+  IRGroupScheduleEntry,
+  ScheduleIRSettings,
+  ScheduleIRState,
+  ScheduleIRParams,
+  ScheduleIRInstance,
+} from './components/schedule-ir';
+
+export {
+  DEFAULT_IR_SCHEDULE,
+  DEFAULT_IR_STATE,
+  DEFAULT_IR_SETTINGS,
+  SCHEDULE_IR_CSS_PREFIX,
+  injectScheduleIRStyles,
+} from './components/schedule-ir';
+
+// Schedule Setpoint Component
+export { createScheduleSetpoint, ScheduleSetpointController, ScheduleSetpointView } from './components/schedule-setpoint';
+
+export type {
+  SetpointScheduleEntry,
+  ScheduleSetpointSettings,
+  ScheduleSetpointDevices,
+  ScheduleSetpointState,
+  ScheduleSetpointParams,
+  ScheduleSetpointInstance,
+} from './components/schedule-setpoint';
+
+export {
+  DEFAULT_SETPOINT_SCHEDULE,
+  DEFAULT_SETPOINT_STATE,
+  DEFAULT_SETPOINT_SETTINGS,
+  SCHEDULE_SETPOINT_CSS_PREFIX,
+  injectScheduleSetpointStyles,
+} from './components/schedule-setpoint';
+
+// DeviceGridV6 — Simplified device grid for BAS dashboard panels
+export { createDeviceGridV6 } from './components/device-grid-v6';
+export { DeviceGridV6View, DeviceGridV6Controller } from './components/device-grid-v6';
+export { injectDeviceGridV6Styles, getDeviceGridV6StatusCategory } from './components/device-grid-v6';
+
+export type {
+  DeviceGridV6Item,
+  DeviceGridV6CustomStyle,
+  DeviceGridV6SortMode,
+  DeviceGridV6Stats,
+  DeviceGridV6Params,
+  DeviceGridV6Instance,
+} from './components/device-grid-v6';
+
+// Schedule Holiday Component
+export { createScheduleHoliday, ScheduleHolidayController, ScheduleHolidayView } from './components/schedule-holiday';
+
+export type {
+  HolidayEntry,
+  ScheduleHolidaySettings,
+  ScheduleHolidayState,
+  ScheduleHolidayParams,
+  ScheduleHolidayInstance,
+} from './components/schedule-holiday';
+
+export {
+  DEFAULT_HOLIDAY_STATE,
+  DEFAULT_HOLIDAY_SETTINGS,
+  SCHEDULE_HOLIDAY_CSS_PREFIX,
+  injectScheduleHolidayStyles,
+} from './components/schedule-holiday';
+
+// RFC-0167: On/Off Device Modal (Solenoids, Switches, Relays, Pumps)
+export {
+  createOnOffDeviceModal,
+  openOnOffDeviceModal,
+  OnOffDeviceModalController,
+  OnOffDeviceModalView,
+} from './components/premium-modals/on-off-device';
+
+export type {
+  OnOffDeviceType,
+  OnOffDeviceThemeMode,
+  OnOffModalView,
+  OnOffDeviceData,
+  DeviceTypeConfig,
+  OnOffScheduleEntry as OnOffDeviceScheduleEntry,
+  UsageDataPoint,
+  OnOffDeviceModalParams,
+  OnOffDeviceModalInstance,
+  OnOffDeviceModalState,
+} from './components/premium-modals/on-off-device';
+
+export {
+  ON_OFF_DEVICE_PROFILES,
+  DEVICE_CONFIG as ON_OFF_DEVICE_CONFIG,
+  DEFAULT_DEVICE_CONFIG as ON_OFF_DEFAULT_DEVICE_CONFIG,
+  isOnOffDeviceProfile,
+  getDeviceConfig as getOnOffDeviceConfig,
+  getDeviceType as getOnOffDeviceType,
+  getModalTitle as getOnOffModalTitle,
+  DEFAULT_MODAL_STATE as ON_OFF_DEFAULT_MODAL_STATE,
+  ON_OFF_MODAL_CSS_PREFIX,
+  injectOnOffDeviceModalStyles,
+} from './components/premium-modals/on-off-device';
+
+// RFC-0167: On/Off Timeline Chart (for On/Off Device Modal)
+export {
+  createOnOffTimelineChart,
+  renderOnOffTimelineChart,
+  initOnOffTimelineTooltips,
+  generateMockOnOffTimelineData,
+  ONOFF_TIMELINE_CSS_PREFIX,
+  injectOnOffTimelineStyles,
+} from './components/on-off-timeline-chart';
+
+export type {
+  OnOffActivationPoint,
+  OnOffTimelineSegment,
+  OnOffTimelineData,
+  OnOffTimelineChartConfig,
+  OnOffTimelineChartInstance,
+  OnOffTimelineChartParams,
+} from './components/on-off-timeline-chart';
+
+// RFC-0168: Ambiente Detail Modal
+export {
+  createAmbienteDetailModal,
+  openAmbienteDetailModal,
+  AMBIENTE_MODAL_CSS_PREFIX,
+  injectAmbienteModalStyles,
+} from './components/ambiente-detail-modal';
+
+export type {
+  AmbienteData as AmbienteDetailData,
+  AmbienteDetailModalConfig,
+  AmbienteDetailModalInstance,
+  AmbienteEnergyDevice,
+  AmbienteRemoteDevice,
+  AmbienteHierarchyNode,
+  AmbienteChildDevice,
+} from './components/ambiente-detail-modal';
+
+// RFC-0170: Ambiente Group Modal (aggregated sub-ambientes view)
+export {
+  createAmbienteGroupModal,
+  openAmbienteGroupModal,
+  buildAmbienteGroupData,
+  calculateGroupMetrics,
+  AMBIENTE_GROUP_CSS_PREFIX,
+  injectAmbienteGroupModalStyles,
+} from './components/ambiente-group-modal';
+
+export type {
+  AmbienteGroupData,
+  AmbienteGroupModalConfig,
+  AmbienteGroupModalInstance,
+  SubAmbienteItem,
+  AggregatedGroupMetrics,
+} from './components/ambiente-group-modal';
+
+// RFC-0173: Premium Sidebar Menu Component
+export {
+  createSidebarMenu,
+  SidebarMenuController,
+  SidebarMenuView,
+  SIDEBAR_MENU_CSS_PREFIX,
+  injectSidebarMenuStyles,
+  SIDEBAR_ICONS,
+  getIcon as getSidebarIcon,
+  DEFAULT_SIDEBAR_CONFIG,
+} from './components/sidebar-menu';
+
+export type {
+  SidebarThemeMode,
+  SidebarState,
+  SidebarMenuItem,
+  SidebarMenuSection,
+  SidebarHeaderConfig,
+  SidebarFooterConfig,
+  SidebarMenuConfig,
+  SidebarMenuInstance,
+} from './components/sidebar-menu';
+
+// RFC-0174: Integrations Modal (iFrame tabs for external integrations)
+export { openIntegrationsModal } from './components/premium-modals/integrations';
+export type {
+  IntegrationsModalOptions,
+  IntegrationsModalInstance,
+  IntegrationsThemeMode,
+  IntegrationTab,
+  IntegrationTabId,
+} from './components/premium-modals/integrations';
+export { DEFAULT_INTEGRATION_TABS } from './components/premium-modals/integrations';
+
+// RFC-0175: Alarm Service (Alarms Backend integration — MTBF, MTTR, Availability)
+export { AlarmService } from './services/alarm';
+export type {
+  AvailabilityResponse,
+  AvailabilitySummary,
+  AvailabilityFleet,
+  DeviceAvailability,
+  AvailabilityParams,
+  AvailabilityStatus,
+  AlarmApiResponse,
+  AlarmListApiResponse,
+  AlarmStatsApiResponse,
+  AlarmTrendApiPoint,
+  TopOffenderApiItem,
+  DeviceAlarmStatApiItem,
+  AlarmListParams,
+} from './services/alarm';
+
+// RFC-0176: GCDR Sync Modal
+export { openGCDRSyncModal } from './components/premium-modals/gcdr-sync';
+export type {
+  GCDRSyncModalParams,
+  GCDRSyncPlan,
+  SyncAction,
+  SyncActionType,
+  SyncOutcome,
+  GCDRSyncResult,
+  CreateCustomerDto,
+  CreateAssetDto,
+  CreateDeviceDto,
+  TBCustomer as GCDRTBCustomer,
+  TBAsset as GCDRTBAsset,
+  TBDevice as GCDRTBDevice,
+  TBServerScopeAttrs as GCDRTBServerScopeAttrs,
+  GCDREntity,
+  ProgressCallback as GCDRProgressCallback,
+  GCDRBundleAsset,
+  GCDRBundleDevice,
+  GCDRBundleRule,
+  GCDRCustomerBundle,
+} from './components/premium-modals/gcdr-sync';
+
+// RFC-0179: GCDR Alarm Bundle Map Modal
+export { openAlarmBundleMapModal, fetchGCDRBundle } from './components/premium-modals/alarm-bundle-map';
+export type { AlarmBundleMapParams } from './components/premium-modals/alarm-bundle-map';

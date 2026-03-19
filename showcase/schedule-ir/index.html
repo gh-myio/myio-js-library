@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule IR - Showcase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    body.light-mode { background: #f5f5f5; color: #333; }
+    .toolbar {
+      display: flex; gap: 10px; padding: 12px 16px;
+      background: #1e1e1e; border-bottom: 1px solid #333;
+      align-items: center; flex-wrap: wrap;
+    }
+    body.light-mode .toolbar { background: #fff; border-bottom-color: #ddd; }
+    .toolbar button {
+      padding: 8px 16px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+    }
+    .toolbar button.primary { background: #673AB5; color: white; }
+    .toolbar button.secondary { background: #333; color: #ccc; }
+    body.light-mode .toolbar button.secondary { background: #e0e0e0; color: #333; }
+    .toolbar label { font-size: 13px; color: #aaa; font-weight: 600; }
+    body.light-mode .toolbar label { color: #666; }
+    #container { width: 100%; max-width: 600px; margin: 0 auto; padding-bottom: 180px; }
+    #event-log {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 140px; background: #0a0a0a; border-top: 1px solid #333;
+      overflow-y: auto; padding: 8px 12px; font-family: 'Courier New', monospace; font-size: 12px;
+      color: #0FC080; z-index: 100;
+    }
+    body.light-mode #event-log { background: #f8f8f8; border-top-color: #ddd; color: #2d7a4f; }
+    #event-log .log-entry { padding: 2px 0; border-bottom: 1px solid #1a1a1a; }
+    body.light-mode #event-log .log-entry { border-bottom-color: #eee; }
+  </style>
+</head>
+<body>
+  <!-- Load MyIO Library (UMD) -->
+  <script src="../../dist/myio-js-library.umd.js"></script>
+
+  <div class="toolbar">
+    <label>Schedule IR</label>
+    <button class="primary" onclick="toggleTheme()">Toggle Theme</button>
+    <button class="secondary" onclick="loadSample()">Load Sample</button>
+    <button class="secondary" onclick="getState()">Get State</button>
+    <button class="secondary" onclick="clearLog()">Clear Log</button>
+  </div>
+  <div id="container"></div>
+  <div id="event-log"></div>
+
+  <script>
+    var logEl = document.getElementById('event-log');
+    function log(msg) {
+      var entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+      logEl.prepend(entry);
+    }
+
+    var currentTheme = 'dark';
+    var instance = null;
+
+    function init() {
+      var container = document.getElementById('container');
+      container.innerHTML = '';
+      instance = MyIOLibrary.createScheduleIR(container, {
+        settings: { themeMode: currentTheme },
+        initialState: {
+          entityName: 'IR Device Teste',
+          schedules: [],
+          groupSchedules: [],
+          availableCommands: [
+            { command_id: 'cmd_18', temperature: '18', slave_id: '1' },
+            { command_id: 'cmd_20', temperature: '20', slave_id: '2' },
+            { command_id: 'cmd_22', temperature: '22', slave_id: '3' },
+            { command_id: 'cmd_24', temperature: '24', slave_id: '4' },
+            { command_id: 'cmd_26', temperature: '26', slave_id: '5' },
+          ],
+        },
+        onSave: function(schedules) {
+          log('onSave: ' + schedules.length + ' schedule(s)');
+          log('Payload: ' + JSON.stringify(schedules));
+          return Promise.resolve(true);
+        },
+        onNotify: function(type, message) {
+          log('Notify [' + type + ']: ' + message);
+        },
+        onGroupScheduleClick: function(entry, event) {
+          log('Group click: ' + (entry.entityName || 'unknown'));
+        },
+      });
+      log('Component initialized (theme: ' + currentTheme + ')');
+    }
+
+    init();
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.body.classList.toggle('light-mode', currentTheme === 'light');
+      if (instance) instance.setThemeMode(currentTheme);
+      log('Theme: ' + currentTheme);
+    }
+
+    function loadSample() {
+      if (!instance) return;
+      instance.updateState({
+        entityName: 'Ar Condicionado Sala 01',
+        schedules: [
+          {
+            time: '08:00', action: true, temperature: 'cmd_22', holiday: false,
+            daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false },
+          },
+          {
+            time: '18:00', action: false, temperature: null, holiday: false,
+            daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false },
+          },
+        ],
+        groupSchedules: [
+          {
+            time: '07:00', action: true, temperature: 'cmd_24', holiday: true,
+            daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true },
+            entityName: 'Grupo HVAC', entityId: 'asset-456',
+          },
+        ],
+      });
+      log('Sample data loaded (2 individual + 1 group)');
+    }
+
+    function getState() {
+      if (!instance) return;
+      var state = instance.getState();
+      log('State: ' + JSON.stringify(state));
+    }
+
+    function clearLog() { logEl.innerHTML = ''; }
+  </script>
+</body>
+</html>

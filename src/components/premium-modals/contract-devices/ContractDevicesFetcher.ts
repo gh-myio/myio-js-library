@@ -16,19 +16,36 @@ export class DefaultContractDevicesFetcher implements ContractDevicesFetcher {
 
   async fetchCurrentCounts(customerId: string): Promise<Partial<ContractDeviceCounts>> {
     try {
-      // Build keys array
+      // Build keys array for both contracted and installed
       const keys = [
-        DEVICE_COUNT_KEYS.energy.total,
-        DEVICE_COUNT_KEYS.energy.entries,
-        DEVICE_COUNT_KEYS.energy.commonArea,
-        DEVICE_COUNT_KEYS.energy.stores,
-        DEVICE_COUNT_KEYS.water.total,
-        DEVICE_COUNT_KEYS.water.entries,
-        DEVICE_COUNT_KEYS.water.commonArea,
-        DEVICE_COUNT_KEYS.water.stores,
-        DEVICE_COUNT_KEYS.temperature.total,
-        DEVICE_COUNT_KEYS.temperature.internal,
-        DEVICE_COUNT_KEYS.temperature.stores
+        // Energy contracted
+        DEVICE_COUNT_KEYS.energy.contracted.total,
+        DEVICE_COUNT_KEYS.energy.contracted.entries,
+        DEVICE_COUNT_KEYS.energy.contracted.commonArea,
+        DEVICE_COUNT_KEYS.energy.contracted.stores,
+        // Energy installed
+        DEVICE_COUNT_KEYS.energy.installed.total,
+        DEVICE_COUNT_KEYS.energy.installed.entries,
+        DEVICE_COUNT_KEYS.energy.installed.commonArea,
+        DEVICE_COUNT_KEYS.energy.installed.stores,
+        // Water contracted
+        DEVICE_COUNT_KEYS.water.contracted.total,
+        DEVICE_COUNT_KEYS.water.contracted.entries,
+        DEVICE_COUNT_KEYS.water.contracted.commonArea,
+        DEVICE_COUNT_KEYS.water.contracted.stores,
+        // Water installed
+        DEVICE_COUNT_KEYS.water.installed.total,
+        DEVICE_COUNT_KEYS.water.installed.entries,
+        DEVICE_COUNT_KEYS.water.installed.commonArea,
+        DEVICE_COUNT_KEYS.water.installed.stores,
+        // Temperature contracted
+        DEVICE_COUNT_KEYS.temperature.contracted.total,
+        DEVICE_COUNT_KEYS.temperature.contracted.internal,
+        DEVICE_COUNT_KEYS.temperature.contracted.stores,
+        // Temperature installed
+        DEVICE_COUNT_KEYS.temperature.installed.total,
+        DEVICE_COUNT_KEYS.temperature.installed.internal,
+        DEVICE_COUNT_KEYS.temperature.installed.stores
       ];
 
       const url = `${this.tbBaseUrl}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=${keys.join(',')}`;
@@ -69,21 +86,44 @@ export class DefaultContractDevicesFetcher implements ContractDevicesFetcher {
 
     return {
       energy: {
-        total: getValue(DEVICE_COUNT_KEYS.energy.total),
-        entries: getValue(DEVICE_COUNT_KEYS.energy.entries),
-        commonArea: getValue(DEVICE_COUNT_KEYS.energy.commonArea),
-        stores: getValue(DEVICE_COUNT_KEYS.energy.stores)
+        contracted: {
+          total: getValue(DEVICE_COUNT_KEYS.energy.contracted.total),
+          entries: getValue(DEVICE_COUNT_KEYS.energy.contracted.entries),
+          commonArea: getValue(DEVICE_COUNT_KEYS.energy.contracted.commonArea),
+          stores: getValue(DEVICE_COUNT_KEYS.energy.contracted.stores)
+        },
+        installed: {
+          total: getValue(DEVICE_COUNT_KEYS.energy.installed.total),
+          entries: getValue(DEVICE_COUNT_KEYS.energy.installed.entries),
+          commonArea: getValue(DEVICE_COUNT_KEYS.energy.installed.commonArea),
+          stores: getValue(DEVICE_COUNT_KEYS.energy.installed.stores)
+        }
       },
       water: {
-        total: getValue(DEVICE_COUNT_KEYS.water.total),
-        entries: getValue(DEVICE_COUNT_KEYS.water.entries),
-        commonArea: getValue(DEVICE_COUNT_KEYS.water.commonArea),
-        stores: getValue(DEVICE_COUNT_KEYS.water.stores)
+        contracted: {
+          total: getValue(DEVICE_COUNT_KEYS.water.contracted.total),
+          entries: getValue(DEVICE_COUNT_KEYS.water.contracted.entries),
+          commonArea: getValue(DEVICE_COUNT_KEYS.water.contracted.commonArea),
+          stores: getValue(DEVICE_COUNT_KEYS.water.contracted.stores)
+        },
+        installed: {
+          total: getValue(DEVICE_COUNT_KEYS.water.installed.total),
+          entries: getValue(DEVICE_COUNT_KEYS.water.installed.entries),
+          commonArea: getValue(DEVICE_COUNT_KEYS.water.installed.commonArea),
+          stores: getValue(DEVICE_COUNT_KEYS.water.installed.stores)
+        }
       },
       temperature: {
-        total: getValue(DEVICE_COUNT_KEYS.temperature.total),
-        internal: getValue(DEVICE_COUNT_KEYS.temperature.internal),
-        stores: getValue(DEVICE_COUNT_KEYS.temperature.stores)
+        contracted: {
+          total: getValue(DEVICE_COUNT_KEYS.temperature.contracted.total),
+          internal: getValue(DEVICE_COUNT_KEYS.temperature.contracted.internal),
+          stores: getValue(DEVICE_COUNT_KEYS.temperature.contracted.stores)
+        },
+        installed: {
+          total: getValue(DEVICE_COUNT_KEYS.temperature.installed.total),
+          internal: getValue(DEVICE_COUNT_KEYS.temperature.installed.internal),
+          stores: getValue(DEVICE_COUNT_KEYS.temperature.installed.stores)
+        }
       }
     };
   }

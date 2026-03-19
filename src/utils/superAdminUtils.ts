@@ -17,15 +17,16 @@ import type { UserInfo } from '../components/premium-modals/settings/annotations
  * @param jwtToken - Optional JWT token (defaults to localStorage)
  * @returns User info object or null if not authenticated
  */
-export async function fetchCurrentUserInfo(jwtToken?: string): Promise<UserInfo | null> {
+export async function fetchCurrentUserInfo(jwtToken?: string, tbBaseUrl?: string): Promise<UserInfo | null> {
   const jwt = jwtToken || localStorage.getItem('jwt_token');
   if (!jwt) {
     console.warn('[SuperAdminUtils] No JWT token available');
     return null;
   }
 
+  const base = tbBaseUrl || '';
   try {
-    const response = await fetch('/api/auth/user', {
+    const response = await fetch(`${base}/api/auth/user`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -74,15 +75,16 @@ export async function fetchCurrentUserInfo(jwtToken?: string): Promise<UserInfo 
  * }
  * ```
  */
-export async function detectSuperAdminMyio(jwtToken?: string): Promise<boolean> {
+export async function detectSuperAdminMyio(jwtToken?: string, tbBaseUrl?: string): Promise<boolean> {
   const jwt = jwtToken || localStorage.getItem('jwt_token');
   if (!jwt) {
     console.warn('[SuperAdminUtils] detectSuperAdminMyio: No JWT token');
     return false;
   }
 
+  const base = tbBaseUrl || '';
   try {
-    const response = await fetch('/api/auth/user', {
+    const response = await fetch(`${base}/api/auth/user`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -135,7 +137,8 @@ export async function detectSuperAdminMyio(jwtToken?: string): Promise<boolean> 
  */
 export async function detectSuperAdminHolding(
   customerId: string,
-  jwtToken?: string
+  jwtToken?: string,
+  tbBaseUrl?: string
 ): Promise<boolean> {
   if (!customerId) {
     console.warn('[SuperAdminUtils] detectSuperAdminHolding: No customerId provided');
@@ -148,9 +151,10 @@ export async function detectSuperAdminHolding(
     return false;
   }
 
+  const base = tbBaseUrl || '';
   try {
     const response = await fetch(
-      `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`,
+      `${base}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`,
       {
         method: 'GET',
         headers: {
@@ -201,16 +205,17 @@ export async function detectSuperAdminHolding(
  */
 export async function getAnnotationPermissions(
   customerId?: string,
-  jwtToken?: string
+  jwtToken?: string,
+  tbBaseUrl?: string
 ): Promise<{
   currentUser: UserInfo | null;
   isSuperAdminMyio: boolean;
   isSuperAdminHolding: boolean;
 }> {
   const [currentUser, isSuperAdminMyio, isSuperAdminHolding] = await Promise.all([
-    fetchCurrentUserInfo(jwtToken),
-    detectSuperAdminMyio(jwtToken),
-    customerId ? detectSuperAdminHolding(customerId, jwtToken) : Promise.resolve(false),
+    fetchCurrentUserInfo(jwtToken, tbBaseUrl),
+    detectSuperAdminMyio(jwtToken, tbBaseUrl),
+    customerId ? detectSuperAdminHolding(customerId, jwtToken, tbBaseUrl) : Promise.resolve(false),
   ]);
 
   return {
