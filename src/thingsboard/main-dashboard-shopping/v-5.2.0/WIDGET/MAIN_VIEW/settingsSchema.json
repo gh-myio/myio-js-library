@@ -80,29 +80,29 @@
         "default": "https://alarms-api.a.myio-bas.com",
         "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
       },
-      "alarmsApiKey": {
-        "title": "Alarms API Key",
-        "type": "string",
-        "default": "gcdr_cust_tb_integration_key_2026",
-        "description": "RFC-0178: API key for the Alarms Backend REST API (X-API-Key header)."
-      },
-      "gcdrCustomerId": {
-        "title": "GCDR Customer ID",
-        "type": "string",
-        "default": "",
-        "description": "RFC-0180: GCDR customer identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrCustomerId' (or 'gcdrId')."
-      },
-      "gcdrTenantId": {
-        "title": "GCDR Tenant ID",
-        "type": "string",
-        "default": "",
-        "description": "RFC-0180: GCDR tenant identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrTenantId'."
-      },
       "gcdrApiBaseUrl": {
         "title": "GCDR API Base URL",
         "type": "string",
         "default": "https://gcdr-api.a.myio-bas.com",
         "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
+      },
+      "shortDelayMinsToBypassOfflineStatus": {
+        "title": "Short Delay (min) to Bypass Offline Status",
+        "type": "number",
+        "default": 60,
+        "description": "RFC-0188: If a device is marked offline by ThingsBoard but its last telemetry timestamp (from Data Apps API) is more recent than this threshold (in minutes), it is rescued to online. Default: 60 min. Applies to all domains (energy, water, temperature)."
+      },
+      "enableTemperatureApiDataFetch": {
+        "title": "Enable Temperature API Fetch (offline detection)",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h to derive lastTelemetryTs for accurate offline detection (RFC-0188). One HTTP call per device at each data load. Enable for customers whose temperature devices are integrated into the Data Apps pipeline."
+      },
+      "enableDeviceDataExport": {
+        "title": "Enable Device Data Export (console log)",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0152: When true, logs a JSON array to the console with TB↔GCDR mapping fields (tbId, deviceName, label, deviceType, deviceProfile, slaveId, centralId, gcdrCustomerId, gcdrAssetId, gcdrDeviceId, gcdrSyncAt) after each card render. Disable in production to avoid console noise."
       },
       "enableReportButton": {
         "title": "Enable Report Button",
@@ -143,12 +143,12 @@
     "domainsEnabled.energy",
     "domainsEnabled.water",
     "domainsEnabled.temperature",
+    "shortDelayMinsToBypassOfflineStatus",
+    "enableTemperatureApiDataFetch",
+    "enableDeviceDataExport",
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
     "alarmsApiBaseUrl",
-    "alarmsApiKey",
-    "gcdrCustomerId",
-    "gcdrTenantId",
     "gcdrApiBaseUrl",
     "enableReportButton",
     "enabledReportItems.energy_lojas",

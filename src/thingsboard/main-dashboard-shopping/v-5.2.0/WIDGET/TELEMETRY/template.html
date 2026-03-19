@@ -1,52 +1,148 @@
 <section class="shops-root">
   <header class="shops-header">
-    <div class="shops-header-left">
-      <span
-        class="temp-info-trigger"
-        id="tempInfoTrigger"
-        style="display: none"
-        title="Detalhes de Temperatura"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-      </span>
-      <h2 class="shops-title" id="labelWidgetId"></h2>
-      <span class="shops-count" id="shopsCount">(0)</span>
-    </div>
-
-    <div class="shops-header-actions">
+    <!-- Row 1: action buttons -->
+    <div class="shops-header-btns">
       <div class="search-wrap" id="searchWrap">
         <input type="text" id="shopsSearch" placeholder="Buscar..." autocomplete="off" />
       </div>
 
+      <button class="icon-btn" id="btnFilter" title="Filtros" aria-label="Filtros">
+        <!-- Funil -->
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
+        </svg>
+      </button>
+
+      <!-- PresetupGateway: add device (shown only for MyIO users via myio:user-info-ready) -->
+      <button
+        class="icon-btn"
+        id="btnPresetup"
+        title="Adicionar dispositivo"
+        aria-label="Adicionar dispositivo"
+        style="display: none"
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+        </svg>
+      </button>
+
+      <!-- PDF: document with lines -->
+      <button
+        class="icon-btn export-icon-btn"
+        id="btnExportPdf"
+        data-tooltip="Exportar PDF"
+        aria-label="Exportar PDF"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="9" y1="13" x2="15" y2="13" />
+          <line x1="9" y1="17" x2="13" y2="17" />
+        </svg>
+        <span class="export-fmt">PDF</span>
+      </button>
+      <!-- XLS: table/grid -->
+      <button
+        class="icon-btn export-icon-btn"
+        id="btnExportXls"
+        data-tooltip="Exportar XLS"
+        aria-label="Exportar XLS"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="3" y1="15" x2="21" y2="15" />
+          <line x1="9" y1="9" x2="9" y2="21" />
+          <line x1="15" y1="9" x2="15" y2="21" />
+        </svg>
+        <span class="export-fmt">XLS</span>
+      </button>
+      <!-- CSV: list/rows -->
+      <button
+        class="icon-btn export-icon-btn"
+        id="btnExportCsv"
+        data-tooltip="Exportar CSV"
+        aria-label="Exportar CSV"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="8" y1="6" x2="21" y2="6" />
+          <line x1="8" y1="12" x2="21" y2="12" />
+          <line x1="8" y1="18" x2="21" y2="18" />
+          <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none" />
+          <circle cx="3" cy="12" r="1" fill="currentColor" stroke="none" />
+          <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none" />
+        </svg>
+        <span class="export-fmt">CSV</span>
+      </button>
+
+      <!-- Search — last so it stays rightmost when others collapse -->
       <button class="icon-btn" id="btnSearch" title="Buscar" aria-label="Buscar">
-        <!-- Lupa -->
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
           <path
             d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"
           />
         </svg>
       </button>
+    </div>
 
-      <button class="icon-btn" id="btnFilter" title="Filtros" aria-label="Filtros">
-        <!-- Funil -->
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
-        </svg>
-      </button>
+    <!-- Row 2: label + total -->
+    <div class="shops-header-info">
+      <div class="shops-header-left">
+        <span
+          class="temp-info-trigger"
+          id="tempInfoTrigger"
+          style="display: none"
+          title="Detalhes de Temperatura"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+        </span>
+        <h2 class="shops-title" id="labelWidgetId"></h2>
+        <span class="shops-count" id="shopsCount">(0)</span>
+      </div>
 
       <a class="shops-total" id="shopsTotal">0,00</a>
     </div>
@@ -54,10 +150,10 @@
 
   <section id="shopsList" class="shops-list"></section>
 
-  <!-- Modal de filtros -->
+  <!-- Modal de filtros — classe telemetry-filter-overlay garante position:fixed relativo ao viewport mesmo com transforms do TB -->
   <div
     id="filterModal"
-    class="shops-modal hidden"
+    class="shops-modal telemetry-filter-overlay hidden"
     role="dialog"
     aria-modal="true"
     aria-labelledby="filterTitle"
@@ -75,6 +171,36 @@
       </header>
 
       <section class="shops-modal-body">
+        <div class="filter-block">
+          <label class="block-label">Filtro de Alarmes</label>
+          <div class="radio-grid alarm-filter-grid">
+            <label
+              ><input type="radio" name="alarmFilter" value="ativado" checked /> Ativado (todos
+              visíveis)</label
+            >
+            <label
+              ><input type="radio" name="alarmFilter" value="apenas_ativados" /> Apenas com alarmes</label
+            >
+            <label
+              ><input type="radio" name="alarmFilter" value="desativado" /> Desativado (sem badges)</label
+            >
+          </div>
+          <p class="muted">
+            Em <strong>Apenas com alarmes</strong> somente cards com alarme ativo são exibidos.
+          </p>
+        </div>
+
+        <div class="filter-block">
+          <label class="block-label">Ordenação</label>
+          <div class="radio-grid">
+            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓ (padrão)</label>
+            <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
+            <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
+            <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
+          </div>
+          <p class="muted">Caso o consumo seja o mesmo é considerada a ordem alfabética.</p>
+        </div>
+
         <div class="filter-block">
           <label class="block-label">Selecionar Lojas</label>
           <div class="inline-actions">
@@ -100,22 +226,26 @@
           </div>
           <div id="deviceChecklist" class="checklist" role="listbox" aria-multiselectable="true"></div>
         </div>
-
-        <div class="filter-block">
-          <label class="block-label">Ordenação</label>
-          <div class="radio-grid">
-            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓ (padrão)</label>
-            <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
-            <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
-            <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
-          </div>
-          <p class="muted">Caso o consumo seja o mesmo é considerada a ordem alfabética.</p>
-        </div>
       </section>
 
       <footer class="shops-modal-footer">
         <button id="applyFilters" class="btn primary">Aplicar</button>
         <button id="resetFilters" class="btn">Resetar</button>
+        <!-- RFC-0152: Device mapping export — shown only for @myio.com.br users -->
+        <button id="btnDownloadDeviceMap" class="btn btn-device-map-download" style="display:none" title="Download mapeamento TB↔GCDR">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true" style="margin-right:5px;flex-shrink:0">
+            <path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          Device Map
+        </button>
+        <!-- RFC-0195: GCDR Device Sync Job — shown only for @myio.com.br users -->
+        <button id="btnSyncGCDR" class="btn btn-sync-gcdr" style="display:none" title="Sincronizar devices com GCDR via Sync Job">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:5px;flex-shrink:0">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 .49-4.49"></path>
+          </svg>
+          Sync GCDR
+        </button>
       </footer>
     </div>
   </div>

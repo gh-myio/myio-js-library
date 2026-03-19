@@ -139,10 +139,294 @@ function injectAlarmBadgeStyles() {
   document.head.appendChild(s);
 }
 
+// RFC-0184: Inject filter modal CSS into <head> to bypass ThingsBoard widget CSS scoping.
+// The modal is portalled to document.body so TB-scoped styles.css rules won't reach it.
+// Using .telemetry-filter-overlay as scoping class (present on #filterModal element).
+function injectFilterModalStyles() {
+  // Use ownerDocument so styles go to the correct document (iframe or main page)
+  const doc = (_filterModalElement && _filterModalElement.ownerDocument) || document;
+  if (doc.getElementById('telemetry-filter-modal-styles')) return;
+  const style = doc.createElement('style');
+  style.id = 'telemetry-filter-modal-styles';
+  style.textContent = `
+    .telemetry-filter-overlay.hidden { display: none !important; pointer-events: none !important; }
+    .telemetry-filter-overlay {
+      --ink-1: #1c2743; --ink-2: #6b7a90; --bd: #e8eef4; --bd-2: #d6e1ec;
+      --brand: #1f6fb5; --bg-soft: #f7fbff;
+      --font-ui: Inter,'Inter var','Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+      position: fixed; inset: 0;
+      background: rgba(17,24,39,0.35);
+      z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .telemetry-filter-overlay .shops-modal-card {
+      max-width: 1006px; width: 100%; max-height: calc(100% - 48px);
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .telemetry-filter-overlay .shops-modal-header {
+      position: sticky; top: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid rgba(62,26,125,0.15);
+      background: linear-gradient(135deg, #3e1a7d 0%, #5b2d9e 100%);
+    }
+    .telemetry-filter-overlay .shops-modal-header h3 {
+      margin: 0; font: 900 14px/1 var(--font-ui);
+      letter-spacing: 0.4px; color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .telemetry-filter-overlay .shops-modal-header .icon-btn {
+      background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3);
+    }
+    .telemetry-filter-overlay .shops-modal-header .icon-btn svg { fill: #fff; }
+    .telemetry-filter-overlay .shops-modal-header .icon-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+    .telemetry-filter-overlay .shops-modal-body {
+      flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px;
+    }
+    .telemetry-filter-overlay .shops-modal-footer {
+      position: sticky; bottom: 0; z-index: 2;
+      display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+      padding: 10px 12px; border-top: 1px solid var(--bd); background: #fff;
+    }
+    .telemetry-filter-overlay .btn.btn-device-map-download {
+      margin-right: auto;
+      background: #4a7c59; color: #fff; border-color: #3d6849;
+      display: inline-flex; align-items: center;
+      box-shadow: 0 2px 8px rgba(74,124,89,0.28);
+      font: 700 10px var(--font-ui);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn.btn-device-map-download:hover {
+      background: #3d6849;
+    }
+    /* RFC-0195: Sync GCDR button */
+    .telemetry-filter-overlay .btn.btn-sync-gcdr {
+      background: linear-gradient(180deg, #0db89e, #0a6d5e); color: #fff; border-color: #0a6d5e;
+      display: inline-flex; align-items: center; gap: 4px;
+      box-shadow: 0 2px 8px rgba(10,109,94,0.28);
+      font: 700 10px var(--font-ui);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn.btn-sync-gcdr:hover { opacity: 0.88; }
+    .telemetry-filter-overlay .btn.btn-sync-gcdr:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* RFC-0195: Sync GCDR job modal */
+    .telemetry-sync-gcdr-overlay {
+      position: fixed; inset: 0; z-index: 99999;
+      background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
+    }
+    .telemetry-sync-gcdr-card {
+      background: #fff; border-radius: 12px; width: 1280px; max-width: 96vw;
+      max-height: 98vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      font-family: system-ui,sans-serif; font-size: 13px;
+      transition: width 0.2s ease, max-height 0.2s ease, border-radius 0.2s ease;
+    }
+    .telemetry-sync-gcdr-card.sgj-expanded {
+      width: 100vw !important; max-width: 100vw !important;
+      height: 100vh !important; max-height: 100vh !important;
+      border-radius: 0 !important;
+    }
+    .telemetry-sync-gcdr-overlay.sgj-overlay-expanded {
+      align-items: stretch !important; justify-content: stretch !important;
+    }
+    .telemetry-sync-gcdr-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 18px; border-bottom: 1px solid #e5e7eb;
+      font-weight: 700; font-size: 14px; color: #111827; flex-shrink: 0;
+    }
+    .telemetry-sync-gcdr-header-title { flex: 1; }
+    .telemetry-sync-gcdr-close,
+    .telemetry-sync-gcdr-expand,
+    .telemetry-sync-gcdr-dl {
+      background: none; border: 1px solid #e5e7eb; cursor: pointer;
+      padding: 4px 8px; color: #6b7280; font-size: 13px; line-height: 1;
+      border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .telemetry-sync-gcdr-close:hover,
+    .telemetry-sync-gcdr-expand:hover { background: #f3f4f6; color: #111827; }
+    .telemetry-sync-gcdr-dl { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .telemetry-sync-gcdr-dl:hover { background: #dcfce7; }
+    .telemetry-sync-gcdr-dl:disabled { opacity: 0.4; cursor: not-allowed; }
+    .telemetry-sync-gcdr-body { flex: 1; overflow-y: auto; padding: 18px; }
+    .telemetry-sync-gcdr-status { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .telemetry-sync-gcdr-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .3px;
+    }
+    .telemetry-sync-gcdr-badge.queued  { background: #f3f4f6; color: #6b7280; }
+    .telemetry-sync-gcdr-badge.running { background: #dbeafe; color: #1e40af; }
+    .telemetry-sync-gcdr-badge.done    { background: #d1fae5; color: #065f46; }
+    .telemetry-sync-gcdr-badge.partial { background: #fef3c7; color: #92400e; }
+    .telemetry-sync-gcdr-badge.failed  { background: #fee2e2; color: #991b1b; }
+    .telemetry-sync-gcdr-progress-wrap {
+      background: #f3f4f6; border-radius: 6px; height: 8px; overflow: hidden; margin-bottom: 8px;
+    }
+    .telemetry-sync-gcdr-progress-bar {
+      height: 100%; border-radius: 6px; background: linear-gradient(90deg,#0db89e,#2563eb);
+      transition: width 0.4s ease; width: 0%;
+    }
+    .telemetry-sync-gcdr-phase { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
+    .telemetry-sync-gcdr-summary {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .telemetry-sync-gcdr-kpi {
+      background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 10px; text-align: center;
+    }
+    .telemetry-sync-gcdr-kpi .kpi-val { font-size: 20px; font-weight: 700; color: #111827; }
+    .telemetry-sync-gcdr-kpi .kpi-lbl { font-size: 10px; color: #6b7280; margin-top: 2px; }
+    .telemetry-sync-gcdr-log-wrap { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+    .telemetry-sync-gcdr-log-title {
+      padding: 8px 12px; background: #f9fafb; font-weight: 600;
+      font-size: 11px; color: #374151; border-bottom: 1px solid #e5e7eb;
+    }
+    .telemetry-sync-gcdr-log-table {
+      width: 100%; border-collapse: collapse; font-size: 11px;
+      display: block; max-height: 200px; overflow-y: auto;
+    }
+    .telemetry-sync-gcdr-log-table tr { border-bottom: 1px solid #f3f4f6; }
+    .telemetry-sync-gcdr-log-table tr:last-child { border-bottom: none; }
+    .telemetry-sync-gcdr-log-table td { padding: 5px 10px; vertical-align: top; }
+    .telemetry-sync-gcdr-log-table td:nth-child(1) { white-space:nowrap; color:#9ca3af; width:70px; }
+    .telemetry-sync-gcdr-log-table td:nth-child(2) { white-space:nowrap; width:56px; font-weight:600; }
+    .telemetry-sync-gcdr-log-table td:nth-child(3) { white-space:nowrap; width:120px; font-size:10px; color:#9ca3af; }
+    .telemetry-sync-gcdr-log-table td:nth-child(4) { word-break:break-word; }
+    .sgj-level-INFO  { color: #6b7280; }
+    .sgj-level-WARN  { color: #d97706; }
+    .sgj-level-OK    { color: #16a34a; }
+    .sgj-level-FAIL  { color: #dc2626; }
+    .sgj-level-ERROR { color: #991b1b; }
+    .telemetry-filter-overlay .icon-btn {
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--bd); background: #fff; border-radius: 10px;
+      padding: 6px; cursor: pointer;
+    }
+    .telemetry-filter-overlay .icon-btn svg { fill: #44506b; display: block; width: 14px; height: 14px; }
+    .telemetry-filter-overlay .btn,
+    .telemetry-filter-overlay .tiny-btn {
+      border: 1px solid var(--bd); background: #fff; cursor: pointer;
+      border-radius: 10px;
+    }
+    .telemetry-filter-overlay .btn { padding: 8px 12px; font: 700 10px var(--font-ui); }
+    .telemetry-filter-overlay .btn.primary {
+      background: #3e1a7d; color: #fff; border-color: #3e1a7d;
+      box-shadow: 0 4px 12px rgba(62,26,125,0.25); transition: all 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn.primary:hover {
+      background: #2f1460; border-color: #2f1460; transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(62,26,125,0.35);
+    }
+    .telemetry-filter-overlay .btn.primary:active {
+      transform: translateY(0); box-shadow: 0 2px 8px rgba(62,26,125,0.25);
+    }
+    .telemetry-filter-overlay .tiny-btn {
+      padding: 8px 12px; letter-spacing: 0.3px; font: 700 11px var(--font-ui);
+      background: linear-gradient(135deg,rgba(62,26,125,0.05) 0%,rgba(62,26,125,0.08) 100%);
+      border-color: rgba(62,26,125,0.2); color: #3e1a7d; transition: all 0.15s ease;
+    }
+    .telemetry-filter-overlay .tiny-btn:hover {
+      background: linear-gradient(135deg,rgba(62,26,125,0.08) 0%,rgba(62,26,125,0.12) 100%);
+      border-color: rgba(62,26,125,0.3); transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(62,26,125,0.15);
+    }
+    .telemetry-filter-overlay .filter-block { margin-bottom: 16px; }
+    .telemetry-filter-overlay .filter-block:last-child { margin-bottom: 0; }
+    .telemetry-filter-overlay .block-label {
+      display: block; margin-bottom: 10px; font: 800 12px/1.2 var(--font-ui);
+      letter-spacing: 0.3px; color: #3e1a7d;
+      text-shadow: 0 1px 2px rgba(62,26,125,0.1);
+    }
+    .telemetry-filter-overlay .inline-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+    .telemetry-filter-overlay .filter-search { position: relative; margin: 8px 0 12px; }
+    .telemetry-filter-overlay .filter-search input {
+      width: 100%; border: 1px solid var(--bd-2); border-radius: 12px;
+      padding: 10px 36px; outline: 0; font: 600 13px/1.2 var(--font-ui);
+      letter-spacing: 0.2px; background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .telemetry-filter-overlay .filter-search input:focus {
+      border-color: var(--brand); box-shadow: 0 0 0 3px rgba(31,111,181,0.15);
+    }
+    .telemetry-filter-overlay .filter-search svg {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; pointer-events: none; fill: #44506b;
+    }
+    .telemetry-filter-overlay .filter-search .clear-x {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 26px; border: 0; background: transparent;
+      cursor: pointer; border-radius: 8px;
+    }
+    .telemetry-filter-overlay .filter-search .clear-x:hover { background: rgba(0,0,0,0.06); }
+    .telemetry-filter-overlay .radio-grid {
+      display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px;
+    }
+    .telemetry-filter-overlay .alarm-filter-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .telemetry-filter-overlay .radio-grid label { font: 600 13px/1.2 var(--font-ui); color: var(--ink-1); }
+    .telemetry-filter-overlay .muted { color: var(--ink-2); font: 500 12px/1.2 var(--font-ui); margin-top: 8px; }
+    .telemetry-filter-overlay .checklist {
+      display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 10px;
+    }
+    .telemetry-filter-overlay .check-item {
+      position: relative; display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px 10px 44px; background: #fff; border: 2px solid var(--bd-2);
+      border-radius: 12px; box-shadow: 0 6px 14px rgba(0,0,0,0.05); cursor: pointer;
+    }
+    .telemetry-filter-overlay .check-item:hover { border-color: var(--brand); background: var(--bg-soft); }
+    .telemetry-filter-overlay .check-item:active { transform: translateY(1px); }
+    .telemetry-filter-overlay .check-item input[type='checkbox'] {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; margin: 0; opacity: 0; cursor: pointer;
+    }
+    .telemetry-filter-overlay .check-item::before {
+      content: ''; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; border: 2px solid var(--bd-2); border-radius: 6px;
+      background: #fff; z-index: 1;
+    }
+    .telemetry-filter-overlay .check-item::after {
+      content: '✓'; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; opacity: 0; display: flex; align-items: center;
+      justify-content: center; font-size: 14px; font-weight: 900; color: #fff; z-index: 2;
+    }
+    .telemetry-filter-overlay .check-item.selected,
+    .telemetry-filter-overlay .check-item[data-checked='true'] {
+      background: rgba(62,26,125,0.08); border-color: #3e1a7d;
+      box-shadow: 0 8px 18px rgba(62,26,125,0.15);
+    }
+    .telemetry-filter-overlay .check-item.selected::before,
+    .telemetry-filter-overlay .check-item[data-checked='true']::before {
+      background: #3e1a7d; border-color: #3e1a7d;
+    }
+    .telemetry-filter-overlay .check-item.selected::after,
+    .telemetry-filter-overlay .check-item[data-checked='true']::after { opacity: 1; }
+    @supports selector(:has(*)) {
+      .telemetry-filter-overlay .check-item:has(input[type='checkbox']:checked) {
+        background: rgba(62,26,125,0.08); border-color: #3e1a7d;
+        box-shadow: 0 8px 18px rgba(62,26,125,0.15);
+      }
+      .telemetry-filter-overlay .check-item:has(input[type='checkbox']:checked)::before {
+        background: #3e1a7d; border-color: #3e1a7d;
+      }
+      .telemetry-filter-overlay .check-item:has(input[type='checkbox']:checked)::after { opacity: 1; }
+    }
+    .telemetry-filter-overlay .check-item span {
+      font: 700 13.5px/1.25 var(--font-ui); letter-spacing: 0.15px; color: var(--ink-1);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
 // RFC-0183: Append alarm badge to a card element if the device has active alarms.
 // gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
 function addAlarmBadge(cardElement, gcdrDeviceId) {
   if (!cardElement || !gcdrDeviceId) return;
+  if (STATE.alarmFilter === 'desativado') return; // badge hidden when alarm display is off
   const aso = window.AlarmServiceOrchestrator;
   if (!aso) return;
   const count = aso.getAlarmCountForDevice(gcdrDeviceId);
@@ -153,13 +437,39 @@ function addAlarmBadge(cardElement, gcdrDeviceId) {
 
   const badge = document.createElement('div');
   badge.className = 'myio-alarm-badge';
+  badge.setAttribute('data-alarm-device-id', gcdrDeviceId); // for live updates via myio:alarms-updated
   badge.title = count + ' alarme' + (count !== 1 ? 's' : '') + ' ativo' + (count !== 1 ? 's' : '');
   badge.innerHTML =
     '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
     '<path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' +
     '</svg>' +
-    '<span>' + (count > 99 ? '99+' : count) + '</span>';
+    '<span>' +
+    (count > 99 ? '99+' : count) +
+    '</span>';
   cardElement.appendChild(badge);
+}
+
+/**
+ * Called on myio:alarms-updated: refreshes alarm badge counts on all visible TELEMETRY cards
+ * without re-rendering the entire grid.
+ */
+function refreshAlarmBadges() {
+  const aso = window.AlarmServiceOrchestrator;
+  if (!aso) return;
+
+  document.querySelectorAll('.myio-alarm-badge[data-alarm-device-id]').forEach((badge) => {
+    const gcdrDeviceId = badge.getAttribute('data-alarm-device-id');
+    if (!gcdrDeviceId) return;
+    const count = aso.getAlarmCountForDevice(gcdrDeviceId);
+    const span = badge.querySelector('span');
+    if (count > 0) {
+      badge.style.display = '';
+      badge.title = count + ' alarme' + (count !== 1 ? 's' : '') + ' ativo' + (count !== 1 ? 's' : '');
+      if (span) span.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.style.display = 'none'; // alarm resolved — hide badge
+    }
+  });
 }
 
 /**
@@ -950,6 +1260,11 @@ let busyTimeoutId = null; // Timeout ID for busy fallback
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 
+// RFC-0152: Per-widget export key — isolates _deviceDataExport per TELEMETRY instance
+// Set in onInit after WIDGET_DOMAIN + labelWidget are known.
+// Pattern: _deviceDataExport_{domain}_{group} (e.g. _deviceDataExport_energy_lojas)
+let _exportKey = '_deviceDataExport';
+
 // RFC-0063: Classification mode configuration
 let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
 let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
@@ -963,10 +1278,13 @@ let MyIOAuth = null;
 const STATE = {
   itemsBase: [], // lista autoritativa (TB)
   itemsEnriched: [], // lista com totals + perc
+  lastVisible: [], // último lote filtrado visível (para export)
   searchActive: false,
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
   sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
+  /** @type {'ativado'|'desativado'|'apenas_ativados'} */
+  alarmFilter: 'ativado',
   firstHydrates: 0,
 };
 
@@ -977,7 +1295,12 @@ const $root = () => $(self.ctx.$container[0]);
 const $list = () => $root().find('#shopsList');
 const $count = () => $root().find('#shopsCount');
 const $total = () => $root().find('#shopsTotal');
-const $modal = () => $root().find('#filterModal');
+// Direct reference set during onInit (before portal). Always valid regardless of TB isolation.
+let _filterModalElement = null;
+// RFC-0195: Sync GCDR modal element and polling interval ref (for cleanup on destroy)
+let _syncJobModalEl = null;
+let _syncJobPollingId = null;
+const $modal = () => $(_filterModalElement || $root()[0].querySelector('#filterModal'));
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
 const BUSY_ID = 'myio-busy-modal';
@@ -1342,11 +1665,19 @@ function buildTbIdIndexes() {
 }
 
 /** ===================== FILTERS / SORT / PERC ===================== **/
-function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
+function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) {
   let v = enriched.slice();
 
   if (selectedIds && selectedIds.size) {
     v = v.filter((x) => selectedIds.has(x.id));
+  }
+
+  // Alarm filter: 'apenas_ativados' → show only cards with active alarms
+  if (alarmFilter === 'apenas_ativados') {
+    const aso = window.AlarmServiceOrchestrator;
+    if (aso) {
+      v = v.filter((x) => x.gcdrDeviceId && aso.getAlarmCountForDevice(x.gcdrDeviceId) > 0);
+    }
   }
 
   const q = (searchTerm || '').trim().toLowerCase();
@@ -1852,6 +2183,8 @@ function renderHeader(count, groupSum) {
 
 function renderList(visible) {
   const $ul = $list().empty();
+  // RFC-0152: Reset per-render device data export buffer
+  window[_exportKey] = [];
 
   // Calculate average temperature for all temperature devices (for TempComparisonTooltip)
   // Only count active sensors, exclude offline devices
@@ -2077,6 +2410,54 @@ function renderList(visible) {
             const startDateISO = new Date(startTs).toISOString();
             const endDateISO = new Date(endTs).toISOString();
 
+            // RFC-0189: Build custom dataFetcher when ingestion API is enabled and device has ingestionId
+            const ingestionId = it.ingestionId || null;
+            const useIngestionApi = !!(window.MyIOUtils?.enableTemperatureApiDataFetch && ingestionId);
+            let ingestionDataFetcher = null;
+
+            if (useIngestionApi) {
+              try {
+                const creds = window.MyIOOrchestrator?.getCredentials?.();
+                if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+                  throw new Error('Missing credentials for ingestion API');
+                }
+                const dataApiHost = window.MyIOUtils.DATA_API_HOST;
+                const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+                  dataApiHost,
+                  clientId: creds.CLIENT_ID,
+                  clientSecret: creds.CLIENT_SECRET,
+                });
+
+                ingestionDataFetcher = async (fetchStartTs, fetchEndTs) => {
+                  const token = await myIOAuth.getToken();
+                  const url = new URL(`${dataApiHost}/api/v1/telemetry/devices/${ingestionId}/temperature`);
+                  url.searchParams.set('startTime', new Date(fetchStartTs).toISOString());
+                  url.searchParams.set('endTime', new Date(fetchEndTs).toISOString());
+                  url.searchParams.set('granularity', '1h');
+                  url.searchParams.set('deep', '0');
+
+                  const res = await fetch(url.toString(), {
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                  if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+
+                  const json = await res.json();
+                  const rows = Array.isArray(json) ? json : [];
+                  const row = rows.find((r) => r.id === ingestionId) || rows[0] || null;
+                  if (!row || !Array.isArray(row.consumption)) return [];
+
+                  // Transform to TemperatureTelemetry[] format: { ts: number, value: number }
+                  return row.consumption
+                    .filter((e) => e && e.timestamp !== undefined && e.value !== undefined)
+                    .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }));
+                };
+
+                LogHelper.log(`[TELEMETRY v5] 🌡️ RFC-0189: using ingestion API for modal (ingestionId: ${ingestionId})`);
+              } catch (authErr) {
+                LogHelper.warn('[TELEMETRY v5] 🌡️ RFC-0189: could not build ingestion fetcher, falling back to TB:', authErr.message);
+              }
+            }
+
             LogHelper.log('[TELEMETRY v5] Calling openTemperatureModal with params:', {
               deviceId: deviceId,
               startDate: startDateISO,
@@ -2086,7 +2467,14 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              useIngestionApi,
             });
+
+            // RFC: use customer-level clamp range if configured, else library default
+            const customerClampRange = window.MyIOUtils?.temperatureClampRange;
+            const clampRange = (customerClampRange?.min !== undefined && customerClampRange?.max !== undefined)
+              ? { min: customerClampRange.min, max: customerClampRange.max }
+              : undefined;
 
             const modalHandle = MyIOLibrary.openTemperatureModal({
               token: jwtToken,
@@ -2101,6 +2489,8 @@ function renderList(visible) {
               theme: 'dark',
               locale: 'pt-BR',
               granularity: 'hour',
+              ...(clampRange ? { clampRange } : {}),
+              ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
               onClose: () => {
                 LogHelper.log('[TELEMETRY v5] Temperature modal closed via MyIOLibrary');
               },
@@ -2487,7 +2877,10 @@ function renderList(visible) {
           const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
 
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
-          console.log(`[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `, enableAnnotationsOnboarding);
+          console.log(
+            `[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `,
+            enableAnnotationsOnboarding
+          );
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
@@ -2499,6 +2892,7 @@ function renderList(visible) {
             deviceProfile: it.deviceProfile || null, // RFC-0086: needed for 3F_MEDIDOR detection
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
+            userEmail: window.MyIOUtils?.currentUserEmail || '', // RFC-0171: needed for offSetTemperature field visibility
             enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
             createdTime: it.createdTime || null,
             lastActivityTime: it.lastActivityTime || null,
@@ -2515,11 +2909,8 @@ function renderList(visible) {
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
             // RFC-0180: GCDR params for Alarms tab
             gcdrDeviceId: it.gcdrDeviceId || null,
-            gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || null,
-            gcdrTenantId: window.MyIOOrchestrator?.gcdrTenantId || null,
-            gcdrApiBaseUrl: window.MyIOOrchestrator?.gcdrApiBaseUrl || null,
-            prefetchedBundle:  window.MyIOOrchestrator?.alarmBundle       ?? null,
-            prefetchedAlarms:  window.MyIOOrchestrator?.customerAlarms    ?? null,
+            prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
+            prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();
@@ -2558,17 +2949,303 @@ function renderList(visible) {
       addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
+    // RFC-0152: Collect TB↔GCDR mapping data for device export
+    window[_exportKey].push({
+      tbId: it.tbId || it.id || '',
+      deviceName: it.entityName || '',
+      label: it.label || '',
+      identifier: it.identifier || '',
+      deviceType: it.deviceType || '',
+      deviceProfile: it.deviceProfile || '',
+      slaveId: it.slaveId || '',
+      centralId: it.centralId || '',
+      gcdrCustomerId: it.gcdrCustomerId || '',
+      gcdrAssetId: it.gcdrAssetId || '',
+      gcdrDeviceId: it.gcdrDeviceId || '',
+      gcdrSyncAt: it.gcdrSyncAt || '',
+    });
+
     $ul.append($card);
   });
+
+  // RFC-0152: Log device export data if enabled via settings
+  if (window.MyIOUtils?.enableDeviceDataExport && window[_exportKey].length > 0) {
+    const header =
+      'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const rows = window[_exportKey].map((d) =>
+      [
+        d.tbId,
+        d.deviceName,
+        d.label,
+        d.identifier,
+        d.deviceType,
+        d.deviceProfile,
+        d.slaveId,
+        d.centralId,
+        d.gcdrCustomerId,
+        d.gcdrAssetId,
+        d.gcdrDeviceId,
+        d.gcdrSyncAt,
+      ].join('|')
+    );
+    console.log(
+      `[RFC-0152] Device Data Export — ${window[_exportKey].length} devices (${WIDGET_DOMAIN}):\n` +
+        header +
+        '\n' +
+        rows.join('\n')
+    );
+  }
+}
+
+/** ===================== EXPORT HELPERS ===================== **/
+
+/**
+ * Maps STATE items to TelemetryDevice-compatible objects for the export functions.
+ * @param {Array} items
+ * @returns {Array}
+ */
+function _buildExportDevices(items) {
+  return (items || []).map((it) => ({
+    entityId: it.id || '',
+    ingestionId: it.ingestionId || '',
+    labelOrName: it.label || it.identifier || '',
+    deviceIdentifier: it.identifier || '',
+    deviceType: it.deviceType || '',
+    deviceProfile: it.deviceProfile || '',
+    deviceStatus: it.deviceStatus || '',
+    connectionStatus: it.connectionStatus || '',
+    customerId: '',
+    customerName: it.customerName || '',
+    val: it.value ?? null,
+    perc: it.perc,
+  }));
+}
+
+function _getExportUnit() {
+  if (WIDGET_DOMAIN === 'energy') return 'kWh';
+  if (WIDGET_DOMAIN === 'water') return 'm³';
+  if (WIDGET_DOMAIN === 'temperature') return '°C';
+  return '';
+}
+
+function _getExportLabel() {
+  return self.ctx.settings?.labelWidget || WIDGET_DOMAIN || 'Dispositivos';
+}
+
+function _getExportPeriod() {
+  const s = self.ctx?.scope?.startDateISO;
+  const e = self.ctx?.scope?.endDateISO;
+  if (s || e) return { startISO: s || null, endISO: e || null };
+  return null;
+}
+
+function _openPresetupModal() {
+  const lib = window.MyIOLibrary;
+  if (!lib?.createPresetupGateway) {
+    LogHelper.warn('[TELEMETRY] createPresetupGateway não disponível em MyIOLibrary');
+    return;
+  }
+  const s = self.ctx.settings || {};
+  const gatewayId = s.presetupGatewayId || '';
+
+  // Fallback: use credentials already loaded by MAIN_VIEW into MyIOOrchestrator
+  const orchCreds = window.MyIOOrchestrator?.getCredentials?.() || {};
+  const clientId = s.presetupClientId || orchCreds.CLIENT_ID || '';
+  const clientSecret = s.presetupClientSecret || orchCreds.CLIENT_SECRET || '';
+
+  if (!gatewayId || !clientId || !clientSecret) {
+    _openPresetupConfigPrompt(s, clientId, clientSecret, (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
+      _launchPresetupGateway(lib, s, resolvedGatewayId, resolvedClientId, resolvedClientSecret);
+    });
+    return;
+  }
+
+  _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret);
+}
+
+function _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
+
+  const container = document.createElement('div');
+  container.style.cssText =
+    'background:#fff;border-radius:14px;width:min(900px,95vw);height:min(700px,90vh);overflow:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.style.cssText =
+    'position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;z-index:2;color:#555;line-height:1;';
+  closeBtn.onclick = () => overlay.remove();
+
+  container.appendChild(closeBtn);
+  overlay.appendChild(container);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  lib.createPresetupGateway({
+    mount: container,
+    gatewayId,
+    clientId,
+    clientSecret,
+    ingestionApiUrl: s.presetupIngestionApiUrl || undefined,
+    ingestionAuthUrl: s.presetupIngestionAuthUrl || undefined,
+    provisioningApiUrl: s.presetupProvisioningApiUrl || undefined,
+  });
+}
+
+function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onConfirm) {
+  // Collect unique centralIds: first from MAIN_VIEW orchestrator, fallback to local STATE
+  const orchCentralIds = window.MyIOOrchestrator?.centralIds || [];
+  const localCentralIds = STATE.itemsBase
+    ? [...new Set(STATE.itemsBase.map(i => i.centralId).filter(Boolean))].sort()
+    : [];
+  const centralIds = orchCentralIds.length ? orchCentralIds : localCentralIds;
+
+  const inputStyle = 'display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;';
+  const labelStyle = 'font-size:12px;color:#555;font-weight:600;';
+
+  // Build Gateway ID field: select when centralIds available, plain input otherwise
+  const gwPreset = (s.presetupGatewayId || '').replace(/"/g, '&quot;');
+  const gwIsPreset = !!s.presetupGatewayId;
+
+  let gatewayField;
+  if (centralIds.length > 0) {
+    const options = centralIds.map(id => {
+      const sel = id === gwPreset ? ' selected' : '';
+      return `<option value="${id}"${sel}>${id}</option>`;
+    }).join('');
+    gatewayField = `
+      <label style="${labelStyle}">Gateway ID (Central)
+        <select id="_psgw" style="${inputStyle}background:#fff;cursor:pointer;">
+          <option value="">— selecione —</option>
+          ${options}
+          <option value="__outro__"${!gwIsPreset && gwPreset ? ' selected' : ''}>Outro…</option>
+        </select>
+      </label>
+      <div id="_psgwCustomWrap" style="display:${!gwIsPreset && gwPreset ? 'block' : 'none'};">
+        <label style="${labelStyle}">Gateway ID (manual)
+          <input id="_psgwCustom" type="text" value="${!gwIsPreset ? gwPreset : ''}" placeholder="UUID do gateway" autocomplete="off"
+            style="${inputStyle}" />
+        </label>
+      </div>`;
+  } else {
+    gatewayField = `
+      <label style="${labelStyle}">Gateway ID
+        <input id="_psgw" type="text" value="${gwPreset}" placeholder="UUID do gateway" autocomplete="off"
+          style="${inputStyle}" />
+      </label>`;
+  }
+
+  const ciVal = (prefillClientId || '').replace(/"/g, '&quot;');
+  const csVal = (prefillClientSecret || '').replace(/"/g, '&quot;');
+  const hasCredentials = !!(prefillClientId && prefillClientSecret);
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
+
+  const card = document.createElement('div');
+  card.style.cssText =
+    'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
+
+  card.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;">
+      <svg style="flex-shrink:0;margin-top:2px;" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="#c0392b" stroke="none"/>
+      </svg>
+      <div>
+        <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração do Gateway</p>
+        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Selecione ou informe o Gateway ID para continuar.${hasCredentials ? ' Credenciais carregadas automaticamente.' : ''}</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      ${gatewayField}
+      <label style="${labelStyle}">Client ID${hasCredentials ? ' <span style="color:#16a34a;font-weight:400;">(preenchido)</span>' : ''}
+        <input id="_psci" type="text" value="${ciVal}" placeholder="client_id" autocomplete="off"
+          style="${inputStyle}${hasCredentials ? 'background:#f0fdf4;border-color:#86efac;' : ''}" />
+      </label>
+      <label style="${labelStyle}">Client Secret${hasCredentials ? ' <span style="color:#16a34a;font-weight:400;">(preenchido)</span>' : ''}
+        <input id="_pscs" type="password" value="${csVal}" placeholder="client_secret"
+          style="${inputStyle}${hasCredentials ? 'background:#f0fdf4;border-color:#86efac;' : ''}" />
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button id="_psCancelBtn" style="padding:8px 18px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;color:#555;font-size:13px;cursor:pointer;">Cancelar</button>
+      <button id="_psConfirmBtn" style="padding:8px 20px;border:none;border-radius:7px;background:#3e1a7d;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Continuar</button>
+    </div>`;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  // Show/hide custom input when "Outro…" selected
+  const gwSelect = card.querySelector('#_psgw');
+  if (gwSelect && gwSelect.tagName === 'SELECT') {
+    gwSelect.addEventListener('change', () => {
+      const wrap = card.querySelector('#_psgwCustomWrap');
+      if (wrap) wrap.style.display = gwSelect.value === '__outro__' ? 'block' : 'none';
+    });
+  }
+
+  card.querySelector('#_psCancelBtn').onclick = () => overlay.remove();
+  card.querySelector('#_psConfirmBtn').onclick = () => {
+    let gw;
+    if (gwSelect && gwSelect.tagName === 'SELECT') {
+      gw = gwSelect.value === '__outro__'
+        ? (card.querySelector('#_psgwCustom')?.value.trim() || '')
+        : gwSelect.value.trim();
+    } else {
+      gw = gwSelect?.value.trim() || '';
+    }
+    const ci = card.querySelector('#_psci').value.trim();
+    const cs = card.querySelector('#_pscs').value.trim();
+    if (!gw || !ci || !cs) {
+      if (!gw) {
+        if (gwSelect) gwSelect.style.borderColor = '#c0392b';
+        const custom = card.querySelector('#_psgwCustom');
+        if (custom && !custom.value.trim()) custom.style.borderColor = '#c0392b';
+      }
+      if (!ci) card.querySelector('#_psci').style.borderColor = '#c0392b';
+      if (!cs) card.querySelector('#_pscs').style.borderColor = '#c0392b';
+      return;
+    }
+    overlay.remove();
+    onConfirm(gw, ci, cs);
+  };
+
+  // Focus first incomplete field
+  setTimeout(() => {
+    const firstEmpty = card.querySelector('select,input');
+    if (firstEmpty) firstEmpty.focus();
+  }, 50);
 }
 
 /** ===================== UI BINDINGS ===================== **/
 function bindHeader() {
   $root().on('click', '#btnSearch', () => {
     STATE.searchActive = !STATE.searchActive;
-    $root().find('#searchWrap').toggleClass('active', STATE.searchActive);
+    const $btns = $root().find('.shops-header-btns');
+    const $wrap = $root().find('#searchWrap');
 
-    if (STATE.searchActive) setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 30);
+    $btns.toggleClass('search-mode', STATE.searchActive);
+    $wrap.toggleClass('active', STATE.searchActive);
+
+    if (STATE.searchActive) {
+      setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 50);
+    } else {
+      STATE.searchTerm = '';
+      $root().find('#shopsSearch').val('');
+      reflowFromState();
+    }
+  });
+
+  $root().on('keydown', '#shopsSearch', (ev) => {
+    if (ev.key === 'Escape') $root().find('#btnSearch').trigger('click');
   });
 
   $root().on('input', '#shopsSearch', (ev) => {
@@ -2576,7 +3253,59 @@ function bindHeader() {
     reflowFromState();
   });
 
-  $root().on('click', '#btnFilter', () => openFilterModal());
+  // Bind filter button — triple approach for maximum TB compatibility
+  const _btnFilter = ($root()[0] || self.ctx.$container[0]).querySelector('#btnFilter');
+  if (_btnFilter) {
+    _btnFilter.onclick = openFilterModal; // inline property (visible in devtools)
+    _btnFilter.addEventListener('click', openFilterModal); // native listener
+  }
+  $root().on('click', '#btnFilter', openFilterModal); // jQuery delegation (fallback)
+
+  // Export buttons
+  $root().on('click', '#btnExportPdf', () => {
+    const lib = window.MyIOLibrary;
+    if (!lib?.exportGridPdf) {
+      LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary');
+      return;
+    }
+    lib.exportGridPdf(
+      _buildExportDevices(STATE.lastVisible),
+      _getExportLabel(),
+      _getExportUnit(),
+      _getExportPeriod()
+    );
+  });
+
+  $root().on('click', '#btnExportXls', () => {
+    const lib = window.MyIOLibrary;
+    if (!lib?.exportGridXls) {
+      LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary');
+      return;
+    }
+    lib.exportGridXls(
+      _buildExportDevices(STATE.lastVisible),
+      _getExportLabel(),
+      _getExportUnit(),
+      _getExportPeriod()
+    );
+  });
+
+  $root().on('click', '#btnExportCsv', () => {
+    const lib = window.MyIOLibrary;
+    if (!lib?.exportGridCsv) {
+      LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary');
+      return;
+    }
+    lib.exportGridCsv(
+      _buildExportDevices(STATE.lastVisible),
+      _getExportLabel(),
+      _getExportUnit(),
+      _getExportPeriod()
+    );
+  });
+
+  // Presetup button
+  $root().on('click', '#btnPresetup', _openPresetupModal);
 }
 
 function openFilterModal() {
@@ -2619,6 +3348,7 @@ function openFilterModal() {
 
   $cl[0].appendChild(frag);
   $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop('checked', true);
+  $m.find(`input[name="alarmFilter"][value="${STATE.alarmFilter || 'ativado'}"]`).prop('checked', true);
 
   const $footer = $m.find('.shops-modal-footer');
   if ($footer.length) $footer.show().find('#applyFilters, #resetFilters').show();
@@ -2626,71 +3356,448 @@ function openFilterModal() {
   syncChecklistSelectionVisual();
   $m.removeClass('hidden');
 }
+// ============================================================
+// RFC-0195: GCDR Device Sync Job
+// ============================================================
+
+const _GCDR_SYNC_BASE = 'https://gcdr-api.a.myio-bas.com';
+const _GCDR_PHASE_PROGRESS = {
+  QUEUED: 0, CHECK: 15, ACTION_PLAN: 30, DETECT_RELOCATIONS: 45,
+  RELOCATE: 55, APPLY_UPDATES: 70, CONSOLIDATE_CREATES: 85, DONE: 100,
+};
+const _GCDR_PHASE_LABELS = {
+  QUEUED: 'Aguardando na fila…', CHECK: 'Comparando devices com GCDR…',
+  ACTION_PLAN: 'Classificando ações…', DETECT_RELOCATIONS: 'Detectando relocações…',
+  RELOCATE: 'Movendo devices…', APPLY_UPDATES: 'Aplicando atualizações…',
+  CONSOLIDATE_CREATES: 'Criando devices novos…', DONE: 'Concluído',
+};
+const _GCDR_DEVICE_MAP_HEADER =
+  'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+
+/**
+ * RFC-0195: Reads integration_setup.gcdr from CUSTOMER SERVER_SCOPE.
+ * Returns { gcdrCustomerId, gcdrApiKey }.
+ */
+async function _fetchGcdrCredentials() {
+  const tbToken = localStorage.getItem('jwt_token');
+  const customerId = window.MyIOUtils?.customerTB_ID;
+  if (!tbToken || !customerId) throw new Error('JWT ou customerTB_ID não disponíveis.');
+  const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=integration_setup`;
+  const res = await fetch(url, { headers: { 'X-Authorization': `Bearer ${tbToken}` } });
+  if (!res.ok) throw new Error(`TB attrs HTTP ${res.status}`);
+  const attrs = await res.json();
+  const raw = Array.isArray(attrs)
+    ? attrs.find((a) => a.key === 'integration_setup')?.value
+    : attrs.integration_setup;
+  if (!raw) throw new Error('Atributo integration_setup não encontrado no customer.\nConfigure-o via widget GCDR-Upsell-Setup.');
+  const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const gcdr = cfg?.gcdr;
+  if (!gcdr?.gcdrCustomerId || !gcdr?.gcdrApiKey) {
+    throw new Error('integration_setup.gcdr incompleto — gcdrCustomerId e gcdrApiKey são obrigatórios.');
+  }
+  return { gcdrCustomerId: gcdr.gcdrCustomerId, gcdrApiKey: gcdr.gcdrApiKey };
+}
+
+/** RFC-0195: Builds pipe-delimited device-map content from _exportKey array. */
+function _buildDeviceMapContent(data) {
+  const rows = data.map((d) =>
+    [d.tbId, d.deviceName, d.label, d.identifier,
+     d.deviceType, d.deviceProfile, d.slaveId, d.centralId,
+     d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+  );
+  return _GCDR_DEVICE_MAP_HEADER + '\n' + rows.join('\n');
+}
+
+/** RFC-0195: Entry point — validates data + credentials then opens job modal. */
+async function _handleSyncGCDR() {
+  const data = window[_exportKey];
+  if (!data || data.length === 0) {
+    alert('Nenhum dado disponível. Abra o painel de dados primeiro.');
+    return;
+  }
+  let creds;
+  try {
+    creds = await _fetchGcdrCredentials();
+  } catch (err) {
+    alert(`Erro ao obter credenciais GCDR:\n${err.message}`);
+    return;
+  }
+  _openSyncJobModal(data, creds);
+}
+
+/** RFC-0195: Renders sync job modal, creates job, polls status, shows log. */
+function _openSyncJobModal(data, creds) {
+  _destroySyncJobModal(); // ensure only one modal at a time
+
+  const _groupSlugs = { lojas: 'stores', entrada: 'entry', areacomum: 'commonarea', caixadagua: 'tanks' };
+  const _labelWidget = self.ctx?.settings?.labelWidget || '';
+  const _stateGroup = mapLabelWidgetToStateGroup(_labelWidget) || WIDGET_DOMAIN;
+  const fileName = `${WIDGET_DOMAIN}-${_groupSlugs[_stateGroup] || _stateGroup}`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'telemetry-sync-gcdr-overlay';
+  _syncJobModalEl = overlay;
+
+  overlay.innerHTML = `
+    <div class="telemetry-sync-gcdr-card" id="sgj-card">
+      <div class="telemetry-sync-gcdr-header">
+        <span class="telemetry-sync-gcdr-header-title">🔗 Sync GCDR — ${fileName}</span>
+        <button class="telemetry-sync-gcdr-dl" id="sgj-dl" title="Download relatório completo" disabled>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+            <path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          Download log
+        </button>
+        <button class="telemetry-sync-gcdr-expand" id="sgj-expand" title="Expandir">
+          <svg id="sgj-expand-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+        <button class="telemetry-sync-gcdr-close" id="sgj-close" title="Fechar">✕</button>
+      </div>
+      <div class="telemetry-sync-gcdr-body">
+        <div class="telemetry-sync-gcdr-status">
+          <span class="telemetry-sync-gcdr-badge queued" id="sgj-badge">⏳ Iniciando…</span>
+          <span style="font-size:11px;color:#9ca3af" id="sgj-jobid"></span>
+        </div>
+        <div class="telemetry-sync-gcdr-progress-wrap">
+          <div class="telemetry-sync-gcdr-progress-bar" id="sgj-bar"></div>
+        </div>
+        <div class="telemetry-sync-gcdr-phase" id="sgj-phase">Criando job…</div>
+        <div id="sgj-summary"></div>
+        <div id="sgj-log"></div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#sgj-close').addEventListener('click', _destroySyncJobModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) _destroySyncJobModal(); });
+
+  // Expand / collapse toggle
+  let _sgjExpanded = false;
+  overlay.querySelector('#sgj-expand').addEventListener('click', () => {
+    _sgjExpanded = !_sgjExpanded;
+    const card = _el('#sgj-card');
+    const icon = _el('#sgj-expand-icon');
+    if (card) card.classList.toggle('sgj-expanded', _sgjExpanded);
+    overlay.classList.toggle('sgj-overlay-expanded', _sgjExpanded);
+    if (icon) icon.innerHTML = _sgjExpanded
+      ? '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line>'
+      : '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+  });
+
+  // Closure state for download report
+  let _sgjLogEntries = [];
+  let _sgjJobResult = null;
+  const _sgjDeviceMapContent = _buildDeviceMapContent(data);
+  const _sgjStartedAt = new Date().toISOString();
+
+  // Download report button
+  overlay.querySelector('#sgj-dl').addEventListener('click', () => {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const lines = [];
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('  GCDR DEVICE SYNC JOB — Relatório Completo');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push(`  Arquivo  : ${fileName}`);
+    lines.push(`  Customer : ${creds.gcdrCustomerId}`);
+    lines.push(`  Job ID   : ${_sgjJobResult?.jobId || '—'}`);
+    lines.push(`  Status   : ${_sgjJobResult?.status || '—'}`);
+    lines.push(`  DryRun   : ${_sgjJobResult?.dryRun ?? false}`);
+    lines.push(`  Iniciado : ${_sgjStartedAt}`);
+    lines.push(`  Duração  : ${_sgjJobResult?.durationMs != null ? (_sgjJobResult.durationMs / 1000).toFixed(1) + 's' : '—'}`);
+    lines.push('');
+    lines.push('── DEVICE-MAP ENVIADO ──────────────────────────────────────────────');
+    lines.push(_sgjDeviceMapContent);
+    lines.push('');
+    if (_sgjJobResult?.summary) {
+      const s = _sgjJobResult.summary;
+      lines.push('── RESUMO ──────────────────────────────────────────────────────────');
+      if (s.check)              lines.push(`  CHECK              conformant=${s.check.conformant}  divergent=${s.check.divergent}  notLinked=${s.check.notLinked}`);
+      if (s.actionPlan)         lines.push(`  ACTION_PLAN        create=${s.actionPlan.create}  update=${s.actionPlan.update}  skip=${s.actionPlan.skip}`);
+      if (s.detectRelocations)  lines.push(`  DETECT_RELOCATIONS relocate=${s.detectRelocations.relocate}  genuineCreates=${s.detectRelocations.genuineCreates}`);
+      if (s.relocate)           lines.push(`  RELOCATE           ok=${s.relocate.ok}  fail=${s.relocate.fail}`);
+      if (s.applyUpdates)       lines.push(`  APPLY_UPDATES      ok=${s.applyUpdates.ok}  fail=${s.applyUpdates.fail}`);
+      if (s.consolidateCreates) lines.push(`  CONSOLIDATE        ok=${s.consolidateCreates.ok}  fail=${s.consolidateCreates.fail}`);
+      lines.push('');
+    }
+    lines.push('── LOG DE OPERAÇÕES ────────────────────────────────────────────────');
+    if (_sgjLogEntries.length) {
+      _sgjLogEntries.forEach((e) => {
+        lines.push(`  [${(e.ts || '').substring(11, 23)}] [${(e.level || '').padEnd(5)}] [${(e.phase || '').padEnd(22)}] ${e.message || ''}`);
+      });
+    } else {
+      lines.push('  (sem entradas de log)');
+    }
+    lines.push('');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gcdr-sync-log_${fileName}_${ts}.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Helpers that operate on overlay elements
+  const _el = (id) => overlay.querySelector(id);
+  const setProgress = (pct) => { const b = _el('#sgj-bar'); if (b) b.style.width = pct + '%'; };
+  const setPhase = (t) => { const e = _el('#sgj-phase'); if (e) e.textContent = t; };
+  const setBadge = (cls, t) => {
+    const e = _el('#sgj-badge');
+    if (e) { e.className = `telemetry-sync-gcdr-badge ${cls}`; e.textContent = t; }
+  };
+
+  const renderSummary = (summary) => {
+    const c = summary?.check || {};
+    const a = summary?.actionPlan || {};
+    const u = summary?.applyUpdates || {};
+    const cr = summary?.consolidateCreates || {};
+    const el = _el('#sgj-summary');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="telemetry-sync-gcdr-summary">
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val">${c.conformant ?? 0}</div>
+          <div class="kpi-lbl">Conformantes</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#d97706">${c.divergent ?? 0}</div>
+          <div class="kpi-lbl">Divergentes</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#2563eb">${(a.create ?? 0) + (cr.ok ?? 0)}</div>
+          <div class="kpi-lbl">Criados</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#16a34a">${u.ok ?? 0}</div>
+          <div class="kpi-lbl">Atualizados</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#9ca3af">${a.skip ?? 0}</div>
+          <div class="kpi-lbl">Sem mudança</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#dc2626">${(u.fail ?? 0) + (cr.fail ?? 0)}</div>
+          <div class="kpi-lbl">Falhas</div>
+        </div>
+      </div>`;
+  };
+
+  const renderLog = (entries) => {
+    if (!entries || !entries.length) return;
+    _sgjLogEntries = entries; // store for download
+    const failCount = entries.filter((e) => e.level === 'FAIL' || e.level === 'ERROR').length;
+    const rows = entries.map((e) => {
+      const ts = (e.ts || '').substring(11, 19);
+      return `<tr>
+        <td>${ts}</td>
+        <td class="sgj-level-${e.level}">${e.level}</td>
+        <td>${e.phase || ''}</td>
+        <td>${e.message || ''}</td>
+      </tr>`;
+    }).join('');
+    const el = _el('#sgj-log');
+    if (!el) return;
+    const failBadge = failCount > 0 ? ` <span style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700">${failCount} falha${failCount !== 1 ? 's' : ''}</span>` : '';
+    el.innerHTML = `
+      <div class="telemetry-sync-gcdr-log-wrap">
+        <div class="telemetry-sync-gcdr-log-title">Log de operações (${entries.length} entradas)${failBadge}</div>
+        <table class="telemetry-sync-gcdr-log-table"><tbody>${rows}</tbody></table>
+      </div>`;
+    const tbl = el.querySelector('.telemetry-sync-gcdr-log-table');
+    if (tbl) tbl.scrollTop = tbl.scrollHeight;
+    // Enable download button now that we have full data
+    const dlBtn = _el('#sgj-dl');
+    if (dlBtn) dlBtn.disabled = false;
+  };
+
+  // ── Execute async flow ──────────────────────────────────────
+  (async () => {
+    const content = _buildDeviceMapContent(data);
+    let jobId;
+
+    // 1. Create job
+    try {
+      const res = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': creds.gcdrApiKey },
+        body: JSON.stringify({ customerId: creds.gcdrCustomerId, dryRun: false, files: [{ name: fileName, content }] }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setBadge('failed', '❌ Falha ao criar job');
+        setPhase(`Erro: ${json?.error?.message || 'HTTP ' + res.status}`);
+        return;
+      }
+      jobId = json.data?.jobId;
+      setBadge('queued', '⏳ Aguardando…');
+      setPhase('Job criado — aguardando execução…');
+      const jobIdEl = _el('#sgj-jobid');
+      if (jobIdEl) jobIdEl.textContent = `Job: ${jobId}`;
+    } catch (err) {
+      setBadge('failed', '❌ Erro de rede');
+      setPhase(`Erro: ${err.message}`);
+      return;
+    }
+
+    // 2. Poll status
+    const FINAL = new Set(['DONE', 'PARTIAL', 'FAILED']);
+    _syncJobPollingId = setInterval(async () => {
+      try {
+        const res = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs/${jobId}`, {
+          headers: { 'X-API-Key': creds.gcdrApiKey },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const job = json.data;
+        const phase = job.currentPhase || 'QUEUED';
+        setProgress(_GCDR_PHASE_PROGRESS[phase] ?? 0);
+        setPhase(_GCDR_PHASE_LABELS[phase] || phase);
+        if (job.status === 'RUNNING' || job.status === 'QUEUED') setBadge('running', `🔄 ${phase}`);
+
+        if (FINAL.has(job.status)) {
+          clearInterval(_syncJobPollingId);
+          _syncJobPollingId = null;
+          setProgress(100);
+          _sgjJobResult = job; // store for download report
+          if (job.status === 'DONE')         { setBadge('done',    '✅ Concluído');           setPhase('Sincronização concluída com sucesso.'); }
+          else if (job.status === 'PARTIAL') { setBadge('partial', '⚠️ Concluído com erros'); setPhase('Concluído — veja o log abaixo.'); }
+          else                               { setBadge('failed',  '❌ Falha fatal');          setPhase('Erro fatal durante execução.'); }
+          renderSummary(job.summary);
+
+          // 3. Fetch and render log
+          try {
+            const logRes = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs/${jobId}/log`, {
+              headers: { 'X-API-Key': creds.gcdrApiKey },
+            });
+            if (logRes.ok) {
+              const logJson = await logRes.json();
+              renderLog(logJson.data?.entries || []);
+            }
+          } catch { /* non-critical */ }
+        }
+      } catch { /* network hiccup — retry next tick */ }
+    }, 2000);
+  })();
+}
+
+/** RFC-0195: Cancels polling and removes modal from DOM. */
+function _destroySyncJobModal() {
+  if (_syncJobPollingId) { clearInterval(_syncJobPollingId); _syncJobPollingId = null; }
+  if (_syncJobModalEl && _syncJobModalEl.parentElement) {
+    _syncJobModalEl.parentElement.removeChild(_syncJobModalEl);
+  }
+  _syncJobModalEl = null;
+}
+
 function closeFilterModal() {
   $modal().addClass('hidden');
 }
 
 function bindModal() {
-  $root().on('click', '#closeFilter', closeFilterModal);
+  // $m uses the stored direct reference — valid before AND after portal
+  const $m = $modal();
 
-  $root().on('click', '#selectAll', (ev) => {
+  $m.on('click', '#closeFilter', closeFilterModal);
+
+  // RFC-0152: Device map download — @myio.com.br only
+  $m.on('click', '#btnDownloadDeviceMap', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
+    const data = window[_exportKey];
+    if (!data || data.length === 0) {
+      alert('Nenhum dado de dispositivo disponível. Abra o painel de dados primeiro.');
+      return;
+    }
+    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const rows = data.map((d) =>
+      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
+       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+    );
+    const content = header + '\n' + rows.join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const _groupSlugs = { lojas: 'stores', entrada: 'entry', areacomum: 'commonarea', caixadagua: 'tanks' };
+    const _labelWidget = self.ctx?.settings?.labelWidget || '';
+    const _stateGroup = mapLabelWidgetToStateGroup(_labelWidget) || WIDGET_DOMAIN;
+    const _groupSlug = _groupSlugs[_stateGroup] || _stateGroup;
+    a.download = `device-map-${WIDGET_DOMAIN}-${new Date().toISOString().slice(0, 10)}-${WIDGET_DOMAIN}-${_groupSlug}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // RFC-0195: GCDR Device Sync Job — @myio.com.br only
+  $m.on('click', '#btnSyncGCDR', (ev) => {
+    ev.preventDefault();
+    _handleSyncGCDR();
+  });
+
+  $m.on('click', '#selectAll', (ev) => {
+    ev.preventDefault();
+    $m.find('.check-item input[type="checkbox"]').prop('checked', true);
     syncChecklistSelectionVisual();
   });
 
-  $root().on('click', '#clearAll', (ev) => {
+  $m.on('click', '#clearAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop('checked', false);
+    $m.find('.check-item input[type="checkbox"]').prop('checked', false);
     syncChecklistSelectionVisual();
   });
 
-  $root().on('click', '#resetFilters', (ev) => {
+  $m.on('click', '#resetFilters', (ev) => {
     ev.preventDefault();
     STATE.selectedIds = null;
     STATE.sortMode = 'cons_desc';
-    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
-    $modal().find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
+    STATE.alarmFilter = 'ativado';
+    $m.find('.check-item input[type="checkbox"]').prop('checked', true);
+    $m.find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
+    $m.find('input[name="alarmFilter"][value="ativado"]').prop('checked', true);
     syncChecklistSelectionVisual();
     reflowFromState();
   });
 
-  $root().on('click', '#applyFilters', (ev) => {
+  $m.on('click', '#applyFilters', (ev) => {
     ev.preventDefault();
     const set = new Set();
-    $modal()
-      .find('.check-item input[type="checkbox"]:checked')
-      .each((_, el) => {
-        const id = $(el).data('entity');
-        if (id) set.add(id);
-      });
+    $m.find('.check-item input[type="checkbox"]:checked').each((_, el) => {
+      const id = $(el).data('entity');
+      if (id) set.add(id);
+    });
 
     STATE.selectedIds = set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
-    STATE.sortMode = String($modal().find('input[name="sortMode"]:checked').val() || 'cons_desc');
+    STATE.sortMode = String($m.find('input[name="sortMode"]:checked').val() || 'cons_desc');
+    STATE.alarmFilter = /** @type {'ativado'|'desativado'|'apenas_ativados'} */ (
+      String($m.find('input[name="alarmFilter"]:checked').val() || 'ativado')
+    );
 
     reflowFromState();
     closeFilterModal();
   });
 
-  $root().on('input', '#filterDeviceSearch', (ev) => {
+  $m.on('input', '#filterDeviceSearch', (ev) => {
     const q = (ev.target.value || '').trim().toLowerCase();
-    $modal()
-      .find('.check-item')
-      .each((_, node) => {
-        const txt = $(node).text().trim().toLowerCase();
-        $(node).toggle(txt.includes(q));
-      });
+    $m.find('.check-item').each((_, node) => {
+      const txt = $(node).text().trim().toLowerCase();
+      $(node).toggle(txt.includes(q));
+    });
   });
 
-  $root().on('click', '#filterDeviceClear', (ev) => {
+  $m.on('click', '#filterDeviceClear', (ev) => {
     ev.preventDefault();
-    const $inp = $modal().find('#filterDeviceSearch');
+    const $inp = $m.find('#filterDeviceSearch');
     $inp.val('');
-    $modal().find('.check-item').show();
+    $m.find('.check-item').show();
     $inp.trigger('focus');
   });
 
-  $root().on('click', '#deviceChecklist .check-item', function (ev) {
+  $m.on('click', '#deviceChecklist .check-item', function (ev) {
     if (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase() === 'input') return;
     ev.preventDefault();
     ev.stopPropagation();
@@ -2698,7 +3805,7 @@ function bindModal() {
     $chk.prop('checked', !$chk.prop('checked')).trigger('change');
   });
 
-  $root().on('change', '#deviceChecklist input[type="checkbox"]', function () {
+  $m.on('change', '#deviceChecklist input[type="checkbox"]', function () {
     const $wrap = $(this).closest('.check-item');
     const on = this.checked;
     $wrap.toggleClass('selected', on).attr('data-checked', on ? 'true' : 'false');
@@ -3367,8 +4474,15 @@ function emitWaterTelemetry(widgetType, periodKey) {
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
-  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+  const visible = applyFilters(
+    STATE.itemsEnriched,
+    STATE.searchTerm,
+    STATE.selectedIds,
+    STATE.sortMode,
+    STATE.alarmFilter
+  );
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
+  STATE.lastVisible = withPerc;
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
 }
@@ -3464,7 +4578,10 @@ self.onInit = async function () {
   }
 
   WIDGET_DOMAIN = configuredDomain || 'energy'; // Keep fallback for backwards compatibility but log error above
-  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+  // RFC-0152: Build per-widget export key so multiple TELEMETRY instances don't share the buffer
+  const _lwGroup = mapLabelWidgetToStateGroup(self.ctx.settings?.labelWidget || '') || WIDGET_DOMAIN;
+  _exportKey = `_deviceDataExport_${WIDGET_DOMAIN}_${_lwGroup}`;
+  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, exportKey=${_exportKey}`);
 
   // Show temperature info icon for temperature domain
   if (WIDGET_DOMAIN === 'temperature') {
@@ -3879,6 +4996,11 @@ self.onInit = async function () {
                 log_annotations: item.log_annotations || null,
                 // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
                 gcdrDeviceId: item.gcdrDeviceId || null,
+                // RFC-0152: Per-device GCDR mapping fields (TB↔GCDR sync audit)
+                entityName: item.entityName || '',
+                gcdrCustomerId: item.gcdrCustomerId || null,
+                gcdrAssetId: item.gcdrAssetId || null,
+                gcdrSyncAt: item.gcdrSyncAt || null,
               };
             });
 
@@ -4028,6 +5150,11 @@ self.onInit = async function () {
         _isHidrometerDevice: item._isHidrometerDevice || false,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
         gcdrDeviceId: item.gcdrDeviceId || null,
+        // RFC-0152: Per-device GCDR mapping fields (TB↔GCDR sync audit)
+        entityName: item.entityName || '',
+        gcdrCustomerId: item.gcdrCustomerId || null,
+        gcdrAssetId: item.gcdrAssetId || null,
+        gcdrSyncAt: item.gcdrSyncAt || null,
       };
     });
 
@@ -4094,6 +5221,27 @@ self.onInit = async function () {
   };
 
   window.addEventListener('myio:telemetry:update', requestRefreshHandler);
+
+  // myio:alarms-updated — fired by MAIN_VIEW after each ASO rebuild.
+  // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
+  window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
+
+  // Show #btnPresetup, #btnDownloadDeviceMap and #btnSyncGCDR only for MyIO users (@myio.com.br)
+  function _applyPresetupVisibility(isSuperAdmin) {
+    const btn = $root().find('#btnPresetup')[0];
+    if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+    // RFC-0152: Device map download button — visible only for @myio.com.br
+    const btnDl = (_filterModalElement || $root()[0])?.querySelector('#btnDownloadDeviceMap');
+    if (btnDl) btnDl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    // RFC-0195: Sync GCDR button — visible only for @myio.com.br
+    const btnSync = (_filterModalElement || $root()[0])?.querySelector('#btnSyncGCDR');
+    if (btnSync) btnSync.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+  }
+  // Check immediately in case event already fired before this widget loaded
+  _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
+  window.addEventListener('myio:user-info-ready', (ev) => {
+    _applyPresetupVisibility(ev.detail?.isSuperAdmin === true);
+  });
 
   // RFC-0136: Intelligent retry with backoff for late-arriving widgets
   // Instead of single 500ms timeout, use multiple retries with increasing delays
@@ -4323,6 +5471,20 @@ self.onInit = async function () {
     LogHelper.error('[DeviceCards] Auth init FAIL', err);
   }
 
+  // Grab modal reference BEFORE portal (querySelector works inside widget root)
+  _filterModalElement = $root()[0].querySelector('#filterModal');
+
+  // Inject CSS into the widget's ownerDocument (correct for iframe OR main page)
+  injectFilterModalStyles();
+
+  // Portal: move modal to widget's body so position:fixed is relative to the viewport
+  if (_filterModalElement) {
+    const _widgetBody = (_filterModalElement.ownerDocument || document).body;
+    if (_filterModalElement.parentElement !== _widgetBody) {
+      _widgetBody.appendChild(_filterModalElement);
+    }
+  }
+
   // Bind UI
   bindHeader();
   bindModal();
@@ -4412,12 +5574,26 @@ self.onDestroy = function () {
     window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
+  window.removeEventListener('myio:alarms-updated', refreshAlarmBadges);
 
   // Cleanup TempSensorSummaryTooltip if attached
   if (_tempTooltipCleanup) {
     _tempTooltipCleanup();
     _tempTooltipCleanup = null;
     LogHelper.log('[TELEMETRY] TempSensorSummaryTooltip cleanup executed.');
+  }
+
+  // RFC-0195: Cleanup sync job modal + polling
+  try { _destroySyncJobModal(); } catch { /* non-critical */ }
+
+  // Remove portalled filter modal from body
+  try {
+    if (_filterModalElement && _filterModalElement.parentElement) {
+      _filterModalElement.parentElement.removeChild(_filterModalElement);
+    }
+    _filterModalElement = null;
+  } catch {
+    // non-critical cleanup
   }
 
   try {

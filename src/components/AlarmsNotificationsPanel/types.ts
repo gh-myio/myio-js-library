@@ -57,6 +57,8 @@ export interface AlarmsNotificationsPanelParams {
   alarmsApiBaseUrl?: string;
   /** Alarms API key (required — no hardcoded fallback) */
   alarmsApiKey?: string;
+  /** GCDR Tenant ID — required for trend/stats API calls (query param tenantId) */
+  tenantId?: string;
   /** Theme mode (default: 'dark') */
   themeMode?: ThemeMode;
   /** Enable debug logging */
@@ -137,6 +139,8 @@ export interface AlarmsNotificationsPanelInstance {
   refresh: () => void;
   /** Destroy the component and cleanup */
   destroy: () => void;
+  /** Inject trend data from external fetch and refresh the trend chart */
+  updateTrendData: (data: import('../../types/alarm').AlarmTrendDataPoint[]) => void;
 }
 
 // =====================================================================
@@ -219,6 +223,14 @@ export interface AlarmCardParams {
   showDeviceBadge?: boolean;
   /** Alarm type titles to show as chips inside card body (Por Dispositivo mode) */
   alarmTypes?: string[];
+  /** Hide ACK / Snooze / Escalate action buttons (consolidado and porDispositivo modes) */
+  hideActions?: boolean;
+  /** Hide the bulk-select checkbox (consolidado and porDispositivo modes) */
+  hideSelect?: boolean;
+  /** Hide the inline Details button — card click opens the modal instead */
+  hideDetails?: boolean;
+  /** Hide the Qte. (occurrenceCount) stat — not meaningful in separado (always 1) */
+  hideOccurrenceCount?: boolean;
 }
 
 // =====================================================================

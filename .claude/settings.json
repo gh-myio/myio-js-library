@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Projetos/GitHub/myio/clientes/souza aguiar/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Projetos\\GitHub\\myio\\clientes\\souza aguiar"
+    ]
+  }
+}

@@ -14,10 +14,10 @@ let MyIOAuth = null;
 
 // RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
 // This prevents race conditions when multiple widgets are loaded
-// VERSION: 2025-10-23-v2
+// VERSION: 2026-03-17-rfc-0152
 if (!window.__myioCurrentDomain) {
   window.__myioCurrentDomain = null;
-  console.log('[HEADER] VERSION: 2025-10-23-v2 - Global currentDomain initialized');
+  console.log('[HEADER] VERSION: 2026-03-17-rfc-0152 - Global currentDomain initialized');
 }
 
 // RFC-0042: Track current domain from MENU widget (use global reference)
@@ -29,6 +29,64 @@ let currentDomain = {
     window.__myioCurrentDomain = v;
   },
 };
+
+// RFC-0152: Suppress TB "No data to display on widget" overlay at MODULE SCOPE.
+// This runs even if onInit is never called (e.g., when TB datasource resolves to
+// 0 entities — ThingsBoard may skip onInit in that case, showing the overlay
+// which blocks the date-picker controls).
+(function suppressTbNoDataOverlayEarly() {
+  const styleId = 'myio-header-no-data-fix';
+  if (!document.getElementById(styleId)) {
+    const s = document.createElement('style');
+    s.id = styleId;
+    s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+    document.head.appendChild(s);
+    console.log('[HEADER] RFC-0152: No-data overlay suppressed (module scope)');
+  }
+})();
+
+// RFC-0152 FALLBACK: If ThingsBoard does not call onInit (empty datasource scenario),
+// this module-scope listener emits a default period when myio:dashboard-state arrives,
+// preventing the orchestrator from waiting 20s before its own fallback kicks in.
+// onInit sets window.__myioHeaderOnInitRan = true to disable this fallback.
+window.__myioHeaderOnInitRan = false;
+(function installHeaderFallbackPeriodEmitter() {
+  // Only install once (guard against multiple HEADER instances)
+  if (window.__myioHeaderFallbackInstalled) return;
+  window.__myioHeaderFallbackInstalled = true;
+
+  function _fallbackHandler(e) {
+    // Give onInit 800ms to mark itself as started
+    setTimeout(function () {
+      if (window.__myioHeaderOnInitRan) {
+        window.removeEventListener('myio:dashboard-state', _fallbackHandler);
+        return;
+      }
+      const domain = e && e.detail && e.detail.tab;
+      if (domain !== 'energy' && domain !== 'water') return;
+
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
+      const fallbackPeriod = {
+        startISO:    startDate.toISOString(),
+        endISO:      endDate.toISOString(),
+        granularity: 'day',
+        tz:          'America/Sao_Paulo',
+      };
+      window.__myioInitialPeriod = fallbackPeriod;
+      console.warn(
+        '[HEADER] ⚠️ RFC-0152 FALLBACK: onInit not called — emitting default period for domain:',
+        domain, fallbackPeriod
+      );
+      window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period: fallbackPeriod } }));
+      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
+    }, 800);
+  }
+
+  window.addEventListener('myio:dashboard-state', _fallbackHandler);
+  console.log('[HEADER] RFC-0152: Fallback period emitter installed (module scope)');
+})();
 
 /* ==== RFC-0107: Contract Status Icon Management ==== */
 
@@ -264,7 +322,25 @@ function setupTooltipPremium(target, text) {
 }
 
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
+  // Signal to the module-scope fallback emitter that onInit IS running
+  window.__myioHeaderOnInitRan = true;
+
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
+
+  // RFC-0152 FIX: Suppress ThingsBoard "No data to display on widget" overlay (also runs at module scope).
+  // HEADER does not consume TB datasource rows — it works entirely via custom window events.
+  // For water-only / temperature-only customers the TB datasource may have 0 rows, causing
+  // the overlay to cover the date-picker controls and make them inaccessible.
+  (function suppressTbNoDataOverlay() {
+    const styleId = 'myio-header-no-data-fix';
+    if (!document.getElementById(styleId)) {
+      const s = document.createElement('style');
+      s.id = styleId;
+      // Target common TB no-data overlay class names across versions
+      s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+      document.head.appendChild(s);
+    }
+  })();
 
   // RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
   const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
@@ -277,10 +353,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     console.error('[HEADER] customerTB_ID not available from window.MyIOUtils - MAIN widget must load first');
   }
   const tbToken = localStorage.getItem('jwt_token');
-  const customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
-    CUSTOMER_ID,
-    tbToken
-  );
+  let customerCredentials = {};
+  try {
+    customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
+      CUSTOMER_ID,
+      tbToken
+    );
+  } catch (credErr) {
+    LogHelper.warn(
+      '[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:',
+      credErr?.message
+    );
+    // Continue without credentials — controls will still be enabled via custom events
+  }
   const CLIENT_ID = customerCredentials.client_id || ' ';
   const CLIENT_SECRET = customerCredentials.client_secret || ' ';
   const INGESTION_ID = customerCredentials.ingestionId || ' ';
@@ -360,8 +445,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const btnLoad = q('#tbx-btn-load');
   const btnForceRefresh = q('#tbx-btn-force-refresh');
   const btnGen = q('#tbx-btn-report-general');
-  const btnAlarmReport = q('#tbx-btn-report-alarm');
-
   setupTooltipPremium(inputRange, '📅 Clique para alterar o intervalo de datas');
 
   // layout (garantia de 50/50)
@@ -456,7 +539,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       day: now.date(),
       hour: 23,
       minute: 59,
-      second: 0,
+      second: 59,
     });
     return { start, end };
   }
@@ -486,20 +569,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         if (btnLoad)         btnLoad.disabled         = false;
         if (btnForceRefresh) btnForceRefresh.disabled = false;
 
-        // Show alarm report button (still disabled — no endpoint yet), hide general report
-        if (btnGen)         btnGen.style.display         = 'none';
-        if (btnAlarmReport) btnAlarmReport.style.display = '';
+        // Hide general report button for alarm domain
+        if (btnGen) btnGen.style.display = 'none';
 
-        LogHelper.log('[HEADER] alarm domain — date controls enabled, report buttons swapped');
+        LogHelper.log('[HEADER] alarm domain — date controls enabled');
         return;
       }
 
       // Read enableReportButton flag from MAIN_VIEW (default: false = hidden)
       const enableReportButton = window.MyIOUtils?.enableReportButton ?? false;
 
-      // Restore alarm report button and show/hide general report for non-alarm domains
-      if (btnAlarmReport) btnAlarmReport.style.display = 'none';
-      if (btnGen)         btnGen.style.display         = enableReportButton ? '' : 'none';
+      // Show/hide general report for non-alarm domains
+      if (btnGen) btnGen.style.display = enableReportButton ? '' : 'none';
 
       const domainLabels = {
         energy: 'Relatório Consumo Geral de Energia por Loja',
@@ -594,10 +675,33 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0096 FIX: Check if domain was already set before listener was registered (race condition fix)
     // MENU may fire myio:dashboard-state before HEADER's onInit completes
     if (currentDomain.value && (currentDomain.value === 'energy' || currentDomain.value === 'water')) {
+      const raceDomain = currentDomain.value;
       LogHelper.log(
-        `[HEADER] 🔧 Race condition fix: Domain already set to ${currentDomain.value}, enabling controls`
+        `[HEADER] 🔧 RFC-0096 Race fix: Domain already set to ${raceDomain}, enabling controls and emitting period`
       );
-      updateControlsState(currentDomain.value);
+      updateControlsState(raceDomain);
+      hasEmittedInitialPeriod = true;
+
+      // Also emit period since we missed the myio:dashboard-state event.
+      // Without this the orchestrator waits ~20 s for its 15-attempt retry to exhaust
+      // before falling back to the default period.
+      setTimeout(() => {
+        if (self.__range.start && self.__range.end) {
+          const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
+          const endISO   = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
+          const racePeriod = {
+            startISO,
+            endISO,
+            granularity: calcGranularity(startISO, endISO),
+            tz: 'America/Sao_Paulo',
+          };
+          window.__myioInitialPeriod = racePeriod;
+          LogHelper.log(`[HEADER] 🚀 RFC-0096 Race fix: Emitting period for domain ${raceDomain}:`, racePeriod);
+          emitToAllContexts('myio:update-date', { period: racePeriod });
+        } else {
+          LogHelper.warn(`[HEADER] ⚠️ RFC-0096 Race fix: date range not ready, orchestrator will use its own fallback`);
+        }
+      }, 300);
     }
 
     // RFC-0130: Listen for data-ready events to enable controls after retry mechanism loads data
@@ -639,6 +743,700 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     });
 
+    // RFC-0178: When user switches to "Histórico Fechados" in the alarm panel, auto-emit
+    // the current HEADER date range so the ALARM controller can filter CLOSED alarms
+    // by the selected period without requiring a manual "Carregar" click.
+    window.addEventListener('myio:closed-alarms-toggle', (ev) => {
+      if (currentDomain.value !== 'alarm') return;
+      if (!ev.detail?.enabled) return; // only emit when entering historical mode
+      const filters = self.getFilters();
+      if (filters.startAt && filters.endAt) {
+        LogHelper.log('[HEADER] Auto-emitting alarm-filter-change for closed-alarms-toggle:', filters.startAt, '→', filters.endAt);
+        window.dispatchEvent(new CustomEvent('myio:alarm-filter-change', {
+          detail: { from: filters.startAt, to: filters.endAt },
+        }));
+      } else {
+        LogHelper.warn('[HEADER] closed-alarms-toggle: no date range available, ALARM will use fallback period');
+      }
+    });
+
+    // ── RFC-0193: Alarm Notification Tooltip ──────────────────────────────────
+
+    const ALARM_NOTIF_CSS = `
+.ant-tooltip {
+  position: fixed; z-index: 99999;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(8px);
+}
+.ant-tooltip.visible  { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.ant-tooltip.closing  { opacity: 0; transform: translateY(8px); transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
+.ant-tooltip.dragging { transition: none !important; cursor: move; }
+.ant-tooltip.maximized {
+  top: 20px !important; left: 20px !important;
+  right: 20px !important; bottom: 20px !important;
+  width: auto !important; max-width: none !important;
+}
+.ant-tooltip.maximized .ant-content { width: 100%; height: 100%; max-width: none; max-height: none; display: flex; flex-direction: column; font-size: 14px; }
+.ant-tooltip.maximized .ant-body    { flex: 1; overflow-y: auto; min-height: 0; }
+.ant-tooltip.maximized .ant-header-title { font-size: 16px; }
+.ant-tooltip.maximized .ant-toggle-label { font-size: 14px; }
+.ant-tooltip.maximized .ant-toggle-sub  { font-size: 12px; }
+.ant-tooltip.maximized .ant-summary-num { font-size: 22px; }
+.ant-tooltip.maximized .ant-summary-label { font-size: 13px; }
+.ant-tooltip.maximized .ant-section-hdr  { font-size: 13px; }
+.ant-tooltip.maximized .ant-alarm-device { font-size: 13px; }
+.ant-tooltip.maximized .ant-alarm-title  { font-size: 12px; }
+.ant-tooltip.maximized .ant-alarm-time   { font-size: 11px; }
+.ant-tooltip.maximized .ant-footer-label { font-size: 13px; }
+.ant-tooltip.maximized .ant-footer-value { font-size: 20px; }
+.ant-tooltip.pinned { box-shadow: 0 0 0 2px #0a6d5e, 0 10px 40px rgba(0,0,0,0.2); }
+.ant-content {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
+  width: 504px; max-width: 95vw; max-height: 82vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px; color: #1e293b; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.ant-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: linear-gradient(90deg, #e6f4f1 0%, #c3e6e2 100%);
+  border-bottom: 1px solid #7ecfc8; border-radius: 12px 12px 0 0;
+  cursor: move; user-select: none;
+}
+.ant-header-icon  { font-size: 18px; }
+.ant-header-title { font-weight: 700; font-size: 14px; color: #0a4f45; flex: 1; }
+.ant-header-ts    { font-size: 10px; color: #6b7280; margin-right: 8px; }
+.ant-header-actions { display: flex; align-items: center; gap: 4px; }
+.ant-hbtn {
+  width: 24px; height: 24px; border: none; background: rgba(255,255,255,0.6);
+  border-radius: 4px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all 0.15s; color: #64748b;
+}
+.ant-hbtn:hover { background: rgba(255,255,255,0.9); color: #1e293b; }
+.ant-hbtn.pinned { background: #0a6d5e; color: #fff; }
+.ant-hbtn.pinned:hover { background: #084f44; color: #fff; }
+.ant-hbtn svg { width: 14px; height: 14px; }
+.ant-body { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; }
+
+/* Toggle row */
+.ant-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: #f8faf9; border-radius: 8px;
+  margin-bottom: 12px; border: 1px solid #e0eceb;
+}
+.ant-toggle-label { font-weight: 600; font-size: 12px; color: #1e293b; }
+.ant-toggle-sub   { font-size: 10px; color: #64748b; margin-top: 1px; }
+.ant-switch {
+  position: relative; display: inline-block; width: 36px; height: 20px;
+  cursor: pointer; flex-shrink: 0;
+}
+.ant-switch input { opacity: 0; width: 0; height: 0; }
+.ant-switch-track {
+  position: absolute; inset: 0; background: #cbd5e1; border-radius: 20px;
+  transition: background 0.2s;
+}
+.ant-switch input:checked + .ant-switch-track { background: #0a6d5e; }
+.ant-switch-thumb {
+  position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
+  background: #fff; border-radius: 50%; transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.ant-switch input:checked ~ .ant-switch-thumb { transform: translateX(16px); }
+
+/* Summary bar */
+.ant-summary {
+  display: flex; gap: 8px; margin-bottom: 12px;
+}
+.ant-summary-item {
+  flex: 1; text-align: center; padding: 8px 4px;
+  background: #f8faf9; border: 1px solid #e0eceb; border-radius: 8px;
+}
+.ant-summary-num   { font-size: 20px; font-weight: 700; color: #0a6d5e; line-height: 1; }
+.ant-summary-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+/* Section headers */
+.ant-section-hdr {
+  font-size: 10px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 12px 0 6px; padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Summary cards row — primary */
+.ant-summary-primary { display: flex; gap: 8px; margin-bottom: 10px; }
+.ant-summary-card {
+  flex: 1; text-align: center; padding: 10px 6px; border-radius: 10px;
+  border: 1px solid #e0eceb;
+}
+.ant-summary-card.open   { background: #fff5f5; border-color: #fca5a5; }
+.ant-summary-card.closed { background: #f0fdf4; border-color: #6ee7b7; }
+.ant-summary-card-num   { font-size: 26px; font-weight: 800; line-height: 1; }
+.ant-summary-card.open   .ant-summary-card-num { color: #dc2626; }
+.ant-summary-card.closed .ant-summary-card-num { color: #059669; }
+.ant-summary-card-lbl   { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
+
+/* Active breakdown grid */
+.ant-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.ant-breakdown-item {
+  padding: 7px 10px; border-radius: 8px; border: 1px solid #e2e8f0;
+  background: #f8faf9; display: flex; align-items: center; gap: 8px;
+}
+.ant-breakdown-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.ant-breakdown-dot.CRITICAL { background: #dc2626; }
+.ant-breakdown-dot.HIGH     { background: #f59e0b; }
+.ant-breakdown-dot.MEDIUM   { background: #3b82f6; }
+.ant-breakdown-dot.LOW      { background: #6b7280; }
+.ant-breakdown-dot.INFO     { background: #a78bfa; }
+.ant-breakdown-dot.ACK      { background: #0891b2; }
+.ant-breakdown-dot.SNOOZED  { background: #8b5cf6; }
+.ant-breakdown-dot.ESCALATED{ background: #ea580c; }
+.ant-breakdown-info { flex: 1; min-width: 0; }
+.ant-breakdown-name { font-size: 11px; font-weight: 600; color: #374151; }
+.ant-breakdown-count{ font-size: 16px; font-weight: 800; color: #1e293b; line-height: 1; }
+
+/* First / last alarm highlight */
+.ant-firstlast { display: flex; gap: 6px; margin-bottom: 10px; }
+.ant-fl-card {
+  flex: 1; padding: 8px 10px; border-radius: 8px;
+  background: #f8faf9; border: 1px solid #e2e8f0;
+}
+.ant-fl-label { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.ant-fl-title { font-size: 11px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ant-fl-device{ font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ant-fl-time  { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+/* Severity chips */
+.ant-sev-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.ant-sev-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700;
+}
+.ant-sev-chip.CRITICAL { background: #fee2e2; color: #b91c1c; }
+.ant-sev-chip.HIGH     { background: #fef3c7; color: #b45309; }
+.ant-sev-chip.MEDIUM   { background: #dbeafe; color: #1d4ed8; }
+.ant-sev-chip.LOW      { background: #f3f4f6; color: #6b7280; }
+
+/* Alarm list */
+.ant-alarm-list { display: flex; flex-direction: column; gap: 4px; }
+.ant-alarm-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 8px; border-radius: 6px; background: #f8faf9;
+  border: 1px solid #f1f5f9; transition: background 0.12s;
+}
+.ant-alarm-row:hover { background: #f0f9f7; border-color: #c3e6e2; }
+.ant-alarm-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+}
+.ant-alarm-dot.CRITICAL { background: #dc2626; }
+.ant-alarm-dot.HIGH     { background: #f59e0b; }
+.ant-alarm-dot.MEDIUM   { background: #3b82f6; }
+.ant-alarm-dot.LOW      { background: #6b7280; }
+.ant-alarm-dot.CLOSED   { background: #10b981; }
+.ant-alarm-info { flex: 1; min-width: 0; }
+.ant-alarm-device {
+  font-size: 12px; font-weight: 700; color: #1e293b;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ant-alarm-title {
+  font-size: 11px; color: #64748b;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ant-alarm-time { font-size: 10px; color: #94a3b8; flex-shrink: 0; margin-top: 2px; }
+.ant-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 12px 0; }
+/* Collapsible sections */
+.ant-collapse { margin-bottom: 10px; }
+.ant-collapse summary {
+  font-size: 10px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 6px 0 4px; border-bottom: 1px solid #e2e8f0;
+  cursor: pointer; list-style: none; display: flex; align-items: center;
+  justify-content: space-between; user-select: none;
+}
+.ant-collapse summary::-webkit-details-marker { display: none; }
+.ant-collapse summary::after {
+  content: '▸'; font-size: 12px; color: #94a3b8; transition: transform 0.2s;
+}
+.ant-collapse[open] summary::after { transform: rotate(90deg); }
+.ant-collapse summary:hover { color: #0a4f45; }
+.ant-collapse-body { padding-top: 8px; }
+.ant-footer {
+  padding: 10px 14px; border-top: 1px solid #e8ecef;
+  background: linear-gradient(135deg, #0a6d5e 0%, #0d8570 100%);
+  border-radius: 0 0 11px 11px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ant-footer-label { font-size: 11px; color: rgba(255,255,255,0.85); font-weight: 600; }
+.ant-footer-value { font-size: 16px; font-weight: 700; color: #fff; }
+.ant-footer-btn {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.15); color: #fff; font-size: 11px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+  transition: background 0.15s;
+}
+.ant-footer-btn:hover { background: rgba(255,255,255,0.28); }
+/* Locked / not-configured state */
+.ant-locked {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 30px; gap: 14px; text-align: center;
+}
+.ant-locked-icon { font-size: 48px; line-height: 1; }
+.ant-locked-title { font-size: 15px; font-weight: 700; color: #374151; }
+.ant-locked-sub   { font-size: 12px; color: #6b7280; max-width: 260px; line-height: 1.5; }
+    `;
+
+    let _antCssInjected = false;
+    function _antInjectCSS() {
+      if (_antCssInjected) return;
+      const id = 'myio-ant-styles';
+      if (!document.getElementById(id)) {
+        const s = document.createElement('style');
+        s.id = id; s.textContent = ALARM_NOTIF_CSS;
+        document.head.appendChild(s);
+      }
+      _antCssInjected = true;
+    }
+
+    function _antFmtTime(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      } catch { return ''; }
+    }
+
+    function _antFmtNow() {
+      try {
+        return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      } catch { return ''; }
+    }
+
+    const AlarmNotificationTooltip = {
+      containerId: 'myio-ant-tooltip',
+      _hideTimer: null,
+      _forceHideTimer: null,
+      _isMouseOver: false,
+      _isPinned: false,
+      _isMaximized: false,
+      _isDragging: false,
+      _dragOffset: { x: 0, y: 0 },
+      _savedPosition: null,
+
+      getContainer() {
+        _antInjectCSS();
+        let c = document.getElementById(this.containerId);
+        if (!c) {
+          c = document.createElement('div');
+          c.id = this.containerId;
+          c.className = 'ant-tooltip';
+          document.body.appendChild(c);
+        }
+        return c;
+      },
+
+      renderHTML() {
+        // Gate: if alarms API not configured for this customer, show locked state
+        if (!window.MyIOOrchestrator?.alarmsConfigured) {
+          return `
+            <div class="ant-content">
+              <div class="ant-header" data-drag-handle>
+                <span class="ant-header-icon">🔔</span>
+                <span class="ant-header-title">Notificações de Alarme</span>
+                <div class="ant-header-actions">
+                  <button class="ant-hbtn" data-action="close" title="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="ant-locked">
+                <div class="ant-locked-icon">🔒</div>
+                <div class="ant-locked-title">Funcionalidade de Alarmes não está ativada</div>
+                <div class="ant-locked-sub">Este cliente não possui a integração de alarmes configurada. Entre em contato com o suporte MYIO para habilitar.</div>
+              </div>
+            </div>`;
+        }
+
+        const adm = window.MyIOOrchestrator?.alarmDayMap;
+        const all     = adm ? adm.listAll() : [];
+        const closed  = adm ? adm.listByStatus('CLOSED') : [];
+        const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
+
+        // "Ativos agora" = same source as the badge (customerAlarms = _prefetchCustomerAlarms result)
+        // alarmDayMap only covers today's date range — would under-count older open alarms
+        const customerAlarms = window.MyIOOrchestrator?.customerAlarms || [];
+        const active = customerAlarms.length > 0
+          ? customerAlarms
+          : (adm ? adm.listByStatus(['OPEN','ACK','ESCALATED','SNOOZED']) : []);
+
+        // Severity breakdown of active alarms
+        const sevCount   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+        const stateCount = { ACK: 0, SNOOZED: 0, ESCALATED: 0 };
+        for (const a of active) {
+          const s = a.severity || 'LOW';
+          if (s in sevCount) sevCount[s]++;
+          const st = a.state || '';
+          if (st in stateCount) stateCount[st]++;
+        }
+
+        const sevLabels   = { CRITICAL: 'Crítico', HIGH: 'Alto', MEDIUM: 'Médio', LOW: 'Baixo', INFO: 'Info' };
+        const stateLabels = { ACK: 'Reconhecido', SNOOZED: 'Adiado', ESCALATED: 'Escalado' };
+
+        const mkBreakdown = (key, label, dotCls) => `
+          <div class="ant-breakdown-item">
+            <div class="ant-breakdown-dot ${dotCls}"></div>
+            <div class="ant-breakdown-info">
+              <div class="ant-breakdown-name">${label}</div>
+              <div class="ant-breakdown-count">${sevCount[key] ?? stateCount[key] ?? 0}</div>
+            </div>
+          </div>`;
+
+        const sevGrid   = Object.keys(sevCount).map(k => mkBreakdown(k, sevLabels[k], k)).join('');
+        const stateGrid = Object.keys(stateCount).map(k => mkBreakdown(k, stateLabels[k], k)).join('');
+
+        // First and last alarm of the day
+        const sortedAll = [...all].sort((a,b) => {
+          const ta = new Date(a.firstOccurrence || a.raisedAt || 0).getTime();
+          const tb = new Date(b.firstOccurrence || b.raisedAt || 0).getTime();
+          return ta - tb;
+        });
+        const firstAlarm = sortedAll[0] || null;
+        const lastAlarm  = sortedAll[sortedAll.length - 1] || null;
+
+        const mkFlCard = (label, alarm) => {
+          if (!alarm) return `<div class="ant-fl-card"><div class="ant-fl-label">${label}</div><div class="ant-fl-title" style="color:#94a3b8">—</div></div>`;
+          const title  = alarm.title || alarm.alarmType || 'Alarme';
+          const device = alarm.deviceName || alarm.source || '';
+          const ts     = label === 'Primeiro' ? (alarm.firstOccurrence || alarm.raisedAt) : (alarm.lastOccurrence || alarm.lastUpdatedAt || alarm.raisedAt);
+          return `
+            <div class="ant-fl-card">
+              <div class="ant-fl-label">${label}</div>
+              <div class="ant-fl-title">${title}</div>
+              ${device ? `<div class="ant-fl-device">${device}</div>` : ''}
+              <div class="ant-fl-time">${_antFmtTime(ts)}</div>
+            </div>`;
+        };
+
+        // Row renderer shared by both lists
+        const mkAlarmRow = (a) => {
+          const sev    = a.severity || 'LOW';
+          const state  = a.state || '';
+          const dotCls = state === 'CLOSED' ? 'CLOSED' : sev;
+          const device = a.deviceName || a.source || '';
+          const title  = a.title || a.alarmType || 'Alarme';
+          const time   = _antFmtTime(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt);
+          return `
+            <div class="ant-alarm-row">
+              <div class="ant-alarm-dot ${dotCls}"></div>
+              <div class="ant-alarm-info">
+                ${device ? `<div class="ant-alarm-device">${device}</div>` : ''}
+                <div class="ant-alarm-title">${title}</div>
+              </div>
+              ${time ? `<div class="ant-alarm-time">${time}</div>` : ''}
+            </div>`;
+        };
+
+        // Active alarms list (Ativos do Dia)
+        const activeSorted = [...active].sort((a,b) => {
+          const ta = new Date(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt || 0).getTime();
+          const tb = new Date(b.lastOccurrence || b.lastUpdatedAt || b.raisedAt || 0).getTime();
+          return tb - ta;
+        });
+        const activeSection = active.length > 0 ? `
+          <details class="ant-collapse">
+            <summary>Ativos (${active.length})</summary>
+            <div class="ant-collapse-body">
+              <div class="ant-alarm-list">${activeSorted.map(mkAlarmRow).join('')}</div>
+            </div>
+          </details>` : '';
+
+        // History list (Histórico do Dia — all, most recent first, max 40)
+        const sorted = [...all].sort((a,b) => {
+          const ta = new Date(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt || 0).getTime();
+          const tb = new Date(b.lastOccurrence || b.lastUpdatedAt || b.raisedAt || 0).getTime();
+          return tb - ta;
+        }).slice(0, 40);
+        const histSection = all.length > 0 ? `
+          <details class="ant-collapse">
+            <summary>Histórico do Dia (${all.length})</summary>
+            <div class="ant-collapse-body">
+              <div class="ant-alarm-list">${sorted.map(mkAlarmRow).join('')}</div>
+            </div>
+          </details>` : '';
+
+        return `
+          <div class="ant-content">
+            <div class="ant-header" data-drag-handle>
+              <span class="ant-header-icon">🔔</span>
+              <span class="ant-header-title">Notificações de Alarme</span>
+              <span class="ant-header-ts">${_antFmtNow()}</span>
+              <div class="ant-header-actions">
+                <button class="ant-hbtn" data-action="pin" title="Fixar na tela">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+                    <line x1="12" y1="16" x2="12" y2="21"/>
+                    <line x1="8" y1="4" x2="16" y2="4"/>
+                  </svg>
+                </button>
+                <button class="ant-hbtn" data-action="maximize" title="Maximizar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  </svg>
+                </button>
+                <button class="ant-hbtn" data-action="close" title="Fechar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="ant-body">
+              <div class="ant-toggle-row">
+                <div>
+                  <div class="ant-toggle-label">Notificações de Alarmes no Painel</div>
+                  <div class="ant-toggle-sub">Ativar/desativar notificações flutuantes</div>
+                </div>
+                <label class="ant-switch" title="Ativar/desativar notificações">
+                  <input type="checkbox" id="ant-notif-toggle" ${enabled ? 'checked' : ''}>
+                  <span class="ant-switch-track"></span>
+                  <span class="ant-switch-thumb"></span>
+                </label>
+              </div>
+
+              <div class="ant-summary-primary">
+                <div class="ant-summary-card open">
+                  <div class="ant-summary-card-num">${active.length}</div>
+                  <div class="ant-summary-card-lbl">Ativos agora</div>
+                </div>
+                <div class="ant-summary-card closed">
+                  <div class="ant-summary-card-num">${closed.length}</div>
+                  <div class="ant-summary-card-lbl">Encerrados hoje</div>
+                </div>
+              </div>
+
+              <div class="ant-section-hdr">Ativos por Severidade</div>
+              <div class="ant-breakdown">${sevGrid}</div>
+
+              <div class="ant-section-hdr">Ativos por Estado</div>
+              <div class="ant-breakdown">${stateGrid}</div>
+
+              <div class="ant-section-hdr">Primeiro e Último Alarme do Dia</div>
+              <div class="ant-firstlast">
+                ${mkFlCard('Primeiro', firstAlarm)}
+                ${mkFlCard('Último', lastAlarm)}
+              </div>
+
+              ${activeSection}
+              ${histSection}
+            </div>
+            <div class="ant-footer">
+              <span class="ant-footer-label">Alarmes hoje</span>
+              <span class="ant-footer-value">${all.length}</span>
+              <button class="ant-footer-btn" data-action="open-alarm-map">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+                Regras de Alarmes
+              </button>
+            </div>
+          </div>`;
+      },
+
+      show(triggerElement) {
+        if (this._hideTimer)  { clearTimeout(this._hideTimer);  this._hideTimer  = null; }
+        if (this._forceHideTimer) { clearTimeout(this._forceHideTimer); this._forceHideTimer = null; }
+        const container = this.getContainer();
+        container.innerHTML = this.renderHTML();
+        this._bindEvents(container);
+        this._setupDrag(container);
+        container.classList.remove('closing');
+        // Position after layout so offsetWidth is available; then show
+        setTimeout(() => {
+          if (!this._isPinned) this._position(triggerElement);
+          container.classList.add('visible');
+        }, 0);
+
+        container.addEventListener('mouseenter', () => { this._isMouseOver = true; });
+        container.addEventListener('mouseleave', () => {
+          this._isMouseOver = false;
+          if (!this._isPinned) this.hide();
+        });
+      },
+
+      hide(immediate) {
+        if (this._isPinned && !immediate) return;
+        if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+        this._hideTimer = setTimeout(() => {
+          const container = document.getElementById(this.containerId);
+          if (!container) return;
+          container.classList.add('closing');
+          container.classList.remove('visible');
+          this._hideTimer = null;
+        }, immediate ? 0 : 300);
+      },
+
+      _position(triggerElement) {
+        const container = document.getElementById(this.containerId);
+        if (!container || !triggerElement) return;
+        const rect = triggerElement.getBoundingClientRect();
+        const vw   = window.innerWidth;
+        const vh   = window.innerHeight;
+        container.style.position = 'fixed';
+        container.style.removeProperty('right');
+        container.style.removeProperty('bottom');
+        // Use actual rendered width so it works regardless of CSS changes
+        const cw   = container.offsetWidth || 720;
+        let top  = rect.bottom + 8;
+        // Align right edge of tooltip to right edge of trigger, then clamp to viewport
+        let left = rect.right - cw;
+        if (left + cw > vw - 8) left = vw - cw - 8;
+        if (left < 8) left = 8;
+        if (top + 500 > vh) top = rect.top - 510;
+        if (top < 8) top = 8;
+        container.style.top  = `${top}px`;
+        container.style.left = `${left}px`;
+      },
+
+      _bindEvents(container) {
+        // Pin
+        container.querySelector('[data-action="pin"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._isPinned = !this._isPinned;
+          container.classList.toggle('pinned', this._isPinned);
+          e.currentTarget.classList.toggle('pinned', this._isPinned);
+        });
+        // Maximize
+        container.querySelector('[data-action="maximize"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._isMaximized = !this._isMaximized;
+          container.classList.toggle('maximized', this._isMaximized);
+        });
+        // Close
+        container.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._isPinned = false;
+          this.hide(true);
+        });
+        // Open Alarm Bundle Map modal
+        container.querySelector('[data-action="open-alarm-map"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!window.MyIOOrchestrator?.alarmsConfigured) {
+            LogHelper.warn('[HEADER] open-alarm-map: alarms not configured for this customer');
+            return;
+          }
+          const MyIOLibrary = window.MyIOLibrary;
+          if (!MyIOLibrary?.openAlarmBundleMapModal) {
+            LogHelper.warn('[HEADER] openAlarmBundleMapModal not available in MyIOLibrary');
+            return;
+          }
+          const customerTB_ID  = window.MyIOOrchestrator?.customerTB_ID || '';
+          const gcdrTenantId   = window.MyIOOrchestrator?.gcdrTenantId  || '';
+          const gcdrApiBaseUrl = window.MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+          if (!customerTB_ID) {
+            LogHelper.warn('[HEADER] open-alarm-map: customerTB_ID not available');
+            return;
+          }
+          MyIOLibrary.openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
+        });
+
+        // Notification toggle
+        const toggle = container.querySelector('#ant-notif-toggle');
+        if (toggle) {
+          toggle.addEventListener('change', async () => {
+            const enabled = toggle.checked;
+            // Optimistically update in memory
+            if (window.MyIOOrchestrator) window.MyIOOrchestrator.alarmNotificationsEnabled = enabled;
+            // Persist to ThingsBoard SERVER_SCOPE
+            try {
+              const jwt = localStorage.getItem('jwt_token');
+              const customerId = window.MyIOOrchestrator?.customerTB_ID;
+              const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+              if (jwt && customerId) {
+                await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
+                  method: 'POST',
+                  headers: {
+                    'X-Authorization': `Bearer ${jwt}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ alarmNotificationsEnabled: enabled }),
+                });
+              }
+            } catch (err) {
+              LogHelper.warn('[HEADER] Failed to save alarmNotificationsEnabled:', err);
+            }
+          });
+        }
+      },
+
+      _setupDrag(container) {
+        const handle = container.querySelector('[data-drag-handle]');
+        if (!handle) return;
+        const onDown = (e) => {
+          if (e.target.closest('[data-action]')) return; // don't drag when clicking buttons
+          this._isDragging = true;
+          const rect = container.getBoundingClientRect();
+          this._dragOffset.x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+          this._dragOffset.y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+          container.classList.add('dragging');
+          this._isPinned = true;
+          container.classList.add('pinned');
+          container.querySelector('[data-action="pin"]')?.classList.add('pinned');
+        };
+        const onMove = (e) => {
+          if (!this._isDragging) return;
+          const cx = e.clientX || e.touches?.[0]?.clientX;
+          const cy = e.clientY || e.touches?.[0]?.clientY;
+          container.style.left = `${cx - this._dragOffset.x}px`;
+          container.style.top  = `${cy - this._dragOffset.y}px`;
+        };
+        const onUp = () => {
+          this._isDragging = false;
+          container.classList.remove('dragging');
+        };
+        handle.addEventListener('mousedown', onDown);
+        handle.addEventListener('touchstart', onDown, { passive: true });
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+        document.addEventListener('touchmove', onMove, { passive: true });
+        document.addEventListener('touchend',  onUp);
+      },
+    };
+
+    // Wire up the bell button hover
+    const btnAlarmNotif = document.getElementById('tbx-btn-alarm-notif');
+    if (btnAlarmNotif) {
+      btnAlarmNotif.addEventListener('mouseenter', () => {
+        AlarmNotificationTooltip.show(btnAlarmNotif);
+      });
+      btnAlarmNotif.addEventListener('mouseleave', () => {
+        if (!AlarmNotificationTooltip._isMouseOver && !AlarmNotificationTooltip._isPinned) {
+          AlarmNotificationTooltip.hide();
+        }
+      });
+    }
+
+    // Update alarm badge count on every alarms-updated event
+    function _updateAlarmNotifBadge(count) {
+      const badge = document.getElementById('tbx-alarm-notif-badge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    window.addEventListener('myio:alarms-updated', (e) => {
+      _updateAlarmNotifBadge(e.detail?.count ?? 0);
+    });
+    // Seed badge if myio:alarms-updated already fired before this listener was registered
+    const _cachedAlarmCount = window.MyIOOrchestrator?.customerAlarms?.length ?? 0;
+    if (_cachedAlarmCount > 0) _updateAlarmNotifBadge(_cachedAlarmCount);
+
+    // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
 
@@ -846,16 +1644,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           `[HEADER] ✅ RFC-0053: Emitted clear event for domain: ${currentDomain.value} (single context)`
         );
 
-        // Show success message only for manual clicks
-        if (!isProgrammatic) {
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
-          if (MyIOToast) {
-            MyIOToast.success(
-              "Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.",
-              5000
-            );
+        LogHelper.log('[HEADER] 🔄 Force Refresh — cache cleared, triggering load...');
+
+        // After clearing, automatically trigger load so the user doesn't need to click "Carregar".
+        // Use a short delay to let the clear events propagate before fetching new data.
+        setTimeout(() => {
+          if (btnLoad && !btnLoad.disabled) {
+            LogHelper.log('[HEADER] 🔄 Auto-triggering Carregar after Limpar');
+            btnLoad.click();
+          } else {
+            // btnLoad disabled (unsupported domain) — just notify the user
+            const MyIOToast = window.MyIOLibrary?.MyIOToast;
+            if (MyIOToast && !isProgrammatic) {
+              MyIOToast.success('Cache limpo com sucesso!', 3000);
+            }
           }
-        }
+        }, 150);
 
         LogHelper.log('[HEADER] 🔄 Force Refresh completed successfully');
       } catch (err) {

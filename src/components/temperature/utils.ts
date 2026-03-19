@@ -487,7 +487,9 @@ export function exportTemperatureCSV(
   deviceLabel: string,
   stats: TemperatureStats,
   startDate: string,
-  endDate: string
+  endDate: string,
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): void {
   if (data.length === 0) {
     console.warn('No data to export');
@@ -510,10 +512,10 @@ export function exportTemperatureCSV(
   // Data header
   csvContent += 'Data/Hora,Temperatura (°C)\n';
 
-  // Data rows
+  // Data rows — apply same clamping as the graph so CSV matches what the user sees
   data.forEach(item => {
     const date = new Date(item.ts).toLocaleString('pt-BR');
-    const temp = Number(item.value).toFixed(2);
+    const temp = clampTemperature(item.value, clampRange, offset).toFixed(2);
     csvContent += `"${date}",${temp}\n`;
   });
 

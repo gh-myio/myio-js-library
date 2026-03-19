@@ -114,6 +114,49 @@
               <p class="muted">
                 No modo Admin exibimos selos e estatísticas de interpolação (17+, Interpolado, contadores).
               </p>
+
+              <div class="row" style="margin-top:10px">
+                <label class="switch">
+                  <input type="checkbox" [checked]="interpolationEnabled" (change)="setInterpolationEnabled($event)" />
+                  <span class="slider"></span>
+                </label>
+                <span>Habilitar Interpolação</span>
+              </div>
+              <p class="muted">
+                Quando desabilitada, lacunas preenchíveis são exibidas com <strong>=</strong> em vez de valor estimado.
+                A mudança aplica-se ao próximo carregamento do relatório.
+              </p>
+
+              <div class="settings-group" style="margin-top:14px;">
+                <label class="group-label">Limites de Temperatura (clamp)</label>
+                <p class="muted" style="margin-bottom:8px;">
+                  Leituras fora desse intervalo são corrigidas para o limite correspondente e marcadas com <strong>17+</strong> no modo Admin.
+                </p>
+                <div class="clamp-inputs">
+                  <label class="clamp-label">
+                    Mín. (°C)
+                    <input
+                      type="number"
+                      class="clamp-input"
+                      step="0.5"
+                      [ngModel]="clampMin"
+                      (change)="setClampMin($event)"
+                    />
+                  </label>
+                  <span class="clamp-sep">—</span>
+                  <label class="clamp-label">
+                    Máx. (°C)
+                    <input
+                      type="number"
+                      class="clamp-input"
+                      step="0.5"
+                      [ngModel]="clampMax"
+                      (change)="setClampMax($event)"
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div class="actions-row end">
                 <button class="btn ghost" (click)="closeSettingsModal()">Fechar</button>
               </div>
@@ -169,6 +212,43 @@
     </div>
   </div>
 
+  <!-- Banner de indisponibilidade de acesso remoto -->
+  <div class="rpc-unavail-banner" *ngIf="rpcConnectionErrors && rpcConnectionErrors.length > 0">
+    <div class="rpc-unavail-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 6s4-2 11-2 11 2 11 2"/>
+        <path d="M1 10s4-2 11-2 11 2 11 2"/>
+        <line x1="1" y1="14" x2="5" y2="14"/>
+        <line x1="19" y1="14" x2="23" y2="14"/>
+        <line x1="1" y1="18" x2="5" y2="18"/>
+        <line x1="19" y1="18" x2="23" y2="18"/>
+        <line x1="8" y1="14" x2="16" y2="18"/>
+        <line x1="16" y1="14" x2="8" y2="18"/>
+      </svg>
+    </div>
+    <div class="rpc-unavail-body">
+      <p class="rpc-unavail-title">
+        {{ rpcConnectionErrors.length === 1 ? 'Central com indisponibilidade de acesso remoto' : 'Centrais com indisponibilidade de acesso remoto' }}
+      </p>
+      <ul class="rpc-unavail-list">
+        <li *ngFor="let e of rpcConnectionErrors">
+          <span class="rpc-central-name">{{ e.centralId }}{{ e.centralName ? ' — ' + e.centralName : '' }}</span>
+          <span class="rpc-status-badge">{{ e.statusInfo }}</span>
+        </li>
+      </ul>
+      <p class="rpc-unavail-hint">
+        {{ rpcConnectionErrors.length === 1 ? 'A central acima está' : 'As centrais acima estão' }} temporariamente inacessível{{ rpcConnectionErrors.length === 1 ? '' : 'is' }}.
+        Nenhum dado foi exibido. Tente novamente em alguns instantes.
+      </p>
+      <button class="rpc-retry-btn" (click)="retryReport()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.5"/>
+        </svg>
+        Tentar novamente
+      </button>
+    </div>
+  </div>
+
   <!-- Modal de bloqueio -->
   <div class="block-modal-backdrop" *ngIf="isBlocking">
     <div class="block-modal">
@@ -201,7 +281,7 @@
 
     <ng-container matColumnDef="temperature">
       <mat-header-cell *matHeaderCellDef mat-sort-header> Temperatura </mat-header-cell>
-      <mat-cell *matCellDef="let row">{{ row.temperature }}°C</mat-cell>
+      <mat-cell *matCellDef="let row" [class.equal-sign-cell]="row.equalSign">{{ row.equalSign ? '=' : (row.temperature + '°C') }}</mat-cell>
     </ng-container>
 
     <ng-container matColumnDef="reading_date">
@@ -256,9 +336,10 @@
             *ngFor="let reading of device.value"
             [class.interpolated]="reading.interpolated"
             [class.clamped]="reading.correctedBelowThreshold"
+            [class.equal-sign-row]="reading.equalSign"
           >
             <div class="reading-temp">
-              {{ reading.temperature }}°C
+              {{ reading.equalSign ? '=' : (reading.temperature + '°C') }}
               <span class="badge clamp" *ngIf="adminMode && reading.correctedBelowThreshold">17+</span>
             </div>
             <div class="reading-date">{{ reading.reading_date }}</div>

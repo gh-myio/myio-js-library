@@ -52,11 +52,12 @@ interface DailyReading {
 }
 
 // Default energy fetcher implementation
-const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetcher => {
+// getGranularity is a callback so the fetcher always reads the live value at call time
+const createDefaultEnergyFetcher = (params: OpenDeviceReportParams, getGranularity: () => string): EnergyFetcher => {
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
     const domain = params.domain || 'energy';
     const endpoint = DOMAIN_CONFIG[domain].endpoint;
-    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=1d&page=1&pageSize=1000&deep=0`;
+    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${getGranularity()}&page=1&pageSize=1000&deep=0`;
 
     // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
     // This token provides access to telemetry data from the ingestion system
@@ -91,6 +92,7 @@ export class DeviceReportModal {
   private dateRangePicker: DateRangeControl | null = null;
   private sortState: { key: keyof DailyReading | null; direction: 'asc' | 'desc' } = { key: null, direction: 'asc' };
   private domainConfig: DomainConfig;
+  private granularity: '1d' | '1h' = '1d';
 
   constructor(private params: OpenDeviceReportParams) {
     this.authClient = new AuthClient({
@@ -103,8 +105,8 @@ export class DeviceReportModal {
     const domain = params.domain || 'energy';
     this.domainConfig = DOMAIN_CONFIG[domain];
 
-    // Use injected fetcher or create default with params
-    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params);
+    // Use injected fetcher or create default with params; getter ensures live granularity
+    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity);
   }
 
   public show(): ModalHandle {
@@ -143,6 +145,11 @@ export class DeviceReportModal {
               <label class="myio-label" for="date-range">Período</label>
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
+            <!-- granularity-toggle hidden: 1h not yet supported, default stays 1d -->
+            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:none;">
+              <button type="button" data-gran="1d">1d</button>
+              <button type="button" data-gran="1h">1h</button>
+            </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
               Carregar
@@ -175,6 +182,19 @@ export class DeviceReportModal {
 
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
+
+    // Granularity toggle
+    const granToggle = document.getElementById('granularity-toggle');
+    granToggle?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-gran]') as HTMLElement | null;
+      if (!btn) return;
+      this.granularity = btn.dataset.gran as '1d' | '1h';
+      granToggle.querySelectorAll<HTMLElement>('[data-gran]').forEach((b) => {
+        const isActive = b === btn;
+        b.style.background = isActive ? 'var(--myio-primary,#1565c0)' : 'transparent';
+        b.style.color = isActive ? '#fff' : '#6b7280';
+      });
+    });
 
     // Initialize DateRangePicker with default current month range
     try {
@@ -261,18 +281,29 @@ export class DeviceReportModal {
   private processApiResponse(apiResponse: any, dateRange: string[]): DailyReading[] {
     // Handle response - expect array with data property
     const dataArray = Array.isArray(apiResponse) ? apiResponse : (apiResponse.data || []);
-    
+    const isHourly = (this.granularity) === '1h';
+
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
+      if (isHourly) return [];
       return dateRange.map(date => ({ date, consumption: 0 }));
     }
 
     const deviceData = dataArray[0]; // First (and likely only) device
     const consumption = deviceData.consumption || [];
 
-    // Build daily consumption map
+    if (isHourly) {
+      // Hourly: keep full timestamp, no zero-fill
+      return consumption
+        .filter((item: any) => item.timestamp && item.value != null)
+        .map((item: any) => ({
+          date: item.timestamp,
+          consumption: Number(item.value),
+        }));
+    }
+
+    // Daily: build map and zero-fill with date range
     const dailyMap: { [key: string]: number } = {};
-    
     consumption.forEach((item: any) => {
       if (item.timestamp && item.value != null) {
         const date = item.timestamp.slice(0, 10); // Extract YYYY-MM-DD
@@ -282,10 +313,9 @@ export class DeviceReportModal {
       }
     });
 
-    // Generate complete date range with zero-fill for missing dates
     return dateRange.map(date => ({
       date,
-      consumption: dailyMap[date] || 0
+      consumption: dailyMap[date] || 0,
     }));
   }
 
@@ -325,7 +355,7 @@ export class DeviceReportModal {
           <thead>
             <tr>
               <th style="cursor: pointer;" data-sort="date">
-                Data
+                ${(this.granularity) === '1h' ? 'Data/Hora' : 'Data'}
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">
@@ -391,6 +421,16 @@ export class DeviceReportModal {
   }
 
   private formatDate(dateStr: string): string {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) {
+      // Hourly timestamp: YYYY-MM-DDTHH:mm:ss
+      const date = new Date(dateStr);
+      return (
+        date.toLocaleDateString('pt-BR') +
+        ' ' +
+        date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      );
+    }
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('pt-BR');
   }

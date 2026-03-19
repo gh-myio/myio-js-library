@@ -1,9 +1,9 @@
 /**
  * RFC-0180: Alarms Tab Component
  *
- * Section 1 — Active alarms for this device, grouped by ruleId.
+ * Section 1 — Active alarms for this device, "separado" (Disp. + Tipo) view.
  *             GET /api/v1/alarms?deviceId={gcdrDeviceId}&state=OPEN,ACK,ESCALATED,SNOOZED&limit=100&page=1
- *             Each group = 1 alarm-card with occurrenceCount + state-count chips.
+ *             One alarm-card per individual alarm; ACK/Snooze/Escalate visible; Qte. hidden.
  *             Rendered via createAlarmCardElement (same card as AlarmsNotificationsPanel).
  *
  * Section 2 — Multi-select of all customer rules; Save updates scope.entityIds
@@ -21,38 +21,21 @@ import type { GCDRCustomerBundle } from '../../gcdr-sync/types';
 // Constants
 // ============================================================================
 
-const GCDR_INTEGRATION_API_KEY = 'gcdr_cust_tb_integration_key_2026';
-const GCDR_DEFAULT_BASE_URL    = 'https://gcdr-api.a.myio-bas.com';
-const ALARMS_DEFAULT_BASE_URL  = 'https://alarms-api.a.myio-bas.com';
-
 const PRIORITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#dc2626',
-  HIGH:     '#f59e0b',
-  MEDIUM:   '#3b82f6',
-  LOW:      '#6b7280',
+  HIGH: '#f59e0b',
+  MEDIUM: '#3b82f6',
+  LOW: '#6b7280',
 };
 
 const OPERATOR_LABELS: Record<string, string> = {
-  LT: '<', GT: '>', LTE: '≤', GTE: '≥', EQ: '=',
-};
-
-/** Most-critical first */
-const STATE_PRIORITY: Record<string, number> = {
-  OPEN: 0, ESCALATED: 1, SNOOZED: 2, ACK: 3, CLOSED: 4,
-};
-
-const SEVERITY_PRIORITY: Record<string, number> = {
-  CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4,
-};
-
-const STATE_LABELS: Record<string, string> = {
-  OPEN:      'Aberto',
-  ACK:       'Reconhecido',
-  ESCALATED: 'Escalado',
-  SNOOZED:   'Silenciado',
-  CLOSED:    'Fechado',
+  LT: '<',
+  GT: '>',
+  LTE: '≤',
+  GTE: '≥',
+  EQ: '=',
 };
 
 // ============================================================================
@@ -63,14 +46,6 @@ export interface AlarmsTabConfig {
   container: HTMLElement;
   /** GCDR UUID of this device (SERVER_SCOPE attr `gcdrDeviceId` on TB device) */
   gcdrDeviceId: string;
-  /** GCDR UUID of the customer (SERVER_SCOPE attr `gcdrCustomerId` on TB customer) */
-  gcdrCustomerId: string;
-  /** GCDR Tenant ID — X-Tenant-ID header */
-  gcdrTenantId: string;
-  /** GCDR API base URL. Defaults to https://gcdr-api.a.myio-bas.com */
-  gcdrApiBaseUrl?: string;
-  /** Alarms API base URL. Defaults to https://alarms-api.a.myio-bas.com */
-  alarmsApiBaseUrl?: string;
   /** ThingsBoard device UUID */
   tbDeviceId: string;
   /** JWT token — available for future use */
@@ -81,6 +56,11 @@ export interface AlarmsTabConfig {
    *  When provided, AlarmsTab casts to GCDRAlarm[], filters by gcdrDeviceId, and skips
    *  the per-device API call. */
   prefetchedAlarms?: unknown[] | null;
+  /** Pre-fetched customer rules (GCDRCustomerRule[]).
+   *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
+  prefetchedRules?: unknown[] | null;
+  /** Device profile (e.g. FANCOIL, ELEVADOR) — used to filter rules by scopeProfiles */
+  deviceProfile?: string;
 }
 
 /** Raw alarm returned by GET /api/v1/alarms */
@@ -106,24 +86,6 @@ interface GCDRAlarm {
   };
 }
 
-/** Aggregated group of alarms sharing the same ruleId */
-interface GCDRAlarmGroup {
-  ruleId: string;
-  title: string;
-  alarmType?: string;
-  /** Highest severity across group */
-  severity: string;
-  /** Most-critical state across group */
-  dominantState: string;
-  /** Count per state: { OPEN: 44, ACK: 2, ... } */
-  stateCounts: Record<string, number>;
-  totalCount: number;
-  firstOccurrence: string;
-  lastOccurrence: string;
-  /** All raw alarm IDs in this group — used for bulk actions */
-  alarmIds: string[];
-}
-
 /** Rule object returned by GET /customers/:gcdrCustomerId/rules */
 interface GCDRCustomerRule {
   id: string;
@@ -135,6 +97,7 @@ interface GCDRCustomerRule {
     type: string;
     entityIds: string[];
   };
+  scopeProfiles?: string[];
   alarmConfig?: {
     metric: string;
     operator: string;
@@ -151,8 +114,9 @@ export class AlarmsTab {
   private config: AlarmsTabConfig;
   private customerRules: GCDRCustomerRule[] = [];
   private activeAlarms: GCDRAlarm[] = [];
-  private alarmGroups: GCDRAlarmGroup[] = [];
   private initialCheckedRuleIds = new Set<string>();
+  private alarmsUpdatedHandler: (() => void) | null = null;
+  private rulesFetchError: string | null = null;
 
   constructor(config: AlarmsTabConfig) {
     this.config = config;
@@ -163,235 +127,102 @@ export class AlarmsTab {
     this.injectStyles();
     container.innerHTML = this.getLoadingHTML();
 
+    const orch = this.orch;
+    if (!orch?.gcdrFetchCustomerRules) {
+      this.showToast('AlarmsTab: MyIOOrchestrator não inicializado');
+      container.innerHTML = this.getErrorHTML('MyIOOrchestrator não inicializado com API GCDR');
+      return;
+    }
+
+    // Section 1 — always available (reads from AlarmServiceOrchestrator, no network call)
+    this.activeAlarms = this.readAlarmsFromASO();
+
+    // Section 2 — rules fetch; failure is isolated so Section 1 still renders
+    let rulesFetchError: string | null = null;
     try {
-      const gcdrBaseUrl   = this.config.gcdrApiBaseUrl   || GCDR_DEFAULT_BASE_URL;
-      const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
-
-      // Prefer AlarmServiceOrchestrator (device-keyed map from MAIN_VIEW prefetch),
-      // then fall back to prefetchedAlarms (filtered array), then per-device API call.
-      const aso = (window as unknown as {
-        AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
-      }).AlarmServiceOrchestrator;
-      const fromOrch = this.config.gcdrDeviceId ? aso?.getAlarmsForDevice(this.config.gcdrDeviceId) ?? null : null;
-      const prefetched = this.config.prefetchedAlarms;
-      const alarmsPromise = (fromOrch != null && fromOrch.length > 0)
-        ? Promise.resolve(fromOrch)
-        : prefetched != null
-          ? Promise.resolve(
-              (prefetched as GCDRAlarm[]).filter(
-                (a) => a.deviceId === this.config.gcdrDeviceId,
-              ),
-            )
-          : this.fetchActiveAlarms(alarmsBaseUrl);
-
-      const [alarms, rules] = await Promise.all([
-        alarmsPromise,
-        this.fetchCustomerRules(gcdrBaseUrl),
-      ]);
-      this.activeAlarms  = alarms;
-      this.customerRules = rules;
-      this.alarmGroups   = this.groupAlarms(alarms);
+      this.customerRules =
+        this.config.prefetchedRules != null
+          ? (this.config.prefetchedRules as GCDRCustomerRule[])
+          : await this.orch.gcdrFetchCustomerRules();
 
       for (const rule of this.customerRules) {
         if (rule.scope?.entityIds?.includes(this.config.gcdrDeviceId)) {
           this.initialCheckedRuleIds.add(rule.id);
         }
       }
-
-      container.innerHTML = this.renderTab();
-      this.populateAlarmsGrid();
-      this.attachTabListeners();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      container.innerHTML = this.getErrorHTML(msg);
+      rulesFetchError = this.classifyRulesError(err);
+      this.customerRules = [];
     }
+
+    this.rulesFetchError = rulesFetchError;
+    container.innerHTML = this.renderTab();
+    this.populateAlarmsGrid();
+    this.attachTabListeners();
+
+    // Re-read from ASO whenever MAIN refreshes alarm data (e.g. after ACK/snooze in ALARM widget)
+    this.alarmsUpdatedHandler = () => {
+      const fresh = this.readAlarmsFromASO();
+      this.activeAlarms = fresh;
+      this.refreshAlarmsGridFromCurrentData();
+    };
+    window.addEventListener('myio:alarms-updated', this.alarmsUpdatedHandler);
   }
 
   destroy(): void {
-    // No persistent subscriptions
+    if (this.alarmsUpdatedHandler) {
+      window.removeEventListener('myio:alarms-updated', this.alarmsUpdatedHandler);
+      this.alarmsUpdatedHandler = null;
+    }
   }
 
-  // ============================================================================
-  // Grouping
-  // ============================================================================
-
   /**
-   * Group raw alarms by metadata.ruleId (fallback: title).
-   * One card per group; occurrenceCount = total alarms in group.
+   * Read device-specific alarms from AlarmServiceOrchestrator (built by MAIN_VIEW).
+   * Falls back to prefetchedAlarms prop when ASO is not available (e.g. standalone showcase).
    */
-  private groupAlarms(alarms: GCDRAlarm[]): GCDRAlarmGroup[] {
-    const map = new Map<string, GCDRAlarmGroup>();
-
-    for (const alarm of alarms) {
-      const key = alarm.metadata?.ruleId || alarm.title || alarm.id;
-
-      if (!map.has(key)) {
-        map.set(key, {
-          ruleId:          key,
-          title:           alarm.title    || '',
-          alarmType:       alarm.alarmType,
-          severity:        alarm.severity || 'LOW',
-          dominantState:   alarm.state    || 'OPEN',
-          stateCounts:     {},
-          totalCount:      0,
-          firstOccurrence: alarm.raisedAt      || '',
-          lastOccurrence:  alarm.lastUpdatedAt || alarm.raisedAt || '',
-          alarmIds:        [],
-        });
+  private readAlarmsFromASO(): GCDRAlarm[] {
+    const aso = (
+      window as unknown as {
+        AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
       }
+    ).AlarmServiceOrchestrator;
 
-      const g = map.get(key)!;
-      g.totalCount++;
-      g.alarmIds.push(alarm.id);
-      g.stateCounts[alarm.state] = (g.stateCounts[alarm.state] || 0) + 1;
-
-      // Escalate dominant state to most-critical
-      if ((STATE_PRIORITY[alarm.state] ?? 99) < (STATE_PRIORITY[g.dominantState] ?? 99)) {
-        g.dominantState = alarm.state;
-      }
-
-      // Escalate severity to highest
-      if ((SEVERITY_PRIORITY[alarm.severity] ?? 99) < (SEVERITY_PRIORITY[g.severity] ?? 99)) {
-        g.severity = alarm.severity;
-      }
-
-      // Track earliest firstOccurrence
-      if (alarm.raisedAt && (!g.firstOccurrence || alarm.raisedAt < g.firstOccurrence)) {
-        g.firstOccurrence = alarm.raisedAt;
-      }
-
-      // Track latest lastOccurrence
-      const lastTs = alarm.lastUpdatedAt || alarm.raisedAt || '';
-      if (lastTs && lastTs > g.lastOccurrence) {
-        g.lastOccurrence = lastTs;
-      }
+    if (aso && this.config.gcdrDeviceId) {
+      return aso.getAlarmsForDevice(this.config.gcdrDeviceId) as GCDRAlarm[];
     }
 
-    // Sort: most-critical dominant state first, then highest severity
-    return [...map.values()].sort((a, b) => {
-      const sd = (STATE_PRIORITY[a.dominantState] ?? 99) - (STATE_PRIORITY[b.dominantState] ?? 99);
-      if (sd !== 0) return sd;
-      return (SEVERITY_PRIORITY[a.severity] ?? 99) - (SEVERITY_PRIORITY[b.severity] ?? 99);
-    });
+    // Fallback: prefetchedAlarms filtered by deviceId
+    const prefetched = this.config.prefetchedAlarms;
+    if (prefetched != null) {
+      return (prefetched as GCDRAlarm[]).filter((a) => a.deviceId === this.config.gcdrDeviceId);
+    }
+
+    return [];
   }
 
-  /**
-   * Map an aggregated GCDRAlarmGroup → Alarm so createAlarmCardElement can be used.
-   * State-count chips go into _alarmTypes → rendered as type chips in the card body.
-   */
-  private mapGroupToAlarm(group: GCDRAlarmGroup): Alarm {
-    // Build chips sorted most-critical first: "Aberto × 44", "Reconhecido × 2"
-    const stateChips = Object.entries(group.stateCounts)
-      .sort((a, b) => (STATE_PRIORITY[a[0]] ?? 99) - (STATE_PRIORITY[b[0]] ?? 99))
-      .map(([state, count]) => `${STATE_LABELS[state] || state} × ${count}`);
+  // ============================================================================
+  // Card mapping — separado (Disp. + Tipo) view: one card per individual alarm
+  // ============================================================================
 
+  /**
+   * Map a raw GCDRAlarm → Alarm for createAlarmCardElement.
+   * Each alarm is its own card (no grouping by ruleId).
+   */
+  private mapAlarmToCard(alarm: GCDRAlarm): Alarm {
     return {
-      id:              group.ruleId,
-      customerId:      this.config.gcdrCustomerId,
-      customerName:    '',
-      source:          '',
-      severity:        group.severity      as AlarmSeverity,
-      state:           group.dominantState as AlarmState,
-      title:           group.title,
-      description:     '',
-      tags:            {},
-      firstOccurrence: group.firstOccurrence,
-      lastOccurrence:  group.lastOccurrence,
-      occurrenceCount: group.totalCount,
-      _alarmTypes:     stateChips,
+      id: alarm.id,
+      customerId: this.orch?.gcdrCustomerId ?? '',
+      customerName: '',
+      source: alarm.deviceName || '',
+      severity: (alarm.severity || 'LOW') as AlarmSeverity,
+      state: (alarm.state || 'OPEN') as AlarmState,
+      title: alarm.title || '',
+      description: alarm.description || '',
+      tags: {},
+      firstOccurrence: alarm.raisedAt || '',
+      lastOccurrence: alarm.lastUpdatedAt || alarm.raisedAt || '',
+      occurrenceCount: 1,
     };
-  }
-
-  // ============================================================================
-  // Data fetching
-  // ============================================================================
-
-  private async fetchActiveAlarms(baseUrl: string): Promise<GCDRAlarm[]> {
-    const url =
-      `${baseUrl}/api/v1/alarms` +
-      `?deviceId=${encodeURIComponent(this.config.gcdrDeviceId)}` +
-      `&state=OPEN,ACK,ESCALATED,SNOOZED&limit=100&page=1`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': GCDR_INTEGRATION_API_KEY,
-        'X-Tenant-ID': this.config.gcdrTenantId,
-        Accept: 'application/json',
-      },
-    });
-
-    if (response.status === 404) return [];
-    if (!response.ok) {
-      throw new Error(`Alarms API error (${response.status}): ${response.statusText}`);
-    }
-
-    const json = (await response.json()) as {
-      items?: GCDRAlarm[];
-      data?: GCDRAlarm[] | { items?: GCDRAlarm[] };
-    };
-    if (Array.isArray(json.data)) return json.data;
-    return json.items ?? (json.data as { items?: GCDRAlarm[] } | undefined)?.items ?? [];
-  }
-
-  private async fetchCustomerRules(baseUrl: string): Promise<GCDRCustomerRule[]> {
-    const url = `${baseUrl}/api/v1/customers/${encodeURIComponent(this.config.gcdrCustomerId)}/rules`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': GCDR_INTEGRATION_API_KEY,
-        'X-Tenant-ID': this.config.gcdrTenantId,
-        Accept: 'application/json',
-      },
-    });
-
-    if (response.status === 404) return [];
-    if (!response.ok) {
-      throw new Error(`GCDR error fetching rules (${response.status}): ${response.statusText}`);
-    }
-
-    const json = (await response.json()) as {
-      items?: GCDRCustomerRule[];
-      data?: { items?: GCDRCustomerRule[] };
-    };
-    return json.items ?? json.data?.items ?? [];
-  }
-
-  private async postAlarmAction(baseUrl: string, alarmId: string, action: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${baseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': GCDR_INTEGRATION_API_KEY,
-          'X-Tenant-ID': this.config.gcdrTenantId,
-        },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  private async putRuleScope(
-    baseUrl: string,
-    ruleId: string,
-    entityIds: string[],
-  ): Promise<boolean> {
-    try {
-      const url = `${baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`;
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'X-API-Key': GCDR_INTEGRATION_API_KEY,
-          'X-Tenant-ID': this.config.gcdrTenantId,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
   }
 
   // ============================================================================
@@ -403,58 +234,83 @@ export class AlarmsTab {
     if (!grid) return;
     grid.innerHTML = '';
 
-    const alarmsBaseUrl = this.config.alarmsApiBaseUrl || ALARMS_DEFAULT_BASE_URL;
-    const AlarmService = (window as unknown as {
-      MyIOLibrary?: {
-        AlarmService?: {
-          batchAcknowledge?: (ids: string[], email: string) => Promise<void>;
-          batchSilence?:     (ids: string[], email: string, duration: string) => Promise<void>;
-          batchEscalate?:    (ids: string[], email: string) => Promise<void>;
+    const AlarmService = (
+      window as unknown as {
+        MyIOLibrary?: {
+          AlarmService?: {
+            batchAcknowledge?: (ids: string[], email: string) => Promise<void>;
+            batchSilence?: (ids: string[], email: string, duration: string) => Promise<void>;
+            batchEscalate?: (ids: string[], email: string) => Promise<void>;
+          };
         };
-      };
-    }).MyIOLibrary?.AlarmService;
-    const userEmail = (window as unknown as { MyIOUtils?: { currentUserEmail?: string } })
-      .MyIOUtils?.currentUserEmail || '';
+      }
+    ).MyIOLibrary?.AlarmService;
+    const userEmail =
+      (window as unknown as { MyIOUtils?: { currentUserEmail?: string } }).MyIOUtils?.currentUserEmail || '';
 
-    for (const group of this.alarmGroups) {
-      const alarm = this.mapGroupToAlarm(group);
+    // Separado view: one card per individual alarm (Disp. + Tipo unit)
+    for (const rawAlarm of this.activeAlarms) {
+      const alarm = this.mapAlarmToCard(rawAlarm);
+
+      // onAction callback forwarded to AlarmDetailsModal → Timeline tab
+      const onAction = (action: 'acknowledge' | 'snooze' | 'escalate', alarmId: string): void => {
+        const doAction = async () => {
+          if (action === 'acknowledge') {
+            if (AlarmService?.batchAcknowledge) {
+              await AlarmService.batchAcknowledge([alarmId], userEmail);
+            } else {
+              await this.orch.gcdrPostAlarmAction(alarmId, 'acknowledge');
+            }
+          } else if (action === 'snooze') {
+            if (AlarmService?.batchSilence) {
+              await AlarmService.batchSilence([alarmId], userEmail, '4h');
+            } else {
+              await this.orch.gcdrPostAlarmAction(alarmId, 'snooze');
+            }
+          } else if (action === 'escalate') {
+            if (AlarmService?.batchEscalate) {
+              await AlarmService.batchEscalate([alarmId], userEmail);
+            } else {
+              await this.orch.gcdrPostAlarmAction(alarmId, 'escalate');
+            }
+          }
+          await this.refreshAlarmsGrid();
+        };
+        doAction().catch(() => {
+          /* non-blocking */
+        });
+      };
 
       const params: AlarmCardParams = {
         showCustomerName: false,
-        showDeviceBadge:  false,
-        alarmTypes:       alarm._alarmTypes,
+        showDeviceBadge: false,
+        hideOccurrenceCount: true, // always 1 in separado — not meaningful
         onAcknowledge: async () => {
           if (AlarmService?.batchAcknowledge) {
-            await AlarmService.batchAcknowledge(group.alarmIds, userEmail);
+            await AlarmService.batchAcknowledge([rawAlarm.id], userEmail);
           } else {
-            await Promise.all(
-              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'acknowledge')),
-            );
+            await this.orch.gcdrPostAlarmAction(rawAlarm.id, 'acknowledge');
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         },
         onSnooze: async () => {
           if (AlarmService?.batchSilence) {
-            await AlarmService.batchSilence(group.alarmIds, userEmail, '4h');
+            await AlarmService.batchSilence([rawAlarm.id], userEmail, '4h');
           } else {
-            await Promise.all(
-              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'snooze')),
-            );
+            await this.orch.gcdrPostAlarmAction(rawAlarm.id, 'snooze');
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         },
         onEscalate: async () => {
           if (AlarmService?.batchEscalate) {
-            await AlarmService.batchEscalate(group.alarmIds, userEmail);
+            await AlarmService.batchEscalate([rawAlarm.id], userEmail);
           } else {
-            await Promise.all(
-              group.alarmIds.map((id) => this.postAlarmAction(alarmsBaseUrl, id, 'escalate')),
-            );
+            await this.orch.gcdrPostAlarmAction(rawAlarm.id, 'escalate');
           }
-          await this.refreshAlarmsGrid(alarmsBaseUrl);
+          await this.refreshAlarmsGrid();
         },
         onDetails: () => {
-          openAlarmDetailsModal(alarm);
+          openAlarmDetailsModal(alarm, 'light', 'separado', onAction);
         },
       };
 
@@ -463,36 +319,52 @@ export class AlarmsTab {
     }
   }
 
-  private async refreshAlarmsGrid(alarmsBaseUrl: string): Promise<void> {
-    this.activeAlarms = await this.fetchActiveAlarms(alarmsBaseUrl);
-    this.alarmGroups  = this.groupAlarms(this.activeAlarms);
+  /**
+   * After an alarm action (ACK/snooze/escalate), trigger MAIN to refresh the ASO.
+   * The myio:alarms-updated event will update this component automatically.
+   * Also updates the grid immediately from the post-action ASO data.
+   */
+  private async refreshAlarmsGrid(): Promise<void> {
+    const aso = (
+      window as unknown as {
+        AlarmServiceOrchestrator?: { refresh: () => Promise<void> };
+      }
+    ).AlarmServiceOrchestrator;
 
-    // RFC-0183: Rebuild AlarmServiceOrchestrator maps after action
-    const aso = (window as unknown as { AlarmServiceOrchestrator?: { refresh: () => Promise<void> } })
-      .AlarmServiceOrchestrator;
     if (aso) {
-      await aso.refresh().catch(() => { /* non-blocking */ });
+      // Refresh MAIN source → fires myio:alarms-updated → our handler calls refreshAlarmsGridFromCurrentData
+      await aso.refresh().catch(() => {
+        /* non-blocking */
+      });
+    } else {
+      // Fallback: re-read from ASO directly (may not have new data yet)
+      this.activeAlarms = this.readAlarmsFromASO();
+      this.refreshAlarmsGridFromCurrentData();
     }
+  }
 
-    // Update count badge (shows group count, not raw alarm count)
+  /** Update the alarm grid DOM from this.activeAlarms (no network call). */
+  private refreshAlarmsGridFromCurrentData(): void {
+    const count = this.activeAlarms.length;
+
     const badge = this.config.container.querySelector<HTMLElement>('#at-alarms-count');
     if (badge) {
-      badge.textContent    = String(this.alarmGroups.length);
-      badge.style.display  = this.alarmGroups.length > 0 ? '' : 'none';
+      badge.textContent = String(count);
+      badge.style.display = count > 0 ? '' : 'none';
     }
     const sub = this.config.container.querySelector<HTMLElement>('#at-alarms-sub');
     if (sub) {
       sub.textContent = this.buildSectionSubtitle();
     }
 
-    const grid  = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
+    const grid = this.config.container.querySelector<HTMLElement>('#at-alarms-grid');
     const empty = this.config.container.querySelector<HTMLElement>('#at-alarms-empty');
 
-    if (this.alarmGroups.length === 0) {
-      if (grid)  grid.style.display  = 'none';
+    if (count === 0) {
+      if (grid) grid.style.display = 'none';
       if (empty) empty.style.display = '';
     } else {
-      if (grid)  grid.style.display  = '';
+      if (grid) grid.style.display = '';
       if (empty) empty.style.display = 'none';
       this.populateAlarmsGrid();
     }
@@ -504,9 +376,8 @@ export class AlarmsTab {
 
   private buildSectionSubtitle(): string {
     const total = this.activeAlarms.length;
-    const groups = this.alarmGroups.length;
     if (total === 0) return 'Nenhum alarme ativo para este dispositivo';
-    return `${total} ocorrência${total !== 1 ? 's' : ''} em ${groups} tipo${groups !== 1 ? 's' : ''}`;
+    return `${total} alarme${total !== 1 ? 's' : ''} ativo${total !== 1 ? 's' : ''} para este dispositivo`;
   }
 
   private renderTab(): string {
@@ -519,7 +390,7 @@ export class AlarmsTab {
   }
 
   private renderSection1(): string {
-    const groups = this.alarmGroups.length;
+    const count = this.activeAlarms.length;
     return `
       <div class="at-section">
         <div class="at-section-header">
@@ -529,16 +400,16 @@ export class AlarmsTab {
             <div class="at-section-sub" id="at-alarms-sub">${this.buildSectionSubtitle()}</div>
           </div>
           <span class="at-count-badge" id="at-alarms-count"
-                style="${groups === 0 ? 'display:none;' : ''}">${groups}</span>
+                style="${count === 0 ? 'display:none;' : ''}">${count}</span>
         </div>
         <!-- .myio-alarms-panel wrapper so panel CSS variables / alarm-card styles apply -->
         <div class="myio-alarms-panel at-alarms-panel-host">
           <div class="at-empty" id="at-alarms-empty"
-               style="${groups > 0 ? 'display:none;' : ''}">
+               style="${count > 0 ? 'display:none;' : ''}">
             Nenhum alarme ativo para este dispositivo.
           </div>
           <div class="alarms-grid" id="at-alarms-grid"
-               style="${groups === 0 ? 'display:none;' : ''}"></div>
+               style="${count === 0 ? 'display:none;' : ''}"></div>
         </div>
       </div>
     `;
@@ -547,8 +418,38 @@ export class AlarmsTab {
   // ---------- Section 2: Parametrize rules (multi-select + save) ----------
 
   private renderSection2(): string {
-    const sorted = [...this.customerRules].sort(
-      (a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99),
+    // Rules fetch failed — show friendly error, no save button
+    if (this.rulesFetchError) {
+      return `
+        <div class="at-section">
+          <div class="at-section-header">
+            <span class="at-section-icon">⚙️</span>
+            <div>
+              <div class="at-section-title">Parametrizar Regras de Alarme</div>
+              <div class="at-section-sub">Não foi possível carregar as regras</div>
+            </div>
+          </div>
+          <div class="at-rules-error">
+            <div class="at-rules-error-icon">⚠️</div>
+            <div class="at-rules-error-body">
+              <div class="at-rules-error-title">${this.esc(this.rulesFetchError)}</div>
+              <div class="at-rules-error-hint">Verifique a conexão com o servidor e tente reabrir este painel.</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const deviceProfile = (this.config.deviceProfile ?? '').toUpperCase();
+    const compatible = this.customerRules.filter(
+      (rule) =>
+        rule.scopeProfiles &&
+        rule.scopeProfiles.length > 0 &&
+        rule.scopeProfiles.some((p) => p.toUpperCase() === deviceProfile)
+    );
+    const filtered = compatible.length > 0 ? compatible : this.customerRules;
+    const sorted = [...filtered].sort(
+      (a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)
     );
 
     return `
@@ -577,27 +478,69 @@ export class AlarmsTab {
     `;
   }
 
+  /**
+   * Translates a raw rules-fetch error into a user-friendly message.
+   * Hides internal HTTP codes and stack traces from the operator.
+   */
+  private classifyRulesError(err: unknown): string {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (/HTTP 5\d\d/i.test(raw)) {
+      return 'O servidor de regras está temporariamente indisponível. Tente novamente em instantes.';
+    }
+    if (/HTTP 401|HTTP 403|unauthorized|forbidden/i.test(raw)) {
+      return 'Sem permissão para carregar as regras de alarme deste cliente.';
+    }
+    if (/HTTP 404/i.test(raw)) {
+      return 'Nenhuma regra de alarme encontrada para este cliente.';
+    }
+    if (/network|failed to fetch|net::/i.test(raw)) {
+      return 'Erro de rede ao carregar as regras. Verifique a conexão e tente novamente.';
+    }
+    return 'Não foi possível carregar as regras de alarme.';
+  }
+
   private renderCustomerRuleSelectable(rule: GCDRCustomerRule): string {
     const checked = this.initialCheckedRuleIds.has(rule.id);
-    const color   = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
-    const metric  = rule.alarmConfig?.metric ?? '';
-    const op      = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
-    const val     = rule.alarmConfig?.value ?? '';
+    const color = PRIORITY_COLORS[rule.priority] ?? '#6b7280';
+    const hasConfig = !!rule.alarmConfig;
+    const metric = rule.alarmConfig?.metric ?? '';
+    const op = OPERATOR_LABELS[rule.alarmConfig?.operator ?? ''] ?? rule.alarmConfig?.operator ?? '';
+    const val = rule.alarmConfig?.value ?? '';
+    const ruleIdEsc = this.esc(rule.id);
     return `
-      <div class="at-rule-row at-rule-row--selectable ${checked ? 'at-rule-row--checked' : ''}">
+      <div class="at-rule-row at-rule-row--selectable ${checked ? 'at-rule-row--checked' : ''}" data-rule-id="${ruleIdEsc}">
         <label class="at-rule-label">
           <input
             type="checkbox"
             class="at-rule-check"
-            data-rule-id="${this.esc(rule.id)}"
+            data-rule-id="${ruleIdEsc}"
             ${checked ? 'checked' : ''}
           >
           <div class="at-rule-info">
             <span class="at-rule-name">${this.esc(rule.name)}</span>
-            ${metric ? `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(op))} ${val}</span>` : ''}
+            ${
+              metric
+                ? `<div class="at-rule-chip-wrap" id="at-chip-wrap-${ruleIdEsc}">
+                   <span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(op))} ${val}</span>
+                 </div>`
+                : ''
+            }
           </div>
         </label>
-        <span class="at-priority-badge" style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
+        <div class="at-rule-actions">
+          ${
+            hasConfig
+              ? `
+            <button type="button" class="at-rule-edit-btn" data-rule-id="${ruleIdEsc}" title="Editar valor da regra">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>`
+              : ''
+          }
+          <span class="at-priority-badge" style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
+        </div>
       </div>
     `;
   }
@@ -620,28 +563,135 @@ export class AlarmsTab {
         row?.classList.toggle('at-rule-row--checked', (cb as HTMLInputElement).checked);
       });
     });
+
+    // Pencil button — inline edit of alarmConfig.value
+    container.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.at-rule-edit-btn') as HTMLElement | null;
+      if (!btn) return;
+      const ruleId = btn.dataset.ruleId;
+      if (!ruleId) return;
+      this.openInlineEdit(ruleId, btn);
+    });
+  }
+
+  private openInlineEdit(ruleId: string, editBtn: HTMLElement): void {
+    const rule = this.customerRules.find((r) => r.id === ruleId);
+    if (!rule?.alarmConfig) return;
+
+    const container = this.config.container;
+    const chipWrap = container.querySelector<HTMLElement>(`#at-chip-wrap-${ruleId}`);
+    if (!chipWrap) return;
+
+    // Already in edit mode — don't open twice
+    if (chipWrap.querySelector('.at-rule-edit-inline')) return;
+
+    const { metric, operator, value, valueHigh } = rule.alarmConfig;
+    const opLabel = OPERATOR_LABELS[operator] ?? operator;
+    const statusId = `at-edit-status-${ruleId}`;
+
+    chipWrap.innerHTML = `
+      <div class="at-rule-edit-inline">
+        <span class="at-rule-edit-ctx">${this.esc(metric)} ${this.esc(String(opLabel))}</span>
+        <input class="at-rule-edit-input" type="number" step="any"
+               value="${value}" aria-label="Valor da regra">
+        ${
+          valueHigh != null
+            ? `
+          <span class="at-rule-edit-ctx">até</span>
+          <input class="at-rule-edit-input at-rule-edit-input--high" type="number" step="any"
+                 value="${valueHigh}" aria-label="Valor alto">
+        `
+            : ''
+        }
+        <button type="button" class="at-rule-edit-confirm" title="Confirmar">✓</button>
+        <button type="button" class="at-rule-edit-cancel"  title="Cancelar">✗</button>
+        <span class="at-rule-edit-status" id="${statusId}"></span>
+      </div>
+    `;
+    editBtn.style.display = 'none';
+
+    const confirmBtn = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-confirm');
+    const cancelBtn = chipWrap.querySelector<HTMLButtonElement>('.at-rule-edit-cancel');
+    const statusEl = chipWrap.querySelector<HTMLElement>(`#${statusId}`);
+    const inputLow = chipWrap.querySelector<HTMLInputElement>(
+      '.at-rule-edit-input:not(.at-rule-edit-input--high)'
+    );
+    const inputHigh = chipWrap.querySelector<HTMLInputElement>('.at-rule-edit-input--high');
+
+    const restoreChip = (v: number, vh: number | null | undefined) => {
+      const vhStr = vh != null ? ` – ${vh}` : '';
+      chipWrap.innerHTML = `<span class="at-rule-chip">${this.esc(metric)} ${this.esc(String(opLabel))} ${v}${vhStr}</span>`;
+      editBtn.style.display = '';
+    };
+
+    cancelBtn?.addEventListener('click', () => restoreChip(value, valueHigh));
+
+    confirmBtn?.addEventListener('click', async () => {
+      const newVal = parseFloat(inputLow?.value ?? '');
+      const newValHigh = inputHigh ? parseFloat(inputHigh.value) : undefined;
+
+      if (isNaN(newVal)) {
+        if (statusEl) {
+          statusEl.textContent = 'Valor inválido';
+          statusEl.style.color = '#dc2626';
+        }
+        return;
+      }
+
+      if (confirmBtn) confirmBtn.disabled = true;
+      if (statusEl) {
+        statusEl.textContent = '…';
+        statusEl.style.color = '#6b7280';
+      }
+
+      const updatedConfig: GCDRCustomerRule['alarmConfig'] = {
+        ...rule.alarmConfig!,
+        value: newVal,
+        ...(newValHigh !== undefined && !isNaN(newValHigh) ? { valueHigh: newValHigh } : {}),
+      };
+
+      const ok = await this.orch.gcdrPatchRuleValue(ruleId, updatedConfig);
+
+      if (ok) {
+        rule.alarmConfig = updatedConfig;
+        restoreChip(newVal, updatedConfig.valueHigh ?? null);
+      } else {
+        if (statusEl) {
+          statusEl.textContent = 'Erro ao salvar';
+          statusEl.style.color = '#dc2626';
+        }
+        if (confirmBtn) confirmBtn.disabled = false;
+      }
+    });
+
+    inputLow?.focus();
+    inputLow?.select();
   }
 
   private async handleSave(): Promise<void> {
     const container = this.config.container;
     const saveBtn = container.querySelector('#at-save-btn') as HTMLButtonElement | null;
-    const msgEl   = container.querySelector('#at-save-msg') as HTMLElement | null;
-    const baseUrl = this.config.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
-
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando…'; }
-    if (msgEl)   msgEl.style.display = 'none';
+    const msgEl = container.querySelector('#at-save-msg') as HTMLElement | null;
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Salvando…';
+    }
+    if (msgEl) msgEl.style.display = 'none';
 
     const currentChecked = new Set<string>();
     container.querySelectorAll<HTMLInputElement>('.at-rule-check').forEach((cb) => {
       if (cb.checked && cb.dataset.ruleId) currentChecked.add(cb.dataset.ruleId);
     });
 
-    const toAdd    = [...currentChecked].filter((id) => !this.initialCheckedRuleIds.has(id));
+    const toAdd = [...currentChecked].filter((id) => !this.initialCheckedRuleIds.has(id));
     const toRemove = [...this.initialCheckedRuleIds].filter((id) => !currentChecked.has(id));
 
     if (toAdd.length === 0 && toRemove.length === 0) {
       this.showMsg(msgEl, 'Nenhuma alteração para salvar.', '#6b7280');
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Alarmes'; }
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Salvar Alarmes';
+      }
       return;
     }
 
@@ -653,18 +703,38 @@ export class AlarmsTab {
       if (!rule) continue;
       const ids = [...(rule.scope?.entityIds ?? [])];
       if (!ids.includes(this.config.gcdrDeviceId)) ids.push(this.config.gcdrDeviceId);
-      const ok = await this.putRuleScope(baseUrl, ruleId, ids);
-      if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
-      else    { errors.push(rule.name); }
+      const ok = await this.orch.gcdrPatchRuleScope(ruleId, ids);
+      if (ok) {
+        rule.scope = { ...rule.scope, entityIds: ids };
+      } else {
+        errors.push(rule.name);
+      }
     }
 
+    // RFC-0191: for each rule being removed, show premium confirmation + enqueue-close
     for (const ruleId of toRemove) {
       const rule = ruleMap.get(ruleId);
       if (!rule) continue;
+
+      const confirmed = await this.confirmRuleUnassign(rule);
+      if (!confirmed) {
+        this.restoreRuleCheckbox(ruleId);
+        continue;
+      }
+
+      // Fire-and-forget: failure is non-blocking
+      const enqueued = await this.orch.gcdrEnqueueCloseAlarms(ruleId, this.config.gcdrDeviceId);
+      if (!enqueued) {
+        console.warn('[AlarmsTab] RFC-0191: enqueue-close failed for rule', ruleId);
+      }
+
       const ids = (rule.scope?.entityIds ?? []).filter((id) => id !== this.config.gcdrDeviceId);
-      const ok = await this.putRuleScope(baseUrl, ruleId, ids);
-      if (ok) { rule.scope = { ...rule.scope, entityIds: ids }; }
-      else    { errors.push(rule.name); }
+      const ok = await this.orch.gcdrPatchRuleScope(ruleId, ids);
+      if (ok) {
+        rule.scope = { ...rule.scope, entityIds: ids };
+      } else {
+        errors.push(rule.name);
+      }
     }
 
     if (errors.length === 0) {
@@ -674,13 +744,16 @@ export class AlarmsTab {
       this.showMsg(msgEl, `Erro ao salvar: ${errors.join(', ')}`, '#dc2626');
     }
 
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Alarmes'; }
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Salvar Alarmes';
+    }
   }
 
   private showMsg(el: HTMLElement | null, text: string, color: string): void {
     if (!el) return;
-    el.textContent   = text;
-    el.style.color   = color;
+    el.textContent = text;
+    el.style.color = color;
     el.style.display = 'inline';
   }
 
@@ -688,12 +761,117 @@ export class AlarmsTab {
   // Utilities
   // ============================================================================
 
+  /** Typed accessor to window.MyIOOrchestrator GCDR API methods. */
+  private get orch(): {
+    gcdrCustomerId: string;
+    gcdrFetchCustomerRules: () => Promise<GCDRCustomerRule[]>;
+    gcdrPostAlarmAction: (alarmId: string, action: string) => Promise<boolean>;
+    gcdrPatchRuleScope: (ruleId: string, entityIds: string[]) => Promise<boolean>;
+    gcdrPatchRuleValue: (ruleId: string, alarmConfig: GCDRCustomerRule['alarmConfig']) => Promise<boolean>;
+    gcdrEnqueueCloseAlarms: (ruleId: string, deviceId: string) => Promise<boolean>; // RFC-0191
+  } {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (window as any).MyIOOrchestrator;
+  }
+
   private esc(str: string): string {
     return String(str ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ============================================================================
+  // RFC-0191: Confirmation modal + checkbox restore
+  // ============================================================================
+
+  /**
+   * Renders a premium confirmation modal and waits for the user's decision.
+   * Resolves true = confirmed (proceed with unassignment), false = cancelled.
+   */
+  private confirmRuleUnassign(rule: GCDRCustomerRule): Promise<boolean> {
+    return new Promise((resolve) => {
+      const PRIORITY_COLORS_LOCAL: Record<string, string> = {
+        CRITICAL: '#dc2626',
+        HIGH: '#f59e0b',
+        MEDIUM: '#3b82f6',
+        LOW: '#6b7280',
+      };
+      const color = PRIORITY_COLORS_LOCAL[rule.priority] ?? '#6b7280';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'at-confirm-overlay';
+      overlay.innerHTML = `
+        <div class="at-confirm-modal">
+          <div class="at-confirm-warning-bar"></div>
+          <div class="at-confirm-body">
+            <div class="at-confirm-icon">⚠️</div>
+            <div class="at-confirm-content">
+              <div class="at-confirm-title">Atenção — Remoção de Regra de Alarme</div>
+              <div class="at-confirm-text">
+                Você está removendo este dispositivo da regra de alarme:
+              </div>
+              <div class="at-confirm-rule-name">
+                ${this.esc(rule.name)}
+                <span class="at-confirm-priority-badge"
+                      style="background:${color}20;color:${color};">${this.esc(rule.priority)}</span>
+              </div>
+              <div class="at-confirm-text at-confirm-text--sub">
+                Esta ação pode fechar alarmes abertos ou na fila associados a esta regra neste
+                dispositivo. O motor de alarmes irá enfileirar o fechamento; o histórico e os
+                registros de auditoria são preservados.
+              </div>
+            </div>
+          </div>
+          <div class="at-confirm-footer">
+            <button type="button" class="at-confirm-btn at-confirm-btn--cancel">Cancelar</button>
+            <button type="button" class="at-confirm-btn at-confirm-btn--confirm">Confirmar e Remover Regra</button>
+          </div>
+        </div>
+      `;
+
+      const close = (result: boolean) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      overlay.querySelector('.at-confirm-btn--cancel')!.addEventListener('click', () => close(false));
+      overlay.querySelector('.at-confirm-btn--confirm')!.addEventListener('click', () => close(true));
+
+      // Click outside = cancel
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close(false);
+      });
+
+      // Append to document.body with position:fixed so it renders above all modals
+      document.body.appendChild(overlay);
+    });
+  }
+
+  /**
+   * Restores the checkbox of a rule to checked after the user cancels the confirmation.
+   */
+  private restoreRuleCheckbox(ruleId: string): void {
+    const cb = this.config.container.querySelector<HTMLInputElement>(
+      `.at-rule-check[data-rule-id="${CSS.escape(ruleId)}"]`
+    );
+    if (!cb) return;
+    cb.checked = true;
+    cb.closest('.at-rule-row')?.classList.add('at-rule-row--checked');
+  }
+
+  private showToast(msg: string): void {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+      'background:#dc2626;color:#fff;font-size:13px;font-weight:600;' +
+      'padding:10px 20px;border-radius:8px;z-index:99999;' +
+      'box-shadow:0 4px 12px rgba(0,0,0,0.25);pointer-events:none;' +
+      'font-family:Inter,system-ui,-apple-system,sans-serif;white-space:nowrap;';
+    el.textContent = `⚠️ ${msg}`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
   }
 
   private getLoadingHTML(): string {
@@ -792,6 +970,8 @@ export class AlarmsTab {
         min-height: unset !important;
         height: auto !important;
         display: block !important;
+        max-height: 320px;
+        overflow-y: auto;
       }
       .at-alarms-panel-host .alarms-grid {
         padding: 0 !important;
@@ -859,6 +1039,98 @@ export class AlarmsTab {
         flex-shrink: 0;
         white-space: nowrap;
       }
+      .at-rule-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .at-rule-chip-wrap { display: block; }
+      .at-rule-edit-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.12s, color 0.12s;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-btn:hover { background: #ede9ff; color: #3e1a7d; }
+      .at-rule-edit-inline {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: nowrap;
+      }
+      .at-rule-edit-ctx {
+        font-size: 11px;
+        color: #6b7280;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-input {
+        width: 216px;
+        height: 26px;
+        border: 1.5px solid #3e1a7d;
+        border-radius: 4px;
+        padding: 0 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1a1a1a;
+        outline: none;
+        background: #faf9ff;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-input:focus { border-color: #2d1458; box-shadow: 0 0 0 2px rgba(62,26,125,0.12); }
+      .at-rule-edit-confirm,
+      .at-rule-edit-cancel {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: background 0.1s;
+        flex-shrink: 0;
+      }
+      .at-rule-edit-confirm { background: #d1fae5; color: #065f46; }
+      .at-rule-edit-confirm:hover:not(:disabled) { background: #a7f3d0; }
+      .at-rule-edit-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+      .at-rule-edit-cancel { background: #fee2e2; color: #991b1b; }
+      .at-rule-edit-cancel:hover { background: #fecaca; }
+      .at-rule-edit-status { font-size: 11px; white-space: nowrap; }
+
+      /* ===== Rules fetch error (Section 2) ===== */
+      .at-rules-error {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px 20px;
+      }
+      .at-rules-error-icon { font-size: 20px; flex-shrink: 0; line-height: 1.4; }
+      .at-rules-error-body { flex: 1; min-width: 0; }
+      .at-rules-error-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #92400e;
+        line-height: 1.5;
+      }
+      .at-rules-error-hint {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+        line-height: 1.4;
+      }
 
       /* ===== Footer / save ===== */
       .at-footer {
@@ -896,6 +1168,104 @@ export class AlarmsTab {
         margin: 0 auto 12px;
       }
       @keyframes at-spin { to { transform: rotate(360deg); } }
+
+      /* ===== RFC-0191: Rule unassign confirmation modal ===== */
+      .at-confirm-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000000;
+      }
+      .at-confirm-modal {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+        max-width: 440px;
+        width: calc(100% - 32px);
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .at-confirm-warning-bar {
+        height: 4px;
+        background: #f59e0b;
+      }
+      .at-confirm-body {
+        display: flex;
+        gap: 14px;
+        padding: 20px 20px 16px;
+      }
+      .at-confirm-icon { font-size: 22px; flex-shrink: 0; line-height: 1.3; }
+      .at-confirm-content { flex: 1; min-width: 0; }
+      .at-confirm-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+      }
+      .at-confirm-text {
+        font-size: 13px;
+        color: #374151;
+        line-height: 1.5;
+        margin-bottom: 8px;
+      }
+      .at-confirm-text--sub {
+        color: #6b7280;
+        font-size: 12px;
+        margin-bottom: 0;
+      }
+      .at-confirm-rule-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1a1a;
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .at-confirm-priority-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+      }
+      .at-confirm-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 12px 20px;
+        border-top: 1px solid #e9ecef;
+        background: #fafafa;
+      }
+      .at-confirm-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      .at-confirm-btn--cancel {
+        background: #f1f3f5;
+        color: #374151;
+      }
+      .at-confirm-btn--cancel:hover { background: #e2e8f0; }
+      .at-confirm-btn--confirm {
+        background: #dc2626;
+        color: #fff;
+      }
+      .at-confirm-btn--confirm:hover { background: #b91c1c; }
     `;
     document.head.appendChild(style);
   }

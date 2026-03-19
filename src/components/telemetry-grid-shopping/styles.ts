@@ -68,8 +68,8 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
 .shops-root .shops-header {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
   background: linear-gradient(180deg, var(--card) 0, var(--bg-soft) 100%);
   border: 1px solid var(--bd);
   border-radius: 12px;
@@ -79,6 +79,21 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+/* Row 1: buttons (lupa, filtro, +) — aligned to the right */
+.shops-root .shops-header-btns {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Row 2: label + consumo */
+.shops-root .shops-header-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .shops-root .shops-header-left {
@@ -101,12 +116,6 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   padding: 3px 6px;
 }
 
-.shops-root .shops-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .shops-root .icon-btn {
   display: flex;
   align-items: center;
@@ -118,6 +127,43 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   cursor: pointer;
   box-shadow: var(--shadow);
   transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+/* Export buttons — PDF / XLS / CSV */
+.shops-root .export-btn {
+  font: 700 8px/1 var(--font-ui);
+  letter-spacing: 0.5px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--bd);
+  background: var(--card);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.shops-root .export-btn:hover {
+  transform: translateY(-1px);
+}
+.shops-root .export-btn--pdf {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.3);
+}
+.shops-root .export-btn--pdf:hover {
+  border-color: #dc2626;
+}
+.shops-root .export-btn--xls {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+.shops-root .export-btn--xls:hover {
+  border-color: #16a34a;
+}
+.shops-root .export-btn--csv {
+  color: #0369a1;
+  border-color: rgba(3, 105, 161, 0.3);
+}
+.shops-root .export-btn--csv:hover {
+  border-color: #0369a1;
 }
 
 .shops-root .icon-btn:hover {
@@ -197,32 +243,9 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   justify-items: stretch;
 }
 
-.shops-root .maximize-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
-  background-color: rgba(0, 0, 0, 0.5);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: opacity 0.3s;
-  opacity: 0;
-  z-index: 20;
-}
-
-.shops-root .maximize-btn:hover {
-  background-color: rgba(0, 0, 0, 0.7);
-}
-
+/* Maximize button — lives in shops-header-btns alongside other icon-btns */
 .shops-root .maximize-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: #fff;
+  fill: var(--ink-2);
 }
 
 .shops-root.maximized {

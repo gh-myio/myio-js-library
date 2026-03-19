@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1.0.0",
+  "deviceId": "28aa0440-9011-11f0-a06d-e9509531b1d5",
+  "lastModified": "2026-02-03T13:19:24.450Z",
+  "lastModifiedBy": {
+    "id": "e89aa980-460b-11f0-9291-41f94c09a8a6",
+    "email": "gadioli@myio.com.br",
+    "name": "Leandro Gadioli"
+  },
+  "annotations": [
+    {
+      "id": "61a62f09-e12b-40ef-8f66-3d724f822227",
+      "version": 1,
+      "text": "Realizar ajuste no painel",
+      "type": "activity",
+      "importance": 3,
+      "status": "created",
+      "createdAt": "2026-02-03T13:19:24.450Z",
+      "createdBy": {
+        "id": "e89aa980-460b-11f0-9291-41f94c09a8a6",
+        "email": "gadioli@myio.com.br",
+        "name": "Leandro Gadioli"
+      },
+      "acknowledged": false,
+      "responses": [],
+      "history": [
+        {
+          "timestamp": "2026-02-03T13:19:24.450Z",
+          "userId": "e89aa980-460b-11f0-9291-41f94c09a8a6",
+          "userName": "Leandro Gadioli",
+          "userEmail": "gadioli@myio.com.br",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "id": "0e73bdfd-69f7-421d-876d-6f775eea4611",
+      "version": 2,
+      "text": "(REALOCAR P/ FLORENZZA 210D)",
+      "type": "observation",
+      "importance": 3,
+      "status": "modified",
+      "createdAt": "2026-01-07T18:13:18.320Z",
+      "createdBy": {
+        "id": "42ded7d0-aaad-11f0-afe1-175479a33d89",
+        "email": "estevanroborges@myio.com.br",
+        "name": "Estevan Borges"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2026-01-07T18:13:18.320Z",
+          "userId": "42ded7d0-aaad-11f0-afe1-175479a33d89",
+          "userName": "Estevan Borges",
+          "userEmail": "estevanroborges@myio.com.br",
+          "action": "created"
+        },
+        {
+          "timestamp": "2026-01-08T13:19:30.234Z",
+          "userId": "42ded7d0-aaad-11f0-afe1-175479a33d89",
+          "userName": "Estevan Borges",
+          "userEmail": "estevanroborges@myio.com.br",
+          "action": "modified",
+          "previousVersion": 1,
+          "changes": {
+            "text": { "from": "(REALOCAR P/ FLORENZZA 210D)NZA", "to": "(REALOCAR P/ FLORENZZA 210D)" }
+          }
+        }
+      ]
+    }
+  ]
+}

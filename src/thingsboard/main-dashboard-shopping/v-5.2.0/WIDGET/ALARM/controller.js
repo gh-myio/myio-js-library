@@ -16,6 +16,12 @@
 /* eslint-disable no-undef, no-unused-vars */
 
 // ============================================================================
+// Maintenance mode flag — set to true to display maintenance overlay
+// ============================================================================
+
+const _MAINTENANCE_MODE = false;
+
+// ============================================================================
 // Module-level state (reset on every onInit)
 // ============================================================================
 
@@ -32,6 +38,9 @@ let _themeChangeHandler     = null;
 let _filterChangeHandler    = null;
 let _activationHandler      = null;
 let _activeFilters          = {}; // { from?, to? }
+let _closedAlarmsMode       = false; // true = fetch CLOSED alarms (history mode)
+let _closedAlarmsHandler    = null;
+let _alarmsUpdatedHandler   = null;
 
 let LogHelper = {
   log:   (...a) => {},
@@ -55,6 +64,7 @@ self.onInit = async function () {
   _gcdrTenantId        = '';
   _isRefreshing        = false;
   _activeFilters       = {};
+  _closedAlarmsMode    = false;
 
   // --- Library reference ---
   const MyIOLibrary = window.MyIOLibrary;
@@ -74,10 +84,17 @@ self.onInit = async function () {
   const enableDebugMode        = settings.enableDebugMode        ?? false;
   // API credentials: from MAIN_VIEW orchestrator (configured in MAIN_VIEW settingsSchema)
   const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || '';
-  const alarmsApiKey     = window.MyIOOrchestrator?.alarmsApiKey     || '';
+  const alarmsApiKey     = window.MyIOOrchestrator?.gcdrApiKey     || '';
+  if (!alarmsApiKey) {
+    MyIOLibrary.MyIOToast?.error('[ALARM] gcdrApiKey não encontrado em window.MyIOOrchestrator. Verifique o atributo SERVER_SCOPE gcdrApiKey do customer.');
+  }
 
   // Read theme from dashboard orchestrator; fallback to light
   _currentTheme = window.MyIOOrchestrator?.currentTheme || 'light';
+
+  // Expose TB base URL globally for AlarmDetailsModal annotation persistence
+  const _tbBaseUrl = settings.tbBaseUrl || self.ctx?.settings?.tbBaseUrl || '';
+  if (_tbBaseUrl) window.__myioTbBaseUrl = _tbBaseUrl;
 
   _maxAlarms  = settings.maxAlarmsVisible ?? 100;
   _activeTab  = defaultTab;
@@ -135,8 +152,32 @@ self.onInit = async function () {
   };
   window.addEventListener('myio:alarm-content-activated', _activationHandler);
 
-  // --- Label ---
-  const labelEl = document.getElementById('labelWidgetId');
+  // --- Closed alarms history mode — toggled from AlarmsNotificationsPanelView ---
+  _closedAlarmsHandler = (ev) => {
+    _closedAlarmsMode = !!ev.detail?.enabled;
+    LogHelper.log('Closed alarms mode:', _closedAlarmsMode ? 'ENABLED' : 'DISABLED');
+    window.MyIOLibrary?.AlarmService?.clearCache?.();
+    _debouncedFetchAndUpdate(200);
+  };
+  window.addEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
+
+  // myio:alarms-updated — injected directly from MAIN_VIEW when it detects alarm changes.
+  // We only call updateAlarms() here (NOT _fetchAndUpdate / ASO.refresh) to avoid a loop:
+  //   _fetchAndUpdate → ASO.refresh() → myio:alarms-updated → _fetchAndUpdate → …
+  // _enrichAlarms is called here to normalize source (device name) and date fields,
+  // since myio:alarms-updated carries raw API data (no gcdrDeviceNameMap enrichment).
+  _alarmsUpdatedHandler = (ev) => {
+    if (_closedAlarmsMode) return; // closed-alarms view manages its own data
+    const alarms = ev.detail?.alarms;
+    if (Array.isArray(alarms)) {
+      LogHelper.log('myio:alarms-updated → injecting', alarms.length, 'alarms into panel');
+      _panelInstance?.updateAlarms?.(_enrichAlarms(alarms));
+    }
+  };
+  window.addEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
+
+  // --- Label (scoped to this widget's container to avoid clobbering other widgets) ---
+  const labelEl = self.ctx?.$container?.[0]?.querySelector?.('#labelWidgetId');
   if (labelEl) labelEl.textContent = labelWidget;
 
   // --- RFC-0180: GCDR IDs are resolved by MAIN_VIEW and stored in window.MyIOOrchestrator ---
@@ -214,8 +255,59 @@ self.onInit = async function () {
   // --- Bind header buttons ---
   _bindHeaderButtons();
 
+  // --- Maintenance overlay ---
+  if (_MAINTENANCE_MODE) _showMaintenanceOverlay();
+
   LogHelper.log('onInit complete');
 };
+
+// ============================================================================
+// Maintenance overlay
+// ============================================================================
+
+function _showMaintenanceOverlay() {
+  const OVERLAY_ID = 'alarm-maintenance-overlay';
+  if (document.getElementById(OVERLAY_ID)) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.style.cssText = [
+    'position:absolute', 'inset:0', 'z-index:9999',
+    'display:flex', 'flex-direction:column', 'align-items:center', 'justify-content:center',
+    'background:rgba(255,255,255,0.92)', 'backdrop-filter:blur(3px)',
+    'border-radius:inherit', 'pointer-events:all',
+  ].join(';');
+
+  overlay.innerHTML = `
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px;opacity:.7">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    </svg>
+    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#475569;letter-spacing:.01em">Em manutenção</p>
+    <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;max-width:220px;line-height:1.5">
+      Este widget está em atualização.<br>Aguarde alguns instantes.
+    </p>
+    <button id="alarm-maintenance-unlock"
+      title="Desbloquear"
+      style="position:absolute;bottom:10px;right:12px;background:none;border:none;cursor:pointer;padding:4px;opacity:.15;transition:opacity .2s;line-height:0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  `;
+
+  // Position relative to the widget root
+  const root = document.getElementById('alarmWidgetRoot') || document.body;
+  const parent = root.parentElement || root;
+  if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+  parent.appendChild(overlay);
+
+  const unlockBtn = overlay.querySelector('#alarm-maintenance-unlock');
+  if (unlockBtn) {
+    unlockBtn.addEventListener('mouseenter', () => { unlockBtn.style.opacity = '0.6'; });
+    unlockBtn.addEventListener('mouseleave', () => { unlockBtn.style.opacity = '0.15'; });
+    unlockBtn.addEventListener('click', () => { overlay.remove(); });
+  }
+}
 
 // ============================================================================
 // onDestroy
@@ -233,6 +325,14 @@ self.onDestroy = function () {
   if (_activationHandler) {
     window.removeEventListener('myio:alarm-content-activated', _activationHandler);
     _activationHandler = null;
+  }
+  if (_closedAlarmsHandler) {
+    window.removeEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
+    _closedAlarmsHandler = null;
+  }
+  if (_alarmsUpdatedHandler) {
+    window.removeEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
+    _alarmsUpdatedHandler = null;
   }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);
@@ -262,87 +362,146 @@ function _debouncedFetchAndUpdate(delayMs = 300) {
   _fetchDebounceTimer = setTimeout(() => _fetchAndUpdate(), delayMs);
 }
 
+/**
+ * Returns the active date range:
+ * 1. Explicit filter from myio:alarm-filter-change (HEADER alarm domain)
+ * 2. Current period from MyIOOrchestrator.getCurrentPeriod()
+ * 3. window.__myioInitialPeriod fallback
+ */
+function _getActiveDates() {
+  if (_activeFilters.from && _activeFilters.to) {
+    return { from: _activeFilters.from, to: _activeFilters.to };
+  }
+  const period = window.MyIOOrchestrator?.getCurrentPeriod?.()
+    || window.__myioInitialPeriod;
+  if (period?.startISO && period?.endISO) {
+    return { from: period.startISO, to: period.endISO };
+  }
+  return { from: null, to: null };
+}
+
+/**
+ * Enriches alarm source fields with TB device names.
+ * RFC-0179: Only enriches when source is an opaque identifier (UUID or gcdr: short-code).
+ * If source is already a human-readable device name (from GCDR deviceName field), it is
+ * left unchanged to avoid wrong overrides from stale/cross-customer map data.
+ */
+function _enrichAlarms(rawAlarms) {
+  const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+  const nameMap = window.MyIOOrchestrator?.entityNameToLabelMap;
+  const UUID_RE     = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const SHORTCODE_RE = /^gcdr:[0-9a-f]{8}/;
+  return rawAlarms.map((a) => {
+    const src = a.source || '';
+    // Only attempt lookup when source is an opaque ID, not a human-readable device name.
+    const isOpaqueId = UUID_RE.test(src) || SHORTCODE_RE.test(src);
+    const tbName = isOpaqueId
+      ? (gcdrMap?.get(src) || nameMap?.get(src) || null)
+      : null;
+    return {
+      ...a,
+      ...(tbName ? { source: tbName } : {}),
+      firstOccurrence: a.firstOccurrence || a.raisedAt || '',
+      lastOccurrence:  a.lastOccurrence  || a.lastUpdatedAt || a.raisedAt || '',
+    };
+  });
+}
+
+/**
+ * Unified fetch: always uses date range from _getActiveDates().
+ * @param {string} resolvedCustomerId
+ * @param {string[]} states — alarm states to fetch
+ */
+async function _fetchAlarmsAndUpdate(resolvedCustomerId, states) {
+  const AlarmService = window.MyIOLibrary?.AlarmService;
+  if (!AlarmService) {
+    LogHelper.warn('[ALARM] AlarmService not available');
+    return;
+  }
+
+  // Filtro de data só faz sentido para histórico (alarms CLOSED).
+  // Alarms ativos (OPEN/ACK/SNOOZED/ESCALATED) devem aparecer sempre, independente de quando foram abertos.
+  const isClosedQuery = states.length === 1 && states[0] === 'CLOSED';
+  const { from, to } = isClosedQuery ? _getActiveDates() : { from: null, to: null };
+  LogHelper.log('[ALARM] Fetching alarms — states:', states, '| from:', from ?? '(sem filtro)', '| to:', to ?? '(sem filtro)');
+
+  const response = await AlarmService.getAlarms({
+    state:      states,
+    limit:      _maxAlarms,
+    customerId: resolvedCustomerId,
+    from:       from || undefined,
+    to:         to   || undefined,
+  });
+
+  const alarms  = _enrichAlarms(response.data ?? []);
+  const summary = response.summary;
+
+  const byState = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
+  const bySev   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+  for (const a of alarms) {
+    if (a.state in byState) byState[a.state]++;
+    if (a.severity in bySev) bySev[a.severity]++;
+  }
+  const now = Date.now();
+  const last24h = now - 24 * 60 * 60 * 1000;
+
+  // Build a fully-shaped AlarmStats from summary (preferred) + local counts (fallback)
+  const stats = {
+    total:        summary?.total        ?? alarms.length,
+    bySeverity:   summary?.bySeverity   ?? bySev,
+    byState:      summary?.byState      ?? byState,
+    openCritical: (summary?.bySeverity?.CRITICAL != null)
+      ? (summary.bySeverity.CRITICAL)
+      : bySev.CRITICAL,
+    openHigh:     (summary?.bySeverity?.HIGH != null)
+      ? (summary.bySeverity.HIGH)
+      : bySev.HIGH,
+    last24Hours:  alarms.filter(a => new Date(a.firstOccurrence || a.lastOccurrence || 0).getTime() >= last24h).length,
+  };
+
+  _panelInstance?.updateAlarms?.(alarms);
+  _panelInstance?.updateStats?.(stats);
+
+  const openCount = byState.OPEN + byState.ESCALATED;
+  _updateCountBadge(openCount);
+
+  LogHelper.log('[ALARM] Panel updated —', alarms.length, 'alarms | open:', openCount);
+}
+
 async function _fetchAndUpdate() {
   if (_isRefreshing) return;
   _isRefreshing = true;
 
-  const AlarmService = window.MyIOLibrary?.AlarmService;
-
-  if (!AlarmService) {
-    LogHelper.warn('AlarmService not available in MyIOLibrary');
-    _isRefreshing = false;
-    return;
-  }
-
-  // RFC-0178/0180: customerId is mandatory — read from cache or orchestrator (late-binding)
   const resolvedCustomerId = _customerIngId || window.MyIOOrchestrator?.gcdrCustomerId || '';
   if (!resolvedCustomerId) {
-    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty (check MyIOOrchestrator.gcdrCustomerId)');
+    LogHelper.error('_fetchAndUpdate aborted: gcdrCustomerId is empty');
     _isRefreshing = false;
     return;
   }
 
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) btnRefresh.classList.add('is-spinning');
+  _panelInstance?.setLoading?.(true);
 
   try {
-    _panelInstance?.setLoading?.(true);
+    const states = _closedAlarmsMode
+      ? ['CLOSED']
+      : ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
 
-    // RFC-0178: Single getAlarms call with summary + parallel trend fetch
-    const [response, trend] = await Promise.all([
-      AlarmService.getAlarms({
-        state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
-        limit:      _maxAlarms,
-        customerId: resolvedCustomerId,                // always required
-        from:       _activeFilters.from || undefined,
-        to:         _activeFilters.to   || undefined,
-      }),
-      AlarmService.getAlarmTrend(resolvedCustomerId, 'week', 'day'),
-    ]);
+    await _fetchAlarmsAndUpdate(resolvedCustomerId, states);
 
-    const rawAlarms = response.data;
-    const summary   = response.summary;
+    if (!_closedAlarmsMode) {
+      // Fire-and-forget ASO refresh so TELEMETRY badge counts stay in sync
+      window.AlarmServiceOrchestrator?.refresh?.().catch(() => {});
 
-    // RFC-0179: Enrich alarm sources with TB device names.
-    // Four-layer strategy — first match wins:
-    //   1. gcdrMap.get(source)       — source IS GCDR UUID or "gcdr:<shortcode>"
-    //   2. gcdrMap.get(centralId)    — new format: numeric localId, centralId is GCDR UUID
-    //   3. stateMap.get(centralId)   — window.STATE._raw (same data TELEMETRY uses)
-    //   4. nameMap.get(source)       — TB entityName → entityLabel ("3F SCMOX..." → "Elevador 7 L2")
-    const gcdrMap  = window.MyIOOrchestrator?.gcdrDeviceNameMap;
-    const nameMap  = window.MyIOOrchestrator?.entityNameToLabelMap;
-
-    // Build centralId→label map from window.STATE (all domains)
-    const stateMap = new Map();
-    if (window.STATE) {
-      for (const domain of ['energy', 'water', 'temperature']) {
-        const raw = window.STATE[domain]?._raw || [];
-        for (const item of raw) {
-          const name = item.label || item.name || '';
-          if (name && item.centralId) stateMap.set(String(item.centralId), name);
-        }
+      // Trend fetch (non-blocking)
+      const AlarmService = window.MyIOLibrary?.AlarmService;
+      if (AlarmService) {
+        AlarmService.getAlarmTrend(resolvedCustomerId, '7d', 'day')
+          .then((trend) => { if (trend?.length) _panelInstance?.updateTrendData?.(trend); })
+          .catch(() => {});
       }
     }
-    LogHelper.log(`[ALARM] enrich maps — gcdrMap: ${gcdrMap?.size ?? 0}, stateMap: ${stateMap.size}, nameMap: ${nameMap?.size ?? 0}`);
-
-    const alarms = rawAlarms.map((a) => {
-      const isNumericSrc = /^\d+$/.test(a.source);
-      const tbName = gcdrMap?.get(a.source)
-        || (isNumericSrc ? gcdrMap?.get(a.centralId) : null)
-        || stateMap.get(a.centralId)
-        || nameMap?.get(a.source);
-      return tbName ? { ...a, source: tbName } : a;
-    });
-
-    _panelInstance?.updateAlarms?.(alarms);
-    if (summary) _panelInstance?.updateStats?.(summary);
-    if (trend?.length) _panelInstance?.updateTrendData?.(trend);
-
-    // Count badge: open + escalated from embedded summary
-    const openCount = (summary?.byState?.OPEN ?? 0) + (summary?.byState?.ESCALATED ?? 0);
-    _updateCountBadge(openCount);
-
-    LogHelper.log('Panel updated —', alarms.length, 'alarms, openCount:', openCount);
   } catch (err) {
     LogHelper.error('_fetchAndUpdate failed:', err);
   } finally {
@@ -374,9 +533,14 @@ async function _handleBatchAction(action, alarmIds, userEmail, opts) {
     }
     LogHelper.log('Batch action completed:', action, `${result?.successCount ?? 0}/${alarmIds.length} succeeded`);
 
-    // Invalidate cache so fresh data is fetched
+    // Trigger MAIN to re-fetch and rebuild ASO → myio:alarms-updated → all components update
     AlarmService.clearCache?.();
-    await _fetchAndUpdate();
+    const ASO = window.AlarmServiceOrchestrator;
+    if (ASO) {
+      await ASO.refresh(); // fires myio:alarms-updated → updates panel, TELEMETRY badges, AlarmsTab
+    } else {
+      await _fetchAndUpdate();
+    }
   } catch (err) {
     LogHelper.error('Batch action failed:', action, err);
   }

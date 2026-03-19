@@ -9,6 +9,7 @@ import {
   buildAnnotationsPanelHtml,
   bindAnnotationsPanelEvents,
   getActiveAnnotationCount,
+  type TbSaveConfig,
 } from './AlarmAnnotations';
 
 // =====================================================================
@@ -33,6 +34,7 @@ function fmtDateInput(ms: number): string {
 }
 
 function durationLabel(ms: number): string {
+  if (!isFinite(ms) || ms < 0) return '-';
   if (ms < 60_000) return '< 1 min';
   const mins = Math.floor(ms / 60_000);
   if (mins < 60) return `${mins} min`;
@@ -388,21 +390,91 @@ function parseDevices(source: string): string[] {
 }
 
 // =====================================================================
+// TB persistence helpers
+// =====================================================================
+
+/** Convert an alarm title to UPPER_SNAKE_CASE for use as alarmGroups key */
+function normalizeAlarmType(title: string): string {
+  return title
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+type RawItem = {
+  centralId?: string;
+  gcdrDeviceId?: string;
+  id?: string;
+  tbId?: string;
+  identifier?: string;
+  label?: string;
+  name?: string;
+  entityName?: string;
+};
+
+/**
+ * Resolve the ThingsBoard device UUID from alarm data
+ * by looking up window.STATE[domain]._raw items.
+ *
+ * Match order (first hit wins, across all domains):
+ *   1. alarm.centralId === item.centralId
+ *   2. alarm.source tokens vs item.identifier / label / name / entityName
+ */
+function resolveDeviceTbId(alarm: Alarm): string | null {
+  const state = (window as unknown as Record<string, unknown>).STATE as
+    | Record<string, { _raw?: RawItem[] }>
+    | undefined;
+  if (!state) return null;
+
+  // Parse source into individual device tokens (e.g. "MED-001, MED-002")
+  const sources = alarm.source
+    ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  for (const domain of ['energy', 'water', 'temperature']) {
+    const raw = state[domain]?._raw ?? [];
+
+    // 1. centralId exact match
+    if (alarm.centralId) {
+      const found = raw.find((item) => item.centralId && item.centralId === alarm.centralId);
+      if (found?.id || found?.tbId) return (found.id || found.tbId)!;
+    }
+
+    // 2. Source identifier / label match
+    for (const src of sources) {
+      const found = raw.find(
+        (item) =>
+          (item.identifier && item.identifier === src) ||
+          (item.label && item.label === src) ||
+          (item.name && item.name === src) ||
+          (item.entityName && item.entityName === src)
+      );
+      if (found?.id || found?.tbId) return (found.id || found.tbId)!;
+    }
+  }
+  return null;
+}
+
+// =====================================================================
 // Main export
 // =====================================================================
 
 export function openAlarmDetailsModal(
   alarm: Alarm,
   themeMode: 'light' | 'dark' = 'light',
-  groupMode?: 'consolidado' | 'separado' | 'porDispositivo'
+  groupMode?: 'consolidado' | 'separado' | 'porDispositivo',
+  onAction?: (action: 'acknowledge' | 'snooze' | 'escalate', alarmId: string) => void
 ): void {
   const sev = SEVERITY_CONFIG[alarm.severity];
   const st = STATE_CONFIG[alarm.state];
 
   const count = alarm.occurrenceCount || 1;
   const firstMs = new Date(alarm.firstOccurrence).getTime();
-  const lastMs = new Date(alarm.lastOccurrence).getTime();
-  const durMs = Math.max(0, lastMs - firstMs);
+  const lastMs  = new Date(alarm.lastOccurrence).getTime();
+  const durMs   = (isNaN(firstMs) || isNaN(lastMs)) ? 0 : Math.max(0, lastMs - firstMs);
   const durLabel = durationLabel(durMs);
   const avgFreq =
     count > 1
@@ -496,9 +568,9 @@ export function openAlarmDetailsModal(
           <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
           Resumo
         </button>
-        <button class="adm-tab" data-panel="relatorio">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Relatório <span class="adm-tab-badge">${count}</span>
+        <button class="adm-tab" data-panel="timeline">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>
+          Timeline <span class="adm-tab-badge">${count}</span>
         </button>
         <button class="adm-tab" data-panel="dispositivos">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 3H4a1 1 0 00-1 1v12a1 1 0 001 1h8v2H8v2h8v-2h-4v-2h8a1 1 0 001-1V4a1 1 0 00-1-1zm-1 12H5V5h14v10z"/></svg>
@@ -519,7 +591,7 @@ export function openAlarmDetailsModal(
 
         <!-- RESUMO -->
         <div class="adm-panel is-active" data-panel="resumo">
-          <div class="adm-kpi-grid">
+          ${groupMode !== 'separado' ? `<div class="adm-kpi-grid">
             <div class="adm-kpi">
               <div class="adm-kpi-value" style="color:${sev.text}">${count}</div>
               <div class="adm-kpi-label">Ocorrências</div>
@@ -532,7 +604,7 @@ export function openAlarmDetailsModal(
               <div class="adm-kpi-value">${durLabel}</div>
               <div class="adm-kpi-label">Duração</div>
             </div>
-          </div>
+          </div>` : ''}
 
           ${alarm.description ? `<div class="adm-description">${escHtml(alarm.description)}</div>` : ''}
 
@@ -588,8 +660,32 @@ export function openAlarmDetailsModal(
 
         </div>
 
-        <!-- RELATÓRIO (unificado: timeline + estatísticas + sumário + exportação) -->
-        <div class="adm-panel" data-panel="relatorio">
+        <!-- TIMELINE (ocorrências + ações individuais e em lote) -->
+        <div class="adm-panel" data-panel="timeline">
+          <div class="adm-tl-header" id="admTlHeader">
+            <div class="adm-tl-toolbar">
+              <span class="adm-tl-summary" id="admTlSummary">${count} ocorrência${count !== 1 ? 's' : ''}</span>
+              <button class="adm-tl-batch-toggle" id="admTlBatchToggle" title="Ações em lote">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="4" height="4" rx="1"/><path d="M10 7h11"/><rect x="3" y="12" width="4" height="4" rx="1"/><path d="M10 14h11"/><rect x="3" y="19" width="4" height="4" rx="1"/><path d="M10 21h11"/></svg>
+                Ação em lote
+              </button>
+            </div>
+            <div class="adm-tl-batch-bar" id="admTlBatchBar">
+              <label class="adm-tl-sel-all-label">
+                <input type="checkbox" id="admTlSelAll" class="adm-tl-sel-all-cb">
+                <span>Todos</span>
+              </label>
+              <span class="adm-tl-sel-count" id="admTlSelCount">0 selecionados</span>
+              <select class="adm-tl-action-sel" id="admTlActionSel">
+                <option value="">Selecione ação…</option>
+                <option value="acknowledge">Reconhecer</option>
+                <option value="snooze">Adiar</option>
+                <option value="escalate">Escalar</option>
+              </select>
+              <button class="adm-tl-exec-btn" id="admTlExecBtn" disabled>Executar</button>
+              <button class="adm-tl-cancel-btn" id="admTlCancelBtn">Cancelar</button>
+            </div>
+          </div>
           <div class="adm-report-toolbar">
             <label class="adm-report-label">De</label>
             <input type="date" class="adm-report-date-input" id="admRptStart" value="${fmtDateInput(firstMs)}">
@@ -744,8 +840,8 @@ export function openAlarmDetailsModal(
     });
   }
 
-  // Relatório tab handlers (unificado: timeline + estatísticas + sumário + exportação)
-  const rptPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="relatorio"]');
+  // Timeline tab handlers
+  const rptPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="timeline"]');
   if (rptPanel) {
     const emitBtn = rptPanel.querySelector<HTMLButtonElement>('#admRptEmit');
     const csvBtn  = rptPanel.querySelector<HTMLButtonElement>('#admExportCsv');
@@ -756,12 +852,23 @@ export function openAlarmDetailsModal(
     // Holds latest CSV data for the static export buttons
     let lastCsvRows: string[][] = [];
 
+    // ── Batch state ──
+    let batchActive = false;
+    const batchSelectedIds = new Set<string>();
+
+    // ── Shared SVG icons for row action buttons ──
+    const _svgAck      = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+    const _svgSnooze   = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>`;
+    const _svgEscalate = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>`;
+
     // ── Occurrence table builder (respects date filter, same CSS as buildTimeline) ──
     const buildOccurrenceSection = (occFirst: number, occLast: number): { html: string; csvRows: string[][] } => {
       const intervalMs = count > 1 ? (occLast - occFirst) / (count - 1) : 0;
       const trigStr    = alarm.triggerValue != null ? String(alarm.triggerValue) : null;
       const hasTrigger = trigStr != null;
       const showDevice = !isSeparado && devices.length > 0;
+      const isActive   = alarm.state === 'OPEN' || alarm.state === 'ESCALATED';
+      const isClosed   = alarm.state === 'CLOSED';
 
       const idxStyle = (isSingle: boolean, isLatest: boolean, isFirst: boolean): string => {
         if (isSingle) return 'color:#7c3aed;font-weight:700';
@@ -816,7 +923,16 @@ export function openAlarmDetailsModal(
 
           const sepStyle = gi > 0 ? ' style="margin-top:12px;padding-top:12px;border-top:1px dashed #e5e7eb"' : '';
           return `<div${sepStyle}>
-            <div class="adm-timeline-group-header">${escHtml(grp.title)}<span class="adm-timeline-group-count">${gCount}</span></div>
+            <div class="adm-timeline-group-header">
+              <label class="adm-tl-cb-wrap" data-cb-wrap><input type="checkbox" class="adm-tl-row-cb" data-item-id="${alarm.id}__grp${gi}"></label>
+              <span class="adm-tl-group-title">${escHtml(grp.title)}</span>
+              <span class="adm-timeline-group-count">${gCount}</span>
+              <div class="adm-tl-row-btns adm-tl-row-btns--group" data-row-btns>
+                ${isActive ? `<button class="adm-tl-row-btn adm-tl-row-btn--ack" data-action="acknowledge" data-item-id="${alarm.id}" title="Reconhecer">${_svgAck}</button>` : ''}
+                ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--snooze" data-action="snooze" data-item-id="${alarm.id}" title="Adiar">${_svgSnooze}</button>` : ''}
+                ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--escalate" data-action="escalate" data-item-id="${alarm.id}" title="Escalar">${_svgEscalate}</button>` : ''}
+              </div>
+            </div>
             <div class="adm-rpt-table-wrap" style="margin-bottom:0">
               <table class="adm-rpt-table">${gThead}<tbody>${gRows.join('')}</tbody></table>
             </div>
@@ -835,6 +951,7 @@ export function openAlarmDetailsModal(
         <th class="adm-rpt-th">Data/Hora</th>
         ${showDevice ? `<th class="adm-rpt-th">Dispositivo</th>` : ''}
         ${hasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
+        <th class="adm-rpt-th adm-tl-actions-th">Ações</th>
       </tr></thead>`;
 
       const MAX_SHOWN = 30;
@@ -852,6 +969,14 @@ export function openAlarmDetailsModal(
           <td class="adm-rpt-cell">${timeStr}</td>
           ${showDevice ? `<td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(device)}</td>` : ''}
           ${hasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr!)}</td>` : ''}
+          <td class="adm-rpt-cell adm-tl-action-cell">
+            <label class="adm-tl-cb-wrap" data-cb-wrap><input type="checkbox" class="adm-tl-row-cb" data-item-id="${alarm.id}__row${i}"></label>
+            <div class="adm-tl-row-btns" data-row-btns>
+              ${isActive ? `<button class="adm-tl-row-btn adm-tl-row-btn--ack" data-action="acknowledge" data-item-id="${alarm.id}" title="Reconhecer">${_svgAck}</button>` : ''}
+              ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--snooze" data-action="snooze" data-item-id="${alarm.id}" title="Adiar">${_svgSnooze}</button>` : ''}
+              ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--escalate" data-action="escalate" data-item-id="${alarm.id}" title="Escalar">${_svgEscalate}</button>` : ''}
+            </div>
+          </td>
         </tr>`);
         const csvRow = [`#${i}`, fmt(tsMs)];
         if (showDevice) csvRow.push(device);
@@ -867,6 +992,7 @@ export function openAlarmDetailsModal(
           <tfoot><tr>
             <td class="adm-rpt-cell adm-rpt-cell--total" colspan="${showDevice ? (hasTrigger ? 3 : 2) : (hasTrigger ? 2 : 1)}">Total</td>
             <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${count} ocorrência${count !== 1 ? 's' : ''}</td>
+            <td class="adm-rpt-cell adm-rpt-cell--total"></td>
           </tr></tfoot>
         </table>
       </div>`;
@@ -989,16 +1115,129 @@ export function openAlarmDetailsModal(
       win.document.close();
     });
 
-    emitBtn?.addEventListener('click', () => buildReportTable());
+    emitBtn?.addEventListener('click', () => {
+      buildReportTable();
+      // Re-apply batch visuals to newly rendered rows if batch mode is still active
+      if (batchActive && grid) {
+        grid.querySelectorAll<HTMLElement>('[data-cb-wrap]').forEach((el) => { el.style.display = 'inline-flex'; });
+        grid.querySelectorAll<HTMLElement>('[data-row-btns]').forEach((el) => { el.style.display = 'none'; });
+      }
+    });
 
     // Auto-load com a data padrão ao abrir o modal
     buildReportTable();
+
+    // ── Batch mode logic ──
+    const batchToggleBtn = rptPanel.querySelector<HTMLButtonElement>('#admTlBatchToggle');
+    const batchBar       = rptPanel.querySelector<HTMLElement>('#admTlBatchBar');
+    const selAllCb       = rptPanel.querySelector<HTMLInputElement>('#admTlSelAll');
+    const selCountEl     = rptPanel.querySelector<HTMLElement>('#admTlSelCount');
+    const actionSel      = rptPanel.querySelector<HTMLSelectElement>('#admTlActionSel');
+    const execBtn        = rptPanel.querySelector<HTMLButtonElement>('#admTlExecBtn');
+    const cancelBatchBtn = rptPanel.querySelector<HTMLButtonElement>('#admTlCancelBtn');
+
+    const getAllRowCbs = () =>
+      Array.from((grid ?? rptPanel).querySelectorAll<HTMLInputElement>('.adm-tl-row-cb'));
+
+    const updateBatchSelCount = () => {
+      if (selCountEl) selCountEl.textContent = `${batchSelectedIds.size} selecionado${batchSelectedIds.size !== 1 ? 's' : ''}`;
+      if (execBtn) execBtn.disabled = batchSelectedIds.size === 0 || !actionSel?.value;
+    };
+
+    const applyBatchVisuals = (active: boolean) => {
+      (grid ?? rptPanel).querySelectorAll<HTMLElement>('[data-cb-wrap]').forEach((el) => {
+        el.style.display = active ? 'inline-flex' : 'none';
+      });
+      (grid ?? rptPanel).querySelectorAll<HTMLElement>('[data-row-btns]').forEach((el) => {
+        el.style.display = active ? 'none' : 'inline-flex';
+      });
+    };
+
+    const setBatchMode = (active: boolean) => {
+      batchActive = active;
+      batchToggleBtn?.classList.toggle('is-active', active);
+      if (batchBar) batchBar.style.display = active ? 'flex' : 'none';
+      applyBatchVisuals(active);
+      if (!active) {
+        batchSelectedIds.clear();
+        if (selAllCb) selAllCb.checked = false;
+        if (actionSel) actionSel.value = '';
+        updateBatchSelCount();
+      }
+    };
+
+    batchToggleBtn?.addEventListener('click', () => setBatchMode(!batchActive));
+    cancelBatchBtn?.addEventListener('click', () => setBatchMode(false));
+
+    selAllCb?.addEventListener('change', () => {
+      const checked = selAllCb.checked;
+      getAllRowCbs().forEach((cb) => {
+        cb.checked = checked;
+        if (checked && cb.dataset.itemId) batchSelectedIds.add(cb.dataset.itemId);
+      });
+      if (!checked) batchSelectedIds.clear();
+      updateBatchSelCount();
+    });
+
+    actionSel?.addEventListener('change', () => updateBatchSelCount());
+
+    // Delegation: row checkbox changes (rows rebuilt on date filter)
+    grid?.addEventListener('change', (e) => {
+      const cb = (e.target as HTMLElement).closest<HTMLInputElement>('.adm-tl-row-cb');
+      if (!cb) return;
+      const id = cb.dataset.itemId;
+      if (!id) return;
+      if (cb.checked) batchSelectedIds.add(id);
+      else {
+        batchSelectedIds.delete(id);
+        if (selAllCb) selAllCb.checked = false;
+      }
+      updateBatchSelCount();
+    });
+
+    // Delegation: per-row quick action button clicks
+    grid?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-action][data-item-id]');
+      if (!btn || !onAction) return;
+      const action = btn.dataset.action as 'acknowledge' | 'snooze' | 'escalate';
+      const itemId = btn.dataset.itemId!;
+      const baseId = itemId.split('__')[0];
+      if (action && baseId) onAction(action, baseId);
+    });
+
+    // Batch execute
+    execBtn?.addEventListener('click', () => {
+      const action = actionSel?.value as 'acknowledge' | 'snooze' | 'escalate' | '';
+      if (!action || batchSelectedIds.size === 0 || !onAction) return;
+      const uniqueBaseIds = [...new Set([...batchSelectedIds].map((id) => id.split('__')[0]))];
+      uniqueBaseIds.forEach((id) => onAction(action, id));
+      setBatchMode(false);
+    });
   }
 
   // Anotações tab — bind interactive events
   const annotPanelEl = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="anotacoes"]');
   if (annotPanelEl) {
     const currentUser = (window as any).MyIOUtils?.currentUserEmail || alarm.acknowledgedBy || alarm.customerName || 'Usuário';
+
+    // Build TB persistence config if credentials are available
+    let tbCfg: TbSaveConfig | undefined;
+    const tbBaseUrl: string =
+      (window as any).__myioTbBaseUrl ||
+      (window as any).MyIOOrchestrator?.tbBaseUrl ||
+      '';
+    const jwtToken: string = localStorage.getItem('jwt_token') || '';
+    const tbDeviceId = resolveDeviceTbId(alarm);
+    if (tbBaseUrl && jwtToken && tbDeviceId) {
+      tbCfg = {
+        deviceId: tbDeviceId,
+        tbBaseUrl,
+        jwtToken,
+        alarmType: normalizeAlarmType(alarm.title),
+        alarmTitle: alarm.title,
+      };
+    }
+
     bindAnnotationsPanelEvents(annotPanelEl, alarm.id, currentUser, (n) => {
       const tabBtn = overlay.querySelector<HTMLElement>('.adm-tab[data-panel="anotacoes"]');
       if (!tabBtn) return;
@@ -1013,7 +1252,7 @@ export function openAlarmDetailsModal(
       } else if (badge) {
         badge.remove();
       }
-    });
+    }, tbCfg);
   }
 
   // Maximize / restore

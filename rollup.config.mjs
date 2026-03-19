@@ -21,7 +21,10 @@ export default {
   output: {
     file: 'dist/myio-js-library.umd.js',
     format: 'umd',
-    name: 'MyIOLibrary'
+    name: 'MyIOLibrary',
+    // jspdf contains dynamic import() calls internally; inlining prevents
+    // rollup from attempting code-splitting (incompatible with UMD format).
+    inlineDynamicImports: true,
   },
   plugins
 };

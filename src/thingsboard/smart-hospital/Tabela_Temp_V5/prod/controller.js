@@ -17,6 +17,21 @@ let adminVerified = false;
 let showSettings = false;
 let adminPasswordInput = '';
 
+// Interpolation flag — disabled by default; admin can enable via settings modal
+let interpolationEnabled = false;
+
+// Clamp limits for real sensor readings (admin-configurable)
+let clampMin = 17;
+let clampMax = 25;
+
+// Central ID → friendly name map (for error banner display)
+const CENTRAL_NAMES = {
+  'cea3473b-6e46-4a2f-85b8-f228d2a8347a': 'Central Maternidade',
+  'df3f846e-b69c-45ce-9475-bd90570b24d0': 'Central T&D',
+  'b93e4ee6-e002-43ce-83c6-58928d1fd319': 'Central Ar Comprimido',
+  '295628b1-75c6-4854-8031-107cd9a2ab91': 'Central CO2',
+};
+
 // -------- Consts / Estado --------
 const telemetryCache = new Map();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 min
@@ -45,6 +60,9 @@ let deviceList = [],
 
 // v2: Mapa device -> centralId para filtrar devices por central no RPC
 let deviceToCentralMap = {};
+
+// Mapa centralId -> nome amigável (construído em onInit/onDataUpdated)
+let centralIdToLabelMap = {};
 
 // Device filter state
 let showDeviceFilter = false;
@@ -398,15 +416,26 @@ function interpolateDay(
       const gapInfo = findGapForSlot(gaps, i);
 
       if (gapInfo && canInterpolate(gapInfo, maxGapSlots, allowCrossMidnight)) {
-        // Gap pequeno e dentro do mesmo dia - interpolar
-        const interpolatedValue = generateInterpolatedValue(slotISO, existingBySlot, fullSlots, i);
-        result.push({
-          time_interval: slotISO,
-          value: interpolatedValue,
-          interpolated: true,
-          gapSize: gapInfo.size,
-        });
-        interpolatedCount++;
+        if (interpolationEnabled) {
+          // Interpolação habilitada: calcular valor estimado
+          const interpolatedValue = generateInterpolatedValue(slotISO, existingBySlot, fullSlots, i);
+          result.push({
+            time_interval: slotISO,
+            value: interpolatedValue,
+            interpolated: true,
+            gapSize: gapInfo.size,
+          });
+          interpolatedCount++;
+        } else {
+          // Interpolação desabilitada: marcar slot com "=" (gap preenchível mas não estimado)
+          result.push({
+            time_interval: slotISO,
+            value: null,
+            interpolated: false,
+            equalSign: true,
+            gapSize: gapInfo.size,
+          });
+        }
       } else {
         // Gap muito grande ou cruza meia-noite - marcar como missing
         // Se includeMissingInOutput = false, não adiciona ao resultado (simplesmente pula)
@@ -480,11 +509,12 @@ function clampTemperature(val) {
   if (!isFinite(num)) return { value: null, clamped: false };
   let v = num,
     clamped = false;
-  if (num < 17) {
-    v = 17.0;
+  const frac = num - Math.trunc(num); // parte decimal original, ex: 12.633 → 0.633
+  if (num < clampMin) {
+    v = Math.trunc(clampMin) + frac; // ex: 14 + 0.633 = 14.633
     clamped = true;
-  } else if (num > 25) {
-    v = 25.0;
+  } else if (num > clampMax) {
+    v = Math.trunc(clampMax) + frac; // ex: 30 + 0.25 = 30.25
     clamped = true;
   }
   return { value: Number(v.toFixed(2)), clamped };
@@ -583,7 +613,7 @@ function showToast(message, type = 'error', duration = 8000) {
 }
 
 // -------- RPC --------
-const RPC_TIMEOUT_MS = 120000; // 120 segundos
+const RPC_TIMEOUT_MS = 300000; // 300 segundos (5 minutos)
 
 /**
  * sendRPCTemp v2
@@ -686,14 +716,29 @@ function exportToCSV(rowsInput) {
     alert('Erro: Nenhum dado para exportar.');
     return;
   }
-  const rows = [['Nome do Dispositivo', 'Temperatura', 'Data']];
-  rowsInput.forEach((r) => rows.push([r.deviceName, r.temperature, r.reading_date]));
-  const csv = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(';')).join('\n');
+  const rows = [['Nome do Dispositivo', 'Temperatura (°C)', 'Data']];
+  rowsInput.forEach((r) => {
+    // Garantir 2 casas decimais: valores numéricos com vírgula (Excel PT-BR); = e - inalterados
+    let temp = r.temperature;
+    if (temp !== '=' && temp !== '-' && temp != null) {
+      const num = parseFloat(temp);
+      if (!isNaN(num)) temp = num.toFixed(2).replace('.', ',');
+    }
+    rows.push([r.deviceName, temp, r.reading_date]);
+  });
+  const bom = '\uFEFF'; // UTF-8 BOM para Excel reconhecer acentuação
+  const csv = bom + rows.map((e) => e.join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = encodeURI(csv);
+  a.href = url;
   a.download = 'dispositivo_temperatura_horario.csv';
   document.body.appendChild(a);
   a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 1000);
 }
 
 function exportToPDF(data) {
@@ -916,6 +961,10 @@ async function getData() {
   _inFlight = true;
   _lastQueryKey = queryKey;
 
+  // Limpa erros de conexão anteriores ao iniciar nova busca
+  self.ctx.$scope.rpcConnectionErrors = [];
+  self.ctx.detectChanges();
+
   // Cache
   const cached = getCache(centrals, keyStart, keyEnd);
   if (cached) {
@@ -977,9 +1026,14 @@ async function getData() {
 
       const { results: rpcResponses, errors: rpcErrors } = await sendRPCTemp(bodiesPerCentral);
 
-      // Acumular erros de conexão para mostrar toast depois
+      // Se qualquer central falhou: abortar tudo, sem renderizar dados parciais
       if (rpcErrors && rpcErrors.length > 0) {
         allRpcErrors.push(...rpcErrors);
+        console.warn(
+          '[DR] Aborting report — central(s) failed:',
+          rpcErrors.map((e) => e.centralId)
+        );
+        break; // interrompe loop de chunks
       }
 
       for (const [centralId, readings] of Object.entries(rpcResponses || {})) {
@@ -990,10 +1044,7 @@ async function getData() {
         // Centrais com backend ORIGINAL precisam de -3h de correção
         // O backend original usa AT TIME ZONE que adiciona +3h ao UTC real
         // Centrais com backend v3.1 retornam UTC direto (sem correção)
-        const CENTRALS_WITH_OLD_BACKEND = [
-          '295628b1-75c6-4854-8031-107cd9a2ab91', // Souza Aguiar CO2 (original)
-          'df3f846e-b69c-45ce-9475-bd90570b24d0', // Souza Aguiar T&D (original)
-        ];
+        const CENTRALS_WITH_OLD_BACKEND = [];
 
         const needsLegacyNormalization = CENTRALS_WITH_OLD_BACKEND.includes(centralId);
         const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
@@ -1082,8 +1133,9 @@ async function getData() {
               deviceName: deviceLabel,
               reading_date: brDatetime(r.time_interval),
               sort_ts: new Date(r.time_interval).getTime(),
-              temperature: value == null ? '-' : value.toFixed(2),
+              temperature: r.equalSign ? '=' : value == null ? '-' : value.toFixed(2),
               interpolated: !!r.interpolated,
+              equalSign: !!r.equalSign,
               correctedBelowThreshold: !!clamped,
               // Novos campos para interpolação limitada
               missing: !!r.missing,
@@ -1129,25 +1181,28 @@ async function getData() {
 
     setPremiumLoading(true, LOADING_STATES.INTERPOLATING, 90);
 
-    // Mostrar toast se houve erros de conexão com centrais
+    // Se houve erros: exibir banner, não renderizar nenhum dado
     if (allRpcErrors.length > 0) {
       const uniqueErrors = [...new Map(allRpcErrors.map((e) => [e.centralId, e])).values()];
-      const errorMessages = uniqueErrors.map((e) => {
+      self.ctx.$scope.rpcConnectionErrors = uniqueErrors.map((e) => {
         let statusInfo;
-        if (e.status === 'timeout') statusInfo = `Timeout ${RPC_TIMEOUT_MS / 1000}s`;
+        if (e.status === 'timeout') statusInfo = `Timeout após ${RPC_TIMEOUT_MS / 1000}s`;
         else if (e.status === 502) statusInfo = '502 Bad Gateway';
-        else if (e.status === 0) statusInfo = 'CORS/Rede';
+        else if (e.status === 503) statusInfo = '503 Serviço indisponível';
+        else if (e.status === 0) statusInfo = 'Sem resposta (CORS/Rede)';
         else statusInfo = `Status ${e.status}`;
-        return `<strong>${e.centralId.substring(0, 8)}...</strong> (${statusInfo})`;
+        return { centralId: e.centralId, centralName: CENTRAL_NAMES[e.centralId] || null, statusInfo };
       });
-      const toastMessage =
-        uniqueErrors.length === 1
-          ? `Central inacessível:<br>${errorMessages[0]}`
-          : `${uniqueErrors.length} centrais inacessíveis:<br>${errorMessages.join('<br>')}`;
-      showToast(toastMessage, 'warning', 30000);
+      self.ctx.$scope.dados = [];
+      self.ctx.$scope.loading = false;
+      setPremiumLoading(false);
+      // Permite nova tentativa ao clicar em "Tentar novamente"
+      _lastQueryKey = null;
+      self.ctx.detectChanges();
+      return;
     }
 
-    // UI: finalizar
+    // UI: finalizar (somente quando todas as centrais responderam com sucesso)
     setTimeout(() => {
       console.log('[TOTAL PROCESSADO]', allProcessed.length, 'linhas');
       self.ctx.$scope.dados = allProcessed;
@@ -1171,7 +1226,7 @@ async function getData() {
 // -------- View mode & render --------
 function renderData(data) {
   const s = self.ctx.$scope;
-  s.totalReadings = data.length;
+  s.totalReadings = data.filter((r) => r.temperature !== '-').length;
   s.totalDevices = new Set(data.map((r) => r.deviceName)).size;
   if (s.isCardView) {
     renderCardView(data);
@@ -1404,6 +1459,14 @@ self.onInit = function () {
     }
   });
 
+  // Construir centralIdToLabelMap: centralId -> label amigável do dispositivo
+  centralIdToLabelMap = {};
+  Object.entries(deviceToCentralMap).forEach(([deviceName, cid]) => {
+    if (!centralIdToLabelMap[cid]) {
+      centralIdToLabelMap[cid] = deviceNameLabelMap[deviceName.split(' ')[0]] || deviceName || cid;
+    }
+  });
+
   // Apply normalization to centralIds (TEMPORARY FIX)
   const normalizedCentralIds = rawCentralIds.map(normalizeCentralId);
   self.ctx.$scope.centralIdList = [...new Set(normalizedCentralIds)];
@@ -1419,6 +1482,14 @@ self.onInit = function () {
     self.ctx.$scope.dados?.length ? exportToPDF(self.ctx.$scope.dados) : alert('Sem dados para exportar.');
   self.ctx.$scope.downloadCSV = () =>
     self.ctx.$scope.dados?.length ? exportToCSV(self.ctx.$scope.dados) : alert('Sem dados para exportar.');
+
+  // RPC connection errors (exibidos no banner premium de indisponibilidade)
+  self.ctx.$scope.rpcConnectionErrors = [];
+  self.ctx.$scope.retryReport = function () {
+    self.ctx.$scope.rpcConnectionErrors = [];
+    self.ctx.detectChanges();
+    applyDateRange();
+  };
 
   // Date pickers
   self.ctx.$scope.handleStartDateChange = handleStartDateChange;
@@ -1460,12 +1531,23 @@ self.onInit = function () {
     );
     self.ctx.detectChanges();
   };
-  self.ctx.$scope.getLatestTemperature = (arr) => (arr?.length ? arr[arr.length - 1].temperature : '-');
+  // Returns last real temperature (skips equalSign/missing/null rows) with guaranteed 2 decimal places
+  self.ctx.$scope.getLatestTemperature = (arr) => {
+    if (!arr?.length) return '-';
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const r = arr[i];
+      if (!r.equalSign && !r.missing && r.temperature !== '-') {
+        return Number(r.temperature).toFixed(2);
+      }
+    }
+    return '-';
+  };
   self.ctx.$scope.getDeviceReadingCount = (arr) => arr?.length || 0;
   self.ctx.$scope.getInterpolatedCount = (arr) =>
     (arr || []).filter((r) => r.interpolated && !r.missing).length;
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
-  self.ctx.$scope.getRealCount = (arr) => (arr || []).filter((r) => !r.interpolated && !r.missing).length;
+  self.ctx.$scope.getRealCount = (arr) =>
+    (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
 
   // Overlay inicial
   self.ctx.$scope.premiumLoading = false;
@@ -1508,6 +1590,33 @@ self.onInit = function () {
     adminMode = checked;
     self.ctx.$scope.adminMode = checked;
     self.ctx.detectChanges();
+  };
+
+  self.ctx.$scope.interpolationEnabled = interpolationEnabled;
+  self.ctx.$scope.setInterpolationEnabled = function (evt) {
+    const checked = !!evt?.target?.checked;
+    interpolationEnabled = checked;
+    self.ctx.$scope.interpolationEnabled = checked;
+    self.ctx.detectChanges();
+  };
+
+  self.ctx.$scope.clampMin = clampMin;
+  self.ctx.$scope.clampMax = clampMax;
+  self.ctx.$scope.setClampMin = function (evt) {
+    const v = parseFloat(evt?.target?.value);
+    if (!isNaN(v)) {
+      clampMin = v;
+      self.ctx.$scope.clampMin = v;
+      self.ctx.detectChanges();
+    }
+  };
+  self.ctx.$scope.setClampMax = function (evt) {
+    const v = parseFloat(evt?.target?.value);
+    if (!isNaN(v)) {
+      clampMax = v;
+      self.ctx.$scope.clampMax = v;
+      self.ctx.detectChanges();
+    }
   };
 
   self.ctx.detectChanges();

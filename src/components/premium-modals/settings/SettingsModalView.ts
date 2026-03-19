@@ -2,6 +2,7 @@ import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
+import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
 
@@ -19,9 +20,14 @@ export class SettingsModalView {
   private annotationsTab: AnnotationsTab | null = null;
   // RFC-0180: Alarms Tab
   private alarmsTab: AlarmsTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' = 'general';
+  // Exclusão de Grupos tab
+  private exclusionGroupsTab: ExclusionGroupsTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'exclusion-groups' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
+  // RFC-0190: Exclude Groups Totals
+  private excludeGroupsEnabled = false;
+  private excludedGroups: string[] = [];
 
   constructor(config: ModalConfig) {
     this.config = config;
@@ -101,6 +107,12 @@ export class SettingsModalView {
     this.initAnnotationsTab();
     // RFC-0180: Initialize alarms tab (async)
     this.initAlarmsTab();
+    // Exclusão de Grupos tab (async, energy domain only)
+    this.initExclusionGroupsTab();
+    // RFC-0190: Initialize exclude groups section (async, energy only)
+    if (this.config.domain === 'energy') {
+      this.initExcludeGroupsSection();
+    }
   }
 
   // RFC-0104: Initialize the Annotations Tab
@@ -161,12 +173,34 @@ export class SettingsModalView {
     const container = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     if (!container) return;
 
-    const { gcdrDeviceId, gcdrCustomerId, gcdrTenantId, gcdrApiBaseUrl, prefetchedBundle, prefetchedAlarms, deviceId, jwtToken } =
+    const { gcdrDeviceId, prefetchedBundle, prefetchedAlarms, prefetchedRules, deviceId, jwtToken } =
       this.config;
 
-    if (!gcdrDeviceId || !gcdrCustomerId || !gcdrTenantId) {
-      container.innerHTML =
-        '<p style="color:#6c757d;padding:20px;text-align:center;font-style:italic;">Alarm data not available (missing GCDR identifiers).</p>';
+    if (!gcdrDeviceId) {
+      // Lock the tab button visually
+      const tabBtn = this.modal.querySelector<HTMLElement>('.modal-tab[data-tab="alarms"]');
+      if (tabBtn) tabBtn.classList.add('locked');
+
+      container.innerHTML = `
+        <div style="
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          min-height:320px; padding:40px 24px; text-align:center;
+        ">
+          <div style="
+            width:72px; height:72px; border-radius:50%;
+            background:#f3f4f6; border:1.5px solid #e5e7eb;
+            display:flex; align-items:center; justify-content:center;
+            font-size:32px; margin-bottom:20px; opacity:0.7;
+          ">🔒</div>
+          <div style="font-size:15px; font-weight:600; color:#374151; margin-bottom:8px;">
+            Alarmes não disponíveis
+          </div>
+          <div style="font-size:13px; color:#9ca3af; max-width:320px; line-height:1.6;">
+            Este dispositivo não está vinculado ao sistema GCDR.<br>
+            O identificador <code style="font-size:11px;background:#f3f4f6;padding:1px 5px;border-radius:3px;">gcdrDeviceId</code>
+            não foi encontrado nos atributos do servidor.
+          </div>
+        </div>`;
       return;
     }
 
@@ -174,13 +208,12 @@ export class SettingsModalView {
       this.alarmsTab = new AlarmsTab({
         container,
         gcdrDeviceId,
-        gcdrCustomerId,
-        gcdrTenantId,
-        gcdrApiBaseUrl,
         tbDeviceId: deviceId ?? '',
         jwtToken: jwtToken ?? '',
         prefetchedBundle: prefetchedBundle ?? null,
         prefetchedAlarms: prefetchedAlarms ?? null,
+        prefetchedRules: prefetchedRules ?? null,
+        deviceProfile: this.config.deviceProfile,
       });
       await this.alarmsTab.init();
       console.log('[SettingsModalView] RFC-0180: Alarms tab initialized');
@@ -191,8 +224,50 @@ export class SettingsModalView {
     }
   }
 
+  // Exclusão de Grupos: Initialize the tab (energy domain only)
+  private async initExclusionGroupsTab(): Promise<void> {
+    if (this.config.domain !== 'energy') {
+      this.modal.querySelector('[data-tab="exclusion-groups"]')?.remove();
+      return;
+    }
+
+    const container = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
+    if (!container) return;
+
+    const { deviceId, jwtToken, tbBaseUrl } = this.config;
+
+    if (!deviceId || !jwtToken) {
+      container.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    min-height:320px;padding:40px 24px;text-align:center;">
+          <div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:8px;">
+            Exclusão de grupos não disponível
+          </div>
+          <div style="font-size:13px;color:#9ca3af;max-width:320px;line-height:1.6;">
+            deviceId ou jwtToken não disponíveis para carregar configurações.
+          </div>
+        </div>`;
+      return;
+    }
+
+    try {
+      this.exclusionGroupsTab = new ExclusionGroupsTab({
+        container,
+        deviceId,
+        jwtToken,
+        tbBaseUrl: tbBaseUrl ?? window.location.origin,
+      });
+      await this.exclusionGroupsTab.init();
+      console.log('[SettingsModalView] ExclusionGroupsTab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize ExclusionGroupsTab:', error);
+      container.innerHTML =
+        '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar configurações de exclusão</p>';
+    }
+  }
+
   // RFC-0104 / RFC-0180: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations' | 'alarms'): void {
+  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'exclusion-groups'): void {
     this.currentTab = tab;
 
     // Update tab buttons
@@ -205,12 +280,14 @@ export class SettingsModalView {
     const generalContent = this.modal.querySelector('#general-tab-content') as HTMLElement;
     const annotationsContent = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
     const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
+    const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
+    if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
 
-    // Update footer Save button (only on General tab)
+    // Update footer Save button (only on General tab; all other tabs have own save)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
 
@@ -233,6 +310,12 @@ export class SettingsModalView {
     if (this.alarmsTab) {
       this.alarmsTab.destroy();
       this.alarmsTab = null;
+    }
+
+    // Cleanup exclusion groups tab
+    if (this.exclusionGroupsTab) {
+      this.exclusionGroupsTab.destroy();
+      this.exclusionGroupsTab = null;
     }
 
     // Restore focus to original element
@@ -380,7 +463,7 @@ export class SettingsModalView {
       <div class="myio-device-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="myio-device-settings-modal" ${widthStyle}>
           <div class="modal-header">
-            <h3 id="modal-title">Configurações</h3>
+            <h3 id="modal-title">Configurações${this.config.customerName ? ` — ${this.config.customerName}` : ''}</h3>
             <div class="modal-header-actions">
               <button type="button" class="maximize-btn" aria-label="Maximizar" title="Maximizar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
@@ -415,6 +498,14 @@ export class SettingsModalView {
               </svg>
               Alarmes
             </button>
+            <!-- Exclusão de Grupos Tab -->
+            <button type="button" class="modal-tab" data-tab="exclusion-groups">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              Excluir Grupos
+            </button>
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert" aria-live="polite"></div>
@@ -436,6 +527,13 @@ export class SettingsModalView {
               <div style="padding: 20px; text-align: center; color: #6c757d;">
                 <div class="loading-spinner"></div>
                 <p>Carregando alarmes...</p>
+              </div>
+            </div>
+            <!-- Exclusão de Grupos Tab Content -->
+            <div id="exclusion-groups-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando configurações de exclusão...</p>
               </div>
             </div>
           </div>
@@ -537,6 +635,40 @@ export class SettingsModalView {
 
         <!-- RFC-0077: Power Limits Configuration (only for energy domain, when deviceType is available, and not a store meter) -->
         ${this.config.domain === 'energy' && this.config.deviceType && this.config.deviceType !== '3F_MEDIDOR' && this.config.deviceProfile !== '3F_MEDIDOR' ? this.getPowerLimitsHTML() : ''}
+
+        <!-- RFC-0171: Temperature Offset — always visible for temperature domain; editable only for @myio.com.br -->
+        ${this.config.domain === 'temperature' ? this.getTemperatureOffsetHTML() : ''}
+
+        <!-- RFC-0190: Exclude Groups Totals (energy domain only) -->
+        ${this.config.domain === 'energy' ? this.getExcludeGroupsSectionHTML() : ''}
+      </div>
+    `;
+  }
+
+  /** RFC-0171: Offset de Temperatura — sempre visível para domain=temperature; editável só para @myio.com.br */
+  private getTemperatureOffsetHTML(): string {
+    const superAdmin = this.isSuperAdmin();
+    return `
+      <div class="form-card">
+        <h4 class="section-title">Offset de Temperatura</h4>
+        <div class="form-group">
+          <label for="offSetTemperature">Correção de Leitura (°C)</label>
+          <input
+            type="number"
+            id="offSetTemperature"
+            name="offSetTemperature"
+            step="0.01"
+            min="-99.99"
+            max="99.99"
+            placeholder="-99.99 a +99.99"
+            ${superAdmin ? '' : 'readonly'}
+          >
+          <small class="form-hint" style="color:#6b7280;font-size:11px;margin-top:4px;display:block;">
+            ${superAdmin
+              ? 'Correção aplicada à leitura do sensor (valores negativos ou positivos)'
+              : 'Somente operadores MyIO podem alterar este valor'}
+          </small>
+        </div>
       </div>
     `;
   }
@@ -579,17 +711,19 @@ export class SettingsModalView {
   }
 
   private getThermostatAlarmsHTML(): string {
-    // RFC-0171: offSetTemperature field only visible for SuperAdmin (@myio.com.br users)
-    const offSetTemperatureField =
-      this.isSuperAdmin()
-        ? `
-        <div class="form-group">
-          <label for="offSetTemperature">Offset de Temperatura (°C)</label>
-          <input type="number" id="offSetTemperature" name="offSetTemperature" step="0.01" min="-99.99" max="99.99" placeholder="-99.99 a +99.99">
-          <small class="form-hint" style="color: #6b7280; font-size: 11px; margin-top: 4px; display: block;">Correção aplicada à leitura do sensor (valores negativos ou positivos)</small>
-        </div>
-      `
-        : '';
+    // RFC-0171: offSetTemperature always visible; editable only for SuperAdmin (@myio.com.br users)
+    const superAdmin = this.isSuperAdmin();
+    const offSetTemperatureField = `
+      <div class="form-group">
+        <label for="offSetTemperature">Offset de Temperatura (°C)</label>
+        <input type="number" id="offSetTemperature" name="offSetTemperature" step="0.01" min="-99.99" max="99.99" placeholder="-99.99 a +99.99"${superAdmin ? '' : ' readonly'}>
+        <small class="form-hint" style="color: #6b7280; font-size: 11px; margin-top: 4px; display: block;">${
+          superAdmin
+            ? 'Correção aplicada à leitura do sensor (valores negativos ou positivos)'
+            : 'Somente operadores MyIO podem alterar este valor'
+        }</small>
+      </div>
+    `;
 
     return `
       <div class="form-card">
@@ -1336,6 +1470,12 @@ export class SettingsModalView {
           color: #3e1a7d;
           border-bottom-color: #3e1a7d;
           background: #fff;
+        }
+
+        .modal-tab.locked {
+          opacity: 0.5;
+          cursor: not-allowed;
+          pointer-events: none;
         }
 
         .modal-tab svg {
@@ -2378,6 +2518,128 @@ export class SettingsModalView {
             font-size: 16px; /* Prevents zoom on iOS */
           }
         }
+
+        /* RFC-0190: Exclude Groups Totals */
+        .eg-card { padding: 20px; }
+
+        .eg-header { margin-bottom: 14px; }
+
+        .eg-enable-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .eg-toggle-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+          user-select: none;
+        }
+
+        .eg-toggle-label input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          accent-color: #3e1a7d;
+          cursor: pointer;
+        }
+
+        .eg-badge-active {
+          font-size: 11px;
+          font-weight: 600;
+          color: #16a34a;
+          background: #dcfce7;
+          border: 1px solid #86efac;
+          border-radius: 12px;
+          padding: 2px 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .eg-groups-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+
+        .eg-groups-grid--disabled {
+          opacity: 0.45;
+          pointer-events: none;
+        }
+
+        .eg-rule-row {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 10px 12px;
+          transition: border-color 0.15s, background 0.15s;
+          background: #fafafa;
+        }
+
+        .eg-rule-row--checked {
+          border-color: #3e1a7d;
+          background: #f5f0ff;
+        }
+
+        .eg-rule-label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .eg-rule-label input[type="checkbox"] {
+          width: 15px;
+          height: 15px;
+          accent-color: #3e1a7d;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        .eg-rule-name {
+          font-size: 13px;
+          font-weight: 500;
+          color: #374151;
+        }
+
+        .eg-rule-row--checked .eg-rule-name {
+          color: #3e1a7d;
+        }
+
+        .eg-footer {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 12px;
+          padding-top: 14px;
+          border-top: 1px solid #e5e7eb;
+        }
+
+        .eg-save-msg {
+          font-size: 13px;
+          font-weight: 500;
+        }
+
+        .eg-btn-save {
+          padding: 8px 20px;
+          font-size: 13px;
+          font-weight: 600;
+          background: #3e1a7d;
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .eg-btn-save:hover { background: #5a2da8; }
+        .eg-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
       </style>
     `;
   }
@@ -2499,7 +2761,7 @@ export class SettingsModalView {
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms';
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'exclusion-groups';
         if (tab) {
           this.switchTab(tab);
         }
@@ -2620,6 +2882,25 @@ export class SettingsModalView {
 
       if (target.classList.contains('myio-device-settings-overlay') && this.config.closeOnBackdrop !== false) {
         this.config.onClose();
+      }
+    });
+
+    // RFC-0190: Exclude groups toggle
+    this.modal.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement;
+      if (target.id === 'eg-enabled-toggle') {
+        this.excludeGroupsEnabled = target.checked;
+        this.renderExcludeGroupsContent();
+      }
+    });
+
+    // RFC-0190: Exclude groups save button (delegated)
+    this.modal.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.id === 'eg-save-btn') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.saveExcludeGroups();
       }
     });
 
@@ -2791,6 +3072,184 @@ export class SettingsModalView {
     } catch (error) {
       console.error('[SettingsModal] Failed to fetch telemetry:', error);
       telemetryElement.innerHTML = '<span class="telemetry-error">Erro ao carregar</span>';
+    }
+  }
+
+  // ============================================================================
+  // RFC-0190: Exclude Groups Totals
+  // ============================================================================
+
+  private static readonly ENERGY_GROUPS = [
+    { key: 'entrada',     label: 'Entrada' },
+    { key: 'lojas',       label: 'Lojas' },
+    { key: 'climatizacao', label: 'Climatização' },
+    { key: 'elevadores',  label: 'Elevadores' },
+    { key: 'esc_rolantes', label: 'Esc. Rolantes' },
+    { key: 'outros',      label: 'Outros Equipamentos' },
+    { key: 'area_comum',  label: 'Área Comum' },
+  ];
+
+  /** Returns the skeleton card — content is filled by initExcludeGroupsSection */
+  private getExcludeGroupsSectionHTML(): string {
+    return `
+      <div class="form-card eg-card" id="eg-section">
+        <div class="eg-header">
+          <h4 class="section-title" style="margin:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:text-bottom;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            Exclusão em Grupo de Cálculo
+          </h4>
+        </div>
+        <div id="eg-body">
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 0;color:#6b7280;font-size:13px;">
+            <div class="loading-spinner" style="width:16px;height:16px;border-width:2px;"></div>
+            Carregando configuração...
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /** Fetches current exclude_groups_totals from SERVER_SCOPE and renders the section */
+  private async initExcludeGroupsSection(): Promise<void> {
+    const deviceId = this.config.deviceId;
+    const token = this.config.jwtToken;
+    if (!deviceId || !token) return;
+
+    try {
+      const base = this.config.tbBaseUrl || window.location.origin;
+      const url = `${base}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE?keys=exclude_groups_totals`;
+      const resp = await fetch(url, {
+        headers: { 'X-Authorization': `Bearer ${token}` },
+      });
+
+      if (resp.ok) {
+        const attrs: Array<{ key: string; value: unknown }> = await resp.json();
+        const attr = attrs.find((a) => a.key === 'exclude_groups_totals');
+        if (attr && attr.value) {
+          const parsed = typeof attr.value === 'string' ? JSON.parse(attr.value) : attr.value as { enabled?: boolean; excludedGroups?: string[] };
+          this.excludeGroupsEnabled = parsed.enabled ?? false;
+          this.excludedGroups = Array.isArray(parsed.excludedGroups) ? parsed.excludedGroups : [];
+        }
+      }
+    } catch {
+      // Silently ignore fetch errors — section just shows unconfigured state
+    }
+
+    this.renderExcludeGroupsContent();
+  }
+
+  /** Renders the section body based on current state */
+  private renderExcludeGroupsContent(): void {
+    const body = this.modal.querySelector('#eg-body');
+    if (!body) return;
+
+    const groups = SettingsModalView.ENERGY_GROUPS;
+    const checked = this.excludeGroupsEnabled;
+
+    const groupRows = groups.map((g) => {
+      const isExcluded = this.excludedGroups.includes(g.key);
+      return `
+        <div class="eg-rule-row ${isExcluded ? 'eg-rule-row--checked' : ''}" data-group="${g.key}">
+          <label class="eg-rule-label">
+            <input
+              type="checkbox"
+              class="eg-group-check"
+              data-group="${g.key}"
+              ${isExcluded ? 'checked' : ''}
+              ${!checked ? 'disabled' : ''}
+            >
+            <span class="eg-rule-name">${g.label}</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="eg-enable-row">
+        <label class="eg-toggle-label">
+          <input type="checkbox" id="eg-enabled-toggle" ${checked ? 'checked' : ''}>
+          <span class="eg-toggle-text">Habilitar Exclusão em Cálculo</span>
+        </label>
+        ${checked ? '<span class="eg-badge-active">Ativo</span>' : ''}
+      </div>
+
+      <div class="eg-groups-grid ${!checked ? 'eg-groups-grid--disabled' : ''}">
+        ${groupRows}
+      </div>
+
+      <div class="eg-footer">
+        <span class="eg-save-msg" id="eg-save-msg" style="display:none;"></span>
+        <button type="button" class="eg-btn-save" id="eg-save-btn">Salvar Exclusões</button>
+      </div>
+    `;
+
+    // Wire checkboxes (inline, since content is re-rendered)
+    body.querySelectorAll('.eg-group-check').forEach((el) => {
+      el.addEventListener('change', (ev) => {
+        const input = ev.target as HTMLInputElement;
+        const key = input.dataset.group!;
+        if (input.checked) {
+          if (!this.excludedGroups.includes(key)) this.excludedGroups.push(key);
+        } else {
+          this.excludedGroups = this.excludedGroups.filter((k) => k !== key);
+        }
+        // Update row highlight
+        const row = input.closest('.eg-rule-row') as HTMLElement;
+        if (row) row.classList.toggle('eg-rule-row--checked', input.checked);
+      });
+    });
+  }
+
+  /** Saves exclude_groups_totals to SERVER_SCOPE */
+  private async saveExcludeGroups(): Promise<void> {
+    const deviceId = this.config.deviceId;
+    const token = this.config.jwtToken;
+    const msgEl = this.modal.querySelector('#eg-save-msg') as HTMLElement | null;
+    const saveBtn = this.modal.querySelector('#eg-save-btn') as HTMLButtonElement | null;
+
+    if (!deviceId || !token) return;
+
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
+    if (msgEl) { msgEl.style.display = 'none'; }
+
+    const payload = {
+      exclude_groups_totals: JSON.stringify({
+        enabled: this.excludeGroupsEnabled,
+        excludedGroups: this.excludedGroups,
+      }),
+    };
+
+    try {
+      const base = this.config.tbBaseUrl || window.location.origin;
+      const resp = await fetch(`${base}/api/plugins/telemetry/DEVICE/${deviceId}/SERVER_SCOPE`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (msgEl) {
+        msgEl.style.display = 'inline';
+        if (resp.ok) {
+          msgEl.textContent = '✓ Salvo com sucesso';
+          msgEl.style.color = '#16a34a';
+        } else {
+          msgEl.textContent = `Erro ${resp.status} ao salvar`;
+          msgEl.style.color = '#dc2626';
+        }
+        setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 3000);
+      }
+    } catch {
+      if (msgEl) {
+        msgEl.style.display = 'inline';
+        msgEl.textContent = 'Erro de rede ao salvar';
+        msgEl.style.color = '#dc2626';
+        setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 3000);
+      }
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Exclusões'; }
     }
   }
 }

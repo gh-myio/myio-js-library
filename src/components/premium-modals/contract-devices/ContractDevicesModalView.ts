@@ -141,8 +141,13 @@ export class ContractDevicesModalView {
       <div class="myio-contract-devices-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="myio-contract-devices-modal" style="width: ${width}">
           <div class="modal-header">
-            <h3 id="modal-title">${this.config.title || 'Configurar Dispositivos Contratados'}</h3>
-            <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
+            <h3 id="modal-title">${this.config.title || 'Configurar Dispositivos Contratados'}${this.config.customerName ? ` — ${this.config.customerName}` : ''}</h3>
+            <div class="modal-header-actions">
+              <button type="button" class="maximize-btn" aria-label="Maximizar" title="Maximizar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              </button>
+              <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
+            </div>
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert"></div>
@@ -150,12 +155,6 @@ export class ContractDevicesModalView {
               <div class="readonly-notice">
                 <span class="readonly-icon">🔒</span>
                 <span class="readonly-text">Modo somente leitura. Apenas usuarios @myio.com.br podem editar.</span>
-              </div>
-            ` : ''}
-            ${this.config.customerName ? `
-              <div class="customer-info">
-                <span class="customer-label">Shopping:</span>
-                <span class="customer-name">${this.config.customerName}</span>
               </div>
             ` : ''}
             <form novalidate>
@@ -362,7 +361,7 @@ export class ContractDevicesModalView {
         }
 
         .myio-contract-devices-modal .modal-header {
-          background: linear-gradient(135deg, #3e1a7d 0%, #5c2d91 100%);
+          background: #3e1a7d;
           color: white;
           padding: 20px 24px;
           display: flex;
@@ -375,6 +374,30 @@ export class ContractDevicesModalView {
           font-size: 18px;
           font-weight: 600;
           color: white;
+        }
+
+        .myio-contract-devices-modal .modal-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .myio-contract-devices-modal .maximize-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: white;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+        }
+
+        .myio-contract-devices-modal .maximize-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
         }
 
         .myio-contract-devices-modal .close-btn {
@@ -390,11 +413,18 @@ export class ContractDevicesModalView {
           align-items: center;
           justify-content: center;
           border-radius: 4px;
-          transition: background 0.2s;
         }
 
         .myio-contract-devices-modal .close-btn:hover {
           background: rgba(255, 255, 255, 0.1);
+        }
+
+        .myio-contract-devices-modal.is-maximized {
+          width: 100vw !important;
+          max-width: 100vw !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          border-radius: 0;
         }
 
         .myio-contract-devices-modal .modal-body {
@@ -721,6 +751,14 @@ export class ContractDevicesModalView {
   }
 
   private attachEventListeners(): void {
+    // Maximize button
+    const maximizeBtn = this.modal.querySelector('.maximize-btn') as HTMLButtonElement;
+    if (maximizeBtn) {
+      maximizeBtn.addEventListener('click', () => {
+        this.modal.classList.toggle('is-maximized');
+      });
+    }
+
     // Close button
     const closeBtn = this.modal.querySelector('.close-btn') as HTMLButtonElement;
     if (closeBtn) {

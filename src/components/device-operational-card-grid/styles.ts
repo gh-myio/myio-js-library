@@ -144,6 +144,7 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
 
 .myio-equipment-grid {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
   display: grid;

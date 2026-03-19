@@ -382,7 +382,7 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
     timePicker: includeTime, // RFC-0086: Conditional time picker
     timePicker24Hour: true,
     timePickerIncrement: timePrecision === 'hour' ? 60 : 1, // RFC-0086: Hour vs minute precision
-    autoApply: true,
+    autoApply: false, // Show explicit Aplicar / Cancelar buttons
     autoUpdateInput: true,
     linkedCalendars: true,
     showCustomRangeLabel: true,
@@ -411,10 +411,8 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
   });
   
   $input.on('cancel.daterangepicker.myio', () => {
-    $input.val('');
-    if (opts.onApply) {
-      opts.onApply({ startISO: '', endISO: '', startLabel: '', endLabel: '' });
-    }
+    // User clicked "Cancelar" — close picker without changing the selected range
+    updateInputDisplay();
   });
   
   function updateInputDisplay(): void {

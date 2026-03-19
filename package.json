@@ -1,6 +1,6 @@
 {
   "name": "myio-js-library",
-  "version": "0.1.414",
+  "version": "0.1.447",
   "description": "A clean, standalone JS SDK for MYIO projects",
   "license": "MIT",
   "repository": "github:gh-myio/myio-js-library",
@@ -40,6 +40,10 @@
     "bundle-size": "node scripts/check-bundle-size.mjs",
     "bundle-analyze": "rollup -c --environment ANALYZE",
     "release": "npm run build && npm publish --access public"
+  },
+  "dependencies": {
+    "jspdf": "^2.5.2",
+    "qrious": "^4.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",

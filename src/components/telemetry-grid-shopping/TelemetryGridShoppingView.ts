@@ -16,6 +16,7 @@ import {
 } from './types';
 import { TelemetryGridShoppingController } from './TelemetryGridShoppingController';
 import { injectStyles } from './styles';
+import { exportGridCsv, exportGridXls, exportGridPdf } from './export';
 
 // Type for MyIOLibrary card component (jQuery-like object)
 interface CardInstance {
@@ -71,7 +72,6 @@ export class TelemetryGridShoppingView {
     this.bindEvents();
     this.renderCards();
     this.updateStats();
-    this.renderMaximizeButton();
 
     // Move filter modal to body to escape stacking context issues
     if (this.filterModalEl) {
@@ -97,12 +97,8 @@ export class TelemetryGridShoppingView {
     return `
       <!-- Header -->
       <header class="shops-header">
-        <div class="shops-header-left">
-          <h2 class="shops-title" id="labelWidgetId">${labelWidget}</h2>
-          <span class="shops-count" id="shopsCount">(0)</span>
-        </div>
-
-        <div class="shops-header-actions">
+        <!-- Row 1: action buttons -->
+        <div class="shops-header-btns">
           <div class="search-wrap" id="searchWrap">
             <input type="text" id="shopsSearch" placeholder="Buscar..." autocomplete="off" />
           </div>
@@ -119,6 +115,31 @@ export class TelemetryGridShoppingView {
             </svg>
           </button>
 
+          <button class="export-btn export-btn--pdf" id="btnExportPdf" title="Exportar PDF" aria-label="Exportar PDF">PDF</button>
+          <button class="export-btn export-btn--xls" id="btnExportXls" title="Exportar XLS" aria-label="Exportar XLS">XLS</button>
+          <button class="export-btn export-btn--csv" id="btnExportCsv" title="Exportar CSV" aria-label="Exportar CSV">CSV</button>
+
+          ${this.params.onPresetupClick ? `
+          <button class="icon-btn shops-presetup-btn" id="btnPresetup"
+            title="Adicionar dispositivo (PresetupGateway)" aria-label="Adicionar dispositivo">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>` : ''}
+
+          <button class="icon-btn maximize-btn" id="btnMaximize" title="Maximizar" aria-label="Maximizar">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Row 2: label + consumo -->
+        <div class="shops-header-info">
+          <div class="shops-header-left">
+            <h2 class="shops-title" id="labelWidgetId">${labelWidget}</h2>
+            <span class="shops-count" id="shopsCount">(0)</span>
+          </div>
           <a class="shops-total" id="shopsTotal">0,00</a>
         </div>
       </header>
@@ -205,9 +226,6 @@ export class TelemetryGridShoppingView {
   }
 
   private bindEvents(): void {
-    this.root.addEventListener('mousemove', this.handleMouseMove.bind(this));
-    this.root.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
-
     // Listen for global theme changes
     window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
       this.applyThemeMode(e.detail.mode);
@@ -228,6 +246,30 @@ export class TelemetryGridShoppingView {
     // Filter button (this is in root)
     const btnFilter = this.root.querySelector('#btnFilter');
     btnFilter?.addEventListener('click', () => this.openFilterModal());
+
+    // RFC-0185: Presetup button — opens PresetupGateway for this grid
+    const btnPresetup = this.root.querySelector('#btnPresetup');
+    btnPresetup?.addEventListener('click', () => this.params.onPresetupClick?.());
+
+    // Maximize button — now permanently in the header (no hover magic needed)
+    this.maximizeBtnEl = this.root.querySelector('#btnMaximize');
+    this.maximizeBtnEl?.addEventListener('click', this.toggleMaximize.bind(this));
+
+    // Export buttons — PDF / XLS / CSV
+    const label = this.params.labelWidget
+      || CONTEXT_CONFIG[this.params.context]?.headerLabel
+      || 'Dispositivos';
+    const unit = DOMAIN_CONFIG[this.params.domain]?.unit || '';
+
+    this.root.querySelector('#btnExportPdf')?.addEventListener('click', () => {
+      exportGridPdf(this.controller.getFilteredDevices(), label, unit);
+    });
+    this.root.querySelector('#btnExportXls')?.addEventListener('click', () => {
+      exportGridXls(this.controller.getFilteredDevices(), label, unit);
+    });
+    this.root.querySelector('#btnExportCsv')?.addEventListener('click', () => {
+      exportGridCsv(this.controller.getFilteredDevices(), label, unit);
+    });
 
     // Bind filter modal events after it's cached but before moving to body
     this.bindFilterModalEvents();
@@ -505,6 +547,7 @@ export class TelemetryGridShoppingView {
                 wrapper.appendChild(this._createAlarmBadge(count));
               }
             }
+
           } else {
             this.log('Card element not found for:', device.labelOrName);
             wrapper.innerHTML = this.buildFallbackCard(device);
@@ -673,64 +716,16 @@ export class TelemetryGridShoppingView {
     return this.root;
   }
 
-  private renderMaximizeButton(): void {
-    const maximizeBtnHTML = this.buildMaximizeButtonHTML();
-    this.root.insertAdjacentHTML('beforeend', maximizeBtnHTML);
-    this.maximizeBtnEl = this.root.querySelector('.maximize-btn');
-    this.maximizeBtnEl?.addEventListener('click', this.toggleMaximize.bind(this));
-  }
-
-  private buildMaximizeButtonHTML(): string {
-    return `
-      <button class="maximize-btn" title="Maximizar">
-        <svg viewBox="0 0 24 24">
-          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-        </svg>
-      </button>
-    `;
-  }
-
-  private handleMouseMove(event: MouseEvent): void {
-    if (this.isMaximized) return;
-
-    const rect = this.root.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    const isNearTopRight = x > rect.width - 100 && y < 100;
-
-    if (isNearTopRight) {
-      this.maximizeBtnEl!.style.opacity = '1';
-    } else {
-      this.maximizeBtnEl!.style.opacity = '0';
-    }
-  }
-
-  private handleMouseLeave(): void {
-    if (this.isMaximized) return;
-    this.maximizeBtnEl!.style.opacity = '0';
-  }
-
   private toggleMaximize(): void {
     this.isMaximized = !this.isMaximized;
 
     if (this.isMaximized) {
-      // Save original position
       this.originalParent = this.root.parentElement;
       this.originalNextSibling = this.root.nextSibling;
-
-      // Move to body (like filter modal)
       document.body.appendChild(this.root);
       this.root.classList.add('maximized');
-
-      // Keep button visible when maximized
-      if (this.maximizeBtnEl) {
-        this.maximizeBtnEl.style.opacity = '1';
-      }
     } else {
-      // Restore original position
       this.root.classList.remove('maximized');
-
       if (this.originalParent) {
         if (this.originalNextSibling) {
           this.originalParent.insertBefore(this.root, this.originalNextSibling);
@@ -738,18 +733,12 @@ export class TelemetryGridShoppingView {
           this.originalParent.appendChild(this.root);
         }
       }
-
-      // Reset button opacity
-      if (this.maximizeBtnEl) {
-        this.maximizeBtnEl.style.opacity = '0';
-      }
     }
 
     // Update icon
     const icon = this.isMaximized
       ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
       : '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
-
-    this.maximizeBtnEl!.innerHTML = `<svg viewBox="0 0 24 24">${icon}</svg>`;
+    this.maximizeBtnEl!.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18">${icon}</svg>`;
   }
 }

@@ -1177,23 +1177,27 @@ export class EnergyModalView {
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+    const rt = this.config.params.readingType;
+    const unit = rt === 'water' || rt === 'tank' ? 'm³' : rt === 'temperature' ? '°C' : 'kWh';
+    const reportTitle = rt === 'water' || rt === 'tank' ? 'WATER REPORT' : rt === 'temperature' ? 'TEMPERATURE REPORT' : 'ENERGY REPORT';
+
     const csvData = [
-      ['ENERGY REPORT - DEVICE DETAILS', '', ''],
+      [`${reportTitle} - DEVICE DETAILS`, '', ''],
       ['Device', device.label, ''],
       ['Device ID', device.id, ''],
       ['Export Date', timestamp, ''],
-      ['Total Consumption', formatNumber(totalConsumption), 'kWh'],
+      ['Total Consumption', formatNumber(totalConsumption), unit],
       ['', '', ''],
-      ['Date', 'Consumption (kWh)', ''],
+      ['Date', `Consumption (${unit})`, ''],
       ...this.currentEnergyData.consumption.map(row => [
-        formatDate(row.timestamp), 
+        formatDate(row.timestamp),
         formatNumber(row.value),
         ''
       ])
     ];
 
     const csvContent = toCsv(csvData);
-    this.downloadCSV(csvContent, `energy-report-${device.id}-${new Date().toISOString().split('T')[0]}.csv`);
+    this.downloadCSV(csvContent, `${rt || 'energy'}-report-${device.id}-${new Date().toISOString().split('T')[0]}.csv`);
   }
 
   /**
@@ -1367,7 +1371,7 @@ export class EnergyModalView {
             endDate: endDate,
             label: this.config.params.deviceLabel || 'Dispositivo',
             locale: 'pt-BR',
-            readingType: this.config.params.readingType || 'energy',
+            readingType: (this.config.params.readingType === 'tank' ? 'water' : this.config.params.readingType) || 'energy',
             enableRealTimeMode: true,
             realTimeInterval: 8000,
             realTimeAutoScroll: true

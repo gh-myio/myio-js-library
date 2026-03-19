@@ -84,9 +84,9 @@ function mapApiTrend(
   apiTrend: import('./types').AlarmTrendApiPoint[]
 ): AlarmTrendDataPoint[] {
   return (apiTrend || []).map((point) => ({
-    label: point.period,
-    timestamp: new Date(point.period).getTime() || 0,
-    total: point.count,
+    label: point.label || point.period,
+    timestamp: point.timestamp || new Date(point.period).getTime() || 0,
+    total: point.total ?? point.count,
     bySeverity: point.bySeverity
       ? {
           CRITICAL: point.bySeverity.CRITICAL ?? 0,

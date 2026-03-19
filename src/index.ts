@@ -726,6 +726,15 @@ export type { InferredDeviceType } from './classify/deviceType';
 // RFC-0109: Upsell Post-Setup Modal
 export { openUpsellModal } from './components/premium-modals/upsell';
 
+// RFC-0190: User Management Modal
+export { openUserManagementModal } from './components/premium-modals/user-management';
+export type {
+  OpenUserManagementParams,
+  TBCurrentUser,
+  TBUser,
+  TBUserPage,
+} from './components/premium-modals/user-management';
+
 export type {
   UpsellModalParams,
   UpsellModalInstance,
@@ -948,7 +957,7 @@ export type {
 export { MENU_SHOPPING_CSS_PREFIX, DEFAULT_MENU_SHOPPING_CONFIG } from './components/menu-shopping';
 
 // RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
-export { createTelemetryGridShoppingComponent } from './components/telemetry-grid-shopping';
+export { createTelemetryGridShoppingComponent, exportGridCsv, exportGridXls, exportGridPdf } from './components/telemetry-grid-shopping';
 
 export type {
   TelemetryGridShoppingParams,
@@ -1672,3 +1681,25 @@ export type {
 // RFC-0179: GCDR Alarm Bundle Map Modal
 export { openAlarmBundleMapModal, fetchGCDRBundle } from './components/premium-modals/alarm-bundle-map';
 export type { AlarmBundleMapParams } from './components/premium-modals/alarm-bundle-map';
+
+// RFC-0180: PresetupGateway — single-gateway device pre-setup + Ingestion API + Provisioning API
+export { createPresetupGateway } from './components/PresetupGateway';
+export type {
+  PresetupGatewayOptions,
+  PresetupGatewayInstance,
+  PresetupDevice,
+  GatewayInfo,
+  DeviceType,
+  DeviceMultipliers,
+  SyncResult,
+} from './components/PresetupGateway/types';
+export { DEVICE_TYPES } from './components/PresetupGateway/types';
+export type { PdfLayout } from './components/PresetupGateway/utils/pdf';
+
+// Exclusão de Grupos de Cálculo tab (SettingsModal 4th tab — energy domain)
+export { ExclusionGroupsTab } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
+export type {
+  ExclusionGroupsTabConfig,
+  ExcludeGroupsTotals,
+} from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
+

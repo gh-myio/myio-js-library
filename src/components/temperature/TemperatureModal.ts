@@ -74,6 +74,12 @@ export interface TemperatureModalParams {
   theme?: 'dark' | 'light';
   /** IANA timezone string (e.g., 'America/Sao_Paulo'). Defaults to local timezone. */
   timezone?: string;
+  /**
+   * Optional custom data fetcher. When provided, replaces the default ThingsBoard API fetch.
+   * Receives (startTs, endTs) in Unix ms; must return TemperatureTelemetry[].
+   * Use this to fetch from an alternative source (e.g., Data Apps ingestion API).
+   */
+  dataFetcher?: (startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>;
 }
 
 export interface TemperatureModalInstance {
@@ -108,6 +114,7 @@ interface ModalState {
   isLoading: boolean;
   dateRangePicker: DateRangeControl | null;
   selectedPeriods: DayPeriod[];
+  dataFetcher: ((startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>) | null;
 }
 
 // ============================================================================
@@ -151,7 +158,8 @@ export async function openTemperatureModal(
     stats: { avg: 0, min: 0, max: 0, count: 0 },
     isLoading: true,
     dateRangePicker: null,
-    selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'] // All periods selected by default
+    selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
+    dataFetcher: params.dataFetcher ?? null,
   };
 
   // Log if offset is applied
@@ -175,7 +183,9 @@ export async function openTemperatureModal(
 
   // Fetch initial data
   try {
-    state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
+    state.data = await (state.dataFetcher
+        ? state.dataFetcher(state.startTs, state.endTs)
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
     state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
     state.isLoading = false;
     renderModal(modalContainer, state, modalId);
@@ -203,7 +213,9 @@ export async function openTemperatureModal(
       renderModal(modalContainer, state, modalId);
 
       try {
-        state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
+        state.data = await (state.dataFetcher
+        ? state.dataFetcher(state.startTs, state.endTs)
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
         state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
         state.isLoading = false;
         renderModal(modalContainer, state, modalId);
@@ -281,6 +293,7 @@ function renderModal(
           showClose: true,
           primaryColor: '#3e1a7d',
           borderRadius: '10px 10px 0 0',
+          draggable: false,
         })}
 
         <!-- Body -->
@@ -1016,7 +1029,9 @@ async function setupEventListeners(
     renderModal(container, state, modalId);
 
     try {
-      state.data = await fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs);
+      state.data = await (state.dataFetcher
+        ? state.dataFetcher(state.startTs, state.endTs)
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
       state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
       state.isLoading = false;
       renderModal(container, state, modalId);
@@ -1042,7 +1057,9 @@ async function setupEventListeners(
       state.label,
       state.stats,
       startDateStr,
-      endDateStr
+      endDateStr,
+      state.clampRange,
+      state.temperatureOffset
     );
   });
 }

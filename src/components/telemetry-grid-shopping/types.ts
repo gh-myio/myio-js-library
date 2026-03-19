@@ -152,6 +152,8 @@ export interface TelemetryGridShoppingParams {
   onStatsUpdate?: OnStatsUpdateCallback;
   onFilterChange?: OnFilterChangeCallback;
   onSearchChange?: OnSearchChangeCallback;
+  /** RFC-0185: called when the "+" presetup button in the grid header is clicked */
+  onPresetupClick?: () => void;
 }
 
 // ============================================

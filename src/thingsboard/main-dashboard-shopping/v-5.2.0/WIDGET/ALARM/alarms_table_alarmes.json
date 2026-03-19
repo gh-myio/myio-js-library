@@ -1,212 +1,105 @@
 {
-  "widget": {
-    "typeFullFqn": "system.alarm_widgets.alarms_table",
-    "type": "alarm",
-    "sizeX": 10.5,
-    "sizeY": 6.5,
-    "config": {
-      "timewindow": {
-        "realtime": {
-          "interval": 1000,
-          "timewindowMs": 86400000
-        },
-        "aggregation": {
-          "type": "NONE",
-          "limit": 200
-        }
+  "data": [
+    {
+      "id": "Dzi2RogfgSfo4wGWEUjZ0",
+      "tenantId": "11111111-1111-1111-1111-111111111111",
+      "customerId": "e04046d4-baa4-44e9-a378-4dfebe4140f1",
+      "centralId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+      "deviceId": "73525d82-e104-4d71-a138-df756c45cd3b",
+      "alarmType": "energy_consumption",
+      "severity": "MEDIUM",
+      "state": "OPEN",
+      "title": "Fancoil Desligado (Seg-Sab)",
+      "raisedAt": "2026-03-05T19:27:01.210Z",
+      "assetId": "e1d8e82e-3eab-4387-8c36-e7ff924d8de9",
+      "deviceName": "Fancoil 19",
+      "description": "Fancoil Consumo abaixo de 35KWH por 30mim durante 10:00 até 22:00 dispara alarme.",
+      "metadata": {
+        "value": 32,
+        "ruleId": "92d45741-7f4a-4fc0-8963-c79f5979d2e6",
+        "status": "online",
+        "localId": "168",
+        "sourceCentralId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+        "ruleName": "Fancoil Desligado (Seg-Sab)"
       },
-      "showTitle": true,
-      "backgroundColor": "#FFFFFF",
-      "color": "#191B1F",
-      "padding": "",
-      "settings": {
-        "alarmsTitle": "Alarmes",
-        "enableSelection": true,
-        "enableSearch": true,
-        "enableSelectColumnDisplay": false,
-        "enableFilter": true,
-        "enableStickyHeader": true,
-        "enableStickyAction": false,
-        "showCellActionsMenu": true,
-        "reserveSpaceForHiddenAction": "true",
-        "displayDetails": true,
-        "allowAcknowledgment": true,
-        "allowClear": true,
-        "allowAssign": true,
-        "displayActivity": true,
-        "displayPagination": false,
-        "defaultPageSize": 10,
-        "defaultSortOrder": "-createdTime",
-        "useRowStyleFunction": false,
-        "rowStyleFunction": ""
-      },
-      "title": "Alarms table",
-      "dropShadow": true,
-      "enableFullscreen": false,
-      "titleStyle": {
-        "fontSize": "16px",
-        "fontWeight": 400,
-        "padding": "5px 10px 5px 10px"
-      },
-      "useDashboardTimewindow": true,
-      "showLegend": false,
-      "alarmSource": {
-        "type": "entity",
-        "name": "",
-        "deviceId": "091efca0-63b9-11ef-ad2c-53aeabe7d3fa",
-        "entityAliasId": "dc0f4328-9a73-0ac6-952d-e0b9dffdc986",
-        "dataKeys": [
-          {
-            "name": "createdTime",
-            "type": "alarm",
-            "label": "Data ",
-            "color": "#2196f3",
-            "settings": {
-              "useCellStyleFunction": false,
-              "cellStyleFunction": "",
-              "useCellContentFunction": false,
-              "cellContentFunction": ""
-            },
-            "_hash": 0.021092237451093787,
-            "funcBody": null
-          },
-          {
-            "name": "originator",
-            "type": "alarm",
-            "label": "Originador",
-            "color": "#4caf50",
-            "settings": {
-              "useCellStyleFunction": false,
-              "cellStyleFunction": "",
-              "useCellContentFunction": false,
-              "cellContentFunction": ""
-            },
-            "_hash": 0.2780007688856758,
-            "funcBody": null
-          },
-          {
-            "name": "type",
-            "type": "alarm",
-            "label": "Tipo",
-            "color": "#f44336",
-            "settings": {
-              "useCellStyleFunction": false,
-              "cellStyleFunction": "",
-              "useCellContentFunction": false,
-              "cellContentFunction": ""
-            },
-            "_hash": 0.7323586880398418,
-            "funcBody": null
-          },
-          {
-            "name": "severity",
-            "type": "alarm",
-            "label": "Severidade",
-            "color": "#ffc107",
-            "settings": {
-              "useCellStyleFunction": false,
-              "useCellContentFunction": false
-            },
-            "_hash": 0.09927019860088193,
-            "funcBody": null
-          },
-          {
-            "name": "status",
-            "type": "alarm",
-            "label": "Status",
-            "color": "#607d8b",
-            "settings": {
-              "useCellStyleFunction": false,
-              "cellStyleFunction": "",
-              "useCellContentFunction": false,
-              "cellContentFunction": ""
-            },
-            "_hash": 0.6588418951443418,
-            "funcBody": null
-          }
-        ],
-        "alarmFilterConfig": {
-          "statusList": [
-            "ACTIVE"
-          ]
-        }
-      },
-      "alarmsPollingInterval": 5,
-      "showTitleIcon": true,
-      "titleIcon": "warning",
-      "iconColor": "rgb(232, 150, 35)",
-      "iconSize": "24px",
-      "titleTooltip": "",
-      "widgetStyle": {},
-      "displayTimewindow": true,
-      "actions": {
-        "actionCellButton": [],
-        "headerButton": []
-      },
-      "configMode": "advanced",
-      "alarmFilterConfig": {
-        "statusList": [],
-        "severityList": [],
-        "typeList": [],
-        "searchPropagatedAlarms": false
-      },
-      "datasources": [],
-      "titleFont": {
-        "size": 20,
-        "sizeUnit": "px",
-        "family": "Roboto",
-        "weight": "bold",
-        "style": "normal",
-        "lineHeight": "1.5"
-      },
-      "titleColor": "#673AB7",
-      "borderRadius": "5px",
-      "widgetCss": "",
-      "pageSize": 1024,
-      "noDataDisplayMessage": "",
-      "enableDataExport": false
+      "lastUpdatedAt": "2026-03-05T20:47:23.607Z",
+      "acknowledgedAt": "",
+      "closedAt": "",
+      "silencedUntil": "",
+      "escalationLevel": 0,
+      "escalatedAt": "",
+      "dispatchCount": 0,
+      "lastDispatchedAt": "",
+      "lastDispatchChannel": ""
     },
-    "row": 0,
-    "col": 0,
-    "id": "99c19ae0-9983-2a8b-6085-f73e54c7cb59"
-  },
-  "aliasesInfo": {
-    "datasourceAliases": {
-      "0": {
-        "alias": "Centrals",
-        "filter": {
-          "type": "deviceSearchQuery",
-          "resolveMultiple": true,
-          "rootStateEntity": false,
-          "stateEntityParamName": null,
-          "defaultStateEntity": null,
-          "rootEntity": {
-            "entityType": "ASSET",
-            "id": "9803d1b0-9ee2-11f0-afe1-175479a33d89"
-          },
-          "direction": "FROM",
-          "maxLevel": 5,
-          "fetchLastLevelOnly": false,
-          "relationType": null,
-          "deviceTypes": [
-            "default",
-            "HIDROMETRO",
-            "MOTOR",
-            "3F_MEDIDOR",
-            "ESCADA_ROLANTE",
-            "ELEVADOR"
-          ]
-        }
-      }
+    {
+      "id": "FVtACAuDNXd1_mSILDn9s",
+      "tenantId": "11111111-1111-1111-1111-111111111111",
+      "customerId": "e04046d4-baa4-44e9-a378-4dfebe4140f1",
+      "centralId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+      "deviceId": "1a725d2a-2d39-4306-baf7-6b419587024c",
+      "alarmType": "instantaneous_power",
+      "severity": "MEDIUM",
+      "state": "OPEN",
+      "title": "Escada Rolante parada (seg-sáb)",
+      "raisedAt": "2026-02-28T17:15:16.982Z",
+      "assetId": "122bccd5-cd5f-49f0-967b-124e12a30caf",
+      "deviceName": "ER 4",
+      "description": "Alerta quando a potência instantânea da escada rolante fica abaixo do valor de referência parada por 5min (seg a sáb 10h-22h) — indica escada sem energia ou com defeito",
+      "metadata": {
+        "value": 2289,
+        "ruleId": "cccc0001-0001-0001-0001-000000000003",
+        "status": "online",
+        "localId": "93",
+        "sourceCentralId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+        "ruleName": "Escada Rolante parada (seg-sáb)"
+      },
+      "lastUpdatedAt": "2026-03-03T15:23:04.170Z",
+      "acknowledgedAt": "",
+      "closedAt": "",
+      "silencedUntil": "",
+      "escalationLevel": 0,
+      "escalatedAt": "",
+      "dispatchCount": 0,
+      "lastDispatchedAt": "",
+      "lastDispatchChannel": ""
     },
-    "targetDeviceAlias": null
-  },
-  "filtersInfo": {
-    "datasourceFilters": {}
-  },
-  "originalSize": {
-    "sizeX": 25,
-    "sizeY": 15
-  },
-  "originalColumns": 24
+    {
+      "id": "mNAEJ7Aie9QK2tgHfSjeL",
+      "tenantId": "11111111-1111-1111-1111-111111111111",
+      "customerId": "e04046d4-baa4-44e9-a378-4dfebe4140f1",
+      "centralId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+      "deviceId": "816fe09a-bde1-404d-8bde-18cb4988d553",
+      "alarmType": "energy_consumption",
+      "severity": "MEDIUM",
+      "state": "OPEN",
+      "title": "Elevador parado (seg-sáb)",
+      "raisedAt": "2026-02-28T17:15:16.982Z",
+      "assetId": "c0b728be-de68-49a3-8328-29e660c03a7b",
+      "deviceName": "Elevador 4",
+      "description": "Alerta quando a potência instantânea do elevador fica abaixo do valor de referência parado por 25min (seg a sáb 10h-22h) — indica elevador sem energia ou com defeito",
+      "metadata": {
+        "value": 234,
+        "ruleId": "cccc0001-0001-0001-0001-000000000001",
+        "status": "online",
+        "localId": "88",
+        "sourceCentralId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+        "ruleName": "Elevador parado MA(domingo)"
+      },
+      "lastUpdatedAt": "2026-03-03T15:23:04.244Z",
+      "acknowledgedAt": "",
+      "closedAt": "",
+      "silencedUntil": "",
+      "escalationLevel": 0,
+      "escalatedAt": "",
+      "dispatchCount": 0,
+      "lastDispatchedAt": "",
+      "lastDispatchChannel": ""
+    }
+  ],
+  "pagination": {
+    "total": 3,
+    "totalPages": 1,
+    "hasMore": false
+  }
 }

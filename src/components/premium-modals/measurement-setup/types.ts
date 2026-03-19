@@ -64,6 +64,8 @@ export interface MeasurementSetupModalParams {
   onSave?: (settings: MeasurementDisplaySettings) => void;
   onClose?: () => void;
   styles?: MeasurementSetupModalStyles;
+  /** Current user name/email to show in the modal header title */
+  userName?: string;
 }
 
 export interface MeasurementSetupModalInstance {

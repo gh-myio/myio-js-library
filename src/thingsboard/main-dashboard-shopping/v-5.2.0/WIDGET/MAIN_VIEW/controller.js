@@ -54,6 +54,8 @@ Object.assign(window.MyIOUtils, {
     minTemperature: null,
     maxTemperature: null,
   },
+  // Outlier clamp range for temperature chart/CSV (superadmin-only, from SERVER_SCOPE)
+  temperatureClampRange: null, // { min, max } or null → falls back to DEFAULT_CLAMP_RANGE (15–40)
   // RFC-0106: Global mapInstantaneousPower from customer's parent entity
   // Used for deviceStatus calculation with power ranges
   mapInstantaneousPower: null,
@@ -500,6 +502,10 @@ let widgetSettings = {
   enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
+
+// Exclusão de Grupos: group exclusion config loaded from DEVICE SERVER_SCOPE via SettingsModal
+// { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
+let _excludeGroupsTotals = null;
 
 // Config object (populated in onInit from widgetSettings)
 let config = null;
@@ -1179,12 +1185,10 @@ Object.assign(window.MyIOUtils, {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
 
-    // RFC-0178: Expose alarmsApiBaseUrl and alarmsApiKey for ALARM widget
+    // RFC-0178: alarmsApiBaseUrl from settings (URL config); alarms auth uses gcdrApiKey (SERVER_SCOPE)
     const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
-    const alarmsApiKey     = self.ctx.settings?.alarmsApiKey     || 'gcdr_cust_tb_integration_key_2026';
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
-      window.MyIOOrchestrator.alarmsApiKey     = alarmsApiKey;
     }
     LogHelper.log('[Orchestrator] RFC-0178: alarmsApiBaseUrl:', alarmsApiBaseUrl);
 
@@ -1196,6 +1200,26 @@ Object.assign(window.MyIOUtils, {
     };
     widgetSettings.excludeDevicesAtCountSubtotalCAG =
       self.ctx.settings?.excludeDevicesAtCountSubtotalCAG ?? [];
+
+    // RFC-0188: Short delay threshold (minutes) to rescue offline devices with recent telemetry
+    SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS =
+      self.ctx.settings?.shortDelayMinsToBypassOfflineStatus ?? 60;
+    widgetSettings.shortDelayMinsToBypassOfflineStatus = SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS;
+    LogHelper.log(
+      '[Orchestrator] RFC-0188: shortDelayMinsToBypassOfflineStatus:',
+      SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS
+    );
+
+    // RFC-0189: Temperature API fetch for offline detection + modal data source
+    widgetSettings.enableTemperatureApiDataFetch =
+      self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
+    // Expose via window.MyIOUtils for TELEMETRY widget (modal data source)
+    window.MyIOUtils.enableTemperatureApiDataFetch = widgetSettings.enableTemperatureApiDataFetch;
+
+    // RFC-0152: Device data export to console (TB↔GCDR mapping audit)
+    widgetSettings.enableDeviceDataExport = self.ctx.settings?.enableDeviceDataExport ?? false;
+    window.MyIOUtils.enableDeviceDataExport = widgetSettings.enableDeviceDataExport;
+    LogHelper.log('[Orchestrator] RFC-0152: enableDeviceDataExport:', widgetSettings.enableDeviceDataExport);
 
     // RFC-0144: Load annotations onboarding setting
     widgetSettings.enableAnnotationsOnboarding = self.ctx.settings?.enableAnnotationsOnboarding ?? false;
@@ -1249,6 +1273,31 @@ Object.assign(window.MyIOUtils, {
     // This fetches device counts from SERVER_SCOPE and shows the contract loading modal
     initializeContractLoading();
 
+    // Resetar mapas de enriquecimento a cada onInit para evitar contaminação cross-customer.
+    // O guard abaixo cria o objeto apenas uma vez, mas os mapas acumulam entre reloads sem esse reset.
+    if (window.MyIOOrchestrator) {
+      window.MyIOOrchestrator.gcdrDeviceNameMap    = new Map();
+      window.MyIOOrchestrator.entityNameToLabelMap = new Map();
+      // RFC-0194: reset to avoid stale config when switching customers
+      window.MyIOOrchestrator.defaultDashboardId  = null;
+      window.MyIOOrchestrator.defaultDashboardCfg = null;
+    }
+    // RFC-0193: Resetar estado de alarmes a cada onInit — evita dados do customer anterior
+    // aparecerem no badge/tooltip/toasts até o novo fetch retornar.
+    _lastKnownAlarmIds = null;
+    _lastKnownAlarmMap = null;
+    _alarmDayMap       = new Map();
+    if (window.MyIOOrchestrator?.alarmDayMap) {
+      // Zera o mapa exposto publicamente para badge e tooltip não mostrarem dados velhos
+      window.MyIOOrchestrator.alarmDayMap = {
+        listAll:       () => [],
+        listByStatus:  () => [],
+        add:    () => {},
+        remove: () => {},
+        count:  () => 0,
+      };
+    }
+
     // RFC-0051.2: Expose orchestrator stub IMMEDIATELY
     // This prevents race conditions with TELEMETRY widgets that check for orchestrator
     // We expose a stub with isReady flag that will be set to true when fully initialized
@@ -1284,6 +1333,17 @@ Object.assign(window.MyIOUtils, {
           },
         },
 
+        // RFC-0180: GCDR API method stubs (replaced by real impl after merge)
+        gcdrFetchCustomerRules: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready'); return []; },
+        gcdrPostAlarmAction: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPostAlarmAction called before orchestrator is ready'); return false; },
+        gcdrPatchRuleScope: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleScope called before orchestrator is ready'); return false; },
+        gcdrPatchRuleValue: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleValue called before orchestrator is ready'); return false; },
+        gcdrEnqueueCloseAlarms: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrEnqueueCloseAlarms called before orchestrator is ready'); return false; }, // RFC-0191
+
+        // RFC-0194: customer default dashboard (populated after SERVER_SCOPE fetch)
+        defaultDashboardId:  null,
+        defaultDashboardCfg: null,
+
         // Internal state (will be populated later)
         inFlight: {},
       };
@@ -1296,6 +1356,14 @@ Object.assign(window.MyIOUtils, {
 
     // RFC-XXXX: Detect SuperAdmin early (async, non-blocking)
     detectSuperAdmin();
+
+    // Determine the initial tab to dispatch — use the first enabled domain so that
+    // water-only / temperature-only dashboards don't trigger an energy retry-loop.
+    const _initialTab =
+      widgetSettings.domainsEnabled?.energy       !== false ? 'energy' :
+      widgetSettings.domainsEnabled?.water        !== false ? 'water'  :
+      widgetSettings.domainsEnabled?.temperature  !== false ? 'temperature' : 'energy';
+    LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
 
     // Initialize MyIO Library and Authentication
     const MyIO =
@@ -1320,9 +1388,12 @@ Object.assign(window.MyIOUtils, {
         let CLIENT_SECRET = '';
         let CUSTOMER_ING_ID = '';
 
-        // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
-        let gcdrCustomerId = self.ctx.settings?.gcdrCustomerId || '';
-        let gcdrTenantId   = self.ctx.settings?.gcdrTenantId   || '';
+        // RFC-0180: GCDR IDs and API keys — exclusively from TB SERVER_SCOPE attrs (see attrs block below)
+        let gcdrCustomerId = '';
+        let gcdrTenantId   = '';
+        let gcdrApiKey     = '';
+        let alarmNotificationsEnabled = true; // RFC-0193: default enabled; read from SERVER_SCOPE below
+        let defaultDashboardCfg      = null;  // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1338,9 +1409,23 @@ Object.assign(window.MyIOUtils, {
             CLIENT_SECRET = attrs?.client_secret || '';
             CUSTOMER_ING_ID = attrs?.ingestionId || '';
 
-            // RFC-0180: Fallback GCDR IDs from attrs when not set in widget settings
-            if (!gcdrCustomerId) gcdrCustomerId = attrs?.gcdrCustomerId || attrs?.gcdrId || '';
-            if (!gcdrTenantId)   gcdrTenantId   = attrs?.gcdrTenantId  || '';
+            // RFC-0180: GCDR IDs and API keys from SERVER_SCOPE attrs (single source of truth)
+            gcdrCustomerId = attrs?.gcdrCustomerId || '';
+            gcdrTenantId   = attrs?.gcdrTenantId  || '';
+            gcdrApiKey     = attrs?.gcdrApiKey     || '';
+            // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
+            alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
+            // RFC-0194: customer default dashboard config (full object stored for management UI)
+            defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
+
+            // Exclusão de Grupos: read from DEVICE SERVER_SCOPE (saved by SettingsModal)
+            const _rawExcludeGroups = attrs?.exclude_groups_totals;
+            if (_rawExcludeGroups) {
+              _excludeGroupsTotals = typeof _rawExcludeGroups === 'string'
+                ? JSON.parse(_rawExcludeGroups)
+                : _rawExcludeGroups;
+              LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
+            }
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -1366,19 +1451,30 @@ Object.assign(window.MyIOUtils, {
           if (!jwt) LogHelper.warn('[MAIN_VIEW]   - JWT token is missing from localStorage');
         }
 
-        // RFC-0180: Publish GCDR identifiers to orchestrator for ALARM and SETTINGS widgets
+        // RFC-0180: Publish GCDR identifiers + API keys to orchestrator for ALARM and SETTINGS widgets
         if (window.MyIOOrchestrator) {
-          window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
-          window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
-          window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
+          window.MyIOOrchestrator.gcdrCustomerId    = gcdrCustomerId;
+          window.MyIOOrchestrator.gcdrTenantId     = gcdrTenantId;
+          window.MyIOOrchestrator.gcdrApiBaseUrl   = gcdrApiBaseUrl;
+          window.MyIOOrchestrator.gcdrApiKey       = gcdrApiKey;
+          // true only when both customerId and apiKey are present — used by tooltip/modal to gate alarm UI
+          window.MyIOOrchestrator.alarmsConfigured = !!(gcdrCustomerId && gcdrApiKey);
+          // RFC-0193: alarm notifications toggle — default true (undefined treated as enabled)
+          window.MyIOOrchestrator.alarmNotificationsEnabled = alarmNotificationsEnabled;
+          // RFC-0194: stable default dashboard ID + full config for management UI
+          window.MyIOOrchestrator.defaultDashboardId  = defaultDashboardCfg?.dashboardId ?? null;
+          window.MyIOOrchestrator.defaultDashboardCfg = defaultDashboardCfg;
         }
+        if (!gcdrApiKey) LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
+        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrApiKey:', gcdrApiKey ? '✅ set' : '❌ empty');
 
         // RFC-0180: Pre-fetch all customer alarms (non-blocking) so AlarmsTab can use them
         // without a per-device fetch when the Settings modal is opened.
         if (gcdrCustomerId) {
           _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com');
+          _fetchAlarmDayMap(); // RFC-0193: populate today's alarm history map (all states)
         }
 
         // Check if credentials are present
@@ -1393,15 +1489,15 @@ Object.assign(window.MyIOUtils, {
           // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
           // This enables HEADER controls, even though data fetch will fail
           LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+            `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
           );
           setTimeout(() => {
             LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)'
+              `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no credentials)`
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' },
+                detail: { tab: _initialTab },
               })
             );
           }, 100);
@@ -1441,15 +1537,15 @@ Object.assign(window.MyIOUtils, {
           // Dispatch initial tab event AFTER credentials AND with delay
           // Delay ensures HEADER has time to register its listener
           LogHelper.log(
-            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+            `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
           );
           setTimeout(() => {
             LogHelper.log(
-              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)'
+              `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after credentials + delay)`
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' },
+                detail: { tab: _initialTab },
               })
             );
           }, 100);
@@ -1460,13 +1556,13 @@ Object.assign(window.MyIOUtils, {
         // RFC-0054 FIX: Dispatch initial tab event even on error (with delay)
         // This enables HEADER controls, even though data fetch will fail
         LogHelper.log(
-          '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+          `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
         );
         setTimeout(() => {
-          LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after error)');
+          LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after error)`);
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' },
+              detail: { tab: _initialTab },
             })
           );
         }, 100);
@@ -1477,13 +1573,13 @@ Object.assign(window.MyIOUtils, {
       // RFC-0054 FIX: Dispatch initial tab event even without MyIOLibrary (with delay)
       // This enables HEADER controls, even though data fetch will fail
       LogHelper.log(
-        '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+        `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
       );
       setTimeout(() => {
-        LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no MyIOLibrary)');
+        LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no MyIOLibrary)`);
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
-            detail: { tab: 'energy' },
+            detail: { tab: _initialTab },
           })
         );
       }, 100);
@@ -1531,6 +1627,24 @@ Object.assign(window.MyIOUtils, {
         if (!isNaN(val) && window.MyIOUtils.temperatureLimits.maxTemperature !== val) {
           window.MyIOUtils.temperatureLimits.maxTemperature = val;
           LogHelper.log(`[MAIN_VIEW] Exposed global maxTemperature from customer: ${val}`);
+        }
+      }
+
+      if (keyName === 'temperatureclampmin' && rawValue !== undefined && rawValue !== null) {
+        const val = Number(rawValue);
+        if (!isNaN(val)) {
+          if (!window.MyIOUtils.temperatureClampRange) window.MyIOUtils.temperatureClampRange = {};
+          window.MyIOUtils.temperatureClampRange.min = val;
+          LogHelper.log(`[MAIN_VIEW] Exposed temperatureClampMin from customer: ${val}`);
+        }
+      }
+
+      if (keyName === 'temperatureclampmax' && rawValue !== undefined && rawValue !== null) {
+        const val = Number(rawValue);
+        if (!isNaN(val)) {
+          if (!window.MyIOUtils.temperatureClampRange) window.MyIOUtils.temperatureClampRange = {};
+          window.MyIOUtils.temperatureClampRange.max = val;
+          LogHelper.log(`[MAIN_VIEW] Exposed temperatureClampMax from customer: ${val}`);
         }
       }
 
@@ -1886,15 +2000,309 @@ function parseDeviceCountAttributes(attributes) {
  * @param {string} entityType - Entity type (default: 'CUSTOMER')
  * @returns {Promise<Object|null>} Device counts object or null on error
  */
+// ── RFC-0192: New-alarm notification toast ────────────────────────────────
+// ── RFC-0193: Closed-alarm notification toast ─────────────────────────────
+// Tracks alarm IDs seen in the last ASO build so we can diff and surface only
+// truly new alarms on subsequent refreshes (first load never notifies).
+// _lastKnownAlarmMap also stores the full alarm objects so closed-alarm details
+// (title, deviceName) can be shown in the closure toast.
+let _lastKnownAlarmIds     = null; // null = first load not yet done
+let _lastKnownAlarmMap     = null; // Map<id, alarm>
+let _alarmNotificationTimer = null;
+let _alarmClosedNotifTimer  = null;
+let _alarmDayMap = new Map(); // id → alarm (all states, today only — RFC-0193)
+
+/**
+ * Show a floating notification toast when new alarms are detected.
+ * Managed entirely by MAIN_VIEW — no widget dependency.
+ *
+ * @param {Array} newAlarms - Array of new GCDRAlarm objects
+ */
+function _showNewAlarmNotification(newAlarms) {
+  if (!newAlarms || newAlarms.length === 0) return;
+  // RFC-0193: Respect notification toggle (default: enabled)
+  if (window.MyIOOrchestrator?.alarmNotificationsEnabled === false) return;
+
+  // Dismiss any existing notification
+  const existing = document.getElementById('myio-alarm-notification');
+  if (existing) existing.remove();
+  if (_alarmNotificationTimer) { clearTimeout(_alarmNotificationTimer); _alarmNotificationTimer = null; }
+
+  // Determine severity accent color (highest priority among new alarms)
+  const SEVERITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const SEVERITY_COLORS = { CRITICAL: '#dc2626', HIGH: '#f59e0b', MEDIUM: '#3b82f6', LOW: '#6b7280' };
+  const topAlarm = [...newAlarms].sort((a, b) =>
+    (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
+  )[0];
+  const accentColor = SEVERITY_COLORS[topAlarm?.severity] || '#f59e0b';
+
+  const count = newAlarms.length;
+  const label = count === 1 ? 'novo alarme detectado' : `novos alarmes detectados`;
+  const firstTitle = topAlarm?.title || topAlarm?.alarmType || 'Alarme';
+  const deviceName = topAlarm?.deviceName || '';
+
+  const el = document.createElement('div');
+  el.id = 'myio-alarm-notification';
+  el.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999999;
+    min-width: 365px;
+    max-width: 468px;
+    background: #1e293b;
+    border-radius: 13px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    border-left: 5px solid ${accentColor};
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+  `;
+
+  el.innerHTML = `
+    <style>
+      @keyframes myio-notif-in {
+        from { opacity: 0; transform: translateX(60px) scale(0.95); }
+        to   { opacity: 1; transform: translateX(0)   scale(1);    }
+      }
+      @keyframes myio-notif-out {
+        to { opacity: 0; transform: translateX(60px) scale(0.95); }
+      }
+      @keyframes myio-notif-bar {
+        from { width: 100%; }
+        to   { width: 0%;   }
+      }
+      #myio-alarm-notification .notif-body {
+        display: flex; align-items: flex-start; gap: 13px; padding: 18px 18px 13px;
+      }
+      #myio-alarm-notification .notif-icon {
+        font-size: 26px; flex-shrink: 0; line-height: 1.2;
+      }
+      #myio-alarm-notification .notif-content { flex: 1; min-width: 0; }
+      #myio-alarm-notification .notif-device {
+        font-size: 16px; font-weight: 700; color: #f1f5f9;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin-bottom: 3px;
+      }
+      #myio-alarm-notification .notif-count {
+        font-size: 14px; font-weight: 700; color: ${accentColor}; margin-bottom: 2px;
+      }
+      #myio-alarm-notification .notif-title {
+        font-size: 12px; font-weight: 500; color: #94a3b8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #myio-alarm-notification .notif-close {
+        background: none; border: none; color: #64748b; font-size: 21px;
+        cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0;
+        align-self: flex-start; transition: color 0.15s;
+      }
+      #myio-alarm-notification .notif-close:hover { color: #f1f5f9; }
+      #myio-alarm-notification .notif-progress {
+        height: 4px; background: ${accentColor}; opacity: 0.7;
+        animation: myio-notif-bar 6s linear forwards;
+      }
+    </style>
+    <div class="notif-body">
+      <div class="notif-icon">🔔</div>
+      <div class="notif-content">
+        ${deviceName ? `<div class="notif-device">${deviceName}</div>` : ''}
+        <div class="notif-count">${count} ${label}</div>
+        <div class="notif-title">${firstTitle}</div>
+      </div>
+      <button class="notif-close" title="Fechar">✕</button>
+    </div>
+    <div class="notif-progress"></div>
+  `;
+
+  const dismiss = () => {
+    el.style.animation = 'myio-notif-out 0.2s ease forwards';
+    setTimeout(() => el.remove(), 200);
+    if (_alarmNotificationTimer) { clearTimeout(_alarmNotificationTimer); _alarmNotificationTimer = null; }
+  };
+
+  el.querySelector('.notif-close').addEventListener('click', dismiss);
+  document.body.appendChild(el);
+  _alarmNotificationTimer = setTimeout(dismiss, 6000);
+}
+// ── RFC-0193: Closed-alarm notification toast ─────────────────────────────
+
+/**
+ * Show a floating notification toast when alarms disappear from the active queue
+ * (i.e., they were resolved/closed since the last refresh cycle).
+ *
+ * @param {Array} closedAlarms - Array of GCDRAlarm objects no longer in the active list
+ */
+function _showClosedAlarmNotification(closedAlarms) {
+  if (!closedAlarms || closedAlarms.length === 0) return;
+  // RFC-0193: Respect notification toggle (default: enabled)
+  if (window.MyIOOrchestrator?.alarmNotificationsEnabled === false) return;
+
+  // Dismiss any existing closed-alarm notification
+  const existing = document.getElementById('myio-alarm-closed-notification');
+  if (existing) existing.remove();
+  if (_alarmClosedNotifTimer) { clearTimeout(_alarmClosedNotifTimer); _alarmClosedNotifTimer = null; }
+
+  // If a new-alarm toast is already visible, stack below it
+  const newAlarmEl = document.getElementById('myio-alarm-notification');
+  const topOffset  = newAlarmEl ? (newAlarmEl.offsetHeight + 28) : 20;
+
+  const GREEN = '#10b981';
+  const count = closedAlarms.length;
+  const label = count === 1 ? 'alarme encerrado' : 'alarmes encerrados';
+  // Use the first closed alarm for the detail line
+  const topAlarm  = closedAlarms[0];
+  const firstTitle  = topAlarm?.title || topAlarm?.alarmType || 'Alarme';
+  const deviceName  = topAlarm?.deviceName || '';
+
+  const el = document.createElement('div');
+  el.id = 'myio-alarm-closed-notification';
+  el.style.cssText = `
+    position: fixed;
+    top: ${topOffset}px;
+    right: 20px;
+    z-index: 999999;
+    min-width: 365px;
+    max-width: 468px;
+    background: #1e293b;
+    border-radius: 13px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    border-left: 5px solid ${GREEN};
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+  `;
+
+  el.innerHTML = `
+    <style>
+      #myio-alarm-closed-notification .notif-body {
+        display: flex; align-items: flex-start; gap: 13px; padding: 18px 18px 13px;
+      }
+      #myio-alarm-closed-notification .notif-icon {
+        font-size: 26px; flex-shrink: 0; line-height: 1.2;
+      }
+      #myio-alarm-closed-notification .notif-content { flex: 1; min-width: 0; }
+      #myio-alarm-closed-notification .notif-device {
+        font-size: 16px; font-weight: 700; color: #f1f5f9;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin-bottom: 3px;
+      }
+      #myio-alarm-closed-notification .notif-count {
+        font-size: 14px; font-weight: 700; color: ${GREEN}; margin-bottom: 2px;
+      }
+      #myio-alarm-closed-notification .notif-title {
+        font-size: 12px; font-weight: 500; color: #94a3b8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #myio-alarm-closed-notification .notif-close {
+        background: none; border: none; color: #64748b; font-size: 21px;
+        cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0;
+        align-self: flex-start; transition: color 0.15s;
+      }
+      #myio-alarm-closed-notification .notif-close:hover { color: #f1f5f9; }
+      #myio-alarm-closed-notification .notif-progress {
+        height: 4px; background: ${GREEN}; opacity: 0.7;
+        animation: myio-notif-bar 5s linear forwards;
+      }
+    </style>
+    <div class="notif-body">
+      <div class="notif-icon">✅</div>
+      <div class="notif-content">
+        ${deviceName ? `<div class="notif-device">${deviceName}</div>` : ''}
+        <div class="notif-count">${count} ${label}</div>
+        <div class="notif-title">${firstTitle}</div>
+      </div>
+      <button class="notif-close" title="Fechar">✕</button>
+    </div>
+    <div class="notif-progress"></div>
+  `;
+
+  const dismiss = () => {
+    el.style.animation = 'myio-notif-out 0.2s ease forwards';
+    setTimeout(() => el.remove(), 200);
+    if (_alarmClosedNotifTimer) { clearTimeout(_alarmClosedNotifTimer); _alarmClosedNotifTimer = null; }
+  };
+
+  el.querySelector('.notif-close').addEventListener('click', dismiss);
+  document.body.appendChild(el);
+  _alarmClosedNotifTimer = setTimeout(dismiss, 5000);
+}
+// ── RFC-0193: Alarm Day Map ────────────────────────────────────────────────
+
+/**
+ * Rebuild window.MyIOOrchestrator.alarmDayMap from today's alarm list.
+ * Exposes .listAll(), .listByStatus(status|string[]), .add(alarm), .remove(id), .count()
+ */
+function _buildAlarmDayMap(alarms) {
+  _alarmDayMap = new Map((alarms || []).filter(a => a.id).map(a => [a.id, a]));
+  if (!window.MyIOOrchestrator) return;
+  window.MyIOOrchestrator.alarmDayMap = {
+    listAll:       ()         => [..._alarmDayMap.values()],
+    listByStatus:  (status)   => {
+      if (!status) return [..._alarmDayMap.values()];
+      const states = Array.isArray(status) ? status : [status];
+      return [..._alarmDayMap.values()].filter(a => states.includes(a.state));
+    },
+    add:    (alarm) => { if (alarm?.id) _alarmDayMap.set(alarm.id, alarm); },
+    remove: (id)    => { _alarmDayMap.delete(id); },
+    count:  ()      => _alarmDayMap.size,
+  };
+}
+
+/**
+ * Fetch all of today's alarms (no state filter) and populate alarmDayMap.
+ */
+async function _fetchAlarmDayMap() {
+  const orch           = window.MyIOOrchestrator;
+  const gcdrCustomerId = orch?.gcdrCustomerId;
+  const gcdrApiKey     = orch?.gcdrApiKey;
+  const gcdrTenantId   = orch?.gcdrTenantId || '';
+  const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  if (!gcdrCustomerId || !gcdrApiKey) {
+    LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap: missing gcdrCustomerId or gcdrApiKey');
+    return;
+  }
+  // Limpa imediatamente antes do fetch — badge vai a 0 enquanto os dados do novo customer chegam
+  _buildAlarmDayMap([]);
+  const now        = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const from       = encodeURIComponent(todayStart.toISOString());
+  const to         = encodeURIComponent(now.toISOString());
+  const baseUrl    = `${alarmsBaseUrl}/api/v1/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
+  const headers    = { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId, 'Accept': 'application/json' };
+  try {
+    let allAlarms  = [];
+    let page       = 1;
+    let totalPages = 1;
+    do {
+      const resp = await fetch(`${baseUrl}&page=${page}`, { headers });
+      if (!resp.ok) { LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap failed:', resp.status); break; }
+      const json       = await resp.json();
+      const pageAlarms = Array.isArray(json.data) ? json.data
+                       : (Array.isArray(json.items) ? json.items
+                       : (Array.isArray(json.data?.items) ? json.data.items : []));
+      allAlarms = allAlarms.concat(pageAlarms);
+      if (page === 1) {
+        totalPages = json.pagination?.totalPages ?? 1;
+      }
+      page++;
+    } while (page <= totalPages);
+    _buildAlarmDayMap(allAlarms);
+    LogHelper.log('[MAIN_VIEW] alarmDayMap populated:', allAlarms.length, 'alarms for today (pages:', totalPages, ')');
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap error:', err);
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // RFC-0180: Pre-fetch all customer alarms so AlarmsTab can filter without a per-device call.
 // Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
 async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
   try {
-    const ALARMS_API_KEY = 'gcdr_cust_tb_integration_key_2026';
+    const gcdrApiKey = window.MyIOOrchestrator?.gcdrApiKey || '';
     const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
     const response = await fetch(url, {
       headers: {
-        'X-API-Key':    ALARMS_API_KEY,
+        'X-API-Key':    gcdrApiKey,
         'X-Tenant-ID':  gcdrTenantId || '',
         'Accept':       'application/json',
       },
@@ -1915,9 +2323,18 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
 
 // RFC-0183: Build window.AlarmServiceOrchestrator — device-keyed alarm maps.
 function _buildAlarmServiceOrchestrator(alarms) {
+  // Normalize: set source = deviceId (GCDR UUID) so _updatePanelFromASO can resolve
+  // the display name via gcdrDeviceNameMap.get(source). The API returns deviceId but not
+  // a "source" field, so without this step source is undefined and the enrichment falls
+  // through to the stateMap gateway-key fallback (which returns a wrong device name).
+  const normalizedAlarms = (alarms || []).map((a) => ({
+    ...a,
+    source: a.source || a.deviceId || '',
+  }));
+
   // Map: gcdrDeviceId → GCDRAlarm[]
   const deviceAlarmMap = new Map();
-  for (const alarm of (alarms || [])) {
+  for (const alarm of normalizedAlarms) {
     const did = alarm.deviceId;
     if (!did) continue;
     if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
@@ -1931,8 +2348,8 @@ function _buildAlarmServiceOrchestrator(alarms) {
   });
 
   window.AlarmServiceOrchestrator = {
-    /** Array of all raw customer alarms */
-    alarms,
+    /** Array of all raw customer alarms (source normalized to deviceId) */
+    alarms: normalizedAlarms,
 
     /** Map<gcdrDeviceId, GCDRAlarm[]> */
     deviceAlarmMap,
@@ -1960,15 +2377,74 @@ function _buildAlarmServiceOrchestrator(alarms) {
       const orch = window.MyIOOrchestrator;
       const gcdrCustomerId = orch?.gcdrCustomerId || '';
       const gcdrTenantId   = orch?.gcdrTenantId   || '';
-      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || '';
       await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl);
     },
   };
 
   LogHelper.log('[AlarmServiceOrchestrator] Built —',
     deviceAlarmMap.size, 'devices with alarms,',
-    alarms.length, 'total alarms'
+    normalizedAlarms.length, 'total alarms'
   );
+
+  // ── Contamination detector ──────────────────────────────────────────────
+  // Scans STATE.itemsBase for TB devices that share the same gcdrDeviceId.
+  // If multiple TB items have the same gcdrDeviceId that matches an active alarm,
+  // ALL those cards show the badge even though only 1 GCDR device has the alarm.
+  // Root cause: GCDR sync re-match bug (fixed via consumedGcdrDeviceIds).
+  // Resolution: Force Clear + re-sync the customer in GCDR-Upsell-Setup widget.
+  if (window.STATE) {
+    const gcdrIdToItems = new Map(); // gcdrDeviceId → [{tbId, label}]
+    for (const domain of ['energy', 'water', 'temperature']) {
+      const items = window.STATE[domain]?._raw || [];
+      for (const item of items) {
+        const gid = item.gcdrDeviceId;
+        if (!gid || !deviceAlarmMap.has(gid)) continue; // only care about alarm-matched IDs
+        if (!gcdrIdToItems.has(gid)) gcdrIdToItems.set(gid, []);
+        gcdrIdToItems.get(gid).push({ tbId: item.id || item.tbId || '?', label: item.label || item.name || '?' });
+      }
+    }
+    let extraBadges = 0;
+    gcdrIdToItems.forEach((items, gid) => {
+      if (items.length > 1) {
+        extraBadges += items.length - 1;
+        LogHelper.warn(
+          `[AlarmServiceOrchestrator] ⚠️ gcdrDeviceId contamination detected: "${gid}" is shared by ${items.length} TB devices.`,
+          'Expected 1, found:', items.map(i => `${i.label} (${i.tbId})`).join(', '),
+          '→ Run Force Clear + re-sync to fix.'
+        );
+      }
+    });
+    if (extraBadges > 0) {
+      LogHelper.warn(`[AlarmServiceOrchestrator] ⚠️ ${extraBadges} extra badge(s) will appear in TELEMETRY due to contamination.`);
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
+  // RFC-0192/RFC-0193: Diff against the previous known set to detect new and closed alarms.
+  // First call (_lastKnownAlarmIds === null) only populates the structures — no toast.
+  const currentIds = new Set(normalizedAlarms.map((a) => a.id).filter(Boolean));
+  const currentMap = new Map(normalizedAlarms.filter((a) => a.id).map((a) => [a.id, a]));
+  if (_lastKnownAlarmIds !== null) {
+    const newAlarms    = normalizedAlarms.filter((a) => a.id && !_lastKnownAlarmIds.has(a.id));
+    const closedAlarms = [..._lastKnownAlarmMap.values()].filter((a) => !currentIds.has(a.id));
+    if (newAlarms.length > 0) {
+      LogHelper.log('[AlarmServiceOrchestrator] RFC-0192: detected', newAlarms.length, 'new alarm(s)');
+      _showNewAlarmNotification(newAlarms);
+    }
+    if (closedAlarms.length > 0) {
+      LogHelper.log('[AlarmServiceOrchestrator] RFC-0193: detected', closedAlarms.length, 'closed alarm(s)');
+      _showClosedAlarmNotification(closedAlarms);
+    }
+  }
+  _lastKnownAlarmIds = currentIds;
+  _lastKnownAlarmMap = currentMap;
+
+  // Notify all subscribers that alarm data is fresh.
+  // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
+  window.dispatchEvent(new CustomEvent('myio:alarms-updated', {
+    detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
+  }));
 }
 
 async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {
@@ -2021,52 +2497,44 @@ function validateDeviceCounts(serverCounts) {
   const state = window.STATE;
   const discrepancies = [];
 
-  // Validate Energy
+  function pushIf(domain, category, expected, actual) {
+    if (expected > 0 && actual !== expected) {
+      discrepancies.push({ domain, category, expected, actual });
+    }
+  }
+
+  // Validate Energy — total + per-category
   if (state?.energy) {
-    const stateEnergyTotal =
-      (state.energy.lojas?.count || 0) +
-      (state.energy.entrada?.count || 0) +
-      (state.energy.areacomum?.count || 0);
+    const lojas   = state.energy.lojas?.count   || 0;
+    const entrada = state.energy.entrada?.count  || 0;
+    const area    = state.energy.areacomum?.count || 0;
 
-    if (serverCounts.energy.total > 0 && stateEnergyTotal !== serverCounts.energy.total) {
-      discrepancies.push({
-        domain: 'energy',
-        expected: serverCounts.energy.total,
-        actual: stateEnergyTotal,
-      });
-    }
+    pushIf('energy', 'total',      serverCounts.energy.total,      lojas + entrada + area);
+    pushIf('energy', 'stores',     serverCounts.energy.stores,     lojas);
+    pushIf('energy', 'entries',    serverCounts.energy.entries,    entrada);
+    pushIf('energy', 'commonArea', serverCounts.energy.commonArea, area);
   }
 
-  // Validate Water
+  // Validate Water — total + per-category
   if (state?.water) {
-    const stateWaterTotal =
-      (state.water.lojas?.count || 0) +
-      (state.water.entrada?.count || 0) +
-      (state.water.areacomum?.count || 0);
+    const lojas   = state.water.lojas?.count   || 0;
+    const entrada = state.water.entrada?.count  || 0;
+    const area    = state.water.areacomum?.count || 0;
 
-    if (serverCounts.water.total > 0 && stateWaterTotal !== serverCounts.water.total) {
-      discrepancies.push({
-        domain: 'water',
-        expected: serverCounts.water.total,
-        actual: stateWaterTotal,
-      });
-    }
+    pushIf('water', 'total',      serverCounts.water.total,      lojas + entrada + area);
+    pushIf('water', 'stores',     serverCounts.water.stores,     lojas);
+    pushIf('water', 'entries',    serverCounts.water.entries,    entrada);
+    pushIf('water', 'commonArea', serverCounts.water.commonArea, area);
   }
 
-  // Validate Temperature
+  // Validate Temperature — total only (no sub-categories stored in STATE)
   if (state?.temperature) {
-    const stateTempTotal =
-      (state.temperature.lojas?.count || 0) +
-      (state.temperature.entrada?.count || 0) +
+    const total =
+      (state.temperature.lojas?.count   || 0) +
+      (state.temperature.entrada?.count  || 0) +
       (state.temperature.areacomum?.count || 0);
 
-    if (serverCounts.temperature.total > 0 && stateTempTotal !== serverCounts.temperature.total) {
-      discrepancies.push({
-        domain: 'temperature',
-        expected: serverCounts.temperature.total,
-        actual: stateTempTotal,
-      });
-    }
+    pushIf('temperature', 'total', serverCounts.temperature.total, total);
   }
 
   const isValid = discrepancies.length === 0;
@@ -2299,9 +2767,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const lojasTotal = lojas.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const entradaTotal = entrada.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const areacomumTotal = areacomum.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const grandTotal = lojasTotal + entradaTotal + areacomumTotal;
+  // grandTotal uses `let` — re-assigned below if group exclusions are active
+  let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
 
   // ============ PERCENTAGE HELPER ============
+  // Reads grandTotal by reference — reflects exclusions after re-assignment below
   const calcPerc = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
@@ -2433,6 +2903,30 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const geradorTotal = geradorItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
 
+  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO ============
+  // Reads _excludeGroupsTotals set in onInit / myio:exclusion-groups-updated event.
+  // When a group is excluded, its value is zeroed in grandTotal.
+  // Individual category totals remain unchanged (devices still visible in panels).
+  const _exclEnabled = _excludeGroupsTotals?.enabled === true;
+  if (_exclEnabled) {
+    const _exclGroups = _excludeGroupsTotals.groups || {};
+    const _lojasEff          = _exclGroups.lojas           ? 0 : lojasTotal;
+    const _entradaEff        = _exclGroups.entrada          ? 0 : entradaTotal;
+    const _climatizacaoEff   = _exclGroups.climatizacao     ? 0 : climatizacaoTotal;
+    const _elevadoresEff     = _exclGroups.elevadores       ? 0 : elevadoresTotal;
+    const _escadasEff        = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
+    const _outrosEff         = _exclGroups.outros           ? 0 : outrosTotal;
+    const _areacomumSubtot   = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
+    const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
+    const _residualEff       = _exclGroups.area_comum ? 0 : _areacomumResidual;
+    const _areacomumEff      = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
+    grandTotal = _lojasEff + _entradaEff + _areacomumEff;
+    LogHelper.log(
+      '[buildSummary] 🚫 Exclusão de grupos aplicada:',
+      { excluded: Object.entries(_exclGroups).filter(([, v]) => v).map(([k]) => k), grandTotal }
+    );
+  }
+
   // ============ DEVICE STATUS AGGREGATION ============
   const allItems = [...lojas, ...entrada, ...areacomum];
   const statusAggregation = aggregateDeviceStatus(allItems);
@@ -2552,6 +3046,12 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
+
+    // ============ EXCLUSÃO DE GRUPOS ============
+    excludedGroups: _exclEnabled
+      ? Object.entries((_excludeGroupsTotals?.groups || {})).filter(([, v]) => v).map(([k]) => k)
+      : [],
+    exclusionGroupsEnabled: _exclEnabled,
   };
 }
 
@@ -2850,6 +3350,17 @@ function populateState(domain, items, periodKey) {
     });
   }
 
+  // Expose unique centralIds from all domains for child widgets (e.g. PresetupGateway)
+  if (window.MyIOOrchestrator) {
+    const allRaw = [
+      ...(window.STATE.energy?._raw || []),
+      ...(window.STATE.water?._raw  || []),
+      ...(window.STATE.temperature?._raw || []),
+    ];
+    const centralIdSet = new Set(allRaw.map(i => i.centralId).filter(Boolean));
+    window.MyIOOrchestrator.centralIds = Array.from(centralIdSet).sort();
+  }
+
   // Emit state-ready event for widgets that prefer to read from STATE
   window.dispatchEvent(
     new CustomEvent('myio:state:ready', {
@@ -2983,7 +3494,7 @@ function periodKey(domain, period) {
   return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
 }
 
-const SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS = 60;
+let SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS = 60; // overridden in onInit from settingsSchema
 // ========== ORCHESTRATOR SINGLETON ==========
 
 const MyIOOrchestrator = (() => {
@@ -3950,13 +4461,6 @@ const MyIOOrchestrator = (() => {
         shortDelayMins: shortDelayMins,
       });
 
-      // Log for WAITING devices
-      if (status === 'not_installed') {
-        LogHelper.log(
-          `[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`
-        );
-      }
-
       return status;
     }
 
@@ -3966,9 +4470,6 @@ const MyIOOrchestrator = (() => {
       .trim();
 
     if (['waiting', 'connecting', 'pending'].includes(normalizedStatus)) {
-      LogHelper.log(
-        `[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`
-      );
       return 'not_installed';
     }
 
@@ -4107,11 +4608,19 @@ const MyIOOrchestrator = (() => {
     const isTempDevice =
       effectiveDeviceType.includes('termostato') || effectiveDeviceType.includes('temperature');
     const domain = isWaterDevice ? 'water' : isTempDevice ? 'temperature' : 'energy';
-    const telemetryTimestamp = isWaterDevice
-      ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
-      : isTempDevice
-        ? meta.temperatureTs
-        : meta.consumptionTs;
+    // RFC-0188: Prefer lastTelemetryTs from Data Apps API (ingestion backend) over TB broker timestamps.
+    // Priority: apiRow.lastTelemetryTs (direct, water/energy) → overrides.lastTelemetryTs (temperature RFC-0189) → meta timestamps
+    const apiRowLastTs = apiRow?.lastTelemetryTs
+      ? new Date(apiRow.lastTelemetryTs).getTime()
+      : null;
+    const apiLastTs = apiRowLastTs ?? (overrides?.lastTelemetryTs ?? null);
+    const telemetryTimestamp = apiLastTs ?? (
+      isWaterDevice
+        ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
+        : isTempDevice
+          ? meta.temperatureTs
+          : meta.consumptionTs
+    );
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     // RFC-0130: Pass deviceProfile for delay time calculation
@@ -4122,6 +4631,22 @@ const MyIOOrchestrator = (() => {
       telemetryTimestamp: telemetryTimestamp || null,
       lastActivityTime: meta.lastActivityTime,
     });
+
+    // RFC-0188: Log offline/bad decisions for water devices so we can trace bypass
+    if ((meta.connectionStatus === 'offline' || meta.connectionStatus === 'bad') && domain === 'water') {
+      const shortDelayMins = SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS;
+      LogHelper.log(
+        `[RFC-0188] Water device "${debugLabel}" connectionStatus=${meta.connectionStatus} → deviceStatus=${deviceStatus}`,
+        {
+          apiRowLastTs: apiRowLastTs ? new Date(apiRowLastTs).toISOString() : null,
+          overridesLastTs: overrides?.lastTelemetryTs ? new Date(overrides.lastTelemetryTs).toISOString() : null,
+          metaPulsesTs: meta.pulsesTs ? new Date(meta.pulsesTs).toISOString() : null,
+          telemetryTimestamp: telemetryTimestamp ? new Date(telemetryTimestamp).toISOString() : null,
+          shortDelayMins,
+          apiRow: apiRow ? '✅ present' : '❌ null',
+        }
+      );
+    }
 
     // RFC-0078: For energy devices with 'power_on' status, refine using power ranges
     const isEnergyDevice = domain === 'energy';
@@ -4181,16 +4706,6 @@ const MyIOOrchestrator = (() => {
       });
     }
 
-    // RFC-0109: LOG for tracking waiting devices
-    if (meta.connectionStatus === 'waiting' || String(meta.connectionStatus).toLowerCase() === 'waiting') {
-      LogHelper.log(`[Orchestrator] 📦 RFC-0109 createOrchestratorItem WAITING:`, {
-        entityId: entityId,
-        label: meta.label || meta.identifier,
-        connectionStatus: meta.connectionStatus,
-        calculatedDeviceStatus: deviceStatus,
-      });
-    }
-
     // Base item with common fields
     const baseItem = {
       // Identifiers
@@ -4239,6 +4754,12 @@ const MyIOOrchestrator = (() => {
 
       // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
       gcdrDeviceId: meta.gcdrDeviceId || null,
+      // RFC-0152: Per-device GCDR mapping fields (server_scope attrs for TB↔GCDR sync audit)
+      gcdrCustomerId: meta.gcdrCustomerId || null,
+      gcdrAssetId: meta.gcdrAssetId || null,
+      gcdrSyncAt: meta.gcdrSyncAt || null,
+      // ThingsBoard entity name (raw, before label override)
+      entityName: meta.entityName || '',
 
       // Metadata flags
       _hasMetadata: true,
@@ -4386,6 +4907,10 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'log_annotations') meta.log_annotations = val;
       // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
       else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
+      // RFC-0152: Per-device GCDR mapping fields (server_scope attrs for TB↔GCDR sync audit)
+      else if (keyName === 'gcdrcustomerid') meta.gcdrCustomerId = val;
+      else if (keyName === 'gcdrassetid') meta.gcdrAssetId = val;
+      else if (keyName === 'gcdrsyncat') meta.gcdrSyncAt = val;
       // Only override label if dataKey has a non-empty value
       // Otherwise keep the entityLabel/entityName fallback from initialization
       else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;
@@ -4482,67 +5007,6 @@ const MyIOOrchestrator = (() => {
       `[Orchestrator] 📋 Built metadata map: ${metadataByEntityId.size} entities, ${metadataByIngestion.size} with ingestionId`
     );
 
-    // RFC-0108 DEBUG: Log ALL ingestionIds for water domain to diagnose matching issues
-    if (domain === 'water' && metadataByEntityId.size > 0) {
-      const allIngestionIds = [];
-      for (const [entityId, meta] of metadataByEntityId.entries()) {
-        allIngestionIds.push({
-          label: meta.label || meta.entityName || entityId.substring(0, 8),
-          ingestionId: meta.ingestionId || 'MISSING',
-          tbId: entityId.substring(0, 8),
-        });
-      }
-      // Log devices with VACINA in name or entityName
-      const vacinaDevices = [];
-      for (const [entityId, meta] of metadataByEntityId.entries()) {
-        const labelUpper = (meta.label || '').toUpperCase();
-        const entityNameUpper = (meta.entityName || '').toUpperCase();
-        if (
-          labelUpper.includes('VACINA') ||
-          labelUpper.includes('VACINAÇÃO') ||
-          entityNameUpper.includes('VACINA') ||
-          entityNameUpper.includes('VACINAÇÃO')
-        ) {
-          vacinaDevices.push({
-            label: meta.label,
-            entityName: meta.entityName,
-            ingestionId: meta.ingestionId || 'MISSING',
-            deviceType: meta.deviceType || 'MISSING',
-            deviceProfile: meta.deviceProfile || 'MISSING',
-            tbId: entityId,
-          });
-        }
-      }
-      if (vacinaDevices.length > 0) {
-        LogHelper.log(`[RFC-0108 DEBUG] VACINA devices in metadata:`, JSON.stringify(vacinaDevices, null, 2));
-      }
-      // Log first 10 ingestionIds for reference
-      LogHelper.log(`[RFC-0108 DEBUG] First 10 ingestionIds:`, allIngestionIds.slice(0, 10));
-    }
-
-    // DEBUG RFC-0107: Log deviceTypes of all entities in metadataByEntityId
-    if (metadataByEntityId.size > 0) {
-      const deviceTypes = [];
-      for (const [entityId, meta] of metadataByEntityId.entries()) {
-        deviceTypes.push(`${meta.label || entityId.substring(0, 8)}:${meta.deviceType || 'N/A'}`);
-      }
-      LogHelper.log(`[Orchestrator] 📋 RFC-0107 Device types in metadata: ${deviceTypes.join(', ')}`);
-    }
-
-    // DEBUG: Log all dataKeys found in ctx.data
-    const allDataKeys = new Set();
-    for (const row of rows) {
-      const keyName = row?.dataKey?.name;
-      if (keyName) allDataKeys.add(keyName);
-    }
-    LogHelper.log(`[Orchestrator] 📋 DataKeys found in ctx.data:`, Array.from(allDataKeys).join(', '));
-
-    // DEBUG: Log sample metadata with ALL fields
-    if (metadataByIngestion.size > 0) {
-      const firstEntry = metadataByIngestion.values().next().value;
-      LogHelper.log(`[Orchestrator] 🔍 Sample metadata (ALL fields):`, JSON.stringify(firstEntry, null, 2));
-    }
-
     return { byIngestion: metadataByIngestion, byEntityId: metadataByEntityId };
   }
 
@@ -4588,16 +5052,6 @@ const MyIOOrchestrator = (() => {
             // Don't return cached, continue waiting for ctx.data or timeout
           }
         }
-      }
-
-      // Log progress every second
-      const elapsed = Date.now() - startTime;
-      if (elapsed % 1000 < checkIntervalMs) {
-        LogHelper.log(
-          `[Orchestrator] ⏳ Waiting for ctx.data... ${Math.round(elapsed / 1000)}s (${
-            datasources.length
-          } datasources, ${rows.length} rows)`
-        );
       }
 
       // Wait before next check
@@ -4703,54 +5157,6 @@ const MyIOOrchestrator = (() => {
             `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms, period: matched)`
           );
 
-          // RFC-0108 DEBUG: Analyze cached data for ingestionId issues (water domain)
-          if (domain === 'water') {
-            const items = cachedData.items;
-            const withIngestionId = items.filter((i) => i.ingestionId).length;
-            const withApiData = items.filter((i) => i._hasApiData).length;
-            const withZeroValue = items.filter(
-              (i) => i.value === 0 || i.value === null || i.value === undefined
-            ).length;
-            const entradaDevices = items.filter((i) => i.labelWidget === 'Entrada');
-
-            LogHelper.log(`[RFC-0108 CACHE DEBUG] Water cache analysis:`, {
-              total: items.length,
-              withIngestionId,
-              withoutIngestionId: items.length - withIngestionId,
-              withApiData,
-              withZeroValue,
-              entradaCount: entradaDevices.length,
-            });
-
-            // Log devices with labelWidget='Entrada' to diagnose VACINACAO issue
-            if (entradaDevices.length > 0) {
-              LogHelper.log(
-                `[RFC-0108 CACHE DEBUG] Entrada devices:`,
-                entradaDevices.map((d) => ({
-                  label: d.label,
-                  value: d.value,
-                  ingestionId: d.ingestionId || 'MISSING',
-                  hasApiData: d._hasApiData,
-                  tbId: d.tbId?.substring(0, 8),
-                }))
-              );
-            }
-
-            // Log devices with value=0 but might have API data
-            const suspiciousDevices = items.filter((i) => i.value === 0 && !i._hasApiData);
-            if (suspiciousDevices.length > 0) {
-              LogHelper.log(
-                `[RFC-0108 CACHE DEBUG] Devices with value=0 and no API match (first 5):`,
-                suspiciousDevices.slice(0, 5).map((d) => ({
-                  label: d.label,
-                  ingestionId: d.ingestionId || 'MISSING',
-                  deviceType: d.deviceType,
-                  labelWidget: d.labelWidget,
-                }))
-              );
-            }
-          }
-
           return cachedData.items;
         } else if (cachedData && !periodMatches) {
           // RFC-0138: Cache exists but period doesn't match - will fetch fresh data
@@ -4761,11 +5167,13 @@ const MyIOOrchestrator = (() => {
         }
       }
 
-      // Temperature domain: uses ctx.data directly (no API call) - realtime data from ThingsBoard
+      // Temperature domain: uses ctx.data (real-time) + optional Data Apps API for lastTelemetryTs
       if (domain === 'temperature') {
-        LogHelper.log(`[Orchestrator] 🌡️ Temperature domain - using ctx.data directly (no API)`);
+        const useApi = widgetSettings.enableTemperatureApiDataFetch ?? false;
+        LogHelper.log(
+          `[Orchestrator] 🌡️ Temperature domain - ctx.data${useApi ? ' + API (RFC-0189)' : ' only'}`
+        );
 
-        // Wait for ctx.data to be populated (pass domain to check cache during wait)
         // RFC-0138: Pass period to validate cache
         const ctxDataReady = await waitForCtxData(20000, 200, domain, period);
 
@@ -4795,7 +5203,95 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(`[Orchestrator] 🌡️ Found ${metadataByEntityId.size} temperature devices`);
 
-        // Build items directly from metadata (value = temperature reading)
+        // RFC-0189: Per-device API calls over the last 72h to derive lastTelemetryTs and last temperature value
+        // Key: ingestionId → Unix ms timestamp / raw sensor value of last consumption entry
+        const apiTsMap    = new Map();
+        const apiValueMap = new Map(); // ingestionId → last temperature value (°C, raw before offset)
+
+        if (useApi) {
+          try {
+            const latestCreds = window.MyIOOrchestrator?.getCredentials?.();
+            if (!latestCreds?.CLIENT_ID || !latestCreds?.CLIENT_SECRET) {
+              throw new Error('Missing CLIENT_ID or CLIENT_SECRET for temperature API fetch');
+            }
+            const MyIO =
+              (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+              (typeof window !== 'undefined' && window.MyIOLibrary) ||
+              null;
+            if (!MyIO) throw new Error('MyIOLibrary not available');
+            const myIOAuth = MyIO.buildMyioIngestionAuth({
+              dataApiHost: DATA_API_HOST,
+              clientId:    latestCreds.CLIENT_ID,
+              clientSecret: latestCreds.CLIENT_SECRET,
+            });
+            const token = await myIOAuth.getToken();
+
+            // Fixed 72-hour window — independent of the dashboard period
+            const endTime   = new Date().toISOString();
+            const startTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+
+            const devicesWithIngestionId = [...metadataByEntityId.values()]
+              .filter((meta) => !!meta.ingestionId);
+
+            LogHelper.log(
+              `[Orchestrator] 🌡️ RFC-0189: Fetching temperature API for ${devicesWithIngestionId.length} devices (last 72h)`
+            );
+
+            const results = await Promise.allSettled(
+              devicesWithIngestionId.map(async (meta) => {
+                const url = new URL(
+                  `${DATA_API_HOST}/api/v1/telemetry/devices/${meta.ingestionId}/temperature`
+                );
+                url.searchParams.set('startTime', startTime);
+                url.searchParams.set('endTime', endTime);
+                url.searchParams.set('granularity', '1h');
+                url.searchParams.set('deep', '0');
+
+                const res = await fetch(url.toString(), {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) return null;
+
+                const json = await res.json();
+                const rows = Array.isArray(json) ? json : [];
+                const row  = rows.find((r) => r.id === meta.ingestionId) || rows[0] || null;
+
+                if (!row || !Array.isArray(row.consumption) || row.consumption.length === 0) {
+                  return null;
+                }
+
+                // Last entry = most recent data point from ingestion backend
+                const lastEntry       = row.consumption[row.consumption.length - 1];
+                const lastTelemetryTs = lastEntry?.timestamp
+                  ? new Date(lastEntry.timestamp).getTime()
+                  : null;
+                const lastValue = (lastEntry?.value !== undefined && lastEntry?.value !== null)
+                  ? Number(lastEntry.value)
+                  : null;
+
+                return lastTelemetryTs ? { ingestionId: meta.ingestionId, lastTelemetryTs, lastValue } : null;
+              })
+            );
+
+            for (const result of results) {
+              if (result.status === 'fulfilled' && result.value) {
+                apiTsMap.set(result.value.ingestionId, result.value.lastTelemetryTs);
+                if (result.value.lastValue !== null) {
+                  apiValueMap.set(result.value.ingestionId, result.value.lastValue);
+                }
+              }
+            }
+
+            LogHelper.log(
+              `[Orchestrator] 🌡️ RFC-0189: lastTelemetryTs resolved for ${apiTsMap.size}/${devicesWithIngestionId.length} devices`
+            );
+          } catch (err) {
+            LogHelper.warn('[Orchestrator] 🌡️ RFC-0189: Temperature API fetch failed:', err.message);
+            // apiTsMap stays empty → all devices fall back to meta.temperatureTs
+          }
+        }
+
+        // Build items from metadata (value = meta.temperature from ctx.data — ThingsBoard real-time)
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
           const temperatureValue = Number(meta.temperature || 0);
@@ -4811,19 +5307,23 @@ const MyIOOrchestrator = (() => {
             });
           }
 
+          // RFC-0189: inject lastTelemetryTs from API when available; null falls back to meta.temperatureTs via RFC-0188
+          const lastTelemetryTs = meta.ingestionId ? (apiTsMap.get(meta.ingestionId) ?? null) : null;
+
           // RFC-0111: Use centralized factory
           items.push(
             createOrchestratorItem({
               entityId,
               meta,
               overrides: {
-                label: meta.label || meta.identifier || 'Sensor',
-                entityLabel: meta.label || meta.identifier || 'Sensor',
-                name: meta.label || meta.identifier || 'Sensor',
-                value: temperatureValue,
-                temperature: temperatureValue,
-                deviceType: meta.deviceType || 'TERMOSTATO',
-                offSetTemperature: tempOffset, // Pass offset to orchestrator item
+                label:             meta.label || meta.identifier || 'Sensor',
+                entityLabel:       meta.label || meta.identifier || 'Sensor',
+                name:              meta.label || meta.identifier || 'Sensor',
+                value:             temperatureValue,   // RFC-0189: API last value when enabled, else ctx.data
+                temperature:       temperatureValue,
+                deviceType:        meta.deviceType || 'TERMOSTATO',
+                offSetTemperature: tempOffset,
+                lastTelemetryTs,  // RFC-0189 + RFC-0188: null when API disabled/unavailable (graceful fallback)
               },
             })
           );
@@ -4832,7 +5332,10 @@ const MyIOOrchestrator = (() => {
         // Populate window.STATE.temperature
         populateStateTemperature(items);
 
-        LogHelper.log(`[Orchestrator] 🌡️ Temperature items built: ${items.length}`);
+        LogHelper.log(
+          `[Orchestrator] 🌡️ Temperature items: ${items.length}` +
+          (useApi ? ` | API ts enriched: ${apiTsMap.size}` : ' | ctx.data only')
+        );
         return items;
       }
 
@@ -5153,29 +5656,7 @@ const MyIOOrchestrator = (() => {
 
       const json = await res.json();
 
-      // RFC-0108 DEBUG: Log raw JSON structure for water
-      if (domain === 'water') {
-        LogHelper.log(`[RFC-0108 DEBUG] Water API JSON structure:`, {
-          isArray: Array.isArray(json),
-          hasData: !!json?.data,
-          hasSummary: !!json?.summary,
-          topLevelKeys: Object.keys(json || {}),
-          summaryTotal: json?.summary?.totalValue,
-        });
-      }
-
       const rows = Array.isArray(json) ? json : (json?.data ?? []);
-
-      // RFC-0108 DEBUG: Log raw API response for water domain
-      if (domain === 'water' && rows.length > 0) {
-        LogHelper.log(`[RFC-0108 DEBUG] Water API first row with total_value:`, {
-          id: rows[0].id,
-          name: rows[0].name,
-          total_value: rows[0].total_value,
-          typeof_total_value: typeof rows[0].total_value,
-        });
-        LogHelper.log(`[RFC-0108 DEBUG] Water API total rows: ${rows.length}`);
-      }
 
       // RFC-0108: Use METADATA as base, enrich with API data
       // If no API match found, keep item with value=0 (don't discard)
@@ -5190,16 +5671,6 @@ const MyIOOrchestrator = (() => {
         // Water API may also return total_volume or total_pulses as alternatives
         if (domain === 'water') {
           const val = Number(row.total_value ?? row.total_volume ?? row.total_pulses ?? 0);
-          // RFC-0108 DEBUG: Log first few water API rows to diagnose value extraction
-          if (!getValueFromRow._loggedWater) {
-            getValueFromRow._loggedWater = 0;
-          }
-          if (getValueFromRow._loggedWater < 3) {
-            LogHelper.log(`[RFC-0108 DEBUG] Water API row FULL:`, JSON.stringify(row, null, 2));
-            LogHelper.log(`[RFC-0108 DEBUG] Water API keys: ${Object.keys(row).join(', ')}`);
-            LogHelper.log(`[RFC-0108 DEBUG] Extracted value: ${val}`);
-            getValueFromRow._loggedWater++;
-          }
           return val;
         }
         // Energy: total_value
@@ -5226,7 +5697,7 @@ const MyIOOrchestrator = (() => {
         `[Orchestrator] 📊 API data map: ${apiDataMap.size} items by ID, ${apiDataByName.size} by name`
       );
 
-      // RFC-0108 DEBUG: Compare metadata ingestionIds with API ids
+      // RFC-0108: Compare metadata ingestionIds with API ids
       if (domain === 'water') {
         const metaIngestionIds = new Set();
         for (const [, meta] of metadataByEntityId.entries()) {
@@ -5239,17 +5710,8 @@ const MyIOOrchestrator = (() => {
         // Find IDs in metadata but not in API
         const metaOnly = [...metaIngestionIds].filter((id) => !apiIds.has(id));
 
-        LogHelper.log(`[RFC-0108 DEBUG] Water ID comparison:`, {
-          metadataCount: metaIngestionIds.size,
-          apiCount: apiIds.size,
-          apiOnlyCount: apiOnly.length,
-          metaOnlyCount: metaOnly.length,
-        });
-        if (apiOnly.length > 0) {
-          LogHelper.log(`[RFC-0108 DEBUG] API IDs NOT in metadata (first 5):`, apiOnly.slice(0, 5));
-        }
-        if (metaOnly.length > 0) {
-          LogHelper.log(`[RFC-0108 DEBUG] Metadata IDs NOT in API (first 5):`, metaOnly.slice(0, 5));
+        if (apiOnly.length > 0 || metaOnly.length > 0) {
+          LogHelper.log(`[RFC-0108] Water ID mismatch: ${apiOnly.length} API-only, ${metaOnly.length} meta-only`);
         }
       }
 
@@ -5277,11 +5739,6 @@ const MyIOOrchestrator = (() => {
             apiRow = apiDataByName.get(metaLabel);
             matchedBy = 'name';
             nameMatchedCount++;
-            LogHelper.log(
-              `[RFC-0108 DEBUG] Name-based match for "${
-                meta.label
-              }": found API data with value ${getValueFromRow(apiRow)}`
-            );
           }
         }
 
@@ -5357,6 +5814,10 @@ const MyIOOrchestrator = (() => {
               customerId: apiRow?.customerId || null,
               assetId: apiRow?.assetId || null,
               assetName: apiRow?.assetName || null,
+              // RFC-0188: authoritative offline timestamp from ingestion backend (ISO-8601 → Unix ms)
+              lastTelemetryTs: apiRow?.lastTelemetryTs
+                ? new Date(apiRow.lastTelemetryTs).getTime()
+                : null,
               // Power limits and instantaneous power
               deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
               consumptionPower: meta.consumption || null,
@@ -5373,93 +5834,18 @@ const MyIOOrchestrator = (() => {
         `[Orchestrator] 📊 RFC-0108: Created ${items.length} items from metadata. API match: ${matchedCount} matched (${nameMatchedCount} by name), ${unmatchedCount} with value=0`
       );
 
-      // DEBUG: Log sample items
-      if (items.length > 0) {
-        const sampleWithApi = items.find((i) => i._hasApiData);
-        const sampleWithoutApi = items.find((i) => !i._hasApiData);
-        if (sampleWithApi) {
-          LogHelper.log(`[Orchestrator] 🔍 Sample item WITH API data:`, {
-            id: sampleWithApi.id,
-            label: sampleWithApi.label,
-            value: sampleWithApi.value,
-            deviceType: sampleWithApi.deviceType,
-            labelWidget: sampleWithApi.labelWidget,
-            matchedBy: sampleWithApi._matchedBy,
-          });
-        }
-        if (sampleWithoutApi) {
-          LogHelper.log(`[Orchestrator] 🔍 Sample item WITHOUT API data (value=0):`, {
-            id: sampleWithoutApi.id,
-            label: sampleWithoutApi.label,
-            value: sampleWithoutApi.value,
-            deviceType: sampleWithoutApi.deviceType,
-            labelWidget: sampleWithoutApi.labelWidget,
-            ingestionId: sampleWithoutApi.ingestionId || 'MISSING',
-          });
-        }
-
-        // RFC-0108 DEBUG: Log VACINA device specifically after enrichment (regardless of classification)
-        if (domain === 'water') {
-          const vacinaItems = items.filter((i) => {
-            const label = (i.label || '').toUpperCase();
-            const name = (i.name || '').toUpperCase();
-            return label.includes('VACINA') || name.includes('VACINA');
-          });
-          if (vacinaItems.length > 0) {
-            LogHelper.log(
-              `[RFC-0108 DEBUG] VACINA device AFTER ENRICHMENT:`,
-              JSON.stringify(
-                vacinaItems.map((d) => ({
-                  label: d.label,
-                  value: d.value,
-                  ingestionId: d.ingestionId,
-                  hasApiData: d._hasApiData,
-                  matchedBy: d._matchedBy,
-                  labelWidget: d.labelWidget,
-                  deviceType: d.deviceType,
-                  deviceProfile: d.deviceProfile,
-                })),
-                null,
-                2
-              )
-            );
-          }
-
-          const entradaDevices = items.filter((i) => i.labelWidget === 'Entrada');
-          if (entradaDevices.length > 0) {
-            LogHelper.log(
-              `[RFC-0108 DEBUG] Entrada devices after enrichment:`,
-              entradaDevices.map((d) => ({
-                label: d.label,
-                value: d.value,
-                hasApiData: d._hasApiData,
-                matchedBy: d._matchedBy,
-                ingestionId: d.ingestionId || 'MISSING',
-              }))
-            );
-          }
-
-          // Log all devices that have no match and value=0
-          const unmatchedDevices = items.filter((i) => !i._hasApiData && i.value === 0);
-          if (unmatchedDevices.length > 0 && unmatchedDevices.length <= 20) {
-            LogHelper.log(
-              `[RFC-0108 DEBUG] ALL unmatched devices (value=0):`,
-              unmatchedDevices.map((d) => ({
-                label: d.label,
-                ingestionId: d.ingestionId || 'MISSING',
-                labelWidget: d.labelWidget,
-              }))
-            );
-          } else if (unmatchedDevices.length > 20) {
-            LogHelper.log(
-              `[RFC-0108 DEBUG] Too many unmatched devices: ${unmatchedDevices.length} - showing first 10:`,
-              unmatchedDevices.slice(0, 10).map((d) => ({
-                label: d.label,
-                ingestionId: d.ingestionId || 'MISSING',
-                labelWidget: d.labelWidget,
-              }))
-            );
-          }
+      // Log unmatched devices (diagnostically useful when there are mismatches)
+      if (domain === 'water') {
+        const unmatchedDevices = items.filter((i) => !i._hasApiData && i.value === 0);
+        if (unmatchedDevices.length > 0) {
+          LogHelper.log(
+            `[RFC-0108] Water: ${unmatchedDevices.length} unmatched devices (no API data, value=0)`,
+            unmatchedDevices.slice(0, 5).map((d) => ({
+              label: d.label,
+              ingestionId: d.ingestionId || 'MISSING',
+              labelWidget: d.labelWidget,
+            }))
+          );
         }
       }
 
@@ -5475,44 +5861,41 @@ const MyIOOrchestrator = (() => {
           }
         }
 
-        // Merge API values into hidrometroItems (preserving pulses but using API total_value)
+        // Merge API values and deviceStatus into hidrometroItems
+        // RFC-0188 FIX: hidrometroItems are built BEFORE the API call (no apiRow → deviceStatus = offline).
+        // The enriched items (main loop) have the correct deviceStatus computed from apiRow.lastTelemetryTs.
+        // We must copy deviceStatus + lastTelemetryTs (and related fields) from the enriched item.
         let mergedCount = 0;
         for (const hidro of hidrometroItems) {
           const enrichedItem = enrichedItemsMap.get(hidro.tbId);
           if (enrichedItem && enrichedItem._hasApiData) {
-            hidro.value = enrichedItem.value; // Use API total_value
+            // Copy API consumption value
+            hidro.value = enrichedItem.value;
             hidro._hasApiData = true;
             hidro._matchedBy = enrichedItem._matchedBy;
+            // RFC-0188 FIX: copy deviceStatus computed with correct apiRow.lastTelemetryTs
+            const prevStatus = hidro.deviceStatus;
+            hidro.deviceStatus = enrichedItem.deviceStatus;
+            hidro.lastTelemetryTs = enrichedItem.lastTelemetryTs;
+            hidro.lastTelemetryTsFormatted = enrichedItem.lastTelemetryTs
+              ? new Date(enrichedItem.lastTelemetryTs).toISOString()
+              : null;
+            LogHelper.log(
+              `[RFC-0188] Hidrometro merge "${hidro.label}": deviceStatus ${prevStatus} → ${hidro.deviceStatus}` +
+              `, lastTelemetryTs=${hidro.lastTelemetryTsFormatted || 'null'}`
+            );
             mergedCount++;
+          } else {
+            LogHelper.log(
+              `[RFC-0188] Hidrometro "${hidro.label}" (tbId=${hidro.tbId}): no API match → deviceStatus kept as ${hidro.deviceStatus}`
+            );
           }
         }
 
         if (mergedCount > 0) {
           LogHelper.log(
-            `[Orchestrator] 🔄 RFC-0108: Merged API values into ${mergedCount}/${hidrometroItems.length} hidrometros`
+            `[Orchestrator] 🔄 RFC-0108/RFC-0188: Merged API values+status into ${mergedCount}/${hidrometroItems.length} hidrometros`
           );
-
-          // DEBUG: Log VACINA device after merge
-          const vacinaHidro = hidrometroItems.find((h) => {
-            const label = (h.label || '').toUpperCase();
-            return label.includes('VACINA');
-          });
-          if (vacinaHidro) {
-            LogHelper.log(
-              `[RFC-0108 DEBUG] VACINA hidrometro AFTER MERGE:`,
-              JSON.stringify(
-                {
-                  label: vacinaHidro.label,
-                  value: vacinaHidro.value,
-                  pulses: vacinaHidro.pulses,
-                  hasApiData: vacinaHidro._hasApiData,
-                  matchedBy: vacinaHidro._matchedBy,
-                },
-                null,
-                2
-              )
-            );
-          }
         }
 
         // Create set of IDs already processed as tanks or hidrometros
@@ -5831,9 +6214,6 @@ const MyIOOrchestrator = (() => {
     // Check if we have cached data for this domain
     const cachedData = window.MyIOOrchestratorData?.[domain];
     if (!cachedData || !cachedData.items || cachedData.items.length === 0) {
-      LogHelper.log(
-        `[Orchestrator] ℹ️ RFC-0136: No cached data for ${domain}, widget will wait for fresh fetch`
-      );
       return;
     }
 
@@ -5983,6 +6363,15 @@ const MyIOOrchestrator = (() => {
     }
   });
 
+  // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
+  window.addEventListener('myio:exclusion-groups-updated', (ev) => {
+    _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
+    LogHelper.log('[MAIN_VIEW] exclusion groups updated — re-hydrating energy domain:', _excludeGroupsTotals);
+    if (currentPeriod) {
+      hydrateDomain('energy', currentPeriod, { force: true });
+    }
+  });
+
   // Request-data listener with pending listeners support
   // RFC-0130: Enhanced with retry logic for resilient data loading
   window.addEventListener('myio:telemetry:request-data', async (ev) => {
@@ -5991,6 +6380,13 @@ const MyIOOrchestrator = (() => {
     LogHelper.log(
       `[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority}, isRetry: ${!!isRetry})`
     );
+
+    // Skip disabled domains — prevents spurious retry loops when, e.g., an energy TELEMETRY
+    // widget or handleDataLoadError emits this event on a water-only/temperature-only dashboard.
+    if (widgetSettings.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[Orchestrator] ⏭️ Domain ${domain} is disabled (domainsEnabled), ignoring request`);
+      return;
+    }
 
     // Check if already loading
     if (OrchestratorState.loading[domain]) {
@@ -6259,6 +6655,122 @@ const MyIOOrchestrator = (() => {
       );
     },
 
+    // ── RFC-0180: GCDR API methods ───────────────────────────────────────────
+    // Owned by the orchestrator so widgets (AlarmsTab, etc.) don't carry
+    // URL / API-key config — they always use the authoritative orchestrator state.
+
+    async gcdrFetchCustomerRules() {
+      const orch = window.MyIOOrchestrator;
+      const url = `${orch.gcdrApiBaseUrl}/api/v1/customers/${encodeURIComponent(orch.gcdrCustomerId)}/rules`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': orch.gcdrApiKey,
+          'X-Tenant-ID': orch.gcdrTenantId,
+          Accept: 'application/json',
+        },
+      });
+      if (response.status === 404) return [];
+      if (!response.ok) throw new Error(`GCDR rules HTTP ${response.status}: ${response.statusText}`);
+      const json = await response.json();
+      return json.items ?? json.data?.items ?? [];
+    },
+
+    async gcdrPostAlarmAction(alarmId, action) {
+      const orch = window.MyIOOrchestrator;
+      const response = await fetch(
+        `${orch.alarmsApiBaseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`,
+        {
+          method: 'POST',
+          headers: {
+            'X-API-Key': orch.gcdrApiKey,
+            'X-Tenant-ID': orch.gcdrTenantId,
+          },
+        }
+      );
+      return response.ok;
+    },
+
+    async gcdrPatchRuleScope(ruleId, entityIds) {
+      const orch = window.MyIOOrchestrator;
+      const response = await fetch(
+        `${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'X-API-Key': orch.gcdrApiKey,
+            'X-Tenant-ID': orch.gcdrTenantId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
+        }
+      );
+      return response.ok;
+    },
+
+    async gcdrPatchRuleValue(ruleId, alarmConfig) {
+      const orch = window.MyIOOrchestrator;
+      const response = await fetch(
+        `${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'X-API-Key': orch.gcdrApiKey,
+            'X-Tenant-ID': orch.gcdrTenantId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ alarmConfig }),
+        }
+      );
+      return response.ok;
+    },
+
+    // ── RFC-0191: Enqueue-Close Alarms on Rule Unassignment ───────────────────
+    /**
+     * Enqueue a close job for all alarms matching the given rule × device pair.
+     * Called by AlarmsTab when the user confirms removal of a pre-checked rule.
+     *
+     * POST {alarmsApiBaseUrl}/api/v1/alarms/enqueue-close
+     * Body: { customerId, ruleId, deviceId }
+     * 202 → { data: { alarmId, jobId, message } }
+     *
+     * Fire-and-forget: a non-202 response is logged as a warning but does NOT
+     * block the subsequent gcdrPatchRuleScope call.
+     *
+     * @param {string} ruleId   - GCDR rule UUID
+     * @param {string} deviceId - GCDR device UUID (gcdrDeviceId)
+     * @returns {Promise<boolean>} true if the job was accepted (HTTP 202)
+     */
+    async gcdrEnqueueCloseAlarms(ruleId, deviceId) {
+      const orch = window.MyIOOrchestrator;
+      const url  = `${orch.alarmsApiBaseUrl}/api/v1/alarms/enqueue-close`;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID':  orch.gcdrTenantId || '',
+            'X-API-KEY':    orch.gcdrApiKey    || '',
+          },
+          body: JSON.stringify({
+            customerId: orch.gcdrCustomerId,
+            ruleId,
+            deviceId,
+          }),
+        });
+        if (response.status === 202) {
+          const json = await response.json().catch(() => ({}));
+          LogHelper.log('[Orchestrator] RFC-0191 enqueue-close accepted:', json?.data);
+          return true;
+        }
+        LogHelper.warn('[Orchestrator] RFC-0191 enqueue-close unexpected status:', response.status);
+        return false;
+      } catch (err) {
+        LogHelper.warn('[Orchestrator] RFC-0191 enqueue-close network error:', err);
+        return false;
+      }
+    },
+
     destroy: () => {
       // Abort all in-flight requests
       abortAllInflight();
@@ -6298,8 +6810,16 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   // RFC-0130: Auto-trigger data fetch when both orchestrator is ready AND period is available
   // This solves the "data doesn't load automatically" issue
+  // FIX: do NOT fall back to 'energy' when no tab is visible yet — water-only/temperature-only
+  // customers would start an energy retry loop (handleDataLoadError → 15 retries × 20s timeout).
+  // myio:dashboard-state from MENU and myio:update-date from HEADER are the primary triggers
+  // and will fire shortly after, so skipping the auto-trigger here is safe.
   setTimeout(() => {
-    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.();
+    if (!domain) {
+      LogHelper.log('[Orchestrator] ⏳ RFC-0130: No visible tab yet, skipping auto-trigger (MENU will fire myio:dashboard-state)');
+      return;
+    }
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
 
     if (period) {
@@ -6324,8 +6844,10 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
 
   // RFC-0130: Auto-trigger for fallback case
+  // FIX: same as primary path — skip if no tab visible yet
   setTimeout(() => {
-    const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+    const domain = window.MyIOOrchestrator?.getVisibleTab?.();
+    if (!domain) return;
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
 
     if (period) {

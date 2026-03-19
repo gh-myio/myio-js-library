@@ -1,0 +1,1280 @@
+========================================================================
+  GCDR SYNC LOG — RFC-0186 (TB como Fonte da Verdade)
+  Customer : Mont Serrat  (bef16b70-a93c-11f0-afe1-175479a33d89)
+  Data     : 2026-03-05T22:50:51.482Z
+========================================================================
+
+RESUMO
+----------------------------------------
+  Assets no TB          : 111
+  Assets criados        : 111
+  Assets atualizados    : 0
+  Assets com erro       : 0
+  Devices no TB         : 185
+  Devices criados       : 179
+  Devices atualizados   : 0
+  Devices ignorados     : 3
+  Devices com erro      : 3
+
+ASSETS
+------------------------------------------------------------------------
+  ✨ CRIADO      SCMS-Trafo
+             tbId        : 9339de50-ebd5-11f0-998e-25174baff087
+             gcdrAssetId : e8d3b0be-2f77-4755-a275-5c8b7f24efe8
+  ✨ CRIADO      DevicesSemAssetMont Serrat
+             tbId        : d65ab370-18bd-11f1-85dc-691a3eba4797
+             gcdrAssetId : 05cd5ed6-082b-4d43-9a4b-84539071c9b6
+  ✨ CRIADO      SCMS002
+             tbId        : bf3be1f0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 1f2554f8-0eb3-43ad-aa2b-2e2183be81d6
+  ✨ CRIADO      SCMS101A_L1
+             tbId        : c028b2f0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 0386117d-2f6f-488c-98c9-a354169e7a16
+  ✨ CRIADO      SCMS101C_L1
+             tbId        : c344e710-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 6e0169cc-a3d6-42b1-b450-23f9b5acaf54
+  ✨ CRIADO      SCMS102CDE_L1
+             tbId        : c5b8cd40-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 312a98d9-99bf-40bd-8f4b-b5dd23503b14
+  ✨ CRIADO      SCMS103C_L1
+             tbId        : c69e9960-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 5bae9432-3564-49da-a133-c61e588b8b3c
+  ✨ CRIADO      SCMS103D_L1
+             tbId        : c82e1300-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : d6b6f23a-7d4c-44ed-9b63-2c5f736b9259
+  ✨ CRIADO      SCMS103EF_L1
+             tbId        : c9bec520-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : de80c69c-0e3a-45ef-bdae-d5107e6a2f2e
+  ✨ CRIADO      SCMS103H_L1
+             tbId        : cb4935b0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 7205db7d-6f02-45f0-a52e-b0adec5665c8
+  ✨ CRIADO      SCMS103I_L1
+             tbId        : cc3ae8b0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : ccd2e4d0-5b0b-4d66-ad47-62d9c91b1b18
+  ✨ CRIADO      SCMS103JKL_L1
+             tbId        : cd260c00-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 9e190dbe-bc41-4505-b0ad-f45e6c8295ef
+  ✨ CRIADO      SCMS103MNOP_L1
+             tbId        : ce1a7e20-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 4aa36855-64b2-4601-bcff-3ae79a8327b9
+  ✨ CRIADO      SCMS104CD_L1
+             tbId        : cf0441e0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : efe6113b-9747-4d29-af2e-b789b2ebe981
+  ✨ CRIADO      SCMS105A_L1
+             tbId        : cfef1710-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 6f3be26f-4b72-4324-9d4b-984dcd03e6b9
+  ✨ CRIADO      SCMS101B_L1
+             tbId        : c1b40de0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 0d7473d4-f709-4f38-b0ea-1c40f2bee654
+  ✨ CRIADO      SCMS102B_L1
+             tbId        : c4cb11e0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : ae9d7228-aefe-4e3e-9e02-cacb639ce0d3
+  ✨ CRIADO      SCMS105BCDEFG_L1
+             tbId        : d176ef90-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 7f75d668-ce5a-411a-b2f0-c89f80b1fe16
+  ✨ CRIADO      SCMS106AB_L1
+             tbId        : d2ff1630-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 2659ea44-ee24-46e6-949d-c5ec195206bf
+  ✨ CRIADO      SCMS106M_L1
+             tbId        : ddbd2da0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : f46b0c7b-619f-4ffd-9309-52b4b0cb9407
+  ✨ CRIADO      SCMS301E_L3
+             tbId        : ffa4fce0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 799939eb-e65c-42e4-a003-c2e44ceb96fd
+  ✨ CRIADO      SCMS304D_L3
+             tbId        : 0e93c5b0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 80b36e91-64e6-4624-a70f-459360374b70
+  ✨ CRIADO      SCMSD106D_L1
+             tbId        : 13e55060-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : a09693ab-458a-493f-b81d-77e2896b26bc
+  ✨ CRIADO      SCMSQ105_L1
+             tbId        : 15cc11c0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 93e9f920-1a6f-41dd-b011-0fd4a4507ff6
+  ✨ CRIADO      SCMSQ108_L1
+             tbId        : 1c441b10-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 62aa1f63-706e-456b-95da-30d27abfec2f
+  ✨ CRIADO      SCMSQ109_L1
+             tbId        : 1dd54260-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 46e97cc3-9e80-4311-8925-254b45336822
+  ✨ CRIADO      SCMSQ119_L1
+             tbId        : 1fa5bca0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 4fc5c3ec-4f3d-4900-b626-eb57ab81d39d
+  ✨ CRIADO      SCMSAC-ER3_L2
+             tbId        : 28e438f0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : b228b374-76c0-41b5-8ca4-4c0642e9f9ea
+  ✨ CRIADO      SCMSTEMP_MALL3_L2
+             tbId        : 373ab960-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : b1f2a657-3686-4fd5-b7a0-7c324a67fcbd
+  ✨ CRIADO      SCMSTEMP_MALL5_L3
+             tbId        : 387e8400-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 69633bc9-b361-4024-9d78-a138f55b3835
+  ✨ CRIADO      SCMSTEMP_MALL6_L3
+             tbId        : 391ac400-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 8e85e57f-46d2-4dbd-887b-5ed941416642
+  ✨ CRIADO      SCMSBAN_FEM_L2
+             tbId        : 3c7bc950-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 4a7a9945-1d33-4519-ae4c-7beba15183a4
+  ✨ CRIADO      SCMS106C_L1
+             tbId        : d3e2e680-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 7b1963e5-61f1-4cde-b0db-2043a21e15b1
+  ✨ CRIADO      SCMS106E_L1
+             tbId        : d4cb98d0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 772cddf8-ed42-48c6-b308-6371718c0d52
+  ✨ CRIADO      SCMS106F_L1
+             tbId        : d65f7f40-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 1a39a673-10f2-41e5-b0cb-f9debdc31306
+  ✨ CRIADO      SCMS106G_L1
+             tbId        : d7ef4700-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 9e87cbad-ca95-41fd-a3b7-37afa87f361a
+  ✨ CRIADO      SCMS106HI_L1
+             tbId        : d984b410-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 46d004a5-8d7f-445b-ac35-b41b11136f92
+  ✨ CRIADO      SCMS106J_L1
+             tbId        : db256bc0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : a6b35f58-fdd6-484a-aa06-ba44d3643936
+  ✨ CRIADO      SCMS106K_L1
+             tbId        : dcbe3430-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 2f30294e-7abc-4f42-907f-03b892273a86
+  ✨ CRIADO      SCMS106N_L1
+             tbId        : deac2180-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : a01e8290-bd9b-4d83-8d49-3a4cf47ec953
+  ✨ CRIADO      SCMS106OP_L1
+             tbId        : df9d1130-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 76e8e29c-3657-4ba8-afaf-5b55c3f6c7b4
+  ✨ CRIADO      SCMS107A_L1
+             tbId        : e0843ce0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 4fa53d33-a445-42a3-8ef5-a99acf2cfba2
+  ✨ CRIADO      SCMS107BCD_L1
+             tbId        : e21d7a80-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : f58dc9ed-2438-4cf3-9c1e-d93e3f5954b1
+  ✨ CRIADO      SCMS107E_L1
+             tbId        : e3aea1d0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 3cdae32f-4a2e-44c1-995c-5d3d88f18046
+  ✨ CRIADO      SCMS202A_L2
+             tbId        : e49be800-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 44463dbd-7340-404e-9a29-c15e58fa0578
+  ✨ CRIADO      SCMS203A_L2
+             tbId        : e62a2920-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 7dd9220a-557c-4b91-be8d-d1e76825683c
+  ✨ CRIADO      SCMS203B_L2
+             tbId        : e720be20-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 40bd676e-e8c1-4dbf-9935-1a378c85e7ae
+  ✨ CRIADO      SCMS203C_L2
+             tbId        : e80a0cb0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 16e8b107-36e8-4010-8613-208d25214d2c
+  ✨ CRIADO      SCMS203D_L2
+             tbId        : e9a5e260-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : adf224b8-62b5-4d2d-b2ea-a8d873138268
+  ✨ CRIADO      SCMS205D_L2
+             tbId        : f4365a20-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 7a13171c-c206-4056-acdd-ef39ac6f42ec
+  ✨ CRIADO      SCMS302AB_L3
+             tbId        : 0455b3b0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 961f8427-af17-4563-a519-54489f368edd
+  ✨ CRIADO      SCMS303B_L3
+             tbId        : 08fc7f70-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : ee852ca6-9176-4e30-9a9b-7a1d656fef04
+  ✨ CRIADO      SCMSQ301_L3
+             tbId        : 226048c0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : cde86046-3e2b-43ac-96d3-a91d3f1b941e
+  ✨ CRIADO      SCMSAC-ER1_L1
+             tbId        : 270a21c0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : be62a0d2-5ac6-482d-8c8d-3a64149de604
+  ✨ CRIADO      SCMSAC-ED2_L3
+             tbId        : 2d661790-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 6ef77621-f656-4bfe-8c62-a5acdd37cb08
+  ✨ CRIADO      SCMSTEMP_MALL4_L2
+             tbId        : 37dc77a0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 51b4d1d9-4f25-4e52-ac9f-2ae940b8a31a
+  ✨ CRIADO      SCMS303A_L3
+             tbId        : 076abbe0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : d2543e22-2bc6-42b8-bbdb-2edd4ae57742
+  ✨ CRIADO      SCMSQ108
+             tbId        : 1ab2a5a0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 07b281e0-a8b7-44aa-9f9f-e4358b7e4283
+  ✨ CRIADO      SCMSAC-ER2_L1
+             tbId        : 27f9d8f0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 47dec0c7-9f35-4396-8070-1650b906d8a8
+  ✨ CRIADO      SCMS203E_L2
+             tbId        : ea9e4c20-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : fc8b484d-8467-423b-b9ce-dad5b3c8f8c1
+  ✨ CRIADO      SCMS203F_L2
+             tbId        : ec347c80-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : a127b6a8-0a41-47be-960c-e4aa6c11b856
+  ✨ CRIADO      SCMS203G_L2
+             tbId        : ed1a48a0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 7c25a863-6275-4812-9aaa-ec326e0c781e
+  ✨ CRIADO      SCMS203J_L2
+             tbId        : eea2bd60-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : b307a2a4-cd41-4515-bce7-a860d5ef33d2
+  ✨ CRIADO      SCMS204ABCDE_L2
+             tbId        : f039ff30-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : b9c02d55-4dfe-43b8-a3b5-7a571a921de5
+  ✨ CRIADO      SCMS205AB_L2
+             tbId        : f1c9c6f0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 2f14bf93-67e7-4cc1-ba9b-b7c3ce519585
+  ✨ CRIADO      SCMS205C_L2
+             tbId        : f352d7f0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : baab4ba6-62b4-47ed-a2f0-a7b01efb1dbe
+  ✨ CRIADO      SCMS205F_L2
+             tbId        : f5c4c250-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : f586dcbd-a281-4817-ab07-8c185cfeaf30
+  ✨ CRIADO      SCMS206ABC_L2
+             tbId        : f6aa4050-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 587dfed0-e5d6-43d5-add7-59570be33b1b
+  ✨ CRIADO      SCMS206DEFGHIJ_L2
+             tbId        : f82f80c0-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 794537d2-c438-40ef-a076-ff6c2a482b25
+  ✨ CRIADO      SCMS207C_L2
+             tbId        : f91e2680-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 5fc88e05-14b2-4084-aa62-6b59e5f63d34
+  ✨ CRIADO      SCMS207E_L2
+             tbId        : faae8a80-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 06fadbaa-fb87-466d-b6c3-64edd6b3073c
+  ✨ CRIADO      SCMS207FG_L2
+             tbId        : fb9abf40-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 99773c19-9112-4e07-9a62-52fa23dcf350
+  ✨ CRIADO      SCMS301C_L3
+             tbId        : fd2f6900-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 0b8563e6-a46e-44ad-9d3f-9b23cd94cf16
+  ✨ CRIADO      SCMS301D_L3
+             tbId        : febb3920-a93c-11f0-afe1-175479a33d89
+             gcdrAssetId : 71d3aae0-2b91-477b-9fca-b88bdca04702
+  ✨ CRIADO      SCMS301F_L3
+             tbId        : 0134c4a0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 3fa6c153-f267-4861-9b5f-76c0fce5d06b
+  ✨ CRIADO      SCMS301G_L3
+             tbId        : 02cacdf0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 1fdc6bfd-bb7d-489d-a354-a489b16611f6
+  ✨ CRIADO      SCMS302D_L3
+             tbId        : 05e29540-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 91792641-8d42-463a-a371-06bc63f5ccdb
+  ✨ CRIADO      SCMS303C_L3
+             tbId        : 0a9017c0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 52e0822d-0f4a-4241-97dd-4a333e22db4d
+  ✨ CRIADO      SCMS304A_L3
+             tbId        : 0b7547a0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 833bd20a-9ef2-4a67-ba57-06fa3e36811c
+  ✨ CRIADO      SCMS304C_L3
+             tbId        : 0d069600-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 0d02bdb2-b654-4e45-a3e3-5c1f7761e204
+  ✨ CRIADO      SCMS305A_L3
+             tbId        : 102673a0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 2079ee67-f6ca-472e-ade5-0ba290f2658c
+  ✨ CRIADO      SCMS305CD_L3
+             tbId        : 11afd2c0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 7c46d553-e024-4861-8452-93f42f6463c3
+  ✨ CRIADO      SCMSQ103_L1
+             tbId        : 14e07940-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 36fd1300-afad-443a-aa0d-bf7bd5cf81d5
+  ✨ CRIADO      SCMSQ106_L1
+             tbId        : 16b698d0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 73d8097e-a118-4d83-bc05-5f4387748dce
+  ✨ CRIADO      SCMSQ106C_L1
+             tbId        : 1844b2e0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 35be05c0-d0b2-4e5e-97a9-29bc8687ebf2
+  ✨ CRIADO      SCMSQ107_L1
+             tbId        : 192e76a0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 6a2d10da-132d-42e0-b56b-473b372dd3e1
+  ✨ CRIADO      SCMSQ111_L1
+             tbId        : 1ec12900-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 8d467c9f-f927-49ed-9e7e-d99b0ec8e555
+  ✨ CRIADO      SCMSQ208_L2
+             tbId        : 209043b0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 92bc54d9-66c2-4f0c-88a0-5d52204066df
+  ✨ CRIADO      SCMSQ218_L2
+             tbId        : 217a7ca0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 3f8147ea-2ebc-4a57-aaa0-b3c393d50b36
+  ✨ CRIADO      SCMSQ302_L3
+             tbId        : 23e932b0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 6615c7dc-dce4-4014-bc0d-4374ea5620e5
+  ✨ CRIADO      SCMSQG1_G1
+             tbId        : 25827050-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 4e9148c5-0d45-49d1-a37d-7c8bbb72da88
+  ✨ CRIADO      SCMSAC-ER4_L2
+             tbId        : 29c6f7d0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 793609b3-f191-4234-b212-f8f6d7c8dd96
+  ✨ CRIADO      SCMSAC-ES1_L3
+             tbId        : 2aafaa20-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 431acedc-e79a-4a5a-a928-fa6324ba952e
+  ✨ CRIADO      SCMSAC-ES2_L3
+             tbId        : 2b9464d0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 0882e9ba-263c-45e9-a9ee-5f3fdb6d53b8
+  ✨ CRIADO      SCMSAC-ED1_L3
+             tbId        : 2c7bdea0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 7ded0b13-2997-4c59-bf2c-98f873210b4e
+  ✨ CRIADO      SCMSAC-AR1_L1
+             tbId        : 2e592a20-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : f777a5f6-7c47-4f0a-b5bb-722daf0b4be4
+  ✨ CRIADO      SCMSAC-AR2_L1
+             tbId        : 2f3ecf30-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 6fb0a97b-ec5a-4849-9f23-7416ff1318af
+  ✨ CRIADO      SCMSAC-AR3_L1
+             tbId        : 3022eda0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : aef283c4-0816-4ff3-9bfb-458696c5a737
+  ✨ CRIADO      SCMSAC-AR4_L1
+             tbId        : 31164e50-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : b3c26777-9f40-4182-9e77-81421812e62c
+  ✨ CRIADO      SCMSAC-AR5_L2
+             tbId        : 3202f840-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : d507fc09-6379-4c67-9c82-78980b4d8f10
+  ✨ CRIADO      SCMSAC-AR6_L2
+             tbId        : 32e40970-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 08f8b462-df00-4f4a-b135-73680097b4ef
+  ✨ CRIADO      SCMSAC-AR7_L2
+             tbId        : 33d1c4d0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : a1448661-47c3-44f2-b6a0-a7d231fe749f
+  ✨ CRIADO      SCMSAC-AR8_L2
+             tbId        : 34c350c0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 7d1dc191-9ea9-4e2d-a0c0-d8921853320e
+  ✨ CRIADO      SCMSTEMP_MALL1_L1
+             tbId        : 35b3f250-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 100bb012-fb44-4a16-9a26-b5c2cf13adde
+  ✨ CRIADO      SCMSTEMP_MALL2_L1
+             tbId        : 36979b90-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : a323bc41-1d51-4b2a-85cd-64438feb57cb
+  ✨ CRIADO      SCMSBAN_MASC_L1
+             tbId        : 39c02bc0-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 8448b3be-b414-48cb-8efd-954c94a25446
+  ✨ CRIADO      SCMSBAN_FEM_L1
+             tbId        : 3aac8790-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : d63d63b2-2461-4ed4-a2a8-33fb0399e4f0
+  ✨ CRIADO      SCMSBAN_MASC_L2
+             tbId        : 3b8f1f60-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 3748c406-b90e-495b-bf84-3bda04ed81a9
+  ✨ CRIADO      SCMSBAN_MASC_L3
+             tbId        : 3d662950-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 2d1b6f8b-d448-46d2-ac76-ac8c9ef25c05
+  ✨ CRIADO      SCMSBAN_FEM_L3
+             tbId        : 3e49ab80-a93d-11f0-afe1-175479a33d89
+             gcdrAssetId : 389eb702-136d-444d-bb15-960da75d0cdc
+  ✨ CRIADO      Centrais Shopping Mont Serrat
+             tbId        : dd250ad0-af67-11f0-9722-210aa9448abc
+             gcdrAssetId : 5b71bfa1-f029-4478-89ec-83b47040808c
+
+DEVICES
+------------------------------------------------------------------------
+  ✨ CRIADO      AC-Geral_Trafo1
+             tbId         : 52e954a0-d11f-11f0-998e-25174baff087
+             gcdrDeviceId : 840e71d8-30c2-47a9-a239-5856639a2a83
+             slaveId      : 169
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      AC-Geral_Trafo3
+             tbId         : 52e8df70-d11f-11f0-998e-25174baff087
+             gcdrDeviceId : 840e71d8-30c2-47a9-a239-5856639a2a83
+             slaveId      : 171
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      AC-Geral_Trafo2
+             tbId         : 52e8df71-d11f-11f0-998e-25174baff087
+             gcdrDeviceId : 840e71d8-30c2-47a9-a239-5856639a2a83
+             slaveId      : 170
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F AC-ARGERAL
+             tbId         : 68fca630-eb04-11f0-998e-25174baff087
+             gcdrDeviceId : 840e71d8-30c2-47a9-a239-5856639a2a83
+             slaveId      : 174
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS301ABL3
+             tbId         : f084de50-fec4-11f0-998e-25174baff087
+             gcdrDeviceId : 0c25a4b8-c30e-4b60-805f-8633c2a76970
+             slaveId      : 178
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS103GL1
+             tbId         : b45cdfc0-fed5-11f0-998e-25174baff087
+             gcdrDeviceId : c8417930-7729-4090-9e5b-fef64b87e640
+             slaveId      : 179
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS207D_L2
+             tbId         : 4aef1200-fedb-11f0-998e-25174baff087
+             gcdrDeviceId : ff9816d2-a69f-4367-86ed-78e7e054e617
+             slaveId      : 180
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 05
+             tbId         : 041ca820-b029-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 163
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 06
+             tbId         : 041d4460-b029-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 164
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS305CDL3_2
+             tbId         : 1334c510-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9af9151e-ad0f-4d73-a216-571dd915a9ec
+             slaveId      : 104
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS305BL3
+             tbId         : 64fb3820-d15b-11f0-998e-25174baff087
+             gcdrDeviceId : e2bf7bc9-a134-4246-84bb-2771450f32f1
+             slaveId      : 173
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      Cobertura 1
+             tbId         : 12e13830-b01f-11f0-9722-210aa9448abc
+             gcdrDeviceId : 55e9cb77-3392-4432-9d83-5059d3e8bf56
+             slaveId      : 156
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 09
+             tbId         : 1d25aa70-b02d-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 168
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 03
+             tbId         : 38db0910-b026-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 160
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      Transformador 2
+             tbId         : 5dd0b6b0-bd2e-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : eb0af8c9-ff56-4924-82c2-ec045b66d021
+             slaveId      : 170
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      C2
+             tbId         : 2e2f4450-11d2-11f1-a625-4d3576ae337e
+             gcdrDeviceId : c95d0545-dc8e-4b10-9561-ebb9d19ebb6f
+             slaveId      : 151
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 02
+             tbId         : 38dae200-b026-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 159
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 08
+             tbId         : 69ebee30-b02a-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 167
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      TEMP. SCMS_L3_FRENTE_301EL3
+             tbId         : 88970b80-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 50e2d568-839f-4481-827b-a68b5190672a
+             slaveId      : 149
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      TEMP. SCMS_L2_FRENTE_203EL2
+             tbId         : 88a95b00-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 50e2d568-839f-4481-827b-a68b5190672a
+             slaveId      : 147
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 07
+             tbId         : 69ec1540-b02a-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 166
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSROOFTOP 04
+             tbId         : 9e6a38e0-b027-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 161
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      TEMP. SCMS_L3_FRENTE_304CL3
+             tbId         : 885101d0-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 50e2d568-839f-4481-827b-a68b5190672a
+             slaveId      : 148
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      TEMP. SCMS_L1_FRENTE_Q106L1
+             tbId         : 889cb0d0-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 50e2d568-839f-4481-827b-a68b5190672a
+             slaveId      : 145
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      TEMP. SCMS_L2_FRENTE_205DL2
+             tbId         : 889759a0-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 50e2d568-839f-4481-827b-a68b5190672a
+             slaveId      : 146
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      TEMP. SCMS_L1_FRENTE_106D
+             tbId         : 88aae1a0-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 50e2d568-839f-4481-827b-a68b5190672a
+             slaveId      : 144
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSROOFTOP 01
+             tbId         : 889e1060-bfed-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 158
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ❌ ERRO        tEste
+             tbId         : fd5d15e0-11cd-11f1-a625-4d3576ae337e
+             gcdrDeviceId : —
+             slaveId      : 151
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+             erro         : GCDR POST /api/v1/devices HTTP 500: {"success":false,"error":{"message":"Failed query: insert into \"devices\" (\"id\", \"tenant_id\", \"asset_id\", \"customer_id\", \"name\", \"display_name\", \"code\", \"label\", \"type\", \"description\", \"serial_number\", \"external_id\", \"specs\", \"connectivity_status\", \"last_connected_at\", \"last_disconnected_at\", \"credentials\", \"telemetry_config\", \"tags\", \"metadata\", \"attributes\", \"status\", \"deleted_at\", \"created_at\", \"updated_at\", \"created_by\", \"updated_by\", \"version\", \"slave_id\", \"central_id\", \"identifier\", \"device_profile\", \"device_type\", \"ingestion_id\", \"ingestion_gateway_id\", \"last_activity_time\", \"last_alarm_time\") values ($1, $2, $3, $4, $5, $6, default, $7, $8, default, $9, $10, $11, $12, default, default, $13, $14, $15, $16, $17, $18, default, $19, $20, $21, default, $22, $23, $24, default, default, $25, default, default, default, default) returning \"id\", \"tenant_id\", \"asset_id\", \"customer_id\", \"name\", \"display_name\", \"code\", \"label\", \"type\", \"description\", \"serial_number\", \"external_id\", \"specs\", \"connectivity_status\", \"last_connected_at\", \"last_disconnected_at\", \"credentials\", \"telemetry_config\", \"tags\", \"metadata\", \"attributes\", \"status\", \"deleted_at\", \"created_at\", \"updated_at\", \"created_by\", \"updated_by\", \"version\", \"slave_id\", \"central_id\", \"identifier\", \"device_profile\", \"device_type\", \"ingestion_id\", \"ingestion_gateway_id\", \"last_activity_time\", \"last_alarm_time\"\nparams: cf5d8861-ef86-4fb1-8937-57f1fa6d60ca,11111111-1111-1111-1111-111111111111,05cd5ed6-082b-4d43-9a4b-84539071c9b6,a4c64215-f7eb-4102-80b5-e10b98e2f94e,tEste,tEste,,METER,AUTO-cf5d8861,fd5d15e0-11cd-11f1-a625-4d3576ae337e,{\"serialNumber\":\"AUTO-cf5d8861\"},UNKNOWN,{},{\"reportingInterval\":60,\"telemetryKeys\":[],\"attributeKeys\":[]},[],{\"tbId\":\"fd5d15e0-11cd-11f1-a625-4d3576ae337e\",\"tbDeviceName\":\"tEste\",\"tbProfile\":\"\",\"syncedAt\":\"2026-03-05T22:44:28.334Z\"},{},ACTIVE,2026-03-05T22:47:23.760Z,2026-03-05T22:47:23.760Z,00000000-0000-0000-0000-000000000001,1,151,186bbdcb-95bc-4290-bf33-1ce89e48ffb4,3F_MEDIDOR","code":"INTERNAL_ERROR"},"meta":{"requestId":"552bedcb-eff9-4285-9489-f29a4b6f16c8","timestamp":"2026-03-05T22:47:23.783Z"}}
+  ✨ CRIADO      3F SCMSAC-BI_Grande
+             tbId         : debb9101-ed7b-11f0-998e-25174baff087
+             gcdrDeviceId : b6eda2da-3dd8-4352-8ec9-cba110c22c45
+             slaveId      : 175
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ301L3
+             tbId         : cb3e2ad0-1287-11f1-a625-4d3576ae337e
+             gcdrDeviceId : 5e997a9e-50b2-4780-969d-94aa2e131290
+             slaveId      : 123
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ❌ ERRO        3F SCMS206HIL2
+             tbId         : e8dcd820-fed2-11f0-998e-25174baff087
+             gcdrDeviceId : —
+             slaveId      : 179
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+             erro         : GCDR POST /api/v1/devices HTTP 500: {"success":false,"error":{"message":"Failed query: insert into \"devices\" (\"id\", \"tenant_id\", \"asset_id\", \"customer_id\", \"name\", \"display_name\", \"code\", \"label\", \"type\", \"description\", \"serial_number\", \"external_id\", \"specs\", \"connectivity_status\", \"last_connected_at\", \"last_disconnected_at\", \"credentials\", \"telemetry_config\", \"tags\", \"metadata\", \"attributes\", \"status\", \"deleted_at\", \"created_at\", \"updated_at\", \"created_by\", \"updated_by\", \"version\", \"slave_id\", \"central_id\", \"identifier\", \"device_profile\", \"device_type\", \"ingestion_id\", \"ingestion_gateway_id\", \"last_activity_time\", \"last_alarm_time\") values ($1, $2, $3, $4, $5, $6, default, $7, $8, default, $9, $10, $11, $12, default, default, $13, $14, $15, $16, $17, $18, default, $19, $20, $21, default, $22, $23, $24, default, default, $25, default, default, default, default) returning \"id\", \"tenant_id\", \"asset_id\", \"customer_id\", \"name\", \"display_name\", \"code\", \"label\", \"type\", \"description\", \"serial_number\", \"external_id\", \"specs\", \"connectivity_status\", \"last_connected_at\", \"last_disconnected_at\", \"credentials\", \"telemetry_config\", \"tags\", \"metadata\", \"attributes\", \"status\", \"deleted_at\", \"created_at\", \"updated_at\", \"created_by\", \"updated_by\", \"version\", \"slave_id\", \"central_id\", \"identifier\", \"device_profile\", \"device_type\", \"ingestion_id\", \"ingestion_gateway_id\", \"last_activity_time\", \"last_alarm_time\"\nparams: 1474360b-49ba-4650-98f4-20993b9099d7,11111111-1111-1111-1111-111111111111,05cd5ed6-082b-4d43-9a4b-84539071c9b6,a4c64215-f7eb-4102-80b5-e10b98e2f94e,3F SCMS206HIL2,3F SCMS206HIL2,,METER,AUTO-1474360b,e8dcd820-fed2-11f0-998e-25174baff087,{\"serialNumber\":\"AUTO-1474360b\"},UNKNOWN,{},{\"reportingInterval\":60,\"telemetryKeys\":[],\"attributeKeys\":[]},[],{\"tbId\":\"e8dcd820-fed2-11f0-998e-25174baff087\",\"tbDeviceName\":\"3F SCMS206HIL2\",\"tbProfile\":\"\",\"syncedAt\":\"2026-03-05T22:44:28.334Z\"},{},ACTIVE,2026-03-05T22:47:25.666Z,2026-03-05T22:47:25.666Z,00000000-0000-0000-0000-000000000001,1,179,186bbdcb-95bc-4290-bf33-1ce89e48ffb4,3F_MEDIDOR","code":"INTERNAL_ERROR"},"meta":{"requestId":"3360362d-26ed-4e90-b50a-e7f21af3d2ba","timestamp":"2026-03-05T22:47:25.670Z"}}
+  ✨ CRIADO      3F SCMSAC_BI_Jockey
+             tbId         : debb9100-ed7b-11f0-998e-25174baff087
+             gcdrDeviceId : b6eda2da-3dd8-4352-8ec9-cba110c22c45
+             slaveId      : 176
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      Hidr. SCMS304B_L3
+             tbId         : f80f9880-feb6-11f0-998e-25174baff087
+             gcdrDeviceId : 45cf640e-8f64-497c-8662-accdcc8bd12c
+             slaveId      : 177
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      Reboot
+             tbId         : fcec4fc0-be28-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 647e1e74-9013-4fc2-ba1d-c4e609dae56c
+             slaveId      : 172
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      Transformador 1
+             tbId         : f8427140-bd2c-11f0-84a2-1f4ed3957b2a
+             gcdrDeviceId : 90d60ba6-e3ae-4fb5-ae80-0df4d61be8c1
+             slaveId      : 169
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS002
+             tbId         : bf839950-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6adf83d7-0fc2-45f3-8460-e7852b943191
+             slaveId      : 1
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS101AL1
+             tbId         : c06c99c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : fa5b776d-92bc-4656-bc62-44d1c61d75c6
+             slaveId      : 2
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS101AL1
+             tbId         : c11312f0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : fa5b776d-92bc-4656-bc62-44d1c61d75c6
+             slaveId      : 3
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS101CL1
+             tbId         : c3874740-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9776866e-1f00-4f72-bb1f-62f80e5963f6
+             slaveId      : 6
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS101CL1
+             tbId         : c4281b20-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9776866e-1f00-4f72-bb1f-62f80e5963f6
+             slaveId      : 7
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS102CDEL1
+             tbId         : c5fcb410-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 696c91fd-e91e-4003-905c-e84431e676d5
+             slaveId      : 9
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS103CL1
+             tbId         : c6e47c00-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6eaa4cb0-d745-4c46-922f-38f528c063e3
+             slaveId      : 10
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS103CL1
+             tbId         : c78aa710-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6eaa4cb0-d745-4c46-922f-38f528c063e3
+             slaveId      : 11
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS103DL1
+             tbId         : c8783b60-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 12fdfc0a-ab62-490f-875c-fb6432c579e9
+             slaveId      : 12
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS103DL1
+             tbId         : c91d2df0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 12fdfc0a-ab62-490f-875c-fb6432c579e9
+             slaveId      : 13
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS103EFL1
+             tbId         : caa70240-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : b43063b9-4a89-4c7a-87fc-7b890e9cc5ce
+             slaveId      : 15
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS103EFL1
+             tbId         : ca03e470-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : b43063b9-4a89-4c7a-87fc-7b890e9cc5ce
+             slaveId      : 14
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS103HL1
+             tbId         : cb8ea320-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 84531ec6-b0a0-4607-9ef6-7e51eb2f9214
+             slaveId      : 16
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS103IL1
+             tbId         : cc811970-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : afd395c9-533b-4002-832f-b7c232035bc1
+             slaveId      : 17
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS103JKLL1
+             tbId         : cd6ab620-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : a4544986-3b70-4699-adca-c393dd6be944
+             slaveId      : 18
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS103MNOPL1
+             tbId         : ce5e8c00-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ff917042-d2d7-499f-bb98-8ef550f5ae51
+             slaveId      : 19
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS104CDL1
+             tbId         : cf489de0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7c5b5c04-ca2d-4def-9d23-a9cff5712818
+             slaveId      : 20
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS105AL1
+             tbId         : d0340f50-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : cdb2f342-4c3a-4c8c-94a5-895f1fed9289
+             slaveId      : 21
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS105AL1
+             tbId         : d0d4bc20-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : cdb2f342-4c3a-4c8c-94a5-895f1fed9289
+             slaveId      : 22
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS101BL1
+             tbId         : c1f90620-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : fab51e73-dd5b-42f1-a1b9-d1eb359d370d
+             slaveId      : 4
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS101BL1
+             tbId         : c2985360-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : fab51e73-dd5b-42f1-a1b9-d1eb359d370d
+             slaveId      : 5
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS102BL1
+             tbId         : c515af70-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ad302d0e-4ec0-4aee-8aff-7ee8f934c55e
+             slaveId      : 8
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS105
+             tbId         : d1bcd230-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 0930871d-6239-4b48-8e31-a749e9f0008e
+             slaveId      : 23
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS105
+             tbId         : d25ce2c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 0930871d-6239-4b48-8e31-a749e9f0008e
+             slaveId      : 24
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106ABL1
+             tbId         : d3440e70-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ffbaf72e-fe66-4013-af00-54fb43748ddc
+             slaveId      : 25
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106ML1
+             tbId         : de01d7c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : f616fe36-f7d6-4078-8c0f-e490167de98f
+             slaveId      : 38
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS301EL3
+             tbId         : ffee13d0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 431d667b-3bc5-496a-ae84-bc54a233dc46
+             slaveId      : 79
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS301EL3
+             tbId         : 008f35d0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 431d667b-3bc5-496a-ae84-bc54a233dc46
+             slaveId      : 80
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS304DL3
+             tbId         : 0f7c29e0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : fe2d60f7-0fdd-4e89-93a3-b54f24c4239c
+             slaveId      : 99
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS304DL3
+             tbId         : 0ed90c10-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : fe2d60f7-0fdd-4e89-93a3-b54f24c4239c
+             slaveId      : 98
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSD106DL1
+             tbId         : 142e1930-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : c9a8597f-3b24-4c96-999f-a9c3e013d1ee
+             slaveId      : 105
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ105L1
+             tbId         : 160faa70-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a2876b20-0920-4dfa-ae7d-d029ebefbdf3
+             slaveId      : 107
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ108L1
+             tbId         : 1d2aaa80-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : b35b1016-61b7-4d4c-af33-943a7d511fbc
+             slaveId      : 116
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQ108L1
+             tbId         : 1c8ac100-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : b35b1016-61b7-4d4c-af33-943a7d511fbc
+             slaveId      : 115
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ109L1
+             tbId         : 1e1afdf0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : aa32cbe6-3455-4d92-88d0-a88a332fc7ff
+             slaveId      : 117
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ119L1
+             tbId         : 1fec3b80-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 8ac48c37-b577-4ec3-91b0-cbd2009e1f4f
+             slaveId      : 119
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ESRL. SCMSAC-ER3_L2
+             tbId         : 2927f8b0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 1a725d2a-2d39-4306-baf7-6b419587024c
+             slaveId      : 130
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSBANFEML2
+             tbId         : 3cc68df0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 0007156b-3da3-4960-bebc-04c9c7c18f0f
+             slaveId      : 153
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106CL1
+             tbId         : d427b7b0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7bc224d4-9c8a-48ec-b22c-af9f31b9c9ed
+             slaveId      : 26
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106EL1
+             tbId         : d5bbc530-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7ab8606a-b15e-455b-8aeb-f7c464bde6db
+             slaveId      : 28
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS106EL1
+             tbId         : d51747d0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7ab8606a-b15e-455b-8aeb-f7c464bde6db
+             slaveId      : 27
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS106FL1
+             tbId         : d6a89630-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : cb502fe0-c3fd-4ea0-bf6d-b63b3853b23e
+             slaveId      : 29
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106FL1
+             tbId         : d749df40-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : cb502fe0-c3fd-4ea0-bf6d-b63b3853b23e
+             slaveId      : 30
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS106GL1
+             tbId         : d8341830-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 30342cae-22c3-49e5-8d48-9139430ba003
+             slaveId      : 31
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106GL1
+             tbId         : d8e40740-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 30342cae-22c3-49e5-8d48-9139430ba003
+             slaveId      : 32
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS106HIL1
+             tbId         : d9c9d360-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 8216f6d6-3122-4b38-92d7-f51ef0b9266a
+             slaveId      : 33
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106HIL1
+             tbId         : da827500-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 8216f6d6-3122-4b38-92d7-f51ef0b9266a
+             slaveId      : 34
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS106JL1
+             tbId         : db6979a0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : eeab3c66-493b-4b92-88e4-69f09751b2ab
+             slaveId      : 35
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106JL1
+             tbId         : dc14d4d0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : eeab3c66-493b-4b92-88e4-69f09751b2ab
+             slaveId      : 36
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106KL1
+             tbId         : dd0157b0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : d231204b-6095-4c67-ad80-06f2c4d9053e
+             slaveId      : 37
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106NL1
+             tbId         : def7a970-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : a99e1f53-9985-4bb7-ad26-eac7de05bc2e
+             slaveId      : 39
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS106OPL1
+             tbId         : dfe20970-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 3d81f612-8d31-41ca-b36d-e4d7275ee98c
+             slaveId      : 40
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS107AL1
+             tbId         : e0d2d210-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ecd5c52f-609d-41e6-9400-16340707170b
+             slaveId      : 41
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS107AL1
+             tbId         : e175efe0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ecd5c52f-609d-41e6-9400-16340707170b
+             slaveId      : 42
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS107BCDL1
+             tbId         : e2624bb0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : c47c52b8-7628-47a5-8835-f9b662bf5815
+             slaveId      : 43
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS107BCDL1
+             tbId         : e304cd40-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : c47c52b8-7628-47a5-8835-f9b662bf5815
+             slaveId      : 44
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS107EL1
+             tbId         : e3f324e0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 035ee183-6724-40b7-8945-9aad1d73c969
+             slaveId      : 45
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS202AL2
+             tbId         : e4e2b500-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7cc9d282-9d75-4085-809e-7b8051a5f593
+             slaveId      : 46
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS202AL2
+             tbId         : e585f9e0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7cc9d282-9d75-4085-809e-7b8051a5f593
+             slaveId      : 47
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS203AL2
+             tbId         : e6753be0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 2abd5942-7f90-44e3-b33c-a79aec02c8e4
+             slaveId      : 48
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS203BL2
+             tbId         : e766a0c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : c6edfe5c-ce77-4dad-8b9d-71e1cad2b848
+             slaveId      : 49
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS203CL2
+             tbId         : e84f04f0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : f748392c-f6f4-42d8-a97d-5f20f864ae30
+             slaveId      : 50
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS203CL2
+             tbId         : e9013df0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : f748392c-f6f4-42d8-a97d-5f20f864ae30
+             slaveId      : 51
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS203DL2
+             tbId         : e9ea6570-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : c4d523ef-5c6c-42ff-82e0-bfe281544d97
+             slaveId      : 52
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS205DL2
+             tbId         : f47ab620-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 31a6a1b7-e888-4448-8eb6-ea7133de54ec
+             slaveId      : 65
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS205DL2
+             tbId         : f5230410-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 31a6a1b7-e888-4448-8eb6-ea7133de54ec
+             slaveId      : 66
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS302ABL3
+             tbId         : 049c59a0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 49312dda-6711-4a24-a1cd-4a92660e0463
+             slaveId      : 85
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS302ABL3
+             tbId         : 0540d700-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 49312dda-6711-4a24-a1cd-4a92660e0463
+             slaveId      : 86
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS303BL3
+             tbId         : 0940b460-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6a0c3b9f-8855-44fb-b2ea-2e55d23a00ef
+             slaveId      : 91
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS303BL3
+             tbId         : 09e18840-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6a0c3b9f-8855-44fb-b2ea-2e55d23a00ef
+             slaveId      : 92
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQ301L3
+             tbId         : 22a3e170-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 67359f51-ef7b-4acf-951b-f16285f9d5e7
+             slaveId      : 122
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ301OFIL3
+             tbId         : 2345c6c0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 67359f51-ef7b-4acf-951b-f16285f9d5e7
+             slaveId      : 181
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ESRL. SCMSAC-ER1_L1
+             tbId         : 27529c70-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 1a725d2a-2d39-4306-baf7-6b419587024c
+             slaveId      : 128
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ELEV. SCMSAC-ED2_L3
+             tbId         : 2dae6b30-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 816fe09a-bde1-404d-8bde-18cb4988d553
+             slaveId      : 135
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS303AL3
+             tbId         : 07bc5e50-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 565e0766-2625-4754-a72e-13662a14ad3f
+             slaveId      : 89
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS303AL3
+             tbId         : 085d8050-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 565e0766-2625-4754-a72e-13662a14ad3f
+             slaveId      : 90
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ108
+             tbId         : 1b9e8c40-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : eecbad87-4ecf-4f83-a55b-82259be52160
+             slaveId      : 114
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQ108
+             tbId         : 1afc0ab0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : eecbad87-4ecf-4f83-a55b-82259be52160
+             slaveId      : 113
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ESRL. SCMSAC-ER2_L1
+             tbId         : 283e8310-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 1a725d2a-2d39-4306-baf7-6b419587024c
+             slaveId      : 129
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS203EL2
+             tbId         : eae34460-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 1676204e-6848-4800-8027-c809bd5f3863
+             slaveId      : 53
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS203EL2
+             tbId         : eb8f3bd0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 1676204e-6848-4800-8027-c809bd5f3863
+             slaveId      : 54
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS203FL2
+             tbId         : ec77ee20-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 4b85dd1e-f401-4bad-a51c-6e9eb9362f88
+             slaveId      : 55
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS203GL2
+             tbId         : ed5e5680-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ae9e4cfd-d0a2-423d-8512-f414e50c7f31
+             slaveId      : 56
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS203GL2
+             tbId         : edfe18f0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ae9e4cfd-d0a2-423d-8512-f414e50c7f31
+             slaveId      : 57
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS203JL2
+             tbId         : eee71960-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : f0138db4-2050-4ec9-95ba-fcb9cbfe4fa5
+             slaveId      : 58
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS204ABCDEL2
+             tbId         : f07d97e0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : f6b1983e-1293-47f4-a499-33acbb7fe08a
+             slaveId      : 60
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS204ABCDEL2
+             tbId         : f11e92d0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : f6b1983e-1293-47f4-a499-33acbb7fe08a
+             slaveId      : 61
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS205ABL2
+             tbId         : f20c4e30-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 4a299012-3850-431c-a5fc-a9978f9dac6f
+             slaveId      : 62
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS205ABL2
+             tbId         : f2ad9740-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 4a299012-3850-431c-a5fc-a9978f9dac6f
+             slaveId      : 63
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS205CL2
+             tbId         : f39670a0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 4c356d31-e0f6-4e0a-ae76-3a9b45f6e7b7
+             slaveId      : 64
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS205FL2
+             tbId         : f60bb660-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 04353976-df6f-4036-98b4-0c1d4ad364d8
+             slaveId      : 67
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS206ABCL2
+             tbId         : f78c62f0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 65072598-7bff-4e9d-ac2c-2f131622a861
+             slaveId      : 69
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS206ABCL2
+             tbId         : f6ee7540-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 65072598-7bff-4e9d-ac2c-2f131622a861
+             slaveId      : 68
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS206
+             tbId         : f8747900-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : bf4946c7-8b63-4ddf-8575-2008999730fc
+             slaveId      : 70
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS207CL2
+             tbId         : f9631ec0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9585d2e6-fc10-428a-83f7-6ae5ecdd0431
+             slaveId      : 71
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS207CL2
+             tbId         : fa06b1c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9585d2e6-fc10-428a-83f7-6ae5ecdd0431
+             slaveId      : 72
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS207EL2
+             tbId         : faf382c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : cc7db419-6ee5-42bd-b9c0-4cc35a7ef676
+             slaveId      : 73
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS207FGL2
+             tbId         : fbe02cb0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 036e68a8-524c-4394-9759-2747a7183a15
+             slaveId      : 74
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS207FGL2
+             tbId         : fc8f5870-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 036e68a8-524c-4394-9759-2747a7183a15
+             slaveId      : 75
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS301CL3
+             tbId         : fd7328c0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 511d7624-06e3-4524-9829-46299382ef14
+             slaveId      : 76
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS301CL3
+             tbId         : fe1423b0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : 511d7624-06e3-4524-9829-46299382ef14
+             slaveId      : 77
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS301DL3
+             tbId         : ff00cda0-a93c-11f0-afe1-175479a33d89
+             gcdrDeviceId : ef01e446-aee1-444c-bd3a-c09dd23ffe92
+             slaveId      : 78
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS301FL3
+             tbId         : 017995d0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 13c0c3ae-78d2-4fa2-8af9-6540714b8ec3
+             slaveId      : 81
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS301FL3
+             tbId         : 022b0b80-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 13c0c3ae-78d2-4fa2-8af9-6540714b8ec3
+             slaveId      : 82
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS301GL3
+             tbId         : 03108980-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6905243c-30fd-4ec9-98d7-ea7c802c7199
+             slaveId      : 83
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS301GL3
+             tbId         : 03b46aa0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 6905243c-30fd-4ec9-98d7-ea7c802c7199
+             slaveId      : 84
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS302DL3
+             tbId         : 06262df0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : e50418e6-6c1e-4fef-94da-44fb21d47cab
+             slaveId      : 87
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS302DL3
+             tbId         : 06c86160-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : e50418e6-6c1e-4fef-94da-44fb21d47cab
+             slaveId      : 88
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS303CL3
+             tbId         : 0ad425a0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : cc4b8827-378d-42c1-bbd9-e8f2fcf76396
+             slaveId      : 93
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS304AL3
+             tbId         : 0bbab510-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 56103eef-7f1d-4b12-9368-5c604e533d75
+             slaveId      : 94
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS304AL3
+             tbId         : 0c632a10-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 56103eef-7f1d-4b12-9368-5c604e533d75
+             slaveId      : 95
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS304CL3
+             tbId         : 0df25590-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 8706325a-53aa-4cc8-9ad2-40ea64565722
+             slaveId      : 97
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS304CL3
+             tbId         : 0d4c0370-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 8706325a-53aa-4cc8-9ad2-40ea64565722
+             slaveId      : 96
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS305AL3
+             tbId         : 106acfa0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 66517da2-8652-43fd-9e99-3852135d5a3e
+             slaveId      : 100
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS305AL3
+             tbId         : 110a9210-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 66517da2-8652-43fd-9e99-3852135d5a3e
+             slaveId      : 101
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMS305CDL3
+             tbId         : 11f3e0a0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 3a7d9c41-5b5c-47db-9ed6-1386b8d31671
+             slaveId      : 102
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMS305CDL3
+             tbId         : 12943f50-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 3a7d9c41-5b5c-47db-9ed6-1386b8d31671
+             slaveId      : 103
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ103L1
+             tbId         : 1524fc50-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9dc184a7-a29e-4f6a-a3b5-1d4c63a0138e
+             slaveId      : 106
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQ106L1
+             tbId         : 16fc0640-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 69707383-40b6-4b6b-9ce4-7a3e36b3d72a
+             slaveId      : 108
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ106L1
+             tbId         : 179fc050-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 69707383-40b6-4b6b-9ce4-7a3e36b3d72a
+             slaveId      : 109
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ106CL1
+             tbId         : 18882480-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : c921a465-367a-4251-a1f8-32d1d69cc3de
+             slaveId      : 110
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQ107L1
+             tbId         : 19740b20-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9df51156-b75f-4548-a64a-855e8076712b
+             slaveId      : 111
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ107L1
+             tbId         : 1a115c90-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 9df51156-b75f-4548-a64a-855e8076712b
+             slaveId      : 112
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ111L1
+             tbId         : 1f049aa0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 7e880a7e-161f-41f9-8523-5ec3494f46e1
+             slaveId      : 118
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ208L2
+             tbId         : 20d7d400-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : d8718f47-6fd3-4d69-93ee-349722f7e300
+             slaveId      : 120
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ218L2
+             tbId         : 21bfc300-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : b3355b90-b318-40f0-954a-ab75b9826249
+             slaveId      : 121
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQ302L3
+             tbId         : 24333400-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 520bf170-d0ec-4bd4-b91b-a82b763815ac
+             slaveId      : 124
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQ302L3
+             tbId         : 24d89bc0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 520bf170-d0ec-4bd4-b91b-a82b763815ac
+             slaveId      : 125
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSQG1G1
+             tbId         : 25c6a540-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 31b73a7b-fff5-4969-aa29-0e9257b7853e
+             slaveId      : 126
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F SCMSQG1G1
+             tbId         : 2665f280-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 31b73a7b-fff5-4969-aa29-0e9257b7853e
+             slaveId      : 127
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ESRL. SCMSAC-ER4_L2
+             tbId         : 2a0b7ae0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 1a725d2a-2d39-4306-baf7-6b419587024c
+             slaveId      : 131
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ELEV. SCMSAC-ES1_L3
+             tbId         : 2af42d30-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 816fe09a-bde1-404d-8bde-18cb4988d553
+             slaveId      : 132
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ELEV. SCMSAC-ES2_L3
+             tbId         : 2bd9d240-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 816fe09a-bde1-404d-8bde-18cb4988d553
+             slaveId      : 133
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F ELEV. SCMSAC-ED1_L3
+             tbId         : 2cc3e420-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 816fe09a-bde1-404d-8bde-18cb4988d553
+             slaveId      : 134
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR1_L1
+             tbId         : 2e9e2260-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 136
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR2_L1
+             tbId         : 2f8240d0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 137
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR3_L1
+             tbId         : e1f49760-b02f-11f0-9722-210aa9448abc
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 138
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR4_L1
+             tbId         : 315ad160-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 139
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR5_L2
+             tbId         : 3246df10-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 140
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR6_L2
+             tbId         : 332928c0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 141
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR7_L2
+             tbId         : 341bed30-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 142
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      3F MOTR. SCMSAC-AR8_L2
+             tbId         : 350785b0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : a7d632ec-3991-4a2f-8073-ef001e28bd96
+             slaveId      : 143
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSBANMASCL1
+             tbId         : 3a04fcf0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : be7374bb-5735-4c92-8cdf-f63d57478ff2
+             slaveId      : 150
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ❌ ERRO        HIDR. SCMSBANFEML1
+             tbId         : 3af06e60-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : —
+             slaveId      : 151
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+             erro         : GCDR POST /api/v1/devices HTTP 500: {"success":false,"error":{"message":"Failed query: update \"devices\" set \"name\" = $1, \"display_name\" = $2, \"label\" = $3, \"type\" = $4, \"external_id\" = $5, \"metadata\" = $6, \"updated_at\" = $7, \"updated_by\" = $8, \"version\" = $9, \"slave_id\" = $10, \"central_id\" = $11, \"identifier\" = $12, \"device_profile\" = $13, \"device_type\" = $14, \"ingestion_id\" = $15, \"ingestion_gateway_id\" = $16 where (\"devices\".\"tenant_id\" = $17 and \"devices\".\"id\" = $18 and \"devices\".\"version\" = $19) returning \"id\", \"tenant_id\", \"asset_id\", \"customer_id\", \"name\", \"display_name\", \"code\", \"label\", \"type\", \"description\", \"serial_number\", \"external_id\", \"specs\", \"connectivity_status\", \"last_connected_at\", \"last_disconnected_at\", \"credentials\", \"telemetry_config\", \"tags\", \"metadata\", \"attributes\", \"status\", \"deleted_at\", \"created_at\", \"updated_at\", \"created_by\", \"updated_by\", \"version\", \"slave_id\", \"central_id\", \"identifier\", \"device_profile\", \"device_type\", \"ingestion_id\", \"ingestion_gateway_id\", \"last_activity_time\", \"last_alarm_time\"\nparams: HIDR. SCMSBANFEML1,Entrada Shopping,Entrada Shopping,METER,3af06e60-a93d-11f0-afe1-175479a33d89,{\"tbId\":\"3af06e60-a93d-11f0-afe1-175479a33d89\",\"tbName\":\"AC-Geral_Trafo3\",\"tbType\":\"Energia Geral Entrada\",\"syncedAt\":\"2026-03-05T22:44:28.334Z\",\"tbProfile\":\"HIDROMETRO_SHOPPING\",\"tbDeviceName\":\"HIDR. SCMSBANFEML1\",\"tbEntityType\":\"DEVICE\"},2026-03-05T22:50:23.603Z,00000000-0000-0000-0000-000000000001,31,151,186bbdcb-95bc-4290-bf33-1ce89e48ffb4,ENTRADA,HIDROMETRO_SHOPPING,HIDROMETRO,4a4b281b-32df-4d00-a709-df06c2f23aa7,186bbdcb-95bc-4290-bf33-1ce89e48ffb4,11111111-1111-1111-1111-111111111111,840e71d8-30c2-47a9-a239-5856639a2a83,30","code":"INTERNAL_ERROR"},"meta":{"requestId":"62f5e28c-a2f5-4cb3-8aa0-d444da8cb863","timestamp":"2026-03-05T22:50:23.613Z"}}
+  ✨ CRIADO      HIDR. SCMSBANMASCL2
+             tbId         : 3bd48cd0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 0007156b-3da3-4960-bebc-04c9c7c18f0f
+             slaveId      : 152
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSBANMASCL3
+             tbId         : 3dab48a0-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 0007156b-3da3-4960-bebc-04c9c7c18f0f
+             slaveId      : 154
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ✨ CRIADO      HIDR. SCMSBANFEML3
+             tbId         : 3e8de070-a93d-11f0-afe1-175479a33d89
+             gcdrDeviceId : 0007156b-3da3-4960-bebc-04c9c7c18f0f
+             slaveId      : 155
+             centralId    : 186bbdcb-95bc-4290-bf33-1ce89e48ffb4
+  ⚠️  IGNORADO     HIDR. SCMSBANFEML1 X10
+             tbId  : d1a7ace0-11d1-11f1-a625-4d3576ae337e
+             motivo: Sem slaveId e centralId
+  ⚠️  IGNORADO     HIDR. SCMS101AL1 x10
+             tbId  : f3d35f40-ff83-11f0-998e-25174baff087
+             motivo: Sem slaveId e centralId
+  ⚠️  IGNORADO     Central Shopping Mont Serrat
+             tbId  : fa8c0480-af75-11f0-9722-210aa9448abc
+             motivo: Sem slaveId e centralId
+
+========================================================================

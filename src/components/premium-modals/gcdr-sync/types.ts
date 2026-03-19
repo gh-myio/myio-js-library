@@ -86,7 +86,8 @@ export interface CreateAssetDto {
   customerId: string; // GCDR customer ID (from create response)
   /** TB Asset UUID — forward-compat, external_id column pending RFC-0017 (RFC-0176-v2) */
   externalId?: string;
-  parentAssetId?: string;
+  /** Explicit null = no parent (sends null to GCDR so DB gets NULL, not empty string) */
+  parentAssetId?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -96,8 +97,8 @@ export interface CreateDeviceDto {
   externalId?: string; // TB device ID (externalId exists for devices only)
   assetId: string;
   customerId: string;
-  slaveId?: string;
-  centralId?: string;
+  slaveId?: number;   // GCDR Zod schema: number
+  centralId?: string; // GCDR Zod schema: string
   identifier?: string;
   metadata?: Record<string, unknown>;
 }
@@ -150,8 +151,10 @@ export interface TBServerScopeAttrs {
   gcdrDeviceId?: string;
   gcdrSyncedAt?: string;
   gcdrTenantId?: string;
-  slaveId?: string;
-  centralId?: string;
+  /** TB Asset ID to use as fallback parent when a device has no asset relation in TB */
+  gcdrFallbackAssetTbId?: string;
+  slaveId?: string | number;  // TB stores as string or number; coerced to number for GCDR
+  centralId?: string;          // string in both TB and GCDR
   identifier?: string;
 }
 
@@ -204,6 +207,8 @@ export interface GCDRBundleDevice {
 export interface GCDRBundleRule {
   id: string;
   name: string;
+  /** Human-readable description of the rule */
+  description?: string;
   scope: { type: string; entityId: string; inherited?: boolean };
   metric: string;
   operator: string;
@@ -214,6 +219,8 @@ export interface GCDRBundleRule {
   endAt?: string;
   daysOfWeek?: Record<string, boolean>;
   keyMulti?: number;
+  /** Present when this rule is a device-specific value override; points to the base rule ID */
+  parentRuleId?: string;
 }
 
 export interface GCDRCustomerBundle {

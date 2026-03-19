@@ -440,10 +440,10 @@ export function renderCardComponentV5({
       if (window.MyIOUtils?.formatTemperatureWithSettings) {
         return window.MyIOUtils.formatTemperatureWithSettings(numValue);
       }
-      // Fallback: Format temperature with 1 decimal place and °C unit
+      // Fallback: Format temperature with 2 decimal places and °C unit
       const formattedTemp = numValue.toLocaleString('pt-BR', {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       });
       return `${formattedTemp} °C`;
     } else if (isWaterDeviceType(deviceType)) {

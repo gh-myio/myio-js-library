@@ -18,13 +18,20 @@ export interface TemperatureSettingsParams {
   /** Customer name for display */
   customerName?: string;
   /** Callback when settings are saved */
-  onSave?: (settings: { minTemperature: number; maxTemperature: number }) => void;
+  onSave?: (settings: {
+    minTemperature: number;
+    maxTemperature: number;
+    temperatureClampMin?: number;
+    temperatureClampMax?: number;
+  }) => void;
   /** Callback when modal closes */
   onClose?: () => void;
   /** Callback when API error occurs (e.g., 401 unauthorized) */
   onError?: (error: { status: number; message: string }) => void;
   /** Initial theme */
   theme?: 'dark' | 'light';
+  /** When true, shows and allows editing temperatureClampMin/Max (MyIO superadmin only) */
+  isSuperAdmin?: boolean;
 }
 
 export interface TemperatureSettingsInstance {
@@ -37,8 +44,11 @@ interface ModalState {
   customerName: string;
   token: string;
   theme: 'dark' | 'light';
+  isSuperAdmin: boolean;
   minTemperature: number | null;
   maxTemperature: number | null;
+  temperatureClampMin: number | null;
+  temperatureClampMax: number | null;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -95,7 +105,12 @@ async function fetchCustomerAttributes(
   customerId: string,
   token: string,
   onError?: (error: { status: number; message: string }) => void
-): Promise<{ minTemperature: number | null; maxTemperature: number | null }> {
+): Promise<{
+  minTemperature: number | null;
+  maxTemperature: number | null;
+  temperatureClampMin: number | null;
+  temperatureClampMax: number | null;
+}> {
   const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
 
   const response = await fetch(url, {
@@ -106,15 +121,15 @@ async function fetchCustomerAttributes(
     }
   });
 
+  const empty = { minTemperature: null, maxTemperature: null, temperatureClampMin: null, temperatureClampMax: null };
+
   if (!response.ok) {
     if (response.status === 404 || response.status === 400) {
-      // No attributes found - return defaults
-      return { minTemperature: null, maxTemperature: null };
+      return empty;
     }
-    // Call onError callback if provided
     if (onError) {
       onError({ status: response.status, message: `Failed to fetch attributes: ${response.status}` });
-      return { minTemperature: null, maxTemperature: null };
+      return empty;
     }
     throw new Error(`Failed to fetch attributes: ${response.status}`);
   }
@@ -122,6 +137,8 @@ async function fetchCustomerAttributes(
   const attributes = await response.json();
   let minTemperature: number | null = null;
   let maxTemperature: number | null = null;
+  let temperatureClampMin: number | null = null;
+  let temperatureClampMax: number | null = null;
 
   if (Array.isArray(attributes)) {
     for (const attr of attributes) {
@@ -129,11 +146,15 @@ async function fetchCustomerAttributes(
         minTemperature = Number(attr.value);
       } else if (attr.key === 'maxTemperature') {
         maxTemperature = Number(attr.value);
+      } else if (attr.key === 'temperatureClampMin') {
+        temperatureClampMin = Number(attr.value);
+      } else if (attr.key === 'temperatureClampMax') {
+        temperatureClampMax = Number(attr.value);
       }
     }
   }
 
-  return { minTemperature, maxTemperature };
+  return { minTemperature, maxTemperature, temperatureClampMin, temperatureClampMax };
 }
 
 async function saveCustomerAttributes(
@@ -141,14 +162,22 @@ async function saveCustomerAttributes(
   token: string,
   minTemperature: number,
   maxTemperature: number,
-  onError?: (error: { status: number; message: string }) => void
+  onError?: (error: { status: number; message: string }) => void,
+  temperatureClampMin?: number | null,
+  temperatureClampMax?: number | null
 ): Promise<void> {
   const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/SERVER_SCOPE`;
 
-  const attributes = {
-    minTemperature: minTemperature,
-    maxTemperature: maxTemperature
+  const attributes: Record<string, number> = {
+    minTemperature,
+    maxTemperature,
   };
+  if (temperatureClampMin !== undefined && temperatureClampMin !== null) {
+    attributes.temperatureClampMin = temperatureClampMin;
+  }
+  if (temperatureClampMax !== undefined && temperatureClampMax !== null) {
+    attributes.temperatureClampMax = temperatureClampMax;
+  }
 
   const response = await fetch(url, {
     method: 'POST',
@@ -178,12 +207,14 @@ function renderModal(
   state: ModalState,
   modalId: string,
   onClose: () => void,
-  onSave: (min: number, max: number) => Promise<void>
+  onSave: (min: number, max: number, clampMin?: number | null, clampMax?: number | null) => Promise<void>
 ): void {
   const colors = getColors(state.theme);
 
   const minValue = state.minTemperature !== null ? state.minTemperature : '';
   const maxValue = state.maxTemperature !== null ? state.maxTemperature : '';
+  const clampMinValue = state.temperatureClampMin !== null ? state.temperatureClampMin : '';
+  const clampMaxValue = state.temperatureClampMax !== null ? state.temperatureClampMax : '';
 
   container.innerHTML = `
     <style>
@@ -209,7 +240,7 @@ function renderModal(
         background: ${colors.modalBg};
         border-radius: 16px;
         width: 90%;
-        max-width: 480px;
+        max-width: 900px;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         border: 1px solid rgba(255, 255, 255, 0.1);
         animation: slideIn 0.3s ease-out;
@@ -257,26 +288,19 @@ function renderModal(
 
       #${modalId} .modal-body {
         padding: 24px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
       }
 
-      #${modalId} .customer-info {
-        margin-bottom: 24px;
-        padding: 12px 16px;
-        background: ${colors.inputBg};
-        border-radius: 8px;
-        border: 1px solid ${colors.inputBorder};
+      #${modalId} .modal-body-col {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
       }
 
-      #${modalId} .customer-label {
-        font-size: 12px;
-        color: ${colors.textMuted};
-        margin-bottom: 4px;
-      }
-
-      #${modalId} .customer-name {
-        font-size: 16px;
-        font-weight: 500;
-        color: ${colors.textPrimary};
+      #${modalId} .modal-messages {
+        grid-column: 1 / -1;
       }
 
       #${modalId} .form-group {
@@ -443,68 +467,114 @@ function renderModal(
         <div class="modal-header">
           <h2 class="modal-title">
             <span>🌡️</span>
-            Configurar Temperatura
+            Configurações${state.customerName ? ` — ${state.customerName}` : ''}
           </h2>
           <button class="close-btn" id="${modalId}-close">&times;</button>
         </div>
 
         <div class="modal-body">
           ${state.isLoading ? `
-            <div class="loading-overlay">
-              <div class="loading-spinner"></div>
-              <div>Carregando configurações...</div>
+            <div class="modal-messages" style="grid-column:1/-1;">
+              <div class="loading-overlay">
+                <div class="loading-spinner"></div>
+                <div>Carregando configurações...</div>
+              </div>
             </div>
           ` : `
-            ${state.error ? `
-              <div class="message message-error">${state.error}</div>
+            ${state.error || state.successMessage ? `
+              <div class="modal-messages">
+                ${state.error ? `<div class="message message-error">${state.error}</div>` : ''}
+                ${state.successMessage ? `<div class="message message-success">${state.successMessage}</div>` : ''}
+              </div>
             ` : ''}
 
-            ${state.successMessage ? `
-              <div class="message message-success">${state.successMessage}</div>
-            ` : ''}
-
-            <div class="customer-info">
-              <div class="customer-label">Shopping / Cliente</div>
-              <div class="customer-name">${state.customerName || 'Não identificado'}</div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Faixa de Temperatura Ideal</label>
-              <div class="temperature-range">
-                <div>
-                  <input
-                    type="number"
-                    id="${modalId}-min"
-                    class="form-input"
-                    placeholder="Mínima"
-                    value="${minValue}"
-                    step="0.5"
-                    min="0"
-                    max="50"
-                  />
-                  <div class="form-hint">Temperatura mínima (°C)</div>
+            <!-- Left column: comfort range inputs -->
+            <div class="modal-body-col">
+              <div class="form-group">
+                <label class="form-label">Faixa de Temperatura Ideal</label>
+                <div class="temperature-range">
+                  <div>
+                    <input
+                      type="number"
+                      id="${modalId}-min"
+                      class="form-input"
+                      placeholder="Mínima"
+                      value="${minValue}"
+                      step="0.5"
+                      min="0"
+                      max="50"
+                    />
+                    <div class="form-hint">Temperatura mínima (°C)</div>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      id="${modalId}-max"
+                      class="form-input"
+                      placeholder="Máxima"
+                      value="${maxValue}"
+                      step="0.5"
+                      min="0"
+                      max="50"
+                    />
+                    <div class="form-hint">Temperatura máxima (°C)</div>
+                  </div>
                 </div>
-                <div>
-                  <input
-                    type="number"
-                    id="${modalId}-max"
-                    class="form-input"
-                    placeholder="Máxima"
-                    value="${maxValue}"
-                    step="0.5"
-                    min="0"
-                    max="50"
-                  />
-                  <div class="form-hint">Temperatura máxima (°C)</div>
+              </div>
+
+              <div class="range-preview" id="${modalId}-preview">
+                <div class="range-preview-label">Faixa de conforto configurada</div>
+                <div class="range-preview-value" id="${modalId}-preview-value">
+                  ${minValue && maxValue ? `${minValue}°C — ${maxValue}°C` : 'Não definida'}
                 </div>
               </div>
             </div>
 
-            <div class="range-preview" id="${modalId}-preview">
-              <div class="range-preview-label">Faixa configurada</div>
-              <div class="range-preview-value" id="${modalId}-preview-value">
-                ${minValue && maxValue ? `${minValue}°C - ${maxValue}°C` : 'Não definida'}
-              </div>
+            <!-- Right column: superadmin clamp section -->
+            <div class="modal-body-col">
+              ${state.isSuperAdmin ? `
+                <div style="padding:16px; background:${colors.inputBg}; border-radius:10px; border:1px dashed ${colors.inputBorder}; height:100%; box-sizing:border-box;">
+                  <div style="font-size:12px; font-weight:600; color:${colors.textMuted}; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:14px;">
+                    🔧 Filtro de Outliers — apenas MyIO
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Faixa de Validação (Clamp)</label>
+                    <div class="temperature-range">
+                      <div>
+                        <input
+                          type="number"
+                          id="${modalId}-clamp-min"
+                          class="form-input"
+                          placeholder="Ex: 10"
+                          value="${clampMinValue}"
+                          step="1"
+                          min="-20"
+                          max="50"
+                        />
+                        <div class="form-hint">Mínimo válido (°C) — padrão: 15</div>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          id="${modalId}-clamp-max"
+                          class="form-input"
+                          placeholder="Ex: 45"
+                          value="${clampMaxValue}"
+                          step="1"
+                          min="20"
+                          max="80"
+                        />
+                        <div class="form-hint">Máximo válido (°C) — padrão: 40</div>
+                      </div>
+                    </div>
+                    <div class="form-hint" style="margin-top:8px;">Leituras fora desta faixa são descartadas como erro de sensor.</div>
+                  </div>
+                </div>
+              ` : `
+                <div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:120px; color:${colors.textMuted}; font-size:13px; text-align:center; padding:16px;">
+                  Configure a faixa de temperatura ideal para alertas e o painel de monitoramento.
+                </div>
+              `}
             </div>
           `}
         </div>
@@ -527,6 +597,8 @@ function renderModal(
   const saveBtn = document.getElementById(`${modalId}-save`);
   const minInput = document.getElementById(`${modalId}-min`) as HTMLInputElement;
   const maxInput = document.getElementById(`${modalId}-max`) as HTMLInputElement;
+  const clampMinInput = document.getElementById(`${modalId}-clamp-min`) as HTMLInputElement | null;
+  const clampMaxInput = document.getElementById(`${modalId}-clamp-max`) as HTMLInputElement | null;
   const previewValue = document.getElementById(`${modalId}-preview-value`);
   const overlay = document.getElementById(modalId);
 
@@ -560,7 +632,7 @@ function renderModal(
     const min = parseFloat(minInput.value);
     const max = parseFloat(maxInput.value);
 
-    // Validation
+    // Validation — comfort range
     if (isNaN(min) || isNaN(max)) {
       state.error = 'Por favor, preencha ambos os valores.';
       renderModal(container, state, modalId, onClose, onSave);
@@ -579,7 +651,29 @@ function renderModal(
       return;
     }
 
-    await onSave(min, max);
+    // Clamp values (superadmin only)
+    let clampMin: number | null = null;
+    let clampMax: number | null = null;
+    if (state.isSuperAdmin && clampMinInput && clampMaxInput) {
+      const cMin = clampMinInput.value !== '' ? parseFloat(clampMinInput.value) : null;
+      const cMax = clampMaxInput.value !== '' ? parseFloat(clampMaxInput.value) : null;
+      if (cMin !== null && cMax !== null) {
+        if (isNaN(cMin) || isNaN(cMax)) {
+          state.error = 'Os valores de clamp devem ser números válidos.';
+          renderModal(container, state, modalId, onClose, onSave);
+          return;
+        }
+        if (cMin >= cMax) {
+          state.error = 'O clamp mínimo deve ser menor que o clamp máximo.';
+          renderModal(container, state, modalId, onClose, onSave);
+          return;
+        }
+        clampMin = cMin;
+        clampMax = cMax;
+      }
+    }
+
+    await onSave(min, max, clampMin, clampMax);
   });
 }
 
@@ -600,9 +694,12 @@ export function openTemperatureSettingsModal(
     customerId: params.customerId,
     customerName: params.customerName || '',
     token: params.token,
-    theme: params.theme || 'dark',
+    theme: params.theme || 'light',
+    isSuperAdmin: params.isSuperAdmin ?? false,
     minTemperature: null,
     maxTemperature: null,
+    temperatureClampMin: null,
+    temperatureClampMax: null,
     isLoading: true,
     isSaving: false,
     error: null,
@@ -621,24 +718,34 @@ export function openTemperatureSettingsModal(
   };
 
   // Save function
-  const handleSave = async (min: number, max: number) => {
+  const handleSave = async (min: number, max: number, clampMin?: number | null, clampMax?: number | null) => {
     state.isSaving = true;
     state.error = null;
     state.successMessage = null;
     renderModal(container, state, modalId, destroy, handleSave);
 
     try {
-      await saveCustomerAttributes(state.customerId, state.token, min, max, params.onError);
+      await saveCustomerAttributes(state.customerId, state.token, min, max, params.onError, clampMin, clampMax);
 
       state.minTemperature = min;
       state.maxTemperature = max;
+      if (state.isSuperAdmin) {
+        state.temperatureClampMin = clampMin ?? null;
+        state.temperatureClampMax = clampMax ?? null;
+      }
       state.isSaving = false;
       state.successMessage = 'Configurações salvas com sucesso!';
 
       renderModal(container, state, modalId, destroy, handleSave);
 
       // Call onSave callback
-      params.onSave?.({ minTemperature: min, maxTemperature: max });
+      params.onSave?.({
+        minTemperature: min,
+        maxTemperature: max,
+        ...(state.isSuperAdmin && clampMin !== null && clampMax !== null
+          ? { temperatureClampMin: clampMin!, temperatureClampMax: clampMax! }
+          : {}),
+      });
 
       // Auto-close after success
       setTimeout(() => {
@@ -656,9 +763,11 @@ export function openTemperatureSettingsModal(
 
   // Fetch current values
   fetchCustomerAttributes(state.customerId, state.token, params.onError)
-    .then(({ minTemperature, maxTemperature }) => {
+    .then(({ minTemperature, maxTemperature, temperatureClampMin, temperatureClampMax }) => {
       state.minTemperature = minTemperature;
       state.maxTemperature = maxTemperature;
+      state.temperatureClampMin = temperatureClampMin;
+      state.temperatureClampMax = temperatureClampMax;
       state.isLoading = false;
       renderModal(container, state, modalId, destroy, handleSave);
     })

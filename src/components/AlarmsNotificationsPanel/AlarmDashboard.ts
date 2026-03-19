@@ -19,19 +19,19 @@ export function renderKPICards(stats: AlarmStats): string {
     <div class="alarms-kpi-row">
       <div class="alarms-kpi-card">
         <span class="alarms-kpi-label">Total de Alarmes</span>
-        <span class="alarms-kpi-value" data-kpi="total">${stats.total}</span>
+        <span class="alarms-kpi-value" data-kpi="total">${stats.total ?? 0}</span>
       </div>
       <div class="alarms-kpi-card critical">
         <span class="alarms-kpi-label">Criticos Abertos</span>
-        <span class="alarms-kpi-value" data-kpi="openCritical">${stats.openCritical}</span>
+        <span class="alarms-kpi-value" data-kpi="openCritical">${stats.openCritical ?? 0}</span>
       </div>
       <div class="alarms-kpi-card warning">
         <span class="alarms-kpi-label">Altos Abertos</span>
-        <span class="alarms-kpi-value" data-kpi="openHigh">${stats.openHigh}</span>
+        <span class="alarms-kpi-value" data-kpi="openHigh">${stats.openHigh ?? 0}</span>
       </div>
       <div class="alarms-kpi-card info">
         <span class="alarms-kpi-label">Ultimas 24h</span>
-        <span class="alarms-kpi-value" data-kpi="last24Hours">${stats.last24Hours}</span>
+        <span class="alarms-kpi-value" data-kpi="last24Hours">${stats.last24Hours ?? 0}</span>
       </div>
     </div>
   `;
@@ -48,10 +48,10 @@ export function updateKPIValues(container: HTMLElement, stats: AlarmStats): void
     last24Hours: container.querySelector('[data-kpi="last24Hours"]'),
   };
 
-  if (kpiElements.total) kpiElements.total.textContent = String(stats.total);
-  if (kpiElements.openCritical) kpiElements.openCritical.textContent = String(stats.openCritical);
-  if (kpiElements.openHigh) kpiElements.openHigh.textContent = String(stats.openHigh);
-  if (kpiElements.last24Hours) kpiElements.last24Hours.textContent = String(stats.last24Hours);
+  if (kpiElements.total) kpiElements.total.textContent = String(stats.total ?? 0);
+  if (kpiElements.openCritical) kpiElements.openCritical.textContent = String(stats.openCritical ?? 0);
+  if (kpiElements.openHigh) kpiElements.openHigh.textContent = String(stats.openHigh ?? 0);
+  if (kpiElements.last24Hours) kpiElements.last24Hours.textContent = String(stats.last24Hours ?? 0);
 }
 
 // =====================================================================
@@ -183,9 +183,10 @@ export function renderTrendChart(
  * Render state distribution donut chart (SVG)
  */
 export function renderStateDonutChart(
-  byState: Record<AlarmState, number>,
+  byState: Record<AlarmState, number> | null | undefined,
   options: DonutChartOptions = {}
 ): string {
+  if (!byState) return renderEmptyChart(200, 200, 'Sem dados');
   const { size = 200, thickness = 24, showTotal = true } = options;
 
   const total = Object.values(byState).reduce((sum, val) => sum + val, 0);
@@ -271,9 +272,10 @@ export function renderStateDonutChart(
  * Render severity distribution bar chart
  */
 export function renderSeverityBarChart(
-  bySeverity: Record<AlarmSeverity, number>,
+  bySeverity: Record<AlarmSeverity, number> | null | undefined,
   options: BarChartOptions = {}
 ): string {
+  if (!bySeverity) return renderEmptyChart(300, 150, 'Sem dados');
   const { barHeight = 24, gap = 12, showValues = true } = options;
 
   const total = Object.values(bySeverity).reduce((sum, val) => sum + val, 0);
