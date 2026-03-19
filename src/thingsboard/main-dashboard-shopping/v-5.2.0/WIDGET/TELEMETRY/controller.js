@@ -203,6 +203,87 @@ function injectFilterModalStyles() {
     .telemetry-filter-overlay .btn.btn-device-map-download:hover {
       background: #3d6849;
     }
+    /* RFC-0195: Sync GCDR button */
+    .telemetry-filter-overlay .btn.btn-sync-gcdr {
+      background: linear-gradient(180deg, #0db89e, #0a6d5e); color: #fff; border-color: #0a6d5e;
+      display: inline-flex; align-items: center; gap: 4px;
+      box-shadow: 0 2px 8px rgba(10,109,94,0.28);
+      font: 700 10px var(--font-ui);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .telemetry-filter-overlay .btn.btn-sync-gcdr:hover { opacity: 0.88; }
+    .telemetry-filter-overlay .btn.btn-sync-gcdr:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* RFC-0195: Sync GCDR job modal */
+    .telemetry-sync-gcdr-overlay {
+      position: fixed; inset: 0; z-index: 99999;
+      background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
+    }
+    .telemetry-sync-gcdr-card {
+      background: #fff; border-radius: 12px; width: 640px; max-width: 96vw;
+      max-height: 85vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      font-family: system-ui,sans-serif; font-size: 13px;
+    }
+    .telemetry-sync-gcdr-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid #e5e7eb;
+      font-weight: 700; font-size: 14px; color: #111827; flex-shrink: 0;
+    }
+    .telemetry-sync-gcdr-close {
+      background: none; border: none; cursor: pointer; padding: 4px 6px;
+      color: #6b7280; font-size: 18px; line-height: 1; border-radius: 4px;
+    }
+    .telemetry-sync-gcdr-close:hover { background: #f3f4f6; color: #111827; }
+    .telemetry-sync-gcdr-body { flex: 1; overflow-y: auto; padding: 18px; }
+    .telemetry-sync-gcdr-status { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .telemetry-sync-gcdr-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .3px;
+    }
+    .telemetry-sync-gcdr-badge.queued  { background: #f3f4f6; color: #6b7280; }
+    .telemetry-sync-gcdr-badge.running { background: #dbeafe; color: #1e40af; }
+    .telemetry-sync-gcdr-badge.done    { background: #d1fae5; color: #065f46; }
+    .telemetry-sync-gcdr-badge.partial { background: #fef3c7; color: #92400e; }
+    .telemetry-sync-gcdr-badge.failed  { background: #fee2e2; color: #991b1b; }
+    .telemetry-sync-gcdr-progress-wrap {
+      background: #f3f4f6; border-radius: 6px; height: 8px; overflow: hidden; margin-bottom: 8px;
+    }
+    .telemetry-sync-gcdr-progress-bar {
+      height: 100%; border-radius: 6px; background: linear-gradient(90deg,#0db89e,#2563eb);
+      transition: width 0.4s ease; width: 0%;
+    }
+    .telemetry-sync-gcdr-phase { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
+    .telemetry-sync-gcdr-summary {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .telemetry-sync-gcdr-kpi {
+      background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 10px; text-align: center;
+    }
+    .telemetry-sync-gcdr-kpi .kpi-val { font-size: 20px; font-weight: 700; color: #111827; }
+    .telemetry-sync-gcdr-kpi .kpi-lbl { font-size: 10px; color: #6b7280; margin-top: 2px; }
+    .telemetry-sync-gcdr-log-wrap { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+    .telemetry-sync-gcdr-log-title {
+      padding: 8px 12px; background: #f9fafb; font-weight: 600;
+      font-size: 11px; color: #374151; border-bottom: 1px solid #e5e7eb;
+    }
+    .telemetry-sync-gcdr-log-table {
+      width: 100%; border-collapse: collapse; font-size: 11px;
+      display: block; max-height: 200px; overflow-y: auto;
+    }
+    .telemetry-sync-gcdr-log-table tr { border-bottom: 1px solid #f3f4f6; }
+    .telemetry-sync-gcdr-log-table tr:last-child { border-bottom: none; }
+    .telemetry-sync-gcdr-log-table td { padding: 5px 10px; vertical-align: top; }
+    .telemetry-sync-gcdr-log-table td:nth-child(1) { white-space:nowrap; color:#9ca3af; width:70px; }
+    .telemetry-sync-gcdr-log-table td:nth-child(2) { white-space:nowrap; width:56px; font-weight:600; }
+    .telemetry-sync-gcdr-log-table td:nth-child(3) { white-space:nowrap; width:120px; font-size:10px; color:#9ca3af; }
+    .telemetry-sync-gcdr-log-table td:nth-child(4) { word-break:break-word; }
+    .sgj-level-INFO  { color: #6b7280; }
+    .sgj-level-WARN  { color: #d97706; }
+    .sgj-level-OK    { color: #16a34a; }
+    .sgj-level-FAIL  { color: #dc2626; }
+    .sgj-level-ERROR { color: #991b1b; }
     .telemetry-filter-overlay .icon-btn {
       display: flex; align-items: center; justify-content: center;
       border: 1px solid var(--bd); background: #fff; border-radius: 10px;
@@ -1198,6 +1279,9 @@ const $count = () => $root().find('#shopsCount');
 const $total = () => $root().find('#shopsTotal');
 // Direct reference set during onInit (before portal). Always valid regardless of TB isolation.
 let _filterModalElement = null;
+// RFC-0195: Sync GCDR modal element and polling interval ref (for cleanup on destroy)
+let _syncJobModalEl = null;
+let _syncJobPollingId = null;
 const $modal = () => $(_filterModalElement || $root()[0].querySelector('#filterModal'));
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
@@ -3254,6 +3338,258 @@ function openFilterModal() {
   syncChecklistSelectionVisual();
   $m.removeClass('hidden');
 }
+// ============================================================
+// RFC-0195: GCDR Device Sync Job
+// ============================================================
+
+const _GCDR_SYNC_BASE = 'https://gcdr-api.a.myio-bas.com';
+const _GCDR_PHASE_PROGRESS = {
+  QUEUED: 0, CHECK: 15, ACTION_PLAN: 30, DETECT_RELOCATIONS: 45,
+  RELOCATE: 55, APPLY_UPDATES: 70, CONSOLIDATE_CREATES: 85, DONE: 100,
+};
+const _GCDR_PHASE_LABELS = {
+  QUEUED: 'Aguardando na fila…', CHECK: 'Comparando devices com GCDR…',
+  ACTION_PLAN: 'Classificando ações…', DETECT_RELOCATIONS: 'Detectando relocações…',
+  RELOCATE: 'Movendo devices…', APPLY_UPDATES: 'Aplicando atualizações…',
+  CONSOLIDATE_CREATES: 'Criando devices novos…', DONE: 'Concluído',
+};
+const _GCDR_DEVICE_MAP_HEADER =
+  'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+
+/**
+ * RFC-0195: Reads integration_setup.gcdr from CUSTOMER SERVER_SCOPE.
+ * Returns { gcdrCustomerId, gcdrApiKey }.
+ */
+async function _fetchGcdrCredentials() {
+  const tbToken = localStorage.getItem('jwt_token');
+  const customerId = window.MyIOUtils?.customerTB_ID;
+  if (!tbToken || !customerId) throw new Error('JWT ou customerTB_ID não disponíveis.');
+  const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=integration_setup`;
+  const res = await fetch(url, { headers: { 'X-Authorization': `Bearer ${tbToken}` } });
+  if (!res.ok) throw new Error(`TB attrs HTTP ${res.status}`);
+  const attrs = await res.json();
+  const raw = Array.isArray(attrs)
+    ? attrs.find((a) => a.key === 'integration_setup')?.value
+    : attrs.integration_setup;
+  if (!raw) throw new Error('Atributo integration_setup não encontrado no customer.\nConfigure-o via widget GCDR-Upsell-Setup.');
+  const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const gcdr = cfg?.gcdr;
+  if (!gcdr?.gcdrCustomerId || !gcdr?.gcdrApiKey) {
+    throw new Error('integration_setup.gcdr incompleto — gcdrCustomerId e gcdrApiKey são obrigatórios.');
+  }
+  return { gcdrCustomerId: gcdr.gcdrCustomerId, gcdrApiKey: gcdr.gcdrApiKey };
+}
+
+/** RFC-0195: Builds pipe-delimited device-map content from _exportKey array. */
+function _buildDeviceMapContent(data) {
+  const rows = data.map((d) =>
+    [d.tbId, d.deviceName, d.label, d.identifier,
+     d.deviceType, d.deviceProfile, d.slaveId, d.centralId,
+     d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+  );
+  return _GCDR_DEVICE_MAP_HEADER + '\n' + rows.join('\n');
+}
+
+/** RFC-0195: Entry point — validates data + credentials then opens job modal. */
+async function _handleSyncGCDR() {
+  const data = window[_exportKey];
+  if (!data || data.length === 0) {
+    alert('Nenhum dado disponível. Abra o painel de dados primeiro.');
+    return;
+  }
+  let creds;
+  try {
+    creds = await _fetchGcdrCredentials();
+  } catch (err) {
+    alert(`Erro ao obter credenciais GCDR:\n${err.message}`);
+    return;
+  }
+  _openSyncJobModal(data, creds);
+}
+
+/** RFC-0195: Renders sync job modal, creates job, polls status, shows log. */
+function _openSyncJobModal(data, creds) {
+  _destroySyncJobModal(); // ensure only one modal at a time
+
+  const _groupSlugs = { lojas: 'stores', entrada: 'entry', areacomum: 'commonarea', caixadagua: 'tanks' };
+  const _labelWidget = self.ctx?.settings?.labelWidget || '';
+  const _stateGroup = mapLabelWidgetToStateGroup(_labelWidget) || WIDGET_DOMAIN;
+  const fileName = `${WIDGET_DOMAIN}-${_groupSlugs[_stateGroup] || _stateGroup}`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'telemetry-sync-gcdr-overlay';
+  _syncJobModalEl = overlay;
+
+  overlay.innerHTML = `
+    <div class="telemetry-sync-gcdr-card">
+      <div class="telemetry-sync-gcdr-header">
+        <span>🔗 Sync GCDR — ${fileName}</span>
+        <button class="telemetry-sync-gcdr-close" id="sgj-close" title="Fechar">✕</button>
+      </div>
+      <div class="telemetry-sync-gcdr-body">
+        <div class="telemetry-sync-gcdr-status">
+          <span class="telemetry-sync-gcdr-badge queued" id="sgj-badge">⏳ Iniciando…</span>
+          <span style="font-size:11px;color:#9ca3af" id="sgj-jobid"></span>
+        </div>
+        <div class="telemetry-sync-gcdr-progress-wrap">
+          <div class="telemetry-sync-gcdr-progress-bar" id="sgj-bar"></div>
+        </div>
+        <div class="telemetry-sync-gcdr-phase" id="sgj-phase">Criando job…</div>
+        <div id="sgj-summary"></div>
+        <div id="sgj-log"></div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#sgj-close').addEventListener('click', _destroySyncJobModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) _destroySyncJobModal(); });
+
+  // Helpers that operate on overlay elements
+  const _el = (id) => overlay.querySelector(id);
+  const setProgress = (pct) => { const b = _el('#sgj-bar'); if (b) b.style.width = pct + '%'; };
+  const setPhase = (t) => { const e = _el('#sgj-phase'); if (e) e.textContent = t; };
+  const setBadge = (cls, t) => {
+    const e = _el('#sgj-badge');
+    if (e) { e.className = `telemetry-sync-gcdr-badge ${cls}`; e.textContent = t; }
+  };
+
+  const renderSummary = (summary) => {
+    const c = summary?.check || {};
+    const a = summary?.actionPlan || {};
+    const u = summary?.applyUpdates || {};
+    const cr = summary?.consolidateCreates || {};
+    const el = _el('#sgj-summary');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="telemetry-sync-gcdr-summary">
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val">${c.conformant ?? 0}</div>
+          <div class="kpi-lbl">Conformantes</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#d97706">${c.divergent ?? 0}</div>
+          <div class="kpi-lbl">Divergentes</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#2563eb">${(a.create ?? 0) + (cr.ok ?? 0)}</div>
+          <div class="kpi-lbl">Criados</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#16a34a">${u.ok ?? 0}</div>
+          <div class="kpi-lbl">Atualizados</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#9ca3af">${a.skip ?? 0}</div>
+          <div class="kpi-lbl">Sem mudança</div>
+        </div>
+        <div class="telemetry-sync-gcdr-kpi">
+          <div class="kpi-val" style="color:#dc2626">${(u.fail ?? 0) + (cr.fail ?? 0)}</div>
+          <div class="kpi-lbl">Falhas</div>
+        </div>
+      </div>`;
+  };
+
+  const renderLog = (entries) => {
+    if (!entries || !entries.length) return;
+    const rows = entries.map((e) => {
+      const ts = (e.ts || '').substring(11, 19);
+      return `<tr>
+        <td>${ts}</td>
+        <td class="sgj-level-${e.level}">${e.level}</td>
+        <td>${e.phase || ''}</td>
+        <td>${e.message || ''}</td>
+      </tr>`;
+    }).join('');
+    const el = _el('#sgj-log');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="telemetry-sync-gcdr-log-wrap">
+        <div class="telemetry-sync-gcdr-log-title">Log de operações (${entries.length} entradas)</div>
+        <table class="telemetry-sync-gcdr-log-table"><tbody>${rows}</tbody></table>
+      </div>`;
+    const tbl = el.querySelector('.telemetry-sync-gcdr-log-table');
+    if (tbl) tbl.scrollTop = tbl.scrollHeight;
+  };
+
+  // ── Execute async flow ──────────────────────────────────────
+  (async () => {
+    const content = _buildDeviceMapContent(data);
+    let jobId;
+
+    // 1. Create job
+    try {
+      const res = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': creds.gcdrApiKey },
+        body: JSON.stringify({ customerId: creds.gcdrCustomerId, dryRun: false, files: [{ name: fileName, content }] }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setBadge('failed', '❌ Falha ao criar job');
+        setPhase(`Erro: ${json?.error?.message || 'HTTP ' + res.status}`);
+        return;
+      }
+      jobId = json.data?.jobId;
+      setBadge('queued', '⏳ Aguardando…');
+      setPhase('Job criado — aguardando execução…');
+      const jobIdEl = _el('#sgj-jobid');
+      if (jobIdEl) jobIdEl.textContent = `Job: ${jobId}`;
+    } catch (err) {
+      setBadge('failed', '❌ Erro de rede');
+      setPhase(`Erro: ${err.message}`);
+      return;
+    }
+
+    // 2. Poll status
+    const FINAL = new Set(['DONE', 'PARTIAL', 'FAILED']);
+    _syncJobPollingId = setInterval(async () => {
+      try {
+        const res = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs/${jobId}`, {
+          headers: { 'X-API-Key': creds.gcdrApiKey },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const job = json.data;
+        const phase = job.currentPhase || 'QUEUED';
+        setProgress(_GCDR_PHASE_PROGRESS[phase] ?? 0);
+        setPhase(_GCDR_PHASE_LABELS[phase] || phase);
+        if (job.status === 'RUNNING' || job.status === 'QUEUED') setBadge('running', `🔄 ${phase}`);
+
+        if (FINAL.has(job.status)) {
+          clearInterval(_syncJobPollingId);
+          _syncJobPollingId = null;
+          setProgress(100);
+          if (job.status === 'DONE')         { setBadge('done',    '✅ Concluído');           setPhase('Sincronização concluída com sucesso.'); }
+          else if (job.status === 'PARTIAL') { setBadge('partial', '⚠️ Concluído com erros'); setPhase('Concluído — veja o log abaixo.'); }
+          else                               { setBadge('failed',  '❌ Falha fatal');          setPhase('Erro fatal durante execução.'); }
+          renderSummary(job.summary);
+
+          // 3. Fetch and render log
+          try {
+            const logRes = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs/${jobId}/log`, {
+              headers: { 'X-API-Key': creds.gcdrApiKey },
+            });
+            if (logRes.ok) {
+              const logJson = await logRes.json();
+              renderLog(logJson.data?.entries || []);
+            }
+          } catch { /* non-critical */ }
+        }
+      } catch { /* network hiccup — retry next tick */ }
+    }, 2000);
+  })();
+}
+
+/** RFC-0195: Cancels polling and removes modal from DOM. */
+function _destroySyncJobModal() {
+  if (_syncJobPollingId) { clearInterval(_syncJobPollingId); _syncJobPollingId = null; }
+  if (_syncJobModalEl && _syncJobModalEl.parentElement) {
+    _syncJobModalEl.parentElement.removeChild(_syncJobModalEl);
+  }
+  _syncJobModalEl = null;
+}
+
 function closeFilterModal() {
   $modal().addClass('hidden');
 }
@@ -3291,6 +3627,12 @@ function bindModal() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  // RFC-0195: GCDR Device Sync Job — @myio.com.br only
+  $m.on('click', '#btnSyncGCDR', (ev) => {
+    ev.preventDefault();
+    _handleSyncGCDR();
   });
 
   $m.on('click', '#selectAll', (ev) => {
@@ -4780,13 +5122,16 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
-  // Show #btnPresetup and #btnDownloadDeviceMap only for MyIO users (@myio.com.br)
+  // Show #btnPresetup, #btnDownloadDeviceMap and #btnSyncGCDR only for MyIO users (@myio.com.br)
   function _applyPresetupVisibility(isSuperAdmin) {
     const btn = $root().find('#btnPresetup')[0];
     if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
     // RFC-0152: Device map download button — visible only for @myio.com.br
     const btnDl = (_filterModalElement || $root()[0])?.querySelector('#btnDownloadDeviceMap');
     if (btnDl) btnDl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    // RFC-0195: Sync GCDR button — visible only for @myio.com.br
+    const btnSync = (_filterModalElement || $root()[0])?.querySelector('#btnSyncGCDR');
+    if (btnSync) btnSync.style.display = isSuperAdmin ? 'inline-flex' : 'none';
   }
   // Check immediately in case event already fired before this widget loaded
   _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
@@ -5133,6 +5478,9 @@ self.onDestroy = function () {
     _tempTooltipCleanup = null;
     LogHelper.log('[TELEMETRY] TempSensorSummaryTooltip cleanup executed.');
   }
+
+  // RFC-0195: Cleanup sync job modal + polling
+  try { _destroySyncJobModal(); } catch { /* non-critical */ }
 
   // Remove portalled filter modal from body
   try {
