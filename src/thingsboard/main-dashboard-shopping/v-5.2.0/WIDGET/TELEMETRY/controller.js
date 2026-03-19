@@ -220,21 +220,35 @@ function injectFilterModalStyles() {
       background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
     }
     .telemetry-sync-gcdr-card {
-      background: #fff; border-radius: 12px; width: 640px; max-width: 96vw;
-      max-height: 85vh; display: flex; flex-direction: column;
+      background: #fff; border-radius: 12px; width: 1280px; max-width: 96vw;
+      max-height: 98vh; display: flex; flex-direction: column;
       box-shadow: 0 20px 60px rgba(0,0,0,0.25);
       font-family: system-ui,sans-serif; font-size: 13px;
+      transition: width 0.2s ease, max-height 0.2s ease, border-radius 0.2s ease;
+    }
+    .telemetry-sync-gcdr-card.sgj-expanded {
+      width: 100vw !important; max-width: 100vw !important;
+      max-height: 100vh !important; border-radius: 0 !important;
     }
     .telemetry-sync-gcdr-header {
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; align-items: center; gap: 8px;
       padding: 14px 18px; border-bottom: 1px solid #e5e7eb;
       font-weight: 700; font-size: 14px; color: #111827; flex-shrink: 0;
     }
-    .telemetry-sync-gcdr-close {
-      background: none; border: none; cursor: pointer; padding: 4px 6px;
-      color: #6b7280; font-size: 18px; line-height: 1; border-radius: 4px;
+    .telemetry-sync-gcdr-header-title { flex: 1; }
+    .telemetry-sync-gcdr-close,
+    .telemetry-sync-gcdr-expand,
+    .telemetry-sync-gcdr-dl {
+      background: none; border: 1px solid #e5e7eb; cursor: pointer;
+      padding: 4px 8px; color: #6b7280; font-size: 13px; line-height: 1;
+      border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;
+      white-space: nowrap;
     }
-    .telemetry-sync-gcdr-close:hover { background: #f3f4f6; color: #111827; }
+    .telemetry-sync-gcdr-close:hover,
+    .telemetry-sync-gcdr-expand:hover { background: #f3f4f6; color: #111827; }
+    .telemetry-sync-gcdr-dl { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .telemetry-sync-gcdr-dl:hover { background: #dcfce7; }
+    .telemetry-sync-gcdr-dl:disabled { opacity: 0.4; cursor: not-allowed; }
     .telemetry-sync-gcdr-body { flex: 1; overflow-y: auto; padding: 18px; }
     .telemetry-sync-gcdr-status { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
     .telemetry-sync-gcdr-badge {
@@ -3421,9 +3435,21 @@ function _openSyncJobModal(data, creds) {
   _syncJobModalEl = overlay;
 
   overlay.innerHTML = `
-    <div class="telemetry-sync-gcdr-card">
+    <div class="telemetry-sync-gcdr-card" id="sgj-card">
       <div class="telemetry-sync-gcdr-header">
-        <span>🔗 Sync GCDR — ${fileName}</span>
+        <span class="telemetry-sync-gcdr-header-title">🔗 Sync GCDR — ${fileName}</span>
+        <button class="telemetry-sync-gcdr-dl" id="sgj-dl" title="Download relatório completo" disabled>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+            <path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          Download log
+        </button>
+        <button class="telemetry-sync-gcdr-expand" id="sgj-expand" title="Expandir">
+          <svg id="sgj-expand-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
         <button class="telemetry-sync-gcdr-close" id="sgj-close" title="Fechar">✕</button>
       </div>
       <div class="telemetry-sync-gcdr-body">
@@ -3444,6 +3470,72 @@ function _openSyncJobModal(data, creds) {
 
   overlay.querySelector('#sgj-close').addEventListener('click', _destroySyncJobModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) _destroySyncJobModal(); });
+
+  // Expand / collapse toggle
+  let _sgjExpanded = false;
+  overlay.querySelector('#sgj-expand').addEventListener('click', () => {
+    _sgjExpanded = !_sgjExpanded;
+    const card = _el('#sgj-card');
+    const icon = _el('#sgj-expand-icon');
+    if (card) card.classList.toggle('sgj-expanded', _sgjExpanded);
+    if (icon) icon.innerHTML = _sgjExpanded
+      ? '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line>'
+      : '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+  });
+
+  // Closure state for download report
+  let _sgjLogEntries = [];
+  let _sgjJobResult = null;
+  const _sgjDeviceMapContent = _buildDeviceMapContent(data);
+  const _sgjStartedAt = new Date().toISOString();
+
+  // Download report button
+  overlay.querySelector('#sgj-dl').addEventListener('click', () => {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const lines = [];
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('  GCDR DEVICE SYNC JOB — Relatório Completo');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push(`  Arquivo  : ${fileName}`);
+    lines.push(`  Customer : ${creds.gcdrCustomerId}`);
+    lines.push(`  Job ID   : ${_sgjJobResult?.jobId || '—'}`);
+    lines.push(`  Status   : ${_sgjJobResult?.status || '—'}`);
+    lines.push(`  DryRun   : ${_sgjJobResult?.dryRun ?? false}`);
+    lines.push(`  Iniciado : ${_sgjStartedAt}`);
+    lines.push(`  Duração  : ${_sgjJobResult?.durationMs != null ? (_sgjJobResult.durationMs / 1000).toFixed(1) + 's' : '—'}`);
+    lines.push('');
+    lines.push('── DEVICE-MAP ENVIADO ──────────────────────────────────────────────');
+    lines.push(_sgjDeviceMapContent);
+    lines.push('');
+    if (_sgjJobResult?.summary) {
+      const s = _sgjJobResult.summary;
+      lines.push('── RESUMO ──────────────────────────────────────────────────────────');
+      if (s.check)              lines.push(`  CHECK              conformant=${s.check.conformant}  divergent=${s.check.divergent}  notLinked=${s.check.notLinked}`);
+      if (s.actionPlan)         lines.push(`  ACTION_PLAN        create=${s.actionPlan.create}  update=${s.actionPlan.update}  skip=${s.actionPlan.skip}`);
+      if (s.detectRelocations)  lines.push(`  DETECT_RELOCATIONS relocate=${s.detectRelocations.relocate}  genuineCreates=${s.detectRelocations.genuineCreates}`);
+      if (s.relocate)           lines.push(`  RELOCATE           ok=${s.relocate.ok}  fail=${s.relocate.fail}`);
+      if (s.applyUpdates)       lines.push(`  APPLY_UPDATES      ok=${s.applyUpdates.ok}  fail=${s.applyUpdates.fail}`);
+      if (s.consolidateCreates) lines.push(`  CONSOLIDATE        ok=${s.consolidateCreates.ok}  fail=${s.consolidateCreates.fail}`);
+      lines.push('');
+    }
+    lines.push('── LOG DE OPERAÇÕES ────────────────────────────────────────────────');
+    if (_sgjLogEntries.length) {
+      _sgjLogEntries.forEach((e) => {
+        lines.push(`  [${(e.ts || '').substring(11, 23)}] [${(e.level || '').padEnd(5)}] [${(e.phase || '').padEnd(22)}] ${e.message || ''}`);
+      });
+    } else {
+      lines.push('  (sem entradas de log)');
+    }
+    lines.push('');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gcdr-sync-log_${fileName}_${ts}.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 
   // Helpers that operate on overlay elements
   const _el = (id) => overlay.querySelector(id);
@@ -3492,6 +3584,8 @@ function _openSyncJobModal(data, creds) {
 
   const renderLog = (entries) => {
     if (!entries || !entries.length) return;
+    _sgjLogEntries = entries; // store for download
+    const failCount = entries.filter((e) => e.level === 'FAIL' || e.level === 'ERROR').length;
     const rows = entries.map((e) => {
       const ts = (e.ts || '').substring(11, 19);
       return `<tr>
@@ -3503,13 +3597,17 @@ function _openSyncJobModal(data, creds) {
     }).join('');
     const el = _el('#sgj-log');
     if (!el) return;
+    const failBadge = failCount > 0 ? ` <span style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700">${failCount} falha${failCount !== 1 ? 's' : ''}</span>` : '';
     el.innerHTML = `
       <div class="telemetry-sync-gcdr-log-wrap">
-        <div class="telemetry-sync-gcdr-log-title">Log de operações (${entries.length} entradas)</div>
+        <div class="telemetry-sync-gcdr-log-title">Log de operações (${entries.length} entradas)${failBadge}</div>
         <table class="telemetry-sync-gcdr-log-table"><tbody>${rows}</tbody></table>
       </div>`;
     const tbl = el.querySelector('.telemetry-sync-gcdr-log-table');
     if (tbl) tbl.scrollTop = tbl.scrollHeight;
+    // Enable download button now that we have full data
+    const dlBtn = _el('#sgj-dl');
+    if (dlBtn) dlBtn.disabled = false;
   };
 
   // ── Execute async flow ──────────────────────────────────────
@@ -3560,6 +3658,7 @@ function _openSyncJobModal(data, creds) {
           clearInterval(_syncJobPollingId);
           _syncJobPollingId = null;
           setProgress(100);
+          _sgjJobResult = job; // store for download report
           if (job.status === 'DONE')         { setBadge('done',    '✅ Concluído');           setPhase('Sincronização concluída com sucesso.'); }
           else if (job.status === 'PARTIAL') { setBadge('partial', '⚠️ Concluído com erros'); setPhase('Concluído — veja o log abaixo.'); }
           else                               { setBadge('failed',  '❌ Falha fatal');          setPhase('Erro fatal durante execução.'); }
