@@ -542,6 +542,141 @@ export const DATERANGEPICKER_STYLES = `
   padding-right: 10px;
 }
 
+/* Fix: ensure day number cells are always clickable */
+.daterangepicker .calendar-table td.available {
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+.daterangepicker .calendar-table td.available * {
+  pointer-events: none;
+}
+
+/* ==========================================
+   Dark mode — triggered when picker is inside
+   .myio-energy-modal-scope[data-theme="dark"]
+   ========================================== */
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker {
+  background: #1e2030;
+  border-color: #374151;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  color: #f3f4f6;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table {
+  background: #1e2030;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table th,
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td {
+  color: #f3f4f6;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table th {
+  background: #111827;
+  color: #9ca3af;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.available {
+  color: #f3f4f6;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.available:hover {
+  background: #374151;
+  color: #ffffff;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.off {
+  color: #4b5563;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.in-range {
+  background: rgba(62, 26, 125, 0.3);
+  color: #f3f4f6;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.start-date,
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.end-date,
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.active {
+  background: #3e1a7d;
+  color: #ffffff;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .drp-buttons {
+  background: #111827;
+  border-top-color: #374151;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .drp-buttons .cancelBtn {
+  background: #1f2937;
+  color: #d1d5db;
+  border-color: #374151;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .drp-buttons .cancelBtn:hover {
+  background: #374151;
+  border-color: #6d28d9;
+  color: #ffffff;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .drp-selected {
+  color: #f3f4f6;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .ranges {
+  background: #111827;
+  border-right-color: #374151;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .ranges li {
+  color: #d1d5db;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .ranges li:hover {
+  background: rgba(62, 26, 125, 0.3);
+  color: #ffffff;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .ranges li.active {
+  background: #3e1a7d;
+  color: #ffffff;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .drp-calendar {
+  background: #1e2030;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .month {
+  color: #a78bfa;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .prev,
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .next {
+  background: #1f2937;
+  border-color: #374151;
+  color: #a78bfa;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .prev:hover,
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .next:hover {
+  background: #3e1a7d;
+  border-color: #3e1a7d;
+  color: #ffffff;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-time {
+  background: #111827;
+  border-top-color: #374151;
+}
+
+.myio-energy-modal-scope[data-theme="dark"] .daterangepicker .calendar-time select {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-color: #374151;
+}
+
 /* ==========================================
    Scoped styles for modals (kept for compatibility)
    ========================================== */

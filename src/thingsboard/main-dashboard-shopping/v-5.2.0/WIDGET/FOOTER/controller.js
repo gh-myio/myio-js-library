@@ -1229,6 +1229,7 @@ const footerController = {
         clientSecret: clientSecret,
         dataApiHost: DATA_API_HOST,
         chartsBaseUrl: CHARTS_BASE_URL, // ← URL base para iframes do SDK
+        timezone: 'America/Sao_Paulo', // ← fix: timestamps renderizados em BRT, não UTC
         theme: 'dark', // ← Tema inicial (toggle disponível na modal)
         deep: false,
         onOpen: (context) => {

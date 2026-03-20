@@ -262,6 +262,7 @@ export class ComparisonHandler {
       clientSecret: clientSecret,
       chartsBaseUrl: this.chartsBaseUrl,
       dataApiHost: this.dataApiHost,
+      timezone: 'America/Sao_Paulo', // fix: timestamps renderizados em BRT, não UTC
       theme: this.params.theme ?? 'dark',
       deep: false,
       onOpen: (context: unknown) => {
