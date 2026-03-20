@@ -554,124 +554,125 @@ export const DATERANGEPICKER_STYLES = `
 }
 
 /* ==========================================
-   Dark mode — triggered when picker is inside
-   .myio-modal-scope[data-theme="dark"]
+   Dark mode — triggered via sibling combinator ~
+   .myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker
+   (.daterangepicker is appended to .myio-modal-body, sibling of scope)
    ========================================== */
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker {
   background: #1e2030;
   border-color: #374151;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   color: #f3f4f6;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table {
   background: #1e2030;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table th,
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table th,
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td {
   color: #f3f4f6;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table th {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table th {
   background: #111827;
   color: #9ca3af;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.available {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.available {
   color: #f3f4f6;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.available:hover {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.available:hover {
   background: #374151;
   color: #ffffff;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.off {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.off {
   color: #4b5563;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.in-range {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.in-range {
   background: rgba(62, 26, 125, 0.3);
   color: #f3f4f6;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.start-date,
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.end-date,
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-table td.active {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.start-date,
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.end-date,
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-table td.active {
   background: #3e1a7d;
   color: #ffffff;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .drp-buttons {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .drp-buttons {
   background: #111827;
   border-top-color: #374151;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .drp-buttons .cancelBtn {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .drp-buttons .cancelBtn {
   background: #1f2937;
   color: #d1d5db;
   border-color: #374151;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .drp-buttons .cancelBtn:hover {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .drp-buttons .cancelBtn:hover {
   background: #374151;
   border-color: #6d28d9;
   color: #ffffff;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .drp-selected {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .drp-selected {
   color: #f3f4f6;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .ranges {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .ranges {
   background: #111827;
   border-right-color: #374151;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .ranges li {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .ranges li {
   color: #d1d5db;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .ranges li:hover {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .ranges li:hover {
   background: rgba(62, 26, 125, 0.3);
   color: #ffffff;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .ranges li.active {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .ranges li.active {
   background: #3e1a7d;
   color: #ffffff;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .drp-calendar {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .drp-calendar {
   background: #1e2030;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .month {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .month {
   color: #a78bfa;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .prev,
-.myio-modal-scope[data-theme="dark"] .daterangepicker .next {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .prev,
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .next {
   background: #1f2937;
   border-color: #374151;
   color: #a78bfa;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .prev:hover,
-.myio-modal-scope[data-theme="dark"] .daterangepicker .next:hover {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .prev:hover,
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .next:hover {
   background: #3e1a7d;
   border-color: #3e1a7d;
   color: #ffffff;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-time {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-time {
   background: #111827;
   border-top-color: #374151;
 }
 
-.myio-modal-scope[data-theme="dark"] .daterangepicker .calendar-time select {
+.myio-energy-modal-scope[data-theme="dark"] ~ .daterangepicker .calendar-time select {
   background: #1f2937;
   color: #f3f4f6;
   border-color: #374151;
