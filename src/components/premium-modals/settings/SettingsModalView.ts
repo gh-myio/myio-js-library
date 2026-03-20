@@ -254,6 +254,7 @@ export class SettingsModalView {
       this.exclusionGroupsTab = new ExclusionGroupsTab({
         container,
         deviceId,
+        customerId: this.config.customerId,
         jwtToken,
         tbBaseUrl: tbBaseUrl ?? window.location.origin,
       });

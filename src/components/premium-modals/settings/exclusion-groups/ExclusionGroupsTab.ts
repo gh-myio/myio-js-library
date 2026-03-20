@@ -12,8 +12,10 @@
 
 export interface ExclusionGroupsTabConfig {
   container: HTMLElement;
-  /** ThingsBoard Device UUID — attribute is saved on DEVICE SERVER_SCOPE */
+  /** ThingsBoard Device UUID — used as fallback when customerId is not available */
   deviceId: string;
+  /** ThingsBoard Customer UUID — when provided, attribute is saved on CUSTOMER SERVER_SCOPE */
+  customerId?: string;
   jwtToken: string;
   tbBaseUrl: string;
   /** Optional pre-loaded value; if null the tab fetches it from TB on init */
@@ -45,6 +47,33 @@ const GROUP_DEFINITIONS: ReadonlyArray<{ key: string; label: string; description
 const STYLES_ID = 'egt-styles';
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Normalize legacy excludedGroups format to the current groups-object format.
+ * Legacy: { enabled, excludedGroups: ["entrada", "esc_rolantes", ...] }
+ * Current: { enabled, groups: { entrada: true, lojas: false, ... } }
+ */
+function normalizeExcludeGroupsTotals(raw: unknown): ExcludeGroupsTotals | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (r.enabled === undefined) return null;
+  if (r.groups && typeof r.groups === 'object') return raw as ExcludeGroupsTotals;
+  if (Array.isArray(r.excludedGroups)) {
+    const ALL_KEYS: Array<keyof ExcludeGroupsTotals['groups']> = [
+      'entrada', 'lojas', 'climatizacao', 'elevadores', 'escadas_rolantes', 'outros', 'area_comum',
+    ];
+    const keyMap: Record<string, string> = { esc_rolantes: 'escadas_rolantes' };
+    const excludedSet = new Set(r.excludedGroups.map((g: string) => keyMap[g] ?? g));
+    const groups = {} as ExcludeGroupsTotals['groups'];
+    for (const k of ALL_KEYS) groups[k] = excludedSet.has(k);
+    return { enabled: r.enabled as boolean, groups };
+  }
+  return raw as ExcludeGroupsTotals;
+}
+
+// ============================================================================
 // Class
 // ============================================================================
 
@@ -69,6 +98,17 @@ export class ExclusionGroupsTab {
     this.injectStyles();
     this.config.container.innerHTML = this.renderTab();
     this.attachListeners();
+
+    // Showcase / offline mode: TB API fails at controller init so _excludeGroupsTotals
+    // stays null. Dispatch here so the controller re-computes the energy total with
+    // the localStorage-loaded state as soon as the modal tab is opened.
+    if (this.currentState.enabled) {
+      window.dispatchEvent(
+        new CustomEvent('myio:exclusion-groups-updated', {
+          detail: { exclude_groups_totals: this.currentState },
+        })
+      );
+    }
   }
 
   destroy(): void {
@@ -95,13 +135,18 @@ export class ExclusionGroupsTab {
   }
 
   private localStorageKey(): string {
-    return `egt_exclude_groups_${this.config.deviceId}`;
+    const { customerId, deviceId } = this.config;
+    return customerId
+      ? `egt_exclude_groups_customer_${customerId}`
+      : `egt_exclude_groups_${deviceId}`;
   }
 
   private async fetchCurrentState(): Promise<ExcludeGroupsTotals | null> {
     try {
-      const { tbBaseUrl, deviceId, jwtToken } = this.config;
-      const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE?keys=exclude_groups_totals`;
+      const { tbBaseUrl, deviceId, customerId, jwtToken } = this.config;
+      const entityType = customerId ? 'CUSTOMER' : 'DEVICE';
+      const entityId = customerId ?? deviceId;
+      const url = `${tbBaseUrl}/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE?keys=exclude_groups_totals`;
       const res = await fetch(url, {
         headers: { 'X-Authorization': `Bearer ${jwtToken}` },
       });
@@ -110,12 +155,12 @@ export class ExclusionGroupsTab {
       const attr = attrs.find((a) => a.key === 'exclude_groups_totals');
       if (!attr) return null;
       const val = typeof attr.value === 'string' ? JSON.parse(attr.value) : attr.value;
-      return val as ExcludeGroupsTotals;
+      return normalizeExcludeGroupsTotals(val);
     } catch {
       // Fallback: read from localStorage (showcase / offline mode)
       try {
         const raw = localStorage.getItem(this.localStorageKey());
-        if (raw) return JSON.parse(raw) as ExcludeGroupsTotals;
+        if (raw) return normalizeExcludeGroupsTotals(JSON.parse(raw));
       } catch { /* ignore */ }
       return null;
     }
@@ -143,8 +188,10 @@ export class ExclusionGroupsTab {
     const newState = this.collectState();
 
     try {
-      const { tbBaseUrl, deviceId, jwtToken } = this.config;
-      const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
+      const { tbBaseUrl, deviceId, customerId, jwtToken } = this.config;
+      const entityType = customerId ? 'CUSTOMER' : 'DEVICE';
+      const entityId = customerId ?? deviceId;
+      const url = `${tbBaseUrl}/api/plugins/telemetry/${entityType}/${entityId}/attributes/SERVER_SCOPE`;
       let savedToTB = false;
 
       try {
