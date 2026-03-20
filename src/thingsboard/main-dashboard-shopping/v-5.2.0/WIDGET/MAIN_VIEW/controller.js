@@ -503,9 +503,28 @@ let widgetSettings = {
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
 
-// Exclusão de Grupos: group exclusion config loaded from DEVICE SERVER_SCOPE via SettingsModal
+// Exclusão de Grupos: group exclusion config loaded from CUSTOMER SERVER_SCOPE via SettingsModal
 // { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
 let _excludeGroupsTotals = null;
+
+/**
+ * Normalize legacy excludedGroups format to the current groups-object format.
+ * Legacy: { enabled, excludedGroups: ["entrada", "esc_rolantes", ...] }
+ * Current: { enabled, groups: { entrada: true, lojas: false, ... } }
+ */
+function normalizeExcludeGroupsTotals(raw) {
+  if (!raw || raw.enabled === undefined) return null;
+  if (raw.groups && typeof raw.groups === 'object') return raw;
+  if (Array.isArray(raw.excludedGroups)) {
+    const ALL_KEYS = ['entrada', 'lojas', 'climatizacao', 'elevadores', 'escadas_rolantes', 'outros', 'area_comum'];
+    const keyMap = { esc_rolantes: 'escadas_rolantes' };
+    const excludedSet = new Set(raw.excludedGroups.map(g => keyMap[g] ?? g));
+    const groups = {};
+    for (const k of ALL_KEYS) groups[k] = excludedSet.has(k);
+    return { enabled: raw.enabled, groups };
+  }
+  return raw;
+}
 
 // Config object (populated in onInit from widgetSettings)
 let config = null;
@@ -1418,12 +1437,13 @@ Object.assign(window.MyIOUtils, {
             // RFC-0194: customer default dashboard config (full object stored for management UI)
             defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
 
-            // Exclusão de Grupos: read from DEVICE SERVER_SCOPE (saved by SettingsModal)
+            // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
             const _rawExcludeGroups = attrs?.exclude_groups_totals;
             if (_rawExcludeGroups) {
-              _excludeGroupsTotals = typeof _rawExcludeGroups === 'string'
+              const _parsed = typeof _rawExcludeGroups === 'string'
                 ? JSON.parse(_rawExcludeGroups)
                 : _rawExcludeGroups;
+              _excludeGroupsTotals = normalizeExcludeGroupsTotals(_parsed);
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
@@ -2763,29 +2783,45 @@ function buildGroupData(items) {
  * RFC-0106: Pre-compute ALL tooltip data so TELEMETRY_INFO just reads it
  */
 function buildSummary(lojas, entrada, areacomum, periodKey) {
-  // ============ TOTALS ============
-  const lojasTotal = lojas.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const entradaTotal = entrada.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const areacomumTotal = areacomum.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  // grandTotal uses `let` — re-assigned below if group exclusions are active
+  
+  // --- HELPER INTELIGENTE (Lê o JSON do próprio device) ---
+  // Se o device manda excluir deste grupo, retorna 0 para a soma, mas não oculta o card.
+  const getValorEfetivo = (item, nomeDoGrupo) => {
+    const val = Number(item.value) || 0;
+    if (!item.excludeGroupsTotals) return val; // Se não tem a flag no device, soma normal
+    
+    try {
+      const parsed = typeof item.excludeGroupsTotals === 'string' ? JSON.parse(item.excludeGroupsTotals) : item.excludeGroupsTotals;
+      if (parsed && parsed.enabled && Array.isArray(parsed.excludedGroups)) {
+        // Padroniza para minúsculo para evitar bugs de digitação
+        const gruposExcluidos = parsed.excludedGroups.map(g => String(g).toLowerCase());
+        if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
+          return 0; // O card continua existindo, mas vale ZERO para o totalizador!
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao ler exclude_groups_totals do dispositivo", item.label, e);
+    }
+    return val;
+  };
+  // --------------------------------------------------------
+
+  // ============ TOTALS (Usando o Helper) ============
+  const lojasTotal = lojas.reduce((sum, item) => sum + getValorEfetivo(item, 'lojas'), 0);
+  const entradaTotal = entrada.reduce((sum, item) => sum + getValorEfetivo(item, 'entrada'), 0);
+  const areacomumTotal = areacomum.reduce((sum, item) => sum + getValorEfetivo(item, 'area_comum'), 0);
+  
   let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
 
   // ============ PERCENTAGE HELPER ============
-  // Reads grandTotal by reference — reflects exclusions after re-assignment below
   const calcPerc = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
   // ============ SUBCATEGORIZE AREACOMUM ============
   const CLIMATIZACAO_PATTERNS = [
-    'CHILLER',
-    'FANCOIL',
-    'HVAC',
-    'AR_CONDICIONADO',
-    'COMPRESSOR',
-    'VENTILADOR',
-    'CLIMATIZA',
-    'BOMBA_HIDRAULICA',
-    'BOMBASHIDRAULICAS',
+    'CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 
+    'COMPRESSOR', 'VENTILADOR', 'CLIMATIZA', 
+    'BOMBA_HIDRAULICA', 'BOMBASHIDRAULICAS'
   ];
   const ELEVADOR_PATTERNS = ['ELEVADOR'];
   const ESCADA_PATTERNS = ['ESCADA', 'ROLANTE'];
@@ -2800,20 +2836,17 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const escadasRolantesItems = [];
   const outrosItems = [];
 
-  // Subcategories within climatizacao
   const chillerItems = [];
   const fancoilItems = [];
   const bombaHidraulicaItems = [];
   const cagItems = [];
   const hvacOutrosItems = [];
 
-  // Subcategories within outros
   const iluminacaoItems = [];
   const bombaIncendioItems = [];
   const geradorItems = [];
   const outrosGeralItems = [];
 
-  // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of areacomum) {
@@ -2829,7 +2862,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       escadasRolantesItems.push(item);
     } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p))) {
       climatizacaoItems.push(item);
-      // Sub-classify within climatizacao
       if (combined.includes('CHILLER')) chillerItems.push(item);
       else if (combined.includes('FANCOIL')) fancoilItems.push(item);
       else if (
@@ -2842,7 +2874,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       else hvacOutrosItems.push(item);
     } else {
       outrosItems.push(item);
-      // Sub-classify within outros
       if (ILUMINACAO_PATTERNS.some((p) => combined.includes(p))) {
         iluminacaoItems.push(item);
       } else if (BOMBA_INCENDIO_PATTERNS.some((p) => combined.includes(p))) {
@@ -2856,7 +2887,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ FILTER EXCLUDED DEVICES FROM CAG ============
-  // RFC: excludeDevicesAtCountSubtotalCAG - remove specified entity IDs from CAG calculation
   const excludeIds = widgetSettings.excludeDevicesAtCountSubtotalCAG || [];
   const excludeIdsSet = new Set(excludeIds.map((id) => String(id).trim().toLowerCase()));
 
@@ -2872,45 +2902,33 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       }
       return !isExcluded;
     });
-
-    if (excludedFromCAG.length > 0) {
-      const excludedTotal = excludedFromCAG.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-      LogHelper.log(
-        `[buildSummary] 🚫 Excluded ${
-          excludedFromCAG.length
-        } devices from CAG subtotal (${excludedTotal.toFixed(2)} kWh):`,
-        excludedFromCAG.map((i) => ({ id: i.id, label: i.label, value: i.value }))
-      );
-    }
   }
 
-  // ============ CALCULATE SUB-TOTALS ============
-  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const escadasRolantesTotal = escadasRolantesItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const outrosTotal = outrosItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  // ============ CALCULATE SUB-TOTAIS (Usando o Helper) ============
+  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
+  const escadasRolantesTotal = escadasRolantesItems.reduce((sum, i) => sum + getValorEfetivo(i, 'esc_rolantes'), 0);
+  const outrosTotal = outrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
 
-  // Climatizacao subcategories totals (CAG uses filtered list)
-  const chillerTotal = chillerItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const fancoilTotal = fancoilItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const bombaHidraulicaTotal = bombaHidraulicaItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const cagTotal = cagItemsFiltered.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const hvacOutrosTotal = hvacOutrosItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  // Climatizacao subcategories totals (O Helper usa 'climatizacao' para herdar a regra do pai)
+  const chillerTotal = chillerItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const fancoilTotal = fancoilItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const bombaHidraulicaTotal = bombaHidraulicaItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const cagTotal = cagItemsFiltered.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const hvacOutrosTotal = hvacOutrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
 
-  // Outros subcategories totals
-  const iluminacaoTotal = iluminacaoItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const bombaIncendioTotal = bombaIncendioItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const geradorTotal = geradorItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  // Outros subcategories totals (O Helper usa 'outros' para herdar a regra do pai)
+  const iluminacaoTotal = iluminacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+  const bombaIncendioTotal = bombaIncendioItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+  const geradorTotal = geradorItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+  const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
 
-  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO ============
-  // Reads _excludeGroupsTotals set in onInit / myio:exclusion-groups-updated event.
-  // When a group is excluded, its value is zeroed in grandTotal.
-  // Individual category totals remain unchanged (devices still visible in panels).
+  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO GLOBAIS ============
+  // Lê a configuração do Shopping (SettingsModal) e se sobrepõe
   const _exclEnabled = _excludeGroupsTotals?.enabled === true;
   if (_exclEnabled) {
     const _exclGroups = _excludeGroupsTotals.groups || {};
-    const _lojasEff          = _exclGroups.lojas           ? 0 : lojasTotal;
+    const _lojasEff          = _exclGroups.lojas            ? 0 : lojasTotal;
     const _entradaEff        = _exclGroups.entrada          ? 0 : entradaTotal;
     const _climatizacaoEff   = _exclGroups.climatizacao     ? 0 : climatizacaoTotal;
     const _elevadoresEff     = _exclGroups.elevadores       ? 0 : elevadoresTotal;
@@ -2920,11 +2938,8 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
     const _residualEff       = _exclGroups.area_comum ? 0 : _areacomumResidual;
     const _areacomumEff      = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
+    
     grandTotal = _lojasEff + _entradaEff + _areacomumEff;
-    LogHelper.log(
-      '[buildSummary] 🚫 Exclusão de grupos aplicada:',
-      { excluded: Object.entries(_exclGroups).filter(([, v]) => v).map(([k]) => k), grandTotal }
-    );
   }
 
   // ============ DEVICE STATUS AGGREGATION ============
@@ -2944,13 +2959,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       devices: items.map((i) => {
         const baseLabel = i.label || i.name || '';
         const identifier = i.identifier || '';
-        // Show "label (identifier)" if identifier exists and is different from label
-        const displayLabel =
-          identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel;
+        const displayLabel = identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel;
         return {
           id: i.id,
           label: displayLabel,
-          value: i.value,
+          value: i.value, // Mantém o valor original para exibição no card
           deviceStatus: i.deviceStatus,
         };
       }),
@@ -2961,8 +2974,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   return {
     total: grandTotal,
     periodKey: periodKey,
-
-    // Legacy structure (backwards compatibility)
     byGroup: {
       lojas: { total: lojasTotal, count: lojas.length },
       entrada: { total: entradaTotal, count: entrada.length },
@@ -2976,15 +2987,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     formatted: {
       lojas: lojasTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       entrada: entradaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      areacomum: areacomumTotal.toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }),
+      areacomum: areacomumTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       total: grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
-
-    // ============ TOOLTIP-READY DATA ============
-    // Each category has .summary (totals) and .details (device list)
     entrada: buildCategorySummary(entrada, entradaTotal, 'Entrada'),
     lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
     climatizacao: {
@@ -2992,11 +2997,7 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       subcategories: {
         chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers'),
         fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils'),
-        bombasHidraulicas: buildCategorySummary(
-          bombaHidraulicaItems,
-          bombaHidraulicaTotal,
-          'Bombas Hidráulicas'
-        ),
+        bombasHidraulicas: buildCategorySummary(bombaHidraulicaItems, bombaHidraulicaTotal, 'Bombas Hidráulicas'),
         cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG'),
         hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC'),
       },
@@ -3013,8 +3014,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       },
     },
     areaComum: buildCategorySummary(areacomum, areacomumTotal, 'Área Comum'),
-
-    // ============ RESUMO GERAL (GRAND TOTAL + STATUS) ============
     resumo: {
       summary: {
         total: grandTotal,
@@ -3035,19 +3034,12 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
         byStatus: statusAggregation,
       },
     },
-
-    // ============ DEVICE STATUS AGGREGATION (for tooltip) ============
     deviceStatusAggregation: statusAggregation,
-
-    // ============ EXCLUDED DEVICES FROM CAG SUBTOTAL ============
-    // RFC: excludeDevicesAtCountSubtotalCAG - list of devices excluded from CAG calculation
     excludedFromCAG: excludedFromCAG.map((item) => ({
       id: item.id,
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
-
-    // ============ EXCLUSÃO DE GRUPOS ============
     excludedGroups: _exclEnabled
       ? Object.entries((_excludeGroupsTotals?.groups || {})).filter(([, v]) => v).map(([k]) => k)
       : [],
@@ -4751,6 +4743,7 @@ const MyIOOrchestrator = (() => {
 
       // Annotations
       log_annotations: meta.log_annotations || null,
+      excludeGroupsTotals: meta.excludeGroupsTotals || null,
 
       // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
       gcdrDeviceId: meta.gcdrDeviceId || null,
@@ -4905,6 +4898,7 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
+      else if (keyName === 'exclude_groups_totals') meta.excludeGroupsTotals = val;
       // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
       else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
       // RFC-0152: Per-device GCDR mapping fields (server_scope attrs for TB↔GCDR sync audit)
@@ -6366,8 +6360,12 @@ const MyIOOrchestrator = (() => {
   // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
   window.addEventListener('myio:exclusion-groups-updated', (ev) => {
     _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
-    LogHelper.log('[MAIN_VIEW] exclusion groups updated — re-hydrating energy domain:', _excludeGroupsTotals);
-    if (currentPeriod) {
+    LogHelper.log('[MAIN_VIEW] exclusion groups updated:', _excludeGroupsTotals);
+    const cachedEnergy = window.MyIOOrchestratorData?.energy;
+    if (cachedEnergy && cachedEnergy.items && cachedEnergy.items.length > 0) {
+      LogHelper.log('[MAIN_VIEW] rebuilding energy summary from cache (' + cachedEnergy.items.length + ' items)');
+      emitProvide('energy', cachedEnergy.periodKey, cachedEnergy.items);
+    } else if (currentPeriod) {
       hydrateDomain('energy', currentPeriod, { force: true });
     }
   });
