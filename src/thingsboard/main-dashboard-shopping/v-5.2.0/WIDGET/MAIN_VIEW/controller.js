@@ -2981,7 +2981,7 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce(
-    (sum, i) => sum + getValorEfetivo(i, 'esc_rolantes'),
+    (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
     0
   );
   const outrosTotal = outrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
@@ -6448,7 +6448,8 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:device-exclusion-updated', (ev) => {
     LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
-
+    // Força re-hydratação; a mudança visual ocorre quando o TB enviar o próximo onDataUpdated
+    // com o atributo exclude_groups_totals atualizado.
     if (ev.detail?.exclude_groups_totals !== undefined) {
       _excludeGroupsTotals = ev.detail.exclude_groups_totals;
     }
