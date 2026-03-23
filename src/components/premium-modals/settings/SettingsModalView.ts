@@ -109,10 +109,6 @@ export class SettingsModalView {
     this.initAlarmsTab();
     // Exclusão de Grupos tab (async, energy domain only)
     this.initExclusionGroupsTab();
-    // RFC-0190: Initialize exclude groups section (async, energy only)
-    if (this.config.domain === 'energy') {
-      this.initExcludeGroupsSection();
-    }
   }
 
   // RFC-0104: Initialize the Annotations Tab
@@ -638,9 +634,6 @@ export class SettingsModalView {
 
         <!-- RFC-0171: Temperature Offset — always visible for temperature domain; editable only for @myio.com.br -->
         ${this.config.domain === 'temperature' ? this.getTemperatureOffsetHTML() : ''}
-
-        <!-- RFC-0190: Exclude Groups Totals (energy domain only) -->
-        ${this.config.domain === 'energy' ? this.getExcludeGroupsSectionHTML() : ''}
       </div>
     `;
   }
@@ -2882,25 +2875,6 @@ export class SettingsModalView {
 
       if (target.classList.contains('myio-device-settings-overlay') && this.config.closeOnBackdrop !== false) {
         this.config.onClose();
-      }
-    });
-
-    // RFC-0190: Exclude groups toggle
-    this.modal.addEventListener('change', (event) => {
-      const target = event.target as HTMLInputElement;
-      if (target.id === 'eg-enabled-toggle') {
-        this.excludeGroupsEnabled = target.checked;
-        this.renderExcludeGroupsContent();
-      }
-    });
-
-    // RFC-0190: Exclude groups save button (delegated)
-    this.modal.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
-      if (target.id === 'eg-save-btn') {
-        event.preventDefault();
-        event.stopPropagation();
-        this.saveExcludeGroups();
       }
     });
 

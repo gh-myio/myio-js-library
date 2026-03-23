@@ -6488,6 +6488,16 @@ const MyIOOrchestrator = (() => {
     }
   });
 
+  window.addEventListener('myio:device-exclusion-updated', (ev) => {
+  LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
+
+  // Apenas força o hydrateDomain novamente. 
+  // Como o helper getValorEfetivo lê direto da resposta, ele aplicará a nova regra automaticamente.
+  if (currentPeriod) {
+    hydrateDomain('energy', currentPeriod, { force: true });
+  }
+});
+
   // Request-data listener with pending listeners support
   // RFC-0130: Enhanced with retry logic for resilient data loading
   window.addEventListener('myio:telemetry:request-data', async (ev) => {
