@@ -2876,6 +2876,22 @@ function renderList(visible) {
           // RFC-0144: Annotations onboarding flag from MAIN_VIEW settings
           const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
 
+          // Fetch master_admin_password from customer SERVER_SCOPE attributes
+          let masterAdminPassword = null;
+          if (customerTbId && jwt) {
+            try {
+              const pwdUrl = `/api/plugins/telemetry/CUSTOMER/${customerTbId}/values/attributes/SERVER_SCOPE?keys=master_admin_password`;
+              const pwdResp = await fetch(pwdUrl, { headers: { 'X-Authorization': `Bearer ${jwt}` } });
+              if (pwdResp.ok) {
+                const pwdData = await pwdResp.json();
+                const pwdAttr = Array.isArray(pwdData) ? pwdData.find(a => a.key === 'master_admin_password') : null;
+                masterAdminPassword = pwdAttr?.value || null;
+              }
+            } catch (e) {
+              console.warn('[TELEMETRY] Could not fetch master_admin_password:', e);
+            }
+          }
+
           console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
           console.log(
             `[TELEMETRY] openDashboardPopupSettings > enableAnnotationsOnboarding: `,
@@ -2911,6 +2927,7 @@ function renderList(visible) {
             gcdrDeviceId: it.gcdrDeviceId || null,
             prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
             prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
+            masterAdminPassword: masterAdminPassword || null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();

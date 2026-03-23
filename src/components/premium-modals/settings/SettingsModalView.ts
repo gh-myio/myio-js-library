@@ -214,6 +214,7 @@ export class SettingsModalView {
         prefetchedAlarms: prefetchedAlarms ?? null,
         prefetchedRules: prefetchedRules ?? null,
         deviceProfile: this.config.deviceProfile,
+        masterAdminPassword: this.config.masterAdminPassword,
       });
       await this.alarmsTab.init();
       console.log('[SettingsModalView] RFC-0180: Alarms tab initialized');

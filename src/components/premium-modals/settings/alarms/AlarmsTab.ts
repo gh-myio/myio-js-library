@@ -61,6 +61,9 @@ export interface AlarmsTabConfig {
   prefetchedRules?: unknown[] | null;
   /** Device profile (e.g. FANCOIL, ELEVADOR) — used to filter rules by scopeProfiles */
   deviceProfile?: string;
+  /** Customer master admin password from TB SERVER_SCOPE attr `master_admin_password`.
+   *  When set, the alarm rule removal confirmation requires this password. */
+  masterAdminPassword?: string;
 }
 
 /** Raw alarm returned by GET /api/v1/alarms */
@@ -799,6 +802,7 @@ export class AlarmsTab {
         LOW: '#6b7280',
       };
       const color = PRIORITY_COLORS_LOCAL[rule.priority] ?? '#6b7280';
+      const requiresPassword = !!this.config.masterAdminPassword;
 
       const overlay = document.createElement('div');
       overlay.className = 'at-confirm-overlay';
@@ -822,6 +826,23 @@ export class AlarmsTab {
                 dispositivo. O motor de alarmes irá enfileirar o fechamento; o histórico e os
                 registros de auditoria são preservados.
               </div>
+              ${requiresPassword ? `
+              <div class="at-confirm-pwd-section">
+                <label class="at-confirm-pwd-label" for="at-confirm-pwd-input">
+                  🔐 Senha de validação
+                </label>
+                <input
+                  id="at-confirm-pwd-input"
+                  type="password"
+                  class="at-confirm-pwd-input"
+                  placeholder="Digite a senha para confirmar"
+                  autocomplete="off"
+                />
+                <div class="at-confirm-pwd-error" style="display:none;">
+                  Senha incorreta. Verifique e tente novamente.
+                </div>
+              </div>
+              ` : ''}
             </div>
           </div>
           <div class="at-confirm-footer">
@@ -837,7 +858,34 @@ export class AlarmsTab {
       };
 
       overlay.querySelector('.at-confirm-btn--cancel')!.addEventListener('click', () => close(false));
-      overlay.querySelector('.at-confirm-btn--confirm')!.addEventListener('click', () => close(true));
+
+      overlay.querySelector('.at-confirm-btn--confirm')!.addEventListener('click', () => {
+        if (requiresPassword) {
+          const input = overlay.querySelector<HTMLInputElement>('#at-confirm-pwd-input')!;
+          const errorEl = overlay.querySelector<HTMLElement>('.at-confirm-pwd-error')!;
+          if (input.value !== this.config.masterAdminPassword) {
+            errorEl.style.display = 'block';
+            input.focus();
+            input.select();
+            return;
+          }
+          errorEl.style.display = 'none';
+        }
+        close(true);
+      });
+
+      // Allow Enter key on password input to trigger confirm
+      if (requiresPassword) {
+        overlay.querySelector<HTMLInputElement>('#at-confirm-pwd-input')?.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            (overlay.querySelector('.at-confirm-btn--confirm') as HTMLButtonElement)?.click();
+          }
+          // Hide error on new input
+          if (e.key !== 'Enter') {
+            (overlay.querySelector('.at-confirm-pwd-error') as HTMLElement).style.display = 'none';
+          }
+        });
+      }
 
       // Click outside = cancel
       overlay.addEventListener('click', (e) => {
@@ -846,6 +894,11 @@ export class AlarmsTab {
 
       // Append to document.body with position:fixed so it renders above all modals
       document.body.appendChild(overlay);
+
+      // Auto-focus the password field
+      if (requiresPassword) {
+        setTimeout(() => overlay.querySelector<HTMLInputElement>('#at-confirm-pwd-input')?.focus(), 50);
+      }
     });
   }
 
@@ -1266,6 +1319,39 @@ export class AlarmsTab {
         color: #fff;
       }
       .at-confirm-btn--confirm:hover { background: #b91c1c; }
+      .at-confirm-pwd-section {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fef9f0;
+        border: 1px solid #fcd34d;
+        border-radius: 6px;
+      }
+      .at-confirm-pwd-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 6px;
+      }
+      .at-confirm-pwd-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 5px;
+        font-size: 13px;
+        font-family: inherit;
+        color: #1a1a1a;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .at-confirm-pwd-input:focus { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
+      .at-confirm-pwd-error {
+        margin-top: 5px;
+        font-size: 12px;
+        color: #dc2626;
+        font-weight: 500;
+      }
     `;
     document.head.appendChild(style);
   }

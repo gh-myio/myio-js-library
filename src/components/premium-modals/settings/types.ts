@@ -97,6 +97,9 @@ export interface OpenDashboardPopupSettingsParams {
   /** Pre-fetched customer rules (GCDRCustomerRule[]).
    *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
   prefetchedRules?: unknown[] | null;
+  /** Customer master admin password from TB SERVER_SCOPE attr `master_admin_password`.
+   *  When set, the alarm rule removal confirmation requires this password. */
+  masterAdminPassword?: string;
 
   // Pre-populate form with existing values
   seed?: {
@@ -208,6 +211,9 @@ export interface ModalConfig {
   /** Pre-fetched customer rules (GCDRCustomerRule[]).
    *  When provided, skips GET /customers/{id}/rules — useful for offline/showcase mode. */
   prefetchedRules?: unknown[] | null;
+  /** Customer master admin password from TB SERVER_SCOPE attr `master_admin_password`.
+   *  When set, the alarm rule removal confirmation requires this password. */
+  masterAdminPassword?: string;
 
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
