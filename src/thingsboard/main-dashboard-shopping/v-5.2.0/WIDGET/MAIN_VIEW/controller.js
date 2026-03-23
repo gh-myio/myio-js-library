@@ -507,33 +507,6 @@ let widgetSettings = {
 // { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
 let _excludeGroupsTotals = null;
 
-/**
- * Normalize legacy excludedGroups format to the current groups-object format.
- * Legacy: { enabled, excludedGroups: ["entrada", "esc_rolantes", ...] }
- * Current: { enabled, groups: { entrada: true, lojas: false, ... } }
- */
-function normalizeExcludeGroupsTotals(raw) {
-  if (!raw || raw.enabled === undefined) return null;
-  if (raw.groups && typeof raw.groups === 'object') return raw;
-  if (Array.isArray(raw.excludedGroups)) {
-    const ALL_KEYS = [
-      'entrada',
-      'lojas',
-      'climatizacao',
-      'elevadores',
-      'escadas_rolantes',
-      'outros',
-      'area_comum',
-    ];
-    const keyMap = { esc_rolantes: 'escadas_rolantes' };
-    const excludedSet = new Set(raw.excludedGroups.map((g) => keyMap[g] ?? g));
-    const groups = {};
-    for (const k of ALL_KEYS) groups[k] = excludedSet.has(k);
-    return { enabled: raw.enabled, groups };
-  }
-  return raw;
-}
-
 // Config object (populated in onInit from widgetSettings)
 let config = null;
 
@@ -1481,7 +1454,7 @@ Object.assign(window.MyIOUtils, {
             if (_rawExcludeGroups) {
               const _parsed =
                 typeof _rawExcludeGroups === 'string' ? JSON.parse(_rawExcludeGroups) : _rawExcludeGroups;
-              _excludeGroupsTotals = normalizeExcludeGroupsTotals(_parsed);
+              _excludeGroupsTotals = _parsed;
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
@@ -6473,30 +6446,20 @@ const MyIOOrchestrator = (() => {
     }
   });
 
-  // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
-  window.addEventListener('myio:exclusion-groups-updated', (ev) => {
-    _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
-    LogHelper.log('[MAIN_VIEW] exclusion groups updated:', _excludeGroupsTotals);
+  window.addEventListener('myio:device-exclusion-updated', (ev) => {
+    LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
+
+    if (ev.detail?.exclude_groups_totals !== undefined) {
+      _excludeGroupsTotals = ev.detail.exclude_groups_totals;
+    }
+
     const cachedEnergy = window.MyIOOrchestratorData?.energy;
-    if (cachedEnergy && cachedEnergy.items && cachedEnergy.items.length > 0) {
-      LogHelper.log(
-        '[MAIN_VIEW] rebuilding energy summary from cache (' + cachedEnergy.items.length + ' items)'
-      );
+    if (cachedEnergy?.items?.length > 0) {
       emitProvide('energy', cachedEnergy.periodKey, cachedEnergy.items);
     } else if (currentPeriod) {
       hydrateDomain('energy', currentPeriod, { force: true });
     }
   });
-
-  window.addEventListener('myio:device-exclusion-updated', (ev) => {
-  LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
-
-  // Apenas força o hydrateDomain novamente. 
-  // Como o helper getValorEfetivo lê direto da resposta, ele aplicará a nova regra automaticamente.
-  if (currentPeriod) {
-    hydrateDomain('energy', currentPeriod, { force: true });
-  }
-});
 
   // Request-data listener with pending listeners support
   // RFC-0130: Enhanced with retry logic for resilient data loading
