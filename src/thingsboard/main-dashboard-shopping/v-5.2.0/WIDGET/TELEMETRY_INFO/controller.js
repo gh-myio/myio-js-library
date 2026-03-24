@@ -693,9 +693,10 @@ function formatEnergy(value) {
 function renderStats() {
   LogHelper.log('RFC-0056: Rendering stats for 6 categories...');
 
-  // Hide water-only cards (banheiros is water domain specific)
+  // Hide water-only cards (banheiros + water-total are water domain specific)
   $$('.banheiros-card').hide();
-  LogHelper.log('[RFC-0056] Hiding banheiros-card (energy domain)');
+  $$('.water-total-card').hide();
+  LogHelper.log('[RFC-0056] Hiding banheiros-card and water-total-card (energy domain)');
 
   // ========== ENTRADA ==========
   $$('#entradaTotal').text(formatEnergy(STATE.entrada.total));
