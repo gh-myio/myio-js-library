@@ -3,6 +3,7 @@ import { UserManagementConfig, TBUser, buildUserTabLabel } from '../types';
 export interface UserDetailCallbacks {
   onDeleted(): void;
   onUpdated(user: TBUser): void;
+  onClose(): void;
   showToast(msg: string, type?: 'success' | 'error'): void;
 }
 
@@ -67,12 +68,14 @@ export class UserDetailTab {
         ${u.additionalInfo?.description ? `<div class="um-detail-row"><span class="um-detail-label">Descrição</span><span class="um-detail-value">${this.esc(String(u.additionalInfo.description))}</span></div>` : ''}
       </div>
       <div class="um-detail-actions">
-        <button class="um-btn um-btn--secondary um-detail-edit-btn">Editar</button>
+        <button class="um-btn um-btn--ghost um-detail-cancel-btn">Cancelar</button>
+        <button class="um-btn um-btn--secondary um-detail-edit-btn">Habilitar Edição</button>
         <button class="um-btn um-btn--ghost um-detail-reset-btn">Redefinir Senha</button>
         <button class="um-btn um-btn--danger um-detail-delete-btn">Excluir</button>
       </div>
     `;
 
+    card.querySelector('.um-detail-cancel-btn')!.addEventListener('click', () => this.callbacks.onClose());
     card.querySelector('.um-detail-edit-btn')!.addEventListener('click', () => {
       this.mode = 'edit';
       this.renderContent();

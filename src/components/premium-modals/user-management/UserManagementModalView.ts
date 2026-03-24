@@ -3,6 +3,7 @@ import { UserListTab } from './tabs/UserListTab';
 import { NewUserTab } from './tabs/NewUserTab';
 import { GroupManagementTab } from './tabs/GroupManagementTab';
 import { UserDetailTab } from './tabs/UserDetailTab';
+import { ModalHeader } from '../../../utils/ModalHeader';
 
 interface TabEntry {
   key: string;
@@ -64,22 +65,25 @@ export class UserManagementModalView {
 
     const customerName = this.config.customerName || '';
 
-    // Header
+    // Header — RFC-0121 ModalHeader standard
     const header = document.createElement('div');
-    header.className = 'um-modal-header';
-    header.innerHTML = `
-      <h3 class="um-modal-title">Gestão de Usuários${customerName ? ` — ${this.esc(customerName)}` : ''}</h3>
-      <div class="um-modal-header-actions">
-        <button class="um-modal-maximize" title="Maximizar" aria-label="Maximizar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-        </button>
-        <button class="um-modal-close" title="Fechar">×</button>
-      </div>
-    `;
-    header.querySelector('.um-modal-maximize')!.addEventListener('click', () => {
-      this.modalEl.classList.toggle('is-maximized');
+    header.innerHTML = ModalHeader.generateHTML({
+      icon: '👥',
+      title: `Gestão de Usuários${customerName ? ` — ${customerName}` : ''}`,
+      modalId: 'um-modal',
+      showThemeToggle: true,
+      showMaximize: true,
+      showClose: true,
+      draggable: false,
     });
-    header.querySelector('.um-modal-close')!.addEventListener('click', () => this.close());
+    const headerEl = header.firstElementChild as HTMLElement;
+    ModalHeader.createController({
+      modalId: 'um-modal',
+      maximizeTarget: this.modalEl,
+      maximizedClass: 'is-maximized',
+      onThemeChange: (theme) => { this.backdrop.setAttribute('data-theme', theme); },
+      onClose: () => this.close(),
+    });
 
     // Tab bar
     this.tabBarEl = document.createElement('div');
@@ -93,7 +97,7 @@ export class UserManagementModalView {
     this.toastEl = document.createElement('div');
     this.toastEl.className = 'um-toast';
 
-    this.modalEl.appendChild(header);
+    this.modalEl.appendChild(headerEl);
     this.modalEl.appendChild(this.tabBarEl);
     this.modalEl.appendChild(this.contentEl);
     this.modalEl.appendChild(this.toastEl);
@@ -186,10 +190,10 @@ export class UserManagementModalView {
         const entry = this.tabs.find(t => t.key === existingKey);
         if (entry) { entry.label = detailTab.tabLabel; this.rebuildTabBar(); }
       },
+      onClose: () => this.removeTab(existingKey),
       showToast: (msg, type) => this.showToast(msg, type),
     });
 
-    // If opening in edit mode, toggle immediately after render by simulating click
     let el: HTMLElement | null = null;
     this.tabs.push({
       key: existingKey,
@@ -199,10 +203,6 @@ export class UserManagementModalView {
       detailTab,
       getEl: () => {
         el = detailTab.render();
-        if (editMode) {
-          // Simulate click on edit button after render
-          setTimeout(() => el?.querySelector<HTMLButtonElement>('.um-detail-edit-btn')?.click(), 0);
-        }
         return el;
       },
     });
@@ -393,24 +393,7 @@ export class UserManagementModalView {
 }
 @media (max-height: 600px) { .um-modal { aspect-ratio: unset; height: 90vh; } }
 
-.um-modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px; background: #3e1a7d; color: white; flex-shrink: 0;
-}
-.um-modal-title { margin: 0; font-size: 18px; font-weight: 600; color: white; }
-.um-modal-header-actions { display: flex; align-items: center; gap: 8px; }
-.um-modal-maximize {
-  background: none; border: none; cursor: pointer; color: white;
-  padding: 0; width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center; border-radius: 4px;
-}
-.um-modal-maximize:hover { background: rgba(255,255,255,0.1); }
-.um-modal-close {
-  background: none; border: none; cursor: pointer; color: white;
-  font-size: 24px; padding: 0; width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center; border-radius: 4px;
-}
-.um-modal-close:hover { background: rgba(255,255,255,0.1); }
+/* Header handled by ModalHeader (RFC-0121) */
 .um-modal.is-maximized {
   width: 100vw !important; max-width: 100vw !important;
   height: 100vh !important; max-height: 100vh !important;

@@ -1,5 +1,6 @@
 import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
+import { ModalHeader } from '../../../utils/ModalHeader';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
 import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
@@ -459,15 +460,7 @@ export class SettingsModalView {
     return `
       <div class="myio-device-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="myio-device-settings-modal" ${widthStyle}>
-          <div class="modal-header">
-            <h3 id="modal-title">Configurações${this.config.customerName ? ` — ${this.config.customerName}` : ''}</h3>
-            <div class="modal-header-actions">
-              <button type="button" class="maximize-btn" aria-label="Maximizar" title="Maximizar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-              </button>
-              <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
-            </div>
-          </div>
+          ${ModalHeader.generateHTML({ icon: '⚙️', title: `Configurações${this.config.customerName ? ` — ${this.config.customerName}` : ''}`, modalId: 'settings-modal', showThemeToggle: true, showMaximize: true, showClose: true, draggable: false })}
           <!-- RFC-0104: Tab Navigation -->
           <div class="modal-tabs">
             <button type="button" class="modal-tab active" data-tab="general">
@@ -1363,64 +1356,7 @@ export class SettingsModalView {
           box-sizing: border-box;
         }
         
-        .modal-header {
-          background: #3e1a7d;
-          color: white;
-          padding: 20px 24px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        
-        .modal-header h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-          color: white;
-        }
-        
-        .close-btn {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: white;
-          padding: 0;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 4px;
-        }
-        
-        .close-btn:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        .modal-header-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .maximize-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: white;
-          padding: 0;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 4px;
-        }
-
-        .maximize-btn:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
+        /* Header handled by ModalHeader (RFC-0121) */
 
         .myio-device-settings-modal.is-maximized {
           width: 100vw !important;
@@ -2780,31 +2716,13 @@ export class SettingsModalView {
       this.config.onSave(formData);
     });
 
-    // Handle maximize button
-    const maximizeBtn = this.modal.querySelector('.maximize-btn') as HTMLButtonElement;
-    if (maximizeBtn) {
-      maximizeBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const isMaximized = this.modal.classList.toggle('is-maximized');
-        maximizeBtn.setAttribute('aria-label', isMaximized ? 'Restaurar' : 'Maximizar');
-        maximizeBtn.title = isMaximized ? 'Restaurar' : 'Maximizar';
-        // Toggle icon between maximize and restore
-        maximizeBtn.innerHTML = isMaximized
-          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>`
-          : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
-      });
-    }
-
-    // Handle close button (X button)
-    const closeBtn = this.modal.querySelector('.close-btn') as HTMLButtonElement;
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.config.onClose();
-      });
-    }
+    // RFC-0121: ModalHeader controller handles maximize/close/theme
+    ModalHeader.createController({
+      modalId: 'settings-modal',
+      maximizeTarget: this.modal,
+      maximizedClass: 'is-maximized',
+      onClose: () => this.config.onClose(),
+    });
 
     // Handle cancel button (Fechar button)
     const cancelBtn = this.modal.querySelector('.btn-cancel') as HTMLButtonElement;

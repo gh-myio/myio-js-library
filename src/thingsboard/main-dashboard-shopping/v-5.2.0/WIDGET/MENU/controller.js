@@ -738,11 +738,7 @@ self.onInit = function () {
         .mdd-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .mdd-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(1080px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
         .mdd-overlay.show .mdd-card{transform:translateY(0) scale(1)}
-        .mdd-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;background:#3e1a7d;color:#fff;flex-shrink:0}
-        .mdd-header h3{margin:0;font-size:18px;font-weight:600;color:#fff}
-        .mdd-header-actions{display:flex;align-items:center;gap:8px}
-        .mdd-maximize{background:none;border:none;cursor:pointer;color:#fff;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px}.mdd-maximize:hover{background:rgba(255,255,255,.1)}
-        .mdd-close{background:none;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px}.mdd-close:hover{background:rgba(255,255,255,.1)}
+        /* Header: ModalHeader (RFC-0121) */
         .mdd-card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
         .mdd-body{overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
         .mdd-section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
@@ -830,21 +826,23 @@ self.onInit = function () {
     }
 
     // ── Modal ──────────────────────────────────────────────────────────────────
+    const mddHeaderHtml = window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      icon: '🏠',
+      title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
+      modalId: 'mdd-modal',
+      showThemeToggle: false,
+      showMaximize: true,
+      showClose: true,
+      draggable: false,
+    }) ?? `<div style="padding:12px 20px;background:#3e1a7d;color:#fff;font-weight:600">🏠 Dashboard Padrão</div>`;
+
     const modal = topDoc.createElement('div');
     modal.id = 'myio-default-dashboard';
     modal.className = 'mdd-overlay';
     modal.innerHTML = `
       <div class="mdd-bg"></div>
       <div class="mdd-card">
-        <div class="mdd-header">
-          <h3>🏠 Dashboard Padrão${customerName ? ` — ${customerName}` : ''}</h3>
-          <div class="mdd-header-actions">
-            <button class="mdd-maximize" aria-label="Maximizar" title="Maximizar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-            </button>
-            <button class="mdd-close" aria-label="Fechar">&times;</button>
-          </div>
-        </div>
+        ${mddHeaderHtml}
         <div class="mdd-body">
           <div class="mdd-section">
             <div class="mdd-section-title">Configuração Atual</div>
@@ -879,9 +877,9 @@ self.onInit = function () {
     };
 
     modal.querySelector('.mdd-bg').addEventListener('click', closeModal);
-    modal.querySelector('.mdd-close').addEventListener('click', closeModal);
     modal.querySelector('.mdd-cancel-btn').addEventListener('click', closeModal);
-    modal.querySelector('.mdd-maximize').addEventListener('click', () => {
+    modal.querySelector('#mdd-modal-close')?.addEventListener('click', closeModal);
+    modal.querySelector('#mdd-modal-maximize')?.addEventListener('click', () => {
       modal.querySelector('.mdd-card').classList.toggle('is-maximized');
     });
 
@@ -1010,11 +1008,7 @@ self.onInit = function () {
         .myio-isetup__overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .myio-isetup__card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(860px,97vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
         .myio-isetup.show .myio-isetup__card{transform:translateY(0) scale(1)}
-        .myio-isetup__header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,#3E1A7D,#6A2FC0);color:#fff;flex-shrink:0}
-        .myio-isetup__header h3{margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
-        .myio-isetup__badge{font-size:10px;font-weight:600;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;letter-spacing:.4px}
-        .myio-isetup__close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:4px;transition:background .15s}
-        .myio-isetup__close:hover{background:rgba(255,255,255,.15)}
+        /* Header: ModalHeader (RFC-0121) */
         .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
         .myio-isetup__loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:#6B7280;font-size:13px}
         .myio-isetup__spinner{width:20px;height:20px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:isetup-spin .7s linear infinite}
@@ -1073,16 +1067,23 @@ self.onInit = function () {
     const existing = topDoc.getElementById('myio-isetup');
     if (existing) existing.remove();
 
+    const isetupHeaderHtml = window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      icon: '🔗',
+      title: 'Setup de Integração',
+      modalId: 'isetup-modal',
+      showThemeToggle: false,
+      showMaximize: false,
+      showClose: true,
+      draggable: false,
+    }) ?? `<div style="padding:12px 20px;background:linear-gradient(135deg,#3E1A7D,#6A2FC0);color:#fff;font-weight:600">🔗 Setup de Integração</div>`;
+
     const modal = topDoc.createElement('div');
     modal.id = 'myio-isetup';
     modal.className = 'myio-isetup';
     modal.innerHTML = `
       <div class="myio-isetup__overlay"></div>
       <div class="myio-isetup__card">
-        <div class="myio-isetup__header">
-          <h3>🔗 Setup de Integração <span class="myio-isetup__badge">MyIO</span></h3>
-          <button class="myio-isetup__close" aria-label="Fechar">&times;</button>
-        </div>
+        ${isetupHeaderHtml}
         <div class="myio-isetup__body">
 
           <div class="myio-isetup__loading" id="isetup-loading">
@@ -1173,7 +1174,7 @@ self.onInit = function () {
     };
 
     modal.querySelector('.myio-isetup__overlay').addEventListener('click', closeModal);
-    modal.querySelector('.myio-isetup__close').addEventListener('click', closeModal);
+    modal.querySelector('#isetup-modal-close')?.addEventListener('click', closeModal);
     modal.querySelector('#isetup-cancel').addEventListener('click', closeModal);
 
     const escHandler = (e) => { if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); } };

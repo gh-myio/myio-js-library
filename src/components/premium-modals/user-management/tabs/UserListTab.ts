@@ -145,24 +145,15 @@ export class UserListTab {
         <td>${this.esc(user.email)}</td>
         <td><span class="um-badge um-badge--${user.authority === 'TENANT_ADMIN' ? 'admin' : 'user'}">${role}</span></td>
         <td class="um-col-actions">
-          <button class="um-icon-btn um-edit-btn" title="Editar">
+          <button class="um-icon-btn um-detail-btn" title="Ver Detalhes">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-          <button class="um-icon-btn um-view-btn" title="Ver Detalhes">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+              <path d="M9 18l6-6-6-6"/>
             </svg>
           </button>
         </td>
       `;
-      tr.querySelector('.um-edit-btn')!.addEventListener('click', () => this.callbacks.onOpenUserDetail(user, true));
-      tr.querySelector('.um-view-btn')!.addEventListener('click', () => this.callbacks.onOpenUserDetail(user, false));
+      tr.querySelector('.um-detail-btn')!.addEventListener('click', () => this.callbacks.onOpenUserDetail(user, false));
       tbody.appendChild(tr);
     }
   }
