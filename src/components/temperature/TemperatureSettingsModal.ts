@@ -242,48 +242,70 @@ function renderModal(
         width: 90%;
         max-width: 900px;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
         animation: slideIn 0.3s ease-out;
         overflow: hidden;
       }
 
       #${modalId} .modal-header {
         background: ${colors.headerBg};
-        padding: 20px 24px;
+        padding: 8px 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        min-height: 32px;
       }
 
       #${modalId} .modal-title {
         margin: 0;
-        font-size: 18px;
+        font-size: 14px;
         font-weight: 600;
         color: #fff;
         font-family: 'Roboto', sans-serif;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
       }
 
+      #${modalId} .modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #${modalId} .maximize-btn,
       #${modalId} .close-btn {
-        width: 32px;
-        height: 32px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
+        width: 28px;
+        height: 28px;
+        background: none;
+        border: none;
+        border-radius: 6px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s;
+        transition: background 0.2s;
+        color: rgba(255,255,255,0.8);
+        font-size: 16px;
+        padding: 4px;
+      }
+
+      #${modalId} .maximize-btn:hover,
+      #${modalId} .close-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
         color: #fff;
-        font-size: 18px;
       }
 
       #${modalId} .close-btn:hover {
-        background: rgba(255, 68, 68, 0.25);
-        border-color: rgba(255, 68, 68, 0.5);
+        background: rgba(239, 68, 68, 0.3);
+        color: #fecaca;
+      }
+
+      #${modalId} .modal-content.is-maximized {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0;
       }
 
       #${modalId} .modal-body {
@@ -467,9 +489,14 @@ function renderModal(
         <div class="modal-header">
           <h2 class="modal-title">
             <span>🌡️</span>
-            Configurações${state.customerName ? ` — ${state.customerName}` : ''}
+            Configurações de Temperatura${state.customerName ? ` — ${state.customerName}` : ''}
           </h2>
-          <button class="close-btn" id="${modalId}-close">&times;</button>
+          <div class="modal-header-actions">
+            <button class="maximize-btn" id="${modalId}-maximize" aria-label="Maximizar" title="Maximizar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+            <button class="close-btn" id="${modalId}-close">&times;</button>
+          </div>
         </div>
 
         <div class="modal-body">
@@ -601,6 +628,11 @@ function renderModal(
   const clampMaxInput = document.getElementById(`${modalId}-clamp-max`) as HTMLInputElement | null;
   const previewValue = document.getElementById(`${modalId}-preview-value`);
   const overlay = document.getElementById(modalId);
+
+  // Maximize handler
+  const maximizeBtn = document.getElementById(`${modalId}-maximize`);
+  const modalContent = overlay?.querySelector('.modal-content') as HTMLElement | null;
+  maximizeBtn?.addEventListener('click', () => { modalContent?.classList.toggle('is-maximized'); });
 
   // Close handlers
   closeBtn?.addEventListener('click', onClose);

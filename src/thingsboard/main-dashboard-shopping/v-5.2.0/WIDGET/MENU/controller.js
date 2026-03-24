@@ -483,13 +483,14 @@ self.onInit = function () {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 16px 20px;
-          background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+          padding: 8px 12px;
+          background: #3e1a7d;
           color: white;
+          min-height: 32px;
         }
         .myio-conf-picker__header h3 {
           margin: 0;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 600;
           display: flex;
           align-items: center;
@@ -1009,6 +1010,7 @@ self.onInit = function () {
         .myio-isetup__card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(860px,97vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
         .myio-isetup.show .myio-isetup__card{transform:translateY(0) scale(1)}
         /* Header: ModalHeader (RFC-0121) */
+        .myio-isetup__card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
         .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
         .myio-isetup__loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:#6B7280;font-size:13px}
         .myio-isetup__spinner{width:20px;height:20px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:isetup-spin .7s linear infinite}
@@ -1072,10 +1074,10 @@ self.onInit = function () {
       title: 'Setup de Integração',
       modalId: 'isetup-modal',
       showThemeToggle: false,
-      showMaximize: false,
+      showMaximize: true,
       showClose: true,
       draggable: false,
-    }) ?? `<div style="padding:12px 20px;background:linear-gradient(135deg,#3E1A7D,#6A2FC0);color:#fff;font-weight:600">🔗 Setup de Integração</div>`;
+    }) ?? `<div style="padding:8px 12px;background:#3e1a7d;color:#fff;font-weight:600;min-height:32px;display:flex;align-items:center">🔗 Setup de Integração</div>`;
 
     const modal = topDoc.createElement('div');
     modal.id = 'myio-isetup';
@@ -1175,6 +1177,9 @@ self.onInit = function () {
 
     modal.querySelector('.myio-isetup__overlay').addEventListener('click', closeModal);
     modal.querySelector('#isetup-modal-close')?.addEventListener('click', closeModal);
+    modal.querySelector('#isetup-modal-maximize')?.addEventListener('click', () => {
+      modal.querySelector('.myio-isetup__card').classList.toggle('is-maximized');
+    });
     modal.querySelector('#isetup-cancel').addEventListener('click', closeModal);
 
     const escHandler = (e) => { if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); } };
@@ -2501,6 +2506,19 @@ self.onInit = function () {
         updateThemeIcon(theme);
       } else {
         LogHelper.warn(`[MENU] RFC-0139: Invalid theme received: ${theme}`);
+      }
+    });
+
+    // Click handler: toggle theme via MyIOUtils (RFC-0139)
+    themeIcon.style.cursor = 'pointer';
+    themeIcon.addEventListener('click', () => {
+      if (window.MyIOUtils?.toggleTheme) {
+        window.MyIOUtils.toggleTheme();
+      } else {
+        // Fallback if MyIOUtils not yet available
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        updateThemeIcon(newTheme);
+        window.dispatchEvent(new CustomEvent('myio:theme-changed', { detail: { theme: newTheme } }));
       }
     });
 

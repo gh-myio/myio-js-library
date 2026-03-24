@@ -357,7 +357,7 @@
   right: 12px;
   font-size: 18px;
   line-height: 1;
-  cursor: default;
+  cursor: pointer;
   opacity: 0.85;
   transition:
     opacity 0.2s ease,

@@ -597,14 +597,15 @@ export class MeasurementSetupView {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 20px 24px;
+        padding: 8px 12px;
         background: #3e1a7d;
         color: white;
+        min-height: 32px;
       }
 
       .myio-modal-title {
         margin: 0;
-        font-size: 18px;
+        font-size: 14px;
         font-weight: 600;
         color: white;
       }

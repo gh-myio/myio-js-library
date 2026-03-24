@@ -363,15 +363,16 @@ export class ContractDevicesModalView {
         .myio-contract-devices-modal .modal-header {
           background: #3e1a7d;
           color: white;
-          padding: 20px 24px;
+          padding: 8px 12px;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          min-height: 32px;
         }
 
         .myio-contract-devices-modal .modal-header h3 {
           margin: 0;
-          font-size: 18px;
+          font-size: 14px;
           font-weight: 600;
           color: white;
         }
