@@ -503,7 +503,7 @@ let widgetSettings = {
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
 };
 
-// Exclusão de Grupos: group exclusion config loaded from DEVICE SERVER_SCOPE via SettingsModal
+// Exclusão de Grupos: group exclusion config loaded from CUSTOMER SERVER_SCOPE via SettingsModal
 // { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
 let _excludeGroupsTotals = null;
 
@@ -1211,8 +1211,7 @@ Object.assign(window.MyIOUtils, {
     );
 
     // RFC-0189: Temperature API fetch for offline detection + modal data source
-    widgetSettings.enableTemperatureApiDataFetch =
-      self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
+    widgetSettings.enableTemperatureApiDataFetch = self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
     // Expose via window.MyIOUtils for TELEMETRY widget (modal data source)
     window.MyIOUtils.enableTemperatureApiDataFetch = widgetSettings.enableTemperatureApiDataFetch;
 
@@ -1225,7 +1224,10 @@ Object.assign(window.MyIOUtils, {
     widgetSettings.enableAnnotationsOnboarding = self.ctx.settings?.enableAnnotationsOnboarding ?? false;
     // Expose via window.MyIOUtils for TELEMETRY widget
     window.MyIOUtils.enableAnnotationsOnboarding = widgetSettings.enableAnnotationsOnboarding;
-    LogHelper.log('[Orchestrator] RFC-0144: enableAnnotationsOnboarding:', widgetSettings.enableAnnotationsOnboarding);
+    LogHelper.log(
+      '[Orchestrator] RFC-0144: enableAnnotationsOnboarding:',
+      widgetSettings.enableAnnotationsOnboarding
+    );
 
     // Load enableReportButton setting and expose via window.MyIOUtils for HEADER widget
     widgetSettings.enableReportButton = self.ctx.settings?.enableReportButton ?? false;
@@ -1235,10 +1237,20 @@ Object.assign(window.MyIOUtils, {
     // RFC-0182: Load enabledReportItems and expose for MENU widget
     const rawItems = self.ctx.settings?.enabledReportItems || {};
     const REPORT_ITEM_DEFAULTS = {
-      energy_lojas: true, energy_entrada: false, energy_area_comum: false, energy_todos: false,
-      water_lojas: false, water_entrada: false, water_area_comum: false, water_todos: false,
-      temperature_climatizavel: false, temperature_nao_climatizavel: false, temperature_todos: false,
-      alarms_por_dispositivo: false, alarms_dispositivo_x_alarme: false, alarms_por_tipo: false,
+      energy_lojas: true,
+      energy_entrada: false,
+      energy_area_comum: false,
+      energy_todos: false,
+      water_lojas: false,
+      water_entrada: false,
+      water_area_comum: false,
+      water_todos: false,
+      temperature_climatizavel: false,
+      temperature_nao_climatizavel: false,
+      temperature_todos: false,
+      alarms_por_dispositivo: false,
+      alarms_dispositivo_x_alarme: false,
+      alarms_por_tipo: false,
     };
     window.MyIOUtils.enabledReportItems = Object.fromEntries(
       Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
@@ -1276,25 +1288,25 @@ Object.assign(window.MyIOUtils, {
     // Resetar mapas de enriquecimento a cada onInit para evitar contaminação cross-customer.
     // O guard abaixo cria o objeto apenas uma vez, mas os mapas acumulam entre reloads sem esse reset.
     if (window.MyIOOrchestrator) {
-      window.MyIOOrchestrator.gcdrDeviceNameMap    = new Map();
+      window.MyIOOrchestrator.gcdrDeviceNameMap = new Map();
       window.MyIOOrchestrator.entityNameToLabelMap = new Map();
       // RFC-0194: reset to avoid stale config when switching customers
-      window.MyIOOrchestrator.defaultDashboardId  = null;
+      window.MyIOOrchestrator.defaultDashboardId = null;
       window.MyIOOrchestrator.defaultDashboardCfg = null;
     }
     // RFC-0193: Resetar estado de alarmes a cada onInit — evita dados do customer anterior
     // aparecerem no badge/tooltip/toasts até o novo fetch retornar.
     _lastKnownAlarmIds = null;
     _lastKnownAlarmMap = null;
-    _alarmDayMap       = new Map();
+    _alarmDayMap = new Map();
     if (window.MyIOOrchestrator?.alarmDayMap) {
       // Zera o mapa exposto publicamente para badge e tooltip não mostrarem dados velhos
       window.MyIOOrchestrator.alarmDayMap = {
-        listAll:       () => [],
-        listByStatus:  () => [],
-        add:    () => {},
+        listAll: () => [],
+        listByStatus: () => [],
+        add: () => {},
         remove: () => {},
-        count:  () => 0,
+        count: () => 0,
       };
     }
 
@@ -1334,14 +1346,29 @@ Object.assign(window.MyIOUtils, {
         },
 
         // RFC-0180: GCDR API method stubs (replaced by real impl after merge)
-        gcdrFetchCustomerRules: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready'); return []; },
-        gcdrPostAlarmAction: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPostAlarmAction called before orchestrator is ready'); return false; },
-        gcdrPatchRuleScope: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleScope called before orchestrator is ready'); return false; },
-        gcdrPatchRuleValue: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleValue called before orchestrator is ready'); return false; },
-        gcdrEnqueueCloseAlarms: async () => { LogHelper.warn('[Orchestrator] ⚠️ gcdrEnqueueCloseAlarms called before orchestrator is ready'); return false; }, // RFC-0191
+        gcdrFetchCustomerRules: async () => {
+          LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready');
+          return [];
+        },
+        gcdrPostAlarmAction: async () => {
+          LogHelper.warn('[Orchestrator] ⚠️ gcdrPostAlarmAction called before orchestrator is ready');
+          return false;
+        },
+        gcdrPatchRuleScope: async () => {
+          LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleScope called before orchestrator is ready');
+          return false;
+        },
+        gcdrPatchRuleValue: async () => {
+          LogHelper.warn('[Orchestrator] ⚠️ gcdrPatchRuleValue called before orchestrator is ready');
+          return false;
+        },
+        gcdrEnqueueCloseAlarms: async () => {
+          LogHelper.warn('[Orchestrator] ⚠️ gcdrEnqueueCloseAlarms called before orchestrator is ready');
+          return false;
+        }, // RFC-0191
 
         // RFC-0194: customer default dashboard (populated after SERVER_SCOPE fetch)
-        defaultDashboardId:  null,
+        defaultDashboardId: null,
         defaultDashboardCfg: null,
 
         // Internal state (will be populated later)
@@ -1360,9 +1387,13 @@ Object.assign(window.MyIOUtils, {
     // Determine the initial tab to dispatch — use the first enabled domain so that
     // water-only / temperature-only dashboards don't trigger an energy retry-loop.
     const _initialTab =
-      widgetSettings.domainsEnabled?.energy       !== false ? 'energy' :
-      widgetSettings.domainsEnabled?.water        !== false ? 'water'  :
-      widgetSettings.domainsEnabled?.temperature  !== false ? 'temperature' : 'energy';
+      widgetSettings.domainsEnabled?.energy !== false
+        ? 'energy'
+        : widgetSettings.domainsEnabled?.water !== false
+          ? 'water'
+          : widgetSettings.domainsEnabled?.temperature !== false
+            ? 'temperature'
+            : 'energy';
     LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
 
     // Initialize MyIO Library and Authentication
@@ -1390,10 +1421,10 @@ Object.assign(window.MyIOUtils, {
 
         // RFC-0180: GCDR IDs and API keys — exclusively from TB SERVER_SCOPE attrs (see attrs block below)
         let gcdrCustomerId = '';
-        let gcdrTenantId   = '';
-        let gcdrApiKey     = '';
+        let gcdrTenantId = '';
+        let gcdrApiKey = '';
         let alarmNotificationsEnabled = true; // RFC-0193: default enabled; read from SERVER_SCOPE below
-        let defaultDashboardCfg      = null;  // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
+        let defaultDashboardCfg = null; // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1411,19 +1442,19 @@ Object.assign(window.MyIOUtils, {
 
             // RFC-0180: GCDR IDs and API keys from SERVER_SCOPE attrs (single source of truth)
             gcdrCustomerId = attrs?.gcdrCustomerId || '';
-            gcdrTenantId   = attrs?.gcdrTenantId  || '';
-            gcdrApiKey     = attrs?.gcdrApiKey     || '';
+            gcdrTenantId = attrs?.gcdrTenantId || '';
+            gcdrApiKey = attrs?.gcdrApiKey || '';
             // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
             alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
             // RFC-0194: customer default dashboard config (full object stored for management UI)
             defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
 
-            // Exclusão de Grupos: read from DEVICE SERVER_SCOPE (saved by SettingsModal)
+            // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
             const _rawExcludeGroups = attrs?.exclude_groups_totals;
             if (_rawExcludeGroups) {
-              _excludeGroupsTotals = typeof _rawExcludeGroups === 'string'
-                ? JSON.parse(_rawExcludeGroups)
-                : _rawExcludeGroups;
+              const _parsed =
+                typeof _rawExcludeGroups === 'string' ? JSON.parse(_rawExcludeGroups) : _rawExcludeGroups;
+              _excludeGroupsTotals = _parsed;
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
@@ -1453,19 +1484,20 @@ Object.assign(window.MyIOUtils, {
 
         // RFC-0180: Publish GCDR identifiers + API keys to orchestrator for ALARM and SETTINGS widgets
         if (window.MyIOOrchestrator) {
-          window.MyIOOrchestrator.gcdrCustomerId    = gcdrCustomerId;
-          window.MyIOOrchestrator.gcdrTenantId     = gcdrTenantId;
-          window.MyIOOrchestrator.gcdrApiBaseUrl   = gcdrApiBaseUrl;
-          window.MyIOOrchestrator.gcdrApiKey       = gcdrApiKey;
+          window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
+          window.MyIOOrchestrator.gcdrTenantId = gcdrTenantId;
+          window.MyIOOrchestrator.gcdrApiBaseUrl = gcdrApiBaseUrl;
+          window.MyIOOrchestrator.gcdrApiKey = gcdrApiKey;
           // true only when both customerId and apiKey are present — used by tooltip/modal to gate alarm UI
           window.MyIOOrchestrator.alarmsConfigured = !!(gcdrCustomerId && gcdrApiKey);
           // RFC-0193: alarm notifications toggle — default true (undefined treated as enabled)
           window.MyIOOrchestrator.alarmNotificationsEnabled = alarmNotificationsEnabled;
           // RFC-0194: stable default dashboard ID + full config for management UI
-          window.MyIOOrchestrator.defaultDashboardId  = defaultDashboardCfg?.dashboardId ?? null;
+          window.MyIOOrchestrator.defaultDashboardId = defaultDashboardCfg?.dashboardId ?? null;
           window.MyIOOrchestrator.defaultDashboardCfg = defaultDashboardCfg;
         }
-        if (!gcdrApiKey) LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
+        if (!gcdrApiKey)
+          LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrApiKey:', gcdrApiKey ? '✅ set' : '❌ empty');
@@ -1473,7 +1505,11 @@ Object.assign(window.MyIOUtils, {
         // RFC-0180: Pre-fetch all customer alarms (non-blocking) so AlarmsTab can use them
         // without a per-device fetch when the Settings modal is opened.
         if (gcdrCustomerId) {
-          _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com');
+          _prefetchCustomerAlarms(
+            gcdrCustomerId,
+            gcdrTenantId,
+            window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com'
+          );
           _fetchAlarmDayMap(); // RFC-0193: populate today's alarm history map (all states)
         }
 
@@ -1559,7 +1595,9 @@ Object.assign(window.MyIOUtils, {
           `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
         );
         setTimeout(() => {
-          LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after error)`);
+          LogHelper.log(
+            `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (after error)`
+          );
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
               detail: { tab: _initialTab },
@@ -1576,7 +1614,9 @@ Object.assign(window.MyIOUtils, {
         `[MAIN_VIEW] Will dispatch initial tab event for default state: ${_initialTab} after 100ms delay...`
       );
       setTimeout(() => {
-        LogHelper.log(`[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no MyIOLibrary)`);
+        LogHelper.log(
+          `[MAIN_VIEW] Dispatching initial tab event for default state: ${_initialTab} (no MyIOLibrary)`
+        );
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
             detail: { tab: _initialTab },
@@ -1667,19 +1707,23 @@ Object.assign(window.MyIOUtils, {
     if (window.MyIOOrchestrator) {
       // Map 1: gcdrDeviceId (UUID) → human-readable label
       // Also indexed by short code "gcdr:<first8>" for old alarm format.
-      const gcdrMap = window.MyIOOrchestrator.gcdrDeviceNameMap instanceof Map
-        ? window.MyIOOrchestrator.gcdrDeviceNameMap : new Map();
+      const gcdrMap =
+        window.MyIOOrchestrator.gcdrDeviceNameMap instanceof Map
+          ? window.MyIOOrchestrator.gcdrDeviceNameMap
+          : new Map();
 
       // Map 2: TB entityName ("3F SCMOXUARAAC_EL7_L2") → entityLabel ("Elevador 7 L2")
       // Built from ALL datasource rows — no specific datakey needed.
-      const nameMap = window.MyIOOrchestrator.entityNameToLabelMap instanceof Map
-        ? window.MyIOOrchestrator.entityNameToLabelMap : new Map();
+      const nameMap =
+        window.MyIOOrchestrator.entityNameToLabelMap instanceof Map
+          ? window.MyIOOrchestrator.entityNameToLabelMap
+          : new Map();
 
       let gcdrChanged = false;
       let nameChanged = false;
 
       for (const row of ctxDataRows) {
-        const entityName  = row?.datasource?.entityName  || '';
+        const entityName = row?.datasource?.entityName || '';
         const entityLabel = row?.datasource?.entityLabel || '';
         // Prefer entityLabel (human-readable) over entityName (raw TB name)
         const label = entityLabel || entityName;
@@ -2006,10 +2050,10 @@ function parseDeviceCountAttributes(attributes) {
 // truly new alarms on subsequent refreshes (first load never notifies).
 // _lastKnownAlarmMap also stores the full alarm objects so closed-alarm details
 // (title, deviceName) can be shown in the closure toast.
-let _lastKnownAlarmIds     = null; // null = first load not yet done
-let _lastKnownAlarmMap     = null; // Map<id, alarm>
+let _lastKnownAlarmIds = null; // null = first load not yet done
+let _lastKnownAlarmMap = null; // Map<id, alarm>
 let _alarmNotificationTimer = null;
-let _alarmClosedNotifTimer  = null;
+let _alarmClosedNotifTimer = null;
 let _alarmDayMap = new Map(); // id → alarm (all states, today only — RFC-0193)
 
 /**
@@ -2026,13 +2070,16 @@ function _showNewAlarmNotification(newAlarms) {
   // Dismiss any existing notification
   const existing = document.getElementById('myio-alarm-notification');
   if (existing) existing.remove();
-  if (_alarmNotificationTimer) { clearTimeout(_alarmNotificationTimer); _alarmNotificationTimer = null; }
+  if (_alarmNotificationTimer) {
+    clearTimeout(_alarmNotificationTimer);
+    _alarmNotificationTimer = null;
+  }
 
   // Determine severity accent color (highest priority among new alarms)
   const SEVERITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
   const SEVERITY_COLORS = { CRITICAL: '#dc2626', HIGH: '#f59e0b', MEDIUM: '#3b82f6', LOW: '#6b7280' };
-  const topAlarm = [...newAlarms].sort((a, b) =>
-    (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
+  const topAlarm = [...newAlarms].sort(
+    (a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
   )[0];
   const accentColor = SEVERITY_COLORS[topAlarm?.severity] || '#f59e0b';
 
@@ -2117,7 +2164,10 @@ function _showNewAlarmNotification(newAlarms) {
   const dismiss = () => {
     el.style.animation = 'myio-notif-out 0.2s ease forwards';
     setTimeout(() => el.remove(), 200);
-    if (_alarmNotificationTimer) { clearTimeout(_alarmNotificationTimer); _alarmNotificationTimer = null; }
+    if (_alarmNotificationTimer) {
+      clearTimeout(_alarmNotificationTimer);
+      _alarmNotificationTimer = null;
+    }
   };
 
   el.querySelector('.notif-close').addEventListener('click', dismiss);
@@ -2140,19 +2190,22 @@ function _showClosedAlarmNotification(closedAlarms) {
   // Dismiss any existing closed-alarm notification
   const existing = document.getElementById('myio-alarm-closed-notification');
   if (existing) existing.remove();
-  if (_alarmClosedNotifTimer) { clearTimeout(_alarmClosedNotifTimer); _alarmClosedNotifTimer = null; }
+  if (_alarmClosedNotifTimer) {
+    clearTimeout(_alarmClosedNotifTimer);
+    _alarmClosedNotifTimer = null;
+  }
 
   // If a new-alarm toast is already visible, stack below it
   const newAlarmEl = document.getElementById('myio-alarm-notification');
-  const topOffset  = newAlarmEl ? (newAlarmEl.offsetHeight + 28) : 20;
+  const topOffset = newAlarmEl ? newAlarmEl.offsetHeight + 28 : 20;
 
   const GREEN = '#10b981';
   const count = closedAlarms.length;
   const label = count === 1 ? 'alarme encerrado' : 'alarmes encerrados';
   // Use the first closed alarm for the detail line
-  const topAlarm  = closedAlarms[0];
-  const firstTitle  = topAlarm?.title || topAlarm?.alarmType || 'Alarme';
-  const deviceName  = topAlarm?.deviceName || '';
+  const topAlarm = closedAlarms[0];
+  const firstTitle = topAlarm?.title || topAlarm?.alarmType || 'Alarme';
+  const deviceName = topAlarm?.deviceName || '';
 
   const el = document.createElement('div');
   el.id = 'myio-alarm-closed-notification';
@@ -2219,7 +2272,10 @@ function _showClosedAlarmNotification(closedAlarms) {
   const dismiss = () => {
     el.style.animation = 'myio-notif-out 0.2s ease forwards';
     setTimeout(() => el.remove(), 200);
-    if (_alarmClosedNotifTimer) { clearTimeout(_alarmClosedNotifTimer); _alarmClosedNotifTimer = null; }
+    if (_alarmClosedNotifTimer) {
+      clearTimeout(_alarmClosedNotifTimer);
+      _alarmClosedNotifTimer = null;
+    }
   };
 
   el.querySelector('.notif-close').addEventListener('click', dismiss);
@@ -2233,18 +2289,22 @@ function _showClosedAlarmNotification(closedAlarms) {
  * Exposes .listAll(), .listByStatus(status|string[]), .add(alarm), .remove(id), .count()
  */
 function _buildAlarmDayMap(alarms) {
-  _alarmDayMap = new Map((alarms || []).filter(a => a.id).map(a => [a.id, a]));
+  _alarmDayMap = new Map((alarms || []).filter((a) => a.id).map((a) => [a.id, a]));
   if (!window.MyIOOrchestrator) return;
   window.MyIOOrchestrator.alarmDayMap = {
-    listAll:       ()         => [..._alarmDayMap.values()],
-    listByStatus:  (status)   => {
+    listAll: () => [..._alarmDayMap.values()],
+    listByStatus: (status) => {
       if (!status) return [..._alarmDayMap.values()];
       const states = Array.isArray(status) ? status : [status];
-      return [..._alarmDayMap.values()].filter(a => states.includes(a.state));
+      return [..._alarmDayMap.values()].filter((a) => states.includes(a.state));
     },
-    add:    (alarm) => { if (alarm?.id) _alarmDayMap.set(alarm.id, alarm); },
-    remove: (id)    => { _alarmDayMap.delete(id); },
-    count:  ()      => _alarmDayMap.size,
+    add: (alarm) => {
+      if (alarm?.id) _alarmDayMap.set(alarm.id, alarm);
+    },
+    remove: (id) => {
+      _alarmDayMap.delete(id);
+    },
+    count: () => _alarmDayMap.size,
   };
 }
 
@@ -2252,34 +2312,41 @@ function _buildAlarmDayMap(alarms) {
  * Fetch all of today's alarms (no state filter) and populate alarmDayMap.
  */
 async function _fetchAlarmDayMap() {
-  const orch           = window.MyIOOrchestrator;
+  const orch = window.MyIOOrchestrator;
   const gcdrCustomerId = orch?.gcdrCustomerId;
-  const gcdrApiKey     = orch?.gcdrApiKey;
-  const gcdrTenantId   = orch?.gcdrTenantId || '';
-  const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  const gcdrApiKey = orch?.gcdrApiKey;
+  const gcdrTenantId = orch?.gcdrTenantId || '';
+  const alarmsBaseUrl = orch?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
   if (!gcdrCustomerId || !gcdrApiKey) {
     LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap: missing gcdrCustomerId or gcdrApiKey');
     return;
   }
   // Limpa imediatamente antes do fetch — badge vai a 0 enquanto os dados do novo customer chegam
   _buildAlarmDayMap([]);
-  const now        = new Date();
+  const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const from       = encodeURIComponent(todayStart.toISOString());
-  const to         = encodeURIComponent(now.toISOString());
-  const baseUrl    = `${alarmsBaseUrl}/api/v1/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
-  const headers    = { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId, 'Accept': 'application/json' };
+  const from = encodeURIComponent(todayStart.toISOString());
+  const to = encodeURIComponent(now.toISOString());
+  const baseUrl = `${alarmsBaseUrl}/api/v1/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
+  const headers = { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId, Accept: 'application/json' };
   try {
-    let allAlarms  = [];
-    let page       = 1;
+    let allAlarms = [];
+    let page = 1;
     let totalPages = 1;
     do {
       const resp = await fetch(`${baseUrl}&page=${page}`, { headers });
-      if (!resp.ok) { LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap failed:', resp.status); break; }
-      const json       = await resp.json();
-      const pageAlarms = Array.isArray(json.data) ? json.data
-                       : (Array.isArray(json.items) ? json.items
-                       : (Array.isArray(json.data?.items) ? json.data.items : []));
+      if (!resp.ok) {
+        LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap failed:', resp.status);
+        break;
+      }
+      const json = await resp.json();
+      const pageAlarms = Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json.items)
+          ? json.items
+          : Array.isArray(json.data?.items)
+            ? json.data.items
+            : [];
       allAlarms = allAlarms.concat(pageAlarms);
       if (page === 1) {
         totalPages = json.pagination?.totalPages ?? 1;
@@ -2287,7 +2354,13 @@ async function _fetchAlarmDayMap() {
       page++;
     } while (page <= totalPages);
     _buildAlarmDayMap(allAlarms);
-    LogHelper.log('[MAIN_VIEW] alarmDayMap populated:', allAlarms.length, 'alarms for today (pages:', totalPages, ')');
+    LogHelper.log(
+      '[MAIN_VIEW] alarmDayMap populated:',
+      allAlarms.length,
+      'alarms for today (pages:',
+      totalPages,
+      ')'
+    );
   } catch (err) {
     LogHelper.warn('[MAIN_VIEW] _fetchAlarmDayMap error:', err);
   }
@@ -2302,9 +2375,9 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
     const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
     const response = await fetch(url, {
       headers: {
-        'X-API-Key':    gcdrApiKey,
-        'X-Tenant-ID':  gcdrTenantId || '',
-        'Accept':       'application/json',
+        'X-API-Key': gcdrApiKey,
+        'X-Tenant-ID': gcdrTenantId || '',
+        Accept: 'application/json',
       },
     });
     if (!response.ok) {
@@ -2344,7 +2417,7 @@ function _buildAlarmServiceOrchestrator(alarms) {
   // Map: gcdrDeviceId → Set<alarmType>
   const deviceAlarmTypes = new Map();
   deviceAlarmMap.forEach((devAlarms, did) => {
-    deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
+    deviceAlarmTypes.set(did, new Set(devAlarms.map((a) => a.alarmType || a.title || 'unknown')));
   });
 
   window.AlarmServiceOrchestrator = {
@@ -2376,15 +2449,18 @@ function _buildAlarmServiceOrchestrator(alarms) {
     async refresh() {
       const orch = window.MyIOOrchestrator;
       const gcdrCustomerId = orch?.gcdrCustomerId || '';
-      const gcdrTenantId   = orch?.gcdrTenantId   || '';
-      const alarmsBaseUrl  = orch?.alarmsApiBaseUrl || '';
+      const gcdrTenantId = orch?.gcdrTenantId || '';
+      const alarmsBaseUrl = orch?.alarmsApiBaseUrl || '';
       await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl);
     },
   };
 
-  LogHelper.log('[AlarmServiceOrchestrator] Built —',
-    deviceAlarmMap.size, 'devices with alarms,',
-    normalizedAlarms.length, 'total alarms'
+  LogHelper.log(
+    '[AlarmServiceOrchestrator] Built —',
+    deviceAlarmMap.size,
+    'devices with alarms,',
+    normalizedAlarms.length,
+    'total alarms'
   );
 
   // ── Contamination detector ──────────────────────────────────────────────
@@ -2401,7 +2477,9 @@ function _buildAlarmServiceOrchestrator(alarms) {
         const gid = item.gcdrDeviceId;
         if (!gid || !deviceAlarmMap.has(gid)) continue; // only care about alarm-matched IDs
         if (!gcdrIdToItems.has(gid)) gcdrIdToItems.set(gid, []);
-        gcdrIdToItems.get(gid).push({ tbId: item.id || item.tbId || '?', label: item.label || item.name || '?' });
+        gcdrIdToItems
+          .get(gid)
+          .push({ tbId: item.id || item.tbId || '?', label: item.label || item.name || '?' });
       }
     }
     let extraBadges = 0;
@@ -2410,13 +2488,16 @@ function _buildAlarmServiceOrchestrator(alarms) {
         extraBadges += items.length - 1;
         LogHelper.warn(
           `[AlarmServiceOrchestrator] ⚠️ gcdrDeviceId contamination detected: "${gid}" is shared by ${items.length} TB devices.`,
-          'Expected 1, found:', items.map(i => `${i.label} (${i.tbId})`).join(', '),
+          'Expected 1, found:',
+          items.map((i) => `${i.label} (${i.tbId})`).join(', '),
           '→ Run Force Clear + re-sync to fix.'
         );
       }
     });
     if (extraBadges > 0) {
-      LogHelper.warn(`[AlarmServiceOrchestrator] ⚠️ ${extraBadges} extra badge(s) will appear in TELEMETRY due to contamination.`);
+      LogHelper.warn(
+        `[AlarmServiceOrchestrator] ⚠️ ${extraBadges} extra badge(s) will appear in TELEMETRY due to contamination.`
+      );
     }
   }
   // ────────────────────────────────────────────────────────────────────────
@@ -2426,7 +2507,7 @@ function _buildAlarmServiceOrchestrator(alarms) {
   const currentIds = new Set(normalizedAlarms.map((a) => a.id).filter(Boolean));
   const currentMap = new Map(normalizedAlarms.filter((a) => a.id).map((a) => [a.id, a]));
   if (_lastKnownAlarmIds !== null) {
-    const newAlarms    = normalizedAlarms.filter((a) => a.id && !_lastKnownAlarmIds.has(a.id));
+    const newAlarms = normalizedAlarms.filter((a) => a.id && !_lastKnownAlarmIds.has(a.id));
     const closedAlarms = [..._lastKnownAlarmMap.values()].filter((a) => !currentIds.has(a.id));
     if (newAlarms.length > 0) {
       LogHelper.log('[AlarmServiceOrchestrator] RFC-0192: detected', newAlarms.length, 'new alarm(s)');
@@ -2442,9 +2523,11 @@ function _buildAlarmServiceOrchestrator(alarms) {
 
   // Notify all subscribers that alarm data is fresh.
   // Receivers: ALARM widget (panel update), TELEMETRY (badge refresh), AlarmsTab (device grid).
-  window.dispatchEvent(new CustomEvent('myio:alarms-updated', {
-    detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:alarms-updated', {
+      detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
+    })
+  );
 }
 
 async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {
@@ -2505,33 +2588,33 @@ function validateDeviceCounts(serverCounts) {
 
   // Validate Energy — total + per-category
   if (state?.energy) {
-    const lojas   = state.energy.lojas?.count   || 0;
-    const entrada = state.energy.entrada?.count  || 0;
-    const area    = state.energy.areacomum?.count || 0;
+    const lojas = state.energy.lojas?.count || 0;
+    const entrada = state.energy.entrada?.count || 0;
+    const area = state.energy.areacomum?.count || 0;
 
-    pushIf('energy', 'total',      serverCounts.energy.total,      lojas + entrada + area);
-    pushIf('energy', 'stores',     serverCounts.energy.stores,     lojas);
-    pushIf('energy', 'entries',    serverCounts.energy.entries,    entrada);
+    pushIf('energy', 'total', serverCounts.energy.total, lojas + entrada + area);
+    pushIf('energy', 'stores', serverCounts.energy.stores, lojas);
+    pushIf('energy', 'entries', serverCounts.energy.entries, entrada);
     pushIf('energy', 'commonArea', serverCounts.energy.commonArea, area);
   }
 
   // Validate Water — total + per-category
   if (state?.water) {
-    const lojas   = state.water.lojas?.count   || 0;
-    const entrada = state.water.entrada?.count  || 0;
-    const area    = state.water.areacomum?.count || 0;
+    const lojas = state.water.lojas?.count || 0;
+    const entrada = state.water.entrada?.count || 0;
+    const area = state.water.areacomum?.count || 0;
 
-    pushIf('water', 'total',      serverCounts.water.total,      lojas + entrada + area);
-    pushIf('water', 'stores',     serverCounts.water.stores,     lojas);
-    pushIf('water', 'entries',    serverCounts.water.entries,    entrada);
+    pushIf('water', 'total', serverCounts.water.total, lojas + entrada + area);
+    pushIf('water', 'stores', serverCounts.water.stores, lojas);
+    pushIf('water', 'entries', serverCounts.water.entries, entrada);
     pushIf('water', 'commonArea', serverCounts.water.commonArea, area);
   }
 
   // Validate Temperature — total only (no sub-categories stored in STATE)
   if (state?.temperature) {
     const total =
-      (state.temperature.lojas?.count   || 0) +
-      (state.temperature.entrada?.count  || 0) +
+      (state.temperature.lojas?.count || 0) +
+      (state.temperature.entrada?.count || 0) +
       (state.temperature.areacomum?.count || 0);
 
     pushIf('temperature', 'total', serverCounts.temperature.total, total);
@@ -2601,10 +2684,10 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
 function categorizeItemsByGroup(items) {
   const ENTRADA_PROFILES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
 
-  const lojas    = [];
-  const entrada  = [];
+  const lojas = [];
+  const entrada = [];
   const areacomum = [];
-  const ocultos  = [];
+  const ocultos = [];
 
   const toStr = (val) => String(val || '').toUpperCase();
 
@@ -2659,12 +2742,12 @@ function categorizeItemsByGroup(items) {
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroupWater(items) {
-  const entrada    = [];
-  const lojas      = [];
-  const banheiros  = [];
-  const areacomum  = [];
+  const entrada = [];
+  const lojas = [];
+  const banheiros = [];
+  const areacomum = [];
   const caixadagua = [];
-  const ocultos    = [];
+  const ocultos = [];
 
   const toStr = (val) => String(val || '').toUpperCase();
 
@@ -2724,9 +2807,9 @@ function categorizeItemsByGroupWater(items) {
  * 2. CLIMATIZAVEL     - deviceProfile === 'TERMOSTATO' (or any remaining termostato variant)
  */
 function categorizeItemsByGroupTemperature(items) {
-  const climatizavel     = [];
+  const climatizavel = [];
   const nao_climatizavel = [];
-  const ocultos          = [];
+  const ocultos = [];
 
   const toStr = (val) => String(val || '').toUpperCase();
 
@@ -2763,15 +2846,41 @@ function buildGroupData(items) {
  * RFC-0106: Pre-compute ALL tooltip data so TELEMETRY_INFO just reads it
  */
 function buildSummary(lojas, entrada, areacomum, periodKey) {
-  // ============ TOTALS ============
-  const lojasTotal = lojas.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const entradaTotal = entrada.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const areacomumTotal = areacomum.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  // grandTotal uses `let` — re-assigned below if group exclusions are active
+  // --- HELPER INTELIGENTE (Lê o JSON do próprio device) ---
+  // Se o device manda excluir deste grupo, retorna 0 para a soma, mas não oculta o card.
+  const getValorEfetivo = (item, nomeDoGrupo) => {
+    const val = Number(item.value) || 0;
+    if (!item.excludeGroupsTotals) return val; // Se não tem a flag no device, soma normal
+
+    try {
+      const parsed =
+        typeof item.excludeGroupsTotals === 'string'
+          ? JSON.parse(item.excludeGroupsTotals)
+          : item.excludeGroupsTotals;
+      if (parsed && parsed.enabled && Array.isArray(parsed.excludedGroups)) {
+        // Padroniza para minúsculo para evitar bugs de digitação
+        const gruposExcluidos = parsed.excludedGroups.map((g) => String(g).toLowerCase());
+        if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
+          return 0; // O card continua existindo, mas vale ZERO para o totalizador!
+        }
+      } else if (parsed && parsed.enabled && parsed.groups && typeof parsed.groups === 'object') {
+        if (parsed.groups[nomeDoGrupo] === true) return 0;
+      }
+    } catch (e) {
+      console.warn('Erro ao ler exclude_groups_totals do dispositivo', item.label, e);
+    }
+    return val;
+  };
+  // --------------------------------------------------------
+
+  // ============ TOTALS (Usando o Helper) ============
+  const lojasTotal = lojas.reduce((sum, item) => sum + getValorEfetivo(item, 'lojas'), 0);
+  const entradaTotal = entrada.reduce((sum, item) => sum + getValorEfetivo(item, 'entrada'), 0);
+  const areacomumTotal = areacomum.reduce((sum, item) => sum + getValorEfetivo(item, 'area_comum'), 0);
+
   let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
 
   // ============ PERCENTAGE HELPER ============
-  // Reads grandTotal by reference — reflects exclusions after re-assignment below
   const calcPerc = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
@@ -2800,20 +2909,17 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const escadasRolantesItems = [];
   const outrosItems = [];
 
-  // Subcategories within climatizacao
   const chillerItems = [];
   const fancoilItems = [];
   const bombaHidraulicaItems = [];
   const cagItems = [];
   const hvacOutrosItems = [];
 
-  // Subcategories within outros
   const iluminacaoItems = [];
   const bombaIncendioItems = [];
   const geradorItems = [];
   const outrosGeralItems = [];
 
-  // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of areacomum) {
@@ -2829,7 +2935,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       escadasRolantesItems.push(item);
     } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p))) {
       climatizacaoItems.push(item);
-      // Sub-classify within climatizacao
       if (combined.includes('CHILLER')) chillerItems.push(item);
       else if (combined.includes('FANCOIL')) fancoilItems.push(item);
       else if (
@@ -2842,7 +2947,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       else hvacOutrosItems.push(item);
     } else {
       outrosItems.push(item);
-      // Sub-classify within outros
       if (ILUMINACAO_PATTERNS.some((p) => combined.includes(p))) {
         iluminacaoItems.push(item);
       } else if (BOMBA_INCENDIO_PATTERNS.some((p) => combined.includes(p))) {
@@ -2856,7 +2960,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ FILTER EXCLUDED DEVICES FROM CAG ============
-  // RFC: excludeDevicesAtCountSubtotalCAG - remove specified entity IDs from CAG calculation
   const excludeIds = widgetSettings.excludeDevicesAtCountSubtotalCAG || [];
   const excludeIdsSet = new Set(excludeIds.map((id) => String(id).trim().toLowerCase()));
 
@@ -2872,59 +2975,50 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       }
       return !isExcluded;
     });
-
-    if (excludedFromCAG.length > 0) {
-      const excludedTotal = excludedFromCAG.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-      LogHelper.log(
-        `[buildSummary] 🚫 Excluded ${
-          excludedFromCAG.length
-        } devices from CAG subtotal (${excludedTotal.toFixed(2)} kWh):`,
-        excludedFromCAG.map((i) => ({ id: i.id, label: i.label, value: i.value }))
-      );
-    }
   }
 
-  // ============ CALCULATE SUB-TOTALS ============
-  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const escadasRolantesTotal = escadasRolantesItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const outrosTotal = outrosItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  // ============ CALCULATE SUB-TOTAIS (Usando o Helper) ============
+  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
+  const escadasRolantesTotal = escadasRolantesItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
+    0
+  );
+  const outrosTotal = outrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
 
-  // Climatizacao subcategories totals (CAG uses filtered list)
-  const chillerTotal = chillerItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const fancoilTotal = fancoilItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const bombaHidraulicaTotal = bombaHidraulicaItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const cagTotal = cagItemsFiltered.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const hvacOutrosTotal = hvacOutrosItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  // Climatizacao subcategories totals (O Helper usa 'climatizacao' para herdar a regra do pai)
+  const chillerTotal = chillerItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const fancoilTotal = fancoilItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const bombaHidraulicaTotal = bombaHidraulicaItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const cagTotal = cagItemsFiltered.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  const hvacOutrosTotal = hvacOutrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
 
-  // Outros subcategories totals
-  const iluminacaoTotal = iluminacaoItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const bombaIncendioTotal = bombaIncendioItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const geradorTotal = geradorItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  // Outros subcategories totals (O Helper usa 'outros' para herdar a regra do pai)
+  const iluminacaoTotal = iluminacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+  const bombaIncendioTotal = bombaIncendioItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+  const geradorTotal = geradorItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+  const outrosGeralTotal = outrosGeralItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
 
-  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO ============
-  // Reads _excludeGroupsTotals set in onInit / myio:exclusion-groups-updated event.
-  // When a group is excluded, its value is zeroed in grandTotal.
-  // Individual category totals remain unchanged (devices still visible in panels).
+  // ============ EXCLUSÃO DE GRUPOS DE CÁLCULO GLOBAIS ============
+  // Lê a configuração do Shopping (SettingsModal) e se sobrepõe
   const _exclEnabled = _excludeGroupsTotals?.enabled === true;
   if (_exclEnabled) {
     const _exclGroups = _excludeGroupsTotals.groups || {};
-    const _lojasEff          = _exclGroups.lojas           ? 0 : lojasTotal;
-    const _entradaEff        = _exclGroups.entrada          ? 0 : entradaTotal;
-    const _climatizacaoEff   = _exclGroups.climatizacao     ? 0 : climatizacaoTotal;
-    const _elevadoresEff     = _exclGroups.elevadores       ? 0 : elevadoresTotal;
-    const _escadasEff        = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
-    const _outrosEff         = _exclGroups.outros           ? 0 : outrosTotal;
-    const _areacomumSubtot   = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
+    const _lojasEff = _exclGroups.lojas ? 0 : lojasTotal;
+    const _entradaEff = _exclGroups.entrada ? 0 : entradaTotal;
+    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : climatizacaoTotal;
+    const _elevadoresEff = _exclGroups.elevadores ? 0 : elevadoresTotal;
+    const _escadasEff = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
+    const _outrosEff = _exclGroups.outros ? 0 : outrosTotal;
+    const _areacomumSubtot = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
     const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
-    const _residualEff       = _exclGroups.area_comum ? 0 : _areacomumResidual;
-    const _areacomumEff      = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
+    const _residualEff = _exclGroups.area_comum ? 0 : _areacomumResidual;
+    const _areacomumEff = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
+
     grandTotal = _lojasEff + _entradaEff + _areacomumEff;
-    LogHelper.log(
-      '[buildSummary] 🚫 Exclusão de grupos aplicada:',
-      { excluded: Object.entries(_exclGroups).filter(([, v]) => v).map(([k]) => k), grandTotal }
-    );
   }
 
   // ============ DEVICE STATUS AGGREGATION ============
@@ -2944,13 +3038,12 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       devices: items.map((i) => {
         const baseLabel = i.label || i.name || '';
         const identifier = i.identifier || '';
-        // Show "label (identifier)" if identifier exists and is different from label
         const displayLabel =
           identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel;
         return {
           id: i.id,
           label: displayLabel,
-          value: i.value,
+          value: i.value, // Mantém o valor original para exibição no card
           deviceStatus: i.deviceStatus,
         };
       }),
@@ -2961,8 +3054,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   return {
     total: grandTotal,
     periodKey: periodKey,
-
-    // Legacy structure (backwards compatibility)
     byGroup: {
       lojas: { total: lojasTotal, count: lojas.length },
       entrada: { total: entradaTotal, count: entrada.length },
@@ -2982,9 +3073,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       }),
       total: grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
-
-    // ============ TOOLTIP-READY DATA ============
-    // Each category has .summary (totals) and .details (device list)
     entrada: buildCategorySummary(entrada, entradaTotal, 'Entrada'),
     lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
     climatizacao: {
@@ -3013,8 +3101,6 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       },
     },
     areaComum: buildCategorySummary(areacomum, areacomumTotal, 'Área Comum'),
-
-    // ============ RESUMO GERAL (GRAND TOTAL + STATUS) ============
     resumo: {
       summary: {
         total: grandTotal,
@@ -3035,21 +3121,16 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
         byStatus: statusAggregation,
       },
     },
-
-    // ============ DEVICE STATUS AGGREGATION (for tooltip) ============
     deviceStatusAggregation: statusAggregation,
-
-    // ============ EXCLUDED DEVICES FROM CAG SUBTOTAL ============
-    // RFC: excludeDevicesAtCountSubtotalCAG - list of devices excluded from CAG calculation
     excludedFromCAG: excludedFromCAG.map((item) => ({
       id: item.id,
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
-
-    // ============ EXCLUSÃO DE GRUPOS ============
     excludedGroups: _exclEnabled
-      ? Object.entries((_excludeGroupsTotals?.groups || {})).filter(([, v]) => v).map(([k]) => k)
+      ? Object.entries(_excludeGroupsTotals?.groups || {})
+          .filter(([, v]) => v)
+          .map(([k]) => k)
       : [],
     exclusionGroupsEnabled: _exclEnabled,
   };
@@ -3354,10 +3435,10 @@ function populateState(domain, items, periodKey) {
   if (window.MyIOOrchestrator) {
     const allRaw = [
       ...(window.STATE.energy?._raw || []),
-      ...(window.STATE.water?._raw  || []),
+      ...(window.STATE.water?._raw || []),
       ...(window.STATE.temperature?._raw || []),
     ];
-    const centralIdSet = new Set(allRaw.map(i => i.centralId).filter(Boolean));
+    const centralIdSet = new Set(allRaw.map((i) => i.centralId).filter(Boolean));
     window.MyIOOrchestrator.centralIds = Array.from(centralIdSet).sort();
   }
 
@@ -4610,17 +4691,15 @@ const MyIOOrchestrator = (() => {
     const domain = isWaterDevice ? 'water' : isTempDevice ? 'temperature' : 'energy';
     // RFC-0188: Prefer lastTelemetryTs from Data Apps API (ingestion backend) over TB broker timestamps.
     // Priority: apiRow.lastTelemetryTs (direct, water/energy) → overrides.lastTelemetryTs (temperature RFC-0189) → meta timestamps
-    const apiRowLastTs = apiRow?.lastTelemetryTs
-      ? new Date(apiRow.lastTelemetryTs).getTime()
-      : null;
-    const apiLastTs = apiRowLastTs ?? (overrides?.lastTelemetryTs ?? null);
-    const telemetryTimestamp = apiLastTs ?? (
-      isWaterDevice
+    const apiRowLastTs = apiRow?.lastTelemetryTs ? new Date(apiRow.lastTelemetryTs).getTime() : null;
+    const apiLastTs = apiRowLastTs ?? overrides?.lastTelemetryTs ?? null;
+    const telemetryTimestamp =
+      apiLastTs ??
+      (isWaterDevice
         ? meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs
         : isTempDevice
           ? meta.temperatureTs
-          : meta.consumptionTs
-    );
+          : meta.consumptionTs);
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     // RFC-0130: Pass deviceProfile for delay time calculation
@@ -4639,7 +4718,9 @@ const MyIOOrchestrator = (() => {
         `[RFC-0188] Water device "${debugLabel}" connectionStatus=${meta.connectionStatus} → deviceStatus=${deviceStatus}`,
         {
           apiRowLastTs: apiRowLastTs ? new Date(apiRowLastTs).toISOString() : null,
-          overridesLastTs: overrides?.lastTelemetryTs ? new Date(overrides.lastTelemetryTs).toISOString() : null,
+          overridesLastTs: overrides?.lastTelemetryTs
+            ? new Date(overrides.lastTelemetryTs).toISOString()
+            : null,
           metaPulsesTs: meta.pulsesTs ? new Date(meta.pulsesTs).toISOString() : null,
           telemetryTimestamp: telemetryTimestamp ? new Date(telemetryTimestamp).toISOString() : null,
           shortDelayMins,
@@ -4751,6 +4832,7 @@ const MyIOOrchestrator = (() => {
 
       // Annotations
       log_annotations: meta.log_annotations || null,
+      excludeGroupsTotals: meta.excludeGroupsTotals || null,
 
       // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
       gcdrDeviceId: meta.gcdrDeviceId || null,
@@ -4905,6 +4987,7 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
+      else if (keyName === 'exclude_groups_totals') meta.excludeGroupsTotals = val;
       // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
       else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
       // RFC-0152: Per-device GCDR mapping fields (server_scope attrs for TB↔GCDR sync audit)
@@ -5205,7 +5288,7 @@ const MyIOOrchestrator = (() => {
 
         // RFC-0189: Per-device API calls over the last 72h to derive lastTelemetryTs and last temperature value
         // Key: ingestionId → Unix ms timestamp / raw sensor value of last consumption entry
-        const apiTsMap    = new Map();
+        const apiTsMap = new Map();
         const apiValueMap = new Map(); // ingestionId → last temperature value (°C, raw before offset)
 
         if (useApi) {
@@ -5221,17 +5304,18 @@ const MyIOOrchestrator = (() => {
             if (!MyIO) throw new Error('MyIOLibrary not available');
             const myIOAuth = MyIO.buildMyioIngestionAuth({
               dataApiHost: DATA_API_HOST,
-              clientId:    latestCreds.CLIENT_ID,
+              clientId: latestCreds.CLIENT_ID,
               clientSecret: latestCreds.CLIENT_SECRET,
             });
             const token = await myIOAuth.getToken();
 
             // Fixed 72-hour window — independent of the dashboard period
-            const endTime   = new Date().toISOString();
+            const endTime = new Date().toISOString();
             const startTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-            const devicesWithIngestionId = [...metadataByEntityId.values()]
-              .filter((meta) => !!meta.ingestionId);
+            const devicesWithIngestionId = [...metadataByEntityId.values()].filter(
+              (meta) => !!meta.ingestionId
+            );
 
             LogHelper.log(
               `[Orchestrator] 🌡️ RFC-0189: Fetching temperature API for ${devicesWithIngestionId.length} devices (last 72h)`
@@ -5254,20 +5338,19 @@ const MyIOOrchestrator = (() => {
 
                 const json = await res.json();
                 const rows = Array.isArray(json) ? json : [];
-                const row  = rows.find((r) => r.id === meta.ingestionId) || rows[0] || null;
+                const row = rows.find((r) => r.id === meta.ingestionId) || rows[0] || null;
 
                 if (!row || !Array.isArray(row.consumption) || row.consumption.length === 0) {
                   return null;
                 }
 
                 // Last entry = most recent data point from ingestion backend
-                const lastEntry       = row.consumption[row.consumption.length - 1];
-                const lastTelemetryTs = lastEntry?.timestamp
-                  ? new Date(lastEntry.timestamp).getTime()
-                  : null;
-                const lastValue = (lastEntry?.value !== undefined && lastEntry?.value !== null)
-                  ? Number(lastEntry.value)
-                  : null;
+                const lastEntry = row.consumption[row.consumption.length - 1];
+                const lastTelemetryTs = lastEntry?.timestamp ? new Date(lastEntry.timestamp).getTime() : null;
+                const lastValue =
+                  lastEntry?.value !== undefined && lastEntry?.value !== null
+                    ? Number(lastEntry.value)
+                    : null;
 
                 return lastTelemetryTs ? { ingestionId: meta.ingestionId, lastTelemetryTs, lastValue } : null;
               })
@@ -5316,14 +5399,14 @@ const MyIOOrchestrator = (() => {
               entityId,
               meta,
               overrides: {
-                label:             meta.label || meta.identifier || 'Sensor',
-                entityLabel:       meta.label || meta.identifier || 'Sensor',
-                name:              meta.label || meta.identifier || 'Sensor',
-                value:             temperatureValue,   // RFC-0189: API last value when enabled, else ctx.data
-                temperature:       temperatureValue,
-                deviceType:        meta.deviceType || 'TERMOSTATO',
+                label: meta.label || meta.identifier || 'Sensor',
+                entityLabel: meta.label || meta.identifier || 'Sensor',
+                name: meta.label || meta.identifier || 'Sensor',
+                value: temperatureValue, // RFC-0189: API last value when enabled, else ctx.data
+                temperature: temperatureValue,
+                deviceType: meta.deviceType || 'TERMOSTATO',
                 offSetTemperature: tempOffset,
-                lastTelemetryTs,  // RFC-0189 + RFC-0188: null when API disabled/unavailable (graceful fallback)
+                lastTelemetryTs, // RFC-0189 + RFC-0188: null when API disabled/unavailable (graceful fallback)
               },
             })
           );
@@ -5334,7 +5417,7 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(
           `[Orchestrator] 🌡️ Temperature items: ${items.length}` +
-          (useApi ? ` | API ts enriched: ${apiTsMap.size}` : ' | ctx.data only')
+            (useApi ? ` | API ts enriched: ${apiTsMap.size}` : ' | ctx.data only')
         );
         return items;
       }
@@ -5711,7 +5794,9 @@ const MyIOOrchestrator = (() => {
         const metaOnly = [...metaIngestionIds].filter((id) => !apiIds.has(id));
 
         if (apiOnly.length > 0 || metaOnly.length > 0) {
-          LogHelper.log(`[RFC-0108] Water ID mismatch: ${apiOnly.length} API-only, ${metaOnly.length} meta-only`);
+          LogHelper.log(
+            `[RFC-0108] Water ID mismatch: ${apiOnly.length} API-only, ${metaOnly.length} meta-only`
+          );
         }
       }
 
@@ -5815,9 +5900,7 @@ const MyIOOrchestrator = (() => {
               assetId: apiRow?.assetId || null,
               assetName: apiRow?.assetName || null,
               // RFC-0188: authoritative offline timestamp from ingestion backend (ISO-8601 → Unix ms)
-              lastTelemetryTs: apiRow?.lastTelemetryTs
-                ? new Date(apiRow.lastTelemetryTs).getTime()
-                : null,
+              lastTelemetryTs: apiRow?.lastTelemetryTs ? new Date(apiRow.lastTelemetryTs).getTime() : null,
               // Power limits and instantaneous power
               deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
               consumptionPower: meta.consumption || null,
@@ -5882,7 +5965,7 @@ const MyIOOrchestrator = (() => {
               : null;
             LogHelper.log(
               `[RFC-0188] Hidrometro merge "${hidro.label}": deviceStatus ${prevStatus} → ${hidro.deviceStatus}` +
-              `, lastTelemetryTs=${hidro.lastTelemetryTsFormatted || 'null'}`
+                `, lastTelemetryTs=${hidro.lastTelemetryTsFormatted || 'null'}`
             );
             mergedCount++;
           } else {
@@ -6363,11 +6446,18 @@ const MyIOOrchestrator = (() => {
     }
   });
 
-  // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
-  window.addEventListener('myio:exclusion-groups-updated', (ev) => {
-    _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
-    LogHelper.log('[MAIN_VIEW] exclusion groups updated — re-hydrating energy domain:', _excludeGroupsTotals);
-    if (currentPeriod) {
+  window.addEventListener('myio:device-exclusion-updated', (ev) => {
+    LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
+    // Força re-hydratação; a mudança visual ocorre quando o TB enviar o próximo onDataUpdated
+    // com o atributo exclude_groups_totals atualizado.
+    if (ev.detail?.exclude_groups_totals !== undefined) {
+      _excludeGroupsTotals = ev.detail.exclude_groups_totals;
+    }
+
+    const cachedEnergy = window.MyIOOrchestratorData?.energy;
+    if (cachedEnergy?.items?.length > 0) {
+      emitProvide('energy', cachedEnergy.periodKey, cachedEnergy.items);
+    } else if (currentPeriod) {
       hydrateDomain('energy', currentPeriod, { force: true });
     }
   });
@@ -6693,35 +6783,29 @@ const MyIOOrchestrator = (() => {
 
     async gcdrPatchRuleScope(ruleId, entityIds) {
       const orch = window.MyIOOrchestrator;
-      const response = await fetch(
-        `${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'X-API-Key': orch.gcdrApiKey,
-            'X-Tenant-ID': orch.gcdrTenantId,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
-        }
-      );
+      const response = await fetch(`${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`, {
+        method: 'PATCH',
+        headers: {
+          'X-API-Key': orch.gcdrApiKey,
+          'X-Tenant-ID': orch.gcdrTenantId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scope: { type: 'DEVICE', entityIds } }),
+      });
       return response.ok;
     },
 
     async gcdrPatchRuleValue(ruleId, alarmConfig) {
       const orch = window.MyIOOrchestrator;
-      const response = await fetch(
-        `${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'X-API-Key': orch.gcdrApiKey,
-            'X-Tenant-ID': orch.gcdrTenantId,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ alarmConfig }),
-        }
-      );
+      const response = await fetch(`${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`, {
+        method: 'PATCH',
+        headers: {
+          'X-API-Key': orch.gcdrApiKey,
+          'X-Tenant-ID': orch.gcdrTenantId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ alarmConfig }),
+      });
       return response.ok;
     },
 
@@ -6743,14 +6827,14 @@ const MyIOOrchestrator = (() => {
      */
     async gcdrEnqueueCloseAlarms(ruleId, deviceId) {
       const orch = window.MyIOOrchestrator;
-      const url  = `${orch.alarmsApiBaseUrl}/api/v1/alarms/enqueue-close`;
+      const url = `${orch.alarmsApiBaseUrl}/api/v1/alarms/enqueue-close`;
       try {
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Tenant-ID':  orch.gcdrTenantId || '',
-            'X-API-KEY':    orch.gcdrApiKey    || '',
+            'X-Tenant-ID': orch.gcdrTenantId || '',
+            'X-API-KEY': orch.gcdrApiKey || '',
           },
           body: JSON.stringify({
             customerId: orch.gcdrCustomerId,
@@ -6817,7 +6901,9 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   setTimeout(() => {
     const domain = window.MyIOOrchestrator?.getVisibleTab?.();
     if (!domain) {
-      LogHelper.log('[Orchestrator] ⏳ RFC-0130: No visible tab yet, skipping auto-trigger (MENU will fire myio:dashboard-state)');
+      LogHelper.log(
+        '[Orchestrator] ⏳ RFC-0130: No visible tab yet, skipping auto-trigger (MENU will fire myio:dashboard-state)'
+      );
       return;
     }
     const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
@@ -6880,7 +6966,11 @@ async function initializeContractLoading() {
 
   try {
     // Fetch device counts from SERVER_SCOPE
-    const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID, 'CUSTOMER', self.ctx?.settings?.tbBaseUrl || '');
+    const deviceCounts = await fetchDeviceCountAttributes(
+      customerTB_ID,
+      'CUSTOMER',
+      self.ctx?.settings?.tbBaseUrl || ''
+    );
 
     if (deviceCounts) {
       LogHelper.log('[RFC-0107] Device counts fetched:', deviceCounts);
@@ -6923,7 +7013,9 @@ function setupContractValidationListeners(expectedCounts) {
     const isEnabled = enabledDomains[d];
     const hasDevices = expectedCounts[d]?.total > 0;
     if (isEnabled && !hasDevices) {
-      LogHelper.log(`[RFC-0107] Domain ${d} enabled but has no configured devices (total=0), skipping validation`);
+      LogHelper.log(
+        `[RFC-0107] Domain ${d} enabled but has no configured devices (total=0), skipping validation`
+      );
     }
     return isEnabled && hasDevices;
   });
@@ -6932,7 +7024,9 @@ function setupContractValidationListeners(expectedCounts) {
 
   // If no domains have configured devices, finalize immediately with current state
   if (activeDomains.length === 0) {
-    LogHelper.log('[RFC-0107] No domains with configured devices, finalizing contract validation immediately');
+    LogHelper.log(
+      '[RFC-0107] No domains with configured devices, finalizing contract validation immediately'
+    );
     storeContractState(expectedCounts, { isValid: true, discrepancies: [] });
     return;
   }
@@ -6954,18 +7048,30 @@ function setupContractValidationListeners(expectedCounts) {
   const finalizeWithTimeout = () => {
     if (validationFinalized) return;
 
-    const loadedDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => loaded).map(([d]) => d);
-    const pendingDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => !loaded).map(([d]) => d);
+    const loadedDomains = Object.entries(domainsLoaded)
+      .filter(([_, loaded]) => loaded)
+      .map(([d]) => d);
+    const pendingDomains = Object.entries(domainsLoaded)
+      .filter(([_, loaded]) => !loaded)
+      .map(([d]) => d);
 
-    LogHelper.warn(`[RFC-0107] Validation timeout after ${VALIDATION_TIMEOUT_MS}ms - finalizing with partial data`);
-    LogHelper.log(`[RFC-0107] Loaded domains: [${loadedDomains.join(', ')}], Pending: [${pendingDomains.join(', ')}]`);
+    LogHelper.warn(
+      `[RFC-0107] Validation timeout after ${VALIDATION_TIMEOUT_MS}ms - finalizing with partial data`
+    );
+    LogHelper.log(
+      `[RFC-0107] Loaded domains: [${loadedDomains.join(', ')}], Pending: [${pendingDomains.join(', ')}]`
+    );
 
     validationFinalized = true;
     window.removeEventListener('myio:state:ready', handleStateReady);
     window.removeEventListener('myio:domain:fetch-complete', handleFetchComplete);
 
     // Finalize with whatever data we have - skip validation for pending domains
-    storeContractState(expectedCounts, { isValid: true, discrepancies: [], partialLoad: pendingDomains.length > 0 });
+    storeContractState(expectedCounts, {
+      isValid: true,
+      discrepancies: [],
+      partialLoad: pendingDomains.length > 0,
+    });
   };
 
   validationTimeoutId = setTimeout(finalizeWithTimeout, VALIDATION_TIMEOUT_MS);
