@@ -2873,52 +2873,60 @@ function buildGroupData(items) {
  * RFC-0106: Pre-compute ALL tooltip data so TELEMETRY_INFO just reads it
  */
 function buildSummary(lojas, entrada, areacomum, periodKey) {
-  // --- HELPER INTELIGENTE (Lê o JSON do próprio device) ---
-  // Se o device manda excluir deste grupo, retorna 0 para a soma, mas não oculta o card.
+  // Per-device exclusion helper — reads exclude_groups_totals from the item's own TB attribute.
+  // Returns 0 to exclude the device's value from the group total without hiding its card.
+  // Supports two shields to prevent value leakage across the parent/child group hierarchy:
+  //   - Bottom-up: if a sub-group (e.g. climatizacao) is excluded, the value must also be
+  //     zeroed when summing the parent (area_comum), otherwise it leaks into the residual.
+  //   - Top-down: if area_comum is excluded entirely, all sub-groups must also return 0
+  //     to keep subcategory totals consistent with the parent exclusion.
+  const SUB_GROUPS = ['climatizacao', 'elevadores', 'escadas_rolantes', 'outros'];
 
   const getValorEfetivo = (item, nomeDoGrupo) => {
     const val = Number(item.value) || 0;
-    if (!item.excludeGroupsTotals) return val; // Se não tem a flag no device, soma normal
+    if (!item.excludeGroupsTotals) return val; // no per-device rule — count normally
 
     try {
       const parsed =
         typeof item.excludeGroupsTotals === 'string'
           ? JSON.parse(item.excludeGroupsTotals)
           : item.excludeGroupsTotals;
-          
+
       if (parsed && parsed.enabled) {
-        // Descobre a qual categoria este equipamento realmente pertence (Usa a função global)
-        const categoriaReal = classifyDevice(item);
+        // classifyDevice is only needed for the bottom-up shield (area_comum sums) and
+        // the legacy top-down path; skip the call for direct group checks.
+        const needsClassify = nomeDoGrupo === 'area_comum' || SUB_GROUPS.includes(nomeDoGrupo);
+        const categoriaReal = needsClassify ? classifyDevice(item) : null;
 
         if (parsed.groups && typeof parsed.groups === 'object') {
-          // 1. Se o grupo exato da soma atual foi marcado para exclusão -> Zera.
+          // 1. Direct match: this group is explicitly excluded.
           if (parsed.groups[nomeDoGrupo] === true) return 0;
-          
-          // 2. BLINDAGEM BOTTOM-UP: 
-          // Se estamos somando o "Pai" (Área Comum) e o item foi excluído do "Filho" (ex: Climatização),
-          // ele tem que ser cortado do pai para não vazar pro cálculo Residual!
+
+          // 2. Bottom-up shield: summing area_comum but the item's real sub-group is excluded
+          //    → zero it here so it doesn't leak into the residual calculation.
           if (nomeDoGrupo === 'area_comum' && parsed.groups[categoriaReal] === true) {
             return 0;
           }
-          
-          // 3. BLINDAGEM TOP-DOWN:
-          // Se o usuário excluiu a Área Comum inteira (Pai), o item tem que sumir dos sub-grupos (Filhos).
-          if (parsed.groups['area_comum'] === true && ['climatizacao', 'elevadores', 'escadas_rolantes', 'outros'].includes(nomeDoGrupo)) {
+
+          // 3. Top-down shield: area_comum is excluded entirely → sub-groups must also be 0
+          //    to keep subcategory totals consistent with the parent exclusion.
+          if (parsed.groups['area_comum'] === true && SUB_GROUPS.includes(nomeDoGrupo)) {
             return 0;
           }
-        } 
-        
-        // Suporte ao formato legado (Garante que dispositivos antigos não quebrem)
+        }
+
+        // Legacy format support: { enabled, excludedGroups: ['climatizacao', 'esc_rolantes', ...] }
         else if (Array.isArray(parsed.excludedGroups)) {
-          const gruposExcluidos = parsed.excludedGroups.map(g => String(g).toLowerCase());
-          
+          const gruposExcluidos = parsed.excludedGroups.map((g) => String(g).toLowerCase());
+
           if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
             return 0;
           }
-          
+
+          // Bottom-up shield for legacy format
           if (nomeDoGrupo === 'area_comum') {
             if (
-              gruposExcluidos.includes(categoriaReal) || 
+              gruposExcluidos.includes(categoriaReal) ||
               (categoriaReal === 'escadas_rolantes' && gruposExcluidos.includes('esc_rolantes'))
             ) {
               return 0;
@@ -6506,33 +6514,38 @@ const MyIOOrchestrator = (() => {
     }
   });
 
-
-// Atualização vinda da aba de um DISPOSITIVO específico
+  // Fired by ExclusionGroupsTab after saving per-device exclude_groups_totals to TB SERVER_SCOPE.
+  // Updates the in-memory cache immediately so the dashboard reflects the change without waiting
+  // for the next TB onDataUpdated push.
   window.addEventListener('myio:device-exclusion-updated', (ev) => {
+    if (!ev.detail) return; // guard against malformed CustomEvent
     const { deviceId, exclude_groups_totals } = ev.detail;
     LogHelper.log(`[MAIN_VIEW] Configuração de exclusão atualizada para o device ${deviceId}.`);
 
     const cachedEnergy = window.MyIOOrchestratorData?.energy;
-    
+
     if (cachedEnergy && cachedEnergy.items && cachedEnergy.items.length > 0) {
-      const itemToUpdate = cachedEnergy.items.find(i => i.id === deviceId || i.tbId === deviceId);
+      // Energy items use item.id = TB entityId (UUID). item.tbId is only present on water items.
+      const itemToUpdate = cachedEnergy.items.find((i) => i.id === deviceId);
 
       if (itemToUpdate) {
-        // Atualiza a regra no item
+        // Patch the cached item so getValorEfetivo picks up the new rule immediately.
         itemToUpdate.excludeGroupsTotals = exclude_groups_totals;
         LogHelper.log(`[MAIN_VIEW] Item ${itemToUpdate.label} atualizado no cache. Forçando re-renderização...`);
 
-        // TRUQUE PARA BURLAR O CACHE DOS WIDGETS (TELEMETRY):
-        // 1. Cria uma chave "fresca" anexando o timestamp atual para forçar a tela a atualizar
+        // Re-emit with a fresh periodKey to bypass the 100ms duplicate-emission guard in
+        // emitProvide. The _recalc_ suffix is stripped on the next real onDataUpdated so
+        // the key never accumulates across multiple saves.
+        // NOTE: cachedEnergy.periodKey is mutated here intentionally; it will be overwritten
+        // with a clean key on the next TB data push.
         const baseKey = cachedEnergy.periodKey.split('_recalc_')[0];
         const novaChave = baseKey + '_recalc_' + Date.now();
-        
+
         cachedEnergy.periodKey = novaChave;
 
-        // 2. Limpa a trava de 100ms do Orchestrator para o evento não ser barrado
+        // Clear the emission lock for the new key (it doesn't exist yet, but be explicit).
         delete OrchestratorState.lastEmission[`energy_${novaChave}`];
 
-        // 3. Emite os dados com a chave nova
         emitProvide('energy', novaChave, cachedEnergy.items);
       } else if (currentPeriod) {
         hydrateDomain('energy', currentPeriod, { force: true });
