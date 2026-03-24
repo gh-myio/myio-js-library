@@ -16,7 +16,8 @@ identical to the existing `SettingsModal`, and contains four tab types:
 
 - **User List** — searchable table with inline Edit and "View Details" actions
 - **New User** — form to create a ThingsBoard user under the current customer
-- **Profile Management** — view/edit customer user groups and permissions
+- **Groups** — manage GCDR notification groups: members, channels, dispatch matrix, and
+  customer-level transport credentials
 - **Dynamic User Detail** — created on demand when "View Details" is clicked; tab label is
   `FIRSTNAME L.` (first name + first letter of last name, all caps); closeable
 
@@ -97,7 +98,7 @@ src/components/premium-modals/user-management/
 └── tabs/
     ├── UserListTab.ts             — Tab 1: searchable user table
     ├── NewUserTab.ts              — Tab 2: create user form
-    ├── ProfileManagementTab.ts    — Tab 3: groups & permissions
+    ├── GroupsTab.ts               — Tab 3: GCDR group management
     └── UserDetailTab.ts           — Tab N (dynamic): per-user detail + edit + reset password
 ```
 
@@ -111,7 +112,7 @@ src/components/premium-modals/user-management/
 ┌────────────────────────────────────────────────────────────┐  ← backdrop blur
 │  👥 Gestão de Usuários          · Moxuara Shopping     ✕   │  ← header
 │────────────────────────────────────────────────────────────│
-│  [📋 Usuários] [➕ Novo Usuário] [🏷 Perfis] [JOAO S. ✕]  │  ← tab bar
+│  [📋 Usuários] [➕ Novo Usuário] [👥 Grupos] [JOAO S. ✕]  │  ← tab bar
 │────────────────────────────────────────────────────────────│
 │                                                            │
 │  (tab content)                                             │
@@ -130,7 +131,7 @@ src/components/premium-modals/user-management/
 |-----|-----|-----------|------------|
 | Usuários | `user-list` | No (always present) | Static |
 | Novo Usuário | `new-user` | No (always present) | Static |
-| Perfis | `profiles` | No (always present) | Static |
+| Grupos | `groups` | No (always present) | Static |
 | `FIRSTNAME L.` | `user-detail-{userId}` | Yes (✕ button) | `UserListTab` → View Details |
 
 Only one dynamic User Detail tab per user at a time. If the same user's detail is opened
@@ -156,7 +157,6 @@ from `self.ctx.settings.tbBaseUrl`. Only APIs needed for V1 are included.
 | Get activation link | `GET /api/user/{userId}/activationLink` | UserDetailTab |
 
 **Excluded from V1** (out of scope):
-- `GET /api/userGroup/…` — group permission management (V2)
 - `GET /api/audit/logs/user/{userId}` — audit trail (V2)
 - OAuth2, sign-up, mobile session endpoints
 
@@ -240,25 +240,122 @@ Description      [                    ]
 
 ---
 
-### 8. Tab: Profile Management (`ProfileManagementTab`) — V1 Minimal
+### 8. Tab: Groups (`GroupsTab`)
 
-V1 shows a **read-only** list of user groups under the customer, with a note that full
-group editing will be available in V2.
+Manages GCDR notification groups for the current customer. This tab exposes the full
+Groups/Channels/Notifications architecture described in
+`gcdr.git/docs/GROUPS-CHANNELS-NOTIFICATIONS.md`.
+
+#### 8a. GCDR API surface used
+
+All calls use the authenticated headers from the existing GCDR integration
+(`X-API-Key` / `Authorization: Bearer`), identical to the pattern established by
+RFC-0180 (`AlarmsTab`).
+
+| Action | Endpoint | Access |
+|--------|----------|--------|
+| List groups | `GET /groups?customerId={id}` | Read (all operators) |
+| Get group | `GET /groups/:id` | Read |
+| Create group | `POST /groups` | Super-admin only |
+| Update group | `PUT /groups/:id` | Super-admin only |
+| Delete group (soft) | `DELETE /groups/:id?soft=true` | Super-admin only |
+| List members | `GET /groups/:id/members` | Read |
+| Add members | `POST /groups/:id/members` | Super-admin only |
+| Remove members | `DELETE /groups/:id/members` | Super-admin only |
+| List group channels | `GET /groups/:groupId/channels` | Read |
+| Replace group channels | `PUT /groups/:groupId/channels` | Super-admin only |
+| Update single channel | `PATCH /groups/:groupId/channels/:channel` | Super-admin only |
+| Delete group channel | `DELETE /groups/:groupId/channels/:channel` | Super-admin only |
+| Get dispatch matrix | `GET /groups/:groupId/dispatch` | Read |
+| Replace dispatch matrix | `PUT /groups/:groupId/dispatch` | Super-admin only |
+| Patch dispatch matrix | `PATCH /groups/:groupId/dispatch` | Super-admin only |
+| List customer channels | `GET /customers/:customerId/channels` | Read |
+| Create customer channel | `POST /customers/:customerId/channels` | Super-admin only |
+| Update customer channel | `PATCH /customers/:customerId/channels/:channelId` | Super-admin only |
+| Delete customer channel | `DELETE /customers/:customerId/channels/:channelId` | Super-admin only |
+
+#### 8b. Group list view
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  Perfis configurados para este cliente                    │
-│──────────────────────────────────────────────────────────│
-│  Nome do Grupo            Tipo         Nº de membros      │
-│  Administradores          USER_GROUP   3                  │
-│  Operadores               USER_GROUP   12                 │
-│──────────────────────────────────────────────────────────│
-│  ℹ️  Edição de perfis disponível em versão futura.        │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│  🔍 [Buscar grupos...                ]   [ + Novo Grupo ]  │
+│───────────────────────────────────────────────────────────│
+│  Nome              Tipo   Finalidades          Membros Ações│
+│  Equipe Operações  USER   ALARMS_NOTIFY +2     5       ✏ 👁 │
+│  Escalonamento     USER   ESCALATION           2       ✏ 👁 │
+│  ...                                                       │
+└───────────────────────────────────────────────────────────┘
 ```
 
-Data source: `GET /api/userGroup/{entityGroupId}/users` (reads existing groups; write
-operations deferred to V2).
+- Loaded via `GET /groups?customerId={id}` on tab activation (lazy, once per modal lifecycle)
+- Each group row expands into a three-panel detail view (Members / Channels / Dispatch)
+- Super-admins see Create, Edit, and Delete controls; other operators see the list read-only
+
+#### 8c. Group detail — Members panel
+
+Shows the enriched member list from `GET /groups/:id/members`. Super-admins can:
+- Add members (`POST /groups/:id/members`) — user picker backed by the TB user list
+  already fetched by `UserListTab`
+- Remove members (`DELETE /groups/:id/members`)
+
+#### 8d. Group detail — Channels panel
+
+Shows the per-group delivery targets from `GET /groups/:groupId/channels`. Each row
+represents one channel type with its target address and active state.
+
+| Channel type | `target` meaning |
+|---|---|
+| `EMAIL` / `EMAIL_RELAY` | Email address |
+| `TELEGRAM` | Chat ID (negative for groups) |
+| `WHATSAPP` / `SMS` | Phone number with country code |
+| `SLACK` | Channel name (`#alertas`) |
+| `TEAMS` / `WEBHOOK` | Webhook URL |
+
+Super-admins replace the full channel set via `PUT /groups/:groupId/channels` or toggle
+individual channels via `PATCH /groups/:groupId/channels/:channel`.
+
+#### 8e. Group detail — Dispatch matrix panel
+
+Shows the alarm-action × channel matrix from `GET /groups/:groupId/dispatch`. Rendered
+as a checkbox grid: rows = alarm actions (`OPEN`, `ACK`, `ESCALATE`, `SNOOZE`, `CLOSE`,
+`STATE_HISTORY`), columns = configured channel types.
+
+Super-admins submit changes via `PUT /groups/:groupId/dispatch` (full replace) or
+`PATCH /groups/:groupId/dispatch` (partial update for individual cells).
+
+#### 8f. Customer channels sub-section
+
+A collapsible section at the bottom of the tab shows the customer-level transport
+credentials from `GET /customers/:customerId/channels`. These are shared across all
+groups of the customer.
+
+| Channel | `config` fields |
+|---------|----------------|
+| `EMAIL_RELAY` | SMTP host, port, user, from address |
+| `TELEGRAM` | Bot token (masked) |
+| `WHATSAPP` | Account SID, from number |
+| `WEBHOOK` | HMAC secret, extra headers |
+| `SLACK` | Bot token or webhook URL |
+| `SMS` | Provider, API key, from number |
+
+Super-admins can create, update credentials, enable/disable, or delete customer channels.
+
+#### 8g. `GroupPurpose` catalog (reference)
+
+| Value | Label |
+|-------|-------|
+| `ALARMS_NOTIFY` | Alarmes - Notificação |
+| `ALARMS_REPORT` | Alarmes - Relatório |
+| `ALARMS_INSIGHT` | Alarmes - Insights |
+| `WELCOME_USER` | Boas-vindas / Reset de Senha |
+| `RELEASE_NOTE` | Comunicado de Nova Feature |
+| `NOTIFICATION` | Notificação |
+| `ESCALATION` | Escalonamento |
+| `ACCESS_CONTROL` | Controle de Acesso |
+| `REPORTING` | Relatórios |
+| `MAINTENANCE` | Manutenção |
+| `MONITORING` | Monitoramento |
+| `CUSTOM` | Personalizado |
 
 ---
 
@@ -364,7 +461,7 @@ Called from MENU's `showSettingsModal`:
 | `src/components/premium-modals/user-management/types.ts` | **New** — shared types |
 | `src/components/premium-modals/user-management/tabs/UserListTab.ts` | **New** — user table |
 | `src/components/premium-modals/user-management/tabs/NewUserTab.ts` | **New** — create form |
-| `src/components/premium-modals/user-management/tabs/ProfileManagementTab.ts` | **New** — groups (read-only V1) |
+| `src/components/premium-modals/user-management/tabs/GroupsTab.ts` | **New** — GCDR groups, channels, dispatch, customer channels |
 | `src/components/premium-modals/user-management/tabs/UserDetailTab.ts` | **New** — dynamic detail/edit |
 | `src/components/premium-modals/user-management/index.ts` | **New** — re-exports |
 | `src/index.ts` | **Modify** — export `openUserManagementModal` |
@@ -379,9 +476,12 @@ Called from MENU's `showSettingsModal`:
   `TENANT_ADMIN` rights, some endpoints (e.g. `DELETE /api/user/{userId}`) may return 403.
   In V1, SuperAdmin MYIO users are expected to have `TENANT_ADMIN` authority, so this is
   acceptable.
-- The Profile Management tab is intentionally minimal in V1. Showing read-only group data
-  sets operator expectations without committing to write operations before the group
-  permission API is fully understood.
+- The Groups tab is API-heavy: opening a single group detail may issue up to three GCDR
+  calls (members, channels, dispatch). For customers with many groups this can be slow.
+  Mitigated by lazy loading per-group detail only on explicit row expansion.
+- Customer channel credentials (bot tokens, SMTP passwords) are sensitive. The UI must
+  mask secret fields on read and send them only on explicit save. A misconfiguration
+  (e.g. wrong bot token) silently breaks notification delivery without dashboard feedback.
 
 ---
 
@@ -401,5 +501,16 @@ Called from MENU's `showSettingsModal`:
    assigned — always `CUSTOMER_USER`, or should the operator be able to select a role?
 2. Should the "Excluir" action perform a hard delete (`DELETE /api/user/{userId}`) or
    disable credentials (`POST /api/user/{userId}/userCredentialsEnabled?userCredentialsEnabled=false`)?
-3. Is a V1 read-only Profile Management tab acceptable, or should inline editing of at
-   least group membership be included?
+3. **Group soft-delete vs hard delete**: `DELETE /groups/:id?soft=true` sets the group
+   status to `INACTIVE` and preserves all data. Should the UI always soft-delete (safer,
+   recoverable) or offer both options?
+4. **Member picker scope**: when adding a user to a group, the picker should only show
+   users from the current customer. Since `UserListTab` already fetches this list, the
+   two tabs should share the in-memory user cache rather than issuing a second TB API call.
+   The shared cache mechanism is not yet defined.
+5. **Dispatch matrix validation**: the API enforces that a dispatch entry's `channel` must
+   match an existing `group_channels` entry. Should the UI prevent adding dispatch rows for
+   channel types not yet configured, or let the save fail with an API error?
+6. **Customer channel credential rotation UX**: when a super-admin updates a bot token or
+   SMTP password, all groups under the customer are affected immediately. Should the UI
+   show a confirmation listing how many groups will be affected before saving?
