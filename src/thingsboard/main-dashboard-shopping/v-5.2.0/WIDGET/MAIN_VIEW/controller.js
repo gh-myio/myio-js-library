@@ -3008,7 +3008,7 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce(
-    (sum, i) => sum + getValorEfetivo(i, 'esc_rolantes'),
+    (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
     0
   );
   const outrosTotal = outrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
@@ -6473,27 +6473,18 @@ const MyIOOrchestrator = (() => {
     }
   });
 
-  // Exclusão de Grupos: runtime update from SettingsModal (no page refresh needed)
-  window.addEventListener('myio:exclusion-groups-updated', (ev) => {
-    _excludeGroupsTotals = ev.detail?.exclude_groups_totals ?? null;
-    LogHelper.log('[MAIN_VIEW] exclusion groups updated:', _excludeGroupsTotals);
-    const cachedEnergy = window.MyIOOrchestratorData?.energy;
-    if (cachedEnergy && cachedEnergy.items && cachedEnergy.items.length > 0) {
-      LogHelper.log(
-        '[MAIN_VIEW] rebuilding energy summary from cache (' + cachedEnergy.items.length + ' items)'
-      );
-      emitProvide('energy', cachedEnergy.periodKey, cachedEnergy.items);
-    } else if (currentPeriod) {
-      hydrateDomain('energy', currentPeriod, { force: true });
-    }
-  });
-
   window.addEventListener('myio:device-exclusion-updated', (ev) => {
     LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
+    // Força re-hydratação; a mudança visual ocorre quando o TB enviar o próximo onDataUpdated
+    // com o atributo exclude_groups_totals atualizado.
+    if (ev.detail?.exclude_groups_totals !== undefined) {
+      _excludeGroupsTotals = ev.detail.exclude_groups_totals;
+    }
 
-    // Apenas força o hydrateDomain novamente.
-    // Como o helper getValorEfetivo lê direto da resposta, ele aplicará a nova regra automaticamente.
-    if (currentPeriod) {
+    const cachedEnergy = window.MyIOOrchestratorData?.energy;
+    if (cachedEnergy?.items?.length > 0) {
+      emitProvide('energy', cachedEnergy.periodKey, cachedEnergy.items);
+    } else if (currentPeriod) {
       hydrateDomain('energy', currentPeriod, { force: true });
     }
   });

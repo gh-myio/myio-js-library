@@ -109,10 +109,6 @@ export class SettingsModalView {
     this.initAlarmsTab();
     // Exclusão de Grupos tab (async, energy domain only)
     this.initExclusionGroupsTab();
-    // RFC-0190: Initialize exclude groups section (async, energy only)
-    if (this.config.domain === 'energy') {
-      this.initExcludeGroupsSection();
-    }
   }
 
   // RFC-0104: Initialize the Annotations Tab
@@ -639,9 +635,6 @@ export class SettingsModalView {
 
         <!-- RFC-0171: Temperature Offset — always visible for temperature domain; editable only for @myio.com.br -->
         ${this.config.domain === 'temperature' ? this.getTemperatureOffsetHTML() : ''}
-
-        <!-- RFC-0190: Exclude Groups Totals (energy domain only) -->
-        ${this.config.domain === 'energy' ? this.getExcludeGroupsSectionHTML() : ''}
       </div>
     `;
   }
@@ -2886,25 +2879,6 @@ export class SettingsModalView {
       }
     });
 
-    // RFC-0190: Exclude groups toggle
-    this.modal.addEventListener('change', (event) => {
-      const target = event.target as HTMLInputElement;
-      if (target.id === 'eg-enabled-toggle') {
-        this.excludeGroupsEnabled = target.checked;
-        this.renderExcludeGroupsContent();
-      }
-    });
-
-    // RFC-0190: Exclude groups save button (delegated)
-    this.modal.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
-      if (target.id === 'eg-save-btn') {
-        event.preventDefault();
-        event.stopPropagation();
-        this.saveExcludeGroups();
-      }
-    });
-
     // Real-time validation
     this.form.addEventListener('input', this.handleInputValidation.bind(this));
   }
@@ -3089,170 +3063,6 @@ export class SettingsModalView {
     { key: 'outros',      label: 'Outros Equipamentos' },
     { key: 'area_comum',  label: 'Área Comum' },
   ];
-
-  /** Returns the skeleton card — content is filled by initExcludeGroupsSection */
-  private getExcludeGroupsSectionHTML(): string {
-    return `
-      <div class="form-card eg-card" id="eg-section">
-        <div class="eg-header">
-          <h4 class="section-title" style="margin:0;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:text-bottom;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            Exclusão em Grupo de Cálculo
-          </h4>
-        </div>
-        <div id="eg-body">
-          <div style="display:flex;align-items:center;gap:8px;padding:12px 0;color:#6b7280;font-size:13px;">
-            <div class="loading-spinner" style="width:16px;height:16px;border-width:2px;"></div>
-            Carregando configuração...
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /** Fetches current exclude_groups_totals from SERVER_SCOPE and renders the section */
-  private async initExcludeGroupsSection(): Promise<void> {
-    const deviceId = this.config.deviceId;
-    const token = this.config.jwtToken;
-    if (!deviceId || !token) return;
-
-    try {
-      const base = this.config.tbBaseUrl || window.location.origin;
-      const url = `${base}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE?keys=exclude_groups_totals`;
-      const resp = await fetch(url, {
-        headers: { 'X-Authorization': `Bearer ${token}` },
-      });
-
-      if (resp.ok) {
-        const attrs: Array<{ key: string; value: unknown }> = await resp.json();
-        const attr = attrs.find((a) => a.key === 'exclude_groups_totals');
-        if (attr && attr.value) {
-          const parsed = typeof attr.value === 'string' ? JSON.parse(attr.value) : attr.value as { enabled?: boolean; excludedGroups?: string[] };
-          this.excludeGroupsEnabled = parsed.enabled ?? false;
-          this.excludedGroups = Array.isArray(parsed.excludedGroups) ? parsed.excludedGroups : [];
-        }
-      }
-    } catch {
-      // Silently ignore fetch errors — section just shows unconfigured state
-    }
-
-    this.renderExcludeGroupsContent();
-  }
-
-  /** Renders the section body based on current state */
-  private renderExcludeGroupsContent(): void {
-    const body = this.modal.querySelector('#eg-body');
-    if (!body) return;
-
-    const groups = SettingsModalView.ENERGY_GROUPS;
-    const checked = this.excludeGroupsEnabled;
-
-    const groupRows = groups.map((g) => {
-      const isExcluded = this.excludedGroups.includes(g.key);
-      return `
-        <div class="eg-rule-row ${isExcluded ? 'eg-rule-row--checked' : ''}" data-group="${g.key}">
-          <label class="eg-rule-label">
-            <input
-              type="checkbox"
-              class="eg-group-check"
-              data-group="${g.key}"
-              ${isExcluded ? 'checked' : ''}
-              ${!checked ? 'disabled' : ''}
-            >
-            <span class="eg-rule-name">${g.label}</span>
-          </label>
-        </div>
-      `;
-    }).join('');
-
-    body.innerHTML = `
-      <div class="eg-enable-row">
-        <label class="eg-toggle-label">
-          <input type="checkbox" id="eg-enabled-toggle" ${checked ? 'checked' : ''}>
-          <span class="eg-toggle-text">Habilitar Exclusão em Cálculo</span>
-        </label>
-        ${checked ? '<span class="eg-badge-active">Ativo</span>' : ''}
-      </div>
-
-      <div class="eg-groups-grid ${!checked ? 'eg-groups-grid--disabled' : ''}">
-        ${groupRows}
-      </div>
-
-      <div class="eg-footer">
-        <span class="eg-save-msg" id="eg-save-msg" style="display:none;"></span>
-        <button type="button" class="eg-btn-save" id="eg-save-btn">Salvar Exclusões</button>
-      </div>
-    `;
-
-    // Wire checkboxes (inline, since content is re-rendered)
-    body.querySelectorAll('.eg-group-check').forEach((el) => {
-      el.addEventListener('change', (ev) => {
-        const input = ev.target as HTMLInputElement;
-        const key = input.dataset.group!;
-        if (input.checked) {
-          if (!this.excludedGroups.includes(key)) this.excludedGroups.push(key);
-        } else {
-          this.excludedGroups = this.excludedGroups.filter((k) => k !== key);
-        }
-        // Update row highlight
-        const row = input.closest('.eg-rule-row') as HTMLElement;
-        if (row) row.classList.toggle('eg-rule-row--checked', input.checked);
-      });
-    });
-  }
-
-  /** Saves exclude_groups_totals to SERVER_SCOPE */
-  private async saveExcludeGroups(): Promise<void> {
-    const deviceId = this.config.deviceId;
-    const token = this.config.jwtToken;
-    const msgEl = this.modal.querySelector('#eg-save-msg') as HTMLElement | null;
-    const saveBtn = this.modal.querySelector('#eg-save-btn') as HTMLButtonElement | null;
-
-    if (!deviceId || !token) return;
-
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
-    if (msgEl) { msgEl.style.display = 'none'; }
-
-    const payload = {
-      exclude_groups_totals: JSON.stringify({
-        enabled: this.excludeGroupsEnabled,
-        excludedGroups: this.excludedGroups,
-      }),
-    };
-
-    try {
-      const base = this.config.tbBaseUrl || window.location.origin;
-      const resp = await fetch(`${base}/api/plugins/telemetry/DEVICE/${deviceId}/SERVER_SCOPE`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (msgEl) {
-        msgEl.style.display = 'inline';
-        if (resp.ok) {
-          msgEl.textContent = '✓ Salvo com sucesso';
-          msgEl.style.color = '#16a34a';
-        } else {
-          msgEl.textContent = `Erro ${resp.status} ao salvar`;
-          msgEl.style.color = '#dc2626';
-        }
-        setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 3000);
-      }
-    } catch {
-      if (msgEl) {
-        msgEl.style.display = 'inline';
-        msgEl.textContent = 'Erro de rede ao salvar';
-        msgEl.style.color = '#dc2626';
-        setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 3000);
-      }
-    } finally {
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Salvar Exclusões'; }
-    }
-  }
 }
 
 type Domain = 'energy' | 'water' | 'temperature';

@@ -177,8 +177,11 @@ export class ExclusionGroupsTab {
       );
 
       window.dispatchEvent(
-        new CustomEvent('myio:exclusion-groups-updated', {
-          detail: { exclude_groups_totals: newState },
+        new CustomEvent('myio:device-exclusion-updated', {
+          detail: { 
+            deviceId: this.config.deviceId,
+            exclude_groups_totals: newState 
+          },
         })
       );
     } catch (err) {
