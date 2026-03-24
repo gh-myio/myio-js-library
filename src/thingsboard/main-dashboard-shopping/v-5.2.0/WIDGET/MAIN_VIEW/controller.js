@@ -2848,6 +2848,7 @@ function buildGroupData(items) {
 function buildSummary(lojas, entrada, areacomum, periodKey) {
   // --- HELPER INTELIGENTE (Lê o JSON do próprio device) ---
   // Se o device manda excluir deste grupo, retorna 0 para a soma, mas não oculta o card.
+
   const getValorEfetivo = (item, nomeDoGrupo) => {
     const val = Number(item.value) || 0;
     if (!item.excludeGroupsTotals) return val; // Se não tem a flag no device, soma normal
@@ -2857,14 +2858,46 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
         typeof item.excludeGroupsTotals === 'string'
           ? JSON.parse(item.excludeGroupsTotals)
           : item.excludeGroupsTotals;
-      if (parsed && parsed.enabled && Array.isArray(parsed.excludedGroups)) {
-        // Padroniza para minúsculo para evitar bugs de digitação
-        const gruposExcluidos = parsed.excludedGroups.map((g) => String(g).toLowerCase());
-        if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
-          return 0; // O card continua existindo, mas vale ZERO para o totalizador!
+          
+      if (parsed && parsed.enabled) {
+        // Descobre a qual categoria este equipamento realmente pertence (Usa a função global)
+        const categoriaReal = classifyDevice(item);
+
+        if (parsed.groups && typeof parsed.groups === 'object') {
+          // 1. Se o grupo exato da soma atual foi marcado para exclusão -> Zera.
+          if (parsed.groups[nomeDoGrupo] === true) return 0;
+          
+          // 2. BLINDAGEM BOTTOM-UP: 
+          // Se estamos somando o "Pai" (Área Comum) e o item foi excluído do "Filho" (ex: Climatização),
+          // ele tem que ser cortado do pai para não vazar pro cálculo Residual!
+          if (nomeDoGrupo === 'area_comum' && parsed.groups[categoriaReal] === true) {
+            return 0;
+          }
+          
+          // 3. BLINDAGEM TOP-DOWN:
+          // Se o usuário excluiu a Área Comum inteira (Pai), o item tem que sumir dos sub-grupos (Filhos).
+          if (parsed.groups['area_comum'] === true && ['climatizacao', 'elevadores', 'escadas_rolantes', 'outros'].includes(nomeDoGrupo)) {
+            return 0;
+          }
+        } 
+        
+        // Suporte ao formato legado (Garante que dispositivos antigos não quebrem)
+        else if (Array.isArray(parsed.excludedGroups)) {
+          const gruposExcluidos = parsed.excludedGroups.map(g => String(g).toLowerCase());
+          
+          if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
+            return 0;
+          }
+          
+          if (nomeDoGrupo === 'area_comum') {
+            if (
+              gruposExcluidos.includes(categoriaReal) || 
+              (categoriaReal === 'escadas_rolantes' && gruposExcluidos.includes('esc_rolantes'))
+            ) {
+              return 0;
+            }
+          }
         }
-      } else if (parsed && parsed.enabled && parsed.groups && typeof parsed.groups === 'object') {
-        if (parsed.groups[nomeDoGrupo] === true) return 0;
       }
     } catch (e) {
       console.warn('Erro ao ler exclude_groups_totals do dispositivo', item.label, e);
@@ -6446,17 +6479,37 @@ const MyIOOrchestrator = (() => {
     }
   });
 
+
+// Atualização vinda da aba de um DISPOSITIVO específico
   window.addEventListener('myio:device-exclusion-updated', (ev) => {
-    LogHelper.log('[MAIN_VIEW] Configuração de exclusão do dispositivo atualizada. Recarregando...');
-    // Força re-hydratação; a mudança visual ocorre quando o TB enviar o próximo onDataUpdated
-    // com o atributo exclude_groups_totals atualizado.
-    if (ev.detail?.exclude_groups_totals !== undefined) {
-      _excludeGroupsTotals = ev.detail.exclude_groups_totals;
-    }
+    const { deviceId, exclude_groups_totals } = ev.detail;
+    LogHelper.log(`[MAIN_VIEW] Configuração de exclusão atualizada para o device ${deviceId}.`);
 
     const cachedEnergy = window.MyIOOrchestratorData?.energy;
-    if (cachedEnergy?.items?.length > 0) {
-      emitProvide('energy', cachedEnergy.periodKey, cachedEnergy.items);
+    
+    if (cachedEnergy && cachedEnergy.items && cachedEnergy.items.length > 0) {
+      const itemToUpdate = cachedEnergy.items.find(i => i.id === deviceId || i.tbId === deviceId);
+
+      if (itemToUpdate) {
+        // Atualiza a regra no item
+        itemToUpdate.excludeGroupsTotals = exclude_groups_totals;
+        LogHelper.log(`[MAIN_VIEW] Item ${itemToUpdate.label} atualizado no cache. Forçando re-renderização...`);
+
+        // TRUQUE PARA BURLAR O CACHE DOS WIDGETS (TELEMETRY):
+        // 1. Cria uma chave "fresca" anexando o timestamp atual para forçar a tela a atualizar
+        const baseKey = cachedEnergy.periodKey.split('_recalc_')[0];
+        const novaChave = baseKey + '_recalc_' + Date.now();
+        
+        cachedEnergy.periodKey = novaChave;
+
+        // 2. Limpa a trava de 100ms do Orchestrator para o evento não ser barrado
+        delete OrchestratorState.lastEmission[`energy_${novaChave}`];
+
+        // 3. Emite os dados com a chave nova
+        emitProvide('energy', novaChave, cachedEnergy.items);
+      } else if (currentPeriod) {
+        hydrateDomain('energy', currentPeriod, { force: true });
+      }
     } else if (currentPeriod) {
       hydrateDomain('energy', currentPeriod, { force: true });
     }
