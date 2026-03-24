@@ -26,6 +26,22 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
 // NOTE: WIDGET_DOMAIN variable was removed - always use getWidgetDomain() function
 let SHOW_DEVICES_LIST = false;
 
+// RFC-0196: Group filter state — all groups active by default
+let GROUP_FILTER = {
+  energy: {
+    lojas: true,
+    climatizacao: true,
+    elevadores: true,
+    escadasRolantes: true,
+    outros: true,
+  },
+  water: {
+    lojas: true,
+    banheiros: true,
+    areaComum: true,
+  },
+};
+
 /**
  * Get widget domain from settings.
  * @returns {string} The configured domain or empty string
@@ -33,6 +49,17 @@ let SHOW_DEVICES_LIST = false;
 function getWidgetDomain() {
   return self.ctx.settings?.DOMAIN || '';
 }
+
+// RFC-0196: Global toggle for expandable device lists inside tooltips
+// Uses window-scope because onclick in tooltip innerHTML runs in global context
+window.TELEMETRY_INFO_toggleDevices = function (id) {
+  const el = document.getElementById('rfc196-devlist-' + id);
+  const btn = document.querySelector('[data-devtoggle="' + id + '"]');
+  if (!el) return;
+  const opening = el.style.display === 'none' || el.style.display === '';
+  el.style.display = opening ? 'block' : 'none';
+  if (btn) btn.textContent = opening ? '−' : '+';
+};
 
 // RFC-0056: Chart colors with MyIO palette (6 categories)
 let CHART_COLORS = {
@@ -726,6 +753,11 @@ function renderStats() {
   } else {
     $$('#entradaDevices').empty();
   }
+
+  // RFC-0196: Restore group filter visual state after data refresh
+  applyGroupFilter('energy');
+  // RFC-0196: Check for calculation errors (negative residuals / Entrada < Total)
+  checkCalculationErrors();
 
   LogHelper.log('RFC-0056: Stats rendered successfully');
 }
@@ -2115,6 +2147,21 @@ function renderWaterStats() {
     $$('.total-card .validation-warning').remove();
   }
 
+  // RFC-0196: Show water-total-card and update its value
+  const waterLojas = STATE_WATER.lojas?.total || 0;
+  const waterBanheiros = STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0;
+  const waterAreaComum = STATE_WATER.areaComum?.total || 0;
+  const waterPontos = STATE_WATER.pontosNaoMapeados?.total || 0;
+  const waterTotal = waterLojas + waterBanheiros + waterAreaComum + waterPontos;
+  $$('.water-total-card').show();
+  $$('#waterTotalConsumidores').text(formatValue(waterTotal, 'water'));
+  $$('#waterTotalConsumidoresPerc').text('(100%)');
+
+  // RFC-0196: Restore group filter visual state after data refresh
+  applyGroupFilter('water');
+  // RFC-0196: Check for calculation errors (negative residuals / Entrada < Total)
+  checkCalculationErrors();
+
   LogHelper.log('[RFC-0002 Water] Stats rendered');
 }
 
@@ -2530,11 +2577,16 @@ function buildClimatizacaoContent() {
         // RFC-0106: Label comes from .details.name
         const label = data?.details?.name || key.toUpperCase();
         const icon = subcatIcons[key] || '❄️';
+        const expandHtml = buildDeviceExpandList(
+          'clim_' + key,
+          data?.details?.devices || [],
+          formatEnergy
+        );
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao">
             <span class="myio-info-tooltip__category-icon">${icon}</span>
             <div class="myio-info-tooltip__category-info">
-              <div class="myio-info-tooltip__category-name">${label}</div>
+              <div class="myio-info-tooltip__category-name">${label} ${expandHtml}</div>
               <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
             <span class="myio-info-tooltip__category-value">${formatEnergy(total)}</span>
@@ -2676,11 +2728,16 @@ function buildOutrosContent() {
         // RFC-0106: Label comes from .details.name
         const label = data?.details?.name || key.toUpperCase();
         const icon = subcatIcons[key] || '🔌';
+        const expandHtml = buildDeviceExpandList(
+          'outros_' + key,
+          data?.details?.devices || [],
+          formatEnergy
+        );
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--outros">
             <span class="myio-info-tooltip__category-icon">${icon}</span>
             <div class="myio-info-tooltip__category-info">
-              <div class="myio-info-tooltip__category-name">${label}</div>
+              <div class="myio-info-tooltip__category-name">${label} ${expandHtml}</div>
               <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
             <span class="myio-info-tooltip__category-value">${formatEnergy(total)}</span>
@@ -2989,6 +3046,186 @@ function showPontosNaoMapeadosTooltip(triggerElement) {
     title: 'Pontos Não Mapeados - Detalhes',
     content: buildPontosNaoMapeadosContent(),
   });
+}
+
+// ===================== RFC-0196: GROUP FILTER + ERROR INDICATORS =====================
+
+/**
+ * RFC-0196: Build expandable device list HTML for use inside InfoTooltip content.
+ * @param {string} id        - Unique ID suffix (no spaces)
+ * @param {Array}  devices   - Array of {label, identifier, value} objects
+ * @param {Function} formatFn - Value formatter (formatEnergy or formatValue)
+ * @returns {string} HTML: a (+) toggle button + hidden device list div
+ */
+function buildDeviceExpandList(id, devices, formatFn) {
+  if (!devices || devices.length === 0) return '';
+  const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const sorted = [...devices].sort((a, b) => (b.value || 0) - (a.value || 0));
+  const rows = sorted.map((d) => {
+    const name = d.label || d.identifier || d.name || '—';
+    const val = typeof d.value === 'number' ? formatFn(d.value) : '—';
+    return `<div class="rfc196-device-item">
+      <span class="rfc196-device-item__name" title="${name}">${name}</span>
+      <span class="rfc196-device-item__value">${val}</span>
+    </div>`;
+  }).join('');
+  return `<button class="rfc196-expand-btn" data-devtoggle="${safeId}"
+    onclick="event.stopPropagation();window.TELEMETRY_INFO_toggleDevices('${safeId}')">+</button>
+    <div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`;
+}
+
+/**
+ * RFC-0196: Setup click handlers on filterable category cards.
+ * Called once from onInit after DOM is ready.
+ */
+function setupGroupFilterCards() {
+  const $container = $root();
+  $container.on('click.rfc196filter', '.info-card[data-group]', function (e) {
+    // Ignore clicks on the ℹ️ tooltip trigger
+    if ($J(e.target).closest('.info-tooltip, .info-tooltip-trigger, .btn-info-summary').length) return;
+    const group = $J(this).data('group');
+    if (!group) return;
+    const domain = getWidgetDomain() === 'water' ? 'water' : 'energy';
+    if (!(group in GROUP_FILTER[domain])) return;
+    GROUP_FILTER[domain][group] = !GROUP_FILTER[domain][group];
+    applyGroupFilter(domain);
+  });
+  LogHelper.log('[RFC-0196] Group filter card click handlers registered');
+}
+
+/**
+ * RFC-0196: Apply the current GROUP_FILTER state:
+ *   - Dim inactive cards
+ *   - Recalculate percentages for active groups
+ *   - Update Total Consumidores
+ *   - Dispatch myio:group-filter-changed for TELEMETRY
+ */
+function applyGroupFilter(domain) {
+  domain = domain || (getWidgetDomain() === 'water' ? 'water' : 'energy');
+  const filter = GROUP_FILTER[domain];
+  const $container = $root();
+
+  if (domain === 'water') {
+    _applyGroupFilterWater(filter, $container);
+  } else {
+    _applyGroupFilterEnergy(filter, $container);
+  }
+
+  window.dispatchEvent(new CustomEvent('myio:group-filter-changed', {
+    detail: { domain, groupFilter: { ...filter } },
+  }));
+  LogHelper.log('[RFC-0196] Group filter applied:', domain, filter);
+}
+
+function _applyGroupFilterEnergy(filter, $container) {
+  const allActive = Object.values(filter).every(Boolean);
+
+  // Toggle inactive class on each filterable card
+  Object.keys(filter).forEach((group) => {
+    $container.find(`.info-card[data-group="${group}"]`)
+      .toggleClass('info-card--inactive', !filter[group]);
+  });
+
+  // Area Comum is dimmed whenever any group is inactive
+  $container.find('.area-comum-card').toggleClass('info-card--inactive', !allActive);
+
+  // Recalculate active totals and percentages
+  const cons = STATE.consumidores;
+  let activeTotal = 0;
+  if (filter.lojas) activeTotal += cons.lojas?.total || 0;
+  if (filter.climatizacao) activeTotal += cons.climatizacao?.total || 0;
+  if (filter.elevadores) activeTotal += cons.elevadores?.total || 0;
+  if (filter.escadasRolantes) activeTotal += cons.escadasRolantes?.total || 0;
+  if (filter.outros) activeTotal += cons.outros?.total || 0;
+  if (allActive) activeTotal += cons.areaComum?.total || 0;
+
+  // Update percentage displays for active cards
+  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
+  if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(cons.lojas?.total || 0)}%)`);
+  else $$('#lojasPerc').text('');
+  if (filter.climatizacao) $$('#climatizacaoPerc').text(`(${safePerc(cons.climatizacao?.total || 0)}%)`);
+  else $$('#climatizacaoPerc').text('');
+  if (filter.elevadores) $$('#elevadoresPerc').text(`(${safePerc(cons.elevadores?.total || 0)}%)`);
+  else $$('#elevadoresPerc').text('');
+  if (filter.escadasRolantes) $$('#escadasRolantesPerc').text(`(${safePerc(cons.escadasRolantes?.total || 0)}%)`);
+  else $$('#escadasRolantesPerc').text('');
+  if (filter.outros) $$('#outrosPerc').text(`(${safePerc(cons.outros?.total || 0)}%)`);
+  else $$('#outrosPerc').text('');
+  if (allActive) $$('#areaComumPerc').text(`(${safePerc(cons.areaComum?.total || 0)}%)`);
+  else $$('#areaComumPerc').text('');
+
+  // Update Total Consumidores
+  $$('#consumidoresTotal').text(formatEnergy(activeTotal));
+  $$('#consumidoresPerc').text(activeTotal > 0 ? '(100%)' : '');
+}
+
+function _applyGroupFilterWater(filter, $container) {
+  const allActive = Object.values(filter).every(Boolean);
+
+  Object.keys(filter).forEach((group) => {
+    $container.find(`.info-card[data-group="${group}"]`)
+      .toggleClass('info-card--inactive', !filter[group]);
+  });
+
+  let activeTotal = 0;
+  if (filter.lojas) activeTotal += STATE_WATER.lojas?.total || 0;
+  if (filter.banheiros && STATE_WATER.includeBathrooms) activeTotal += STATE_WATER.banheiros?.total || 0;
+  if (filter.areaComum) activeTotal += STATE_WATER.areaComum?.total || 0;
+  if (allActive) activeTotal += STATE_WATER.pontosNaoMapeados?.total || 0;
+
+  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
+  if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(STATE_WATER.lojas?.total || 0)}%)`);
+  else $$('#lojasPerc').text('');
+  if (filter.banheiros && STATE_WATER.includeBathrooms) $$('#banheirosPerc').text(`(${safePerc(STATE_WATER.banheiros?.total || 0)}%)`);
+  else $$('#banheirosPerc').text('');
+  if (filter.areaComum) $$('#areaComumPerc').text(`(${safePerc(STATE_WATER.areaComum?.total || 0)}%)`);
+  else $$('#areaComumPerc').text('');
+
+  // Update water Total Consumidores card
+  $$('#waterTotalConsumidores').text(formatValue(activeTotal, 'water'));
+  $$('#waterTotalConsumidoresPerc').text(activeTotal > 0 ? '(100%)' : '');
+}
+
+/**
+ * RFC-0196: Check for negative residuals and Entrada < Total, add/remove error class+icon.
+ */
+function checkCalculationErrors() {
+  const domain = getWidgetDomain();
+  const $container = $root();
+
+  if (domain === 'water') {
+    const pontosTotal = STATE_WATER.pontosNaoMapeados?.total || 0;
+    const entradaTotal = STATE_WATER.entrada?.total || 0;
+    const consumidoresTotal = (STATE_WATER.lojas?.total || 0) +
+      (STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0) +
+      (STATE_WATER.areaComum?.total || 0) + pontosTotal;
+    _setCardError($container, '.pontos-nao-mapeados-card, .total-card', pontosTotal < 0,
+      `Pontos Não Mapeados is negative (${formatValue(pontosTotal, 'water')}). ` +
+      'Formula: Entrada − (Lojas + Banheiros + Área Comum). Check device classification.');
+    _setCardError($container, '.entrada-card', entradaTotal < consumidoresTotal - 0.01,
+      `Entrada (${formatValue(entradaTotal, 'water')}) < Total Consumidores (${formatValue(consumidoresTotal, 'water')}). Verify metering setup.`);
+  } else {
+    const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
+    const entradaTotal = STATE.entrada?.total || 0;
+    const consumidoresTotal = STATE.consumidores?.totalGeral || 0;
+    _setCardError($container, '.area-comum-card', areaComumTotal < 0,
+      `Área Comum is negative (${formatEnergy(areaComumTotal)}). ` +
+      'Formula: Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros). Check device classification.');
+    _setCardError($container, '.entrada-card', entradaTotal < consumidoresTotal - 0.01,
+      `Entrada (${formatEnergy(entradaTotal)}) < Total Consumidores (${formatEnergy(consumidoresTotal)}). Verify metering setup.`);
+  }
+}
+
+function _setCardError($container, selector, hasError, message) {
+  const $card = $container.find(selector);
+  if (!$card.length) return;
+  $card.toggleClass('info-card--error', hasError);
+  $card.find('.rfc196-error-icon').remove();
+  if (hasError) {
+    $card.find('.card-title').first().append(
+      `<span class="rfc196-error-icon" title="${message}">⚠️</span>`
+    );
+  }
 }
 
 /**
@@ -3828,6 +4065,9 @@ self.onInit = async function () {
       closeModal();
     }
   });
+
+  // RFC-0196: Setup clickable group filter cards
+  setupGroupFilterCards();
 
   // Setup info tooltips (premium style)
   setTimeout(() => {

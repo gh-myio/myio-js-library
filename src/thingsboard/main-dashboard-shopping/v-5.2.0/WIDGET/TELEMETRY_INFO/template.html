@@ -47,7 +47,7 @@
       </div>
     </div>
 
-    <div class="info-card lojas-card">
+    <div class="info-card lojas-card" data-group="lojas" title="Clique para filtrar">
       <div class="card-header">
         <span class="card-icon">🏪</span>
         <h3 class="card-title">Lojas</h3>
@@ -61,7 +61,7 @@
     </div>
 
     <!-- ========== WATER DOMAIN: BANHEIROS (hidden by default) ========== -->
-    <div class="info-card banheiros-card" style="display: none">
+    <div class="info-card banheiros-card" data-group="banheiros" style="display: none" title="Clique para filtrar">
       <div class="card-header">
         <span class="card-icon">🚿</span>
         <h3 class="card-title">Banheiros</h3>
@@ -76,7 +76,7 @@
     </div>
 
     <!-- ========== ROW 2: CLIMATIZAÇÃO + ELEVADORES ========== -->
-    <div class="info-card climatizacao-card">
+    <div class="info-card climatizacao-card" data-group="climatizacao" title="Clique para filtrar">
       <div class="card-header">
         <span class="card-icon">❄️</span>
         <h3 class="card-title">Climatização</h3>
@@ -94,7 +94,7 @@
       </div>
     </div>
 
-    <div class="info-card elevadores-card">
+    <div class="info-card elevadores-card" data-group="elevadores" title="Clique para filtrar">
       <div class="card-header">
         <span class="card-icon">🛗</span>
         <h3 class="card-title">Elevadores</h3>
@@ -108,7 +108,7 @@
     </div>
 
     <!-- ========== ROW 3: ESC. ROLANTES + OUTROS EQUIPAMENTOS ========== -->
-    <div class="info-card escadas-card">
+    <div class="info-card escadas-card" data-group="escadasRolantes" title="Clique para filtrar">
       <div class="card-header">
         <span class="card-icon">🎢</span>
         <h3 class="card-title">Esc. Rolantes</h3>
@@ -121,7 +121,7 @@
       </div>
     </div>
 
-    <div class="info-card outros-card">
+    <div class="info-card outros-card" data-group="outros" title="Clique para filtrar">
       <div class="card-header">
         <span class="card-icon">⚙️</span>
         <h3 class="card-title">Outros Equipamentos</h3>
@@ -131,6 +131,20 @@
         <div class="stat-row main-stat">
           <span class="stat-value" id="outrosTotal">0,00 kWh</span>
           <span class="stat-perc" id="outrosPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== WATER DOMAIN: TOTAL CONSUMIDORES (hidden by default, RFC-0196) ========== -->
+    <div class="info-card water-total-card" style="display: none">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h3 class="card-title">Total Consumidores</h3>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="waterTotalConsumidores">0,00 m³</span>
+          <span class="stat-perc" id="waterTotalConsumidoresPerc">(100%)</span>
         </div>
       </div>
     </div>

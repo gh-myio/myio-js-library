@@ -473,6 +473,26 @@ function refreshAlarmBadges() {
 }
 
 /**
+ * RFC-0196: Handle myio:group-filter-changed event from TELEMETRY_INFO.
+ * Shows/hides device cards based on active groups.
+ */
+function _groupFilterChangedHandler(ev) {
+  const { domain, groupFilter } = ev.detail || {};
+  if (!domain || !groupFilter) return;
+  const $container = $root();
+  $container.find('[data-energy-group]').each(function () {
+    const group = $J(this).attr('data-energy-group');
+    const active = groupFilter[group] !== false; // undefined = active
+    $J(this).css({
+      opacity: active ? '' : '0.35',
+      filter: active ? '' : 'grayscale(0.5)',
+      'pointer-events': active ? '' : 'none',
+    });
+  });
+  LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
+}
+
+/**
  * RFC-0105: Build annotation type tooltip content using InfoTooltip classes
  * @param {string} type - Annotation type (pending, maintenance, activity, observation)
  * @param {Array} typeAnnotations - Annotations of this type
@@ -675,6 +695,42 @@ const ESCADAS_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_ro
 const CLIMATIZACAO_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifiers);
 const ELEVADORES_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevadores.identifiers);
 const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifiers);
+
+/**
+ * RFC-0196: Classify an energy device into its GROUP_FILTER key.
+ * Returns one of 'lojas', 'climatizacao', 'elevadores', 'escadasRolantes', 'outros',
+ * or null for entrada/water/temperature devices that are not group-filterable.
+ * @param {Object} it - Item from STATE.itemsBase
+ * @returns {string|null}
+ */
+function _getEnergyGroupKey(it) {
+  const dt = String(it.deviceType || '').toUpperCase();
+  const dp = String(it.deviceProfile || '').toUpperCase();
+  const id = String(it.identifier || '').toUpperCase();
+  const entradaTypes = new Set(['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO']);
+  if (entradaTypes.has(dt) || entradaTypes.has(dp)) return null;
+  if (
+    CLIMATIZACAO_DEVICE_TYPES_SET.has(dt) ||
+    CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(dt) ||
+    CLIMATIZACAO_IDENTIFIERS_SET.has(id) ||
+    id.startsWith('CAG-') ||
+    id.startsWith('FANCOIL-') ||
+    (DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceProfiles || []).includes(dp)
+  ) return 'climatizacao';
+  if (
+    ELEVADORES_DEVICE_TYPES_SET.has(dt) ||
+    ELEVADORES_IDENTIFIERS_SET.has(id) ||
+    id.startsWith('ELV-')
+  ) return 'elevadores';
+  if (
+    ESCADAS_DEVICE_TYPES_SET.has(dt) ||
+    ESCADAS_IDENTIFIERS_SET.has(id) ||
+    id.startsWith('ESC-')
+  ) return 'escadasRolantes';
+  if (dt === '3F_MEDIDOR' && (dp === '3F_MEDIDOR' || !dp)) return 'lojas';
+  if (dt === '3F_MEDIDOR') return 'outros';
+  return null;
+}
 
 // RFC-0106: Get EQUIPMENT_EXCLUSION_PATTERN from MAIN_VIEW if available
 const EQUIPMENT_EXCLUSION_PATTERN =
@@ -2982,6 +3038,12 @@ function renderList(visible) {
       gcdrSyncAt: it.gcdrSyncAt || '',
     });
 
+    // RFC-0196: Tag card with energy group for group-filter hide/show
+    if ($card && $card[0]) {
+      const energyGroup = _getEnergyGroupKey(it);
+      if (energyGroup) $card.attr('data-energy-group', energyGroup);
+    }
+
     $ul.append($card);
   });
 
@@ -5243,6 +5305,9 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
+  // RFC-0196: Listen for group filter changes from TELEMETRY_INFO widget
+  window.addEventListener('myio:group-filter-changed', _groupFilterChangedHandler);
+
   // Show #btnPresetup, #btnDownloadDeviceMap and #btnSyncGCDR only for MyIO users (@myio.com.br)
   function _applyPresetupVisibility(isSuperAdmin) {
     const btn = $root().find('#btnPresetup')[0];
@@ -5592,6 +5657,7 @@ self.onDestroy = function () {
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
   window.removeEventListener('myio:alarms-updated', refreshAlarmBadges);
+  window.removeEventListener('myio:group-filter-changed', _groupFilterChangedHandler);
 
   // Cleanup TempSensorSummaryTooltip if attached
   if (_tempTooltipCleanup) {

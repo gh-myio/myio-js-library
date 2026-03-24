@@ -733,6 +733,12 @@ export type {
   TBCurrentUser,
   TBUser,
   TBUserPage,
+  // RFC-0197: GCDR RBAC types
+  GCDRPolicy,
+  GCDRRole,
+  GCDRAssignment,
+  AssignmentEntry,
+  UserRoleAssignmentsSnapshot,
 } from './components/premium-modals/user-management';
 
 export type {

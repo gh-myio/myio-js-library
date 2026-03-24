@@ -1,4 +1,4 @@
-import { UserManagementConfig, TBUser, buildUserTabLabel } from '../types';
+import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, UserRoleAssignmentsSnapshot } from '../types';
 
 export interface UserDetailCallbacks {
   onDeleted(): void;
@@ -16,6 +16,12 @@ export class UserDetailTab {
   private el!: HTMLElement;
   private mode: DetailMode = 'view';
   private saving = false;
+
+  // RFC-0197: Assignments section state
+  private assignments: GCDRAssignment[] = [];
+  private availableRoles: GCDRRole[] = [];
+  private assignmentsEl: HTMLElement | null = null;
+  private assignmentsVersion = 0;
 
   constructor(config: UserManagementConfig, user: TBUser, callbacks: UserDetailCallbacks) {
     this.config = config;
@@ -83,7 +89,254 @@ export class UserDetailTab {
     card.querySelector('.um-detail-reset-btn')!.addEventListener('click', () => this.handleResetPassword());
     card.querySelector('.um-detail-delete-btn')!.addEventListener('click', () => this.handleDelete());
 
+    // RFC-0197: Assignments section
+    const assignmentsSection = this.buildAssignmentsSection();
+    card.appendChild(assignmentsSection);
+
     return card;
+  }
+
+  // ── RFC-0197: Assignments Section ─────────────────────────────────────────
+
+  private gcdrBase(): string {
+    return (window as any).MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  }
+
+  private gcdrHeaders(): Record<string, string> {
+    const orch = (window as any).MyIOOrchestrator;
+    return {
+      'Content-Type': 'application/json',
+      'X-API-Key': orch?.gcdrApiKey || '',
+      'X-Tenant-ID': orch?.gcdrTenantId || '',
+    };
+  }
+
+  private unwrapList<T>(json: unknown): T[] {
+    if (Array.isArray(json)) return json as T[];
+    const j = json as Record<string, unknown>;
+    if (j?.data && typeof j.data === 'object') {
+      const d = j.data as Record<string, unknown>;
+      if (Array.isArray(d.items)) return d.items as T[];
+      if (Array.isArray(d)) return (d as unknown) as T[];
+    }
+    if (Array.isArray(j?.items)) return j.items as T[];
+    return [];
+  }
+
+  private buildAssignmentsSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-bg-surface);border-bottom:1px solid var(--um-border);';
+    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:var(--um-text-secondary);">🔑 Atribuições de Funções</span>`;
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'um-btn um-btn--secondary um-btn--sm';
+    addBtn.textContent = '+ Atribuir Função';
+    addBtn.addEventListener('click', () => this.showAssignForm());
+    sectionHeader.appendChild(addBtn);
+    section.appendChild(sectionHeader);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:14px 16px;';
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--um-text-faint);"><div class="um-spinner"></div> Carregando...</div>`;
+    section.appendChild(body);
+    this.assignmentsEl = body;
+
+    this.loadAssignments();
+    return section;
+  }
+
+  private async loadAssignments(): Promise<void> {
+    const userId = this.user.id.id;
+    try {
+      const [assignRes, rolesRes] = await Promise.all([
+        fetch(`${this.gcdrBase()}/authorization/users/${userId}/assignments`, { headers: this.gcdrHeaders() }),
+        fetch(`${this.gcdrBase()}/roles?limit=100`, { headers: this.gcdrHeaders() }),
+      ]);
+      this.assignments = assignRes.ok ? this.unwrapList<GCDRAssignment>(await assignRes.json()) : [];
+      this.availableRoles = rolesRes.ok ? this.unwrapList<GCDRRole>(await rolesRes.json()) : [];
+      this.renderAssignments();
+    } catch (err) {
+      console.error('[UserDetailTab] loadAssignments error', err);
+      if (this.assignmentsEl) {
+        this.assignmentsEl.innerHTML = `<div style="font-size:12px;color:var(--um-btn-danger-text);">Erro ao carregar atribuições.</div>`;
+      }
+    }
+  }
+
+  private renderAssignments(): void {
+    if (!this.assignmentsEl) return;
+    if (this.assignments.length === 0) {
+      this.assignmentsEl.innerHTML = `<div style="font-size:13px;color:var(--um-text-faint);padding:8px 0;">Nenhuma função atribuída.</div>`;
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'um-table';
+    table.style.cssText = 'font-size:12px;';
+    table.innerHTML = `<thead><tr>
+      <th>Função</th><th>Escopo</th><th>Status</th><th>Expira em</th><th style="text-align:center;">Ação</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    this.assignments.forEach(a => {
+      const tr = document.createElement('tr');
+      const statusColor = a.status === 'active' ? 'var(--um-badge-user-text)' : a.status === 'expired' ? 'var(--um-btn-danger-text)' : 'var(--um-text-faint)';
+      const expiresAt = a.expiresAt ? new Date(a.expiresAt).toLocaleDateString('pt-BR') : '—';
+      tr.innerHTML = `
+        <td style="font-weight:500;">${this.esc(a.roleDisplayName || a.roleKey)}</td>
+        <td><code style="font-size:10px;">${this.esc(a.scope)}</code></td>
+        <td><span style="color:${statusColor};font-weight:600;">${a.status}</span></td>
+        <td>${expiresAt}</td>
+        <td style="text-align:center;"><button class="um-btn um-btn--danger um-btn--sm revoke-btn">Revogar</button></td>
+      `;
+      tr.querySelector('.revoke-btn')!.addEventListener('click', () => this.revokeAssignment(a));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    this.assignmentsEl.innerHTML = '';
+    this.assignmentsEl.appendChild(table);
+  }
+
+  private showAssignForm(): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:100001;';
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--um-modal-bg,#131929);border:1px solid var(--um-border,#2a3352);border-radius:12px;padding:24px;width:min(480px,92vw);box-shadow:0 24px 64px rgba(0,0,0,0.5);';
+
+    const gcdrCid = (window as any).MyIOOrchestrator?.gcdrCustomerId || '';
+    const scopeOptions = [
+      { value: '*', label: '* (global)' },
+      ...(gcdrCid ? [{ value: `customer:${gcdrCid}`, label: `customer:${gcdrCid}` }] : []),
+    ];
+
+    modal.innerHTML = `
+      <h4 style="margin:0 0 16px;font-size:15px;font-weight:600;color:var(--um-text-primary,#e2e8f0);">Atribuir Função</h4>
+      <div class="um-form" style="max-width:100%;">
+        <div class="um-form-group">
+          <label class="um-label">Função <span class="um-req">*</span></label>
+          <select class="um-input" name="roleId">
+            <option value="">Selecione...</option>
+            ${this.availableRoles.map(r => `<option value="${this.esc(r.id)}">${this.esc(r.name)}</option>`).join('')}
+          </select>
+          <span class="um-field-error" data-for="roleId"></span>
+        </div>
+        <div class="um-form-group">
+          <label class="um-label">Escopo <span class="um-req">*</span></label>
+          <select class="um-input" name="scope">
+            ${scopeOptions.map(o => `<option value="${this.esc(o.value)}">${this.esc(o.label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="um-form-group">
+          <label class="um-label">Expiração (opcional)</label>
+          <input type="date" class="um-input" name="expiresAt" />
+        </div>
+        <div class="um-form-group">
+          <label class="um-label">Motivo (opcional)</label>
+          <input class="um-input" name="reason" placeholder="Ex: Acesso temporário para auditoria" autocomplete="off" />
+        </div>
+        <div class="um-form-actions">
+          <button class="um-btn um-btn--ghost assign-cancel">Cancelar</button>
+          <button class="um-btn um-btn--primary assign-save">Atribuir</button>
+        </div>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    modal.querySelector('.assign-cancel')!.addEventListener('click', close);
+    modal.querySelector('.assign-save')!.addEventListener('click', async () => {
+      const roleId = (modal.querySelector<HTMLSelectElement>('[name=roleId]')!.value).trim();
+      const errEl = modal.querySelector<HTMLElement>('[data-for=roleId]')!;
+      if (!roleId) { errEl.textContent = 'Selecione uma função.'; return; }
+      errEl.textContent = '';
+
+      const scope = (modal.querySelector<HTMLSelectElement>('[name=scope]')!.value) || '*';
+      const expiresAtRaw = (modal.querySelector<HTMLInputElement>('[name=expiresAt]')!.value);
+      const expiresAt = expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null;
+      const reason = (modal.querySelector<HTMLInputElement>('[name=reason]')!.value).trim() || null;
+      const role = this.availableRoles.find(r => r.id === roleId);
+
+      const btn = modal.querySelector<HTMLButtonElement>('.assign-save')!;
+      btn.disabled = true; btn.textContent = '...';
+      try {
+        const body = {
+          userId: this.user.id.id,
+          roleId,
+          scope,
+          expiresAt,
+          reason,
+        };
+        const res = await fetch(`${this.gcdrBase()}/authorization/assignments`, {
+          method: 'POST', headers: this.gcdrHeaders(), body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const created: GCDRAssignment = await res.json();
+        this.callbacks.showToast(`Função "${role?.name || roleId}" atribuída!`, 'success');
+        close();
+        this.assignments.push(created);
+        this.renderAssignments();
+        await this.writeTBSnapshot();
+      } catch (err) {
+        console.error('[UserDetailTab] assign error', err);
+        this.callbacks.showToast('Erro ao atribuir função.', 'error');
+        btn.disabled = false; btn.textContent = 'Atribuir';
+      }
+    });
+  }
+
+  private async revokeAssignment(a: GCDRAssignment): Promise<void> {
+    const role = this.availableRoles.find(r => r.id === a.roleId);
+    const label = role?.name || a.roleDisplayName || a.roleKey;
+    if (!confirm(`Revogar a função "${label}"?`)) return;
+    try {
+      const res = await fetch(`${this.gcdrBase()}/authorization/assignments/${a.id}`, {
+        method: 'DELETE', headers: this.gcdrHeaders(),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this.assignments = this.assignments.filter(x => x.id !== a.id);
+      this.renderAssignments();
+      this.callbacks.showToast(`Função "${label}" revogada.`, 'success');
+      await this.writeTBSnapshot();
+    } catch (err) {
+      console.error('[UserDetailTab] revoke error', err);
+      this.callbacks.showToast('Erro ao revogar função.', 'error');
+    }
+  }
+
+  /** Write user_role_assignments snapshot to ThingsBoard SERVER_SCOPE */
+  private async writeTBSnapshot(): Promise<void> {
+    const { tbBaseUrl, jwtToken } = this.config;
+    this.assignmentsVersion += 1;
+    const snapshot: UserRoleAssignmentsSnapshot = {
+      updatedAt: new Date().toISOString(),
+      version: this.assignmentsVersion,
+      assignments: this.assignments
+        .filter(a => a.status !== 'expired')
+        .map(a => ({
+          id: a.id,
+          roleKey: a.roleKey,
+          roleDisplayName: a.roleDisplayName,
+          scope: a.scope,
+          status: a.status,
+          expiresAt: a.expiresAt,
+          grantedAt: a.grantedAt,
+          grantedBy: a.grantedBy,
+          reason: a.reason,
+        })),
+    };
+    try {
+      await fetch(`${tbBaseUrl}/api/plugins/telemetry/USER/${this.user.id.id}/SERVER_SCOPE`, {
+        method: 'POST',
+        headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_role_assignments: snapshot }),
+      });
+    } catch (err) {
+      console.warn('[UserDetailTab] writeTBSnapshot failed (non-critical):', err);
+    }
   }
 
   private buildEditMode(): HTMLElement {
