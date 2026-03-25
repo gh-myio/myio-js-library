@@ -1113,12 +1113,13 @@ body.modal-open-telemetry-info {
   display: none !important;
 }
 
-/* Water domain: hide energy-only cards */
+/* Water domain: hide energy-only cards.
+ * NOTE: .area-comum-card is SHOWN in water (maps to Área Comum water category).
+ * NOTE: .total-card is SHOWN in water (reused as "Pontos Não Mapeados" by renderWaterStats).
+ * Only truly energy-exclusive cards are hidden here. */
 [data-widget-domain="water"] .climatizacao-card,
 [data-widget-domain="water"] .elevadores-card,
 [data-widget-domain="water"] .escadas-card,
-[data-widget-domain="water"] .outros-card,
-[data-widget-domain="water"] .area-comum-card,
-[data-widget-domain="water"] .total-card {
+[data-widget-domain="water"] .outros-card {
   display: none !important;
 }

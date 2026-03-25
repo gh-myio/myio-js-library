@@ -3140,8 +3140,18 @@ function _applyGroupFilterEnergy(filter, $container) {
       .toggleClass('info-card--inactive', !filter[group]);
   });
 
-  // Area Comum is dimmed whenever any group is inactive
-  $container.find('.area-comum-card').toggleClass('info-card--inactive', !allActive);
+  // Area Comum is dimmed whenever any group is inactive (it's a residual — only valid with all groups)
+  const $areaComumCard = $container.find('.area-comum-card');
+  $areaComumCard.toggleClass('info-card--inactive', !allActive);
+  // RFC-0196: Update area-comum card title tooltip when dimmed
+  const $areaComumTitle = $areaComumCard.find('.card-title');
+  if (!allActive) {
+    if (!$areaComumTitle.find('.rfc196-residual-note').length) {
+      $areaComumTitle.append('<span class="rfc196-residual-note" title="Área Comum é um residual e só é válido quando todos os grupos estão ativos"> ⚠</span>');
+    }
+  } else {
+    $areaComumTitle.find('.rfc196-residual-note').remove();
+  }
 
   // Recalculate active totals and percentages
   const cons = STATE.consumidores;
@@ -3201,7 +3211,15 @@ function _applyGroupFilterWater(filter, $container) {
 }
 
 /**
- * RFC-0196: Check for negative residuals and Entrada < Total, add/remove error class+icon.
+ * RFC-0196: Check for negative residuals and Total > Entrada, add/remove error class+icon.
+ *
+ * Energy checks:
+ *   1. Área Comum < 0        → error on .area-comum-card
+ *   2. Total Consumidores > Entrada → error on .entrada-card
+ *
+ * Water checks:
+ *   1. Pontos Não Mapeados < 0        → error on .total-card (reused as PNM in water mode)
+ *   2. Total Consumidores > Entrada   → error on .entrada-card
  */
 function checkCalculationErrors() {
   const domain = getWidgetDomain();
@@ -3210,17 +3228,35 @@ function checkCalculationErrors() {
   if (domain === 'water') {
     const entradaTotal = STATE_WATER.entrada?.total || 0;
     if (entradaTotal <= 0) return; // No data yet — skip
+
     const pontosTotal = STATE_WATER.pontosNaoMapeados?.total || 0;
-    _setCardError($container, '.pontos-nao-mapeados-card, .total-card', pontosTotal < 0,
+    // .total-card is reused as "Pontos Não Mapeados" by renderWaterStats()
+    _setCardError($container, '.total-card', pontosTotal < 0,
       'Pontos Nao Mapeados e negativo (' + formatValue(pontosTotal, 'water') + '). ' +
       'Formula: Entrada - (Lojas + Banheiros + Area Comum). Verifique a classificacao dos dispositivos.');
+
+    // RFC-0196: Total Consumidores > Entrada
+    const waterLojas = STATE_WATER.lojas?.total || 0;
+    const waterBanheiros = STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0;
+    const waterAreaComum = STATE_WATER.areaComum?.total || 0;
+    const waterTotalCons = waterLojas + waterBanheiros + waterAreaComum + pontosTotal;
+    _setCardError($container, '.entrada-card', waterTotalCons > entradaTotal,
+      'Total Consumidores (' + formatValue(waterTotalCons, 'water') + ') e maior que Entrada (' +
+      formatValue(entradaTotal, 'water') + '). Verifique a configuracao dos medidores.');
   } else {
     const entradaTotal = STATE.entrada?.total || 0;
     if (entradaTotal <= 0) return; // No data yet — skip
+
     const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
     _setCardError($container, '.area-comum-card', areaComumTotal < 0,
       'Area Comum e negativa (' + formatEnergy(areaComumTotal) + '). ' +
       'Formula: Entrada - (Lojas + Climatizacao + Elevadores + Esc. Rolantes + Outros). Verifique a classificacao dos dispositivos.');
+
+    // RFC-0196: Total Consumidores > Entrada
+    const totalCons = STATE.consumidores?.totalGeral || 0;
+    _setCardError($container, '.entrada-card', totalCons > entradaTotal,
+      'Total Consumidores (' + formatEnergy(totalCons) + ') e maior que Entrada (' +
+      formatEnergy(entradaTotal) + '). Verifique a configuracao dos medidores.');
   }
 }
 

@@ -150,7 +150,10 @@
     </div>
 
     <!-- ========== ROW 4: ÁREA COMUM + TOTAL (SAME ROW) ========== -->
-    <div class="info-card area-comum-card">
+    <!-- data-group="areaComum": clickable in water domain (explicitly metered).
+         In energy domain the click is ignored by the guard in setupGroupFilterCards()
+         since GROUP_FILTER.energy has no areaComum key. -->
+    <div class="info-card area-comum-card" data-group="areaComum" title="Clique para filtrar (domínio água)">
       <div class="card-header">
         <span class="card-icon">🏢</span>
         <h3 class="card-title">Área Comum</h3>
