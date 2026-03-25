@@ -896,6 +896,8 @@ export class WelcomeModalView {
 /* Horizontal scroll container - 2 rows */
 .myio-welcome-cards-scroll {
   flex: 1;
+  display: flex;
+  align-items: stretch;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -903,6 +905,7 @@ export class WelcomeModalView {
   padding: 4px 0;
   /* Ensure proper flex overflow behavior */
   min-width: 0;
+  min-height: 0;
   width: 100%;
 }
 
@@ -926,13 +929,15 @@ export class WelcomeModalView {
 /* Grid with 2 rows, horizontal scroll */
 .myio-welcome-cards-grid {
   display: grid;
-  grid-template-rows: repeat(2, auto);
+  grid-template-rows: repeat(2, 1fr);
   grid-auto-flow: column;
   grid-auto-columns: calc(260px * var(--wm-card-scale, 1));
   gap: 10px;
   padding-bottom: 8px;
   width: max-content;
+  height: 100%;
   margin: 0 auto;
+  align-self: stretch;
 }
 
 .myio-welcome-cards-grid .myio-welcome-card {
@@ -944,13 +949,15 @@ export class WelcomeModalView {
 /* V2 Grid - Metro UI style cards (2 rows horizontal) */
 .myio-welcome-cards-grid--v2 {
   display: grid;
-  grid-template-rows: repeat(2, auto);
+  grid-template-rows: repeat(2, 1fr);
   grid-auto-flow: column;
   grid-auto-columns: calc(280px * var(--wm-card-scale, 1));
   gap: 12px;
   padding-bottom: 8px;
   width: max-content;
+  height: 100%;
   margin: 0 auto;
+  align-self: stretch;
 }
 
 .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {

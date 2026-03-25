@@ -103,6 +103,8 @@ export interface DashboardEnergySummary {
   filteredTotal?: number;
   /** Total consumption before filtering (unfiltered) */
   unfilteredTotal?: number;
+  /** Label for the entity grouping dimension (default: 'Shopping'). Comes from goalsEntityLabel setting. */
+  entityLabel?: string;
 }
 
 // ============================================
@@ -1145,9 +1147,10 @@ export const EnergySummaryTooltip = {
   /**
    * Render shopping breakdown for summary section
    */
-  renderShoppingBreakdown(shoppings: ShoppingBreakdown[] | undefined): string {
+  renderShoppingBreakdown(shoppings: ShoppingBreakdown[] | undefined, entityLabel?: string): string {
     if (!shoppings || shoppings.length === 0) return '';
 
+    const label = entityLabel || 'Shopping';
     const rows = shoppings.map(s => {
       // Handle both 'name' (from buildEnergyCategoryDataByShopping) and 'shoppingName' (from interface)
       const name = (s as unknown as { name?: string }).name || s.shoppingName || 'Unknown';
@@ -1161,7 +1164,7 @@ export const EnergySummaryTooltip = {
 
     return `
       <div class="energy-summary-tooltip__summary-breakdown">
-        <div class="energy-summary-tooltip__summary-breakdown-title">Por Shopping</div>
+        <div class="energy-summary-tooltip__summary-breakdown-title">Por ${label}</div>
         ${rows}
       </div>
     `;
@@ -1320,7 +1323,7 @@ export const EnergySummaryTooltip = {
             <span class="energy-summary-tooltip__section-title">Distribuição</span>
             <div class="energy-summary-tooltip__grouping-tabs">
               <button class="energy-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
-              <button class="energy-summary-tooltip__grouping-tab" data-view="shopping">Por Shopping</button>
+              <button class="energy-summary-tooltip__grouping-tab" data-view="shopping">Por ${summary.entityLabel || 'Shopping'}</button>
             </div>
           </div>
 
@@ -1340,7 +1343,7 @@ export const EnergySummaryTooltip = {
           <div class="energy-summary-tooltip__shopping-view" data-grouping="shopping">
             <div class="energy-summary-tooltip__category-tree">
               <div class="energy-summary-tooltip__category-header">
-                <span>Shopping</span>
+                <span>${summary.entityLabel || 'Shopping'}</span>
                 <span>Qtd</span>
                 <span>Consumo</span>
               </div>

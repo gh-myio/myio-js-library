@@ -15,6 +15,18 @@
         "default": "https://api.data.apps.myio-bas.com",
         "description": "MYIO Data API base URL"
       },
+      "alarmsApiBaseUrl": {
+        "title": "Alarms API Base URL",
+        "type": "string",
+        "default": "https://alarms-api.a.myio-bas.com",
+        "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
+      },
+      "gcdrApiBaseUrl": {
+        "title": "GCDR API Base URL",
+        "type": "string",
+        "default": "https://gcdr-api.a.myio-bas.com",
+        "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
+      },
       "customerTB_ID": {
         "title": "ThingsBoard Customer ID",
         "type": "string",
@@ -234,6 +246,14 @@
   "form": [
     {
       "key": "dataApiHost",
+      "type": "text"
+    },
+    {
+      "key": "alarmsApiBaseUrl",
+      "type": "text"
+    },
+    {
+      "key": "gcdrApiBaseUrl",
       "type": "text"
     },
     {

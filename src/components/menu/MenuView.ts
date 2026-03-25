@@ -54,6 +54,7 @@ export class MenuView {
   // RFC-0152: Operational Indicators tab state
   private operationalTabEnabled = false;
   private operationalAccessHandler: ((ev: Event) => void) | null = null;
+  private domainsAccessHandler: ((ev: Event) => void) | null = null;
 
   constructor(private params: MenuComponentParams) {
     this.container = params.container;
@@ -2316,6 +2317,57 @@ export class MenuView {
       })
     );
     //}
+
+    // ==========================================
+    // Domains Access (show-energy-tab, show-water-tab, show-temperature-tab)
+    // Defaults: all true if not set in server_scope
+    // ==========================================
+    this.domainsAccessHandler = (ev: Event) => {
+      const customEv = ev as CustomEvent<{ energy: boolean; water: boolean; temperature: boolean }>;
+      const detail = (customEv.detail ?? {}) as { energy?: boolean; water?: boolean; temperature?: boolean; showGoalsButton?: boolean };
+      const showEnergy      = detail.energy      !== false;
+      const showWater       = detail.water        !== false;
+      const showTemperature = detail.temperature  !== false;
+      const showGoals       = detail.showGoalsButton !== false;
+
+      if (this.configTemplate.enableDebugMode) {
+        console.log('[MenuView] myio:domains-access received:', { showEnergy, showWater, showTemperature, showGoals });
+      }
+
+      // Show/hide Goals button
+      const goalsBtn = this.root.querySelector('#menuGoalsBtn') as HTMLElement | null;
+      if (goalsBtn) goalsBtn.style.display = showGoals ? '' : 'none';
+
+      const domainVisibility: Record<string, boolean> = {
+        energy: showEnergy,
+        water: showWater,
+        temperature: showTemperature,
+      };
+
+      const filtered = this.tabs.filter((t) => {
+        // Only filter core domain tabs; preserve operational and any custom tabs
+        if (t.id in domainVisibility) return domainVisibility[t.id];
+        return true;
+      });
+
+      if (filtered.length !== this.tabs.length) {
+        this.tabs = filtered;
+        // Ensure activeTabId points to a visible tab
+        if (!this.tabs.find((t) => t.id === this.activeTabId)) {
+          this.activeTabId = this.tabs[0]?.id ?? '';
+        }
+        this.rebuildUnifiedModal();
+      }
+    };
+    window.addEventListener('myio:domains-access', this.domainsAccessHandler);
+
+    // Apply cached domains access state if already available
+    const myioUtilsTyped = (window as Window & { MyIOUtils?: { domainsAccess?: { energy: boolean; water: boolean; temperature: boolean } } }).MyIOUtils;
+    if (myioUtilsTyped?.domainsAccess) {
+      this.domainsAccessHandler(
+        new CustomEvent('myio:domains-access', { detail: myioUtilsTyped.domainsAccess })
+      );
+    }
   }
 
   /**
@@ -3652,6 +3704,11 @@ export class MenuView {
     if (this.operationalAccessHandler) {
       window.removeEventListener('myio:operational-indicators-access', this.operationalAccessHandler);
       this.operationalAccessHandler = null;
+    }
+
+    if (this.domainsAccessHandler) {
+      window.removeEventListener('myio:domains-access', this.domainsAccessHandler);
+      this.domainsAccessHandler = null;
     }
 
     if (this.root.parentNode) {

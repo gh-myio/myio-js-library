@@ -215,7 +215,21 @@ self.onInit = async function () {
 
   // === 2. CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
-  const DATA_API_HOST = settings.dataApiHost || 'https://api.data.apps.myio-bas.com';
+  const DATA_API_HOST     = settings.dataApiHost     || 'https://api.data.apps.myio-bas.com';
+  const ALARMS_API_BASE   = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
+
+  // RFC-0178: Configure AlarmService with the correct base URL from settings
+  if (MyIOLibrary?.AlarmService?.configure) {
+    MyIOLibrary.AlarmService.configure(ALARMS_API_BASE);
+    LogHelper.log('[MAIN_UNIQUE] AlarmService configured with baseUrl:', ALARMS_API_BASE);
+  }
+
+  // RFC-0178/RFC-0180: Expose API base URLs on MyIOOrchestrator for components (e.g. btnAlarmBundleMap)
+  if (window.MyIOOrchestrator) {
+    window.MyIOOrchestrator.alarmsApiBaseUrl = ALARMS_API_BASE;
+    window.MyIOOrchestrator.gcdrApiBaseUrl   = GCDR_API_BASE;
+  }
 
   // Credentials will be fetched from ThingsBoard customer attributes
   let CLIENT_ID = '';
@@ -328,45 +342,55 @@ self.onInit = async function () {
     return {};
   };
 
-  // RFC-0152: Fetch Operational Indicators access from customer attributes
+  // RFC-0152: Fetch feature flags from customer SERVER_SCOPE attributes
+  // Defaults: show-energy-tab=true, show-water-tab=true, show-temperature-tab=true, show-indicators-operational-panels=false
   const fetchOperationalIndicatorsAccess = async () => {
     const customerTB_ID = getCustomerTB_ID();
     const jwt = getJwtToken();
 
-    LogHelper.log('RFC-0152: Checking operational indicators access for customer:', customerTB_ID);
+    LogHelper.log('RFC-0152: Checking feature flags access for customer:', customerTB_ID);
 
     if (!customerTB_ID || !jwt) {
-      LogHelper.warn('RFC-0152: Missing customerTB_ID or JWT token for operational indicators check');
+      LogHelper.warn('RFC-0152: Missing customerTB_ID or JWT token for feature flags check');
+      // Dispatch defaults: all domain tabs visible, operational hidden
+      window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } }));
+      window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true, showGoalsButton: true } }));
       return { showOperationalPanels: false };
     }
 
     try {
       if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
         const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-        const showOperationalPanels = attrs?.['show-indicators-operational-panels'] === 'true';
 
-        LogHelper.log('RFC-0152: Operational indicators access:', showOperationalPanels);
+        const showOperationalPanels  = attrs?.['show-indicators-operational-panels'] === 'true';
+        const showEnergyTab          = attrs?.['show-energy-tab']      !== 'false'; // default true
+        const showWaterTab           = attrs?.['show-water-tab']       !== 'false'; // default true
+        const showTemperatureTab     = attrs?.['show-temperature-tab'] !== 'false'; // default true
+        const showGoalsButton        = attrs?.['show-goals-button']    !== 'false'; // default true
 
-        // Update MyIOUtils with operational indicators state
+        LogHelper.log('RFC-0152: Feature flags:', { showOperationalPanels, showEnergyTab, showWaterTab, showTemperatureTab, showGoalsButton });
+
+        const domainsAccess = { energy: showEnergyTab, water: showWaterTab, temperature: showTemperatureTab, showGoalsButton };
+
+        // Update MyIOUtils with all feature flag states
         if (window.MyIOUtils) {
-          window.MyIOUtils.operationalIndicators = {
-            enabled: showOperationalPanels,
-          };
+          window.MyIOUtils.operationalIndicators = { enabled: showOperationalPanels };
+          window.MyIOUtils.domainsAccess = domainsAccess;
         }
 
-        // Dispatch event for Menu component to react
-        window.dispatchEvent(
-          new CustomEvent('myio:operational-indicators-access', {
-            detail: { enabled: showOperationalPanels },
-          })
-        );
+        // Dispatch events for Menu component to react
+        window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: showOperationalPanels } }));
+        window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: domainsAccess }));
 
         return { showOperationalPanels };
       }
     } catch (error) {
-      LogHelper.error('RFC-0152: Failed to fetch operational indicators access:', error);
+      LogHelper.error('RFC-0152: Failed to fetch feature flags:', error);
     }
 
+    // Fallback defaults on error
+    window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } }));
+    window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true } }));
     return { showOperationalPanels: false };
   };
 
@@ -2340,6 +2364,8 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0120: Include currentThemeMode for consistent theme propagation
   window.MyIOUtils = {
     DATA_API_HOST,
+    ALARMS_API_BASE,
+    GCDR_API_BASE,
     CLIENT_ID,
     CLIENT_SECRET,
     CUSTOMER_ING_ID,
@@ -2734,6 +2760,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byCategory: buildEnergyCategoryData(classifiedData),
             byShoppingTotal: buildEnergyCategoryDataByShopping(classifiedData),
             shoppingsEnergy: buildShoppingsEnergyBreakdown(classifiedData),
+            entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -2752,6 +2779,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byCategory: buildWaterCategoryData(classifiedData),
             byShoppingTotal: buildWaterCategoryDataByShopping(classifiedData),
             shoppingsWater: buildShoppingsWaterBreakdown(classifiedData),
+            entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -3172,6 +3200,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byCategory: buildEnergyCategoryData(filteredClassified),
             byShoppingTotal: buildEnergyCategoryDataByShopping(filteredClassified),
             shoppingsEnergy: buildShoppingsEnergyBreakdown(filteredClassified),
+            entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -3189,6 +3218,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byCategory: buildWaterCategoryData(filteredClassified),
             byShoppingTotal: buildWaterCategoryDataByShopping(filteredClassified),
             shoppingsWater: buildShoppingsWaterBreakdown(filteredClassified),
+            entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -4546,6 +4576,8 @@ body.filter-modal-open { overflow: hidden !important; }
       container,
       themeMode: currentThemeMode,
       enableDebugMode: settings.enableDebugMode,
+      alarmsApiBaseUrl: ALARMS_API_BASE,
+      gcdrApiBaseUrl: GCDR_API_BASE,
       alarms: [],
       onAlarmClick: (alarm) => {
         LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarm clicked:', alarm.title || alarm.id);
@@ -5031,6 +5063,7 @@ function processDataAndDispatchEvents() {
         byCategory: buildEnergyCategoryData(classified),
         byShoppingTotal: buildEnergyCategoryDataByShopping(classified),
         shoppingsEnergy: buildShoppingsEnergyBreakdown(classified),
+        entityLabel: settings.goalsEntityLabel || 'Shopping',
         lastUpdated: new Date().toISOString(),
       },
     })
@@ -5049,6 +5082,7 @@ function processDataAndDispatchEvents() {
         byCategory: buildWaterCategoryData(classified),
         byShoppingTotal: buildWaterCategoryDataByShopping(classified),
         shoppingsWater: buildShoppingsWaterBreakdown(classified),
+        entityLabel: settings.goalsEntityLabel || 'Shopping',
         lastUpdated: new Date().toISOString(),
       },
     })
@@ -6374,6 +6408,7 @@ function calculateDeviceCounts(classified) {
 // MyIOOrchestrator - For TELEMETRY to fetch devices and cache
 // ===================================================================
 window.MyIOOrchestrator = window.MyIOOrchestrator || {};
+// RFC-0178/RFC-0180: Expose API base URLs — set inside onInit via ALARMS_API_BASE/GCDR_API_BASE constants
 
 // Get devices by domain and context
 window.MyIOOrchestrator.getDevices = function (domain, context) {

@@ -41,6 +41,8 @@ export class HeaderView {
   private waterKpiEl: HTMLElement | null = null;
   private waterTrendEl: HTMLElement | null = null;
 
+  private domainsAccessHandler: ((ev: Event) => void) | null = null;
+
   constructor(private params: HeaderComponentParams) {
     this.container = params.container;
     this.themeMode = params.configTemplate?.themeMode ?? 'light';
@@ -630,6 +632,30 @@ export class HeaderView {
       });
     });
 
+    // Domains access: hide cards for disabled domains
+    this.domainsAccessHandler = (ev: Event) => {
+      if (!this.element) return;
+      const detail = ((ev as CustomEvent<{ energy?: boolean; water?: boolean; temperature?: boolean }>).detail ?? {}) as { energy?: boolean; water?: boolean; temperature?: boolean };
+      const showEnergy      = detail.energy      !== false;
+      const showWater       = detail.water        !== false;
+      const showTemperature = detail.temperature  !== false;
+
+      const cardEnergy = this.element.querySelector(`#${HEADER_CSS_PREFIX}-card-energy`) as HTMLElement | null;
+      const cardTemp   = this.element.querySelector(`#${HEADER_CSS_PREFIX}-card-temp`)   as HTMLElement | null;
+      const cardWater  = this.element.querySelector(`#${HEADER_CSS_PREFIX}-card-water`)  as HTMLElement | null;
+
+      if (cardEnergy) cardEnergy.style.display = showEnergy      ? '' : 'none';
+      if (cardTemp)   cardTemp.style.display   = showTemperature ? '' : 'none';
+      if (cardWater)  cardWater.style.display  = showWater       ? '' : 'none';
+    };
+    window.addEventListener('myio:domains-access', this.domainsAccessHandler);
+
+    // Apply cached state if already available
+    const myioUtils = (window as Window & { MyIOUtils?: { domainsAccess?: { energy: boolean; water: boolean; temperature: boolean } } }).MyIOUtils;
+    if (myioUtils?.domainsAccess) {
+      this.domainsAccessHandler(new CustomEvent('myio:domains-access', { detail: myioUtils.domainsAccess }));
+    }
+
     // Info triggers (for tooltips)
     const infoTriggers = this.element.querySelectorAll(`.${HEADER_CSS_PREFIX}-info-trigger`);
     infoTriggers.forEach((trigger) => {
@@ -926,6 +952,11 @@ export class HeaderView {
 
     // Clear event handlers
     this.eventHandlers.clear();
+
+    if (this.domainsAccessHandler) {
+      window.removeEventListener('myio:domains-access', this.domainsAccessHandler);
+      this.domainsAccessHandler = null;
+    }
 
     // Note: We don't remove the style element as other instances might use it
   }

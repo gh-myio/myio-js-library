@@ -97,6 +97,8 @@ export interface DashboardWaterSummary {
   filteredTotal?: number;
   /** Total consumption before filtering (unfiltered) */
   unfilteredTotal?: number;
+  /** Label for the entity grouping dimension (default: 'Shopping'). Comes from goalsEntityLabel setting. */
+  entityLabel?: string;
 }
 
 // ============================================
@@ -1017,7 +1019,7 @@ export const WaterSummaryTooltip = {
   /**
    * Render shopping breakdown for summary section
    */
-  renderShoppingBreakdown(shoppings: ShoppingBreakdown[] | undefined): string {
+  renderShoppingBreakdown(shoppings: ShoppingBreakdown[] | undefined, entityLabel?: string): string {
     if (!shoppings || shoppings.length === 0) return '';
 
     const rows = shoppings.map(s => {
@@ -1031,9 +1033,10 @@ export const WaterSummaryTooltip = {
     `;
     }).join('');
 
+    const label = entityLabel || 'Shopping';
     return `
       <div class="water-summary-tooltip__summary-breakdown">
-        <div class="water-summary-tooltip__summary-breakdown-title">Por Shopping</div>
+        <div class="water-summary-tooltip__summary-breakdown-title">Por ${label}</div>
         ${rows}
       </div>
     `;
@@ -1159,7 +1162,7 @@ export const WaterSummaryTooltip = {
             <span class="water-summary-tooltip__section-title">Distribuição</span>
             <div class="water-summary-tooltip__grouping-tabs">
               <button class="water-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
-              <button class="water-summary-tooltip__grouping-tab" data-view="shopping">Por Shopping</button>
+              <button class="water-summary-tooltip__grouping-tab" data-view="shopping">Por ${summary.entityLabel || 'Shopping'}</button>
             </div>
           </div>
 
@@ -1179,7 +1182,7 @@ export const WaterSummaryTooltip = {
           <div class="water-summary-tooltip__shopping-view" data-grouping="shopping">
             <div class="water-summary-tooltip__category-tree">
               <div class="water-summary-tooltip__category-header">
-                <span>Shopping</span>
+                <span>${summary.entityLabel || 'Shopping'}</span>
                 <span>Qtd</span>
                 <span>Consumo</span>
               </div>

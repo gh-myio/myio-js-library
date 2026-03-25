@@ -11,8 +11,16 @@
  * Customer attributes for operational indicators feature gating
  */
 export interface OperationalIndicatorsAttributes {
-  /** Feature flag to enable/disable operational indicators panels */
+  /** Feature flag to enable/disable operational indicators panels (default: false) */
   'show-indicators-operational-panels': boolean;
+  /** Feature flag to show/hide energy tab in menu (default: true) */
+  'show-energy-tab': boolean;
+  /** Feature flag to show/hide water tab in menu (default: true) */
+  'show-water-tab': boolean;
+  /** Feature flag to show/hide temperature tab in menu (default: true) */
+  'show-temperature-tab': boolean;
+  /** Feature flag to show/hide the Goals (Metas) button in menu (default: true) */
+  'show-goals-button': boolean;
 }
 
 // =====================================================================
