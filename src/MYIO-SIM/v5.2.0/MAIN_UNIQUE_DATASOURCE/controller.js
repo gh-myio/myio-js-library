@@ -368,6 +368,7 @@ self.onInit = async function () {
         const showWaterTab           = attrs?.['show-water-tab']       !== 'false'; // default true
         const showTemperatureTab     = attrs?.['show-temperature-tab'] !== 'false'; // default true
         const showGoalsButton        = attrs?.['show-goals-button']    !== 'false'; // default true
+        const apiKeyGcdr             = attrs?.['apiKeyGcdr']           || '';
 
         LogHelper.log('RFC-0152: Feature flags:', { showOperationalPanels, showEnergyTab, showWaterTab, showTemperatureTab, showGoalsButton });
 
@@ -377,6 +378,13 @@ self.onInit = async function () {
         if (window.MyIOUtils) {
           window.MyIOUtils.operationalIndicators = { enabled: showOperationalPanels };
           window.MyIOUtils.domainsAccess = domainsAccess;
+          if (apiKeyGcdr) window.MyIOUtils.ALARMS_API_KEY = apiKeyGcdr;
+        }
+
+        // Re-configure AlarmService with the real API key from SERVER_SCOPE
+        if (apiKeyGcdr && MyIOLibrary?.AlarmService?.configure) {
+          MyIOLibrary.AlarmService.configure(ALARMS_API_BASE, undefined, apiKeyGcdr);
+          LogHelper.log('[MAIN_UNIQUE] AlarmService re-configured with apiKeyGcdr from SERVER_SCOPE');
         }
 
         // Dispatch events for Menu component to react
@@ -4579,7 +4587,7 @@ body.filter-modal-open { overflow: hidden !important; }
       themeMode: currentThemeMode,
       enableDebugMode: settings.enableDebugMode,
       alarmsApiBaseUrl: ALARMS_API_BASE,
-      alarmsApiKey: ALARMS_API_KEY,
+      alarmsApiKey: window.MyIOUtils?.ALARMS_API_KEY || ALARMS_API_KEY,
       gcdrApiBaseUrl: GCDR_API_BASE,
       alarms: [],
       onAlarmClick: (alarm) => {
