@@ -2967,7 +2967,7 @@ function renderList(visible) {
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
-            deviceName: it.name, // Raw device name (shown as subtitle in identity card)
+            deviceName: it.entityName || it.name || '', // Raw device name (shown as subtitle in identity card)
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
