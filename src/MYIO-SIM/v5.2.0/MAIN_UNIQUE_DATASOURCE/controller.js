@@ -217,11 +217,12 @@ self.onInit = async function () {
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
   const DATA_API_HOST     = settings.dataApiHost     || 'https://api.data.apps.myio-bas.com';
   const ALARMS_API_BASE   = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  const ALARMS_API_KEY    = settings.alarmsApiKey    || '';
   const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
 
-  // RFC-0178: Configure AlarmService with the correct base URL from settings
+  // RFC-0178: Configure AlarmService with the correct base URL and API key from settings
   if (MyIOLibrary?.AlarmService?.configure) {
-    MyIOLibrary.AlarmService.configure(ALARMS_API_BASE);
+    MyIOLibrary.AlarmService.configure(ALARMS_API_BASE, undefined, ALARMS_API_KEY);
     LogHelper.log('[MAIN_UNIQUE] AlarmService configured with baseUrl:', ALARMS_API_BASE);
   }
 
@@ -2365,6 +2366,7 @@ body.filter-modal-open { overflow: hidden !important; }
   window.MyIOUtils = {
     DATA_API_HOST,
     ALARMS_API_BASE,
+    ALARMS_API_KEY,
     GCDR_API_BASE,
     CLIENT_ID,
     CLIENT_SECRET,
@@ -4577,6 +4579,7 @@ body.filter-modal-open { overflow: hidden !important; }
       themeMode: currentThemeMode,
       enableDebugMode: settings.enableDebugMode,
       alarmsApiBaseUrl: ALARMS_API_BASE,
+      alarmsApiKey: ALARMS_API_KEY,
       gcdrApiBaseUrl: GCDR_API_BASE,
       alarms: [],
       onAlarmClick: (alarm) => {
