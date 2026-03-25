@@ -843,7 +843,9 @@ body.modal-open-telemetry-info {
 /* RFC-0105: Compact 2-line card layout overrides */
 /* Card structure - ONLY 2 lines: [icon+name...info] and [value...%] */
 /* Note: domain-specific cards excluded - controlled via JS for domain switching */
-.info-card:not(.chart-card):not(.banheiros-card):not(.climatizacao-card):not(.elevadores-card):not(
+/* BUG FIX: .water-total-card added to exclusion list — without it, display:flex !important
+   overrides inline style="display:none", making the card visible in energy domain */
+.info-card:not(.chart-card):not(.banheiros-card):not(.water-total-card):not(.climatizacao-card):not(.elevadores-card):not(
     .escadas-card
   ):not(.outros-card) {
   padding: 6px 10px !important;
@@ -856,8 +858,9 @@ body.modal-open-telemetry-info {
 }
 
 /* Domain-switchable cards - same styling but respects display:none from JS */
-/* banheiros = water only, climatizacao/elevadores/escadas/outros = energy only */
+/* banheiros = water only, water-total = water only, climatizacao/elevadores/escadas/outros = energy only */
 .info-card.banheiros-card,
+.info-card.water-total-card,
 .info-card.climatizacao-card,
 .info-card.elevadores-card,
 .info-card.escadas-card,
@@ -1008,11 +1011,42 @@ body.modal-open-telemetry-info {
   color: #dc2626 !important;
 }
 .rfc196-error-icon {
-  margin-left: 5px;
-  cursor: help;
-  font-size: 0.8em;
+  position: relative;
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
   vertical-align: middle;
+  cursor: help;
+  white-space: nowrap;
 }
+.rfc196-error-icon::after {
+  content: attr(data-errmsg);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  min-width: 200px;
+  max-width: 300px;
+  padding: 6px 9px;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  border-radius: 6px;
+  pointer-events: none;
+  white-space: normal;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 9999;
+}
+.rfc196-error-icon:hover::after { opacity: 1; }
 
 /* Expandable device list toggle button (+/−) in tooltips */
 .rfc196-expand-btn {
@@ -1065,4 +1099,26 @@ body.modal-open-telemetry-info {
   font-weight: 600;
   color: #1e293b;
   font-size: 11px;
+}
+
+/* ========== DOMAIN-BASED CARD VISIBILITY (RFC-0196 bulletproof) ==========
+ * data-widget-domain is set on the container in onInit() using the raw DOM element,
+ * before any await — immune to 'self' variable overwriting by other widget instances.
+ * !important overrides any jQuery .show() calls from wrong-domain render functions.
+ * ========================================================================== */
+
+/* Energy domain: hide water-only cards */
+[data-widget-domain="energy"] .water-total-card,
+[data-widget-domain="energy"] .banheiros-card {
+  display: none !important;
+}
+
+/* Water domain: hide energy-only cards */
+[data-widget-domain="water"] .climatizacao-card,
+[data-widget-domain="water"] .elevadores-card,
+[data-widget-domain="water"] .escadas-card,
+[data-widget-domain="water"] .outros-card,
+[data-widget-domain="water"] .area-comum-card,
+[data-widget-domain="water"] .total-card {
+  display: none !important;
 }

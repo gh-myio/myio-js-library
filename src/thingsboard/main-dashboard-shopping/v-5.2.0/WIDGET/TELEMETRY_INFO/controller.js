@@ -50,16 +50,25 @@ function getWidgetDomain() {
   return self.ctx.settings?.DOMAIN || '';
 }
 
-// RFC-0196: Global toggle for expandable device lists inside tooltips
-// Uses window-scope because onclick in tooltip innerHTML runs in global context
-window.TELEMETRY_INFO_toggleDevices = function (id) {
-  const el = document.getElementById('rfc196-devlist-' + id);
-  const btn = document.querySelector('[data-devtoggle="' + id + '"]');
-  if (!el) return;
-  const opening = el.style.display === 'none' || el.style.display === '';
-  el.style.display = opening ? 'block' : 'none';
-  if (btn) btn.textContent = opening ? '−' : '+';
-};
+// RFC-0196: Global toggle for expandable device lists inside tooltips.
+// Registered as capture-phase listener so it fires before InfoTooltip dismiss handlers.
+(function () {
+  function _rfc196Toggle(e) {
+    const btn = e.target && e.target.closest ? e.target.closest('.rfc196-expand-btn') : null;
+    if (!btn) return;
+    e.stopPropagation();
+    const id = btn.getAttribute('data-devtoggle');
+    if (!id) return;
+    // Search in the owner document of the button (works in both iframe and body contexts)
+    const root = btn.ownerDocument || document;
+    const el = root.getElementById('rfc196-devlist-' + id);
+    if (!el) return;
+    const opening = el.style.display === 'none' || el.style.display === '';
+    el.style.display = opening ? 'block' : 'none';
+    btn.textContent = opening ? '\u2212' : '+';
+  }
+  document.addEventListener('click', _rfc196Toggle, true);
+}());
 
 // RFC-0056: Chart colors with MyIO palette (6 categories)
 let CHART_COLORS = {
@@ -1418,7 +1427,12 @@ function processStateFromSummaryEnergy(summary, grandTotal) {
       total: summary.areaComum?.summary?.total || 0,
       perc: summary.areaComum?.summary?.perc || 0,
     },
-    totalGeral: (summary.lojas?.summary?.total || 0) + (summary.areaComum?.summary?.total || 0),
+    totalGeral: (summary.lojas?.summary?.total || 0) +
+      (summary.climatizacao?.summary?.total || 0) +
+      (summary.elevadores?.summary?.total || 0) +
+      (summary.escadasRolantes?.summary?.total || 0) +
+      (summary.outros?.summary?.total || 0) +
+      (summary.areaComum?.summary?.total || 0),
     percGeral: 100,
   };
 
@@ -3070,9 +3084,8 @@ function buildDeviceExpandList(id, devices, formatFn) {
       <span class="rfc196-device-item__value">${val}</span>
     </div>`;
   }).join('');
-  return `<button class="rfc196-expand-btn" data-devtoggle="${safeId}"
-    onclick="event.stopPropagation();window.TELEMETRY_INFO_toggleDevices('${safeId}')">+</button>
-    <div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`;
+  return `<button class="rfc196-expand-btn" data-devtoggle="${safeId}">+</button>` +
+    `<div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`;
 }
 
 /**
@@ -3195,25 +3208,19 @@ function checkCalculationErrors() {
   const $container = $root();
 
   if (domain === 'water') {
-    const pontosTotal = STATE_WATER.pontosNaoMapeados?.total || 0;
     const entradaTotal = STATE_WATER.entrada?.total || 0;
-    const consumidoresTotal = (STATE_WATER.lojas?.total || 0) +
-      (STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0) +
-      (STATE_WATER.areaComum?.total || 0) + pontosTotal;
+    if (entradaTotal <= 0) return; // No data yet — skip
+    const pontosTotal = STATE_WATER.pontosNaoMapeados?.total || 0;
     _setCardError($container, '.pontos-nao-mapeados-card, .total-card', pontosTotal < 0,
-      `Pontos Não Mapeados is negative (${formatValue(pontosTotal, 'water')}). ` +
-      'Formula: Entrada − (Lojas + Banheiros + Área Comum). Check device classification.');
-    _setCardError($container, '.entrada-card', entradaTotal < consumidoresTotal - 0.01,
-      `Entrada (${formatValue(entradaTotal, 'water')}) < Total Consumidores (${formatValue(consumidoresTotal, 'water')}). Verify metering setup.`);
+      'Pontos Nao Mapeados e negativo (' + formatValue(pontosTotal, 'water') + '). ' +
+      'Formula: Entrada - (Lojas + Banheiros + Area Comum). Verifique a classificacao dos dispositivos.');
   } else {
-    const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
     const entradaTotal = STATE.entrada?.total || 0;
-    const consumidoresTotal = STATE.consumidores?.totalGeral || 0;
+    if (entradaTotal <= 0) return; // No data yet — skip
+    const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
     _setCardError($container, '.area-comum-card', areaComumTotal < 0,
-      `Área Comum is negative (${formatEnergy(areaComumTotal)}). ` +
-      'Formula: Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros). Check device classification.');
-    _setCardError($container, '.entrada-card', entradaTotal < consumidoresTotal - 0.01,
-      `Entrada (${formatEnergy(entradaTotal)}) < Total Consumidores (${formatEnergy(consumidoresTotal)}). Verify metering setup.`);
+      'Area Comum e negativa (' + formatEnergy(areaComumTotal) + '). ' +
+      'Formula: Entrada - (Lojas + Climatizacao + Elevadores + Esc. Rolantes + Outros). Verifique a classificacao dos dispositivos.');
   }
 }
 
@@ -3224,7 +3231,7 @@ function _setCardError($container, selector, hasError, message) {
   $card.find('.rfc196-error-icon').remove();
   if (hasError) {
     $card.find('.card-title').first().append(
-      `<span class="rfc196-error-icon" title="${message}">⚠️</span>`
+      `<span class="rfc196-error-icon" data-errmsg="${message.replace(/"/g, '&quot;')}">[!]</span>`
     );
   }
 }
@@ -3567,6 +3574,19 @@ function setupSummaryTooltip() {
 self.onInit = async function () {
   LogHelper.log('Widget initializing (RFC-0056)...');
 
+  // RFC-0196 BULLETPROOF FIX: stamp data-widget-domain on the raw container DOM element
+  // immediately — before any await — using self.ctx.$container[0] (DOM ref, not jQuery).
+  // This is immune to 'self' being overwritten by another widget instance later, because
+  // we capture the DOM element reference now and set the attribute synchronously.
+  // CSS rules [data-widget-domain="energy"] .water-total-card { display:none !important }
+  // then permanently prevent wrong-domain cards from showing, even if renderWaterStats()
+  // is accidentally called in this widget's scope.
+  (function () {
+    const _el = self.ctx && self.ctx.$container && self.ctx.$container[0];
+    const _dom = self.ctx && self.ctx.settings && self.ctx.settings.DOMAIN || '';
+    if (_el && _dom) _el.setAttribute('data-widget-domain', _dom);
+  }());
+
   // RFC-0056 FIX: Expose openModal globally IMMEDIATELY for onclick handler
   window.TELEMETRY_INFO_openModal = openModal;
   window.TELEMETRY_INFO_closeModal = closeModal;
@@ -3618,6 +3638,13 @@ self.onInit = async function () {
     showDevicesList: SHOW_DEVICES_LIST,
     chartColors: CHART_COLORS,
   });
+
+  // RFC-0056: Immediately hide water-only cards for non-water domains (init-time guard).
+  // renderStats() also hides them after data loads, but this prevents any flash during init.
+  if (getWidgetDomain() !== 'water') {
+    $$('.water-total-card').hide();
+    $$('.banheiros-card').hide();
+  }
 
   // RFC-0056: Migration - Ensure 'outros' exists in STATE (for backwards compatibility)
   if (!STATE.consumidores.outros) {

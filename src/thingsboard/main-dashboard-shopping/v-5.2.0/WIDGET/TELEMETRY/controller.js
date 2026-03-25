@@ -480,8 +480,9 @@ function _groupFilterChangedHandler(ev) {
   const { domain, groupFilter } = ev.detail || {};
   if (!domain || !groupFilter) return;
   const $container = $root();
-  $container.find('[data-energy-group]').each(function () {
-    const group = $J(this).attr('data-energy-group');
+  const attr = domain === 'water' ? 'data-water-group' : 'data-energy-group';
+  $container.find('[' + attr + ']').each(function () {
+    const group = this.getAttribute(attr);
     const active = groupFilter[group] !== false; // undefined = active
     $J(this).css({
       opacity: active ? '' : '0.35',
@@ -490,6 +491,15 @@ function _groupFilterChangedHandler(ev) {
     });
   });
   LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
+}
+
+/** RFC-0196: Map water widget labelWidget to water filter group key */
+function _getWaterGroupKey(labelWidget) {
+  const lw = (labelWidget || '').toLowerCase().trim();
+  if (lw === 'lojas') return 'lojas';
+  if (lw === 'banheiros' || lw === 'bathrooms') return 'banheiros';
+  if (lw === 'área comum' || lw === 'area comum' || lw === 'areacomum') return 'areaComum';
+  return null;
 }
 
 /**
@@ -3038,10 +3048,16 @@ function renderList(visible) {
       gcdrSyncAt: it.gcdrSyncAt || '',
     });
 
-    // RFC-0196: Tag card with energy group for group-filter hide/show
-    if ($card && $card[0]) {
-      const energyGroup = _getEnergyGroupKey(it);
-      if (energyGroup) $card.attr('data-energy-group', energyGroup);
+    // RFC-0196: Tag card with group for group-filter hide/show
+    const _cardEl = $card && $card[0];
+    if (_cardEl) {
+      if (WIDGET_DOMAIN === 'water') {
+        const waterGroup = _getWaterGroupKey(self.ctx.settings && self.ctx.settings.labelWidget);
+        if (waterGroup) _cardEl.setAttribute('data-water-group', waterGroup);
+      } else {
+        const energyGroup = _getEnergyGroupKey(it);
+        if (energyGroup) _cardEl.setAttribute('data-energy-group', energyGroup);
+      }
     }
 
     $ul.append($card);
