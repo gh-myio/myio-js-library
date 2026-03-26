@@ -484,11 +484,7 @@ function _groupFilterChangedHandler(ev) {
   $container.find('[' + attr + ']').each(function () {
     const group = this.getAttribute(attr);
     const active = groupFilter[group] !== false; // undefined = active
-    $(this).css({
-      opacity: active ? '' : '0.35',
-      filter: active ? '' : 'grayscale(0.5)',
-      'pointer-events': active ? '' : 'none',
-    });
+    $(this).toggle(active);
   });
   LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
 }
@@ -718,7 +714,7 @@ function _getEnergyGroupKey(it) {
   const dp = String(it.deviceProfile || '').toUpperCase();
   const id = String(it.identifier || '').toUpperCase();
   const entradaTypes = new Set(['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO']);
-  if (entradaTypes.has(dt) || entradaTypes.has(dp)) return null;
+  if (entradaTypes.has(dt) || entradaTypes.has(dp)) return 'entrada';
   if (
     CLIMATIZACAO_DEVICE_TYPES_SET.has(dt) ||
     CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(dt) ||

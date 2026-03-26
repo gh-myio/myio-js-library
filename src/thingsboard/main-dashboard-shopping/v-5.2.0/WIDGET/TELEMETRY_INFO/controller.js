@@ -29,6 +29,7 @@ let SHOW_DEVICES_LIST = false;
 // RFC-0196: Group filter state — all groups active by default
 let GROUP_FILTER = {
   energy: {
+    entrada: true,
     lojas: true,
     climatizacao: true,
     elevadores: true,
@@ -36,6 +37,7 @@ let GROUP_FILTER = {
     outros: true,
   },
   water: {
+    entrada: true,
     lojas: true,
     banheiros: true,
     areaComum: true,
