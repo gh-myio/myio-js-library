@@ -4454,7 +4454,11 @@ body.filter-modal-open { overflow: hidden !important; }
       ]);
 
       // Compute fleet KPIs from TB device cache + alarm stats
-      const classifiedDevices = _cachedClassified || [];
+      // _cachedClassified is { energy: { equipments:[], stores:[] }, water:{}, temperature:{} } — flatten first
+      const classifiedDevices = [
+        ...(_cachedClassified?.energy?.equipments || []),
+        ...(_cachedClassified?.energy?.stores || []),
+      ];
       const operationalDevices = classifiedDevices.filter((d) => {
         const cat = MyIOLibrary.classifyEquipment?.(d);
         return cat === 'escadas_rolantes' || cat === 'elevadores';
@@ -4493,7 +4497,11 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // RFC-0175: Fallback — populate dashboard using only ThingsBoard device data
   function _updateDashboardFromTBOnly() {
-    const classifiedDevices = _cachedClassified || [];
+    // _cachedClassified is { energy: { equipments:[], stores:[] }, water:{}, temperature:{} } — flatten first
+    const classifiedDevices = [
+      ...(_cachedClassified?.energy?.equipments || []),
+      ...(_cachedClassified?.energy?.stores || []),
+    ];
     const operationalDevices = classifiedDevices.filter((d) => {
       const cat = MyIOLibrary.classifyEquipment?.(d);
       return cat === 'escadas_rolantes' || cat === 'elevadores';
