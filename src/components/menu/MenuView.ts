@@ -2324,14 +2324,20 @@ export class MenuView {
     // ==========================================
     this.domainsAccessHandler = (ev: Event) => {
       const customEv = ev as CustomEvent<{ energy: boolean; water: boolean; temperature: boolean }>;
-      const detail = (customEv.detail ?? {}) as { energy?: boolean; water?: boolean; temperature?: boolean; showGoalsButton?: boolean };
+      const detail = (customEv.detail ?? {}) as {
+        energy?: boolean;
+        water?: boolean;
+        temperature?: boolean;
+        showGoalsButton?: boolean;
+        energySubTabs?: { equipments?: boolean; stores?: boolean; dashboard?: boolean };
+      };
       const showEnergy      = detail.energy      !== false;
       const showWater       = detail.water        !== false;
       const showTemperature = detail.temperature  !== false;
       const showGoals       = detail.showGoalsButton !== false;
 
       if (this.configTemplate.enableDebugMode) {
-        console.log('[MenuView] myio:domains-access received:', { showEnergy, showWater, showTemperature, showGoals });
+        console.log('[MenuView] myio:domains-access received:', { showEnergy, showWater, showTemperature, showGoals, energySubTabs: detail.energySubTabs });
       }
 
       // Show/hide Goals button
@@ -2344,14 +2350,43 @@ export class MenuView {
         temperature: showTemperature,
       };
 
-      const filtered = this.tabs.filter((t) => {
-        // Only filter core domain tabs; preserve operational and any custom tabs
+      // Step 1: filter domain-level tabs
+      let workingTabs = this.tabs.filter((t) => {
         if (t.id in domainVisibility) return domainVisibility[t.id];
         return true;
       });
 
-      if (filtered.length !== this.tabs.length) {
-        this.tabs = filtered;
+      let needsRebuild = workingTabs.length !== this.tabs.length;
+
+      // Step 2: filter energy sub-tabs (contexts) based on energySubTabs flags
+      // context IDs: 'equipments', 'stores', 'energy_general' (mapped from 'dashboard' flag)
+      const energySubTabs = detail.energySubTabs;
+      if (energySubTabs) {
+        const subTabVisibility: Record<string, boolean> = {
+          equipments:    energySubTabs.equipments !== false,
+          stores:        energySubTabs.stores     !== false,
+          energy_general: energySubTabs.dashboard !== false,
+        };
+
+        workingTabs = workingTabs.map((tab) => {
+          if (tab.id !== 'energy') return tab;
+          const visibleContexts = tab.contexts.filter((ctx) => subTabVisibility[ctx.id] !== false);
+          if (visibleContexts.length === tab.contexts.length) return tab;
+          needsRebuild = true;
+          // Determine new default context (keep existing if still visible, else first visible)
+          const currentCtx = this.contextsByTab.get('energy') ?? tab.defaultContext;
+          const newDefault = visibleContexts.find((c) => c.id === currentCtx)
+            ? currentCtx
+            : visibleContexts[0]?.id;
+          if (!visibleContexts.find((c) => c.id === this.contextsByTab.get('energy'))) {
+            this.contextsByTab.set('energy', newDefault ?? '');
+          }
+          return { ...tab, contexts: visibleContexts, defaultContext: newDefault };
+        });
+      }
+
+      if (needsRebuild) {
+        this.tabs = workingTabs;
         // Ensure activeTabId points to a visible tab
         if (!this.tabs.find((t) => t.id === this.activeTabId)) {
           this.activeTabId = this.tabs[0]?.id ?? '';

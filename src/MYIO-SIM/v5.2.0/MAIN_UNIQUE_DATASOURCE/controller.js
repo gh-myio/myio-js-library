@@ -360,7 +360,7 @@ self.onInit = async function () {
       LogHelper.warn('RFC-0152: Missing customerTB_ID or JWT token for feature flags check');
       // Dispatch defaults: all domain tabs visible, operational hidden
       window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } }));
-      window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true, showGoalsButton: true } }));
+      window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true, showGoalsButton: true, energySubTabs: { equipments: true, stores: true, dashboard: true } } }));
       return { showOperationalPanels: false };
     }
 
@@ -369,15 +369,31 @@ self.onInit = async function () {
         const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
 
         const showOperationalPanels  = attrs?.['show-indicators-operational-panels'] === 'true';
-        const showEnergyTab          = attrs?.['show-energy-tab']      !== 'false'; // default true
-        const showWaterTab           = attrs?.['show-water-tab']       !== 'false'; // default true
-        const showTemperatureTab     = attrs?.['show-temperature-tab'] !== 'false'; // default true
-        const showGoalsButton        = attrs?.['show-goals-button']    !== 'false'; // default true
-        const apiKeyGcdr             = attrs?.['apiKeyGcdr']           || '';
+        const showEnergyTab          = attrs?.['show-energy-tab']              !== 'false'; // default true
+        const showWaterTab           = attrs?.['show-water-tab']               !== 'false'; // default true
+        const showTemperatureTab     = attrs?.['show-temperature-tab']         !== 'false'; // default true
+        const showGoalsButton        = attrs?.['show-goals-button']            !== 'false'; // default true
+        const showEnergyEquipments   = attrs?.['show-energy-tab.equipments']   !== 'false'; // default true
+        const showEnergyStores       = attrs?.['show-energy-tab.stores']       !== 'false'; // default true
+        const showEnergyDashboard    = attrs?.['show-energy-tab.dashboard']    !== 'false'; // default true
+        const apiKeyGcdr             = attrs?.['apiKeyGcdr']                   || '';
 
-        LogHelper.log('RFC-0152: Feature flags:', { showOperationalPanels, showEnergyTab, showWaterTab, showTemperatureTab, showGoalsButton });
+        LogHelper.log('RFC-0152: Feature flags:', {
+          showOperationalPanels, showEnergyTab, showWaterTab, showTemperatureTab, showGoalsButton,
+          showEnergyEquipments, showEnergyStores, showEnergyDashboard,
+        });
 
-        const domainsAccess = { energy: showEnergyTab, water: showWaterTab, temperature: showTemperatureTab, showGoalsButton };
+        const domainsAccess = {
+          energy: showEnergyTab,
+          water: showWaterTab,
+          temperature: showTemperatureTab,
+          showGoalsButton,
+          energySubTabs: {
+            equipments: showEnergyEquipments,
+            stores: showEnergyStores,
+            dashboard: showEnergyDashboard,
+          },
+        };
 
         // Update MyIOUtils with all feature flag states
         if (window.MyIOUtils) {
@@ -404,7 +420,7 @@ self.onInit = async function () {
 
     // Fallback defaults on error
     window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } }));
-    window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true } }));
+    window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true, showGoalsButton: true, energySubTabs: { equipments: true, stores: true, dashboard: true } } }));
     return { showOperationalPanels: false };
   };
 
