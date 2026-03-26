@@ -9,10 +9,10 @@ export interface DeviceAvailability {
   customerId: string;
   customerName: string;
   location: string;
-  status: AvailabilityStatus;
+  status: string;               // API: 'healthy' | 'degraded' | 'critical'
   availability: number;         // 0-100 percentage
-  mtbf: number;                 // hours
-  mttr: number;                 // hours
+  mtbfHours: number;            // Mean Time Between Failures (hours)
+  mttrHours: number;            // Mean Time To Repair (hours)
   failureCount: number;
   totalDowntimeHours: number;
   openAlarmCount: number;

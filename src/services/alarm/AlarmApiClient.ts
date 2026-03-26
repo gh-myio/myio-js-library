@@ -67,9 +67,11 @@ export class AlarmApiClient {
     if (params.deviceType) query.set('deviceType', params.deviceType);
     if (params.deviceIds) query.set('deviceIds', params.deviceIds);
 
-    return this.request<AvailabilityResponse>(
+    const raw = await this.request<unknown>(
       `${this.baseUrl}/api/v1/alarms/stats/availability?${query.toString()}`
     );
+    // API wraps response in { data: { ... } } — unwrap safely
+    return ((raw as any)?.data ?? raw) as AvailabilityResponse;
   }
 
   // -----------------------------------------------------------------------

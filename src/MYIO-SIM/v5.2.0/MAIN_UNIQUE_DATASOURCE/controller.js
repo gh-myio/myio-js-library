@@ -236,6 +236,7 @@ self.onInit = async function () {
   let CLIENT_ID = '';
   let CLIENT_SECRET = '';
   let CUSTOMER_ING_ID = '';
+  let GCDR_CUSTOMER_ID = ''; // customer SERVER_SCOPE attr: gcdrCustomerId
 
   // Get ThingsBoard customer ID (required from settings)
   const getCustomerTB_ID = () => {
@@ -289,11 +290,13 @@ self.onInit = async function () {
         CLIENT_ID = attrs?.client_id || '';
         CLIENT_SECRET = attrs?.client_secret || '';
         CUSTOMER_ING_ID = attrs?.ingestionId || '';
+        GCDR_CUSTOMER_ID = attrs?.gcdrCustomerId || '';
 
         // Update MyIOUtils with fetched credentials
         window.MyIOUtils.CLIENT_ID = CLIENT_ID;
         window.MyIOUtils.CLIENT_SECRET = CLIENT_SECRET;
         window.MyIOUtils.CUSTOMER_ING_ID = CUSTOMER_ING_ID;
+        window.MyIOUtils.GCDR_CUSTOMER_ID = GCDR_CUSTOMER_ID;
         window.MyIOUtils.getCredentials = () => ({
           clientId: CLIENT_ID,
           clientSecret: CLIENT_SECRET,
@@ -318,7 +321,7 @@ self.onInit = async function () {
           }
         }
 
-        LogHelper.log('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID });
+        LogHelper.log('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID, GCDR_CUSTOMER_ID });
       } else {
         LogHelper.error('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
       }
@@ -2379,6 +2382,7 @@ body.filter-modal-open { overflow: hidden !important; }
     CLIENT_ID,
     CLIENT_SECRET,
     CUSTOMER_ING_ID,
+    GCDR_CUSTOMER_ID,
     LogHelper,
     calculateDeviceStatusMasterRules: MyIOLibrary.calculateDeviceStatusMasterRules,
     mapConnectionStatus: MyIOLibrary.mapConnectionStatus,
@@ -4230,27 +4234,39 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // RFC-0175: Map DeviceAvailability API response to OperationalEquipment[]
   function mapAvailabilityToEquipment(byDevice) {
-    return (byDevice || []).map((d) => ({
-      id: d.deviceId,
-      name: d.deviceName,
-      identifier: d.deviceName,
-      type:
+    return (byDevice || []).map((d) => {
+      // Infer equipment type from deviceType field or fallback to device name
+      const nameLower = (d.deviceName || '').toLowerCase();
+      const type =
         d.deviceType === 'ESCADA_ROLANTE' ? 'escada'
         : d.deviceType === 'ELEVADOR' ? 'elevador'
-        : 'other',
-      status: d.status || 'offline',
-      customerId: d.customerId || '',
-      customerName: d.customerName || '',
-      location: d.location || '',
-      availability: d.availability ?? 0,
-      mtbf: d.mtbf ?? 0,
-      mttr: d.mttr ?? 0,
-      hasReversal: d.hasReversal ?? false,
-      recentAlerts: d.recentAlarmCount ?? 0,
-      openAlarms: d.openAlarmCount ?? 0,
-      lastActivityTime: d.lastActivityAt ? new Date(d.lastActivityAt).getTime() : undefined,
-      lastMaintenanceTime: d.lastMaintenanceAt ? new Date(d.lastMaintenanceAt).getTime() : undefined,
-    }));
+        : nameLower.includes('escada') ? 'escada'
+        : nameLower.includes('elevad') ? 'elevador'
+        : 'other';
+
+      // Map API status ('healthy'|'degraded'|'critical') → EquipmentStatus
+      const statusMap = { healthy: 'online', degraded: 'warning', critical: 'offline' };
+      const status = statusMap[d.status] || d.status || 'offline';
+
+      return {
+        id: d.deviceId,
+        name: d.deviceName,
+        identifier: d.deviceName,
+        type,
+        status,
+        customerId: d.customerId || '',
+        customerName: d.customerName || '',
+        location: d.location || '',
+        availability: d.availability ?? 0,
+        mtbf: d.mtbfHours ?? d.mtbf ?? 0,
+        mttr: d.mttrHours ?? d.mttr ?? 0,
+        hasReversal: d.hasReversal ?? false,
+        recentAlerts: d.recentAlarmCount ?? 0,
+        openAlarms: d.openAlarmCount ?? 0,
+        lastActivityTime: d.lastActivityAt ? new Date(d.lastActivityAt).getTime() : undefined,
+        lastMaintenanceTime: d.lastMaintenanceAt ? new Date(d.lastMaintenanceAt).getTime() : undefined,
+      };
+    });
   }
 
   // RFC-0152 Phase 3: Generate mock operational equipment data
@@ -4377,7 +4393,7 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0175: Fetch real data and update the dashboard
   async function fetchAndUpdateDashboard(period) {
     const alarmService = MyIOLibrary?.AlarmService;
-    const tenantId = CUSTOMER_ING_ID;
+    const tenantId = GCDR_CUSTOMER_ID;
 
     if (!alarmService || !tenantId) {
       LogHelper.warn('[MAIN_UNIQUE] RFC-0175: AlarmService or tenantId not available — using TB data only');
@@ -4493,10 +4509,10 @@ body.filter-modal-open { overflow: hidden !important; }
       container.innerHTML =
         '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#94a3b8;font-size:14px;">Carregando dados de disponibilidade...</div>';
 
-      const customerId = CUSTOMER_ING_ID;
+      const customerId = GCDR_CUSTOMER_ID;
 
       if (!customerId) {
-        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: CUSTOMER_ING_ID not set — cannot fetch availability data');
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: GCDR_CUSTOMER_ID not set — cannot fetch availability data');
         container.innerHTML =
           '<div style="padding:20px;text-align:center;color:#94a3b8;">ID do cliente não configurado. Verifique as credenciais.</div>';
         return;
@@ -4633,7 +4649,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
     try {
       alarmsNotificationsPanelInstance?.setLoading?.(true);
-      const tenantId = CUSTOMER_ING_ID;
+      const tenantId = GCDR_CUSTOMER_ID;
 
       // RFC-0178: getAlarms now returns { data, summary }; summary replaces separate getAlarmStats
       const [response, trend] = await Promise.all([
