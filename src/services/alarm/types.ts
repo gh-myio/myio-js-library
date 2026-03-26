@@ -151,11 +151,12 @@ export interface AlarmTrendApiPoint {
 
 export interface TopOffenderApiItem {
   deviceId: string;
-  deviceName: string;
+  deviceName?: string;
   customerId?: string;
   customerName?: string;
   alarmCount: number;
-  downtimeHours?: number;
+  totalDowntimeMinutes?: number; // API field name (convert ÷60 → hours in mapper)
+  downtimeHours?: number;        // kept for back-compat
 }
 
 // =====================================================================

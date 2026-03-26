@@ -102,9 +102,11 @@ export class AlarmApiClient {
 
   async getAlarmStats(tenantId: string, period: string): Promise<AlarmStatsApiResponse> {
     const query = new URLSearchParams({ tenantId, period });
-    return this.request<AlarmStatsApiResponse>(
+    const raw = await this.request<unknown>(
       `${this.baseUrl}/api/v1/alarms/stats?${query.toString()}`
     );
+    // API wraps response in { data: { ... } } — unwrap safely
+    return ((raw as any)?.data ?? raw) as AlarmStatsApiResponse;
   }
 
   // -----------------------------------------------------------------------

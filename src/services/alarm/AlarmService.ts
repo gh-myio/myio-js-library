@@ -109,7 +109,7 @@ function mapApiTopOffenders(
   return (items || []).map((item) => ({
     name: deviceNameMap.get(item.deviceId) ?? item.deviceName ?? item.deviceId,
     location: item.customerName ?? '',
-    downtime: item.downtimeHours ?? 0,
+    downtime: item.downtimeHours ?? ((item.totalDowntimeMinutes ?? 0) / 60),
     percentage: 0, // computed by caller if needed
   }));
 }
