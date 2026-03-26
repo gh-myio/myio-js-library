@@ -135,20 +135,6 @@
       </div>
     </div>
 
-    <!-- ========== WATER DOMAIN: TOTAL CONSUMIDORES (hidden by default, RFC-0196) ========== -->
-    <div class="info-card water-total-card" style="display: none">
-      <div class="card-header">
-        <span class="card-icon">📊</span>
-        <h3 class="card-title">Total Consumidores</h3>
-      </div>
-      <div class="card-body">
-        <div class="stat-row main-stat">
-          <span class="stat-value" id="waterTotalConsumidores">0,00 m³</span>
-          <span class="stat-perc" id="waterTotalConsumidoresPerc">(100%)</span>
-        </div>
-      </div>
-    </div>
-
     <!-- ========== ROW 4: ÁREA COMUM + TOTAL (SAME ROW) ========== -->
     <!-- data-group="areaComum": clickable in water domain (explicitly metered).
          In energy domain the click is ignored by the guard in setupGroupFilterCards()
@@ -180,6 +166,21 @@
         <div class="stat-row main-stat">
           <span class="stat-value" id="consumidoresTotal">0,00 kWh</span>
           <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== WATER DOMAIN: TOTAL CONSUMIDORES (hidden by default, RFC-0196) ========== -->
+    <!-- Rendered LAST among data cards so it appears after Pontos Não Mapeados -->
+    <div class="info-card water-total-card" style="display: none">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h3 class="card-title">Total Consumidores</h3>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="waterTotalConsumidores">0,00 m³</span>
+          <span class="stat-perc" id="waterTotalConsumidoresPerc">(100%)</span>
         </div>
       </div>
     </div>

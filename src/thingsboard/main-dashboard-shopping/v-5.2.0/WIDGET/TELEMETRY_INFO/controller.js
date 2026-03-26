@@ -3279,10 +3279,50 @@ function _setCardError($container, selector, hasError, message) {
   $card.toggleClass('info-card--error', hasError);
   $card.find('.rfc196-error-icon').remove();
   if (hasError) {
-    $card.find('.card-title').first().append(
-      `<span class="rfc196-error-icon" data-errmsg="${message.replace(/"/g, '&quot;')}">[!]</span>`
+    const $icon = $J(
+      `<span class="rfc196-error-icon info-tooltip-trigger" title="${message.replace(/"/g, '&quot;')}">⚠</span>`
     );
+    $card.find('.card-title').first().append($icon);
+
+    const InfoTooltip = getInfoTooltip();
+    if (InfoTooltip) {
+      $icon
+        .on('mouseenter.rfc196error', function () {
+          InfoTooltip.show(this, {
+            icon: '⚠️',
+            title: 'Inconsistência de Dados',
+            content: _buildErrorTooltipContent(message),
+          });
+        })
+        .on('mouseleave.rfc196error', function () {
+          InfoTooltip.startDelayedHide();
+        });
+    }
   }
+}
+
+function _buildErrorTooltipContent(message) {
+  // Split "X (valor) e maior/negativo... Verifique..." into sentences for structured display
+  const sentences = message.split(/\.\s+/);
+  const rows = sentences
+    .filter((s) => s.trim())
+    .map((s) => s.trim().replace(/\.$/, ''))
+    .map(
+      (s) => `
+      <div class="myio-info-tooltip__row" style="align-items:flex-start;padding:2px 0;">
+        <span class="myio-info-tooltip__label" style="font-size:11px;line-height:1.5;white-space:normal;">${s}.</span>
+      </div>`
+    )
+    .join('');
+  return `
+    <div class="myio-info-tooltip__section" style="max-width:260px;">
+      ${rows}
+    </div>
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <span>O card voltará ao normal quando os valores estiverem consistentes.</span>
+    </div>
+  `;
 }
 
 /**

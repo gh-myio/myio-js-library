@@ -1011,42 +1011,18 @@ body.modal-open-telemetry-info {
   color: #dc2626 !important;
 }
 .rfc196-error-icon {
-  position: relative;
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: #dc2626;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.4;
+  margin-left: 5px;
+  font-size: 13px;
+  line-height: 1;
   vertical-align: middle;
   cursor: help;
-  white-space: nowrap;
+  filter: drop-shadow(0 0 3px rgba(220, 38, 38, 0.6));
+  transition: filter 0.2s;
 }
-.rfc196-error-icon::after {
-  content: attr(data-errmsg);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  transform: translateX(-50%);
-  min-width: 200px;
-  max-width: 300px;
-  padding: 6px 9px;
-  background: #1e293b;
-  color: #f1f5f9;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.5;
-  border-radius: 6px;
-  pointer-events: none;
-  white-space: normal;
-  opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 9999;
+.rfc196-error-icon:hover {
+  filter: drop-shadow(0 0 5px rgba(220, 38, 38, 0.9));
 }
-.rfc196-error-icon:hover::after { opacity: 1; }
 
 /* Expandable device list toggle button (+/−) in tooltips */
 .rfc196-expand-btn {
