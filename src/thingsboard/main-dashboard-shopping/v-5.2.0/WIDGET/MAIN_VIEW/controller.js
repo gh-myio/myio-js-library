@@ -3160,12 +3160,54 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     elevadores: buildCategorySummary(elevadoresItems, elevadoresTotal, 'Elevadores'),
     escadasRolantes: buildCategorySummary(escadasRolantesItems, escadasRolantesTotal, 'Escadas Rolantes'),
     outros: {
-      ...buildCategorySummary(outrosItems, outrosTotal, 'Outros'),
+      // Filter out devices explicitly excluded from 'outros' (excludeGroupsTotals) so they
+      // don't appear in the device list in TELEMETRY_INFO even though their value is already 0.
+      ...buildCategorySummary(
+        outrosItems.filter((i) => {
+          const raw = Number(i.value) || 0;
+          if (raw === 0 || !i.excludeGroupsTotals) return true;
+          return getValorEfetivo(i, 'outros') > 0;
+        }),
+        outrosTotal,
+        'Outros'
+      ),
       subcategories: {
-        iluminacao: buildCategorySummary(iluminacaoItems, iluminacaoTotal, 'Iluminação'),
-        bombasIncendio: buildCategorySummary(bombaIncendioItems, bombaIncendioTotal, 'Bombas de Incêndio'),
-        geradores: buildCategorySummary(geradorItems, geradorTotal, 'Geradores/Nobreaks'),
-        geral: buildCategorySummary(outrosGeralItems, outrosGeralTotal, 'Outros Equipamentos'),
+        iluminacao: buildCategorySummary(
+          iluminacaoItems.filter((i) => {
+            const raw = Number(i.value) || 0;
+            if (raw === 0 || !i.excludeGroupsTotals) return true;
+            return getValorEfetivo(i, 'outros') > 0;
+          }),
+          iluminacaoTotal,
+          'Iluminação'
+        ),
+        bombasIncendio: buildCategorySummary(
+          bombaIncendioItems.filter((i) => {
+            const raw = Number(i.value) || 0;
+            if (raw === 0 || !i.excludeGroupsTotals) return true;
+            return getValorEfetivo(i, 'outros') > 0;
+          }),
+          bombaIncendioTotal,
+          'Bombas de Incêndio'
+        ),
+        geradores: buildCategorySummary(
+          geradorItems.filter((i) => {
+            const raw = Number(i.value) || 0;
+            if (raw === 0 || !i.excludeGroupsTotals) return true;
+            return getValorEfetivo(i, 'outros') > 0;
+          }),
+          geradorTotal,
+          'Geradores/Nobreaks'
+        ),
+        geral: buildCategorySummary(
+          outrosGeralItems.filter((i) => {
+            const raw = Number(i.value) || 0;
+            if (raw === 0 || !i.excludeGroupsTotals) return true;
+            return getValorEfetivo(i, 'outros') > 0;
+          }),
+          outrosGeralTotal,
+          'Outros Equipamentos'
+        ),
       },
     },
     areaComum: buildCategorySummary(areacomum, areacomumTotal, 'Área Comum'),

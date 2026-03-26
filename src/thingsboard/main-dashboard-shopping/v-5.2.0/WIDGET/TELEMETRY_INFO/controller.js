@@ -1391,52 +1391,65 @@ function processStateFromSummaryEnergy(summary, grandTotal) {
     perc: 100, // Entrada is always 100% reference
   };
 
+  // Compute Área Comum as a RESIDUAL to avoid double-counting.
+  // summary.areaComum.summary.total = direct sum of ALL area_comum alias devices
+  // (which already includes climatizacao + elevadores + escadas + outros as sub-groups).
+  // The correct formula is: AreaComum = max(0, Entrada − (Lojas + Climat + Elev + Esc + Outros))
+  const _entradaTot = summary.entrada?.summary?.total || 0;
+  const _lojasTot   = summary.lojas?.summary?.total || 0;
+  const _climatTot  = summary.climatizacao?.summary?.total || 0;
+  const _elevTot    = summary.elevadores?.summary?.total || 0;
+  const _escTot     = summary.escadasRolantes?.summary?.total || 0;
+  const _outrosTot  = summary.outros?.summary?.total || 0;
+
+  const _consumidoresNamed = _lojasTot + _climatTot + _elevTot + _escTot + _outrosTot;
+  const _areaComumResidual = Math.max(0, _entradaTot - _consumidoresNamed);
+  const _totalConsum       = _consumidoresNamed + _areaComumResidual;
+  const _pct = (v) => _totalConsum > 0 ? (v / _totalConsum) * 100 : 0;
+
   // Update STATE.consumidores - ALL from pre-computed data!
   STATE.consumidores = {
     climatizacao: {
       devices: climatizacaoDevices,
-      total: summary.climatizacao?.summary?.total || 0,
-      perc: summary.climatizacao?.summary?.perc || 0,
+      total: _climatTot,
+      perc: _pct(_climatTot),
       // Subcategories available for detailed tooltips
       subcategories: summary.climatizacao?.subcategories || null,
     },
     elevadores: {
       devices: elevadoresDevices,
-      total: summary.elevadores?.summary?.total || 0,
-      perc: summary.elevadores?.summary?.perc || 0,
+      total: _elevTot,
+      perc: _pct(_elevTot),
     },
     escadasRolantes: {
       devices: escadasRolantesDevices,
-      total: summary.escadasRolantes?.summary?.total || 0,
-      perc: summary.escadasRolantes?.summary?.perc || 0,
+      total: _escTot,
+      perc: _pct(_escTot),
     },
     lojas: {
       devices: lojasDevices,
-      total: summary.lojas?.summary?.total || 0,
-      perc: summary.lojas?.summary?.perc || 0,
+      total: _lojasTot,
+      perc: _pct(_lojasTot),
     },
     outros: {
       devices: outrosDevices,
-      total: summary.outros?.summary?.total || 0,
-      perc: summary.outros?.summary?.perc || 0,
+      total: _outrosTot,
+      perc: _pct(_outrosTot),
       // Subcategories available for detailed tooltips
       subcategories: summary.outros?.subcategories || null,
     },
     areaComum: {
-      devices: summary.areaComum?.details?.devices || [],
-      total: summary.areaComum?.summary?.total || 0,
-      perc: summary.areaComum?.summary?.perc || 0,
+      devices: [], // residual — no specific devices attributed to this portion
+      total: _areaComumResidual,
+      perc: _pct(_areaComumResidual),
     },
-    totalGeral: (summary.lojas?.summary?.total || 0) +
-      (summary.climatizacao?.summary?.total || 0) +
-      (summary.elevadores?.summary?.total || 0) +
-      (summary.escadasRolantes?.summary?.total || 0) +
-      (summary.outros?.summary?.total || 0) +
-      (summary.areaComum?.summary?.total || 0),
+    totalGeral: _totalConsum,
     percGeral: 100,
   };
 
-  STATE.grandTotal = grandTotal;
+  // grandTotal for charts: use entrada as the 100% reference when available,
+  // otherwise fall back to total consumers.
+  STATE.grandTotal = _entradaTot > 0 ? _entradaTot : _totalConsum;
 
   // RFC-0106: Store pre-computed tooltip data for EnergySummaryTooltip
   STATE.tooltipData = {
