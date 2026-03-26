@@ -1143,9 +1143,10 @@ export class WelcomeModalView {
   color: var(--wm-ink);
   letter-spacing: 0.02em;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+  line-height: 1.25;
   max-width: 100%;
 }
 
@@ -1717,6 +1718,22 @@ export class WelcomeModalView {
   background: linear-gradient(180deg, transparent 40%, rgba(255, 255, 255, 0.8) 100%);
 }
 
+.myio-welcome-modal--light .myio-welcome-cards-scroll {
+  scrollbar-color: rgba(0,0,0,0.45) rgba(0,0,0,0.1);
+}
+
+.myio-welcome-modal--light .myio-welcome-cards-scroll::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+}
+
+.myio-welcome-modal--light .myio-welcome-cards-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.35);
+}
+
+.myio-welcome-modal--light .myio-welcome-cards-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.6);
+}
+
 .myio-welcome-modal--light .myio-welcome-card-title {
   color: #1a1a2e;
   text-shadow: 0 1px 4px rgba(255, 255, 255, 0.5);
@@ -1986,6 +2003,41 @@ export class WelcomeModalView {
   }
 
   /**
+   * Word-wrap a card title into up to maxLines lines of maxChars each.
+   * Breaks on whole words; last line gets ellipsis if text is truncated.
+   * Returns HTML with <br> separators.
+   */
+  private wrapCardTitle(title: string, maxChars: number, maxLines: number): string {
+    const words = title.split(' ');
+    const lines: string[] = [];
+    let current = '';
+
+    for (const word of words) {
+      if (lines.length >= maxLines) break;
+      const candidate = current ? `${current} ${word}` : word;
+      if (candidate.length <= maxChars) {
+        current = candidate;
+      } else {
+        if (current) lines.push(current);
+        if (lines.length >= maxLines) break;
+        // Word itself is longer than limit — hard-cut it
+        current = word.length > maxChars ? word.slice(0, maxChars) : word;
+      }
+    }
+    if (current && lines.length < maxLines) lines.push(current);
+
+    // Check if anything was cut off
+    const joined = lines.join(' ');
+    const wasTruncated = joined.length < title.length;
+    if (wasTruncated && lines.length > 0) {
+      const last = lines[lines.length - 1];
+      lines[lines.length - 1] = last.length <= maxChars - 1 ? last + '…' : last.slice(0, maxChars - 1) + '…';
+    }
+
+    return lines.join('<br>');
+  }
+
+  /**
    * Build HTML for a single shopping card
    */
   private buildCardHTML(card: ShoppingCard, index: number): string {
@@ -2101,8 +2153,7 @@ export class WelcomeModalView {
 
     // Card is clickable only if it has a dashboardId (navigation target)
     const isClickable = !!card.dashboardId;
-    const truncatedTitle = card.title.length > 27 ? card.title.slice(0, 27) + '...' : card.title;
-    const needsTooltip = card.title.length > 27;
+    const wrappedTitle = this.wrapCardTitle(card.title, 25, 3);
 
     return `
       <div class="myio-welcome-card${isClickable ? ' myio-welcome-card--clickable' : ''}"
@@ -2115,7 +2166,7 @@ export class WelcomeModalView {
         ${bgImage}
         ${metaCountsHTML}
         <div class="myio-welcome-card-content">
-          <div class="myio-welcome-card-title"${needsTooltip ? ` data-full-title="${card.title}"` : ''}>${truncatedTitle}</div>
+          <div class="myio-welcome-card-title">${wrappedTitle}</div>
         </div>
         ${subtitleHTML}
       </div>
@@ -2166,9 +2217,6 @@ export class WelcomeModalView {
             return;
           }
           // Don't trigger card click if clicking on title (tooltip trigger)
-          if (target.closest('.myio-welcome-card-title[data-full-title]')) {
-            return;
-          }
           this.emit('card-click', shoppingCard);
         });
 
@@ -2182,16 +2230,6 @@ export class WelcomeModalView {
         });
       }
 
-      // Click-based tooltip for truncated titles
-      const titleEl = card.querySelector('.myio-welcome-card-title[data-full-title]') as HTMLElement;
-      if (titleEl) {
-        titleEl.style.cursor = 'help';
-        titleEl.addEventListener('click', (e: Event) => {
-          e.stopPropagation();
-          const fullTitle = titleEl.getAttribute('data-full-title') || '';
-          this.showClickTooltip(titleEl, fullTitle);
-        });
-      }
     });
 
     // Font size slider - directly scales card text elements and card dimensions
