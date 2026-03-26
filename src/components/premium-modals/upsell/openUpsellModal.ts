@@ -1138,6 +1138,12 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">🎛️ CUSTOM (${state.selectedDevices.length})</button>
+              <button id="${modalId}-bulk-sync-ingestion" style="
+                background: #0284c7; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🔄 Sync Ingestion ID (${state.selectedDevices.length})</button>
             `
                 : ''
             }
@@ -4619,6 +4625,15 @@ function setupEventListeners(
   });
 
   // ========================
+  // Bulk Sync Ingestion ID
+  // ========================
+
+  document.getElementById(`${modalId}-bulk-sync-ingestion`)?.addEventListener('click', async () => {
+    if (!state.selectedCustomer || state.selectedDevices.length === 0) return;
+    await handleBulkSyncIngestionId(state, container, modalId, t, onClose);
+  });
+
+  // ========================
   // Bulk Force Relation Modal
   // ========================
 
@@ -5880,6 +5895,119 @@ async function loadLojasData(
     state.lojasDataLoading = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
+  }
+}
+
+// ============================================================================
+// Bulk Sync Ingestion ID — updates ONLY ingestionId SERVER_SCOPE attribute
+// No profile/type/relation changes. Works on state.selectedDevices.
+// ============================================================================
+async function handleBulkSyncIngestionId(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  if (!state.selectedCustomer || state.selectedDevices.length === 0) return;
+
+  const customerId = getEntityId(state.selectedCustomer);
+  const devices = state.selectedDevices;
+
+  try {
+    // 1. Get customer ingestionId from SERVER_SCOPE
+    const customerAttrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+      state,
+      `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`
+    );
+    const ingestionCustomerId = customerAttrs.find((a) => a.key === 'ingestionId')?.value as string | undefined;
+
+    if (!ingestionCustomerId) {
+      alert('Customer não tem atributo ingestionId configurado. Configure primeiro no ThingsBoard.');
+      return;
+    }
+
+    if (!confirm(`Sincronizar ingestionId de ${devices.length} device(s)?\n\nApenas o atributo ingestionId será atualizado (SERVER_SCOPE).\nNenhuma relação, profile ou type será alterado.`)) return;
+
+    showBusyProgress('Coletando atributos dos devices…', devices.length);
+
+    // 2. Fetch each device's centralId + slaveId from SERVER_SCOPE
+    type DeviceAttrs = { deviceId: string; centralId: string | null; slaveId: string | null };
+    const deviceAttrsList: DeviceAttrs[] = [];
+
+    for (let i = 0; i < devices.length; i++) {
+      const deviceId = getEntityId(devices[i]);
+      updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] Lendo attrs: ${devices[i].name || deviceId}`);
+      try {
+        const attrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+          state,
+          `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`
+        );
+        const attrMap: Record<string, string> = {};
+        attrs.forEach((a) => { attrMap[a.key] = String(a.value ?? ''); });
+        deviceAttrsList.push({
+          deviceId,
+          centralId: attrMap['centralId'] || null,
+          slaveId: attrMap['slaveId'] || null,
+        });
+      } catch {
+        deviceAttrsList.push({ deviceId, centralId: null, slaveId: null });
+      }
+    }
+
+    // 3. Fetch all ingestion devices (cached)
+    updateBusyProgress(devices.length, 'Buscando devices na Ingestion API…');
+    const ingestionDevices = await fetchIngestionDevicesAllPaged(ingestionCustomerId);
+
+    // 4. Match and write ingestionId
+    let matched = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (let i = 0; i < deviceAttrsList.length; i++) {
+      const { deviceId, centralId, slaveId } = deviceAttrsList[i];
+      const devName = devices[i]?.name || deviceId;
+      updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] Sync: ${devName}`);
+
+      if (!centralId || !slaveId) {
+        console.log(`[BulkSyncIngestion] Skipped ${devName} — missing centralId or slaveId`);
+        skipped++;
+        continue;
+      }
+
+      const match = findIngestionDeviceByCentralSlaveId(ingestionDevices, centralId, slaveId);
+      if (!match) {
+        console.log(`[BulkSyncIngestion] No match for ${devName} (centralId=${centralId}, slaveId=${slaveId})`);
+        skipped++;
+        continue;
+      }
+
+      try {
+        await tbPost(state, `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`, {
+          ingestionId: match.id,
+        });
+        console.log(`[BulkSyncIngestion] ✅ ${devName} → ingestionId=${match.id}`);
+        matched++;
+      } catch (err) {
+        console.error(`[BulkSyncIngestion] ❌ ${devName}:`, err);
+        errors++;
+      }
+    }
+
+    hideBusyProgress();
+    alert(
+      `Sync Ingestion ID concluído!\n\n` +
+      `✅ Atualizados: ${matched}\n` +
+      `⚠️  Sem match (sem centralId/slaveId ou não encontrado): ${skipped}\n` +
+      `❌ Erros: ${errors}`
+    );
+
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  } catch (error) {
+    hideBusyProgress();
+    console.error('[BulkSyncIngestion] Error:', error);
+    alert('Erro ao sincronizar ingestionId: ' + (error as Error).message);
   }
 }
 
