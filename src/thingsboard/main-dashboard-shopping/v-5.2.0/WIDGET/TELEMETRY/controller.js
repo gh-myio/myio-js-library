@@ -484,7 +484,7 @@ function _groupFilterChangedHandler(ev) {
   $container.find('[' + attr + ']').each(function () {
     const group = this.getAttribute(attr);
     const active = groupFilter[group] !== false; // undefined = active
-    $J(this).css({
+    $(this).css({
       opacity: active ? '' : '0.35',
       filter: active ? '' : 'grayscale(0.5)',
       'pointer-events': active ? '' : 'none',
