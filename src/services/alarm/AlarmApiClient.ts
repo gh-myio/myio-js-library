@@ -91,11 +91,10 @@ export class AlarmApiClient {
     if (params.page && params.page > 1) query.set('page', String(params.page));
 
     const qs = query.toString();
-    const raw = await this.request<unknown>(
+    // NOTE: /alarms response is { data: [...], pagination: {} } — data IS the array field, no outer wrapper
+    return this.request<AlarmListApiResponse>(
       `${this.baseUrl}/api/v1/alarms${qs ? `?${qs}` : ''}`
     );
-    // API wraps response in { data: { data: [], pagination: {}, summary: {} } } — unwrap safely
-    return ((raw as any)?.data ?? raw) as AlarmListApiResponse;
   }
 
   // -----------------------------------------------------------------------

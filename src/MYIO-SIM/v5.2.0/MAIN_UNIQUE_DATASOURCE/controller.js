@@ -99,6 +99,7 @@ let _welcomeModalRef = null;
 let _headerInstanceRef = null;
 let _currentShoppingCards = null; // Shopping cards from datasource or DEFAULT_SHOPPING_CARDS
 let _forceRemovePartialOwnerName = ''; // Prefix to remove from ownerName
+let _goalsEntityLabel = 'Shopping'; // Set from settings.goalsEntityLabel in onInit
 
 // Helper to clean ownerName by removing configured prefix (module-level for use in buildMetadataMapFromCtxData)
 function cleanOwnerName(name) {
@@ -197,8 +198,9 @@ self.onInit = async function () {
   let currentThemeMode = settings.defaultThemeMode || 'dark';
   DEBUG_ACTIVE = settings.enableDebugMode ?? false;
 
-  // Set module-level variable for cleanOwnerName function
+  // Set module-level variables for functions outside onInit scope
   _forceRemovePartialOwnerName = (settings.forceRemovePartialOwnerName || '').trim();
+  _goalsEntityLabel = settings.goalsEntityLabel || 'Shopping';
 
   // RFC-0122: Initialize LogHelper from library
   if (!MyIOLibrary.createLogHelper) {
@@ -4234,6 +4236,24 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // RFC-0175: Map DeviceAvailability API response to OperationalEquipment[]
   function mapAvailabilityToEquipment(byDevice) {
+    LogHelper.log('[RFC-0175][mapAvailability] byDevice count:', (byDevice || []).length);
+    if ((byDevice || []).length > 0) {
+      const sample = byDevice[0];
+      LogHelper.log('[RFC-0175][mapAvailability] SAMPLE raw API fields:', {
+        deviceId: sample.deviceId,
+        deviceName: sample.deviceName,
+        deviceType: sample.deviceType,
+        status: sample.status,
+        availability: sample.availability,
+        mtbfHours: sample.mtbfHours,
+        mttrHours: sample.mttrHours,
+        mtbf: sample.mtbf,
+        mttr: sample.mttr,
+        failureCount: sample.failureCount,
+        totalDowntimeHours: sample.totalDowntimeHours,
+      });
+    }
+
     return (byDevice || []).map((d) => {
       // Infer equipment type from deviceType field or fallback to device name
       const nameLower = (d.deviceName || '').toLowerCase();
@@ -4248,7 +4268,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const statusMap = { healthy: 'online', degraded: 'warning', critical: 'offline' };
       const status = statusMap[d.status] || d.status || 'offline';
 
-      return {
+      const mapped = {
         id: d.deviceId,
         name: d.deviceName,
         identifier: d.deviceName,
@@ -4266,6 +4286,9 @@ body.filter-modal-open { overflow: hidden !important; }
         lastActivityTime: d.lastActivityAt ? new Date(d.lastActivityAt).getTime() : undefined,
         lastMaintenanceTime: d.lastMaintenanceAt ? new Date(d.lastMaintenanceAt).getTime() : undefined,
       };
+
+      LogHelper.log(`[RFC-0175][mapAvailability] ${d.deviceName}: availability=${mapped.availability} mtbf=${mapped.mtbf} mttr=${mapped.mttr} status=${mapped.status}`);
+      return mapped;
     });
   }
 
@@ -4536,6 +4559,7 @@ body.filter-modal-open { overflow: hidden !important; }
       LogHelper.log('[MAIN_UNIQUE] RFC-0175: Received', response.byDevice?.length ?? 0, 'devices');
 
       const equipment = mapAvailabilityToEquipment(response.byDevice);
+      LogHelper.log('[RFC-0175] Equipment mapped count:', equipment.length, '— first item sample:', equipment[0] ? { id: equipment[0].id, availability: equipment[0].availability, mtbf: equipment[0].mtbf, mttr: equipment[0].mttr } : 'none');
 
       const customers = Array.from(
         equipment.reduce((map, eq) => {
@@ -5090,7 +5114,7 @@ function processDataAndDispatchEvents() {
         byCategory: buildEnergyCategoryData(classified),
         byShoppingTotal: buildEnergyCategoryDataByShopping(classified),
         shoppingsEnergy: buildShoppingsEnergyBreakdown(classified),
-        entityLabel: settings.goalsEntityLabel || 'Shopping',
+        entityLabel: _goalsEntityLabel,
         lastUpdated: new Date().toISOString(),
       },
     })
@@ -5109,7 +5133,7 @@ function processDataAndDispatchEvents() {
         byCategory: buildWaterCategoryData(classified),
         byShoppingTotal: buildWaterCategoryDataByShopping(classified),
         shoppingsWater: buildShoppingsWaterBreakdown(classified),
-        entityLabel: settings.goalsEntityLabel || 'Shopping',
+        entityLabel: _goalsEntityLabel,
         lastUpdated: new Date().toISOString(),
       },
     })
