@@ -2995,23 +2995,30 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
     const label = toStr(item.label);
+    const id = toStr(item.identifier);
     const combined = `${lw} ${dt} ${dp} ${label}`;
 
-    if (ELEVADOR_PATTERNS.some((p) => combined.includes(p))) {
+    // Identifier-prefix checks mirror TELEMETRY _getEnergyGroupKey so both widgets
+    // classify devices consistently (identifier is NOT included in `combined`).
+    const isElevadorById  = id.startsWith('ELV-');
+    const isEscadaById    = id.startsWith('ESC-');
+    const isClimatById    = id.startsWith('CAG-') || id.startsWith('FANCOIL-') || id.startsWith('CHILLER-');
+
+    if (ELEVADOR_PATTERNS.some((p) => combined.includes(p)) || isElevadorById) {
       elevadoresItems.push(item);
-    } else if (ESCADA_PATTERNS.some((p) => combined.includes(p))) {
+    } else if (ESCADA_PATTERNS.some((p) => combined.includes(p)) || isEscadaById) {
       escadasRolantesItems.push(item);
-    } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p))) {
+    } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p)) || isClimatById) {
       climatizacaoItems.push(item);
-      if (combined.includes('CHILLER')) chillerItems.push(item);
-      else if (combined.includes('FANCOIL')) fancoilItems.push(item);
+      if (combined.includes('CHILLER') || id.startsWith('CHILLER-')) chillerItems.push(item);
+      else if (combined.includes('FANCOIL') || id.startsWith('FANCOIL-')) fancoilItems.push(item);
       else if (
         combined.includes('BOMBA_HIDRAULICA') ||
         combined.includes('BOMBASHIDRAULICAS') ||
         (combined.includes('BOMBA') && !BOMBA_INCENDIO_PATTERNS.some((p) => combined.includes(p)))
       ) {
         bombaHidraulicaItems.push(item);
-      } else if (combined.includes('CAG') || combined.includes('CENTRAL')) cagItems.push(item);
+      } else if (combined.includes('CAG') || combined.includes('CENTRAL') || id.startsWith('CAG-')) cagItems.push(item);
       else hvacOutrosItems.push(item);
     } else {
       outrosItems.push(item);

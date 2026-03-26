@@ -482,26 +482,26 @@ function _groupFilterChangedHandler(ev) {
   const $container = $root();
   const attr = domain === 'water' ? 'data-water-group' : 'data-energy-group';
 
-  // Determine which group this widget instance represents (first tagged card)
-  const thisWidgetGroup = ($container.find('[' + attr + ']').first().attr(attr)) || null;
-
+  // Toggle card visibility per group
   $container.find('[' + attr + ']').each(function () {
     const group = this.getAttribute(attr);
     const active = groupFilter[group] !== false; // undefined = active
     $(this).toggle(active);
   });
 
-  // Sync header count + total with visibility
-  if (thisWidgetGroup) {
-    const active = groupFilter[thisWidgetGroup] !== false;
-    if (!active) {
-      renderHeader(0, 0);
-    } else {
-      const items = STATE.lastVisible || [];
-      const groupSum = items.reduce((acc, x) => acc + (x.value || 0), 0);
-      renderHeader(items.length, groupSum);
-    }
-  }
+  // Recalculate header from items whose individual group is still active.
+  // For water: all items in this widget share the same group key (from labelWidget).
+  // For energy: each item has its own group key (from deviceType/profile/identifier).
+  const allItems = STATE.lastVisible || [];
+  const visibleItems = allItems.filter((item) => {
+    const itemGroup = domain === 'water'
+      ? _getWaterGroupKey(self.ctx.settings && self.ctx.settings.labelWidget)
+      : _getEnergyGroupKey(item);
+    // null group = untagged card, always shown
+    return itemGroup === null || groupFilter[itemGroup] !== false;
+  });
+  const visibleSum = visibleItems.reduce((acc, x) => acc + (x.value || 0), 0);
+  renderHeader(visibleItems.length, visibleSum);
 
   LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
 }
