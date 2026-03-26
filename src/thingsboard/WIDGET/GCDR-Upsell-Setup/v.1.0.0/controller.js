@@ -754,6 +754,53 @@ self.onInit = function () {
     .gu-btn-raiox:hover:not(:disabled) { background: linear-gradient(180deg, #6d28d9, #4c1d95); }
     .gu-btn-raiox:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    /* GCDR Initial Setup button */
+    .gu-btn-initial-setup {
+      background: linear-gradient(180deg, #059669, #065f46);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(6,95,70,0.35);
+    }
+    .gu-btn-initial-setup:not(:disabled):hover { filter: brightness(1.08); }
+
+    /* Initial Setup modal — step indicators */
+    .gu-is-steps {
+      display: flex; gap: 0; padding: 12px 20px;
+      border-bottom: 1px solid var(--gu-border);
+      background: #fafafa; flex-shrink: 0; flex-wrap: wrap;
+    }
+    .gu-is-step {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--gu-muted);
+    }
+    .gu-is-step.active  { color: #059669; font-weight: 600; }
+    .gu-is-step.done    { color: var(--gu-success); }
+    .gu-is-step.error   { color: var(--gu-error); }
+    .gu-is-step-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      background: var(--gu-border); color: var(--gu-muted);
+    }
+    .gu-is-step.active .gu-is-step-num { background: #059669; color: #fff; }
+    .gu-is-step.done   .gu-is-step-num { background: var(--gu-success); color: #fff; }
+    .gu-is-step.error  .gu-is-step-num { background: var(--gu-error);   color: #fff; }
+    .gu-is-step-sep { margin: 0 8px; color: var(--gu-border); font-size: 14px; }
+
+    /* Initial Setup modal — log rows */
+    .gu-is-log {
+      font-family: ui-monospace, monospace; font-size: 11px;
+      background: #f8fafc; border: 1px solid var(--gu-border);
+      border-radius: 8px; padding: 10px 12px;
+      max-height: 260px; overflow-y: auto;
+      line-height: 1.6;
+    }
+    .gu-is-log-row { display: flex; gap: 8px; align-items: flex-start; }
+    .gu-is-log-row.ok   { color: #065f46; }
+    .gu-is-log-row.err  { color: var(--gu-error); }
+    .gu-is-log-row.info { color: var(--gu-muted); }
+    .gu-is-log-row.warn { color: #92400e; }
+    .gu-is-log-icon { flex-shrink: 0; }
+
     /* Force Update Modal overlay */
     .gu-fu-overlay {
       position: fixed;
@@ -967,6 +1014,9 @@ self.onInit = function () {
                 <button id="gu-btn-raiox" class="gu-btn gu-btn-raiox" disabled>
                   <span>⚡</span><span>Raio X</span>
                 </button>
+                <button id="gu-btn-initial-setup" class="gu-btn gu-btn-initial-setup" disabled>
+                  <span>🚀</span><span>GCDR - Initial SETUP</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1018,6 +1068,7 @@ self.onInit = function () {
   const btnSyncForceId = root.querySelector('#gu-btn-sync-force-id');
   const btnForceClear = root.querySelector('#gu-btn-force-clear');
   const btnRaioX = root.querySelector('#gu-btn-raiox');
+  const btnInitialSetup = root.querySelector('#gu-btn-initial-setup');
 
   // --- State ---
   let selectedCustomer = null; // { id, name }
@@ -1053,6 +1104,7 @@ self.onInit = function () {
       if (btnSyncForceId) btnSyncForceId.disabled = !selectedCustomer;
       if (btnForceClear) btnForceClear.disabled = !selectedCustomer;
       if (btnRaioX) btnRaioX.disabled = !selectedCustomer;
+      if (btnInitialSetup) btnInitialSetup.disabled = !selectedCustomer;
     }
   }
 
@@ -1124,6 +1176,7 @@ self.onInit = function () {
     if (btnSyncForceId) btnSyncForceId.disabled = false;
     if (btnForceClear) btnForceClear.disabled = false;
     if (btnRaioX) btnRaioX.disabled = false;
+    if (btnInitialSetup) btnInitialSetup.disabled = false;
 
     // Reset card attrs
     setAttr(gcdrTenantEl, 'Carregando...', '');
@@ -3982,6 +4035,432 @@ self.onInit = function () {
     if (!selectedCustomer) return;
     openForceUpdateModal();
   });
+
+  // ================================================================
+  // GCDR Initial SETUP
+  // Creates customer, asset, centrals (from unique centralIds) and
+  // API key in GCDR; mirrors back gcdrCustomerId / gcdrTenantId /
+  // gcdrApiKey to TB customer SERVER_SCOPE.
+  // ================================================================
+
+  const GCDR_INIT_BASE    = 'https://gcdr-api.a.myio-bas.com';
+  const GCDR_FIXED_TENANT = '11111111-1111-1111-1111-111111111111';
+  const GCDR_MASTER_KEY   = 'd63cefba02940d7caf1ea09f9e3a703c4cf8947c8d96c444585cc8c95bf02a45';
+
+  btnInitialSetup.addEventListener('click', () => {
+    if (!selectedCustomer) return;
+    openGCDRInitialSetupModal();
+  });
+
+  function openGCDRInitialSetupModal() {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let overlay;
+
+    function closeModal() {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    const STEPS = [
+      { id: 'customer',  label: 'Customer GCDR' },
+      { id: 'asset',     label: 'Asset Central' },
+      { id: 'centrals',  label: 'Centrais' },
+      { id: 'apikey',    label: 'API Key' },
+      { id: 'tbattrs',   label: 'Attrs TB' },
+    ];
+
+    function stepsHtml(activeId, doneIds, errorIds) {
+      return STEPS.map((s, i) => {
+        const cls = (errorIds || []).includes(s.id) ? 'error'
+          : (doneIds || []).includes(s.id) ? 'done'
+          : s.id === activeId ? 'active' : '';
+        const icon = (errorIds || []).includes(s.id) ? '✕'
+          : (doneIds || []).includes(s.id) ? '✓'
+          : i + 1;
+        const sep = i < STEPS.length - 1
+          ? '<span class="gu-is-step-sep">›</span>' : '';
+        return `<div class="gu-is-step ${cls}">
+          <div class="gu-is-step-num">${icon}</div>
+          <span>${s.label}</span>
+        </div>${sep}`;
+      }).join('');
+    }
+
+    function renderShell(stepsHtmlContent, bodyHtml, footerHtml) {
+      overlay.innerHTML = `
+        <div class="gu-fu-modal" style="max-width:820px">
+          <div class="gu-fu-header">
+            <div>
+              <div class="gu-fu-title">🚀 GCDR Initial SETUP</div>
+              <div class="gu-fu-subtitle">Customer: ${selectedCustomer.name}</div>
+            </div>
+            <button class="gu-fu-close" id="gis-x">✕</button>
+          </div>
+          <div class="gu-is-steps" id="gis-steps">${stepsHtmlContent}</div>
+          <div class="gu-fu-body" id="gis-body">${bodyHtml}</div>
+          <div class="gu-fu-footer" id="gis-footer">${footerHtml}</div>
+        </div>`;
+      overlay.querySelector('#gis-x').addEventListener('click', closeModal);
+    }
+
+    function setBody(html) {
+      const el = overlay.querySelector('#gis-body');
+      if (el) el.innerHTML = html;
+    }
+    function setSteps(html) {
+      const el = overlay.querySelector('#gis-steps');
+      if (el) el.innerHTML = html;
+    }
+    function setFooter(html) {
+      const el = overlay.querySelector('#gis-footer');
+      if (el) el.innerHTML = html;
+    }
+
+    // Live log
+    const logEntries = [];
+    function addLog(icon, msg, cls) {
+      logEntries.push(`<div class="gu-is-log-row ${cls || 'info'}"><span class="gu-is-log-icon">${icon}</span><span>${msg}</span></div>`);
+      const logEl = overlay.querySelector('#gis-log');
+      if (logEl) {
+        logEl.innerHTML = logEntries.join('');
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    }
+
+    function logInfo(msg) { addLog('ℹ️', msg, 'info'); }
+    function logOk(msg)   { addLog('✅', msg, 'ok'); }
+    function logWarn(msg) { addLog('⚠️', msg, 'warn'); }
+    function logErr(msg)  { addLog('❌', msg, 'err'); }
+
+    function renderProgress(stepLabel, logHtml) {
+      return `
+        <div style="margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--gu-text);margin-bottom:8px">
+            <span class="gu-spinner" style="vertical-align:middle;margin-right:6px;border-color:rgba(5,150,105,.3);border-top-color:#059669"></span>
+            ${stepLabel}
+          </div>
+        </div>
+        <div class="gu-is-log" id="gis-log">${logHtml || ''}</div>`;
+    }
+
+    // ── GCDR API helper (master X-API-Key + X-Tenant-Id) ─────────
+    async function gcdrFetch(method, path, body) {
+      const headers = {
+        'X-API-Key': GCDR_MASTER_KEY,
+        'X-Tenant-Id': GCDR_FIXED_TENANT,
+        'Accept': 'application/json',
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      };
+      const res = await fetch(`${GCDR_INIT_BASE}${path}`, {
+        method,
+        headers,
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      const text = await res.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch { /* keep null */ }
+      if (!res.ok) throw new Error(`GCDR ${method} ${path} HTTP ${res.status}: ${text}`);
+      return json?.data ?? json;
+    }
+
+    // ── TB helpers for asset + relation creation ─────────────────
+    async function tbCreateAsset(tbCustomerId, name) {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch('/api/asset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          type: 'AssetCentral',
+          customerId: { id: tbCustomerId, entityType: 'CUSTOMER' },
+        }),
+      });
+      if (!res.ok) throw new Error(`TB create asset HTTP ${res.status}`);
+      return await res.json(); // { id: { id, entityType }, name, ... }
+    }
+
+    async function tbCreateRelation(fromId, fromType, toId, toType) {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch('/api/relation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          from: { id: fromId, entityType: fromType },
+          to:   { id: toId,   entityType: toType },
+          type: 'Contains',
+          typeGroup: 'COMMON',
+        }),
+      });
+      if (!res.ok) throw new Error(`TB create relation HTTP ${res.status}`);
+    }
+
+    async function tbSaveCustomerServerScopeAttrs(tbCustomerId, attrs) {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(`/api/plugins/telemetry/CUSTOMER/${tbCustomerId}/attributes/SERVER_SCOPE`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${token}` },
+        body: JSON.stringify(attrs),
+      });
+      if (!res.ok) throw new Error(`TB save customer attrs HTTP ${res.status}`);
+    }
+
+    // ── Phase 0: Preview ─────────────────────────────────────────
+    const tbCustomerId = selectedCustomer.id;
+    const customerName = selectedCustomer.name;
+    const assetName    = `Asset Central ${customerName}`;
+    const tbAssetName  = `AssetCentral_${customerName}`;
+
+    overlay = document.createElement('div');
+    overlay.className = 'gu-fu-overlay';
+    document.body.appendChild(overlay);
+    renderShell(
+      stepsHtml(null, [], []),
+      `<div style="font-size:13px;color:var(--gu-text);line-height:1.7">
+        <p style="margin:0 0 12px">Este assistente irá criar a estrutura GCDR completa para <strong>${customerName}</strong>:</p>
+        <div class="gu-attr-row"><div class="gu-attr-label">Customer GCDR</div><div class="gu-attr-value">${tbCustomerId} (mesmo ID do TB)</div></div>
+        <div class="gu-attr-row"><div class="gu-attr-label">Tenant GCDR</div><div class="gu-attr-value">${GCDR_FIXED_TENANT}</div></div>
+        <div class="gu-attr-row"><div class="gu-attr-label">Asset GCDR</div><div class="gu-attr-value">${assetName}</div></div>
+        <div class="gu-attr-row"><div class="gu-attr-label">Asset TB</div><div class="gu-attr-value">${tbAssetName} (type=AssetCentral)</div></div>
+        <div class="gu-attr-row"><div class="gu-attr-label">Centrais</div><div class="gu-attr-value">Uma por centralId único nos devices (SERVER_SCOPE)</div></div>
+        <div class="gu-attr-row"><div class="gu-attr-label">API Key</div><div class="gu-attr-value">Criada e salva em gcdrApiKey (SERVER_SCOPE)</div></div>
+        ${gcdrCustomerId
+          ? `<p style="margin:12px 0 0;padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e">
+              ⚠️ Este customer já possui gcdrCustomerId (<code>${gcdrCustomerId}</code>). O setup irá sobrescrever os atributos SERVER_SCOPE.
+             </p>`
+          : ''}
+      </div>`,
+      `<button class="gu-fu-btn gu-fu-btn-secondary" id="gis-cancel">Cancelar</button>
+       <button class="gu-fu-btn gu-fu-btn-primary" id="gis-run" style="background:#059669">
+         🚀 Iniciar Setup
+       </button>`
+    );
+
+    overlay.querySelector('#gis-cancel').addEventListener('click', closeModal);
+    overlay.querySelector('#gis-run').addEventListener('click', runSetup);
+
+    // ── Phase 1: Execute ─────────────────────────────────────────
+    async function runSetup() {
+      setFooter('');
+      const done = [];
+      const errors = [];
+
+      let gcdrCustId = null;
+      let gcdrAssetId = null;
+      let tbAssetId = null;
+      let newApiKey = null;
+      let centralIds = [];
+
+      // ── Step 1: Create GCDR Customer ─────────────────────────
+      setSteps(stepsHtml('customer', done, errors));
+      setBody(renderProgress('Criando Customer GCDR…', ''));
+      try {
+        logInfo(`POST /api/v1/customers — id=${tbCustomerId} name="${customerName}"`);
+        const result = await gcdrFetch('POST', '/api/v1/customers', {
+          id: tbCustomerId,
+          name: customerName,
+          type: 'COMPANY',
+          externalId: tbCustomerId,
+          settings: {
+            timezone: 'America/Sao_Paulo',
+            locale: 'pt-BR',
+            currency: 'BRL',
+            inheritFromParent: true,
+          },
+        });
+        gcdrCustId = result?.id || tbCustomerId;
+        logOk(`Customer criado — id: ${gcdrCustId}`);
+        done.push('customer');
+      } catch (err) {
+        logErr(`Falha ao criar customer: ${err.message}`);
+        // If 409 (already exists) treat as ok — use tbCustomerId
+        if (err.message.includes('409')) {
+          gcdrCustId = tbCustomerId;
+          logWarn('Customer já existia (409) — continuando com ID do TB');
+          done.push('customer');
+        } else {
+          errors.push('customer');
+          setSteps(stepsHtml(null, done, errors));
+          setFooter(`<button class="gu-fu-btn gu-fu-btn-secondary" id="gis-close-err">Fechar</button>`);
+          overlay.querySelector('#gis-close-err').addEventListener('click', closeModal);
+          return;
+        }
+      }
+
+      // ── Step 2: Create GCDR Asset + TB Asset ─────────────────
+      setSteps(stepsHtml('asset', done, errors));
+      setBody(renderProgress('Criando Asset Central…', logEntries.join('')));
+      try {
+        logInfo(`POST /api/v1/assets — name="${assetName}" type=LOCATION`);
+        const assetResult = await gcdrFetch('POST', '/api/v1/assets', {
+          customerId: gcdrCustId,
+          name: assetName,
+          type: 'LOCATION',
+        });
+        gcdrAssetId = assetResult?.id;
+        logOk(`Asset GCDR criado — id: ${gcdrAssetId}`);
+
+        // Create TB Asset
+        logInfo(`POST /api/asset TB — name="${tbAssetName}"`);
+        const tbAsset = await tbCreateAsset(tbCustomerId, tbAssetName);
+        tbAssetId = tbAsset?.id?.id;
+        logOk(`Asset TB criado — tbId: ${tbAssetId}`);
+
+        // Relation: CUSTOMER → ASSET
+        await tbCreateRelation(tbCustomerId, 'CUSTOMER', tbAssetId, 'ASSET');
+        logOk('Relação TB CUSTOMER → ASSET criada');
+
+        // Save gcdrAssetId to TB asset SERVER_SCOPE
+        await guSaveAssetServerScopeAttrs(tbAssetId, { gcdrAssetId, gcdrCustomerId: gcdrCustId });
+        logOk('gcdrAssetId salvo no asset TB (SERVER_SCOPE)');
+
+        done.push('asset');
+      } catch (err) {
+        logErr(`Falha ao criar asset: ${err.message}`);
+        errors.push('asset');
+        setSteps(stepsHtml(null, done, errors));
+        setFooter(`<button class="gu-fu-btn gu-fu-btn-secondary" id="gis-close-err">Fechar</button>`);
+        overlay.querySelector('#gis-close-err').addEventListener('click', closeModal);
+        return;
+      }
+
+      // ── Step 3: Collect unique centralIds + Create Centrals ──
+      setSteps(stepsHtml('centrals', done, errors));
+      setBody(renderProgress('Buscando centralIds dos devices…', logEntries.join('')));
+      try {
+        logInfo('Buscando devices do customer no TB…');
+        const devices = await guFetchCustomerDevices(tbCustomerId);
+        logInfo(`${devices.length} devices encontrados`);
+
+        const centralIdSet = new Set();
+        const chunkSize = 10;
+        for (let i = 0; i < devices.length; i += chunkSize) {
+          if (i > 0) await sleep(500);
+          const chunk = devices.slice(i, i + chunkSize);
+          await Promise.all(chunk.map(async (dev) => {
+            const devId = dev.id?.id || dev.id;
+            try {
+              const attrs = await guFetchDeviceServerScopeAttrs(devId);
+              const cId = attrs.centralId;
+              if (cId && String(cId).trim()) centralIdSet.add(String(cId).trim());
+            } catch { /* skip */ }
+          }));
+          const bodyEl = overlay.querySelector('#gis-body');
+          if (bodyEl) bodyEl.innerHTML = renderProgress(
+            `Coletando centralIds… (${Math.min(i + chunkSize, devices.length)}/${devices.length})`,
+            logEntries.join('')
+          );
+        }
+
+        centralIds = Array.from(centralIdSet);
+        logInfo(`centralIds únicos encontrados: ${centralIds.length > 0 ? centralIds.join(', ') : '(nenhum)'}`);
+
+        // Create one central per unique centralId
+        for (const cId of centralIds) {
+          const centralName = `Central ${customerName}`;
+          try {
+            logInfo(`POST /api/v1/centrals — id="${cId}" name="${centralName}"`);
+            const centralResult = await gcdrFetch('POST', '/api/v1/centrals', {
+              id: cId,
+              customerId: gcdrCustId,
+              assetId: gcdrAssetId,
+              name: centralName,
+              displayName: centralName,
+              serialNumber: cId,
+              type: 'GATEWAY',
+            });
+            logOk(`Central criada — id: ${centralResult?.id} name: ${centralName}`);
+          } catch (cErr) {
+            if (cErr.message.includes('409')) {
+              logWarn(`Central "${cId}" já existia (409) — ignorada`);
+            } else {
+              logErr(`Falha ao criar central "${cId}": ${cErr.message}`);
+            }
+          }
+          await sleep(200);
+        }
+
+        done.push('centrals');
+      } catch (err) {
+        logErr(`Falha na etapa de centrais: ${err.message}`);
+        errors.push('centrals');
+        // Non-fatal — continue to API key
+      }
+
+      // ── Step 4: Create API Key ────────────────────────────────
+      setSteps(stepsHtml('apikey', done, errors));
+      setBody(renderProgress('Criando API Key…', logEntries.join('')));
+      try {
+        logInfo(`POST /api/v1/customers/${gcdrCustId}/api-keys`);
+        const keyResult = await gcdrFetch('POST', `/api/v1/customers/${gcdrCustId}/api-keys`, {
+          name: `${customerName} - Dashboard MYIO`,
+          description: 'Chave gerada pelo GCDR Initial Setup',
+          scopes: ['bundles:read', 'devices:read', 'assets:read'],
+          hierarchyAccess: 'SUBTREE',
+          expiresAt: null,
+        });
+        newApiKey = keyResult?.key;
+        logOk(`API Key criada: ${newApiKey}`);
+        if (keyResult?._warning) logWarn(keyResult._warning);
+        done.push('apikey');
+      } catch (err) {
+        logErr(`Falha ao criar API key: ${err.message}`);
+        errors.push('apikey');
+        // Non-fatal — continue to save attrs
+      }
+
+      // ── Step 5: Save SERVER_SCOPE attrs to TB Customer ────────
+      setSteps(stepsHtml('tbattrs', done, errors));
+      setBody(renderProgress('Salvando atributos no TB…', logEntries.join('')));
+      try {
+        const attrsToSave = {
+          gcdrCustomerId: gcdrCustId,
+          gcdrTenantId: GCDR_FIXED_TENANT,
+        };
+        if (newApiKey) attrsToSave.gcdrApiKey = newApiKey;
+
+        await tbSaveCustomerServerScopeAttrs(tbCustomerId, attrsToSave);
+        logOk(`gcdrCustomerId, gcdrTenantId${newApiKey ? ', gcdrApiKey' : ''} salvos em SERVER_SCOPE do customer TB`);
+        done.push('tbattrs');
+      } catch (err) {
+        logErr(`Falha ao salvar attrs no TB: ${err.message}`);
+        errors.push('tbattrs');
+      }
+
+      // ── Final render ─────────────────────────────────────────
+      setSteps(stepsHtml(null, done, errors));
+      const hasErrors = errors.length > 0;
+
+      setBody(`
+        <div style="margin-bottom:14px">
+          ${hasErrors
+            ? `<div style="padding:10px 14px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;margin-bottom:10px">
+                ⚠️ Setup concluído com ${errors.length} erro(s). Verifique o log abaixo.
+               </div>`
+            : `<div style="padding:10px 14px;background:#d1fae5;border-radius:8px;font-size:13px;color:#065f46;margin-bottom:10px">
+                ✅ Setup concluído com sucesso!
+               </div>`}
+          <div class="gu-attr-row"><div class="gu-attr-label">gcdrCustomerId</div><div class="gu-attr-value success">${gcdrCustId || '—'}</div></div>
+          <div class="gu-attr-row"><div class="gu-attr-label">gcdrTenantId</div><div class="gu-attr-value success">${GCDR_FIXED_TENANT}</div></div>
+          <div class="gu-attr-row"><div class="gu-attr-label">gcdrAssetId</div><div class="gu-attr-value ${gcdrAssetId ? 'success' : 'warn'}">${gcdrAssetId || '—'}</div></div>
+          <div class="gu-attr-row"><div class="gu-attr-label">Centrais</div><div class="gu-attr-value">${centralIds.length} criada(s)</div></div>
+          <div class="gu-attr-row"><div class="gu-attr-label">gcdrApiKey</div><div class="gu-attr-value ${newApiKey ? 'success' : 'error'}">${newApiKey || '(não criada)'}</div></div>
+        </div>
+        <div class="gu-is-log" id="gis-log">${logEntries.join('')}</div>
+      `);
+
+      setFooter(`<button class="gu-fu-btn gu-fu-btn-primary" id="gis-close-done" style="background:#059669">Fechar</button>`);
+      overlay.querySelector('#gis-close-done').addEventListener('click', () => {
+        closeModal();
+        // Reload the customer panel to reflect new attrs
+        if (selectedCustomer) selectCustomer(selectedCustomer);
+      });
+    }
+  }
 
   // --- Upsell Setup ---
   btnUpsell.addEventListener('click', async () => {
