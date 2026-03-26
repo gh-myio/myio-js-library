@@ -419,9 +419,8 @@ export class WelcomeModalView {
     const titleHeight = 28; // shortcuts title + margin
     const availableHeight = modalHeight - heroHeight - footerHeight;
 
-    // Calculate grid dimensions
-    const columns = 3;
-    const rows = Math.ceil(cards.length / columns);
+    // Horizontal scroll grid always has 2 rows (grid-template-rows: repeat(2, 1fr))
+    const rows = 2;
     const gap = 10; // gap between cards
     const totalGapHeight = (rows - 1) * gap;
 
@@ -429,15 +428,16 @@ export class WelcomeModalView {
     const gridAvailableHeight = availableHeight - shortcutsPadding - titleHeight - totalGapHeight;
     const optimalCardHeight = Math.floor(gridAvailableHeight / rows);
 
-    // Apply minimum and maximum constraints (+25% from original)
-    const minCardHeight = 100;
-    const maxCardHeight = 188;
+    // Apply minimum and maximum constraints
+    const minCardHeight = 112;
+    const maxCardHeight = 200;
     const cardHeight = Math.max(minCardHeight, Math.min(maxCardHeight, optimalCardHeight));
 
-    // Apply calculated height to cards
+    // Set only minHeight — let the CSS grid (1fr rows) control the actual height
+    // so cards always stretch to fill their grid cell without white space below
     cards.forEach((card) => {
       card.style.minHeight = `${cardHeight}px`;
-      card.style.height = `${cardHeight}px`;
+      card.style.height = ''; // clear any previously set explicit height
     });
 
     // Debug logging
@@ -448,7 +448,6 @@ export class WelcomeModalView {
         footerHeight,
         availableHeight,
         rows,
-        columns,
         gridAvailableHeight,
         optimalCardHeight,
         appliedCardHeight: cardHeight,
@@ -900,9 +899,9 @@ export class WelcomeModalView {
   align-items: stretch;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.3) transparent;
-  padding: 4px 0;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(255,255,255,0.55) rgba(255,255,255,0.08);
+  padding: 4px 0 10px;
   /* Ensure proper flex overflow behavior */
   min-width: 0;
   min-height: 0;
@@ -910,20 +909,21 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-cards-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
 }
 
 .myio-welcome-cards-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
 }
 
 .myio-welcome-cards-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.3);
-  border-radius: 3px;
+  background: rgba(255,255,255,0.45);
+  border-radius: 4px;
 }
 
 .myio-welcome-cards-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.7);
 }
 
 /* Grid with 2 rows, horizontal scroll */
@@ -942,6 +942,7 @@ export class WelcomeModalView {
 
 .myio-welcome-cards-grid .myio-welcome-card {
   width: 100%;
+  height: 100%;
   min-height: calc(112px * var(--wm-card-scale, 1));
   transition: min-height 0.2s ease;
 }
@@ -2114,7 +2115,7 @@ export class WelcomeModalView {
         ${bgImage}
         ${metaCountsHTML}
         <div class="myio-welcome-card-content">
-          <h3 class="myio-welcome-card-title"${needsTooltip ? ` data-full-title="${card.title}"` : ''}>${truncatedTitle}</h3>
+          <div class="myio-welcome-card-title"${needsTooltip ? ` data-full-title="${card.title}"` : ''}>${truncatedTitle}</div>
         </div>
         ${subtitleHTML}
       </div>
