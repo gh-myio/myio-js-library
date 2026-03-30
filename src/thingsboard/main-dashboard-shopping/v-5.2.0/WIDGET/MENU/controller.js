@@ -2727,7 +2727,13 @@ self.onInit = function () {
               throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
             }
             LogHelper.log('[MENU] Configurações Cliente salvas:', payload);
-            closeModal();
+            saveBtn.textContent = '✓ Salvo';
+            saveBtn.style.background = '#16A34A';
+            setTimeout(() => {
+              saveBtn.textContent = 'Salvar';
+              saveBtn.style.background = '';
+              saveBtn.disabled = true;
+            }, 2000);
           } catch (err) {
             LogHelper.error('[MENU] Erro ao salvar Configurações Cliente:', err);
             errEl.textContent = 'Erro ao salvar: ' + err.message;
