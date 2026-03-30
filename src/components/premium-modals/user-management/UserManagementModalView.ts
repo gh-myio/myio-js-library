@@ -545,7 +545,7 @@ export class UserManagementModalView {
 .um-badge--admin { background: var(--um-badge-admin-bg); color: var(--um-badge-admin-text); }
 .um-badge--user  { background: var(--um-badge-user-bg);  color: var(--um-badge-user-text); }
 
-.um-form { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
+.um-form { display: flex; flex-direction: column; gap: 14px;}
 .um-form-row { display: flex; gap: 12px; }
 .um-form-row .um-form-group { flex: 1; }
 .um-form-group { display: flex; flex-direction: column; gap: 5px; }
