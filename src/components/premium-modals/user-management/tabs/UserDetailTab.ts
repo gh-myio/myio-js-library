@@ -218,7 +218,7 @@ export class UserDetailTab {
           <label class="um-label">Função <span class="um-req">*</span></label>
           <select class="um-input" name="roleId">
             <option value="">Selecione...</option>
-            ${this.availableRoles.map(r => `<option value="${this.esc(r.id)}">${this.esc(r.name)}</option>`).join('')}
+            ${this.availableRoles.map(r => `<option value="${this.esc(r.id)}">${this.esc(r.displayName)}</option>`).join('')}
           </select>
           <span class="um-field-error" data-for="roleId"></span>
         </div>
@@ -275,7 +275,7 @@ export class UserDetailTab {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const created: GCDRAssignment = await res.json();
-        this.callbacks.showToast(`Função "${role?.name || roleId}" atribuída!`, 'success');
+        this.callbacks.showToast(`Função "${role?.displayName || roleId}" atribuída!`, 'success');
         close();
         this.assignments.push(created);
         this.renderAssignments();
@@ -290,7 +290,7 @@ export class UserDetailTab {
 
   private async revokeAssignment(a: GCDRAssignment): Promise<void> {
     const role = this.availableRoles.find(r => r.id === a.roleId);
-    const label = role?.name || a.roleDisplayName || a.roleKey;
+    const label = role?.displayName || a.roleDisplayName || a.roleKey;
     if (!confirm(`Revogar a função "${label}"?`)) return;
     try {
       const res = await fetch(`${this.gcdrBase()}/authorization/assignments/${a.id}`, {

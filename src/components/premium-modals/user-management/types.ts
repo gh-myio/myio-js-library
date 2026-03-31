@@ -79,24 +79,24 @@ export function buildUserDisplayName(user: TBUser): string {
 
 export interface GCDRPolicy {
   id: string;
-  name: string;
+  displayName: string;
   description?: string;
   allow: string[];
   deny: string[];
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
   /** System policies are immutable */
-  system?: boolean;
+  isSystem?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface GCDRRole {
   id: string;
-  name: string;
+  displayName: string;
   description?: string;
   /** IDs of associated policies */
   policyIds: string[];
-  system?: boolean;
+  isSystem?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
