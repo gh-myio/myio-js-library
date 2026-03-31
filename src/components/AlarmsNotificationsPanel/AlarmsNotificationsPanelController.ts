@@ -4,7 +4,7 @@
  */
 
 import type { Alarm, AlarmStats, AlarmFilters, AlarmSeverity, AlarmState } from '../../types/alarm';
-import { DEFAULT_ALARM_STATS, DEFAULT_ALARM_FILTERS } from '../../types/alarm';
+import { DEFAULT_ALARM_STATS, DEFAULT_ALARM_FILTERS, DEFAULT_EXCLUDED_ALARM_TYPES } from '../../types/alarm';
 import { AlarmService } from '../../services/alarm/AlarmService';
 import type {
   AlarmsNotificationsPanelParams,
@@ -298,9 +298,12 @@ export class AlarmsNotificationsPanelController {
     }
 
     // Alarm type filter (matches alarm.title)
+    // When no explicit filter is set, exclude DEFAULT_EXCLUDED_ALARM_TYPES (e.g. offline noise)
     const alarmType = (this.state.filters as import('../../types/alarm').AlarmFilters).alarmType;
     if (alarmType && alarmType.length > 0) {
       filtered = filtered.filter((alarm) => alarmType.includes(alarm.title));
+    } else {
+      filtered = filtered.filter((alarm) => !DEFAULT_EXCLUDED_ALARM_TYPES.includes((alarm.title ?? '').toUpperCase()));
     }
 
     // Device filter (matches tokens in alarm.source)

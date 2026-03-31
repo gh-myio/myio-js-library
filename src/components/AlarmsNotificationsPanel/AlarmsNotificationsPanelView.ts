@@ -4,7 +4,7 @@
  */
 
 import type { Alarm, AlarmFilters, AlarmSeverity, AlarmState, AlarmTrendDataPoint } from '../../types/alarm';
-import { SEVERITY_CONFIG, STATE_CONFIG } from '../../types/alarm';
+import { SEVERITY_CONFIG, STATE_CONFIG, DEFAULT_EXCLUDED_ALARM_TYPES } from '../../types/alarm';
 import { AlarmService } from '../../services/alarm/AlarmService';
 import type {
   AlarmsNotificationsPanelParams,
@@ -816,7 +816,11 @@ export class AlarmsNotificationsPanelView {
     const allStates     = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
     const selSeverity  = new Set<string>(filters.severity?.length  ? filters.severity  : allSeverities);
     const selState     = new Set<string>(filters.state?.length     ? filters.state     : allStates);
-    const selAlarmType = new Set<string>(filters.alarmType?.length ? filters.alarmType : alarmTypes);
+    const selAlarmType = new Set<string>(
+      filters.alarmType?.length
+        ? filters.alarmType
+        : alarmTypes.filter((t) => !DEFAULT_EXCLUDED_ALARM_TYPES.includes(t.toUpperCase()))
+    );
     const selDevices   = new Set<string>(filters.devices?.length   ? filters.devices   : allDevices);
 
     type AfmTab = { id: string; label: string; icon: string; count: number };
