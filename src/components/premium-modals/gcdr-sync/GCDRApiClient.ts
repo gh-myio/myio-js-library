@@ -4,7 +4,7 @@
 
 import type { CreateCustomerDto, CreateAssetDto, CreateDeviceDto, GCDREntity, GCDRCustomerBundle } from './types';
 
-const GCDR_BASE_URL = 'https://gcdr-api.a.myio-bas.com';
+const GCDR_BASE_URL = 'https://gcdr-api.a.myio-bas.com/api/v1';
 const GCDR_API_KEY = 'gcdr_cust_tb_master_key_2026';
 const RETRY_DELAY_MS = 1000;
 
@@ -109,11 +109,11 @@ export class GCDRApiClient {
   // ============================================================================
 
   async createCustomer(dto: CreateCustomerDto): Promise<GCDREntity> {
-    const result = await this.request<GCDREntity>('POST', '/api/v1/customers', dto);
+    const result = await this.request<GCDREntity>('POST', '/customers', dto);
     if (result.conflict) {
       // 409 — entity already exists: fetch by code and reuse its ID
       const code = this.codeFromName(dto.name);
-      const listResult = await this.request<unknown>('GET', `/api/v1/customers?code=${encodeURIComponent(code)}`);
+      const listResult = await this.request<unknown>('GET', `/customers?code=${encodeURIComponent(code)}`);
       const existing = this.firstFromList(listResult.data);
       if (existing?.id) return existing;
       throw new Error(`GCDR: customer "${dto.name}" conflicted (409) but could not be fetched by code "${code}"`);
@@ -122,7 +122,7 @@ export class GCDRApiClient {
   }
 
   async getCustomer(gcdrId: string): Promise<GCDREntity | null> {
-    const result = await this.request<GCDREntity>('GET', `/api/v1/customers/${gcdrId}`);
+    const result = await this.request<GCDREntity>('GET', `/customers/${gcdrId}`);
     if (result.notFound) return null;
     return result.data;
   }
@@ -130,7 +130,7 @@ export class GCDRApiClient {
   /** RFC-0176-v2 / RFC-0017: Reverse-lookup by TB Customer UUID (externalId) */
   async getCustomerByExternalId(externalId: string): Promise<GCDREntity | null> {
     const result = await this.request<GCDREntity>(
-      'GET', `/api/v1/customers/external/${encodeURIComponent(externalId)}`
+      'GET', `/customers/external/${encodeURIComponent(externalId)}`
     );
     if (result.notFound) return null;
     return result.data;
@@ -148,14 +148,14 @@ export class GCDRApiClient {
     const qs = q.toString();
     const result = await this.request<GCDRCustomerBundle>(
       'GET',
-      `/api/v1/customers/external/${encodeURIComponent(externalId)}${qs ? `?${qs}` : ''}`
+      `/customers/external/${encodeURIComponent(externalId)}${qs ? `?${qs}` : ''}`
     );
     if (result.notFound) return null;
     return result.data;
   }
 
   async updateCustomer(gcdrId: string, dto: Partial<CreateCustomerDto>): Promise<GCDREntity> {
-    const result = await this.request<GCDREntity>('PATCH', `/api/v1/customers/${gcdrId}`, dto);
+    const result = await this.request<GCDREntity>('PATCH', `customers/${gcdrId}`, dto);
     return result.data!;
   }
 
@@ -164,10 +164,10 @@ export class GCDRApiClient {
   // ============================================================================
 
   async createAsset(dto: CreateAssetDto): Promise<GCDREntity> {
-    const result = await this.request<GCDREntity>('POST', '/api/v1/assets', dto);
+    const result = await this.request<GCDREntity>('POST', '/assets', dto);
     if (result.conflict) {
       const code = this.codeFromName(dto.name);
-      const listResult = await this.request<unknown>('GET', `/api/v1/assets?code=${encodeURIComponent(code)}`);
+      const listResult = await this.request<unknown>('GET', `/assets?code=${encodeURIComponent(code)}`);
       const existing = this.firstFromList(listResult.data);
       if (existing?.id) return existing;
       throw new Error(`GCDR: asset "${dto.name}" conflicted (409) but could not be fetched by code "${code}"`);
@@ -176,13 +176,13 @@ export class GCDRApiClient {
   }
 
   async getAsset(gcdrId: string): Promise<GCDREntity | null> {
-    const result = await this.request<GCDREntity>('GET', `/api/v1/assets/${gcdrId}`);
+    const result = await this.request<GCDREntity>('GET', `/assets/${gcdrId}`);
     if (result.notFound) return null;
     return result.data;
   }
 
   async updateAsset(gcdrId: string, dto: Partial<CreateAssetDto>): Promise<GCDREntity> {
-    const result = await this.request<GCDREntity>('PATCH', `/api/v1/assets/${gcdrId}`, dto);
+    const result = await this.request<GCDREntity>('PATCH', `/assets/${gcdrId}`, dto);
     return result.data!;
   }
 
@@ -191,10 +191,10 @@ export class GCDRApiClient {
   // ============================================================================
 
   async createDevice(dto: CreateDeviceDto): Promise<GCDREntity> {
-    const result = await this.request<GCDREntity>('POST', '/api/v1/devices', dto);
+    const result = await this.request<GCDREntity>('POST', '/devices', dto);
     if (result.conflict) {
       const code = this.codeFromName(dto.name);
-      const listResult = await this.request<unknown>('GET', `/api/v1/devices?code=${encodeURIComponent(code)}`);
+      const listResult = await this.request<unknown>('GET', `/devices?code=${encodeURIComponent(code)}`);
       const existing = this.firstFromList(listResult.data);
       if (existing?.id) return existing;
       throw new Error(`GCDR: device "${dto.name}" conflicted (409) but could not be fetched by code "${code}"`);
@@ -203,7 +203,7 @@ export class GCDRApiClient {
   }
 
   async getDevice(gcdrId: string): Promise<GCDREntity | null> {
-    const result = await this.request<GCDREntity>('GET', `/api/v1/devices/${gcdrId}`);
+    const result = await this.request<GCDREntity>('GET', `/devices/${gcdrId}`);
     if (result.notFound) return null;
     return result.data;
   }
@@ -211,14 +211,14 @@ export class GCDRApiClient {
   /** RFC-0176-v2 / RFC-0017: Reverse-lookup by TB Device UUID (externalId) */
   async getDeviceByExternalId(externalId: string): Promise<GCDREntity | null> {
     const result = await this.request<GCDREntity>(
-      'GET', `/api/v1/devices/external/${encodeURIComponent(externalId)}`
+      'GET', `/devices/external/${encodeURIComponent(externalId)}`
     );
     if (result.notFound) return null;
     return result.data;
   }
 
   async updateDevice(gcdrId: string, dto: Partial<CreateDeviceDto>): Promise<GCDREntity> {
-    const result = await this.request<GCDREntity>('PATCH', `/api/v1/devices/${gcdrId}`, dto);
+    const result = await this.request<GCDREntity>('PATCH', `/devices/${gcdrId}`, dto);
     return result.data!;
   }
 }

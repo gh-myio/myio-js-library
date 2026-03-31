@@ -26,7 +26,7 @@ export class PoliciesTab {
   }
 
   private gcdrBase(): string {
-    return (window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+    return ((window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com');
   }
 
   private gcdrHeaders(): Record<string, string> {

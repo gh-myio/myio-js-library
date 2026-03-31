@@ -68,7 +68,7 @@ export class AlarmApiClient {
     if (params.deviceIds) query.set('deviceIds', params.deviceIds);
 
     const raw = await this.request<unknown>(
-      `${this.baseUrl}/api/v1/alarms/stats/availability?${query.toString()}`
+      `${this.baseUrl}/alarms/stats/availability?${query.toString()}`
     );
     // API wraps response in { data: { ... } } — unwrap safely
     return ((raw as any)?.data ?? raw) as AvailabilityResponse;
@@ -93,7 +93,7 @@ export class AlarmApiClient {
     const qs = query.toString();
     // NOTE: /alarms response is { data: [...], pagination: {} } — data IS the array field, no outer wrapper
     return this.request<AlarmListApiResponse>(
-      `${this.baseUrl}/api/v1/alarms${qs ? `?${qs}` : ''}`
+      `${this.baseUrl}/alarms${qs ? `?${qs}` : ''}`
     );
   }
 
@@ -104,7 +104,7 @@ export class AlarmApiClient {
   async getAlarmStats(tenantId: string, period: string): Promise<AlarmStatsApiResponse> {
     const query = new URLSearchParams({ tenantId, period });
     const raw = await this.request<unknown>(
-      `${this.baseUrl}/api/v1/alarms/stats?${query.toString()}`
+      `${this.baseUrl}/alarms/stats?${query.toString()}`
     );
     // API wraps response in { data: { ... } } — unwrap safely
     return ((raw as any)?.data ?? raw) as AlarmStatsApiResponse;
@@ -121,7 +121,7 @@ export class AlarmApiClient {
   ): Promise<AlarmTrendApiPoint[]> {
     const query = new URLSearchParams({ tenantId, period, groupBy });
     const raw = await this.request<unknown>(
-      `${this.baseUrl}/api/v1/alarms/stats/trend?${query.toString()}`
+      `${this.baseUrl}/alarms/stats/trend?${query.toString()}`
     );
     return this.unwrapArray<AlarmTrendApiPoint>(raw);
   }
@@ -133,7 +133,7 @@ export class AlarmApiClient {
   async getTopOffenders(tenantId: string, limit = 5): Promise<TopOffenderApiItem[]> {
     const query = new URLSearchParams({ tenantId, limit: String(limit) });
     const raw = await this.request<unknown>(
-      `${this.baseUrl}/api/v1/alarms/stats/top-offenders?${query.toString()}`
+      `${this.baseUrl}/alarms/stats/top-offenders?${query.toString()}`
     );
     return this.unwrapArray<TopOffenderApiItem>(raw);
   }
@@ -145,7 +145,7 @@ export class AlarmApiClient {
   async getAlarmStatsByDevice(tenantId: string): Promise<DeviceAlarmStatApiItem[]> {
     const query = new URLSearchParams({ tenantId });
     const raw = await this.request<unknown>(
-      `${this.baseUrl}/api/v1/alarms/stats/by-device?${query.toString()}`
+      `${this.baseUrl}/alarms/stats/by-device?${query.toString()}`
     );
     return this.unwrapArray<DeviceAlarmStatApiItem>(raw);
   }
@@ -155,7 +155,7 @@ export class AlarmApiClient {
   // -----------------------------------------------------------------------
 
   async acknowledgeAlarm(id: string, acknowledgedBy: string, note?: string): Promise<void> {
-    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/ack`, {
+    await this.request<unknown>(`${this.baseUrl}/alarms/${id}/ack`, {
       method: 'POST',
       body: JSON.stringify({ acknowledgedBy, note }),
     });
@@ -167,21 +167,21 @@ export class AlarmApiClient {
     duration: string,
     reason?: string
   ): Promise<void> {
-    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/silence`, {
+    await this.request<unknown>(`${this.baseUrl}/alarms/${id}/silence`, {
       method: 'POST',
       body: JSON.stringify({ silencedBy, duration, reason }),
     });
   }
 
   async escalateAlarm(id: string, escalatedBy: string, reason?: string): Promise<void> {
-    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/escalate`, {
+    await this.request<unknown>(`${this.baseUrl}/alarms/${id}/escalate`, {
       method: 'POST',
       body: JSON.stringify({ escalatedBy, reason }),
     });
   }
 
   async closeAlarm(id: string, closedBy: string, resolution?: string): Promise<void> {
-    await this.request<unknown>(`${this.baseUrl}/api/v1/alarms/${id}/close`, {
+    await this.request<unknown>(`${this.baseUrl}/alarms/${id}/close`, {
       method: 'POST',
       body: JSON.stringify({ closedBy, resolution }),
     });
@@ -194,7 +194,7 @@ export class AlarmApiClient {
 
   async batchAcknowledge(alarmIds: string[], acknowledgedBy: string): Promise<AlarmBatchResult> {
     const res = await this.request<{ data: AlarmBatchResult }>(
-      `${this.baseUrl}/api/v1/alarms/batch/ack`,
+      `${this.baseUrl}/alarms/batch/ack`,
       { method: 'POST', body: JSON.stringify({ alarmIds, acknowledgedBy }) }
     );
     return res.data;
@@ -202,7 +202,7 @@ export class AlarmApiClient {
 
   async batchSilence(alarmIds: string[], silencedBy: string, duration: string): Promise<AlarmBatchResult> {
     const res = await this.request<{ data: AlarmBatchResult }>(
-      `${this.baseUrl}/api/v1/alarms/batch/silence`,
+      `${this.baseUrl}/alarms/batch/silence`,
       { method: 'POST', body: JSON.stringify({ alarmIds, silencedBy, duration }) }
     );
     return res.data;
@@ -210,7 +210,7 @@ export class AlarmApiClient {
 
   async batchEscalate(alarmIds: string[], escalatedBy: string): Promise<AlarmBatchResult> {
     const res = await this.request<{ data: AlarmBatchResult }>(
-      `${this.baseUrl}/api/v1/alarms/batch/escalate`,
+      `${this.baseUrl}/alarms/batch/escalate`,
       { method: 'POST', body: JSON.stringify({ alarmIds, escalatedBy }) }
     );
     return res.data;
@@ -218,7 +218,7 @@ export class AlarmApiClient {
 
   async batchClose(alarmIds: string[], closedBy: string, resolution?: string): Promise<AlarmBatchResult> {
     const res = await this.request<{ data: AlarmBatchResult }>(
-      `${this.baseUrl}/api/v1/alarms/batch/close`,
+      `${this.baseUrl}/alarms/batch/close`,
       { method: 'POST', body: JSON.stringify({ alarmIds, closedBy, resolution }) }
     );
     return res.data;

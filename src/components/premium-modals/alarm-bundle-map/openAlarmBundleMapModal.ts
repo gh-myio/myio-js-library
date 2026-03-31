@@ -527,7 +527,7 @@ function openGranularValueEdit(
     saveBtn.disabled = true;
     try {
       const resp = await fetch(
-        `${baseUrl}/api/v1/rules/${encodeURIComponent(baseRuleId)}/overrides/${encodeURIComponent(device.id)}`,
+        `${baseUrl}/rules/${encodeURIComponent(baseRuleId)}/overrides/${encodeURIComponent(device.id)}`,
         {
           method: 'PUT',
           headers: {
@@ -712,7 +712,7 @@ function openFullRuleEdit(
 
     saveBtn.disabled = true;
     try {
-      const resp = await fetch(`${baseUrl}/api/v1/rules/${encodeURIComponent(rule.id)}`, {
+      const resp = await fetch(`${baseUrl}/rules/${encodeURIComponent(rule.id)}`, {
         method: 'PATCH',
         headers: {
           'X-API-Key': GCDR_INTEGRATION_API_KEY,
@@ -762,7 +762,7 @@ async function restoreRuleOverride(
 
   try {
     const resp = await fetch(
-      `${baseUrl}/api/v1/rules/${encodeURIComponent(rule.parentRuleId!)}/overrides/${encodeURIComponent(device.id)}`,
+      `${baseUrl}/rules/${encodeURIComponent(rule.parentRuleId!)}/overrides/${encodeURIComponent(device.id)}`,
       {
         method: 'DELETE',
         headers: {
@@ -1040,7 +1040,7 @@ async function fetchBundle(
   gcdrTenantId: string,
   baseUrl: string,
 ): Promise<GCDRCustomerBundle> {
-  const url = `${baseUrl}/api/v1/customers/external/${encodeURIComponent(customerTB_ID)}`
+  const url = `${baseUrl}/customers/external/${encodeURIComponent(customerTB_ID)}`
     + `?deep=1&allRules=1&filterOnlyDevicesWithRules=1`;
 
   const response = await fetch(url, {
