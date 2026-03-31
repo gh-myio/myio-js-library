@@ -1271,7 +1271,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           container.classList.add('visible');
         }, 0);
 
-        container.addEventListener('mouseenter', () => { this._isMouseOver = true; });
+        container.addEventListener('mouseenter', () => {
+          this._isMouseOver = true;
+          if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+        });
         container.addEventListener('mouseleave', () => {
           this._isMouseOver = false;
           if (!this._isPinned) this.hide();
