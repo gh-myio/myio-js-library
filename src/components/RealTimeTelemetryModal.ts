@@ -112,6 +112,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   let lastKnownValues: Map<string, number> = new Map(); // Store last known value for each key
   let chart: any = null;
   let selectedChartKey: string = 'consumption'; // Default chart key
+  let currentTheme: 'light' | 'dark' = 'light';
+  let isExpanded = false;
 
   // Create modal container
   const overlay = document.createElement('div');
@@ -157,29 +159,49 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       }
 
       .myio-realtime-telemetry-header {
-        padding: 20px 24px;
-        border-bottom: 1px solid #e0e0e0;
+        padding: 4px 12px;
+        border-bottom: none;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #3e1a7d;
         color: white;
+        border-radius: 12px 12px 0 0;
+        min-height: 20px;
       }
 
       .myio-realtime-telemetry-title {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 600;
-        margin: 0;
+        margin: 6px;
         display: flex;
         align-items: center;
         gap: 8px;
+        color: white;
+        line-height: 2;
       }
 
-      .myio-realtime-telemetry-close {
-        background: rgba(255, 255, 255, 0.2);
+      .myio-rtt-device-label {
+        font-size: 13px;
+        font-weight: 400;
+        opacity: 0.75;
+        background: rgba(255,255,255,0.15);
+        border-radius: 4px;
+        padding: 2px 8px;
+        margin-left: 4px;
+      }
+
+      .myio-rtt-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .myio-rtt-header-btn {
+        background: none;
         border: none;
-        color: white;
-        font-size: 24px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 20px;
         width: 32px;
         height: 32px;
         border-radius: 6px;
@@ -187,12 +209,134 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease, color 0.2s ease;
+        position: relative;
+        overflow: hidden;
+        padding: 0;
       }
 
-      .myio-realtime-telemetry-close:hover {
-        background: rgba(255, 255, 255, 0.3);
-        transform: scale(1.1);
+      .myio-rtt-header-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      .myio-rtt-theme-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 18px;
+        height: 18px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .myio-rtt-theme-icon-sun {
+        transform: translate(-50%, -50%) rotate(-90deg) scale(0);
+        opacity: 0;
+      }
+
+      .myio-rtt-theme-icon-moon {
+        transform: translate(-50%, -50%) rotate(0deg) scale(1);
+        opacity: 1;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-rtt-theme-icon-sun {
+        transform: translate(-50%, -50%) rotate(0deg) scale(1);
+        opacity: 1;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-rtt-theme-icon-moon {
+        transform: translate(-50%, -50%) rotate(90deg) scale(0);
+        opacity: 0;
+      }
+
+      /* Dark theme */
+      .myio-realtime-telemetry-container[data-theme="dark"] {
+        background: #1a1a2e;
+        color: #e0e0e0;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-card {
+        background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+        color: #e0e0e0;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-card-header {
+        color: #aaa;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-card-value {
+        color: #ffffff;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-chart-container {
+        background: #16213e;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-chart-title {
+        color: #e0e0e0;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-selector {
+        background: #0f3460;
+        border-color: rgba(255,255,255,0.2);
+        color: #e0e0e0;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-realtime-telemetry-footer {
+        background: #0f3460;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        color: #e0e0e0;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-status {
+        color: #aaa;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-btn-secondary {
+        background: rgba(255,255,255,0.1);
+        color: #e0e0e0;
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-telemetry-btn-secondary:hover {
+        background: rgba(255,255,255,0.2);
+      }
+
+      .myio-realtime-telemetry-container[data-theme="dark"] .myio-realtime-telemetry-body {
+        background: #1a1a2e;
+      }
+
+      /* Expanded state */
+      .myio-realtime-telemetry-overlay.rtt-expanded {
+        padding: 0;
+      }
+
+      .myio-realtime-telemetry-overlay.rtt-expanded .myio-realtime-telemetry-container {
+        max-width: 100vw;
+        max-height: 100vh;
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+      }
+
+      .myio-realtime-telemetry-overlay.rtt-expanded .myio-realtime-telemetry-header {
+        border-radius: 0;
+      }
+
+      .myio-realtime-telemetry-overlay.rtt-expanded .myio-telemetry-chart-container {
+        max-height: none;
+        flex: 1;
+      }
+
+      .myio-realtime-telemetry-overlay.rtt-expanded .myio-realtime-telemetry-body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .myio-realtime-telemetry-overlay.rtt-expanded .myio-telemetry-chart {
+        height: 100%;
+        max-height: none;
+        flex: 1;
       }
 
       .myio-realtime-telemetry-body {
@@ -264,7 +408,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         padding: 20px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
-        max-height: 520px;
+        max-height: 442px;
         overflow: hidden;
       }
 
@@ -276,8 +420,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       }
 
       .myio-telemetry-chart {
-        height: 300px;
-        max-height: 450px;
+        height: 255px;
+        max-height: 382px;
         width: 100%;
       }
 
@@ -392,11 +536,29 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     <div class="myio-realtime-telemetry-container">
       <div class="myio-realtime-telemetry-header">
         <h2 class="myio-realtime-telemetry-title">
-          ⚡ ${strings.title} - ${deviceLabel}
+          ⚡ ${strings.title}${deviceLabel ? `<span class="myio-rtt-device-label">${deviceLabel}</span>` : ''}
         </h2>
-        <button class="myio-realtime-telemetry-close" id="close-btn" title="${strings.close}">
-          ×
-        </button>
+        <div class="myio-rtt-header-actions">
+          <button class="myio-rtt-header-btn" id="rtt-theme-btn" title="Alternar tema (claro/escuro)">
+            <svg class="myio-rtt-theme-icon myio-rtt-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="myio-rtt-theme-icon myio-rtt-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <button class="myio-rtt-header-btn" id="rtt-expand-btn" title="Expandir / Restaurar">
+            <svg id="rtt-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;">
+              <polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline>
+              <line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </button>
+          <button class="myio-rtt-header-btn" id="close-btn" title="${strings.close}">×</button>
+        </div>
       </div>
 
       <div class="myio-realtime-telemetry-body">
@@ -452,6 +614,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   // Get DOM elements (use querySelector within overlay to avoid conflicts)
   const closeBtn = overlay.querySelector('#close-btn') as HTMLButtonElement;
+  const themeBtn = overlay.querySelector('#rtt-theme-btn') as HTMLButtonElement;
+  const expandBtn = overlay.querySelector('#rtt-expand-btn') as HTMLButtonElement;
+  const expandIcon = overlay.querySelector('#rtt-expand-icon') as unknown as SVGElement;
+  const container = overlay.querySelector('.myio-realtime-telemetry-container') as HTMLDivElement;
   const pauseBtn = overlay.querySelector('#pause-btn') as HTMLButtonElement;
   const pauseBtnIcon = overlay.querySelector('#pause-btn-icon') as HTMLSpanElement;
   const pauseBtnText = overlay.querySelector('#pause-btn-text') as HTMLSpanElement;
@@ -883,8 +1049,40 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     URL.revokeObjectURL(url);
   }
 
+  /**
+   * Toggle light/dark theme
+   */
+  function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    if (currentTheme === 'dark') {
+      container.setAttribute('data-theme', 'dark');
+    } else {
+      container.removeAttribute('data-theme');
+    }
+  }
+
+  /**
+   * Toggle expanded / normal state
+   */
+  function toggleExpand() {
+    isExpanded = !isExpanded;
+    overlay.classList.toggle('rtt-expanded', isExpanded);
+    // Swap icon: expand ↔ compress
+    if (expandIcon) {
+      expandIcon.innerHTML = isExpanded
+        ? '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line>'
+        : '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+    }
+    // Resize chart after layout settles
+    if (chart) {
+      setTimeout(() => chart.resize(), 50);
+    }
+  }
+
   // Event listeners
   closeBtn.addEventListener('click', closeModal);
+  themeBtn?.addEventListener('click', toggleTheme);
+  expandBtn?.addEventListener('click', toggleExpand);
   pauseBtn.addEventListener('click', togglePause);
   exportBtn.addEventListener('click', exportToCSV);
   chartKeySelector.addEventListener('change', (e) => {
