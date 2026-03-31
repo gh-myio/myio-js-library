@@ -1063,17 +1063,21 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
 
         const adm = window.MyIOOrchestrator?.alarmDayMap;
-        const all     = adm ? adm.listAll() : [];
-        const closed  = adm ? adm.listByStatus('CLOSED') : [];
         const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
         const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
+
+        const _offlineFilter = (a) => showOffline || !['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'].includes((a.title ?? '').toUpperCase());
+
+        const all     = (adm ? adm.listAll() : []).filter(_offlineFilter);
+        const closed  = (adm ? adm.listByStatus('CLOSED') : []).filter(_offlineFilter);
 
         // "Ativos agora" = same source as the badge (customerAlarms = _prefetchCustomerAlarms result)
         // alarmDayMap only covers today's date range — would under-count older open alarms
         const customerAlarms = window.MyIOOrchestrator?.customerAlarms || [];
-        const active = customerAlarms.length > 0
+        const active = (customerAlarms.length > 0
           ? customerAlarms
-          : (adm ? adm.listByStatus(['OPEN','ACK','ESCALATED','SNOOZED']) : []);
+          : (adm ? adm.listByStatus(['OPEN','ACK','ESCALATED','SNOOZED']) : [])
+        ).filter(_offlineFilter);
 
         // Severity breakdown of active alarms
         const sevCount   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
@@ -1461,6 +1465,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     }
 
     // Update alarm badge count on every alarms-updated event
+    let _lastAlarmList = [];
+    const _OFFLINE_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
+    function _countVisible(alarms) {
+      const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
+      return showOffline
+        ? alarms.length
+        : alarms.filter((a) => !_OFFLINE_TYPES.includes((a.title ?? '').toUpperCase())).length;
+    }
     function _updateAlarmNotifBadge(count) {
       const badge = document.getElementById('tbx-alarm-notif-badge');
       if (!badge) return;
@@ -1472,11 +1484,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     }
     window.addEventListener('myio:alarms-updated', (e) => {
-      _updateAlarmNotifBadge(e.detail?.count ?? 0);
+      _lastAlarmList = e.detail?.alarms || [];
+      _updateAlarmNotifBadge(_countVisible(_lastAlarmList));
+    });
+    // Re-compute badge when offline toggle changes
+    window.addEventListener('myio:offline-alarms-toggle', () => {
+      _updateAlarmNotifBadge(_countVisible(_lastAlarmList));
     });
     // Seed badge if myio:alarms-updated already fired before this listener was registered
-    const _cachedAlarmCount = window.MyIOOrchestrator?.customerAlarms?.length ?? 0;
-    if (_cachedAlarmCount > 0) _updateAlarmNotifBadge(_cachedAlarmCount);
+    const _cachedAlarms = window.MyIOOrchestrator?.customerAlarms || [];
+    _lastAlarmList = _cachedAlarms;
+    if (_cachedAlarms.length > 0) _updateAlarmNotifBadge(_countVisible(_cachedAlarms));
 
     // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates
