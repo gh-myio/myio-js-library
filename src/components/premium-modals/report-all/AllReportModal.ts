@@ -842,7 +842,7 @@ export class AllReportModal {
     const endTime = encodeURIComponent(endISO);
 
     const endpoint = this.domainConfig.endpoint;
-    const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}&granularity=${this.granularity}`;
+    const url = `${baseUrl}/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}&granularity=${this.granularity}`;
 
     this.debugLog('[AllReportModal] Fetching customer totals:', {
       url,

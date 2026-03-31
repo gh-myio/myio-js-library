@@ -157,7 +157,7 @@ export class GroupManagementTab {
 
   private gcdrBase(): string {
     const orch = (window as any).MyIOOrchestrator;
-    return (orch?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com').replace(/\/$/, '').concat('/api/v1');
+    return (orch?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com').replace(/\/$/, '');
   }
 
   private gcdrCid(): string {

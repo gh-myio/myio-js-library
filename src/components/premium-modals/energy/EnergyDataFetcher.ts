@@ -113,7 +113,7 @@ export class EnergyDataFetcher {
   private buildEnergyApiUrl(params: EnergyDataParams): string {
     const baseUrl = this.config.dataApiHost;
     const segment = params.readingType === 'water' || params.readingType === 'tank' ? 'water' : 'energy';
-    const endpoint = `/api/v1/telemetry/devices/${params.ingestionId}/${segment}`;
+    const endpoint = `/telemetry/devices/${params.ingestionId}/${segment}`;
     
     const queryParams = new URLSearchParams({
       startTime: params.startISO,

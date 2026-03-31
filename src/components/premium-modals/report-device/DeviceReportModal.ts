@@ -57,7 +57,7 @@ const createDefaultEnergyFetcher = (params: OpenDeviceReportParams, getGranulari
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
     const domain = params.domain || 'energy';
     const endpoint = DOMAIN_CONFIG[domain].endpoint;
-    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${getGranularity()}&page=1&pageSize=1000&deep=0`;
+    const url = `${baseUrl}telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${getGranularity()}&page=1&pageSize=1000&deep=0`;
 
     // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
     // This token provides access to telemetry data from the ingestion system
