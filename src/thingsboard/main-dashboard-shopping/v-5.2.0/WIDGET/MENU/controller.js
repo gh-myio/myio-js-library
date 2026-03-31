@@ -633,6 +633,14 @@ self.onInit = function () {
               <span class="myio-settings-option__desc">Dashboard exibido ao criar novos usuários — apenas MyIO</span>
             </div>
           </button>` : ''}
+          ${isSuperAdmin ? `
+          <button class="myio-settings-option myio-settings-option--myio" data-action="client-config">
+            <span class="myio-settings-option__icon">🏢</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Configurações Cliente</span>
+              <span class="myio-settings-option__desc">Funcionalidades e senha master — apenas MyIO</span>
+            </div>
+          </button>` : ''}
         </div>
       </div>
     `;
@@ -680,6 +688,8 @@ self.onInit = function () {
             openUserManagementModal(user);
           } else if (action === 'default-dashboard') {
             openDefaultDashboardSettings(user);
+          } else if (action === 'client-config') {
+            openClientConfigModal(user);
           }
         }, 250);
       });
@@ -2526,6 +2536,221 @@ self.onInit = function () {
     updateThemeIcon('light');
     LogHelper.log('[MENU] RFC-0139: Theme toggle listener initialized');
   })();
+
+  // ── Configurações Cliente (apenas MyIO @myio.com.br) ─────────────────────────
+  // Gerencia atributos SERVER_SCOPE do Customer: canShowDemandButtons, master_admin_password
+  function openClientConfigModal(user) {
+    const topWin = window.top || window;
+    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+
+    const jwtToken = localStorage.getItem('jwt_token');
+    if (!jwtToken) { window.alert('Token não encontrado. Faça login novamente.'); return; }
+
+    const orch = window.MyIOOrchestrator;
+    const customerId = orch?.customerTB_ID || user?.customerId?.id;
+    if (!customerId) { window.alert('ID do cliente não encontrado.'); return; }
+
+    const customerName = orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
+    const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+
+    // ── CSS ──────────────────────────────────────────────────────────────────
+    const STYLE_ID = 'myio-client-config-styles';
+    if (!topDoc.getElementById(STYLE_ID)) {
+      const s = topDoc.createElement('style');
+      s.id = STYLE_ID;
+      s.textContent = `
+        .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .mcc-overlay.show{opacity:1;pointer-events:auto}
+        .mcc-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+        .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+        .mcc-overlay.show .mcc-card{transform:translateY(0) scale(1)}
+        .mcc-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#3e1a7d;color:#fff;min-height:36px}
+        .mcc-header h3{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+        .mcc-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s}
+        .mcc-close:hover{background:rgba(255,255,255,.15)}
+        .mcc-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+        .mcc-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:32px 0;color:#6B7280;font-size:13px}
+        .mcc-spinner{width:18px;height:18px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:mcc-spin .7s linear infinite;flex-shrink:0}
+        @keyframes mcc-spin{to{transform:rotate(360deg)}}
+        .mcc-section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+        .mcc-section-title{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase}
+        .mcc-field{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;gap:12px}
+        .mcc-field + .mcc-field{border-top:1px solid #F3F4F6}
+        .mcc-field-label{display:flex;flex-direction:column;gap:3px;min-width:0}
+        .mcc-field-name{font-size:13px;font-weight:600;color:#1F2937}
+        .mcc-field-desc{font-size:11px;color:#6B7280;line-height:1.3}
+        .mcc-toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+        .mcc-toggle input{opacity:0;width:0;height:0;position:absolute}
+        .mcc-toggle-track{position:absolute;inset:0;background:#D1D5DB;border-radius:24px;cursor:pointer;transition:background .2s}
+        .mcc-toggle input:checked + .mcc-toggle-track{background:#7B2FF7}
+        .mcc-toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .2s;pointer-events:none}
+        .mcc-toggle input:checked ~ .mcc-toggle-thumb{transform:translateX(18px)}
+        .mcc-password-wrap{display:flex;gap:8px;align-items:center}
+        .mcc-input{flex:1;padding:8px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px;color:#1F2937;outline:none;transition:border-color .15s}
+        .mcc-input:focus{border-color:#7B2FF7;box-shadow:0 0 0 3px rgba(123,47,247,.1)}
+        .mcc-footer{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F3F4F6}
+        .mcc-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none}
+        .mcc-btn-cancel{background:#F3F4F6;color:#374151}
+        .mcc-btn-cancel:hover{background:#E5E7EB}
+        .mcc-btn-save{background:#7B2FF7;color:#fff}
+        .mcc-btn-save:hover:not(:disabled){background:#6a25e0}
+        .mcc-btn-save:disabled{opacity:.5;cursor:not-allowed}
+        .mcc-error{font-size:12px;color:#DC2626;padding:0 20px 12px;text-align:right}
+      `;
+      topDoc.head.appendChild(s);
+    }
+
+    // Remove modal anterior
+    const existing = topDoc.getElementById('myio-client-config-modal');
+    if (existing) existing.remove();
+
+    const modal = topDoc.createElement('div');
+    modal.id = 'myio-client-config-modal';
+    modal.className = 'mcc-overlay';
+    modal.innerHTML = `
+      <div class="mcc-bg"></div>
+      <div class="mcc-card">
+        <div class="mcc-header">
+          <h3>🏢 Configurações Cliente${customerName ? ` — ${customerName}` : ''}</h3>
+          <button class="mcc-close" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="mcc-body">
+          <div class="mcc-loading">
+            <span class="mcc-spinner"></span>
+            Carregando configurações…
+          </div>
+        </div>
+        <div class="mcc-footer" style="display:none">
+          <button class="mcc-btn mcc-btn-cancel">Cancelar</button>
+          <button class="mcc-btn mcc-btn-save" disabled>Salvar</button>
+        </div>
+      </div>
+    `;
+    topDoc.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('show'));
+
+    const closeModal = () => {
+      modal.classList.remove('show');
+      setTimeout(() => modal.remove(), 200);
+    };
+    modal.querySelector('.mcc-bg').addEventListener('click', closeModal);
+    modal.querySelector('.mcc-close').addEventListener('click', closeModal);
+    modal.querySelector('.mcc-btn-cancel').addEventListener('click', closeModal);
+    const escHandler = (e) => { if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); } };
+    topDoc.addEventListener('keydown', escHandler);
+
+    // ── Carrega atributos atuais ──────────────────────────────────────────────
+    const KEYS = ['canShowDemandButtons', 'master_admin_password'];
+    const fetchUrl = `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=${KEYS.join(',')}`;
+
+    fetch(fetchUrl, { headers: { 'X-Authorization': `Bearer ${jwtToken}` } })
+      .then(r => r.ok ? r.json().catch(() => []) : [])
+      .then(attrs => {
+        const attrMap = {};
+        if (Array.isArray(attrs)) attrs.forEach(a => { attrMap[a.key] = a.value; });
+
+        const currentDemand = attrMap['canShowDemandButtons'] ?? null;
+        const currentPassword = attrMap['master_admin_password'] ?? '';
+
+        const body = modal.querySelector('.mcc-body');
+        const footer = modal.querySelector('.mcc-footer');
+
+        body.innerHTML = `
+          <div class="mcc-section">
+            <div class="mcc-section-title">Funcionalidades</div>
+            <div class="mcc-field">
+              <div class="mcc-field-label">
+                <span class="mcc-field-name">Pico de Demanda / Telemetrias Instantâneas</span>
+                <span class="mcc-field-desc">
+                  Exibe os botões de análise avançada no modal de energia.<br>
+                  <em>Atributo:</em> <code>canShowDemandButtons</code>
+                  ${currentDemand === null ? ' <span style="color:#F59E0B">(não definido — fallback: deviceProfile)</span>' : ''}
+                </span>
+              </div>
+              <label class="mcc-toggle" title="canShowDemandButtons">
+                <input type="checkbox" id="mcc-demand-toggle" ${currentDemand === true ? 'checked' : ''}>
+                <span class="mcc-toggle-track"></span>
+                <span class="mcc-toggle-thumb"></span>
+              </label>
+            </div>
+          </div>
+          <div class="mcc-section">
+            <div class="mcc-section-title">Segurança</div>
+            <div class="mcc-field">
+              <div class="mcc-field-label">
+                <span class="mcc-field-name">Senha Master Admin</span>
+                <span class="mcc-field-desc">
+                  Senha exigida para ações administrativas sensíveis.<br>
+                  <em>Atributo:</em> <code>master_admin_password</code>
+                </span>
+              </div>
+              <div class="mcc-password-wrap">
+                <input type="password" id="mcc-password-input" class="mcc-input" placeholder="Nova senha…" autocomplete="new-password" style="width:180px">
+              </div>
+            </div>
+          </div>
+          <div class="mcc-error" id="mcc-error-msg" style="display:none"></div>
+        `;
+
+        footer.style.display = '';
+        const saveBtn = footer.querySelector('.mcc-btn-save');
+
+        // Habilita salvar ao detectar qualquer mudança
+        const enableSave = () => { saveBtn.disabled = false; };
+        modal.querySelector('#mcc-demand-toggle').addEventListener('change', enableSave);
+        modal.querySelector('#mcc-password-input').addEventListener('input', enableSave);
+
+        // ── Salvar ────────────────────────────────────────────────────────────
+        saveBtn.addEventListener('click', async () => {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Salvando…';
+          const errEl = modal.querySelector('#mcc-error-msg');
+          errEl.style.display = 'none';
+
+          const demandValue = modal.querySelector('#mcc-demand-toggle').checked;
+          const passwordValue = modal.querySelector('#mcc-password-input').value.trim();
+
+          const payload = { canShowDemandButtons: demandValue };
+          if (passwordValue) payload.master_admin_password = passwordValue;
+
+          try {
+            const res = await fetch(
+              `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+              {
+                method: 'POST',
+                headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              }
+            );
+            if (!res.ok) {
+              const errText = await res.text().catch(() => '');
+              throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
+            }
+            LogHelper.log('[MENU] Configurações Cliente salvas:', payload);
+            saveBtn.textContent = '✓ Salvo';
+            saveBtn.style.background = '#16A34A';
+            setTimeout(() => {
+              saveBtn.textContent = 'Salvar';
+              saveBtn.style.background = '';
+              saveBtn.disabled = true;
+            }, 2000);
+          } catch (err) {
+            LogHelper.error('[MENU] Erro ao salvar Configurações Cliente:', err);
+            errEl.textContent = 'Erro ao salvar: ' + err.message;
+            errEl.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Salvar';
+          }
+        });
+      })
+      .catch(err => {
+        LogHelper.error('[MENU] Erro ao carregar Configurações Cliente:', err);
+        modal.querySelector('.mcc-body').innerHTML = `<div style="padding:24px;text-align:center;color:#DC2626;font-size:13px">Erro ao carregar configurações: ${err.message}</div>`;
+        modal.querySelector('.mcc-footer').style.display = '';
+      });
+
+    LogHelper.log('[MENU] Configurações Cliente modal aberta para customer:', customerId);
+  }
 
   // RFC-0137: Initialize LibraryVersionChecker component
   (function initLibraryVersionChecker() {

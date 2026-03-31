@@ -84,7 +84,9 @@ export interface OpenDashboardPopupEnergyOptions {
   readingType?: 'energy' | 'water' | 'tank' | 'temperature';  // default: 'energy'
   granularity?: '1d' | '1h' | '15m';   // default: '1d' (REQUIRED for comparison mode)
   deviceLabel?: string;               // Display label for device (used in demand modal)
-  deviceProfile?: string;             // Device profile (e.g. '3F_MEDIDOR') — used to conditionally hide buttons
+  deviceProfile?: string;             // Device profile (e.g. '3F_MEDIDOR')
+  /** Customer SERVER_SCOPE attribute. When true, shows Pico de Demanda and Telemetrias Instantâneas buttons. Default: false. */
+  canShowDemandButtons?: boolean;
   closeOnEsc?: boolean;                // default: true
   zIndex?: number;                     // default: 10000
   deep?: boolean;                      // default: false (used in comparison mode)

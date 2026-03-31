@@ -297,6 +297,9 @@ export const DEFAULT_ALARM_FILTERS: AlarmFilters = {
   toDate: undefined,
 };
 
+/** Alarm types excluded by default (unchecked in filter modal) to reduce noise */
+export const DEFAULT_EXCLUDED_ALARM_TYPES: string[] = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
+
 // =====================================================================
 // Utility Functions
 // =====================================================================

@@ -2689,6 +2689,7 @@ function renderList(visible) {
               deviceId: it.id,
               readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
               deviceProfile: it.deviceProfile || null,
+              canShowDemandButtons: window.MyIOOrchestrator?.canShowDemandButtons,
               startDate: self.ctx.scope.startDateISO,
               endDate: self.ctx.scope.endDateISO,
               tbJwtToken: jwtToken,

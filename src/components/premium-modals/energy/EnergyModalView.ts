@@ -329,6 +329,15 @@ export class EnergyModalView {
   /**
    * Gets modal title based on mode
    */
+  private canShowDemandButtons(): boolean {
+    const { readingType, mode, deviceProfile, canShowDemandButtons } = this.config.params;
+    if (readingType !== 'energy' || mode === 'comparison') return false;
+    // If the customer SERVER_SCOPE attribute exists, it takes precedence
+    if (canShowDemandButtons !== undefined && canShowDemandButtons !== null) return canShowDemandButtons;
+    // Fallback: legacy rule based on deviceProfile
+    return deviceProfile !== '3F_MEDIDOR';
+  }
+
   private getModalTitle(): string {
     const mode = this.config.params.mode || 'single';
 
@@ -387,7 +396,7 @@ export class EnergyModalView {
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
-            ${this.config.params.readingType === 'energy' && this.config.params.mode !== 'comparison' && this.config.params.deviceProfile !== '3F_MEDIDOR' ? `
+            ${this.canShowDemandButtons() ? `
             <button id="view-demand-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%);
               color: white;
