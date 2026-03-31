@@ -1066,6 +1066,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const all     = adm ? adm.listAll() : [];
         const closed  = adm ? adm.listByStatus('CLOSED') : [];
         const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
+        const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
 
         // "Ativos agora" = same source as the badge (customerAlarms = _prefetchCustomerAlarms result)
         // alarmDayMap only covers today's date range — would under-count older open alarms
@@ -1203,6 +1204,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
                 </div>
                 <label class="ant-switch" title="Ativar/desativar notificações">
                   <input type="checkbox" id="ant-notif-toggle" ${enabled ? 'checked' : ''}>
+                  <span class="ant-switch-track"></span>
+                  <span class="ant-switch-thumb"></span>
+                </label>
+              </div>
+              <div class="ant-toggle-row">
+                <div>
+                  <div class="ant-toggle-label">Alarmes de Dispositivos Offline</div>
+                  <div class="ant-toggle-sub">Ativar/desativar exibição de alarmes offline</div>
+                </div>
+                <label class="ant-switch" title="Ativar/desativar alarmes offline">
+                  <input type="checkbox" id="ant-offline-toggle" ${showOffline ? 'checked' : ''}>
                   <span class="ant-switch-track"></span>
                   <span class="ant-switch-thumb"></span>
                 </label>
@@ -1366,6 +1378,33 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               }
             } catch (err) {
               LogHelper.warn('[HEADER] Failed to save alarmNotificationsEnabled:', err);
+            }
+          });
+        }
+
+        // Offline alarms toggle
+        const offlineToggle = container.querySelector('#ant-offline-toggle');
+        if (offlineToggle) {
+          offlineToggle.addEventListener('change', async () => {
+            const show = offlineToggle.checked;
+            if (window.MyIOOrchestrator) window.MyIOOrchestrator.showOfflineAlarms = show;
+            window.dispatchEvent(new CustomEvent('myio:offline-alarms-toggle', { detail: { show } }));
+            try {
+              const jwt = localStorage.getItem('jwt_token');
+              const customerId = window.MyIOOrchestrator?.customerTB_ID;
+              const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+              if (jwt && customerId) {
+                await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
+                  method: 'POST',
+                  headers: {
+                    'X-Authorization': `Bearer ${jwt}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ showOfflineAlarms: show }),
+                });
+              }
+            } catch (err) {
+              LogHelper.warn('[HEADER] Failed to save showOfflineAlarms:', err);
             }
           });
         }

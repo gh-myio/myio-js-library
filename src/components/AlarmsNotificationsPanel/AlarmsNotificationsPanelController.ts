@@ -302,7 +302,8 @@ export class AlarmsNotificationsPanelController {
     const alarmType = (this.state.filters as import('../../types/alarm').AlarmFilters).alarmType;
     if (alarmType && alarmType.length > 0) {
       filtered = filtered.filter((alarm) => alarmType.includes(alarm.title));
-    } else {
+    } else if ((window as any).MyIOOrchestrator?.showOfflineAlarms !== true) {
+      // Default: exclude offline types unless customer has explicitly enabled them
       filtered = filtered.filter((alarm) => !DEFAULT_EXCLUDED_ALARM_TYPES.includes((alarm.title ?? '').toUpperCase()));
     }
 

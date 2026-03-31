@@ -1453,6 +1453,7 @@ Object.assign(window.MyIOUtils, {
         let alarmNotificationsEnabled = true; // RFC-0193: default enabled; read from SERVER_SCOPE below
         let defaultDashboardCfg = null; // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
         let canShowDemandButtons = undefined; // Customer feature flag; undefined = not set (fallback to deviceProfile rule)
+        let showOfflineAlarms = false; // default: offline alarms hidden
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1479,6 +1480,8 @@ Object.assign(window.MyIOUtils, {
             // Customer feature flag: Pico de Demanda / Telemetrias Instantâneas buttons
             // undefined = not set (fallback to deviceProfile rule in EnergyModalView)
             canShowDemandButtons = attrs?.canShowDemandButtons ?? undefined;
+            // Offline alarms visibility: default false (hidden)
+            showOfflineAlarms = attrs?.showOfflineAlarms === true;
 
             // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
             const _rawExcludeGroups = attrs?.exclude_groups_totals;
@@ -1528,6 +1531,8 @@ Object.assign(window.MyIOUtils, {
           window.MyIOOrchestrator.defaultDashboardCfg = defaultDashboardCfg;
           // Customer feature flag: undefined = not set (fallback to deviceProfile rule in EnergyModalView)
           window.MyIOOrchestrator.canShowDemandButtons = canShowDemandButtons;
+          // Offline alarms visibility
+          window.MyIOOrchestrator.showOfflineAlarms = showOfflineAlarms;
         }
         if (!gcdrApiKey)
           LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');

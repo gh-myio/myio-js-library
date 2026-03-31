@@ -41,6 +41,7 @@ let _activeFilters          = {}; // { from?, to? }
 let _closedAlarmsMode       = false; // true = fetch CLOSED alarms (history mode)
 let _closedAlarmsHandler    = null;
 let _alarmsUpdatedHandler   = null;
+let _offlineToggleHandler   = null;
 
 let LogHelper = {
   log:   (...a) => {},
@@ -175,6 +176,16 @@ self.onInit = async function () {
     }
   };
   window.addEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
+
+  // myio:offline-alarms-toggle — fired by HEADER when user toggles offline alarm visibility
+  _offlineToggleHandler = () => {
+    const alarms = _panelInstance?.getAlarms?.();
+    if (Array.isArray(alarms)) {
+      LogHelper.log('myio:offline-alarms-toggle → re-filtering', alarms.length, 'alarms');
+      _panelInstance?.updateAlarms?.(alarms);
+    }
+  };
+  window.addEventListener('myio:offline-alarms-toggle', _offlineToggleHandler);
 
   // --- Label (scoped to this widget's container to avoid clobbering other widgets) ---
   const labelEl = self.ctx?.$container?.[0]?.querySelector?.('#labelWidgetId');
@@ -333,6 +344,10 @@ self.onDestroy = function () {
   if (_alarmsUpdatedHandler) {
     window.removeEventListener('myio:alarms-updated', _alarmsUpdatedHandler);
     _alarmsUpdatedHandler = null;
+  }
+  if (_offlineToggleHandler) {
+    window.removeEventListener('myio:offline-alarms-toggle', _offlineToggleHandler);
+    _offlineToggleHandler = null;
   }
   if (_refreshTimer) {
     clearInterval(_refreshTimer);
