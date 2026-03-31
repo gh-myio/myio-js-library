@@ -104,7 +104,7 @@ export class PoliciesTab {
     const item = document.createElement('div');
     item.className = `gm-accordion-item${this.expandedId === p.id ? ' gm-accordion-item--open' : ''}`;
 
-    const riskColor = p.riskLevel.toUpperCase() === 'HIGH'
+    const riskColor = p.riskLevel?.toUpperCase() === 'HIGH'
       ? 'background:var(--um-btn-danger-bg);color:var(--um-btn-danger-text)'
       : p.riskLevel === 'MEDIUM'
         ? 'background:#fef3c7;color:#92400e'
