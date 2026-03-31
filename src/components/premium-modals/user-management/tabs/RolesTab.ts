@@ -27,7 +27,7 @@ export class RolesTab {
   }
 
   private gcdrBase(): string {
-    return (window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+    return ((window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com').concat('/api/v1');
   }
 
   private gcdrHeaders(): Record<string, string> {
