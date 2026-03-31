@@ -109,7 +109,7 @@ export class RolesTab {
     const item = document.createElement('div');
     item.className = `gm-accordion-item${this.expandedId === r.id ? ' gm-accordion-item--open' : ''}`;
 
-    const sysBadge = r.system ? `<span class="gm-badge gm-badge--count">SISTEMA</span>` : '';
+    const sysBadge = r.isSystem ? `<span class="gm-badge gm-badge--count">SISTEMA</span>` : '';
     const policyCount = r.policyIds?.length || 0;
     const policyBadge = `<span class="gm-badge gm-badge--domain">${policyCount} políticas</span>`;
 
@@ -117,11 +117,11 @@ export class RolesTab {
       <div class="gm-accordion-header">
         <button class="gm-accordion-toggle"><span class="gm-accordion-arrow">▶</span></button>
         <div class="gm-accordion-meta">
-          <div class="gm-group-name">${this.esc(r.name)}</div>
+          <div class="gm-group-name">${this.esc(r.displayName)}</div>
           ${r.description ? `<div class="gm-group-code">${this.esc(r.description)}</div>` : ''}
         </div>
         <div class="gm-accordion-badges">${policyBadge}${sysBadge}</div>
-        ${this.isSuperAdmin && !r.system ? `<div class="gm-accordion-actions">
+        ${this.isSuperAdmin && !r.isSystem ? `<div class="gm-accordion-actions">
           <button class="um-icon-btn gm-edit-btn" title="Editar">✏️</button>
           <button class="um-icon-btn gm-delete-btn" title="Excluir">🗑️</button>
         </div>` : ''}
@@ -140,7 +140,7 @@ export class RolesTab {
       this.expandedId = open ? r.id : null;
     });
 
-    if (this.isSuperAdmin && !r.system) {
+    if (this.isSuperAdmin && !r.isSystem) {
       item.querySelector('.gm-edit-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         this.showRoleForm(r);
@@ -164,7 +164,7 @@ export class RolesTab {
       if (!p) return `<div style="font-size:12px;color:var(--um-text-faint);padding:3px 0;">ID: ${this.esc(pid)}</div>`;
       const allowStr = p.allow?.join(', ') || '—';
       return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
-        <div style="font-size:12px;font-weight:600;color:var(--um-text-secondary);">${this.esc(p.name)}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--um-text-secondary);">${this.esc(p.displayName)}</div>
         ${p.description ? `<div style="font-size:11px;color:var(--um-text-faint);">${this.esc(p.description)}</div>` : ''}
         <div style="font-size:11px;color:var(--um-badge-user-text);margin-top:2px;">allow: ${this.esc(allowStr)}</div>
       </div>`;
@@ -186,7 +186,7 @@ export class RolesTab {
       const checked = existing?.policyIds?.includes(p.id) ? ' checked' : '';
       return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--um-text-secondary);cursor:pointer;">
         <input type="checkbox" class="um-role-policy-chk" value="${this.esc(p.id)}"${checked} />
-        ${this.esc(p.name)}${p.description ? ` <span style="color:var(--um-text-faint);">— ${this.esc(p.description)}</span>` : ''}
+        ${this.esc(p.displayName)}${p.description ? ` <span style="color:var(--um-text-faint);">— ${this.esc(p.description)}</span>` : ''}
       </label>`;
     }).join('');
 
@@ -195,7 +195,7 @@ export class RolesTab {
       <div class="um-form" style="max-width:100%;">
         <div class="um-form-group">
           <label class="um-label">Nome <span class="um-req">*</span></label>
-          <input class="um-input" name="name" value="${this.esc(existing?.name || '')}" autocomplete="off" />
+          <input class="um-input" name="name" value="${this.esc(existing?.displayName || '')}" autocomplete="off" />
           <span class="um-field-error" data-for="name"></span>
         </div>
         <div class="um-form-group">
@@ -248,7 +248,7 @@ export class RolesTab {
   }
 
   private async deleteRole(r: GCDRRole): Promise<void> {
-    if (!confirm(`Excluir a função "${r.name}"? Esta ação não pode ser desfeita.`)) return;
+    if (!confirm(`Excluir a função "${r.displayName}"? Esta ação não pode ser desfeita.`)) return;
     try {
       const res = await fetch(`${this.gcdrBase()}/roles/${r.id}`, { method: 'DELETE', headers: this.gcdrHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

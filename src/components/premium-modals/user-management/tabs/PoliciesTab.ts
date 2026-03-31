@@ -104,7 +104,7 @@ export class PoliciesTab {
     const item = document.createElement('div');
     item.className = `gm-accordion-item${this.expandedId === p.id ? ' gm-accordion-item--open' : ''}`;
 
-    const riskColor = p.riskLevel === 'HIGH'
+    const riskColor = p.riskLevel?.toUpperCase() === 'HIGH'
       ? 'background:var(--um-btn-danger-bg);color:var(--um-btn-danger-text)'
       : p.riskLevel === 'MEDIUM'
         ? 'background:#fef3c7;color:#92400e'
@@ -112,17 +112,17 @@ export class PoliciesTab {
     const riskBadge = p.riskLevel
       ? `<span class="gm-badge" style="${riskColor}">${p.riskLevel}</span>`
       : '';
-    const sysBadge = p.system ? `<span class="gm-badge gm-badge--count">SISTEMA</span>` : '';
+    const sysBadge = p.isSystem ? `<span class="gm-badge gm-badge--count">SISTEMA</span>` : '';
 
     item.innerHTML = `
       <div class="gm-accordion-header">
         <button class="gm-accordion-toggle"><span class="gm-accordion-arrow">▶</span></button>
         <div class="gm-accordion-meta">
-          <div class="gm-group-name">${this.esc(p.name)}</div>
+          <div class="gm-group-name">${this.esc(p.displayName)}</div>
           ${p.description ? `<div class="gm-group-code">${this.esc(p.description)}</div>` : ''}
         </div>
         <div class="gm-accordion-badges">${riskBadge}${sysBadge}</div>
-        ${this.isSuperAdmin && !p.system ? `<div class="gm-accordion-actions">
+        ${this.isSuperAdmin && !p.isSystem ? `<div class="gm-accordion-actions">
           <button class="um-icon-btn gm-edit-btn" title="Editar">✏️</button>
           <button class="um-icon-btn gm-delete-btn" title="Excluir">🗑️</button>
         </div>` : ''}
@@ -150,7 +150,7 @@ export class PoliciesTab {
       this.expandedId = open ? p.id : null;
     });
 
-    if (this.isSuperAdmin && !p.system) {
+    if (this.isSuperAdmin && !p.isSystem) {
       item.querySelector('.gm-edit-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         this.showPolicyForm(p);
@@ -175,7 +175,7 @@ export class PoliciesTab {
       <div class="um-form" style="max-width:100%;">
         <div class="um-form-group">
           <label class="um-label">Nome <span class="um-req">*</span></label>
-          <input class="um-input" name="name" value="${this.esc(existing?.name || '')}" autocomplete="off" />
+          <input class="um-input" name="name" value="${this.esc(existing?.displayName || '')}" autocomplete="off" />
           <span class="um-field-error" data-for="name"></span>
         </div>
         <div class="um-form-group">
@@ -239,7 +239,7 @@ export class PoliciesTab {
   }
 
   private async deletePolicy(p: GCDRPolicy): Promise<void> {
-    if (!confirm(`Excluir a política "${p.name}"? Esta ação não pode ser desfeita.`)) return;
+    if (!confirm(`Excluir a política "${p.displayName}"? Esta ação não pode ser desfeita.`)) return;
     try {
       const res = await fetch(`${this.gcdrBase()}/policies/${p.id}`, { method: 'DELETE', headers: this.gcdrHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
