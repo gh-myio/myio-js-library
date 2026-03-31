@@ -1015,6 +1015,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       } catch { return ''; }
     }
 
+    const _OFFLINE_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
+    function _isOfflineAlarm(a) {
+      const t = (a.title ?? '').toUpperCase();
+      return _OFFLINE_TYPES.some((ex) => t.startsWith(ex)) || a.alarmType === 'connectivity';
+    }
+
     const AlarmNotificationTooltip = {
       containerId: 'myio-ant-tooltip',
       _hideTimer: null,
@@ -1066,7 +1072,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
         const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
 
-        const _offlineFilter = (a) => showOffline || !['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'].includes((a.title ?? '').toUpperCase());
+        const _offlineFilter = (a) => showOffline || !_isOfflineAlarm(a);
 
         const all     = (adm ? adm.listAll() : []).filter(_offlineFilter);
         const closed  = (adm ? adm.listByStatus('CLOSED') : []).filter(_offlineFilter);
@@ -1466,12 +1472,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // Update alarm badge count on every alarms-updated event
     let _lastAlarmList = [];
-    const _OFFLINE_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
     function _countVisible(alarms) {
       const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
-      return showOffline
-        ? alarms.length
-        : alarms.filter((a) => !_OFFLINE_TYPES.includes((a.title ?? '').toUpperCase())).length;
+      return showOffline ? alarms.length : alarms.filter((a) => !_isOfflineAlarm(a)).length;
     }
     function _updateAlarmNotifBadge(count) {
       const badge = document.getElementById('tbx-alarm-notif-badge');

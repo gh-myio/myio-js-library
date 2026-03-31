@@ -304,7 +304,7 @@ export class AlarmsNotificationsPanelController {
       filtered = filtered.filter((alarm) => alarmType.includes(alarm.title));
     } else if ((window as any).MyIOOrchestrator?.showOfflineAlarms !== true) {
       // Default: exclude offline types unless customer has explicitly enabled them
-      filtered = filtered.filter((alarm) => !DEFAULT_EXCLUDED_ALARM_TYPES.includes((alarm.title ?? '').toUpperCase()));
+      filtered = filtered.filter((alarm) => !DEFAULT_EXCLUDED_ALARM_TYPES.some((ex) => (alarm.title ?? '').toUpperCase().startsWith(ex)));
     }
 
     // Device filter (matches tokens in alarm.source)

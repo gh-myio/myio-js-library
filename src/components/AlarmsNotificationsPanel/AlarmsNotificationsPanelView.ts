@@ -819,7 +819,7 @@ export class AlarmsNotificationsPanelView {
     const selAlarmType = new Set<string>(
       filters.alarmType?.length
         ? filters.alarmType
-        : alarmTypes.filter((t) => !DEFAULT_EXCLUDED_ALARM_TYPES.includes(t.toUpperCase()))
+        : alarmTypes.filter((t) => !DEFAULT_EXCLUDED_ALARM_TYPES.some((ex) => t.toUpperCase().startsWith(ex)))
     );
     const selDevices   = new Set<string>(filters.devices?.length   ? filters.devices   : allDevices);
 
