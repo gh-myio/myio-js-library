@@ -1,4 +1,5 @@
 /* jshint esversion: 11 */
+/* global self, _, alert, document, window, requestAnimationFrame */
 
 /**
  * Tabela_Temp_V5 Controller v3.1.1 - HYBRID
@@ -159,7 +160,7 @@ function setCache(centrals, s, e, data) {
 const INTERPOLATION_CONFIG = {
   maxGapSlots: 8, // 8 slots × 30min = 4 horas máximo (per user request)
   allowCrossMidnight: false, // Não interpolar gaps que cruzam meia-noite
-  includeMissingInOutput: false, // Se false, não adiciona registros missing ao output
+  includeMissingInOutput: true, // Inclui slots sem dados no output (missing: true) para contagem de perda
 };
 
 /**
@@ -732,7 +733,11 @@ function exportToCSV(rowsInput) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'dispositivo_temperatura_horario.csv';
+  const _fd = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+  const _now = new Date();
+  const _periodo = (startDate && endDate) ? `${_fd(startDate)}-a-${_fd(endDate)}` : 'sem-periodo';
+  const _emitido = `${_fd(_now)}-${String(_now.getHours()).padStart(2,'0')}-${String(_now.getMinutes()).padStart(2,'0')}`;
+  a.download = `dispositivo_temperatura_horario-Periodo-${_periodo}-emitido-em-${_emitido}.csv`;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
@@ -980,8 +985,8 @@ async function getData() {
   setPremiumLoading(true, LOADING_STATES.AWAITING_DATA, 10);
   self.ctx.$scope.loading = true;
 
-  // Chunking em 5 dias
-  const dateChunks = createDateChunks(s, e, 30);
+  // Chunking em 31 dias (cobre meses completos de até 31 dias em um único chunk)
+  const dateChunks = createDateChunks(s, e, 31);
   const totalChunks = dateChunks.length;
 
   const dd = (d) => String(d.getDate()).padStart(2, '0');
@@ -1089,7 +1094,7 @@ async function getData() {
 
         for (const devName of unionDevices) {
           const arr = (byDevice[devName] || [])
-            .slice()
+            .filter((r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '')
             .sort((a, b) => new Date(a.time_interval) - new Date(b.time_interval));
 
           if (arr.length) devicesSeen[devName] = true;
@@ -1548,6 +1553,98 @@ self.onInit = function () {
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
   self.ctx.$scope.getRealCount = (arr) =>
     (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
+  self.ctx.$scope.getDeviceLossClass = (arr) => {
+    const total = (arr || []).length;
+    if (!total) return '';
+    const missing = (arr || []).filter((r) => r.missing).length;
+    const pct = missing / total;
+    if (pct === 0) return '';
+    if (pct <= 0.05) return 'loss-low';
+    if (pct <= 0.15) return 'loss-moderate';
+    if (pct <= 0.30) return 'loss-high';
+    return 'loss-critical';
+  };
+
+  self.ctx.$scope.summaryModalOpen = false;
+  self.ctx.$scope.summaryReport = {};
+
+  self.ctx.$scope.openSummaryModal = function () {
+    const s = self.ctx.$scope;
+    const grouped = s.groupedData || {};
+
+    // Converte slot UTC para horário BRT (UTC-3) formatado como HH:MM
+    function slotToBRT(isoStr) {
+      const d = new Date(new Date(isoStr).getTime() - 3 * 60 * 60 * 1000);
+      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    }
+
+    // Extrai a data local BRT (DD/MM) de um slot UTC
+    function slotToDayBRT(isoStr) {
+      const d = new Date(new Date(isoStr).getTime() - 3 * 60 * 60 * 1000);
+      return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function lossClass(pct) {
+      if (pct === 0) return '';
+      if (pct <= 5) return 'loss-low';
+      if (pct <= 15) return 'loss-moderate';
+      if (pct <= 30) return 'loss-high';
+      return 'loss-critical';
+    }
+
+    let totalReal = 0, totalMissing = 0, totalSlots = 0;
+    const devices = [];
+
+    for (const [name, arr] of Object.entries(grouped)) {
+      const total = arr.length;
+      const missing = arr.filter((r) => r.temperature === '-').length;
+      const real = arr.filter((r) => r.temperature !== '-' && !r.interpolated && !r.equalSign).length;
+      const pct = total ? parseFloat(((missing / total) * 100).toFixed(1)) : 0;
+
+      totalSlots += total;
+      totalReal += real;
+      totalMissing += missing;
+
+      // Agrupa slots missing por dia BRT (sort_ts = UTC ms)
+      const byDay = {};
+      for (const r of arr) {
+        if (r.temperature !== '-') continue;
+        const iso = r.sort_ts ? new Date(r.sort_ts).toISOString() : null;
+        if (!iso) continue;
+        const day = slotToDayBRT(iso);
+        if (!byDay[day]) byDay[day] = [];
+        byDay[day].push(slotToBRT(iso));
+      }
+      const missingByDay = Object.entries(byDay).map(([day, slots]) => ({ day, slots }));
+
+      devices.push({
+        name,
+        label: deviceNameLabelMap[name.split(' ')[0]] || name,
+        totalSlots: total,
+        missingSlots: missing,
+        lossPct: pct,
+        lossClass: lossClass(pct),
+        expanded: false,
+        missingByDay,
+      });
+    }
+
+    // Ordena por % de perda decrescente
+    devices.sort((a, b) => b.lossPct - a.lossPct);
+
+    const overallLossPct = totalSlots
+      ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1))
+      : 0;
+
+    s.summaryReport = { totalDevices: devices.length, totalReal, totalMissing, totalSlots, overallLossPct, devices };
+    s.summaryModalOpen = true;
+    self.ctx.detectChanges();
+  };
+
+  self.ctx.$scope.closeSummaryModal = function () {
+    self.ctx.$scope.summaryModalOpen = false;
+    self.ctx.detectChanges();
+  };
 
   // Overlay inicial
   self.ctx.$scope.premiumLoading = false;

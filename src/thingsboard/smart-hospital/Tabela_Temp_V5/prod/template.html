@@ -190,6 +190,9 @@
         <span class="badge-value">{{ totalReadings }}</span>
         <span class="badge-label">leituras</span>
       </span>
+      <button class="summary-report-btn" (click)="openSummaryModal()" title="Resumo da consulta">
+        <i class="fa-solid fa-chart-pie"></i>
+      </button>
     </div>
 
     <div class="expand-controls" *ngIf="isCardView">
@@ -299,6 +302,7 @@
       class="device-card"
       *ngFor="let device of groupedData | keyvalue"
       [class.expanded]="expandedDevices[device.key]"
+      [ngClass]="getDeviceLossClass(device.value)"
     >
       <div class="device-card-header" (click)="toggleDeviceExpansion(device.key)">
         <div class="device-info">
@@ -310,7 +314,7 @@
             </span>
             <span class="stat stat-count">
               <i class="fa-solid fa-list"></i>
-              {{ getDeviceReadingCount(device.value) }} registros
+              {{ getRealCount(device.value) }} registros
             </span>
             <span class="stat warn" *ngIf="adminMode && getInterpolatedCount(device.value) > 0">
               <mat-icon>auto_fix_high</mat-icon>
@@ -358,5 +362,64 @@
     <mat-icon>info</mat-icon>
     <p>Nenhum dado disponível para o período selecionado.</p>
     <p>Selecione um intervalo de datas para gerar o relatório.</p>
+  </div>
+
+  <!-- Modal de Resumo da Consulta -->
+  <div class="summary-modal-backdrop" *ngIf="summaryModalOpen" (click)="closeSummaryModal()"></div>
+  <div class="summary-modal" *ngIf="summaryModalOpen">
+    <div class="summary-modal-header">
+      <span><i class="fa-solid fa-chart-pie"></i> Resumo da Consulta</span>
+      <button class="summary-modal-close" (click)="closeSummaryModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="summary-modal-body">
+
+      <!-- Totais gerais -->
+      <div class="summary-overall">
+        <div class="summary-kpi">
+          <span class="kpi-value">{{ summaryReport.totalDevices }}</span>
+          <span class="kpi-label">dispositivos</span>
+        </div>
+        <div class="summary-kpi">
+          <span class="kpi-value">{{ summaryReport.totalReal }}</span>
+          <span class="kpi-label">leituras reais</span>
+        </div>
+        <div class="summary-kpi" [class.kpi-danger]="summaryReport.totalMissing > 0">
+          <span class="kpi-value">{{ summaryReport.totalMissing }}</span>
+          <span class="kpi-label">slots sem dados</span>
+        </div>
+        <div class="summary-kpi" [class.kpi-danger]="summaryReport.overallLossPct > 0">
+          <span class="kpi-value">{{ summaryReport.overallLossPct }}%</span>
+          <span class="kpi-label">perda geral</span>
+        </div>
+      </div>
+
+      <!-- Por device -->
+      <div class="summary-device-list">
+        <div
+          class="summary-device-row"
+          *ngFor="let dev of summaryReport.devices"
+          [class]="'sdr-' + dev.lossClass"
+        >
+          <div class="sdr-header" (click)="dev.expanded = !dev.expanded">
+            <span class="sdr-toggle">{{ dev.expanded ? '−' : '+' }}</span>
+            <span class="sdr-label">{{ dev.label }}</span>
+            <span class="sdr-pct" [class.sdr-ok]="dev.lossPct === 0">
+              {{ dev.lossPct === 0 ? 'OK' : dev.lossPct + '% perda' }}
+            </span>
+            <span class="sdr-counts">{{ dev.missingSlots }}/{{ dev.totalSlots }} slots</span>
+          </div>
+          <div class="sdr-detail" *ngIf="dev.expanded && dev.missingByDay.length > 0">
+            <div class="sdr-day-row" *ngFor="let d of dev.missingByDay">
+              <span class="sdr-day">{{ d.day }}</span>
+              <span class="sdr-slots">{{ d.slots.join(', ') }}</span>
+            </div>
+          </div>
+          <div class="sdr-detail sdr-no-loss" *ngIf="dev.expanded && dev.missingByDay.length === 0">
+            Nenhuma perda neste período.
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>

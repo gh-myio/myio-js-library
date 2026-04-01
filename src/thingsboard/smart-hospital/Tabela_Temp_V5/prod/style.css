@@ -154,6 +154,23 @@
     box-shadow 0.2s ease,
     transform 0.12s ease;
 }
+/* Escala de perda de dados: 1–5% | 5–15% | 15–30% | >30% */
+.device-card.loss-low {
+  background: #fffef0;
+  border-color: #fde68a;
+}
+.device-card.loss-moderate {
+  background: #fff8f0;
+  border-color: #fdba74;
+}
+.device-card.loss-high {
+  background: #fff5f5;
+  border-color: #fca5a5;
+}
+.device-card.loss-critical {
+  background: #fff0f0;
+  border-color: #f87171;
+}
 .device-card:hover {
   transform: translateY(-2px);
   box-shadow:
@@ -232,6 +249,177 @@
   font-style: italic;
   letter-spacing: 0.5px;
 }
+
+/* ---- Botão resumo da consulta ---- */
+.summary-report-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #5c307d;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+.summary-report-btn:hover {
+  background: #ede7f6;
+  box-shadow: 0 2px 8px rgba(92, 48, 125, 0.15);
+}
+
+/* ---- Modal de resumo ---- */
+.summary-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1100;
+}
+.summary-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1101;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+  width: min(820px, 95vw);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.summary-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #5c307d;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  gap: 8px;
+}
+.summary-modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0.8;
+  line-height: 1;
+}
+.summary-modal-close:hover { opacity: 1; }
+.summary-modal-body {
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* KPIs gerais */
+.summary-overall {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.summary-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 8px;
+}
+.summary-kpi.kpi-danger {
+  background: #fff5f5;
+  border-color: #fca5a5;
+}
+.kpi-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.1;
+}
+.kpi-label {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Lista por device */
+.summary-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.summary-device-row {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+.summary-device-row.sdr-loss-low    { border-color: #fde68a; }
+.summary-device-row.sdr-loss-moderate { border-color: #fdba74; }
+.summary-device-row.sdr-loss-high   { border-color: #fca5a5; }
+.summary-device-row.sdr-loss-critical { border-color: #f87171; }
+
+.sdr-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  background: #fafafa;
+  user-select: none;
+  font-size: 13px;
+}
+.sdr-header:hover { background: #f3f4f6; }
+.sdr-toggle {
+  font-weight: 700;
+  color: #5c307d;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.sdr-label { flex: 1; font-weight: 500; color: #111827; }
+.sdr-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ef4444;
+  white-space: nowrap;
+}
+.sdr-pct.sdr-ok { color: #16a34a; }
+.sdr-counts { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+
+.sdr-detail {
+  padding: 8px 12px 10px 36px;
+  background: #fff;
+  border-top: 1px solid #f3f4f6;
+  font-size: 12px;
+}
+.sdr-day-row {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px dashed #f3f4f6;
+  align-items: baseline;
+}
+.sdr-day-row:last-child { border-bottom: none; }
+.sdr-day {
+  font-weight: 600;
+  color: #374151;
+  width: 40px;
+  flex-shrink: 0;
+}
+.sdr-slots { color: #6b7280; line-height: 1.5; }
+.sdr-no-loss { color: #16a34a; font-style: italic; }
 
 .badge {
   display: inline-flex;
