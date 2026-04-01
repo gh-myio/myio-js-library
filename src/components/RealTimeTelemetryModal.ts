@@ -2977,10 +2977,33 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   // Load polling interval from customer attribute (if customerId provided)
   if (customerId) await loadCheckDeviceInterval();
 
-  // Initial data fetch: start from now (empty chart, fills as data arrives)
+  // Initial fetch: if centralId is provided, call check_device first, wait 8 s, then fetch telemetry.
+  // This ensures the first telemetry read reflects the freshest data from the device.
+  const useCheckDeviceOnOpen = !!centralId && !sessionStorage.getItem('rtt_check_device_disabled');
+  if (useCheckDeviceOnOpen) {
+    startCountdown(checkDeviceWaitMs);
+    try {
+      await fetch(
+        `https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`,
+        { signal: AbortSignal.timeout(10_000) }
+      );
+      centralStatus = 'ok';
+      checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
+    } catch (e) {
+      console.warn('[RTT] check_device (open) error:', (e as Error)?.message ?? e);
+      centralStatus = 'offline';
+      checkDeviceHistory.push({ ts: Date.now(), status: 'offline' });
+    }
+    if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
+    updateStatusBadges();
+    await new Promise<void>(r => setTimeout(r, checkDeviceWaitMs));
+    clearCountdown();
+  }
+
   await refreshData();
 
-  // Start polling tick (check_device → 15 s → refresh, or plain refresh when no centralId)
+  // Start regular polling tick (check_device → wait → refresh, repeating)
+  isFirstTick = false; // opening already did the initial check_device + wait
   scheduleCheckDeviceTick();
 
   return {
