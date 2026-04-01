@@ -820,7 +820,7 @@ export class AllReportModal {
       // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
       const token = this.params.api.ingestionToken || (await this.authClient.getBearer());
       return await this.params.fetcher({
-        baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
+        baseUrl: this.params.api.dataApiBaseUrl,
         token: token,
         customerId: this.params.customerId,
         startISO,
@@ -835,7 +835,8 @@ export class AllReportModal {
       throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
     }
 
-    const baseUrl = this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com';
+    const baseUrl = this.params.api.dataApiBaseUrl;
+    if (!baseUrl) throw new Error('dataApiBaseUrl não configurado.');
 
     // Format timestamps for API call
     const startTime = encodeURIComponent(startISO);

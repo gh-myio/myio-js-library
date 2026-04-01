@@ -88,7 +88,7 @@ export class ModalPremiumShell {
     const title = document.createElement('h2');
     title.id = 'myio-modal-title';
     title.className = 'myio-modal-title';
-    title.textContent = this.options.title;
+    title.innerHTML = this.options.title;
     
     this.closeButton = document.createElement('button');
     this.closeButton.className = 'myio-modal-close';

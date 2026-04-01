@@ -895,7 +895,7 @@
 
     async function fetchCustomerAlarms() {
       try {
-        const url = `${alarmsApiBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCid())}&limit=100`;
+        const url = `${alarmsApiBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCid())}&limit=100`;
         const res = await fetch(url, {
           headers: { 'X-API-Key': gcdrKey(), 'X-Tenant-ID': gcdrTid(), Accept: 'application/json' },
         });
@@ -1968,7 +1968,7 @@
         alarms: generateFakeAlarms(_alarmCount),
         showCustomerName,
         enableDebugMode: true,
-        alarmsApiBaseUrl: 'https://alarms-api.a.myio-bas.com',
+        alarmsApiBaseUrl: 'https://alarms-api.a.myio-bas.com/api/v1',
         alarmsApiKey: gcdrKey(),
         onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
         onAcknowledge: async (ids) => {
@@ -2189,6 +2189,7 @@
             themeMode: themeMode,
             onCardAction: (action, device) => {
               logEvent('GRID_ENTRADA', `${action}: ${device?.labelOrName || device?.entityId || 'unknown'}`, 'info');
+              if (action === 'dashboard') handleCardDashboard(device);
               if (action === 'settings') handleCardSettings(device);
             },
             onPresetupClick: () => openPresetupModal('Entrada de Energia'),
@@ -2213,6 +2214,7 @@
             themeMode: themeMode,
             onCardAction: (action, device) => {
               logEvent('GRID_AREA_COMUM', `${action}: ${device?.labelOrName || device?.entityId || 'unknown'}`, 'info');
+              if (action === 'dashboard') handleCardDashboard(device);
               if (action === 'settings') handleCardSettings(device);
             },
             onPresetupClick: () => openPresetupModal('Área Comum'),
@@ -2237,6 +2239,7 @@
             themeMode: themeMode,
             onCardAction: (action, device) => {
               logEvent('GRID_LOJAS', `${action}: ${device?.labelOrName || device?.entityId || 'unknown'}`, 'info');
+              if (action === 'dashboard') handleCardDashboard(device);
               if (action === 'settings') handleCardSettings(device);
             },
             onPresetupClick: () => openPresetupModal('Lojas'),
@@ -2858,6 +2861,47 @@
       } catch (err) {
         logEvent('ERROR', err.message, 'error');
         console.error('[Showcase] handleCardSettings error:', err);
+      }
+    }
+
+    // ===== CARD DASHBOARD ACTION (opens energy graph modal) =====
+    async function handleCardDashboard(device) {
+      const token = ghostAuthToken || localStorage.getItem('jwt_token');
+      if (!token) {
+        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
+        return;
+      }
+
+      if (typeof MyIOLibrary?.openDashboardPopupEnergy !== 'function') {
+        logEvent('ERROR', 'openDashboardPopupEnergy not in MyIOLibrary — rebuild', 'error');
+        return;
+      }
+
+      logEvent('CARD_DASHBOARD', `Opening energy modal for "${device.labelOrName || device.entityId}"`, 'info');
+
+      try {
+        await MyIOLibrary.openDashboardPopupEnergy({
+          deviceId: device.entityId,
+          label: device.labelOrName,
+          deviceLabel: device.labelOrName,
+          deviceProfile: device.deviceProfile,
+          tbJwtToken: token,
+          tbBaseUrl: _TB_URL,
+          startDate: _startDate.toISOString(),
+          endDate: _endDate.toISOString(),
+          clientId: _CLIENT_ID,
+          clientSecret: _CLIENT_SECRET,
+          dataApiHost: _DATA_API_HOST,
+          readingType: device.domain === 'water' ? 'water' : 'energy',
+          canShowDemandButtons: window.MyIOOrchestrator?.canShowDemandButtons,
+          customerName: window.MyIOOrchestrator?.customerTitle || 'Moxuara',
+          userEmail: 'rodrigo@myio.com.br',
+          onClose: () => logEvent('CARD_DASHBOARD', `Closed for "${device.labelOrName}"`, 'info'),
+          onError: (err) => logEvent('CARD_DASHBOARD_ERROR', err.message, 'error'),
+        });
+      } catch (err) {
+        logEvent('ERROR', err.message, 'error');
+        console.error('[Showcase] handleCardDashboard error:', err);
       }
     }
 

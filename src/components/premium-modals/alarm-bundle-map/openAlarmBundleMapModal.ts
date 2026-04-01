@@ -18,7 +18,6 @@ import type { GCDRCustomerBundle, GCDRBundleDevice, GCDRBundleRule } from '../gc
 
 const MODAL_ID = 'myio-alarm-bundle-map-modal';
 const GCDR_INTEGRATION_API_KEY = 'gcdr_cust_tb_integration_key_2026';
-const GCDR_DEFAULT_BASE_URL = 'https://gcdr-api.a.myio-bas.com';
 
 const TEAL = '#0a6d5e';
 const TEAL_DARK = '#084f44';
@@ -1090,7 +1089,11 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
     return;
   }
 
-  const baseUrl = params.gcdrApiBaseUrl || GCDR_DEFAULT_BASE_URL;
+  if (!params.gcdrApiBaseUrl) {
+    alert('gcdrApiBaseUrl não configurado. Configure a URL base da API GCDR no orquestrador.');
+    return;
+  }
+  const baseUrl = params.gcdrApiBaseUrl;
 
   // ---- Build overlay ----
   const overlay = document.createElement('div');

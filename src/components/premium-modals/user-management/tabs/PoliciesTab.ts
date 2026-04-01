@@ -26,7 +26,9 @@ export class PoliciesTab {
   }
 
   private gcdrBase(): string {
-    return ((window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com');
+    const url = (window as any).MyIOOrchestrator?.gcdrApiBaseUrl;
+    if (!url) throw new Error('gcdrApiBaseUrl não configurado no orquestrador.');
+    return url;
   }
 
   private gcdrHeaders(): Record<string, string> {
@@ -66,6 +68,7 @@ export class PoliciesTab {
       this.renderList();
     } catch (err) {
       console.error('[PoliciesTab] loadPolicies error', err);
+      this.callbacks.showToast('Erro ao carregar políticas. Verifique a conexão com o GCDR.', 'error');
       this.el.innerHTML = `<div class="gm-error">Erro ao carregar políticas. Verifique a conexão com o GCDR.</div>`;
     }
   }

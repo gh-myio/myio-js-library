@@ -387,7 +387,7 @@ export class EnergyModalView {
           <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px;">
             <div class="myio-form-group" style="margin-bottom: 0;">
               <label class="myio-label" for="date-range">Período</label>
-              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
+              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px; cursor: pointer;">
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
@@ -560,8 +560,8 @@ export class EnergyModalView {
         <div style="margin-bottom: 16px; flex-shrink: 0;">
           <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px; flex-wrap: wrap;">
             <div class="myio-form-group" style="margin-bottom: 0;">
-              <label class="myio-label" for="date-range">Periodo</label>
-              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o periodo" style="width: 300px;">
+              <label class="myio-label" for="date-range">Período</label>
+              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px; cursor: pointer;">
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
@@ -739,18 +739,29 @@ export class EnergyModalView {
   /**
    * Shows error message
    */
-  showError(message: string): void {
+  showError(title: string, detail?: string): void {
     const errorContainer = document.getElementById('energy-error');
     if (errorContainer) {
       errorContainer.innerHTML = `
-        <div class="myio-error-content">
-          <div class="myio-error-icon">⚠️</div>
-          <div class="myio-error-message">${message}</div>
+        <div class="myio-error-content" style="
+          display:flex;flex-direction:column;align-items:center;
+          gap:12px;padding:32px 24px;text-align:center;max-width:420px;margin:0 auto;
+        ">
+          <div style="font-size:40px;line-height:1;">⚠️</div>
+          <div style="font-size:16px;font-weight:700;color:#b91c1c;">${title}</div>
+          ${detail ? `<div style="font-size:13px;color:#6b7280;line-height:1.5;">${detail}</div>` : ''}
+          <button id="energy-error-close-btn" style="
+            margin-top:8px;padding:8px 20px;
+            background:#3e1a7d;color:#fff;border:none;border-radius:8px;
+            cursor:pointer;font-size:13px;font-weight:600;
+          ">Fechar</button>
         </div>
       `;
       errorContainer.style.display = 'block';
+      errorContainer.querySelector('#energy-error-close-btn')
+        ?.addEventListener('click', () => this.modal.close());
     }
-    
+
     this.hideLoadingState();
   }
 
@@ -1408,10 +1419,19 @@ export class EnergyModalView {
           await openRealTimeTelemetryModal({
             token: jwtToken,
             deviceId: this.config.params.deviceId,
+            tbBaseUrl: this.config.params.tbBaseUrl || '',
             deviceLabel: this.config.params.deviceLabel || 'Dispositivo',
-            telemetryKeys: ['voltage_a', 'voltage_b', 'voltage_c', 'total_current', 'consumption'],
-            refreshInterval: 8000, // 8 seconds
-            historyPoints: 50,
+            deviceName: this.config.context.device.name,
+            customerName: this.config.params.customerName,
+            centralId: this.config.context.resolved.centralId,
+            customerId: this.config.context.resolved.customerId || this.config.params.customerId,
+            userEmail: this.config.params.userEmail,
+            telemetryKeys: [
+              'voltage_a', 'voltage_b', 'voltage_c',
+              'current_a', 'current_b', 'current_c', 'total_current',
+              'a', 'b', 'c', 'consumption',
+              'fp_a', 'fp_b', 'fp_c',
+            ],
             locale: 'pt-BR'
           });
         } catch (error) {
@@ -1473,13 +1493,15 @@ export class EnergyModalView {
     // Initialize DateRangePicker with widget dates as defaults
     try {
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.config.params.startDate instanceof Date 
+        presetStart: this.config.params.startDate instanceof Date
           ? this.config.params.startDate.toISOString().split('T')[0]
           : this.config.params.startDate,
         presetEnd: this.config.params.endDate instanceof Date
-          ? this.config.params.endDate.toISOString().split('T')[0] 
+          ? this.config.params.endDate.toISOString().split('T')[0]
           : this.config.params.endDate,
-        maxRangeDays: 31,
+        maxRangeDays: 90,
+        includeTime: true,
+        timePrecision: 'hour',
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
           this.hideError();
@@ -1489,6 +1511,7 @@ export class EnergyModalView {
     } catch (error) {
       console.warn('DateRangePicker initialization failed, using fallback:', error);
     }
+
   }
 
   /**

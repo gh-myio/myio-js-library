@@ -14,10 +14,7 @@ export class EnergyDataFetcher {
   private authClient: AuthClient | null = null;
 
   constructor(config: DataFetcherConfig) {
-    this.config = {
-      dataApiHost: config.dataApiHost || 'https://api.data.apps.myio-bas.com',
-      ...config
-    };
+    this.config = { ...config };
 
     // Create AuthClient when clientId/clientSecret are provided
     // SDK charts require client credentials for authentication
@@ -112,8 +109,9 @@ export class EnergyDataFetcher {
    */
   private buildEnergyApiUrl(params: EnergyDataParams): string {
     const baseUrl = this.config.dataApiHost;
+    if (!baseUrl) throw new Error('dataApiHost não configurado.');
     const segment = params.readingType === 'water' || params.readingType === 'tank' ? 'water' : 'energy';
-    const endpoint = `/telemetry/devices/${params.ingestionId}/${segment}`;
+    const endpoint = `/api/v1/telemetry/devices/${params.ingestionId}/${segment}`;
     
     const queryParams = new URLSearchParams({
       startTime: params.startISO,

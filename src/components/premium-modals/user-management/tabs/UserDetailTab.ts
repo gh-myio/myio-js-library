@@ -99,7 +99,9 @@ export class UserDetailTab {
   // ── RFC-0197: Assignments Section ─────────────────────────────────────────
 
   private gcdrBase(): string {
-    return ((window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com');
+    const url = (window as any).MyIOOrchestrator?.gcdrApiBaseUrl;
+    if (!url) throw new Error('gcdrApiBaseUrl não configurado no orquestrador.');
+    return url;
   }
 
   private gcdrHeaders(): Record<string, string> {
@@ -160,6 +162,7 @@ export class UserDetailTab {
       this.renderAssignments();
     } catch (err) {
       console.error('[UserDetailTab] loadAssignments error', err);
+      this.callbacks.showToast('Erro ao carregar atribuições. Verifique a conexão com o GCDR.', 'error');
       if (this.assignmentsEl) {
         this.assignmentsEl.innerHTML = `<div style="font-size:12px;color:var(--um-btn-danger-text);">Erro ao carregar atribuições.</div>`;
       }

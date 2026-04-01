@@ -52,6 +52,7 @@ export interface OpenDashboardPopupEnergyOptions {
   startDate: string | Date;            // ISO with TZ offset or 'YYYY-MM-DD'
   endDate: string | Date;              // ISO with TZ offset or 'YYYY-MM-DD'
   tbJwtToken?: string;                 // REQUIRED for TB REST fetches in single mode
+  tbBaseUrl?: string;                  // ThingsBoard base URL (default: window.location.origin)
 
   // Optional Identity Resolution (single mode)
   label?: string;                      // Display label (fallback to TB label/name)
@@ -87,6 +88,8 @@ export interface OpenDashboardPopupEnergyOptions {
   deviceProfile?: string;             // Device profile (e.g. '3F_MEDIDOR')
   /** Customer SERVER_SCOPE attribute. When true, shows Pico de Demanda and Telemetrias Instantâneas buttons. Default: false. */
   canShowDemandButtons?: boolean;
+  userEmail?: string;                  // Logged-in user email — enables ⚙️ polling button in RTT modal if @myio.com.br
+  customerName?: string;               // Customer display name shown as badge in RTT modal header
   closeOnEsc?: boolean;                // default: true
   zIndex?: number;                     // default: 10000
   deep?: boolean;                      // default: false (used in comparison mode)
@@ -104,6 +107,7 @@ export interface OpenDashboardPopupEnergyOptions {
 export interface EnergyModalContext {
   device: {
     id: string;
+    name?: string;   // ThingsBoard entity name — used as identifier in check_device endpoint
     label: string;
     attributes: Record<string, any>;
   };

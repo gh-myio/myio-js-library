@@ -409,6 +409,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   MyIOLibrary.createDateRangePicker($inputStart[0], {
     presetStart: presetStart,
     presetEnd: presetEnd,
+    maxRangeDays: 90,
+    includeTime: true,
+    timePrecision: 'hour',
     onApply: function (result) {
       LogHelper.log('[DateRangePicker] Applied:', result);
 

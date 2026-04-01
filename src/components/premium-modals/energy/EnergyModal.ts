@@ -73,7 +73,7 @@ export class EnergyModal {
         const label = this.context.device.label || 'SEM ETIQUETA';
 
         this.modal = createModal({
-          title: `Energy Report - ${identifier} - ${label}`,
+          title: this.buildModalTitle(),
           width: '80vw',
           height: '90vh',
           theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark',
@@ -208,6 +208,7 @@ export class EnergyModal {
       const context: EnergyModalContext = {
         device: {
           id: this.params.deviceId,
+          name: entityInfo.name,
           label: this.params.label || entityInfo.label || entityInfo.name || 'Unknown Device',
           attributes: attributes,
         },
@@ -236,7 +237,8 @@ export class EnergyModal {
    * Fetches device entity from ThingsBoard
    */
   private async fetchEntityInfo(): Promise<any> {
-    const url = `/api/device/${this.params.deviceId}`;
+    const base = this.params.tbBaseUrl || '';
+    const url = `${base}/api/device/${this.params.deviceId}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -258,7 +260,8 @@ export class EnergyModal {
    * Fetches device attributes from ThingsBoard
    */
   private async fetchEntityAttributes(): Promise<Record<string, any>> {
-    const url = `/api/plugins/telemetry/DEVICE/${this.params.deviceId}/values/attributes?scope=SERVER_SCOPE`;
+    const base = this.params.tbBaseUrl || '';
+    const url = `${base}/api/plugins/telemetry/DEVICE/${this.params.deviceId}/values/attributes?scope=SERVER_SCOPE`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -339,12 +342,34 @@ export class EnergyModal {
   }
 
   /**
-   * Builds modal title
+   * Builds modal title HTML with domain text + device/customer/version badges.
    */
   private buildModalTitle(): string {
-    const i18n = this.params.i18n || DEFAULT_I18N;
-    const deviceLabel = this.context?.device.label || this.params.label || 'Device';
-    return `${i18n.title} - ${deviceLabel}`;
+    const readingType = this.params.readingType || 'energy';
+    const domainTitles: Record<string, string> = {
+      energy:      '⚡ Gráfico de Energia',
+      water:       '💧 Gráfico de Água',
+      temperature: '🌡️ Gráfico de Temperatura',
+      tank:        '💧 Gráfico de Reservatório',
+    };
+    const mainTitle = domainTitles[readingType] ?? '⚡ Gráfico de Energia';
+
+    const label      = this.context?.device.label || '';
+    const identifier = (this.context?.device as any)?.attributes?.identifier || '';
+    const customer   = this.params.customerName || '';
+    const version    = (window as any).MyIOLibrary?.version;
+
+    const deviceBadge = label
+      ? `<span class="myio-modal-header-device-label">${label}${identifier && identifier !== label ? `<span class="myio-modal-header-device-name">(${identifier})</span>` : ''}</span>`
+      : '';
+    const customerBadge = customer
+      ? `<span class="myio-modal-header-customer-badge">${customer}</span>`
+      : '';
+    const versionBadge = version
+      ? `<span class="myio-modal-header-version-badge">v${version}</span>`
+      : '';
+
+    return `${mainTitle}${deviceBadge}${customerBadge}${versionBadge}`;
   }
 
   /**
@@ -485,9 +510,10 @@ export class EnergyModal {
   private handleEnergyModalError(error: EnergyModalError): void {
     console.error('[EnergyModal] EnergyModalError occurred:', error);
 
-    // Show error in view if available
+    // Show friendly error in view if available
     if (this.view) {
-      this.view.showError(error.message);
+      const { title, detail } = this.toFriendlyError(error.message);
+      this.view.showError(title, detail);
     }
 
     // Trigger onError callback
@@ -505,12 +531,46 @@ export class EnergyModal {
   /**
    * Handles errors with user feedback
    */
+  private toFriendlyError(raw: string): { title: string; detail: string } {
+    const msg = raw.toLowerCase();
+    if (msg.includes('device not found') || msg.includes('404'))
+      return {
+        title: 'Dispositivo não encontrado',
+        detail: 'Este dispositivo ainda não possui dados de telemetria cadastrados. Verifique a integração ou contate o suporte.',
+      };
+    if (msg.includes('insufficient permissions') || msg.includes('401') || msg.includes('403') || msg.includes('unauthorized') || msg.includes('forbidden'))
+      return {
+        title: 'Sem permissão de acesso',
+        detail: 'Sua sessão pode ter expirado ou você não tem permissão para visualizar estes dados. Tente reabrir o modal.',
+      };
+    if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('network error') || msg.includes('err_network'))
+      return {
+        title: 'Sem conexão com o servidor',
+        detail: 'Não foi possível alcançar o servidor de dados. Verifique sua conexão com a internet.',
+      };
+    if (msg.includes('500') || msg.includes('internal server'))
+      return {
+        title: 'Erro interno no servidor',
+        detail: 'O servidor encontrou um problema inesperado. Tente novamente em alguns instantes.',
+      };
+    if (msg.includes('timeout') || msg.includes('timed out'))
+      return {
+        title: 'Tempo de resposta esgotado',
+        detail: 'O servidor demorou demais para responder. Verifique sua conexão e tente novamente.',
+      };
+    return {
+      title: 'Não foi possível carregar os dados',
+      detail: 'Ocorreu um erro inesperado ao buscar os dados de energia.',
+    };
+  }
+
   private handleError(error: Error): void {
     console.error('[EnergyModal] Error occurred:', error);
 
-    // Show error in view if available
+    // Show friendly error in view if available
     if (this.view) {
-      this.view.showError(error.message);
+      const { title, detail } = this.toFriendlyError(error.message);
+      this.view.showError(title, detail);
     }
 
     // Trigger onError callback

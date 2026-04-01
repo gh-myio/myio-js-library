@@ -467,7 +467,7 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
       window.MyIOLibrary?.MyIOToast?.error('[v5.4.0] alarmsApiKey não configurado. Configure em Widget Settings → alarmsApiKey.');
       return;
     }
-    const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+    const url = `${alarmsBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
     const response = await fetch(url, {
       headers: {
         'X-API-Key': ALARMS_API_KEY,
@@ -982,7 +982,7 @@ self.onInit = async function () {
   LogHelper.log('RFC-0144: enableAnnotationsOnboarding:', enableAnnotationsOnboarding);
 
   // RFC-0178: Alarms API config from settings
-  const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com/api/v1';
   const alarmsApiKey = settings.alarmsApiKey || '';
   if (!alarmsApiKey) {
     window.MyIOLibrary?.MyIOToast?.error('[MAIN_VIEW v5.4.0] alarmsApiKey não configurado nas settings do widget. Configure em Widget Settings → alarmsApiKey.');

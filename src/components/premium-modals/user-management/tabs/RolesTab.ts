@@ -27,7 +27,9 @@ export class RolesTab {
   }
 
   private gcdrBase(): string {
-    return ((window as any).MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com');
+    const url = (window as any).MyIOOrchestrator?.gcdrApiBaseUrl;
+    if (!url) throw new Error('gcdrApiBaseUrl não configurado no orquestrador.');
+    return url;
   }
 
   private gcdrHeaders(): Record<string, string> {
@@ -71,6 +73,7 @@ export class RolesTab {
       this.renderList();
     } catch (err) {
       console.error('[RolesTab] loadAll error', err);
+      this.callbacks.showToast('Erro ao carregar funções. Verifique a conexão com o GCDR.', 'error');
       this.el.innerHTML = `<div class="gm-error">Erro ao carregar funções. Verifique a conexão com o GCDR.</div>`;
     }
   }

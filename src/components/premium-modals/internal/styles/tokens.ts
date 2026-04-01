@@ -132,6 +132,50 @@ export const MODAL_STYLES = `
   margin: 6px !important;
   color: white;
   line-height: 2 !important;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.myio-modal-header-device-label {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.9;
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  padding: 2px 8px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.myio-modal-header-device-name {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.myio-modal-header-customer-badge {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.65;
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.myio-modal-header-version-badge {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.5;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  white-space: nowrap;
 }
 
 .myio-modal-close {
