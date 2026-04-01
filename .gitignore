@@ -9,3 +9,4 @@ coverage/
 .idea/
 .claude/settings.local.json
 logs/
+src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/*.json
