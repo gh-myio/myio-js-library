@@ -4,7 +4,8 @@
       <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
       <div class="headline">
         <p>
-          Sistema Myio v.5 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal Souza Aguiar
+          Sistema Myio v.5-2026040201 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
+          Souza Aguiar
         </p>
         <p>UNIDADE SOUZA AGUIAR - HMSA</p>
         <p>Data de Emissão: <span id="issue-date"></span></p>
@@ -69,20 +70,18 @@
           </div>
         </div>
 
-        <mat-form-field class="example-form-field hide-in-pdf">
-          <mat-label>Selecione um intervalo</mat-label>
-          <mat-date-range-input [rangePicker]="rangePicker">
-            <input matStartDate placeholder="Data Inicial" (dateChange)="handleStartDateChange($event)" />
-            <input matEndDate placeholder="Data Final" (dateChange)="handleEndDateChange($event)" />
-          </mat-date-range-input>
-          <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
-          <mat-date-range-picker #rangePicker (closed)="applyDateRange()">
-            <mat-date-range-picker-actions>
-              <button mat-button matDateRangePickerCancel>Cancelar</button>
-              <button mat-raised-button matDateRangePickerApply>Selecionar</button>
-            </mat-date-range-picker-actions>
-          </mat-date-range-picker>
-        </mat-form-field>
+        <div class="tbx-datepicker-row hide-in-pdf">
+          <label class="tbx-field" title="Clique para selecionar o período">
+            <span class="tbx-ico">📅</span>
+            <input type="text" name="startDatetimes" placeholder="Selecione o período" readonly />
+          </label>
+          <button class="tbx-btn-load" (click)="applyDateRange()" title="Carregar dados">
+            <i class="fa-solid fa-rotate-right"></i> Carregar
+          </button>
+          <button class="tbx-btn-clear" (click)="clearDateRange()" title="Limpar seleção">
+            <i class="fa-solid fa-xmark"></i> Limpar
+          </button>
+        </div>
 
         <!-- Settings Modal -->
         <div class="settings-backdrop" *ngIf="showSettings">
@@ -115,22 +114,27 @@
                 No modo Admin exibimos selos e estatísticas de interpolação (17+, Interpolado, contadores).
               </p>
 
-              <div class="row" style="margin-top:10px">
+              <div class="row" style="margin-top: 10px">
                 <label class="switch">
-                  <input type="checkbox" [checked]="interpolationEnabled" (change)="setInterpolationEnabled($event)" />
+                  <input
+                    type="checkbox"
+                    [checked]="interpolationEnabled"
+                    (change)="setInterpolationEnabled($event)"
+                  />
                   <span class="slider"></span>
                 </label>
                 <span>Habilitar Interpolação</span>
               </div>
               <p class="muted">
-                Quando desabilitada, lacunas preenchíveis são exibidas com <strong>=</strong> em vez de valor estimado.
-                A mudança aplica-se ao próximo carregamento do relatório.
+                Quando desabilitada, lacunas preenchíveis são exibidas com <strong>=</strong> em vez de valor
+                estimado. A mudança aplica-se ao próximo carregamento do relatório.
               </p>
 
-              <div class="settings-group" style="margin-top:14px;">
+              <div class="settings-group" style="margin-top: 14px">
                 <label class="group-label">Limites de Temperatura (clamp)</label>
-                <p class="muted" style="margin-bottom:8px;">
-                  Leituras fora desse intervalo são corrigidas para o limite correspondente e marcadas com <strong>17+</strong> no modo Admin.
+                <p class="muted" style="margin-bottom: 8px">
+                  Leituras fora desse intervalo são corrigidas para o limite correspondente e marcadas com
+                  <strong>17+</strong> no modo Admin.
                 </p>
                 <div class="clamp-inputs">
                   <label class="clamp-label">
@@ -154,7 +158,28 @@
                       (change)="setClampMax($event)"
                     />
                   </label>
+                  <button
+                    class="btn clamp-save-btn"
+                    (click)="saveClampSettings()"
+                    [disabled]="clampSaveStatus === 'saving'"
+                  >
+                    {{ clampSaveStatus === 'saving' ? 'Salvando…' : clampSaveStatus === 'saved' ? '✓ Salvo' :
+                    'Salvar' }}
+                  </button>
                 </div>
+              </div>
+
+              <div
+                class="clamp-status-badge"
+                [class.clamp-from-customer]="clampFromCustomer"
+                [class.clamp-fallback]="!clampFromCustomer"
+                style="margin-top: 10px"
+              >
+                <span>{{ clampFromCustomer ? '🟢' : '🟡' }}</span>
+                <span
+                  >{{ clampFromCustomer ? 'Salvo no cliente (SERVER_SCOPE)' : 'Usando valores padrão
+                  (fallback)' }}</span
+                >
               </div>
 
               <div class="actions-row end">
@@ -218,34 +243,57 @@
   <!-- Banner de indisponibilidade de acesso remoto -->
   <div class="rpc-unavail-banner" *ngIf="rpcConnectionErrors && rpcConnectionErrors.length > 0">
     <div class="rpc-unavail-icon">
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M1 6s4-2 11-2 11 2 11 2"/>
-        <path d="M1 10s4-2 11-2 11 2 11 2"/>
-        <line x1="1" y1="14" x2="5" y2="14"/>
-        <line x1="19" y1="14" x2="23" y2="14"/>
-        <line x1="1" y1="18" x2="5" y2="18"/>
-        <line x1="19" y1="18" x2="23" y2="18"/>
-        <line x1="8" y1="14" x2="16" y2="18"/>
-        <line x1="16" y1="14" x2="8" y2="18"/>
+      <svg
+        viewBox="0 0 24 24"
+        width="28"
+        height="28"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M1 6s4-2 11-2 11 2 11 2" />
+        <path d="M1 10s4-2 11-2 11 2 11 2" />
+        <line x1="1" y1="14" x2="5" y2="14" />
+        <line x1="19" y1="14" x2="23" y2="14" />
+        <line x1="1" y1="18" x2="5" y2="18" />
+        <line x1="19" y1="18" x2="23" y2="18" />
+        <line x1="8" y1="14" x2="16" y2="18" />
+        <line x1="16" y1="14" x2="8" y2="18" />
       </svg>
     </div>
     <div class="rpc-unavail-body">
       <p class="rpc-unavail-title">
-        {{ rpcConnectionErrors.length === 1 ? 'Central com indisponibilidade de acesso remoto' : 'Centrais com indisponibilidade de acesso remoto' }}
+        {{ rpcConnectionErrors.length === 1 ? 'Central com indisponibilidade de acesso remoto' : 'Centrais com
+        indisponibilidade de acesso remoto' }}
       </p>
       <ul class="rpc-unavail-list">
         <li *ngFor="let e of rpcConnectionErrors">
-          <span class="rpc-central-name">{{ e.centralId }}{{ e.centralName ? ' — ' + e.centralName : '' }}</span>
+          <span class="rpc-central-name"
+            >{{ e.centralId }}{{ e.centralName ? ' — ' + e.centralName : '' }}</span
+          >
           <span class="rpc-status-badge">{{ e.statusInfo }}</span>
         </li>
       </ul>
       <p class="rpc-unavail-hint">
-        {{ rpcConnectionErrors.length === 1 ? 'A central acima está' : 'As centrais acima estão' }} temporariamente inacessível{{ rpcConnectionErrors.length === 1 ? '' : 'is' }}.
-        Nenhum dado foi exibido. Tente novamente em alguns instantes.
+        {{ rpcConnectionErrors.length === 1 ? 'A central acima está' : 'As centrais acima estão' }}
+        temporariamente inacessível{{ rpcConnectionErrors.length === 1 ? '' : 'is' }}. Nenhum dado foi
+        exibido. Tente novamente em alguns instantes.
       </p>
       <button class="rpc-retry-btn" (click)="retryReport()">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.5"/>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="1 4 1 10 7 10" />
+          <path d="M3.51 15a9 9 0 1 0 .49-5.5" />
         </svg>
         Tentar novamente
       </button>
@@ -259,6 +307,18 @@
       <p>{{ blockMessage || 'Aguarde a conclusão da operação.' }}</p>
       <div class="premium-spinner small"></div>
       <button class="close-btn" (click)="closeBlockModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal de erro de validação -->
+  <div class="error-modal-backdrop" *ngIf="isErrorModal" (click)="closeErrorModal()">
+    <div class="error-modal" (click)="$event.stopPropagation()">
+      <div class="error-modal-icon">
+        <i class="fa-solid fa-circle-exclamation"></i>
+      </div>
+      <h3 class="error-modal-title">{{ errorTitle }}</h3>
+      <p class="error-modal-message">{{ errorMessage }}</p>
+      <button class="error-modal-close-btn" (click)="closeErrorModal()">Entendido</button>
     </div>
   </div>
 
@@ -284,7 +344,9 @@
 
     <ng-container matColumnDef="temperature">
       <mat-header-cell *matHeaderCellDef mat-sort-header> Temperatura </mat-header-cell>
-      <mat-cell *matCellDef="let row" [class.equal-sign-cell]="row.equalSign">{{ row.equalSign ? '=' : (row.temperature + '°C') }}</mat-cell>
+      <mat-cell *matCellDef="let row" [class.equal-sign-cell]="row.equalSign"
+        >{{ row.equalSign ? '=' : (row.temperature + '°C') }}</mat-cell
+      >
     </ng-container>
 
     <ng-container matColumnDef="reading_date">
@@ -358,116 +420,17 @@
   </div>
 
   <!-- Sem dados -->
-  <div class="no-data-message" *ngIf="!premiumLoading && (!dados || dados.length === 0)">
+  <div class="no-data-message" *ngIf="hasQueried && !premiumLoading && (!dados || dados.length === 0)">
     <mat-icon>info</mat-icon>
     <p>Nenhum dado disponível para o período selecionado.</p>
-    <p>Selecione um intervalo de datas para gerar o relatório.</p>
+    <p>Tente ajustar o intervalo de datas ou os ambientes selecionados.</p>
   </div>
 
-  <!-- Modal de Resumo da Consulta -->
-  <div class="summary-modal-backdrop" *ngIf="summaryModalOpen" (click)="closeSummaryModal()"></div>
-  <div class="summary-modal" *ngIf="summaryModalOpen" [class.expanded]="summaryModalExpanded">
-    <div class="summary-modal-header">
-      <div class="summary-header-left">
-        <i class="fa-solid fa-chart-pie"></i>
-        <span>Resumo da Consulta</span>
-        <span class="summary-period" *ngIf="summaryReport?.period">{{ summaryReport?.period }}</span>
-      </div>
-      <div class="summary-header-actions">
-        <button class="summary-modal-expand" (click)="toggleSummaryModalExpand()" [title]="summaryModalExpanded ? 'Recolher' : 'Expandir'">
-          <i class="fa-solid" [ngClass]="summaryModalExpanded ? 'fa-compress' : 'fa-expand'"></i>
-        </button>
-        <button class="summary-modal-close" (click)="closeSummaryModal()"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-    </div>
-    <div class="summary-modal-body">
-
-      <!-- KPIs — full width sempre -->
-      <div class="summary-overall">
-        <div class="summary-kpi">
-          <span class="kpi-value">{{ summaryReport?.totalDevices }}</span>
-          <span class="kpi-label">dispositivos</span>
-        </div>
-        <div class="summary-kpi">
-          <span class="kpi-value">{{ summaryReport?.totalReal }}</span>
-          <span class="kpi-label">leituras reais</span>
-        </div>
-        <div class="summary-kpi" [class.kpi-danger]="summaryReport?.totalMissing > 0">
-          <span class="kpi-value">{{ summaryReport?.totalMissing }}</span>
-          <span class="kpi-label">slots sem dados</span>
-        </div>
-        <div class="summary-kpi" [class.kpi-danger]="summaryReport?.overallLossPct > 0">
-          <span class="kpi-value">{{ summaryReport?.overallLossPct }}%</span>
-          <span class="kpi-label">perda geral</span>
-        </div>
-      </div>
-
-      <!-- Conteúdo principal: lista + gráfico (side-by-side no expand) -->
-      <div class="summary-main-content">
-
-        <!-- Lista por device -->
-        <div class="summary-device-list">
-          <div
-            *ngFor="let dev of (summaryReport?.devices || [])"
-            [class]="'summary-device-row' + (dev.lossClass ? ' sdr-' + dev.lossClass : '')"
-          >
-            <div class="sdr-header" (click)="dev.expanded = !dev.expanded">
-              <span class="sdr-toggle">{{ dev.expanded ? '−' : '+' }}</span>
-              <span class="sdr-label">{{ dev.label }}</span>
-              <span class="sdr-pct" [class.sdr-ok]="dev.lossPct === 0">
-                {{ dev.lossPct === 0 ? 'OK' : dev.lossPct + '% perda' }}
-              </span>
-              <span class="sdr-counts">{{ dev.missingSlots }}/{{ dev.totalSlots }} slots</span>
-            </div>
-            <div class="sdr-detail" *ngIf="dev.expanded && dev.missingByDay?.length > 0">
-              <div class="sdr-day-row" *ngFor="let d of dev.missingByDay">
-                <span class="sdr-day">{{ d.day }}</span>
-                <span class="sdr-slots">{{ d.slots.join(', ') }}</span>
-              </div>
-            </div>
-            <div class="sdr-detail sdr-no-loss" *ngIf="dev.expanded && dev.missingByDay?.length === 0">
-              Nenhuma perda neste período.
-            </div>
-          </div>
-        </div>
-
-        <!-- Gráfico de barras empilhadas -->
-        <div class="summary-chart-section">
-          <div class="chart-legend">
-            <button class="chart-legend-item" [class.legend-inactive]="!chartShow?.real" (click)="toggleChartSeries('real')">
-              <span class="legend-dot" style="background:#22c55e"></span>Leituras reais
-            </button>
-            <button class="chart-legend-item" [class.legend-inactive]="!chartShow?.equal" (click)="toggleChartSeries('equal')">
-              <span class="legend-dot" style="background:#f59e0b"></span>Lacunas (=)
-            </button>
-            <button class="chart-legend-item" [class.legend-inactive]="!chartShow?.missing" (click)="toggleChartSeries('missing')">
-              <span class="legend-dot" style="background:#ef4444"></span>Sem dados
-            </button>
-          </div>
-          <div class="chart-area">
-            <div class="chart-bars-scroll">
-              <div class="chart-bars-inner">
-                <div class="chart-bar-col" *ngFor="let dev of (summaryReport?.devices || [])">
-                  <div class="bar-label" [title]="dev.label">{{ dev.label }}</div>
-                  <div class="bar-stack">
-                    <div class="bar-seg bar-real" *ngIf="chartShow?.real && dev.barRealPct > 0"
-                         [style.width.%]="dev.barRealPct"
-                         [title]="dev.realSlots + ' leituras reais'"></div>
-                    <div class="bar-seg bar-equal" *ngIf="chartShow?.equal && dev.barEqualPct > 0"
-                         [style.width.%]="dev.barEqualPct"
-                         [title]="dev.equalSignSlots + ' lacunas (=)'"></div>
-                    <div class="bar-seg bar-missing" *ngIf="chartShow?.missing && dev.barMissingPct > 0"
-                         [style.width.%]="dev.barMissingPct"
-                         [title]="dev.missingSlots + ' slots sem dados'"></div>
-                  </div>
-                  <div class="bar-count">{{ dev.realSlots }}/{{ dev.totalSlots }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
+  <!-- Modal de Resumo da Consulta — shell estático, conteúdo gerado por JS (padrão TELEMETRY_INFO) -->
+  <div
+    id="tbtv5-sm-bd"
+    style="display: none"
+    onclick="window.tbtv5_closeSummaryModal && window.tbtv5_closeSummaryModal()"
+  ></div>
+  <div id="tbtv5-sm" style="display: none"><div id="tbtv5-sm-inner"></div></div>
 </div>

@@ -1,5 +1,5 @@
 /* jshint esversion: 11 */
-/* global self, _, alert, document, window, requestAnimationFrame */
+/* global self, _, document, window, requestAnimationFrame */
 
 /**
  * Tabela_Temp_V5 Controller v3.1.1 - HYBRID
@@ -22,8 +22,13 @@ let adminPasswordInput = '';
 let interpolationEnabled = false;
 
 // Clamp limits for real sensor readings (admin-configurable)
-let clampMin = 17;
-let clampMax = 25;
+// Defaults / fallback — overridden by SERVER_SCOPE attributes tempClampMin / tempClampMax
+const CLAMP_DEFAULT_MIN = 17;
+const CLAMP_DEFAULT_MAX = 25;
+let clampMin = CLAMP_DEFAULT_MIN;
+let clampMax = CLAMP_DEFAULT_MAX;
+let _clampFromCustomer = false; // true = loaded from SERVER_SCOPE; false = using defaults
+let _customerSlug = 'hospital'; // slug do nome do cliente, preenchido no _loadClampAttributes
 
 // Central ID → friendly name map (for error banner display)
 const CENTRAL_NAMES = {
@@ -45,7 +50,6 @@ function normalizeCentralId(centralId) {
   }
   return centralId;
 }
-const VIEW_MODES = { LIST: 'list', CARD: 'card' };
 const LOADING_STATES = {
   AWAITING_DATA: 'Aguardando dados do Gateway...',
   CONSOLIDATING: 'Dados recebidos, consolidando...',
@@ -53,9 +57,9 @@ const LOADING_STATES = {
   READY: 'Relatório pronto!',
 };
 
-let currentViewMode = VIEW_MODES.CARD; // default premium
 let startDate = null,
   endDate = null;
+let _dateRangePicker = null;
 let deviceList = [],
   deviceNameLabelMap = {};
 
@@ -80,8 +84,6 @@ const ENABLE_SERVER_SCOPE_SAVE = false; // mude para false para não salvar no S
 // ---- Guards de chamada ----
 let _inFlight = false;
 let _lastQueryKey = null;
-let _dateChangeTimer = null;
-const DATE_DEBOUNCE_MS = 200;
 
 // exposure Angular scope helpers
 function setPremiumLoading(on, status, progress) {
@@ -135,6 +137,92 @@ async function saveServerAttributeForDevice(entityId, key, value) {
     console.log('[ATTR] SERVER_SCOPE salvo:', entityId, key);
   } catch (err) {
     console.error('[ATTR] Falha ao salvar SERVER_SCOPE:', err);
+  }
+}
+
+// Carrega tempClampMin / tempClampMax do SERVER_SCOPE do cliente
+async function _loadClampAttributes() {
+  try {
+    const entityId = self.ctx?.currentUser?.customerId;
+    if (!entityId?.id) {
+      _clampFromCustomer = false;
+      return;
+    }
+    // Busca nome do cliente para slug dos arquivos exportados
+    try {
+      const customer = await getHttp()
+        .get('/api/customer/' + entityId.id)
+        .toPromise();
+      if (customer?.title) {
+        _customerSlug =
+          customer.title
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, '_')
+            .replace(/[^a-z0-9_]/g, '') || 'hospital';
+      }
+    } catch (_) {
+      /* mantém fallback 'hospital' */
+    }
+    const attrSvc = getAttributeService();
+    const types = getTypes();
+    const attrs = await attrSvc
+      .getEntityAttributes(entityId, types.attributesScope.server.value, ['tempClampMin', 'tempClampMax'])
+      .toPromise();
+    const minAttr = (attrs || []).find(function (a) {
+      return a.key === 'tempClampMin';
+    });
+    const maxAttr = (attrs || []).find(function (a) {
+      return a.key === 'tempClampMax';
+    });
+    const hasMin = minAttr != null && minAttr.value != null;
+    const hasMax = maxAttr != null && maxAttr.value != null;
+    if (hasMin || hasMax) {
+      if (hasMin) clampMin = parseFloat(minAttr.value);
+      if (hasMax) clampMax = parseFloat(maxAttr.value);
+      _clampFromCustomer = true;
+      console.log('[CLAMP] Carregado de SERVER_SCOPE:', clampMin, clampMax);
+    } else {
+      clampMin = CLAMP_DEFAULT_MIN;
+      clampMax = CLAMP_DEFAULT_MAX;
+      _clampFromCustomer = false;
+      console.log('[CLAMP] Sem atributos no SERVER_SCOPE, usando defaults:', clampMin, clampMax);
+    }
+    self.ctx.$scope.clampMin = clampMin;
+    self.ctx.$scope.clampMax = clampMax;
+    self.ctx.$scope.clampFromCustomer = _clampFromCustomer;
+    self.ctx.detectChanges();
+  } catch (e) {
+    console.warn('[CLAMP] Falha ao carregar, usando defaults:', e);
+    _clampFromCustomer = false;
+    self.ctx.$scope.clampFromCustomer = false;
+    self.ctx.detectChanges();
+  }
+}
+
+// Salva tempClampMin / tempClampMax no SERVER_SCOPE do cliente
+async function _saveClampAttributes() {
+  try {
+    const entityId = self.ctx?.currentUser?.customerId;
+    if (!entityId?.id) {
+      console.warn('[CLAMP] Sem entidade de cliente para salvar');
+      return;
+    }
+    const attrSvc = getAttributeService();
+    const types = getTypes();
+    await attrSvc
+      .saveEntityAttributes(entityId, types.attributesScope.server.value, [
+        { key: 'tempClampMin', value: clampMin },
+        { key: 'tempClampMax', value: clampMax },
+      ])
+      .toPromise();
+    _clampFromCustomer = true;
+    self.ctx.$scope.clampFromCustomer = true;
+    self.ctx.detectChanges();
+    console.log('[CLAMP] Salvo em SERVER_SCOPE:', clampMin, clampMax);
+  } catch (e) {
+    console.error('[CLAMP] Falha ao salvar SERVER_SCOPE:', e);
   }
 }
 
@@ -713,9 +801,18 @@ async function sendRPCTemp(bodiesPerCentral) {
 }
 
 // -------- Exportações (mantive seu PDF/CSV, só higienizei) --------
+function _buildExportFilename(ext) {
+  const _fd = (d) =>
+    `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+  const now = new Date();
+  const periodo = startDate && endDate ? `${_fd(startDate)}-a-${_fd(endDate)}` : 'sem-periodo';
+  const emitido = `${_fd(now)}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+  return `relatorio_${_customerSlug}_temperatura_periodo-${periodo}-emitido-em-${emitido}.${ext}`;
+}
+
 function exportToCSV(rowsInput) {
   if (!rowsInput?.length) {
-    alert('Erro: Nenhum dado para exportar.');
+    openErrorModal('Sem dados', 'Não há dados para exportar.');
     return;
   }
   const rows = [['Nome do Dispositivo', 'Temperatura (°C)', 'Data']];
@@ -734,11 +831,53 @@ function exportToCSV(rowsInput) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const _fd = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-  const _now = new Date();
-  const _periodo = (startDate && endDate) ? `${_fd(startDate)}-a-${_fd(endDate)}` : 'sem-periodo';
-  const _emitido = `${_fd(_now)}-${String(_now.getHours()).padStart(2,'0')}-${String(_now.getMinutes()).padStart(2,'0')}`;
-  a.download = `dispositivo_temperatura_horario-Periodo-${_periodo}-emitido-em-${_emitido}.csv`;
+  a.download = _buildExportFilename('csv');
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 1000);
+}
+
+function exportToXLS(rowsInput) {
+  if (!rowsInput?.length) {
+    openErrorModal('Sem dados', 'Não há dados para exportar.');
+    return;
+  }
+  const rows = [['Nome do Dispositivo', 'Temperatura (°C)', 'Data']];
+  rowsInput.forEach((r) => {
+    let temp = r.temperature;
+    if (temp !== '=' && temp !== '-' && temp != null) {
+      const num = parseFloat(temp);
+      if (!isNaN(num)) temp = num.toFixed(2).replace('.', ',');
+    }
+    rows.push([r.deviceName, temp, r.reading_date]);
+  });
+  const esc = (v) =>
+    String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  const xmlRows = rows
+    .map(
+      (row) =>
+        '<Row>' +
+        row.map((c) => '<Cell><Data ss:Type="String">' + esc(c) + '</Data></Cell>').join('') +
+        '</Row>'
+    )
+    .join('');
+  const xml =
+    '<?xml version="1.0"?>' +
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+    '<Worksheet ss:Name="Temperaturas"><Table>' +
+    xmlRows +
+    '</Table></Worksheet></Workbook>';
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = _buildExportFilename('xls');
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
@@ -752,7 +891,7 @@ function exportToPDF(data) {
   const pageWidth = doc.internal.pageSize.width;
   const purple = [92, 48, 125];
   if (!data?.length) {
-    alert('Erro: Nenhum dado para exportar.');
+    openErrorModal('Sem dados', 'Não há dados para exportar.');
     return;
   }
 
@@ -815,7 +954,7 @@ function exportToPDF(data) {
     y += h;
   });
 
-  doc.save('registro_temperatura.pdf');
+  doc.save(_buildExportFilename('pdf'));
 }
 
 // -------- Helper para dividir datas em chunks de N dias (trabalha com timezone Brasil) --------
@@ -863,7 +1002,7 @@ function createDateChunks(startDate, endDate, chunkSizeDays = 5) {
 // -------- Data pipeline principal --------
 async function getData() {
   if (!startDate || !endDate) {
-    alert('Por favor, selecione datas de início e fim.');
+    openErrorModal('Período não selecionado', 'Selecione as datas de início e fim para gerar o relatório.');
     return;
   }
 
@@ -875,10 +1014,11 @@ async function getData() {
   // Use selected devices from filter (or all if none selected)
   const selectedDevices = getSelectedDevices();
   if (selectedDevices.length === 0) {
-    alert('Por favor, selecione ao menos um ambiente para gerar o relatório.');
+    openErrorModal('Nenhum ambiente', 'Selecione ao menos um ambiente para gerar o relatório.');
     return;
   }
   console.log('[getData] Devices selecionados:', selectedDevices.length, '/', deviceList.length);
+  self.ctx.$scope.hasQueried = true;
 
   // =====================================================
   // NORMALIZAÇÃO UTC - v2 (2026-02-11)
@@ -1095,7 +1235,9 @@ async function getData() {
 
         for (const devName of unionDevices) {
           const arr = (byDevice[devName] || [])
-            .filter((r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '' && Number(r.value) !== 0)
+            .filter(
+              (r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '' && Number(r.value) !== 0
+            )
             .sort((a, b) => new Date(a.time_interval) - new Date(b.time_interval));
 
           if (arr.length) devicesSeen[devName] = true;
@@ -1219,7 +1361,7 @@ async function getData() {
     }, 250);
   } catch (err) {
     console.error('Erro ao carregar dados:', err);
-    alert('Erro ao carregar os dados.');
+    openErrorModal('Erro ao carregar', 'Ocorreu um erro ao carregar os dados. Tente novamente.');
     setPremiumLoading(false);
     self.ctx.$scope.loading = false;
     // Importante: permite nova tentativa
@@ -1270,11 +1412,28 @@ function toggleViewMode(mode) {
 
 // -------- Util de data picker --------
 function handleStartDateChange(event) {
-  startDate = event?.value || null;
+  startDate = event?.value || null; // kept for backward-compat (no longer called from template)
 }
 
 function handleEndDateChange(event) {
-  endDate = event?.value || null;
+  endDate = event?.value || null; // kept for backward-compat
+}
+
+function clearDateRange() {
+  startDate = null;
+  endDate = null;
+  // Clear the picker input display directly (setDates rejects empty strings)
+  var pickerInput = (
+    self.ctx.$container && self.ctx.$container[0] ? self.ctx.$container[0] : document
+  ).querySelector('input[name="startDatetimes"]');
+  if (pickerInput) pickerInput.value = '';
+  const s = self.ctx.$scope;
+  s.dados = [];
+  s.groupedData = {};
+  s.totalReadings = 0;
+  s.totalDevices = 0;
+  s.hasQueried = false;
+  self.ctx.detectChanges();
 }
 
 // -------- Device Filter Functions --------
@@ -1360,12 +1519,12 @@ function getSelectedDevices() {
 
 function applyDateRange() {
   if (!startDate || !endDate) {
-    alert('Por favor, selecione ambas as datas (início e fim).');
+    openErrorModal('Período não selecionado', 'Selecione as datas de início e fim para gerar o relatório.');
     return;
   }
   const selectedDevices = getSelectedDevices();
   if (selectedDevices.length === 0) {
-    alert('Por favor, selecione ao menos um ambiente para gerar o relatório.');
+    openErrorModal('Nenhum ambiente', 'Selecione ao menos um ambiente para gerar o relatório.');
     return;
   }
   getData();
@@ -1383,6 +1542,21 @@ function openBlockModal(title, msg) {
 function closeBlockModal() {
   const s = self.ctx.$scope;
   s.isBlocking = false;
+  self.ctx.detectChanges();
+}
+
+// -------- Modal de erro de validação --------
+function openErrorModal(title, msg) {
+  const s = self.ctx.$scope;
+  s.errorTitle = title;
+  s.errorMessage = msg;
+  s.isErrorModal = true;
+  self.ctx.detectChanges();
+}
+
+function closeErrorModal() {
+  const s = self.ctx.$scope;
+  s.isErrorModal = false;
   self.ctx.detectChanges();
 }
 
@@ -1485,9 +1659,26 @@ self.onInit = function () {
 
   // Bindings de export
   self.ctx.$scope.downloadPDF = () =>
-    self.ctx.$scope.dados?.length ? exportToPDF(self.ctx.$scope.dados) : alert('Sem dados para exportar.');
+    self.ctx.$scope.dados?.length
+      ? exportToPDF(self.ctx.$scope.dados)
+      : openErrorModal('Sem dados', 'Não há dados para exportar.');
   self.ctx.$scope.downloadCSV = () =>
-    self.ctx.$scope.dados?.length ? exportToCSV(self.ctx.$scope.dados) : alert('Sem dados para exportar.');
+    self.ctx.$scope.dados?.length
+      ? exportToCSV(self.ctx.$scope.dados)
+      : openErrorModal('Sem dados', 'Não há dados para exportar.');
+
+  window.tbtv5_exportPDF = function () {
+    const d = self.ctx.$scope.dados;
+    d?.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+  };
+  window.tbtv5_exportXLS = function () {
+    const d = self.ctx.$scope.dados;
+    d?.length ? exportToXLS(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+  };
+  window.tbtv5_exportCSV = function () {
+    const d = self.ctx.$scope.dados;
+    d?.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+  };
 
   // RPC connection errors (exibidos no banner premium de indisponibilidade)
   self.ctx.$scope.rpcConnectionErrors = [];
@@ -1501,6 +1692,50 @@ self.onInit = function () {
   self.ctx.$scope.handleStartDateChange = handleStartDateChange;
   self.ctx.$scope.handleEndDateChange = handleEndDateChange;
   self.ctx.$scope.applyDateRange = applyDateRange;
+  self.ctx.$scope.clearDateRange = clearDateRange;
+
+  // Inicializa MyIOLibrary.createDateRangePicker após DOM renderizar
+  setTimeout(function () {
+    var input = (
+      self.ctx.$container && self.ctx.$container[0] ? self.ctx.$container[0] : document
+    ).querySelector('input[name="startDatetimes"]');
+
+    if (!input) {
+      console.warn('[DatePicker] input[name="startDatetimes"] não encontrado');
+      return;
+    }
+    if (!window.MyIOLibrary?.createDateRangePicker) {
+      console.warn('[DatePicker] MyIOLibrary.createDateRangePicker não disponível');
+      return;
+    }
+
+    // Default: primeiro dia do mês atual até hoje
+    var _now = new Date();
+    var _firstOfMonth = new Date(_now.getFullYear(), _now.getMonth(), 1);
+    var _defaultStart = _firstOfMonth.toISOString().slice(0, 10);
+    var _defaultEnd = _now.toISOString().slice(0, 10);
+    startDate = _firstOfMonth;
+    endDate = _now;
+
+    window.MyIOLibrary.createDateRangePicker(input, {
+      maxRangeDays: 92,
+      includeTime: false,
+      presetStart: _defaultStart,
+      presetEnd: _defaultEnd,
+      onApply: function (result) {
+        startDate = result.startISO ? new Date(result.startISO) : null;
+        endDate = result.endISO ? new Date(result.endISO) : null;
+        self.ctx.detectChanges();
+      },
+    })
+      .then(function (picker) {
+        _dateRangePicker = picker;
+        console.log('[DatePicker] Inicializado com sucesso');
+      })
+      .catch(function (err) {
+        console.error('[DatePicker] Falha ao inicializar:', err);
+      });
+  }, 200);
 
   // Device filter bindings
   self.ctx.$scope.toggleDeviceFilter = toggleDeviceFilter;
@@ -1514,6 +1749,7 @@ self.onInit = function () {
   initDeviceSelectionList();
 
   // View default: card view recolhido
+  self.ctx.$scope.hasQueried = false;
   self.ctx.$scope.isCardView = true;
   self.ctx.$scope.groupedData = {};
   self.ctx.$scope.expandedDevices = {};
@@ -1562,23 +1798,8 @@ self.onInit = function () {
     if (pct === 0) return '';
     if (pct <= 0.05) return 'loss-low';
     if (pct <= 0.15) return 'loss-moderate';
-    if (pct <= 0.30) return 'loss-high';
+    if (pct <= 0.3) return 'loss-high';
     return 'loss-critical';
-  };
-
-  self.ctx.$scope.summaryModalOpen = false;
-  self.ctx.$scope.summaryReport = { totalDevices: 0, totalReal: 0, totalMissing: 0, overallLossPct: 0, devices: [], period: '', expectedCount: 0 };
-  self.ctx.$scope.summaryModalExpanded = false;
-  self.ctx.$scope.chartShow = { real: true, equal: true, missing: true };
-
-  self.ctx.$scope.toggleSummaryModalExpand = function () {
-    self.ctx.$scope.summaryModalExpanded = !self.ctx.$scope.summaryModalExpanded;
-    self.ctx.detectChanges();
-  };
-
-  self.ctx.$scope.toggleChartSeries = function (key) {
-    self.ctx.$scope.chartShow[key] = !self.ctx.$scope.chartShow[key];
-    self.ctx.detectChanges();
   };
 
   self.ctx.$scope.openSummaryModal = function () {
@@ -1593,10 +1814,22 @@ self.onInit = function () {
     const expectedSet = new Set();
     if (startDate && endDate) {
       const gridStartMs = Date.UTC(
-        startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 3, 0, 0, 0
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate(),
+        3,
+        0,
+        0,
+        0
       );
       const gridEndRaw = Date.UTC(
-        endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 2, 59, 59, 999
+        endDate.getFullYear(),
+        endDate.getMonth(),
+        endDate.getDate() + 1,
+        2,
+        59,
+        59,
+        999
       );
       const gridEndMs = Math.floor(gridEndRaw / HALF_HOUR_MS) * HALF_HOUR_MS;
       for (let t = gridStartMs; t <= gridEndMs; t += HALF_HOUR_MS) expectedSet.add(t);
@@ -1606,26 +1839,24 @@ self.onInit = function () {
     // helpers BRT
     function msBRT(ms) {
       const d = new Date(ms - 3 * 60 * 60 * 1000);
-      return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
     }
     function dayBRT(ms) {
       const d = new Date(ms - 3 * 60 * 60 * 1000);
-      return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+      return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
     }
     function lossClass(pct) {
-      if (pct === 0)   return '';
-      if (pct <= 5)    return 'loss-low';
-      if (pct <= 15)   return 'loss-moderate';
-      if (pct <= 30)   return 'loss-high';
+      if (pct === 0) return '';
+      if (pct <= 5) return 'loss-low';
+      if (pct <= 15) return 'loss-moderate';
+      if (pct <= 30) return 'loss-high';
       return 'loss-critical';
     }
 
-    const CHART_H = 200;
-
     function fmtDate(d) {
-      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     }
-    const period = (startDate && endDate) ? `${fmtDate(startDate)} → ${fmtDate(endDate)}` : '';
+    const period = startDate && endDate ? `${fmtDate(startDate)} → ${fmtDate(endDate)}` : '';
 
     // Agrupa allData por deviceName (label)
     const byDev = {};
@@ -1634,7 +1865,8 @@ self.onInit = function () {
       byDev[r.deviceName].push(r);
     }
 
-    let totalReal = 0, totalMissing = 0;
+    let totalReal = 0,
+      totalMissing = 0;
     const devices = [];
 
     for (const [devLabel, arr] of Object.entries(byDev)) {
@@ -1671,7 +1903,7 @@ self.onInit = function () {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([day, slots]) => ({ day, slots }));
 
-      totalReal    += realCount;
+      totalReal += realCount;
       totalMissing += missingCount;
 
       devices.push({
@@ -1694,29 +1926,29 @@ self.onInit = function () {
     devices.sort((a, b) => b.lossPct - a.lossPct);
 
     const totalSlots = expectedCount * devices.length;
-    const overallLossPct = totalSlots
-      ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1))
-      : 0;
+    const overallLossPct = totalSlots ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1)) : 0;
 
-    const yLabels = [100, 75, 50, 25, 0].map((pct) => ({
-      label: Math.round(expectedCount * pct / 100),
-      pct,
-    }));
-
-    s.summaryReport = {
-      totalDevices: devices.length, totalReal, totalMissing, totalSlots,
-      overallLossPct, devices, period, expectedCount, yLabels,
+    const report = {
+      totalDevices: devices.length,
+      totalReal,
+      totalMissing,
+      totalSlots,
+      overallLossPct,
+      devices,
+      period,
+      expectedCount,
+      clampMin,
+      clampMax,
+      clampFromCustomer: _clampFromCustomer,
     };
-    s.summaryModalOpen = true;
-    self.ctx.detectChanges();
-    // Patch transform ancestors so position:fixed is relative to viewport, not widget container
-    _patchTransformAncestors();
+    _smState.expanded = false;
+    _smState.chartShow = { real: true, equal: true, missing: true };
+    _smState.devices = devices;
+    _smOpenModal(report);
   };
 
   self.ctx.$scope.closeSummaryModal = function () {
-    _restoreTransformAncestors();
-    self.ctx.$scope.summaryModalOpen = false;
-    self.ctx.detectChanges();
+    _smCloseModal();
   };
 
   // Overlay inicial
@@ -1729,6 +1961,13 @@ self.onInit = function () {
   self.ctx.$scope.isBlocking = false;
   self.ctx.$scope.openBlockModal = openBlockModal;
   self.ctx.$scope.closeBlockModal = closeBlockModal;
+
+  // Modal de erro de validação
+  self.ctx.$scope.isErrorModal = false;
+  self.ctx.$scope.errorTitle = '';
+  self.ctx.$scope.errorMessage = '';
+  self.ctx.$scope.openErrorModal = openErrorModal;
+  self.ctx.$scope.closeErrorModal = closeErrorModal;
 
   // Admin mode
   self.ctx.$scope.adminMode = adminMode;
@@ -1751,7 +1990,7 @@ self.onInit = function () {
       adminVerified = true;
       self.ctx.$scope.adminVerified = true;
     } else {
-      alert('Senha inválida.');
+      openErrorModal('Senha inválida', 'A senha informada está incorreta. Tente novamente.');
     }
     self.ctx.detectChanges();
   };
@@ -1772,12 +2011,26 @@ self.onInit = function () {
 
   self.ctx.$scope.clampMin = clampMin;
   self.ctx.$scope.clampMax = clampMax;
+  self.ctx.$scope.clampFromCustomer = _clampFromCustomer;
+  self.ctx.$scope.clampSaveStatus = ''; // '' | 'saving' | 'saved'
+  self.ctx.$scope.saveClampSettings = async function () {
+    self.ctx.$scope.clampSaveStatus = 'saving';
+    self.ctx.detectChanges();
+    await _saveClampAttributes();
+    self.ctx.$scope.clampSaveStatus = 'saved';
+    self.ctx.detectChanges();
+    setTimeout(function () {
+      self.ctx.$scope.clampSaveStatus = '';
+      self.ctx.detectChanges();
+    }, 2500);
+  };
   self.ctx.$scope.setClampMin = function (evt) {
     const v = parseFloat(evt?.target?.value);
     if (!isNaN(v)) {
       clampMin = v;
       self.ctx.$scope.clampMin = v;
       self.ctx.detectChanges();
+      _saveClampAttributes();
     }
   };
   self.ctx.$scope.setClampMax = function (evt) {
@@ -1786,34 +2039,636 @@ self.onInit = function () {
       clampMax = v;
       self.ctx.$scope.clampMax = v;
       self.ctx.detectChanges();
+      _saveClampAttributes();
     }
   };
 
   self.ctx.detectChanges();
+
+  // Carrega limites de clamp do SERVER_SCOPE do cliente (fire-and-forget)
+  _loadClampAttributes();
 };
 
-// Temporarily remove CSS transforms from widget ancestors so position:fixed reaches viewport
-var _savedTransforms = [];
-function _patchTransformAncestors() {
-  _savedTransforms = [];
-  // Start from the rendered modal element and walk up — guaranteed to exist after detectChanges()
-  var modal = document.querySelector('.summary-modal');
-  if (!modal) return;
-  var el = modal.parentElement;
-  while (el && el !== document.body) {
-    var cs = window.getComputedStyle(el);
-    var t = cs.transform;
-    if (t && t !== 'none' && t !== 'matrix(1, 0, 0, 1, 0, 0)') {
-      _savedTransforms.push({ el: el, prop: 'transform', val: el.style.transform });
-      el.style.transform = 'none';
-    }
-    el = el.parentElement;
+// ── Summary Modal — pure JS, padrão TELEMETRY_INFO ──────────────────────────
+var _smState = {
+  expanded: false,
+  chartShow: { real: true, equal: true, missing: true },
+  devices: [],
+  report: null,
+  filterText: '',
+  filterSel: null,
+  activeFilterBtn: 'all',
+};
+
+function _smInjectCSS() {
+  var existing = document.getElementById('tbtv5-sm-styles');
+  if (existing) existing.remove(); // always refresh to pick up latest styles
+  var s = document.createElement('style');
+  s.id = 'tbtv5-sm-styles';
+  s.textContent = [
+    '#tbtv5-sm-bd{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2147483646}',
+    '#tbtv5-sm{position:fixed;z-index:2147483647;background:#fff;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;font-size:14px;box-sizing:border-box}',
+    '#tbtv5-sm *{box-sizing:border-box}',
+    '.summary-modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#5c307d;color:#fff;font-weight:600;font-size:15px;gap:8px;flex-shrink:0}',
+    '.summary-header-left{display:flex;align-items:center;gap:10px;flex:1;overflow:hidden}',
+    '.summary-period{font-size:12px;font-weight:400;opacity:.85;white-space:nowrap;background:rgba(255,255,255,.15);border-radius:6px;padding:2px 8px}',
+    '.summary-header-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}',
+    '.summary-modal-expand{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;opacity:.75;line-height:1;padding:2px 6px}',
+    '.summary-modal-expand:hover{opacity:1}',
+    '.summary-modal-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;opacity:.8;line-height:1;padding:2px 6px}',
+    '.summary-modal-close:hover{opacity:1}',
+    '.summary-modal-body{flex:1;min-height:0;padding:16px 20px;overflow-y:auto;display:block}',
+    '.summary-overall{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}',
+    '.summary-kpi{display:flex;flex-direction:column;align-items:center;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 8px}',
+    '.summary-kpi.kpi-danger{background:#fff5f5;border-color:#fca5a5}',
+    '.kpi-value{font-size:22px;font-weight:700;color:#111827;line-height:1.1}',
+    '.kpi-label{font-size:11px;color:#6b7280;margin-top:4px;text-align:center}',
+    '.summary-main-content{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}',
+    '.summary-device-list{display:flex;flex-direction:column;gap:4px}',
+    '.summary-device-row{border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;flex-shrink:0}',
+    '.summary-device-row.sdr-loss-low{border-color:#fde68a}',
+    '.summary-device-row.sdr-loss-moderate{border-color:#fdba74}',
+    '.summary-device-row.sdr-loss-high{border-color:#fca5a5}',
+    '.summary-device-row.sdr-loss-critical{border-color:#f87171}',
+    '.sdr-header{display:flex;align-items:center;gap:8px;padding:10px 14px;min-height:44px;cursor:pointer;background:#fafafa;user-select:none;font-size:13px}',
+    '.sdr-header:hover{background:#f3f4f6}',
+    '.sdr-toggle{font-weight:700;color:#5c307d;width:14px;flex-shrink:0;text-align:center}',
+    '.sdr-label{flex:1;font-weight:500;color:#111827}',
+    '.sdr-pct{font-size:11px;font-weight:600;color:#ef4444;white-space:nowrap;flex-shrink:0}',
+    '.sdr-pct.sdr-ok{color:#16a34a}',
+    '.sdr-counts{font-size:10px;color:#9ca3af;white-space:nowrap;flex-shrink:0}',
+    '.sdr-detail{padding:8px 12px 10px 36px;background:#fff;border-top:1px solid #f3f4f6;font-size:12px}',
+    '.sdr-day-row{display:flex;gap:10px;padding:3px 0;border-bottom:1px dashed #f3f4f6;align-items:baseline}',
+    '.sdr-day-row:last-child{border-bottom:none}',
+    '.sdr-day{font-weight:600;color:#374151;width:40px;flex-shrink:0}',
+    '.sdr-slots{color:#6b7280;line-height:1.5}',
+    '.sdr-no-loss{color:#16a34a;font-style:italic}',
+    '.summary-chart-section{display:flex;flex-direction:column;gap:10px}',
+    '.chart-legend{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;padding-bottom:4px}',
+    '.chart-legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#374151;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:500;transition:opacity .15s}',
+    '.chart-legend-item:hover{border-color:#9ca3af}',
+    '.chart-legend-item.legend-inactive{opacity:.4}',
+    '.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}',
+    '.chart-area{display:flex;flex-direction:column}',
+    '.chart-bars-scroll{overflow-y:auto;overflow-x:hidden}',
+    '.chart-bars-inner{display:flex;flex-direction:column;gap:5px;padding:4px 0}',
+    '.chart-bar-col{display:flex;align-items:center;gap:8px;min-height:22px}',
+    '.bar-label{width:150px;flex-shrink:0;font-size:11px;color:#374151;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bar-stack{flex:1;height:18px;display:flex;flex-direction:row;border-radius:3px;overflow:hidden;background:#f3f4f6}',
+    '.bar-seg{height:100%;flex-shrink:0}',
+    '.bar-real{background:#22c55e}',
+    '.bar-equal{background:#f59e0b}',
+    '.bar-missing{background:#ef4444}',
+    '.bar-count{flex-shrink:0;font-size:10px;color:#9ca3af;white-space:nowrap;width:60px}',
+    /* clamp status badge */
+    '.sm-clamp-badge{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;border:1px solid}',
+    '.sm-clamp-custom{background:#f0fdf4;border-color:#86efac;color:#166534}',
+    '.sm-clamp-fallback{background:#fefce8;border-color:#fde047;color:#854d0e}',
+    '.sm-clamp-dot{font-size:13px;line-height:1;flex-shrink:0}',
+    '.sm-clamp-label{flex:1}',
+    '.sm-clamp-label strong{font-weight:600}',
+    '.sm-clamp-source{font-size:11px;opacity:.8;margin-left:4px}',
+    /* filter bar */
+    '.sm-filter-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0 10px}',
+    /* footer */
+    '.sm-modal-footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;background:#5c307d;border-top:1px solid rgba(255,255,255,.12);flex-shrink:0}',
+    '.sm-footer-brand{font-size:11px;color:rgba(255,255,255,.65);font-weight:500;letter-spacing:.02em;flex:1;text-align:center}',
+    '.sm-footer-exports{display:flex;gap:5px;align-items:center;flex-shrink:0}',
+    '.sm-export-btn{padding:4px 11px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}',
+    '.sm-export-btn:hover{background:rgba(255,255,255,.22)}',
+    '.sm-footer-close{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;font-size:12px;font-weight:600;padding:5px 16px;cursor:pointer;flex-shrink:0}',
+    '.sm-footer-close:hover{background:rgba(255,255,255,.25)}',
+    '.sm-filter-search{flex:1;min-width:140px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none;color:#111827}',
+    '.sm-filter-search:focus{border-color:#5c307d;box-shadow:0 0 0 2px rgba(92,48,125,.15)}',
+    '.sm-ms-wrap{position:relative}',
+    '.sm-ms-btn{padding:5px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;white-space:nowrap;display:flex;align-items:center;gap:4px;color:#374151}',
+    '.sm-ms-btn:hover{border-color:#9ca3af}',
+    '.sm-ms-dropdown{position:absolute;top:calc(100% + 4px);left:0;min-width:220px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;padding:4px 0}',
+    '.sm-ms-item{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12px;cursor:pointer;user-select:none;color:#374151}',
+    '.sm-ms-item:hover{background:#f9fafb}',
+    '.sm-ms-item input[type=checkbox]{accent-color:#5c307d;width:14px;height:14px;flex-shrink:0;cursor:pointer;margin:0}',
+    '.sm-filter-btn{padding:5px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;cursor:pointer;background:#f9fafb;white-space:nowrap;color:#374151}',
+    '.sm-filter-btn:hover{background:#f3f4f6;border-color:#9ca3af}',
+    '.sm-filter-btn.smfb-active{background:#5c307d;color:#fff;border-color:#5c307d}',
+    /* expanded layout */
+    '#tbtv5-sm.expanded .summary-modal-body{overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;gap:0;padding-bottom:16px}',
+    '#tbtv5-sm.expanded .summary-main-content{flex:1;min-height:0;flex-shrink:1;flex-direction:row;gap:16px;overflow:hidden}',
+    '#tbtv5-sm.expanded .summary-device-list{flex:0 0 360px;align-self:stretch;overflow-y:auto;border-right:1px solid #e5e7eb;padding-right:8px}',
+    '#tbtv5-sm.expanded .summary-chart-section{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}',
+    '#tbtv5-sm.expanded .chart-area{flex:1;min-height:0;overflow:hidden}',
+    '#tbtv5-sm.expanded .chart-bars-scroll{flex:1;overflow-y:auto;overflow-x:hidden}',
+  ].join('\n');
+  document.head.appendChild(s);
+}
+
+function _smEsc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _smBuildClampBadge(report) {
+  var custom = !!report.clampFromCustomer;
+  var cls = custom ? 'sm-clamp-custom' : 'sm-clamp-fallback';
+  var dot = custom ? '🟢' : '🟡';
+  var source = custom ? 'do cliente (SERVER_SCOPE)' : 'padrão — fallback';
+  return (
+    '<div class="sm-clamp-badge ' +
+    cls +
+    '">' +
+    '<span class="sm-clamp-dot">' +
+    dot +
+    '</span>' +
+    '<span class="sm-clamp-label">' +
+    'Limites de temperatura (clamp): <strong>' +
+    report.clampMin +
+    '°C – ' +
+    report.clampMax +
+    '°C</strong>' +
+    '<span class="sm-clamp-source">• ' +
+    source +
+    '</span>' +
+    '</span>' +
+    '</div>'
+  );
+}
+
+function _smBuildFilterBar(report) {
+  var total = report.devices.length;
+  var sel = _smState.filterSel;
+  var count = sel === null ? total : sel.size;
+  var msItems = report.devices
+    .map(function (dev, i) {
+      var checked = sel === null || sel.has(i);
+      return (
+        '<label class="sm-ms-item"><input type="checkbox" id="tbtv5-ms-cb-' +
+        i +
+        '" ' +
+        (checked ? 'checked' : '') +
+        ' onchange="window.tbtv5_toggleMsItem(' +
+        i +
+        ')"><span>' +
+        _smEsc(dev.label) +
+        '</span></label>'
+      );
+    })
+    .join('');
+  var ab = _smState.activeFilterBtn;
+  return (
+    '<div class="sm-filter-bar">' +
+    '<input class="sm-filter-search" id="tbtv5-fsearch" type="text" placeholder="🔍 Buscar dispositivo..." value="' +
+    _smEsc(_smState.filterText) +
+    '" oninput="window.tbtv5_filterInput(this.value)">' +
+    '<div class="sm-ms-wrap" id="tbtv5-ms-wrap">' +
+    '<button class="sm-ms-btn" id="tbtv5-ms-btn" onclick="window.tbtv5_toggleMsDropdown(event)"><span id="tbtv5-ms-label">Dispositivos (' +
+    count +
+    '/' +
+    total +
+    ')</span> ▾</button>' +
+    '<div class="sm-ms-dropdown" id="tbtv5-ms-dd" style="display:none">' +
+    msItems +
+    '</div>' +
+    '</div>' +
+    '<button id="tbtv5-fbtn-all"  class="sm-filter-btn' +
+    (ab === 'all' ? ' smfb-active' : '') +
+    '" onclick="window.tbtv5_filterAll()">Todos</button>' +
+    '<button id="tbtv5-fbtn-clr"  class="sm-filter-btn' +
+    (ab === 'clr' ? ' smfb-active' : '') +
+    '" onclick="window.tbtv5_filterClear()">Limpar</button>' +
+    '<button id="tbtv5-fbtn-loss" class="sm-filter-btn' +
+    (ab === 'loss' ? ' smfb-active' : '') +
+    '" onclick="window.tbtv5_filterOnlyLoss()">Só perdas</button>' +
+    '<button id="tbtv5-fbtn-ok"   class="sm-filter-btn' +
+    (ab === 'ok' ? ' smfb-active' : '') +
+    '" onclick="window.tbtv5_filterNoLoss()">Sem perdas</button>' +
+    '</div>'
+  );
+}
+
+function _smBuildHTML(report) {
+  var cs = _smState.chartShow;
+  var devRows = report.devices
+    .map(function (dev, i) {
+      var detailHTML =
+        dev.missingByDay.length === 0
+          ? '<div class="sdr-no-loss">Nenhuma perda neste período.</div>'
+          : dev.missingByDay
+              .map(function (d) {
+                return (
+                  '<div class="sdr-day-row"><span class="sdr-day">' +
+                  _smEsc(d.day) +
+                  '</span><span class="sdr-slots">' +
+                  _smEsc(d.slots.join(', ')) +
+                  '</span></div>'
+                );
+              })
+              .join('');
+      return (
+        '<div class="summary-device-row' +
+        (dev.lossClass ? ' sdr-' + dev.lossClass : '') +
+        '" id="tbtv5-dr-' +
+        i +
+        '">' +
+        '<div class="sdr-header" onclick="window.tbtv5_toggleDevice(' +
+        i +
+        ')">' +
+        '<span class="sdr-toggle" id="tbtv5-dt-' +
+        i +
+        '">+</span>' +
+        '<span class="sdr-label">' +
+        _smEsc(dev.label) +
+        '</span>' +
+        '<span class="sdr-pct' +
+        (dev.lossPct === 0 ? ' sdr-ok' : '') +
+        '">' +
+        (dev.lossPct === 0 ? 'OK' : dev.lossPct + '% perda') +
+        '</span>' +
+        '<span class="sdr-counts">' +
+        dev.missingSlots +
+        '/' +
+        dev.totalSlots +
+        ' slots</span>' +
+        '</div>' +
+        '<div class="sdr-detail" id="tbtv5-dd-' +
+        i +
+        '" style="display:none">' +
+        detailHTML +
+        '</div>' +
+        '</div>'
+      );
+    })
+    .join('');
+
+  var barRows = report.devices
+    .map(function (dev) {
+      var segs = '';
+      if (cs.real && dev.barRealPct > 0)
+        segs +=
+          '<div class="bar-seg bar-real"    style="width:' +
+          dev.barRealPct +
+          '%" title="' +
+          dev.realSlots +
+          ' leituras reais"></div>';
+      if (cs.equal && dev.barEqualPct > 0)
+        segs +=
+          '<div class="bar-seg bar-equal"   style="width:' +
+          dev.barEqualPct +
+          '%" title="' +
+          dev.equalSignSlots +
+          ' lacunas (=)"></div>';
+      if (cs.missing && dev.barMissingPct > 0)
+        segs +=
+          '<div class="bar-seg bar-missing" style="width:' +
+          dev.barMissingPct +
+          '%" title="' +
+          dev.missingSlots +
+          ' slots sem dados"></div>';
+      return (
+        '<div class="chart-bar-col">' +
+        '<div class="bar-label" title="' +
+        _smEsc(dev.label) +
+        '">' +
+        _smEsc(dev.label) +
+        '</div>' +
+        '<div class="bar-stack">' +
+        segs +
+        '</div>' +
+        '<div class="bar-count">' +
+        dev.realSlots +
+        '/' +
+        dev.totalSlots +
+        '</div>' +
+        '</div>'
+      );
+    })
+    .join('');
+
+  var kpiDanger = function (v) {
+    return v > 0 ? ' kpi-danger' : '';
+  };
+  return (
+    '<div class="summary-modal-header">' +
+    '<div class="summary-header-left">' +
+    '<span>Resumo da Consulta</span>' +
+    (report.period ? '<span class="summary-period">' + _smEsc(report.period) + '</span>' : '') +
+    '</div>' +
+    '<div class="summary-header-actions">' +
+    '<button class="summary-modal-expand" id="tbtv5-sm-expbtn" onclick="window.tbtv5_toggleExpand()" title="Expandir">⤢</button>' +
+    '<button class="summary-modal-close" onclick="window.tbtv5_closeSummaryModal()">✕</button>' +
+    '</div></div>' +
+    '<div class="summary-modal-body" onclick="window.tbtv5_closeMsDropdown(event)">' +
+    '<div class="summary-overall">' +
+    '<div class="summary-kpi"><span class="kpi-value" id="tbtv5-kpi-devs">' +
+    report.totalDevices +
+    '</span><span class="kpi-label">dispositivos</span></div>' +
+    '<div class="summary-kpi"><span class="kpi-value" id="tbtv5-kpi-real">' +
+    report.totalReal +
+    '</span><span class="kpi-label">leituras reais</span></div>' +
+    '<div class="summary-kpi' +
+    kpiDanger(report.totalMissing) +
+    '" id="tbtv5-kpi-miss-card"><span class="kpi-value" id="tbtv5-kpi-miss">' +
+    report.totalMissing +
+    '</span><span class="kpi-label">slots sem dados</span></div>' +
+    '<div class="summary-kpi' +
+    kpiDanger(report.overallLossPct) +
+    '" id="tbtv5-kpi-pct-card"><span class="kpi-value" id="tbtv5-kpi-pct">' +
+    report.overallLossPct +
+    '%</span><span class="kpi-label">perda geral</span></div>' +
+    '</div>' +
+    _smBuildFilterBar(report) +
+    '<div class="summary-main-content">' +
+    '<div class="summary-device-list">' +
+    devRows +
+    '</div>' +
+    '<div class="summary-chart-section">' +
+    '<div class="chart-legend">' +
+    '<button class="chart-legend-item" id="tbtv5-lg-real"    onclick="window.tbtv5_toggleSeries(\'real\')"   ><span class="legend-dot" style="background:#22c55e"></span>Leituras reais</button>' +
+    '<button class="chart-legend-item" id="tbtv5-lg-equal"   onclick="window.tbtv5_toggleSeries(\'equal\')"  ><span class="legend-dot" style="background:#f59e0b"></span>Lacunas (=)</button>' +
+    '<button class="chart-legend-item" id="tbtv5-lg-missing" onclick="window.tbtv5_toggleSeries(\'missing\')"><span class="legend-dot" style="background:#ef4444"></span>Sem dados</button>' +
+    '</div>' +
+    '<div class="chart-area"><div class="chart-bars-scroll"><div class="chart-bars-inner">' +
+    barRows +
+    '</div></div></div>' +
+    '</div></div></div>' +
+    '<footer class="sm-modal-footer">' +
+    '<div class="sm-footer-exports">' +
+    '<button class="sm-export-btn" onclick="window.tbtv5_exportPDF()">📄 PDF</button>' +
+    '<button class="sm-export-btn" onclick="window.tbtv5_exportXLS()">📊 XLS</button>' +
+    '<button class="sm-export-btn" onclick="window.tbtv5_exportCSV()">📋 CSV</button>' +
+    '</div>' +
+    '<span class="sm-footer-brand">MYIO Smart Hospital • Resumo de Temperatura</span>' +
+    '<button class="sm-footer-close" onclick="window.tbtv5_closeSummaryModal()">Fechar</button>' +
+    '</footer>'
+  );
+}
+
+function _smShowModal(modal, bd) {
+  var Z = '2147483647';
+  var exp = _smState.expanded;
+  if (bd) {
+    bd.style.setProperty('display', 'block', 'important');
+    bd.style.setProperty('position', 'fixed', 'important');
+    bd.style.setProperty('inset', '0', 'important');
+    bd.style.setProperty('z-index', String(Z - 1), 'important');
+    bd.style.setProperty('background', 'rgba(0,0,0,0.45)', 'important');
+  }
+  modal.style.setProperty('display', 'flex', 'important');
+  modal.style.setProperty('position', 'fixed', 'important');
+  modal.style.setProperty('z-index', Z, 'important');
+  modal.style.setProperty('background', '#fff', 'important');
+  modal.style.setProperty('flex-direction', 'column', 'important');
+  modal.style.setProperty('overflow', 'hidden', 'important');
+  modal.style.setProperty('box-shadow', '0 24px 60px rgba(0,0,0,0.22)', 'important');
+  if (exp) {
+    modal.style.setProperty('top', '0', 'important');
+    modal.style.setProperty('left', '0', 'important');
+    modal.style.setProperty('right', '0', 'important');
+    modal.style.setProperty('bottom', '0', 'important');
+    modal.style.setProperty('width', '100%', 'important');
+    modal.style.setProperty('height', '100vh', 'important');
+    modal.style.setProperty('transform', 'none', 'important');
+    modal.style.setProperty('border-radius', '0', 'important');
+    modal.classList.add('expanded');
+  } else {
+    modal.style.setProperty('top', '50%', 'important');
+    modal.style.setProperty('left', '50%', 'important');
+    modal.style.removeProperty('right');
+    modal.style.removeProperty('bottom');
+    modal.style.setProperty('width', 'min(1280px, 98vw)', 'important');
+    modal.style.setProperty('height', '80vh', 'important');
+    modal.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+    modal.style.setProperty('border-radius', '16px', 'important');
+    modal.classList.remove('expanded');
   }
 }
-function _restoreTransformAncestors() {
-  _savedTransforms.forEach(function (item) { item.el.style[item.prop] = item.val; });
-  _savedTransforms = [];
+
+function _smOpenModal(report) {
+  _smInjectCSS();
+  _smState.report = report;
+  _smState.filterText = '';
+  _smState.filterSel = null;
+  _smState.activeFilterBtn = 'all';
+  var modal = document.getElementById('tbtv5-sm');
+  var bd = document.getElementById('tbtv5-sm-bd');
+  if (!modal) return;
+  modal.innerHTML = _smBuildHTML(report); // direct children of #tbtv5-sm → flex layout works
+  // Move to body every time (same as TELEMETRY_INFO line 999)
+  document.body.appendChild(bd);
+  document.body.appendChild(modal);
+  _smShowModal(modal, bd);
 }
+
+function _smCloseModal() {
+  var modal = document.getElementById('tbtv5-sm');
+  var bd = document.getElementById('tbtv5-sm-bd');
+  if (modal) modal.style.setProperty('display', 'none', 'important');
+  if (bd) bd.style.setProperty('display', 'none', 'important');
+  _smState.expanded = false;
+}
+
+window.tbtv5_closeSummaryModal = _smCloseModal;
+
+/* ---- filter helpers ---- */
+function _smGetFilteredIndices() {
+  var report = _smState.report;
+  if (!report) return [];
+  var text = _smState.filterText;
+  var sel = _smState.filterSel;
+  return report.devices
+    .map(function (_, i) {
+      return i;
+    })
+    .filter(function (i) {
+      var d = report.devices[i];
+      if (text && d.label.toLowerCase().indexOf(text) === -1) return false;
+      if (sel !== null && !sel.has(i)) return false;
+      return true;
+    });
+}
+
+function _smUpdateMsLabel() {
+  var report = _smState.report;
+  var lbl = document.getElementById('tbtv5-ms-label');
+  if (!lbl || !report) return;
+  var total = report.devices.length;
+  var count = _smState.filterSel === null ? total : _smState.filterSel.size;
+  lbl.textContent = 'Dispositivos (' + count + '/' + total + ')';
+}
+
+function _smUpdateMsCheckboxes(mode) {
+  /* mode: true=check all, false=uncheck all, null=sync from filterSel */
+  var report = _smState.report;
+  if (!report) return;
+  report.devices.forEach(function (_, i) {
+    var cb = document.getElementById('tbtv5-ms-cb-' + i);
+    if (!cb) return;
+    if (mode === true) cb.checked = true;
+    else if (mode === false) cb.checked = false;
+    else cb.checked = _smState.filterSel !== null && _smState.filterSel.has(i);
+  });
+}
+
+function _smUpdateFiltered() {
+  var report = _smState.report;
+  if (!report) return;
+  var filtered = _smGetFilteredIndices();
+  var filtSet = new Set(filtered);
+
+  /* device rows */
+  report.devices.forEach(function (_, i) {
+    var row = document.getElementById('tbtv5-dr-' + i);
+    if (row) row.style.display = filtSet.has(i) ? '' : 'none';
+  });
+
+  /* chart bar rows — same order as report.devices */
+  var barCols = document.querySelectorAll('#tbtv5-sm .chart-bar-col');
+  barCols.forEach(function (el, i) {
+    el.style.display = filtSet.has(i) ? '' : 'none';
+  });
+
+  /* KPI recalculation */
+  var totalReal = 0,
+    totalMissing = 0,
+    totalEqual = 0;
+  filtered.forEach(function (i) {
+    var d = report.devices[i];
+    totalReal += d.realSlots || 0;
+    totalMissing += d.missingSlots || 0;
+    totalEqual += d.equalSignSlots || 0;
+  });
+  var n = filtered.length;
+  var tot = totalReal + totalMissing + totalEqual;
+  var pct = tot > 0 ? Math.round((totalMissing / tot) * 100) : 0;
+
+  var eDevs = document.getElementById('tbtv5-kpi-devs');
+  var eReal = document.getElementById('tbtv5-kpi-real');
+  var eMiss = document.getElementById('tbtv5-kpi-miss');
+  var eMissCard = document.getElementById('tbtv5-kpi-miss-card');
+  var ePct = document.getElementById('tbtv5-kpi-pct');
+  var ePctCard = document.getElementById('tbtv5-kpi-pct-card');
+  if (eDevs) eDevs.textContent = n;
+  if (eReal) eReal.textContent = totalReal;
+  if (eMiss) eMiss.textContent = totalMissing;
+  if (eMissCard) eMissCard.className = 'summary-kpi' + (totalMissing > 0 ? ' kpi-danger' : '');
+  if (ePct) ePct.textContent = pct + '%';
+  if (ePctCard) ePctCard.className = 'summary-kpi' + (pct > 0 ? ' kpi-danger' : '');
+}
+
+function _smSetActiveFilterBtn(key) {
+  _smState.activeFilterBtn = key;
+  ['all', 'clr', 'loss', 'ok'].forEach(function (k) {
+    var btn = document.getElementById('tbtv5-fbtn-' + k);
+    if (btn) btn.classList.toggle('smfb-active', k === key);
+  });
+}
+
+/* ---- filter globals ---- */
+window.tbtv5_filterInput = function (val) {
+  _smState.filterText = val.toLowerCase();
+  _smSetActiveFilterBtn('');
+  _smUpdateFiltered();
+};
+
+window.tbtv5_toggleMsDropdown = function (e) {
+  e.stopPropagation();
+  var dd = document.getElementById('tbtv5-ms-dd');
+  if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
+
+window.tbtv5_closeMsDropdown = function (e) {
+  if (e && e.target && e.target.closest && e.target.closest('#tbtv5-ms-wrap')) return;
+  var dd = document.getElementById('tbtv5-ms-dd');
+  if (dd) dd.style.display = 'none';
+};
+
+window.tbtv5_toggleMsItem = function (i) {
+  var report = _smState.report;
+  if (!report) return;
+  if (_smState.filterSel === null) {
+    _smState.filterSel = new Set(
+      report.devices.map(function (_, idx) {
+        return idx;
+      })
+    );
+  }
+  if (_smState.filterSel.has(i)) _smState.filterSel.delete(i);
+  else _smState.filterSel.add(i);
+  _smUpdateMsLabel();
+  _smUpdateFiltered();
+};
+
+window.tbtv5_filterAll = function () {
+  _smState.filterSel = null;
+  _smState.filterText = '';
+  var inp = document.getElementById('tbtv5-fsearch');
+  if (inp) inp.value = '';
+  _smUpdateMsCheckboxes(true);
+  _smUpdateMsLabel();
+  _smSetActiveFilterBtn('all');
+  _smUpdateFiltered();
+};
+
+window.tbtv5_filterClear = function () {
+  _smState.filterSel = new Set();
+  _smUpdateMsCheckboxes(false);
+  _smUpdateMsLabel();
+  _smSetActiveFilterBtn('clr');
+  _smUpdateFiltered();
+};
+
+window.tbtv5_filterOnlyLoss = function () {
+  var report = _smState.report;
+  if (!report) return;
+  _smState.filterSel = new Set();
+  report.devices.forEach(function (d, i) {
+    if (d.lossPct > 0) _smState.filterSel.add(i);
+  });
+  _smUpdateMsCheckboxes(null);
+  _smUpdateMsLabel();
+  _smSetActiveFilterBtn('loss');
+  _smUpdateFiltered();
+};
+
+window.tbtv5_filterNoLoss = function () {
+  var report = _smState.report;
+  if (!report) return;
+  _smState.filterSel = new Set();
+  report.devices.forEach(function (d, i) {
+    if (d.lossPct === 0) _smState.filterSel.add(i);
+  });
+  _smUpdateMsCheckboxes(null);
+  _smUpdateMsLabel();
+  _smSetActiveFilterBtn('ok');
+  _smUpdateFiltered();
+};
+
+window.tbtv5_toggleExpand = function () {
+  _smState.expanded = !_smState.expanded;
+  var modal = document.getElementById('tbtv5-sm');
+  var bd = document.getElementById('tbtv5-sm-bd');
+  if (modal) _smShowModal(modal, bd);
+  var btn = document.getElementById('tbtv5-sm-expbtn');
+  if (btn) btn.title = _smState.expanded ? 'Recolher' : 'Expandir';
+};
+
+window.tbtv5_toggleDevice = function (i) {
+  var det = document.getElementById('tbtv5-dd-' + i);
+  var tog = document.getElementById('tbtv5-dt-' + i);
+  if (!det) return;
+  var open = det.style.display === 'none';
+  det.style.display = open ? 'block' : 'none';
+  if (tog) tog.textContent = open ? '−' : '+';
+};
+
+window.tbtv5_toggleSeries = function (key) {
+  _smState.chartShow[key] = !_smState.chartShow[key];
+  var modal = document.getElementById('tbtv5-sm');
+  if (!modal) return;
+  var cls = key === 'real' ? 'bar-real' : key === 'equal' ? 'bar-equal' : 'bar-missing';
+  modal.querySelectorAll('.' + cls).forEach(function (el) {
+    el.style.display = _smState.chartShow[key] ? '' : 'none';
+  });
+  var btn = document.getElementById('tbtv5-lg-' + key);
+  if (btn) btn.classList.toggle('legend-inactive', !_smState.chartShow[key]);
+};
 
 self.onDataUpdated = function () {
   // após datasources carregarem, manter comportamento atual (espera click nas datas)
