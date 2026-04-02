@@ -47,7 +47,7 @@ export class RolesTab {
     if (j?.data && typeof j.data === 'object') {
       const d = j.data as Record<string, unknown>;
       if (Array.isArray(d.items)) return d.items as T[];
-      if (Array.isArray(d)) return (d as unknown) as T[];
+      if (Array.isArray(d)) return d as unknown as T[];
     }
     if (Array.isArray(j?.items)) return j.items as T[];
     return [];
@@ -82,7 +82,8 @@ export class RolesTab {
     this.el.innerHTML = '';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;';
+    header.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;';
     header.innerHTML = `<h3 style="margin:0;font-size:14px;font-weight:600;color:var(--um-text-secondary);">🎭 Funções (Roles)</h3>`;
 
     if (this.isSuperAdmin) {
@@ -92,8 +93,10 @@ export class RolesTab {
       btn.addEventListener('click', () => this.showRoleForm(null));
       header.appendChild(btn);
     } else {
-      header.insertAdjacentHTML('beforeend',
-        `<span style="font-size:11px;color:var(--um-text-muted);padding:4px 10px;background:var(--um-notice-bg);border:1px solid var(--um-notice-border);border-radius:6px;">👁️ Somente leitura</span>`);
+      header.insertAdjacentHTML(
+        'beforeend',
+        `<span style="font-size:11px;color:var(--um-text-muted);padding:4px 10px;background:var(--um-notice-bg);border:1px solid var(--um-notice-border);border-radius:6px;">👁️ Somente leitura</span>`
+      );
     }
     this.el.appendChild(header);
 
@@ -104,7 +107,7 @@ export class RolesTab {
 
     const accordion = document.createElement('div');
     accordion.className = 'gm-groups-accordion';
-    this.roles.forEach(r => accordion.appendChild(this.buildRoleItem(r)));
+    this.roles.forEach((r) => accordion.appendChild(this.buildRoleItem(r)));
     this.el.appendChild(accordion);
   }
 
@@ -124,10 +127,14 @@ export class RolesTab {
           ${r.description ? `<div class="gm-group-code">${this.esc(r.description)}</div>` : ''}
         </div>
         <div class="gm-accordion-badges">${policyBadge}${sysBadge}</div>
-        ${this.isSuperAdmin && !r.isSystem ? `<div class="gm-accordion-actions">
+        ${
+          this.isSuperAdmin && !r.isSystem
+            ? `<div class="gm-accordion-actions">
           <button class="um-icon-btn gm-edit-btn" title="Editar">✏️</button>
           <button class="um-icon-btn gm-delete-btn" title="Excluir">🗑️</button>
-        </div>` : ''}
+        </div>`
+            : ''
+        }
       </div>
       <div class="gm-accordion-panel" style="display:${this.expandedId === r.id ? '' : 'none'}">
         ${this.buildRolePoliciesHtml(r)}
@@ -161,43 +168,48 @@ export class RolesTab {
     if (!r.policyIds?.length) {
       return `<div class="gm-panel-section"><span class="gm-empty-inline">Nenhuma política associada.</span></div>`;
     }
-    const policyMap = new Map(this.policies.map(p => [p.id, p]));
-    const items = r.policyIds.map(pid => {
-      const p = policyMap.get(pid);
-      if (!p) return `<div style="font-size:12px;color:var(--um-text-faint);padding:3px 0;">ID: ${this.esc(pid)}</div>`;
-      const allowStr = p.allow?.join(', ') || '—';
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
+    const policyMap = new Map(this.policies.map((p) => [p.id, p]));
+    const items = r.policyIds
+      .map((pid) => {
+        const p = policyMap.get(pid);
+        if (!p)
+          return `<div style="font-size:12px;color:var(--um-text-faint);padding:3px 0;">ID: ${this.esc(pid)}</div>`;
+        const allowStr = p.allow?.join(', ') || '—';
+        return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
         <div style="font-size:12px;font-weight:600;color:var(--um-text-secondary);">${this.esc(p.displayName)}</div>
         ${p.description ? `<div style="font-size:11px;color:var(--um-text-faint);">${this.esc(p.description)}</div>` : ''}
         <div style="font-size:11px;color:var(--um-badge-user-text);margin-top:2px;">allow: ${this.esc(allowStr)}</div>
       </div>`;
-    }).join('');
+      })
+      .join('');
     return `<div class="gm-panel-section">
       <div class="gm-panel-section-header"><span class="gm-panel-section-title">📋 Políticas</span></div>
       ${items}
     </div>`;
   }
 
-private showRoleForm(existing: GCDRRole | null): void {
+  private showRoleForm(existing: GCDRRole | null): void {
     const isEdit = existing !== null;
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'um-backdrop';
     overlay.setAttribute('data-theme', this.config.theme || 'light');
-    overlay.style.zIndex = '100001';
+  
 
     const modal = document.createElement('div');
     modal.className = 'um-modal';
-    modal.style.cssText = 'padding: 24px; width: min(520px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
+    modal.style.cssText =
+      'padding: 24px; width: min(520px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
 
-    const policiesCheckboxes = this.policies.map(p => {
-      const checked = existing?.policyIds?.includes(p.id) ? ' checked' : '';
-      return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--um-text-secondary);cursor:pointer;">
+    const policiesCheckboxes = this.policies
+      .map((p) => {
+        const checked = existing?.policyIds?.includes(p.id) ? ' checked' : '';
+        return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--um-text-secondary);cursor:pointer;">
         <input type="checkbox" class="um-role-policy-chk" value="${this.esc(p.id)}"${checked} />
         ${this.esc(p.displayName)}${p.description ? ` <span style="color:var(--um-text-faint);">— ${this.esc(p.description)}</span>` : ''}
       </label>`;
-    }).join('');
-
+      })
+      .join('');
 
     modal.innerHTML = `
       <h4 style="margin:0 0 16px;font-size:15px;font-weight:600;color:var(--um-text-primary); font-family: inherit;">${isEdit ? 'Editar' : 'Nova'} Função</h4>
@@ -211,12 +223,16 @@ private showRoleForm(existing: GCDRRole | null): void {
           <label class="um-label">Descrição</label>
           <input class="um-input" name="description" value="${this.esc(existing?.description || '')}" autocomplete="off" />
         </div>
-        ${this.policies.length ? `<div class="um-form-group">
+        ${
+          this.policies.length
+            ? `<div class="um-form-group">
           <label class="um-label">Políticas Associadas</label>
           <div style="background:var(--um-bg-surface);border:1px solid var(--um-border);border-radius:8px;padding:10px;max-height:200px;overflow-y:auto;">
             ${policiesCheckboxes || '<span style="font-size:12px;color:var(--um-text-faint);">Nenhuma política disponível.</span>'}
           </div>
-        </div>` : ''}
+        </div>`
+            : ''
+        }
         <div class="um-form-actions">
           <button class="um-btn um-btn--ghost role-cancel">Cancelar</button>
           <button class="um-btn um-btn--primary role-save">${isEdit ? 'Salvar' : 'Criar'}</button>
@@ -227,23 +243,35 @@ private showRoleForm(existing: GCDRRole | null): void {
     document.body.appendChild(overlay);
 
     const close = () => overlay.remove();
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
     modal.querySelector('.role-cancel')!.addEventListener('click', close);
     modal.querySelector('.role-save')!.addEventListener('click', async () => {
-      const name = (modal.querySelector<HTMLInputElement>('[name=name]')!.value).trim();
+      const name = modal.querySelector<HTMLInputElement>('[name=name]')!.value.trim();
       const errEl = modal.querySelector<HTMLElement>('[data-for=name]')!;
-      if (!name) { errEl.textContent = 'Nome obrigatório.'; return; }
+      if (!name) {
+        errEl.textContent = 'Nome obrigatório.';
+        return;
+      }
       errEl.textContent = '';
 
-      const description = (modal.querySelector<HTMLInputElement>('[name=description]')!.value).trim();
-      const policyIds = Array.from(modal.querySelectorAll<HTMLInputElement>('.um-role-policy-chk:checked')).map(c => c.value);
+      const description = modal.querySelector<HTMLInputElement>('[name=description]')!.value.trim();
+      const policyIds = Array.from(
+        modal.querySelectorAll<HTMLInputElement>('.um-role-policy-chk:checked')
+      ).map((c) => c.value);
 
       const btn = modal.querySelector<HTMLButtonElement>('.role-save')!;
-      btn.disabled = true; btn.textContent = '...';
+      btn.disabled = true;
+      btn.textContent = '...';
       try {
         const body = { name, description: description || undefined, policyIds };
         const url = isEdit ? `${this.gcdrBase()}/roles/${existing!.id}` : `${this.gcdrBase()}/roles`;
-        const res = await fetch(url, { method: isEdit ? 'PUT' : 'POST', headers: this.gcdrHeaders(), body: JSON.stringify(body) });
+        const res = await fetch(url, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: this.gcdrHeaders(),
+          body: JSON.stringify(body),
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         this.callbacks.showToast(isEdit ? 'Função atualizada!' : 'Função criada!', 'success');
         close();
@@ -251,7 +279,8 @@ private showRoleForm(existing: GCDRRole | null): void {
       } catch (err) {
         console.error('[RolesTab] save error', err);
         this.callbacks.showToast('Erro ao salvar função.', 'error');
-        btn.disabled = false; btn.textContent = isEdit ? 'Salvar' : 'Criar';
+        btn.disabled = false;
+        btn.textContent = isEdit ? 'Salvar' : 'Criar';
       }
     });
   }
@@ -259,7 +288,10 @@ private showRoleForm(existing: GCDRRole | null): void {
   private async deleteRole(r: GCDRRole): Promise<void> {
     if (!confirm(`Excluir a função "${r.displayName}"? Esta ação não pode ser desfeita.`)) return;
     try {
-      const res = await fetch(`${this.gcdrBase()}/roles/${r.id}`, { method: 'DELETE', headers: this.gcdrHeaders() });
+      const res = await fetch(`${this.gcdrBase()}/roles/${r.id}`, {
+        method: 'DELETE',
+        headers: this.gcdrHeaders(),
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.callbacks.showToast('Função excluída.', 'success');
       await this.loadAll();
