@@ -220,7 +220,18 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
 
     const utils = getUtils();
     const dataApiHost =
-      config.dataApiHost || utils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com';
+      config.dataApiHost || utils?.DATA_API_HOST;
+
+    if (!dataApiHost) {
+      const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
+      LogHelper.warn('[HeaderShopping] initAuth:', msg);
+      if (lib?.MyIOToast?.error) {
+        lib?.MyIOToast.error(msg);
+      } else {
+        window.alert(msg);
+      }
+      return;
+    }
 
     const clientId = params.credentials?.clientId || '';
     const clientSecret = params.credentials?.clientSecret || '';
