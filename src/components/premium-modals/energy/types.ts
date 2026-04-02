@@ -76,7 +76,7 @@ export interface OpenDashboardPopupEnergyOptions {
   clientSecret?: string;               // For SDK auth flow
 
   // Endpoints / Environment
-  dataApiHost?: string;                // default: https://api.data.apps.myio-bas.com
+  dataApiHost?: string;                // default: https://api.data.apps.myio-bas.com/api/v1 (WITH /api/v1)
   chartsBaseUrl?: string;              // default: https://graphs.apps.myio-bas.com
   timezone?: string;                   // default: "America/Sao_Paulo"
   theme?: 'light' | 'dark';            // default: 'light'

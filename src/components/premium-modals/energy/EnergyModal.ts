@@ -28,6 +28,7 @@ export class EnergyModal {
   private context: EnergyModalContext | null = null;
   private modalId: string;
   private eventHandlers: { [key: string]: (() => void)[] } = {};
+  private _dataLoadError = false;
 
   constructor(params: OpenDashboardPopupEnergyOptions) {
     // Validate parameters first
@@ -121,8 +122,8 @@ export class EnergyModal {
         }
       }
 
-      // 5. Trigger onOpen lback
-      if (this.params.onOpen) {
+      // 5. Trigger onOpen callback — only if no error occurred during data load
+      if (this.params.onOpen && !this._dataLoadError) {
         try {
           this.params.onOpen(this.context!);
         } catch (error) {
@@ -154,7 +155,7 @@ export class EnergyModal {
     return {
       ...params,
       // Set defaults
-      dataApiHost: params.dataApiHost || 'https://api.data.apps.myio-bas.com',
+      dataApiHost: params.dataApiHost || 'https://api.data.apps.myio-bas.com/api/v1',
       chartsBaseUrl: params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
       timezone: params.timezone || 'America/Sao_Paulo',
       theme: params.theme || 'light',
@@ -566,6 +567,7 @@ export class EnergyModal {
 
   private handleError(error: Error): void {
     console.error('[EnergyModal] Error occurred:', error);
+    this._dataLoadError = true;
 
     // Show friendly error in view if available
     if (this.view) {
