@@ -1028,6 +1028,11 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+.clamp-save-btn.clamp-save-error {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
 .clamp-label {
   display: flex;
   flex-direction: column;

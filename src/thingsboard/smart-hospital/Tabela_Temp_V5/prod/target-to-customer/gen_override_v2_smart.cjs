@@ -168,13 +168,15 @@ let notFound   = 0;
 const sourceStats = {};
 
 const deviceListB = jsonA.device_list_interval_values.map(device => {
-  const valuesB = device.values_list.map(slot => {
-    const { value, _source } = computeSmartValue(device.deviceCentralName, slot.timeUTC);
-    totalSlots++;
-    if (_source === 'not_found') notFound++;
-    sourceStats[_source] = (sourceStats[_source] || 0) + 1;
-    return { timeUTC: slot.timeUTC, value, _source };
-  });
+  const valuesB = device.values_list
+    .map(slot => {
+      const { value, _source } = computeSmartValue(device.deviceCentralName, slot.timeUTC);
+      totalSlots++;
+      if (_source === 'not_found') notFound++;
+      sourceStats[_source] = (sourceStats[_source] || 0) + 1;
+      return { timeUTC: slot.timeUTC, value, _source };
+    })
+    .filter(slot => slot.value !== null); // remove not_found — null no override é inútil
   return {
     tbName:             device.tbName,
     tbLabel:            device.tbLabel,
@@ -183,7 +185,9 @@ const deviceListB = jsonA.device_list_interval_values.map(device => {
   };
 });
 
-const jsonB = { device_list_interval_values: deviceListB };
+const jsonB = {
+  device_list_interval_values: deviceListB.filter(d => d.values_list.length > 0),
+};
 
 // ─── Write outputs ───────────────────────────────────────────────────────────
 

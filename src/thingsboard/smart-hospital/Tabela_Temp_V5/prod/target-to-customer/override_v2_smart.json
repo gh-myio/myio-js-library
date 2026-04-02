@@ -1618,38 +1618,6 @@
       ]
     },
     {
-      "tbName": "Co2_Cirurgia3",
-      "tbLabel": "Cirurgia 03",
-      "deviceCentralName": "Co2_Cirurgia3",
-      "values_list": [
-        {
-          "timeUTC": "2026-03-01T12:00:00.000Z",
-          "value": null,
-          "_source": "not_found"
-        },
-        {
-          "timeUTC": "2026-03-01T14:30:00.000Z",
-          "value": null,
-          "_source": "not_found"
-        },
-        {
-          "timeUTC": "2026-03-01T19:00:00.000Z",
-          "value": null,
-          "_source": "not_found"
-        },
-        {
-          "timeUTC": "2026-03-02T04:00:00.000Z",
-          "value": null,
-          "_source": "not_found"
-        },
-        {
-          "timeUTC": "2026-03-02T07:00:00.000Z",
-          "value": null,
-          "_source": "not_found"
-        }
-      ]
-    },
-    {
       "tbName": "Co2_Cirurgia7",
       "tbLabel": "Cirurgia 07",
       "deviceCentralName": "Co2_Cirurgia7",

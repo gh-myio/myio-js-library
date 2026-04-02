@@ -163,11 +163,11 @@
                   </label>
                   <button
                     class="btn clamp-save-btn"
+                    [class.clamp-save-error]="clampSaveStatus === 'error'"
                     (click)="saveClampSettings()"
                     [disabled]="clampSaveStatus === 'saving'"
                   >
-                    {{ clampSaveStatus === 'saving' ? 'Salvando…' : clampSaveStatus === 'saved' ? '✓ Salvo' :
-                    'Salvar' }}
+                    {{ clampSaveStatus === 'saving' ? 'Salvando…' : clampSaveStatus === 'saved' ? '✓ Salvo' : clampSaveStatus === 'error' ? '✗ Erro ao salvar' : 'Salvar' }}
                   </button>
                 </div>
               </div>

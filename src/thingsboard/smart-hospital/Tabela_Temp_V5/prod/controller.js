@@ -30,6 +30,9 @@ let clampMax = CLAMP_DEFAULT_MAX;
 let _clampFromCustomer = false; // true = loaded from SERVER_SCOPE; false = using defaults
 let _customerSlug = 'hospital'; // slug do nome do cliente, preenchido no _loadClampAttributes
 
+// Customer entity ID — Complexo Hospitalar Municipal Souza Aguiar (HMSA)
+const THINGSBOARD_CUSTOMER_ID = '492387b0-a1e6-11ef-9e25-b7f6e6d4253b';
+
 // Central ID → friendly name map (for error banner display)
 const CENTRAL_NAMES = {
   'cea3473b-6e46-4a2f-85b8-f228d2a8347a': 'Central Maternidade',
@@ -119,6 +122,74 @@ function setPremiumLoading(on, status, progress) {
 }
 
 // -------- Serviços ThingsBoard --------
+
+/**
+ * Retorna o entityId do cliente atual.
+ * - Customer user: vem direto de currentUser.customerId
+ * - Tenant admin abrindo dashboard de cliente: customerId vem na URL (?customerId=...)
+ *   ou nos stateParams do dashboard
+ */
+function _getCustomerEntityId() {
+  // 1. Constante hardcoded — HMSA (fonte mais confiável)
+  if (THINGSBOARD_CUSTOMER_ID) {
+    return { id: THINGSBOARD_CUSTOMER_ID, entityType: 'CUSTOMER' };
+  }
+  // 2. Customer user normal
+  var fromUser = self.ctx && self.ctx.currentUser && self.ctx.currentUser.customerId;
+  if (fromUser && fromUser.id) {
+    console.log('[CUSTOMER_ID] via currentUser.customerId:', fromUser.id);
+    return fromUser;
+  }
+  // 3. Tenant admin: tenta URL query string (?customerId=uuid)
+  try {
+    var urlParams = new URLSearchParams(window.location.search);
+    var idFromUrl = urlParams.get('customerId');
+    if (idFromUrl) {
+      console.log('[CUSTOMER_ID] via URL ?customerId:', idFromUrl);
+      return { id: idFromUrl, entityType: 'CUSTOMER' };
+    }
+  } catch (_e) { /* ignorado */ }
+  // 4. Tenta stateController (dashboard state params)
+  try {
+    var stateParams = self.ctx.stateController && self.ctx.stateController.getStateParams
+      ? self.ctx.stateController.getStateParams()
+      : null;
+    if (stateParams && stateParams.customerId && stateParams.customerId.id) {
+      console.log('[CUSTOMER_ID] via stateParams.customerId:', stateParams.customerId.id);
+      return stateParams.customerId;
+    }
+  } catch (_e) { /* ignorado */ }
+  console.warn('[CUSTOMER_ID] não encontrado em nenhuma fonte');
+  return null;
+}
+
+/**
+ * Versão async de _getCustomerEntityId.
+ * Tenta os mesmos 3 métodos síncronos; se falharem, consulta GET /api/device/{centralId}
+ * para extrair o customerId da central — disponível mesmo para TENANT_ADMIN.
+ */
+async function _getCustomerEntityIdAsync() {
+  var sync = _getCustomerEntityId();
+  if (sync && sync.id) return sync;
+
+  // 4. Busca via API: GET /api/device/{centralId} → customerId
+  // Usa CENTRAL_NAMES que já tem todos os IDs das centrais do hospital
+  try {
+    var knownCentralIds = Object.keys(CENTRAL_NAMES);
+    for (var i = 0; i < knownCentralIds.length; i++) {
+      var resp = await getHttp().get('/api/device/' + knownCentralIds[i]).toPromise();
+      var device = (resp && resp.data) ? resp.data : resp;
+      if (device && device.customerId && device.customerId.id) {
+        console.log('[CUSTOMER_ID] via /api/device/' + knownCentralIds[i] + ' (' + CENTRAL_NAMES[knownCentralIds[i]] + ') → customerId:', device.customerId.id);
+        return device.customerId;
+      }
+    }
+  } catch (_e) { /* ignorado */ }
+
+  console.warn('[CUSTOMER_ID] async: não encontrado em nenhuma fonte');
+  return null;
+}
+
 function getHttp() {
   return self.ctx.$scope.$injector.get(self.ctx.servicesMap.get('http'));
 }
@@ -147,8 +218,8 @@ async function saveServerAttributeForDevice(entityId, key, value) {
 // Carrega tempClampMin / tempClampMax do SERVER_SCOPE do cliente
 async function _loadClampAttributes() {
   try {
-    const entityId = self.ctx?.currentUser?.customerId;
-    if (!entityId?.id) {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) {
       _clampFromCustomer = false;
       return;
     }
@@ -169,17 +240,13 @@ async function _loadClampAttributes() {
     } catch (_) {
       /* mantém fallback 'hospital' */
     }
-    const attrSvc = getAttributeService();
-    const types = getTypes();
-    const attrs = await attrSvc
-      .getEntityAttributes(entityId, types.attributesScope.server.value, ['tempClampMin', 'tempClampMax'])
+    const resp = await getHttp()
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax')
       .toPromise();
-    const minAttr = (attrs || []).find(function (a) {
-      return a.key === 'tempClampMin';
-    });
-    const maxAttr = (attrs || []).find(function (a) {
-      return a.key === 'tempClampMax';
-    });
+    const data = (resp && resp.data) ? resp.data : resp;
+    const attrs = Array.isArray(data) ? data : [];
+    const minAttr = attrs.find(function (a) { return a.key === 'tempClampMin'; });
+    const maxAttr = attrs.find(function (a) { return a.key === 'tempClampMax'; });
     const hasMin = minAttr != null && minAttr.value != null;
     const hasMax = maxAttr != null && maxAttr.value != null;
     if (hasMin || hasMax) {
@@ -208,18 +275,16 @@ async function _loadClampAttributes() {
 // Salva tempClampMin / tempClampMax no SERVER_SCOPE do cliente
 async function _saveClampAttributes() {
   try {
-    const entityId = self.ctx?.currentUser?.customerId;
-    if (!entityId?.id) {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) {
       console.warn('[CLAMP] Sem entidade de cliente para salvar');
-      return;
+      throw new Error('Customer entity não encontrado. Verifique se o dashboard está aberto no contexto de um cliente.');
     }
-    const attrSvc = getAttributeService();
-    const types = getTypes();
-    await attrSvc
-      .saveEntityAttributes(entityId, types.attributesScope.server.value, [
-        { key: 'tempClampMin', value: clampMin },
-        { key: 'tempClampMax', value: clampMax },
-      ])
+    await getHttp()
+      .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', {
+        tempClampMin: clampMin,
+        tempClampMax: clampMax,
+      })
       .toPromise();
     _clampFromCustomer = true;
     self.ctx.$scope.clampFromCustomer = true;
@@ -227,13 +292,17 @@ async function _saveClampAttributes() {
     console.log('[CLAMP] Salvo em SERVER_SCOPE:', clampMin, clampMax);
   } catch (e) {
     console.error('[CLAMP] Falha ao salvar SERVER_SCOPE:', e);
+    throw e; // propaga para saveClampSettings mostrar erro na UI
   }
 }
 
 // ── Manual Override helpers ──────────────────────────────────────────────────
 function buildOverrideMap(attr) {
   var map = new Map();
-  if (!attr || !Array.isArray(attr.device_list_interval_values)) return map;
+  if (!attr || !Array.isArray(attr.device_list_interval_values)) {
+    console.warn('[OVERRIDE] buildOverrideMap: attr inválido ou null', attr);
+    return map;
+  }
   for (var i = 0; i < attr.device_list_interval_values.length; i++) {
     var device = attr.device_list_interval_values[i];
     var devMap = new Map();
@@ -242,20 +311,24 @@ function buildOverrideMap(attr) {
       devMap.set(vl[j].timeUTC, vl[j].value);
     }
     map.set(device.deviceCentralName, devMap);
+    console.log('[OVERRIDE] buildOverrideMap: device=' + device.deviceCentralName + ' slots=' + devMap.size);
   }
+  console.log('[OVERRIDE] buildOverrideMap: total devices=' + map.size);
   return map;
 }
 
 async function _loadManualOverrides() {
   try {
-    var entityId = self.ctx && self.ctx.currentUser && self.ctx.currentUser.customerId;
-    if (!entityId || !entityId.id) return;
-    var attrSvc = getAttributeService();
-    var types = getTypes();
-    var attrs = await attrSvc
-      .getEntityAttributes(entityId, types.attributesScope.server.value, ['manualTempOverrides'])
+    var entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) {
+      console.warn('[MANUAL OVERRIDE] Customer entity não encontrado, overrides não carregados');
+      return;
+    }
+    var resp = await getHttp()
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=manualTempOverrides')
       .toPromise();
-    var attr = (attrs || []).find(function (a) { return a.key === 'manualTempOverrides'; });
+    var data = (resp && resp.data) ? resp.data : resp;
+    var attr = (Array.isArray(data) ? data : []).find(function (a) { return a.key === 'manualTempOverrides'; });
     _manualOverrides = attr ? attr.value : null;
     console.log('[MANUAL OVERRIDE] Carregado:', _manualOverrides
       ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
@@ -267,14 +340,10 @@ async function _loadManualOverrides() {
 }
 
 async function _saveManualOverrides(data) {
-  var entityId = self.ctx && self.ctx.currentUser && self.ctx.currentUser.customerId;
-  if (!entityId || !entityId.id) throw new Error('No customer entity');
-  var attrSvc = getAttributeService();
-  var types = getTypes();
-  await attrSvc
-    .saveEntityAttributes(entityId, types.attributesScope.server.value, [
-      { key: 'manualTempOverrides', value: data },
-    ])
+  var entityId = _getCustomerEntityId();
+  if (!entityId || !entityId.id) throw new Error('Customer entity não encontrado');
+  await getHttp()
+    .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', { manualTempOverrides: data })
     .toPromise();
   _manualOverrides = data;
   console.log('[MANUAL OVERRIDE] Salvo em SERVER_SCOPE, versão', data.version);
@@ -1192,7 +1261,11 @@ async function getData() {
 
   try {
     let allProcessed = [];
+    console.log('[OVERRIDE] getData: _manualOverrides =', _manualOverrides
+      ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
+      : 'null');
     const overrideMap = buildOverrideMap(_manualOverrides); // manual override lookup
+    console.log('[OVERRIDE] getData: overrideMap.size =', overrideMap.size);
     const globalMissingMap = {};
     const devicesSeen = {}; // continuidade após 1ª aparição
     const allRpcErrors = []; // Acumula erros de conexão com centrais
@@ -1342,15 +1415,27 @@ async function getData() {
             if (isSentinel && overrideMap.size > 0) {
               const overrideKey = devName.split(' ')[0]; // normalize to deviceCentralName
               const devMap = overrideMap.get(overrideKey);
+              console.log('[OVERRIDE] sentinel slot: devName=' + devName +
+                ' overrideKey=' + overrideKey +
+                ' time_interval=' + r.time_interval +
+                ' devMapFound=' + !!devMap +
+                ' finalValue=' + finalValue);
               if (devMap) {
                 const ov = devMap.get(r.time_interval);
-                if (ov !== undefined) {
+                console.log('[OVERRIDE] devMap lookup: timeUTC=' + r.time_interval + ' ov=' + ov);
+                if (ov !== undefined && ov !== null) {
                   const { value: ov2 } = clampTemperature(ov);
                   finalValue = ov2;
                   finalEqualSign = false;
                   isManual = true;
+                  console.log('[OVERRIDE] ✓ aplicado: ' + overrideKey + ' @ ' + r.time_interval + ' = ' + ov2);
                 }
+              } else {
+                console.warn('[OVERRIDE] ✗ device não encontrado no overrideMap: "' + overrideKey + '"',
+                  'chaves disponíveis:', Array.from(overrideMap.keys()));
               }
+            } else if (isSentinel) {
+              console.log('[OVERRIDE] sentinel slot sem overrideMap (vazio): devName=' + devName + ' time=' + r.time_interval);
             }
             // ────────────────────────────────────────────────────────────────
             allProcessed.push({
@@ -2093,13 +2178,18 @@ self.onInit = function () {
   self.ctx.$scope.saveClampSettings = async function () {
     self.ctx.$scope.clampSaveStatus = 'saving';
     self.ctx.detectChanges();
-    await _saveClampAttributes();
-    self.ctx.$scope.clampSaveStatus = 'saved';
+    try {
+      await _saveClampAttributes();
+      self.ctx.$scope.clampSaveStatus = 'saved';
+    } catch (e) {
+      self.ctx.$scope.clampSaveStatus = 'error';
+      console.error('[CLAMP] Erro ao salvar:', e);
+    }
     self.ctx.detectChanges();
     setTimeout(function () {
       self.ctx.$scope.clampSaveStatus = '';
       self.ctx.detectChanges();
-    }, 2500);
+    }, 3500);
   };
   self.ctx.$scope.setClampMin = function (evt) {
     const v = parseFloat(evt?.target?.value);
@@ -2154,12 +2244,19 @@ self.onInit = function () {
 
   self.ctx.detectChanges();
 
-  // Carrega limites de clamp do SERVER_SCOPE do cliente (fire-and-forget)
-  _loadClampAttributes();
-
-  // Carrega overrides para TODOS os usuários — a aplicação no relatório é universal;
-  // somente o botão de gestão é restrito a @myio.com.br
-  _loadManualOverrides();
+  // Carrega limites de clamp e overrides ANTES de qualquer getData().
+  // Ambos precisam de await para garantir que os dados estejam disponíveis
+  // quando onDataUpdated (que chama getData) disparar logo após onInit.
+  _loadClampAttributes(); // fire-and-forget — só afeta display de limites, não os dados
+  console.log('[OVERRIDE] Iniciando _loadManualOverrides() no onInit...');
+  _loadManualOverrides().then(function () {
+    console.log('[OVERRIDE] _loadManualOverrides() concluído. _manualOverrides =',
+      _manualOverrides
+        ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
+        : 'null');
+  }).catch(function (e) {
+    console.error('[OVERRIDE] Falha no _loadManualOverrides() do onInit:', e);
+  });
 };
 
 // ── Summary Modal — pure JS, padrão TELEMETRY_INFO ──────────────────────────
