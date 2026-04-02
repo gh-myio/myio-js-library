@@ -194,7 +194,6 @@ export class RolesTab {
     const overlay = document.createElement('div');
     overlay.className = 'um-backdrop';
     overlay.setAttribute('data-theme', this.config.theme || 'light');
-  
 
     const modal = document.createElement('div');
     modal.className = 'um-modal';
