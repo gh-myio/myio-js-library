@@ -2037,7 +2037,7 @@ self.onInit = function () {
       api: {
         clientId:       creds.CLIENT_ID     || '',
         clientSecret:   creds.CLIENT_SECRET || '',
-        dataApiBaseUrl: window.MyIOUtils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com/api/v1',
+        dataApiBaseUrl: window.MyIOUtils?.DATA_API_HOST,
         ingestionToken: orch.tokenManager?.getToken('ingestionToken') || '',
       },
       ui: { theme: 'light' },
