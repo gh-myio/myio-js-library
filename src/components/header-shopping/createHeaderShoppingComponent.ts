@@ -220,7 +220,7 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
 
     const utils = getUtils();
     const dataApiHost =
-      config.dataApiHost || utils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com';
+      config.dataApiHost || utils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com/api/v1';
 
     const clientId = params.credentials?.clientId || '';
     const clientSecret = params.credentials?.clientSecret || '';
