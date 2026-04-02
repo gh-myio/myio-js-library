@@ -2504,7 +2504,7 @@ function renderList(visible) {
 
                 ingestionDataFetcher = async (fetchStartTs, fetchEndTs) => {
                   const token = await myIOAuth.getToken();
-                  const url = new URL(`${dataApiHost}/api/v1/telemetry/devices/${ingestionId}/temperature`);
+                  const url = new URL(`${dataApiHost}/telemetry/devices/${ingestionId}/temperature`);
                   url.searchParams.set('startTime', new Date(fetchStartTs).toISOString());
                   url.searchParams.set('endTime', new Date(fetchEndTs).toISOString());
                   url.searchParams.set('granularity', '1h');
