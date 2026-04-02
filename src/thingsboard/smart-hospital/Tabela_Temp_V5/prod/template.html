@@ -371,7 +371,7 @@
       <div class="summary-header-left">
         <i class="fa-solid fa-chart-pie"></i>
         <span>Resumo da Consulta</span>
-        <span class="summary-period" *ngIf="summaryReport.period">{{ summaryReport.period }}</span>
+        <span class="summary-period" *ngIf="summaryReport?.period">{{ summaryReport?.period }}</span>
       </div>
       <div class="summary-header-actions">
         <button class="summary-modal-expand" (click)="toggleSummaryModalExpand()" [title]="summaryModalExpanded ? 'Recolher' : 'Expandir'">
@@ -385,19 +385,19 @@
       <!-- KPIs — full width sempre -->
       <div class="summary-overall">
         <div class="summary-kpi">
-          <span class="kpi-value">{{ summaryReport.totalDevices }}</span>
+          <span class="kpi-value">{{ summaryReport?.totalDevices }}</span>
           <span class="kpi-label">dispositivos</span>
         </div>
         <div class="summary-kpi">
-          <span class="kpi-value">{{ summaryReport.totalReal }}</span>
+          <span class="kpi-value">{{ summaryReport?.totalReal }}</span>
           <span class="kpi-label">leituras reais</span>
         </div>
-        <div class="summary-kpi" [class.kpi-danger]="summaryReport.totalMissing > 0">
-          <span class="kpi-value">{{ summaryReport.totalMissing }}</span>
+        <div class="summary-kpi" [class.kpi-danger]="summaryReport?.totalMissing > 0">
+          <span class="kpi-value">{{ summaryReport?.totalMissing }}</span>
           <span class="kpi-label">slots sem dados</span>
         </div>
-        <div class="summary-kpi" [class.kpi-danger]="summaryReport.overallLossPct > 0">
-          <span class="kpi-value">{{ summaryReport.overallLossPct }}%</span>
+        <div class="summary-kpi" [class.kpi-danger]="summaryReport?.overallLossPct > 0">
+          <span class="kpi-value">{{ summaryReport?.overallLossPct }}%</span>
           <span class="kpi-label">perda geral</span>
         </div>
       </div>
@@ -408,7 +408,7 @@
         <!-- Lista por device -->
         <div class="summary-device-list">
           <div
-            *ngFor="let dev of summaryReport.devices"
+            *ngFor="let dev of (summaryReport?.devices || [])"
             [class]="'summary-device-row' + (dev.lossClass ? ' sdr-' + dev.lossClass : '')"
           >
             <div class="sdr-header" (click)="dev.expanded = !dev.expanded">
@@ -419,13 +419,13 @@
               </span>
               <span class="sdr-counts">{{ dev.missingSlots }}/{{ dev.totalSlots }} slots</span>
             </div>
-            <div class="sdr-detail" *ngIf="dev.expanded && dev.missingByDay.length > 0">
+            <div class="sdr-detail" *ngIf="dev.expanded && dev.missingByDay?.length > 0">
               <div class="sdr-day-row" *ngFor="let d of dev.missingByDay">
                 <span class="sdr-day">{{ d.day }}</span>
                 <span class="sdr-slots">{{ d.slots.join(', ') }}</span>
               </div>
             </div>
-            <div class="sdr-detail sdr-no-loss" *ngIf="dev.expanded && dev.missingByDay.length === 0">
+            <div class="sdr-detail sdr-no-loss" *ngIf="dev.expanded && dev.missingByDay?.length === 0">
               Nenhuma perda neste período.
             </div>
           </div>
@@ -434,29 +434,29 @@
         <!-- Gráfico de barras empilhadas -->
         <div class="summary-chart-section">
           <div class="chart-legend">
-            <button class="chart-legend-item" [class.legend-inactive]="!chartShow.real" (click)="toggleChartSeries('real')">
+            <button class="chart-legend-item" [class.legend-inactive]="!chartShow?.real" (click)="toggleChartSeries('real')">
               <span class="legend-dot" style="background:#22c55e"></span>Leituras reais
             </button>
-            <button class="chart-legend-item" [class.legend-inactive]="!chartShow.equal" (click)="toggleChartSeries('equal')">
+            <button class="chart-legend-item" [class.legend-inactive]="!chartShow?.equal" (click)="toggleChartSeries('equal')">
               <span class="legend-dot" style="background:#f59e0b"></span>Lacunas (=)
             </button>
-            <button class="chart-legend-item" [class.legend-inactive]="!chartShow.missing" (click)="toggleChartSeries('missing')">
+            <button class="chart-legend-item" [class.legend-inactive]="!chartShow?.missing" (click)="toggleChartSeries('missing')">
               <span class="legend-dot" style="background:#ef4444"></span>Sem dados
             </button>
           </div>
           <div class="chart-area">
             <div class="chart-bars-scroll">
               <div class="chart-bars-inner">
-                <div class="chart-bar-col" *ngFor="let dev of summaryReport.devices">
+                <div class="chart-bar-col" *ngFor="let dev of (summaryReport?.devices || [])">
                   <div class="bar-label" [title]="dev.label">{{ dev.label }}</div>
                   <div class="bar-stack">
-                    <div class="bar-seg bar-real" *ngIf="chartShow.real && dev.barRealPct > 0"
+                    <div class="bar-seg bar-real" *ngIf="chartShow?.real && dev.barRealPct > 0"
                          [style.width.%]="dev.barRealPct"
                          [title]="dev.realSlots + ' leituras reais'"></div>
-                    <div class="bar-seg bar-equal" *ngIf="chartShow.equal && dev.barEqualPct > 0"
+                    <div class="bar-seg bar-equal" *ngIf="chartShow?.equal && dev.barEqualPct > 0"
                          [style.width.%]="dev.barEqualPct"
                          [title]="dev.equalSignSlots + ' lacunas (=)'"></div>
-                    <div class="bar-seg bar-missing" *ngIf="chartShow.missing && dev.barMissingPct > 0"
+                    <div class="bar-seg bar-missing" *ngIf="chartShow?.missing && dev.barMissingPct > 0"
                          [style.width.%]="dev.barMissingPct"
                          [title]="dev.missingSlots + ' slots sem dados'"></div>
                   </div>

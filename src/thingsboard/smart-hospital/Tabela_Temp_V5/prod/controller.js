@@ -1567,7 +1567,7 @@ self.onInit = function () {
   };
 
   self.ctx.$scope.summaryModalOpen = false;
-  self.ctx.$scope.summaryReport = {};
+  self.ctx.$scope.summaryReport = { totalDevices: 0, totalReal: 0, totalMissing: 0, overallLossPct: 0, devices: [], period: '', expectedCount: 0 };
   self.ctx.$scope.summaryModalExpanded = false;
   self.ctx.$scope.chartShow = { real: true, equal: true, missing: true };
 
@@ -1709,9 +1709,12 @@ self.onInit = function () {
     };
     s.summaryModalOpen = true;
     self.ctx.detectChanges();
+    // Patch transform ancestors so position:fixed is relative to viewport, not widget container
+    _patchTransformAncestors();
   };
 
   self.ctx.$scope.closeSummaryModal = function () {
+    _restoreTransformAncestors();
     self.ctx.$scope.summaryModalOpen = false;
     self.ctx.detectChanges();
   };
@@ -1788,6 +1791,31 @@ self.onInit = function () {
 
   self.ctx.detectChanges();
 };
+
+// Temporarily remove CSS transforms from widget ancestors so position:fixed reaches viewport
+var _savedTransforms = [];
+function _patchTransformAncestors() {
+  _savedTransforms = [];
+  var el = self.ctx.widgetConfig?.nativeElement || (self.ctx.container && self.ctx.container.nativeElement);
+  if (!el) {
+    // fallback: walk up from document.body looking for ThingsBoard widget containers
+    el = document.querySelector('.tb-widget') || document.querySelector('[id^="widget-"]');
+  }
+  if (!el) return;
+  while (el && el !== document.body) {
+    var cs = window.getComputedStyle(el);
+    var t = cs.transform;
+    if (t && t !== 'none' && t !== 'matrix(1, 0, 0, 1, 0, 0)') {
+      _savedTransforms.push({ el: el, val: el.style.transform });
+      el.style.transform = 'none';
+    }
+    el = el.parentElement;
+  }
+}
+function _restoreTransformAncestors() {
+  _savedTransforms.forEach(function (item) { item.el.style.transform = item.val; });
+  _savedTransforms = [];
+}
 
 self.onDataUpdated = function () {
   // após datasources carregarem, manter comportamento atual (espera click nas datas)
