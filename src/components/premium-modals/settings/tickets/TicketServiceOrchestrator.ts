@@ -11,6 +11,7 @@
 
 import type { FreshDeskTicket, TicketServiceOrchestratorShape } from './types';
 import type * as FreshdeskClientModule from './FreshdeskClient';
+import { writeFreshdeskTicketsToTB } from './TbTicketSync';
 
 // ============================================================================
 // Builder
@@ -23,11 +24,18 @@ import type * as FreshdeskClientModule from './FreshdeskClient';
  * @param domain       FreshDesk domain, e.g. "myiocom.freshdesk.com"
  * @param apiKey       FreshDesk API key
  * @param freshdeskClient  The FreshdeskClient module (passed to allow mocking in tests)
+ * @param tbSyncOptions    Optional TB write-back options — if provided, writes freshdesk_tickets SERVER_SCOPE
  */
 export async function buildTicketServiceOrchestrator(
   domain: string,
   apiKey: string,
-  freshdeskClient: Pick<typeof FreshdeskClientModule, 'fetchOpenTickets'>
+  freshdeskClient: Pick<typeof FreshdeskClientModule, 'fetchOpenTickets'>,
+  tbSyncOptions?: {
+    tbBaseUrl: string;
+    jwtToken: string;
+    /** Map<deviceIdentifier, tbDeviceId> — to write SERVER_SCOPE per device */
+    identifierToTbId: Map<string, string>;
+  }
 ): Promise<TicketServiceOrchestratorShape> {
   let tickets: FreshDeskTicket[] = [];
 
@@ -40,10 +48,23 @@ export async function buildTicketServiceOrchestrator(
 
   const deviceTicketMap = _buildMap(tickets);
 
+  // RFC-0198: Write-back to ThingsBoard SERVER_SCOPE (fire-and-forget)
+  if (tbSyncOptions) {
+    const { tbBaseUrl, jwtToken, identifierToTbId } = tbSyncOptions;
+    for (const [identifier, devTickets] of deviceTicketMap) {
+      const tbId = identifierToTbId.get(identifier);
+      if (tbId) {
+        writeFreshdeskTicketsToTB(tbBaseUrl, tbId, jwtToken, devTickets).catch(() => {});
+      }
+    }
+  }
+
   const orchestrator: TicketServiceOrchestratorShape = {
     tickets,
 
     deviceTicketMap,
+
+    tbDeviceIdMap: tbSyncOptions?.identifierToTbId ?? new Map(),
 
     getTicketCountForDevice(identifier: string): number {
       return this.deviceTicketMap.get(identifier)?.length ?? 0;
@@ -58,6 +79,17 @@ export async function buildTicketServiceOrchestrator(
         const fresh = await freshdeskClient.fetchOpenTickets(domain, apiKey);
         orchestrator.tickets = fresh;
         orchestrator.deviceTicketMap = _buildMap(fresh);
+
+        // RFC-0198: Write-back on refresh too
+        if (tbSyncOptions) {
+          const { tbBaseUrl, jwtToken, identifierToTbId } = tbSyncOptions;
+          for (const [identifier, devTickets] of orchestrator.deviceTicketMap) {
+            const tbId = identifierToTbId.get(identifier);
+            if (tbId) {
+              writeFreshdeskTicketsToTB(tbBaseUrl, tbId, jwtToken, devTickets).catch(() => {});
+            }
+          }
+        }
 
         window.dispatchEvent(
           new CustomEvent('myio:tickets-ready', {

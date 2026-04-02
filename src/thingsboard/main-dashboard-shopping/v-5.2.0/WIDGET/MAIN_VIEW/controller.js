@@ -2635,10 +2635,29 @@ async function _buildTicketServiceOrchestrator() {
       return;
     }
 
+    // RFC-0198: Build identifier → tbId map from all domain STATE items for SERVER_SCOPE write-back
+    const identifierToTbId = new Map();
+    const allDomains = ['energy', 'water', 'temperature'];
+    for (const d of allDomains) {
+      const items = window.STATE?.[d]?.allItems || window.STATE?.[d]?.items || [];
+      for (const item of items) {
+        if (item.identifier && item.tbId) {
+          identifierToTbId.set(item.identifier, item.tbId);
+        }
+      }
+    }
+
+    const jwtToken = localStorage.getItem('jwt_token') || '';
+
     window.TicketServiceOrchestrator = await MyIOLibrary.buildTicketServiceOrchestrator(
       domain,
       apiKey,
-      FreshdeskClient
+      FreshdeskClient,
+      jwtToken ? {
+        tbBaseUrl: window.location.origin,
+        jwtToken,
+        identifierToTbId,
+      } : undefined
     );
 
     LogHelper.log('[TicketServiceOrchestrator] Built —',

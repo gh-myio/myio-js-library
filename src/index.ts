@@ -1717,7 +1717,15 @@ export type {
   TicketMotivo,
   FreshDeskTicket,
   TicketServiceOrchestratorShape,
+  FreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/types';
 export { buildTicketServiceOrchestrator } from './components/premium-modals/settings/tickets/TicketServiceOrchestrator';
 export * as FreshdeskClient from './components/premium-modals/settings/tickets/FreshdeskClient';
+export {
+  writeFreshdeskTicketsToTB,
+  readFreshdeskTicketsFromTB,
+  appendFreshdeskTicketToTB,
+  clearFreshdeskTicketsOnTB,
+  toSummary as toFreshdeskTicketSummary,
+} from './components/premium-modals/settings/tickets/TbTicketSync';
 

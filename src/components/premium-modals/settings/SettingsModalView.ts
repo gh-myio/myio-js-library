@@ -255,6 +255,8 @@ export class SettingsModalView {
         freshdeskApiKey,
         freshdeskDomain,
         prefetchedTickets: null,
+        jwtToken: localStorage.getItem('jwt_token') ?? undefined,
+        tbBaseUrl: window.location.origin,
       });
       console.log('[SettingsModalView] RFC-0198: Chamados tab initialized');
     } catch (error) {

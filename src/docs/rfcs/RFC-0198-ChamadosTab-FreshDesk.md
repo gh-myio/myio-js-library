@@ -340,6 +340,58 @@ boundary automatically).
 Both read from widget settings in `MAIN_VIEW/controller.js` and exposed on
 `window.MyIOUtils` at init time.
 
+### ThingsBoard SERVER_SCOPE write-back
+
+After each FreshDesk sync, a compact ticket summary is persisted as a SERVER_SCOPE
+attribute on the ThingsBoard device. This solves two problems:
+
+1. **CORS workaround** — badge count is read directly from ThingsBoard `ctx.data`
+   (no FreshDesk API call needed for the badge).
+2. **Audit trail** — each device's open ticket history is visible in TB attribute history.
+
+**Attribute name:** `freshdesk_tickets`
+
+**Value:** JSON-stringified `FreshdeskTicketSummary[]` — only statuses 2/3/6 are kept;
+4 (resolved) and 5 (closed) are pruned automatically.
+
+```json
+[
+  { "id": 47382, "status": 2, "created_at": "2026-04-02T17:45:00Z", "updated_at": "2026-04-02T18:10:00Z" },
+  { "id": 47391, "status": 3, "created_at": "2026-04-01T10:00:00Z", "updated_at": "2026-04-02T09:30:00Z" }
+]
+```
+
+**Write API:**
+```
+PUT {window.location.origin}/api/plugins/telemetry/{tbDeviceId}/SERVER_SCOPE
+Authorization: Bearer {jwtToken}
+
+{ "freshdesk_tickets": "[{\"id\":47382,...}]" }
+```
+
+**When written:**
+
+| Trigger | Action |
+|---------|--------|
+| `TicketServiceOrchestrator` builds | Write all devices (fire-and-forget per device) |
+| `TicketServiceOrchestrator.refresh()` | Overwrite all devices with fresh FreshDesk data |
+| `TicketsTab.createTicket()` success | Append new ticket to this device's attribute |
+
+**Badge fallback:** TELEMETRY reads `freshdesk_tickets` from `ctx.data` (dataKey must be
+added to the widget datasource). When `TicketServiceOrchestrator` is not yet built,
+the badge falls back to parsing this SERVER_SCOPE value locally — so the count is always
+visible even before the FreshDesk prefetch completes.
+
+**`TbTicketSync.ts` exports:**
+
+| Function | Purpose |
+|----------|---------|
+| `writeFreshdeskTicketsToTB(tbBaseUrl, tbDeviceId, jwtToken, tickets)` | Write/overwrite all tickets for a device |
+| `appendFreshdeskTicketToTB(tbBaseUrl, tbDeviceId, jwtToken, newTicket)` | Read→merge→write (after create) |
+| `readFreshdeskTicketsFromTB(tbBaseUrl, tbDeviceId, jwtToken)` | Read current summaries |
+| `clearFreshdeskTicketsOnTB(tbBaseUrl, tbDeviceId, jwtToken)` | Write empty array |
+| `toSummary(ticket)` | `FreshDeskTicket` → `FreshdeskTicketSummary` |
+
 ### New global event
 
 ```
@@ -425,6 +477,13 @@ A FreshDesk admin must create these custom fields on the ticket form:
 - [x] `TELEMETRY/controller.js` — `addTicketBadge`, `refreshTicketBadges`,
       `myio:tickets-ready` listener at module scope
 - [x] `telemetry-grid-shopping/types.ts` — `ticketCount?: number`
+- [x] `tickets/TbTicketSync.ts` — SERVER_SCOPE write-back (`writeFreshdeskTicketsToTB`, `appendFreshdeskTicketToTB`, `readFreshdeskTicketsFromTB`, `clearFreshdeskTicketsOnTB`)
+- [x] `tickets/types.ts` — `FreshdeskTicketSummary`, `jwtToken?`/`tbBaseUrl?` on `TicketsTabConfig`, `tbDeviceIdMap` on orchestrator shape
+- [x] `TicketServiceOrchestrator.ts` — writes SERVER_SCOPE after build + refresh (fire-and-forget)
+- [x] `TicketsTab.ts` — calls `appendFreshdeskTicketToTB` after successful ticket creation
+- [x] `SettingsModalView.ts` — passes `jwtToken` + `tbBaseUrl` to `createTicketsTab`
+- [x] `MAIN_VIEW/controller.js` — builds `identifierToTbId` map, passes `tbSyncOptions`
+- [x] `TELEMETRY/controller.js` — `addTicketBadge` fallback reads `freshdesk_tickets` from `item.freshdeskTickets` (SERVER_SCOPE dataKey)
 - [x] `HEADER/template.html` — `tbx-btn-ticket-notif` button (orange, next to alarm bell)
 - [x] `HEADER/styles.css` — `.tbx-btn-ticket-notif` + `.tbx-ticket-badge`
 - [x] `HEADER/controller.js` — wiring, `_updateTicketNotifBadge()`, `myio:tickets-ready` listener, click → open FreshDesk
@@ -475,4 +534,5 @@ A FreshDesk admin must create these custom fields on the ticket form:
 | `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/HEADER/template.html`    | Modified |
 | `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/HEADER/styles.css`       | Modified |
 | `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/HEADER/controller.js`    | Modified |
+| `src/components/premium-modals/settings/tickets/TbTicketSync.ts`                 | Created  |
 | `src/index.ts`                                                                | Modified |

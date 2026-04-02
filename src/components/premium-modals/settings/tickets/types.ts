@@ -26,6 +26,15 @@ export interface FreshDeskTicket {
   tags: string[];
 }
 
+/** Compact ticket record stored as ThingsBoard SERVER_SCOPE attribute `freshdesk_tickets` */
+export interface FreshdeskTicketSummary {
+  id: number;
+  /** 2=open | 3=pending | 4=resolved | 5=closed | 6=waiting */
+  status: 2 | 3 | 4 | 5 | 6;
+  created_at: string;   // ISO-8601
+  updated_at: string;
+}
+
 export interface TicketsTabConfig {
   container: HTMLElement;
   /** Device identifier, e.g. "MED-LOJA-01" */
@@ -38,6 +47,10 @@ export interface TicketsTabConfig {
   freshdeskDomain: string;
   /** Pre-fetched tickets from TicketServiceOrchestrator (skips per-device fetch when provided) */
   prefetchedTickets?: FreshDeskTicket[] | null;
+  /** ThingsBoard JWT token — for writing freshdesk_tickets SERVER_SCOPE attribute */
+  jwtToken?: string;
+  /** ThingsBoard base URL — defaults to window.location.origin */
+  tbBaseUrl?: string;
 }
 
 export interface TicketServiceOrchestratorShape {
@@ -46,4 +59,6 @@ export interface TicketServiceOrchestratorShape {
   getTicketCountForDevice(identifier: string): number;
   getTicketsForDevice(identifier: string): FreshDeskTicket[];
   refresh(): Promise<void>;
+  /** Map<deviceIdentifier, tbDeviceId> — needed to write SERVER_SCOPE per device */
+  tbDeviceIdMap: Map<string, string>;
 }

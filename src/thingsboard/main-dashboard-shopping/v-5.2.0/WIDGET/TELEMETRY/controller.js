@@ -170,9 +170,23 @@ function injectTicketBadgeStyles() {
 // identifier comes from entityObject.identifier (device identifier, e.g. "MED-LOJA-01").
 function addTicketBadge(cardElement, identifier) {
   if (!cardElement || !identifier) return;
+
+  // Primary: use TicketServiceOrchestrator
   const tso = window.TicketServiceOrchestrator;
-  if (!tso) return;
-  const count = tso.getTicketCountForDevice(identifier);
+  let count = tso ? tso.getTicketCountForDevice(identifier) : 0;
+
+  // Fallback: use freshdesk_tickets SERVER_SCOPE dataKey if available on item
+  if (count === 0 && !tso) {
+    const item = STATE.itemsBase?.find(i => i.identifier === identifier);
+    const raw = item?.freshdeskTickets;
+    if (raw) {
+      try {
+        const summaries = JSON.parse(raw);
+        count = Array.isArray(summaries) ? summaries.filter(t => [2, 3, 6].includes(t.status)).length : 0;
+      } catch (_e) { /* ignore parse errors */ }
+    }
+  }
+
   if (!count) return;
 
   injectTicketBadgeStyles();
@@ -5180,6 +5194,8 @@ self.onInit = async function () {
                 log_annotations: item.log_annotations || null,
                 // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
                 gcdrDeviceId: item.gcdrDeviceId || null,
+                // RFC-0198: freshdesk_tickets SERVER_SCOPE dataKey (fallback badge source)
+                freshdeskTickets: item.freshdeskTickets || null,
                 // RFC-0152: Per-device GCDR mapping fields (TB↔GCDR sync audit)
                 entityName: item.entityName || '',
                 gcdrCustomerId: item.gcdrCustomerId || null,
@@ -5334,6 +5350,8 @@ self.onInit = async function () {
         _isHidrometerDevice: item._isHidrometerDevice || false,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
         gcdrDeviceId: item.gcdrDeviceId || null,
+        // RFC-0198: freshdesk_tickets SERVER_SCOPE dataKey (fallback badge source)
+        freshdeskTickets: item.freshdeskTickets || null,
         // RFC-0152: Per-device GCDR mapping fields (TB↔GCDR sync audit)
         entityName: item.entityName || '',
         gcdrCustomerId: item.gcdrCustomerId || null,

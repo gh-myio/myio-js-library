@@ -13,6 +13,7 @@
 
 import { fetchTicketsForDevice, createTicket } from './FreshdeskClient';
 import type { TicketsTabConfig, FreshDeskTicket, TicketTypeId, TicketMotivo } from './types';
+import { appendFreshdeskTicketToTB } from './TbTicketSync';
 
 // ============================================================================
 // Constants
@@ -385,6 +386,15 @@ class TicketsTab {
 
     if (result) {
       this.showFormMsg(msgEl, `Chamado #${result.id} criado com sucesso.`, '#16a34a');
+
+      // RFC-0198: Write to ThingsBoard SERVER_SCOPE
+      const jwtToken = this.config.jwtToken || '';
+      const tbDeviceId = this.config.tbDeviceId || '';
+      const tbBaseUrl = this.config.tbBaseUrl || window.location.origin;
+      if (jwtToken && tbDeviceId) {
+        appendFreshdeskTicketToTB(tbBaseUrl, tbDeviceId, jwtToken, result).catch(() => {});
+      }
+
       form.reset();
 
       // Restore default subject
