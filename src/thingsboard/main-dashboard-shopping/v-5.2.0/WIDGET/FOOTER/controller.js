@@ -19,11 +19,8 @@
 // ============================================================================
 // CONFIGURAÇÃO DE AMBIENTE - Altere aqui para trocar entre staging e produção
 // ============================================================================
-// RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
-const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
-if (!DATA_API_HOST) {
-  console.error('[FOOTER] DATA_API_HOST not available from window.MyIOUtils - MAIN widget must load first');
-}
+// RFC-0091: DATA_API_HOST is read at call time via window.MyIOUtils.getDataApiHost()
+// No module-scope snapshot — always gets the live value set by MAIN widget onInit.
 const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging para testes
 // const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
 
@@ -1208,7 +1205,7 @@ const footerController = {
 
       // ⭐ Usa as variáveis com fallback (já definidas acima)
       const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
+        dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
         clientId: clientId, // ← Usa a variável com fallback
         clientSecret: clientSecret, // ← Usa a variável com fallback
       });
@@ -1227,7 +1224,7 @@ const footerController = {
         granularity: granularity, // ← OBRIGATÓRIO para comparison
         clientId: clientId,
         clientSecret: clientSecret,
-        dataApiHost: DATA_API_HOST,
+        dataApiHost: window.MyIOUtils?.getDataApiHost?.(), // EnergyDataFetcher strips /api/v1 from endpoint internally
         chartsBaseUrl: CHARTS_BASE_URL, // ← URL base para iframes do SDK
         timezone: 'America/Sao_Paulo', // ← fix: timestamps renderizados em BRT, não UTC
         theme: 'dark', // ← Tema inicial (toggle disponível na modal)

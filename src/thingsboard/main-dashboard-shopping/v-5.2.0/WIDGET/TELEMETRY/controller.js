@@ -821,13 +821,8 @@ function inferDisplayIdentifier(item) {
   return 'N/A';
 }
 
-// RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
-const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
-if (!DATA_API_HOST) {
-  console.error(
-    '[TELEMETRY] DATA_API_HOST not available from window.MyIOUtils - MAIN widget must load first'
-  );
-}
+// RFC-0091: DATA_API_HOST is read at call time via window.MyIOUtils.getDataApiHost()
+// No module-scope snapshot — always gets the live value set by MAIN widget onInit.
 const MAX_FIRST_HYDRATES = 1;
 let MAP_INSTANTANEOUS_POWER;
 
@@ -2500,7 +2495,7 @@ function renderList(visible) {
                 if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
                   throw new Error('Missing credentials for ingestion API');
                 }
-                const dataApiHost = window.MyIOUtils.DATA_API_HOST;
+                const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
                 const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
                   dataApiHost,
                   clientId: creds.CLIENT_ID,
@@ -2902,7 +2897,7 @@ function renderList(visible) {
             label: it.label,
             domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
             api: {
-              dataApiBaseUrl: DATA_API_HOST,
+              dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
               clientId: CLIENT_ID,
               clientSecret: CLIENT_SECRET,
               ingestionToken,
@@ -5568,7 +5563,7 @@ self.onInit = async function () {
     window.__MYIO_CUSTOMER_ING_ID__ = CUSTOMER_ING_ID;
 
     MyIOAuth = MyIO.buildMyioIngestionAuth({
-      dataApiHost: DATA_API_HOST,
+      dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
     });
