@@ -226,8 +226,8 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
     if (!dataApiHost) {
       const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
       LogHelper.warn('[MENU] openReportsPickerModal:', msg);
-      if (MyIOLibrary?.MyIOToast?.error) {
-        MyIOLibrary?.MyIOToast.error(msg);
+      if (lib?.MyIOToast?.error) {
+        lib?.MyIOToast.error(msg);
       } else {
         window.alert(msg);
       }
