@@ -875,9 +875,6 @@ export class EnergyModalView {
 
       console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
 
-      const rawApiHost = this.config.params.dataApiHost || '';
-      const safeApiBaseUrl = rawApiHost.replace(/\/api\/v1\/?$/, '');
-
       const chartConfig = {
         version: 'v2',
         clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
@@ -890,7 +887,7 @@ export class EnergyModalView {
         theme: this.currentTheme,  // ← Use current theme (dynamic)
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
-        apiBaseUrl: safeApiBaseUrl
+        apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, '')
       };
 
       (this as any).chartInstance = renderTelemetryChart(this.chartContainer, chartConfig);
@@ -986,7 +983,7 @@ export class EnergyModalView {
         bar_mode: this.currentBarMode,  // ← Use current bar mode (stacked | grouped)
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
-        apiBaseUrl: this.config.params.dataApiHost,
+        apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, ''),
         deep: this.config.params.deep || false
       };
 
@@ -1072,7 +1069,7 @@ export class EnergyModalView {
         theme: this.currentTheme,
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
-        apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com',
+        apiBaseUrl: this.config.params.dataApiHost,
         deep: this.config.params.deep || false,
         // Temperature specific options
         showMinMax: false,  // Don't show min/max lines for comparison
