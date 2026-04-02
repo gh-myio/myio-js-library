@@ -12,8 +12,8 @@
       "dataApiHost": {
         "title": "Data API Host",
         "type": "string",
-        "default": "https://api.data.apps.myio-bas.com",
-        "description": "MYIO Data API base URL"
+        "default": "https://api.data.apps.myio-bas.com/api/v1",
+        "description": "MYIO Data API base URL (WITH /api/v1)"
       },
       "alarmsApiBaseUrl": {
         "title": "Alarms API Base URL",

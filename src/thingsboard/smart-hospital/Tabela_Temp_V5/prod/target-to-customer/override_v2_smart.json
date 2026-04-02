@@ -1,0 +1,1705 @@
+{
+  "device_list_interval_values": [
+    {
+      "tbName": "Co2_CTI_03",
+      "tbLabel": "CTI 03",
+      "deviceCentralName": "Co2_CTI_03",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-02T07:30:00.000Z",
+          "value": 15.01,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T08:00:00.000Z",
+          "value": 15.75,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T08:30:00.000Z",
+          "value": 13.24,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T09:00:00.000Z",
+          "value": 15.47,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T09:30:00.000Z",
+          "value": 15.83,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T10:00:00.000Z",
+          "value": 14.63,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T10:30:00.000Z",
+          "value": 14.32,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T11:00:00.000Z",
+          "value": 14.84,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T11:30:00.000Z",
+          "value": 14.73,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T12:00:00.000Z",
+          "value": 14.74,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T06:30:00.000Z",
+          "value": 14.7,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T07:00:00.000Z",
+          "value": 13.68,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T07:30:00.000Z",
+          "value": 15.29,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T08:00:00.000Z",
+          "value": 14.41,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T08:30:00.000Z",
+          "value": 13.3,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T09:00:00.000Z",
+          "value": 14.83,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T09:30:00.000Z",
+          "value": 14.15,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T10:00:00.000Z",
+          "value": 13.8,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T10:30:00.000Z",
+          "value": 12.75,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T11:00:00.000Z",
+          "value": 15.17,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T11:30:00.000Z",
+          "value": 14.75,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-04T12:00:00.000Z",
+          "value": 15.48,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-07T07:30:00.000Z",
+          "value": 15.89,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T08:00:00.000Z",
+          "value": 15.63,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T08:30:00.000Z",
+          "value": 7.44,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T09:00:00.000Z",
+          "value": 14.83,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T09:30:00.000Z",
+          "value": 15.29,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T10:00:00.000Z",
+          "value": 18,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T10:30:00.000Z",
+          "value": 12.57,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T11:00:00.000Z",
+          "value": 18,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T11:30:00.000Z",
+          "value": 18,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-07T12:00:00.000Z",
+          "value": 15.63,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-14T06:30:00.000Z",
+          "value": 16.44,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T07:00:00.000Z",
+          "value": 17.71,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T07:30:00.000Z",
+          "value": 15.89,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T08:00:00.000Z",
+          "value": 15.63,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T08:30:00.000Z",
+          "value": 7.44,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T09:00:00.000Z",
+          "value": 14.83,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T09:30:00.000Z",
+          "value": 15.29,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T10:00:00.000Z",
+          "value": 18,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T10:30:00.000Z",
+          "value": 12.57,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T11:00:00.000Z",
+          "value": 18,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T11:30:00.000Z",
+          "value": 18,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-14T12:00:00.000Z",
+          "value": 15.63,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-16T06:00:00.000Z",
+          "value": 15.45,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-16T06:30:00.000Z",
+          "value": 13.88,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T07:00:00.000Z",
+          "value": 15.62,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T07:30:00.000Z",
+          "value": 15.01,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T08:00:00.000Z",
+          "value": 15.75,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T08:30:00.000Z",
+          "value": 13.24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T09:00:00.000Z",
+          "value": 15.47,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T09:30:00.000Z",
+          "value": 15.83,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T10:00:00.000Z",
+          "value": 14.63,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T10:30:00.000Z",
+          "value": 14.32,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T11:00:00.000Z",
+          "value": 14.84,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T11:30:00.000Z",
+          "value": 14.73,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-16T12:00:00.000Z",
+          "value": 13.17,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T06:30:00.000Z",
+          "value": 15.48,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T07:00:00.000Z",
+          "value": 15.1,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T07:30:00.000Z",
+          "value": 13.73,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T08:00:00.000Z",
+          "value": 14.85,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T08:30:00.000Z",
+          "value": 13.42,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T09:00:00.000Z",
+          "value": 13.47,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T09:30:00.000Z",
+          "value": 13.98,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T10:00:00.000Z",
+          "value": 14.64,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T10:30:00.000Z",
+          "value": 14.52,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T11:00:00.000Z",
+          "value": 14.04,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-17T11:30:00.000Z",
+          "value": 14.66,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-19T07:00:00.000Z",
+          "value": 15.6,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-19T07:30:00.000Z",
+          "value": 16.14,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-19T08:00:00.000Z",
+          "value": 16,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T08:30:00.000Z",
+          "value": 13.57,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T09:00:00.000Z",
+          "value": 15.33,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T09:30:00.000Z",
+          "value": 14.36,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T10:00:00.000Z",
+          "value": 16,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T10:30:00.000Z",
+          "value": 16.84,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T11:00:00.000Z",
+          "value": 15.39,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T11:30:00.000Z",
+          "value": 14.3,
+          "_source": "week-2"
+        },
+        {
+          "timeUTC": "2026-03-19T12:00:00.000Z",
+          "value": 10.35,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T06:30:00.000Z",
+          "value": 19.1,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T07:00:00.000Z",
+          "value": 19.21,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T07:30:00.000Z",
+          "value": 19.17,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T08:00:00.000Z",
+          "value": 19.08,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T08:30:00.000Z",
+          "value": 19.08,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T09:00:00.000Z",
+          "value": 19.03,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T09:30:00.000Z",
+          "value": 19.03,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T10:00:00.000Z",
+          "value": 18.94,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T10:30:00.000Z",
+          "value": 18.91,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T11:00:00.000Z",
+          "value": 18.83,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T11:30:00.000Z",
+          "value": 18.8,
+          "_source": "week+1"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_Cirurgia9",
+      "tbLabel": "Cirurgia 09",
+      "deviceCentralName": "Co2_Cirurgia9",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-23T08:30:00.000Z",
+          "value": 18.27,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T09:00:00.000Z",
+          "value": 17.06,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T09:30:00.000Z",
+          "value": 18.25,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T10:00:00.000Z",
+          "value": 18.76,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T10:30:00.000Z",
+          "value": 18.63,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T11:00:00.000Z",
+          "value": 18.71,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T11:30:00.000Z",
+          "value": 18.59,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T12:00:00.000Z",
+          "value": 17.5,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T12:30:00.000Z",
+          "value": 17.18,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T13:00:00.000Z",
+          "value": 17.85,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T13:30:00.000Z",
+          "value": 18.11,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T14:00:00.000Z",
+          "value": 17.95,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T14:30:00.000Z",
+          "value": 18.95,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T15:00:00.000Z",
+          "value": 18.62,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T15:30:00.000Z",
+          "value": 18.65,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T16:00:00.000Z",
+          "value": 18.44,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T16:30:00.000Z",
+          "value": 18.15,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T17:00:00.000Z",
+          "value": 19.19,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T17:30:00.000Z",
+          "value": 18.98,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T18:00:00.000Z",
+          "value": 19.17,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T18:30:00.000Z",
+          "value": 18.71,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T19:00:00.000Z",
+          "value": 20.07,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T19:30:00.000Z",
+          "value": 19.96,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T20:00:00.000Z",
+          "value": 20.53,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T20:30:00.000Z",
+          "value": 21.45,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T21:00:00.000Z",
+          "value": 20.87,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T21:30:00.000Z",
+          "value": 20.09,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T22:00:00.000Z",
+          "value": 19.65,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T22:30:00.000Z",
+          "value": 19.44,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T23:00:00.000Z",
+          "value": 19.81,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-23T23:30:00.000Z",
+          "value": 20.13,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-24T00:00:00.000Z",
+          "value": 19.79,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-24T00:30:00.000Z",
+          "value": 20.54,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-24T01:00:00.000Z",
+          "value": 20.33,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-24T01:30:00.000Z",
+          "value": 20.77,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-24T02:00:00.000Z",
+          "value": 19.48,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-24T02:30:00.000Z",
+          "value": 18.53,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-25T03:00:00.000Z",
+          "value": 14.88,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T03:30:00.000Z",
+          "value": 13.39,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T04:00:00.000Z",
+          "value": 13.49,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T04:30:00.000Z",
+          "value": 12.83,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T05:00:00.000Z",
+          "value": 15.27,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T05:30:00.000Z",
+          "value": 13.42,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T06:00:00.000Z",
+          "value": 13.74,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T06:30:00.000Z",
+          "value": 14.96,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T07:00:00.000Z",
+          "value": 14.14,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T07:30:00.000Z",
+          "value": 14.14,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T08:00:00.000Z",
+          "value": 15.67,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T08:30:00.000Z",
+          "value": 14.4,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T09:00:00.000Z",
+          "value": 13.65,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T09:30:00.000Z",
+          "value": 14.03,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T10:00:00.000Z",
+          "value": 14.29,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T10:30:00.000Z",
+          "value": 14.74,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T11:00:00.000Z",
+          "value": 13.78,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T11:30:00.000Z",
+          "value": 13.8,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T12:00:00.000Z",
+          "value": 13.52,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T12:30:00.000Z",
+          "value": 14.16,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T13:00:00.000Z",
+          "value": 14.16,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T13:30:00.000Z",
+          "value": 14.28,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T14:00:00.000Z",
+          "value": 13.97,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T14:30:00.000Z",
+          "value": 14.97,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T15:00:00.000Z",
+          "value": 15.88,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T15:30:00.000Z",
+          "value": 15.68,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T16:00:00.000Z",
+          "value": 15.58,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T16:30:00.000Z",
+          "value": 14,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T17:00:00.000Z",
+          "value": 15.2,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T17:30:00.000Z",
+          "value": 14.61,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T18:00:00.000Z",
+          "value": 14.95,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T18:30:00.000Z",
+          "value": 14.69,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T19:00:00.000Z",
+          "value": 15.69,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T19:30:00.000Z",
+          "value": 15.17,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T20:00:00.000Z",
+          "value": 15.76,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T20:30:00.000Z",
+          "value": 14.99,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T21:00:00.000Z",
+          "value": 14.6,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T21:30:00.000Z",
+          "value": 15.5,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T22:00:00.000Z",
+          "value": 14.6,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T22:30:00.000Z",
+          "value": 16.08,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T23:00:00.000Z",
+          "value": 16.31,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-25T23:30:00.000Z",
+          "value": 17.2,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-26T00:00:00.000Z",
+          "value": 15.39,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-26T00:30:00.000Z",
+          "value": 16.68,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-26T01:00:00.000Z",
+          "value": 17.58,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-26T01:30:00.000Z",
+          "value": 17.91,
+          "_source": "week-1"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_Cirurgia8",
+      "tbLabel": "Cirurgia 08",
+      "deviceCentralName": "Co2_Cirurgia8",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-05T21:00:00.000Z",
+          "value": 15.05,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-05T21:30:00.000Z",
+          "value": 17.09,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-05T22:00:00.000Z",
+          "value": 16.07,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-05T22:30:00.000Z",
+          "value": 17.04,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-05T23:00:00.000Z",
+          "value": 17.26,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-05T23:30:00.000Z",
+          "value": 16.83,
+          "_source": "week+2"
+        },
+        {
+          "timeUTC": "2026-03-06T00:00:00.000Z",
+          "value": 14.65,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T00:30:00.000Z",
+          "value": 15.85,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T01:00:00.000Z",
+          "value": 16.21,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T01:30:00.000Z",
+          "value": 15.23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T02:00:00.000Z",
+          "value": 15.81,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T02:30:00.000Z",
+          "value": 15.37,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T03:00:00.000Z",
+          "value": 16.18,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T03:30:00.000Z",
+          "value": 15.22,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T04:00:00.000Z",
+          "value": 15.7,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T04:30:00.000Z",
+          "value": 15.33,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T05:00:00.000Z",
+          "value": 16.04,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T05:30:00.000Z",
+          "value": 16.77,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T06:00:00.000Z",
+          "value": 15.55,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T06:30:00.000Z",
+          "value": 15.01,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T07:00:00.000Z",
+          "value": 14.68,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T07:30:00.000Z",
+          "value": 14.72,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T08:00:00.000Z",
+          "value": 15.17,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T08:30:00.000Z",
+          "value": 15.38,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T09:00:00.000Z",
+          "value": 14.32,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T09:30:00.000Z",
+          "value": 15.06,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T10:00:00.000Z",
+          "value": 15.08,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T10:30:00.000Z",
+          "value": 15,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T11:00:00.000Z",
+          "value": 14.07,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T11:30:00.000Z",
+          "value": 15.69,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T12:00:00.000Z",
+          "value": 14.75,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T12:30:00.000Z",
+          "value": 16.01,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T13:00:00.000Z",
+          "value": 15.84,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T13:30:00.000Z",
+          "value": 15.55,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T14:00:00.000Z",
+          "value": 15.03,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T14:30:00.000Z",
+          "value": 17.37,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T15:00:00.000Z",
+          "value": 16.78,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T15:30:00.000Z",
+          "value": 15.6,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T16:00:00.000Z",
+          "value": 15.84,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T16:30:00.000Z",
+          "value": 16.98,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T17:00:00.000Z",
+          "value": 13.17,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T17:30:00.000Z",
+          "value": 16.54,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T18:00:00.000Z",
+          "value": 15.56,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T18:30:00.000Z",
+          "value": 15.63,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T19:00:00.000Z",
+          "value": 15.44,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T19:30:00.000Z",
+          "value": 15.84,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T20:00:00.000Z",
+          "value": 16.06,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T20:30:00.000Z",
+          "value": 16.63,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T21:00:00.000Z",
+          "value": 15.9,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T21:30:00.000Z",
+          "value": 15.43,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T22:00:00.000Z",
+          "value": 16.67,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T22:30:00.000Z",
+          "value": 16.52,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T23:00:00.000Z",
+          "value": 16.64,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-09T23:30:00.000Z",
+          "value": 16.37,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-10T00:00:00.000Z",
+          "value": 15.93,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-10T00:30:00.000Z",
+          "value": 16.01,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-10T01:00:00.000Z",
+          "value": 16.01,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-10T01:30:00.000Z",
+          "value": 15.88,
+          "_source": "week-1+week+1"
+        },
+        {
+          "timeUTC": "2026-03-10T02:00:00.000Z",
+          "value": 15.64,
+          "_source": "week-1+week+1"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_Queimados",
+      "tbLabel": "Queimados",
+      "deviceCentralName": "Co2_Queimados",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-06T03:00:00.000Z",
+          "value": 22.89,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T03:30:00.000Z",
+          "value": 22.57,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T04:00:00.000Z",
+          "value": 22.3,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T04:30:00.000Z",
+          "value": 22.92,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T05:00:00.000Z",
+          "value": 22.92,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T05:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T06:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T06:30:00.000Z",
+          "value": 22.89,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T07:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T07:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T08:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T08:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T09:00:00.000Z",
+          "value": 22.76,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T09:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T10:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T10:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T11:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T11:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T12:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T12:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T13:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T13:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T14:00:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T14:30:00.000Z",
+          "value": 22.71,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T15:00:00.000Z",
+          "value": 22.36,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T15:30:00.000Z",
+          "value": 22.21,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T16:00:00.000Z",
+          "value": 22.18,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T16:30:00.000Z",
+          "value": 22,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T17:00:00.000Z",
+          "value": 22,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T17:30:00.000Z",
+          "value": 22,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T18:00:00.000Z",
+          "value": 22.52,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T18:30:00.000Z",
+          "value": 22.33,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T19:00:00.000Z",
+          "value": 22.5,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-06T19:30:00.000Z",
+          "value": 23,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-28T07:30:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T08:00:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T08:30:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T09:00:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T09:30:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T10:00:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T10:30:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T11:00:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T11:30:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T12:00:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T12:30:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T13:00:00.000Z",
+          "value": 22.55,
+          "_source": "week-1"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_Laboratorio",
+      "tbLabel": "Laboratorio",
+      "deviceCentralName": "Co2_Laboratorio",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-31T03:30:00.000Z",
+          "value": 17.82,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T04:00:00.000Z",
+          "value": 16.69,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T04:30:00.000Z",
+          "value": 18.06,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T05:00:00.000Z",
+          "value": 16.5,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T05:30:00.000Z",
+          "value": 17.05,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T06:00:00.000Z",
+          "value": 17.78,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T06:30:00.000Z",
+          "value": 19.05,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T07:00:00.000Z",
+          "value": 20.54,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T07:30:00.000Z",
+          "value": 13.44,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T15:00:00.000Z",
+          "value": 17.6,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T15:30:00.000Z",
+          "value": 16.74,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T16:00:00.000Z",
+          "value": 15.78,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T16:30:00.000Z",
+          "value": 18.91,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T17:00:00.000Z",
+          "value": 16.83,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T17:30:00.000Z",
+          "value": 18.05,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T18:00:00.000Z",
+          "value": 18.17,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T18:30:00.000Z",
+          "value": 18.7,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T19:00:00.000Z",
+          "value": 18.03,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-31T19:30:00.000Z",
+          "value": 20.9,
+          "_source": "week-1"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_CTI_Pediatrico",
+      "tbLabel": "CTI Pediatrico",
+      "deviceCentralName": "Co2_CTI_Pediatrico",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-28T07:00:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T07:30:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T08:00:00.000Z",
+          "value": 23.59,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T08:30:00.000Z",
+          "value": 23.1,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T09:00:00.000Z",
+          "value": 23.84,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T09:30:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T10:00:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T10:30:00.000Z",
+          "value": 23.24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T11:00:00.000Z",
+          "value": 23,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T11:30:00.000Z",
+          "value": 23.76,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T12:00:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T12:30:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T13:00:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T13:30:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T14:00:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T14:30:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T15:00:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        },
+        {
+          "timeUTC": "2026-03-28T15:30:00.000Z",
+          "value": 24,
+          "_source": "week-1"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_Cirurgia3",
+      "tbLabel": "Cirurgia 03",
+      "deviceCentralName": "Co2_Cirurgia3",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-01T12:00:00.000Z",
+          "value": null,
+          "_source": "not_found"
+        },
+        {
+          "timeUTC": "2026-03-01T14:30:00.000Z",
+          "value": null,
+          "_source": "not_found"
+        },
+        {
+          "timeUTC": "2026-03-01T19:00:00.000Z",
+          "value": null,
+          "_source": "not_found"
+        },
+        {
+          "timeUTC": "2026-03-02T04:00:00.000Z",
+          "value": null,
+          "_source": "not_found"
+        },
+        {
+          "timeUTC": "2026-03-02T07:00:00.000Z",
+          "value": null,
+          "_source": "not_found"
+        }
+      ]
+    },
+    {
+      "tbName": "Co2_Cirurgia7",
+      "tbLabel": "Cirurgia 07",
+      "deviceCentralName": "Co2_Cirurgia7",
+      "values_list": [
+        {
+          "timeUTC": "2026-03-01T11:30:00.000Z",
+          "value": 14.02,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-01T12:30:00.000Z",
+          "value": 16.37,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-01T19:30:00.000Z",
+          "value": 15.49,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T00:30:00.000Z",
+          "value": 15.62,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T01:00:00.000Z",
+          "value": 15.81,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T04:00:00.000Z",
+          "value": 15.77,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T09:30:00.000Z",
+          "value": 15.48,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T11:00:00.000Z",
+          "value": 15.17,
+          "_source": "week+1"
+        },
+        {
+          "timeUTC": "2026-03-02T16:30:00.000Z",
+          "value": 15.17,
+          "_source": "week+1"
+        }
+      ]
+    }
+  ]
+}

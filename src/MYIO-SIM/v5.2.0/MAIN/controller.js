@@ -37,13 +37,13 @@ const periodKey = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.periodKey) 
 
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+let DATA_API_HOST = ''; // populated in onInit from settings.dataApiHost (WITH /api/v1)
 const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
 
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
   LogHelper,
-  DATA_API_HOST,
+  DATA_API_HOST, // will be updated in onInit
   isDebugActive: () => DEBUG_ACTIVE,
   setDebug: (active) => {
     DEBUG_ACTIVE = !!active;
@@ -381,7 +381,7 @@ Object.assign(window.MyIOUtils, {
       // Build API URL
       // RFC-FIX: Add profileIds to filter only 3F_MEDIDOR devices (lojas)
       const ENERGY_PROFILE_ID = '696be74a-a978-44ce-b50f-5b724e7effb8'; // 3F_MEDIDOR profile
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
+      const url = new URL(`${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
@@ -489,7 +489,7 @@ Object.assign(window.MyIOUtils, {
       // Build URL for water API
       // RFC-FIX: Add profileIds to filter only HIDROMETRO devices
       const WATER_PROFILE_ID = '526275a7-55cd-4e40-a9b8-0b08b7db6cdc'; // HIDROMETRO profile
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
+      const url = new URL(`${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
@@ -3616,6 +3616,15 @@ Object.assign(window.MyIOUtils, {
     // Populate global widget settings early to avoid undefined errors
     // These settings are available globally to all functions
 
+    // FIRST: populate DATA_API_HOST from settings (WITH /api/v1)
+    DATA_API_HOST = self.ctx.settings?.dataApiHost || '';
+    if (!DATA_API_HOST) {
+      const msg = 'dataApiHost não configurado. Verifique as configurações do widget.';
+      LogHelper.warn('[MAIN]', msg);
+      if (window.MyIOLibrary?.MyIOToast?.error) { window.MyIOLibrary.MyIOToast.error(msg); }
+    }
+    window.MyIOUtils.DATA_API_HOST = DATA_API_HOST; // update for child widgets
+
     // CRITICAL: customerTB_ID MUST be set - abort if missing
     const customerTB_ID = self.ctx.settings?.customerTB_ID;
     if (!customerTB_ID) {
@@ -6668,7 +6677,7 @@ const MyIOOrchestrator = (() => {
 
       // Build API URL based on domain
       const url = new URL(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`
+        `${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`
       );
       url.searchParams.set('startTime', period.startISO);
       url.searchParams.set('endTime', period.endISO);
@@ -7542,7 +7551,7 @@ const MyIOOrchestrator = (() => {
 
               // Fetch water API totals
               const url = new URL(
-                `${DATA_API_HOST}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`
+                `${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${creds.CUSTOMER_ING_ID}/water/devices/totals`
               );
               url.searchParams.set('startTime', startISO);
               url.searchParams.set('endTime', endISO);

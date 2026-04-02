@@ -217,7 +217,14 @@ self.onInit = async function () {
 
   // === 2. CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
-  const DATA_API_HOST     = settings.dataApiHost     || 'https://api.data.apps.myio-bas.com';
+  const DATA_API_HOST     = settings.dataApiHost     || '';
+  if (!DATA_API_HOST) {
+    const msg = 'dataApiHost não configurado. Verifique as configurações do widget.';
+    LogHelper.warn('[MAIN_UNIQUE_DATASOURCE]', msg);
+    if (MyIOLibrary?.MyIOToast?.error) { MyIOLibrary.MyIOToast.error(msg); }
+  }
+  // Base URL for direct fetch calls that append /api/v1 manually
+  const DATA_API_BASE = DATA_API_HOST.replace(/\/api\/v1\/?$/, '');
   const ALARMS_API_BASE   = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
   const ALARMS_API_KEY    = settings.alarmsApiKey    || '';
   const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
@@ -6597,13 +6604,15 @@ async function enrichDevicesWithConsumption(classified) {
   }
 
   const { clientId, clientSecret, customerId, dataApiHost } = creds;
+  // dataApiHost includes /api/v1 — strip it for URL templates that append it manually
+  const dataApiBase = dataApiHost.replace(/\/api\/v1\/?$/, '');
   LogHelper.log('Starting API enrichment with customerId:', customerId);
 
   // Create MyIOAuth instance
   let myIOAuth;
   try {
     myIOAuth = lib.buildMyioIngestionAuth({
-      dataApiHost: dataApiHost || 'https://api.data.apps.myio-bas.com',
+      dataApiHost: dataApiHost || '',
       clientId: clientId,
       clientSecret: clientSecret,
     });
@@ -6669,7 +6678,7 @@ async function enrichDevicesWithConsumption(classified) {
   if (energyIngestionMap.size > 0) {
     try {
       const energyUrl = new URL(
-        `${dataApiHost}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`
+        `${dataApiBase}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`
       );
       energyUrl.searchParams.set('startTime', period.startISO);
       energyUrl.searchParams.set('endTime', period.endISO);
@@ -6715,7 +6724,7 @@ async function enrichDevicesWithConsumption(classified) {
   if (waterIngestionMap.size > 0) {
     try {
       const waterUrl = new URL(
-        `${dataApiHost}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
+        `${dataApiBase}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
       );
 
       waterUrl.searchParams.set('startTime', period.startISO);

@@ -3,15 +3,16 @@
     "type": "object",
     "title": "Settings",
     "properties": {
-      "customerId": {
+      "customerTB_ID": {
         "type": "string",
-        "title": "customerId"
+        "title": "Customer ThingsBoard ID",
+        "description": "ThingsBoard UUID of the customer. Required — widget aborts if missing."
       },
       "dataApiHost": {
         "type": "string",
         "title": "Data API Host",
-        "default": "https://api.data.apps.myio-bas.com",
-        "description": "RFC-0086: Base URL for the MyIO Data API. Used by all widgets for API calls."
+        "default": "https://api.data.apps.myio-bas.com/api/v1",
+        "description": "RFC-0086: Base URL for the MyIO Data API (WITH /api/v1). Used by all widgets for API calls."
       },
       "delayTimeConnectionInMins": {
         "type": "number",
@@ -20,6 +21,6 @@
         "description": "RFC-0091: Delay time in minutes for connection status probation period. Devices connected for less than this time are considered offline."
       }
     },
-    "required": ["customerId", "dataApiHost"]
+    "required": ["customerTB_ID", "dataApiHost"]
   }
 }
