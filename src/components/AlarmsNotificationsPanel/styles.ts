@@ -151,16 +151,41 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: rgba(139, 92, 246, 0.2);
 }
 
+/* ── alarm-text-btn: base style (mirrors ALARM widget .alarm-text-btn) ── */
+.myio-alarms-panel .alarm-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--alarms-primary);
+  border-radius: 6px;
+  background: var(--alarms-primary-light);
+  color: var(--alarms-primary);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.myio-alarms-panel .alarm-text-btn svg {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.myio-alarms-panel .alarm-text-btn:hover {
+  background: var(--alarms-primary);
+  color: #fff;
+}
+
 /* Bundle map button — logo após as tabs, margem fixa à esquerda */
 .myio-alarms-tabs .alarms-tab-map-btn {
   margin-left: 16px;
   flex-shrink: 0;
   align-self: center;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
 }
 
 /* Alarm count badge — hidden (kept for JS compatibility) */
@@ -4571,17 +4596,11 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   border-radius: var(--alarms-radius-lg);
 }
 
-/* History button — same base as alarms-tab-map-btn */
+/* History button — modifier only (base comes from .alarm-text-btn) */
 .myio-alarms-tabs .alarms-tab-history-btn {
   margin-left: 8px;
   flex-shrink: 0;
   align-self: center;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .myio-alarms-tabs .alarms-tab-history-btn.is-active {

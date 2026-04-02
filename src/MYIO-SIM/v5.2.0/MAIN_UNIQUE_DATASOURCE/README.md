@@ -63,7 +63,40 @@ MAIN_UNIQUE_DATASOURCE (Widget Principal)
 - Botão de comparação
 - Sincronizado com estado do dashboard
 
-### 5. Device Classification
+### 5. Indicadores Operacionais (RFC-0152 / RFC-0175)
+
+Tab adicional **Indicadores** (📊) habilitado via evento `myio:operational-indicators-access`.
+
+| Contexto | `target` (stateId) | Função no controller | Descrição |
+|---|---|---|---|
+| Disp. Equipamentos | `operational_general_list` | `renderOperationalGeneralList()` | Grid de cards com disponibilidade, MTBF e MTTR por equipamento (escadas/elevadores). Dados via `AlarmService.getAvailability()`. |
+| Alarmes e Notificações | `operational_alarms` | `renderAlarmsNotificationsPanel()` | Central de alarmes e alertas. Dados via `AlarmService`. |
+| Dashboard Gerencial | `operational_dashboard` | `renderOperationalDashboard()` | KPIs e indicadores de gestão. |
+
+**Controle de acesso:**
+
+- Disparado por: `window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: true } }))`
+- No ThingsBoard: atributo SERVER_SCOPE `show-indicators-operational-panels = 'true'` no customer
+- No MYIO-SIM: habilitado diretamente em `MenuView.ts` (hardcoded `enabled: true`)
+
+**Fluxo de dados (Disp. Equipamentos):**
+
+```
+myio:switch-main-state { targetStateId: 'operational_general_list' }
+  → renderOperationalGeneralList(container)
+    → AlarmService.getAvailability(customerId, startAt, endAt)
+    → mapAvailabilityToEquipment(response.byDevice)
+      → customerName extraído de deviceName "Equip-01 (Cliente)" via regex
+    → createDeviceOperationalCardGridComponent({ equipment, customers })
+```
+
+**Seleção e Comparação:**
+
+- Cards suportam seleção (checkbox) via `MyIOSelectionStore`
+- `SelectionStore.registerEntity()` preserva `availability`, `mtbf`, `mttr`, `equipmentType`
+- Footer acumula seleções → botão "Comparar" abre `openOperationalComparisonModal()`
+
+### 6. Device Classification
 
 Classifica todos os dispositivos do datasource `AllDevices` por:
 
@@ -102,6 +135,7 @@ graph TD
 | `myio:update-date`             | Range de data alterado      | `{ startISO, endISO }`                                   |
 | `myio:theme-change`            | Tema alterado               | `{ themeMode }`                                          |
 | `myio:dashboard-state`         | Mudança de estado           | `{ domain, stateId }`                                    |
+| `myio:operational-indicators-access` | Controle de acesso ao tab Indicadores | `{ enabled: boolean }` |
 
 ## 📡 Eventos Listened
 
@@ -109,6 +143,9 @@ graph TD
 | -------------------------- | -------------------------------------------- |
 | `myio:data-ready`          | Atualiza componentes com dados classificados |
 | `myio:panel-modal-request` | Abre modal de painel (Energy/Water/Temp)     |
+| `myio:switch-main-state`   | Troca de view principal (`operational_general_list`, `operational_alarms`, `operational_dashboard`) |
+| `myio:force-refresh`       | Limpa cache e recarrega dados do datasource  |
+| `myio:request-shoppings`   | Responde com lista de shoppings cacheada para o Menu |
 
 ## ⚙️ Configuração no ThingsBoard
 
@@ -208,30 +245,28 @@ Quando o usuário clica em "Geral" (energia), "Resumo" (água) ou "Resumo Geral"
 ## ✅ Status da Implementação
 
 - [x] template.html criado
-- [x] controller.js criado (645 linhas)
+- [x] controller.js criado
 - [x] styles.css criado
 - [x] settingsSchema.json criado
 - [x] ESLint configurado
-- [ ] Panel components (RFC-0117, 0118, 0119) - não implementados ainda
-- [ ] TELEMETRY modificado com event listener
+- [x] Tab Indicadores — Disp. Equipamentos (`DeviceOperationalCardGrid`)
+- [x] Tab Indicadores — Alarmes e Notificações (`AlarmsNotificationsPanel`)
+- [x] Tab Indicadores — Dashboard Gerencial (`OperationalDashboard`)
+- [x] Modal de Comparação Operacional (availability, MTBF, MTTR)
+- [x] customerName extraído do deviceName via regex
+- [ ] Panel components (RFC-0117, 0118, 0119) — Energy/Water/Temperature panels
 
 ## 🚀 Próximos Passos
 
-1. **Criar Panel Components** na MyIOLibrary:
+1. **Implementar Panel Components** na MyIOLibrary:
+   - `src/components/energy-panel/` (RFC-0117)
+   - `src/components/water-panel/` (RFC-0118)
+   - `src/components/temperature-panel/` (RFC-0119)
 
-   - `src/components/energy-panel/`
-   - `src/components/water-panel/`
-   - `src/components/temperature-panel/`
-
-2. **Modificar TELEMETRY**:
-
-   - Adicionar listener para `myio:telemetry-config-change`
-   - Atualizar CONTEXT_CONFIG com novos contextos
-
-3. **Configurar Dashboard ThingsBoard**:
+2. **Configurar Dashboard ThingsBoard**:
    - Criar datasource `AllDevices`
    - Adicionar widget MAIN_UNIQUE_DATASOURCE
-   - Configurar state `telemetry` para TELEMETRY widget
+   - Atributo SERVER_SCOPE `show-indicators-operational-panels = 'true'` para habilitar tab Indicadores
 
 ## 📝 Notas Importantes
 
@@ -253,6 +288,6 @@ Quando o usuário clica em "Geral" (energia), "Resumo" (água) ou "Resumo Geral"
 
 ---
 
-**Versão**: 1.0.0  
-**Data**: 2026-01-02  
-**Status**: ✅ Widget Base Implementado
+**Versão**: 2.0.0  
+**Data**: 2026-04-02  
+**Status**: ✅ Implementado (Indicadores Operacionais RFC-0152/RFC-0175)

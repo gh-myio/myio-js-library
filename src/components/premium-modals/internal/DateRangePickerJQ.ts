@@ -367,12 +367,16 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
       'Este mês': [moment().startOf('month'), now.clone()]
     };
   } else {
-    // Date-only presets (existing behavior)
+    // Date-only presets
     ranges = {
-      'Hoje': [moment().startOf('day'), moment().endOf('day')],
-      'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), moment().endOf('day')],
-      'Últimos 30 dias': [moment().subtract(29,'days').startOf('day'), moment().endOf('day')],
-      'Mês Anterior': [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')]
+      'Hoje':           [moment().startOf('day'), moment().endOf('day')],
+      'Últimos 7 dias': [moment().subtract(6,  'days').startOf('day'), moment().endOf('day')],
+      'Últimos 15 dias':[moment().subtract(14, 'days').startOf('day'), moment().endOf('day')],
+      'Últimos 30 dias':[moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
+      'Últimos 60 dias':[moment().subtract(59, 'days').startOf('day'), moment().endOf('day')],
+      'Últimos 90 dias':[moment().subtract(89, 'days').startOf('day'), moment().endOf('day')],
+      'Mês Atual':      [moment().startOf('month'), moment().endOf('day')],
+      'Mês Anterior':   [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')],
     };
   }
 

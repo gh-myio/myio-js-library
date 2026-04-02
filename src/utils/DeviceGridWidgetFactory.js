@@ -301,7 +301,19 @@ function createDefaultActionHandlers(config, entityObject, item) {
   const MyIOAuth = MyIOUtils?.MyIOAuth;
   const CLIENT_ID = MyIOUtils?.CLIENT_ID;
   const CLIENT_SECRET = MyIOUtils?.CLIENT_SECRET;
-  const getDataApiHost = MyIOUtils?.getDataApiHost || (() => 'https://api.data.apps.myio-bas.com');
+  const getDataApiHost = () => {
+    const host = MyIOUtils?.getDataApiHost?.() || MyIOUtils?.DATA_API_HOST || '';
+    if (!host) {
+      const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
+      LogHelper.warn(`[${config.widgetName}]`, msg);
+      if (MyIOLibrary?.MyIOToast?.error) {
+        MyIOLibrary.MyIOToast.error(msg);
+      } else {
+        window.alert(msg);
+      }
+    }
+    return host;
+  };
 
   return {
     handleActionDashboard: async () => {
@@ -354,6 +366,9 @@ function createDefaultActionHandlers(config, entityObject, item) {
           window.alert('Autenticação não disponível. Recarregue a página.');
           return;
         }
+        const dataApiBaseUrl = getDataApiHost();
+        if (!dataApiBaseUrl) return;
+
         const ingestionToken = await MyIOAuth.getToken();
         await MyIOLibrary?.openDashboardPopupReport?.({
           ingestionId: item.ingestionId,
@@ -361,7 +376,7 @@ function createDefaultActionHandlers(config, entityObject, item) {
           label: item.label,
           domain: config.domain,
           api: {
-            dataApiBaseUrl: getDataApiHost(),
+            dataApiBaseUrl,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
             ingestionToken,

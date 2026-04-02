@@ -3323,6 +3323,7 @@ body.filter-modal-open { overflow: hidden !important; }
       container: footerContainer,
       ctx: self.ctx,
       themeMode: currentThemeMode,
+      theme: currentThemeMode,
       maxSelections: 6,
       getDateRange: () => ({
         start: self.ctx.$scope.startDateISO,
@@ -3421,6 +3422,8 @@ body.filter-modal-open { overflow: hidden !important; }
     // MenuController sends targetStateId, not stateId
     const stateId = e.detail?.targetStateId || e.detail?.stateId || '';
     LogHelper.log('[MAIN_UNIQUE] RFC-0152: switch-main-state received:', stateId);
+
+    clearSelectionStore();
 
     const telemetryContainer = document.getElementById('telemetryGridContainer');
     if (!telemetryContainer) {
@@ -3993,9 +3996,18 @@ body.filter-modal-open { overflow: hidden !important; }
     entrada: 'entrada',
   };
 
+  function clearSelectionStore() {
+    const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    if (store?.getSelectedIds?.().length > 0) {
+      store.clearAll();
+      LogHelper.log('[MAIN_UNIQUE] SelectionStore cleared on context change');
+    }
+  }
+
   function handleContextChange(tabId, contextId, target) {
     const telemetryContainer = document.getElementById('telemetryGridContainer');
 
+    clearSelectionStore();
     showMenuBusy(tabId, 'Carregando dados...');
 
     // RFC-0175: Operational tab is handled exclusively via myio:switch-main-state listener
@@ -4284,14 +4296,27 @@ body.filter-modal-open { overflow: hidden !important; }
       const statusMap = { healthy: 'online', degraded: 'warning', critical: 'offline' };
       const status = statusMap[d.status] || d.status || 'offline';
 
+      // Extract customerName: API field > parentheses in deviceName e.g. "Elevador-11 (Supervia DEODORO)"
+      const customerNameFromApi = d.customerName || d.customer || '';
+      const customerNameFromDeviceName = (() => {
+        const match = (d.deviceName || '').match(/\(([^)]+)\)\s*$/);
+        return match ? match[1].trim() : '';
+      })();
+      const customerName = customerNameFromApi || customerNameFromDeviceName;
+
+      // Strip parenthesized customer suffix from device name for cleaner display
+      const cleanDeviceName = customerNameFromDeviceName
+        ? (d.deviceName || '').replace(/\s*\([^)]+\)\s*$/, '').trim()
+        : (d.deviceName || '');
+
       const mapped = {
         id: d.deviceId,
-        name: d.deviceName,
-        identifier: d.deviceName,
+        name: cleanDeviceName,
+        identifier: cleanDeviceName,
         type,
         status,
         customerId: d.customerId || '',
-        customerName: d.customerName || '',
+        customerName,
         location: d.location || '',
         availability: d.availability ?? 0,
         mtbf: d.mtbfHours ?? d.mtbf ?? 0,
