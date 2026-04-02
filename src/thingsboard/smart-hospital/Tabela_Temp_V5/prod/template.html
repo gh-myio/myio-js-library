@@ -13,17 +13,17 @@
     </div>
 
     <div class="actions">
-      <button class="hide-in-settings icon-btn" (click)="openSettingsModal()" title="Configurações">
+      <button class="hide-in-settings icon-btn" *ngIf="isMyIOAdmin" (click)="openSettingsModal()" title="Configurações">
         <i class="fa-solid fa-gear"></i>
+      </button>
+      <button class="hide-in-pdf icon-btn" *ngIf="isMyIOAdmin" (click)="openManualOverrideModal()" title="Ajuste Manual de Temperatura">
+        <i class="fa-solid fa-pen-to-square"></i>
       </button>
       <button class="hide-in-pdf icon-btn" (click)="downloadPDF()" title="Exportar PDF">
         <i class="fa-solid fa-file-arrow-down"></i>
       </button>
       <button class="hide-in-csv icon-btn" (click)="downloadCSV()" title="Exportar CSV">
         <i class="fa-solid fa-file-csv"></i>
-      </button>
-      <button class="hide-in-pdf icon-btn" *ngIf="isMyIOAdmin" (click)="openManualOverrideModal()" title="Ajuste Manual de Temperatura">
-        <i class="fa-solid fa-pen-to-square"></i>
       </button>
 
       <div id="datePicker">

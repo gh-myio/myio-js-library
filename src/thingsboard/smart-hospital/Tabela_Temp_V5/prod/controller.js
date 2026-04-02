@@ -2120,23 +2120,46 @@ self.onInit = function () {
     }
   };
 
+  // ── Manual Override — admin detection ───────────────────────────────────────
+  // Tenta primeiro via self.ctx.currentUser.sub (JWT subject = email em TB)
+  // e confirma/atualiza via /api/auth/user (mesmo padrão do MAIN_VIEW detectSuperAdmin)
+  self.ctx.$scope.openManualOverrideModal = function () {
+    if (window.tbtv5_mo_open) window.tbtv5_mo_open();
+  };
+  (function detectAdminAsync() {
+    // Tenta síncrono via self.ctx.currentUser.sub (JWT subject = email em TB)
+    var subEmail = (self.ctx && self.ctx.currentUser &&
+      (self.ctx.currentUser.sub || self.ctx.currentUser.email)) || '';
+    if (subEmail) {
+      _isMyIOAdmin = subEmail.toLowerCase().endsWith('@myio.com.br')
+        && !subEmail.toLowerCase().startsWith('alarme@')
+        && !subEmail.toLowerCase().startsWith('alarmes@');
+      self.ctx.$scope.isMyIOAdmin = _isMyIOAdmin;
+    }
+    // Confirmação via GET /api/auth/user (mesmo padrão do MAIN_VIEW detectSuperAdmin)
+    // AngularJS $http retorna {data: userObj}, Angular HttpClient retorna userObj direto
+    try {
+      getHttp().get('/api/auth/user').then(function (resp) {
+        var userData = (resp && resp.data) ? resp.data : resp;
+        var email = ((userData && userData.email) || '').toLowerCase().trim();
+        if (!email) return;
+        _isMyIOAdmin = email.endsWith('@myio.com.br')
+          && !email.startsWith('alarme@')
+          && !email.startsWith('alarmes@');
+        self.ctx.$scope.isMyIOAdmin = _isMyIOAdmin;
+        self.ctx.detectChanges();
+      }).catch(function () { /* mantém valor síncrono */ });
+    } catch (_e) { /* mantém valor síncrono */ }
+  })();
+
   self.ctx.detectChanges();
 
   // Carrega limites de clamp do SERVER_SCOPE do cliente (fire-and-forget)
   _loadClampAttributes();
 
-  // ── Manual Override — admin detection + load ─────────────────────────────
-  var _userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || '';
-  _isMyIOAdmin = _userEmail.endsWith('@myio.com.br')
-    && !_userEmail.startsWith('alarme@')
-    && !_userEmail.startsWith('alarmes@');
-  self.ctx.$scope.isMyIOAdmin = _isMyIOAdmin;
-  if (_isMyIOAdmin) {
-    _loadManualOverrides();
-  }
-  self.ctx.$scope.openManualOverrideModal = function () {
-    if (window.tbtv5_mo_open) window.tbtv5_mo_open();
-  };
+  // Carrega overrides para TODOS os usuários — a aplicação no relatório é universal;
+  // somente o botão de gestão é restrito a @myio.com.br
+  _loadManualOverrides();
 };
 
 // ── Summary Modal — pure JS, padrão TELEMETRY_INFO ──────────────────────────
@@ -2882,7 +2905,7 @@ function _moGenerateSlots(startDate, startH, startMin, endDate, endH, endMin) {
   var endUTC = Date.UTC(eParts[0], eParts[1] - 1, eParts[2], endH + 3, endMin, 0, 0);
   var HALF = 30 * 60 * 1000;
   var slots = [];
-  for (var t = startUTC; t < endUTC; t += HALF) {
+  for (var t = startUTC; t <= endUTC; t += HALF) {
     var timeUTC = new Date(t).toISOString();
     slots.push({ timeUTC: timeUTC, timeBRT: _moUTCToBRT(timeUTC), value: null, conflict: null });
   }
@@ -3182,25 +3205,80 @@ function _moBuildListView() {
   );
 }
 
+function _moBuildStepPassword(nextStep) {
+  _moState.pendingStep = nextStep || 'STEP_DEVICE';
+  _moRender(
+    _moHeader('Ajuste Manual de Temperatura', 'Autenticação necessária') +
+    '<div class="mo-body" style="padding:28px 24px">' +
+    '<p style="margin:0 0 14px;font-size:13px;color:#555">Digite a senha de administrador para continuar:</p>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="password" id="mo-pwd-input" class="mo-dt-input" placeholder="Senha" style="flex:1" ' +
+    'onkeydown="if(event.key===\'Enter\')window.tbtv5_mo_verifyPassword()" />' +
+    '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_verifyPassword()">Validar</button>' +
+    '</div>' +
+    '<div id="mo-pwd-error" style="color:#e53935;font-size:12px;margin-top:8px;display:none">Senha incorreta.</div>' +
+    '</div>' +
+    _moFooter('<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_close()">Cancelar</button>')
+  );
+  setTimeout(function () {
+    var inp = document.getElementById('mo-pwd-input');
+    if (inp) inp.focus();
+  }, 50);
+}
+
 // ── Window globals ────────────────────────────────────────────────────────────
 
 window.tbtv5_mo_open = function () {
+  _moOpenModal();
+  if (!adminVerified) {
+    _moBuildStepPassword('STEP_DEVICE');
+    return;
+  }
   _moState.step = 'STEP_DEVICE';
   _moState.selectedDevice = null;
   _moState.slots = [];
   _moState.co2Devices = _moGetCo2Devices();
-  _moOpenModal();
   _moBuildStepDevice();
 };
 
 window.tbtv5_mo_openList = function () {
-  _moState.step = 'LIST_VIEW';
   _moOpenModal();
+  if (!adminVerified) {
+    _moBuildStepPassword('LIST_VIEW');
+    return;
+  }
+  _moState.step = 'LIST_VIEW';
   _moBuildListView();
 };
 
 window.tbtv5_mo_close = function () {
   _moCloseModal();
+};
+
+window.tbtv5_mo_verifyPassword = function () {
+  var inp = document.getElementById('mo-pwd-input');
+  var err = document.getElementById('mo-pwd-error');
+  if (!inp) return;
+  if (inp.value === 'myio2026@') {
+    adminVerified = true;
+    self.ctx.$scope.adminVerified = true;
+    self.ctx.detectChanges();
+    var next = _moState.pendingStep || 'STEP_DEVICE';
+    if (next === 'LIST_VIEW') {
+      _moState.step = 'LIST_VIEW';
+      _moBuildListView();
+    } else {
+      _moState.step = 'STEP_DEVICE';
+      _moState.selectedDevice = null;
+      _moState.slots = [];
+      _moState.co2Devices = _moGetCo2Devices();
+      _moBuildStepDevice();
+    }
+  } else {
+    if (err) { err.style.display = 'block'; }
+    inp.value = '';
+    inp.focus();
+  }
 };
 
 window.tbtv5_mo_selectDevice = function (idx) {
