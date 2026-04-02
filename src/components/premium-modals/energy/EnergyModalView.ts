@@ -1069,12 +1069,12 @@ export class EnergyModalView {
         theme: this.currentTheme,
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
-        apiBaseUrl: this.config.params.dataApiHost,
+        apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, ''),
         deep: this.config.params.deep || false,
         // Temperature specific options
         showMinMax: false,  // Don't show min/max lines for comparison
         yAxisTitle: 'Temperatura (°C)',
-      };
+      }
 
       console.log('[EnergyModalView] Rendering temperature comparison chart with SDK:', chartConfig);
 
