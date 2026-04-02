@@ -1094,7 +1094,7 @@ async function getData() {
 
         for (const devName of unionDevices) {
           const arr = (byDevice[devName] || [])
-            .filter((r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '')
+            .filter((r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '' && Number(r.value) !== 0)
             .sort((a, b) => new Date(a.time_interval) - new Date(b.time_interval));
 
           if (arr.length) devicesSeen[devName] = true;
