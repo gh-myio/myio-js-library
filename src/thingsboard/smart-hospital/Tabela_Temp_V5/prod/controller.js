@@ -1570,58 +1570,94 @@ self.onInit = function () {
 
   self.ctx.$scope.openSummaryModal = function () {
     const s = self.ctx.$scope;
-    const grouped = s.groupedData || {};
+    const allData = s.dados || [];
+    if (!allData.length) return;
 
-    // Converte slot UTC para horário BRT (UTC-3) formatado como HH:MM
-    function slotToBRT(isoStr) {
-      const d = new Date(new Date(isoStr).getTime() - 3 * 60 * 60 * 1000);
-      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    const HALF_HOUR_MS = 30 * 60 * 1000;
+
+    // Grid BRT correto — mesma lógica de getData():
+    // startDate/endDate são datas locais do picker; converter para UTC-BRT (00:00 BRT = 03:00 UTC)
+    const expectedSet = new Set();
+    if (startDate && endDate) {
+      const gridStartMs = Date.UTC(
+        startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 3, 0, 0, 0
+      );
+      const gridEndRaw = Date.UTC(
+        endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 2, 59, 59, 999
+      );
+      const gridEndMs = Math.floor(gridEndRaw / HALF_HOUR_MS) * HALF_HOUR_MS;
+      for (let t = gridStartMs; t <= gridEndMs; t += HALF_HOUR_MS) expectedSet.add(t);
     }
+    const expectedCount = expectedSet.size || 0;
 
-    // Extrai a data local BRT (DD/MM) de um slot UTC
-    function slotToDayBRT(isoStr) {
-      const d = new Date(new Date(isoStr).getTime() - 3 * 60 * 60 * 1000);
-      return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    // helpers BRT
+    function msBRT(ms) {
+      const d = new Date(ms - 3 * 60 * 60 * 1000);
+      return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
     }
-
+    function dayBRT(ms) {
+      const d = new Date(ms - 3 * 60 * 60 * 1000);
+      return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+    }
     function lossClass(pct) {
-      if (pct === 0) return '';
-      if (pct <= 5) return 'loss-low';
-      if (pct <= 15) return 'loss-moderate';
-      if (pct <= 30) return 'loss-high';
+      if (pct === 0)   return '';
+      if (pct <= 5)    return 'loss-low';
+      if (pct <= 15)   return 'loss-moderate';
+      if (pct <= 30)   return 'loss-high';
       return 'loss-critical';
     }
 
-    let totalReal = 0, totalMissing = 0, totalSlots = 0;
+    // Agrupa allData por deviceName (label)
+    const byDev = {};
+    for (const r of allData) {
+      if (!byDev[r.deviceName]) byDev[r.deviceName] = [];
+      byDev[r.deviceName].push(r);
+    }
+
+    let totalReal = 0, totalMissing = 0;
     const devices = [];
 
-    for (const [name, arr] of Object.entries(grouped)) {
-      const total = arr.length;
-      const missing = arr.filter((r) => r.temperature === '-').length;
-      const real = arr.filter((r) => r.temperature !== '-' && !r.interpolated && !r.equalSign).length;
-      const pct = total ? parseFloat(((missing / total) * 100).toFixed(1)) : 0;
+    for (const [devLabel, arr] of Object.entries(byDev)) {
+      // Leituras com temperatura válida (= e números reais, exclui -)
+      const realCount = arr.filter((r) => r.temperature !== '-').length;
 
-      totalSlots += total;
-      totalReal += real;
-      totalMissing += missing;
+      // Slots presentes no output (por sort_ts)
+      const presentTs = new Set(arr.map((r) => r.sort_ts).filter(Boolean));
 
-      // Agrupa slots missing por dia BRT (sort_ts = UTC ms)
-      const byDay = {};
-      for (const r of arr) {
-        if (r.temperature !== '-') continue;
-        const iso = r.sort_ts ? new Date(r.sort_ts).toISOString() : null;
-        if (!iso) continue;
-        const day = slotToDayBRT(iso);
-        if (!byDay[day]) byDay[day] = [];
-        byDay[day].push(slotToBRT(iso));
+      // Missing = slots do grid que não aparecem no output
+      const missingTs = [];
+      for (const ts of expectedSet) {
+        if (!presentTs.has(ts)) missingTs.push(ts);
       }
-      const missingByDay = Object.entries(byDay).map(([day, slots]) => ({ day, slots }));
+      // + slots no output marcados como '-' (missing detectado pelo interpolador)
+      for (const r of arr) {
+        if (r.temperature === '-' && r.sort_ts) missingTs.push(r.sort_ts);
+      }
+      missingTs.sort((a, b) => a - b);
+
+      const missingCount = missingTs.length;
+      const totalExpected = expectedCount || arr.length;
+      const pct = totalExpected ? parseFloat(((missingCount / totalExpected) * 100).toFixed(1)) : 0;
+
+      // Agrupa slots missing por dia BRT
+      const byDay = {};
+      for (const ts of missingTs) {
+        const day = dayBRT(ts);
+        if (!byDay[day]) byDay[day] = [];
+        byDay[day].push(msBRT(ts));
+      }
+      const missingByDay = Object.entries(byDay)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([day, slots]) => ({ day, slots }));
+
+      totalReal    += realCount;
+      totalMissing += missingCount;
 
       devices.push({
-        name,
-        label: deviceNameLabelMap[name.split(' ')[0]] || name,
-        totalSlots: total,
-        missingSlots: missing,
+        name: devLabel,
+        label: devLabel,
+        totalSlots: totalExpected,
+        missingSlots: missingCount,
         lossPct: pct,
         lossClass: lossClass(pct),
         expanded: false,
@@ -1629,9 +1665,9 @@ self.onInit = function () {
       });
     }
 
-    // Ordena por % de perda decrescente
     devices.sort((a, b) => b.lossPct - a.lossPct);
 
+    const totalSlots = expectedCount * devices.length;
     const overallLossPct = totalSlots
       ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1))
       : 0;
