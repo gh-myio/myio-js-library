@@ -257,6 +257,12 @@ class MyIOSelectionStoreClass {
       status: entity.status || entity.deviceStatus || 'unknown',
       ingestionId: entity.ingestionId || entityId, // ⭐ ADD: Store ingestionId for API calls
       customerName: entity.customerName || entity.ownerName || entity.centralName || '',
+      // RFC-0157: Operational metrics for comparison modal
+      domain: entity.domain || null,
+      availability: entity.availability ?? null,
+      mtbf: entity.mtbf ?? null,
+      mttr: entity.mttr ?? null,
+      equipmentType: entity.equipmentType || null,
       // Optional metadata passthrough (used by alarm comparisons)
       meta: entity.meta || entity.alarmMeta || null,
       alarm: entity.alarm || null,

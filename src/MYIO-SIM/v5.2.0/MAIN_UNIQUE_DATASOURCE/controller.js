@@ -4585,6 +4585,30 @@ body.filter-modal-open { overflow: hidden !important; }
       const equipment = mapAvailabilityToEquipment(response.byDevice);
       LogHelper.log('[RFC-0175] Equipment mapped count:', equipment.length, '— first item sample:', equipment[0] ? { id: equipment[0].id, availability: equipment[0].availability, mtbf: equipment[0].mtbf, mttr: equipment[0].mttr } : 'none');
 
+      // Enrich customerName from classified devices (API doesn't return customerName)
+      const classified = window.MyIOOrchestratorData?.classified;
+      if (classified) {
+        const deviceCustomerMap = new Map();
+        const allClassified = [
+          ...(classified.energy?.equipments || []),
+          ...(classified.energy?.stores || []),
+          ...(classified.water?.hidrometro || []),
+          ...(classified.water?.hidrometro_area_comum || []),
+          ...(classified.temperature?.termostato || []),
+          ...(classified.temperature?.termostato_external || []),
+        ];
+        for (const d of allClassified) {
+          const key = d.ingestionId || d.entityId || '';
+          if (key) deviceCustomerMap.set(key, d.customerName || d.ownerName || '');
+        }
+        for (const eq of equipment) {
+          if (!eq.customerName && eq.id) {
+            eq.customerName = deviceCustomerMap.get(eq.id) || '';
+          }
+        }
+        LogHelper.log('[RFC-0175] customerName enriched from classified:', deviceCustomerMap.size, 'devices in map');
+      }
+
       const customers = Array.from(
         equipment.reduce((map, eq) => {
           const id = eq.customerId || eq.customerName;

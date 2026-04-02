@@ -280,15 +280,15 @@
 }
 .summary-modal {
   position: fixed;
-  top: 8px;
+  top: 4px;
   left: 50%;
   transform: translate(-50%, 0);
   z-index: 9999;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0,0,0,0.18);
-  width: min(1020px, 96vw);
-  height: calc(100vh - 16px);
+  width: min(1280px, 98vw);
+  height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -189,6 +189,75 @@ export const OPERATIONAL_HEADER_DEVICES_GRID_STYLES = `
     font-size: 18px;
   }
 
+  /* ========== Hover Expand Effect ========== */
+  .ohg-header-v2 .ohg-col,
+  .ohg-header-v2 .ohg-sub-col {
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.22s ease,
+                background 0.18s ease;
+    position: relative;
+    z-index: 1;
+    cursor: default;
+  }
+
+  .ohg-header-v2 .ohg-col .ohg-col-title,
+  .ohg-header-v2 .ohg-col .ohg-col-value,
+  .ohg-header-v2 .ohg-sub-col .ohg-sub-label,
+  .ohg-header-v2 .ohg-sub-col .ohg-sub-value {
+    transition: font-size 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .ohg-header-v2 .ohg-col:hover {
+    transform: scale(1.18);
+    z-index: 20;
+    border-radius: 6px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.35);
+    background: rgba(255, 255, 255, 0.07) !important;
+  }
+
+  .ohg-header-v2 .ohg-col:hover .ohg-col-title {
+    font-size: 10px;
+  }
+
+  .ohg-header-v2 .ohg-col:hover .ohg-col-value {
+    font-size: 22px;
+  }
+
+  .ohg-header-v2 .ohg-col-total:hover .ohg-col-value {
+    font-size: 28px;
+  }
+
+  .ohg-header-v2 .ohg-col-availability:hover .ohg-col-value {
+    font-size: 28px;
+  }
+
+  .ohg-header-v2 .ohg-sub-col:hover {
+    transform: scale(1.22);
+    z-index: 20;
+    border-radius: 5px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .ohg-header-v2 .ohg-sub-col:hover .ohg-sub-label {
+    font-size: 9px;
+  }
+
+  .ohg-header-v2 .ohg-sub-col:hover .ohg-sub-value {
+    font-size: 20px;
+  }
+
+  /* Light mode hover adjustments */
+  .ohg-header-v2.ohg-header--light .ohg-col:hover {
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(139, 92, 246, 0.4);
+    background: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .ohg-header-v2.ohg-header--light .ohg-sub-col:hover {
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(139, 92, 246, 0.3);
+    background: rgba(0, 0, 0, 0.04) !important;
+  }
+
   /* Actions Column */
   .ohg-header-v2 .ohg-col-actions {
     display: flex;
