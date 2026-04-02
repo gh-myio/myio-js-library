@@ -46,6 +46,7 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
   const config = { ...DEFAULT_HEADER_SHOPPING_CONFIG, ...params.configTemplate };
   const debug = config.enableDebugMode;
   const tz = config.timezone;
+  const MyIOLibrary = typeof window !== 'undefined' && window.MyIOLibrary;
 
   // Logging helper
   const utilsLogHelper = getUtils()?.LogHelper;
@@ -220,7 +221,18 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
 
     const utils = getUtils();
     const dataApiHost =
-      config.dataApiHost || utils?.DATA_API_HOST || 'https://api.data.apps.myio-bas.com/api/v1';
+      config.dataApiHost || utils?.DATA_API_HOST;
+
+    if (!dataApiHost) {
+      const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
+      LogHelper.warn('[MENU] openReportsPickerModal:', msg);
+      if (MyIOLibrary?.MyIOToast?.error) {
+        MyIOLibrary?.MyIOToast.error(msg);
+      } else {
+        window.alert(msg);
+      }
+      return;
+    }
 
     const clientId = params.credentials?.clientId || '';
     const clientSecret = params.credentials?.clientSecret || '';
