@@ -342,11 +342,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     }
   })();
 
-  // RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
-  const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
-  if (!DATA_API_HOST) {
-    console.error('[HEADER] DATA_API_HOST not available from window.MyIOUtils - MAIN widget must load first');
-  }
+  // RFC-0091: DATA_API_HOST is read at call time via window.MyIOUtils.getDataApiHost()
+  // No local snapshot — always gets the live value set by MAIN widget onInit.
   // RFC-0091: Use shared customerTB_ID from MAIN widget via window.MyIOUtils
   const CUSTOMER_ID = window.MyIOUtils?.customerTB_ID;
   if (!CUSTOMER_ID) {
@@ -370,13 +367,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const CLIENT_SECRET = customerCredentials.client_secret || ' ';
   const INGESTION_ID = customerCredentials.ingestionId || ' ';
 
-  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: DATA_API_HOST,
-    clientId: CLIENT_ID,
-    clientSecret: CLIENT_SECRET,
-  });
-
-  LogHelper.log('[MyIOAuth] Initialized with extracted component');
+  try {
+    MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+    });
+    LogHelper.log('[MyIOAuth] Initialized with extracted component');
+  } catch (err) {
+    LogHelper.error('[HEADER] Auth init FAIL', err);
+  }
 
   // RFC-0107: Initialize contract status icon
   initContractStatusIcon();
@@ -1851,7 +1851,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           api: {
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
-            dataApiBaseUrl: DATA_API_HOST,
+            dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
             ingestionToken: ingestionAuthToken,
           },
           itemsList: itemsListTB,

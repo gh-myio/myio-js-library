@@ -2844,8 +2844,12 @@ function openBASDeviceModal(device, _settings) {
   }
 
   // Build auth and get token
+  if (!DATA_API_HOST) {
+    LogHelper.error('[MAIN_BAS] DATA_API_HOST não configurado. Verifique as configurações do widget.');
+    return;
+  }
   var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: 'https://api.data.apps.myio-bas.com',
+    dataApiHost: DATA_API_HOST,
     clientId: clientId,
     clientSecret: clientSecret,
   });
@@ -2982,8 +2986,12 @@ function openBASWaterModal(device, _settings) {
   }
 
   // Build auth and get token
+  if (!DATA_API_HOST) {
+    LogHelper.error('[MAIN_BAS] DATA_API_HOST não configurado. Verifique as configurações do widget.');
+    return;
+  }
   var myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: 'https://api.data.apps.myio-bas.com',
+    dataApiHost: DATA_API_HOST,
     clientId: clientId,
     clientSecret: clientSecret,
   });
@@ -4210,7 +4218,7 @@ function updateSidebarMenuBadges(classified) {
 /**
  * Data API host for ingestion API calls
  */
-var DATA_API_HOST = 'https://api.data.apps.myio-bas.com/api/v1';
+var DATA_API_HOST = '';
 
 // Chart data cache to avoid unnecessary refetches (e.g., on maximize)
 // Keyed by domain, stores last result per period

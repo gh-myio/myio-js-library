@@ -38,12 +38,31 @@ const LogHelper = {
 
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
-let DATA_API_HOST = 'https://api.data.apps.myio-bas.com/api/v1';
+let _dataApiHost = '';
+
+/**
+ * Returns the full DATA_API_HOST value including /api/v1 suffix.
+ * Used by buildMyioIngestionAuth (expects the full path).
+ * Populated at the very start of onInit from widget settings.
+ */
+function getDataApiHost() {
+  return _dataApiHost;
+}
+
+/**
+ * Returns the base URL WITHOUT the /api/v1 suffix.
+ * Used by openDashboardPopupEnergy / dataApiBaseUrl parameters where the
+ * SDK/library constructs its own /api/v1/... paths internally.
+ */
+function getDataApiBaseUrl() {
+  return _dataApiHost.replace(/\/api\/v1\/?$/, '');
+}
 
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
   LogHelper,
-  DATA_API_HOST,
+  getDataApiHost,
+  getDataApiBaseUrl,
   isDebugActive: () => DEBUG_ACTIVE,
   setDebug: (active) => {
     DEBUG_ACTIVE = !!active;
@@ -435,7 +454,7 @@ Object.assign(window.MyIOUtils, {
       }
 
       const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
+        dataApiHost: getDataApiHost(),
         clientId: creds.CLIENT_ID,
         clientSecret: creds.CLIENT_SECRET,
       });
@@ -452,7 +471,7 @@ Object.assign(window.MyIOUtils, {
       const endISO = new Date(endTs).toISOString();
 
       // Build API URL
-      const url = new URL(`${DATA_API_HOST}/telemetry/customers/${customerId}/energy/devices/totals`);
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${customerId}/energy/devices/totals`);
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
@@ -1180,6 +1199,20 @@ Object.assign(window.MyIOUtils, {
 
   // ThingsBoard lifecycle
   self.onInit = async function () {
+    // FIRST: populate _dataApiHost from widget settings before any other logic
+    _dataApiHost = self.ctx.settings?.dataApiHost || '';
+    window.MyIOUtils.DATA_API_HOST = _dataApiHost; // backward compat for external consumers
+
+    if (!_dataApiHost) {
+      const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
+      LogHelper.warn('[MAIN_VIEW]', msg);
+      if (window.MyIOLibrary?.MyIOToast?.error) {
+        window.MyIOLibrary.MyIOToast.error(msg);
+      } else {
+        window.alert(msg);
+      }
+    }
+
     rootEl = $('#myio-root');
 
     // Populate global widget settings early to avoid undefined errors
@@ -1196,16 +1229,6 @@ Object.assign(window.MyIOUtils, {
     }
 
     widgetSettings.customerTB_ID = customerTB_ID;
-    DATA_API_HOST = widgetSettings.dataApiHost
-    
-    if (!DATA_API_HOST) {
-      const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
-      LogHelper.warn('[MENU] openReportsPickerModal:', msg);
-      if (window.MyIOLibrary?.MyIOToast?.error) {
-        window.MyIOLibrary.MyIOToast.error(msg);
-      } else {
-        window.alert(msg);
-      }}
 
     // RFC-0130: Expose customerTB_ID globally immediately for periodKey function
     window.__myioCustomerTB_ID = customerTB_ID;
@@ -1607,7 +1630,7 @@ Object.assign(window.MyIOUtils, {
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: 'https://api.data.apps.myio-bas.com',
+            dataApiHost: getDataApiHost(),
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
           });
@@ -5441,7 +5464,7 @@ const MyIOOrchestrator = (() => {
               null;
             if (!MyIO) throw new Error('MyIOLibrary not available');
             const myIOAuth = MyIO.buildMyioIngestionAuth({
-              dataApiHost: DATA_API_HOST,
+              dataApiHost: getDataApiHost(),
               clientId: latestCreds.CLIENT_ID,
               clientSecret: latestCreds.CLIENT_SECRET,
             });
@@ -5462,7 +5485,7 @@ const MyIOOrchestrator = (() => {
             const results = await Promise.allSettled(
               devicesWithIngestionId.map(async (meta) => {
                 const url = new URL(
-                  `${DATA_API_HOST}/telemetry/devices/${meta.ingestionId}/temperature`
+                  `${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`
                 );
                 url.searchParams.set('startTime', startTime);
                 url.searchParams.set('endTime', endTime);
@@ -5836,7 +5859,7 @@ const MyIOOrchestrator = (() => {
       }
 
       const myIOAuth = MyIO.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
+        dataApiHost: getDataApiHost(),
         clientId: clientId,
         clientSecret: clientSecret,
       });
@@ -5856,7 +5879,7 @@ const MyIOOrchestrator = (() => {
 
       // Build API URL based on domain
       const url = new URL(
-        `${DATA_API_HOST}/telemetry/customers/${customerId}/${domain}/devices/totals`
+        `${getDataApiHost()}/telemetry/customers/${customerId}/${domain}/devices/totals`
       );
       url.searchParams.set('startTime', period.startISO);
       url.searchParams.set('endTime', period.endISO);
