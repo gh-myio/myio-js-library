@@ -875,6 +875,10 @@ export class EnergyModalView {
 
       console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
 
+      const rawApiHost = this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com';
+
+      const safeApiBaseUrl = rawApiHost.replace(/\/api\/v1\/?$/, '');
+
       const chartConfig = {
         version: 'v2',
         clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
@@ -887,7 +891,7 @@ export class EnergyModalView {
         theme: this.currentTheme,  // ← Use current theme (dynamic)
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
-        apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com'
+        apiBaseUrl: safeApiBaseUrl
       };
 
       (this as any).chartInstance = renderTelemetryChart(this.chartContainer, chartConfig);
