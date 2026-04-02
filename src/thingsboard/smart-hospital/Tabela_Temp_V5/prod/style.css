@@ -288,7 +288,7 @@
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0,0,0,0.18);
   width: min(1280px, 98vw);
-  height: calc(100vh - 60px);
+  height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -314,6 +314,8 @@
 }
 .summary-modal.expanded .summary-modal-body {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* KPIs gerais */
@@ -435,9 +437,6 @@
   border-radius: 0;
   z-index: 9999;
 }
-.summary-modal.expanded .summary-modal-body {
-  overflow: hidden;
-}
 
 /* Header com período e botões */
 .summary-modal-header {
@@ -499,10 +498,12 @@
   overflow: hidden;
 }
 .summary-modal.expanded .summary-device-list {
-  flex: 0 0 36%;
+  flex: 0 0 340px;
   max-height: none;
   overflow-y: auto;
   min-height: 0;
+  border-right: 1px solid #e5e7eb;
+  padding-right: 8px;
 }
 .summary-modal.expanded .summary-chart-section {
   flex: 1;

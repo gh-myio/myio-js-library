@@ -1796,24 +1796,22 @@ self.onInit = function () {
 var _savedTransforms = [];
 function _patchTransformAncestors() {
   _savedTransforms = [];
-  var el = self.ctx.widgetConfig?.nativeElement || (self.ctx.container && self.ctx.container.nativeElement);
-  if (!el) {
-    // fallback: walk up from document.body looking for ThingsBoard widget containers
-    el = document.querySelector('.tb-widget') || document.querySelector('[id^="widget-"]');
-  }
-  if (!el) return;
+  // Start from the rendered modal element and walk up — guaranteed to exist after detectChanges()
+  var modal = document.querySelector('.summary-modal');
+  if (!modal) return;
+  var el = modal.parentElement;
   while (el && el !== document.body) {
     var cs = window.getComputedStyle(el);
     var t = cs.transform;
     if (t && t !== 'none' && t !== 'matrix(1, 0, 0, 1, 0, 0)') {
-      _savedTransforms.push({ el: el, val: el.style.transform });
+      _savedTransforms.push({ el: el, prop: 'transform', val: el.style.transform });
       el.style.transform = 'none';
     }
     el = el.parentElement;
   }
 }
 function _restoreTransformAncestors() {
-  _savedTransforms.forEach(function (item) { item.el.style.transform = item.val; });
+  _savedTransforms.forEach(function (item) { item.el.style[item.prop] = item.val; });
   _savedTransforms = [];
 }
 
