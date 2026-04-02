@@ -35,6 +35,12 @@
         "type": "string",
         "default": "Ambientes"
       },
+      "dataApiHost": {
+        "title": "API Base URL",
+        "type": "string",
+        "default": "https://api.data.apps.myio-bas.com/api/v1",
+        "description": "Base URL for apps myio"
+      },
       "pumpsMotorsLabel": {
         "title": "Energy Section Label",
         "type": "string",
@@ -161,6 +167,11 @@
     {
       "key": "enableDebugMode",
       "type": "checkbox"
+    },
+    {
+      "key": "dataApiHost",
+      "type": "text",
+      "placeholder": "Base URL for apps myio"
     },
     {
       "key": "defaultThemeMode",

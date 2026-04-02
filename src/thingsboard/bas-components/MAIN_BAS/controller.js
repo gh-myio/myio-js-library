@@ -4210,7 +4210,7 @@ function updateSidebarMenuBadges(classified) {
 /**
  * Data API host for ingestion API calls
  */
-var DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+var DATA_API_HOST = 'https://api.data.apps.myio-bas.com/api/v1';
 
 // Chart data cache to avoid unnecessary refetches (e.g., on maximize)
 // Keyed by domain, stores last result per period
@@ -4352,7 +4352,7 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
 
     try {
       var url = new URL(
-        DATA_API_HOST + '/api/v1/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals'
+        DATA_API_HOST + '/telemetry/customers/' + customerId + '/' + endpoint + '/devices/totals'
       );
       url.searchParams.set('startTime', new Date(day.startTs).toISOString());
       url.searchParams.set('endTime', new Date(day.endTs).toISOString());
@@ -4510,7 +4510,7 @@ async function fetchTemperatureData(period, startTs, endTs) {
     try {
       var url =
         DATA_API_HOST +
-        '/api/v1/telemetry/devices/' +
+        '/telemetry/devices/' +
         ingestionId +
         '/temperature?startTime=' +
         encodeURIComponent(startTimeISO) +
@@ -5169,6 +5169,7 @@ self.onInit = async function () {
 
   // Enable debug mode from settings (default: true, set false to disable)
   DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode !== false;
+  DATA_API_HOST = self.ctx.settings?.dataApiHost;
 
   // Create LogHelper instance using library function
   LogHelper = window.MyIOLibrary.createLogHelper({

@@ -8,6 +8,12 @@
         "type": "string",
         "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
       },
+      "dataApiHost": {
+        "title": "API Base URL",
+        "type": "string",
+        "default": "https://api.data.apps.myio-bas.com/api/v1",
+        "description": "Base URL for apps myio"
+      },
       "defaultThemeMode": {
         "title": "Default Theme Mode",
         "type": "string",
@@ -261,22 +267,12 @@
     {
       "type": "fieldset",
       "title": "Cache Settings",
-      "items": [
-        "enableCache",
-        "cacheTtlMinutes",
-        "enableStaleWhileRevalidate",
-        "maxCacheSize"
-      ]
+      "items": ["enableCache", "cacheTtlMinutes", "enableStaleWhileRevalidate", "maxCacheSize"]
     },
     {
       "type": "fieldset",
       "title": "Debug & Domains",
-      "items": [
-        "debugMode",
-        "domainsEnabled.energy",
-        "domainsEnabled.water",
-        "domainsEnabled.temperature"
-      ]
+      "items": ["debugMode", "domainsEnabled.energy", "domainsEnabled.water", "domainsEnabled.temperature"]
     },
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
@@ -284,6 +280,7 @@
     "alarmsApiKey",
     "gcdrCustomerId",
     "gcdrTenantId",
-    "gcdrApiBaseUrl"
+    "gcdrApiBaseUrl",
+    "dataApiHost"
   ]
 }

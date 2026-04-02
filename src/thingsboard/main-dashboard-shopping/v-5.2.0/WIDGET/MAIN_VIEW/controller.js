@@ -38,7 +38,7 @@ const LogHelper = {
 
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+let DATA_API_HOST = 'https://api.data.apps.myio-bas.com/api/v1';
 
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
@@ -452,7 +452,7 @@ Object.assign(window.MyIOUtils, {
       const endISO = new Date(endTs).toISOString();
 
       // Build API URL
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
+      const url = new URL(`${DATA_API_HOST}/telemetry/customers/${customerId}/energy/devices/totals`);
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
@@ -1196,6 +1196,16 @@ Object.assign(window.MyIOUtils, {
     }
 
     widgetSettings.customerTB_ID = customerTB_ID;
+    DATA_API_HOST = widgetSettings.dataApiHost
+    
+    if (!DATA_API_HOST) {
+      const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
+      LogHelper.warn('[MENU] openReportsPickerModal:', msg);
+      if (window.MyIOLibrary?.MyIOToast?.error) {
+        window.MyIOLibrary.MyIOToast.error(msg);
+      } else {
+        window.alert(msg);
+      }}
 
     // RFC-0130: Expose customerTB_ID globally immediately for periodKey function
     window.__myioCustomerTB_ID = customerTB_ID;
@@ -2365,7 +2375,7 @@ async function _fetchAlarmDayMap() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const from = encodeURIComponent(todayStart.toISOString());
   const to = encodeURIComponent(now.toISOString());
-  const baseUrl = `${alarmsBaseUrl}/api/v1/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
+  const baseUrl = `${alarmsBaseUrl}/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
   const headers = { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId, Accept: 'application/json' };
   try {
     let allAlarms = [];
@@ -2410,7 +2420,7 @@ async function _fetchAlarmDayMap() {
 async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
   try {
     const gcdrApiKey = window.MyIOOrchestrator?.gcdrApiKey || '';
-    const url = `${alarmsBaseUrl}/api/v1/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+    const url = `${alarmsBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
     const response = await fetch(url, {
       headers: {
         'X-API-Key': gcdrApiKey,
@@ -5452,7 +5462,7 @@ const MyIOOrchestrator = (() => {
             const results = await Promise.allSettled(
               devicesWithIngestionId.map(async (meta) => {
                 const url = new URL(
-                  `${DATA_API_HOST}/api/v1/telemetry/devices/${meta.ingestionId}/temperature`
+                  `${DATA_API_HOST}/telemetry/devices/${meta.ingestionId}/temperature`
                 );
                 url.searchParams.set('startTime', startTime);
                 url.searchParams.set('endTime', endTime);
@@ -5846,7 +5856,7 @@ const MyIOOrchestrator = (() => {
 
       // Build API URL based on domain
       const url = new URL(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`
+        `${DATA_API_HOST}/telemetry/customers/${customerId}/${domain}/devices/totals`
       );
       url.searchParams.set('startTime', period.startISO);
       url.searchParams.set('endTime', period.endISO);
@@ -6904,7 +6914,7 @@ const MyIOOrchestrator = (() => {
 
     async gcdrFetchCustomerRules() {
       const orch = window.MyIOOrchestrator;
-      const url = `${orch.gcdrApiBaseUrl}/api/v1/customers/${encodeURIComponent(orch.gcdrCustomerId)}/rules`;
+      const url = `${orch.gcdrApiBaseUrl}/customers/${encodeURIComponent(orch.gcdrCustomerId)}/rules`;
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -6922,7 +6932,7 @@ const MyIOOrchestrator = (() => {
     async gcdrPostAlarmAction(alarmId, action) {
       const orch = window.MyIOOrchestrator;
       const response = await fetch(
-        `${orch.alarmsApiBaseUrl}/api/v1/alarms/${encodeURIComponent(alarmId)}/${action}`,
+        `${orch.alarmsApiBaseUrl}/alarms/${encodeURIComponent(alarmId)}/${action}`,
         {
           method: 'POST',
           headers: {
@@ -6950,7 +6960,7 @@ const MyIOOrchestrator = (() => {
 
     async gcdrPatchRuleValue(ruleId, alarmConfig) {
       const orch = window.MyIOOrchestrator;
-      const response = await fetch(`${orch.gcdrApiBaseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}`, {
+      const response = await fetch(`${orch.gcdrApiBaseUrl}/rules/${encodeURIComponent(ruleId)}`, {
         method: 'PATCH',
         headers: {
           'X-API-Key': orch.gcdrApiKey,

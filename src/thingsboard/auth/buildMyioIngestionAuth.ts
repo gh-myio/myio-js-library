@@ -85,7 +85,7 @@ export function buildMyioIngestionAuth(config: MyIOAuthConfig): MyIOAuthInstance
     throw new Error('dataApiHost, clientId, and clientSecret are required');
   }
 
-  const authUrl = new URL(`${dataApiHost}/api/v1/auth`);
+  const authUrl = new URL(`${dataApiHost}/auth`);
   const cacheKey = generateCacheKey(config);
   
   // Get or create cache entry for this set of credentials
