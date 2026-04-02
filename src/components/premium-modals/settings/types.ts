@@ -164,6 +164,8 @@ export interface ModalConfig {
   width: number | string;
   theme?: 'light' | 'dark';
   closeOnBackdrop?: boolean;
+  /** RFC-0198: Device identifier (e.g. "MED-LOJA-01") used for FreshDesk ticket filtering */
+  identifier?: string;
   themeTokens?: Record<string, string | number>;
   i18n?: { t: (key: string, def?: string) => string };
   deviceLabel?: string; // Dynamic label for the left column section

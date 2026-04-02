@@ -139,6 +139,81 @@ function injectAlarmBadgeStyles() {
   document.head.appendChild(s);
 }
 
+// RFC-0198: Inject ticket badge CSS (once, idempotent)
+function injectTicketBadgeStyles() {
+  if (document.getElementById('myio-ticket-badge-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'myio-ticket-badge-styles';
+  s.textContent = `
+    .myio-ticket-badge {
+      position: absolute;
+      bottom: 6px;
+      left: 6px;
+      background: #f59e0b;
+      color: #fff;
+      border-radius: 10px;
+      padding: 2px 5px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// RFC-0198: Append ticket badge to a card element if the device has open FreshDesk tickets.
+// identifier comes from entityObject.identifier (device identifier, e.g. "MED-LOJA-01").
+function addTicketBadge(cardElement, identifier) {
+  if (!cardElement || !identifier) return;
+  const tso = window.TicketServiceOrchestrator;
+  if (!tso) return;
+  const count = tso.getTicketCountForDevice(identifier);
+  if (!count) return;
+
+  injectTicketBadgeStyles();
+  if (cardElement.style) cardElement.style.position = 'relative';
+
+  const badge = document.createElement('div');
+  badge.className = 'myio-ticket-badge';
+  badge.setAttribute('data-ticket-identifier', identifier); // for live updates via myio:tickets-ready
+  badge.title = count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '');
+  badge.innerHTML =
+    '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
+    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' +
+    '</svg>' +
+    '<span>' +
+    (count > 99 ? '99+' : count) +
+    '</span>';
+  cardElement.appendChild(badge);
+}
+
+/**
+ * RFC-0198: Called on myio:tickets-ready: refreshes ticket badge counts on all visible cards.
+ */
+function refreshTicketBadges() {
+  const tso = window.TicketServiceOrchestrator;
+  if (!tso) return;
+
+  document.querySelectorAll('.myio-ticket-badge[data-ticket-identifier]').forEach((badge) => {
+    const identifier = badge.getAttribute('data-ticket-identifier');
+    if (!identifier) return;
+    const count = tso.getTicketCountForDevice(identifier);
+    const span = badge.querySelector('span');
+    if (count > 0) {
+      badge.style.display = '';
+      badge.title = count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '');
+      if (span) span.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.style.display = 'none';
+    }
+  });
+}
+
 // RFC-0184: Inject filter modal CSS into <head> to bypass ThingsBoard widget CSS scoping.
 // The modal is portalled to document.body so TB-scoped styles.css rules won't reach it.
 // Using .telemetry-filter-overlay as scoping class (present on #filterModal element).
@@ -3041,6 +3116,11 @@ function renderList(visible) {
       addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
+    // RFC-0198: Ticket badge — orange chat icon if device has open FreshDesk tickets
+    if ($card && $card[0]) {
+      addTicketBadge($card[0], it.identifier || null);
+    }
+
     // RFC-0152: Collect TB↔GCDR mapping data for device export
     window[_exportKey].push({
       tbId: it.tbId || it.id || '',
@@ -5329,6 +5409,10 @@ self.onInit = async function () {
   // myio:alarms-updated — fired by MAIN_VIEW after each ASO rebuild.
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
+
+  // RFC-0198: myio:tickets-ready — fired by TicketServiceOrchestrator after each build/refresh.
+  // Refreshes ticket badge counts on all currently-rendered TELEMETRY cards without re-rendering.
+  window.addEventListener('myio:tickets-ready', refreshTicketBadges);
 
   // RFC-0196: Listen for group filter changes from TELEMETRY_INFO widget
   window.addEventListener('myio:group-filter-changed', _groupFilterChangedHandler);

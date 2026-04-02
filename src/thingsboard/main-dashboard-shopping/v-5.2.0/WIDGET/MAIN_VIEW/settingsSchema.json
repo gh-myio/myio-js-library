@@ -92,6 +92,18 @@
         "default": "https://api.data.apps.myio-bas.com/api/v1",
         "description": "Base URL for apps myio"
       },
+      "freshdeskApiKey": {
+        "title": "FreshDesk API Key",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0198: FreshDesk API key for ticket integration (myiocom.freshdesk.com). Leave empty to disable the Chamados tab and ticket badges."
+      },
+      "freshdeskDomain": {
+        "title": "FreshDesk Domain",
+        "type": "string",
+        "default": "myiocom.freshdesk.com",
+        "description": "RFC-0198: FreshDesk account domain, e.g. myiocom.freshdesk.com"
+      },
       "shortDelayMinsToBypassOfflineStatus": {
         "title": "Short Delay (min) to Bypass Offline Status",
         "type": "number",
@@ -213,6 +225,8 @@
     "alarmsApiBaseUrl",
     "gcdrApiBaseUrl",
     "dataApiHost",
+    "freshdeskApiKey",
+    "freshdeskDomain",
     "enableReportButton",
     "enabledReportItems.energy_lojas",
     "enabledReportItems.energy_entrada",

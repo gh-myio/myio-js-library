@@ -1584,6 +1584,10 @@ Object.assign(window.MyIOUtils, {
           _fetchAlarmDayMap(); // RFC-0193: populate today's alarm history map (all states)
         }
 
+        // RFC-0198: Pre-fetch FreshDesk tickets (non-blocking) so ticket badges and ChamadosTab
+        // can use them without a per-device fetch when the Settings modal is opened.
+        _buildTicketServiceOrchestrator();
+
         // Check if credentials are present
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
           LogHelper.warn(
@@ -2599,6 +2603,50 @@ function _buildAlarmServiceOrchestrator(alarms) {
       detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
     })
   );
+}
+
+// RFC-0198: Build window.TicketServiceOrchestrator from FreshDesk API.
+// Reads freshdeskApiKey from ctx.settings; skips silently if key is absent.
+async function _buildTicketServiceOrchestrator() {
+  const apiKey = self.ctx.settings?.freshdeskApiKey || '';
+  const domain = self.ctx.settings?.freshdeskDomain || 'myiocom.freshdesk.com';
+
+  // Expose on MyIOUtils so SettingsModalView / ChamadosTab can read them
+  if (window.MyIOUtils) {
+    window.MyIOUtils.freshdeskApiKey = apiKey;
+    window.MyIOUtils.freshdeskDomain = domain;
+  }
+
+  if (!apiKey) {
+    LogHelper.log('[TicketServiceOrchestrator] freshdeskApiKey not configured — skipping ticket fetch.');
+    return;
+  }
+
+  try {
+    const MyIOLibrary = window.MyIOLibrary;
+    if (!MyIOLibrary?.buildTicketServiceOrchestrator) {
+      LogHelper.warn('[TicketServiceOrchestrator] buildTicketServiceOrchestrator not found in MyIOLibrary.');
+      return;
+    }
+
+    const FreshdeskClient = MyIOLibrary.FreshdeskClient;
+    if (!FreshdeskClient) {
+      LogHelper.warn('[TicketServiceOrchestrator] FreshdeskClient not found in MyIOLibrary.');
+      return;
+    }
+
+    window.TicketServiceOrchestrator = await MyIOLibrary.buildTicketServiceOrchestrator(
+      domain,
+      apiKey,
+      FreshdeskClient
+    );
+
+    LogHelper.log('[TicketServiceOrchestrator] Built —',
+      window.TicketServiceOrchestrator.deviceTicketMap.size,
+      'devices with tickets');
+  } catch (err) {
+    LogHelper.warn('[TicketServiceOrchestrator] build error:', err);
+  }
 }
 
 async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER', tbBaseUrl = '') {

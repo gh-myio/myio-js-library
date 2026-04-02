@@ -1460,6 +1460,53 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
     };
 
+    // RFC-0198: Wire up the ticket / chamados button
+    const btnTicketNotif = document.getElementById('tbx-btn-ticket-notif');
+    (function _initTicketButton() {
+      const apiKey = window.MyIOUtils?.freshdeskApiKey || '';
+      const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
+      if (!apiKey || !btnTicketNotif) return;
+
+      // Show button only when FreshDesk is configured
+      btnTicketNotif.style.display = '';
+
+      // Click → open FreshDesk tickets page in a new tab
+      btnTicketNotif.addEventListener('click', () => {
+        const url = `https://${domain}/helpdesk/tickets`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      });
+    })();
+
+    function _updateTicketNotifBadge(count) {
+      const badge = document.getElementById('tbx-ticket-notif-badge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Listen for tickets-ready (fired by TicketServiceOrchestrator after prefetch)
+    window.addEventListener('myio:tickets-ready', (e) => {
+      const ticketMap = e.detail?.ticketMap;
+      if (!ticketMap) return;
+      let total = 0;
+      ticketMap.forEach((tickets) => { total += tickets.length; });
+      _updateTicketNotifBadge(total);
+      // Show button now that FreshDesk data is available
+      if (total > 0 && btnTicketNotif) btnTicketNotif.style.display = '';
+    });
+
+    // Seed badge if TicketServiceOrchestrator already built before this listener registered
+    const _tso = window.TicketServiceOrchestrator;
+    if (_tso) {
+      let _seedTotal = 0;
+      _tso.deviceTicketMap?.forEach((t) => { _seedTotal += t.length; });
+      if (_seedTotal > 0) _updateTicketNotifBadge(_seedTotal);
+    }
+
     // Wire up the bell button hover
     const btnAlarmNotif = document.getElementById('tbx-btn-alarm-notif');
     if (btnAlarmNotif) {

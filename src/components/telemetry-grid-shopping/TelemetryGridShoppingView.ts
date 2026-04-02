@@ -45,6 +45,7 @@ export class TelemetryGridShoppingView {
   private cardInstances: Map<string, CardInstance> = new Map();
   private isMaximized = false;
   private _alarmBadgeStylesInjected = false;
+  private _ticketBadgeStylesInjected = false;
   private originalParent: HTMLElement | null = null;
   private originalNextSibling: Node | null = null;
 
@@ -230,6 +231,11 @@ export class TelemetryGridShoppingView {
     window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
       this.applyThemeMode(e.detail.mode);
     }) as EventListener);
+
+    // RFC-0198: Re-inject ticket badges when TicketServiceOrchestrator refreshes
+    window.addEventListener('myio:tickets-ready', () => {
+      this._refreshTicketBadges();
+    });
 
     // Search toggle
     const btnSearch = this.root.querySelector('#btnSearch');
@@ -548,6 +554,17 @@ export class TelemetryGridShoppingView {
               }
             }
 
+            // RFC-0198: Inject ticket badge if device has open FreshDesk tickets
+            const tso = (window as unknown as { TicketServiceOrchestrator?: {
+              getTicketCountForDevice: (id: string) => number;
+            } }).TicketServiceOrchestrator;
+            if (tso && device.deviceIdentifier) {
+              const ticketCount = tso.getTicketCountForDevice(device.deviceIdentifier);
+              if (ticketCount > 0) {
+                wrapper.appendChild(this._createTicketBadge(ticketCount));
+              }
+            }
+
           } else {
             this.log('Card element not found for:', device.labelOrName);
             wrapper.innerHTML = this.buildFallbackCard(device);
@@ -702,6 +719,80 @@ export class TelemetryGridShoppingView {
       }
     `;
     document.head.appendChild(s);
+  }
+
+  // =========================================================================
+  // RFC-0198: Ticket Badge
+  // =========================================================================
+
+  private _createTicketBadge(count: number): HTMLElement {
+    this._injectTicketBadgeStyles();
+    const badge = document.createElement('div');
+    badge.className = 'myio-ticket-badge';
+    badge.title = `${count} chamado${count !== 1 ? 's' : ''} aberto${count !== 1 ? 's' : ''}`;
+    badge.innerHTML = `
+      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span>${count > 99 ? '99+' : count}</span>
+    `;
+    return badge;
+  }
+
+  private _injectTicketBadgeStyles(): void {
+    if (this._ticketBadgeStylesInjected) return;
+    this._ticketBadgeStylesInjected = true;
+    if (document.getElementById('myio-ticket-badge-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'myio-ticket-badge-styles';
+    s.textContent = `
+      .myio-ticket-badge {
+        position: absolute;
+        bottom: 6px;
+        left: 6px;
+        background: #f59e0b;
+        color: #fff;
+        border-radius: 10px;
+        padding: 2px 5px;
+        font-size: 10px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        z-index: 10;
+        pointer-events: none;
+        line-height: 1.3;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  /**
+   * RFC-0198: Called on myio:tickets-ready — refreshes ticket badge counts on all visible
+   * card wrappers without re-rendering the grid.
+   */
+  private _refreshTicketBadges(): void {
+    const tso = (
+      window as unknown as { TicketServiceOrchestrator?: {
+        getTicketCountForDevice: (id: string) => number;
+      } }
+    ).TicketServiceOrchestrator;
+    if (!tso) return;
+
+    const wrappers = this.root.querySelectorAll<HTMLElement>('[data-entity-id]');
+    wrappers.forEach((wrapper) => {
+      const identifier = wrapper.getAttribute('data-device-identifier') ?? '';
+      if (!identifier) return;
+
+      const count = tso.getTicketCountForDevice(identifier);
+
+      // Remove existing badge
+      wrapper.querySelector('.myio-ticket-badge')?.remove();
+
+      if (count > 0) {
+        wrapper.appendChild(this._createTicketBadge(count));
+      }
+    });
   }
 
   destroy(): void {

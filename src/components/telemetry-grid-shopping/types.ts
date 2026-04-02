@@ -77,6 +77,9 @@ export interface TelemetryDevice {
 
   // RFC-0183: alarm badge count (resolved at render time from AlarmServiceOrchestrator)
   alarmCount?: number;
+
+  // RFC-0198: ticket badge count (resolved at render time from TicketServiceOrchestrator)
+  ticketCount?: number;
 }
 
 // ============================================

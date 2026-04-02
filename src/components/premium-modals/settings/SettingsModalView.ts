@@ -4,6 +4,7 @@ import { ModalHeader } from '../../../utils/ModalHeader';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
 import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
+import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
 
@@ -21,9 +22,11 @@ export class SettingsModalView {
   private annotationsTab: AnnotationsTab | null = null;
   // RFC-0180: Alarms Tab
   private alarmsTab: AlarmsTab | null = null;
+  // RFC-0198: Chamados Tab
+  private chamadosTabHandle: { destroy(): void } | null = null;
   // Exclusão de Grupos tab
   private exclusionGroupsTab: ExclusionGroupsTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'exclusion-groups' = 'general';
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -108,6 +111,8 @@ export class SettingsModalView {
     this.initAnnotationsTab();
     // RFC-0180: Initialize alarms tab (async)
     this.initAlarmsTab();
+    // RFC-0198: Initialize chamados tab
+    this.initChamadosTab();
     // Exclusão de Grupos tab (async, energy domain only)
     this.initExclusionGroupsTab();
   }
@@ -222,6 +227,43 @@ export class SettingsModalView {
     }
   }
 
+  // RFC-0198: Initialize the Chamados Tab
+  private initChamadosTab(): void {
+    const container = this.modal.querySelector('#chamados-tab-content') as HTMLElement;
+    if (!container) return;
+
+    const freshdeskApiKey =
+      (window as unknown as { MyIOUtils?: { freshdeskApiKey?: string } }).MyIOUtils?.freshdeskApiKey ?? '';
+    const freshdeskDomain =
+      (window as unknown as { MyIOUtils?: { freshdeskDomain?: string } }).MyIOUtils?.freshdeskDomain ??
+      'myiocom.freshdesk.com';
+
+    const deviceIdentifier = this.config.identifier ?? this.config.deviceId ?? '';
+
+    if (!freshdeskApiKey) {
+      // Lock tab button visually
+      const tabBtn = this.modal.querySelector<HTMLElement>('.modal-tab[data-tab="chamados"]');
+      if (tabBtn) tabBtn.classList.add('locked');
+    }
+
+    try {
+      this.chamadosTabHandle = createTicketsTab({
+        container,
+        deviceIdentifier,
+        tbDeviceId: this.config.deviceId ?? '',
+        deviceLabel: this.config.deviceLabel,
+        freshdeskApiKey,
+        freshdeskDomain,
+        prefetchedTickets: null,
+      });
+      console.log('[SettingsModalView] RFC-0198: Chamados tab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize chamados tab:', error);
+      container.innerHTML =
+        '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar chamados</p>';
+    }
+  }
+
   // Exclusão de Grupos: Initialize the tab (energy domain only)
   private async initExclusionGroupsTab(): Promise<void> {
     if (this.config.domain !== 'energy') {
@@ -264,8 +306,8 @@ export class SettingsModalView {
     }
   }
 
-  // RFC-0104 / RFC-0180: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'exclusion-groups'): void {
+  // RFC-0104 / RFC-0180 / RFC-0198: Switch between tabs
+  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups'): void {
     this.currentTab = tab;
 
     // Update tab buttons
@@ -278,11 +320,13 @@ export class SettingsModalView {
     const generalContent = this.modal.querySelector('#general-tab-content') as HTMLElement;
     const annotationsContent = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
     const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
+    const chamadosContent = this.modal.querySelector('#chamados-tab-content') as HTMLElement;
     const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
+    if (chamadosContent) chamadosContent.style.display = tab === 'chamados' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
 
     // Update footer Save button (only on General tab; all other tabs have own save)
@@ -308,6 +352,12 @@ export class SettingsModalView {
     if (this.alarmsTab) {
       this.alarmsTab.destroy();
       this.alarmsTab = null;
+    }
+
+    // RFC-0198: Clean up chamados tab
+    if (this.chamadosTabHandle) {
+      this.chamadosTabHandle.destroy();
+      this.chamadosTabHandle = null;
     }
 
     // Cleanup exclusion groups tab
@@ -488,6 +538,13 @@ export class SettingsModalView {
               </svg>
               Alarmes
             </button>
+            <!-- RFC-0198: Chamados Tab -->
+            <button type="button" class="modal-tab" data-tab="chamados">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Chamados
+            </button>
             <!-- Exclusão de Grupos Tab -->
             <button type="button" class="modal-tab" data-tab="exclusion-groups">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -517,6 +574,13 @@ export class SettingsModalView {
               <div style="padding: 20px; text-align: center; color: #6c757d;">
                 <div class="loading-spinner"></div>
                 <p>Carregando alarmes...</p>
+              </div>
+            </div>
+            <!-- RFC-0198: Chamados Tab Content -->
+            <div id="chamados-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando chamados...</p>
               </div>
             </div>
             <!-- Exclusão de Grupos Tab Content -->
@@ -2691,7 +2755,7 @@ export class SettingsModalView {
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'exclusion-groups';
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups';
         if (tab) {
           this.switchTab(tab);
         }

@@ -1709,3 +1709,15 @@ export type {
   ExcludeGroupsTotals,
 } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
 
+// RFC-0198: FreshDesk / Tickets integration
+export { createTicketsTab } from './components/premium-modals/settings/tickets/TicketsTab';
+export type {
+  TicketsTabConfig,
+  TicketTypeId,
+  TicketMotivo,
+  FreshDeskTicket,
+  TicketServiceOrchestratorShape,
+} from './components/premium-modals/settings/tickets/types';
+export { buildTicketServiceOrchestrator } from './components/premium-modals/settings/tickets/TicketServiceOrchestrator';
+export * as FreshdeskClient from './components/premium-modals/settings/tickets/FreshdeskClient';
+
