@@ -875,8 +875,7 @@ export class EnergyModalView {
 
       console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
 
-      const rawApiHost = this.config.params.dataApiHost;
-
+      const rawApiHost = this.config.params.dataApiHost || '';
       const safeApiBaseUrl = rawApiHost.replace(/\/api\/v1\/?$/, '');
 
       const chartConfig = {
