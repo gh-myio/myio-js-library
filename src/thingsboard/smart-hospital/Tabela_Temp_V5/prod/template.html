@@ -366,14 +366,23 @@
 
   <!-- Modal de Resumo da Consulta -->
   <div class="summary-modal-backdrop" *ngIf="summaryModalOpen" (click)="closeSummaryModal()"></div>
-  <div class="summary-modal" *ngIf="summaryModalOpen">
+  <div class="summary-modal" *ngIf="summaryModalOpen" [class.expanded]="summaryModalExpanded">
     <div class="summary-modal-header">
-      <span><i class="fa-solid fa-chart-pie"></i> Resumo da Consulta</span>
-      <button class="summary-modal-close" (click)="closeSummaryModal()"><i class="fa-solid fa-xmark"></i></button>
+      <div class="summary-header-left">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Resumo da Consulta</span>
+        <span class="summary-period" *ngIf="summaryReport.period">{{ summaryReport.period }}</span>
+      </div>
+      <div class="summary-header-actions">
+        <button class="summary-modal-expand" (click)="toggleSummaryModalExpand()" [title]="summaryModalExpanded ? 'Recolher' : 'Expandir'">
+          <i class="fa-solid" [ngClass]="summaryModalExpanded ? 'fa-compress' : 'fa-expand'"></i>
+        </button>
+        <button class="summary-modal-close" (click)="closeSummaryModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
     </div>
     <div class="summary-modal-body">
 
-      <!-- Totais gerais -->
+      <!-- KPIs — full width sempre -->
       <div class="summary-overall">
         <div class="summary-kpi">
           <span class="kpi-value">{{ summaryReport.totalDevices }}</span>
@@ -393,33 +402,72 @@
         </div>
       </div>
 
-      <!-- Por device -->
-      <div class="summary-device-list">
-        <div
-          class="summary-device-row"
-          *ngFor="let dev of summaryReport.devices"
-          [class]="'sdr-' + dev.lossClass"
-        >
-          <div class="sdr-header" (click)="dev.expanded = !dev.expanded">
-            <span class="sdr-toggle">{{ dev.expanded ? '−' : '+' }}</span>
-            <span class="sdr-label">{{ dev.label }}</span>
-            <span class="sdr-pct" [class.sdr-ok]="dev.lossPct === 0">
-              {{ dev.lossPct === 0 ? 'OK' : dev.lossPct + '% perda' }}
-            </span>
-            <span class="sdr-counts">{{ dev.missingSlots }}/{{ dev.totalSlots }} slots</span>
-          </div>
-          <div class="sdr-detail" *ngIf="dev.expanded && dev.missingByDay.length > 0">
-            <div class="sdr-day-row" *ngFor="let d of dev.missingByDay">
-              <span class="sdr-day">{{ d.day }}</span>
-              <span class="sdr-slots">{{ d.slots.join(', ') }}</span>
+      <!-- Conteúdo principal: lista + gráfico (side-by-side no expand) -->
+      <div class="summary-main-content">
+
+        <!-- Lista por device -->
+        <div class="summary-device-list">
+          <div
+            *ngFor="let dev of summaryReport.devices"
+            [class]="'summary-device-row' + (dev.lossClass ? ' sdr-' + dev.lossClass : '')"
+          >
+            <div class="sdr-header" (click)="dev.expanded = !dev.expanded">
+              <span class="sdr-toggle">{{ dev.expanded ? '−' : '+' }}</span>
+              <span class="sdr-label">{{ dev.label }}</span>
+              <span class="sdr-pct" [class.sdr-ok]="dev.lossPct === 0">
+                {{ dev.lossPct === 0 ? 'OK' : dev.lossPct + '% perda' }}
+              </span>
+              <span class="sdr-counts">{{ dev.missingSlots }}/{{ dev.totalSlots }} slots</span>
+            </div>
+            <div class="sdr-detail" *ngIf="dev.expanded && dev.missingByDay.length > 0">
+              <div class="sdr-day-row" *ngFor="let d of dev.missingByDay">
+                <span class="sdr-day">{{ d.day }}</span>
+                <span class="sdr-slots">{{ d.slots.join(', ') }}</span>
+              </div>
+            </div>
+            <div class="sdr-detail sdr-no-loss" *ngIf="dev.expanded && dev.missingByDay.length === 0">
+              Nenhuma perda neste período.
             </div>
           </div>
-          <div class="sdr-detail sdr-no-loss" *ngIf="dev.expanded && dev.missingByDay.length === 0">
-            Nenhuma perda neste período.
+        </div>
+
+        <!-- Gráfico de barras empilhadas -->
+        <div class="summary-chart-section">
+          <div class="chart-legend">
+            <button class="chart-legend-item" [class.legend-inactive]="!chartShow.real" (click)="toggleChartSeries('real')">
+              <span class="legend-dot" style="background:#22c55e"></span>Leituras reais
+            </button>
+            <button class="chart-legend-item" [class.legend-inactive]="!chartShow.equal" (click)="toggleChartSeries('equal')">
+              <span class="legend-dot" style="background:#f59e0b"></span>Lacunas (=)
+            </button>
+            <button class="chart-legend-item" [class.legend-inactive]="!chartShow.missing" (click)="toggleChartSeries('missing')">
+              <span class="legend-dot" style="background:#ef4444"></span>Sem dados
+            </button>
+          </div>
+          <div class="chart-area">
+            <div class="chart-bars-scroll">
+              <div class="chart-bars-inner">
+                <div class="chart-bar-col" *ngFor="let dev of summaryReport.devices">
+                  <div class="bar-label" [title]="dev.label">{{ dev.label }}</div>
+                  <div class="bar-stack">
+                    <div class="bar-seg bar-real" *ngIf="chartShow.real && dev.barRealPct > 0"
+                         [style.width.%]="dev.barRealPct"
+                         [title]="dev.realSlots + ' leituras reais'"></div>
+                    <div class="bar-seg bar-equal" *ngIf="chartShow.equal && dev.barEqualPct > 0"
+                         [style.width.%]="dev.barEqualPct"
+                         [title]="dev.equalSignSlots + ' lacunas (=)'"></div>
+                    <div class="bar-seg bar-missing" *ngIf="chartShow.missing && dev.barMissingPct > 0"
+                         [style.width.%]="dev.barMissingPct"
+                         [title]="dev.missingSlots + ' slots sem dados'"></div>
+                  </div>
+                  <div class="bar-count">{{ dev.realSlots }}/{{ dev.totalSlots }}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
   </div>
 </div>

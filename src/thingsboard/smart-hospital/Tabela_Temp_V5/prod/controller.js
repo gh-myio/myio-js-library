@@ -506,6 +506,7 @@ function generateInterpolatedValue(timeSlot, existingData, timeSeries, currentIn
 }
 
 function clampTemperature(val) {
+  if (val == null) return { value: null, clamped: false };
   const num = Number(val);
   if (!isFinite(num)) return { value: null, clamped: false };
   let v = num,
@@ -1567,6 +1568,18 @@ self.onInit = function () {
 
   self.ctx.$scope.summaryModalOpen = false;
   self.ctx.$scope.summaryReport = {};
+  self.ctx.$scope.summaryModalExpanded = false;
+  self.ctx.$scope.chartShow = { real: true, equal: true, missing: true };
+
+  self.ctx.$scope.toggleSummaryModalExpand = function () {
+    self.ctx.$scope.summaryModalExpanded = !self.ctx.$scope.summaryModalExpanded;
+    self.ctx.detectChanges();
+  };
+
+  self.ctx.$scope.toggleChartSeries = function (key) {
+    self.ctx.$scope.chartShow[key] = !self.ctx.$scope.chartShow[key];
+    self.ctx.detectChanges();
+  };
 
   self.ctx.$scope.openSummaryModal = function () {
     const s = self.ctx.$scope;
@@ -1607,6 +1620,13 @@ self.onInit = function () {
       return 'loss-critical';
     }
 
+    const CHART_H = 200;
+
+    function fmtDate(d) {
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+    const period = (startDate && endDate) ? `${fmtDate(startDate)} → ${fmtDate(endDate)}` : '';
+
     // Agrupa allData por deviceName (label)
     const byDev = {};
     for (const r of allData) {
@@ -1618,8 +1638,9 @@ self.onInit = function () {
     const devices = [];
 
     for (const [devLabel, arr] of Object.entries(byDev)) {
-      // Leituras com temperatura válida (= e números reais, exclui -)
-      const realCount = arr.filter((r) => r.temperature !== '-').length;
+      // Leituras reais: excluí '-' (missing) e '=' (lacuna não preenchida)
+      const realCount = arr.filter((r) => r.temperature !== '-' && r.temperature !== '=').length;
+      const equalSignCount = arr.filter((r) => r.temperature === '=').length;
 
       // Slots presentes no output (por sort_ts)
       const presentTs = new Set(arr.map((r) => r.sort_ts).filter(Boolean));
@@ -1629,9 +1650,9 @@ self.onInit = function () {
       for (const ts of expectedSet) {
         if (!presentTs.has(ts)) missingTs.push(ts);
       }
-      // + slots no output marcados como '-' (missing detectado pelo interpolador)
+      // + slots no output marcados como '-' ou '=' (ausência de dado real)
       for (const r of arr) {
-        if (r.temperature === '-' && r.sort_ts) missingTs.push(r.sort_ts);
+        if ((r.temperature === '-' || r.temperature === '=') && r.sort_ts) missingTs.push(r.sort_ts);
       }
       missingTs.sort((a, b) => a - b);
 
@@ -1657,11 +1678,16 @@ self.onInit = function () {
         name: devLabel,
         label: devLabel,
         totalSlots: totalExpected,
+        realSlots: realCount,
+        equalSignSlots: equalSignCount,
         missingSlots: missingCount,
         lossPct: pct,
         lossClass: lossClass(pct),
         expanded: false,
         missingByDay,
+        barRealPct: Math.max(0, parseFloat(((realCount / totalExpected) * 100).toFixed(2))),
+        barEqualPct: Math.max(0, parseFloat(((equalSignCount / totalExpected) * 100).toFixed(2))),
+        barMissingPct: Math.max(0, parseFloat(((missingCount / totalExpected) * 100).toFixed(2))),
       });
     }
 
@@ -1672,7 +1698,15 @@ self.onInit = function () {
       ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1))
       : 0;
 
-    s.summaryReport = { totalDevices: devices.length, totalReal, totalMissing, totalSlots, overallLossPct, devices };
+    const yLabels = [100, 75, 50, 25, 0].map((pct) => ({
+      label: Math.round(expectedCount * pct / 100),
+      pct,
+    }));
+
+    s.summaryReport = {
+      totalDevices: devices.length, totalReal, totalMissing, totalSlots,
+      overallLossPct, devices, period, expectedCount, yLabels,
+    };
     s.summaryModalOpen = true;
     self.ctx.detectChanges();
   };
