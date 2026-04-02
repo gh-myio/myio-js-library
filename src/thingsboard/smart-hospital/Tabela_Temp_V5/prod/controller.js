@@ -1,5 +1,5 @@
 /* jshint esversion: 11 */
-/* global self, _, document, window, requestAnimationFrame */
+/* global self, _, document, window, requestAnimationFrame, alert */
 
 /**
  * Tabela_Temp_V5 Controller v3.1.1 - HYBRID
@@ -84,6 +84,10 @@ const ENABLE_SERVER_SCOPE_SAVE = false; // mude para false para não salvar no S
 // ---- Guards de chamada ----
 let _inFlight = false;
 let _lastQueryKey = null;
+
+// ── Manual Temperature Override ─────────────────────────────────────────────
+let _isMyIOAdmin = false; // true for @myio.com.br users (except alarme/alarmes)
+let _manualOverrides = null; // cached value of manualTempOverrides SERVER_SCOPE attribute
 
 // exposure Angular scope helpers
 function setPremiumLoading(on, status, progress) {
@@ -224,6 +228,56 @@ async function _saveClampAttributes() {
   } catch (e) {
     console.error('[CLAMP] Falha ao salvar SERVER_SCOPE:', e);
   }
+}
+
+// ── Manual Override helpers ──────────────────────────────────────────────────
+function buildOverrideMap(attr) {
+  var map = new Map();
+  if (!attr || !Array.isArray(attr.device_list_interval_values)) return map;
+  for (var i = 0; i < attr.device_list_interval_values.length; i++) {
+    var device = attr.device_list_interval_values[i];
+    var devMap = new Map();
+    var vl = device.values_list || [];
+    for (var j = 0; j < vl.length; j++) {
+      devMap.set(vl[j].timeUTC, vl[j].value);
+    }
+    map.set(device.deviceCentralName, devMap);
+  }
+  return map;
+}
+
+async function _loadManualOverrides() {
+  try {
+    var entityId = self.ctx && self.ctx.currentUser && self.ctx.currentUser.customerId;
+    if (!entityId || !entityId.id) return;
+    var attrSvc = getAttributeService();
+    var types = getTypes();
+    var attrs = await attrSvc
+      .getEntityAttributes(entityId, types.attributesScope.server.value, ['manualTempOverrides'])
+      .toPromise();
+    var attr = (attrs || []).find(function (a) { return a.key === 'manualTempOverrides'; });
+    _manualOverrides = attr ? attr.value : null;
+    console.log('[MANUAL OVERRIDE] Carregado:', _manualOverrides
+      ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
+      : 'nenhum');
+  } catch (e) {
+    console.warn('[MANUAL OVERRIDE] Falha ao carregar:', e);
+    _manualOverrides = null;
+  }
+}
+
+async function _saveManualOverrides(data) {
+  var entityId = self.ctx && self.ctx.currentUser && self.ctx.currentUser.customerId;
+  if (!entityId || !entityId.id) throw new Error('No customer entity');
+  var attrSvc = getAttributeService();
+  var types = getTypes();
+  await attrSvc
+    .saveEntityAttributes(entityId, types.attributesScope.server.value, [
+      { key: 'manualTempOverrides', value: data },
+    ])
+    .toPromise();
+  _manualOverrides = data;
+  console.log('[MANUAL OVERRIDE] Salvo em SERVER_SCOPE, versão', data.version);
 }
 
 // -------- Cache --------
@@ -1138,6 +1192,7 @@ async function getData() {
 
   try {
     let allProcessed = [];
+    const overrideMap = buildOverrideMap(_manualOverrides); // manual override lookup
     const globalMissingMap = {};
     const devicesSeen = {}; // continuidade após 1ª aparição
     const allRpcErrors = []; // Acumula erros de conexão com centrais
@@ -1276,19 +1331,41 @@ async function getData() {
 
           for (const r of interpolated) {
             const { value, clamped } = clampTemperature(r.value);
+            // ── Manual Override check ────────────────────────────────────────
+            let finalValue = value;
+            let finalEqualSign = !!r.equalSign;
+            let isManual = false;
+            const isSentinel =
+              finalValue == null ||
+              finalEqualSign ||
+              (finalValue != null && Math.abs(finalValue - 17.0) < 0.001);
+            if (isSentinel && overrideMap.size > 0) {
+              const overrideKey = devName.split(' ')[0]; // normalize to deviceCentralName
+              const devMap = overrideMap.get(overrideKey);
+              if (devMap) {
+                const ov = devMap.get(r.time_interval);
+                if (ov !== undefined) {
+                  const { value: ov2 } = clampTemperature(ov);
+                  finalValue = ov2;
+                  finalEqualSign = false;
+                  isManual = true;
+                }
+              }
+            }
+            // ────────────────────────────────────────────────────────────────
             allProcessed.push({
               centralId,
               deviceName: deviceLabel,
               reading_date: brDatetime(r.time_interval),
               sort_ts: new Date(r.time_interval).getTime(),
-              temperature: r.equalSign ? '=' : value == null ? '-' : value.toFixed(2),
-              interpolated: !!r.interpolated,
-              equalSign: !!r.equalSign,
-              correctedBelowThreshold: !!clamped,
-              // Novos campos para interpolação limitada
-              missing: !!r.missing,
-              missingReason: r.reason || null,
-              gapSize: r.gapSize || null,
+              temperature: finalEqualSign ? '=' : finalValue == null ? '-' : finalValue.toFixed(2),
+              interpolated: !!r.interpolated && !isManual,
+              equalSign: finalEqualSign,
+              correctedBelowThreshold: !!clamped && !isManual,
+              missing: !!r.missing && !isManual,
+              missingReason: !isManual ? (r.reason || null) : null,
+              gapSize: !isManual ? (r.gapSize || null) : null,
+              isManual,
             });
           }
         }
@@ -2047,6 +2124,19 @@ self.onInit = function () {
 
   // Carrega limites de clamp do SERVER_SCOPE do cliente (fire-and-forget)
   _loadClampAttributes();
+
+  // ── Manual Override — admin detection + load ─────────────────────────────
+  var _userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || '';
+  _isMyIOAdmin = _userEmail.endsWith('@myio.com.br')
+    && !_userEmail.startsWith('alarme@')
+    && !_userEmail.startsWith('alarmes@');
+  self.ctx.$scope.isMyIOAdmin = _isMyIOAdmin;
+  if (_isMyIOAdmin) {
+    _loadManualOverrides();
+  }
+  self.ctx.$scope.openManualOverrideModal = function () {
+    if (window.tbtv5_mo_open) window.tbtv5_mo_open();
+  };
 };
 
 // ── Summary Modal — pure JS, padrão TELEMETRY_INFO ──────────────────────────
@@ -2668,6 +2758,640 @@ window.tbtv5_toggleSeries = function (key) {
   });
   var btn = document.getElementById('tbtv5-lg-' + key);
   if (btn) btn.classList.toggle('legend-inactive', !_smState.chartShow[key]);
+};
+
+// ── Manual Override Modal (_mo) ──────────────────────────────────────────────
+// Pure-JS modal following the _sm* pattern. Access: @myio.com.br only.
+// Attribute key: manualTempOverrides (SERVER_SCOPE, customer entity)
+
+var _moState = {
+  step: null,
+  selectedDevice: null,
+  co2Devices: [],
+  slots: [],
+};
+
+function _moInjectCSS() {
+  var existing = document.getElementById('tbtv5-mo-styles');
+  if (existing) existing.remove();
+  var s = document.createElement('style');
+  s.id = 'tbtv5-mo-styles';
+  s.textContent = [
+    '#tbtv5-mo-bd{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483646}',
+    '#tbtv5-mo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2147483647;background:#fff;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;font-size:14px;box-sizing:border-box;width:580px;max-width:96vw;max-height:88vh}',
+    '#tbtv5-mo *{box-sizing:border-box}',
+    '.mo-header{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;background:#5c307d;color:#fff;font-weight:600;font-size:15px;flex-shrink:0}',
+    '.mo-header-sub{font-size:12px;font-weight:400;opacity:.8;margin-top:2px}',
+    '.mo-close{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 4px;line-height:1;opacity:.8;flex-shrink:0}',
+    '.mo-close:hover{opacity:1}',
+    '.mo-body{flex:1;min-height:0;overflow-y:auto;padding:20px;display:block}',
+    '.mo-footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid #eee;background:#fafafa;flex-shrink:0}',
+    '.mo-btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:500;line-height:1.4}',
+    '.mo-btn-primary{background:#5c307d;color:#fff}',
+    '.mo-btn-primary:hover:not(:disabled){background:#7b42a8}',
+    '.mo-btn-primary:disabled{background:#bbb;cursor:default}',
+    '.mo-btn-secondary{background:#f0f0f0;color:#333}',
+    '.mo-btn-secondary:hover{background:#e0e0e0}',
+    '.mo-btn-danger{background:#e53935;color:#fff}',
+    '.mo-btn-danger:hover{background:#c62828}',
+    '.mo-step-label{font-size:12px;color:#888;margin:0 0 14px}',
+    '.mo-device-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}',
+    '.mo-device-item{padding:10px 14px;border:2px solid #e0e0e0;border-radius:8px;cursor:pointer;transition:border-color .15s,background .15s}',
+    '.mo-device-item:hover{border-color:#5c307d;background:#f9f5ff}',
+    '.mo-device-item.selected{border-color:#5c307d;background:#f3eaff}',
+    '.mo-device-label{font-weight:600;font-size:14px}',
+    '.mo-device-name{font-size:11px;color:#888;margin-top:2px}',
+    '.mo-dt-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}',
+    '.mo-dt-label{font-size:13px;font-weight:500;min-width:80px;color:#555}',
+    '.mo-dt-input{padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px}',
+    '.mo-dt-select{padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;background:#fff}',
+    '.mo-slots-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}',
+    '.mo-slots-table th{background:#5c307d;color:#fff;padding:7px 10px;text-align:left;font-weight:500}',
+    '.mo-slots-table td{padding:6px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}',
+    '.mo-slots-table tr:nth-child(even) td{background:#fafafa}',
+    '.mo-slot-input{width:90px;padding:5px 8px;border:1px solid #ccc;border-radius:5px;font-size:13px;text-align:right}',
+    '.mo-slot-input.conflict{border-color:#f57c00;background:#fff8f0}',
+    '.mo-conflict-badge{display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffe082;border-radius:4px;padding:1px 5px;font-size:11px;margin-left:6px;white-space:nowrap}',
+    '.mo-fill-bar{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;background:#f5f0ff;border-radius:8px;flex-wrap:wrap}',
+    '.mo-fill-bar span{font-size:13px;font-weight:500;flex:1;min-width:80px}',
+    '.mo-fill-input{width:90px;padding:6px 8px;border:1px solid #ccc;border-radius:5px;font-size:13px;text-align:right}',
+    '.mo-empty{text-align:center;padding:30px;color:#aaa;font-size:13px}',
+    '.mo-list-device{border:1px solid #e0e0e0;border-radius:8px;margin-bottom:10px;overflow:hidden}',
+    '.mo-list-device-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9f5ff;cursor:pointer;font-weight:600;font-size:13px;user-select:none}',
+    '.mo-list-device-header:hover{background:#f0e8ff}',
+    '.mo-list-slots-table{width:100%;border-collapse:collapse;font-size:13px}',
+    '.mo-list-slots-table th{background:#ede0ff;color:#5c307d;padding:6px 10px;text-align:left;font-weight:500}',
+    '.mo-list-slots-table td{padding:6px 10px;border-bottom:1px solid #f5f0ff}',
+    '.mo-list-slots-table tr:last-child td{border-bottom:none}',
+    '.mo-action-btn{background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;font-size:15px;line-height:1}',
+    '.mo-action-btn:hover{background:#eee}',
+    '.mo-delete-confirm{background:#fff5f5;border:1px solid #ffcdd2;border-radius:6px;padding:10px 12px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
+    '.mo-success-icon{font-size:44px;text-align:center;display:block;margin:6px auto 10px}',
+    '.mo-success-msg{text-align:center;font-size:15px;font-weight:600;color:#388e3c;margin-bottom:6px}',
+    '.mo-success-sub{text-align:center;color:#666;font-size:13px;margin-bottom:20px}',
+    '.mo-info-row{display:flex;gap:8px;margin-bottom:6px;font-size:13px}',
+    '.mo-info-key{font-weight:500;color:#555;min-width:110px}',
+    '.mo-alert{background:#fff3e0;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;font-size:13px;color:#e65100;margin-bottom:14px}',
+    '.mo-section-title{font-size:14px;font-weight:600;color:#333;margin:0 0 10px}',
+  ].join('\n');
+  document.head.appendChild(s);
+}
+
+function _moGetCo2Devices() {
+  var ds = Array.isArray(self.ctx.datasources) ? self.ctx.datasources : [];
+  var filtered = ds.filter(function (d) { return d.aliasName === 'CO2 Devices'; });
+  if (filtered.length === 0) filtered = ds;
+  return filtered.map(function (d) {
+    return {
+      tbName: d.entityName || '',
+      tbLabel: d.entityLabel || d.entityName || '',
+      deviceCentralName: (d.entityName || '').split(' ')[0],
+    };
+  }).sort(function (a, b) { return a.tbLabel.localeCompare(b.tbLabel); });
+}
+
+function _moUTCToBRT(utcISO) {
+  var brtMs = new Date(utcISO).getTime() - 3 * 60 * 60 * 1000;
+  var d = new Date(brtMs);
+  return (
+    String(d.getUTCDate()).padStart(2, '0') + '/' +
+    String(d.getUTCMonth() + 1).padStart(2, '0') + '/' +
+    d.getUTCFullYear() + ' ' +
+    String(d.getUTCHours()).padStart(2, '0') + ':' +
+    String(d.getUTCMinutes()).padStart(2, '0')
+  );
+}
+
+function _moBRTNow() {
+  var brtMs = Date.now() - 3 * 60 * 60 * 1000;
+  var d = new Date(brtMs);
+  return (
+    d.getUTCFullYear() + '-' +
+    String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getUTCDate()).padStart(2, '0') + ' ' +
+    String(d.getUTCHours()).padStart(2, '0') + ':' +
+    String(d.getUTCMinutes()).padStart(2, '0') + ':' +
+    String(d.getUTCSeconds()).padStart(2, '0')
+  );
+}
+
+function _moGenerateSlots(startDate, startH, startMin, endDate, endH, endMin) {
+  var parts = startDate.split('-').map(Number);
+  var startUTC = Date.UTC(parts[0], parts[1] - 1, parts[2], startH + 3, startMin, 0, 0);
+  var eParts = endDate.split('-').map(Number);
+  var endUTC = Date.UTC(eParts[0], eParts[1] - 1, eParts[2], endH + 3, endMin, 0, 0);
+  var HALF = 30 * 60 * 1000;
+  var slots = [];
+  for (var t = startUTC; t < endUTC; t += HALF) {
+    var timeUTC = new Date(t).toISOString();
+    slots.push({ timeUTC: timeUTC, timeBRT: _moUTCToBRT(timeUTC), value: null, conflict: null });
+  }
+  return slots;
+}
+
+function _moCheckConflicts(slots, deviceCentralName) {
+  if (!_manualOverrides || !Array.isArray(_manualOverrides.device_list_interval_values)) return slots;
+  var deviceEntry = _manualOverrides.device_list_interval_values.find(function (d) {
+    return d.deviceCentralName === deviceCentralName;
+  });
+  if (!deviceEntry) return slots;
+  var existingMap = {};
+  (deviceEntry.values_list || []).forEach(function (s) { existingMap[s.timeUTC] = s.value; });
+  return slots.map(function (s) {
+    var existing = existingMap[s.timeUTC];
+    return existing !== undefined ? Object.assign({}, s, { conflict: { existingValue: existing } }) : s;
+  });
+}
+
+function _moOpenModal() {
+  _moInjectCSS();
+  var bd = document.getElementById('tbtv5-mo-bd');
+  if (!bd) {
+    bd = document.createElement('div');
+    bd.id = 'tbtv5-mo-bd';
+    bd.onclick = function () { window.tbtv5_mo_close(); };
+    document.body.appendChild(bd);
+  }
+  var modal = document.getElementById('tbtv5-mo');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'tbtv5-mo';
+    document.body.appendChild(modal);
+  }
+  bd.style.display = 'block';
+  modal.style.display = 'flex';
+}
+
+function _moCloseModal() {
+  var bd = document.getElementById('tbtv5-mo-bd');
+  var modal = document.getElementById('tbtv5-mo');
+  if (bd) bd.style.display = 'none';
+  if (modal) modal.style.display = 'none';
+}
+
+function _moRender(html) {
+  var modal = document.getElementById('tbtv5-mo');
+  if (modal) modal.innerHTML = html;
+}
+
+function _moHeader(title, sub) {
+  return (
+    '<div class="mo-header">' +
+    '<div><div>' + title + '</div>' +
+    (sub ? '<div class="mo-header-sub">' + sub + '</div>' : '') +
+    '</div>' +
+    '<button class="mo-close" onclick="window.tbtv5_mo_close()">×</button>' +
+    '</div>'
+  );
+}
+
+function _moFooter(btns) {
+  return '<div class="mo-footer">' + btns + '</div>';
+}
+
+function _moTimeSelects(prefixH, prefixM, selectedH, selectedMin) {
+  var hOpts = '';
+  for (var h = 0; h < 24; h++) {
+    hOpts += '<option value="' + h + '"' + (h === selectedH ? ' selected' : '') + '>' + String(h).padStart(2, '0') + '</option>';
+  }
+  var mOpts =
+    '<option value="0"' + (selectedMin === 0 ? ' selected' : '') + '>00</option>' +
+    '<option value="30"' + (selectedMin === 30 ? ' selected' : '') + '>30</option>';
+  return (
+    '<select id="' + prefixH + '" class="mo-dt-select">' + hOpts + '</select>' +
+    '<span style="font-weight:600;font-size:16px;line-height:1;padding:0 1px">:</span>' +
+    '<select id="' + prefixM + '" class="mo-dt-select">' + mOpts + '</select>'
+  );
+}
+
+function _moTodayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// ── Step builders ────────────────────────────────────────────────────────────
+
+function _moBuildStepDevice() {
+  var devices = _moState.co2Devices;
+  var rows = '';
+  if (devices.length === 0) {
+    rows = '<div class="mo-empty">Nenhum dispositivo CO₂ encontrado nas fontes de dados.</div>';
+  } else {
+    rows = devices.map(function (d, i) {
+      var sel = _moState.selectedDevice && _moState.selectedDevice.deviceCentralName === d.deviceCentralName;
+      return (
+        '<li class="mo-device-item' + (sel ? ' selected' : '') + '" onclick="window.tbtv5_mo_selectDevice(' + i + ')">' +
+        '<div class="mo-device-label">' + d.tbLabel + '</div>' +
+        '<div class="mo-device-name">' + d.deviceCentralName + '</div>' +
+        '</li>'
+      );
+    }).join('');
+    rows = '<ul class="mo-device-list">' + rows + '</ul>';
+  }
+
+  _moRender(
+    _moHeader('Ajuste Manual de Temperatura', 'Passo 1 de 4 · Selecionar Dispositivo') +
+    '<div class="mo-body">' +
+    '<p class="mo-step-label">Selecione o dispositivo CO₂ para inserir valores manuais:</p>' +
+    rows +
+    '</div>' +
+    _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_openList()">Ver ajustes existentes</button>' +
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_close()">Cancelar</button>' +
+      '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_next()"' + (_moState.selectedDevice ? '' : ' disabled') + '>Próximo →</button>'
+    )
+  );
+}
+
+function _moBuildStepDateTime() {
+  var dev = _moState.selectedDevice;
+  var today = _moTodayISO();
+  var slotsSection = '';
+
+  if (_moState.slots.length > 0) {
+    var rows = _moState.slots.map(function (s, i) {
+      var val = s.value != null ? String(s.value) : '';
+      return (
+        '<tr>' +
+        '<td>' + s.timeBRT +
+        (s.conflict ? '<span class="mo-conflict-badge">existe: ' + s.conflict.existingValue + '°C</span>' : '') +
+        '</td>' +
+        '<td><input type="number" step="0.01" id="mo-slot-' + i + '" class="mo-slot-input' + (s.conflict ? ' conflict' : '') + '" ' +
+        'value="' + val + '" placeholder="0.00" ' +
+        'onchange="window.tbtv5_mo_slotValueChange(' + i + ',this.value)" ' +
+        'oninput="window.tbtv5_mo_slotValueChange(' + i + ',this.value)" /></td>' +
+        '</tr>'
+      );
+    }).join('');
+
+    slotsSection = (
+      '<div class="mo-fill-bar">' +
+      '<span>' + _moState.slots.length + ' slot(s) gerado(s)</span>' +
+      '<input type="number" step="0.01" id="mo-fill-val" class="mo-fill-input" placeholder="Valor único" />' +
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_applyFillAll()" style="padding:6px 12px;font-size:12px">Preencher todos</button>' +
+      '</div>' +
+      '<div style="max-height:280px;overflow-y:auto;margin-top:4px">' +
+      '<table class="mo-slots-table">' +
+      '<thead><tr><th>Slot (BRT)</th><th>Valor (°C)</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '</table></div>'
+    );
+  }
+
+  _moRender(
+    _moHeader('Ajuste Manual · ' + dev.tbLabel, 'Passo 2 de 4 · Selecionar Intervalo (BRT)') +
+    '<div class="mo-body">' +
+    '<div class="mo-dt-row">' +
+    '<span class="mo-dt-label">Início (BRT)</span>' +
+    '<input type="date" id="mo-start-date" class="mo-dt-input" value="' + today + '" />' +
+    _moTimeSelects('mo-start-h', 'mo-start-m', 0, 0) +
+    '</div>' +
+    '<div class="mo-dt-row">' +
+    '<span class="mo-dt-label">Fim (BRT)</span>' +
+    '<input type="date" id="mo-end-date" class="mo-dt-input" value="' + today + '" />' +
+    _moTimeSelects('mo-end-h', 'mo-end-m', 9, 0) +
+    '</div>' +
+    '<button class="mo-btn mo-btn-secondary" style="margin-bottom:4px" onclick="window.tbtv5_mo_generateSlots()">⟳ Gerar slots</button>' +
+    slotsSection +
+    '</div>' +
+    _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_back()">← Voltar</button>' +
+      '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_next()">Próximo →</button>'
+    )
+  );
+}
+
+function _moBuildStepConflict() {
+  var dev = _moState.selectedDevice;
+  var conflicts = _moState.slots.filter(function (s) { return s.conflict; });
+  var rows = conflicts.map(function (s) {
+    return (
+      '<tr>' +
+      '<td>' + s.timeBRT + '</td>' +
+      '<td style="color:#e65100">' + s.conflict.existingValue + '°C</td>' +
+      '<td style="color:#388e3c;font-weight:600">→ ' + (s.value != null ? s.value + '°C' : '<em>sem valor</em>') + '</td>' +
+      '</tr>'
+    );
+  }).join('');
+
+  _moRender(
+    _moHeader('Conflitos Detectados', dev.tbLabel + ' · ' + conflicts.length + ' slot(s) já existem') +
+    '<div class="mo-body">' +
+    '<div class="mo-alert">⚠️ Os slots abaixo já possuem valores manuais e serão substituídos ao confirmar.</div>' +
+    '<table class="mo-slots-table">' +
+    '<thead><tr><th>Slot (BRT)</th><th>Valor atual</th><th>Novo valor</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    '</div>' +
+    _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_back()">← Voltar</button>' +
+      '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_goSummary()">Continuar →</button>'
+    )
+  );
+}
+
+function _moBuildStepSummary() {
+  var dev = _moState.selectedDevice;
+  var slots = _moState.slots;
+  var rows = slots.map(function (s) {
+    return '<tr><td>' + s.timeBRT + '</td><td style="font-weight:600">' + (s.value != null ? s.value + '°C' : '-') + '</td></tr>';
+  }).join('');
+
+  _moRender(
+    _moHeader('Confirmar Ajuste', 'Passo 4 de 4 · Revisar antes de salvar') +
+    '<div class="mo-body">' +
+    '<div class="mo-info-row"><span class="mo-info-key">Dispositivo:</span><span>' + dev.tbLabel + ' (' + dev.deviceCentralName + ')</span></div>' +
+    '<div class="mo-info-row"><span class="mo-info-key">Total de slots:</span><span>' + slots.length + '</span></div>' +
+    '<div style="max-height:320px;overflow-y:auto;margin-top:10px">' +
+    '<table class="mo-slots-table"><thead><tr><th>Slot (BRT)</th><th>Valor</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>' +
+    '</div>' +
+    _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_back()">← Voltar</button>' +
+      '<button class="mo-btn mo-btn-primary" id="mo-btn-save" onclick="window.tbtv5_mo_confirmSave()">✓ Salvar</button>'
+    )
+  );
+}
+
+function _moBuildStepDone(savedCount) {
+  var dev = _moState.selectedDevice;
+  _moRender(
+    _moHeader('Ajuste Salvo com Sucesso', '') +
+    '<div class="mo-body" style="text-align:center;padding:24px 20px">' +
+    '<span class="mo-success-icon">✅</span>' +
+    '<div class="mo-success-msg">' + savedCount + ' slot(s) salvos para ' + dev.tbLabel + '</div>' +
+    '<div class="mo-success-sub">Os valores serão aplicados no próximo relatório carregado.</div>' +
+    '</div>' +
+    _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_openList()">Ver lista</button>' +
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_addAnother()">Adicionar mais</button>' +
+      '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_close()">Fechar</button>'
+    )
+  );
+}
+
+function _moBuildListView() {
+  var devices = (_manualOverrides && Array.isArray(_manualOverrides.device_list_interval_values))
+    ? _manualOverrides.device_list_interval_values : [];
+  var meta = _manualOverrides
+    ? 'v' + _manualOverrides.version + ' · ' + (_manualOverrides.updatedBy || _manualOverrides.createdBy || '')
+    : 'Sem ajustes cadastrados';
+
+  var content;
+  if (devices.length === 0) {
+    content = '<div class="mo-empty">Nenhum ajuste manual cadastrado.</div>';
+  } else {
+    content = devices.map(function (d, di) {
+      var slotRows = (d.values_list || [])
+        .slice().sort(function (a, b) { return a.timeUTC.localeCompare(b.timeUTC); })
+        .map(function (s) {
+          var brt = _moUTCToBRT(s.timeUTC);
+          var safeTimeUTC = s.timeUTC.replace(/[:.]/g, '_');
+          return (
+            '<tr id="mo-slot-row-' + safeTimeUTC + '">' +
+            '<td>' + brt + '</td>' +
+            '<td style="font-weight:600">' + s.value + '°C</td>' +
+            '<td><button class="mo-action-btn" title="Excluir slot" ' +
+            'onclick="window.tbtv5_mo_deleteSlot(\'' + d.deviceCentralName + '\',\'' + s.timeUTC + '\')">🗑</button></td>' +
+            '</tr>'
+          );
+        }).join('');
+
+      return (
+        '<div class="mo-list-device">' +
+        '<div class="mo-list-device-header" onclick="window.tbtv5_mo_listToggle(' + di + ')">' +
+        '<span>' + (d.tbLabel || d.deviceCentralName) + '</span>' +
+        '<span style="color:#888;font-size:12px">' + (d.values_list || []).length + ' slots ▾</span>' +
+        '</div>' +
+        '<div id="mo-list-dev-' + di + '" style="display:none">' +
+        '<table class="mo-list-slots-table">' +
+        '<thead><tr><th>Slot (BRT)</th><th>Valor</th><th></th></tr></thead>' +
+        '<tbody>' + slotRows + '</tbody>' +
+        '</table></div></div>'
+      );
+    }).join('');
+  }
+
+  _moRender(
+    _moHeader('Ajustes Manuais Existentes', meta) +
+    '<div class="mo-body">' + content + '</div>' +
+    _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_open()">+ Novo ajuste</button>' +
+      '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_close()">Fechar</button>'
+    )
+  );
+}
+
+// ── Window globals ────────────────────────────────────────────────────────────
+
+window.tbtv5_mo_open = function () {
+  _moState.step = 'STEP_DEVICE';
+  _moState.selectedDevice = null;
+  _moState.slots = [];
+  _moState.co2Devices = _moGetCo2Devices();
+  _moOpenModal();
+  _moBuildStepDevice();
+};
+
+window.tbtv5_mo_openList = function () {
+  _moState.step = 'LIST_VIEW';
+  _moOpenModal();
+  _moBuildListView();
+};
+
+window.tbtv5_mo_close = function () {
+  _moCloseModal();
+};
+
+window.tbtv5_mo_selectDevice = function (idx) {
+  _moState.selectedDevice = _moState.co2Devices[idx] || null;
+  _moBuildStepDevice();
+};
+
+window.tbtv5_mo_generateSlots = function () {
+  var sd = document.getElementById('mo-start-date');
+  var sh = document.getElementById('mo-start-h');
+  var sm2 = document.getElementById('mo-start-m');
+  var ed = document.getElementById('mo-end-date');
+  var eh = document.getElementById('mo-end-h');
+  var em2 = document.getElementById('mo-end-m');
+  if (!sd || !sh || !sm2 || !ed || !eh || !em2) return;
+  if (!sd.value || !ed.value) { alert('Selecione as datas de início e fim.'); return; }
+  var slots = _moGenerateSlots(
+    sd.value, parseInt(sh.value), parseInt(sm2.value),
+    ed.value, parseInt(eh.value), parseInt(em2.value)
+  );
+  if (slots.length === 0) {
+    alert('Nenhum slot gerado. Verifique se o fim é posterior ao início (slots = [início, fim)).');
+    return;
+  }
+  if (slots.length > 200) {
+    alert('Intervalo muito grande (' + slots.length + ' slots). Selecione um intervalo menor.');
+    return;
+  }
+  _moState.slots = _moCheckConflicts(slots, _moState.selectedDevice.deviceCentralName);
+  _moBuildStepDateTime();
+};
+
+window.tbtv5_mo_slotValueChange = function (idx, val) {
+  if (_moState.slots[idx] !== undefined) {
+    var n = parseFloat(val);
+    _moState.slots[idx].value = isNaN(n) ? null : Math.round(n * 100) / 100;
+  }
+};
+
+window.tbtv5_mo_applyFillAll = function () {
+  var inp = document.getElementById('mo-fill-val');
+  if (!inp || inp.value === '') { alert('Digite um valor numérico.'); return; }
+  var n = parseFloat(inp.value);
+  if (isNaN(n)) { alert('Digite um valor numérico válido.'); return; }
+  var v = Math.round(n * 100) / 100;
+  _moState.slots.forEach(function (s, i) {
+    s.value = v;
+    var el = document.getElementById('mo-slot-' + i);
+    if (el) el.value = String(v);
+  });
+};
+
+window.tbtv5_mo_next = function () {
+  if (_moState.step === 'STEP_DEVICE') {
+    if (!_moState.selectedDevice) return;
+    _moState.step = 'STEP_DATETIME';
+    _moState.slots = [];
+    _moBuildStepDateTime();
+  } else if (_moState.step === 'STEP_DATETIME') {
+    if (_moState.slots.length === 0) { alert('Gere os slots primeiro clicando em "Gerar slots".'); return; }
+    var empty = _moState.slots.filter(function (s) { return s.value == null; });
+    if (empty.length > 0) { alert(empty.length + ' slot(s) sem valor. Preencha todos os valores.'); return; }
+    var hasConflicts = _moState.slots.some(function (s) { return s.conflict; });
+    if (hasConflicts) {
+      _moState.step = 'STEP_CONFLICT';
+      _moBuildStepConflict();
+    } else {
+      _moState.step = 'STEP_SUMMARY';
+      _moBuildStepSummary();
+    }
+  }
+};
+
+window.tbtv5_mo_goSummary = function () {
+  _moState.step = 'STEP_SUMMARY';
+  _moBuildStepSummary();
+};
+
+window.tbtv5_mo_back = function () {
+  if (_moState.step === 'STEP_DATETIME') {
+    _moState.step = 'STEP_DEVICE';
+    _moBuildStepDevice();
+  } else if (_moState.step === 'STEP_CONFLICT') {
+    _moState.step = 'STEP_DATETIME';
+    _moBuildStepDateTime();
+  } else if (_moState.step === 'STEP_SUMMARY') {
+    var hasConflicts = _moState.slots.some(function (s) { return s.conflict; });
+    _moState.step = hasConflicts ? 'STEP_CONFLICT' : 'STEP_DATETIME';
+    if (hasConflicts) _moBuildStepConflict(); else _moBuildStepDateTime();
+  }
+};
+
+window.tbtv5_mo_confirmSave = async function () {
+  var dev = _moState.selectedDevice;
+  var slots = _moState.slots;
+  if (!dev || slots.length === 0) return;
+  var btn = document.getElementById('mo-btn-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    await _loadManualOverrides(); // refresh to avoid race
+    var userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || 'unknown';
+    var brtNow = _moBRTNow();
+    var existing = _manualOverrides || { device_list_interval_values: [], version: 0 };
+    var deviceList2 = (existing.device_list_interval_values || []).map(function (d) { return Object.assign({}, d, { values_list: (d.values_list || []).slice() }); });
+    var deviceIdx = deviceList2.findIndex(function (d) { return d.deviceCentralName === dev.deviceCentralName; });
+    var deviceEntry;
+    if (deviceIdx === -1) {
+      deviceEntry = { tbName: dev.tbName, tbLabel: dev.tbLabel, deviceCentralName: dev.deviceCentralName, values_list: [] };
+      deviceList2.push(deviceEntry);
+    } else {
+      deviceEntry = deviceList2[deviceIdx];
+    }
+    slots.forEach(function (s) {
+      var idx2 = deviceEntry.values_list.findIndex(function (v) { return v.timeUTC === s.timeUTC; });
+      if (idx2 !== -1) deviceEntry.values_list[idx2] = { timeUTC: s.timeUTC, value: s.value };
+      else deviceEntry.values_list.push({ timeUTC: s.timeUTC, value: s.value });
+    });
+    deviceEntry.values_list.sort(function (a, b) { return a.timeUTC.localeCompare(b.timeUTC); });
+    var isNew = !_manualOverrides;
+    var newData = {
+      device_list_interval_values: deviceList2,
+      version: (existing.version || 0) + 1,
+      createdBy: isNew ? userEmail : (existing.createdBy || userEmail),
+      createdDateTime: isNew ? brtNow : (existing.createdDateTime || brtNow),
+      updatedBy: userEmail,
+      updatedDateTime: brtNow,
+    };
+    await _saveManualOverrides(newData);
+    _moState.step = 'STEP_DONE';
+    _moBuildStepDone(slots.length);
+  } catch (e) {
+    console.error('[MANUAL OVERRIDE] Falha ao salvar:', e);
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Salvar'; }
+    alert('Erro ao salvar: ' + (e && e.message ? e.message : 'Tente novamente.'));
+  }
+};
+
+window.tbtv5_mo_addAnother = function () {
+  window.tbtv5_mo_open();
+};
+
+window.tbtv5_mo_listToggle = function (di) {
+  var el = document.getElementById('mo-list-dev-' + di);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
+
+window.tbtv5_mo_deleteSlot = function (deviceCentralName, timeUTC) {
+  var brt = _moUTCToBRT(timeUTC);
+  var safeId = 'mo-dc-' + timeUTC.replace(/[:.]/g, '_');
+  // Toggle: if confirm row already showing, remove it
+  var existing2 = document.getElementById(safeId);
+  if (existing2) { existing2.remove(); return; }
+  // Find the slot row
+  var rowId = 'mo-slot-row-' + timeUTC.replace(/[:.]/g, '_');
+  var slotRow = document.getElementById(rowId);
+  if (!slotRow) return;
+  var confirmRow = document.createElement('tr');
+  confirmRow.id = safeId;
+  confirmRow.innerHTML =
+    '<td colspan="3"><div class="mo-delete-confirm">Excluir <strong>' + brt + '</strong>? ' +
+    '<button class="mo-btn mo-btn-danger" style="padding:4px 10px;font-size:12px" ' +
+    'onclick="window.tbtv5_mo_confirmDelete(\'' + deviceCentralName + '\',\'' + timeUTC + '\')">Excluir</button> ' +
+    '<button class="mo-btn mo-btn-secondary" style="padding:4px 10px;font-size:12px" ' +
+    'onclick="document.getElementById(\'' + safeId + '\').remove()">Cancelar</button>' +
+    '</div></td>';
+  slotRow.parentNode.insertBefore(confirmRow, slotRow.nextSibling);
+};
+
+window.tbtv5_mo_confirmDelete = async function (deviceCentralName, timeUTC) {
+  try {
+    await _loadManualOverrides();
+    if (!_manualOverrides) return;
+    var deviceList3 = (_manualOverrides.device_list_interval_values || []).map(function (d) {
+      if (d.deviceCentralName !== deviceCentralName) return d;
+      return Object.assign({}, d, {
+        values_list: (d.values_list || []).filter(function (s) { return s.timeUTC !== timeUTC; }),
+      });
+    }).filter(function (d) { return (d.values_list || []).length > 0; });
+    var userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || 'unknown';
+    var newData = Object.assign({}, _manualOverrides, {
+      device_list_interval_values: deviceList3,
+      version: (_manualOverrides.version || 0) + 1,
+      updatedBy: userEmail,
+      updatedDateTime: _moBRTNow(),
+    });
+    await _saveManualOverrides(newData);
+    _moBuildListView();
+  } catch (e) {
+    console.error('[MANUAL OVERRIDE] Falha ao excluir:', e);
+    alert('Erro ao excluir: ' + (e && e.message ? e.message : 'Tente novamente.'));
+  }
 };
 
 self.onDataUpdated = function () {
