@@ -1517,6 +1517,19 @@ Object.assign(window.MyIOUtils, {
             canShowDemandButtons = attrs?.canShowDemandButtons ?? undefined;
             // Offline alarms visibility: default false (hidden)
             showOfflineAlarms = attrs?.showOfflineAlarms === true;
+            // RFC-0198: tickets gate — read from SERVER_SCOPE attrs (no dataKey needed)
+            if (attrs?.tickets_enabled !== undefined && attrs?.tickets_enabled !== null) {
+              const rawT = attrs.tickets_enabled;
+              window.MyIOUtils._ticketsRawEnabled =
+                rawT === true || rawT === 'true' || rawT === 1 || rawT === '1';
+            }
+            if (attrs?.tickets_only_to_myio !== undefined && attrs?.tickets_only_to_myio !== null) {
+              const rawOM = attrs.tickets_only_to_myio;
+              window.MyIOUtils.ticketsOnlyToMyio =
+                rawOM === true || rawOM === 'true' || rawOM === 1 || rawOM === '1';
+            }
+            // Evaluate gate now (currentUserEmail may not be set yet; re-evaluated after user fetch)
+            _applyTicketsGate();
 
             // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
             const _rawExcludeGroups = attrs?.exclude_groups_totals;

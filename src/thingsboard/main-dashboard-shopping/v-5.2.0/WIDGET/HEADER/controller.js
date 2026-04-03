@@ -1664,7 +1664,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           const subject = subj.length > 48 ? subj.slice(0, 46) + '…' : subj;
           const ts      = _tntFmtTs(t.updated_at);
           return `
-            <div class="tnt-ticket-row">
+            <div class="tnt-ticket-row" data-ticket-id="${t.id}" style="cursor:pointer;" title="Ver detalhes">
               <div class="tnt-ticket-dot" style="background:${color}"></div>
               <div class="tnt-ticket-info">
                 ${device ? `<div class="tnt-ticket-device">${device}</div>` : ''}
@@ -1799,6 +1799,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           e.stopPropagation();
           _openNewTicketWizard();
         });
+        // Click on a ticket row → open TicketDetailModal
+        container.querySelectorAll('.tnt-ticket-row[data-ticket-id]').forEach((row) => {
+          row.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const ticketId = parseInt(row.getAttribute('data-ticket-id'), 10);
+            const tso = window.TicketServiceOrchestrator;
+            const ticket = tso?.tickets?.find(t => t.id === ticketId);
+            if (!ticket) return;
+            _openTicketDetail(ticket);
+          });
+        });
       },
 
       _setupDrag(container) {
@@ -1931,6 +1942,31 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       } else {
         _openFreshworksWidget();
       }
+    }
+
+    /**
+     * RFC-0198: Open TicketDetailModal for a specific ticket.
+     * Each click creates a fresh modal instance (no singleton — multiple tickets can be viewed).
+     */
+    function _openTicketDetail(ticket) {
+      const Lib = window.MyIOLibrary;
+      if (!Lib?.createTicketDetailModal) {
+        console.warn('[HEADER] createTicketDetailModal not found in MyIOLibrary');
+        return;
+      }
+      const modal = Lib.createTicketDetailModal({
+        freshdeskDomain: window.MyIOUtils?.freshdeskDomain  || 'myiocom.freshdesk.com',
+        freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey  || '',
+        ticket,
+        onTicketCancelled: () => {
+          // Refresh TSO so badge counts update
+          window.TicketServiceOrchestrator?.refresh?.();
+        },
+        onNoteAdded: () => {
+          window.TicketServiceOrchestrator?.refresh?.();
+        },
+      });
+      modal.open();
     }
 
     // Setup ticket button: show + bind events. Idempotent via data-bound guard.

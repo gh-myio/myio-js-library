@@ -1711,12 +1711,14 @@ export type {
 
 // RFC-0198: FreshDesk API — reusable service client
 // Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer
-export type { FreshDeskTicket, TicketTypeId, TicketMotivo } from './services/freshdesk/types';
+export type { FreshDeskTicket, FreshDeskConversation, TicketTypeId, TicketMotivo } from './services/freshdesk/types';
 // Named function exports (also available as FreshdeskClient namespace below)
 export {
   fetchOpenTickets,
   fetchTicketsForDevice,
+  fetchTicketDetail as fetchFreshdeskTicketDetail,
   createTicket as createFreshdeskTicket,
+  addTicketNote as addFreshdeskTicketNote,
   updateTicket as updateFreshdeskTicket,
   reopenTicket as reopenFreshdeskTicket,
   deleteTicket as deleteFreshdeskTicket,
@@ -1728,6 +1730,8 @@ export * as FreshdeskClient from './services/freshdesk/FreshdeskClient';
 export { createTicketsTab } from './components/premium-modals/settings/tickets/TicketsTab';
 export { NewTicketWizard, createNewTicketWizard } from './components/premium-modals/tickets/NewTicketWizard';
 export type { NewTicketWizardConfig, WizardDevice } from './components/premium-modals/tickets/NewTicketWizard';
+export { createTicketDetailModal } from './components/premium-modals/tickets/TicketDetailModal';
+export type { TicketDetailModalConfig, TicketDetailModalHandle } from './components/premium-modals/tickets/TicketDetailModal';
 export type {
   TicketsTabConfig,
   TicketServiceOrchestratorShape,

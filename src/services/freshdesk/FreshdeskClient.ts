@@ -18,7 +18,7 @@
  * emit a console.warn so badge failures never crash the dashboard.
  */
 
-import type { FreshDeskTicket, TicketTypeId, TicketMotivo } from './types';
+import type { FreshDeskTicket, FreshDeskConversation, TicketTypeId, TicketMotivo } from './types';
 
 // ============================================================================
 // Internals
@@ -248,6 +248,63 @@ export async function createTicket(
     return (await res.json()) as FreshDeskTicket;
   } catch (err) {
     console.warn('[FreshdeskClient] createTicket error:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single ticket with full detail including conversations and requester.
+ * Returns null on error.
+ */
+export async function fetchTicketDetail(
+  domain: string,
+  apiKey: string,
+  ticketId: number
+): Promise<FreshDeskTicket | null> {
+  try {
+    const url = `${_baseUrl(domain)}/tickets/${ticketId}?include=conversations,requester`;
+    const res = await fetch(url, {
+      headers: { Authorization: _authHeader(apiKey) },
+    });
+    if (!res.ok) {
+      console.warn('[FreshdeskClient] fetchTicketDetail HTTP', res.status);
+      return null;
+    }
+    return (await res.json()) as FreshDeskTicket;
+  } catch (err) {
+    console.warn('[FreshdeskClient] fetchTicketDetail error:', err);
+    return null;
+  }
+}
+
+/**
+ * Add a note/comment to an existing ticket.
+ * `isPrivate=false` (default) → public note visible to requester.
+ * Returns the created conversation object, or null on error.
+ */
+export async function addTicketNote(
+  domain: string,
+  apiKey: string,
+  ticketId: number,
+  body: string,
+  isPrivate = false
+): Promise<FreshDeskConversation | null> {
+  try {
+    const res = await fetch(`${_baseUrl(domain)}/tickets/${ticketId}/notes`, {
+      method: 'POST',
+      headers: {
+        Authorization: _authHeader(apiKey),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ body, private: isPrivate }),
+    });
+    if (!res.ok) {
+      console.warn('[FreshdeskClient] addTicketNote HTTP', res.status);
+      return null;
+    }
+    return (await res.json()) as FreshDeskConversation;
+  } catch (err) {
+    console.warn('[FreshdeskClient] addTicketNote error:', err);
     return null;
   }
 }
