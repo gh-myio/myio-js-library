@@ -2640,7 +2640,7 @@ self.onInit = function () {
     topDoc.addEventListener('keydown', escHandler);
 
     // ── Carrega atributos atuais ──────────────────────────────────────────────
-    const KEYS = ['canShowDemandButtons', 'master_admin_password'];
+    const KEYS = ['canShowDemandButtons', 'tickets_enabled', 'tickets_only_to_myio', 'master_admin_password'];
     const fetchUrl = `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=${KEYS.join(',')}`;
 
     fetch(fetchUrl, { headers: { 'X-Authorization': `Bearer ${jwtToken}` } })
@@ -2651,6 +2651,11 @@ self.onInit = function () {
 
         const currentDemand = attrMap['canShowDemandButtons'] ?? null;
         const currentPassword = attrMap['master_admin_password'] ?? '';
+        const rawTickets = attrMap['tickets_enabled'];
+        const currentTickets = rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';
+        const rawOnlyMyio = attrMap['tickets_only_to_myio'];
+        // Default TRUE — only false when explicitly set to false/0/'false'/'0'
+        const currentOnlyMyio = !(rawOnlyMyio === false || rawOnlyMyio === 'false' || rawOnlyMyio === 0 || rawOnlyMyio === '0');
 
         const body = modal.querySelector('.mcc-body');
         const footer = modal.querySelector('.mcc-footer');
@@ -2669,6 +2674,36 @@ self.onInit = function () {
               </div>
               <label class="mcc-toggle" title="canShowDemandButtons">
                 <input type="checkbox" id="mcc-demand-toggle" ${currentDemand === true ? 'checked' : ''}>
+                <span class="mcc-toggle-track"></span>
+                <span class="mcc-toggle-thumb"></span>
+              </label>
+            </div>
+            <div class="mcc-field">
+              <div class="mcc-field-label">
+                <span class="mcc-field-name">Módulo de Chamados (FreshDesk)</span>
+                <span class="mcc-field-desc">
+                  Habilita a aba Chamados, o botão no HEADER e o badge nos devices.<br>
+                  <em>Atributo:</em> <code>tickets_enabled</code>
+                  ${rawTickets === undefined || rawTickets === null ? ' <span style="color:#F59E0B">(não definido — padrão: desabilitado)</span>' : ''}
+                </span>
+              </div>
+              <label class="mcc-toggle" title="tickets_enabled">
+                <input type="checkbox" id="mcc-tickets-toggle" ${currentTickets ? 'checked' : ''}>
+                <span class="mcc-toggle-track"></span>
+                <span class="mcc-toggle-thumb"></span>
+              </label>
+            </div>
+            <div class="mcc-field" id="mcc-only-myio-row" style="${currentTickets ? '' : 'opacity:.4;pointer-events:none;'}">
+              <div class="mcc-field-label" style="padding-left:12px;border-left:3px solid #E9E0FA;">
+                <span class="mcc-field-name">Restringir apenas para @myio.com.br</span>
+                <span class="mcc-field-desc">
+                  Se ativado, a feature de chamados fica visível apenas para usuários com e-mail <code>@myio.com.br</code>.<br>
+                  <em>Atributo:</em> <code>tickets_only_to_myio</code>
+                  ${rawOnlyMyio === undefined || rawOnlyMyio === null ? ' <span style="color:#F59E0B">(não definido — padrão: apenas @myio.com.br)</span>' : ''}
+                </span>
+              </div>
+              <label class="mcc-toggle" title="tickets_only_to_myio">
+                <input type="checkbox" id="mcc-only-myio-toggle" ${currentOnlyMyio ? 'checked' : ''} ${currentTickets ? '' : 'disabled'}>
                 <span class="mcc-toggle-track"></span>
                 <span class="mcc-toggle-thumb"></span>
               </label>
@@ -2698,6 +2733,15 @@ self.onInit = function () {
         // Habilita salvar ao detectar qualquer mudança
         const enableSave = () => { saveBtn.disabled = false; };
         modal.querySelector('#mcc-demand-toggle').addEventListener('change', enableSave);
+        modal.querySelector('#mcc-tickets-toggle').addEventListener('change', (e) => {
+          enableSave();
+          const onlyMyioRow = modal.querySelector('#mcc-only-myio-row');
+          const onlyMyioToggle = modal.querySelector('#mcc-only-myio-toggle');
+          const on = e.target.checked;
+          if (onlyMyioRow) { onlyMyioRow.style.opacity = on ? '' : '.4'; onlyMyioRow.style.pointerEvents = on ? '' : 'none'; }
+          if (onlyMyioToggle) onlyMyioToggle.disabled = !on;
+        });
+        modal.querySelector('#mcc-only-myio-toggle').addEventListener('change', enableSave);
         modal.querySelector('#mcc-password-input').addEventListener('input', enableSave);
 
         // ── Salvar ────────────────────────────────────────────────────────────
@@ -2707,10 +2751,16 @@ self.onInit = function () {
           const errEl = modal.querySelector('#mcc-error-msg');
           errEl.style.display = 'none';
 
-          const demandValue = modal.querySelector('#mcc-demand-toggle').checked;
+          const demandValue   = modal.querySelector('#mcc-demand-toggle').checked;
+          const ticketsValue  = modal.querySelector('#mcc-tickets-toggle').checked;
+          const onlyMyioValue = modal.querySelector('#mcc-only-myio-toggle').checked;
           const passwordValue = modal.querySelector('#mcc-password-input').value.trim();
 
-          const payload = { canShowDemandButtons: demandValue };
+          const payload = {
+            canShowDemandButtons: demandValue,
+            tickets_enabled: ticketsValue,
+            tickets_only_to_myio: ticketsValue ? onlyMyioValue : false,
+          };
           if (passwordValue) payload.master_admin_password = passwordValue;
 
           try {

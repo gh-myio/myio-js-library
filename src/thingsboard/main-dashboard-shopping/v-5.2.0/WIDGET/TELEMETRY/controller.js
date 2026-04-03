@@ -215,6 +215,11 @@ function addTicketBadge(cardElement, identifier) {
 function refreshTicketBadges() {
   const tso = window.TicketServiceOrchestrator;
   if (!tso) return;
+  // Gate: hide all badges if ticketsEnabled is no longer true (e.g. email changed, gate re-evaluated)
+  if (window.MyIOUtils?.ticketsEnabled !== true) {
+    document.querySelectorAll('.myio-ticket-badge').forEach((el) => { el.style.display = 'none'; });
+    return;
+  }
 
   document.querySelectorAll('.myio-ticket-badge[data-ticket-identifier]').forEach((badge) => {
     const identifier = badge.getAttribute('data-ticket-identifier');
@@ -3134,7 +3139,8 @@ function renderList(visible) {
     }
 
     // RFC-0198: Ticket badge — orange chat icon if device has open FreshDesk tickets
-    if ($card && $card[0]) {
+    // Gate: only show when ticketsEnabled===true (effective value from _applyTicketsGate, respects tickets_only_to_myio)
+    if ($card && $card[0] && window.MyIOUtils?.ticketsEnabled === true) {
       addTicketBadge($card[0], it.identifier || null);
     }
 
@@ -5434,6 +5440,17 @@ self.onInit = async function () {
   // RFC-0198: myio:tickets-ready — fired by TicketServiceOrchestrator after each build/refresh.
   // Refreshes ticket badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:tickets-ready', refreshTicketBadges);
+
+  // myio:tickets-gate-changed — fired by MAIN_VIEW when ticketsEnabled changes (e.g. after user email known).
+  // If gate closed, hide all ticket badges immediately; if opened, trigger a refresh.
+  window.addEventListener('myio:tickets-gate-changed', (e) => {
+    const enabled = e.detail?.ticketsEnabled === true;
+    if (!enabled) {
+      document.querySelectorAll('.myio-ticket-badge').forEach((el) => { el.style.display = 'none'; });
+    } else {
+      refreshTicketBadges();
+    }
+  });
 
   // RFC-0196: Listen for group filter changes from TELEMETRY_INFO widget
   window.addEventListener('myio:group-filter-changed', _groupFilterChangedHandler);

@@ -1981,6 +1981,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (total > 0 && btnTicketNotif) btnTicketNotif.style.display = '';
     });
 
+    // React to tickets gate changes (tickets_only_to_myio evaluated after user email is known)
+    window.addEventListener('myio:tickets-gate-changed', (e) => {
+      if (!btnTicketNotif) return;
+      const enabled = e.detail?.ticketsEnabled === true;
+      if (!enabled) {
+        btnTicketNotif.style.display = 'none';
+      } else {
+        // Re-run init to show button + bind events (idempotent because _initTicketButton already ran)
+        const apiKey = window.MyIOUtils?.freshdeskApiKey || '';
+        if (apiKey) btnTicketNotif.style.display = '';
+      }
+    });
+
     // Seed badge if TicketServiceOrchestrator already built before this listener registered
     const _tso = window.TicketServiceOrchestrator;
     if (_tso) {

@@ -1172,6 +1172,8 @@ Object.assign(window.MyIOUtils, {
 
       // RFC-0171: Store email for use in modals
       window.MyIOUtils.currentUserEmail = email;
+      // Re-evaluate tickets gate now that we know the user email
+      _applyTicketsGate();
 
       // Check: email ends with @myio.com.br AND is NOT alarme@ or alarmes@
       const isSuperAdmin =
@@ -1763,15 +1765,22 @@ Object.assign(window.MyIOUtils, {
         }
       }
 
-      // RFC-0198: tickets_enabled — customer SERVER_SCOPE attribute that gates
-      // the entire FreshDesk feature (tab, header button, badges, ticket fetch).
-      // Add 'tickets_enabled' as a dataKey in the customer entity datasource.
+      // RFC-0198: tickets_enabled / tickets_only_to_myio — customer SERVER_SCOPE
+      // attributes that gate the FreshDesk feature.
+      // Add both as dataKeys in the customer entity datasource.
       if (keyName === 'tickets_enabled' && rawValue !== undefined && rawValue !== null) {
         const enabled = rawValue === true || rawValue === 'true' || rawValue === 1 || rawValue === '1';
-        if (window.MyIOUtils.ticketsEnabled !== enabled) {
-          window.MyIOUtils.ticketsEnabled = enabled;
-          LogHelper.log(`[MAIN_VIEW] Exposed ticketsEnabled from customer: ${enabled}`);
+        window.MyIOUtils._ticketsRawEnabled = enabled;
+        LogHelper.log(`[MAIN_VIEW] tickets_enabled raw from customer: ${enabled}`);
+        _applyTicketsGate();
+      }
+      if (keyName === 'tickets_only_to_myio' && rawValue !== undefined && rawValue !== null) {
+        const onlyMyio = rawValue === true || rawValue === 'true' || rawValue === 1 || rawValue === '1';
+        if (window.MyIOUtils.ticketsOnlyToMyio !== onlyMyio) {
+          window.MyIOUtils.ticketsOnlyToMyio = onlyMyio;
+          LogHelper.log(`[MAIN_VIEW] tickets_only_to_myio from customer: ${onlyMyio}`);
         }
+        _applyTicketsGate();
       }
 
       // RFC-0106: Extract mapInstantaneousPower from customer datasource
@@ -2614,6 +2623,29 @@ function _buildAlarmServiceOrchestrator(alarms) {
       detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
     })
   );
+}
+
+/**
+ * RFC-0198: Computes and stores the effective ticketsEnabled flag.
+ * Rules:
+ *   - tickets_enabled must be true  (raw value from customer SERVER_SCOPE)
+ *   - if tickets_only_to_myio=true, user email must end with @myio.com.br
+ * Called whenever tickets_enabled, tickets_only_to_myio, or currentUserEmail changes.
+ */
+function _applyTicketsGate() {
+  const raw      = window.MyIOUtils?._ticketsRawEnabled === true;
+  // tickets_only_to_myio defaults to TRUE (undefined → restrict to @myio.com.br)
+  // Only opens to all when explicitly set to false
+  const onlyMyio = window.MyIOUtils?.ticketsOnlyToMyio !== false;
+  const email    = (window.MyIOUtils?.currentUserEmail || '').toLowerCase().trim();
+  const userAllowed = !onlyMyio || email.endsWith('@myio.com.br');
+  const effective = raw && userAllowed;
+  if (window.MyIOUtils && window.MyIOUtils.ticketsEnabled !== effective) {
+    window.MyIOUtils.ticketsEnabled = effective;
+    LogHelper.log(`[MAIN_VIEW] ticketsEnabled effective=${effective} (raw=${raw}, onlyMyio=${onlyMyio}, email=${email || 'unknown'})`);
+    // Notify HEADER and TELEMETRY so they can re-evaluate the ticket UI
+    window.dispatchEvent(new CustomEvent('myio:tickets-gate-changed', { detail: { ticketsEnabled: effective } }));
+  }
 }
 
 // RFC-0198: Build window.TicketServiceOrchestrator from FreshDesk API.
