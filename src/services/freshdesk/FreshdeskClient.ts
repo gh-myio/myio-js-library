@@ -51,7 +51,11 @@ export async function fetchOpenTickets(
   domain: string,
   apiKey: string
 ): Promise<FreshDeskTicket[]> {
+  // FreshDesk list API does not accept comma-separated status values.
+  // Fetch each active status separately and merge results.
+  const ACTIVE_STATUSES = [2, 3, 6]; // open, pending, waiting
   const results: FreshDeskTicket[] = [];
+  const seen = new Set<number>();
   const base = _baseUrl(domain);
   const headers = {
     Authorization: _authHeader(apiKey),
@@ -59,21 +63,26 @@ export async function fetchOpenTickets(
   };
 
   try {
-    for (let page = 1; page <= 10; page++) {
-      // include=requester,responder populates ticket.requester.email / ticket.responder.email
-      const url = `${base}/tickets?status=2,3,6&per_page=100&page=${page}&include=requester,responder`;
-      const res = await fetch(url, { headers });
+    for (const status of ACTIVE_STATUSES) {
+      for (let page = 1; page <= 10; page++) {
+        // include=requester populates ticket.requester.email
+        // Note: 'responder' is not a valid include value in the FreshDesk list API
+        const url = `${base}/tickets?status=${status}&per_page=100&page=${page}&include=requester`;
+        const res = await fetch(url, { headers });
 
-      if (!res.ok) {
-        console.warn('[FreshdeskClient] fetchOpenTickets HTTP', res.status, 'page', page);
-        break;
+        if (!res.ok) {
+          console.warn('[FreshdeskClient] fetchOpenTickets HTTP', res.status, 'status', status, 'page', page);
+          break;
+        }
+
+        const data: FreshDeskTicket[] = await res.json();
+        if (!Array.isArray(data) || data.length === 0) break;
+
+        for (const t of data) {
+          if (!seen.has(t.id)) { seen.add(t.id); results.push(t); }
+        }
+        if (data.length < 100) break; // last page for this status
       }
-
-      const data: FreshDeskTicket[] = await res.json();
-      if (!Array.isArray(data) || data.length === 0) break;
-
-      results.push(...data);
-      if (data.length < 100) break; // last page
     }
   } catch (err) {
     console.warn('[FreshdeskClient] fetchOpenTickets error:', err);
@@ -95,7 +104,7 @@ export async function fetchTicketsForDevice(
 ): Promise<FreshDeskTicket[]> {
   try {
     const base = _baseUrl(domain);
-    const url = `${base}/tickets?cf_device_identifier=${encodeURIComponent(identifier)}&status=2,3,6&include=requester,responder`;
+    const url = `${base}/tickets?cf_device_identifier=${encodeURIComponent(identifier)}&per_page=100&include=requester`;
     const res = await fetch(url, {
       headers: {
         Authorization: _authHeader(apiKey),
