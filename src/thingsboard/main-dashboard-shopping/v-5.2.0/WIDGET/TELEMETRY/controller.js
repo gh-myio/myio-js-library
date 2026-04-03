@@ -140,72 +140,101 @@ function injectAlarmBadgeStyles() {
 }
 
 // RFC-0198: Inject ticket badge CSS (once, idempotent)
+// Design mirrors the HEADER tbx-btn-ticket-notif + tbx-ticket-badge styles.
 function injectTicketBadgeStyles() {
   if (document.getElementById('myio-ticket-badge-styles')) return;
   const s = document.createElement('style');
   s.id = 'myio-ticket-badge-styles';
   s.textContent = `
+    /* Mini clone of .tbx-btn-ticket-notif */
     .myio-ticket-badge {
       position: absolute;
       bottom: 6px;
       left: 6px;
-      background: #f59e0b;
-      color: #fff;
-      border-radius: 10px;
-      padding: 2px 5px;
-      font-size: 10px;
-      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      background: rgba(8, 145, 178, 0.12);
+      color: #0891b2;
+      border: 1px solid rgba(8, 145, 178, 0.25);
+      border-radius: 6px;
       display: flex;
       align-items: center;
-      gap: 2px;
+      justify-content: center;
       z-index: 10;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .myio-ticket-badge:hover {
+      background: rgba(8, 145, 178, 0.22);
+      border-color: rgba(8, 145, 178, 0.45);
+    }
+    /* Count pill — clone of .tbx-ticket-badge */
+    .myio-ticket-badge-count {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 3px;
+      border-radius: 7px;
+      background: #0891b2;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 14px;
+      text-align: center;
       pointer-events: none;
-      line-height: 1.3;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
   `;
   document.head.appendChild(s);
 }
 
-// RFC-0198: Append ticket badge to a card element if the device has open FreshDesk tickets.
-// identifier comes from entityObject.identifier (device identifier, e.g. "MED-LOJA-01").
-function addTicketBadge(cardElement, identifier) {
+// RFC-0198: Append ticket badge to a card element for the given device identifier.
+// The badge is ALWAYS inserted in the DOM (hidden when count=0) so that
+// refreshTicketBadges() can find and update it when myio:tickets-ready fires later.
+// ticketsItemsRaw: the tickets_items SERVER_SCOPE JSON for this device (passed from item)
+function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
   if (!cardElement || !identifier) return;
 
-  // Primary: use TicketServiceOrchestrator
+  // Avoid duplicates if re-rendered
+  if (cardElement.querySelector('[data-ticket-identifier="' + identifier + '"]')) return;
+
+  // Primary: use TicketServiceOrchestrator (has cf_device_identifier mapping)
   const tso = window.TicketServiceOrchestrator;
   let count = tso ? tso.getTicketCountForDevice(identifier) : 0;
 
-  // Fallback: use tickets_items SERVER_SCOPE dataKey if available on item
-  if (count === 0 && !tso) {
-    const item = STATE.itemsBase?.find(i => i.identifier === identifier);
-    const raw = item?.ticketsItems;
-    if (raw) {
-      try {
-        // MAIN_VIEW already parses the JSON string; accept both object and string
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        // stored as { items: [...] }; legacy: bare array
-        const summaries = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
-        count = summaries.filter(t => [2, 3, 6].includes(t.status)).length;
-      } catch (_e) { /* ignore parse errors */ }
-    }
+  // Fallback: use tickets_items SERVER_SCOPE attribute (always try when count still 0)
+  if (count === 0 && ticketsItemsRaw) {
+    try {
+      const parsed = typeof ticketsItemsRaw === 'string' ? JSON.parse(ticketsItemsRaw) : ticketsItemsRaw;
+      const summaries = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
+      count = summaries.filter(t => [2, 3, 6].includes(t.status)).length;
+    } catch (_e) { /* ignore */ }
   }
-
-  if (!count) return;
 
   injectTicketBadgeStyles();
   if (cardElement.style) cardElement.style.position = 'relative';
 
   const badge = document.createElement('div');
   badge.className = 'myio-ticket-badge';
-  badge.setAttribute('data-ticket-identifier', identifier); // for live updates via myio:tickets-ready
-  badge.title = count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '');
+  badge.setAttribute('data-ticket-identifier', identifier);
+  // Hidden if no tickets yet OR if tickets gate is not open
+  const gateOpen = window.MyIOUtils?.ticketsEnabled === true;
+  badge.style.display = (count > 0 && gateOpen) ? '' : 'none';
+  badge.title = count > 0
+    ? count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '')
+    : 'Chamados';
+  // SVG: same headphone icon as HEADER tbx-btn-ticket-notif
   badge.innerHTML =
-    '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
-    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' +
+    '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/>' +
+    '<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>' +
+    '<path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>' +
     '</svg>' +
-    '<span>' +
-    (count > 99 ? '99+' : count) +
-    '</span>';
+    (count > 0
+      ? '<span class="myio-ticket-badge-count">' + (count > 99 ? '99+' : count) + '</span>'
+      : '');
   cardElement.appendChild(badge);
 }
 
@@ -225,11 +254,17 @@ function refreshTicketBadges() {
     const identifier = badge.getAttribute('data-ticket-identifier');
     if (!identifier) return;
     const count = tso.getTicketCountForDevice(identifier);
-    const span = badge.querySelector('span');
     if (count > 0) {
       badge.style.display = '';
       badge.title = count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '');
-      if (span) span.textContent = count > 99 ? '99+' : String(count);
+      // Update or create count pill
+      let pill = badge.querySelector('.myio-ticket-badge-count');
+      if (!pill) {
+        pill = document.createElement('span');
+        pill.className = 'myio-ticket-badge-count';
+        badge.appendChild(pill);
+      }
+      pill.textContent = count > 99 ? '99+' : String(count);
     } else {
       badge.style.display = 'none';
     }
@@ -3138,10 +3173,10 @@ function renderList(visible) {
       addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
-    // RFC-0198: Ticket badge — orange chat icon if device has open FreshDesk tickets
-    // Gate: only show when ticketsEnabled===true (effective value from _applyTicketsGate, respects tickets_only_to_myio)
-    if ($card && $card[0] && window.MyIOUtils?.ticketsEnabled === true) {
-      addTicketBadge($card[0], it.identifier || null);
+    // RFC-0198: Ticket badge — always insert element so myio:tickets-ready can update it.
+    // Visibility is controlled by ticketsEnabled inside addTicketBadge + refreshTicketBadges.
+    if ($card && $card[0]) {
+      addTicketBadge($card[0], it.identifier || null, it.ticketsItems || null);
     }
 
     // RFC-0152: Collect TB↔GCDR mapping data for device export
