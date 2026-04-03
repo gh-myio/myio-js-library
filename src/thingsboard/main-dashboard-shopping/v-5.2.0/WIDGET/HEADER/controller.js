@@ -1905,7 +1905,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         freshdeskApiKey:  window.MyIOUtils?.freshdeskApiKey   || '',
         requesterEmail:   window.MyIOUtils?.freshdeskRequesterEmail || '',
         getDevices: () => {
-          const state = window.STATE || {};
+          const data = window.MyIOOrchestratorData || {};
           const toW = (d, domain) => ({
             identifier:    d.identifier    || '',
             label:         d.label         || d.identifier || '',
@@ -1913,9 +1913,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             deviceProfile: d.deviceProfile || d.deviceType  || '',
           });
           return [
-            ...(state.energy?.devices      || []).map(d => toW(d, 'energy')),
-            ...(state.water?.devices       || []).map(d => toW(d, 'water')),
-            ...(state.temperature?.devices || []).map(d => toW(d, 'temperature')),
+            ...(data.energy?.items      || []).map(d => toW(d, 'energy')),
+            ...(data.water?.items       || []).map(d => toW(d, 'water')),
+            ...(data.temperature?.items || []).map(d => toW(d, 'temperature')),
           ];
         },
       });

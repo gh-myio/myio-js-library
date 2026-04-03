@@ -80,8 +80,9 @@ function _profileBadge(profile: string): string {
   return profile.replace(/_/g, '').slice(0, 4).toUpperCase();
 }
 
-function _esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function _esc(s: unknown): string {
+  const str = s == null ? '' : String(s);
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ============================================================================

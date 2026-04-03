@@ -51,38 +51,33 @@ export async function fetchOpenTickets(
   domain: string,
   apiKey: string
 ): Promise<FreshDeskTicket[]> {
-  // FreshDesk list API does not accept comma-separated status values.
-  // Fetch each active status separately and merge results.
-  const ACTIVE_STATUSES = [2, 3, 6]; // open, pending, waiting
+  // The FreshDesk list API (/tickets) does not support the `status` filter parameter
+  // in all account configurations. Use the Search API instead, which supports
+  // multi-status queries via query string.
+  // Note: the Search API does not support `include=requester` — requester info
+  // will be absent from results (ticket.requester will be undefined).
   const results: FreshDeskTicket[] = [];
-  const seen = new Set<number>();
   const base = _baseUrl(domain);
-  const headers = {
-    Authorization: _authHeader(apiKey),
-    'Content-Type': 'application/json',
-  };
+  const headers = { Authorization: _authHeader(apiKey) };
+  const query = encodeURIComponent('(status:2 OR status:3 OR status:6)');
 
   try {
-    for (const status of ACTIVE_STATUSES) {
-      for (let page = 1; page <= 10; page++) {
-        // include=requester populates ticket.requester.email
-        // Note: 'responder' is not a valid include value in the FreshDesk list API
-        const url = `${base}/tickets?status=${status}&per_page=100&page=${page}&include=requester`;
-        const res = await fetch(url, { headers });
+    for (let page = 1; page <= 34; page++) {
+      // Search API returns max 30 results per page (up to 1000 total = 34 pages)
+      const url = `${base}/search/tickets?query="${query}"&page=${page}`;
+      const res = await fetch(url, { headers });
 
-        if (!res.ok) {
-          console.warn('[FreshdeskClient] fetchOpenTickets HTTP', res.status, 'status', status, 'page', page);
-          break;
-        }
-
-        const data: FreshDeskTicket[] = await res.json();
-        if (!Array.isArray(data) || data.length === 0) break;
-
-        for (const t of data) {
-          if (!seen.has(t.id)) { seen.add(t.id); results.push(t); }
-        }
-        if (data.length < 100) break; // last page for this status
+      if (!res.ok) {
+        console.warn('[FreshdeskClient] fetchOpenTickets HTTP', res.status, 'page', page);
+        break;
       }
+
+      const data = await res.json() as { results: FreshDeskTicket[]; total: number };
+      const batch = Array.isArray(data.results) ? data.results : [];
+      results.push(...batch);
+
+      // Stop when we've fetched all pages
+      if (results.length >= data.total || batch.length === 0) break;
     }
   } catch (err) {
     console.warn('[FreshdeskClient] fetchOpenTickets error:', err);
@@ -102,23 +97,34 @@ export async function fetchTicketsForDevice(
   apiKey: string,
   identifier: string
 ): Promise<FreshDeskTicket[]> {
+  // Primary: filter by cf_device_identifier custom field (requires the field to be
+  // configured in FreshDesk Admin → Ticket Fields → cf_device_identifier).
+  // Fallback: fetch first page of open tickets and filter client-side.
   try {
     const base = _baseUrl(domain);
-    const url = `${base}/tickets?cf_device_identifier=${encodeURIComponent(identifier)}&per_page=100&include=requester`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: _authHeader(apiKey),
-        'Content-Type': 'application/json',
-      },
-    });
+    const headers = { Authorization: _authHeader(apiKey) };
 
-    if (!res.ok) {
-      console.warn('[FreshdeskClient] fetchTicketsForDevice HTTP', res.status);
-      return [];
+    // Try custom field filter first
+    const urlCf = `${base}/tickets?cf_device_identifier=${encodeURIComponent(identifier)}&per_page=100&include=requester`;
+    const resCf = await fetch(urlCf, { headers });
+    if (resCf.ok) {
+      const data: unknown = await resCf.json();
+      return Array.isArray(data) ? (data as FreshDeskTicket[]) : [];
     }
 
-    const data: unknown = await res.json();
-    return Array.isArray(data) ? (data as FreshDeskTicket[]) : [];
+    // Custom field not configured (400) — fall back to search API and filter client-side
+    console.warn('[FreshdeskClient] fetchTicketsForDevice: cf_device_identifier not available, falling back to client-side filter');
+    const query = encodeURIComponent('(status:2 OR status:3 OR status:6)');
+    const urlSearch = `${base}/search/tickets?query="${query}"&page=1`;
+    const resSearch = await fetch(urlSearch, { headers });
+    if (!resSearch.ok) return [];
+    const searchData = await resSearch.json() as { results: FreshDeskTicket[] };
+    const all = Array.isArray(searchData.results) ? searchData.results : [];
+    // Filter by cf_device_identifier or subject containing the identifier
+    return all.filter(t =>
+      t.custom_fields?.cf_device_identifier === identifier ||
+      (t.subject ?? '').includes(identifier)
+    );
   } catch (err) {
     console.warn('[FreshdeskClient] fetchTicketsForDevice error:', err);
     return [];
