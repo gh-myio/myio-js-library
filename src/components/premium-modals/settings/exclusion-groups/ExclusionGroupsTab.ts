@@ -57,6 +57,12 @@ export class ExclusionGroupsTab {
     this.currentState = this.buildDefaultState();
   }
 
+  /** Returns the number of groups currently marked as excluded. */
+  getExcludedCount(): number {
+    if (!this.currentState.enabled) return 0;
+    return Object.values(this.currentState.groups).filter(Boolean).length;
+  }
+
   async init(): Promise<void> {
     this.config.container.innerHTML = this.getLoadingHTML();
 

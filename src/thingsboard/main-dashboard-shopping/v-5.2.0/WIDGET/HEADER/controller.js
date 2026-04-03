@@ -1733,10 +1733,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               <span class="tnt-footer-label">Total</span>
               <span class="tnt-footer-value">${allTickets.length}</span>
               <button class="tnt-footer-btn" data-action="open-freshdesk">
-                <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor">
-                  <path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3.5-3.5-5 5L11 11l5-5L12.5 3H21z"/>
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                Abrir FreshDesk
+                Novo Chamado
               </button>
             </div>
           </div>`;
@@ -1784,7 +1784,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
 
       _bindEvents(container) {
-        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
         container.querySelector('[data-action="pin"]')?.addEventListener('click', (e) => {
           e.stopPropagation();
           this._isPinned = !this._isPinned;
@@ -1798,7 +1797,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
         container.querySelector('[data-action="open-freshdesk"]')?.addEventListener('click', (e) => {
           e.stopPropagation();
-          window.open(`https://${domain}/helpdesk/tickets`, '_blank', 'noopener,noreferrer');
+          _openFreshworksWidget();
         });
       },
 
@@ -1850,18 +1849,63 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // RFC-0198: Wire up the ticket / chamados button
     const btnTicketNotif = document.getElementById('tbx-btn-ticket-notif');
+
+    /**
+     * Inject the FreshWorks Widget script once and hide their default launcher.
+     * After load, `window.FreshworksWidget('open')` opens the widget programmatically.
+     */
+    function _initFreshworksWidget(widgetId) {
+      if (!widgetId) return;
+      if (document.getElementById('freshworks-widget-script')) return; // already injected
+
+      // Stub required before the script loads (matches FreshWorks boilerplate)
+      window.fwSettings = { widget_id: Number(widgetId) };
+      if (typeof window.FreshworksWidget !== 'function') {
+        const n = function() { n.q.push(arguments); };
+        n.q = [];
+        window.FreshworksWidget = n;
+      }
+
+      const script = document.createElement('script');
+      script.id   = 'freshworks-widget-script';
+      script.type = 'text/javascript';
+      script.src  = `https://widget.freshworks.com/widgets/${widgetId}.js`;
+      script.async = true;
+      script.defer = true;
+      // Hide their floating launcher — we open the widget via our own button
+      script.onload = () => {
+        if (typeof window.FreshworksWidget === 'function') {
+          window.FreshworksWidget('hide', 'launcher');
+        }
+      };
+      document.head.appendChild(script);
+      LogHelper.log('[HEADER] RFC-0198: FreshWorks Widget script injected, widget_id:', widgetId);
+    }
+
+    /** Open the FreshWorks Widget; falls back to domain URL if widget not loaded. */
+    function _openFreshworksWidget() {
+      if (typeof window.FreshworksWidget === 'function') {
+        window.FreshworksWidget('open');
+      } else {
+        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
+        window.open(`https://${domain}/helpdesk/tickets`, '_blank', 'noopener,noreferrer');
+      }
+    }
+
     (function _initTicketButton() {
-      const apiKey = window.MyIOUtils?.freshdeskApiKey || '';
-      const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
-      if (!apiKey || !btnTicketNotif) return;
+      const apiKey   = window.MyIOUtils?.freshdeskApiKey   || '';
+      const widgetId = window.MyIOUtils?.freshdeskWidgetId || '';
+      // Hide if no API key OR customer explicitly disabled the feature
+      if (!apiKey || window.MyIOUtils?.ticketsEnabled === false || !btnTicketNotif) return;
 
       // Show button only when FreshDesk is configured
       btnTicketNotif.style.display = '';
 
-      // Click → open FreshDesk tickets page in a new tab
-      btnTicketNotif.addEventListener('click', () => {
-        window.open(`https://${domain}/helpdesk/tickets`, '_blank', 'noopener,noreferrer');
-      });
+      // Inject FreshWorks Widget script if widget_id is configured
+      _initFreshworksWidget(widgetId);
+
+      // Click → open FreshWorks Widget (or fallback to domain URL)
+      btnTicketNotif.addEventListener('click', () => _openFreshworksWidget());
 
       // Hover → show premium tooltip
       btnTicketNotif.addEventListener('mouseenter', () => {

@@ -24,7 +24,7 @@ import { writeFreshdeskTicketsToTB, writeFreshdeskSyncedAtToTB } from './TbTicke
  * @param domain       FreshDesk domain, e.g. "myiocom.freshdesk.com"
  * @param apiKey       FreshDesk API key
  * @param freshdeskClient  The FreshdeskClient module (passed to allow mocking in tests)
- * @param tbSyncOptions    Optional TB write-back options — if provided, writes freshdesk_tickets SERVER_SCOPE
+ * @param tbSyncOptions    Optional TB write-back options — if provided, writes tickets_items SERVER_SCOPE
  */
 export async function buildTicketServiceOrchestrator(
   domain: string,

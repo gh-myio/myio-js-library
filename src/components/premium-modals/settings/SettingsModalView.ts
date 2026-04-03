@@ -115,6 +115,8 @@ export class SettingsModalView {
     this.initChamadosTab();
     // Exclusão de Grupos tab (async, energy domain only)
     this.initExclusionGroupsTab();
+    // Seed tab badges from available orchestrators + initialData
+    this._updateTabBadges(initialData);
   }
 
   // RFC-0104: Initialize the Annotations Tab
@@ -240,8 +242,18 @@ export class SettingsModalView {
 
     const deviceIdentifier = this.config.identifier ?? this.config.deviceId ?? '';
 
+    const ticketsEnabled =
+      (window as unknown as { MyIOUtils?: { ticketsEnabled?: boolean } }).MyIOUtils?.ticketsEnabled;
+
+    if (ticketsEnabled === false) {
+      // Customer has tickets_enabled=false — remove tab entirely
+      this.modal.querySelector('[data-tab="chamados"]')?.remove();
+      this.modal.querySelector('#chamados-tab-content')?.remove();
+      return;
+    }
+
     if (!freshdeskApiKey) {
-      // Lock tab button visually
+      // API key not configured — lock tab button visually (tab visible but locked)
       const tabBtn = this.modal.querySelector<HTMLElement>('.modal-tab[data-tab="chamados"]');
       if (tabBtn) tabBtn.classList.add('locked');
     }
@@ -265,6 +277,63 @@ export class SettingsModalView {
       container.innerHTML =
         '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar chamados</p>';
     }
+  }
+
+  // ==========================================================================
+  // Tab badges
+  // ==========================================================================
+
+  /** Update a single tab badge. Pass count=0 to hide it. */
+  updateTabBadge(tab: 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups', count: number): void {
+    const badgeId = tab === 'exclusion-groups' ? 'tab-badge-exclusion-groups' : `tab-badge-${tab}`;
+    const badge = this.modal.querySelector<HTMLElement>(`#${badgeId}`);
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  /**
+   * Seed all tab badges immediately from orchestrators + initialData.
+   * Tabs that load async (alarms, chamados) may call updateTabBadge() later.
+   */
+  private _updateTabBadges(initialData: Record<string, unknown>): void {
+    // ── Anotações ── count active (non-archived) annotations from log_annotations
+    try {
+      let rawAnnotations = initialData['log_annotations'];
+      if (typeof rawAnnotations === 'string') rawAnnotations = JSON.parse(rawAnnotations);
+      const annotationsArr: unknown[] = Array.isArray((rawAnnotations as { annotations?: unknown[] })?.annotations)
+        ? (rawAnnotations as { annotations: unknown[] }).annotations
+        : Array.isArray(rawAnnotations) ? (rawAnnotations as unknown[]) : [];
+      const activeAnnotations = annotationsArr.filter(
+        (a) => (a as { status?: string })?.status !== 'archived'
+      ).length;
+      this.updateTabBadge('annotations', activeAnnotations);
+    } catch { /* ignore */ }
+
+    // ── Alarmes ── from AlarmServiceOrchestrator (sync, available at render time)
+    try {
+      const aso = (window as unknown as { AlarmServiceOrchestrator?: { getAlarmCountForDevice(id: string): number } })
+        .AlarmServiceOrchestrator;
+      if (aso && this.config.gcdrDeviceId) {
+        this.updateTabBadge('alarms', aso.getAlarmCountForDevice(this.config.gcdrDeviceId));
+      }
+    } catch { /* ignore */ }
+
+    // ── Chamados ── from TicketServiceOrchestrator (sync, available at render time)
+    try {
+      const tso = (window as unknown as { TicketServiceOrchestrator?: { getTicketCountForDevice(id: string): number } })
+        .TicketServiceOrchestrator;
+      if (tso && this.config.identifier) {
+        this.updateTabBadge('chamados', tso.getTicketCountForDevice(this.config.identifier));
+      }
+    } catch { /* ignore */ }
+
+    // ── Excluir Grupos ── from excludeGroupsEnabled / excludedGroups (set during init)
+    // Will be updated by initExclusionGroupsTab after it loads
   }
 
   // Exclusão de Grupos: Initialize the tab (energy domain only)
@@ -301,6 +370,7 @@ export class SettingsModalView {
         tbBaseUrl: tbBaseUrl ?? window.location.origin,
       });
       await this.exclusionGroupsTab.init();
+      this.updateTabBadge('exclusion-groups', this.exclusionGroupsTab.getExcludedCount());
       console.log('[SettingsModalView] ExclusionGroupsTab initialized');
     } catch (error) {
       console.error('[SettingsModalView] Failed to initialize ExclusionGroupsTab:', error);
@@ -532,6 +602,7 @@ export class SettingsModalView {
                 <polyline points="10,9 9,9 8,9"></polyline>
               </svg>
               Anotações
+              <span class="modal-tab-badge modal-tab-badge--annotations" id="tab-badge-annotations" style="display:none"></span>
             </button>
             <!-- RFC-0180: Alarms Tab -->
             <button type="button" class="modal-tab" data-tab="alarms">
@@ -540,13 +611,17 @@ export class SettingsModalView {
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
               Alarmes
+              <span class="modal-tab-badge modal-tab-badge--alarms" id="tab-badge-alarms" style="display:none"></span>
             </button>
             <!-- RFC-0198: Chamados Tab -->
             <button type="button" class="modal-tab" data-tab="chamados">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>
+                <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
               </svg>
               Chamados
+              <span class="modal-tab-badge modal-tab-badge--chamados" id="tab-badge-chamados" style="display:none"></span>
             </button>
             <!-- Exclusão de Grupos Tab -->
             <button type="button" class="modal-tab" data-tab="exclusion-groups">
@@ -555,6 +630,7 @@ export class SettingsModalView {
                 <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
               </svg>
               Excluir Grupos
+              <span class="modal-tab-badge modal-tab-badge--exclusion" id="tab-badge-exclusion-groups" style="display:none"></span>
             </button>
           </div>
           <div class="modal-body">
@@ -1480,6 +1556,26 @@ export class SettingsModalView {
           height: 16px;
           stroke-width: 2;
         }
+
+        .modal-tab-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 5px;
+          border-radius: 9px;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 1;
+          color: #fff;
+          background: #6c757d;
+          margin-left: 2px;
+        }
+        .modal-tab-badge--annotations { background: #7c3aed; }
+        .modal-tab-badge--alarms      { background: #dc2626; }
+        .modal-tab-badge--chamados    { background: #0891b2; }
+        .modal-tab-badge--exclusion   { background: #d97706; }
 
         .tab-content {
           min-height: 400px;
@@ -2637,6 +2733,223 @@ export class SettingsModalView {
 
         .eg-btn-save:hover { background: #5a2da8; }
         .eg-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ================================================================
+         * DARK MODE — toggled by .theme-dark class on .myio-device-settings-modal
+         * ================================================================ */
+        .theme-dark {
+          background: #1a1b1e;
+          color: #e9ecef;
+        }
+
+        /* Modal body */
+        .theme-dark .modal-body {
+          background: #1a1b1e;
+        }
+
+        /* Tab bar */
+        .theme-dark .modal-tabs {
+          background: #25262b;
+          border-bottom-color: #373a40;
+        }
+        .theme-dark .modal-tab {
+          color: #adb5bd;
+        }
+        .theme-dark .modal-tab:hover {
+          background: rgba(255,255,255,0.05);
+          color: #dee2e6;
+        }
+        .theme-dark .modal-tab.active {
+          background: #1a1b1e;
+          color: #a78bfa;
+          border-bottom-color: #7c3aed;
+        }
+        .theme-dark .modal-tab.locked {
+          opacity: 0.35;
+        }
+
+        /* Scrollbar */
+        .theme-dark .modal-body::-webkit-scrollbar-track { background: #25262b; }
+        .theme-dark .modal-body::-webkit-scrollbar-thumb { background: #495057; }
+        .theme-dark .modal-body::-webkit-scrollbar-thumb:hover { background: #6c757d; }
+
+        /* Form cards */
+        .theme-dark .form-card {
+          background: #25262b;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* Section titles */
+        .theme-dark .section-title {
+          color: #a78bfa;
+        }
+        .theme-dark .info-card-wide .section-title {
+          color: #60a5fa;
+        }
+
+        /* Identity card */
+        .theme-dark .identity-col1 {
+          border-right-color: #373a40;
+        }
+        .theme-dark .identity-name-text {
+          color: #a78bfa;
+        }
+        .theme-dark .identity-field-label {
+          color: #6c757d;
+        }
+        .theme-dark .identity-input {
+          background: #2c2e33;
+          border-color: #495057;
+          color: #e9ecef;
+        }
+        .theme-dark .identity-input:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 2px rgba(124,58,237,0.25);
+        }
+        .theme-dark .identity-input[readonly] {
+          background: #1a1b1e;
+          color: #6c757d;
+          border-color: #373a40;
+        }
+        .theme-dark .device-name-subtitle {
+          color: #6c757d;
+        }
+
+        /* Form groups */
+        .theme-dark .form-group label {
+          color: #adb5bd;
+        }
+        .theme-dark .form-group input {
+          background: #2c2e33;
+          border-color: #495057;
+          color: #e9ecef;
+        }
+        .theme-dark .form-group input:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 2px rgba(124,58,237,0.25);
+        }
+        .theme-dark .form-group input[readonly] {
+          background: #1a1b1e;
+          color: #6c757d;
+        }
+
+        /* Form select */
+        .theme-dark .form-select {
+          background: #2c2e33;
+          border-color: #495057;
+          color: #e9ecef;
+        }
+        .theme-dark .form-select:focus {
+          border-color: #7c3aed;
+        }
+        .theme-dark .form-select:hover {
+          border-color: #6c757d;
+        }
+
+        /* Info rows */
+        .theme-dark .info-row {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(255,255,255,0.08);
+        }
+        .theme-dark .info-label {
+          color: #adb5bd;
+        }
+        .theme-dark .info-value {
+          color: #e9ecef;
+        }
+        .theme-dark .info-card-wide {
+          background: linear-gradient(135deg, #1e2235 0%, #1a2030 100%);
+          border-color: #2d3748;
+        }
+
+        /* Global reference container */
+        .theme-dark .global-reference-container {
+          background: #2c2e33;
+          border-color: #495057;
+        }
+
+        /* Power limits table */
+        .theme-dark .power-limits-table-wrapper {
+          border-color: #373a40;
+        }
+        .theme-dark .power-limits-table {
+          background: #25262b;
+        }
+        .theme-dark .power-limits-table thead {
+          background: #2c2e33;
+        }
+        .theme-dark .power-limits-table th {
+          color: #adb5bd;
+          border-color: #373a40;
+        }
+        .theme-dark .power-limits-table td {
+          border-color: #373a40;
+          color: #e9ecef;
+        }
+        .theme-dark .power-limits-table tbody tr:hover td {
+          background: rgba(124,58,237,0.08);
+        }
+        .theme-dark .limit-input {
+          background: #2c2e33;
+          border-color: #495057;
+          color: #e9ecef;
+        }
+        .theme-dark .limit-input:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 2px rgba(124,58,237,0.25);
+        }
+
+        /* Power limits legend */
+        .theme-dark .power-limits-legend {
+          background: #2c2e33;
+          border-left-color: #7c3aed;
+        }
+        .theme-dark .legend-text {
+          color: #adb5bd;
+        }
+
+        /* Footer */
+        .theme-dark .modal-footer {
+          background: #25262b;
+          border-top-color: #373a40;
+        }
+        .theme-dark .btn-cancel {
+          background: #495057;
+        }
+        .theme-dark .btn-cancel:hover:not(:disabled) {
+          background: #6c757d;
+        }
+
+        /* Error message */
+        .theme-dark .error-message {
+          background: rgba(220,53,69,0.15);
+          border-color: rgba(220,53,69,0.4);
+          color: #f87171;
+        }
+
+        /* Loading spinner */
+        .theme-dark .loading-spinner {
+          border-color: #373a40;
+          border-top-color: #7c3aed;
+        }
+
+        /* Exclusion Groups tab */
+        .theme-dark .egt-group-row {
+          background: #2c2e33;
+          border-color: #373a40;
+          color: #e9ecef;
+        }
+        .theme-dark .egt-group-row--checked {
+          background: rgba(124,58,237,0.12);
+          border-color: rgba(124,58,237,0.4);
+        }
+        .theme-dark .egt-group-name { color: #e9ecef; }
+        .theme-dark .egt-group-desc { color: #6c757d; }
+        .theme-dark .egt-group-status { color: #adb5bd; }
+        .theme-dark .egt-header { background: #2c2e33; border-color: #373a40; color: #adb5bd; }
+        .theme-dark .egt-card { background: #25262b; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+        .theme-dark .egt-section-title { color: #a78bfa; }
+        .theme-dark .egt-footer { background: #25262b; border-color: #373a40; }
       </style>
     `;
   }
@@ -2789,6 +3102,9 @@ export class SettingsModalView {
       maximizeTarget: this.modal,
       maximizedClass: 'is-maximized',
       onClose: () => this.config.onClose(),
+      onThemeChange: (theme) => {
+        this.modal.classList.toggle('theme-dark', theme === 'dark');
+      },
     });
 
     // Handle cancel button (Fechar button)

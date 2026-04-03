@@ -1,5 +1,5 @@
 /**
- * RFC-0198: TbTicketSync — write/read `freshdesk_tickets` and `lastFreshdeskSyncedAt`
+ * RFC-0198: TbTicketSync — write/read `tickets_items` and `lastFreshdeskSyncedAt`
  * SERVER_SCOPE attributes on TB devices.
  *
  * ThingsBoard does not accept a bare JSON array [] as an attribute value — it must be
@@ -15,7 +15,7 @@
  */
 import type { FreshDeskTicket, FreshdeskTicketSummary } from './types';
 
-const ATTR_KEY = 'freshdesk_tickets';
+const ATTR_KEY = 'tickets_items';
 const ATTR_SYNCED_AT = 'lastFreshdeskSyncedAt';
 const ACTIVE_STATUSES = new Set([2, 3, 6]);
 
@@ -75,7 +75,7 @@ export async function writeFreshdeskTicketsToTB(
 }
 
 /**
- * Clear the freshdesk_tickets attribute for a device (write empty array).
+ * Clear the tickets_items attribute for a device (write empty array).
  */
 export async function clearFreshdeskTicketsOnTB(
   tbBaseUrl: string,
@@ -86,7 +86,7 @@ export async function clearFreshdeskTicketsOnTB(
 }
 
 /**
- * Read the current freshdesk_tickets attribute from ThingsBoard SERVER_SCOPE.
+ * Read the current tickets_items attribute from ThingsBoard SERVER_SCOPE.
  * Returns [] on error or missing attribute.
  */
 export async function readFreshdeskTicketsFromTB(
@@ -113,7 +113,7 @@ export async function readFreshdeskTicketsFromTB(
 }
 
 /**
- * Append one new ticket to the existing freshdesk_tickets attribute.
+ * Append one new ticket to the existing tickets_items attribute.
  * Reads current value, appends, deduplicates by id, writes back.
  */
 export async function appendFreshdeskTicketToTB(

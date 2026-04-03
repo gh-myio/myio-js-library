@@ -212,7 +212,10 @@ class TicketsTab {
                 <option value="">Selecione…</option>
                 <option value="1">Software / Dashboard</option>
                 <option value="2">Instalação</option>
+                <option value="outros">Outros</option>
               </select>
+              <input type="text" id="ct-ticket-type-outros" class="ct-form-input"
+                     placeholder="Descreva o tipo de chamado…" style="display:none;margin-top:6px;" maxlength="100">
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-motivo">Motivo</label>
@@ -233,8 +236,8 @@ class TicketsTab {
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-email">E-mail do solicitante</label>
-              <input type="email" id="ct-email" name="email" class="ct-form-input"
-                     placeholder="usuario@empresa.com" required>
+              <input type="email" id="ct-email" name="email" class="ct-form-input ct-form-input--readonly"
+                     placeholder="usuario@empresa.com" readonly required>
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label">Anexos</label>
@@ -350,6 +353,16 @@ class TicketsTab {
       if (emailInput) emailInput.value = this.config.requesterEmail;
     }
 
+    // ── Tipo de chamado "Outros" toggle ──
+    const tipoSel   = container.querySelector<HTMLSelectElement>('#ct-ticket-type');
+    const tipoOtros = container.querySelector<HTMLInputElement>('#ct-ticket-type-outros');
+    if (tipoSel && tipoOtros) {
+      tipoSel.addEventListener('change', () => {
+        tipoOtros.style.display = tipoSel.value === 'outros' ? 'block' : 'none';
+        if (tipoSel.value !== 'outros') tipoOtros.value = '';
+      });
+    }
+
     // ── Motivo "Outros" toggle ──
     const motivoSel = container.querySelector<HTMLSelectElement>('#ct-motivo');
     const motivoOtros = container.querySelector<HTMLInputElement>('#ct-motivo-outros');
@@ -409,36 +422,45 @@ class TicketsTab {
   // ==========================================================================
 
   private _collectFormData(form: HTMLFormElement): {
-    subject: string; ticketTypeRaw: string; motivoRaw: string;
-    description: string; email: string;
+    subject: string; ticketTypeRaw: string; ticketTypeOutros: string;
+    motivoRaw: string; description: string; email: string;
   } {
-    const motivoSel = form.querySelector<HTMLSelectElement>('#ct-motivo')?.value ?? '';
+    const tipoSel    = form.querySelector<HTMLSelectElement>('#ct-ticket-type')?.value ?? '';
+    const tipoOutros = (form.querySelector<HTMLInputElement>('#ct-ticket-type-outros')?.value ?? '').trim();
+    const motivoSel  = form.querySelector<HTMLSelectElement>('#ct-motivo')?.value ?? '';
     const motivoOutros = (form.querySelector<HTMLInputElement>('#ct-motivo-outros')?.value ?? '').trim();
     const motivoRaw = motivoSel === 'Outros' ? motivoOutros : motivoSel;
     return {
-      subject:       (form.querySelector<HTMLInputElement>('#ct-subject')?.value ?? '').trim(),
-      ticketTypeRaw: (form.querySelector<HTMLSelectElement>('#ct-ticket-type')?.value ?? '').trim(),
+      subject:          (form.querySelector<HTMLInputElement>('#ct-subject')?.value ?? '').trim(),
+      ticketTypeRaw:    tipoSel,
+      ticketTypeOutros: tipoOutros,
       motivoRaw,
-      description:   (form.querySelector<HTMLTextAreaElement>('#ct-description')?.value ?? '').trim(),
-      email:         (form.querySelector<HTMLInputElement>('#ct-email')?.value ?? '').trim(),
+      description:      (form.querySelector<HTMLTextAreaElement>('#ct-description')?.value ?? '').trim(),
+      email:            (form.querySelector<HTMLInputElement>('#ct-email')?.value ?? '').trim(),
     };
   }
 
   private async _showConfirmation(form: HTMLFormElement, container: HTMLElement): Promise<void> {
     const msgEl = container.querySelector<HTMLElement>('#ct-form-msg');
-    const { subject, ticketTypeRaw, motivoRaw, description, email } = this._collectFormData(form);
+    const { subject, ticketTypeRaw, ticketTypeOutros, motivoRaw, description, email } = this._collectFormData(form);
 
     if (!subject || !ticketTypeRaw || !motivoRaw || !email) {
       this.showFormMsg(msgEl, 'Preencha todos os campos obrigatórios.', '#dc2626');
       return;
     }
-    if (ticketTypeRaw === '' || !(Number(ticketTypeRaw) === 1 || Number(ticketTypeRaw) === 2)) {
+    if (ticketTypeRaw === 'outros' && !ticketTypeOutros) {
+      this.showFormMsg(msgEl, 'Descreva o tipo de chamado.', '#dc2626');
+      return;
+    }
+    if (ticketTypeRaw !== '1' && ticketTypeRaw !== '2' && ticketTypeRaw !== 'outros') {
       this.showFormMsg(msgEl, 'Selecione o tipo do chamado.', '#dc2626');
       return;
     }
     this.showFormMsg(msgEl, '', '');
 
-    const typeLabel = ticketTypeRaw === '1' ? 'Software / Dashboard' : 'Instalação';
+    const typeLabel = ticketTypeRaw === '1' ? 'Software / Dashboard'
+                    : ticketTypeRaw === '2' ? 'Instalação'
+                    : ticketTypeOutros;
     const filesInfo = this._selectedFiles.length
       ? this._selectedFiles.map(f => `${f.name} (${this._formatFileSize(f.size)})`).join('<br>')
       : '<em style="color:#9ca3af">Nenhum</em>';
@@ -468,9 +490,15 @@ class TicketsTab {
     const backBtn    = container.querySelector<HTMLButtonElement>('#ct-btn-back');
     const msgEl      = container.querySelector<HTMLElement>('#ct-confirm-msg');
 
-    const { subject, ticketTypeRaw, motivoRaw, description, email } = this._collectFormData(form);
-    const ticketType = Number(ticketTypeRaw) as TicketTypeId;
+    const { subject, ticketTypeRaw, ticketTypeOutros, motivoRaw, description, email } = this._collectFormData(form);
+    const ticketType = (ticketTypeRaw === '1' || ticketTypeRaw === '2')
+      ? Number(ticketTypeRaw) as TicketTypeId
+      : undefined;
     const motivo = motivoRaw as TicketMotivo;
+    // When tipo is "Outros", prepend the custom type text to the description
+    const finalDescription = (ticketTypeRaw === 'outros' && ticketTypeOutros)
+      ? `[Tipo: ${ticketTypeOutros}]\n${description}`
+      : description;
 
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Enviando…'; }
     if (backBtn)    { backBtn.disabled = true; }
@@ -482,7 +510,7 @@ class TicketsTab {
       subject,
       this.config.deviceIdentifier,
       email,
-      { description, ticketType, motivo, attachments: this._selectedFiles.length ? this._selectedFiles : undefined }
+      { description: finalDescription, ticketType, motivo, attachments: this._selectedFiles.length ? this._selectedFiles : undefined }
     );
 
     if (result) {
@@ -819,6 +847,14 @@ class TicketsTab {
       .ct-form-textarea:focus {
         border-color: #f59e0b;
         box-shadow: 0 0 0 2px rgba(245,158,11,0.12);
+      }
+      .ct-form-input--readonly,
+      .ct-form-input--readonly:focus {
+        background: #f3f4f6;
+        color: #6b7280;
+        cursor: default;
+        border-color: #e5e7eb;
+        box-shadow: none;
       }
       .ct-form-select {
         border: 1.5px solid #d1d5db;

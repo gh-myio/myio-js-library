@@ -14,7 +14,7 @@ import type { FreshDeskTicket } from '../../../../services/freshdesk/types';
 // Dashboard-specific types (ThingsBoard + SettingsModal context)
 // ============================================================================
 
-/** Compact ticket record stored as ThingsBoard SERVER_SCOPE attribute `freshdesk_tickets` */
+/** Compact ticket record stored as ThingsBoard SERVER_SCOPE attribute `tickets_items` */
 export interface FreshdeskTicketSummary {
   id: number;
   /** 2=open | 3=pending | 4=resolved | 5=closed | 6=waiting */
@@ -41,7 +41,7 @@ export interface TicketsTabConfig {
   freshdeskDomain: string;
   /** Pre-fetched tickets from TicketServiceOrchestrator (skips per-device fetch when provided) */
   prefetchedTickets?: FreshDeskTicket[] | null;
-  /** ThingsBoard JWT token — for writing freshdesk_tickets SERVER_SCOPE attribute */
+  /** ThingsBoard JWT token — for writing tickets_items SERVER_SCOPE attribute */
   jwtToken?: string;
   /** ThingsBoard base URL — defaults to window.location.origin */
   tbBaseUrl?: string;

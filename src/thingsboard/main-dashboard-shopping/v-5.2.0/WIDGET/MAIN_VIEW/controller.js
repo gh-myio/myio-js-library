@@ -1763,6 +1763,17 @@ Object.assign(window.MyIOUtils, {
         }
       }
 
+      // RFC-0198: tickets_enabled — customer SERVER_SCOPE attribute that gates
+      // the entire FreshDesk feature (tab, header button, badges, ticket fetch).
+      // Add 'tickets_enabled' as a dataKey in the customer entity datasource.
+      if (keyName === 'tickets_enabled' && rawValue !== undefined && rawValue !== null) {
+        const enabled = rawValue === true || rawValue === 'true' || rawValue === 1 || rawValue === '1';
+        if (window.MyIOUtils.ticketsEnabled !== enabled) {
+          window.MyIOUtils.ticketsEnabled = enabled;
+          LogHelper.log(`[MAIN_VIEW] Exposed ticketsEnabled from customer: ${enabled}`);
+        }
+      }
+
       // RFC-0106: Extract mapInstantaneousPower from customer datasource
       // This is used for deviceStatus calculation with power ranges
       if (keyName === 'mapinstantaneouspower' && rawValue !== undefined && rawValue !== null) {
@@ -2608,17 +2619,24 @@ function _buildAlarmServiceOrchestrator(alarms) {
 // RFC-0198: Build window.TicketServiceOrchestrator from FreshDesk API.
 // Reads freshdeskApiKey from ctx.settings; skips silently if key is absent.
 async function _buildTicketServiceOrchestrator() {
-  const apiKey = self.ctx.settings?.freshdeskApiKey || '';
-  const domain = self.ctx.settings?.freshdeskDomain || 'myiocom.freshdesk.com';
+  const apiKey   = self.ctx.settings?.freshdeskApiKey   || '';
+  const domain   = self.ctx.settings?.freshdeskDomain   || 'myiocom.freshdesk.com';
+  const widgetId = self.ctx.settings?.freshdeskWidgetId || '';
 
-  // Expose on MyIOUtils so SettingsModalView / ChamadosTab can read them
+  // Expose on MyIOUtils so HEADER / SettingsModalView / ChamadosTab can read them
   if (window.MyIOUtils) {
-    window.MyIOUtils.freshdeskApiKey = apiKey;
-    window.MyIOUtils.freshdeskDomain = domain;
+    window.MyIOUtils.freshdeskApiKey   = apiKey;
+    window.MyIOUtils.freshdeskDomain   = domain;
+    window.MyIOUtils.freshdeskWidgetId = widgetId;
   }
 
   if (!apiKey) {
     LogHelper.log('[TicketServiceOrchestrator] freshdeskApiKey not configured — skipping ticket fetch.');
+    return;
+  }
+  // Gate on customer SERVER_SCOPE attribute tickets_enabled (undefined = not set → allow)
+  if (window.MyIOUtils?.ticketsEnabled === false) {
+    LogHelper.log('[TicketServiceOrchestrator] ticketsEnabled=false on customer — skipping ticket fetch.');
     return;
   }
 
@@ -5062,8 +5080,8 @@ const MyIOOrchestrator = (() => {
       log_annotations: meta.log_annotations || null,
       excludeGroupsTotals: meta.excludeGroupsTotals || null,
 
-      // RFC-0198: FreshDesk tickets summary (SERVER_SCOPE freshdesk_tickets → fallback badge)
-      freshdeskTickets: meta.freshdeskTickets || null,
+      // RFC-0198: FreshDesk tickets summary (SERVER_SCOPE tickets_items → fallback badge)
+      ticketsItems: meta.ticketsItems || null,
 
       // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
       gcdrDeviceId: meta.gcdrDeviceId || null,
@@ -5219,12 +5237,12 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
       else if (keyName === 'exclude_groups_totals') meta.excludeGroupsTotals = val;
-      // RFC-0198: FreshDesk tickets summary — SERVER_SCOPE attr freshdesk_tickets
+      // RFC-0198: FreshDesk tickets summary — SERVER_SCOPE attr tickets_items
       // Stored as { items: [...] }; may arrive as a JSON string from TB
-      else if (keyName === 'freshdesk_tickets') {
+      else if (keyName === 'tickets_items') {
         try {
-          meta.freshdeskTickets = typeof val === 'string' ? JSON.parse(val) : val;
-        } catch (_) { meta.freshdeskTickets = null; }
+          meta.ticketsItems = typeof val === 'string' ? JSON.parse(val) : val;
+        } catch (_) { meta.ticketsItems = null; }
       }
       // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
       else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
