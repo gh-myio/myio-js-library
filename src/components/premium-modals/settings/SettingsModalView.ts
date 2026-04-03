@@ -245,7 +245,7 @@ export class SettingsModalView {
     const ticketsEnabled =
       (window as unknown as { MyIOUtils?: { ticketsEnabled?: boolean } }).MyIOUtils?.ticketsEnabled;
 
-    if (ticketsEnabled === false) {
+    if (ticketsEnabled !== true) {
       // Customer has tickets_enabled=false — remove tab entirely
       this.modal.querySelector('[data-tab="chamados"]')?.remove();
       this.modal.querySelector('#chamados-tab-content')?.remove();

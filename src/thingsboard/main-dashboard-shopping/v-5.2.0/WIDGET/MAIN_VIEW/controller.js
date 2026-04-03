@@ -2635,8 +2635,8 @@ async function _buildTicketServiceOrchestrator() {
     return;
   }
   // Gate on customer SERVER_SCOPE attribute tickets_enabled (undefined = not set → allow)
-  if (window.MyIOUtils?.ticketsEnabled === false) {
-    LogHelper.log('[TicketServiceOrchestrator] ticketsEnabled=false on customer — skipping ticket fetch.');
+  if (window.MyIOUtils?.ticketsEnabled !== true) {
+    LogHelper.log('[TicketServiceOrchestrator] ticketsEnabled !== true on customer — skipping ticket fetch.');
     return;
   }
 

@@ -1937,7 +1937,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const apiKey   = window.MyIOUtils?.freshdeskApiKey   || '';
       const widgetId = window.MyIOUtils?.freshdeskWidgetId || '';
       // Hide if no API key OR customer explicitly disabled the feature
-      if (!apiKey || window.MyIOUtils?.ticketsEnabled === false || !btnTicketNotif) return;
+      if (!apiKey || window.MyIOUtils?.ticketsEnabled !== true || !btnTicketNotif) return;
 
       // Show button only when FreshDesk is configured
       btnTicketNotif.style.display = '';
