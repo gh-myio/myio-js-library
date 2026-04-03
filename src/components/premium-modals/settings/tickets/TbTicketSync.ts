@@ -59,9 +59,9 @@ export async function writeFreshdeskTicketsToTB(
       .filter(t => ACTIVE_STATUSES.has(t.status))
       .map(toSummary);
 
-    const url = `${tbBaseUrl}/api/plugins/telemetry/${tbDeviceId}/SERVER_SCOPE`;
+    const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${tbDeviceId}/attributes/SERVER_SCOPE`;
     await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${jwtToken}`,
         'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export async function readFreshdeskTicketsFromTB(
   jwtToken: string
 ): Promise<FreshdeskTicketSummary[]> {
   try {
-    const url = `${tbBaseUrl}/api/plugins/telemetry/${tbDeviceId}/values/attributes/SERVER_SCOPE?keys=${ATTR_KEY}`;
+    const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${tbDeviceId}/values/attributes/SERVER_SCOPE?keys=${ATTR_KEY}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${jwtToken}` },
     });
@@ -128,9 +128,9 @@ export async function appendFreshdeskTicketToTB(
     // deduplicate by id; replace if exists
     const merged = [...existing.filter(t => t.id !== newSummary.id), newSummary]
       .filter(t => ACTIVE_STATUSES.has(t.status));
-    const url = `${tbBaseUrl}/api/plugins/telemetry/${tbDeviceId}/SERVER_SCOPE`;
+    const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${tbDeviceId}/attributes/SERVER_SCOPE`;
     await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${jwtToken}`,
         'Content-Type': 'application/json',
@@ -154,9 +154,9 @@ export async function writeFreshdeskSyncedAtToTB(
   syncedAt: string = new Date().toISOString()
 ): Promise<void> {
   try {
-    const url = `${tbBaseUrl}/api/plugins/telemetry/${tbDeviceId}/SERVER_SCOPE`;
+    const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${tbDeviceId}/attributes/SERVER_SCOPE`;
     await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${jwtToken}`,
         'Content-Type': 'application/json',

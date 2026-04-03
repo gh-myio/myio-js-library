@@ -230,9 +230,9 @@ class TicketsTab {
                      placeholder="Descreva o motivo…" style="display:none;margin-top:6px;" maxlength="100">
             </div>
             <div class="ct-form-group">
-              <label class="ct-form-label" for="ct-description">Descrição</label>
+              <label class="ct-form-label" for="ct-description">Descrição <span style="color:#dc2626">*</span></label>
               <textarea id="ct-description" name="description" class="ct-form-textarea"
-                        rows="4" placeholder="Descreva o problema ou solicitação…"></textarea>
+                        rows="4" placeholder="Descreva o problema ou solicitação…" required></textarea>
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-email">E-mail do solicitante</label>
@@ -463,6 +463,7 @@ class TicketsTab {
     if (!motivoRaw)    { missing.push('Motivo');            highlight('ct-motivo'); }
     if (motivoRaw === 'Outros' && !(form.querySelector<HTMLInputElement>('#ct-motivo-outros')?.value ?? '').trim()) {
                          missing.push('Motivo (descrição)'); highlight('ct-motivo-outros'); }
+    if (!description)  { missing.push('Descrição');         highlight('ct-description'); }
     if (!email)        { missing.push('E-mail');            highlight('ct-email'); }
 
     if (missing.length > 0) {
