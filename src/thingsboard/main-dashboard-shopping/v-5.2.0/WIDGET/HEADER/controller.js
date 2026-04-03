@@ -1473,6 +1473,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .tnt-tooltip.closing  { opacity: 0; transform: translateY(8px); transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
 .tnt-tooltip.dragging { transition: none !important; cursor: move; }
 .tnt-tooltip.pinned   { box-shadow: 0 0 0 2px #0891b2, 0 10px 40px rgba(0,0,0,0.2); }
+.tnt-tooltip.maximized {
+  top: 16px !important; left: 16px !important;
+  right: 16px !important; bottom: 16px !important;
+  width: auto !important; max-width: none !important;
+}
+.tnt-tooltip.maximized .tnt-content { width: 100%; height: 100%; max-width: none; max-height: none; display: flex; flex-direction: column; }
+.tnt-tooltip.maximized .tnt-body    { flex: 1; overflow-y: auto; min-height: 0; }
+.tnt-tooltip.maximized .tnt-header-title { font-size: 16px; }
+.tnt-tooltip.maximized .tnt-summary-card-num { font-size: 32px; }
+.tnt-tooltip.maximized .tnt-section-hdr { font-size: 13px; }
+.tnt-tooltip.maximized .tnt-ticket-subject { font-size: 13px; }
+.tnt-tooltip.maximized .tnt-footer-value { font-size: 20px; }
 .tnt-content {
   background: #fff; border: 1px solid #a5f3fc; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
@@ -1593,6 +1605,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       _hideTimer:  null,
       _isMouseOver: false,
       _isPinned:   false,
+      _isMaximized: false,
       _isDragging: false,
       _dragOffset: { x: 0, y: 0 },
 
@@ -1697,6 +1710,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               <span class="tnt-header-title">Chamados</span>
               <span class="tnt-header-ts">${_antFmtNow()}</span>
               <div class="tnt-header-actions">
+                <button class="tnt-hbtn" data-action="maximize" title="Expandir">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <polyline points="9 21 3 21 3 15"/>
+                    <line x1="21" y1="3" x2="14" y2="10"/>
+                    <line x1="3" y1="21" x2="10" y2="14"/>
+                  </svg>
+                </button>
                 <button class="tnt-hbtn" data-action="pin" title="Fixar na tela">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
@@ -1784,6 +1806,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
 
       _bindEvents(container) {
+        container.querySelector('[data-action="maximize"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._isMaximized = !this._isMaximized;
+          container.classList.toggle('maximized', this._isMaximized);
+          if (this._isMaximized) {
+            this._isPinned = true;
+            container.classList.add('pinned');
+          }
+        });
         container.querySelector('[data-action="pin"]')?.addEventListener('click', (e) => {
           e.stopPropagation();
           this._isPinned = !this._isPinned;
@@ -1793,6 +1824,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         container.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
           e.stopPropagation();
           this._isPinned = false;
+          this._isMaximized = false;
           this.hide(true);
         });
         container.querySelector('[data-action="open-freshdesk"]')?.addEventListener('click', (e) => {
