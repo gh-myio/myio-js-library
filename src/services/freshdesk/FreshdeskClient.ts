@@ -144,6 +144,7 @@ export async function createTicket(
     ticketType?: TicketTypeId;   // → cf_ticket_type (1=Software/Dashboard, 2=Instalação)
     motivo?: TicketMotivo;       // → cf_motivo (Corretivo | Evolutivo | Instalação)
     attachments?: File[];
+    parent_id?: number;          // Child ticket — links to parent ticket id
   }
 ): Promise<FreshDeskTicket | null> {
   try {
@@ -170,21 +171,20 @@ export async function createTicket(
       fd.append('custom_fields[cf_device_identifier]', deviceIdentifier);
       if (options?.ticketType !== undefined) fd.append('custom_fields[cf_ticket_type]', String(options.ticketType));
       if (options?.motivo !== undefined)     fd.append('custom_fields[cf_motivo]', options.motivo);
+      if (options?.parent_id !== undefined)  fd.append('parent_id', String(options.parent_id));
       for (const file of options!.attachments!) {
         fd.append('attachments[]', file, file.name);
       }
       body = fd;
     } else {
       headers['Content-Type'] = 'application/json';
-      body = JSON.stringify({
-        subject,
-        description,
-        email,
-        source: 2,
-        status: 2,
-        priority: 2,
+      const jsonPayload: Record<string, unknown> = {
+        subject, description, email,
+        source: 2, status: 2, priority: 2,
         custom_fields: customFields,
-      });
+      };
+      if (options?.parent_id !== undefined) jsonPayload['parent_id'] = options.parent_id;
+      body = JSON.stringify(jsonPayload);
     }
 
     const res = await fetch(`${base}/tickets`, { method: 'POST', headers, body });

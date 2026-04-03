@@ -1726,6 +1726,8 @@ export * as FreshdeskClient from './services/freshdesk/FreshdeskClient';
 
 // RFC-0198: FreshDesk / Tickets — dashboard integration
 export { createTicketsTab } from './components/premium-modals/settings/tickets/TicketsTab';
+export { NewTicketWizard, createNewTicketWizard } from './components/premium-modals/tickets/NewTicketWizard';
+export type { NewTicketWizardConfig, WizardDevice } from './components/premium-modals/tickets/NewTicketWizard';
 export type {
   TicketsTabConfig,
   TicketServiceOrchestratorShape,

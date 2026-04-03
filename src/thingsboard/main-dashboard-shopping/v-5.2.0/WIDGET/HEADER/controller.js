@@ -1617,7 +1617,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             <div class="tnt-content">
               <div class="tnt-header" data-drag-handle>
                 <span class="tnt-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
-                <span class="tnt-header-title">Chamados FreshDesk</span>
+                <span class="tnt-header-title">Chamados</span>
                 <div class="tnt-header-actions">
                   <button class="tnt-hbtn" data-action="close" title="Fechar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1694,7 +1694,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           <div class="tnt-content">
             <div class="tnt-header" data-drag-handle>
               <span class="tnt-header-icon">🎫</span>
-              <span class="tnt-header-title">Chamados FreshDesk</span>
+              <span class="tnt-header-title">Chamados</span>
               <span class="tnt-header-ts">${_antFmtNow()}</span>
               <div class="tnt-header-actions">
                 <button class="tnt-hbtn" data-action="pin" title="Fixar na tela">
@@ -1797,7 +1797,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
         container.querySelector('[data-action="open-freshdesk"]')?.addEventListener('click', (e) => {
           e.stopPropagation();
-          _openFreshworksWidget();
+          _openNewTicketWizard();
         });
       },
 
@@ -1882,13 +1882,54 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       LogHelper.log('[HEADER] RFC-0198: FreshWorks Widget script injected, widget_id:', widgetId);
     }
 
-    /** Open the FreshWorks Widget; falls back to domain URL if widget not loaded. */
+    /** Open the FreshWorks Widget. No-op if widget not yet loaded. */
     function _openFreshworksWidget() {
       if (typeof window.FreshworksWidget === 'function') {
         window.FreshworksWidget('open');
       } else {
-        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
-        window.open(`https://${domain}/helpdesk/tickets`, '_blank', 'noopener,noreferrer');
+        console.warn('[MYIO] FreshworksWidget not loaded yet.');
+      }
+    }
+
+    /**
+     * RFC-0198 Phase 7: NewTicketWizard — lazy singleton.
+     * Returns the wizard instance (creates on first call).
+     */
+    let _ticketWizard = null;
+    function _getTicketWizard() {
+      if (_ticketWizard) return _ticketWizard;
+      const Lib = window.MyIOLibrary;
+      if (!Lib?.createNewTicketWizard) return null;
+      _ticketWizard = Lib.createNewTicketWizard({
+        freshdeskDomain:  window.MyIOUtils?.freshdeskDomain   || 'myiocom.freshdesk.com',
+        freshdeskApiKey:  window.MyIOUtils?.freshdeskApiKey   || '',
+        requesterEmail:   window.MyIOUtils?.freshdeskRequesterEmail || '',
+        getDevices: () => {
+          const state = window.STATE || {};
+          const toW = (d, domain) => ({
+            identifier:    d.identifier    || '',
+            label:         d.label         || d.identifier || '',
+            domain,
+            deviceProfile: d.deviceProfile || d.deviceType  || '',
+          });
+          return [
+            ...(state.energy?.devices      || []).map(d => toW(d, 'energy')),
+            ...(state.water?.devices       || []).map(d => toW(d, 'water')),
+            ...(state.temperature?.devices || []).map(d => toW(d, 'temperature')),
+          ];
+        },
+      });
+      return _ticketWizard;
+    }
+
+    /** Opens the NewTicketWizard; falls back to FreshWorks Widget if library not loaded. */
+    function _openNewTicketWizard() {
+      const wizard = _getTicketWizard();
+      if (wizard) {
+        TicketNotificationTooltip.hide(true);
+        wizard.open();
+      } else {
+        _openFreshworksWidget();
       }
     }
 
@@ -1901,11 +1942,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Show button only when FreshDesk is configured
       btnTicketNotif.style.display = '';
 
-      // Inject FreshWorks Widget script if widget_id is configured
+      // Inject FreshWorks Widget script if widget_id is configured (used as fallback)
       _initFreshworksWidget(widgetId);
 
-      // Click → open FreshWorks Widget (or fallback to domain URL)
-      btnTicketNotif.addEventListener('click', () => _openFreshworksWidget());
+      // Click → open NewTicketWizard
+      btnTicketNotif.addEventListener('click', () => _openNewTicketWizard());
 
       // Hover → show premium tooltip
       btnTicketNotif.addEventListener('mouseenter', () => {

@@ -444,16 +444,29 @@ class TicketsTab {
     const msgEl = container.querySelector<HTMLElement>('#ct-form-msg');
     const { subject, ticketTypeRaw, ticketTypeOutros, motivoRaw, description, email } = this._collectFormData(form);
 
-    if (!subject || !ticketTypeRaw || !motivoRaw || !email) {
-      this.showFormMsg(msgEl, 'Preencha todos os campos obrigatórios.', '#dc2626');
-      return;
-    }
+    // Collect missing field names and highlight their inputs
+    const missing: string[] = [];
+    const highlight = (id: string) => {
+      const el = form.querySelector<HTMLElement>(`#${id}`);
+      if (el) {
+        el.classList.add('ct-field-error');
+        el.addEventListener('input', () => el.classList.remove('ct-field-error'), { once: true });
+        el.addEventListener('change', () => el.classList.remove('ct-field-error'), { once: true });
+      }
+    };
+
+    if (!subject)      { missing.push('Assunto');           highlight('ct-subject'); }
+    if (!ticketTypeRaw || (ticketTypeRaw !== '1' && ticketTypeRaw !== '2' && ticketTypeRaw !== 'outros')) {
+                         missing.push('Tipo de chamado');   highlight('ct-ticket-type'); }
     if (ticketTypeRaw === 'outros' && !ticketTypeOutros) {
-      this.showFormMsg(msgEl, 'Descreva o tipo de chamado.', '#dc2626');
-      return;
-    }
-    if (ticketTypeRaw !== '1' && ticketTypeRaw !== '2' && ticketTypeRaw !== 'outros') {
-      this.showFormMsg(msgEl, 'Selecione o tipo do chamado.', '#dc2626');
+                         missing.push('Tipo (descrição)');  highlight('ct-ticket-type-outros'); }
+    if (!motivoRaw)    { missing.push('Motivo');            highlight('ct-motivo'); }
+    if (motivoRaw === 'Outros' && !(form.querySelector<HTMLInputElement>('#ct-motivo-outros')?.value ?? '').trim()) {
+                         missing.push('Motivo (descrição)'); highlight('ct-motivo-outros'); }
+    if (!email)        { missing.push('E-mail');            highlight('ct-email'); }
+
+    if (missing.length > 0) {
+      this.showFormMsg(msgEl, `Obrigatório: ${missing.join(', ')}`, '#dc2626');
       return;
     }
     this.showFormMsg(msgEl, '', '');
@@ -855,6 +868,16 @@ class TicketsTab {
         cursor: default;
         border-color: #e5e7eb;
         box-shadow: none;
+      }
+      .ct-field-error {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 2px rgba(220,38,38,0.15) !important;
+        animation: ct-shake 0.3s ease;
+      }
+      @keyframes ct-shake {
+        0%,100% { transform: translateX(0); }
+        25%      { transform: translateX(-4px); }
+        75%      { transform: translateX(4px); }
       }
       .ct-form-select {
         border: 1.5px solid #d1d5db;
