@@ -206,9 +206,9 @@ class TicketDetailModal {
           </div>
         </div>
 
-        <!-- Conversas -->
+        <!-- Comentários -->
         <div class="tdm-section">
-          <div class="tdm-section-title">Conversas</div>
+          <div class="tdm-section-title">Comentários</div>
           <div id="tdm-convs" class="tdm-convs">
             <span class="tdm-spinner"></span> Carregando…
           </div>
@@ -432,7 +432,7 @@ class TicketDetailModal {
         background: #fff; border-radius: 12px;
         box-shadow: 0 8px 40px rgba(0,0,0,0.22);
         width: 100%; max-width: 580px;
-        max-height: 86vh;
+        max-height: 86vh; min-height: 0;
         display: flex; flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         font-size: 13px; color: #1a1a2e;
@@ -469,7 +469,7 @@ class TicketDetailModal {
 
       /* Body */
       .tdm-body {
-        flex: 1; overflow-y: auto; padding: 12px 16px;
+        flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px;
         display: flex; flex-direction: column; gap: 14px;
       }
 
