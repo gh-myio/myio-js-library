@@ -10,8 +10,8 @@
  */
 
 import type { FreshDeskTicket, TicketServiceOrchestratorShape } from './types';
-import type * as FreshdeskClientModule from './FreshdeskClient';
-import { writeFreshdeskTicketsToTB } from './TbTicketSync';
+import type * as FreshdeskClientModule from '../../../../services/freshdesk/FreshdeskClient';
+import { writeFreshdeskTicketsToTB, writeFreshdeskSyncedAtToTB } from './TbTicketSync';
 
 // ============================================================================
 // Builder
@@ -51,10 +51,12 @@ export async function buildTicketServiceOrchestrator(
   // RFC-0198: Write-back to ThingsBoard SERVER_SCOPE (fire-and-forget)
   if (tbSyncOptions) {
     const { tbBaseUrl, jwtToken, identifierToTbId } = tbSyncOptions;
+    const syncedAt = new Date().toISOString();
     for (const [identifier, devTickets] of deviceTicketMap) {
       const tbId = identifierToTbId.get(identifier);
       if (tbId) {
         writeFreshdeskTicketsToTB(tbBaseUrl, tbId, jwtToken, devTickets).catch(() => {});
+        writeFreshdeskSyncedAtToTB(tbBaseUrl, tbId, jwtToken, syncedAt).catch(() => {});
       }
     }
   }
@@ -83,10 +85,12 @@ export async function buildTicketServiceOrchestrator(
         // RFC-0198: Write-back on refresh too
         if (tbSyncOptions) {
           const { tbBaseUrl, jwtToken, identifierToTbId } = tbSyncOptions;
+          const syncedAt = new Date().toISOString();
           for (const [identifier, devTickets] of orchestrator.deviceTicketMap) {
             const tbId = identifierToTbId.get(identifier);
             if (tbId) {
               writeFreshdeskTicketsToTB(tbBaseUrl, tbId, jwtToken, devTickets).catch(() => {});
+              writeFreshdeskSyncedAtToTB(tbBaseUrl, tbId, jwtToken, syncedAt).catch(() => {});
             }
           }
         }

@@ -1460,6 +1460,394 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
     };
 
+    // ── RFC-0198: Ticket Notification Tooltip ────────────────────────────────
+
+    const TICKET_NOTIF_CSS = `
+.tnt-tooltip {
+  position: fixed; z-index: 99999;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(8px);
+}
+.tnt-tooltip.visible  { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.tnt-tooltip.closing  { opacity: 0; transform: translateY(8px); transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
+.tnt-tooltip.dragging { transition: none !important; cursor: move; }
+.tnt-tooltip.pinned   { box-shadow: 0 0 0 2px #0891b2, 0 10px 40px rgba(0,0,0,0.2); }
+.tnt-content {
+  background: #fff; border: 1px solid #a5f3fc; border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
+  width: 420px; max-width: 95vw; max-height: 80vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px; color: #1e293b; overflow: hidden; display: flex; flex-direction: column;
+}
+.tnt-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: linear-gradient(90deg, #ecfeff 0%, #cffafe 100%);
+  border-bottom: 1px solid #67e8f9; border-radius: 12px 12px 0 0;
+  cursor: move; user-select: none;
+}
+.tnt-header-icon  { display: flex; align-items: center; color: #0891b2; }
+.tnt-header-icon svg { width: 18px; height: 18px; }
+.tnt-header-title { font-weight: 700; font-size: 14px; color: #0e7490; flex: 1; }
+.tnt-header-ts    { font-size: 10px; color: #6b7280; margin-right: 8px; }
+.tnt-header-actions { display: flex; align-items: center; gap: 4px; }
+.tnt-hbtn {
+  width: 24px; height: 24px; border: none; background: rgba(255,255,255,0.6);
+  border-radius: 4px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all 0.15s; color: #64748b;
+}
+.tnt-hbtn:hover { background: rgba(255,255,255,0.9); color: #1e293b; }
+.tnt-hbtn.pinned { background: #0891b2; color: #fff; }
+.tnt-hbtn.pinned:hover { background: #0e7490; color: #fff; }
+.tnt-hbtn svg { width: 14px; height: 14px; }
+.tnt-body { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; }
+.tnt-summary-primary { display: flex; gap: 8px; margin-bottom: 12px; }
+.tnt-summary-card {
+  flex: 1; text-align: center; padding: 10px 6px; border-radius: 10px; border: 1px solid #e0eceb;
+}
+.tnt-summary-card.open    { background: #fff5f5; border-color: #fca5a5; }
+.tnt-summary-card.pending { background: #fffbeb; border-color: #fcd34d; }
+.tnt-summary-card.waiting { background: #f5f3ff; border-color: #c4b5fd; }
+.tnt-summary-card-num { font-size: 26px; font-weight: 800; line-height: 1; }
+.tnt-summary-card.open    .tnt-summary-card-num { color: #dc2626; }
+.tnt-summary-card.pending .tnt-summary-card-num { color: #d97706; }
+.tnt-summary-card.waiting .tnt-summary-card-num { color: #7c3aed; }
+.tnt-summary-card-lbl { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
+.tnt-section-hdr {
+  font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;
+  letter-spacing: 0.5px; margin: 12px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;
+}
+.tnt-breakdown { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.tnt-breakdown-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 10px; border-radius: 6px; background: #ecfeff; border: 1px solid #a5f3fc;
+}
+.tnt-breakdown-id    { font-size: 11px; font-weight: 600; color: #0e7490; }
+.tnt-breakdown-count { font-size: 11px; font-weight: 700; color: #0891b2; }
+.tnt-collapse summary {
+  font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 6px 0; border-bottom: 1px solid #e2e8f0;
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 4px;
+}
+.tnt-collapse summary::-webkit-details-marker { display: none; }
+.tnt-collapse summary::before { content: "▶"; font-size: 8px; }
+.tnt-collapse[open] summary::before { content: "▼"; }
+.tnt-collapse-body { padding-top: 6px; }
+.tnt-ticket-list   { display: flex; flex-direction: column; gap: 4px; }
+.tnt-ticket-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 8px; border-radius: 6px; background: #fafafa; border: 1px solid #f3f4f6;
+}
+.tnt-ticket-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+.tnt-ticket-info    { flex: 1; min-width: 0; }
+.tnt-ticket-device  { font-size: 10px; font-weight: 700; color: #0891b2; }
+.tnt-ticket-subject { font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tnt-ticket-meta   { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.tnt-ticket-status { font-size: 10px; font-weight: 600; }
+.tnt-ticket-time   { font-size: 10px; color: #94a3b8; }
+.tnt-empty { text-align: center; padding: 20px; color: #94a3b8; font-style: italic; font-size: 13px; }
+.tnt-locked { padding: 24px; text-align: center; }
+.tnt-locked-icon  { font-size: 40px; margin-bottom: 10px; }
+.tnt-locked-title { font-size: 13px; font-weight: 700; color: #0e7490; margin-bottom: 6px; }
+.tnt-locked-sub   { font-size: 11px; color: #64748b; line-height: 1.5; }
+.tnt-footer {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  border-top: 1px solid #e2e8f0; background: #fafafa;
+  border-radius: 0 0 12px 12px; flex-shrink: 0;
+}
+.tnt-footer-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.tnt-footer-value { font-size: 18px; font-weight: 800; color: #0891b2; margin-left: 4px; }
+.tnt-footer-btn {
+  margin-left: auto; display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px; background: #ecfeff; border: 1px solid #a5f3fc;
+  border-radius: 6px; font-size: 11px; font-weight: 600; color: #0e7490;
+  cursor: pointer; transition: background 0.15s;
+}
+.tnt-footer-btn:hover { background: #cffafe; }
+`;
+
+    let _tntCSSInjected = false;
+    function _tntInjectCSS() {
+      if (_tntCSSInjected || document.getElementById('myio-tnt-styles')) { _tntCSSInjected = true; return; }
+      const s = document.createElement('style');
+      s.id = 'myio-tnt-styles';
+      s.textContent = TICKET_NOTIF_CSS;
+      document.head.appendChild(s);
+      _tntCSSInjected = true;
+    }
+
+    function _tntFmtTs(iso) {
+      if (!iso) return '';
+      try {
+        const d   = new Date(iso);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        if (isToday) return time;
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
+      } catch { return ''; }
+    }
+
+    const TicketNotificationTooltip = {
+      containerId: 'myio-tnt-tooltip',
+      _hideTimer:  null,
+      _isMouseOver: false,
+      _isPinned:   false,
+      _isDragging: false,
+      _dragOffset: { x: 0, y: 0 },
+
+      getContainer() {
+        _tntInjectCSS();
+        let c = document.getElementById(this.containerId);
+        if (!c) {
+          c = document.createElement('div');
+          c.id = this.containerId;
+          c.className = 'tnt-tooltip';
+          document.body.appendChild(c);
+        }
+        return c;
+      },
+
+      renderHTML() {
+        const tso    = window.TicketServiceOrchestrator;
+        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
+
+        if (!tso) {
+          return `
+            <div class="tnt-content">
+              <div class="tnt-header" data-drag-handle>
+                <span class="tnt-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
+                <span class="tnt-header-title">Chamados FreshDesk</span>
+                <div class="tnt-header-actions">
+                  <button class="tnt-hbtn" data-action="close" title="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="tnt-locked">
+                <div class="tnt-locked-icon">🔒</div>
+                <div class="tnt-locked-title">FreshDesk não configurado</div>
+                <div class="tnt-locked-sub">Configure a chave de API FreshDesk nas configurações do widget para ativar o painel de chamados.</div>
+              </div>
+            </div>`;
+        }
+
+        const allTickets = tso.tickets || [];
+        const byStatus   = { 2: 0, 3: 0, 6: 0 };
+        for (const t of allTickets) { if (t.status in byStatus) byStatus[t.status]++; }
+
+        const deviceMap     = tso.deviceTicketMap || new Map();
+        const deviceEntries = [...deviceMap.entries()]
+          .sort((a, b) => b[1].length - a[1].length)
+          .slice(0, 6);
+
+        const recentTickets = [...allTickets]
+          .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
+          .slice(0, 10);
+
+        const statusColors = { 2: '#dc2626', 3: '#d97706', 6: '#7c3aed' };
+        const statusLabels = { 2: 'Aberto',  3: 'Pendente', 6: 'Aguardando' };
+
+        const deviceRows = deviceEntries.map(([id, tickets]) => `
+          <div class="tnt-breakdown-item">
+            <div class="tnt-breakdown-id">${id}</div>
+            <div class="tnt-breakdown-count">${tickets.length} chamado${tickets.length !== 1 ? 's' : ''}</div>
+          </div>`).join('');
+
+        const ticketRows = recentTickets.map((t) => {
+          const color   = statusColors[t.status] || '#6b7280';
+          const label   = statusLabels[t.status] || String(t.status);
+          const device  = t.custom_fields?.cf_device_identifier || '';
+          const subj    = (t.subject || `#${t.id}`);
+          const subject = subj.length > 48 ? subj.slice(0, 46) + '…' : subj;
+          const ts      = _tntFmtTs(t.updated_at);
+          return `
+            <div class="tnt-ticket-row">
+              <div class="tnt-ticket-dot" style="background:${color}"></div>
+              <div class="tnt-ticket-info">
+                ${device ? `<div class="tnt-ticket-device">${device}</div>` : ''}
+                <div class="tnt-ticket-subject">${subject}</div>
+              </div>
+              <div class="tnt-ticket-meta">
+                <span class="tnt-ticket-status" style="color:${color}">${label}</span>
+                ${ts ? `<span class="tnt-ticket-time">${ts}</span>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+
+        const deviceSection = deviceEntries.length > 0 ? `
+          <div class="tnt-section-hdr">Dispositivos com chamados</div>
+          <div class="tnt-breakdown">${deviceRows}</div>` : '';
+
+        const ticketsSection = recentTickets.length > 0
+          ? `<details class="tnt-collapse" open>
+               <summary>Chamados recentes (${recentTickets.length})</summary>
+               <div class="tnt-collapse-body">
+                 <div class="tnt-ticket-list">${ticketRows}</div>
+               </div>
+             </details>`
+          : `<div class="tnt-empty">Nenhum chamado aberto no momento.</div>`;
+
+        return `
+          <div class="tnt-content">
+            <div class="tnt-header" data-drag-handle>
+              <span class="tnt-header-icon">🎫</span>
+              <span class="tnt-header-title">Chamados FreshDesk</span>
+              <span class="tnt-header-ts">${_antFmtNow()}</span>
+              <div class="tnt-header-actions">
+                <button class="tnt-hbtn" data-action="pin" title="Fixar na tela">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+                    <line x1="12" y1="16" x2="12" y2="21"/>
+                    <line x1="8" y1="4" x2="16" y2="4"/>
+                  </svg>
+                </button>
+                <button class="tnt-hbtn" data-action="close" title="Fechar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="tnt-body">
+              <div class="tnt-summary-primary">
+                <div class="tnt-summary-card open">
+                  <div class="tnt-summary-card-num">${byStatus[2]}</div>
+                  <div class="tnt-summary-card-lbl">Abertos</div>
+                </div>
+                <div class="tnt-summary-card pending">
+                  <div class="tnt-summary-card-num">${byStatus[3]}</div>
+                  <div class="tnt-summary-card-lbl">Pendentes</div>
+                </div>
+                <div class="tnt-summary-card waiting">
+                  <div class="tnt-summary-card-num">${byStatus[6]}</div>
+                  <div class="tnt-summary-card-lbl">Aguardando</div>
+                </div>
+              </div>
+              ${deviceSection}
+              ${ticketsSection}
+            </div>
+            <div class="tnt-footer">
+              <span class="tnt-footer-label">Total</span>
+              <span class="tnt-footer-value">${allTickets.length}</span>
+              <button class="tnt-footer-btn" data-action="open-freshdesk">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor">
+                  <path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3.5-3.5-5 5L11 11l5-5L12.5 3H21z"/>
+                </svg>
+                Abrir FreshDesk
+              </button>
+            </div>
+          </div>`;
+      },
+
+      show(triggerElement) {
+        if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+        const container = this.getContainer();
+        container.innerHTML = this.renderHTML();
+        this._bindEvents(container);
+        this._setupDrag(container);
+        container.classList.remove('closing');
+        setTimeout(() => {
+          if (!this._isPinned) this._position(triggerElement);
+          container.classList.add('visible');
+        }, 0);
+        container.addEventListener('mouseenter', () => {
+          this._isMouseOver = true;
+          if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+        });
+        container.addEventListener('mouseleave', () => {
+          this._isMouseOver = false;
+          if (!this._isPinned) this.hide();
+        });
+      },
+
+      _position(triggerElement) {
+        const container = document.getElementById(this.containerId);
+        if (!container || !triggerElement) return;
+        const rect = triggerElement.getBoundingClientRect();
+        const vw   = window.innerWidth;
+        const vh   = window.innerHeight;
+        container.style.position = 'fixed';
+        container.style.removeProperty('right');
+        container.style.removeProperty('bottom');
+        const cw  = container.offsetWidth || 420;
+        let top   = rect.bottom + 8;
+        let left  = rect.right - cw;
+        if (left + cw > vw - 8) left = vw - cw - 8;
+        if (left < 8) left = 8;
+        if (top + 480 > vh) top = rect.top - 488;
+        if (top < 8) top = 8;
+        container.style.top  = `${top}px`;
+        container.style.left = `${left}px`;
+      },
+
+      _bindEvents(container) {
+        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
+        container.querySelector('[data-action="pin"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._isPinned = !this._isPinned;
+          container.classList.toggle('pinned', this._isPinned);
+          e.currentTarget.classList.toggle('pinned', this._isPinned);
+        });
+        container.querySelector('[data-action="close"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._isPinned = false;
+          this.hide(true);
+        });
+        container.querySelector('[data-action="open-freshdesk"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.open(`https://${domain}/helpdesk/tickets`, '_blank', 'noopener,noreferrer');
+        });
+      },
+
+      _setupDrag(container) {
+        const handle = container.querySelector('[data-drag-handle]');
+        if (!handle) return;
+        const onDown = (e) => {
+          if (e.target.closest('[data-action]')) return;
+          this._isDragging = true;
+          const rect = container.getBoundingClientRect();
+          this._dragOffset.x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+          this._dragOffset.y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+          container.classList.add('dragging');
+          this._isPinned = true;
+          container.classList.add('pinned');
+          container.querySelector('[data-action="pin"]')?.classList.add('pinned');
+        };
+        const onMove = (e) => {
+          if (!this._isDragging) return;
+          const cx = e.clientX || e.touches?.[0]?.clientX;
+          const cy = e.clientY || e.touches?.[0]?.clientY;
+          container.style.left = `${cx - this._dragOffset.x}px`;
+          container.style.top  = `${cy - this._dragOffset.y}px`;
+        };
+        const onUp = () => {
+          this._isDragging = false;
+          container.classList.remove('dragging');
+        };
+        handle.addEventListener('mousedown', onDown);
+        handle.addEventListener('touchstart', onDown, { passive: true });
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+        document.addEventListener('touchmove', onMove, { passive: true });
+        document.addEventListener('touchend',  onUp);
+      },
+
+      hide(immediate) {
+        if (this._isPinned && !immediate) return;
+        if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+        this._hideTimer = setTimeout(() => {
+          const container = document.getElementById(this.containerId);
+          if (!container) return;
+          container.classList.add('closing');
+          container.classList.remove('visible');
+          this._hideTimer = null;
+        }, immediate ? 0 : 300);
+      },
+    };
+
     // RFC-0198: Wire up the ticket / chamados button
     const btnTicketNotif = document.getElementById('tbx-btn-ticket-notif');
     (function _initTicketButton() {
@@ -1472,8 +1860,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       // Click → open FreshDesk tickets page in a new tab
       btnTicketNotif.addEventListener('click', () => {
-        const url = `https://${domain}/helpdesk/tickets`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        window.open(`https://${domain}/helpdesk/tickets`, '_blank', 'noopener,noreferrer');
+      });
+
+      // Hover → show premium tooltip
+      btnTicketNotif.addEventListener('mouseenter', () => {
+        TicketNotificationTooltip.show(btnTicketNotif);
+      });
+      btnTicketNotif.addEventListener('mouseleave', () => {
+        if (!TicketNotificationTooltip._isMouseOver && !TicketNotificationTooltip._isPinned) {
+          TicketNotificationTooltip.hide();
+        }
       });
     })();
 

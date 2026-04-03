@@ -257,6 +257,7 @@ export class SettingsModalView {
         prefetchedTickets: null,
         jwtToken: localStorage.getItem('jwt_token') ?? undefined,
         tbBaseUrl: window.location.origin,
+        requesterEmail: this.config.userEmail ?? undefined,
       });
       console.log('[SettingsModalView] RFC-0198: Chamados tab initialized');
     } catch (error) {

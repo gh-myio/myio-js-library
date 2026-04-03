@@ -11,7 +11,7 @@
  *             On submit calls FreshdeskClient.createTicket then reloads Section 1.
  */
 
-import { fetchTicketsForDevice, createTicket } from './FreshdeskClient';
+import { fetchTicketsForDevice, createTicket } from '../../../../services/freshdesk/FreshdeskClient';
 import type { TicketsTabConfig, FreshDeskTicket, TicketTypeId, TicketMotivo } from './types';
 import { appendFreshdeskTicketToTB } from './TbTicketSync';
 
@@ -57,6 +57,8 @@ class TicketsTab {
   private config: TicketsTabConfig;
   private tickets: FreshDeskTicket[] = [];
   private ticketsUpdatedHandler: (() => void) | null = null;
+  /** Files staged for upload — managed separately from the native FileList */
+  private _selectedFiles: File[] = [];
 
   constructor(config: TicketsTabConfig) {
     this.config = config;
@@ -176,10 +178,16 @@ class TicketsTab {
     `;
   }
 
+  private _buildDefaultSubject(): string {
+    const id = this.config.deviceIdentifier ?? '';
+    const label = (this.config.deviceLabel ?? '').trim();
+    // UUID-format identifiers are internal TB IDs — not user-friendly in the subject
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    return isUUID || !id ? label : `[${id}] ${label}`;
+  }
+
   private renderSection2(): string {
-    const subjectDefault = this.esc(
-      `[${this.config.deviceIdentifier || this.config.tbDeviceId}] ${this.config.deviceLabel ?? ''}`
-    );
+    const subjectDefault = this.esc(this._buildDefaultSubject());
     return `
       <div class="ct-section">
         <div class="ct-section-header ct-section-header--collapsible" id="ct-new-ticket-toggle">
@@ -191,18 +199,12 @@ class TicketsTab {
           <span class="ct-collapse-icon" id="ct-collapse-icon">▼</span>
         </div>
         <div id="ct-new-ticket-body" style="display:none;">
+          <!-- ── Form ── -->
           <form class="ct-form" id="ct-new-ticket-form" novalidate>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-subject">Assunto</label>
-              <input
-                type="text"
-                id="ct-subject"
-                name="subject"
-                class="ct-form-input"
-                value="${subjectDefault}"
-                maxlength="255"
-                required
-              >
+              <input type="text" id="ct-subject" name="subject" class="ct-form-input"
+                     value="${subjectDefault}" maxlength="255" required>
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-ticket-type">Tipo de chamado</label>
@@ -219,39 +221,46 @@ class TicketsTab {
                 <option value="Corretivo">Corretivo</option>
                 <option value="Evolutivo">Evolutivo</option>
                 <option value="Instalação">Instalação</option>
+                <option value="Outros">Outros</option>
               </select>
+              <input type="text" id="ct-motivo-outros" class="ct-form-input"
+                     placeholder="Descreva o motivo…" style="display:none;margin-top:6px;" maxlength="100">
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-description">Descrição</label>
-              <textarea
-                id="ct-description"
-                name="description"
-                class="ct-form-textarea"
-                rows="4"
-                placeholder="Descreva o problema ou solicitação..."
-              ></textarea>
+              <textarea id="ct-description" name="description" class="ct-form-textarea"
+                        rows="4" placeholder="Descreva o problema ou solicitação…"></textarea>
             </div>
             <div class="ct-form-group">
               <label class="ct-form-label" for="ct-email">E-mail do solicitante</label>
-              <input
-                type="email"
-                id="ct-email"
-                name="email"
-                class="ct-form-input"
-                placeholder="usuario@empresa.com"
-                required
-              >
+              <input type="email" id="ct-email" name="email" class="ct-form-input"
+                     placeholder="usuario@empresa.com" required>
             </div>
             <div class="ct-form-group">
-              <label class="ct-form-label" for="ct-attachments">Anexos</label>
-              <input type="file" id="ct-attachments" name="attachments" class="ct-form-file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
-              <div class="ct-form-hint">Opcional. Formatos: imagens, PDF, Word, Excel, texto.</div>
+              <label class="ct-form-label">Anexos</label>
+              <input type="file" id="ct-attachments" hidden multiple
+                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+              <div class="ct-upload-zone">
+                <button type="button" class="ct-upload-btn" id="ct-upload-btn">📎 Escolher arquivos</button>
+                <span class="ct-form-hint">Opcional — imagens, PDF, Word, Excel, texto</span>
+              </div>
+              <div class="ct-files-preview" id="ct-files-preview"></div>
             </div>
             <div class="ct-form-footer">
               <span class="ct-form-msg" id="ct-form-msg" style="display:none;"></span>
               <button type="submit" class="ct-btn-submit" id="ct-btn-submit">Abrir Chamado</button>
             </div>
           </form>
+          <!-- ── Confirmation overlay (shown after submit click, before API call) ── -->
+          <div class="ct-confirm" id="ct-confirm" style="display:none;">
+            <div class="ct-confirm-title">Confirmar abertura do chamado</div>
+            <div class="ct-confirm-body" id="ct-confirm-body"></div>
+            <div class="ct-confirm-footer">
+              <button type="button" class="ct-btn-back" id="ct-btn-back">← Voltar</button>
+              <button type="button" class="ct-btn-submit" id="ct-btn-confirm">Confirmar e Enviar</button>
+            </div>
+            <span class="ct-form-msg" id="ct-confirm-msg" style="display:none;margin-top:8px;"></span>
+          </div>
         </div>
       </div>
     `;
@@ -323,11 +332,10 @@ class TicketsTab {
   private attachListeners(): void {
     const container = this.config.container;
 
-    // Toggle new-ticket form
+    // ── Collapse toggle ──
     const toggle = container.querySelector('#ct-new-ticket-toggle');
     const body = container.querySelector<HTMLElement>('#ct-new-ticket-body');
     const icon = container.querySelector<HTMLElement>('#ct-collapse-icon');
-
     if (toggle && body) {
       toggle.addEventListener('click', () => {
         const isOpen = body.style.display !== 'none';
@@ -336,43 +344,136 @@ class TicketsTab {
       });
     }
 
-    // Submit new ticket
+    // ── Pre-fill email ──
+    if (this.config.requesterEmail) {
+      const emailInput = container.querySelector<HTMLInputElement>('#ct-email');
+      if (emailInput) emailInput.value = this.config.requesterEmail;
+    }
+
+    // ── Motivo "Outros" toggle ──
+    const motivoSel = container.querySelector<HTMLSelectElement>('#ct-motivo');
+    const motivoOtros = container.querySelector<HTMLInputElement>('#ct-motivo-outros');
+    if (motivoSel && motivoOtros) {
+      motivoSel.addEventListener('change', () => {
+        motivoOtros.style.display = motivoSel.value === 'Outros' ? 'block' : 'none';
+        if (motivoSel.value !== 'Outros') motivoOtros.value = '';
+      });
+    }
+
+    // ── File attachment UI ──
+    const uploadBtn = container.querySelector<HTMLButtonElement>('#ct-upload-btn');
+    const fileInput = container.querySelector<HTMLInputElement>('#ct-attachments');
+    if (uploadBtn && fileInput) {
+      uploadBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files) {
+          Array.from(fileInput.files).forEach(f => {
+            if (!this._selectedFiles.find(x => x.name === f.name && x.size === f.size))
+              this._selectedFiles.push(f);
+          });
+          fileInput.value = ''; // reset so same file can be re-added after removal
+        }
+        this._renderFilePreviews(container);
+      });
+    }
+
+    // ── Form submit → show confirmation ──
     const form = container.querySelector<HTMLFormElement>('#ct-new-ticket-form');
     if (form) {
       form.addEventListener('submit', (e) => {
         e.preventDefault();
-        this.handleSubmit(form).catch(() => {
-          /* non-blocking */
-        });
+        this._showConfirmation(form, container).catch(() => {});
+      });
+    }
+
+    // ── Confirmation: Back button ──
+    const backBtn = container.querySelector<HTMLButtonElement>('#ct-btn-back');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        container.querySelector<HTMLElement>('#ct-confirm')!.style.display = 'none';
+        form!.style.display = '';
+      });
+    }
+
+    // ── Confirmation: Confirm & Send ──
+    const confirmBtn = container.querySelector<HTMLButtonElement>('#ct-btn-confirm');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        this._doCreateTicket(form!, container).catch(() => {});
       });
     }
   }
 
-  private async handleSubmit(form: HTMLFormElement): Promise<void> {
-    const container = this.config.container;
-    const btn = container.querySelector<HTMLButtonElement>('#ct-btn-submit');
-    const msgEl = container.querySelector<HTMLElement>('#ct-form-msg');
+  // ==========================================================================
+  // Form data helpers
+  // ==========================================================================
 
-    const subject = (form.querySelector<HTMLInputElement>('#ct-subject')?.value ?? '').trim();
-    const ticketTypeRaw = (form.querySelector<HTMLSelectElement>('#ct-ticket-type')?.value ?? '').trim();
-    const motivoRaw = (form.querySelector<HTMLSelectElement>('#ct-motivo')?.value ?? '').trim();
-    const description = (form.querySelector<HTMLTextAreaElement>('#ct-description')?.value ?? '').trim();
-    const email = (form.querySelector<HTMLInputElement>('#ct-email')?.value ?? '').trim();
-    const attachmentInput = form.querySelector<HTMLInputElement>('#ct-attachments');
-    const attachments: File[] = attachmentInput?.files ? Array.from(attachmentInput.files) : [];
+  private _collectFormData(form: HTMLFormElement): {
+    subject: string; ticketTypeRaw: string; motivoRaw: string;
+    description: string; email: string;
+  } {
+    const motivoSel = form.querySelector<HTMLSelectElement>('#ct-motivo')?.value ?? '';
+    const motivoOutros = (form.querySelector<HTMLInputElement>('#ct-motivo-outros')?.value ?? '').trim();
+    const motivoRaw = motivoSel === 'Outros' ? motivoOutros : motivoSel;
+    return {
+      subject:       (form.querySelector<HTMLInputElement>('#ct-subject')?.value ?? '').trim(),
+      ticketTypeRaw: (form.querySelector<HTMLSelectElement>('#ct-ticket-type')?.value ?? '').trim(),
+      motivoRaw,
+      description:   (form.querySelector<HTMLTextAreaElement>('#ct-description')?.value ?? '').trim(),
+      email:         (form.querySelector<HTMLInputElement>('#ct-email')?.value ?? '').trim(),
+    };
+  }
+
+  private async _showConfirmation(form: HTMLFormElement, container: HTMLElement): Promise<void> {
+    const msgEl = container.querySelector<HTMLElement>('#ct-form-msg');
+    const { subject, ticketTypeRaw, motivoRaw, description, email } = this._collectFormData(form);
 
     if (!subject || !ticketTypeRaw || !motivoRaw || !email) {
       this.showFormMsg(msgEl, 'Preencha todos os campos obrigatórios.', '#dc2626');
       return;
     }
+    if (ticketTypeRaw === '' || !(Number(ticketTypeRaw) === 1 || Number(ticketTypeRaw) === 2)) {
+      this.showFormMsg(msgEl, 'Selecione o tipo do chamado.', '#dc2626');
+      return;
+    }
+    this.showFormMsg(msgEl, '', '');
 
+    const typeLabel = ticketTypeRaw === '1' ? 'Software / Dashboard' : 'Instalação';
+    const filesInfo = this._selectedFiles.length
+      ? this._selectedFiles.map(f => `${f.name} (${this._formatFileSize(f.size)})`).join('<br>')
+      : '<em style="color:#9ca3af">Nenhum</em>';
+
+    const confirmBody = container.querySelector<HTMLElement>('#ct-confirm-body');
+    if (confirmBody) {
+      confirmBody.innerHTML = `
+        <table class="ct-confirm-table">
+          <tr><td>Assunto</td><td>${this.esc(subject)}</td></tr>
+          <tr><td>Tipo</td><td>${this.esc(typeLabel)}</td></tr>
+          <tr><td>Motivo</td><td>${this.esc(motivoRaw)}</td></tr>
+          ${description ? `<tr><td>Descrição</td><td>${this.esc(description.length > 120 ? description.slice(0, 120) + '…' : description)}</td></tr>` : ''}
+          <tr><td>E-mail</td><td>${this.esc(email)}</td></tr>
+          <tr><td>Dispositivo</td><td>${this.esc(this.config.deviceLabel ?? this.config.deviceIdentifier ?? '')}</td></tr>
+          <tr><td>Anexos</td><td>${filesInfo}</td></tr>
+        </table>
+      `;
+    }
+
+    form.style.display = 'none';
+    container.querySelector<HTMLElement>('#ct-confirm')!.style.display = 'block';
+    this.showFormMsg(container.querySelector('#ct-confirm-msg'), '', '');
+  }
+
+  private async _doCreateTicket(form: HTMLFormElement, container: HTMLElement): Promise<void> {
+    const confirmBtn = container.querySelector<HTMLButtonElement>('#ct-btn-confirm');
+    const backBtn    = container.querySelector<HTMLButtonElement>('#ct-btn-back');
+    const msgEl      = container.querySelector<HTMLElement>('#ct-confirm-msg');
+
+    const { subject, ticketTypeRaw, motivoRaw, description, email } = this._collectFormData(form);
     const ticketType = Number(ticketTypeRaw) as TicketTypeId;
     const motivo = motivoRaw as TicketMotivo;
 
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Enviando…';
-    }
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Enviando…'; }
+    if (backBtn)    { backBtn.disabled = true; }
     this.showFormMsg(msgEl, '', '');
 
     const result = await createTicket(
@@ -381,39 +482,93 @@ class TicketsTab {
       subject,
       this.config.deviceIdentifier,
       email,
-      { description, ticketType, motivo, attachments: attachments.length > 0 ? attachments : undefined }
+      { description, ticketType, motivo, attachments: this._selectedFiles.length ? this._selectedFiles : undefined }
     );
 
     if (result) {
-      this.showFormMsg(msgEl, `Chamado #${result.id} criado com sucesso.`, '#16a34a');
-
-      // RFC-0198: Write to ThingsBoard SERVER_SCOPE
-      const jwtToken = this.config.jwtToken || '';
+      // Write to ThingsBoard SERVER_SCOPE (fire-and-forget)
+      const jwtToken  = this.config.jwtToken  || '';
       const tbDeviceId = this.config.tbDeviceId || '';
-      const tbBaseUrl = this.config.tbBaseUrl || window.location.origin;
-      if (jwtToken && tbDeviceId) {
+      const tbBaseUrl  = this.config.tbBaseUrl  || window.location.origin;
+      if (jwtToken && tbDeviceId)
         appendFreshdeskTicketToTB(tbBaseUrl, tbDeviceId, jwtToken, result).catch(() => {});
-      }
 
+      // Reset state
+      this._selectedFiles = [];
       form.reset();
-
-      // Restore default subject
       const subjectInput = form.querySelector<HTMLInputElement>('#ct-subject');
-      if (subjectInput) {
-        subjectInput.value = `[${this.config.deviceIdentifier || this.config.tbDeviceId}] ${this.config.deviceLabel ?? ''}`;
-      }
+      if (subjectInput) subjectInput.value = this._buildDefaultSubject();
+      this._renderFilePreviews(container);
 
-      // Reload tickets
+      // Hide confirm, show form with success message
+      container.querySelector<HTMLElement>('#ct-confirm')!.style.display = 'none';
+      form.style.display = '';
+      this.showFormMsg(
+        container.querySelector('#ct-form-msg'),
+        `✅ Chamado #${result.id} criado com sucesso.`,
+        '#16a34a'
+      );
+
       await this.loadTickets();
       this.refreshTicketsSection();
     } else {
-      this.showFormMsg(msgEl, 'Erro ao criar chamado. Verifique a conexão.', '#dc2626');
+      this.showFormMsg(msgEl, '❌ Erro ao criar chamado. Verifique a conexão ou as configurações do FreshDesk.', '#dc2626');
     }
 
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'Abrir Chamado';
-    }
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Confirmar e Enviar'; }
+    if (backBtn)    { backBtn.disabled = false; }
+  }
+
+  // ==========================================================================
+  // File preview helpers
+  // ==========================================================================
+
+  private _renderFilePreviews(container: HTMLElement): void {
+    const area = container.querySelector<HTMLElement>('#ct-files-preview');
+    if (!area) return;
+    if (this._selectedFiles.length === 0) { area.innerHTML = ''; return; }
+
+    area.innerHTML = this._selectedFiles.map((f, i) => {
+      const icon = this._getFileIcon(f);
+      const isImage = f.type.startsWith('image/');
+      const tooltip = `${f.name}\n${this._formatFileSize(f.size)} · ${f.type || 'arquivo'}`;
+      return `
+        <div class="ct-file-chip" data-index="${i}" title="${this.esc(tooltip)}">
+          ${isImage
+            ? `<img class="ct-file-thumb" src="${URL.createObjectURL(f)}" alt="${this.esc(f.name)}">`
+            : `<span class="ct-file-icon">${icon}</span>`
+          }
+          <span class="ct-file-name">${this.esc(f.name.length > 18 ? f.name.slice(0, 16) + '…' : f.name)}</span>
+          <span class="ct-file-size">${this._formatFileSize(f.size)}</span>
+          <button type="button" class="ct-file-remove" data-index="${i}" title="Remover">✕</button>
+        </div>
+      `;
+    }).join('');
+
+    // Remove buttons
+    area.querySelectorAll<HTMLButtonElement>('.ct-file-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.index);
+        this._selectedFiles.splice(idx, 1);
+        this._renderFilePreviews(container);
+      });
+    });
+  }
+
+  private _getFileIcon(f: File): string {
+    const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+    if (f.type === 'application/pdf' || ext === 'pdf')                       return '📄';
+    if (['doc','docx'].includes(ext) || f.type.includes('word'))             return '📝';
+    if (['xls','xlsx'].includes(ext) || f.type.includes('spreadsheet') || f.type.includes('excel')) return '📊';
+    if (['txt','csv'].includes(ext))                                          return '📃';
+    return '📎';
+  }
+
+  private _formatFileSize(bytes: number): string {
+    if (bytes < 1024)        return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   // ==========================================================================
@@ -710,6 +865,141 @@ class TicketsTab {
       }
       .ct-btn-submit:hover:not(:disabled) { background: #d97706; }
       .ct-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+      /* ===== File upload zone ===== */
+      .ct-upload-zone {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .ct-upload-btn {
+        background: #f3f4f6;
+        border: 1.5px dashed #d1d5db;
+        border-radius: 6px;
+        padding: 7px 14px;
+        font-size: 13px;
+        font-family: inherit;
+        color: #374151;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .ct-upload-btn:hover { background: #e5e7eb; border-color: #9ca3af; }
+
+      /* ===== File previews ===== */
+      .ct-files-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .ct-file-chip {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px 10px 6px;
+        width: 90px;
+        cursor: default;
+        transition: box-shadow 0.15s;
+      }
+      .ct-file-chip:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.10); }
+      .ct-file-thumb {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 5px;
+        border: 1px solid #e5e7eb;
+      }
+      .ct-file-icon { font-size: 36px; line-height: 1; }
+      .ct-file-name {
+        font-size: 10px;
+        color: #374151;
+        text-align: center;
+        word-break: break-all;
+        line-height: 1.3;
+        max-width: 80px;
+      }
+      .ct-file-size {
+        font-size: 9px;
+        color: #9ca3af;
+      }
+      .ct-file-remove {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 18px;
+        height: 18px;
+        background: #ef4444;
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        font-size: 9px;
+        line-height: 18px;
+        text-align: center;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .ct-file-chip:hover .ct-file-remove { opacity: 1; }
+
+      /* ===== Confirmation overlay ===== */
+      .ct-confirm {
+        padding: 20px 20px 16px;
+        background: #fffbeb;
+        border-top: 2px solid #fbbf24;
+      }
+      .ct-confirm-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 14px;
+      }
+      .ct-confirm-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+      .ct-confirm-table td {
+        padding: 5px 8px;
+        vertical-align: top;
+      }
+      .ct-confirm-table td:first-child {
+        font-weight: 600;
+        color: #6b7280;
+        white-space: nowrap;
+        width: 100px;
+      }
+      .ct-confirm-table td:last-child { color: #111827; }
+      .ct-confirm-table tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
+      .ct-confirm-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .ct-btn-back {
+        background: transparent;
+        border: 1.5px solid #d1d5db;
+        border-radius: 6px;
+        padding: 7px 14px;
+        font-size: 13px;
+        font-family: inherit;
+        color: #374151;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .ct-btn-back:hover:not(:disabled) { background: #f3f4f6; }
+      .ct-btn-back:disabled { opacity: 0.5; cursor: not-allowed; }
     `;
     document.head.appendChild(style);
   }

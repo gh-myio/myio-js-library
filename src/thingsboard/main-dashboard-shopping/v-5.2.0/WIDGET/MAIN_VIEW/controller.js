@@ -5062,6 +5062,9 @@ const MyIOOrchestrator = (() => {
       log_annotations: meta.log_annotations || null,
       excludeGroupsTotals: meta.excludeGroupsTotals || null,
 
+      // RFC-0198: FreshDesk tickets summary (SERVER_SCOPE freshdesk_tickets → fallback badge)
+      freshdeskTickets: meta.freshdeskTickets || null,
+
       // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
       gcdrDeviceId: meta.gcdrDeviceId || null,
       // RFC-0152: Per-device GCDR mapping fields (server_scope attrs for TB↔GCDR sync audit)
@@ -5216,6 +5219,13 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
       else if (keyName === 'exclude_groups_totals') meta.excludeGroupsTotals = val;
+      // RFC-0198: FreshDesk tickets summary — SERVER_SCOPE attr freshdesk_tickets
+      // Stored as { items: [...] }; may arrive as a JSON string from TB
+      else if (keyName === 'freshdesk_tickets') {
+        try {
+          meta.freshdeskTickets = typeof val === 'string' ? JSON.parse(val) : val;
+        } catch (_) { meta.freshdeskTickets = null; }
+      }
       // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
       else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
       // RFC-0152: Per-device GCDR mapping fields (server_scope attrs for TB↔GCDR sync audit)

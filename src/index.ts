@@ -1709,23 +1709,35 @@ export type {
   ExcludeGroupsTotals,
 } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
 
-// RFC-0198: FreshDesk / Tickets integration
+// RFC-0198: FreshDesk API — reusable service client
+// Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer
+export type { FreshDeskTicket, TicketTypeId, TicketMotivo } from './services/freshdesk/types';
+// Named function exports (also available as FreshdeskClient namespace below)
+export {
+  fetchOpenTickets,
+  fetchTicketsForDevice,
+  createTicket as createFreshdeskTicket,
+  updateTicket as updateFreshdeskTicket,
+  reopenTicket as reopenFreshdeskTicket,
+  deleteTicket as deleteFreshdeskTicket,
+} from './services/freshdesk/FreshdeskClient';
+// Namespace export for consumers that prefer FreshdeskClient.createTicket(…) style
+export * as FreshdeskClient from './services/freshdesk/FreshdeskClient';
+
+// RFC-0198: FreshDesk / Tickets — dashboard integration
 export { createTicketsTab } from './components/premium-modals/settings/tickets/TicketsTab';
 export type {
   TicketsTabConfig,
-  TicketTypeId,
-  TicketMotivo,
-  FreshDeskTicket,
   TicketServiceOrchestratorShape,
   FreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/types';
 export { buildTicketServiceOrchestrator } from './components/premium-modals/settings/tickets/TicketServiceOrchestrator';
-export * as FreshdeskClient from './components/premium-modals/settings/tickets/FreshdeskClient';
 export {
   writeFreshdeskTicketsToTB,
   readFreshdeskTicketsFromTB,
   appendFreshdeskTicketToTB,
   clearFreshdeskTicketsOnTB,
+  writeFreshdeskSyncedAtToTB,
   toSummary as toFreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/TbTicketSync';
 

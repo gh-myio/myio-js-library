@@ -192,22 +192,27 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
-/* Ticket / Chamados button (RFC-0198) */
+/* Ticket / Chamados button (RFC-0198) — teal/support theme */
 .tbx-btn-ticket-notif {
-  background: rgba(249, 115, 22, 0.12);
-  color: #f97316;
-  border: 1px solid rgba(249, 115, 22, 0.25);
+  background: rgba(8, 145, 178, 0.12);
+  color: #0891b2;
+  border: 1px solid rgba(8, 145, 178, 0.25);
   position: relative;
 }
 
 .tbx-btn-ticket-notif:hover {
-  background: rgba(249, 115, 22, 0.22);
-  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(8, 145, 178, 0.22);
+  border-color: rgba(8, 145, 178, 0.45);
 }
 
 .tbx-btn-ticket-notif:active {
-  background: rgba(249, 115, 22, 0.32);
+  background: rgba(8, 145, 178, 0.32);
   transform: translateY(1px);
+}
+
+.tbx-ico-svg {
+  display: block;
+  pointer-events: none;
 }
 
 .tbx-ticket-badge {
@@ -218,7 +223,7 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: #f97316;
+  background: #0891b2;
   color: #fff;
   font-size: 10px;
   font-weight: 700;

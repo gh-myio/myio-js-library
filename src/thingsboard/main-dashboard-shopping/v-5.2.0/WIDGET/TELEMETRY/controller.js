@@ -181,8 +181,11 @@ function addTicketBadge(cardElement, identifier) {
     const raw = item?.freshdeskTickets;
     if (raw) {
       try {
-        const summaries = JSON.parse(raw);
-        count = Array.isArray(summaries) ? summaries.filter(t => [2, 3, 6].includes(t.status)).length : 0;
+        // MAIN_VIEW already parses the JSON string; accept both object and string
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        // stored as { items: [...] }; legacy: bare array
+        const summaries = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
+        count = summaries.filter(t => [2, 3, 6].includes(t.status)).length;
       } catch (_e) { /* ignore parse errors */ }
     }
   }
