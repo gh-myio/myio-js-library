@@ -1933,31 +1933,31 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     }
 
-    (function _initTicketButton() {
+    // Setup ticket button: show + bind events. Idempotent via data-bound guard.
+    function _setupTicketButton() {
       const apiKey   = window.MyIOUtils?.freshdeskApiKey   || '';
       const widgetId = window.MyIOUtils?.freshdeskWidgetId || '';
-      // Hide if no API key OR customer explicitly disabled the feature
       if (!apiKey || window.MyIOUtils?.ticketsEnabled !== true || !btnTicketNotif) return;
 
-      // Show button only when FreshDesk is configured
       btnTicketNotif.style.display = '';
 
-      // Inject FreshWorks Widget script if widget_id is configured (used as fallback)
-      _initFreshworksWidget(widgetId);
-
-      // Click → open NewTicketWizard
-      btnTicketNotif.addEventListener('click', () => _openNewTicketWizard());
-
-      // Hover → show premium tooltip
-      btnTicketNotif.addEventListener('mouseenter', () => {
-        TicketNotificationTooltip.show(btnTicketNotif);
-      });
-      btnTicketNotif.addEventListener('mouseleave', () => {
-        if (!TicketNotificationTooltip._isMouseOver && !TicketNotificationTooltip._isPinned) {
-          TicketNotificationTooltip.hide();
-        }
-      });
-    })();
+      // Bind events only once
+      if (!btnTicketNotif.dataset.bound) {
+        btnTicketNotif.dataset.bound = '1';
+        _initFreshworksWidget(widgetId);
+        btnTicketNotif.addEventListener('click', () => _openNewTicketWizard());
+        btnTicketNotif.addEventListener('mouseenter', () => {
+          TicketNotificationTooltip.show(btnTicketNotif);
+        });
+        btnTicketNotif.addEventListener('mouseleave', () => {
+          if (!TicketNotificationTooltip._isMouseOver && !TicketNotificationTooltip._isPinned) {
+            TicketNotificationTooltip.hide();
+          }
+        });
+      }
+    }
+    // Fast path: already enabled at init time (e.g. cached from previous onDataUpdated)
+    _setupTicketButton();
 
     function _updateTicketNotifBadge(count) {
       const badge = document.getElementById('tbx-ticket-notif-badge');
@@ -1988,9 +1988,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (!enabled) {
         btnTicketNotif.style.display = 'none';
       } else {
-        // Re-run init to show button + bind events (idempotent because _initTicketButton already ran)
-        const apiKey = window.MyIOUtils?.freshdeskApiKey || '';
-        if (apiKey) btnTicketNotif.style.display = '';
+        // Run full setup (idempotent — data-bound guard prevents duplicate event listeners)
+        _setupTicketButton();
       }
     });
 

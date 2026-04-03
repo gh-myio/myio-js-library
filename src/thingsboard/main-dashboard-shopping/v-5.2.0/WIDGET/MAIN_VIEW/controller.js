@@ -2645,6 +2645,12 @@ function _applyTicketsGate() {
     LogHelper.log(`[MAIN_VIEW] ticketsEnabled effective=${effective} (raw=${raw}, onlyMyio=${onlyMyio}, email=${email || 'unknown'})`);
     // Notify HEADER and TELEMETRY so they can re-evaluate the ticket UI
     window.dispatchEvent(new CustomEvent('myio:tickets-gate-changed', { detail: { ticketsEnabled: effective } }));
+    // If gate just opened, (re-)build the TicketServiceOrchestrator.
+    // _buildTicketServiceOrchestrator may have bailed early on first call because
+    // ticketsEnabled was still false while customer attributes were being processed.
+    if (effective) {
+      _buildTicketServiceOrchestrator();
+    }
   }
 }
 
