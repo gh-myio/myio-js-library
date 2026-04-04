@@ -31,7 +31,7 @@
 }
 #Myio {
   width: 140px;
-  background: rgba(255,255,255,0.12);
+  background: linear-gradient(135deg, #3e1a7d 0%, #5c307d 100%);
   padding: 10px;
   border-radius: 8px;
 }

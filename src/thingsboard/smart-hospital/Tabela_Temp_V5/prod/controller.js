@@ -1863,6 +1863,8 @@ function toggleViewMode(mode) {
     if (!s.groupedData && s.dados && s.dados.length) {
       s.groupedData = _.groupBy(s.dados, 'deviceName');
     }
+    // sincroniza sort button com o padrão do dashboard (maior perda)
+    if (s.lvFilter) s.lvFilter.sort = 'loss_desc';
     self.ctx.detectChanges(); // aplica *ngIf para montar #tbtv5-dashboard-view no DOM
     // setTimeout aguarda o ciclo de rendering do Angular antes de popular o container
     setTimeout(function () { s.openSummaryDashboard(); }, 0);
