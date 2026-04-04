@@ -2044,6 +2044,7 @@ function _startClock() {
 self.onInit = function () {
   insertCurrentDate();
   _startClock();
+  _injectLayoutCSS();
 
   // ── Maximize / Restore ───────────────────────────────────────────────────
   const s = self.ctx.$scope;
@@ -2427,10 +2428,16 @@ self.onInit = function () {
     if (_lvFilter.sortOpen) self.ctx.$scope.lvMsOpen = false;
     self.ctx.detectChanges();
   };
+  self.ctx.$scope.lvLegendOpen = false;
+  self.ctx.$scope.lvToggleLegend = () => {
+    self.ctx.$scope.lvLegendOpen = !self.ctx.$scope.lvLegendOpen;
+    self.ctx.detectChanges();
+  };
   self.ctx.$scope.lvCloseAllDropdowns = () => {
     let ch = false;
     if (_lvFilter.sortOpen) { _lvFilter.sortOpen = false; ch = true; }
     if (self.ctx.$scope.lvMsOpen) { self.ctx.$scope.lvMsOpen = false; ch = true; }
+    if (self.ctx.$scope.lvLegendOpen) { self.ctx.$scope.lvLegendOpen = false; ch = true; }
     if (ch) self.ctx.detectChanges();
   };
   // mantém alias para compatibilidade interna
@@ -2903,6 +2910,32 @@ function _smGetContainer() {
   return document.getElementById('tbtv5-dashboard-view');
 }
 
+/* Injeta os estilos de layout críticos para Lista e Cards via document.head
+   (mesmo padrão do _smInjectCSS do Dashboard — garante que o CSS não fique
+   escopado/sobrescrito pelo ThingsBoard) */
+function _injectLayoutCSS() {
+  var existing = document.getElementById('tbtv5-layout-styles');
+  if (existing) return; // já injetado
+  var s = document.createElement('style');
+  s.id = 'tbtv5-layout-styles';
+  s.textContent = [
+    /* cadeia flex principal */
+    '.wat{height:100%;display:flex;flex-direction:column;overflow:hidden}',
+    '.tab-content-area{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}',
+    /* TAB Lista */
+    '.list-view-container{flex:1;min-height:0;overflow-y:auto!important;display:flex;flex-direction:column;gap:6px;padding:6px 16px 16px}',
+    '.list-device-group{min-height:44px;flex-shrink:0}',
+    /* TAB Cards */
+    '.card-view-container{flex:1;min-height:0;overflow-y:auto!important;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));grid-auto-rows:min-content;gap:14px;padding:6px 16px 16px;align-content:start}',
+    '.device-card{min-height:60px;align-self:start}',
+    /* TAB Dashboard container */
+    '.dashboard-tab-container{flex:1;min-height:0;display:flex;flex-direction:column;padding:4px 16px 0}',
+    /* [hidden] deve sobrescrever qualquer display dos containers */
+    '[hidden]{display:none!important}',
+  ].join('\n');
+  document.head.appendChild(s);
+}
+
 function _smInjectCSS() {
   var existing = document.getElementById('tbtv5-sm-styles');
   if (existing) existing.remove(); // always refresh to pick up latest styles
@@ -3000,8 +3033,7 @@ function _smInjectCSS() {
     '#tbtv5-sm.expanded .summary-chart-section{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}',
     '#tbtv5-sm.expanded .chart-area{flex:1;min-height:0;overflow:hidden}',
     '#tbtv5-sm.expanded .chart-bars-scroll{flex:1;overflow-y:auto;overflow-x:hidden}',
-    /* dashboard inline tab — flex:1 herdado do .wat flex column */
-    '.dashboard-tab-container{padding:4px 16px 0;flex:1;min-height:0;display:flex;flex-direction:column}',
+    /* dashboard inline tab — layout via _injectLayoutCSS; aqui só o view */
     '#tbtv5-dashboard-view{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.10)}',
     /* body ocupa o espaço restante e rola internamente — sem max-height fixo */
     '#tbtv5-dashboard-view .summary-modal-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:0;padding:8px 0 0}',

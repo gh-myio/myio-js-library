@@ -490,14 +490,50 @@
       >
     </button>
 
+    <!-- Botão Legenda — Lista e Cards -->
+    <div class="lv-legend-wrap" *ngIf="viewMode === 'list' || viewMode === 'card'" (click)="$event.stopPropagation()">
+      <button class="lv-legend-btn" [class.lv-legend-active]="lvLegendOpen" (click)="lvToggleLegend()">
+        <i class="fa-solid fa-palette"></i> Legenda
+      </button>
+      <div class="lv-legend-tooltip" *ngIf="lvLegendOpen">
+        <div class="lv-legend-title">Escala de perda de dados</div>
+        <div class="lv-legend-row">
+          <span class="lv-legend-swatch lv-ls-ok"></span>
+          <span class="lv-legend-label"><strong>Sem perda</strong> — 0%</span>
+        </div>
+        <div class="lv-legend-row">
+          <span class="lv-legend-swatch lv-ls-low"></span>
+          <span class="lv-legend-label"><strong>Perda baixa</strong> — 1% a 5%</span>
+        </div>
+        <div class="lv-legend-row">
+          <span class="lv-legend-swatch lv-ls-moderate"></span>
+          <span class="lv-legend-label"><strong>Perda moderada</strong> — 5% a 15%</span>
+        </div>
+        <div class="lv-legend-row">
+          <span class="lv-legend-swatch lv-ls-high"></span>
+          <span class="lv-legend-label"><strong>Perda alta</strong> — 15% a 30%</span>
+        </div>
+        <div class="lv-legend-row">
+          <span class="lv-legend-swatch lv-ls-critical"></span>
+          <span class="lv-legend-label"><strong>Perda crítica</strong> — acima de 30%</span>
+        </div>
+        <div class="lv-legend-note">
+          <i class="fa-solid fa-circle-info"></i>
+          A cor da borda e do fundo do card reflete a faixa de perda de leituras do dispositivo no período selecionado.
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Lista agrupada por device (collapsível) -->
-  <div class="list-view-container" *ngIf="viewMode === 'list' && groupedData">
+  <div class="list-view-container" [hidden]="viewMode !== 'list' || !groupedData">
+    <ng-container *ngIf="viewMode === 'list' && groupedData">
     <div
       class="list-device-group"
       *ngFor="let device of getFilteredDevices(); trackBy: lvTrackBy"
       [class.expanded]="expandedDevices[device.key]"
+      [ngClass]="getDeviceLossClass(device.value)"
     >
       <div class="list-device-header" (click)="toggleDeviceExpansion(device.key)">
         <div class="list-device-name">{{ device.key }}</div>
@@ -569,10 +605,12 @@
         </div>
       </div>
     </div>
+    </ng-container>
   </div>
 
   <!-- Cards (Premium) -->
-  <div class="card-view-container" *ngIf="viewMode === 'card' && groupedData">
+  <div class="card-view-container" [hidden]="viewMode !== 'card' || !groupedData">
+    <ng-container *ngIf="viewMode === 'card' && groupedData">
     <div
       class="device-card"
       *ngFor="let device of getFilteredDevices(); trackBy: lvTrackBy"
@@ -656,10 +694,11 @@
         </div>
       </div>
     </div>
+    </ng-container>
   </div>
 
   <!-- Tab Dashboard — Resumo da Consulta inline -->
-  <div class="dashboard-tab-container" *ngIf="viewMode === 'dashboard' && dados && dados.length > 0">
+  <div class="dashboard-tab-container" [hidden]="viewMode !== 'dashboard' || !dados || dados.length === 0">
     <div id="tbtv5-dashboard-view"></div>
   </div>
 
