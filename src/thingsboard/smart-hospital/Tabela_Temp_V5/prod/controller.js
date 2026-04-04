@@ -1051,33 +1051,32 @@ function _pdfSummaryFromData(data) {
 function _pdfBuildCover(doc, cov, pw, ph, mg, purple, pdfDate, pdfTime, periodStr, logoSrc) {
   // ── Header bar ──────────────────────────────────────────────
   doc.setFillColor(purple[0], purple[1], purple[2]);
-  doc.rect(0, 0, pw, 56, 'F');
-  var logoH = 26, logoW = Math.round(logoH * (512 / 194));
-  doc.addImage(logoSrc, 'PNG', mg, 15, logoW, logoH, 'myio-logo');
+  doc.rect(0, 0, pw, 50, 'F');
+  var logoH = 22, logoW = Math.round(logoH * (512 / 194));
+  doc.addImage(logoSrc, 'PNG', mg, 18, logoW, logoH, 'myio-logo');
   var tx = mg + logoW + 12;
-  // Centraliza verticalmente o bloco de texto na barra (altura 56mm → centro em 28mm)
-  // Bloco: 4 linhas com espaçamentos 9/8/9 → span 26mm → ancoragem topo em 15mm
+  // Bloco de texto deslocado ~4mm para baixo dentro da barra (50mm)
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(17);
-  doc.text('Relatório de Temperaturas', tx, 15);
+  doc.text('Relatório de Temperaturas', tx, 16);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text('MYIO Smart Hospital', tx, 24);
-  doc.text('Complexo Hospitalar Municipal Souza Aguiar', tx, 32);
+  doc.text('MYIO Smart Hospital', tx, 25);
+  doc.text('Complexo Hospitalar Municipal Souza Aguiar', tx, 33);
   doc.setFontSize(9);
-  doc.text('Emitido em ' + pdfDate + ' às ' + pdfTime, tx, 41);
+  doc.text('Emitido em ' + pdfDate + ' às ' + pdfTime, tx, 42);
 
   // ── Info bar ────────────────────────────────────────────────
   doc.setFillColor(240, 232, 255);
-  doc.rect(0, 56, pw, 12, 'F');
+  doc.rect(0, 50, pw, 12, 'F');
   doc.setTextColor(92, 48, 125);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   var infoTxt = periodStr
     ? ('Período consultado: ' + periodStr.replace(' \u2192 ', ' até '))
     : 'Período: não definido';
-  doc.text(infoTxt, pw / 2, 64, { align: 'center' });
+  doc.text(infoTxt, pw / 2, 58, { align: 'center' });
 
   // ── KPI cards ───────────────────────────────────────────────
   var kpis = [
@@ -1087,7 +1086,7 @@ function _pdfBuildCover(doc, cov, pw, ph, mg, purple, pdfDate, pdfTime, periodSt
     { label: 'Perda geral',    value: cov.overallPct + '%',         color: cov.overallPct > 0 ? [220, 38, 38] : [22, 163, 74] },
   ];
   var cardGap = 4, cardW = (pw - 2 * mg - 3 * cardGap) / 4;
-  var cardY = 73, cardH = 27;
+  var cardY = 67, cardH = 24;
   kpis.forEach(function (kpi, i) {
     var cx2 = mg + i * (cardW + cardGap);
     doc.setFillColor(249, 250, 251);
@@ -1097,65 +1096,91 @@ function _pdfBuildCover(doc, cov, pw, ph, mg, purple, pdfDate, pdfTime, periodSt
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
-    doc.text(kpi.value, cx2 + cardW / 2, cardY + 14, { align: 'center' });
+    doc.text(kpi.value, cx2 + cardW / 2, cardY + 12, { align: 'center' });
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.setTextColor(107, 114, 128);
-    doc.text(kpi.label, cx2 + cardW / 2, cardY + 22, { align: 'center' });
+    doc.text(kpi.label, cx2 + cardW / 2, cardY + 20, { align: 'center' });
   });
 
-  // ── Device summary table ────────────────────────────────────
-  var ty = cardY + cardH + 8;
-  var tH = 7.5;
-  var colReal = 30, colMiss = 30, colPct = 24;
-  var colName = pw - 2 * mg - colReal - colMiss - colPct;
-  var colXs = [mg, mg + colName, mg + colName + colReal, mg + colName + colReal + colMiss];
-  var colWs = [colName, colReal, colMiss, colPct];
+  // ── Device summary table — 2 colunas ───────────────────────
+  var ty = cardY + cardH + 6;
+  var tH = 6;
+  var colGap = 5; // espaço entre os dois grupos
+  var halfW = (pw - 2 * mg - colGap) / 2; // largura de cada grupo: ~92.5mm
 
-  // Table header row
-  doc.setFillColor(purple[0], purple[1], purple[2]);
-  doc.rect(mg, ty, pw - 2 * mg, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  ['Dispositivo', 'Leituras reais', 'Sem dados', 'Perda (%)'].forEach(function (lbl, i) {
-    var ax = i === 0 ? colXs[i] + 3 : colXs[i] + colWs[i] / 2;
-    doc.text(lbl, ax, ty + 5.5, { align: i === 0 ? 'left' : 'center' });
-  });
-  ty += 8;
-  doc.setFont('helvetica', 'normal');
+  // Sub-colunas de cada grupo (dentro de halfW)
+  var _cPct = 16, _cMiss = 18, _cReal = 18;
+  var _cName = halfW - _cPct - _cMiss - _cReal; // ~40.5mm
+
+  // Offsets X para grupo esquerdo e direito
+  var _lx = mg;                       // início grupo esquerdo
+  var _rx = mg + halfW + colGap;       // início grupo direito
+
+  function _colXsFor(ox) {
+    return [ox, ox + _cName, ox + _cName + _cReal, ox + _cName + _cReal + _cMiss];
+  }
+  var _colWs = [_cName, _cReal, _cMiss, _cPct];
+  var _hdrs  = ['Dispositivo', 'Leituras', 'Sem dados', 'Perda'];
+
+  function _drawHeader(ox) {
+    var xs = _colXsFor(ox);
+    doc.setFillColor(purple[0], purple[1], purple[2]);
+    doc.rect(ox, ty, halfW, 6.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    _hdrs.forEach(function (lbl, i) {
+      var ax = i === 0 ? xs[i] + 3 : xs[i] + _colWs[i] / 2;
+      doc.text(lbl, ax, ty + 4.5, { align: i === 0 ? 'left' : 'center' });
+    });
+    doc.setFont('helvetica', 'normal');
+  }
+  _drawHeader(_lx);
+  _drawHeader(_rx);
+  ty += 6.5;
+
   doc.setDrawColor(243, 244, 246);
 
   var maxRows = Math.floor((ph - 14 - ty) / tH);
-  var devToShow = cov.devices.slice(0, maxRows);
-  var truncated = Math.max(0, cov.devices.length - maxRows);
+  var half    = Math.ceil(cov.devices.length / 2);
+  var nRows   = Math.min(half, maxRows);
+  var truncated = Math.max(0, cov.devices.length - nRows * 2);
 
-  devToShow.forEach(function (dev, ri) {
-    if (ri % 2 === 0) {
+  function _drawDevRow(dev, ox, rowY, shade) {
+    if (!dev) return;
+    var xs = _colXsFor(ox);
+    if (shade) {
       doc.setFillColor(248, 250, 252);
-      doc.rect(mg, ty, pw - 2 * mg, tH, 'F');
+      doc.rect(ox, rowY, halfW, tH, 'F');
     }
     var lc = dev.pct === 0 ? [22, 163, 74]
       : dev.pct <= 5  ? [202, 138, 4]
       : dev.pct <= 15 ? [234, 88, 12]
       :                 [220, 38, 38];
-    doc.setFontSize(7.5);
+    doc.setFontSize(6.5);
     doc.setTextColor(17, 24, 39);
-    doc.text(dev.name, colXs[0] + 3, ty + 5, { maxWidth: colName - 6 });
-    doc.text(String(dev.real),    colXs[1] + colWs[1] / 2, ty + 5, { align: 'center' });
-    doc.text(String(dev.missing), colXs[2] + colWs[2] / 2, ty + 5, { align: 'center' });
+    doc.text(dev.name,           xs[0] + 3,              rowY + 4, { maxWidth: _cName - 6 });
+    doc.text(String(dev.real),   xs[1] + _colWs[1] / 2,  rowY + 4, { align: 'center' });
+    doc.text(String(dev.missing),xs[2] + _colWs[2] / 2,  rowY + 4, { align: 'center' });
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(lc[0], lc[1], lc[2]);
-    doc.text(dev.pct + '%', colXs[3] + colWs[3] / 2, ty + 5, { align: 'center' });
+    doc.text(dev.pct + '%',      xs[3] + _colWs[3] / 2,  rowY + 4, { align: 'center' });
     doc.setFont('helvetica', 'normal');
-    doc.line(mg, ty + tH, mg + pw - 2 * mg, ty + tH);
+    doc.line(ox, rowY + tH, ox + halfW, rowY + tH);
+  }
+
+  for (var ri = 0; ri < nRows; ri++) {
+    var shade = ri % 2 === 0;
+    _drawDevRow(cov.devices[ri],        _lx, ty, shade);
+    _drawDevRow(cov.devices[ri + nRows], _rx, ty, shade);
     ty += tH;
-  });
+  }
 
   if (truncated > 0) {
-    doc.setFontSize(7.5);
+    doc.setFontSize(6.5);
     doc.setTextColor(107, 114, 128);
-    doc.text('... e mais ' + truncated + ' dispositivo(s) — veja o detalhamento nas páginas seguintes.', mg, ty + 5);
+    doc.text('... e mais ' + truncated + ' dispositivo(s) — veja o detalhamento nas páginas seguintes.', mg, ty + 4);
   }
 }
 
