@@ -21,7 +21,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 10px 16px 12px;
-  background: linear-gradient(135deg, #3e1a7d 0%, #5c307d 100%);
+  background: #fff;
   flex-shrink: 0;
 }
 #ReportHeader .brand {
@@ -39,13 +39,13 @@
   font-size: 13px;
   margin: 0;
   font-family: Roboto, Inter, system-ui;
-  color: rgba(255,255,255,0.9);
+  color: #374151;
 }
 #ReportHeader .icon-btn i {
-  color: rgba(255,255,255,0.9);
+  color: #6b7280;
 }
 #ReportHeader .icon-btn:hover {
-  background: rgba(255,255,255,0.15);
+  background: #f3f4f6;
 }
 
 .actions {

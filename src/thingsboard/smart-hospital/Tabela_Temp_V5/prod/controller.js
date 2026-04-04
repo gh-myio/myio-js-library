@@ -2959,6 +2959,9 @@ function _injectLayoutCSS() {
     '.dashboard-tab-container{flex:1;min-height:0;display:flex;flex-direction:column;padding:4px 16px 0}',
     /* [hidden] deve sobrescrever qualquer display dos containers */
     '[hidden]{display:none!important}',
+    /* Botão Maximizar/Restaurar */
+    '.tbx-btn-maximize{display:inline-flex!important;align-items:center;gap:5px;padding:5px 12px;height:36px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid #d1d5db!important;background:#f9fafb!important;color:#374151!important;transition:background .12s,border-color .12s,color .12s}',
+    '.tbx-btn-maximize:hover{background:#f0e6ff!important;border-color:#5c307d!important;color:#5c307d!important}',
   ].join('\n');
   document.head.appendChild(s);
 }

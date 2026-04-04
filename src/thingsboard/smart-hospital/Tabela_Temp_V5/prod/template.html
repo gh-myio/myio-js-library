@@ -94,14 +94,6 @@
           <button class="tbx-btn-clear" (click)="clearDateRange()" title="Limpar seleção">
             <i class="fa-solid fa-xmark"></i> Limpar
           </button>
-          <button
-            class="tbx-btn-maximize"
-            (click)="toggleMaximize()"
-            [title]="isMaximized ? 'Restaurar' : 'Maximizar'"
-          >
-            <i class="fa-solid" [ngClass]="isMaximized ? 'fa-compress' : 'fa-expand'"></i>
-            {{ isMaximized ? 'Restaurar' : 'Maximizar' }}
-          </button>
         </div>
 
         <!-- Settings Modal -->
