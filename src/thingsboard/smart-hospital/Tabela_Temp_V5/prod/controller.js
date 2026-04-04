@@ -47,6 +47,8 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 min
 
 // -------- Filter bar state (module-level, persiste entre tabs) --------
 let _lvDeviceSel = null; // null = todos selecionados; Set<string> = keys selecionados
+let _lvStatsCache = null;
+function _lvInvalidateStats() { _lvStatsCache = null; }
 
 // -------- TEMPORARY FIX: CentralId Normalization --------
 // Maps old centralId to new centralId (provisório)
@@ -1828,8 +1830,8 @@ function _fillWithMissingSlots(grouped) {
 function renderCardView(data) {
   const grouped = _fillWithMissingSlots(_.groupBy(data, 'deviceName'));
   self.ctx.$scope.groupedData = grouped;
-  // por padrão, cards recolhidos
   self.ctx.$scope.expandedDevices = {};
+  _lvInvalidateStats();
   self.ctx.detectChanges();
 }
 
@@ -1844,6 +1846,7 @@ function renderListView(data, resetFilter = true) {
     _lvDeviceSel = null;
     if (self.ctx.$scope.lvMsOpen !== undefined) self.ctx.$scope.lvMsOpen = false;
   }
+  _lvInvalidateStats();
   self.ctx.detectChanges();
 }
 
@@ -2549,8 +2552,6 @@ self.onInit = function () {
   };
 
   // ── Stats por modo de filtro ─────────────────────────────────
-  let _lvStatsCache = null;
-  function _lvInvalidateStats() { _lvStatsCache = null; }
   function _lvComputeStats() {
     if (_lvStatsCache) return _lvStatsCache;
     const s = self.ctx.$scope;
@@ -2978,14 +2979,7 @@ function _smInjectCSS() {
     '.summary-modal-close:hover{opacity:1}',
     '.summary-modal-body{flex:1;min-height:0;padding:16px 20px;overflow-y:auto;display:block}',
     '.summary-overall{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}',
-    /* KPI cards — grid: col1=icon(span 2 rows) col2=value/label */
-    '.summary-kpi{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;column-gap:10px}',
-    '.summary-kpi.kpi-danger{background:#fff5f5;border-color:#fca5a5}',
-    '.kpi-icon-left{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;font-size:30px;color:#9ca3af}',
-    '.summary-kpi.kpi-danger .kpi-icon-left{color:#f87171}',
-    '.kpi-text{grid-column:2;grid-row:1/3;display:flex;flex-direction:column;justify-content:center}',
-    '.kpi-value{font-size:22px;font-weight:700;color:#111827;line-height:1.1}',
-    '.kpi-label{font-size:11px;color:#6b7280;margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.04em}',
+    /* KPI cards: layout via inline styles em _smKpiCard — sem CSS de classe necessário */
     '.summary-main-content{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}',
     '.summary-device-list{display:flex;flex-direction:column;gap:4px}',
     '.summary-device-row{border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;flex-shrink:0}',
@@ -3077,52 +3071,27 @@ function _smEsc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function _smBuildFilterBar(report) {
-  var total = report.devices.length;
-  var sel = _smState.filterSel;
-  var count = sel === null ? total : sel.size;
 
-  // Multiselect: itens em ordem alfabética (mantém índice original de report.devices)
-  var msItems = report.devices
-    .map(function (dev, i) { return { dev: dev, i: i }; })
-    .sort(function (a, b) { return a.dev.label.localeCompare(b.dev.label, 'pt-BR'); })
-    .map(function (entry) {
-      var checked = sel === null || sel.has(entry.i);
-      return (
-        '<label class="sm-ms-item"><input type="checkbox" id="tbtv5-ms-cb-' +
-        entry.i + '" ' + (checked ? 'checked' : '') +
-        ' onchange="window.tbtv5_toggleMsItem(' + entry.i + ')"><span>' +
-        _smEsc(entry.dev.label) + '</span></label>'
-      );
-    })
-    .join('');
 
-  var ab = _smState.activeFilterBtn;
-  var so = _smState.sortOrder || 'loss_desc';
-  var sortLabels = { loss_desc: '↓ Maior perda', loss_asc: '↑ Menor perda', az: 'A → Z', za: 'Z → A' };
-  var isCustomSort = so !== 'loss_desc';
-  var sortDdItems = ['loss_desc', 'loss_asc', 'az', 'za'].map(function (k) {
-    return '<button class="sm-sort-item' + (so === k ? ' sort-selected' : '') + '" onclick="window.tbtv5_applySortOrder(\'' + k + '\')">' + sortLabels[k] + '</button>';
-  }).join('');
-
+/* KPI card com inline styles — garantia de layout independente de CSS externo */
+function _smKpiCard(icon, value, label, dangerClass, valueId, cardId) {
+  var isBase   = 'background:#f9fafb;border:1px solid #e5e7eb;';
+  var isDanger = dangerClass ? 'background:#fff5f5;border:1px solid #fca5a5;' : isBase;
+  var iconColor = dangerClass ? '#f87171' : '#9ca3af';
+  var cardIdAttr = cardId ? ' id="' + cardId + '"' : '';
+  var valueIdAttr = valueId ? ' id="' + valueId + '"' : '';
   return (
-    '<div class="sm-filter-bar">' +
-    '<input class="sm-filter-search" id="tbtv5-fsearch" type="text" placeholder="🔍 Buscar dispositivo..." value="' +
-    _smEsc(_smState.filterText) +
-    '" oninput="window.tbtv5_filterInput(this.value)">' +
-    '<div class="sm-ms-wrap" id="tbtv5-ms-wrap">' +
-    '<button class="sm-ms-btn" id="tbtv5-ms-btn" onclick="window.tbtv5_toggleMsDropdown(event)"><span id="tbtv5-ms-label">Dispositivos (' +
-    count + '/' + total + ')</span> ▾</button>' +
-    '<div class="sm-ms-dropdown" id="tbtv5-ms-dd" style="display:none">' + msItems + '</div>' +
-    '</div>' +
-    '<button id="tbtv5-fbtn-all"  class="sm-filter-btn' + (ab === 'all'  ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterAll()">Todos</button>' +
-    '<button id="tbtv5-fbtn-clr"  class="sm-filter-btn' + (ab === 'clr'  ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterClear()">Limpar</button>' +
-    '<button id="tbtv5-fbtn-loss" class="sm-filter-btn' + (ab === 'loss' ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterOnlyLoss()">Só perdas</button>' +
-    '<button id="tbtv5-fbtn-ok"   class="sm-filter-btn' + (ab === 'ok'   ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterNoLoss()">Sem perdas</button>' +
-    '<div class="sm-sort-wrap" id="tbtv5-sort-wrap">' +
-    '<button class="sm-sort-btn' + (isCustomSort ? ' sort-active' : '') + '" id="tbtv5-sort-btn" onclick="window.tbtv5_toggleSortDropdown(event)" title="Ordenação">⇅ ' + (isCustomSort ? sortLabels[so] : 'Ordenar') + '</button>' +
-    '<div class="sm-sort-dd" id="tbtv5-sort-dd" style="display:none">' + sortDdItems + '</div>' +
-    '</div>' +
+    '<div class="summary-kpi"' + cardIdAttr +
+    ' style="display:grid;grid-template-columns:48px 1fr;grid-template-rows:auto auto;' +
+    isDanger +
+    'border-radius:12px;padding:12px 14px;column-gap:12px;">' +
+    '<i class="fa-solid ' + icon + '"' +
+    ' style="grid-column:1;grid-row:1/3;align-self:center;justify-self:center;font-size:28px;color:' + iconColor + '"></i>' +
+    '<span' + valueIdAttr +
+    ' style="grid-column:2;grid-row:1;font-size:22px;font-weight:700;color:#111827;line-height:1.1;align-self:end">' +
+    value + '</span>' +
+    '<span style="grid-column:2;grid-row:2;font-size:11px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;align-self:start;margin-top:3px">' +
+    label + '</span>' +
     '</div>'
   );
 }
@@ -3231,22 +3200,10 @@ function _smBuildHTML(report) {
   return (
     '<div class="summary-modal-body" onclick="window.tbtv5_closeMsDropdown(event)">' +
     '<div class="summary-overall">' +
-    '<div class="summary-kpi"><i class="fa-solid fa-microchip kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-devs">' +
-    report.totalDevices +
-    '</span><span class="kpi-label">dispositivos</span></div></div>' +
-    '<div class="summary-kpi"><i class="fa-solid fa-chart-bar kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-real">' +
-    report.totalReal +
-    '</span><span class="kpi-label">leituras reais</span></div></div>' +
-    '<div class="summary-kpi' +
-    kpiDanger(report.totalMissing) +
-    '" id="tbtv5-kpi-miss-card"><i class="fa-solid fa-circle-minus kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-miss">' +
-    report.totalMissing +
-    '</span><span class="kpi-label">slots sem dados</span></div></div>' +
-    '<div class="summary-kpi' +
-    kpiDanger(report.overallLossPct) +
-    '" id="tbtv5-kpi-pct-card"><i class="fa-solid fa-percent kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-pct">' +
-    _normPct(report.overallLossPct) +
-    '</span><span class="kpi-label">perda geral</span></div></div>' +
+    _smKpiCard('fa-microchip',    report.totalDevices,          'dispositivos',   '',             'tbtv5-kpi-devs',      '') +
+    _smKpiCard('fa-chart-bar',    report.totalReal,             'leituras reais', '',             'tbtv5-kpi-real',      '') +
+    _smKpiCard('fa-circle-minus', report.totalMissing,          'slots sem dados', kpiDanger(report.totalMissing), 'tbtv5-kpi-miss', 'tbtv5-kpi-miss-card') +
+    _smKpiCard('fa-percent',      _normPct(report.overallLossPct), 'perda geral', kpiDanger(report.overallLossPct), 'tbtv5-kpi-pct', 'tbtv5-kpi-pct-card') +
     '</div>' +
     '<div class="summary-main-content">' +
     '<div class="summary-device-list">' +
@@ -3361,9 +3318,21 @@ function _smUpdateFiltered() {
   if (eDevs) eDevs.textContent = n;
   if (eReal) eReal.textContent = totalReal;
   if (eMiss) eMiss.textContent = totalMissing;
-  if (eMissCard) eMissCard.className = 'summary-kpi' + (totalMissing > 0 ? ' kpi-danger' : '');
+  if (eMissCard) {
+    var md = totalMissing > 0;
+    eMissCard.style.background = md ? '#fff5f5' : '#f9fafb';
+    eMissCard.style.border = md ? '1px solid #fca5a5' : '1px solid #e5e7eb';
+    var missIcon = eMissCard.querySelector('i');
+    if (missIcon) missIcon.style.color = md ? '#f87171' : '#9ca3af';
+  }
   if (ePct) ePct.textContent = _normPct(pct);
-  if (ePctCard) ePctCard.className = 'summary-kpi' + (pct > 0 ? ' kpi-danger' : '');
+  if (ePctCard) {
+    var pd = pct > 0;
+    ePctCard.style.background = pd ? '#fff5f5' : '#f9fafb';
+    ePctCard.style.border = pd ? '1px solid #fca5a5' : '1px solid #e5e7eb';
+    var pctIcon = ePctCard.querySelector('i');
+    if (pctIcon) pctIcon.style.color = pd ? '#f87171' : '#9ca3af';
+  }
 }
 
 function _smSetActiveFilterBtn(key) {
