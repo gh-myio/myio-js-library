@@ -221,9 +221,6 @@
         <span class="badge-value">{{ getBadgeReadingsCount() }}</span>
         <span class="badge-label">leituras</span>
       </span>
-      <button class="summary-report-btn" (click)="openSummaryModal()" title="Resumo da consulta">
-        <i class="fa-solid fa-chart-pie"></i>
-      </button>
     </div>
 
     <div class="expand-controls" *ngIf="viewMode === 'card' || viewMode === 'list'">
@@ -378,7 +375,7 @@
             [class.list-badge-ok]="getDeviceLossPct(device.value) === 0"
             [class.list-badge-warn]="getDeviceLossPct(device.value) > 0 && getDeviceLossPct(device.value) <= 15"
             [class.list-badge-danger]="getDeviceLossPct(device.value) > 15">
-            <span class="list-badge-label">perda</span> {{ getDeviceLossPct(device.value) }}%
+            <span class="list-badge-label">perda</span> {{ getDeviceLossPctFmt(device.value) }}
           </span>
           <span class="list-stat list-stat-warn" *ngIf="adminMode && getInterpolatedCount(device.value) > 0">
             <mat-icon style="font-size:13px;height:13px;width:13px;vertical-align:middle">auto_fix_high</mat-icon>
@@ -443,7 +440,7 @@
               [class.list-badge-ok]="getDeviceLossPct(device.value) === 0"
               [class.list-badge-warn]="getDeviceLossPct(device.value) > 0 && getDeviceLossPct(device.value) <= 15"
               [class.list-badge-danger]="getDeviceLossPct(device.value) > 15">
-              <span class="list-badge-label">perda</span> {{ getDeviceLossPct(device.value) }}%
+              <span class="list-badge-label">perda</span> {{ getDeviceLossPctFmt(device.value) }}
             </span>
             <span class="stat stat-count">
               <i class="fa-solid fa-list"></i>
@@ -502,11 +499,4 @@
     <p>Tente ajustar o intervalo de datas ou os ambientes selecionados.</p>
   </div>
 
-  <!-- Modal de Resumo da Consulta — shell estático, conteúdo gerado por JS (padrão TELEMETRY_INFO) -->
-  <div
-    id="tbtv5-sm-bd"
-    style="display: none"
-    onclick="window.tbtv5_closeSummaryModal && window.tbtv5_closeSummaryModal()"
-  ></div>
-  <div id="tbtv5-sm" style="display: none"><div id="tbtv5-sm-inner"></div></div>
 </div>

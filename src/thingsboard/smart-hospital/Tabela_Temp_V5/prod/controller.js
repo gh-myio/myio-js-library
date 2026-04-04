@@ -1802,11 +1802,9 @@ function toggleViewMode(mode) {
   const s = self.ctx.$scope;
   s.viewMode = mode;
   if (mode === 'card') {
-    _smState.dashboardMode = false;
     s.expandedDevices = {};
     renderCardView(s.dados || []);
   } else if (mode === 'list') {
-    _smState.dashboardMode = false;
     renderListView(s.dados || []);
   } else if (mode === 'dashboard') {
     // garante groupedData para o lv-filter-bar ficar visível
@@ -2220,6 +2218,8 @@ self.onInit = function () {
     const missing = arr.filter((r) => r.temperature === '-' || r.temperature === '=').length;
     return parseFloat(((missing / arr.length) * 100).toFixed(2));
   };
+  // Versão formatada para exibição (sempre 2 casas decimais: 6.00%)
+  self.ctx.$scope.getDeviceLossPctFmt = (arr) => _normPct(self.ctx.$scope.getDeviceLossPct(arr));
 
   self.ctx.$scope.getDeviceLossClass = (arr) => {
     const total = (arr || []).length;
@@ -2455,17 +2455,6 @@ self.onInit = function () {
     return report;
   }
 
-  self.ctx.$scope.openSummaryModal = function () {
-    const s = self.ctx.$scope;
-    const allData = s.dados || [];
-    if (!allData.length) return;
-    const report = _smBuildReport(allData);
-    _smState.expanded = false;
-    _smState.chartShow = { real: true, equal: true, missing: true };
-    _smState.devices = report.devices;
-    _smOpenModal(report);
-  };
-
   self.ctx.$scope.openSummaryDashboard = function () {
     const s = self.ctx.$scope;
     const allData = s.dados || [];
@@ -2474,10 +2463,6 @@ self.onInit = function () {
     _smState.chartShow = { real: true, equal: true, missing: true };
     _smState.devices = report.devices;
     _smActivateDashboard(report);
-  };
-
-  self.ctx.$scope.closeSummaryModal = function () {
-    _smCloseModal();
   };
 
   // Overlay inicial
@@ -2636,13 +2621,11 @@ var _smState = {
   filterSel: null,
   activeFilterBtn: 'all',
   sortOrder: 'loss_desc',
-  dashboardMode: false, // true = renderizado inline na tab Dashboard (sem overlay)
 };
 
-// Retorna o container ativo (modal ou dashboard inline)
+// Retorna o container da tab Dashboard
 function _smGetContainer() {
-  if (_smState.dashboardMode) return document.getElementById('tbtv5-dashboard-view');
-  return document.getElementById('tbtv5-sm');
+  return document.getElementById('tbtv5-dashboard-view');
 }
 
 function _smInjectCSS() {
@@ -2651,9 +2634,6 @@ function _smInjectCSS() {
   var s = document.createElement('style');
   s.id = 'tbtv5-sm-styles';
   s.textContent = [
-    '#tbtv5-sm-bd{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2147483646}',
-    '#tbtv5-sm{position:fixed;z-index:2147483647;background:#fff;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;font-size:14px;box-sizing:border-box}',
-    '#tbtv5-sm *{box-sizing:border-box}',
     '.summary-modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#5c307d;color:#fff;font-weight:600;font-size:15px;gap:8px;flex-shrink:0}',
     '.summary-header-left{display:flex;align-items:center;gap:10px;flex:1;overflow:hidden}',
     '.summary-period{font-size:12px;font-weight:400;opacity:.85;white-space:nowrap;background:rgba(255,255,255,.15);border-radius:6px;padding:2px 8px}',
@@ -2922,15 +2902,6 @@ function _smBuildHTML(report) {
     return v > 0 ? ' kpi-danger' : '';
   };
   return (
-    '<div class="summary-modal-header">' +
-    '<div class="summary-header-left">' +
-    '<span>Resumo da Consulta</span>' +
-    (report.period ? '<span class="summary-period">' + _smEsc(report.period) + '</span>' : '') +
-    '</div>' +
-    '<div class="summary-header-actions">' +
-    (_smState.dashboardMode ? '' : '<button class="summary-modal-expand" id="tbtv5-sm-expbtn" onclick="window.tbtv5_toggleExpand()" title="Expandir">⤢</button>') +
-    (_smState.dashboardMode ? '' : '<button class="summary-modal-close" onclick="window.tbtv5_closeSummaryModal()">✕</button>') +
-    '</div></div>' +
     '<div class="summary-modal-body" onclick="window.tbtv5_closeMsDropdown(event)">' +
     '<div class="summary-overall">' +
     '<div class="summary-kpi"><span class="kpi-value" id="tbtv5-kpi-devs">' +
@@ -2972,66 +2943,8 @@ function _smBuildHTML(report) {
     '<button class="sm-export-btn" onclick="window.tbtv5_exportCSV()">📋 CSV</button>' +
     '</div>' +
     '<span class="sm-footer-brand">MYIO Smart Hospital • Resumo de Temperatura</span>' +
-    (_smState.dashboardMode ? '' : '<button class="sm-footer-close" onclick="window.tbtv5_closeSummaryModal()">Fechar</button>') +
     '</footer>'
   );
-}
-
-function _smShowModal(modal, bd) {
-  var Z = '2147483647';
-  var exp = _smState.expanded;
-  if (bd) {
-    bd.style.setProperty('display', 'block', 'important');
-    bd.style.setProperty('position', 'fixed', 'important');
-    bd.style.setProperty('inset', '0', 'important');
-    bd.style.setProperty('z-index', String(Z - 1), 'important');
-    bd.style.setProperty('background', 'rgba(0,0,0,0.45)', 'important');
-  }
-  modal.style.setProperty('display', 'flex', 'important');
-  modal.style.setProperty('position', 'fixed', 'important');
-  modal.style.setProperty('z-index', Z, 'important');
-  modal.style.setProperty('background', '#fff', 'important');
-  modal.style.setProperty('flex-direction', 'column', 'important');
-  modal.style.setProperty('overflow', 'hidden', 'important');
-  modal.style.setProperty('box-shadow', '0 24px 60px rgba(0,0,0,0.22)', 'important');
-  if (exp) {
-    modal.style.setProperty('top', '0', 'important');
-    modal.style.setProperty('left', '0', 'important');
-    modal.style.setProperty('right', '0', 'important');
-    modal.style.setProperty('bottom', '0', 'important');
-    modal.style.setProperty('width', '100%', 'important');
-    modal.style.setProperty('height', '100vh', 'important');
-    modal.style.setProperty('transform', 'none', 'important');
-    modal.style.setProperty('border-radius', '0', 'important');
-    modal.classList.add('expanded');
-  } else {
-    modal.style.setProperty('top', '50%', 'important');
-    modal.style.setProperty('left', '50%', 'important');
-    modal.style.removeProperty('right');
-    modal.style.removeProperty('bottom');
-    modal.style.setProperty('width', 'min(1280px, 98vw)', 'important');
-    modal.style.setProperty('height', '80vh', 'important');
-    modal.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
-    modal.style.setProperty('border-radius', '16px', 'important');
-    modal.classList.remove('expanded');
-  }
-}
-
-function _smOpenModal(report) {
-  _smInjectCSS();
-  _smState.report = report;
-  _smState.filterText = '';
-  _smState.filterSel = null;
-  _smState.activeFilterBtn = 'all';
-  _smState.sortOrder = 'loss_desc';
-  var modal = document.getElementById('tbtv5-sm');
-  var bd = document.getElementById('tbtv5-sm-bd');
-  if (!modal) return;
-  modal.innerHTML = _smBuildHTML(report); // direct children of #tbtv5-sm → flex layout works
-  // Move to body every time (same as TELEMETRY_INFO line 999)
-  document.body.appendChild(bd);
-  document.body.appendChild(modal);
-  _smShowModal(modal, bd);
 }
 
 function _smActivateDashboard(report) {
@@ -3043,21 +2956,10 @@ function _smActivateDashboard(report) {
   _smState.sortOrder = 'loss_desc';
   _smState.expanded = false;
   _smState.chartShow = { real: true, equal: true, missing: true };
-  _smState.dashboardMode = true;
   var container = document.getElementById('tbtv5-dashboard-view');
   if (!container) return;
   container.innerHTML = _smBuildHTML(report);
 }
-
-function _smCloseModal() {
-  var modal = document.getElementById('tbtv5-sm');
-  var bd = document.getElementById('tbtv5-sm-bd');
-  if (modal) modal.style.setProperty('display', 'none', 'important');
-  if (bd) bd.style.setProperty('display', 'none', 'important');
-  _smState.expanded = false;
-}
-
-window.tbtv5_closeSummaryModal = _smCloseModal;
 
 /* ---- filter helpers ---- */
 function _smGetFilteredIndices() {
@@ -3290,15 +3192,6 @@ window.tbtv5_filterNoLoss = function () {
   _smUpdateMsLabel();
   _smSetActiveFilterBtn('ok');
   _smUpdateFiltered();
-};
-
-window.tbtv5_toggleExpand = function () {
-  _smState.expanded = !_smState.expanded;
-  var modal = document.getElementById('tbtv5-sm');
-  var bd = document.getElementById('tbtv5-sm-bd');
-  if (modal) _smShowModal(modal, bd);
-  var btn = document.getElementById('tbtv5-sm-expbtn');
-  if (btn) btn.title = _smState.expanded ? 'Recolher' : 'Expandir';
 };
 
 window.tbtv5_toggleDevice = function (i) {
