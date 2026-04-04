@@ -1365,3 +1365,246 @@
   background: #f3f4f6;
   color: #374151;
 }
+
+/* ── Filter bar compartilhado (Lista + Cards) ───────────────────────────── */
+.lv-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 2px 6px;
+}
+.lv-search {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lv-search:focus {
+  border-color: #5c307d;
+  box-shadow: 0 0 0 2px rgba(92,48,125,0.12);
+}
+.lv-sort-wrap {
+  position: relative;
+}
+.lv-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  background: #fff;
+  color: #374151;
+  transition: border-color 0.15s;
+  white-space: nowrap;
+}
+.lv-sort-btn:hover, .lv-sort-active {
+  border-color: #5c307d;
+  color: #5c307d;
+}
+.lv-sort-dd {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  min-width: 160px;
+  overflow: hidden;
+}
+.lv-sort-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-align: left;
+  color: #374151;
+  white-space: nowrap;
+}
+.lv-sort-item:hover { background: #f9fafb; }
+.lv-sort-selected { color: #5c307d; font-weight: 600; background: #f9f5ff !important; }
+.lv-fmode-btn {
+  padding: 5px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  background: #fff;
+  color: #6b7280;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.lv-fmode-btn:hover { border-color: #5c307d; color: #5c307d; }
+.lv-fmode-active {
+  background: #5c307d;
+  color: #fff;
+  border-color: #5c307d;
+}
+.lv-filter-count {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-left: auto;
+}
+
+/* ── Lista agrupada (TAB Lista) ──────────────────────────────────────────── */
+.list-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 2px 16px;
+}
+
+.list-device-group {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.list-device-group.expanded {
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.07);
+}
+
+.list-device-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: #fafafa;
+  border-left: 4px solid #5c307d;
+  user-select: none;
+  transition: background 0.12s;
+}
+.list-device-header:hover {
+  background: #f3eaff;
+}
+.list-device-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 14px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-device-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.list-stat {
+  font-size: 12px;
+  color: #6b7280;
+}
+.list-stat-warn {
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.list-expand-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+.list-device-group.expanded .list-expand-icon {
+  color: #5c307d;
+}
+
+.list-device-readings {
+  border-top: 1px solid #f0f0f0;
+}
+
+.list-reading-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  padding: 5px 14px 5px 18px;
+  font-size: 13px;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+}
+.list-reading-row:last-child {
+  border-bottom: none;
+}
+.list-reading-row:nth-child(even) {
+  background: #f9fafb;
+}
+.list-reading-header {
+  background: #f3f4f6 !important;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+/* admin: 3 colunas quando adminMode */
+.list-reading-row.list-has-status {
+  grid-template-columns: 160px 1fr 120px;
+}
+.reading-interpolated {
+  background: #fffbeb !important;
+}
+.reading-clamped {
+  background: #fff1f2 !important;
+}
+.reading-equal {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* badges mín/máx/méd/perda na TAB Lista */
+.list-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+.list-badge-label {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.list-badge-neutral {
+  background: #f0f5ff;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+.list-badge-ok {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+.list-badge-warn {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+.list-badge-danger {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}

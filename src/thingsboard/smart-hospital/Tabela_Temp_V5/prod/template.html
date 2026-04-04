@@ -198,11 +198,14 @@
   <!-- Controles Premium -->
   <div class="view-controls hide-in-pdf" *ngIf="dados && dados.length > 0">
     <div class="view-toggle">
-      <button mat-button [class.active]="!isCardView" (click)="toggleViewMode('list')" title="Lista">
+      <button mat-button [class.active]="viewMode === 'list'" (click)="toggleViewMode('list')" title="Lista">
         <mat-icon>view_list</mat-icon> Lista
       </button>
-      <button mat-button [class.active]="isCardView" (click)="toggleViewMode('card')" title="Cards">
+      <button mat-button [class.active]="viewMode === 'card'" (click)="toggleViewMode('card')" title="Cards">
         <mat-icon>view_module</mat-icon> Cards
+      </button>
+      <button mat-button [class.active]="viewMode === 'dashboard'" (click)="toggleViewMode('dashboard')" title="Dashboard">
+        <mat-icon>dashboard</mat-icon> Dashboard
       </button>
     </div>
 
@@ -210,12 +213,12 @@
     <div class="summary-badges">
       <span class="summary-badge badge-devices">
         <i class="fa-solid fa-microchip"></i>
-        <span class="badge-value">{{ totalDevices }}</span>
+        <span class="badge-value">{{ getBadgeDeviceCount() }}</span>
         <span class="badge-label">dispositivos</span>
       </span>
       <span class="summary-badge badge-readings">
         <i class="fa-solid fa-chart-bar"></i>
-        <span class="badge-value">{{ totalReadings }}</span>
+        <span class="badge-value">{{ getBadgeReadingsCount() }}</span>
         <span class="badge-label">leituras</span>
       </span>
       <button class="summary-report-btn" (click)="openSummaryModal()" title="Resumo da consulta">
@@ -223,7 +226,7 @@
       </button>
     </div>
 
-    <div class="expand-controls" *ngIf="isCardView">
+    <div class="expand-controls" *ngIf="viewMode === 'card' || viewMode === 'list'">
       <button mat-button (click)="expandAllDevices()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
       <button mat-button (click)="collapseAllDevices()">
         <mat-icon>expand_less</mat-icon> Recolher Todos
@@ -325,47 +328,98 @@
     </div>
   </div>
 
-  <!-- Tabela (Lista) -->
-  <mat-table
-    [dataSource]="dados"
-    matSort
-    class="mat-elevation-z8 fullwidth"
-    *ngIf="!isCardView && dados && dados.length > 0"
-  >
-    <ng-container matColumnDef="deviceName">
-      <mat-header-cell *matHeaderCellDef mat-sort-header> Dispositivo </mat-header-cell>
-      <mat-cell *matCellDef="let row">
-        {{ row.deviceName }}
-        <span class="badge interp" *ngIf="adminMode && row.interpolated" title="Valor interpolado"
-          >interp</span
+  <!-- Filter bar compartilhado — Lista e Cards -->
+  <div class="lv-filter-bar" *ngIf="(viewMode === 'list' || viewMode === 'card' || viewMode === 'dashboard') && groupedData" (click)="lvCloseSortDropdown()">
+    <input class="lv-search" type="text" placeholder="🔍 Buscar dispositivo..."
+      [ngModel]="lvFilter.text" (ngModelChange)="lvSetText($event)" (click)="$event.stopPropagation()">
+
+    <div class="lv-sort-wrap" (click)="$event.stopPropagation()">
+      <button class="lv-sort-btn" [class.lv-sort-active]="lvFilter.sort !== 'az'" (click)="lvToggleSortOpen($event)">
+        <i class="fa-solid fa-arrow-up-wide-short"></i> {{ lvSortLabel() }} ▾
+      </button>
+      <div class="lv-sort-dd" *ngIf="lvFilter.sortOpen">
+        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'loss_desc'" (click)="lvSetSort('loss_desc')">↓ Maior perda</button>
+        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'loss_asc'"  (click)="lvSetSort('loss_asc')">↑ Menor perda</button>
+        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'az'"        (click)="lvSetSort('az')">A → Z</button>
+        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'za'"        (click)="lvSetSort('za')">Z → A</button>
+      </div>
+    </div>
+
+    <button class="lv-fmode-btn" [class.lv-fmode-active]="lvFilter.mode === 'all'"  (click)="lvSetMode('all')">Todos</button>
+    <button class="lv-fmode-btn" [class.lv-fmode-active]="lvFilter.mode === 'loss'" (click)="lvSetMode('loss')">Só perdas</button>
+    <button class="lv-fmode-btn" [class.lv-fmode-active]="lvFilter.mode === 'ok'"   (click)="lvSetMode('ok')">Sem perdas</button>
+
+    <span class="lv-filter-count">{{ getFilteredDevices().length }}/{{ lvTotalCount() }}</span>
+  </div>
+
+  <!-- Lista agrupada por device (collapsível) -->
+  <div class="list-view-container" *ngIf="viewMode === 'list' && groupedData">
+    <div
+      class="list-device-group"
+      *ngFor="let device of getFilteredDevices(); trackBy: lvTrackBy"
+      [class.expanded]="expandedDevices[device.key]"
+    >
+      <div class="list-device-header" (click)="toggleDeviceExpansion(device.key)">
+        <div class="list-device-name">{{ device.key }}</div>
+        <div class="list-device-meta">
+          <span class="list-badge list-badge-neutral">
+            <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+            <span class="list-badge-label">mín</span> {{ getDeviceMin(device.value) }}
+          </span>
+          <span class="list-badge list-badge-neutral">
+            <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+            <span class="list-badge-label">máx</span> {{ getDeviceMax(device.value) }}
+          </span>
+          <span class="list-badge list-badge-neutral">
+            <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+            <span class="list-badge-label">méd</span> {{ getDeviceAvg(device.value) }}
+          </span>
+          <span class="list-badge"
+            [class.list-badge-ok]="getDeviceLossPct(device.value) === 0"
+            [class.list-badge-warn]="getDeviceLossPct(device.value) > 0 && getDeviceLossPct(device.value) <= 15"
+            [class.list-badge-danger]="getDeviceLossPct(device.value) > 15">
+            <span class="list-badge-label">perda</span> {{ getDeviceLossPct(device.value) }}%
+          </span>
+          <span class="list-stat list-stat-warn" *ngIf="adminMode && getInterpolatedCount(device.value) > 0">
+            <mat-icon style="font-size:13px;height:13px;width:13px;vertical-align:middle">auto_fix_high</mat-icon>
+            {{ getInterpolatedCount(device.value) }} interp.
+          </span>
+        </div>
+        <mat-icon class="list-expand-icon">{{ expandedDevices[device.key] ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </div>
+
+      <div class="list-device-readings" *ngIf="expandedDevices[device.key]">
+        <div class="list-reading-row list-reading-header" [class.list-has-status]="adminMode">
+          <span>Temperatura</span>
+          <span>Data/Hora</span>
+          <span *ngIf="adminMode">Status</span>
+        </div>
+        <div
+          class="list-reading-row"
+          [class.list-has-status]="adminMode"
+          *ngFor="let r of device.value"
+          [class.reading-interpolated]="r.interpolated"
+          [class.reading-clamped]="r.correctedBelowThreshold"
+          [class.reading-equal]="r.equalSign"
         >
-        <span class="badge clamp" *ngIf="adminMode && row.correctedBelowThreshold" title="Clamped a 17.00°C"
-          >17+</span
-        >
-      </mat-cell>
-    </ng-container>
-
-    <ng-container matColumnDef="temperature">
-      <mat-header-cell *matHeaderCellDef mat-sort-header> Temperatura </mat-header-cell>
-      <mat-cell *matCellDef="let row" [class.equal-sign-cell]="row.equalSign"
-        >{{ row.equalSign ? '=' : (row.temperature + '°C') }}</mat-cell
-      >
-    </ng-container>
-
-    <ng-container matColumnDef="reading_date">
-      <mat-header-cell *matHeaderCellDef mat-sort-header> Data </mat-header-cell>
-      <mat-cell *matCellDef="let row">{{ row.reading_date }}</mat-cell>
-    </ng-container>
-
-    <mat-header-row *matHeaderRowDef="['deviceName','temperature','reading_date']"></mat-header-row>
-    <mat-row *matRowDef="let row; columns: ['deviceName','temperature','reading_date']"></mat-row>
-  </mat-table>
+          <span>
+            {{ r.equalSign ? '=' : (r.temperature + '°C') }}
+            <span class="badge clamp" *ngIf="adminMode && r.correctedBelowThreshold">17+</span>
+          </span>
+          <span>{{ r.reading_date }}</span>
+          <span *ngIf="adminMode">
+            <span class="badge interp" *ngIf="r.interpolated">Interpolado</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Cards (Premium) -->
-  <div class="card-view-container" *ngIf="isCardView && groupedData">
+  <div class="card-view-container" *ngIf="viewMode === 'card' && groupedData">
     <div
       class="device-card"
-      *ngFor="let device of groupedData | keyvalue"
+      *ngFor="let device of getFilteredDevices(); trackBy: lvTrackBy"
       [class.expanded]="expandedDevices[device.key]"
       [ngClass]="getDeviceLossClass(device.value)"
     >
@@ -373,9 +427,23 @@
         <div class="device-info">
           <h3 class="device-name">{{ device.key }}</h3>
           <div class="device-stats">
-            <span class="stat">
-              <mat-icon>device_thermostat</mat-icon>
-              {{ getLatestTemperature(device.value) }}°C
+            <span class="list-badge list-badge-neutral">
+              <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+              <span class="list-badge-label">mín</span> {{ getDeviceMin(device.value) }}
+            </span>
+            <span class="list-badge list-badge-neutral">
+              <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+              <span class="list-badge-label">máx</span> {{ getDeviceMax(device.value) }}
+            </span>
+            <span class="list-badge list-badge-neutral">
+              <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+              <span class="list-badge-label">méd</span> {{ getDeviceAvg(device.value) }}
+            </span>
+            <span class="list-badge"
+              [class.list-badge-ok]="getDeviceLossPct(device.value) === 0"
+              [class.list-badge-warn]="getDeviceLossPct(device.value) > 0 && getDeviceLossPct(device.value) <= 15"
+              [class.list-badge-danger]="getDeviceLossPct(device.value) > 15">
+              <span class="list-badge-label">perda</span> {{ getDeviceLossPct(device.value) }}%
             </span>
             <span class="stat stat-count">
               <i class="fa-solid fa-list"></i>
@@ -420,6 +488,11 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Tab Dashboard — Resumo da Consulta inline -->
+  <div class="dashboard-tab-container" *ngIf="viewMode === 'dashboard' && dados && dados.length > 0">
+    <div id="tbtv5-dashboard-view"></div>
   </div>
 
   <!-- Sem dados -->

@@ -732,6 +732,18 @@ function clampTemperature(val) {
   return { value: Number(v.toFixed(2)), clamped };
 }
 
+// -------- Display normalization --------
+// Normaliza valor de temperatura: sempre 2 casas decimais, sem zero à esquerda (ex: 9.50°C)
+function _normTemp(val) {
+  const n = parseFloat(val);
+  return isNaN(n) ? '—' : n.toFixed(2) + '°C';
+}
+// Normaliza percentual de perda: sempre 2 casas decimais (ex: 6.00%, 12.50%)
+function _normPct(val) {
+  const n = parseFloat(val);
+  return isNaN(n) ? '—' : n.toFixed(2) + '%';
+}
+
 // -------- Util --------
 // Formata data/hora convertendo UTC para horário Brasil (UTC-3)
 function brDatetime(iso) {
@@ -784,7 +796,7 @@ function showToast(message, type = 'error', duration = 8000) {
     position: fixed !important;
     top: 20px !important;
     right: 20px !important;
-    z-index: 999999 !important;
+    z-index: 2147483647 !important;
     display: flex !important;
     align-items: flex-start;
     gap: 12px;
@@ -1038,13 +1050,13 @@ function _pdfSummaryFromData(data) {
   var devices = Object.keys(byDev).map(function (name) {
     var v = byDev[name];
     var total = v.real + v.missing;
-    var pct = total ? parseFloat(((v.missing / total) * 100).toFixed(1)) : 0;
+    var pct = total ? parseFloat(((v.missing / total) * 100).toFixed(2)) : 0;
     return { name: name, real: v.real, missing: v.missing, total: total, pct: pct };
   }).sort(function (a, b) { return b.pct - a.pct; });
   var totalReal = devices.reduce(function (s, d) { return s + d.real; }, 0);
   var totalMissing = devices.reduce(function (s, d) { return s + d.missing; }, 0);
   var totalSlots = devices.reduce(function (s, d) { return s + d.total; }, 0);
-  var overallPct = totalSlots ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1)) : 0;
+  var overallPct = totalSlots ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(2)) : 0;
   return { devices: devices, totalReal: totalReal, totalMissing: totalMissing, totalSlots: totalSlots, overallPct: overallPct };
 }
 
@@ -1083,7 +1095,7 @@ function _pdfBuildCover(doc, cov, pw, ph, mg, purple, pdfDate, pdfTime, periodSt
     { label: 'Dispositivos',   value: String(cov.devices.length),  color: purple },
     { label: 'Leituras reais', value: String(cov.totalReal),        color: [22, 163, 74] },
     { label: 'Slots sem dados', value: String(cov.totalMissing),   color: cov.totalMissing > 0 ? [220, 38, 38] : [107, 114, 128] },
-    { label: 'Perda geral',    value: cov.overallPct + '%',         color: cov.overallPct > 0 ? [220, 38, 38] : [22, 163, 74] },
+    { label: 'Perda geral',    value: _normPct(cov.overallPct),     color: cov.overallPct > 0 ? [220, 38, 38] : [22, 163, 74] },
   ];
   var cardGap = 4, cardW = (pw - 2 * mg - 3 * cardGap) / 4;
   var cardY = 67, cardH = 24;
@@ -1165,7 +1177,7 @@ function _pdfBuildCover(doc, cov, pw, ph, mg, purple, pdfDate, pdfTime, periodSt
     doc.text(String(dev.missing),xs[2] + _colWs[2] / 2,  rowY + 4, { align: 'center' });
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(lc[0], lc[1], lc[2]);
-    doc.text(dev.pct + '%',      xs[3] + _colWs[3] / 2,  rowY + 4, { align: 'center' });
+    doc.text(_normPct(dev.pct),  xs[3] + _colWs[3] / 2,  rowY + 4, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.line(ox, rowY + tH, ox + halfW, rowY + tH);
   }
@@ -1761,7 +1773,7 @@ function renderData(data) {
   const s = self.ctx.$scope;
   s.totalReadings = data.filter((r) => r.temperature !== '-').length;
   s.totalDevices = new Set(data.map((r) => r.deviceName)).size;
-  if (s.isCardView) {
+  if (s.viewMode === 'card') {
     renderCardView(data);
   } else {
     renderListView(data);
@@ -1777,20 +1789,34 @@ function renderCardView(data) {
 }
 
 function renderListView(data) {
+  const grouped = _.groupBy(data, 'deviceName');
   self.ctx.$scope.dados = data;
+  self.ctx.$scope.groupedData = grouped;
+  self.ctx.$scope.expandedDevices = {};
+  // reseta filtro ao carregar novos dados
+  if (self.ctx.$scope.lvFilter) Object.assign(self.ctx.$scope.lvFilter, { text: '', sort: 'az', mode: 'all', sortOpen: false });
   self.ctx.detectChanges();
 }
 
 function toggleViewMode(mode) {
   const s = self.ctx.$scope;
-  // ao clicar em Cards, sempre recolher tudo
+  s.viewMode = mode;
   if (mode === 'card') {
-    s.isCardView = true;
+    _smState.dashboardMode = false;
     s.expandedDevices = {};
     renderCardView(s.dados || []);
-  } else {
-    s.isCardView = false;
+  } else if (mode === 'list') {
+    _smState.dashboardMode = false;
     renderListView(s.dados || []);
+  } else if (mode === 'dashboard') {
+    // garante groupedData para o lv-filter-bar ficar visível
+    if (!s.groupedData && s.dados && s.dados.length) {
+      s.groupedData = _.groupBy(s.dados, 'deviceName');
+    }
+    self.ctx.detectChanges(); // aplica *ngIf para montar #tbtv5-dashboard-view no DOM
+    // setTimeout aguarda o ciclo de rendering do Angular antes de popular o container
+    setTimeout(function () { s.openSummaryDashboard(); }, 0);
+    return;
   }
   self.ctx.detectChanges();
 }
@@ -2134,7 +2160,7 @@ self.onInit = function () {
 
   // View default: card view recolhido
   self.ctx.$scope.hasQueried = false;
-  self.ctx.$scope.isCardView = true;
+  self.ctx.$scope.viewMode = 'card'; // 'list' | 'card' | 'dashboard'
   self.ctx.$scope.groupedData = {};
   self.ctx.$scope.expandedDevices = {};
   self.ctx.$scope.totalReadings = 0;
@@ -2174,6 +2200,27 @@ self.onInit = function () {
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
   self.ctx.$scope.getRealCount = (arr) =>
     (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
+
+  // ── Badges da TAB Lista ──────────────────────────────────────────
+  self.ctx.$scope.getDeviceMin = (arr) => {
+    const vals = (arr || []).map((r) => parseFloat(r.temperature)).filter((v) => !isNaN(v));
+    return vals.length ? _normTemp(Math.min(...vals)) : '—';
+  };
+  self.ctx.$scope.getDeviceMax = (arr) => {
+    const vals = (arr || []).map((r) => parseFloat(r.temperature)).filter((v) => !isNaN(v));
+    return vals.length ? _normTemp(Math.max(...vals)) : '—';
+  };
+  self.ctx.$scope.getDeviceAvg = (arr) => {
+    const vals = (arr || []).map((r) => parseFloat(r.temperature)).filter((v) => !isNaN(v));
+    if (!vals.length) return '—';
+    return _normTemp(vals.reduce((a, b) => a + b, 0) / vals.length);
+  };
+  self.ctx.$scope.getDeviceLossPct = (arr) => {
+    if (!arr || !arr.length) return 0;
+    const missing = arr.filter((r) => r.temperature === '-' || r.temperature === '=').length;
+    return parseFloat(((missing / arr.length) * 100).toFixed(2));
+  };
+
   self.ctx.$scope.getDeviceLossClass = (arr) => {
     const total = (arr || []).length;
     if (!total) return '';
@@ -2186,11 +2233,91 @@ self.onInit = function () {
     return 'loss-critical';
   };
 
-  self.ctx.$scope.openSummaryModal = function () {
-    const s = self.ctx.$scope;
-    const allData = s.dados || [];
-    if (!allData.length) return;
+  // ── Filter/Sort compartilhado entre Lista e Cards ────────────────
+  const _lvFilter = { text: '', sort: 'az', mode: 'all', sortOpen: false };
+  self.ctx.$scope.lvFilter = _lvFilter;
 
+  const _LV_SORT_LABELS = { loss_desc: '↓ Maior perda', loss_asc: '↑ Menor perda', az: 'A → Z', za: 'Z → A' };
+  self.ctx.$scope.lvSortLabel = () => _LV_SORT_LABELS[_lvFilter.sort] || 'A → Z';
+
+  // Sincroniza filtro do dashboard (_smState) quando estamos na tab Dashboard
+  function _lvSyncDashboard() {
+    const vm = self.ctx.$scope.viewMode;
+    if (vm !== 'dashboard') return;
+    // text search
+    _smState.filterText = _lvFilter.text;
+    _smSetActiveFilterBtn('');
+    // mode → mapeia para os botões do dashboard
+    if (_lvFilter.mode === 'loss') window.tbtv5_filterOnlyLoss && window.tbtv5_filterOnlyLoss();
+    else if (_lvFilter.mode === 'ok') window.tbtv5_filterNoLoss && window.tbtv5_filterNoLoss();
+    else window.tbtv5_filterAll && window.tbtv5_filterAll();
+    // sort
+    if (window.tbtv5_applySortOrder) window.tbtv5_applySortOrder(_lvFilter.sort);
+    // para text, _smUpdateFiltered faz o update de show/hide
+    _smUpdateFiltered();
+  }
+
+  self.ctx.$scope.lvSetText = (v) => {
+    _lvFilter.text = (v || '').toLowerCase();
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvSetSort = (order) => {
+    _lvFilter.sort = order;
+    _lvFilter.sortOpen = false;
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvSetMode = (mode) => {
+    _lvFilter.mode = mode;
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvToggleSortOpen = (e) => { e.stopPropagation(); _lvFilter.sortOpen = !_lvFilter.sortOpen; self.ctx.detectChanges(); };
+  self.ctx.$scope.lvCloseSortDropdown = () => { if (_lvFilter.sortOpen) { _lvFilter.sortOpen = false; self.ctx.detectChanges(); } };
+
+  self.ctx.$scope.getFilteredDevices = () => {
+    const s = self.ctx.$scope;
+    const gd = s.groupedData || {};
+    const { text, sort, mode } = _lvFilter;
+    let entries = Object.entries(gd).map(([key, value]) => ({ key, value }));
+    if (text) entries = entries.filter((e) => e.key.toLowerCase().includes(text));
+    if (mode === 'loss') entries = entries.filter((e) => s.getDeviceLossPct(e.value) > 0);
+    if (mode === 'ok')   entries = entries.filter((e) => s.getDeviceLossPct(e.value) === 0);
+    if (sort === 'az')        entries.sort((a, b) => a.key.localeCompare(b.key));
+    else if (sort === 'za')   entries.sort((a, b) => b.key.localeCompare(a.key));
+    else if (sort === 'loss_desc') entries.sort((a, b) => s.getDeviceLossPct(b.value) - s.getDeviceLossPct(a.value));
+    else if (sort === 'loss_asc')  entries.sort((a, b) => s.getDeviceLossPct(a.value) - s.getDeviceLossPct(b.value));
+    return entries;
+  };
+  self.ctx.$scope.lvTrackBy = (_, item) => item.key;
+  self.ctx.$scope.lvTotalCount = () => Object.keys(self.ctx.$scope.groupedData || {}).length;
+
+  // Badges "dispositivos" e "leituras" reflectem o filtro activo nas tabs Lista/Cards/Dashboard
+  self.ctx.$scope.getBadgeDeviceCount = () => {
+    const s = self.ctx.$scope;
+    if (s.viewMode === 'dashboard' && _smState.report) {
+      return _smGetFilteredIndices().length;
+    }
+    if ((s.viewMode === 'list' || s.viewMode === 'card') && s.groupedData) {
+      return s.getFilteredDevices().length;
+    }
+    return s.totalDevices;
+  };
+  self.ctx.$scope.getBadgeReadingsCount = () => {
+    const s = self.ctx.$scope;
+    if (s.viewMode === 'dashboard' && _smState.report) {
+      const indices = _smGetFilteredIndices();
+      return indices.reduce((sum, i) => sum + (_smState.report.devices[i].realSlots || 0), 0);
+    }
+    if ((s.viewMode === 'list' || s.viewMode === 'card') && s.groupedData) {
+      return s.getFilteredDevices().reduce((sum, d) => sum + s.getRealCount(d.value), 0);
+    }
+    return s.totalReadings;
+  };
+
+  // ── Shared report builder (modal + dashboard tab) ──────────────
+  function _smBuildReport(allData) {
     const HALF_HOUR_MS = 30 * 60 * 1000;
 
     // Grid BRT correto — mesma lógica de getData():
@@ -2274,7 +2401,7 @@ self.onInit = function () {
 
       const missingCount = missingTs.length;
       const totalExpected = expectedCount || arr.length;
-      const pct = totalExpected ? parseFloat(((missingCount / totalExpected) * 100).toFixed(1)) : 0;
+      const pct = totalExpected ? parseFloat(((missingCount / totalExpected) * 100).toFixed(2)) : 0;
 
       // Agrupa slots missing por dia BRT
       const byDay = {};
@@ -2310,7 +2437,7 @@ self.onInit = function () {
     devices.sort((a, b) => b.lossPct - a.lossPct);
 
     const totalSlots = expectedCount * devices.length;
-    const overallLossPct = totalSlots ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1)) : 0;
+    const overallLossPct = totalSlots ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(2)) : 0;
 
     const report = {
       totalDevices: devices.length,
@@ -2325,10 +2452,28 @@ self.onInit = function () {
       clampMax,
       clampFromCustomer: _clampFromCustomer,
     };
+    return report;
+  }
+
+  self.ctx.$scope.openSummaryModal = function () {
+    const s = self.ctx.$scope;
+    const allData = s.dados || [];
+    if (!allData.length) return;
+    const report = _smBuildReport(allData);
     _smState.expanded = false;
     _smState.chartShow = { real: true, equal: true, missing: true };
-    _smState.devices = devices;
+    _smState.devices = report.devices;
     _smOpenModal(report);
+  };
+
+  self.ctx.$scope.openSummaryDashboard = function () {
+    const s = self.ctx.$scope;
+    const allData = s.dados || [];
+    if (!allData.length) return;
+    const report = _smBuildReport(allData);
+    _smState.chartShow = { real: true, equal: true, missing: true };
+    _smState.devices = report.devices;
+    _smActivateDashboard(report);
   };
 
   self.ctx.$scope.closeSummaryModal = function () {
@@ -2491,7 +2636,14 @@ var _smState = {
   filterSel: null,
   activeFilterBtn: 'all',
   sortOrder: 'loss_desc',
+  dashboardMode: false, // true = renderizado inline na tab Dashboard (sem overlay)
 };
+
+// Retorna o container ativo (modal ou dashboard inline)
+function _smGetContainer() {
+  if (_smState.dashboardMode) return document.getElementById('tbtv5-dashboard-view');
+  return document.getElementById('tbtv5-sm');
+}
 
 function _smInjectCSS() {
   var existing = document.getElementById('tbtv5-sm-styles');
@@ -2598,6 +2750,18 @@ function _smInjectCSS() {
     '#tbtv5-sm.expanded .summary-chart-section{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}',
     '#tbtv5-sm.expanded .chart-area{flex:1;min-height:0;overflow:hidden}',
     '#tbtv5-sm.expanded .chart-bars-scroll{flex:1;overflow-y:auto;overflow-x:hidden}',
+    /* dashboard inline tab — container flex constrained so footer fica sempre visível */
+    '.dashboard-tab-container{padding:12px 0;height:calc(100vh - 210px);min-height:420px;display:flex;flex-direction:column}',
+    '#tbtv5-dashboard-view{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.10)}',
+    /* body ocupa o espaço restante e rola internamente — sem max-height fixo */
+    '#tbtv5-dashboard-view .summary-modal-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:0;padding-bottom:0}',
+    '#tbtv5-dashboard-view .summary-main-content{display:flex;flex-direction:row;gap:16px;flex:1;min-height:0}',
+    '#tbtv5-dashboard-view .summary-device-list{flex:0 0 360px;overflow-y:auto;border-right:1px solid #e5e7eb;padding-right:8px}',
+    '#tbtv5-dashboard-view .summary-chart-section{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}',
+    '#tbtv5-dashboard-view .chart-area{flex:1;min-height:0;overflow:hidden}',
+    '#tbtv5-dashboard-view .chart-bars-scroll{flex:1;overflow-y:auto;overflow-x:hidden}',
+    /* footer sempre fixo na base do container */
+    '#tbtv5-dashboard-view .sm-modal-footer{flex-shrink:0}',
   ].join('\n');
   document.head.appendChild(s);
 }
@@ -2692,7 +2856,7 @@ function _smBuildHTML(report) {
         '<span class="sdr-pct' +
         (dev.lossPct === 0 ? ' sdr-ok' : '') +
         '">' +
-        (dev.lossPct === 0 ? 'OK' : dev.lossPct + '% perda') +
+        (dev.lossPct === 0 ? 'OK' : _normPct(dev.lossPct) + ' perda') +
         '</span>' +
         '<span class="sdr-counts">' +
         dev.missingSlots +
@@ -2764,8 +2928,8 @@ function _smBuildHTML(report) {
     (report.period ? '<span class="summary-period">' + _smEsc(report.period) + '</span>' : '') +
     '</div>' +
     '<div class="summary-header-actions">' +
-    '<button class="summary-modal-expand" id="tbtv5-sm-expbtn" onclick="window.tbtv5_toggleExpand()" title="Expandir">⤢</button>' +
-    '<button class="summary-modal-close" onclick="window.tbtv5_closeSummaryModal()">✕</button>' +
+    (_smState.dashboardMode ? '' : '<button class="summary-modal-expand" id="tbtv5-sm-expbtn" onclick="window.tbtv5_toggleExpand()" title="Expandir">⤢</button>') +
+    (_smState.dashboardMode ? '' : '<button class="summary-modal-close" onclick="window.tbtv5_closeSummaryModal()">✕</button>') +
     '</div></div>' +
     '<div class="summary-modal-body" onclick="window.tbtv5_closeMsDropdown(event)">' +
     '<div class="summary-overall">' +
@@ -2808,7 +2972,7 @@ function _smBuildHTML(report) {
     '<button class="sm-export-btn" onclick="window.tbtv5_exportCSV()">📋 CSV</button>' +
     '</div>' +
     '<span class="sm-footer-brand">MYIO Smart Hospital • Resumo de Temperatura</span>' +
-    '<button class="sm-footer-close" onclick="window.tbtv5_closeSummaryModal()">Fechar</button>' +
+    (_smState.dashboardMode ? '' : '<button class="sm-footer-close" onclick="window.tbtv5_closeSummaryModal()">Fechar</button>') +
     '</footer>'
   );
 }
@@ -2868,6 +3032,21 @@ function _smOpenModal(report) {
   document.body.appendChild(bd);
   document.body.appendChild(modal);
   _smShowModal(modal, bd);
+}
+
+function _smActivateDashboard(report) {
+  _smInjectCSS();
+  _smState.report = report;
+  _smState.filterText = '';
+  _smState.filterSel = null;
+  _smState.activeFilterBtn = 'all';
+  _smState.sortOrder = 'loss_desc';
+  _smState.expanded = false;
+  _smState.chartShow = { real: true, equal: true, missing: true };
+  _smState.dashboardMode = true;
+  var container = document.getElementById('tbtv5-dashboard-view');
+  if (!container) return;
+  container.innerHTML = _smBuildHTML(report);
 }
 
 function _smCloseModal() {
@@ -2933,7 +3112,8 @@ function _smUpdateFiltered() {
   });
 
   /* chart bar rows — same order as report.devices */
-  var barCols = document.querySelectorAll('#tbtv5-sm .chart-bar-col');
+  var _smCont = _smGetContainer();
+  var barCols = _smCont ? _smCont.querySelectorAll('.chart-bar-col') : [];
   barCols.forEach(function (el, i) {
     el.style.display = filtSet.has(i) ? '' : 'none';
   });
@@ -2950,7 +3130,7 @@ function _smUpdateFiltered() {
   });
   var n = filtered.length;
   var tot = totalReal + totalMissing + totalEqual;
-  var pct = tot > 0 ? Math.round((totalMissing / tot) * 100) : 0;
+  var pct = tot > 0 ? parseFloat(((totalMissing / tot) * 100).toFixed(2)) : 0;
 
   var eDevs = document.getElementById('tbtv5-kpi-devs');
   var eReal = document.getElementById('tbtv5-kpi-real');
@@ -2962,7 +3142,7 @@ function _smUpdateFiltered() {
   if (eReal) eReal.textContent = totalReal;
   if (eMiss) eMiss.textContent = totalMissing;
   if (eMissCard) eMissCard.className = 'summary-kpi' + (totalMissing > 0 ? ' kpi-danger' : '');
-  if (ePct) ePct.textContent = pct + '%';
+  if (ePct) ePct.textContent = _normPct(pct);
   if (ePctCard) ePctCard.className = 'summary-kpi' + (pct > 0 ? ' kpi-danger' : '');
 }
 
@@ -3027,8 +3207,8 @@ window.tbtv5_applySortOrder = function (order) {
     });
   }
 
-  var modal = document.getElementById('tbtv5-sm');
-  if (modal) modal.innerHTML = _smBuildHTML(report);
+  var cont = _smGetContainer();
+  if (cont) cont.innerHTML = _smBuildHTML(report);
 };
 
 window.tbtv5_closeMsDropdown = function (e) {
@@ -3835,7 +4015,7 @@ window.tbtv5_mo_confirmSave = async function () {
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
     await _loadManualOverrides(); // refresh to avoid race
-    var userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || 'unknown';
+    var userEmail = (self.ctx && self.ctx.currentUser && (self.ctx.currentUser.email || self.ctx.currentUser.sub)) || '—';
     var brtNow = _moBRTNow();
     var existing = _manualOverrides || { device_list_interval_values: [], version: 0 };
     var deviceList2 = (existing.device_list_interval_values || []).map(function (d) { return Object.assign({}, d, { values_list: (d.values_list || []).slice() }); });
@@ -3924,7 +4104,7 @@ window.tbtv5_mo_confirmEdit = async function (deviceCentralName, timeUTC, safeId
         }),
       });
     });
-    var userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || 'unknown';
+    var userEmail = (self.ctx && self.ctx.currentUser && (self.ctx.currentUser.email || self.ctx.currentUser.sub)) || '—';
     var newData = Object.assign({}, _manualOverrides, {
       device_list_interval_values: deviceList4,
       version: (_manualOverrides.version || 0) + 1,
@@ -3977,7 +4157,7 @@ window.tbtv5_mo_confirmDelete = async function (deviceCentralName, timeUTC) {
         values_list: (d.values_list || []).filter(function (s) { return s.timeUTC !== timeUTC; }),
       });
     }).filter(function (d) { return (d.values_list || []).length > 0; });
-    var userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || 'unknown';
+    var userEmail = (self.ctx && self.ctx.currentUser && (self.ctx.currentUser.email || self.ctx.currentUser.sub)) || '—';
     var newData = Object.assign({}, _manualOverrides, {
       device_list_interval_values: deviceList3,
       version: (_manualOverrides.version || 0) + 1,
