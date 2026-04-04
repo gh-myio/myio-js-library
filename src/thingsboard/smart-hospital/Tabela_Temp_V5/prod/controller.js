@@ -45,6 +45,9 @@ const CENTRAL_NAMES = {
 const telemetryCache = new Map();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 min
 
+// -------- Filter bar state (module-level, persiste entre tabs) --------
+let _lvDeviceSel = null; // null = todos selecionados; Set<string> = keys selecionados
+
 // -------- TEMPORARY FIX: CentralId Normalization --------
 // Maps old centralId to new centralId (provisório)
 function normalizeCentralId(centralId) {
@@ -1780,21 +1783,67 @@ function renderData(data) {
   }
 }
 
+// Preenche cada device com slots '-' para timestamps ausentes no grid esperado.
+// Garante que arr.length === expectedCount em cada device do groupedData.
+function _fillWithMissingSlots(grouped) {
+  if (!startDate || !endDate) return grouped;
+  const HALF_HOUR_MS = 30 * 60 * 1000;
+  const gridStartMs = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 3, 0, 0, 0);
+  const gridEndRaw = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 2, 59, 59, 999);
+  const gridEndMs = Math.floor(gridEndRaw / HALF_HOUR_MS) * HALF_HOUR_MS;
+  const expectedTs = [];
+  for (let t = gridStartMs; t <= gridEndMs; t += HALF_HOUR_MS) expectedTs.push(t);
+  if (!expectedTs.length) return grouped;
+
+  const result = {};
+  Object.entries(grouped).forEach(([devName, arr]) => {
+    const existing = new Map();
+    arr.forEach((r) => {
+      const slotTs = Math.round(r.sort_ts / HALF_HOUR_MS) * HALF_HOUR_MS;
+      if (!existing.has(slotTs)) existing.set(slotTs, r);
+    });
+    const filled = [];
+    expectedTs.forEach((ts) => {
+      if (existing.has(ts)) {
+        filled.push(existing.get(ts));
+      } else {
+        filled.push({
+          deviceName: devName,
+          reading_date: brDatetime(new Date(ts).toISOString()),
+          sort_ts: ts,
+          temperature: '-',
+          isMissing: true,
+          interpolated: false,
+          equalSign: false,
+          correctedBelowThreshold: false,
+          missing: true,
+        });
+      }
+    });
+    result[devName] = filled;
+  });
+  return result;
+}
+
 function renderCardView(data) {
-  const grouped = _.groupBy(data, 'deviceName');
+  const grouped = _fillWithMissingSlots(_.groupBy(data, 'deviceName'));
   self.ctx.$scope.groupedData = grouped;
   // por padrão, cards recolhidos
   self.ctx.$scope.expandedDevices = {};
   self.ctx.detectChanges();
 }
 
-function renderListView(data) {
-  const grouped = _.groupBy(data, 'deviceName');
+function renderListView(data, resetFilter = true) {
+  const grouped = _fillWithMissingSlots(_.groupBy(data, 'deviceName'));
   self.ctx.$scope.dados = data;
   self.ctx.$scope.groupedData = grouped;
   self.ctx.$scope.expandedDevices = {};
-  // reseta filtro ao carregar novos dados
-  if (self.ctx.$scope.lvFilter) Object.assign(self.ctx.$scope.lvFilter, { text: '', sort: 'az', mode: 'all', sortOpen: false });
+  // reseta filtro apenas ao carregar novos dados (não na troca de tab)
+  if (resetFilter) {
+    if (self.ctx.$scope.lvFilter) Object.assign(self.ctx.$scope.lvFilter, { text: '', sort: 'az', mode: 'all', sortOpen: false });
+    _lvDeviceSel = null;
+    if (self.ctx.$scope.lvMsOpen !== undefined) self.ctx.$scope.lvMsOpen = false;
+  }
   self.ctx.detectChanges();
 }
 
@@ -1805,7 +1854,7 @@ function toggleViewMode(mode) {
     s.expandedDevices = {};
     renderCardView(s.dados || []);
   } else if (mode === 'list') {
-    renderListView(s.dados || []);
+    renderListView(s.dados || [], false); // preserva filtro na troca de tab
   } else if (mode === 'dashboard') {
     // garante groupedData para o lv-filter-bar ficar visível
     if (!s.groupedData && s.dados && s.dados.length) {
@@ -1977,8 +2026,72 @@ function insertCurrentDate() {
   }
 }
 
+let _clockInterval = null;
+function _startClock() {
+  const fmt = () => new Date().toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).replace(',', '');
+  self.ctx.$scope.footerNow = fmt();
+  if (_clockInterval) clearInterval(_clockInterval);
+  _clockInterval = setInterval(() => {
+    self.ctx.$scope.footerNow = fmt();
+    self.ctx.detectChanges();
+  }, 1000);
+}
+
 self.onInit = function () {
   insertCurrentDate();
+  _startClock();
+
+  // ── Maximize / Restore ───────────────────────────────────────────────────
+  const s = self.ctx.$scope;
+  s.isMaximized = false;
+  s.toggleMaximize = function () {
+    if (!s.isMaximized) {
+      // Encontra o .wat dentro do widget
+      const wat = document.querySelector('#container .wat') || document.querySelector('.wat');
+      if (!wat) return;
+      // Cria portal fixo direto no body (acima de todo o chrome do ThingsBoard)
+      const portal = document.createElement('div');
+      portal.id = 'tbtv5-max-portal';
+      portal.style.cssText = [
+        'position:fixed', 'top:0', 'left:0',
+        'width:100vw', 'height:100vh',
+        'z-index:99999', 'background:#fff',
+        'overflow:hidden', 'display:flex', 'flex-direction:column',
+      ].join(';');
+      // Placeholder mantém o espaço no DOM original
+      const ph = document.createElement('div');
+      ph.id = 'tbtv5-max-ph';
+      ph.style.cssText = 'display:none';
+      wat.parentNode.insertBefore(ph, wat);
+      // Move .wat para o portal
+      wat.style.height = '100vh';
+      portal.appendChild(wat);
+      document.body.appendChild(portal);
+      s.isMaximized = true;
+    } else {
+      const portal = document.getElementById('tbtv5-max-portal');
+      const ph = document.getElementById('tbtv5-max-ph');
+      if (portal && ph) {
+        const wat = portal.querySelector('.wat');
+        if (wat) {
+          wat.style.height = '';
+          ph.parentNode.insertBefore(wat, ph);
+        }
+        ph.remove();
+        portal.remove();
+      }
+      s.isMaximized = false;
+    }
+    self.ctx.detectChanges();
+  };
+  // Esc fecha o maximize
+  document.addEventListener('keydown', function _tbtv5EscMax(e) {
+    if (e.key === 'Escape' && s.isMaximized) s.toggleMaximize();
+  });
 
   // ======= VERSÃO DO WIDGET - VERIFICAR NO CONSOLE =======
   console.log('=============================================');
@@ -2181,6 +2294,26 @@ self.onInit = function () {
     );
     self.ctx.detectChanges();
   };
+  self.ctx.$scope.expandAllDashboard = () => {
+    const report = _smState.report;
+    if (!report) return;
+    report.devices.forEach(function (_, i) {
+      var det = document.getElementById('tbtv5-dd-' + i);
+      var tog = document.getElementById('tbtv5-dt-' + i);
+      if (det) det.style.display = 'block';
+      if (tog) tog.textContent = '−';
+    });
+  };
+  self.ctx.$scope.collapseAllDashboard = () => {
+    const report = _smState.report;
+    if (!report) return;
+    report.devices.forEach(function (_, i) {
+      var det = document.getElementById('tbtv5-dd-' + i);
+      var tog = document.getElementById('tbtv5-dt-' + i);
+      if (det) det.style.display = 'none';
+      if (tog) tog.textContent = '+';
+    });
+  };
   // Returns last real temperature (skips equalSign/missing/null rows) with guaranteed 2 decimal places
   self.ctx.$scope.getLatestTemperature = (arr) => {
     if (!arr?.length) return '-';
@@ -2197,7 +2330,7 @@ self.onInit = function () {
     (arr || []).filter((r) => r.interpolated && !r.missing).length;
   self.ctx.$scope.getMissingCount = (arr) => (arr || []).filter((r) => r.missing).length;
   self.ctx.$scope.getRealCount = (arr) =>
-    (arr || []).filter((r) => !r.interpolated && !r.missing && !r.equalSign).length;
+    (arr || []).filter((r) => !r.interpolated && !r.missing && !r.isMissing && !r.equalSign && r.temperature !== '-').length;
 
   // ── Badges da TAB Lista ──────────────────────────────────────────
   self.ctx.$scope.getDeviceMin = (arr) => {
@@ -2215,7 +2348,9 @@ self.onInit = function () {
   };
   self.ctx.$scope.getDeviceLossPct = (arr) => {
     if (!arr || !arr.length) return 0;
-    const missing = arr.filter((r) => r.temperature === '-' || r.temperature === '=').length;
+    // groupedData já está preenchido com slots '-' para timestamps ausentes
+    // então arr.length === expectedCount e contar '-' dá a perda real
+    const missing = arr.filter((r) => r.temperature === '-' || r.isMissing).length;
     return parseFloat(((missing / arr.length) * 100).toFixed(2));
   };
   // Versão formatada para exibição (sempre 2 casas decimais: 6.00%)
@@ -2244,21 +2379,33 @@ self.onInit = function () {
   function _lvSyncDashboard() {
     const vm = self.ctx.$scope.viewMode;
     if (vm !== 'dashboard') return;
-    // text search
+    // text search — atribuir antes de qualquer outra operação para não ser sobrescrito
     _smState.filterText = _lvFilter.text;
-    _smSetActiveFilterBtn('');
-    // mode → mapeia para os botões do dashboard
-    if (_lvFilter.mode === 'loss') window.tbtv5_filterOnlyLoss && window.tbtv5_filterOnlyLoss();
-    else if (_lvFilter.mode === 'ok') window.tbtv5_filterNoLoss && window.tbtv5_filterNoLoss();
-    else window.tbtv5_filterAll && window.tbtv5_filterAll();
+    if (!_smState.report) { _smUpdateFiltered(); return; }
+    // device selection + mode → constrói filterSel combinado
+    const mode = _lvFilter.mode;
+    if (mode === 'all' && _lvDeviceSel === null) {
+      _smState.filterSel = null; // todos
+    } else {
+      const sel = new Set();
+      _smState.report.devices.forEach((dev, i) => {
+        const devOk = (_lvDeviceSel === null || _lvDeviceSel.has(dev.label));
+        const modeOk = mode === 'all' || (mode === 'loss' && dev.lossPct > 0) || (mode === 'ok' && dev.lossPct === 0);
+        if (devOk && modeOk) sel.add(i);
+      });
+      _smState.filterSel = sel;
+    }
     // sort
     if (window.tbtv5_applySortOrder) window.tbtv5_applySortOrder(_lvFilter.sort);
-    // para text, _smUpdateFiltered faz o update de show/hide
+    _smSetActiveFilterBtn(mode === 'loss' ? 'loss' : mode === 'ok' ? 'ok' : 'all');
+    _smUpdateMsCheckboxes(null);
+    _smUpdateMsLabel();
     _smUpdateFiltered();
   }
 
   self.ctx.$scope.lvSetText = (v) => {
     _lvFilter.text = (v || '').toLowerCase();
+    _lvInvalidateStats();
     _lvSyncDashboard();
     self.ctx.detectChanges();
   };
@@ -2270,28 +2417,137 @@ self.onInit = function () {
   };
   self.ctx.$scope.lvSetMode = (mode) => {
     _lvFilter.mode = mode;
+    _lvInvalidateStats();
     _lvSyncDashboard();
     self.ctx.detectChanges();
   };
-  self.ctx.$scope.lvToggleSortOpen = (e) => { e.stopPropagation(); _lvFilter.sortOpen = !_lvFilter.sortOpen; self.ctx.detectChanges(); };
-  self.ctx.$scope.lvCloseSortDropdown = () => { if (_lvFilter.sortOpen) { _lvFilter.sortOpen = false; self.ctx.detectChanges(); } };
+  self.ctx.$scope.lvToggleSortOpen = (e) => {
+    e.stopPropagation();
+    _lvFilter.sortOpen = !_lvFilter.sortOpen;
+    if (_lvFilter.sortOpen) self.ctx.$scope.lvMsOpen = false;
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvCloseAllDropdowns = () => {
+    let ch = false;
+    if (_lvFilter.sortOpen) { _lvFilter.sortOpen = false; ch = true; }
+    if (self.ctx.$scope.lvMsOpen) { self.ctx.$scope.lvMsOpen = false; ch = true; }
+    if (ch) self.ctx.detectChanges();
+  };
+  // mantém alias para compatibilidade interna
+  self.ctx.$scope.lvCloseSortDropdown = self.ctx.$scope.lvCloseAllDropdowns;
 
   self.ctx.$scope.getFilteredDevices = () => {
     const s = self.ctx.$scope;
     const gd = s.groupedData || {};
     const { text, sort, mode } = _lvFilter;
     let entries = Object.entries(gd).map(([key, value]) => ({ key, value }));
+    if (_lvDeviceSel !== null) entries = entries.filter(e => _lvDeviceSel.has(e.key));
     if (text) entries = entries.filter((e) => e.key.toLowerCase().includes(text));
     if (mode === 'loss') entries = entries.filter((e) => s.getDeviceLossPct(e.value) > 0);
     if (mode === 'ok')   entries = entries.filter((e) => s.getDeviceLossPct(e.value) === 0);
-    if (sort === 'az')        entries.sort((a, b) => a.key.localeCompare(b.key));
-    else if (sort === 'za')   entries.sort((a, b) => b.key.localeCompare(a.key));
+    if (sort === 'az')        entries.sort((a, b) => a.key.localeCompare(b.key, 'pt-BR'));
+    else if (sort === 'za')   entries.sort((a, b) => b.key.localeCompare(a.key, 'pt-BR'));
     else if (sort === 'loss_desc') entries.sort((a, b) => s.getDeviceLossPct(b.value) - s.getDeviceLossPct(a.value));
     else if (sort === 'loss_asc')  entries.sort((a, b) => s.getDeviceLossPct(a.value) - s.getDeviceLossPct(b.value));
     return entries;
   };
   self.ctx.$scope.lvTrackBy = (_, item) => item.key;
-  self.ctx.$scope.lvTotalCount = () => Object.keys(self.ctx.$scope.groupedData || {}).length;
+  self.ctx.$scope.lvTotalCount = () => {
+    const gd = self.ctx.$scope.groupedData || {};
+    const text = _lvFilter.text;
+    if (!text) return Object.keys(gd).length;
+    return Object.keys(gd).filter(k => k.toLowerCase().includes(text)).length;
+  };
+
+  // ── Multiselect de dispositivos ──────────────────────────────
+  self.ctx.$scope.lvMsOpen = false;
+  self.ctx.$scope.lvToggleMsOpen = (e) => {
+    e.stopPropagation();
+    self.ctx.$scope.lvMsOpen = !self.ctx.$scope.lvMsOpen;
+    if (self.ctx.$scope.lvMsOpen) _lvFilter.sortOpen = false;
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvIsDeviceSelected = (key) => _lvDeviceSel === null || _lvDeviceSel.has(key);
+  self.ctx.$scope.lvDeviceSelCount = () => {
+    const gd = self.ctx.$scope.groupedData || {};
+    const text = _lvFilter.text;
+    const allKeys = text ? Object.keys(gd).filter(k => k.toLowerCase().includes(text)) : Object.keys(gd);
+    if (_lvDeviceSel === null) return allKeys.length;
+    return allKeys.filter(k => _lvDeviceSel.has(k)).length;
+  };
+  self.ctx.$scope.lvSelectAllDevices = () => {
+    if (_lvFilter.text) {
+      const gd = self.ctx.$scope.groupedData || {};
+      const text = _lvFilter.text;
+      _lvDeviceSel = new Set(Object.keys(gd).filter(k => k.toLowerCase().includes(text)));
+    } else {
+      _lvDeviceSel = null;
+    }
+    _lvInvalidateStats();
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvDeselectAllDevices = () => {
+    _lvDeviceSel = new Set();
+    _lvInvalidateStats();
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvToggleDevice = (key) => {
+    const allKeys = Object.keys(self.ctx.$scope.groupedData || {});
+    if (_lvDeviceSel === null) {
+      _lvDeviceSel = new Set(allKeys.filter(k => k !== key));
+    } else {
+      if (_lvDeviceSel.has(key)) _lvDeviceSel.delete(key);
+      else _lvDeviceSel.add(key);
+      if (_lvDeviceSel.size === allKeys.length) _lvDeviceSel = null;
+    }
+    _lvInvalidateStats();
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
+  self.ctx.$scope.lvGetAllDevicesSorted = () => {
+    const gd = self.ctx.$scope.groupedData || {};
+    const text = _lvFilter.text;
+    return Object.entries(gd)
+      .filter(([key]) => !text || key.toLowerCase().includes(text))
+      .map(([key, value]) => ({ key, value }))
+      .sort((a, b) => a.key.localeCompare(b.key, 'pt-BR'));
+  };
+
+  // ── Stats por modo de filtro ─────────────────────────────────
+  let _lvStatsCache = null;
+  function _lvInvalidateStats() { _lvStatsCache = null; }
+  function _lvComputeStats() {
+    if (_lvStatsCache) return _lvStatsCache;
+    const s = self.ctx.$scope;
+    const gd = s.groupedData || {};
+    const text = _lvFilter.text;
+    const r = {
+      all:  { devices: 0, slots: 0, real: 0, missing: 0 },
+      loss: { devices: 0, slots: 0, real: 0, missing: 0 },
+      ok:   { devices: 0, slots: 0, real: 0, missing: 0 },
+    };
+    Object.entries(gd).forEach(([key, arr]) => {
+      if (text && !key.toLowerCase().includes(text)) return;
+      if (_lvDeviceSel !== null && !_lvDeviceSel.has(key)) return;
+      const pct = s.getDeviceLossPct(arr);
+      const re = arr.filter(a => a.temperature !== '-' && a.temperature !== '=' && !a.isMissing).length;
+      const mi = arr.filter(a => a.temperature === '-' || a.isMissing).length;
+      r.all.devices++; r.all.slots += arr.length; r.all.real += re; r.all.missing += mi;
+      if (pct > 0) { r.loss.devices++; r.loss.slots += arr.length; r.loss.real += re; r.loss.missing += mi; }
+      if (pct === 0) { r.ok.devices++; r.ok.slots += arr.length; r.ok.real += re; r.ok.missing += mi; }
+    });
+    _lvStatsCache = r;
+    return r;
+  }
+  self.ctx.$scope.lvModeStats = (mode) => (_lvComputeStats()[mode] || { devices: 0, slots: 0, real: 0, missing: 0 });
+  self.ctx.$scope.lvModeTitle = (mode) => {
+    const st = self.ctx.$scope.lvModeStats(mode);
+    const fmt = (n) => n.toLocaleString('pt-BR');
+    return `${fmt(st.devices)} dispositivos · ${fmt(st.slots)} slots (${fmt(st.real)} com leituras / ${fmt(st.missing)} sem dados)`;
+  };
+  self.ctx.$scope.lvFmtN = (n) => (n || 0).toLocaleString('pt-BR');
 
   // Badges "dispositivos" e "leituras" reflectem o filtro activo nas tabs Lista/Cards/Dashboard
   self.ctx.$scope.getBadgeDeviceCount = () => {
@@ -2463,6 +2719,25 @@ self.onInit = function () {
     _smState.chartShow = { real: true, equal: true, missing: true };
     _smState.devices = report.devices;
     _smActivateDashboard(report);
+    // restore active filter (activation resets state, so re-apply after)
+    if (_lvFilter.text || _lvFilter.mode !== 'all' || _lvDeviceSel !== null) {
+      _smState.filterText = _lvFilter.text;
+      const mode = _lvFilter.mode;
+      if (mode === 'all' && _lvDeviceSel === null) {
+        _smState.filterSel = null;
+      } else {
+        const sel = new Set();
+        report.devices.forEach((dev, i) => {
+          const devOk = (_lvDeviceSel === null || _lvDeviceSel.has(dev.label));
+          const modeOk = mode === 'all' || (mode === 'loss' && dev.lossPct > 0) || (mode === 'ok' && dev.lossPct === 0);
+          if (devOk && modeOk) sel.add(i);
+        });
+        _smState.filterSel = sel;
+      }
+      _smSetActiveFilterBtn(mode === 'loss' ? 'loss' : mode === 'ok' ? 'ok' : 'all');
+      _smUpdateMsLabel();
+      _smUpdateFiltered();
+    }
   };
 
   // Overlay inicial
@@ -2644,10 +2919,13 @@ function _smInjectCSS() {
     '.summary-modal-close:hover{opacity:1}',
     '.summary-modal-body{flex:1;min-height:0;padding:16px 20px;overflow-y:auto;display:block}',
     '.summary-overall{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}',
-    '.summary-kpi{display:flex;flex-direction:column;align-items:center;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 8px}',
+    '.summary-kpi{display:flex;flex-direction:row;align-items:center;gap:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px}',
     '.summary-kpi.kpi-danger{background:#fff5f5;border-color:#fca5a5}',
+    '.kpi-icon-left{font-size:28px;color:#9ca3af;flex-shrink:0}',
+    '.summary-kpi.kpi-danger .kpi-icon-left{color:#f87171}',
+    '.kpi-text{display:flex;flex-direction:column;}',
     '.kpi-value{font-size:22px;font-weight:700;color:#111827;line-height:1.1}',
-    '.kpi-label{font-size:11px;color:#6b7280;margin-top:4px;text-align:center}',
+    '.kpi-label{font-size:11px;color:#6b7280;margin-top:3px}',
     '.summary-main-content{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}',
     '.summary-device-list{display:flex;flex-direction:column;gap:4px}',
     '.summary-device-row{border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;flex-shrink:0}',
@@ -2695,14 +2973,6 @@ function _smInjectCSS() {
     '.sm-clamp-source{font-size:11px;opacity:.8;margin-left:4px}',
     /* filter bar */
     '.sm-filter-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0 10px}',
-    /* footer */
-    '.sm-modal-footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;background:#5c307d;border-top:1px solid rgba(255,255,255,.12);flex-shrink:0}',
-    '.sm-footer-brand{font-size:11px;color:rgba(255,255,255,.65);font-weight:500;letter-spacing:.02em;flex:1;text-align:center}',
-    '.sm-footer-exports{display:flex;gap:5px;align-items:center;flex-shrink:0}',
-    '.sm-export-btn{padding:4px 11px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}',
-    '.sm-export-btn:hover{background:rgba(255,255,255,.22)}',
-    '.sm-footer-close{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;font-size:12px;font-weight:600;padding:5px 16px;cursor:pointer;flex-shrink:0}',
-    '.sm-footer-close:hover{background:rgba(255,255,255,.25)}',
     '.sm-filter-search{flex:1;min-width:140px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none;color:#111827}',
     '.sm-filter-search:focus{border-color:#5c307d;box-shadow:0 0 0 2px rgba(92,48,125,.15)}',
     '.sm-ms-wrap{position:relative}',
@@ -2730,18 +3000,16 @@ function _smInjectCSS() {
     '#tbtv5-sm.expanded .summary-chart-section{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}',
     '#tbtv5-sm.expanded .chart-area{flex:1;min-height:0;overflow:hidden}',
     '#tbtv5-sm.expanded .chart-bars-scroll{flex:1;overflow-y:auto;overflow-x:hidden}',
-    /* dashboard inline tab — container flex constrained so footer fica sempre visível */
-    '.dashboard-tab-container{padding:12px 0;height:calc(100vh - 210px);min-height:420px;display:flex;flex-direction:column}',
+    /* dashboard inline tab — flex:1 herdado do .wat flex column */
+    '.dashboard-tab-container{padding:4px 16px 0;flex:1;min-height:0;display:flex;flex-direction:column}',
     '#tbtv5-dashboard-view{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.10)}',
     /* body ocupa o espaço restante e rola internamente — sem max-height fixo */
-    '#tbtv5-dashboard-view .summary-modal-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:0;padding-bottom:0}',
+    '#tbtv5-dashboard-view .summary-modal-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:0;padding:8px 0 0}',
     '#tbtv5-dashboard-view .summary-main-content{display:flex;flex-direction:row;gap:16px;flex:1;min-height:0}',
     '#tbtv5-dashboard-view .summary-device-list{flex:0 0 360px;overflow-y:auto;border-right:1px solid #e5e7eb;padding-right:8px}',
     '#tbtv5-dashboard-view .summary-chart-section{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}',
     '#tbtv5-dashboard-view .chart-area{flex:1;min-height:0;overflow:hidden}',
     '#tbtv5-dashboard-view .chart-bars-scroll{flex:1;overflow-y:auto;overflow-x:hidden}',
-    /* footer sempre fixo na base do container */
-    '#tbtv5-dashboard-view .sm-modal-footer{flex-shrink:0}',
   ].join('\n');
   document.head.appendChild(s);
 }
@@ -2904,24 +3172,23 @@ function _smBuildHTML(report) {
   return (
     '<div class="summary-modal-body" onclick="window.tbtv5_closeMsDropdown(event)">' +
     '<div class="summary-overall">' +
-    '<div class="summary-kpi"><span class="kpi-value" id="tbtv5-kpi-devs">' +
+    '<div class="summary-kpi"><i class="fa-solid fa-microchip kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-devs">' +
     report.totalDevices +
-    '</span><span class="kpi-label">dispositivos</span></div>' +
-    '<div class="summary-kpi"><span class="kpi-value" id="tbtv5-kpi-real">' +
+    '</span><span class="kpi-label">dispositivos</span></div></div>' +
+    '<div class="summary-kpi"><i class="fa-solid fa-chart-bar kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-real">' +
     report.totalReal +
-    '</span><span class="kpi-label">leituras reais</span></div>' +
+    '</span><span class="kpi-label">leituras reais</span></div></div>' +
     '<div class="summary-kpi' +
     kpiDanger(report.totalMissing) +
-    '" id="tbtv5-kpi-miss-card"><span class="kpi-value" id="tbtv5-kpi-miss">' +
+    '" id="tbtv5-kpi-miss-card"><i class="fa-solid fa-circle-minus kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-miss">' +
     report.totalMissing +
-    '</span><span class="kpi-label">slots sem dados</span></div>' +
+    '</span><span class="kpi-label">slots sem dados</span></div></div>' +
     '<div class="summary-kpi' +
     kpiDanger(report.overallLossPct) +
-    '" id="tbtv5-kpi-pct-card"><span class="kpi-value" id="tbtv5-kpi-pct">' +
-    report.overallLossPct +
-    '%</span><span class="kpi-label">perda geral</span></div>' +
+    '" id="tbtv5-kpi-pct-card"><i class="fa-solid fa-percent kpi-icon-left"></i><div class="kpi-text"><span class="kpi-value" id="tbtv5-kpi-pct">' +
+    _normPct(report.overallLossPct) +
+    '</span><span class="kpi-label">perda geral</span></div></div>' +
     '</div>' +
-    _smBuildFilterBar(report) +
     '<div class="summary-main-content">' +
     '<div class="summary-device-list">' +
     devRows +
@@ -2935,15 +3202,7 @@ function _smBuildHTML(report) {
     '<div class="chart-area"><div class="chart-bars-scroll"><div class="chart-bars-inner">' +
     barRows +
     '</div></div></div>' +
-    '</div></div></div>' +
-    '<footer class="sm-modal-footer">' +
-    '<div class="sm-footer-exports">' +
-    '<button class="sm-export-btn" onclick="window.tbtv5_exportPDF()">📄 PDF</button>' +
-    '<button class="sm-export-btn" onclick="window.tbtv5_exportXLS()">📊 XLS</button>' +
-    '<button class="sm-export-btn" onclick="window.tbtv5_exportCSV()">📋 CSV</button>' +
-    '</div>' +
-    '<span class="sm-footer-brand">MYIO Smart Hospital • Resumo de Temperatura</span>' +
-    '</footer>'
+    '</div></div></div>'
   );
 }
 

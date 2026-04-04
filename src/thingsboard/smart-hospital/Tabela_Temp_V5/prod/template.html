@@ -4,7 +4,7 @@
       <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
       <div class="headline">
         <p>
-          Sistema Myio v.5-2026040201 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
+          Sistema Myio v.5-20260404001 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
           Souza Aguiar
         </p>
         <p>UNIDADE SOUZA AGUIAR - HMSA</p>
@@ -13,10 +13,20 @@
     </div>
 
     <div class="actions">
-      <button class="hide-in-settings icon-btn" *ngIf="isMyIOAdmin" (click)="openSettingsModal()" title="Configurações">
+      <button
+        class="hide-in-settings icon-btn"
+        *ngIf="isMyIOAdmin"
+        (click)="openSettingsModal()"
+        title="Configurações"
+      >
         <i class="fa-solid fa-gear"></i>
       </button>
-      <button class="hide-in-pdf icon-btn" *ngIf="isMyIOAdmin" (click)="openManualOverrideModal()" title="Ajuste Manual de Temperatura">
+      <button
+        class="hide-in-pdf icon-btn"
+        *ngIf="isMyIOAdmin"
+        (click)="openManualOverrideModal()"
+        title="Ajuste Manual de Temperatura"
+      >
         <i class="fa-solid fa-pen-to-square"></i>
       </button>
       <button class="hide-in-pdf icon-btn" (click)="downloadPDF()" title="Exportar PDF">
@@ -83,6 +93,14 @@
           </button>
           <button class="tbx-btn-clear" (click)="clearDateRange()" title="Limpar seleção">
             <i class="fa-solid fa-xmark"></i> Limpar
+          </button>
+          <button
+            class="tbx-btn-maximize"
+            (click)="toggleMaximize()"
+            [title]="isMaximized ? 'Restaurar' : 'Maximizar'"
+          >
+            <i class="fa-solid" [ngClass]="isMaximized ? 'fa-compress' : 'fa-expand'"></i>
+            {{ isMaximized ? 'Restaurar' : 'Maximizar' }}
           </button>
         </div>
 
@@ -167,7 +185,8 @@
                     (click)="saveClampSettings()"
                     [disabled]="clampSaveStatus === 'saving'"
                   >
-                    {{ clampSaveStatus === 'saving' ? 'Salvando…' : clampSaveStatus === 'saved' ? '✓ Salvo' : clampSaveStatus === 'error' ? '✗ Erro ao salvar' : 'Salvar' }}
+                    {{ clampSaveStatus === 'saving' ? 'Salvando…' : clampSaveStatus === 'saved' ? '✓ Salvo' :
+                    clampSaveStatus === 'error' ? '✗ Erro ao salvar' : 'Salvar' }}
                   </button>
                 </div>
               </div>
@@ -204,7 +223,12 @@
       <button mat-button [class.active]="viewMode === 'card'" (click)="toggleViewMode('card')" title="Cards">
         <mat-icon>view_module</mat-icon> Cards
       </button>
-      <button mat-button [class.active]="viewMode === 'dashboard'" (click)="toggleViewMode('dashboard')" title="Dashboard">
+      <button
+        mat-button
+        [class.active]="viewMode === 'dashboard'"
+        (click)="toggleViewMode('dashboard')"
+        title="Dashboard"
+      >
         <mat-icon>dashboard</mat-icon> Dashboard
       </button>
     </div>
@@ -228,6 +252,10 @@
       <button mat-button (click)="collapseAllDevices()">
         <mat-icon>expand_less</mat-icon> Recolher Todos
       </button>
+    </div>
+    <div class="expand-controls" *ngIf="viewMode === 'dashboard'">
+      <button mat-button (click)="expandAllDashboard()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
+      <button mat-button (click)="collapseAllDashboard()"><mat-icon>expand_less</mat-icon> Recolher Todos</button>
     </div>
   </div>
 
@@ -325,28 +353,143 @@
     </div>
   </div>
 
-  <!-- Filter bar compartilhado — Lista e Cards -->
-  <div class="lv-filter-bar" *ngIf="(viewMode === 'list' || viewMode === 'card' || viewMode === 'dashboard') && groupedData" (click)="lvCloseSortDropdown()">
-    <input class="lv-search" type="text" placeholder="🔍 Buscar dispositivo..."
-      [ngModel]="lvFilter.text" (ngModelChange)="lvSetText($event)" (click)="$event.stopPropagation()">
+  <div class="tab-content-area">
 
-    <div class="lv-sort-wrap" (click)="$event.stopPropagation()">
-      <button class="lv-sort-btn" [class.lv-sort-active]="lvFilter.sort !== 'az'" (click)="lvToggleSortOpen($event)">
-        <i class="fa-solid fa-arrow-up-wide-short"></i> {{ lvSortLabel() }} ▾
+  <!-- Filter bar compartilhado — Lista, Cards e Dashboard -->
+  <div
+    class="lv-filter-bar"
+    *ngIf="(viewMode === 'list' || viewMode === 'card' || viewMode === 'dashboard') && groupedData && dados && dados.length > 0"
+    (click)="lvCloseAllDropdowns()"
+  >
+    <input
+      class="lv-search"
+      type="text"
+      placeholder="🔍 Buscar dispositivo..."
+      [ngModel]="lvFilter.text"
+      (ngModelChange)="lvSetText($event)"
+      (click)="$event.stopPropagation()"
+    />
+
+    <!-- Multiselect dispositivos -->
+    <div class="lv-ms-wrap" (click)="$event.stopPropagation()">
+      <button
+        class="lv-ms-btn"
+        [class.lv-sort-active]="lvDeviceSelCount() < lvTotalCount()"
+        (click)="lvToggleMsOpen($event)"
+      >
+        <i class="fa-solid fa-list-check"></i> {{ lvDeviceSelCount() }}/{{ lvTotalCount() }} ▾
       </button>
-      <div class="lv-sort-dd" *ngIf="lvFilter.sortOpen">
-        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'loss_desc'" (click)="lvSetSort('loss_desc')">↓ Maior perda</button>
-        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'loss_asc'"  (click)="lvSetSort('loss_asc')">↑ Menor perda</button>
-        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'az'"        (click)="lvSetSort('az')">A → Z</button>
-        <button class="lv-sort-item" [class.lv-sort-selected]="lvFilter.sort === 'za'"        (click)="lvSetSort('za')">Z → A</button>
+      <div class="lv-ms-dd" *ngIf="lvMsOpen">
+        <div class="lv-ms-actions">
+          <button class="lv-ms-action-btn" (click)="lvSelectAllDevices()">
+            <i class="fa-solid fa-check-double"></i> Todos
+          </button>
+          <button class="lv-ms-action-btn" (click)="lvDeselectAllDevices()">
+            <i class="fa-solid fa-xmark"></i> Nenhum
+          </button>
+        </div>
+        <div class="lv-ms-list">
+          <label
+            class="lv-ms-item"
+            *ngFor="let dev of lvGetAllDevicesSorted()"
+            [class.lv-ms-selected]="lvIsDeviceSelected(dev.key)"
+          >
+            <input
+              type="checkbox"
+              [checked]="lvIsDeviceSelected(dev.key)"
+              (change)="lvToggleDevice(dev.key)"
+            />
+            <div class="lv-ms-item-body">
+              <span class="lv-ms-item-name">{{ dev.key }}</span>
+              <span class="lv-ms-item-stats">
+                <mat-icon style="font-size: 10px; height: 10px; width: 10px; vertical-align: middle"
+                  >device_thermostat</mat-icon
+                >
+                {{ getDeviceMin(dev.value) }} · {{ getDeviceMax(dev.value) }} · méd {{ getDeviceAvg(dev.value)
+                }} · perda {{ getDeviceLossPctFmt(dev.value) }}
+              </span>
+            </div>
+          </label>
+        </div>
       </div>
     </div>
 
-    <button class="lv-fmode-btn" [class.lv-fmode-active]="lvFilter.mode === 'all'"  (click)="lvSetMode('all')">Todos</button>
-    <button class="lv-fmode-btn" [class.lv-fmode-active]="lvFilter.mode === 'loss'" (click)="lvSetMode('loss')">Só perdas</button>
-    <button class="lv-fmode-btn" [class.lv-fmode-active]="lvFilter.mode === 'ok'"   (click)="lvSetMode('ok')">Sem perdas</button>
+    <!-- Ordenação -->
+    <div class="lv-sort-wrap" (click)="$event.stopPropagation()">
+      <button
+        class="lv-sort-btn"
+        [class.lv-sort-active]="lvFilter.sort !== 'az'"
+        (click)="lvToggleSortOpen($event)"
+      >
+        <i class="fa-solid fa-arrow-up-wide-short"></i> {{ lvSortLabel() }} ▾
+      </button>
+      <div class="lv-sort-dd" *ngIf="lvFilter.sortOpen">
+        <button
+          class="lv-sort-item"
+          [class.lv-sort-selected]="lvFilter.sort === 'loss_desc'"
+          (click)="lvSetSort('loss_desc')"
+        >
+          ↓ Maior perda
+        </button>
+        <button
+          class="lv-sort-item"
+          [class.lv-sort-selected]="lvFilter.sort === 'loss_asc'"
+          (click)="lvSetSort('loss_asc')"
+        >
+          ↑ Menor perda
+        </button>
+        <button
+          class="lv-sort-item"
+          [class.lv-sort-selected]="lvFilter.sort === 'az'"
+          (click)="lvSetSort('az')"
+        >
+          A → Z
+        </button>
+        <button
+          class="lv-sort-item"
+          [class.lv-sort-selected]="lvFilter.sort === 'za'"
+          (click)="lvSetSort('za')"
+        >
+          Z → A
+        </button>
+      </div>
+    </div>
 
-    <span class="lv-filter-count">{{ getFilteredDevices().length }}/{{ lvTotalCount() }}</span>
+    <!-- Filtros de modo com badge de totais -->
+    <button
+      class="lv-fmode-btn"
+      [class.lv-fmode-active]="lvFilter.mode === 'all'"
+      [title]="lvModeTitle('all')"
+      (click)="lvSetMode('all')"
+    >
+      Todos
+      <span class="lv-fmode-stat"
+        >{{ lvModeStats('all').devices }}d · {{ lvFmtN(lvModeStats('all').slots) }}s</span
+      >
+    </button>
+    <button
+      class="lv-fmode-btn"
+      [class.lv-fmode-active]="lvFilter.mode === 'loss'"
+      [title]="lvModeTitle('loss')"
+      (click)="lvSetMode('loss')"
+    >
+      Só perdas
+      <span class="lv-fmode-stat"
+        >{{ lvModeStats('loss').devices }}d · {{ lvFmtN(lvModeStats('loss').slots) }}s</span
+      >
+    </button>
+    <button
+      class="lv-fmode-btn"
+      [class.lv-fmode-active]="lvFilter.mode === 'ok'"
+      [title]="lvModeTitle('ok')"
+      (click)="lvSetMode('ok')"
+    >
+      Sem perdas
+      <span class="lv-fmode-stat"
+        >{{ lvModeStats('ok').devices }}d · {{ lvFmtN(lvModeStats('ok').slots) }}s</span
+      >
+    </button>
+
   </div>
 
   <!-- Lista agrupada por device (collapsível) -->
@@ -359,30 +502,45 @@
       <div class="list-device-header" (click)="toggleDeviceExpansion(device.key)">
         <div class="list-device-name">{{ device.key }}</div>
         <div class="list-device-meta">
-          <span class="list-badge list-badge-neutral">
-            <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+          <span class="list-badge list-badge-min">
+            <mat-icon
+              style="font-size: 12px; height: 12px; width: 12px; vertical-align: middle; margin-right: 1px"
+              >device_thermostat</mat-icon
+            >
             <span class="list-badge-label">mín</span> {{ getDeviceMin(device.value) }}
           </span>
-          <span class="list-badge list-badge-neutral">
-            <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
-            <span class="list-badge-label">máx</span> {{ getDeviceMax(device.value) }}
-          </span>
-          <span class="list-badge list-badge-neutral">
-            <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+          <span class="list-badge list-badge-med">
+            <mat-icon
+              style="font-size: 12px; height: 12px; width: 12px; vertical-align: middle; margin-right: 1px"
+              >device_thermostat</mat-icon
+            >
             <span class="list-badge-label">méd</span> {{ getDeviceAvg(device.value) }}
           </span>
-          <span class="list-badge"
+          <span class="list-badge list-badge-max">
+            <mat-icon
+              style="font-size: 12px; height: 12px; width: 12px; vertical-align: middle; margin-right: 1px"
+              >device_thermostat</mat-icon
+            >
+            <span class="list-badge-label">máx</span> {{ getDeviceMax(device.value) }}
+          </span>
+          <span
+            class="list-badge"
             [class.list-badge-ok]="getDeviceLossPct(device.value) === 0"
             [class.list-badge-warn]="getDeviceLossPct(device.value) > 0 && getDeviceLossPct(device.value) <= 15"
-            [class.list-badge-danger]="getDeviceLossPct(device.value) > 15">
+            [class.list-badge-danger]="getDeviceLossPct(device.value) > 15"
+          >
             <span class="list-badge-label">perda</span> {{ getDeviceLossPctFmt(device.value) }}
           </span>
           <span class="list-stat list-stat-warn" *ngIf="adminMode && getInterpolatedCount(device.value) > 0">
-            <mat-icon style="font-size:13px;height:13px;width:13px;vertical-align:middle">auto_fix_high</mat-icon>
+            <mat-icon style="font-size: 13px; height: 13px; width: 13px; vertical-align: middle"
+              >auto_fix_high</mat-icon
+            >
             {{ getInterpolatedCount(device.value) }} interp.
           </span>
         </div>
-        <mat-icon class="list-expand-icon">{{ expandedDevices[device.key] ? 'expand_less' : 'expand_more' }}</mat-icon>
+        <mat-icon class="list-expand-icon"
+          >{{ expandedDevices[device.key] ? 'expand_less' : 'expand_more' }}</mat-icon
+        >
       </div>
 
       <div class="list-device-readings" *ngIf="expandedDevices[device.key]">
@@ -398,9 +556,10 @@
           [class.reading-interpolated]="r.interpolated"
           [class.reading-clamped]="r.correctedBelowThreshold"
           [class.reading-equal]="r.equalSign"
+          [class.reading-missing]="r.isMissing"
         >
           <span>
-            {{ r.equalSign ? '=' : (r.temperature + '°C') }}
+            {{ r.equalSign ? '=' : r.temperature === '-' ? '—' : (r.temperature + '°C') }}
             <span class="badge clamp" *ngIf="adminMode && r.correctedBelowThreshold">17+</span>
           </span>
           <span>{{ r.reading_date }}</span>
@@ -424,22 +583,33 @@
         <div class="device-info">
           <h3 class="device-name">{{ device.key }}</h3>
           <div class="device-stats">
-            <span class="list-badge list-badge-neutral">
-              <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+            <span class="list-badge list-badge-min">
+              <mat-icon
+                style="font-size: 12px; height: 12px; width: 12px; vertical-align: middle; margin-right: 1px"
+                >device_thermostat</mat-icon
+              >
               <span class="list-badge-label">mín</span> {{ getDeviceMin(device.value) }}
             </span>
-            <span class="list-badge list-badge-neutral">
-              <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
-              <span class="list-badge-label">máx</span> {{ getDeviceMax(device.value) }}
-            </span>
-            <span class="list-badge list-badge-neutral">
-              <mat-icon style="font-size:12px;height:12px;width:12px;vertical-align:middle;margin-right:1px">device_thermostat</mat-icon>
+            <span class="list-badge list-badge-med">
+              <mat-icon
+                style="font-size: 12px; height: 12px; width: 12px; vertical-align: middle; margin-right: 1px"
+                >device_thermostat</mat-icon
+              >
               <span class="list-badge-label">méd</span> {{ getDeviceAvg(device.value) }}
             </span>
-            <span class="list-badge"
+            <span class="list-badge list-badge-max">
+              <mat-icon
+                style="font-size: 12px; height: 12px; width: 12px; vertical-align: middle; margin-right: 1px"
+                >device_thermostat</mat-icon
+              >
+              <span class="list-badge-label">máx</span> {{ getDeviceMax(device.value) }}
+            </span>
+            <span
+              class="list-badge"
               [class.list-badge-ok]="getDeviceLossPct(device.value) === 0"
               [class.list-badge-warn]="getDeviceLossPct(device.value) > 0 && getDeviceLossPct(device.value) <= 15"
-              [class.list-badge-danger]="getDeviceLossPct(device.value) > 15">
+              [class.list-badge-danger]="getDeviceLossPct(device.value) > 15"
+            >
               <span class="list-badge-label">perda</span> {{ getDeviceLossPctFmt(device.value) }}
             </span>
             <span class="stat stat-count">
@@ -471,9 +641,10 @@
             [class.interpolated]="reading.interpolated"
             [class.clamped]="reading.correctedBelowThreshold"
             [class.equal-sign-row]="reading.equalSign"
+            [class.reading-missing]="reading.isMissing"
           >
             <div class="reading-temp">
-              {{ reading.equalSign ? '=' : (reading.temperature + '°C') }}
+              {{ reading.equalSign ? '=' : reading.temperature === '-' ? '—' : (reading.temperature + '°C') }}
               <span class="badge clamp" *ngIf="adminMode && reading.correctedBelowThreshold">17+</span>
             </div>
             <div class="reading-date">{{ reading.reading_date }}</div>
@@ -499,4 +670,12 @@
     <p>Tente ajustar o intervalo de datas ou os ambientes selecionados.</p>
   </div>
 
+  </div>
+
+  <!-- Footer persistente — todas as tabs -->
+  <footer class="widget-footer" *ngIf="dados && dados.length > 0">
+    <span class="widget-footer-side"></span>
+    <span class="widget-footer-brand">MYIO Smart Hospital • Resumo de Temperatura</span>
+    <span class="widget-footer-clock"><i class="fa-solid fa-clock" style="margin-right:5px;opacity:0.7"></i>{{ footerNow }}</span>
+  </footer>
 </div>
