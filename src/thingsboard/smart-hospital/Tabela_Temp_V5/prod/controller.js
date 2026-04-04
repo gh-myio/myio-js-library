@@ -1,5 +1,5 @@
 /* jshint esversion: 11 */
-/* global self, _, document, window, requestAnimationFrame, alert */
+/* global self, _, document, window, requestAnimationFrame, alert, FileReader */
 
 /**
  * Tabela_Temp_V5 Controller v3.1.1 - HYBRID
@@ -62,7 +62,6 @@ const LOADING_STATES = {
 
 let startDate = null,
   endDate = null;
-let _dateRangePicker = null;
 let deviceList = [],
   deviceNameLabelMap = {};
 
@@ -148,7 +147,7 @@ function _getCustomerEntityId() {
       console.log('[CUSTOMER_ID] via URL ?customerId:', idFromUrl);
       return { id: idFromUrl, entityType: 'CUSTOMER' };
     }
-  } catch (_e) { /* ignorado */ }
+  } catch { /* ignorado */ }
   // 4. Tenta stateController (dashboard state params)
   try {
     var stateParams = self.ctx.stateController && self.ctx.stateController.getStateParams
@@ -158,7 +157,7 @@ function _getCustomerEntityId() {
       console.log('[CUSTOMER_ID] via stateParams.customerId:', stateParams.customerId.id);
       return stateParams.customerId;
     }
-  } catch (_e) { /* ignorado */ }
+  } catch { /* ignorado */ }
   console.warn('[CUSTOMER_ID] não encontrado em nenhuma fonte');
   return null;
 }
@@ -184,7 +183,7 @@ async function _getCustomerEntityIdAsync() {
         return device.customerId;
       }
     }
-  } catch (_e) { /* ignorado */ }
+  } catch { /* ignorado */ }
 
   console.warn('[CUSTOMER_ID] async: não encontrado em nenhuma fonte');
   return null;
@@ -237,7 +236,7 @@ async function _loadClampAttributes() {
             .replace(/\s+/g, '_')
             .replace(/[^a-z0-9_]/g, '') || 'hospital';
       }
-    } catch (_) {
+    } catch {
       /* mantém fallback 'hospital' */
     }
     const resp = await getHttp()
@@ -753,6 +752,24 @@ function brDatetime(iso) {
 }
 
 // -------- Toast Notification --------
+/**
+ * _toast — wrapper unificado de toast.
+ * Usa window.MyIOLibrary.MyIOToast quando disponível (lib carregada no dashboard),
+ * cai em showToast() como fallback para contextos onde a lib não está presente.
+ * @param {'success'|'error'|'warning'} type
+ * @param {string} message
+ * @param {number} [duration]
+ */
+function _toast(type, message, duration) {
+  const T = window.MyIOLibrary?.MyIOToast;
+  if (T && typeof T[type] === 'function') {
+    T[type](message, duration);
+  } else {
+    showToast(message, type, duration);
+  }
+}
+
+/** showToast — implementação local de fallback (usada quando MyIOLibrary não está disponível). */
 function showToast(message, type = 'error', duration = 8000) {
   console.log('[TOAST] Mostrando toast:', type, message);
 
@@ -1009,74 +1026,255 @@ function exportToXLS(rowsInput) {
   }, 1000);
 }
 
-function exportToPDF(data) {
-  const doc = new window.jspdf.jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
-  const purple = [92, 48, 125];
+// ---- PDF helpers ----
+
+function _pdfSummaryFromData(data) {
+  var byDev = {};
+  data.forEach(function (r) {
+    if (!byDev[r.deviceName]) byDev[r.deviceName] = { real: 0, missing: 0 };
+    if (r.temperature !== '-' && r.temperature !== '=') byDev[r.deviceName].real++;
+    else byDev[r.deviceName].missing++;
+  });
+  var devices = Object.keys(byDev).map(function (name) {
+    var v = byDev[name];
+    var total = v.real + v.missing;
+    var pct = total ? parseFloat(((v.missing / total) * 100).toFixed(1)) : 0;
+    return { name: name, real: v.real, missing: v.missing, total: total, pct: pct };
+  }).sort(function (a, b) { return b.pct - a.pct; });
+  var totalReal = devices.reduce(function (s, d) { return s + d.real; }, 0);
+  var totalMissing = devices.reduce(function (s, d) { return s + d.missing; }, 0);
+  var totalSlots = devices.reduce(function (s, d) { return s + d.total; }, 0);
+  var overallPct = totalSlots ? parseFloat(((totalMissing / totalSlots) * 100).toFixed(1)) : 0;
+  return { devices: devices, totalReal: totalReal, totalMissing: totalMissing, totalSlots: totalSlots, overallPct: overallPct };
+}
+
+function _pdfBuildCover(doc, cov, pw, ph, mg, purple, pdfDate, pdfTime, periodStr, logoSrc) {
+  // ── Header bar ──────────────────────────────────────────────
+  doc.setFillColor(purple[0], purple[1], purple[2]);
+  doc.rect(0, 0, pw, 56, 'F');
+  var logoH = 26, logoW = Math.round(logoH * (512 / 194));
+  doc.addImage(logoSrc, 'PNG', mg, 15, logoW, logoH, 'myio-logo');
+  var tx = mg + logoW + 12;
+  // Centraliza verticalmente o bloco de texto na barra (altura 56mm → centro em 28mm)
+  // Bloco: 4 linhas com espaçamentos 9/8/9 → span 26mm → ancoragem topo em 15mm
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(17);
+  doc.text('Relatório de Temperaturas', tx, 15);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('MYIO Smart Hospital', tx, 24);
+  doc.text('Complexo Hospitalar Municipal Souza Aguiar', tx, 32);
+  doc.setFontSize(9);
+  doc.text('Emitido em ' + pdfDate + ' às ' + pdfTime, tx, 41);
+
+  // ── Info bar ────────────────────────────────────────────────
+  doc.setFillColor(240, 232, 255);
+  doc.rect(0, 56, pw, 12, 'F');
+  doc.setTextColor(92, 48, 125);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  var infoTxt = periodStr
+    ? ('Período consultado: ' + periodStr.replace(' \u2192 ', ' até '))
+    : 'Período: não definido';
+  doc.text(infoTxt, pw / 2, 64, { align: 'center' });
+
+  // ── KPI cards ───────────────────────────────────────────────
+  var kpis = [
+    { label: 'Dispositivos',   value: String(cov.devices.length),  color: purple },
+    { label: 'Leituras reais', value: String(cov.totalReal),        color: [22, 163, 74] },
+    { label: 'Slots sem dados', value: String(cov.totalMissing),   color: cov.totalMissing > 0 ? [220, 38, 38] : [107, 114, 128] },
+    { label: 'Perda geral',    value: cov.overallPct + '%',         color: cov.overallPct > 0 ? [220, 38, 38] : [22, 163, 74] },
+  ];
+  var cardGap = 4, cardW = (pw - 2 * mg - 3 * cardGap) / 4;
+  var cardY = 73, cardH = 27;
+  kpis.forEach(function (kpi, i) {
+    var cx2 = mg + i * (cardW + cardGap);
+    doc.setFillColor(249, 250, 251);
+    doc.rect(cx2, cardY, cardW, cardH, 'F');
+    doc.setDrawColor(229, 231, 235);
+    doc.rect(cx2, cardY, cardW, cardH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
+    doc.text(kpi.value, cx2 + cardW / 2, cardY + 14, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(kpi.label, cx2 + cardW / 2, cardY + 22, { align: 'center' });
+  });
+
+  // ── Device summary table ────────────────────────────────────
+  var ty = cardY + cardH + 8;
+  var tH = 7.5;
+  var colReal = 30, colMiss = 30, colPct = 24;
+  var colName = pw - 2 * mg - colReal - colMiss - colPct;
+  var colXs = [mg, mg + colName, mg + colName + colReal, mg + colName + colReal + colMiss];
+  var colWs = [colName, colReal, colMiss, colPct];
+
+  // Table header row
+  doc.setFillColor(purple[0], purple[1], purple[2]);
+  doc.rect(mg, ty, pw - 2 * mg, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  ['Dispositivo', 'Leituras reais', 'Sem dados', 'Perda (%)'].forEach(function (lbl, i) {
+    var ax = i === 0 ? colXs[i] + 3 : colXs[i] + colWs[i] / 2;
+    doc.text(lbl, ax, ty + 5.5, { align: i === 0 ? 'left' : 'center' });
+  });
+  ty += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setDrawColor(243, 244, 246);
+
+  var maxRows = Math.floor((ph - 14 - ty) / tH);
+  var devToShow = cov.devices.slice(0, maxRows);
+  var truncated = Math.max(0, cov.devices.length - maxRows);
+
+  devToShow.forEach(function (dev, ri) {
+    if (ri % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(mg, ty, pw - 2 * mg, tH, 'F');
+    }
+    var lc = dev.pct === 0 ? [22, 163, 74]
+      : dev.pct <= 5  ? [202, 138, 4]
+      : dev.pct <= 15 ? [234, 88, 12]
+      :                 [220, 38, 38];
+    doc.setFontSize(7.5);
+    doc.setTextColor(17, 24, 39);
+    doc.text(dev.name, colXs[0] + 3, ty + 5, { maxWidth: colName - 6 });
+    doc.text(String(dev.real),    colXs[1] + colWs[1] / 2, ty + 5, { align: 'center' });
+    doc.text(String(dev.missing), colXs[2] + colWs[2] / 2, ty + 5, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(lc[0], lc[1], lc[2]);
+    doc.text(dev.pct + '%', colXs[3] + colWs[3] / 2, ty + 5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.line(mg, ty + tH, mg + pw - 2 * mg, ty + tH);
+    ty += tH;
+  });
+
+  if (truncated > 0) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text('... e mais ' + truncated + ' dispositivo(s) — veja o detalhamento nas páginas seguintes.', mg, ty + 5);
+  }
+}
+
+async function exportToPDF(data) {
   if (!data?.length) {
     openErrorModal('Sem dados', 'Não há dados para exportar.');
     return;
   }
 
+  // Pré-carrega logo UMA vez como base64 — evita centenas de requests no loop do rodapé
+  const _LOGO_URL = 'https://dashboard.myio-bas.com/api/images/public/TAfpmF6jEKPDi6hXHbnMUT8MWOHv5lKD';
+  let _logoSrc = _LOGO_URL;
+  try {
+    const _resp = await fetch(_LOGO_URL);
+    const _blob = await _resp.blob();
+    _logoSrc = await new Promise((res) => {
+      const fr = new FileReader();
+      fr.onloadend = () => res(fr.result);
+      fr.readAsDataURL(_blob);
+    });
+  } catch { /* fallback para URL se fetch falhar */ }
+
+  const doc = new window.jspdf.jsPDF();
+  const pw = doc.internal.pageSize.width;
+  const ph = doc.internal.pageSize.height;
+  const purple = [92, 48, 125];
+  const m = 10;
+
+  const _pdfNow = new Date();
+  const _pdfDate = _pdfNow.toLocaleDateString('pt-BR');
+  const _pdfTime = _pdfNow.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const _pdfPeriodStr = (startDate && endDate)
+    ? `${new Date(startDate).toLocaleDateString('pt-BR')} → ${new Date(endDate).toLocaleDateString('pt-BR')}`
+    : '';
+
+  // Summary: prefer _smState.report (grid-accurate), fallback to raw calc
+  const _smRep = (_smState && _smState.report) ? _smState.report : null;
+  const cov = _smRep ? {
+    devices: _smRep.devices.map(function (d) {
+      return { name: d.label, real: d.realSlots, missing: d.missingSlots, pct: d.lossPct };
+    }),
+    totalReal: _smRep.totalReal,
+    totalMissing: _smRep.totalMissing,
+    totalSlots: _smRep.totalSlots,
+    overallPct: _smRep.overallLossPct,
+  } : _pdfSummaryFromData(data);
+
+  // === PÁGINA 1: CAPA ===
+  _pdfBuildCover(doc, cov, pw, ph, m, purple, _pdfDate, _pdfTime, _pdfPeriodStr, _logoSrc);
+
+  // === PÁGINAS DE DADOS (sem header repetido — direto à tabela) ===
+  doc.addPage();
+
+  const _rowH = 7;   // altura da linha de dados (mm)
+  const _rowFS = 8;  // font size dos dados (pt)
+  const col = (pw - 2 * m) / 3;
+
+  // Cabeçalho da tabela
+  let y = 12;
   doc.setFillColor(...purple);
-  doc.rect(0, 0, pageWidth, 50, 'F');
-  const logoH = 25,
-    logoW = Math.round(logoH * (512 / 194)),
-    logoX = 15,
-    logoY = 12;
-  doc.addImage(
-    'https://dashboard.myio-bas.com/api/images/public/TAfpmF6jEKPDi6hXHbnMUT8MWOHv5lKD',
-    'PNG',
-    logoX,
-    logoY,
-    logoW,
-    logoH
-  );
-
-  doc.setFontSize(12);
+  doc.rect(m, y, pw - 2 * m, 8, 'F');
   doc.setTextColor(255, 255, 255);
-  const textX = logoX + logoW + 20;
-  const avail = pageWidth - textX - 15;
-  const cx = textX + avail / 2;
-  doc.text('Sistema Myio | Registro de aferição de Temperaturas', cx, 15, { align: 'center' });
-  doc.text('Complexo Hospitalar Municipal Souza Aguiar', cx, 25, { align: 'center' });
-  doc.text(`Data de Expedição: ${new Date().toLocaleDateString('pt-BR')}`, cx, 35, { align: 'center' });
-
-  if (startDate && endDate) {
-    const f = new Date(startDate).toLocaleDateString('pt-BR');
-    const t = new Date(endDate).toLocaleDateString('pt-BR');
-    doc.text(`Período de ${f} até ${t}`, cx, 45, { align: 'center' });
-  }
-
-  let y = 60,
-    h = 10,
-    m = 10,
-    col = (pageWidth - 2 * m) / 3;
-  doc.setFillColor(...purple);
-  doc.rect(m, y, pageWidth - 2 * m, h, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  ['Dispositivo', 'Temperatura (ºC)', 'Data'].forEach((txt, i) =>
-    doc.text(txt, m + i * col + col / 2, y + 7, { align: 'center' })
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  ['Dispositivo', 'Temperatura (ºC)', 'Data/Hora'].forEach((txt, i) =>
+    doc.text(txt, m + i * col + col / 2, y + 5.5, { align: 'center' })
   );
-  y += h;
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(_rowFS);
   doc.setTextColor(0, 0, 0);
 
+  // Linhas de dados
+  const _pdfFooterH = 16;
   data.forEach((r, i) => {
-    if (y > doc.internal.pageSize.height - 20) {
+    if (y > ph - _pdfFooterH - 8) {
       doc.addPage();
-      y = 20;
+      y = 12;
     }
     if (i % 2 === 0) {
       doc.setFillColor(245, 247, 250);
-      doc.rect(m, y, pageWidth - 2 * m, h, 'F');
+      doc.rect(m, y, pw - 2 * m, _rowH, 'F');
     }
+    doc.setFontSize(_rowFS);
+    doc.setTextColor(0, 0, 0);
     [r.deviceName, r.temperature, r.reading_date].forEach((txt, ci) =>
-      doc.text(String(txt), m + ci * col + col / 2, y + 7, { align: 'center' })
+      doc.text(String(txt), m + ci * col + col / 2, y + 5, { align: 'center' })
     );
-    y += h;
+    y += _rowH;
   });
 
+  // === RODAPÉ PREMIUM EM TODAS AS PÁGINAS ===
+  const _totalPages = doc.internal.getNumberOfPages();
+  const _fBarH = 14;
+  const _fBarY = ph - _fBarH;
+  const _fLogoH = 5.5;
+  const _fLogoW = Math.round(_fLogoH * (512 / 194));
+  const _fLogoX = m;
+  const _fLogoY = _fBarY + (_fBarH - _fLogoH) / 2;
+  const _fTextY = _fBarY + _fBarH / 2 + 1.5;
+  const _pdfPeriodPart = _pdfPeriodStr
+    ? ` • Período de ${_pdfPeriodStr.replace(' → ', ' até ')}`
+    : '';
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  for (let _p = 1; _p <= _totalPages; _p++) {
+    doc.setPage(_p);
+    doc.setFillColor(...purple);
+    doc.rect(0, _fBarY, pw, _fBarH, 'F');
+    doc.addImage(_logoSrc, 'PNG', _fLogoX, _fLogoY, _fLogoW, _fLogoH, 'myio-logo');
+    doc.setTextColor(255, 255, 255);
+    const _fCenter = `MYIO Smart Hospital  •  Resumo de Temperatura  •  Emitido em ${_pdfDate} às ${_pdfTime}${_pdfPeriodPart}`;
+    doc.text(_fCenter, pw / 2, _fTextY, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Pág ${_p} / ${_totalPages}`, pw - m, _fTextY, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+  }
+  doc.setPage(_totalPages);
   doc.save(_buildExportFilename('pdf'));
 }
 
@@ -1890,8 +2088,7 @@ self.onInit = function () {
         self.ctx.detectChanges();
       },
     })
-      .then(function (picker) {
-        _dateRangePicker = picker;
+      .then(function () {
         console.log('[DatePicker] Inicializado com sucesso');
       })
       .catch(function (err) {
@@ -2239,7 +2436,7 @@ self.onInit = function () {
         self.ctx.$scope.isMyIOAdmin = _isMyIOAdmin;
         self.ctx.detectChanges();
       }).catch(function () { /* mantém valor síncrono */ });
-    } catch (_e) { /* mantém valor síncrono */ }
+    } catch { /* mantém valor síncrono */ }
   })();
 
   self.ctx.detectChanges();
@@ -2268,6 +2465,7 @@ var _smState = {
   filterText: '',
   filterSel: null,
   activeFilterBtn: 'all',
+  sortOrder: 'loss_desc',
 };
 
 function _smInjectCSS() {
@@ -2360,6 +2558,14 @@ function _smInjectCSS() {
     '.sm-filter-btn{padding:5px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;cursor:pointer;background:#f9fafb;white-space:nowrap;color:#374151}',
     '.sm-filter-btn:hover{background:#f3f4f6;border-color:#9ca3af}',
     '.sm-filter-btn.smfb-active{background:#5c307d;color:#fff;border-color:#5c307d}',
+    '.sm-sort-wrap{position:relative;flex-shrink:0}',
+    '.sm-sort-btn{padding:5px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;cursor:pointer;background:#f9fafb;color:#374151;line-height:1;display:flex;align-items:center;gap:4px;white-space:nowrap}',
+    '.sm-sort-btn:hover{border-color:#9ca3af;background:#f3f4f6}',
+    '.sm-sort-btn.sort-active{border-color:#5c307d;color:#5c307d;background:#f9f5ff}',
+    '.sm-sort-dd{position:absolute;top:calc(100% + 4px);right:0;min-width:175px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:9999;padding:4px 0}',
+    '.sm-sort-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;font-size:12px;cursor:pointer;background:none;border:none;text-align:left;color:#374151;white-space:nowrap}',
+    '.sm-sort-item:hover{background:#f9fafb}',
+    '.sm-sort-item.sort-selected{color:#5c307d;font-weight:600;background:#f9f5ff}',
     /* expanded layout */
     '#tbtv5-sm.expanded .summary-modal-body{overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;gap:0;padding-bottom:16px}',
     '#tbtv5-sm.expanded .summary-main-content{flex:1;min-height:0;flex-shrink:1;flex-direction:row;gap:16px;overflow:hidden}',
@@ -2375,53 +2581,34 @@ function _smEsc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function _smBuildClampBadge(report) {
-  var custom = !!report.clampFromCustomer;
-  var cls = custom ? 'sm-clamp-custom' : 'sm-clamp-fallback';
-  var dot = custom ? '🟢' : '🟡';
-  var source = custom ? 'do cliente (SERVER_SCOPE)' : 'padrão — fallback';
-  return (
-    '<div class="sm-clamp-badge ' +
-    cls +
-    '">' +
-    '<span class="sm-clamp-dot">' +
-    dot +
-    '</span>' +
-    '<span class="sm-clamp-label">' +
-    'Limites de temperatura (clamp): <strong>' +
-    report.clampMin +
-    '°C – ' +
-    report.clampMax +
-    '°C</strong>' +
-    '<span class="sm-clamp-source">• ' +
-    source +
-    '</span>' +
-    '</span>' +
-    '</div>'
-  );
-}
-
 function _smBuildFilterBar(report) {
   var total = report.devices.length;
   var sel = _smState.filterSel;
   var count = sel === null ? total : sel.size;
+
+  // Multiselect: itens em ordem alfabética (mantém índice original de report.devices)
   var msItems = report.devices
-    .map(function (dev, i) {
-      var checked = sel === null || sel.has(i);
+    .map(function (dev, i) { return { dev: dev, i: i }; })
+    .sort(function (a, b) { return a.dev.label.localeCompare(b.dev.label, 'pt-BR'); })
+    .map(function (entry) {
+      var checked = sel === null || sel.has(entry.i);
       return (
         '<label class="sm-ms-item"><input type="checkbox" id="tbtv5-ms-cb-' +
-        i +
-        '" ' +
-        (checked ? 'checked' : '') +
-        ' onchange="window.tbtv5_toggleMsItem(' +
-        i +
-        ')"><span>' +
-        _smEsc(dev.label) +
-        '</span></label>'
+        entry.i + '" ' + (checked ? 'checked' : '') +
+        ' onchange="window.tbtv5_toggleMsItem(' + entry.i + ')"><span>' +
+        _smEsc(entry.dev.label) + '</span></label>'
       );
     })
     .join('');
+
   var ab = _smState.activeFilterBtn;
+  var so = _smState.sortOrder || 'loss_desc';
+  var sortLabels = { loss_desc: '↓ Maior perda', loss_asc: '↑ Menor perda', az: 'A → Z', za: 'Z → A' };
+  var isCustomSort = so !== 'loss_desc';
+  var sortDdItems = ['loss_desc', 'loss_asc', 'az', 'za'].map(function (k) {
+    return '<button class="sm-sort-item' + (so === k ? ' sort-selected' : '') + '" onclick="window.tbtv5_applySortOrder(\'' + k + '\')">' + sortLabels[k] + '</button>';
+  }).join('');
+
   return (
     '<div class="sm-filter-bar">' +
     '<input class="sm-filter-search" id="tbtv5-fsearch" type="text" placeholder="🔍 Buscar dispositivo..." value="' +
@@ -2429,26 +2616,17 @@ function _smBuildFilterBar(report) {
     '" oninput="window.tbtv5_filterInput(this.value)">' +
     '<div class="sm-ms-wrap" id="tbtv5-ms-wrap">' +
     '<button class="sm-ms-btn" id="tbtv5-ms-btn" onclick="window.tbtv5_toggleMsDropdown(event)"><span id="tbtv5-ms-label">Dispositivos (' +
-    count +
-    '/' +
-    total +
-    ')</span> ▾</button>' +
-    '<div class="sm-ms-dropdown" id="tbtv5-ms-dd" style="display:none">' +
-    msItems +
+    count + '/' + total + ')</span> ▾</button>' +
+    '<div class="sm-ms-dropdown" id="tbtv5-ms-dd" style="display:none">' + msItems + '</div>' +
     '</div>' +
+    '<button id="tbtv5-fbtn-all"  class="sm-filter-btn' + (ab === 'all'  ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterAll()">Todos</button>' +
+    '<button id="tbtv5-fbtn-clr"  class="sm-filter-btn' + (ab === 'clr'  ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterClear()">Limpar</button>' +
+    '<button id="tbtv5-fbtn-loss" class="sm-filter-btn' + (ab === 'loss' ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterOnlyLoss()">Só perdas</button>' +
+    '<button id="tbtv5-fbtn-ok"   class="sm-filter-btn' + (ab === 'ok'   ? ' smfb-active' : '') + '" onclick="window.tbtv5_filterNoLoss()">Sem perdas</button>' +
+    '<div class="sm-sort-wrap" id="tbtv5-sort-wrap">' +
+    '<button class="sm-sort-btn' + (isCustomSort ? ' sort-active' : '') + '" id="tbtv5-sort-btn" onclick="window.tbtv5_toggleSortDropdown(event)" title="Ordenação">⇅ ' + (isCustomSort ? sortLabels[so] : 'Ordenar') + '</button>' +
+    '<div class="sm-sort-dd" id="tbtv5-sort-dd" style="display:none">' + sortDdItems + '</div>' +
     '</div>' +
-    '<button id="tbtv5-fbtn-all"  class="sm-filter-btn' +
-    (ab === 'all' ? ' smfb-active' : '') +
-    '" onclick="window.tbtv5_filterAll()">Todos</button>' +
-    '<button id="tbtv5-fbtn-clr"  class="sm-filter-btn' +
-    (ab === 'clr' ? ' smfb-active' : '') +
-    '" onclick="window.tbtv5_filterClear()">Limpar</button>' +
-    '<button id="tbtv5-fbtn-loss" class="sm-filter-btn' +
-    (ab === 'loss' ? ' smfb-active' : '') +
-    '" onclick="window.tbtv5_filterOnlyLoss()">Só perdas</button>' +
-    '<button id="tbtv5-fbtn-ok"   class="sm-filter-btn' +
-    (ab === 'ok' ? ' smfb-active' : '') +
-    '" onclick="window.tbtv5_filterNoLoss()">Sem perdas</button>' +
     '</div>'
   );
 }
@@ -2656,6 +2834,7 @@ function _smOpenModal(report) {
   _smState.filterText = '';
   _smState.filterSel = null;
   _smState.activeFilterBtn = 'all';
+  _smState.sortOrder = 'loss_desc';
   var modal = document.getElementById('tbtv5-sm');
   var bd = document.getElementById('tbtv5-sm-bd');
   if (!modal) return;
@@ -2779,14 +2958,72 @@ window.tbtv5_filterInput = function (val) {
 
 window.tbtv5_toggleMsDropdown = function (e) {
   e.stopPropagation();
+  var sortDd = document.getElementById('tbtv5-sort-dd');
+  if (sortDd) sortDd.style.display = 'none';
   var dd = document.getElementById('tbtv5-ms-dd');
   if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
 };
 
+window.tbtv5_toggleSortDropdown = function (e) {
+  e.stopPropagation();
+  var msDd = document.getElementById('tbtv5-ms-dd');
+  if (msDd) msDd.style.display = 'none';
+  var dd = document.getElementById('tbtv5-sort-dd');
+  if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
+
+window.tbtv5_applySortOrder = function (order) {
+  var report = _smState.report;
+  if (!report) return;
+  _smState.sortOrder = order;
+
+  // Salva labels selecionados antes do re-sort (filterSel usa índices posicionais)
+  var selLabels = null;
+  if (_smState.filterSel !== null) {
+    selLabels = new Set();
+    _smState.filterSel.forEach(function (i) {
+      if (report.devices[i]) selLabels.add(report.devices[i].label);
+    });
+  }
+
+  report.devices.sort(function (a, b) {
+    if (order === 'loss_desc') return b.lossPct - a.lossPct;
+    if (order === 'loss_asc')  return a.lossPct - b.lossPct;
+    if (order === 'az')  return a.label.localeCompare(b.label, 'pt-BR');
+    if (order === 'za')  return b.label.localeCompare(a.label, 'pt-BR');
+    return 0;
+  });
+
+  // Remapeia filterSel para os novos índices
+  if (selLabels !== null) {
+    _smState.filterSel = new Set();
+    report.devices.forEach(function (d, i) {
+      if (selLabels.has(d.label)) _smState.filterSel.add(i);
+    });
+  }
+
+  var modal = document.getElementById('tbtv5-sm');
+  if (modal) modal.innerHTML = _smBuildHTML(report);
+};
+
 window.tbtv5_closeMsDropdown = function (e) {
-  if (e && e.target && e.target.closest && e.target.closest('#tbtv5-ms-wrap')) return;
-  var dd = document.getElementById('tbtv5-ms-dd');
-  if (dd) dd.style.display = 'none';
+  if (e && e.target && e.target.closest) {
+    if (e.target.closest('#tbtv5-ms-wrap')) {
+      // só fecha sort se aberto
+    } else {
+      var dd = document.getElementById('tbtv5-ms-dd');
+      if (dd) dd.style.display = 'none';
+    }
+    if (!e.target.closest('#tbtv5-sort-wrap')) {
+      var sortDd = document.getElementById('tbtv5-sort-dd');
+      if (sortDd) sortDd.style.display = 'none';
+    }
+  } else {
+    var dd2 = document.getElementById('tbtv5-ms-dd');
+    if (dd2) dd2.style.display = 'none';
+    var sortDd2 = document.getElementById('tbtv5-sort-dd');
+    if (sortDd2) sortDd2.style.display = 'none';
+  }
 };
 
 window.tbtv5_toggleMsItem = function (i) {
@@ -2886,6 +3123,7 @@ window.tbtv5_toggleSeries = function (key) {
 
 var _moState = {
   step: null,
+  prevStep: null,
   selectedDevice: null,
   co2Devices: [],
   slots: [],
@@ -2898,7 +3136,7 @@ function _moInjectCSS() {
   s.id = 'tbtv5-mo-styles';
   s.textContent = [
     '#tbtv5-mo-bd{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483646}',
-    '#tbtv5-mo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2147483647;background:#fff;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;font-size:14px;box-sizing:border-box;width:580px;max-width:96vw;max-height:88vh}',
+    '#tbtv5-mo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2147483647;background:#fff;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;font-size:14px;box-sizing:border-box;width:1740px;max-width:96vw;max-height:92vh}',
     '#tbtv5-mo *{box-sizing:border-box}',
     '.mo-header{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;background:#5c307d;color:#fff;font-weight:600;font-size:15px;flex-shrink:0}',
     '.mo-header-sub{font-size:12px;font-weight:400;opacity:.8;margin-top:2px}',
@@ -2953,6 +3191,19 @@ function _moInjectCSS() {
     '.mo-info-key{font-weight:500;color:#555;min-width:110px}',
     '.mo-alert{background:#fff3e0;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;font-size:13px;color:#e65100;margin-bottom:14px}',
     '.mo-section-title{font-size:14px;font-weight:600;color:#333;margin:0 0 10px}',
+    '.mo-override-badge{display:inline-block;background:#f0e8ff;color:#5c307d;border:1px solid #c4a3e8;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:500;margin-left:8px;white-space:nowrap;vertical-align:middle}',
+    '.mo-edit-confirm{background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px 12px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
+    '.mo-edit-input{width:90px;padding:5px 8px;border:1px solid #93c5fd;border-radius:5px;font-size:13px;text-align:right}',
+    '.mo-dt-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}',
+    '.mo-dt-sep{font-size:15px;color:#bbb;font-weight:600;padding:0 2px;flex-shrink:0}',
+    '.mo-chip-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}',
+    '.mo-chip{padding:5px 12px;border:1px solid #c4a3e8;border-radius:20px;background:#f9f5ff;color:#5c307d;font-size:12px;font-weight:500;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap}',
+    '.mo-chip:hover{background:#ede0ff;border-color:#9a6bbf}',
+    '.mo-slot-row-saved td{background:#fff7ed !important}',
+    '.mo-warn-wrap{position:relative;display:inline-block;cursor:default;margin-left:5px;vertical-align:middle}',
+    '.mo-warn-tip{display:none;position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#2d1f42;color:#fff;font-size:12px;padding:8px 11px;border-radius:7px;white-space:nowrap;z-index:9999;line-height:1.5;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.3);min-width:220px;text-align:left}',
+    '.mo-warn-tip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#2d1f42}',
+    '.mo-warn-wrap:hover .mo-warn-tip{display:block}',
   ].join('\n');
   document.head.appendChild(s);
 }
@@ -3023,6 +3274,31 @@ function _moCheckConflicts(slots, deviceCentralName) {
   });
 }
 
+function _moChipGenerate(startDate, startH, startM, dayOffsets, hourOffsets) {
+  var parts = startDate.split('-').map(Number);
+  var slots = [];
+  dayOffsets.forEach(function (dayOff) {
+    hourOffsets.forEach(function (hOff) {
+      var t = Date.UTC(parts[0], parts[1] - 1, parts[2] + dayOff, startH + 3 + hOff, startM, 0, 0);
+      var timeUTC = new Date(t).toISOString();
+      slots.push({ timeUTC: timeUTC, timeBRT: _moUTCToBRT(timeUTC), value: null, conflict: null });
+    });
+  });
+  return slots;
+}
+
+function _moMergeSlots(newSlots) {
+  var checked = _moCheckConflicts(newSlots, _moState.selectedDevice.deviceCentralName);
+  checked = checked.map(function (s) {
+    if (s.conflict && s.value == null) return Object.assign({}, s, { value: s.conflict.existingValue });
+    return s;
+  });
+  var existingKeys = {};
+  _moState.slots.forEach(function (s) { existingKeys[s.timeUTC] = true; });
+  var toAdd = checked.filter(function (s) { return !existingKeys[s.timeUTC]; });
+  _moState.slots = _moState.slots.concat(toAdd);
+}
+
 function _moOpenModal() {
   _moInjectCSS();
   var bd = document.getElementById('tbtv5-mo-bd');
@@ -3084,24 +3360,32 @@ function _moTimeSelects(prefixH, prefixM, selectedH, selectedMin) {
   );
 }
 
-function _moTodayISO() {
-  var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
 // ── Step builders ────────────────────────────────────────────────────────────
 
 function _moBuildStepDevice() {
   var devices = _moState.co2Devices;
   var rows = '';
+  var overrideDevices = (_manualOverrides && Array.isArray(_manualOverrides.device_list_interval_values))
+    ? _manualOverrides.device_list_interval_values : [];
+  var moMonthNames = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
   if (devices.length === 0) {
     rows = '<div class="mo-empty">Nenhum dispositivo CO₂ encontrado nas fontes de dados.</div>';
   } else {
     rows = devices.map(function (d, i) {
       var sel = _moState.selectedDevice && _moState.selectedDevice.deviceCentralName === d.deviceCentralName;
+      var overrideEntry = overrideDevices.find(function (od) { return od.deviceCentralName === d.deviceCentralName; });
+      var badge = '';
+      if (overrideEntry && overrideEntry.values_list && overrideEntry.values_list.length > 0) {
+        var slotCount = overrideEntry.values_list.length;
+        var sortedForBadge = overrideEntry.values_list.slice().sort(function (a, b) { return b.timeUTC.localeCompare(a.timeUTC); });
+        var latestDate = new Date(sortedForBadge[0].timeUTC);
+        var period = latestDate.getUTCFullYear() + '/' + moMonthNames[latestDate.getUTCMonth()];
+        badge = '<span class="mo-override-badge">' + period + ' · ' + slotCount + ' slots</span>';
+      }
       return (
         '<li class="mo-device-item' + (sel ? ' selected' : '') + '" onclick="window.tbtv5_mo_selectDevice(' + i + ')">' +
-        '<div class="mo-device-label">' + d.tbLabel + '</div>' +
+        '<div class="mo-device-label">' + d.tbLabel + badge + '</div>' +
         '<div class="mo-device-name">' + d.deviceCentralName + '</div>' +
         '</li>'
       );
@@ -3125,53 +3409,64 @@ function _moBuildStepDevice() {
 
 function _moBuildStepDateTime() {
   var dev = _moState.selectedDevice;
-  var today = _moTodayISO();
   var slotsSection = '';
 
   if (_moState.slots.length > 0) {
+    var savedCount = _moState.slots.filter(function (s) { return s.conflict; }).length;
     var rows = _moState.slots.map(function (s, i) {
       var val = s.value != null ? String(s.value) : '';
+      var isSaved = s.conflict != null;
+      var rowOpen = isSaved ? '<tr class="mo-slot-row-saved">' : '<tr>';
+      var warnIcon = isSaved
+        ? ('<span class="mo-warn-wrap">⚠️' +
+           '<span class="mo-warn-tip">Slot já possui valor salvo: <strong>' + s.conflict.existingValue + '°C</strong>.<br>O novo valor irá sobrescrevê-lo ao salvar.</span>' +
+           '</span>')
+        : '';
       return (
-        '<tr>' +
-        '<td>' + s.timeBRT +
-        (s.conflict ? '<span class="mo-conflict-badge">existe: ' + s.conflict.existingValue + '°C</span>' : '') +
-        '</td>' +
-        '<td><input type="number" step="0.01" id="mo-slot-' + i + '" class="mo-slot-input' + (s.conflict ? ' conflict' : '') + '" ' +
+        rowOpen +
+        '<td>' + s.timeBRT + warnIcon + '</td>' +
+        '<td><input type="number" step="0.01" id="mo-slot-' + i + '" class="mo-slot-input' + (isSaved ? ' conflict' : '') + '" ' +
         'value="' + val + '" placeholder="0.00" ' +
         'onchange="window.tbtv5_mo_slotValueChange(' + i + ',this.value)" ' +
         'oninput="window.tbtv5_mo_slotValueChange(' + i + ',this.value)" /></td>' +
+        '<td><button class="mo-action-btn" title="Remover" onclick="window.tbtv5_mo_removeSlot(' + i + ')" style="font-size:16px;color:#aaa">×</button></td>' +
         '</tr>'
       );
     }).join('');
 
     slotsSection = (
       '<div class="mo-fill-bar">' +
-      '<span>' + _moState.slots.length + ' slot(s) gerado(s)</span>' +
+      '<span>' + _moState.slots.length + ' slot(s) adicionado(s)' + (savedCount > 0 ? ' · <span style="color:#e65100">' + savedCount + ' com valor salvo</span>' : '') + '</span>' +
       '<input type="number" step="0.01" id="mo-fill-val" class="mo-fill-input" placeholder="Valor único" />' +
       '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_applyFillAll()" style="padding:6px 12px;font-size:12px">Preencher todos</button>' +
       '</div>' +
-      '<div style="max-height:280px;overflow-y:auto;margin-top:4px">' +
+      '<div style="max-height:340px;overflow-y:auto;margin-top:4px">' +
       '<table class="mo-slots-table">' +
-      '<thead><tr><th>Slot (BRT)</th><th>Valor (°C)</th></tr></thead>' +
+      '<thead><tr><th>Slot (BRT)</th><th>Valor (°C)</th><th></th></tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
       '</table></div>'
     );
   }
 
   _moRender(
-    _moHeader('Ajuste Manual · ' + dev.tbLabel, 'Passo 2 de 4 · Selecionar Intervalo (BRT)') +
+    _moHeader('Ajuste Manual · ' + dev.tbLabel, 'Passo 2 de 4 · Adicionar Slots (BRT)') +
     '<div class="mo-body">' +
-    '<div class="mo-dt-row">' +
-    '<span class="mo-dt-label">Início (BRT)</span>' +
-    '<input type="date" id="mo-start-date" class="mo-dt-input" value="' + today + '" />' +
+    '<div class="mo-dt-inline">' +
+    '<span class="mo-dt-label" style="min-width:auto;flex-shrink:0">Início</span>' +
+    '<input type="date" id="mo-start-date" class="mo-dt-input" />' +
     _moTimeSelects('mo-start-h', 'mo-start-m', 0, 0) +
+    '<span class="mo-dt-sep">→</span>' +
+    '<span class="mo-dt-label" style="min-width:auto;flex-shrink:0;color:#aaa">Fim <small style="font-weight:400">(opcional)</small></span>' +
+    '<input type="date" id="mo-end-date" class="mo-dt-input" />' +
+    _moTimeSelects('mo-end-h', 'mo-end-m', 0, 0) +
+    '<button class="mo-btn mo-btn-primary" style="padding:8px 16px;white-space:nowrap;flex-shrink:0" onclick="window.tbtv5_mo_addSlots()">+ Adicionar slots</button>' +
     '</div>' +
-    '<div class="mo-dt-row">' +
-    '<span class="mo-dt-label">Fim (BRT)</span>' +
-    '<input type="date" id="mo-end-date" class="mo-dt-input" value="' + today + '" />' +
-    _moTimeSelects('mo-end-h', 'mo-end-m', 9, 0) +
+    '<div class="mo-chip-bar">' +
+    '<span style="font-size:11px;color:#aaa;flex-shrink:0">Atalhos:</span>' +
+    '<button class="mo-chip" onclick="window.tbtv5_mo_addChipSlots(\'2h\')">7 slots × 2h</button>' +
+    '<button class="mo-chip" onclick="window.tbtv5_mo_addChipSlots(\'2h7d_fwd\')">7 slots × 2h · 7d →</button>' +
+    '<button class="mo-chip" onclick="window.tbtv5_mo_addChipSlots(\'2h7d_bwd\')">7 slots × 2h · 7d ←</button>' +
     '</div>' +
-    '<button class="mo-btn mo-btn-secondary" style="margin-bottom:4px" onclick="window.tbtv5_mo_generateSlots()">⟳ Gerar slots</button>' +
     slotsSection +
     '</div>' +
     _moFooter(
@@ -3254,7 +3549,7 @@ function _moBuildListView() {
   var devices = (_manualOverrides && Array.isArray(_manualOverrides.device_list_interval_values))
     ? _manualOverrides.device_list_interval_values : [];
   var meta = _manualOverrides
-    ? 'v' + _manualOverrides.version + ' · ' + (_manualOverrides.updatedBy || _manualOverrides.createdBy || '')
+    ? 'v' + (_manualOverrides.version != null ? _manualOverrides.version : '?') + ' · ' + (_manualOverrides.updatedBy || _manualOverrides.createdBy || '—')
     : 'Sem ajustes cadastrados';
 
   var content;
@@ -3271,8 +3566,12 @@ function _moBuildListView() {
             '<tr id="mo-slot-row-' + safeTimeUTC + '">' +
             '<td>' + brt + '</td>' +
             '<td style="font-weight:600">' + s.value + '°C</td>' +
-            '<td><button class="mo-action-btn" title="Excluir slot" ' +
-            'onclick="window.tbtv5_mo_deleteSlot(\'' + d.deviceCentralName + '\',\'' + s.timeUTC + '\')">🗑</button></td>' +
+            '<td style="white-space:nowrap">' +
+            '<button class="mo-action-btn" title="Editar slot" ' +
+            'onclick="window.tbtv5_mo_editSlot(\'' + d.deviceCentralName + '\',\'' + s.timeUTC + '\',' + s.value + ')">✏️</button>' +
+            '<button class="mo-action-btn" title="Excluir slot" ' +
+            'onclick="window.tbtv5_mo_deleteSlot(\'' + d.deviceCentralName + '\',\'' + s.timeUTC + '\')">🗑</button>' +
+            '</td>' +
             '</tr>'
           );
         }).join('');
@@ -3296,6 +3595,7 @@ function _moBuildListView() {
     _moHeader('Ajustes Manuais Existentes', meta) +
     '<div class="mo-body">' + content + '</div>' +
     _moFooter(
+      '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_backFromList()">← Voltar</button>' +
       '<button class="mo-btn mo-btn-secondary" onclick="window.tbtv5_mo_open()">+ Novo ajuste</button>' +
       '<button class="mo-btn mo-btn-primary" onclick="window.tbtv5_mo_close()">Fechar</button>'
     )
@@ -3344,6 +3644,7 @@ window.tbtv5_mo_openList = function () {
     _moBuildStepPassword('LIST_VIEW');
     return;
   }
+  _moState.prevStep = _moState.step;
   _moState.step = 'LIST_VIEW';
   _moBuildListView();
 };
@@ -3383,28 +3684,61 @@ window.tbtv5_mo_selectDevice = function (idx) {
   _moBuildStepDevice();
 };
 
-window.tbtv5_mo_generateSlots = function () {
+window.tbtv5_mo_generateSlots = function () { window.tbtv5_mo_addSlots(); };
+
+window.tbtv5_mo_addSlots = function () {
   var sd = document.getElementById('mo-start-date');
   var sh = document.getElementById('mo-start-h');
   var sm2 = document.getElementById('mo-start-m');
   var ed = document.getElementById('mo-end-date');
   var eh = document.getElementById('mo-end-h');
   var em2 = document.getElementById('mo-end-m');
-  if (!sd || !sh || !sm2 || !ed || !eh || !em2) return;
-  if (!sd.value || !ed.value) { alert('Selecione as datas de início e fim.'); return; }
-  var slots = _moGenerateSlots(
+  if (!sd || !sd.value) { alert('Preencha a data de Início.'); return; }
+  // Fim é opcional — se vazio, usa o próprio início
+  var hasEnd = ed && ed.value;
+  var endDate = hasEnd ? ed.value : sd.value;
+  var endH   = hasEnd ? parseInt(eh.value)  : parseInt(sh.value);
+  var endM   = hasEnd ? parseInt(em2.value) : parseInt(sm2.value);
+  var newSlots = _moGenerateSlots(
     sd.value, parseInt(sh.value), parseInt(sm2.value),
-    ed.value, parseInt(eh.value), parseInt(em2.value)
+    endDate, endH, endM
   );
-  if (slots.length === 0) {
-    alert('Nenhum slot gerado. Verifique se o fim é posterior ao início (slots = [início, fim)).');
+  if (newSlots.length === 0) {
+    alert('Nenhum slot gerado. Verifique se o Fim é igual ou posterior ao Início.');
     return;
   }
-  if (slots.length > 200) {
-    alert('Intervalo muito grande (' + slots.length + ' slots). Selecione um intervalo menor.');
+  if (newSlots.length > 200) {
+    alert('Intervalo muito grande (' + newSlots.length + ' slots). Selecione um intervalo menor.');
     return;
   }
-  _moState.slots = _moCheckConflicts(slots, _moState.selectedDevice.deviceCentralName);
+  _moMergeSlots(newSlots);
+  _moBuildStepDateTime();
+};
+
+window.tbtv5_mo_addChipSlots = function (type) {
+  var sd = document.getElementById('mo-start-date');
+  var sh = document.getElementById('mo-start-h');
+  var sm2 = document.getElementById('mo-start-m');
+  if (!sd || !sd.value) { alert('Preencha a data de Início primeiro.'); return; }
+  var startDate = sd.value;
+  var startH = parseInt(sh ? sh.value : '0');
+  var startM = parseInt(sm2 ? sm2.value : '0');
+  var hourOffsets = [0, 2, 4, 6, 8, 10, 12];
+  var dayOffsets;
+  if (type === '2h') {
+    dayOffsets = [0];
+  } else if (type === '2h7d_fwd') {
+    dayOffsets = [0, 1, 2, 3, 4, 5, 6];
+  } else if (type === '2h7d_bwd') {
+    dayOffsets = [0, -1, -2, -3, -4, -5, -6];
+  } else { return; }
+  var newSlots = _moChipGenerate(startDate, startH, startM, dayOffsets, hourOffsets);
+  _moMergeSlots(newSlots);
+  _moBuildStepDateTime();
+};
+
+window.tbtv5_mo_removeSlot = function (idx) {
+  _moState.slots.splice(idx, 1);
   _moBuildStepDateTime();
 };
 
@@ -3435,7 +3769,7 @@ window.tbtv5_mo_next = function () {
     _moState.slots = [];
     _moBuildStepDateTime();
   } else if (_moState.step === 'STEP_DATETIME') {
-    if (_moState.slots.length === 0) { alert('Gere os slots primeiro clicando em "Gerar slots".'); return; }
+    if (_moState.slots.length === 0) { alert('Adicione pelo menos um slot antes de continuar.'); return; }
     var empty = _moState.slots.filter(function (s) { return s.value == null; });
     if (empty.length > 0) { alert(empty.length + ' slot(s) sem valor. Preencha todos os valores.'); return; }
     var hasConflicts = _moState.slots.some(function (s) { return s.conflict; });
@@ -3517,6 +3851,70 @@ window.tbtv5_mo_addAnother = function () {
   window.tbtv5_mo_open();
 };
 
+window.tbtv5_mo_backFromList = function () {
+  _moState.step = 'STEP_DEVICE';
+  _moState.co2Devices = _moGetCo2Devices();
+  _moBuildStepDevice();
+};
+
+window.tbtv5_mo_editSlot = function (deviceCentralName, timeUTC, currentValue) {
+  var brt = _moUTCToBRT(timeUTC);
+  var safeId = 'mo-ec-' + timeUTC.replace(/[:.]/g, '_');
+  var existing2 = document.getElementById(safeId);
+  if (existing2) { existing2.remove(); return; }
+  // remove delete confirm row if open
+  var dcId = 'mo-dc-' + timeUTC.replace(/[:.]/g, '_');
+  var existingDc = document.getElementById(dcId);
+  if (existingDc) existingDc.remove();
+  var rowId = 'mo-slot-row-' + timeUTC.replace(/[:.]/g, '_');
+  var slotRow = document.getElementById(rowId);
+  if (!slotRow) return;
+  var editRow = document.createElement('tr');
+  editRow.id = safeId;
+  editRow.innerHTML =
+    '<td colspan="3"><div class="mo-edit-confirm">Editar <strong>' + brt + '</strong>: ' +
+    '<input type="number" step="0.01" id="mo-edit-val-' + safeId + '" class="mo-edit-input" value="' + currentValue + '" /> °C ' +
+    '<button class="mo-btn mo-btn-primary" style="padding:4px 10px;font-size:12px" ' +
+    'onclick="window.tbtv5_mo_confirmEdit(\'' + deviceCentralName + '\',\'' + timeUTC + '\',\'' + safeId + '\')">Salvar</button> ' +
+    '<button class="mo-btn mo-btn-secondary" style="padding:4px 10px;font-size:12px" ' +
+    'onclick="document.getElementById(\'' + safeId + '\').remove()">Cancelar</button>' +
+    '</div></td>';
+  slotRow.parentNode.insertBefore(editRow, slotRow.nextSibling);
+};
+
+window.tbtv5_mo_confirmEdit = async function (deviceCentralName, timeUTC, safeId) {
+  var inp = document.getElementById('mo-edit-val-' + safeId);
+  if (!inp) return;
+  var n = parseFloat(inp.value);
+  if (isNaN(n)) { alert('Digite um valor numérico válido.'); return; }
+  var newValue = Math.round(n * 100) / 100;
+  try {
+    await _loadManualOverrides();
+    if (!_manualOverrides) return;
+    var deviceList4 = (_manualOverrides.device_list_interval_values || []).map(function (d) {
+      if (d.deviceCentralName !== deviceCentralName) return d;
+      return Object.assign({}, d, {
+        values_list: (d.values_list || []).map(function (s) {
+          return s.timeUTC === timeUTC ? { timeUTC: s.timeUTC, value: newValue } : s;
+        }),
+      });
+    });
+    var userEmail = (self.ctx && self.ctx.currentUser && self.ctx.currentUser.email) || 'unknown';
+    var newData = Object.assign({}, _manualOverrides, {
+      device_list_interval_values: deviceList4,
+      version: (_manualOverrides.version || 0) + 1,
+      updatedBy: userEmail,
+      updatedDateTime: _moBRTNow(),
+    });
+    await _saveManualOverrides(newData);
+    _toast('success', 'Slot editado com sucesso.');
+    _moBuildListView();
+  } catch (e) {
+    console.error('[MANUAL OVERRIDE] Falha ao editar slot:', e);
+    _toast('error', 'Erro ao editar: ' + (e && e.message ? e.message : 'Tente novamente.'));
+  }
+};
+
 window.tbtv5_mo_listToggle = function (di) {
   var el = document.getElementById('mo-list-dev-' + di);
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
@@ -3562,10 +3960,11 @@ window.tbtv5_mo_confirmDelete = async function (deviceCentralName, timeUTC) {
       updatedDateTime: _moBRTNow(),
     });
     await _saveManualOverrides(newData);
+    _toast('success', 'Slot excluído com sucesso.');
     _moBuildListView();
   } catch (e) {
     console.error('[MANUAL OVERRIDE] Falha ao excluir:', e);
-    alert('Erro ao excluir: ' + (e && e.message ? e.message : 'Tente novamente.'));
+    _toast('error', 'Erro ao excluir: ' + (e && e.message ? e.message : 'Tente novamente.'));
   }
 };
 
