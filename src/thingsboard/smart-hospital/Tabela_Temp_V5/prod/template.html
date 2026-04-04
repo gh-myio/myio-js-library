@@ -458,14 +458,17 @@
     <!-- Filtros de modo com badge de totais -->
     <button
       class="lv-fmode-btn"
-      [class.lv-fmode-active]="lvFilter.mode === 'all'"
-      [title]="lvModeTitle('all')"
-      (click)="lvSetMode('all')"
+      [class.lv-fmode-active]="lvIsTodosActive()"
+      title="Mostrar todos os dispositivos e resetar filtros"
+      (click)="lvResetAll()"
     >
       Todos
-      <span class="lv-fmode-stat"
-        >{{ lvModeStats('all').devices }}d · {{ lvFmtN(lvModeStats('all').slots) }}s</span
-      >
+      <span class="lv-fmode-stat">
+        {{ lvTodosStats().devices }}d ·
+        {{ lvFmtN(lvTodosStats().real) }} leit. ·
+        {{ lvFmtN(lvTodosStats().missing) }} sem ·
+        {{ lvTodosStats().lossPct }}%
+      </span>
     </button>
     <button
       class="lv-fmode-btn"

@@ -2422,6 +2422,32 @@ self.onInit = function () {
     _lvSyncDashboard();
     self.ctx.detectChanges();
   };
+
+  // "Todos" — ativo somente quando nenhum filtro está ativo
+  self.ctx.$scope.lvIsTodosActive = () =>
+    _lvFilter.mode === 'all' && !_lvFilter.text && _lvDeviceSel === null;
+
+  // stats do "Todos" = totais absolutos, nunca filtrados
+  self.ctx.$scope.lvTodosStats = () => {
+    const s = self.ctx.$scope;
+    const gd = s.groupedData || {};
+    const entries = Object.values(gd);
+    const slots   = entries.reduce((acc, arr) => acc + arr.length, 0);
+    const real    = entries.reduce((acc, arr) => acc + arr.filter(r => r.temperature !== '-' && r.temperature !== '=' && !r.isMissing).length, 0);
+    const missing = slots - real;
+    const lossPct = slots > 0 ? ((missing / slots) * 100).toFixed(2) : '0.00';
+    return { devices: entries.length, slots, real, missing, lossPct };
+  };
+
+  // clicar em "Todos" reseta tudo
+  self.ctx.$scope.lvResetAll = () => {
+    _lvFilter.text = '';
+    _lvFilter.mode = 'all';
+    _lvDeviceSel = null;
+    _lvInvalidateStats();
+    _lvSyncDashboard();
+    self.ctx.detectChanges();
+  };
   self.ctx.$scope.lvToggleSortOpen = (e) => {
     e.stopPropagation();
     _lvFilter.sortOpen = !_lvFilter.sortOpen;
@@ -2952,13 +2978,14 @@ function _smInjectCSS() {
     '.summary-modal-close:hover{opacity:1}',
     '.summary-modal-body{flex:1;min-height:0;padding:16px 20px;overflow-y:auto;display:block}',
     '.summary-overall{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}',
-    '.summary-kpi{display:flex;flex-direction:row;align-items:center;gap:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px}',
+    /* KPI cards — grid: col1=icon(span 2 rows) col2=value/label */
+    '.summary-kpi{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;column-gap:10px}',
     '.summary-kpi.kpi-danger{background:#fff5f5;border-color:#fca5a5}',
-    '.kpi-icon-left{font-size:28px;color:#9ca3af;flex-shrink:0}',
+    '.kpi-icon-left{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;font-size:30px;color:#9ca3af}',
     '.summary-kpi.kpi-danger .kpi-icon-left{color:#f87171}',
-    '.kpi-text{display:flex;flex-direction:column;}',
+    '.kpi-text{grid-column:2;grid-row:1/3;display:flex;flex-direction:column;justify-content:center}',
     '.kpi-value{font-size:22px;font-weight:700;color:#111827;line-height:1.1}',
-    '.kpi-label{font-size:11px;color:#6b7280;margin-top:3px}',
+    '.kpi-label{font-size:11px;color:#6b7280;margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.04em}',
     '.summary-main-content{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}',
     '.summary-device-list{display:flex;flex-direction:column;gap:4px}',
     '.summary-device-row{border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;flex-shrink:0}',
