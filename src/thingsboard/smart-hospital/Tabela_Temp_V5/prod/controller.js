@@ -1880,6 +1880,13 @@ function toggleViewMode(mode) {
     // setTimeout aguarda o ciclo de rendering do Angular antes de popular o container
     setTimeout(function () { s.openSummaryDashboard(); }, 0);
     return;
+  } else if (mode === 'man4') {
+    if (!s.groupedData && s.dados && s.dados.length) {
+      s.groupedData = _.groupBy(s.dados, 'deviceName');
+    }
+    self.ctx.detectChanges();
+    setTimeout(function () { s.openMAN4Dashboard(); }, 0);
+    return;
   }
   self.ctx.detectChanges();
 }
@@ -2331,6 +2338,26 @@ self.onInit = function () {
       if (tog) tog.textContent = '+';
     });
   };
+  self.ctx.$scope.expandAllMAN4 = () => {
+    const report = _man4State.report;
+    if (!report) return;
+    report.devices.forEach(function (_, i) {
+      var det = document.getElementById('tbtv5-man4-dd-' + i);
+      var tog = document.getElementById('tbtv5-man4-dt-' + i);
+      if (det) det.style.display = 'block';
+      if (tog) tog.textContent = '−';
+    });
+  };
+  self.ctx.$scope.collapseAllMAN4 = () => {
+    const report = _man4State.report;
+    if (!report) return;
+    report.devices.forEach(function (_, i) {
+      var det = document.getElementById('tbtv5-man4-dd-' + i);
+      var tog = document.getElementById('tbtv5-man4-dt-' + i);
+      if (det) det.style.display = 'none';
+      if (tog) tog.textContent = '+';
+    });
+  };
   // Returns last real temperature (skips equalSign/missing/null rows) with guaranteed 2 decimal places
   self.ctx.$scope.getLatestTemperature = (arr) => {
     if (!arr?.length) return '-';
@@ -2392,9 +2419,36 @@ self.onInit = function () {
   const _LV_SORT_LABELS = { loss_desc: '↓ Maior perda', loss_asc: '↑ Menor perda', az: 'A → Z', za: 'Z → A' };
   self.ctx.$scope.lvSortLabel = () => _LV_SORT_LABELS[_lvFilter.sort] || 'A → Z';
 
+  // Reconstrói a view MAN4 respeitando text + device selection + sort
+  function _man4SyncFiltered() {
+    const s = self.ctx.$scope;
+    const allData = s.dados || [];
+    if (!allData.length) return;
+    const text = _lvFilter.text;
+    const filtered = allData.filter(r => {
+      if (text && !r.deviceName.toLowerCase().includes(text)) return false;
+      if (_lvDeviceSel !== null && !_lvDeviceSel.has(r.deviceName)) return false;
+      return true;
+    });
+    const report = _man4BuildReport(filtered.length ? filtered : []);
+    // Aplica sort compartilhado
+    const sort = _lvFilter.sort;
+    if (sort === 'az') {
+      report.devices.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    } else if (sort === 'za') {
+      report.devices.sort((a, b) => b.name.localeCompare(a.name, 'pt-BR'));
+    } else if (sort === 'loss_asc') {
+      report.devices.sort((a, b) => b.conformePct - a.conformePct); // melhor conformidade primeiro
+    } else { // loss_desc (default) = pior conformidade primeiro
+      report.devices.sort((a, b) => a.conformePct - b.conformePct);
+    }
+    _man4ActivateDashboard(report);
+  }
+
   // Sincroniza filtro do dashboard (_smState) quando estamos na tab Dashboard
   function _lvSyncDashboard() {
     const vm = self.ctx.$scope.viewMode;
+    if (vm === 'man4') { _man4SyncFiltered(); return; }
     if (vm !== 'dashboard') return;
     // text search — atribuir antes de qualquer outra operação para não ser sobrescrito
     _smState.filterText = _lvFilter.text;
@@ -2596,11 +2650,14 @@ self.onInit = function () {
   };
   self.ctx.$scope.lvFmtN = (n) => (n || 0).toLocaleString('pt-BR');
 
-  // Badges "dispositivos" e "leituras" reflectem o filtro activo nas tabs Lista/Cards/Dashboard
+  // Badges "dispositivos" e "leituras" reflectem o filtro activo nas tabs Lista/Cards/Dashboard/MAN4
   self.ctx.$scope.getBadgeDeviceCount = () => {
     const s = self.ctx.$scope;
     if (s.viewMode === 'dashboard' && _smState.report) {
       return _smGetFilteredIndices().length;
+    }
+    if (s.viewMode === 'man4' && _man4State.report) {
+      return _man4State.report.totalDevices;
     }
     if ((s.viewMode === 'list' || s.viewMode === 'card') && s.groupedData) {
       return s.getFilteredDevices().length;
@@ -2612,6 +2669,9 @@ self.onInit = function () {
     if (s.viewMode === 'dashboard' && _smState.report) {
       const indices = _smGetFilteredIndices();
       return indices.reduce((sum, i) => sum + (_smState.report.devices[i].realSlots || 0), 0);
+    }
+    if (s.viewMode === 'man4' && _man4State.report) {
+      return _man4State.report.totalConforme;
     }
     if ((s.viewMode === 'list' || s.viewMode === 'card') && s.groupedData) {
       return s.getFilteredDevices().reduce((sum, d) => sum + s.getRealCount(d.value), 0);
@@ -2787,6 +2847,12 @@ self.onInit = function () {
     }
   };
 
+  self.ctx.$scope.openMAN4Dashboard = function () {
+    const s = self.ctx.$scope;
+    if (!(s.dados && s.dados.length)) return;
+    _man4SyncFiltered();
+  };
+
   // Overlay inicial
   self.ctx.$scope.premiumLoading = false;
   self.ctx.$scope.premiumLoadingStatus = LOADING_STATES.AWAITING_DATA;
@@ -2931,6 +2997,12 @@ self.onInit = function () {
   }).catch(function (e) {
     console.error('[OVERRIDE] Falha no _loadManualOverrides() do onInit:', e);
   });
+};
+
+// ── MAN4 Conformity Tab — pure JS, mirrors _sm* pattern ─────────────────────
+var _man4State = {
+  report: null,
+  filterMode: null, // null | 'sem_dados' | 'temp_alta'
 };
 
 // ── Summary Modal — pure JS, padrão TELEMETRY_INFO ──────────────────────────
@@ -3252,6 +3324,627 @@ function _smActivateDashboard(report) {
   container.innerHTML = _smBuildHTML(report);
 }
 
+// ── MAN4 functions ────────────────────────────────────────────────────────────
+
+function _man4Esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _man4PfClass(pct) {
+  if (pct >= 100) return 'pf-ok';
+  if (pct >= 80) return 'pf-warn';
+  return 'pf-fail';
+}
+
+function _man4PctClass(pct) {
+  if (pct >= 100) return 'pct-ok';
+  if (pct >= 80) return 'pct-warn';
+  return 'pct-fail';
+}
+
+function _man4BuildReport(allData) {
+  var BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+  var MAN4_SLOT_HOURS = [8, 10, 12, 14, 16, 18, 20];
+  var TEMP_LIMIT = 24;
+
+  function fmtDate(d) {
+    return String(d.getDate()).padStart(2, '0') + '/' +
+           String(d.getMonth() + 1).padStart(2, '0') + '/' +
+           d.getFullYear();
+  }
+  function dayLabel(utcMs) {
+    var d = new Date(utcMs - BRT_OFFSET_MS);
+    return String(d.getUTCDate()).padStart(2, '0') + '/' +
+           String(d.getUTCMonth() + 1).padStart(2, '0');
+  }
+
+  var period = startDate && endDate ? fmtDate(startDate) + ' \u2192 ' + fmtDate(endDate) : '';
+
+  // Build ordered list of BRT calendar days in the query range
+  var days = [];
+  if (startDate && endDate) {
+    var curMs = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 3, 0, 0, 0);
+    var endMs = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 3, 0, 0, 0);
+    while (curMs <= endMs) {
+      var brtD = new Date(curMs - BRT_OFFSET_MS);
+      days.push({ label: dayLabel(curMs), y: brtD.getUTCFullYear(), m: brtD.getUTCMonth(), d: brtD.getUTCDate() });
+      curMs += 24 * 60 * 60 * 1000;
+    }
+  }
+
+  // Group dados by deviceName → { sort_ts → row }
+  var byDev = {};
+  for (var ri = 0; ri < allData.length; ri++) {
+    var r = allData[ri];
+    if (!byDev[r.deviceName]) byDev[r.deviceName] = {};
+    if (r.sort_ts) byDev[r.deviceName][r.sort_ts] = r;
+  }
+
+  var totalConforme = 0, totalSemDados = 0, totalTempAlta = 0;
+  var devices = [];
+
+  var devLabels = Object.keys(byDev);
+  for (var di = 0; di < devLabels.length; di++) {
+    var devLabel2 = devLabels[di];
+    var tsMap = byDev[devLabel2];
+    var devConforme = 0, devSemDados = 0, devTempAlta = 0;
+    var devDays = [];
+
+    for (var ddi = 0; ddi < days.length; ddi++) {
+      var day = days[ddi];
+      var dayConf = 0, daySem = 0, dayAlta = 0;
+      var slots = [];
+
+      for (var hi = 0; hi < MAN4_SLOT_HOURS.length; hi++) {
+        var hourBRT = MAN4_SLOT_HOURS[hi];
+        var slotTs = Date.UTC(day.y, day.m, day.d, hourBRT + 3, 0, 0, 0);
+        var row = tsMap[slotTs];
+        var status, value;
+
+        if (!row || row.temperature === '-' || row.equalSign) {
+          status = 'SEM_DADOS'; value = null; daySem++;
+        } else {
+          var temp = parseFloat(row.temperature);
+          if (isNaN(temp)) {
+            status = 'SEM_DADOS'; value = null; daySem++;
+          } else if (temp > TEMP_LIMIT) {
+            status = 'TEMPERATURA_ALTA'; value = temp; dayAlta++;
+          } else {
+            status = 'CONFORME'; value = temp; dayConf++;
+          }
+        }
+        slots.push({ time: String(hourBRT).padStart(2, '0') + ':00', status: status, value: value });
+      }
+
+      devConforme += dayConf; devSemDados += daySem; devTempAlta += dayAlta;
+      devDays.push({ date: day.label, conformeCount: dayConf, semDadosCount: daySem, tempAltaCount: dayAlta, slots: slots });
+    }
+
+    var devTotal = devDays.length * MAN4_SLOT_HOURS.length;
+    var devConformePct = devTotal ? parseFloat(((devConforme / devTotal) * 100).toFixed(2)) : 0;
+
+    totalConforme += devConforme; totalSemDados += devSemDados; totalTempAlta += devTempAlta;
+    devices.push({
+      name: devLabel2,
+      totalConforme: devConforme, totalSemDados: devSemDados, totalTempAlta: devTempAlta,
+      conformePct: devConformePct, days: devDays,
+    });
+  }
+
+  // Sort worst conformity first
+  devices.sort(function (a, b) { return a.conformePct - b.conformePct; });
+
+  var totalSlots = devices.length * days.length * MAN4_SLOT_HOURS.length;
+  var overallConformePct = totalSlots ? parseFloat(((totalConforme / totalSlots) * 100).toFixed(2)) : 0;
+  var semDadosPct        = totalSlots ? parseFloat(((totalSemDados  / totalSlots) * 100).toFixed(2)) : 0;
+  var tempAltaPct        = totalSlots ? parseFloat(((totalTempAlta  / totalSlots) * 100).toFixed(2)) : 0;
+
+  return {
+    period: period, totalDevices: devices.length, totalSlots: totalSlots,
+    totalConforme: totalConforme, totalSemDados: totalSemDados, totalTempAlta: totalTempAlta,
+    overallConformePct: overallConformePct, semDadosPct: semDadosPct, tempAltaPct: tempAltaPct,
+    devices: devices,
+  };
+}
+
+function _man4InjectCSS() {
+  var existing = document.getElementById('tbtv5-man4-styles');
+  if (existing) existing.remove();
+  var s = document.createElement('style');
+  s.id = 'tbtv5-man4-styles';
+  s.textContent = [
+    '#tbtv5-man4-view{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.10)}',
+    '.man4-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#5c307d;color:#fff;font-weight:600;font-size:14px;flex-shrink:0;gap:10px}',
+    '.man4-header-left{display:flex;align-items:center;gap:10px;flex:1;overflow:hidden}',
+    '.man4-header-period{font-size:11px;font-weight:400;opacity:.85;white-space:nowrap;background:rgba(255,255,255,.15);border-radius:6px;padding:2px 8px}',
+    '.man4-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:12px}',
+    '.man4-overall{display:flex;gap:10px;flex-wrap:wrap}',
+    '.man4-kpi{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;border-radius:12px;padding:12px 14px;column-gap:10px;min-width:120px;flex:1;border:1px solid #e5e7eb;background:#f9fafb}',
+    '.man4-kpi.kpi-ok{background:#f0fdf4;border-color:#bbf7d0}',
+    '.man4-kpi.kpi-warn{background:#fffbeb;border-color:#fde68a}',
+    '.man4-kpi.kpi-fail{background:#fff5f5;border-color:#fca5a5}',
+    '.man4-kpi i{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;font-size:26px;color:#9ca3af}',
+    '.man4-kpi.kpi-ok i{color:#16a34a}',
+    '.man4-kpi.kpi-warn i{color:#d97706}',
+    '.man4-kpi.kpi-fail i{color:#dc2626}',
+    '.man4-kpi-val{grid-column:2;grid-row:1;font-size:20px;font-weight:700;color:#111827;line-height:1.1;align-self:end}',
+    '.man4-kpi-lbl{grid-column:2;grid-row:2;font-size:11px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:.04em;align-self:start;margin-top:3px}',
+    '.man4-device-list{display:flex;flex-direction:column;gap:6px}',
+    '.man4-dr{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}',
+    '.man4-dr-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:#f9fafb;user-select:none}',
+    '.man4-dr-header:hover{background:#f3f4f6}',
+    '.man4-dr-toggle{font-size:14px;font-weight:700;color:#6b7280;min-width:12px;flex-shrink:0}',
+    '.man4-dr-label{flex:1;font-size:13px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.man4-prog{height:6px;border-radius:3px;background:#e5e7eb;flex:1;overflow:hidden;min-width:60px;max-width:120px}',
+    '.man4-prog-fill{height:100%;border-radius:3px}',
+    '.man4-prog-fill.pf-ok{background:#22c55e}',
+    '.man4-prog-fill.pf-warn{background:#f59e0b}',
+    '.man4-prog-fill.pf-fail{background:#ef4444}',
+    '.man4-dr-pct{font-size:13px;font-weight:700;min-width:52px;text-align:right;flex-shrink:0}',
+    '.man4-dr-pct.pct-ok{color:#16a34a}',
+    '.man4-dr-pct.pct-warn{color:#d97706}',
+    '.man4-dr-pct.pct-fail{color:#dc2626}',
+    '.man4-dr-chips{display:flex;gap:5px;flex-shrink:0}',
+    '.man4-chip{font-size:11px;padding:2px 7px;border-radius:99px;font-weight:600;white-space:nowrap}',
+    '.man4-chip.chip-sem{background:#fef3c7;color:#92400e}',
+    '.man4-chip.chip-alta{background:#fee2e2;color:#991b1b}',
+    '.man4-dr-detail{padding:10px 14px 14px;border-top:1px solid #e5e7eb;background:#fff;display:flex;flex-wrap:wrap;gap:12px}',
+    '.man4-day-block{min-width:200px}',
+    '.man4-day-label{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}',
+    '.man4-slots-row{display:flex;gap:5px;flex-wrap:wrap}',
+    '.man4-slot{display:flex;flex-direction:column;align-items:center;padding:6px 8px;border-radius:8px;min-width:50px;gap:2px;border:1px solid transparent}',
+    '.man4-slot .slot-time{font-size:10px;font-weight:600;color:#374151}',
+    '.man4-slot .slot-icon{font-size:14px;font-weight:700;line-height:1}',
+    '.man4-slot .slot-val{font-size:10px;color:#6b7280}',
+    '.man4-slot.s-conforme{background:#dcfce7;border-color:#bbf7d0}',
+    '.man4-slot.s-conforme .slot-icon{color:#16a34a}',
+    '.man4-slot.s-sem-dados{background:#fef9c3;border-color:#fde68a}',
+    '.man4-slot.s-sem-dados .slot-icon{color:#b45309}',
+    '.man4-slot.s-temp-alta{background:#fee2e2;border-color:#fca5a5}',
+    '.man4-slot.s-temp-alta .slot-icon{color:#dc2626}',
+    /* export footer */
+    '.man4-export-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #e5e7eb;background:#f9fafb;flex-shrink:0}',
+    '.man4-export-footer span{flex:1;font-size:11px;color:#9ca3af}',
+    '.man4-exp-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1px solid #d1d5db;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#374151;transition:background .15s}',
+    '.man4-exp-btn:hover{background:#f3f4f6;border-color:#9ca3af}',
+    '.man4-exp-btn.btn-pdf{border-color:#fca5a5;color:#dc2626}',
+    '.man4-exp-btn.btn-pdf:hover{background:#fff5f5}',
+    '.man4-exp-btn.btn-xls{border-color:#86efac;color:#16a34a}',
+    '.man4-exp-btn.btn-xls:hover{background:#f0fdf4}',
+    '.man4-exp-btn.btn-csv{border-color:#93c5fd;color:#1d4ed8}',
+    '.man4-exp-btn.btn-csv:hover{background:#eff6ff}',
+    /* KPI layout: small + large filter cards */
+    '.man4-overall{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}',
+    '.man4-kpi-sm{flex:1;min-width:110px}',
+    '.man4-kpi-lg{flex:2;min-width:180px;cursor:pointer;transition:transform .1s,box-shadow .12s,border-color .12s;user-select:none;position:relative}',
+    '.man4-kpi-lg:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.12)}',
+    '.man4-kpi-lg::after{content:"clique para filtrar";position:absolute;bottom:6px;right:10px;font-size:9px;color:#9ca3af;font-style:italic}',
+    '.man4-kpi-lg.man4-fc-active{box-shadow:0 0 0 2px currentColor}',
+    '.man4-kpi-lg.man4-fc-active::after{content:"ativo — clique para limpar";color:#5c307d;font-style:normal;font-weight:600}',
+    '.man4-kpi-lg.kpi-warn.man4-fc-active{border-color:#f59e0b;box-shadow:0 0 0 2px #f59e0b}',
+    '.man4-kpi-lg.kpi-fail.man4-fc-active{border-color:#ef4444;box-shadow:0 0 0 2px #ef4444}',
+    '.man4-kpi-pct{font-size:13px;font-weight:500;color:#6b7280;margin-left:6px}',
+    '.man4-dr.man4-dr-hidden{display:none}',
+  ].join('\n');
+  document.head.appendChild(s);
+}
+
+function _man4BuildDeviceRows(report, filterMode) {
+  var devices = report.devices.filter(function (dev) {
+    if (filterMode === 'sem_dados')  return dev.totalSemDados > 0;
+    if (filterMode === 'temp_alta')  return dev.totalTempAlta > 0;
+    return true;
+  });
+  if (!devices.length) {
+    return '<div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px">Nenhum dispositivo para este filtro.</div>';
+  }
+  return devices.map(function (dev, i) {
+    var daysHTML = dev.days.map(function (day) {
+      var slotsHTML = day.slots.map(function (slot) {
+        var cls  = slot.status === 'CONFORME' ? 's-conforme' : slot.status === 'TEMPERATURA_ALTA' ? 's-temp-alta' : 's-sem-dados';
+        var icon = slot.status === 'CONFORME' ? '\u2713' : slot.status === 'TEMPERATURA_ALTA' ? '\u2717' : '?';
+        var valHTML = slot.value !== null ? '<span class="slot-val">' + slot.value.toFixed(1) + '\u00b0C</span>' : '';
+        return '<div class="man4-slot ' + cls + '">' +
+          '<span class="slot-time">' + slot.time + '</span>' +
+          '<span class="slot-icon">' + icon + '</span>' +
+          valHTML + '</div>';
+      }).join('');
+      return '<div class="man4-day-block">' +
+        '<div class="man4-day-label">' + _man4Esc(day.date) + '</div>' +
+        '<div class="man4-slots-row">' + slotsHTML + '</div>' +
+        '</div>';
+    }).join('');
+    var pfCls   = _man4PfClass(dev.conformePct);
+    var pctCls  = _man4PctClass(dev.conformePct);
+    var semChip  = dev.totalSemDados > 0 ? '<span class="man4-chip chip-sem">? ' + dev.totalSemDados + ' s/d</span>' : '';
+    var altaChip = dev.totalTempAlta > 0 ? '<span class="man4-chip chip-alta">\u2717 ' + dev.totalTempAlta + ' alta</span>' : '';
+    return '<div class="man4-dr" id="tbtv5-man4-dr-' + i + '">' +
+      '<div class="man4-dr-header" onclick="window.tbtv5_toggleMAN4Device(' + i + ')">' +
+      '<span class="man4-dr-toggle" id="tbtv5-man4-dt-' + i + '">+</span>' +
+      '<span class="man4-dr-label">' + _man4Esc(dev.name) + '</span>' +
+      '<div class="man4-prog"><div class="man4-prog-fill ' + pfCls + '" style="width:' + dev.conformePct + '%"></div></div>' +
+      '<span class="man4-dr-pct ' + pctCls + '">' + dev.conformePct.toFixed(2) + '%</span>' +
+      '<div class="man4-dr-chips">' + semChip + altaChip + '</div>' +
+      '</div>' +
+      '<div class="man4-dr-detail" id="tbtv5-man4-dd-' + i + '" style="display:none">' +
+      daysHTML + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function _man4BuildHTML(report) {
+  var pctMod    = report.overallConformePct >= 100 ? 'kpi-ok' : report.overallConformePct >= 80 ? 'kpi-warn' : 'kpi-fail';
+  var semMod    = report.semDadosPct === 0 ? '' : report.semDadosPct <= 10 ? 'kpi-warn' : 'kpi-fail';
+  var altaMod   = report.totalTempAlta > 0 ? 'kpi-fail' : '';
+  var fm        = _man4State.filterMode;
+
+  function kpiSm(icon, value, label, mod) {
+    var modCls = mod ? ' ' + mod : '';
+    return '<div class="man4-kpi man4-kpi-sm' + modCls + '">' +
+      '<i class="fa-solid ' + icon + '"></i>' +
+      '<span class="man4-kpi-val">' + value + '</span>' +
+      '<span class="man4-kpi-lbl">' + label + '</span>' +
+      '</div>';
+  }
+  function kpiLg(id, filterKey, icon, count, pct, label, mod) {
+    var modCls = mod ? ' ' + mod : '';
+    var activeCls = fm === filterKey ? ' man4-fc-active' : '';
+    return '<div class="man4-kpi man4-kpi-lg' + modCls + activeCls + '" id="' + id + '" onclick="window.tbtv5_man4FilterToggle(\'' + filterKey + '\')">' +
+      '<i class="fa-solid ' + icon + '"></i>' +
+      '<span class="man4-kpi-val">' + count + '<span class="man4-kpi-pct">' + pct + '</span></span>' +
+      '<span class="man4-kpi-lbl">' + label + '</span>' +
+      '</div>';
+  }
+
+  return '<div class="man4-header">' +
+    '<div class="man4-header-left">' +
+    '<i class="fa-solid fa-clipboard-check" style="font-size:16px"></i>' +
+    '<span>Indicadores de Resultado de Conformidade \u2014 MAN4</span>' +
+    (report.period ? '<span class="man4-header-period">' + _man4Esc(report.period) + '</span>' : '') +
+    '</div></div>' +
+    '<div class="man4-body">' +
+    '<div class="man4-overall">' +
+    kpiSm('fa-microchip',    report.totalDevices,                         'dispositivos',    '') +
+    kpiSm('fa-percent',      report.overallConformePct.toFixed(2) + '%',  'conforme geral',  pctMod) +
+    kpiSm('fa-check-circle', report.totalConforme,                        'slots conformes', 'kpi-ok') +
+    kpiLg('tbtv5-man4-fc-sem',  'sem_dados', 'fa-circle-question',
+          report.totalSemDados, report.semDadosPct.toFixed(2) + '%',      'sem dados',       semMod) +
+    kpiLg('tbtv5-man4-fc-alta', 'temp_alta', 'fa-circle-xmark',
+          report.totalTempAlta, (report.tempAltaPct || 0).toFixed(2) + '%', 'temp. alta',    altaMod) +
+    '</div>' +
+    '<div class="man4-device-list" id="tbtv5-man4-device-list">' + _man4BuildDeviceRows(report, fm) + '</div>' +
+    '</div>' +
+    '<div class="man4-export-footer">' +
+    '<span>Exportar indicadores MAN4</span>' +
+    '<button class="man4-exp-btn btn-pdf" onclick="window.tbtv5_man4ExportPDF()">' +
+    '<i class="fa-solid fa-file-arrow-down"></i> PDF</button>' +
+    '<button class="man4-exp-btn btn-xls" onclick="window.tbtv5_man4ExportXLS()">' +
+    '<i class="fa-solid fa-file-excel"></i> XLSX</button>' +
+    '<button class="man4-exp-btn btn-csv" onclick="window.tbtv5_man4ExportCSV()">' +
+    '<i class="fa-solid fa-file-csv"></i> CSV</button>' +
+    '</div>';
+}
+
+function _man4ActivateDashboard(report) {
+  _man4InjectCSS();
+  _man4State.report = report;
+  _man4State.filterMode = null; // reset ao re-renderizar por mudança de dados/filtro
+  var container = document.getElementById('tbtv5-man4-view');
+  if (!container) return;
+  container.innerHTML = _man4BuildHTML(report);
+}
+
+function _man4BuildExportFilename(ext) {
+  var _fd = function (d) {
+    return String(d.getDate()).padStart(2, '0') + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
+  };
+  var now = new Date();
+  var periodo = startDate && endDate ? _fd(startDate) + '-a-' + _fd(endDate) : 'sem-periodo';
+  var emitido = _fd(now) + '-' + String(now.getHours()).padStart(2, '0') + '-' + String(now.getMinutes()).padStart(2, '0');
+  return 'man4_' + (_customerSlug || 'relatorio') + '_conformidade_' + periodo + '_emitido-em-' + emitido + '.' + ext;
+}
+
+/* Builds flat rows for CSV / XLS: one row per slot per device per day */
+function _man4BuildExportRows() {
+  var report = _man4State.report;
+  if (!report) return [];
+  var STATUS_LABEL = { CONFORME: 'Conforme', SEM_DADOS: 'Sem Dados', TEMPERATURA_ALTA: 'Temperatura Alta' };
+  var rows = [];
+  for (var di = 0; di < report.devices.length; di++) {
+    var dev = report.devices[di];
+    for (var ddi = 0; ddi < dev.days.length; ddi++) {
+      var day = dev.days[ddi];
+      for (var si = 0; si < day.slots.length; si++) {
+        var slot = day.slots[si];
+        rows.push([
+          dev.name,
+          day.date,
+          slot.time,
+          STATUS_LABEL[slot.status] || slot.status,
+          slot.value !== null ? slot.value.toFixed(2).replace('.', ',') : '',
+        ]);
+      }
+    }
+  }
+  return rows;
+}
+
+function _man4ExportCSV() {
+  var report = _man4State.report;
+  if (!report) { openErrorModal('Sem dados', 'Não há dados MAN4 para exportar.'); return; }
+  var rows = [['Dispositivo', 'Data', 'Horário', 'Status', 'Temperatura (°C)']].concat(_man4BuildExportRows());
+  var bom = '\uFEFF';
+  var csv = bom + rows.map(function (r) { return r.join(';'); }).join('\r\n');
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = _man4BuildExportFilename('csv');
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+}
+
+function _man4ExportXLS() {
+  var report = _man4State.report;
+  if (!report) { openErrorModal('Sem dados', 'Não há dados MAN4 para exportar.'); return; }
+  var rows = [['Dispositivo', 'Data', 'Horário', 'Status', 'Temperatura (°C)']].concat(_man4BuildExportRows());
+  var esc = function (v) {
+    return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  };
+  var xmlRows = rows.map(function (row) {
+    return '<Row>' + row.map(function (c) {
+      return '<Cell><Data ss:Type="String">' + esc(c) + '</Data></Cell>';
+    }).join('') + '</Row>';
+  }).join('');
+  var xml = '<?xml version="1.0"?>' +
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+    '<Worksheet ss:Name="MAN4"><Table>' + xmlRows + '</Table></Worksheet></Workbook>';
+  var blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = _man4BuildExportFilename('xls');
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+}
+
+async function _man4ExportPDF() {
+  var report = _man4State.report;
+  if (!report) { openErrorModal('Sem dados', 'Não há dados MAN4 para exportar.'); return; }
+
+  var _LOGO_URL = 'https://dashboard.myio-bas.com/api/images/public/TAfpmF6jEKPDi6hXHbnMUT8MWOHv5lKD';
+  var _logoSrc = _LOGO_URL;
+  try {
+    var _resp = await fetch(_LOGO_URL);
+    var _blob = await _resp.blob();
+    _logoSrc = await new Promise(function (res) {
+      var fr = new FileReader(); fr.onloadend = function () { res(fr.result); }; fr.readAsDataURL(_blob);
+    });
+  } catch { /* fallback */ }
+
+  var doc = new window.jspdf.jsPDF();
+  var pw = doc.internal.pageSize.width;
+  var ph = doc.internal.pageSize.height;
+  var purple = [92, 48, 125];
+  var green  = [22, 163, 74];
+  var red    = [220, 38, 38];
+  var amber  = [217, 119, 6];
+  var m = 10;
+
+  var now = new Date();
+  var pdfDate = now.toLocaleDateString('pt-BR');
+  var pdfTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  var periodStr = report.period || '';
+
+  // === PÁGINA 1: CAPA — mesmo padrão de _pdfBuildCover ===
+  // Header bar (altura 50)
+  doc.setFillColor(purple[0], purple[1], purple[2]);
+  doc.rect(0, 0, pw, 50, 'F');
+  var logoH = 22, logoW = Math.round(logoH * (512 / 194));
+  try { doc.addImage(_logoSrc, 'PNG', m, 18, logoW, logoH, 'man4-logo'); } catch { /* logo opcional */ }
+  var tx = m + logoW + 12;
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('Indicadores de Conformidade \u2014 MAN4', tx, 16);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('MYIO Smart Hospital', tx, 25);
+  doc.text('Complexo Hospitalar Municipal Souza Aguiar', tx, 33);
+  doc.setFontSize(9);
+  doc.text('Emitido em ' + pdfDate + ' \u00e0s ' + pdfTime, tx, 42);
+
+  // Info bar (y=50, h=12)
+  doc.setFillColor(240, 232, 255);
+  doc.rect(0, 50, pw, 12, 'F');
+  doc.setTextColor(92, 48, 125);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(periodStr ? 'Per\u00edodo consultado: ' + periodStr.replace(' \u2192 ', ' at\u00e9 ') : 'Per\u00edodo: n\u00e3o definido',
+    pw / 2, 58, { align: 'center' });
+
+  // KPI cards — 4 em linha (y=67)
+  var cardGap = 4, cardW = (pw - 2 * m - 3 * cardGap) / 4, cardY = 67, cardH = 24;
+  var kpis = [
+    { label: 'Conforme Geral',  value: report.overallConformePct.toFixed(2) + '%', color: report.overallConformePct >= 100 ? green : report.overallConformePct >= 80 ? amber : red },
+    { label: '% Sem Dados',     value: report.semDadosPct.toFixed(2) + '%',        color: report.semDadosPct === 0 ? green : report.semDadosPct <= 10 ? amber : red },
+    { label: 'Dispositivos',    value: String(report.totalDevices),                 color: purple },
+    { label: 'Temp. Alta',      value: String(report.totalTempAlta),                color: report.totalTempAlta > 0 ? red : [107, 114, 128] },
+  ];
+  kpis.forEach(function (k, i) {
+    var cx = m + i * (cardW + cardGap);
+    doc.setFillColor(249, 250, 251);
+    doc.rect(cx, cardY, cardW, cardH, 'F');
+    doc.setDrawColor(229, 231, 235);
+    doc.rect(cx, cardY, cardW, cardH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(k.color[0], k.color[1], k.color[2]);
+    doc.text(k.value, cx + cardW / 2, cardY + 12, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text(k.label, cx + cardW / 2, cardY + 20, { align: 'center' });
+  });
+
+  // Device summary table — 2 colunas (mesmo layout de _pdfBuildCover)
+  var ty = cardY + cardH + 6;
+  var tH = 6, colGap = 5;
+  var halfW = (pw - 2 * m - colGap) / 2;
+  var _cPct = 16, _cAlta = 16, _cSem = 16, _cConf = 16;
+  var _cName = halfW - _cPct - _cAlta - _cSem - _cConf;
+  var _lx = m, _rx = m + halfW + colGap;
+  var _colWs2 = [_cName, _cConf, _cAlta, _cSem, _cPct];
+  var _hdrs2  = ['Dispositivo', 'Conf.', 'T.Alta', 'S/D', '%'];
+  function _colXsFor2(ox) {
+    var xs = [ox];
+    for (var ii = 0; ii < _colWs2.length - 1; ii++) xs.push(xs[ii] + _colWs2[ii]);
+    return xs;
+  }
+  function _drawMAN4Header(ox) {
+    doc.setFillColor(purple[0], purple[1], purple[2]);
+    doc.rect(ox, ty, halfW, 6.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    var xs = _colXsFor2(ox);
+    _hdrs2.forEach(function (lbl, i) {
+      doc.text(lbl, i === 0 ? xs[i] + 3 : xs[i] + _colWs2[i] / 2, ty + 4.5, { align: i === 0 ? 'left' : 'center' });
+    });
+    doc.setFont('helvetica', 'normal');
+  }
+  _drawMAN4Header(_lx);
+  _drawMAN4Header(_rx);
+  ty += 6.5;
+
+  doc.setDrawColor(243, 244, 246);
+  var rowH = 6;
+  var maxRows = Math.floor((ph - 14 - ty) / rowH);
+  var half2   = Math.ceil(report.devices.length / 2);
+  var nRows   = Math.min(half2, maxRows);
+  var truncated = Math.max(0, report.devices.length - nRows * 2);
+
+  function _drawMAN4DevRow(dev, ox, rowY, shade) {
+    if (!dev) return;
+    var xs = _colXsFor2(ox);
+    if (shade) { doc.setFillColor(248, 250, 252); doc.rect(ox, rowY, halfW, rowH, 'F'); }
+    var pctC = dev.conformePct >= 100 ? green : dev.conformePct >= 80 ? amber : red;
+    doc.setFontSize(6.5);
+    doc.setTextColor(17, 24, 39);
+    doc.text(dev.name,                  xs[0] + 3,                    rowY + 4, { maxWidth: _cName - 5 });
+    doc.text(String(dev.totalConforme), xs[1] + _colWs2[1] / 2,       rowY + 4, { align: 'center' });
+    doc.text(String(dev.totalTempAlta), xs[2] + _colWs2[2] / 2,       rowY + 4, { align: 'center' });
+    doc.text(String(dev.totalSemDados), xs[3] + _colWs2[3] / 2,       rowY + 4, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(pctC[0], pctC[1], pctC[2]);
+    doc.text(dev.conformePct.toFixed(2) + '%', xs[4] + _colWs2[4] / 2, rowY + 4, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.line(ox, rowY + rowH, ox + halfW, rowY + rowH);
+  }
+
+  for (var rdi = 0; rdi < nRows; rdi++) {
+    var shade = rdi % 2 === 0;
+    _drawMAN4DevRow(report.devices[rdi],          _lx, ty, shade);
+    _drawMAN4DevRow(report.devices[rdi + nRows],  _rx, ty, shade);
+    ty += rowH;
+  }
+  if (truncated > 0) {
+    doc.setFontSize(6.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text('... e mais ' + truncated + ' dispositivo(s) \u2014 veja o detalhamento nas p\u00e1ginas seguintes.', m, ty + 4);
+  }
+
+  // === PÁGINAS DE DETALHE: slot-by-slot ===
+  doc.addPage();
+  ty = 12;
+  var slotCols = ['Dispositivo', 'Data', 'Horário', 'Status', 'Temp (°C)'];
+  var slotColW = [(pw - 2 * m) * 0.35, (pw - 2 * m) * 0.13, (pw - 2 * m) * 0.12, (pw - 2 * m) * 0.27, (pw - 2 * m) * 0.13];
+  var slotColX = [m];
+  for (var sci = 0; sci < slotColW.length - 1; sci++) slotColX.push(slotColX[sci] + slotColW[sci]);
+  var STATUS_COLOR = { CONFORME: green, TEMPERATURA_ALTA: red, SEM_DADOS: amber };
+  var STATUS_LABEL2 = { CONFORME: 'Conforme', TEMPERATURA_ALTA: 'Temp. Alta', SEM_DADOS: 'Sem Dados' };
+
+  // Table header
+  doc.setFillColor(...purple);
+  doc.rect(m, ty, pw - 2 * m, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  slotCols.forEach(function (h, i) { doc.text(h, slotColX[i] + slotColW[i] / 2, ty + 4.8, { align: 'center' }); });
+  ty += 7;
+
+  var flatRows = _man4BuildExportRows();
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  for (var fri = 0; fri < flatRows.length; fri++) {
+    if (ty > ph - 20) {
+      doc.addPage(); ty = 12;
+      doc.setFillColor(...purple);
+      doc.rect(m, ty, pw - 2 * m, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      slotCols.forEach(function (h, i) { doc.text(h, slotColX[i] + slotColW[i] / 2, ty + 4.8, { align: 'center' }); });
+      ty += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+    }
+    var fr2 = flatRows[fri];
+    if (fri % 2 === 0) { doc.setFillColor(245, 247, 250); doc.rect(m, ty, pw - 2 * m, rowH, 'F'); }
+    var statusKey = fr2[3] === 'Conforme' ? 'CONFORME' : fr2[3] === 'Temperatura Alta' ? 'TEMPERATURA_ALTA' : 'SEM_DADOS';
+    doc.setTextColor(0, 0, 0);
+    doc.text(fr2[0], slotColX[0] + 2, ty + 4.3);
+    doc.text(fr2[1], slotColX[1] + slotColW[1] / 2, ty + 4.3, { align: 'center' });
+    doc.text(fr2[2], slotColX[2] + slotColW[2] / 2, ty + 4.3, { align: 'center' });
+    doc.setTextColor(...(STATUS_COLOR[statusKey] || [0,0,0]));
+    doc.setFont('helvetica', 'bold');
+    doc.text(STATUS_LABEL2[statusKey] || fr2[3], slotColX[3] + slotColW[3] / 2, ty + 4.3, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text(fr2[4] !== undefined ? String(fr2[4]).replace(',', '.') : '', slotColX[4] + slotColW[4] / 2, ty + 4.3, { align: 'center' });
+    ty += rowH;
+  }
+
+  // Footer em todas as páginas
+  var totalPages = doc.internal.getNumberOfPages();
+  var fBarH = 14, fBarY = ph - fBarH;
+  var fLogoH = 5.5, fLogoW = Math.round(fLogoH * (512 / 194));
+  var periodPart = periodStr ? ' \u2022 Per\u00edodo de ' + periodStr.replace(' \u2192 ', ' at\u00e9 ') : '';
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  for (var p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFillColor(...purple);
+    doc.rect(0, fBarY, pw, fBarH, 'F');
+    try { doc.addImage(_logoSrc, 'PNG', m, fBarY + (fBarH - fLogoH) / 2, fLogoW, fLogoH, 'man4-logo-f'); } catch { /* logo opcional */ }
+    doc.setTextColor(255, 255, 255);
+    doc.text('MYIO Smart Hospital  \u2022  Indicadores MAN4  \u2022  Emitido em ' + pdfDate + ' \u00e0s ' + pdfTime + periodPart,
+      pw / 2, fBarY + fBarH / 2 + 1.5, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('P\u00e1g ' + p + ' / ' + totalPages, pw - m, fBarY + fBarH / 2 + 1.5, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+  }
+  doc.setPage(totalPages);
+  doc.save(_man4BuildExportFilename('pdf'));
+}
+
+window.tbtv5_man4ExportPDF = function () { _man4ExportPDF(); };
+window.tbtv5_man4ExportXLS = function () { _man4ExportXLS(); };
+window.tbtv5_man4ExportCSV = function () { _man4ExportCSV(); };
+
+window.tbtv5_man4FilterToggle = function (mode) {
+  _man4State.filterMode = (_man4State.filterMode === mode) ? null : mode;
+  var report = _man4State.report;
+  if (!report) return;
+  // Re-renderiza apenas a lista de devices
+  var dlEl = document.getElementById('tbtv5-man4-device-list');
+  if (dlEl) dlEl.innerHTML = _man4BuildDeviceRows(report, _man4State.filterMode);
+  // Atualiza estado visual dos cards clicáveis
+  var semEl  = document.getElementById('tbtv5-man4-fc-sem');
+  var altaEl = document.getElementById('tbtv5-man4-fc-alta');
+  if (semEl)  semEl.classList.toggle('man4-fc-active',  _man4State.filterMode === 'sem_dados');
+  if (altaEl) altaEl.classList.toggle('man4-fc-active', _man4State.filterMode === 'temp_alta');
+};
+
 /* ---- filter helpers ---- */
 function _smGetFilteredIndices() {
   var report = _smState.report;
@@ -3504,6 +4197,15 @@ window.tbtv5_toggleDevice = function (i) {
   var open = det.style.display === 'none';
   det.style.display = open ? 'block' : 'none';
   if (tog) tog.textContent = open ? '−' : '+';
+};
+
+window.tbtv5_toggleMAN4Device = function (i) {
+  var det = document.getElementById('tbtv5-man4-dd-' + i);
+  var tog = document.getElementById('tbtv5-man4-dt-' + i);
+  if (!det) return;
+  var open = det.style.display === 'none';
+  det.style.display = open ? 'block' : 'none';
+  if (tog) tog.textContent = open ? '\u2212' : '+';
 };
 
 window.tbtv5_toggleSeries = function (key) {

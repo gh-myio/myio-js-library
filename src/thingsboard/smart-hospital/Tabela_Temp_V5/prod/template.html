@@ -223,6 +223,14 @@
       >
         <mat-icon>dashboard</mat-icon> Dashboard
       </button>
+      <button
+        mat-button
+        [class.active]="viewMode === 'man4'"
+        (click)="toggleViewMode('man4')"
+        title="Indicadores de Conformidade MAN4"
+      >
+        <mat-icon>fact_check</mat-icon> MAN4
+      </button>
     </div>
 
     <!-- Badge premium: totais do relatório -->
@@ -248,6 +256,10 @@
     <div class="expand-controls" *ngIf="viewMode === 'dashboard'">
       <button mat-button (click)="expandAllDashboard()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
       <button mat-button (click)="collapseAllDashboard()"><mat-icon>expand_less</mat-icon> Recolher Todos</button>
+    </div>
+    <div class="expand-controls" *ngIf="viewMode === 'man4'">
+      <button mat-button (click)="expandAllMAN4()"><mat-icon>expand_more</mat-icon> Expandir Todos</button>
+      <button mat-button (click)="collapseAllMAN4()"><mat-icon>expand_less</mat-icon> Recolher Todos</button>
     </div>
   </div>
 
@@ -350,7 +362,7 @@
   <!-- Filter bar compartilhado — Lista, Cards e Dashboard -->
   <div
     class="lv-filter-bar"
-    *ngIf="(viewMode === 'list' || viewMode === 'card' || viewMode === 'dashboard') && groupedData && dados && dados.length > 0"
+    *ngIf="(viewMode === 'list' || viewMode === 'card' || viewMode === 'dashboard' || viewMode === 'man4') && groupedData && dados && dados.length > 0"
     (click)="lvCloseAllDropdowns()"
   >
     <input
@@ -695,6 +707,11 @@
   <!-- Tab Dashboard — Resumo da Consulta inline -->
   <div class="dashboard-tab-container" [hidden]="viewMode !== 'dashboard' || !dados || dados.length === 0">
     <div id="tbtv5-dashboard-view"></div>
+  </div>
+
+  <!-- Tab MAN4 — Indicadores de Resultado de Conformidade -->
+  <div class="dashboard-tab-container" [hidden]="viewMode !== 'man4' || !dados || dados.length === 0">
+    <div id="tbtv5-man4-view"></div>
   </div>
 
   <!-- Sem dados -->
