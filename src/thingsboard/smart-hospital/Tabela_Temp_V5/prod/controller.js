@@ -12,6 +12,21 @@
  * brDatetime() converts UTC -> Brazil time (America/Sao_Paulo)
  */
 
+// Debug mode — toggle at runtime: window.tbtv5_setDebug(true/false)
+let DEBUG_ACTIVE = false;
+
+const LogHelper = {
+  log: function (...args) {
+    if (DEBUG_ACTIVE) console.log(...args);
+  },
+  warn: function (...args) {
+    if (DEBUG_ACTIVE) console.warn(...args);
+  },
+  error: function (...args) {
+    console.error(...args); // erros sempre logados
+  },
+};
+
 // Admin mode state
 let adminMode = false;
 let adminVerified = false;
@@ -141,7 +156,7 @@ function _getCustomerEntityId() {
   // 2. Customer user normal
   var fromUser = self.ctx && self.ctx.currentUser && self.ctx.currentUser.customerId;
   if (fromUser && fromUser.id) {
-    console.log('[CUSTOMER_ID] via currentUser.customerId:', fromUser.id);
+    LogHelper.log('[CUSTOMER_ID] via currentUser.customerId:', fromUser.id);
     return fromUser;
   }
   // 3. Tenant admin: tenta URL query string (?customerId=uuid)
@@ -149,7 +164,7 @@ function _getCustomerEntityId() {
     var urlParams = new URLSearchParams(window.location.search);
     var idFromUrl = urlParams.get('customerId');
     if (idFromUrl) {
-      console.log('[CUSTOMER_ID] via URL ?customerId:', idFromUrl);
+      LogHelper.log('[CUSTOMER_ID] via URL ?customerId:', idFromUrl);
       return { id: idFromUrl, entityType: 'CUSTOMER' };
     }
   } catch { /* ignorado */ }
@@ -159,11 +174,11 @@ function _getCustomerEntityId() {
       ? self.ctx.stateController.getStateParams()
       : null;
     if (stateParams && stateParams.customerId && stateParams.customerId.id) {
-      console.log('[CUSTOMER_ID] via stateParams.customerId:', stateParams.customerId.id);
+      LogHelper.log('[CUSTOMER_ID] via stateParams.customerId:', stateParams.customerId.id);
       return stateParams.customerId;
     }
   } catch { /* ignorado */ }
-  console.warn('[CUSTOMER_ID] não encontrado em nenhuma fonte');
+  LogHelper.warn('[CUSTOMER_ID] não encontrado em nenhuma fonte');
   return null;
 }
 
@@ -184,13 +199,13 @@ async function _getCustomerEntityIdAsync() {
       var resp = await getHttp().get('/api/device/' + knownCentralIds[i]).toPromise();
       var device = (resp && resp.data) ? resp.data : resp;
       if (device && device.customerId && device.customerId.id) {
-        console.log('[CUSTOMER_ID] via /api/device/' + knownCentralIds[i] + ' (' + CENTRAL_NAMES[knownCentralIds[i]] + ') → customerId:', device.customerId.id);
+        LogHelper.log('[CUSTOMER_ID] via /api/device/' + knownCentralIds[i] + ' (' + CENTRAL_NAMES[knownCentralIds[i]] + ') → customerId:', device.customerId.id);
         return device.customerId;
       }
     }
   } catch { /* ignorado */ }
 
-  console.warn('[CUSTOMER_ID] async: não encontrado em nenhuma fonte');
+  LogHelper.warn('[CUSTOMER_ID] async: não encontrado em nenhuma fonte');
   return null;
 }
 
@@ -213,7 +228,7 @@ async function saveServerAttributeForDevice(entityId, key, value) {
     const types = getTypes();
     const payload = [{ key, value }];
     await attributeService.saveEntityAttributes(entityId, types.attributesScope.server.value, payload);
-    console.log('[ATTR] SERVER_SCOPE salvo:', entityId, key);
+    LogHelper.log('[ATTR] SERVER_SCOPE salvo:', entityId, key);
   } catch (err) {
     console.error('[ATTR] Falha ao salvar SERVER_SCOPE:', err);
   }
@@ -257,19 +272,19 @@ async function _loadClampAttributes() {
       if (hasMin) clampMin = parseFloat(minAttr.value);
       if (hasMax) clampMax = parseFloat(maxAttr.value);
       _clampFromCustomer = true;
-      console.log('[CLAMP] Carregado de SERVER_SCOPE:', clampMin, clampMax);
+      LogHelper.log('[CLAMP] Carregado de SERVER_SCOPE:', clampMin, clampMax);
     } else {
       clampMin = CLAMP_DEFAULT_MIN;
       clampMax = CLAMP_DEFAULT_MAX;
       _clampFromCustomer = false;
-      console.log('[CLAMP] Sem atributos no SERVER_SCOPE, usando defaults:', clampMin, clampMax);
+      LogHelper.log('[CLAMP] Sem atributos no SERVER_SCOPE, usando defaults:', clampMin, clampMax);
     }
     self.ctx.$scope.clampMin = clampMin;
     self.ctx.$scope.clampMax = clampMax;
     self.ctx.$scope.clampFromCustomer = _clampFromCustomer;
     self.ctx.detectChanges();
   } catch (e) {
-    console.warn('[CLAMP] Falha ao carregar, usando defaults:', e);
+    LogHelper.warn('[CLAMP] Falha ao carregar, usando defaults:', e);
     _clampFromCustomer = false;
     self.ctx.$scope.clampFromCustomer = false;
     self.ctx.detectChanges();
@@ -281,7 +296,7 @@ async function _saveClampAttributes() {
   try {
     const entityId = await _getCustomerEntityIdAsync();
     if (!entityId || !entityId.id) {
-      console.warn('[CLAMP] Sem entidade de cliente para salvar');
+      LogHelper.warn('[CLAMP] Sem entidade de cliente para salvar');
       throw new Error('Customer entity não encontrado. Verifique se o dashboard está aberto no contexto de um cliente.');
     }
     await getHttp()
@@ -293,10 +308,86 @@ async function _saveClampAttributes() {
     _clampFromCustomer = true;
     self.ctx.$scope.clampFromCustomer = true;
     self.ctx.detectChanges();
-    console.log('[CLAMP] Salvo em SERVER_SCOPE:', clampMin, clampMax);
+    LogHelper.log('[CLAMP] Salvo em SERVER_SCOPE:', clampMin, clampMax);
   } catch (e) {
     console.error('[CLAMP] Falha ao salvar SERVER_SCOPE:', e);
     throw e; // propaga para saveClampSettings mostrar erro na UI
+  }
+}
+
+// Carrega adminMode do SERVER_SCOPE do cliente
+async function _loadAdminModeAttribute() {
+  try {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) return;
+    const resp = await getHttp()
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tbtv5AdminMode')
+      .toPromise();
+    const data = (resp && resp.data) ? resp.data : resp;
+    const attrs = Array.isArray(data) ? data : [];
+    const attr = attrs.find(function (a) { return a.key === 'tbtv5AdminMode'; });
+    if (attr && (attr.value === true || attr.value === 'true')) {
+      adminMode = true;
+      adminVerified = true; // senha já foi verificada quando foi salvo
+      self.ctx.$scope.adminMode = true;
+      self.ctx.$scope.adminVerified = true;
+      self.ctx.detectChanges();
+      LogHelper.log('[ADMIN] adminMode carregado de SERVER_SCOPE: true');
+    }
+  } catch (e) {
+    /* silencioso */
+  }
+}
+
+// Salva adminMode no SERVER_SCOPE do cliente
+async function _saveAdminModeAttribute(value) {
+  try {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) return;
+    await getHttp()
+      .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', {
+        tbtv5AdminMode: value,
+      })
+      .toPromise();
+    LogHelper.log('[ADMIN] adminMode salvo no SERVER_SCOPE:', value);
+  } catch (e) {
+    console.error('[ADMIN] Falha ao salvar adminMode no SERVER_SCOPE:', e);
+  }
+}
+
+// Carrega debugActive do SERVER_SCOPE do cliente
+async function _loadDebugAttribute() {
+  try {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) return;
+    const resp = await getHttp()
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tbtv5DebugActive')
+      .toPromise();
+    const data = (resp && resp.data) ? resp.data : resp;
+    const attrs = Array.isArray(data) ? data : [];
+    const attr = attrs.find(function (a) { return a.key === 'tbtv5DebugActive'; });
+    if (attr && attr.value != null) {
+      DEBUG_ACTIVE = attr.value === true || attr.value === 'true';
+      console.info('[tbtv5] DEBUG_ACTIVE carregado de SERVER_SCOPE:', DEBUG_ACTIVE);
+    }
+  } catch (e) {
+    /* silencioso — debug é opcional */
+  }
+}
+
+// Salva debugActive no SERVER_SCOPE do cliente
+async function _saveDebugAttribute() {
+  try {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) return;
+    await getHttp()
+      .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', {
+        tbtv5DebugActive: DEBUG_ACTIVE,
+      })
+      .toPromise();
+    console.info('[tbtv5] DEBUG_ACTIVE salvo no SERVER_SCOPE:', DEBUG_ACTIVE);
+  } catch (e) {
+    console.error('[tbtv5] Falha ao salvar debugActive no SERVER_SCOPE:', e);
   }
 }
 
@@ -304,7 +395,7 @@ async function _saveClampAttributes() {
 function buildOverrideMap(attr) {
   var map = new Map();
   if (!attr || !Array.isArray(attr.device_list_interval_values)) {
-    console.warn('[OVERRIDE] buildOverrideMap: attr inválido ou null', attr);
+    LogHelper.warn('[OVERRIDE] buildOverrideMap: attr inválido ou null', attr);
     return map;
   }
   for (var i = 0; i < attr.device_list_interval_values.length; i++) {
@@ -315,9 +406,9 @@ function buildOverrideMap(attr) {
       devMap.set(vl[j].timeUTC, vl[j].value);
     }
     map.set(device.deviceCentralName, devMap);
-    console.log('[OVERRIDE] buildOverrideMap: device=' + device.deviceCentralName + ' slots=' + devMap.size);
+    LogHelper.log('[OVERRIDE] buildOverrideMap: device=' + device.deviceCentralName + ' slots=' + devMap.size);
   }
-  console.log('[OVERRIDE] buildOverrideMap: total devices=' + map.size);
+  LogHelper.log('[OVERRIDE] buildOverrideMap: total devices=' + map.size);
   return map;
 }
 
@@ -325,7 +416,7 @@ async function _loadManualOverrides() {
   try {
     var entityId = await _getCustomerEntityIdAsync();
     if (!entityId || !entityId.id) {
-      console.warn('[MANUAL OVERRIDE] Customer entity não encontrado, overrides não carregados');
+      LogHelper.warn('[MANUAL OVERRIDE] Customer entity não encontrado, overrides não carregados');
       return;
     }
     var resp = await getHttp()
@@ -334,11 +425,11 @@ async function _loadManualOverrides() {
     var data = (resp && resp.data) ? resp.data : resp;
     var attr = (Array.isArray(data) ? data : []).find(function (a) { return a.key === 'manualTempOverrides'; });
     _manualOverrides = attr ? attr.value : null;
-    console.log('[MANUAL OVERRIDE] Carregado:', _manualOverrides
+    LogHelper.log('[MANUAL OVERRIDE] Carregado:', _manualOverrides
       ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
       : 'nenhum');
   } catch (e) {
-    console.warn('[MANUAL OVERRIDE] Falha ao carregar:', e);
+    LogHelper.warn('[MANUAL OVERRIDE] Falha ao carregar:', e);
     _manualOverrides = null;
   }
 }
@@ -350,7 +441,7 @@ async function _saveManualOverrides(data) {
     .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', { manualTempOverrides: data })
     .toPromise();
   _manualOverrides = data;
-  console.log('[MANUAL OVERRIDE] Salvo em SERVER_SCOPE, versão', data.version);
+  LogHelper.log('[MANUAL OVERRIDE] Salvo em SERVER_SCOPE, versão', data.version);
 }
 
 // -------- Cache --------
@@ -500,7 +591,7 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
 
   // IMPORTANTE: Se não há dados reais, retorna array vazio (não gera dados fictícios)
   if (!sorted || sorted.length === 0) {
-    console.log(`[Interpolation] Device: ${deviceName} - NO REAL DATA, skipping entirely`);
+    LogHelper.log(`[Interpolation] Device: ${deviceName} - NO REAL DATA, skipping entirely`);
     return [];
   }
 
@@ -523,7 +614,7 @@ function interpolateSeries(sorted, deviceName, startISO, endISO) {
   }
 
   const daysWithData = Array.from(dataByDay.keys()).sort();
-  console.log(
+  LogHelper.log(
     `[Interpolation] Device: ${deviceName} - Days with real data: ${daysWithData.length} (${daysWithData[0]} to ${daysWithData[daysWithData.length - 1]})`
   );
 
@@ -605,12 +696,12 @@ function interpolateDay(
 
   // Log para debug
   if (gaps.length > 0) {
-    console.log(
+    LogHelper.log(
       `[Interpolation] Device: ${deviceName}, Gaps found: ${gaps.length}, Config: max ${maxGapSlots} slots, crossMidnight: ${allowCrossMidnight}`
     );
     gaps.forEach((g, idx) => {
       const canInterp = canInterpolate(g, maxGapSlots, allowCrossMidnight);
-      console.log(
+      LogHelper.log(
         `  Gap ${idx + 1}: ${g.size} slots (${g.startSlot} → ${g.endSlot}) - ${canInterp ? 'WILL INTERPOLATE' : 'SKIP: ' + getSkipReason(g, maxGapSlots, allowCrossMidnight)}`
       );
     });
@@ -673,7 +764,7 @@ function interpolateDay(
   // Log summary
   if (interpolatedCount > 0 || missingCount > 0) {
     const missingAction = includeMissingInOutput ? 'included' : 'skipped';
-    console.log(
+    LogHelper.log(
       `[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount} (${missingAction}), Real: ${existingBySlot.size}`
     );
   }
@@ -788,7 +879,7 @@ function _toast(type, message, duration) {
 
 /** showToast — implementação local de fallback (usada quando MyIOLibrary não está disponível). */
 function showToast(message, type = 'error', duration = 8000) {
-  console.log('[TOAST] Mostrando toast:', type, message);
+  LogHelper.log('[TOAST] Mostrando toast:', type, message);
 
   // Remove toast existente se houver (em qualquer lugar do DOM)
   const existingToasts = document.querySelectorAll('.myio-toast');
@@ -843,7 +934,7 @@ function showToast(message, type = 'error', duration = 8000) {
   // Tenta adicionar ao body principal da página (não do widget)
   const targetBody = window.top?.document?.body || document.body;
   targetBody.appendChild(toast);
-  console.log('[TOAST] Toast adicionado ao DOM');
+  LogHelper.log('[TOAST] Toast adicionado ao DOM');
 
   // Trigger animation
   requestAnimationFrame(() => {
@@ -910,13 +1001,13 @@ async function sendRPCTemp(bodiesPerCentral) {
 
     // v2: Pula centrais sem devices
     if (!body.devices || body.devices.length === 0) {
-      console.log('[RPC SKIP]', centralId, '- nenhum device para esta central');
+      LogHelper.log('[RPC SKIP]', centralId, '- nenhum device para esta central');
       results[centralId] = [];
       continue;
     }
 
     try {
-      console.log('[RPC]', centralId, 'enviando', body.devices.length, 'devices');
+      LogHelper.log('[RPC]', centralId, 'enviando', body.devices.length, 'devices');
       const req = $http.post(`https://${centralId}.y.myio.com.br/api/rpc/temperature_report`, body);
       // Race entre a requisição e o timeout
       const resp = await Promise.race([resolveRequest(req), timeoutPromise(RPC_TIMEOUT_MS, centralId)]);
@@ -934,7 +1025,7 @@ async function sendRPCTemp(bodiesPerCentral) {
       }
 
       // Log útil pra auditoria
-      console.log('[RPC OK]', centralId, 'items:', payload.length);
+      LogHelper.log('[RPC OK]', centralId, 'items:', payload.length);
       results[centralId] = payload;
     } catch (err) {
       console.error('[RPC ERRO]', centralId, err);
@@ -1359,9 +1450,9 @@ function createDateChunks(startDate, endDate, chunkSizeDays = 5) {
     current.setUTCDate(current.getUTCDate() + chunkSizeDays);
   }
 
-  console.log('[UTC-FIX-V5] createDateChunks gerou', chunks.length, 'chunk(s)');
+  LogHelper.log('[UTC-FIX-V5] createDateChunks gerou', chunks.length, 'chunk(s)');
   if (chunks.length > 0) {
-    console.log(
+    LogHelper.log(
       '[UTC-FIX-V5] Primeiro chunk: start=',
       chunks[0].start.toISOString(),
       'end=',
@@ -1382,7 +1473,7 @@ async function getData() {
 
   const centrals = self.ctx.$scope.centralIdList || [];
   if (!Array.isArray(centrals) || centrals.length === 0) {
-    console.warn('[getData] Nenhum centralId disponível em $scope.centralIdList.');
+    LogHelper.warn('[getData] Nenhum centralId disponível em $scope.centralIdList.');
   }
 
   // Use selected devices from filter (or all if none selected)
@@ -1391,7 +1482,7 @@ async function getData() {
     openErrorModal('Nenhum ambiente', 'Selecione ao menos um ambiente para gerar o relatório.');
     return;
   }
-  console.log('[getData] Devices selecionados:', selectedDevices.length, '/', deviceList.length);
+  LogHelper.log('[getData] Devices selecionados:', selectedDevices.length, '/', deviceList.length);
   self.ctx.$scope.hasQueried = true;
 
   // =====================================================
@@ -1402,9 +1493,9 @@ async function getData() {
   // =====================================================
 
   // Debug: log valores originais do date picker
-  console.log('[UTC-FIX-V5] startDate objeto:', startDate);
-  console.log('[UTC-FIX-V5] startDate.toISOString():', startDate?.toISOString?.());
-  console.log(
+  LogHelper.log('[UTC-FIX-V5] startDate objeto:', startDate);
+  LogHelper.log('[UTC-FIX-V5] startDate.toISOString():', startDate?.toISOString?.());
+  LogHelper.log(
     '[UTC-FIX-V5] startDate.getDate():',
     startDate?.getDate?.(),
     'getMonth():',
@@ -1412,9 +1503,9 @@ async function getData() {
     'getFullYear():',
     startDate?.getFullYear?.()
   );
-  console.log('[UTC-FIX-V5] endDate objeto:', endDate);
-  console.log('[UTC-FIX-V5] endDate.toISOString():', endDate?.toISOString?.());
-  console.log(
+  LogHelper.log('[UTC-FIX-V5] endDate objeto:', endDate);
+  LogHelper.log('[UTC-FIX-V5] endDate.toISOString():', endDate?.toISOString?.());
+  LogHelper.log(
     '[UTC-FIX-V5] endDate.getDate():',
     endDate?.getDate?.(),
     'getMonth():',
@@ -1439,15 +1530,15 @@ async function getData() {
   const s = new Date(Date.UTC(startYear, startMonth, startDay, 3, 0, 0, 0)); // 03:00 UTC = 00:00 Brasil
   let e = new Date(Date.UTC(endYear, endMonth, endDay + 1, 2, 59, 59, 999)); // 02:59 UTC dia seguinte = 23:59 Brasil
 
-  console.log('[UTC-FIX-V5] Dia selecionado:', startDay, '/', startMonth + 1, '/', startYear);
-  console.log('[UTC-FIX-V5] START (00:00 Brasil):', s.toISOString());
-  console.log('[UTC-FIX-V5] END (23:59 Brasil):', e.toISOString());
+  LogHelper.log('[UTC-FIX-V5] Dia selecionado:', startDay, '/', startMonth + 1, '/', startYear);
+  LogHelper.log('[UTC-FIX-V5] START (00:00 Brasil):', s.toISOString());
+  LogHelper.log('[UTC-FIX-V5] END (23:59 Brasil):', e.toISOString());
 
   // Limita endDate ao horário atual em UTC real
   // Se são 14:12 local Brasil, em UTC são 17:12
   const now = new Date();
   const nowUTC = new Date(now.getTime()); // já está em UTC internamente
-  console.log(
+  LogHelper.log(
     '[UTC-FIX-V5] Horário local:',
     now.getHours() + ':' + now.getMinutes(),
     '-> UTC real:',
@@ -1459,23 +1550,23 @@ async function getData() {
     // Arredonda para o slot de 30min anterior mais próximo
     const mins = e.getUTCMinutes();
     e.setUTCMinutes(mins < 30 ? 0 : 30, 0, 0);
-    console.log('[UTC-FIX-V5] END limitado ao horário atual UTC:', e.toISOString());
+    LogHelper.log('[UTC-FIX-V5] END limitado ao horário atual UTC:', e.toISOString());
   }
 
-  console.log('[UTC-FIX-V5] === PAYLOAD FINAL ===');
-  console.log('[UTC-FIX-V5] dateStart:', s.toISOString());
-  console.log('[UTC-FIX-V5] dateEnd:', e.toISOString());
+  LogHelper.log('[UTC-FIX-V5] === PAYLOAD FINAL ===');
+  LogHelper.log('[UTC-FIX-V5] dateStart:', s.toISOString());
+  LogHelper.log('[UTC-FIX-V5] dateEnd:', e.toISOString());
   const keyStart = s.toISOString();
   const keyEnd = e.toISOString();
   const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}`;
 
   // Guardas anti-duplicação
   if (_inFlight) {
-    console.log('[getData] Ignorado: já existe uma consulta em progresso.');
+    LogHelper.log('[getData] Ignorado: já existe uma consulta em progresso.');
     return;
   }
   if (_lastQueryKey === queryKey) {
-    console.log('[getData] Ignorado: mesma consulta já realizada.', queryKey);
+    LogHelper.log('[getData] Ignorado: mesma consulta já realizada.', queryKey);
     return;
   }
   _inFlight = true;
@@ -1488,7 +1579,7 @@ async function getData() {
   // Cache
   const cached = getCache(centrals, keyStart, keyEnd);
   if (cached) {
-    console.log('[CACHE HIT] itens:', cached.length);
+    LogHelper.log('[CACHE HIT] itens:', cached.length);
     self.ctx.$scope.dados = cached;
     renderData(cached);
     self.ctx.detectChanges();
@@ -1512,11 +1603,11 @@ async function getData() {
 
   try {
     let allProcessed = [];
-    console.log('[OVERRIDE] getData: _manualOverrides =', _manualOverrides
+    LogHelper.log('[OVERRIDE] getData: _manualOverrides =', _manualOverrides
       ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
       : 'null');
     const overrideMap = buildOverrideMap(_manualOverrides); // manual override lookup
-    console.log('[OVERRIDE] getData: overrideMap.size =', overrideMap.size);
+    LogHelper.log('[OVERRIDE] getData: overrideMap.size =', overrideMap.size);
     const globalMissingMap = {};
     const devicesSeen = {}; // continuidade após 1ª aparição
     const allRpcErrors = []; // Acumula erros de conexão com centrais
@@ -1542,11 +1633,11 @@ async function getData() {
       }
 
       // Log claro do payload que será enviado
-      console.log('[v2] === PAYLOAD POR CENTRAL ===');
-      console.log('[v2] dateStart:', chunk.start.toISOString());
-      console.log('[v2] dateEnd:', chunk.end.toISOString());
+      LogHelper.log('[v2] === PAYLOAD POR CENTRAL ===');
+      LogHelper.log('[v2] dateStart:', chunk.start.toISOString());
+      LogHelper.log('[v2] dateEnd:', chunk.end.toISOString());
       for (const centralId of centrals) {
-        console.log(`[v2] ${centralId}: ${bodiesPerCentral[centralId].devices.length} devices`);
+        LogHelper.log(`[v2] ${centralId}: ${bodiesPerCentral[centralId].devices.length} devices`);
       }
 
       const { results: rpcResponses, errors: rpcErrors } = await sendRPCTemp(bodiesPerCentral);
@@ -1554,7 +1645,7 @@ async function getData() {
       // Se qualquer central falhou: abortar tudo, sem renderizar dados parciais
       if (rpcErrors && rpcErrors.length > 0) {
         allRpcErrors.push(...rpcErrors);
-        console.warn(
+        LogHelper.warn(
           '[DR] Aborting report — central(s) failed:',
           rpcErrors.map((e) => e.centralId)
         );
@@ -1563,7 +1654,7 @@ async function getData() {
 
       for (const [centralId, readings] of Object.entries(rpcResponses || {})) {
         const arrReadings = Array.isArray(readings) ? readings : [];
-        console.log(`[CHUNK ${chunkNumber}/${totalChunks}]`, centralId, 'leituras:', arrReadings.length);
+        LogHelper.log(`[CHUNK ${chunkNumber}/${totalChunks}]`, centralId, 'leituras:', arrReadings.length);
 
         // v2.1: Normalização condicional por central
         // Centrais com backend ORIGINAL precisam de -3h de correção
@@ -1585,12 +1676,12 @@ async function getData() {
 
         if (normalizedReadings.length > 0) {
           const normLabel = needsLegacyNormalization ? '[LEGACY -3h]' : '[UTC NATIVE]';
-          console.log(
+          LogHelper.log(
             `${normLabel} Primeiro registro:`,
             normalizedReadings[0].time_interval,
             needsLegacyNormalization ? `(original: ${readings[0].time_interval})` : ''
           );
-          console.log(
+          LogHelper.log(
             `${normLabel} Último registro:`,
             normalizedReadings[normalizedReadings.length - 1].time_interval
           );
@@ -1603,7 +1694,7 @@ async function getData() {
         );
 
         const deviceKeys = Object.keys(byDevice);
-        console.log(
+        LogHelper.log(
           `[CHUNK ${chunkNumber}/${totalChunks}] ${centralId} devices:`,
           deviceKeys.length,
           deviceKeys.slice(0, 8)
@@ -1650,7 +1741,7 @@ async function getData() {
           const deviceLabel = deviceNameLabelMap[devName] || devName;
 
           if (chunkIndex === 0 && allProcessed.length === 0 && interpolated.length > 0) {
-            console.log('Exemplo de ponto interpolado/original:', interpolated[0]);
+            LogHelper.log('Exemplo de ponto interpolado/original:', interpolated[0]);
           }
 
           for (const r of interpolated) {
@@ -1666,27 +1757,27 @@ async function getData() {
             if (isSentinel && overrideMap.size > 0) {
               const overrideKey = devName.split(' ')[0]; // normalize to deviceCentralName
               const devMap = overrideMap.get(overrideKey);
-              console.log('[OVERRIDE] sentinel slot: devName=' + devName +
+              LogHelper.log('[OVERRIDE] sentinel slot: devName=' + devName +
                 ' overrideKey=' + overrideKey +
                 ' time_interval=' + r.time_interval +
                 ' devMapFound=' + !!devMap +
                 ' finalValue=' + finalValue);
               if (devMap) {
                 const ov = devMap.get(r.time_interval);
-                console.log('[OVERRIDE] devMap lookup: timeUTC=' + r.time_interval + ' ov=' + ov);
+                LogHelper.log('[OVERRIDE] devMap lookup: timeUTC=' + r.time_interval + ' ov=' + ov);
                 if (ov !== undefined && ov !== null) {
                   const { value: ov2 } = clampTemperature(ov);
                   finalValue = ov2;
                   finalEqualSign = false;
                   isManual = true;
-                  console.log('[OVERRIDE] ✓ aplicado: ' + overrideKey + ' @ ' + r.time_interval + ' = ' + ov2);
+                  LogHelper.log('[OVERRIDE] ✓ aplicado: ' + overrideKey + ' @ ' + r.time_interval + ' = ' + ov2);
                 }
               } else {
-                console.warn('[OVERRIDE] ✗ device não encontrado no overrideMap: "' + overrideKey + '"',
+                LogHelper.warn('[OVERRIDE] ✗ device não encontrado no overrideMap: "' + overrideKey + '"',
                   'chaves disponíveis:', Array.from(overrideMap.keys()));
               }
             } else if (isSentinel) {
-              console.log('[OVERRIDE] sentinel slot sem overrideMap (vazio): devName=' + devName + ' time=' + r.time_interval);
+              LogHelper.log('[OVERRIDE] sentinel slot sem overrideMap (vazio): devName=' + devName + ' time=' + r.time_interval);
             }
             // ────────────────────────────────────────────────────────────────
             allProcessed.push({
@@ -1719,12 +1810,12 @@ async function getData() {
 
       if (missingLabels.length > 0) {
         // Apenas log - NÃO geramos dados fictícios para labels sem telemetria real
-        console.warn(
+        LogHelper.warn(
           '[BACKFILL DISABLED] Labels sem dados reais (NÃO incluídos no relatório):',
           missingLabels
         );
       } else {
-        console.log('[LABELS] Todos os labels esperados têm dados reais no relatório ✓');
+        LogHelper.log('[LABELS] Todos os labels esperados têm dados reais no relatório ✓');
       }
     }
 
@@ -1765,7 +1856,7 @@ async function getData() {
 
     // UI: finalizar (somente quando todas as centrais responderam com sucesso)
     setTimeout(() => {
-      console.log('[TOTAL PROCESSADO]', allProcessed.length, 'linhas');
+      LogHelper.log('[TOTAL PROCESSADO]', allProcessed.length, 'linhas');
       self.ctx.$scope.dados = allProcessed;
       self.ctx.$scope.loading = false;
       setPremiumLoading(false, LOADING_STATES.READY, 100);
@@ -2118,13 +2209,13 @@ self.onInit = function () {
   });
 
   // ======= VERSÃO DO WIDGET - VERIFICAR NO CONSOLE =======
-  console.log('=============================================');
-  console.log('TabelaTemp5 v3.1.1 - HYBRID (2026-02-13)');
-  console.log('Backend: Suporta v3.1 (UTC) e original (-3h)');
-  console.log('Fix: Offset corrigido de -6h para -3h');
-  console.log('Fix: brDatetime converte UTC->Brasil');
-  console.log('=============================================');
-  console.log('TabelaTemp5 widget init >>> self.ctx', self.ctx);
+  LogHelper.log('=============================================');
+  LogHelper.log('TabelaTemp5 v3.1.1 - HYBRID (2026-02-13)');
+  LogHelper.log('Backend: Suporta v3.1 (UTC) e original (-3h)');
+  LogHelper.log('Fix: Offset corrigido de -6h para -3h');
+  LogHelper.log('Fix: brDatetime converte UTC->Brasil');
+  LogHelper.log('=============================================');
+  LogHelper.log('TabelaTemp5 widget init >>> self.ctx', self.ctx);
 
   // Map de label por NOME COMPLETO (sem split) para evitar colisões/sobrescritas
   /*
@@ -2198,10 +2289,10 @@ self.onInit = function () {
   self.ctx.$scope.centralIdList = [...new Set(normalizedCentralIds)];
   self.ctx.$scope.expectedLabels = [...new Set(rawLabels)]; // Guardar labels esperados
 
-  console.log('[INIT] centralIds extraídos (raw):', rawCentralIds);
-  console.log('[INIT] centralIds normalizados:', self.ctx.$scope.centralIdList);
-  console.log('[INIT] labels esperados:', self.ctx.$scope.expectedLabels);
-  console.log('[INIT] deviceToCentralMap:', deviceToCentralMap);
+  LogHelper.log('[INIT] centralIds extraídos (raw):', rawCentralIds);
+  LogHelper.log('[INIT] centralIds normalizados:', self.ctx.$scope.centralIdList);
+  LogHelper.log('[INIT] labels esperados:', self.ctx.$scope.expectedLabels);
+  LogHelper.log('[INIT] deviceToCentralMap:', deviceToCentralMap);
 
   // Bindings de export
   self.ctx.$scope.downloadPDF = () => {
@@ -2247,11 +2338,11 @@ self.onInit = function () {
     ).querySelector('input[name="startDatetimes"]');
 
     if (!input) {
-      console.warn('[DatePicker] input[name="startDatetimes"] não encontrado');
+      LogHelper.warn('[DatePicker] input[name="startDatetimes"] não encontrado');
       return;
     }
     if (!window.MyIOLibrary?.createDateRangePicker) {
-      console.warn('[DatePicker] MyIOLibrary.createDateRangePicker não disponível');
+      LogHelper.warn('[DatePicker] MyIOLibrary.createDateRangePicker não disponível');
       return;
     }
 
@@ -2275,7 +2366,7 @@ self.onInit = function () {
       },
     })
       .then(function () {
-        console.log('[DatePicker] Inicializado com sucesso');
+        LogHelper.log('[DatePicker] Inicializado com sucesso');
       })
       .catch(function (err) {
         console.error('[DatePicker] Falha ao inicializar:', err);
@@ -2901,6 +2992,7 @@ self.onInit = function () {
     adminMode = checked;
     self.ctx.$scope.adminMode = checked;
     self.ctx.detectChanges();
+    _saveAdminModeAttribute(checked); // persiste no SERVER_SCOPE
   };
 
   self.ctx.$scope.interpolationEnabled = interpolationEnabled;
@@ -2987,10 +3079,12 @@ self.onInit = function () {
   // Carrega limites de clamp e overrides ANTES de qualquer getData().
   // Ambos precisam de await para garantir que os dados estejam disponíveis
   // quando onDataUpdated (que chama getData) disparar logo após onInit.
-  _loadClampAttributes(); // fire-and-forget — só afeta display de limites, não os dados
-  console.log('[OVERRIDE] Iniciando _loadManualOverrides() no onInit...');
+  _loadClampAttributes();    // fire-and-forget — carrega clamp limits do SERVER_SCOPE
+  _loadAdminModeAttribute(); // fire-and-forget — restaura adminMode do SERVER_SCOPE
+  _loadDebugAttribute();     // fire-and-forget — carrega debug mode do SERVER_SCOPE
+  LogHelper.log('[OVERRIDE] Iniciando _loadManualOverrides() no onInit...');
   _loadManualOverrides().then(function () {
-    console.log('[OVERRIDE] _loadManualOverrides() concluído. _manualOverrides =',
+    LogHelper.log('[OVERRIDE] _loadManualOverrides() concluído. _manualOverrides =',
       _manualOverrides
         ? (_manualOverrides.device_list_interval_values || []).length + ' devices'
         : 'null');
@@ -3930,6 +4024,14 @@ async function _man4ExportPDF() {
 window.tbtv5_man4ExportPDF = function () { _man4ExportPDF(); };
 window.tbtv5_man4ExportXLS = function () { _man4ExportXLS(); };
 window.tbtv5_man4ExportCSV = function () { _man4ExportCSV(); };
+
+// Debug toggle — use no console do browser: window.tbtv5_setDebug(true)
+// Persiste no SERVER_SCOPE do cliente para sobreviver ao reload.
+window.tbtv5_setDebug = function (val) {
+  DEBUG_ACTIVE = !!val;
+  console.info('[tbtv5] DEBUG_ACTIVE =', DEBUG_ACTIVE);
+  _saveDebugAttribute();
+};
 
 window.tbtv5_man4FilterToggle = function (mode) {
   _man4State.filterMode = (_man4State.filterMode === mode) ? null : mode;
