@@ -368,6 +368,10 @@ async function _loadDebugAttribute() {
     const attr = attrs.find(function (a) { return a.key === 'tbtv5DebugActive'; });
     if (attr && attr.value != null) {
       DEBUG_ACTIVE = attr.value === true || attr.value === 'true';
+      if (self.ctx && self.ctx.$scope) {
+        self.ctx.$scope.debugActive = DEBUG_ACTIVE;
+        self.ctx.detectChanges();
+      }
       console.info('[tbtv5] DEBUG_ACTIVE carregado de SERVER_SCOPE:', DEBUG_ACTIVE);
     }
   } catch (e) {
@@ -2993,6 +2997,15 @@ self.onInit = function () {
     self.ctx.$scope.adminMode = checked;
     self.ctx.detectChanges();
     _saveAdminModeAttribute(checked); // persiste no SERVER_SCOPE
+  };
+
+  self.ctx.$scope.debugActive = DEBUG_ACTIVE;
+  self.ctx.$scope.setDebugMode = function (evt) {
+    const checked = !!evt?.target?.checked;
+    DEBUG_ACTIVE = checked;
+    self.ctx.$scope.debugActive = checked;
+    self.ctx.detectChanges();
+    _saveDebugAttribute(); // persiste no SERVER_SCOPE
   };
 
   self.ctx.$scope.interpolationEnabled = interpolationEnabled;

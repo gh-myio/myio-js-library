@@ -129,6 +129,17 @@
 
               <div class="row" style="margin-top: 10px">
                 <label class="switch">
+                  <input type="checkbox" [checked]="debugActive" (change)="setDebugMode($event)" />
+                  <span class="slider"></span>
+                </label>
+                <span>Modo Debug</span>
+              </div>
+              <p class="muted">
+                Habilita logs detalhados no console do browser. Persiste no SERVER_SCOPE.
+              </p>
+
+              <div class="row" style="margin-top: 10px">
+                <label class="switch">
                   <input
                     type="checkbox"
                     [checked]="interpolationEnabled"
