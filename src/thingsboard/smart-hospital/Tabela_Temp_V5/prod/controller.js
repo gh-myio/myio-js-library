@@ -958,6 +958,17 @@ async function sendRPCTemp(bodiesPerCentral) {
 }
 
 // -------- Exportações (mantive seu PDF/CSV, só higienizei) --------
+function _buildExportData() {
+  const dados = self.ctx.$scope.dados || [];
+  if (!dados.length) return [];
+  const grouped = _fillWithMissingSlots(_.groupBy(dados, 'deviceName'));
+  const rows = [];
+  Object.keys(grouped)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    .forEach((devName) => grouped[devName].forEach((r) => rows.push(r)));
+  return rows;
+}
+
 function _buildExportFilename(ext) {
   const _fd = (d) =>
     `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
@@ -2186,26 +2197,26 @@ self.onInit = function () {
   console.log('[INIT] deviceToCentralMap:', deviceToCentralMap);
 
   // Bindings de export
-  self.ctx.$scope.downloadPDF = () =>
-    self.ctx.$scope.dados?.length
-      ? exportToPDF(self.ctx.$scope.dados)
-      : openErrorModal('Sem dados', 'Não há dados para exportar.');
-  self.ctx.$scope.downloadCSV = () =>
-    self.ctx.$scope.dados?.length
-      ? exportToCSV(self.ctx.$scope.dados)
-      : openErrorModal('Sem dados', 'Não há dados para exportar.');
+  self.ctx.$scope.downloadPDF = () => {
+    const d = _buildExportData();
+    d.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+  };
+  self.ctx.$scope.downloadCSV = () => {
+    const d = _buildExportData();
+    d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+  };
 
   window.tbtv5_exportPDF = function () {
-    const d = self.ctx.$scope.dados;
-    d?.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+    const d = _buildExportData();
+    d.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   window.tbtv5_exportXLS = function () {
-    const d = self.ctx.$scope.dados;
-    d?.length ? exportToXLS(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+    const d = _buildExportData();
+    d.length ? exportToXLS(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   window.tbtv5_exportCSV = function () {
-    const d = self.ctx.$scope.dados;
-    d?.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
+    const d = _buildExportData();
+    d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
 
   // RPC connection errors (exibidos no banner premium de indisponibilidade)
