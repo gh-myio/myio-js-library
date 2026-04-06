@@ -2069,7 +2069,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (_seedTotal > 0) _updateTicketNotifBadge(_seedTotal);
     }
 
-    // Wire up the bell button hover
+    // Inject active-state style for alarm filter button
+    if (!document.getElementById('myio-alarm-filter-btn-style')) {
+      const _s = document.createElement('style');
+      _s.id = 'myio-alarm-filter-btn-style';
+      _s.textContent = [
+        '.tbx-btn-alarm-notif.alarm-filter-active{background:#fff3e0!important;border:1px solid #fb8c00!important;color:#e65100!important;box-shadow:0 0 0 2px #fb8c0044}',
+        '.tbx-btn-alarm-notif.alarm-filter-active .tbx-ico{filter:none}',
+      ].join('');
+      document.head.appendChild(_s);
+    }
+
+    // Wire up the bell button: hover (tooltip) + click (global alarm filter)
+    let _alarmFilterActive = false;
     const btnAlarmNotif = document.getElementById('tbx-btn-alarm-notif');
     if (btnAlarmNotif) {
       btnAlarmNotif.addEventListener('mouseenter', () => {
@@ -2080,7 +2092,21 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           AlarmNotificationTooltip.hide();
         }
       });
+      btnAlarmNotif.addEventListener('click', () => {
+        _alarmFilterActive = !_alarmFilterActive;
+        btnAlarmNotif.classList.toggle('alarm-filter-active', _alarmFilterActive);
+        const mode = _alarmFilterActive ? 'apenas_ativados' : 'ativado';
+        window.dispatchEvent(new CustomEvent('myio:global-alarm-filter', { detail: { mode } }));
+        LogHelper.log('[HEADER] global alarm filter →', mode);
+      });
     }
+
+    // Reverse: TELEMETRY changed filter manually → sync header button state
+    window.addEventListener('myio:telemetry-alarm-filter-changed', (ev) => {
+      const mode = ev.detail?.mode || 'ativado';
+      _alarmFilterActive = mode === 'apenas_ativados';
+      if (btnAlarmNotif) btnAlarmNotif.classList.toggle('alarm-filter-active', _alarmFilterActive);
+    });
 
     // Update alarm badge count on every alarms-updated event
     let _lastAlarmList = [];

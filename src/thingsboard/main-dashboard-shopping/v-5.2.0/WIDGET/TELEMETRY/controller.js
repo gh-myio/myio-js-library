@@ -499,6 +499,8 @@ function injectFilterModalStyles() {
       display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px;
     }
     .telemetry-filter-overlay .alarm-filter-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .telemetry-filter-overlay .radio-inline { display: flex; flex-wrap: wrap; gap: 16px; }
+    .telemetry-filter-overlay .radio-inline label { font: 600 13px/1.2 var(--font-ui); color: var(--ink-1); white-space: nowrap; }
     .telemetry-filter-overlay .radio-grid label { font: 600 13px/1.2 var(--font-ui); color: var(--ink-1); }
     .telemetry-filter-overlay .muted { color: var(--ink-2); font: 500 12px/1.2 var(--font-ui); margin-top: 8px; }
     .telemetry-filter-overlay .checklist {
@@ -558,7 +560,7 @@ function injectFilterModalStyles() {
 // gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
 function addAlarmBadge(cardElement, gcdrDeviceId) {
   if (!cardElement || !gcdrDeviceId) return;
-  if (STATE.alarmFilter === 'desativado') return; // badge hidden when alarm display is off
+  if (STATE.alarmFilter === 'apenas_sem_alarmes') return; // badge hidden when showing only no-alarm cards
   const aso = window.AlarmServiceOrchestrator;
   if (!aso) return;
   const count = aso.getAlarmCountForDevice(gcdrDeviceId);
@@ -1489,7 +1491,7 @@ const STATE = {
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
   sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
-  /** @type {'ativado'|'desativado'|'apenas_ativados'} */
+  /** @type {'ativado'|'apenas_ativados'|'apenas_sem_alarmes'} */
   alarmFilter: 'ativado',
   firstHydrates: 0,
 };
@@ -1878,11 +1880,14 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) 
     v = v.filter((x) => selectedIds.has(x.id));
   }
 
-  // Alarm filter: 'apenas_ativados' → show only cards with active alarms
-  if (alarmFilter === 'apenas_ativados') {
+  // Alarm filter
+  if (alarmFilter === 'apenas_ativados' || alarmFilter === 'apenas_sem_alarmes') {
     const aso = window.AlarmServiceOrchestrator;
     if (aso) {
-      v = v.filter((x) => x.gcdrDeviceId && aso.getAlarmCountForDevice(x.gcdrDeviceId) > 0);
+      v = v.filter((x) => {
+        const hasAlarm = x.gcdrDeviceId && aso.getAlarmCountForDevice(x.gcdrDeviceId) > 0;
+        return alarmFilter === 'apenas_ativados' ? hasAlarm : !hasAlarm;
+      });
     }
   }
 
@@ -4001,6 +4006,7 @@ function bindModal() {
     $m.find('.check-item input[type="checkbox"]').prop('checked', true);
     $m.find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
     $m.find('input[name="alarmFilter"][value="ativado"]').prop('checked', true);
+    window.dispatchEvent(new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: 'ativado' } }));
     syncChecklistSelectionVisual();
     reflowFromState();
   });
@@ -4015,9 +4021,11 @@ function bindModal() {
 
     STATE.selectedIds = set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
     STATE.sortMode = String($m.find('input[name="sortMode"]:checked').val() || 'cons_desc');
-    STATE.alarmFilter = /** @type {'ativado'|'desativado'|'apenas_ativados'} */ (
+    STATE.alarmFilter = /** @type {'ativado'|'apenas_ativados'|'apenas_sem_alarmes'} */ (
       String($m.find('input[name="alarmFilter"]:checked').val() || 'ativado')
     );
+    // Notifica o HEADER para sincronizar estado visual do botão 🔔
+    window.dispatchEvent(new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: STATE.alarmFilter } }));
 
     reflowFromState();
     closeFilterModal();
@@ -5489,6 +5497,15 @@ self.onInit = async function () {
 
   // RFC-0196: Listen for group filter changes from TELEMETRY_INFO widget
   window.addEventListener('myio:group-filter-changed', _groupFilterChangedHandler);
+
+  // Listen for global alarm filter dispatched by HEADER bell button
+  window.addEventListener('myio:global-alarm-filter', (ev) => {
+    const mode = ev.detail?.mode || 'ativado';
+    STATE.alarmFilter = /** @type {'ativado'|'apenas_ativados'|'apenas_sem_alarmes'} */ (mode);
+    // Sync radio in filter modal
+    $modal().find(`input[name="alarmFilter"][value="${mode}"]`).prop('checked', true);
+    reflowFromState();
+  });
 
   // Show #btnPresetup, #btnDownloadDeviceMap and #btnSyncGCDR only for MyIO users (@myio.com.br)
   function _applyPresetupVisibility(isSuperAdmin) {

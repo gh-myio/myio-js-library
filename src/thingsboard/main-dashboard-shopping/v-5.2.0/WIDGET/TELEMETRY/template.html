@@ -175,30 +175,29 @@
           <label class="block-label">Filtro de Alarmes</label>
           <div class="radio-grid alarm-filter-grid">
             <label
-              ><input type="radio" name="alarmFilter" value="ativado" checked /> Ativado (todos
-              visíveis)</label
+              ><input type="radio" name="alarmFilter" value="ativado" checked /> Mostrar todos</label
             >
             <label
               ><input type="radio" name="alarmFilter" value="apenas_ativados" /> Apenas com alarmes</label
             >
             <label
-              ><input type="radio" name="alarmFilter" value="desativado" /> Desativado (sem badges)</label
+              ><input type="radio" name="alarmFilter" value="apenas_sem_alarmes" /> Apenas sem alarmes</label
             >
           </div>
           <p class="muted">
-            Em <strong>Apenas com alarmes</strong> somente cards com alarme ativo são exibidos.
+            <strong>Apenas com alarmes</strong> oculta cards sem alarme ativo.
+            <strong>Apenas sem alarmes</strong> oculta cards com alarme ativo.
           </p>
         </div>
 
         <div class="filter-block">
           <label class="block-label">Ordenação</label>
-          <div class="radio-grid">
-            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓ (padrão)</label>
+          <div class="radio-inline">
+            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓</label>
             <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
             <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
             <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
           </div>
-          <p class="muted">Caso o consumo seja o mesmo é considerada a ordem alfabética.</p>
         </div>
 
         <div class="filter-block">
