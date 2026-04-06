@@ -797,7 +797,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-content {
   background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
-  width: 504px; max-width: 95vw; max-height: 82vh;
+  width: 1008px; max-width: 95vw; max-height: 82vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px; color: #1e293b; overflow: hidden;
   display: flex; flex-direction: column;
@@ -829,6 +829,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   padding: 10px 12px; background: #f8faf9; border-radius: 8px;
   margin-bottom: 12px; border: 1px solid #e0eceb;
 }
+.ant-toggles-inline { display: flex; gap: 8px; margin-bottom: 12px; }
+.ant-toggles-inline .ant-toggle-row { flex: 1; margin-bottom: 0; }
 .ant-toggle-label { font-weight: 600; font-size: 12px; color: #1e293b; }
 .ant-toggle-sub   { font-size: 10px; color: #64748b; margin-top: 1px; }
 .ant-switch {
@@ -1074,6 +1076,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const adm = window.MyIOOrchestrator?.alarmDayMap;
         const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
         const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
+        const _email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase();
+        const isMyioUser = _email.endsWith('@myio.com.br') && !_email.startsWith('alarme@') && !_email.startsWith('alarmes@');
+        const isInternalSupportRule = window.MyIOOrchestrator?.isInternalSupportRule !== false;
 
         const _offlineFilter = (a) => showOffline || !_isOfflineAlarm(a);
 
@@ -1210,27 +1215,41 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               </div>
             </div>
             <div class="ant-body">
-              <div class="ant-toggle-row">
-                <div>
-                  <div class="ant-toggle-label">Notificações de Alarmes no Painel</div>
-                  <div class="ant-toggle-sub">Ativar/desativar notificações flutuantes</div>
+              <div class="ant-toggles-inline">
+                <div class="ant-toggle-row">
+                  <div>
+                    <div class="ant-toggle-label">Notificações de Alarmes no Painel</div>
+                    <div class="ant-toggle-sub">Ativar/desativar notificações flutuantes</div>
+                  </div>
+                  <label class="ant-switch" title="Ativar/desativar notificações">
+                    <input type="checkbox" id="ant-notif-toggle" ${enabled ? 'checked' : ''}>
+                    <span class="ant-switch-track"></span>
+                    <span class="ant-switch-thumb"></span>
+                  </label>
                 </div>
-                <label class="ant-switch" title="Ativar/desativar notificações">
-                  <input type="checkbox" id="ant-notif-toggle" ${enabled ? 'checked' : ''}>
-                  <span class="ant-switch-track"></span>
-                  <span class="ant-switch-thumb"></span>
-                </label>
-              </div>
-              <div class="ant-toggle-row">
-                <div>
-                  <div class="ant-toggle-label">Alarmes de Dispositivos Offline</div>
-                  <div class="ant-toggle-sub">Ativar/desativar exibição de alarmes offline</div>
+                <div class="ant-toggle-row">
+                  <div>
+                    <div class="ant-toggle-label">Alarmes de Dispositivos Offline</div>
+                    <div class="ant-toggle-sub">Ativar/desativar exibição de alarmes offline</div>
+                  </div>
+                  <label class="ant-switch" title="Ativar/desativar alarmes offline">
+                    <input type="checkbox" id="ant-offline-toggle" ${showOffline ? 'checked' : ''}>
+                    <span class="ant-switch-track"></span>
+                    <span class="ant-switch-thumb"></span>
+                  </label>
                 </div>
-                <label class="ant-switch" title="Ativar/desativar alarmes offline">
-                  <input type="checkbox" id="ant-offline-toggle" ${showOffline ? 'checked' : ''}>
-                  <span class="ant-switch-track"></span>
-                  <span class="ant-switch-thumb"></span>
-                </label>
+                ${isMyioUser ? `
+                <div class="ant-toggle-row">
+                  <div>
+                    <div class="ant-toggle-label">Regras Internas MyIO</div>
+                    <div class="ant-toggle-sub">Incluir regras de suporte interno nas consultas</div>
+                  </div>
+                  <label class="ant-switch" title="Regras internas MyIO (visível apenas @myio.com.br)">
+                    <input type="checkbox" id="ant-internal-rule-toggle" ${isInternalSupportRule ? 'checked' : ''}>
+                    <span class="ant-switch-track"></span>
+                    <span class="ant-switch-thumb"></span>
+                  </label>
+                </div>` : ''}
               </div>
 
               <div class="ant-summary-primary">
@@ -1250,11 +1269,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               <div class="ant-section-hdr">Ativos por Estado</div>
               <div class="ant-breakdown">${stateGrid}</div>
 
-              <div class="ant-section-hdr">Primeiro e Último Alarme do Dia</div>
-              <div class="ant-firstlast">
-                ${mkFlCard('Primeiro', firstAlarm)}
-                ${mkFlCard('Último', lastAlarm)}
-              </div>
+              <details class="ant-collapse">
+                <summary>Primeiro e Último Alarme do Dia</summary>
+                <div class="ant-collapse-body">
+                  <div class="ant-firstlast">
+                    ${mkFlCard('Primeiro', firstAlarm)}
+                    ${mkFlCard('Último', lastAlarm)}
+                  </div>
+                </div>
+              </details>
 
               ${activeSection}
               ${histSection}
@@ -1421,6 +1444,34 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               }
             } catch (err) {
               LogHelper.warn('[HEADER] Failed to save showOfflineAlarms:', err);
+            }
+          });
+        }
+
+        // Internal support rule toggle (only rendered for @myio.com.br users)
+        const internalRuleToggle = container.querySelector('#ant-internal-rule-toggle');
+        if (internalRuleToggle) {
+          internalRuleToggle.addEventListener('change', async () => {
+            const value = internalRuleToggle.checked;
+            if (window.MyIOOrchestrator) window.MyIOOrchestrator.isInternalSupportRule = value;
+            window.dispatchEvent(new CustomEvent('myio:internal-support-rule-changed', { detail: { value } }));
+            LogHelper.log('[HEADER] isInternalSupportRule →', value);
+            try {
+              const jwt = localStorage.getItem('jwt_token');
+              const customerId = window.MyIOOrchestrator?.customerTB_ID;
+              const tbBase = self.ctx?.settings?.tbBaseUrl || '';
+              if (jwt && customerId) {
+                await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
+                  method: 'POST',
+                  headers: {
+                    'X-Authorization': `Bearer ${jwt}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ isInternalSupportRule: value }),
+                });
+              }
+            } catch (err) {
+              LogHelper.warn('[HEADER] Failed to save isInternalSupportRule:', err);
             }
           });
         }

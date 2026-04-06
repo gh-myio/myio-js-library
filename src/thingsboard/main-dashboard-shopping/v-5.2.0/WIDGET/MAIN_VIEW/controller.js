@@ -1489,6 +1489,7 @@ Object.assign(window.MyIOUtils, {
         let defaultDashboardCfg = null; // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
         let canShowDemandButtons = undefined; // Customer feature flag; undefined = not set (fallback to deviceProfile rule)
         let showOfflineAlarms = false; // default: offline alarms hidden
+        let isInternalSupportRuleRaw = null; // null = not set in SERVER_SCOPE
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
         if (customerTB_ID && jwt) {
@@ -1517,6 +1518,8 @@ Object.assign(window.MyIOUtils, {
             canShowDemandButtons = attrs?.canShowDemandButtons ?? undefined;
             // Offline alarms visibility: default false (hidden)
             showOfflineAlarms = attrs?.showOfflineAlarms === true;
+            // isInternalSupportRule: raw value from SERVER_SCOPE (null = never set)
+            isInternalSupportRuleRaw = attrs?.isInternalSupportRule ?? null;
             // RFC-0198: tickets gate — read from SERVER_SCOPE attrs (no dataKey needed)
             if (attrs?.tickets_enabled !== undefined && attrs?.tickets_enabled !== null) {
               const rawT = attrs.tickets_enabled;
@@ -1581,6 +1584,16 @@ Object.assign(window.MyIOUtils, {
           window.MyIOOrchestrator.canShowDemandButtons = canShowDemandButtons;
           // Offline alarms visibility
           window.MyIOOrchestrator.showOfflineAlarms = showOfflineAlarms;
+          // isInternalSupportRule: @myio.com.br users default true (unless explicitly false);
+          // non-@myio users always false regardless of stored value.
+          {
+            const _email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase();
+            const _isMyio = _email.endsWith('@myio.com.br') && !_email.startsWith('alarme@') && !_email.startsWith('alarmes@');
+            window.MyIOOrchestrator.isInternalSupportRule = _isMyio
+              ? (isInternalSupportRuleRaw === false ? false : true)
+              : false;
+            LogHelper.log('[MAIN_VIEW] isInternalSupportRule:', window.MyIOOrchestrator.isInternalSupportRule, '(raw:', isInternalSupportRuleRaw, ', isMyio:', _isMyio, ')');
+          }
         }
         if (!gcdrApiKey)
           LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
@@ -1597,6 +1610,17 @@ Object.assign(window.MyIOUtils, {
             window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com'
           );
           _fetchAlarmDayMap(); // RFC-0193: populate today's alarm history map (all states)
+
+          // Re-fetch alarms when isInternalSupportRule toggle changes in HEADER
+          window.addEventListener('myio:internal-support-rule-changed', () => {
+            const cid = window.MyIOOrchestrator?.gcdrCustomerId;
+            const tid = window.MyIOOrchestrator?.gcdrTenantId || '';
+            const aBase = window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+            if (cid) {
+              _prefetchCustomerAlarms(cid, tid, aBase);
+              _fetchAlarmDayMap();
+            }
+          });
         }
 
         // RFC-0198: Pre-fetch FreshDesk tickets (non-blocking) so ticket badges and ChamadosTab
@@ -2435,7 +2459,8 @@ async function _fetchAlarmDayMap() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const from = encodeURIComponent(todayStart.toISOString());
   const to = encodeURIComponent(now.toISOString());
-  const baseUrl = `${alarmsBaseUrl}/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100`;
+  const _internalRule = window.MyIOOrchestrator?.isInternalSupportRule === true;
+  const baseUrl = `${alarmsBaseUrl}/alarms?customerId=${encodeURIComponent(gcdrCustomerId)}&from=${from}&to=${to}&limit=100&isInternalSupportRule=${_internalRule}`;
   const headers = { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId, Accept: 'application/json' };
   try {
     let allAlarms = [];
@@ -2480,7 +2505,8 @@ async function _fetchAlarmDayMap() {
 async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseUrl) {
   try {
     const gcdrApiKey = window.MyIOOrchestrator?.gcdrApiKey || '';
-    const url = `${alarmsBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+    const _internalRule = window.MyIOOrchestrator?.isInternalSupportRule === true;
+    const url = `${alarmsBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100&isInternalSupportRule=${_internalRule}`;
     const response = await fetch(url, {
       headers: {
         'X-API-Key': gcdrApiKey,
