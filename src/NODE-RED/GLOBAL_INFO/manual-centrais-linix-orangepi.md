@@ -22,25 +22,40 @@
 
 | Campo | Valor |
 |-------|-------|
-| Usuário | <!-- ex. root / orangepi --> |
-| Senha padrão | <!-- ex. myio2025 --> |
+| Usuário | `root` |
+| Chave SSH | `id_rsa` (arquivo local) |
 | Porta SSH | `22` |
 
-### 2.2 Endereço IP
+### 2.2 Endereços das Centrais
 
-<!-- Descreva como localizar o IP da central:
-     - IP fixo configurado? Range? VPN?
-     - ex. 192.168.1.x — verificar no roteador local
--->
+Os IPs são **IPv6** (rede mesh — ex. Yggdrasil). Conectar sempre com `-i id_rsa`:
 
 ```bash
-# Conectar via SSH
-ssh <usuario>@<ip-da-central>
+ssh -i id_rsa root@<ipv6-da-central>
 ```
 
-### 2.3 Acesso via VPN (se aplicável)
+| Central | IPv6 |
+|---------|------|
+| Souza Aguiar — CO2 | `201:3941:4753:9232:901b:19fa:4978:51aa` |
+| Souza Aguiar — Ar Comprimido | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` |
+| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` |
+| Shopping Ananindeua | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` |
 
-<!-- Instruções de VPN, ex. WireGuard / OpenVPN -->
+**Exemplos completos:**
+
+```bash
+# Souza Aguiar CO2
+ssh -i id_rsa root@201:3941:4753:9232:901b:19fa:4978:51aa
+
+# Souza Aguiar Ar Comprimido
+ssh -i id_rsa root@200:4dbc:14be:a704:6904:81cd:b62a:ab22
+
+# Souza Aguiar Maternidade Nova
+ssh -i id_rsa root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
+
+# Central Shopping Ananindeua
+ssh -i id_rsa root@201:ca6e:c33b:3a06:f4dd:d148:5d85:6315
+```
 
 ---
 
@@ -102,27 +117,92 @@ systemctl restart nodered
 
 ---
 
-## 5. Modbus / Slaves
+## 5. Banco de Dados PostgreSQL
 
-### 5.1 Verificar dispositivos ativos
+### 5.1 Conectar
+
+```bash
+psql -U hubot
+```
+
+### 5.2 Comandos úteis dentro do psql
+
+```sql
+-- Listar tabelas
+\dt
+
+-- Listar tabelas com detalhes (schema, tipo, owner)
+\dt+
+
+-- Detalhes de uma tabela
+\d nome_da_tabela
+
+-- Detalhes completos (tamanho, storage, descrições)
+\d+ nome_da_tabela
+
+-- Limpar o terminal
+\! clear
+
+-- Desconectar
+\q
+```
+
+### 5.3 Executar um arquivo SQL
+
+```bash
+# 1. Criar arquivo temporário
+cat > /tmp/fix-nome.sql << 'EOF'
+-- Cole o SQL aqui
+EOF
+
+# 2. Executar
+psql -U hubot -f /tmp/fix-nome.sql
+
+# 3. Remover após uso
+rm /tmp/fix-nome.sql
+```
+
+---
+
+## 6. Serviços MyIO
+
+### 6.1 Reiniciar APIs
+
+```bash
+systemctl restart myio.service
+systemctl restart myio-api.service
+```
+
+### 6.2 Verificar status dos serviços
+
+```bash
+systemctl status myio.service
+systemctl status myio-api.service
+```
+
+---
+
+## 7. Modbus / Slaves
+
+### 7.1 Verificar dispositivos ativos
 
 <!-- Descrever como verificar slaves conectados:
      ex. via log Node-RED, arquivo de configuração, etc.
 -->
 
-### 5.2 Arquivo de mapeamento de devices
+### 7.2 Arquivo de mapeamento de devices
 
 <!-- Caminho e formato do arquivo que mapeia slaveId → deviceName -->
 
 ---
 
-## 6. Procedimentos Comuns
+## 8. Procedimentos Comuns
 
-### 6.1 Atualizar script JS de um shopping
+### 8.1 Atualizar script JS de um shopping
 
 ```bash
 # 1. Conectar via SSH
-ssh <usuario>@<ip-da-central>
+ssh -i id_rsa root@<ipv6-da-central>
 
 # 2. Navegar até o diretório
 cd <caminho-dos-scripts>
@@ -134,13 +214,13 @@ nano <nome-do-arquivo>.js
 systemctl restart nodered
 ```
 
-### 6.2 Verificar se dados estão chegando ao ThingsBoard
+### 8.2 Verificar se dados estão chegando ao ThingsBoard
 
 <!-- Descrever como confirmar que a telemetria está sendo enviada:
      ex. via log, via painel TB, via debug node no Node-RED
 -->
 
-### 6.3 Reinicialização completa da central
+### 8.3 Reinicialização completa da central
 
 ```bash
 reboot
@@ -148,16 +228,7 @@ reboot
 
 ---
 
-## 7. Shoppings e IPs
-
-| Shopping | IP da Central | Observações |
-|----------|--------------|-------------|
-| <!-- nome --> | <!-- ip --> | <!-- obs --> |
-| <!-- nome --> | <!-- ip --> | <!-- obs --> |
-
----
-
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Problema | Causa provável | Solução |
 |----------|---------------|---------|
@@ -167,7 +238,7 @@ reboot
 
 ---
 
-## 9. Observações e Boas Práticas
+## 10. Observações e Boas Práticas
 
 <!-- Adicionar dicas, avisos, particularidades de instalação -->
 

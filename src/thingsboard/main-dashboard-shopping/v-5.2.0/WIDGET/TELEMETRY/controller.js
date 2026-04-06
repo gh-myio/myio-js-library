@@ -4735,6 +4735,43 @@ function reflowFromState() {
   STATE.lastVisible = withPerc;
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
+  // Notify TELEMETRY_INFO to recalculate based on visible items
+  _emitVisibleTotals(withPerc);
+}
+
+/**
+ * Re-emits telemetry:update events based on currently visible items
+ * so TELEMETRY_INFO always reflects what's shown on screen.
+ * Does NOT write to sessionStorage (avoids polluting the cache).
+ */
+function _emitVisibleTotals(visibleItems) {
+  try {
+    if (WIDGET_DOMAIN === 'water') return; // water has its own flow
+    const widgetType = detectWidgetType();
+    if (!widgetType || (widgetType !== 'lojas' && widgetType !== 'entrada')) return;
+    const periodKey = buildPeriodKey();
+    const items = visibleItems || STATE.lastVisible || STATE.itemsEnriched;
+    const totalKwh = items.reduce((sum, x) => sum + (x.value || 0), 0);
+    const isFiltered = STATE.alarmFilter !== 'ativado';
+    const payload = {
+      type: widgetType === 'lojas' ? 'lojas_total' : 'entrada_total',
+      domain: 'energy',
+      periodKey,
+      timestamp: Date.now(),
+      source: widgetType === 'lojas' ? 'TELEMETRY_Lojas' : 'TELEMETRY_Entrada',
+      filtered: isFiltered,
+      alarm_filter: STATE.alarmFilter,
+      data: {
+        total_kWh: totalKwh,
+        total_MWh: normalizeToMWh(totalKwh),
+        device_count: items.length,
+        total_count: STATE.itemsEnriched.length,
+      },
+    };
+    window.dispatchEvent(new CustomEvent('myio:telemetry:update', { detail: payload }));
+  } catch (e) {
+    LogHelper.error('[TELEMETRY] _emitVisibleTotals error:', e);
+  }
 }
 
 /** ===================== HYDRATE (end-to-end) ===================== **/
