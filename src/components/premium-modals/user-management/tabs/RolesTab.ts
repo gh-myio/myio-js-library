@@ -190,26 +190,30 @@ export class RolesTab {
 
   private showRoleForm(existing: GCDRRole | null): void {
     const isEdit = existing !== null;
-
+    
     const overlay = document.createElement('div');
+    // 1. Usamos a classe um-backdrop para herdar o layout centralizado e o CSS base
     overlay.className = 'um-backdrop';
+    // 2. Passamos o tema atual para habilitar a troca clara/escura
     overlay.setAttribute('data-theme', this.config.theme || 'light');
+    // 3. Mantemos apenas o z-index inline para sobrepor a janela principal
+    overlay.style.zIndex = '100001';
 
     const modal = document.createElement('div');
+    // 4. A classe um-modal traz os fundos, bordas, sombras e a fonte correta
     modal.className = 'um-modal';
-    modal.style.cssText =
-      'padding: 24px; width: min(520px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
+    // 5. Ajustes de layout exclusivos deste form (tamanho e scroll)
+    modal.style.cssText = 'padding: 24px; width: min(520px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
 
-    const policiesCheckboxes = this.policies
-      .map((p) => {
-        const checked = existing?.policyIds?.includes(p.id) ? ' checked' : '';
-        return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--um-text-secondary);cursor:pointer;">
+    const policiesCheckboxes = this.policies.map(p => {
+      const checked = existing?.policyIds?.includes(p.id) ? ' checked' : '';
+      return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--um-text-secondary);cursor:pointer;">
         <input type="checkbox" class="um-role-policy-chk" value="${this.esc(p.id)}"${checked} />
         ${this.esc(p.displayName)}${p.description ? ` <span style="color:var(--um-text-faint);">— ${this.esc(p.description)}</span>` : ''}
       </label>`;
-      })
-      .join('');
+    }).join('');
 
+    // 6. HTML limpo dos fallbacks hexadecimais para respeitar as variáveis do tema
     modal.innerHTML = `
       <h4 style="margin:0 0 16px;font-size:15px;font-weight:600;color:var(--um-text-primary); font-family: inherit;">${isEdit ? 'Editar' : 'Nova'} Função</h4>
       <div class="um-form" style="max-width:100%;">
@@ -222,22 +226,19 @@ export class RolesTab {
           <label class="um-label">Descrição</label>
           <input class="um-input" name="description" value="${this.esc(existing?.description || '')}" autocomplete="off" />
         </div>
-        ${
-          this.policies.length
-            ? `<div class="um-form-group">
+        ${this.policies.length ? `<div class="um-form-group">
           <label class="um-label">Políticas Associadas</label>
           <div style="background:var(--um-bg-surface);border:1px solid var(--um-border);border-radius:8px;padding:10px;max-height:200px;overflow-y:auto;">
             ${policiesCheckboxes || '<span style="font-size:12px;color:var(--um-text-faint);">Nenhuma política disponível.</span>'}
           </div>
-        </div>`
-            : ''
-        }
+        </div>` : ''}
         <div class="um-form-actions">
           <button class="um-btn um-btn--ghost role-cancel">Cancelar</button>
           <button class="um-btn um-btn--primary role-save">${isEdit ? 'Salvar' : 'Criar'}</button>
         </div>
       </div>
     `;
+    
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 

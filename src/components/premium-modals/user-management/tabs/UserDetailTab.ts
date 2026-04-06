@@ -204,10 +204,14 @@ export class UserDetailTab {
 
   private showAssignForm(): void {
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:100001;';
+    overlay.className = 'um-backdrop';
+    overlay.setAttribute('data-theme', this.config.theme || 'light');
+    overlay.style.zIndex = '100001';
+    
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--um-modal-bg,#131929);border:1px solid var(--um-border,#2a3352);border-radius:12px;padding:24px;width:min(480px,92vw);box-shadow:0 24px 64px rgba(0,0,0,0.5);';
-
+    modal.className = 'um-modal';
+    modal.style.cssText = 'padding: 24px; width: min(480px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
+    
     const gcdrCid = (window as any).MyIOOrchestrator?.gcdrCustomerId || '';
     const scopeOptions = [
       { value: '*', label: '* (global)' },
