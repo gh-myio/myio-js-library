@@ -30,6 +30,7 @@ export class UserManagementModalView {
   private activeTabKey = 'user-list';
   private userListTab!: UserListTab;
   private newUserTab!: NewUserTab;
+  private headerController?: ReturnType<typeof ModalHeader.createController>;
 
   constructor(config: UserManagementConfig) {
     this.config = config;
@@ -42,9 +43,19 @@ export class UserManagementModalView {
     this.buildTabs();
     this.activateTab('user-list');
     document.body.appendChild(this.backdrop);
+    // MUST be after appendChild — createController uses document.getElementById internally
+    this.headerController = ModalHeader.createController({
+      modalId: 'um-modal',
+      theme: this.themeMode,
+      maximizeTarget: this.modalEl,
+      maximizedClass: 'is-maximized',
+      onThemeChange: (theme) => { this.backdrop.setAttribute('data-theme', theme); },
+      onClose: () => this.close(),
+    });
   }
 
   destroy(): void {
+    this.headerController?.destroy();
     this.backdrop?.remove();
   }
 
@@ -73,19 +84,13 @@ export class UserManagementModalView {
       icon: '👥',
       title: `Gestão de Usuários${customerName ? ` — ${customerName}` : ''}`,
       modalId: 'um-modal',
+      theme: this.themeMode,
       showThemeToggle: true,
       showMaximize: true,
       showClose: true,
       draggable: false,
     });
     const headerEl = header.firstElementChild as HTMLElement;
-    ModalHeader.createController({
-      modalId: 'um-modal',
-      maximizeTarget: this.modalEl,
-      maximizedClass: 'is-maximized',
-      onThemeChange: (theme) => { this.backdrop.setAttribute('data-theme', theme); },
-      onClose: () => this.close(),
-    });
 
     // Tab bar
     this.tabBarEl = document.createElement('div');
@@ -426,6 +431,19 @@ export class UserManagementModalView {
 @media (max-height: 600px) { .um-modal { aspect-ratio: unset; height: 90vh; } }
 
 /* Header handled by ModalHeader (RFC-0121) */
+
+/* Maximize button — CSS window icon (emoji renders as plain square on some platforms) */
+#um-modal-maximize { font-size: 0 !important; position: relative; }
+#um-modal-maximize::before {
+  content: '';
+  display: inline-block;
+  width: 10px; height: 8px;
+  border: 1.5px solid currentColor;
+  border-top-width: 3px;
+  border-radius: 1px;
+  vertical-align: middle;
+}
+
 .um-modal.is-maximized {
   width: 100vw !important; max-width: 100vw !important;
   height: 100vh !important; max-height: 100vh !important;
