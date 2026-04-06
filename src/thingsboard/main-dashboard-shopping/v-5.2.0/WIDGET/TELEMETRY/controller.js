@@ -3816,7 +3816,7 @@ function _openSyncJobModal(data, creds) {
           <div class="kpi-lbl">Divergentes</div>
         </div>
         <div class="telemetry-sync-gcdr-kpi">
-          <div class="kpi-val" style="color:#2563eb">${(a.create ?? 0) + (cr.ok ?? 0)}</div>
+          <div class="kpi-val" style="color:#2563eb">${cr.ok ?? 0}</div>
           <div class="kpi-lbl">Criados</div>
         </div>
         <div class="telemetry-sync-gcdr-kpi">
