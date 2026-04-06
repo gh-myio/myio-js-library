@@ -2093,6 +2093,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
       });
       btnAlarmNotif.addEventListener('click', () => {
+        // Only activate filter if there are visible alarms (respects showOfflineAlarms flag).
+        // If deactivating (_alarmFilterActive already true), always allow.
+        if (!_alarmFilterActive) {
+          if (!window.MyIOOrchestrator?.alarmsConfigured) return;
+          const visibleCount = _countVisible(window.MyIOOrchestrator?.customerAlarms || []);
+          if (visibleCount === 0) {
+            LogHelper.log('[HEADER] alarm filter suppressed — no visible alarms (showOfflineAlarms=false or no alarms)');
+            return;
+          }
+        }
         _alarmFilterActive = !_alarmFilterActive;
         btnAlarmNotif.classList.toggle('alarm-filter-active', _alarmFilterActive);
         const mode = _alarmFilterActive ? 'apenas_ativados' : 'ativado';
