@@ -3874,6 +3874,27 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
+  // Alarm filter banner: shown when HEADER or TELEMETRY has an active alarm filter
+  function _updateAlarmFilterBanner(mode) {
+    const banner = document.getElementById('tiAlarmFilterBanner');
+    const text   = document.getElementById('tiAlarmFilterBannerText');
+    if (!banner) return;
+    if (!mode || mode === 'ativado') {
+      banner.style.display = 'none';
+    } else {
+      banner.style.display = 'flex';
+      if (text) text.textContent = mode === 'apenas_ativados'
+        ? 'Filtro ativo: apenas dispositivos com alarmes'
+        : 'Filtro ativo: apenas dispositivos sem alarmes';
+    }
+  }
+  window.addEventListener('myio:global-alarm-filter', (ev) => {
+    _updateAlarmFilterBanner(ev.detail?.mode);
+  });
+  window.addEventListener('myio:telemetry-alarm-filter-changed', (ev) => {
+    _updateAlarmFilterBanner(ev.detail?.mode);
+  });
+
   // RFC-0002: Listen for water domain events
   if (getWidgetDomain() === 'water') {
     waterProvideHandler = function (ev) {
