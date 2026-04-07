@@ -318,12 +318,12 @@ export class UserManagementModalView {
   --um-text-secondary:      #374151;
   --um-text-muted:          #64748b;
   --um-text-faint:          #94a3b8;
-  --um-accent:              #3b5bdb;
-  --um-accent-hover:        #4c6ef5;
-  --um-btn-2-bg:            #eff6ff;
-  --um-btn-2-text:          #3b5bdb;
-  --um-btn-2-border:        #bfdbfe;
-  --um-btn-2-hover:         #dbeafe;
+  --um-accent:              #3f1a7d;
+  --um-accent-hover:        #5a2bab;
+  --um-btn-2-bg:            #f4effa;
+  --um-btn-2-text:          #3f1a7d;
+  --um-btn-2-border:        #c9a8e8;
+  --um-btn-2-hover:         #e8d8f5;
   --um-btn-ghost-border:    #e2e8f0;
   --um-btn-ghost-hover:     #f1f5f9;
   --um-btn-ghost-text-hover:#475569;
@@ -342,14 +342,14 @@ export class UserManagementModalView {
   --um-toast-err-border:    #ef4444;
   --um-toast-err-text:      #dc2626;
   --um-spinner-border:      #cbd5e1;
-  --um-spinner-top:         #3b5bdb;
+  --um-spinner-top:         #3f1a7d;
   --um-toggle-off:          #cbd5e1;
-  --um-notice-bg:           #eff6ff;
-  --um-notice-border:       #bfdbfe;
+  --um-notice-bg:           #f4effa;
+  --um-notice-border:       #c9a8e8;
   --um-shadow:              0 32px 80px rgba(0,0,0,0.15);
   --um-row-highlight:       #f0fdf4;
-  --um-gm-badge-domain-bg:  #eff6ff;
-  --um-gm-badge-domain-txt: #3b5bdb;
+  --um-gm-badge-domain-bg:  #f4effa;
+  --um-gm-badge-domain-txt: #3f1a7d;
   --um-gm-badge-count-bg:   #f1f5f9;
   --um-gm-badge-count-txt:  #64748b;
   --um-gm-form-card-bg:     #f8fafc;
@@ -378,12 +378,12 @@ export class UserManagementModalView {
   --um-text-secondary:      #c4ccd9;
   --um-text-muted:          #64748b;
   --um-text-faint:          #475569;
-  --um-accent:              #60a5fa;
-  --um-accent-hover:        #93c5fd;
-  --um-btn-2-bg:            #1e2d4a;
-  --um-btn-2-text:          #93c5fd;
-  --um-btn-2-border:        #2a3b60;
-  --um-btn-2-hover:         #253456;
+  --um-accent:              #a78bdb;
+  --um-accent-hover:        #c3a8f0;
+  --um-btn-2-bg:            #2a1a45;
+  --um-btn-2-text:          #c3a8f0;
+  --um-btn-2-border:        #4a2a80;
+  --um-btn-2-hover:         #3a2060;
   --um-btn-ghost-border:    #2a3352;
   --um-btn-ghost-hover:     #1a2235;
   --um-btn-ghost-text-hover:#94a3b8;
@@ -402,14 +402,14 @@ export class UserManagementModalView {
   --um-toast-err-border:    #ef4444;
   --um-toast-err-text:      #f87171;
   --um-spinner-border:      #2a3352;
-  --um-spinner-top:         #60a5fa;
+  --um-spinner-top:         #a78bdb;
   --um-toggle-off:          #2a3352;
-  --um-notice-bg:           #1a2537;
-  --um-notice-border:       #2a3b60;
+  --um-notice-bg:           #1e1235;
+  --um-notice-border:       #4a2a80;
   --um-shadow:              0 32px 80px rgba(0,0,0,0.6);
   --um-row-highlight:       #0e2a1e;
-  --um-gm-badge-domain-bg:  #1a2537;
-  --um-gm-badge-domain-txt: #60a5fa;
+  --um-gm-badge-domain-bg:  #2a1a45;
+  --um-gm-badge-domain-txt: #c3a8f0;
   --um-gm-badge-count-bg:   #1e2d4a;
   --um-gm-badge-count-txt:  #94a3b8;
   --um-gm-form-card-bg:     #0f1829;
@@ -431,6 +431,20 @@ export class UserManagementModalView {
 @media (max-height: 600px) { .um-modal { aspect-ratio: unset; height: 90vh; } }
 
 /* Header handled by ModalHeader (RFC-0121) */
+
+/* Force MyIO purple header regardless of light/dark theme — overrides myio-modal-header--light */
+.um-modal .myio-modal-header--light {
+  background: #3f1a7d !important;
+  border-bottom-color: #2e1260 !important;
+}
+.um-modal .myio-modal-header--light .myio-modal-header__title { color: #fff !important; }
+.um-modal .myio-modal-header--light .myio-modal-header__btn { color: rgba(255,255,255,0.8) !important; }
+.um-modal .myio-modal-header--light .myio-modal-header__btn:hover {
+  background: rgba(255,255,255,0.15) !important; color: #fff !important;
+}
+.um-modal .myio-modal-header--light .myio-modal-header__btn--close:hover {
+  background: rgba(239,68,68,0.3) !important; color: #fecaca !important;
+}
 
 /* Maximize button — CSS window icon (emoji renders as plain square on some platforms) */
 #um-modal-maximize { font-size: 0 !important; position: relative; }
