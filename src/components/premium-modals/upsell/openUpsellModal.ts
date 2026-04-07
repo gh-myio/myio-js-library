@@ -316,7 +316,7 @@ async function getIngestionToken(): Promise<string> {
     throw new Error('Invalid ingestion auth response');
   }
 
-  ingestionToken = json.access_token;
+  ingestionToken = json.access_token as string;
   ingestionTokenExpiresAt = now + Number(json.expires_in) * 1000;
   console.log(
     '[UpsellModal] Ingestion token obtained, expires in ~',
@@ -324,7 +324,7 @@ async function getIngestionToken(): Promise<string> {
     'min'
   );
 
-  return ingestionToken;
+  return ingestionToken!
 }
 
 interface IngestionGateway {

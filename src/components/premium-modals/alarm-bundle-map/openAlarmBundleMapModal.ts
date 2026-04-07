@@ -293,6 +293,50 @@ const STYLES = `
     font-size: 12px; font-weight: 600; color: #e67e22;
     background: #fef3e8; border-radius: 4px; padding: 1px 6px;
   }
+  /* Collapse/expand */
+  #${MODAL_ID} .abm-device-card.collapsed .abm-rule-list { display: none; }
+  #${MODAL_ID} .abm-rule-group.collapsed .abm-rule-group-devices,
+  #${MODAL_ID} .abm-rule-group.collapsed .abm-rule-detail-wrap { display: none; }
+  #${MODAL_ID} .abm-chevron {
+    font-size: 11px; color: #94a3b8; transition: transform 0.18s; flex-shrink: 0; user-select: none;
+  }
+  #${MODAL_ID} .abm-device-card.collapsed .abm-chevron,
+  #${MODAL_ID} .abm-rule-group.collapsed .abm-chevron { transform: rotate(-90deg); }
+  #${MODAL_ID} .abm-device-header { cursor: pointer; }
+  #${MODAL_ID} .abm-device-header:hover { background: #f0f9f7; }
+  #${MODAL_ID} .abm-rule-group-header { cursor: pointer; }
+  #${MODAL_ID} .abm-rule-group-header:hover { background: #e6f4f1; }
+  /* Alarm badge */
+  #${MODAL_ID} .abm-alarm-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #fee2e2; color: #b91c1c; border-radius: 10px;
+    font-size: 10px; font-weight: 700; padding: 1px 7px; flex-shrink: 0;
+  }
+  #${MODAL_ID} .abm-alarm-badge.zero { background: #f0f9f7; color: #6b7280; }
+  /* Filter bar */
+  #${MODAL_ID} .abm-filter-bar {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 14px;
+    padding: 10px 12px; background: #f8faf9; border: 1px solid #e0eceb; border-radius: 8px;
+  }
+  #${MODAL_ID} .abm-filter-input {
+    flex: 1; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 10px;
+    font-size: 12px; outline: none; transition: border-color 0.15s;
+  }
+  #${MODAL_ID} .abm-filter-input:focus { border-color: ${TEAL}; }
+  #${MODAL_ID} .abm-filter-select {
+    border: 1px solid #d1d5db; border-radius: 6px; padding: 5px 8px;
+    font-size: 12px; outline: none; min-width: 140px; max-width: 220px;
+    background: #fff; cursor: pointer;
+  }
+  #${MODAL_ID} .abm-filter-count {
+    font-size: 11px; color: #64748b; white-space: nowrap; flex-shrink: 0;
+  }
+  #${MODAL_ID} .abm-filter-clear {
+    background: none; border: 1px solid #e0eceb; border-radius: 6px; cursor: pointer;
+    font-size: 11px; color: #64748b; padding: 4px 8px; white-space: nowrap; flex-shrink: 0;
+    transition: background 0.12s;
+  }
+  #${MODAL_ID} .abm-filter-clear:hover { background: #f0f4f3; color: #1e293b; }
   /* Confirmation modal — value edit overwrite warning */
   .abm-confirm-overlay {
     position: fixed; inset: 0;
@@ -837,6 +881,10 @@ function bindRuleEditEvents(
     const rule = bundle.rules[ruleId];
     if (!rule) return;
 
+    // Expand collapsed parent on edit click
+    editBtn.closest<HTMLElement>('.abm-device-card')?.classList.remove('collapsed');
+    editBtn.closest<HTMLElement>('.abm-rule-group')?.classList.remove('collapsed');
+
     const viewMode = getViewMode();
 
     if (viewMode === 'por-regra') {
@@ -859,16 +907,133 @@ function bindRuleEditEvents(
   });
 }
 
+// ============================================================================
+// Collapse / expand
+// ============================================================================
+
+function bindCollapseEvents(card: HTMLElement): void {
+  card.querySelectorAll<HTMLElement>('.abm-device-header').forEach((header) => {
+    header.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      header.closest<HTMLElement>('.abm-device-card')?.classList.toggle('collapsed');
+    });
+  });
+  card.querySelectorAll<HTMLElement>('.abm-rule-group-header').forEach((header) => {
+    header.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      header.closest<HTMLElement>('.abm-rule-group')?.classList.toggle('collapsed');
+    });
+  });
+}
+
+// ============================================================================
+// Filter bar
+// ============================================================================
+
+function bindFilterBar(card: HTMLElement, bundle: GCDRCustomerBundle, getViewMode: () => 'granular' | 'por-regra'): void {
+  const input   = card.querySelector<HTMLInputElement>('#abm-filter-input');
+  const select  = card.querySelector<HTMLSelectElement>('#abm-filter-select');
+  const countEl = card.querySelector<HTMLElement>('#abm-filter-count');
+  const clearBtn = card.querySelector<HTMLButtonElement>('#abm-filter-clear');
+  if (!input) return;
+
+  const updateSelectOptions = (text: string) => {
+    if (!select) return;
+    const lower = text.toLowerCase();
+    const types = new Set<string>();
+    bundle.devices.forEach((d) => {
+      const name = (d.displayName || d.name).toLowerCase();
+      if (!lower || name.includes(lower) || d.type.toLowerCase().includes(lower)) {
+        types.add(d.type);
+      }
+    });
+    const prev = new Set(Array.from(select.selectedOptions).map((o) => o.value));
+    select.innerHTML = Array.from(types).sort().map((t) =>
+      `<option value="${escHtml(t)}"${prev.has(t) ? ' selected' : ''}>${escHtml(t)}</option>`,
+    ).join('');
+    select.size = Math.min(types.size, 4) || 1;
+  };
+
+  const applyFilter = () => {
+    const text = input.value.toLowerCase().trim();
+    const selectedTypes = new Set(Array.from(select?.selectedOptions ?? []).map((o) => o.value));
+    const mode = getViewMode();
+
+    if (mode === 'granular') {
+      let visible = 0;
+      card.querySelectorAll<HTMLElement>('.abm-device-card').forEach((dc) => {
+        const name = (dc.querySelector('.abm-device-name')?.textContent ?? '').toLowerCase();
+        const type = (dc.querySelector('.abm-device-type')?.textContent ?? '');
+        const ruleNames = Array.from(dc.querySelectorAll('.abm-rule-name')).map((el) => (el.textContent ?? '').toLowerCase());
+        const matchText = !text || name.includes(text) || type.toLowerCase().includes(text) || ruleNames.some((r) => r.includes(text));
+        const matchType = selectedTypes.size === 0 || selectedTypes.has(type);
+        dc.style.display = matchText && matchType ? '' : 'none';
+        if (matchText && matchType) visible++;
+      });
+      if (countEl) countEl.textContent = `${visible} dispositivo(s)`;
+    } else {
+      let visible = 0;
+      card.querySelectorAll<HTMLElement>('.abm-rule-group').forEach((rg) => {
+        const ruleName = (rg.querySelector('.abm-rule-group-name')?.textContent ?? '').toLowerCase();
+        const deviceTexts = Array.from(rg.querySelectorAll('.abm-rule-group-device span'))
+          .map((el) => (el.textContent ?? '').toLowerCase());
+        const matchText = !text || ruleName.includes(text) || deviceTexts.some((t) => t.includes(text));
+        rg.style.display = matchText ? '' : 'none';
+        if (matchText) visible++;
+      });
+      if (countEl) countEl.textContent = `${visible} regra(s)`;
+    }
+
+    updateSelectOptions(text);
+  };
+
+  input.addEventListener('input', applyFilter);
+  select?.addEventListener('change', applyFilter);
+  clearBtn?.addEventListener('click', () => {
+    input.value = '';
+    if (select) Array.from(select.options).forEach((o) => { o.selected = false; });
+    applyFilter();
+  });
+
+  // Initial state
+  updateSelectOptions('');
+  const totalDevices = bundle.devices.length;
+  if (countEl) countEl.textContent = `${totalDevices} dispositivo(s)`;
+}
+
+const _OFFLINE_ALARM_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
+function _getActiveAlarmCount(gcdrDeviceId: string): number {
+  const aso = (window as any).AlarmServiceOrchestrator;
+  if (!aso?.deviceAlarmMap) return 0;
+  const alarms: any[] = aso.deviceAlarmMap.get(gcdrDeviceId) || [];
+  const showOffline = (window as any).MyIOOrchestrator?.showOfflineAlarms === true;
+  return showOffline
+    ? alarms.length
+    : alarms.filter((a: any) => {
+        const t = (a.title ?? '').toUpperCase();
+        return !(_OFFLINE_ALARM_TYPES.some((ex) => t.startsWith(ex)) || a.alarmType === 'connectivity');
+      }).length;
+}
+
+function _alarmBadgeHtml(count: number): string {
+  if (count === 0) return `<span class="abm-alarm-badge zero">0 🔔</span>`;
+  return `<span class="abm-alarm-badge">🔴 ${count}</span>`;
+}
+
 function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundleRule>, viewMode: 'granular' | 'por-regra' = 'granular'): string {
   const deviceRules = (device.ruleIds ?? [])
     .map((rid) => rules[rid])
     .filter(Boolean) as GCDRBundleRule[];
 
+  const alarmCount = _getActiveAlarmCount(device.id);
+
   return `
-    <div class="abm-device-card">
+    <div class="abm-device-card collapsed" data-device-id="${escHtml(device.id)}">
       <div class="abm-device-header">
+        <span class="abm-chevron">▾</span>
         <span style="font-size:16px;">📡</span>
         <span class="abm-device-name">${escHtml(device.displayName || device.name)}</span>
+        ${_alarmBadgeHtml(alarmCount)}
         <span class="abm-device-type">${escHtml(device.type)}</span>
       </div>
       <ul class="abm-rule-list">
@@ -902,11 +1067,14 @@ function renderByRuleView(bundle: GCDRCustomerBundle): string {
   for (const [baseRuleId, devs] of ruleDevicesMap) {
     const baseRule = rules[baseRuleId];
     if (!baseRule) continue;
+    const groupAlarmCount = devs.reduce((sum, d) => sum + _getActiveAlarmCount(d.id), 0);
     groups += `
-      <div class="abm-rule-group">
+      <div class="abm-rule-group collapsed" data-rule-id="${escHtml(baseRuleId)}">
         <div class="abm-rule-group-header">
+          <span class="abm-chevron">▾</span>
           <span style="font-size:16px;">🔔</span>
           <span class="abm-rule-group-name">${escHtml(baseRule.name)}</span>
+          ${_alarmBadgeHtml(groupAlarmCount)}
           <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(baseRuleId)}" title="Editar dias/horário">✏️</button>
         </div>
         <div class="abm-rule-detail" style="padding:8px 14px;" data-rule-id="${escHtml(baseRuleId)}">
@@ -985,7 +1153,6 @@ function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-re
       <div class="abm-summary-bar">
         <div class="abm-summary-item"><div class="abm-summary-num">${deviceCount}</div><div class="abm-summary-label">Dispositivos</div></div>
         <div class="abm-summary-item"><div class="abm-summary-num">${ruleCount}</div><div class="abm-summary-label">Regras</div></div>
-        <div class="abm-summary-item"><div class="abm-summary-num">${assets.length}</div><div class="abm-summary-label">Assets</div></div>
       </div>
       ${renderByRuleView(bundle)}
     `;
@@ -1020,10 +1187,6 @@ function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-re
       <div class="abm-summary-item">
         <div class="abm-summary-num">${ruleCount}</div>
         <div class="abm-summary-label">Regras</div>
-      </div>
-      <div class="abm-summary-item">
-        <div class="abm-summary-num">${assets.length}</div>
-        <div class="abm-summary-label">Assets</div>
       </div>
     </div>
     ${groups}
@@ -1159,7 +1322,24 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
 
     const rerenderBundle = () => {
       render(renderBundle(bundle, viewMode), customerName, true);
+
+      // Prepend filter bar to body
+      const body = card.querySelector<HTMLElement>('.abm-body');
+      if (body) {
+        const filterBarEl = document.createElement('div');
+        filterBarEl.className = 'abm-filter-bar';
+        filterBarEl.innerHTML = `
+          <input class="abm-filter-input" type="text" id="abm-filter-input" placeholder="Buscar dispositivo, regra, tipo..." />
+          <select class="abm-filter-select" id="abm-filter-select" multiple size="1"></select>
+          <span class="abm-filter-count" id="abm-filter-count"></span>
+          <button class="abm-filter-clear" id="abm-filter-clear" type="button">✕ Limpar</button>
+        `;
+        body.insertBefore(filterBarEl, body.firstChild);
+      }
+
       bindRuleEditEvents(card, bundle, params.gcdrTenantId, baseUrl, () => viewMode);
+      bindCollapseEvents(card);
+      bindFilterBar(card, bundle, () => viewMode);
 
       // Wire view toggle buttons
       card.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((btn) => {
