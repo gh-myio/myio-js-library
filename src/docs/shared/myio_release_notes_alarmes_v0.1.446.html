@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MYIO — Release Notes Módulo de Alarmes v0.1.446</title>
+  <style>
+    :root {
+      --myio-purple: #663ab5;
+      --myio-purple-dark: #4d2a91;
+      --myio-purple-soft: #efe8fb;
+      --myio-green: #04c081;
+      --myio-green-dark: #039b69;
+      --myio-amber: #f5a623;
+      --myio-red: #e03131;
+      --text: #2a2340;
+      --muted: #6f6787;
+      --border: #e5ddf5;
+      --bg: #f7f4fc;
+      --white: #ffffff;
+      --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+      --radius-xl: 22px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --page-width: 1123px;
+      --page-height: 794px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: #ece8f6;
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .document {
+      display: grid;
+      gap: 24px;
+      justify-content: center;
+    }
+
+    .page {
+      width: var(--page-width);
+      min-height: var(--page-height);
+      background: radial-gradient(circle at top right, rgba(4,192,129,0.10), transparent 18%), var(--bg);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(49, 33, 90, 0.16);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+    }
+
+    .page:last-child { page-break-after: auto; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 28px 36px 26px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      top: -45px;
+      width: 220px;
+      height: 220px;
+      background: rgba(4, 192, 129, 0.92);
+      border-radius: 50%;
+    }
+
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .brand p {
+      margin: 8px 0 0;
+      opacity: 0.92;
+      font-size: 14px;
+    }
+
+    .version-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 700;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+      white-space: nowrap;
+    }
+
+    .meta {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      font-size: 13px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .meta span:last-child {
+      color: #d8ffd2;
+      font-weight: 600;
+    }
+
+    .content {
+      padding: 24px 32px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .headline h2 {
+      margin: 0 0 6px;
+      font-size: 34px;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      color: #33275f;
+    }
+
+    .headline p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 370px 1fr;
+      gap: 22px;
+      align-items: start;
+      flex: 1;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--myio-purple);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card.green { border-left-color: var(--myio-green); }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+      color: #392d69;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card p,
+    .card li,
+    .card div.text {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #4e4765;
+    }
+
+    .badge {
+      border: 2px solid #bca7ea;
+      color: var(--myio-purple);
+      border-radius: 12px;
+      text-align: center;
+      font-weight: 800;
+      padding: 8px 0;
+      background: #faf8ff;
+      font-size: 12px;
+    }
+
+    .badge.new {
+      border-radius: 999px;
+      padding: 4px 10px;
+      display: inline-block;
+      width: auto;
+      background: #f3ecff;
+      font-size: 11px;
+    }
+
+    .panel-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .panel-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 3px;
+      margin-top: 4px;
+      background: linear-gradient(180deg, var(--myio-purple), #b577ff);
+      flex: 0 0 auto;
+    }
+
+    .dot.green { background: linear-gradient(180deg, var(--myio-green), #00e09b); }
+    .dot.amber { background: linear-gradient(180deg, var(--myio-amber), #ffc94d); }
+    .dot.red   { background: linear-gradient(180deg, var(--myio-red), #ff6b6b); }
+
+    /* === PREVIEW PANEL (right side) === */
+    .preview {
+      background: rgba(255,255,255,0.94);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .preview-head {
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 700;
+      color: #443668;
+      background: linear-gradient(180deg, #fff, #faf8fe);
+    }
+
+    .preview-body {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    /* Alarm panel mockup */
+    .alarm-panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .alarm-panel-header {
+      background: linear-gradient(135deg, #2a2a4a, #3a2d6e);
+      color: #fff;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .alarm-panel-header .icon { font-size: 16px; }
+
+    .alarm-summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .alarm-stat {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f0ebf8;
+    }
+
+    .alarm-stat:nth-child(odd) { border-right: 1px solid #f0ebf8; }
+
+    .alarm-stat .num {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .alarm-stat .num.red   { color: var(--myio-red); }
+    .alarm-stat .num.green { color: var(--myio-green-dark); }
+
+    .alarm-stat .label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .severity-row {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #f0ebf8;
+      flex-wrap: wrap;
+    }
+
+    .sev-pill {
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sev-pill.crit  { background: #fff0f0; color: #c92b2b; }
+    .sev-pill.high  { background: #fff7e6; color: #b97a00; }
+    .sev-pill.med   { background: #edf5ff; color: #1864c4; }
+    .sev-pill.low   { background: #f4f4f4; color: #555; }
+    .sev-pill.info  { background: #f0f9ff; color: #0d7eb8; }
+
+    .alarm-first-last {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      padding: 10px 14px;
+      border-bottom: 1px solid #f0ebf8;
+    }
+
+    .afl-item { font-size: 11px; }
+    .afl-item:first-child { border-right: 1px solid #f0ebf8; padding-right: 10px; }
+    .afl-item:last-child  { padding-left: 10px; }
+    .afl-item .afl-label  { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em; }
+    .afl-item .afl-name   { font-weight: 700; color: #2f2458; font-size: 12px; margin: 2px 0; }
+    .afl-item .afl-sub    { color: var(--muted); font-size: 10px; }
+
+    /* Popup notifications */
+    .popup-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .popup-notif {
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .popup-notif.alarm-new { background: #2e2e52; color: #fff; }
+    .popup-notif.alarm-closed { background: #ecfff7; color: #1a6647; border: 1px solid #c3f2df; }
+
+    .popup-notif .p-icon { font-size: 18px; flex: 0 0 auto; }
+    .popup-notif .p-title { font-weight: 700; font-size: 13px; }
+    .popup-notif .p-sub { opacity: 0.75; font-size: 11px; margin-top: 2px; }
+    .popup-notif .p-desc { font-size: 11px; margin-top: 2px; font-style: italic; }
+
+    /* Export row */
+    .export-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .export-btn {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      color: #4e4765;
+    }
+
+    .export-btn .e-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+
+    /* Steps */
+    .steps {
+      display: grid;
+      gap: 4px;
+    }
+
+    .step-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      color: #4e4765;
+      line-height: 1.4;
+    }
+
+    .step-num {
+      background: var(--myio-purple);
+      color: #fff;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+
+    /* PAGE 2 */
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .rule-card {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .rule-card h4 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: #392d69;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rule-card p { margin: 0; font-size: 13px; color: #51496c; line-height: 1.55; }
+
+    /* Map mockup page 2 */
+    .map-demo {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .map-demo-header {
+      background: linear-gradient(135deg, #2a2a4a, #3a2d6e);
+      color: #fff;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .map-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .map-tab {
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .map-tab.active { background: var(--myio-green); color: #fff; }
+    .map-tab.inactive { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+
+    .map-demo-body { padding: 12px 14px; display: grid; gap: 8px; }
+
+    .map-stats { display: flex; gap: 16px; margin-bottom: 4px; }
+    .map-stat { text-align: center; }
+    .map-stat .ms-num { font-size: 22px; font-weight: 800; color: #2f2458; line-height: 1; }
+    .map-stat .ms-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+
+    .map-rule {
+      border: 1px solid #eee7fb;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fcfbff;
+    }
+
+    .map-rule .mr-title { font-size: 13px; font-weight: 700; color: #392d69; display: flex; align-items: center; gap: 8px; }
+    .map-rule .mr-desc  { font-size: 11px; color: var(--muted); margin: 4px 0 6px; line-height: 1.4; }
+    .map-rule .mr-tags  { display: flex; gap: 5px; flex-wrap: wrap; }
+
+    .mr-tag {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .mr-tag.day-on  { background: #2f2458; color: #fff; }
+    .mr-tag.day-off { background: #f0ebff; color: #9b86d4; }
+    .mr-tag.metric  { background: #edf9f4; color: #0a7a4a; }
+    .mr-tag.time    { background: #f4f4f4; color: #555; }
+    .mr-tag.override{ background: #fff3e0; color: #c77a00; }
+
+    .mr-devices { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .mr-device  { font-size: 10px; color: #6a5f8a; background: #f3eeff; border-radius: 8px; padding: 2px 8px; }
+    .mr-device.ov { background: #fff3e0; color: #a06000; }
+
+    .override-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff3e0;
+      color: #c77a00;
+      border-radius: 8px;
+      padding: 1px 7px;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: auto;
+      background: linear-gradient(180deg, var(--myio-purple), var(--myio-purple-dark));
+      color: rgba(255,255,255,0.95);
+      padding: 11px 26px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .footer strong { color: #fff; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .document { gap: 0; }
+      .page {
+        width: 100%;
+        min-height: auto;
+        border-radius: 0;
+        box-shadow: none;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="document">
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 1 — Visão Geral do Módulo de Alarmes
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.446</div>
+        </div>
+        <div class="meta">
+          <span>Março 2026</span>
+          <span>Módulo de Alarmes</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="headline">
+          <h2>Módulo de Alarmes — Monitoramento Inteligente em Tempo Real</h2>
+          <p>Visibilidade completa sobre alarmes ativos, histórico, notificações e exportação de dados para todos os dispositivos monitorados.</p>
+        </section>
+
+        <section class="grid">
+          <div class="stack">
+
+            <article class="card">
+              <h3>🔔 Painel Rápido de Alarmes</h3>
+              <p class="text">O ícone de alarme exibe um contador de alarmes abertos. Ao passar o mouse, um painel flutuante apresenta o resumo atualizado do dia com totais ativos e encerrados, além de breakdowns por severidade e estado.</p>
+              <div class="panel-list" style="margin-top:8px;">
+                <div class="panel-item"><span class="dot red"></span><div class="text"><strong>Por Severidade:</strong> Crítico, Alto, Médio, Baixo, Info</div></div>
+                <div class="panel-item"><span class="dot amber"></span><div class="text"><strong>Por Estado:</strong> Reconhecido, Adiado, Escalado</div></div>
+                <div class="panel-item"><span class="dot green"></span><div class="text"><strong>Primeiro e Último alarme</strong> registrados no dia</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">Abas rápidas: <strong>Ativos</strong> e <strong>Histórico do Dia</strong></div></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>📋 Indicador no Card do Dispositivo <span class="badge new">NOVO</span></h3>
+              <p class="text">Cada card no painel exibe o total de alarmes abertos no momento, dando visibilidade imediata sem precisar acessar o módulo de alarmes.</p>
+            </article>
+
+            <article class="card">
+              <h3>🔔 Notificações Flutuantes</h3>
+              <p class="text">Popups em tempo real notificam automaticamente quando um alarme é criado ou encerrado, informando o dispositivo, a regra acionada e o tipo de evento.</p>
+            </article>
+
+            <article class="card">
+              <h3>📤 Exportação de Alarmes</h3>
+              <div class="export-row" style="margin-top:6px;">
+                <div class="export-btn"><span class="e-icon">📄</span>PDF<br><span style="font-weight:400;color:#888;font-size:10px;">Impressão / Relatório</span></div>
+                <div class="export-btn"><span class="e-icon">📊</span>Excel<br><span style="font-weight:400;color:#888;font-size:10px;">Planilha .xls</span></div>
+                <div class="export-btn"><span class="e-icon">📋</span>CSV<br><span style="font-weight:400;color:#888;font-size:10px;">Arquivo .csv</span></div>
+              </div>
+            </article>
+
+          </div>
+
+          <!-- Right: visual mockup + Histórico card -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+          <aside class="preview">
+            <div class="preview-head">
+              <span>🔔 Notificações de Alarme — Painel Rápido</span>
+              <span style="color: var(--myio-green-dark);">Alarmes hoje: 38</span>
+            </div>
+            <div class="preview-body">
+
+              <!-- Alarm panel mockup -->
+              <div class="alarm-panel">
+                <div class="alarm-panel-header">
+                  <span class="icon">🔔</span>
+                  Notificações de Alarme
+                  <span style="margin-left:auto;font-size:11px;opacity:0.7;">11:23</span>
+                </div>
+                <div class="alarm-summary-grid">
+                  <div class="alarm-stat">
+                    <div class="num red">5</div>
+                    <div class="label">Ativos agora</div>
+                  </div>
+                  <div class="alarm-stat">
+                    <div class="num green">33</div>
+                    <div class="label">Encerrados hoje</div>
+                  </div>
+                </div>
+                <div class="severity-row">
+                  <span class="sev-pill crit">🔴 Crítico 0</span>
+                  <span class="sev-pill high">🟠 Alto 0</span>
+                  <span class="sev-pill med">🔵 Médio 5</span>
+                  <span class="sev-pill low">⚪ Baixo 0</span>
+                  <span class="sev-pill info">🔷 Info 0</span>
+                </div>
+                <div style="padding:8px 14px;border-bottom:1px solid #f0ebf8;font-size:11px;display:flex;gap:16px;">
+                  <span style="color:#4e4765;"><strong style="color:#392d69;">Reconhecido</strong> 0</span>
+                  <span style="color:#4e4765;"><strong style="color:#392d69;">Adiado</strong> 0</span>
+                  <span style="color:#4e4765;"><strong style="color:#392d69;">Escalado</strong> 0</span>
+                </div>
+                <div class="alarm-first-last">
+                  <div class="afl-item">
+                    <div class="afl-label">Primeiro</div>
+                    <div class="afl-name">Fancoil Ligado Fora do Horário</div>
+                    <div class="afl-sub">Fancoil 2 · 00:56</div>
+                  </div>
+                  <div class="afl-item">
+                    <div class="afl-label">Último</div>
+                    <div class="afl-name">Fancoil Desligado (Seg-Sab)</div>
+                    <div class="afl-sub">Fancoil 17 · 11:19</div>
+                  </div>
+                </div>
+                <div style="padding:8px 14px;display:flex;gap:10px;font-size:11px;font-weight:700;color:var(--myio-purple);">
+                  <span>▸ Ativos (5)</span>
+                  <span style="margin-left:12px;">▸ Histórico do Dia (38)</span>
+                </div>
+              </div>
+
+              <!-- Popup notifications mockup -->
+              <div class="popup-stack">
+                <div class="popup-notif alarm-new">
+                  <span class="p-icon">🔔</span>
+                  <div>
+                    <div class="p-title">Elevador 6</div>
+                    <div class="p-sub">2 novos alarmes detectados</div>
+                    <div class="p-desc">Elevador parado (seg-sáb)</div>
+                  </div>
+                </div>
+                <div class="popup-notif alarm-closed">
+                  <span class="p-icon">✅</span>
+                  <div>
+                    <div class="p-title">Fancoil 17</div>
+                    <div class="p-sub">1 alarme encerrado</div>
+                    <div class="p-desc">Fancoil Desligado (Seg-Sab)</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </aside>
+
+          <article class="card" style="border-left-color: var(--myio-green);">
+            <h3>📁 Histórico de Alarmes Fechados</h3>
+            <p class="text">Ao ativar o modo <strong>"Histórico Fechados"</strong>, é possível consultar todos os alarmes encerrados dentro do período de busca selecionado, incluindo opção de reclassificar como ativo.</p>
+          </article>
+
+          <article style="
+            background: linear-gradient(135deg, #4d2a91, #663ab5 60%, #7d52cf);
+            border-radius: var(--radius-lg);
+            padding: 16px 18px;
+            color: #fff;
+            box-shadow: 0 10px 28px rgba(102,58,181,0.28);
+            position: relative;
+            overflow: hidden;
+          ">
+            <div style="position:absolute;right:-20px;top:-20px;width:90px;height:90px;background:rgba(4,192,129,0.25);border-radius:50%;"></div>
+            <div style="font-size:13px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;opacity:0.75;margin-bottom:6px;">⚡ Importante</div>
+            <p style="margin:0;font-size:13px;line-height:1.6;position:relative;z-index:1;">
+              Os <strong style="color:#a8f0d8;">Tipos de Regras</strong> são parametrizados pela equipe MYIO e, a partir daí, o cliente pode <strong style="color:#a8f0d8;">calibrar valores, dias e horários</strong>, além de <strong style="color:#a8f0d8;">ativar ou desativar</strong> regras individuais conforme a necessidade operacional.
+            </p>
+          </article>
+
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.446 • Março 2026</div>
+        <strong>Módulo de Alarmes — Página 1 de 2</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 2 — Mapa de Alarmes, Detalhamento e Configurações
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.446</div>
+        </div>
+        <div class="meta">
+          <span>Março 2026</span>
+          <span>Módulo de Alarmes — Configuração &amp; Mapa</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="headline">
+          <h2>Mapa de Alarmes, Detalhamento e Configurações por Dispositivo</h2>
+          <p>Controle granular de regras, override por dispositivo e acesso completo à timeline de ocorrências.</p>
+        </section>
+
+        <section class="grid">
+          <div class="stack">
+
+            <article class="card">
+              <h3>🗺️ Mapa de Alarmes</h3>
+              <p class="text">Visão consolidada de todas as regras de alarme organizadas <strong>por dispositivo</strong> ou <strong>por regra</strong>. Exibe condições, horários, dias da semana e valores de gatilho para cada regra e dispositivo vinculado.</p>
+              <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+                <span style="background:#f1ebff;color:var(--myio-purple);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;">70 Dispositivos</span>
+                <span style="background:#f1ebff;color:var(--myio-purple);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;">18 Regras</span>
+                <span style="background:#f1ebff;color:var(--myio-purple);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;">9 Assets</span>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>⚙️ Override por Dispositivo <span class="badge new">NOVO</span></h3>
+              <p class="text">É possível alterar o valor de gatilho de uma regra para um dispositivo específico sem modificar a regra global. O override fica marcado visualmente, com indicação do valor personalizado e opção de reverter para o padrão.</p>
+            </article>
+
+            <article class="card">
+              <h3>📋 Configurações de Alarme no Dispositivo</h3>
+              <p class="text">Dentro de cada dispositivo, a aba de <strong>Alarmes</strong> exibe todas as regras ativas vinculadas a ele. É possível desativar uma regra específica sem impactar os demais dispositivos que utilizam a mesma regra.</p>
+            </article>
+
+          </div>
+
+          <!-- Right: Alarm map mockup + Detalhamento card -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+          <aside class="preview">
+            <div class="preview-head">
+              <span>🗺️ Mapa de Alarmes — Por Dispositivo / Por Regra</span>
+            </div>
+            <div class="preview-body">
+
+              <!-- Stats bar -->
+              <div class="map-stats">
+                <div class="map-stat"><div class="ms-num">70</div><div class="ms-label">Dispositivos</div></div>
+                <div class="map-stat"><div class="ms-num">18</div><div class="ms-label">Regras</div></div>
+                <div class="map-stat"><div class="ms-num">9</div><div class="ms-label">Assets</div></div>
+              </div>
+
+              <!-- Rule 1: Elevador parado seg-sáb -->
+              <div class="map-rule">
+                <div class="mr-title">
+                  🔔 Elevador parado (seg-sáb)
+                </div>
+                <div class="mr-desc">Alerta quando a potência instantânea fica abaixo do valor de referência por 25min (seg a sáb 10h-22h) — indica elevador sem energia ou com defeito</div>
+                <div class="mr-tags">
+                  <span class="mr-tag metric">instantaneous_power &lt; 400</span>
+                  <span class="mr-tag time">⏱ 30 min</span>
+                  <span class="mr-tag time">🕙 10:00 – 22:00</span>
+                  <span class="mr-tag day-off">Dom</span>
+                  <span class="mr-tag day-on">Seg</span>
+                  <span class="mr-tag day-on">Ter</span>
+                  <span class="mr-tag day-on">Qua</span>
+                  <span class="mr-tag day-on">Qui</span>
+                  <span class="mr-tag day-on">Sex</span>
+                  <span class="mr-tag day-on">Sáb</span>
+                </div>
+                <div class="mr-devices">
+                  <span class="mr-device">🛗 Elevador 2</span>
+                  <span class="mr-device">🛗 Elevador 3</span>
+                  <span class="mr-device">🛗 Elevador 4</span>
+                  <span class="mr-device">🛗 Elevador 5</span>
+                  <span class="mr-device">🛗 Elevador 6</span>
+                  <span class="mr-device">🛗 Elevador 7</span>
+                </div>
+              </div>
+
+              <!-- Rule 2: Elevador parado MA domingo com override -->
+              <div class="map-rule">
+                <div class="mr-title">
+                  🔔 Elevador parado MA(domingo)
+                </div>
+                <div class="mr-desc">Alerta quando a potência instantânea fica abaixo do valor de referência por 30min (domingo 12h-22h) — indica elevador sem energia ou com defeito</div>
+                <div class="mr-tags">
+                  <span class="mr-tag metric">instantaneous_power &lt; 400</span>
+                  <span class="mr-tag time">🕛 12:00 – 22:00</span>
+                  <span class="mr-tag day-on">Dom</span>
+                  <span class="mr-tag day-off">Seg</span>
+                  <span class="mr-tag day-off">Ter</span>
+                  <span class="mr-tag day-off">Qua</span>
+                  <span class="mr-tag day-off">Qui</span>
+                  <span class="mr-tag day-off">Sex</span>
+                  <span class="mr-tag day-off">Sáb</span>
+                </div>
+                <div class="mr-devices">
+                  <span class="mr-device">🛗 Elevador 2</span>
+                  <span class="mr-device mr-device ov">🛗 Elevador 1 <span class="override-inline">override</span> &lt; 299</span>
+                  <span class="mr-device">🛗 Elevador 3</span>
+                  <span class="mr-device">🛗 Elevador 4</span>
+                </div>
+              </div>
+
+              <!-- Override field inline -->
+              <div style="border:1px solid #ffe0aa;border-radius:12px;padding:10px 14px;background:#fffbf2;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:#c77a00;margin-bottom:4px;">⚙️ Override de valor — Elevador 1</div>
+                  <div style="font-size:12px;color:#4e4765;">Altere o valor de gatilho apenas para este dispositivo sem afetar a regra global.</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+                  <div style="border:1px solid #f0d080;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:800;background:#fff;color:#392d69;">299</div>
+                  <div style="font-size:10px;color:#888;">instantaneous_power &lt; 299</div>
+                </div>
+              </div>
+
+            </div>
+          </aside>
+
+          <article class="card">
+            <h3>📊 Detalhamento do Alarme</h3>
+            <p class="text">Ao acessar um alarme, visualize sua <strong>Timeline</strong> de ocorrências com data, hora e janela de tempo, <strong>Dispositivos</strong> vinculados, <strong>Gráfico</strong> histórico da variável e <strong>Anotações</strong>. Ações em lote disponíveis para gerenciamento eficiente.</p>
+            <div class="steps" style="margin-top:8px;">
+              <div class="step-row"><span class="step-num">1</span>Acesse o painel de Alarmes e selecione um alarme ativo</div>
+              <div class="step-row"><span class="step-num">2</span>Navegue pelas abas: Resumo, Timeline, Dispositivos, Gráfico ou Anotações</div>
+              <div class="step-row"><span class="step-num">3</span>Use "Ação em lote" para tratar múltiplas ocorrências de uma vez</div>
+              <div class="step-row"><span class="step-num">4</span>Exporte o detalhamento em PDF ou CSV conforme necessário</div>
+            </div>
+          </article>
+
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.446 • Março 2026</div>
+        <strong>Módulo de Alarmes — Página 2 de 2</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+  </div>
+</body>
+</html>

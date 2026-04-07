@@ -7,12 +7,12 @@
 
 ## 1. Visão Geral
 
-| Campo | Valor |
-|-------|-------|
-| Hardware | Orange Pi <!-- modelo: ex. Orange Pi 3 LTS --> |
-| SO | <!-- ex. Armbian 22.x / Ubuntu 20.04 --> |
-| Node-RED | <!-- versão: ex. 3.x --> |
-| Porta Node-RED | `1880` |
+| Campo          | Valor                                          |
+| -------------- | ---------------------------------------------- |
+| Hardware       | Orange Pi <!-- modelo: ex. Orange Pi 3 LTS --> |
+| SO             | <!-- ex. Armbian 22.x / Ubuntu 20.04 -->       |
+| Node-RED       | <!-- versão: ex. 3.x -->                       |
+| Porta Node-RED | `1880`                                         |
 
 ---
 
@@ -20,11 +20,11 @@
 
 ### 2.1 Credenciais Padrão
 
-| Campo | Valor |
-|-------|-------|
-| Usuário | `root` |
+| Campo     | Valor                    |
+| --------- | ------------------------ |
+| Usuário   | `root`                   |
 | Chave SSH | `id_rsa` (arquivo local) |
-| Porta SSH | `22` |
+| Porta SSH | `22`                     |
 
 ### 2.2 Endereços das Centrais
 
@@ -34,12 +34,12 @@ Os IPs são **IPv6** (rede mesh — ex. Yggdrasil). Conectar sempre com `-i id_r
 ssh -i id_rsa root@<ipv6-da-central>
 ```
 
-| Central | IPv6 |
-|---------|------|
-| Souza Aguiar — CO2 | `201:3941:4753:9232:901b:19fa:4978:51aa` |
-| Souza Aguiar — Ar Comprimido | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` |
+| Central                         | IPv6                                     |
+| ------------------------------- | ---------------------------------------- |
+| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` |
+| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` |
 | Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` |
-| Shopping Ananindeua | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` |
+| Shopping Ananindeua             | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` |
 
 **Exemplos completos:**
 
@@ -55,6 +55,28 @@ ssh -i id_rsa root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
 
 # Central Shopping Ananindeua
 ssh -i id_rsa root@201:ca6e:c33b:3a06:f4dd:d148:5d85:6315
+
+# Central Mestre Álvaro L0L1
+ssh -i id_rsa root@200:ba5f:dacb:b278:8f85:acf4:f33c:f485
+
+# Central Mestre Álvaro L2AC
+ssh -i id_rsa root@200:8b:483c:9008:1184:caec:41b1:fa28
+
+# Central Mestre Álvaro L3L4
+ssh -i id_rsa root@200:b0b1:81aa:49a4:c554:4fec:f110:9896
+
+# Central Praia da Costa L1
+ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
+
+
+# Central Moxuara
+ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
+
+# Central Rio Poty
+ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
+
+# Central Shopping da Ilha
+ssh -i id_rsa root@201:3447:911:5955:4018:3960:6838:ee12
 ```
 
 ---
@@ -91,12 +113,12 @@ http://<ip-da-central>:1880
 
 ## 4. Arquivos e Diretórios
 
-| Caminho | Descrição |
-|---------|-----------|
-| <!-- ex. /root/.node-red/ --> | Diretório principal do Node-RED |
-| <!-- ex. /root/.node-red/flows.json --> | Flow principal |
-| <!-- ex. /root/.node-red/settings.js --> | Configurações do Node-RED |
-| <!-- ex. /opt/myio/scripts/ --> | Scripts JS customizados |
+| Caminho                                  | Descrição                       |
+| ---------------------------------------- | ------------------------------- |
+| <!-- ex. /root/.node-red/ -->            | Diretório principal do Node-RED |
+| <!-- ex. /root/.node-red/flows.json -->  | Flow principal                  |
+| <!-- ex. /root/.node-red/settings.js --> | Configurações do Node-RED       |
+| <!-- ex. /opt/myio/scripts/ -->          | Scripts JS customizados         |
 
 ### 4.1 Editar um arquivo JS na central
 
@@ -230,10 +252,10 @@ reboot
 
 ## 9. Troubleshooting
 
-| Problema | Causa provável | Solução |
-|----------|---------------|---------|
-| Node-RED não inicia | <!-- ex. porta 1880 em uso --> | <!-- solução --> |
-| Slaves sem leitura | <!-- ex. cabo Modbus solto --> | <!-- solução --> |
+| Problema               | Causa provável                             | Solução          |
+| ---------------------- | ------------------------------------------ | ---------------- |
+| Node-RED não inicia    | <!-- ex. porta 1880 em uso -->             | <!-- solução --> |
+| Slaves sem leitura     | <!-- ex. cabo Modbus solto -->             | <!-- solução --> |
 | Dados não chegam ao TB | <!-- ex. sem internet / token expirado --> | <!-- solução --> |
 
 ---
@@ -244,4 +266,4 @@ reboot
 
 ---
 
-*Última atualização: 2026-04-06*
+_Última atualização: 2026-04-06_

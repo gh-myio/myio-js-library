@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MYIO — Documentação de Integração ThingsBoard & Data Ingestion v1.0.0</title>
+  <style>
+    :root {
+      --myio-purple: #663ab5;
+      --myio-purple-dark: #4d2a91;
+      --myio-purple-soft: #efe8fb;
+      --myio-green: #04c081;
+      --myio-green-dark: #039b69;
+      --myio-amber: #f5a623;
+      --myio-red: #e03131;
+      --myio-blue: #1864c4;
+      --text: #2a2340;
+      --muted: #6f6787;
+      --border: #e5ddf5;
+      --bg: #f7f4fc;
+      --white: #ffffff;
+      --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+      --radius-xl: 22px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --page-width: 1123px;
+      --page-height: 794px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      background: #ece8f6;
+      color: var(--text);
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .document {
+      display: grid;
+      gap: 24px;
+      justify-content: center;
+    }
+
+    /* ── Page shell ── */
+    .page {
+      width: var(--page-width);
+      max-width: 100%;
+      min-height: var(--page-height);
+      background: radial-gradient(circle at top right, rgba(4,192,129,0.10), transparent 18%), var(--bg);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(49, 33, 90, 0.16);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* ── Hero — cover (tall) ── */
+    .hero {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 32px 36px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px; top: -45px;
+      width: 240px; height: 240px;
+      background: rgba(4, 192, 129, 0.92);
+      border-radius: 50%;
+    }
+
+    /* ── Hero — inner pages (compact) ── */
+    .hero-sm {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 18px 36px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hero-sm::after {
+      content: "";
+      position: absolute;
+      right: -50px; top: -30px;
+      width: 130px; height: 130px;
+      background: rgba(4, 192, 129, 0.70);
+      border-radius: 50%;
+    }
+    .hero-sm .hs-brand  { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1; }
+    .hero-sm .hs-title  { font-size: 13px; opacity: 0.88; position: relative; z-index: 1; margin-top: 3px; }
+    .hero-sm .hs-right  { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+    .hero-sm .hs-sec    { font-size: 11px; opacity: 0.75; }
+    .hero-sm .hs-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-weight: 700;
+      font-size: 13px;
+      backdrop-filter: blur(6px);
+      white-space: nowrap;
+    }
+
+    /* Cover brand row */
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+    .brand h1 { margin: 0; font-size: 32px; line-height: 1; letter-spacing: -0.03em; }
+    .brand p  { margin: 8px 0 0; opacity: 0.92; font-size: 14px; }
+    .version-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 700;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+    }
+    .meta {
+      margin-top: 18px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      font-size: 13px;
+      position: relative;
+      z-index: 1;
+    }
+    .meta span:last-child { color: #d8ffd2; font-weight: 600; }
+
+    /* ── Content area ── */
+    .content {
+      padding: 22px 32px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      flex: 1;
+    }
+
+    .headline h2 {
+      margin: 0 0 6px;
+      font-size: 30px;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      color: #33275f;
+    }
+    .headline p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+    /* ── Grids ── */
+    .grid   { display: grid; grid-template-columns: 390px 1fr; gap: 22px; align-items: start; flex: 1; }
+    .grid > * { min-width: 0; overflow: hidden; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .stack  { display: grid; gap: 14px; min-width: 0; }
+    .col-stack { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--myio-purple);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+    }
+    .card.green  { border-left-color: var(--myio-green); }
+    .card.amber  { border-left-color: var(--myio-amber); }
+    .card.blue   { border-left-color: var(--myio-blue); }
+    .card.red    { border-left-color: var(--myio-red); }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+      color: #392d69;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card p, .card li, .card div.text {
+      font-size: 13px; line-height: 1.55; color: #4e4765;
+    }
+    .card ul { margin: 6px 0 0; padding-left: 18px; }
+    .card li { margin-bottom: 4px; }
+
+    /* ── Badges ── */
+    .badge {
+      border: 2px solid #bca7ea;
+      color: var(--myio-purple);
+      border-radius: 12px;
+      text-align: center;
+      font-weight: 800;
+      padding: 8px 0;
+      background: #faf8ff;
+      font-size: 12px;
+    }
+    .badge.new {
+      border-radius: 999px;
+      padding: 4px 10px;
+      display: inline-block;
+      width: auto;
+      background: #f3ecff;
+      font-size: 11px;
+    }
+    .badge.green-pill { background: #edfff7; border-color: #8de8c5; color: #0a7a4a; }
+
+    /* ── Panel list ── */
+    .panel-list { display: grid; gap: 6px; }
+    .panel-item { display: flex; gap: 8px; align-items: flex-start; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 3px; margin-top: 5px;
+      background: linear-gradient(180deg, var(--myio-purple), #b577ff);
+      flex: 0 0 auto;
+    }
+    .dot.green { background: linear-gradient(180deg, var(--myio-green), #00e09b); }
+    .dot.amber { background: linear-gradient(180deg, var(--myio-amber), #ffc94d); }
+    .dot.blue  { background: linear-gradient(180deg, var(--myio-blue), #4d9fff); }
+
+    /* ── Endpoint blocks ── */
+    .ep-block {
+      background: #1e1b2e;
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 11.5px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.20);
+    }
+    .ep-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: #29233d;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .ep-method {
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-weight: 800;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .ep-method.post { background: #2e7d32; color: #a5d6a7; }
+    .ep-method.get  { background: #1565c0; color: #90caf9; }
+    .ep-url {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      color: #e2daf7;
+      font-size: 11.5px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ep-host { color: #7c70a0; }
+    .ep-body {
+      padding: 12px 14px;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      color: #c8c0e0;
+      font-size: 11.5px;
+      line-height: 1.7;
+      white-space: pre;
+    }
+    .ep-key  { color: #9d8ee8; }
+    .ep-str  { color: #89d99b; }
+    .ep-comm { color: #5a6072; font-style: italic; }
+    .ep-num  { color: #f0c070; }
+    .ep-var  { color: #f0c070; }
+
+    /* ── Inline code ── */
+    code {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 10.5px;
+      background: #f3eeff;
+      color: #5b44a0;
+      padding: 2px 6px;
+      border-radius: 5px;
+    }
+
+    /* ── UUID chips ── */
+    .uuid-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #f3eeff;
+      border: 1px solid #ddd0f5;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 10px;
+      color: #5b44a0;
+      margin: 3px 3px;
+    }
+    .uuid-chip .uc-label {
+      font-family: Inter, sans-serif;
+      font-weight: 700;
+      font-size: 9px;
+      color: #9580c8;
+      text-transform: uppercase;
+      margin-right: 3px;
+    }
+
+    /* ── Attr rows ── */
+    .attr-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #faf8ff;
+      border: 1px solid #ede6fa;
+      margin-bottom: 6px;
+    }
+    .attr-key {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #5b44a0;
+      min-width: 120px;
+      flex: 0 0 auto;
+    }
+    .attr-desc { font-size: 12.5px; color: #4e4765; line-height: 1.45; }
+
+    /* ── Glossary ── */
+    .gloss-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 7px 0;
+      border-bottom: 1px solid #f0ebf8;
+    }
+    .gloss-item:last-child { border-bottom: none; }
+    .gloss-term {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 11px;
+      font-weight: 800;
+      color: #5b44a0;
+      min-width: 118px;
+      flex: 0 0 auto;
+      padding-top: 1px;
+    }
+    .gloss-def { font-size: 12.5px; color: #4e4765; line-height: 1.45; }
+
+    /* ── Map table ── */
+    .map-wrap {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e5ddf5;
+      box-shadow: var(--shadow);
+    }
+    table.map-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+    table.map-table thead tr {
+      background: linear-gradient(135deg, #2a2a4a, #3a2d6e);
+      color: #fff;
+    }
+    table.map-table th {
+      padding: 9px 12px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    table.map-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0ebf8;
+      color: #3d3464;
+    }
+    table.map-table tbody tr:last-child td { border-bottom: none; }
+    table.map-table tbody tr:hover { background: #faf8ff; }
+    table.map-table .mono {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 10.5px;
+      color: #5b44a0;
+    }
+    .tag-green  { display: inline-block; background: #edfff7; color: #0a7a4a; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+    .tag-purple { display: inline-block; background: #f3eeff; color: #5b44a0; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+    .tag-amber  { display: inline-block; background: #fff8e6; color: #92600a; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+
+    /* ── Steps ── */
+    .steps { display: grid; gap: 6px; }
+    .step-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12.5px;
+      color: #4e4765;
+      line-height: 1.5;
+    }
+    .step-num {
+      background: var(--myio-purple);
+      color: #fff;
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      margin-top: 2px;
+    }
+    .step-num.green { background: var(--myio-green-dark); }
+
+    /* ── Flow panel ── */
+    .flow-panel {
+      background: rgba(255,255,255,0.94);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .flow-head {
+      background: linear-gradient(135deg, #2a2a4a, #3a2d6e);
+      color: #fff;
+      padding: 12px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .flow-body { padding: 14px 16px; display: grid; gap: 8px; }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #faf8ff;
+      border: 1px solid #ede6fa;
+    }
+    .flow-step .fs-num {
+      background: var(--myio-purple);
+      color: #fff;
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .flow-step .fs-num.green { background: var(--myio-green-dark); }
+    .flow-step .fs-body { font-size: 12.5px; color: #3d3464; line-height: 1.5; }
+    .flow-step .fs-body strong { color: #392d69; }
+
+    /* ── Granularity pills ── */
+    .gran-row  { display: flex; gap: 8px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
+    .gran-pill {
+      background: #1e1b2e;
+      color: #a0e4f8;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .gran-desc { font-size: 12px; color: var(--muted); }
+
+    /* ── Param rows ── */
+    .param-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 9px;
+      background: #faf8ff;
+      border: 1px solid #ede6fa;
+      margin-bottom: 5px;
+    }
+    .param-name {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #5b44a0;
+      min-width: 105px;
+      flex: 0 0 auto;
+      padding-top: 1px;
+    }
+    .param-desc { font-size: 12px; color: #4e4765; line-height: 1.45; }
+    .param-req  { display: inline-block; background: #f3eeff; color: #7040b0; border-radius: 5px; padding: 1px 7px; font-size: 9.5px; font-weight: 700; margin-left: 4px; }
+    .param-opt  { display: inline-block; background: #f4f4f4; color: #666; border-radius: 5px; padding: 1px 7px; font-size: 9.5px; font-weight: 700; margin-left: 4px; }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: auto;
+      background: linear-gradient(180deg, var(--myio-purple), var(--myio-purple-dark));
+      color: rgba(255,255,255,0.95);
+      padding: 12px 28px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .footer strong { color: #fff; }
+
+
+    .ref-link { background: #1e1b2e; border-radius: 10px; padding: 10px 14px; margin-bottom: 4px; }
+    .ref-label { font-size: 10px; font-weight: 700; color: #7c70a0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .ref-url { font-family: 'Consolas', 'Fira Code', monospace; font-size: 12px; color: #89d99b; text-decoration: none; word-break: break-all; }
+    .ref-url:hover { text-decoration: underline; }
+    .ref-ep { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: #faf8ff; border: 1px solid #ede6fa; border-radius: 8px; margin-bottom: 5px; }
+    .ref-ep code { background: transparent; color: #5b44a0; font-size: 10.5px; padding: 0; }
+
+    /* ── Responsive ── */
+    @media screen and (max-width: 900px) {
+      body { padding: 0; background: #fff; }
+      .document { gap: 0; }
+
+      .page {
+        width: 100%;
+        min-height: auto;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      .hero { padding: 24px 20px 20px; }
+      .hero::after { width: 140px; height: 140px; right: -40px; top: -30px; }
+      .brand h1 { font-size: 26px; }
+
+      .hero-sm { padding: 14px 20px; flex-wrap: wrap; gap: 8px; }
+      .hero-sm .hs-right { gap: 8px; }
+      .hero-sm .hs-sec { display: none; }
+
+      .content { padding: 16px 16px 14px; gap: 14px; }
+
+      .grid { grid-template-columns: 1fr; }
+
+      .unit-grid { grid-template-columns: 1fr; }
+
+      .map-wrap { overflow-x: auto; }
+
+      .ep-url { font-size: 10px; }
+
+      .ep-body { font-size: 10.5px; overflow-x: auto; }
+
+      .flow-body { padding: 10px 12px; }
+
+      .footer { flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 18px; font-size: 12px; }
+      .footer span:last-child { align-self: flex-end; }
+
+      .attr-key { min-width: 90px; }
+      .gloss-term { min-width: 90px; }
+      .param-name { min-width: 80px; }
+
+      table.map-table { font-size: 10.5px; }
+      table.map-table th, table.map-table td { padding: 6px 8px; }
+
+      .ref-url { font-size: 11px; }
+      .uuid-chip { font-size: 9px; }
+    }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .document { gap: 0; }
+      .page { width: 100%; min-height: auto; border-radius: 0; box-shadow: none; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="document">
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 1 — Capa + Glossário
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">DOCUMENTAÇÃO &nbsp; v1.0.0</div>
+        </div>
+        <div class="meta">
+          <span>Abril 2026</span>
+          <span>Grupo Argo — Integração API</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card">
+            <h3>📖 Glossário</h3>
+            <div class="gloss-item">
+              <span class="gloss-term">ThingsBoard</span>
+              <span class="gloss-def">Portal MYIO de telemetria — consumo, temperatura, relatórios, dashboards, alarmes e cadastros.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Ingestion</span>
+              <span class="gloss-def">Sistema MYIO especializado para API de consumo energético — disponível para ThingsBoard e parceiros.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">LUC / SUC</span>
+              <span class="gloss-def">Identificador único da loja, ex.: <code>SCP0Q0254</code>.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Device ID</span>
+              <span class="gloss-def">UUID do device no ThingsBoard.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Customer ID</span>
+              <span class="gloss-def">UUID do Shopping ou Escritório no ThingsBoard.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">IngestionId</span>
+              <span class="gloss-def">Identificador do medidor no ecossistema Data Ingestion — chave de ligação entre os dois sistemas.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">SERVER_SCOPE</span>
+              <span class="gloss-def">Escopo de atributos do device com metadados como <em>lucCode</em> e <em>ingestionId</em>.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Granularity</span>
+              <span class="gloss-def">Precisão de agregação do consumo: <code>1d</code> (por dia) ou <code>1h</code> (por hora).</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Grupo Argo</span>
+              <span class="gloss-def">Organização que agrupa Park Lagos, Campinas Shopping e Escritório Holding.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">DE → PARA</span>
+              <span class="gloss-def">Dashboard auxiliar que mapeia nome da loja ↔ LUC para consulta rápida.</span>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Documentação de Integração — ThingsBoard &amp; Data Ingestion · Grupo Argo</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 1</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 2 — Visão Geral + IDs + Resultado
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Grupo Argo</div>
+          <div class="hs-title">Visão Geral da Integração</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">Visão Geral</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <section class="headline">
+            <h2>ThingsBoard &amp; Data Ingestion — Integração MYIO</h2>
+            <p>Fluxo completo de integração: do login inicial até a obtenção de dados granulares de energia por loja, com mapeamento de LUC, IngestionId e Dashboard DE → PARA. Abrange Campinas Shopping, Park Lagos e Escritório Holding do Grupo Argo.</p>
+          </section>
+
+          <article class="card green">
+            <h3>🗺️ Dashboard DE → PARA</h3>
+            <p class="text">Dashboard específico no ThingsBoard para consulta imediata do LUC de cada loja — Campinas Shopping e Park Lagos. Alimentado automaticamente pelo mapa de devices e garante que o cadastro está sempre alinhado com os dados oficiais do ThingsBoard e do Ingestion.</p>
+            <div class="panel-list" style="margin-top:10px;">
+              <div class="panel-item"><span class="dot green"></span><div class="text"><strong>Nome da Loja</strong> (label)</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text"><strong>LUC</strong> — <em>deviceId</em> ou <em>identifier</em></div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text"><strong>Unidade</strong> — Campinas Shopping ou Park Lagos</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text"><strong>UUID</strong> do Device no ThingsBoard</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text"><strong>IngestionId</strong> associado (quando presente)</div></div>
+            </div>
+          </article>
+
+          <article class="card blue">
+            <h3>🏢 IDs das Unidades — ThingsBoard</h3>
+            <p class="text" style="margin-bottom:10px;">Customer IDs oficiais para chamadas de listagem de devices no ThingsBoard:</p>
+            <div><span class="uuid-chip"><span class="uc-label">Grupo Argo</span>be21a850-5cdd-11f0-9291-41f94c09a8a6</span></div>
+            <div><span class="uuid-chip"><span class="uc-label">Campinas Shopping</span>3a3edfe0-b3e0-11ef-9d80-0f53bf3519bb</span></div>
+            <div><span class="uuid-chip"><span class="uc-label">Park Lagos</span>38a103d0-faac-11ef-9baa-8137e6ac9d72</span></div>
+            <div><span class="uuid-chip"><span class="uc-label">Escritório Holding</span>a8a3d6e0-3ac6-11ef-ad2c-53aeabe7d3fa</span></div>
+          </article>
+
+          <article class="card">
+            <h3>⚡ Resultado da Integração</h3>
+            <p class="text">Com o mapa final enriquecido, equipes de operação, suporte, engenharia e TI conseguem identificar o LUC de qualquer loja, validar integrações e obter consumo consolidado ou granular por device — reduzindo erros e acelerando diagnósticos.</p>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+              <span class="badge new">Diagnósticos ágeis</span>
+              <span class="badge new">Cadastro unificado</span>
+              <span class="badge new green-pill">Menos erros operacionais</span>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Visão Geral — Grupo Argo</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 2</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 3 — ThingsBoard: Auth + Devices + Mapa + Params
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · ThingsBoard API</div>
+          <div class="hs-title">Autenticação e Listagem de Devices — Grupo Argo</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Seção 2.1 – 2.3</span>
+          <span class="hs-pill">ThingsBoard</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card">
+            <h3>🔐 2.1 Autenticação — <code style="font-size:12px;">POST /api/auth/login</code></h3>
+            <p class="text" style="margin-bottom:10px;">Passo inicial: obter o token JWT que será enviado em todas as chamadas seguintes via header <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+            <div class="ep-block">
+              <div class="ep-bar">
+                <span class="ep-method post">POST</span>
+                <span class="ep-url"><span class="ep-host">dashboard.myio-bas.com</span>/api/auth/login</span>
+              </div>
+              <div class="ep-body"><span class="ep-comm">// Body (Content-Type: application/json)</span>
+{
+  <span class="ep-key">"username"</span>: <span class="ep-str">"usuario@grupoargo.com.br"</span>,
+  <span class="ep-key">"password"</span>: <span class="ep-str">"••••••••"</span>
+}
+
+<span class="ep-comm">// Resposta 200 OK</span>
+{
+  <span class="ep-key">"token"</span>: <span class="ep-str">"eyJhbGciOiJIUzI1NiIsInR5..."</span>,
+  <span class="ep-key">"refreshToken"</span>: <span class="ep-str">"eyJhbGciOiJIUzI1NiIsInR5..."</span>
+}
+
+<span class="ep-comm">// Utilizar em todas as chamadas seguintes:</span>
+Authorization: Bearer <span class="ep-str">&lt;token&gt;</span></div>
+            </div>
+          </article>
+
+          <article class="card blue">
+            <h3>📋 2.2 Listagem de Devices — Grupo Argo</h3>
+            <p class="text" style="margin-bottom:10px;">Busca todos os devices associados a um Customer ID. Pode ser chamado para o Grupo Argo (pai) ou por unidade individual.</p>
+            <div class="ep-block">
+              <div class="ep-bar">
+                <span class="ep-method get">GET</span>
+                <span class="ep-url"><span class="ep-host">dashboard.myio-bas.com</span>/api/customer/<span class="ep-var">{customerId}</span>/deviceInfos?pageSize=50&amp;page=0</span>
+              </div>
+              <div class="ep-body"><span class="ep-comm">// Campos relevantes por device na resposta</span>
+{
+  <span class="ep-key">"data"</span>: [
+    {
+      <span class="ep-key">"label"</span>:      <span class="ep-str">"KFC Campinas"</span>,
+      <span class="ep-key">"id"</span>: { <span class="ep-key">"id"</span>: <span class="ep-str">"26748a32-7a44-4697-b49d-e88f7aba5fc9"</span> },
+      <span class="ep-key">"customerId"</span>: { <span class="ep-key">"id"</span>: <span class="ep-str">"3a3edfe0-b3e0-11ef-9d80-0f53bf3519bb"</span> }
+    }
+  ],
+  <span class="ep-key">"totalElements"</span>: <span class="ep-num">142</span>,
+  <span class="ep-key">"hasNext"</span>: <span class="ep-num">true</span>
+}</div>
+            </div>
+          </article>
+
+          <article class="card green">
+            <h3>📁 2.3 Mapa Inicial de Devices</h3>
+            <p class="text" style="margin-bottom:10px;">Estrutura montada a partir da resposta de <code>/deviceInfos</code>. Para cada device:</p>
+            <div class="ep-block">
+              <div class="ep-body"><span class="ep-comm">// Para cada device retornado</span>
+{
+  <span class="ep-key">label</span>:         <span class="ep-str">"KFC Campinas"</span>,
+  <span class="ep-key">deviceUuid</span>:   <span class="ep-str">"26748a32-7a44-4697-..."</span>,
+  <span class="ep-key">customerUuid</span>:  <span class="ep-str">"3a3edfe0-b3e0-11ef-..."</span>,
+  <span class="ep-key">customerName</span>:  <span class="ep-str">"Campinas Shopping"</span>
+}
+
+<span class="ep-comm">// Iterar pages até hasNext === false</span></div>
+            </div>
+          </article>
+
+          <article class="card amber">
+            <h3>📋 Parâmetros de Listagem</h3>
+            <div class="param-row">
+              <span class="param-name">customerId</span>
+              <span class="param-desc">UUID do Customer (Shopping ou Grupo Argo) <span class="param-req">obrigatório</span></span>
+            </div>
+            <div class="param-row">
+              <span class="param-name">pageSize</span>
+              <span class="param-desc">Número de resultados por página (ex.: <code>50</code>) <span class="param-req">obrigatório</span></span>
+            </div>
+            <div class="param-row">
+              <span class="param-name">page</span>
+              <span class="param-desc">Índice da página (começa em <code>0</code>) <span class="param-req">obrigatório</span></span>
+            </div>
+            <div class="param-row">
+              <span class="param-name">textSearch</span>
+              <span class="param-desc">Filtro por label/nome do device <span class="param-opt">opcional</span></span>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>ThingsBoard API — Autenticação e Listagem de Devices</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 3</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 4 — ThingsBoard: SERVER_SCOPE + Mapa Final + Fluxo TB
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · ThingsBoard API</div>
+          <div class="hs-title">Atributos SERVER_SCOPE e Mapa Final Enriquecido</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Seção 2.4 – 2.6</span>
+          <span class="hs-pill">ThingsBoard</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card amber">
+            <h3>🔍 2.4 Atributos SERVER_SCOPE por Device</h3>
+            <p class="text" style="margin-bottom:10px;">Para cada device do mapa inicial, buscar os atributos de metadados que contêm o LUC e o IngestionId:</p>
+            <div class="ep-block">
+              <div class="ep-bar">
+                <span class="ep-method get">GET</span>
+                <span class="ep-url"><span class="ep-host">dashboard.myio-bas.com</span>/api/plugins/telemetry/DEVICE/<span class="ep-var">{deviceUuid}</span>/values/attributes/SERVER_SCOPE</span>
+              </div>
+              <div class="ep-body"><span class="ep-comm">// Resposta — array de atributos</span>
+[
+  { <span class="ep-key">"key"</span>: <span class="ep-str">"deviceId"</span>,     <span class="ep-key">"value"</span>: <span class="ep-str">"SCP0Q0254"</span> },
+  { <span class="ep-key">"key"</span>: <span class="ep-str">"identifier"</span>,  <span class="ep-key">"value"</span>: <span class="ep-str">"SCP0Q0254"</span> },
+  { <span class="ep-key">"key"</span>: <span class="ep-str">"ingestionId"</span>, <span class="ep-key">"value"</span>: <span class="ep-str">"26748a32-7a44-..."</span> }
+]</div>
+            </div>
+            <div style="margin-top:12px;">
+              <div class="attr-row">
+                <span class="attr-key">deviceId</span>
+                <span class="attr-desc">Código LUC da loja (ex.: <code>SCP0Q0254</code>). Usar como <em>lucCode</em>.</span>
+              </div>
+              <div class="attr-row">
+                <span class="attr-key">identifier</span>
+                <span class="attr-desc">Alternativo ao <code>deviceId</code> como LUC quando o campo <em>deviceId</em> não estiver presente.</span>
+              </div>
+              <div class="attr-row">
+                <span class="attr-key">ingestionId</span>
+                <span class="attr-desc">UUID do medidor no ecossistema Data Ingestion. Chave de ligação entre ThingsBoard e Ingestion API.</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card green">
+            <h3>📊 2.5 Mapa Final Enriquecido</h3>
+            <p class="text" style="margin-bottom:10px;">Após enriquecer o mapa inicial com os atributos SERVER_SCOPE de cada device, o resultado é uma estrutura completa pronta para integrações com a Data Ingestion API:</p>
+            <div class="map-wrap">
+              <table class="map-table" style="table-layout:fixed;">
+                <thead>
+                  <tr>
+                    <th>Label</th>
+                    <th>lucCode</th>
+                    <th>ingestionId</th>
+                    <th>Unidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>KFC Campinas</td>
+                    <td><span class="tag-purple">SCP0Q0254</span></td>
+                    <td><span class="mono">26748a32-7a44…</span></td>
+                    <td>Campinas Shopping</td>
+                  </tr>
+                  <tr>
+                    <td>Burger King PL</td>
+                    <td><span class="tag-purple">PLG0R0091</span></td>
+                    <td><span class="mono">f4e2c110-9a31…</span></td>
+                    <td>Park Lagos</td>
+                  </tr>
+                  <tr>
+                    <td>Loja Centro</td>
+                    <td><span class="tag-purple">SCP0Q0312</span></td>
+                    <td><span class="mono">a1b2c3d4-8f12…</span></td>
+                    <td>Campinas Shopping</td>
+                  </tr>
+                  <tr>
+                    <td>Loja Tênis</td>
+                    <td><span class="tag-purple">PLG0R0044</span></td>
+                    <td><span class="tag-amber">— sem ingestionId</span></td>
+                    <td>Park Lagos</td>
+                  </tr>
+                  <tr>
+                    <td>Escritório HQ</td>
+                    <td><span class="tag-purple">HLD0E0001</span></td>
+                    <td><span class="mono">e9f1a2b3-0c45…</span></td>
+                    <td>Holding Argo</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text" style="margin-top:10px; font-size:11.5px; color:var(--muted);">⚠️ Devices sem <code>ingestionId</code> não possuem vínculo no ecossistema de consumo. O LUC ainda pode ser consultado no Dashboard DE → PARA.</p>
+          </article>
+
+          <article class="card">
+            <h3>🔄 2.6 Fluxo ThingsBoard — Resumo</h3>
+            <div class="steps">
+              <div class="step-row"><div class="step-num">1</div><span>Autenticar via <code>POST /api/auth/login</code> → obter JWT.</span></div>
+              <div class="step-row"><div class="step-num">2</div><span>Listar devices por <code>customerId</code> via <code>/deviceInfos</code> — iterar páginas.</span></div>
+              <div class="step-row"><div class="step-num">3</div><span>Montar mapa inicial: <em>label + deviceUuid + customerUuid + customerName</em>.</span></div>
+              <div class="step-row"><div class="step-num">4</div><span>Para cada device, consultar <code>SERVER_SCOPE</code> e extrair <em>lucCode</em> e <em>ingestionId</em>.</span></div>
+              <div class="step-row"><div class="step-num">5</div><span>Mapa final enriquecido pronto para integrações com a Data Ingestion API.</span></div>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>ThingsBoard API — SERVER_SCOPE e Mapa Final Enriquecido</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 4</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 5 — Data Ingestion: Auth + Params + groupIds
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Data Ingestion API</div>
+          <div class="hs-title">Autenticação, Parâmetros e Filtro por Grupo</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Seção 2.7</span>
+          <span class="hs-pill">Data Ingestion</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card">
+            <h3>🔐 2.7 Autenticação — Data Ingestion API</h3>
+            <p class="text" style="margin-bottom:10px;">A Data Ingestion API possui autenticação própria, independente do ThingsBoard. É necessário obter um token separado.</p>
+            <div class="ep-block">
+              <div class="ep-bar">
+                <span class="ep-method post">POST</span>
+                <span class="ep-url"><span class="ep-host">api.data.apps.myio-bas.com</span>/api/v1/auth</span>
+              </div>
+              <div class="ep-body"><span class="ep-comm">// Body (Content-Type: application/json)</span>
+{
+  <span class="ep-key">"clientId"</span>:     <span class="ep-str">"argo-client-id"</span>,
+  <span class="ep-key">"clientSecret"</span>: <span class="ep-str">"••••••••••••••••"</span>
+}
+
+<span class="ep-comm">// Resposta 200 OK</span>
+{
+  <span class="ep-key">"token"</span>:     <span class="ep-str">"eyJhbGciOiJIUzI1NiIsInR5..."</span>,
+  <span class="ep-key">"expiresIn"</span>: <span class="ep-num">3600</span>
+}
+
+<span class="ep-comm">// Usar em todas as chamadas de Ingestion:</span>
+Authorization: Bearer <span class="ep-str">&lt;token&gt;</span></div>
+            </div>
+          </article>
+
+          <article class="card amber">
+            <h3>📋 Parâmetros da Consulta de Totais</h3>
+            <div class="param-row">
+              <span class="param-name">customer_id</span>
+              <span class="param-desc">ID do cliente no Data Ingestion. Ex.: <code>6773fe42-512a-47e5-b73b-693e22767a3d</code> (Grupo Argo) <span class="param-req">obrigatório</span></span>
+            </div>
+            <div class="param-row">
+              <span class="param-name">startTime</span>
+              <span class="param-desc">Início do período — ISO-8601 com fuso. Ex.: <code>2026-04-01T00:00:00-03:00</code> (URL encoded) <span class="param-req">obrigatório</span></span>
+            </div>
+            <div class="param-row">
+              <span class="param-name">endTime</span>
+              <span class="param-desc">Fim do período — ISO-8601 com fuso. Ex.: <code>2026-04-30T23:59:59-03:00</code> (URL encoded) <span class="param-req">obrigatório</span></span>
+            </div>
+            <div class="param-row">
+              <span class="param-name">deep</span>
+              <span class="param-desc">Quando <code>1</code>, inclui devices em assets hierárquicos abaixo do customer <span class="param-opt">opcional</span></span>
+            </div>
+            <div class="param-row" style="border:1.5px solid #f5a623;background:#fffbf0;">
+              <span class="param-name" style="color:#92600a;">groupIds</span>
+              <span class="param-desc">UUID do grupo de devices para filtrar o resultado — ver IDs fixos abaixo <span class="param-opt">opcional</span></span>
+            </div>
+          </article>
+
+          <article class="card" style="border-left-color:#f5a623;background:linear-gradient(135deg,rgba(255,251,240,0.98),rgba(255,255,255,0.95));">
+            <h3 style="color:#92600a;">⚠️ Importante — Filtro por Grupo (<code>groupIds</code>)</h3>
+            <p class="text" style="margin-bottom:10px;">Adicione <code>groupIds=&lt;uuid&gt;</code> ao endpoint <code>/total</code> (energy <strong>ou</strong> water) para restringir o resultado a um tipo específico de medidor:</p>
+            <div class="attr-row" style="border-color:#f5a623;background:#fffbf0;">
+              <span class="attr-key" style="color:#92600a;">⚡ Energia</span>
+              <div class="attr-desc">
+                <strong>Entrada de Energia</strong> — medidores de entrada de energia elétrica<br>
+                <code style="font-size:10px;">groupIds=f431d17a-ec11-45e0-b92c-83a0d3b6d942</code>
+              </div>
+            </div>
+            <div class="attr-row" style="border-color:#60a5fa;background:#f0f8ff;margin-top:6px;">
+              <span class="attr-key" style="color:#1864c4;">💧 Água</span>
+              <div class="attr-desc">
+                <strong>Entrada de Água</strong> — hidrômetros de entrada<br>
+                <code style="font-size:10px;">groupIds=510af6ca-74cb-4350-a9bc-d38fc2d8e3c4</code>
+              </div>
+            </div>
+            <div class="ep-block" style="margin-top:10px;">
+              <div class="ep-bar">
+                <span class="ep-method get">GET</span>
+                <span class="ep-url"><span class="ep-host">api.data.apps.myio-bas.com</span>/api/v1/telemetry/customers/<span class="ep-var">{customer_id}</span>/energy/total?groupIds=f431d17a-ec11-45e0-b92c-83a0d3b6d942</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Data Ingestion API — Autenticação e Parâmetros</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 5</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 6 — Data Ingestion: Totais + Granular
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Data Ingestion API</div>
+          <div class="hs-title">Consumo Total por Cliente e Granular por Device</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Seção 2.8 – 2.9</span>
+          <span class="hs-pill">Data Ingestion</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card blue">
+            <h3>📈 2.8 Consumo de Energia — Totais por Cliente</h3>
+            <p class="text" style="margin-bottom:10px;">Retorna o consumo <strong>consolidado</strong> de todos os devices do cliente no período especificado.</p>
+            <div class="ep-block">
+              <div class="ep-bar">
+                <span class="ep-method get">GET</span>
+                <span class="ep-url"><span class="ep-host">api.data.apps.myio-bas.com</span>/api/v1/telemetry/customers/<span class="ep-var">{customer_id}</span>/energy/total</span>
+              </div>
+              <div class="ep-body"><span class="ep-comm">// Exemplo real — Grupo Argo</span>
+customer_id: <span class="ep-str">6773fe42-512a-47e5-b73b-693e22767a3d</span>
+startTime:  <span class="ep-str">2026-04-01T00:00:00-03:00</span>
+endTime:    <span class="ep-str">2026-04-30T23:59:59-03:00</span>
+deep:       <span class="ep-num">1</span>
+
+<span class="ep-comm">// Resposta — TotalResponse</span>
+{
+  <span class="ep-key">"id"</span>:        <span class="ep-str">"6773fe42-512a-..."</span>,
+  <span class="ep-key">"label"</span>:     <span class="ep-str">"Grupo Argo"</span>,
+  <span class="ep-key">"total_kwh"</span>: <span class="ep-num">148320.5</span>,
+  <span class="ep-key">"startTime"</span>: <span class="ep-str">"2026-04-01T00:00:00-03:00"</span>,
+  <span class="ep-key">"endTime"</span>:   <span class="ep-str">"2026-04-30T23:59:59-03:00"</span>
+}</div>
+            </div>
+          </article>
+
+          <article class="card green">
+            <h3>🔗 Integração com o Mapa de Devices</h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot green"></span><div class="text">O mapa ThingsBoard contém o <code>ingestionId</code> de cada device.</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text">A chamada <code>/energy/total</code> é o consolidado de consumo por cliente no período.</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text">O <code>ingestionId</code> é usado em endpoints específicos para consultas granulares por device individual.</div></div>
+              <div class="panel-item"><span class="dot amber"></span><div class="text">O <code>customerId</code> na Data Ingestion API <strong>não é o mesmo</strong> UUID do ThingsBoard — é o ID do cliente no sistema de Ingestion.</div></div>
+            </div>
+          </article>
+
+          <article class="card green">
+            <h3>🔬 2.9 Consumo Granular por Device</h3>
+            <p class="text" style="margin-bottom:10px;">Usando o <code>ingestionId</code> mapeado via SERVER_SCOPE, é possível consultar dados de consumo individuais por device com granularidade configurável.</p>
+            <div class="ep-block">
+              <div class="ep-bar">
+                <span class="ep-method get">GET</span>
+                <span class="ep-url"><span class="ep-host">api.data.apps.myio-bas.com</span>/api/v1/telemetry/devices/<span class="ep-var">{device_id}</span>/energy</span>
+              </div>
+              <div class="ep-body"><span class="ep-comm">// Exemplo — KFC Campinas</span>
+device_id:   <span class="ep-str">26748a32-7a44-4697-b49d-e88f7aba5fc9</span>
+startTime:   <span class="ep-str">2026-04-01T00:00:00-03:00</span>
+endTime:     <span class="ep-str">2026-04-30T23:59:59-03:00</span>
+granularity: <span class="ep-str">1d</span>
+
+<span class="ep-comm">// Resposta — TelemetryResponse</span>
+[{
+  <span class="ep-key">"id"</span>:       <span class="ep-str">"26748a32-7a44-..."</span>,
+  <span class="ep-key">"label"</span>:   <span class="ep-str">"KFC Campinas"</span>,
+  <span class="ep-key">"readings"</span>: [
+    { <span class="ep-key">"bucket"</span>: <span class="ep-str">"2026-04-01"</span>, <span class="ep-key">"total_kwh"</span>: <span class="ep-num">312.8</span> },
+    { <span class="ep-key">"bucket"</span>: <span class="ep-str">"2026-04-02"</span>, <span class="ep-key">"total_kwh"</span>: <span class="ep-num">298.1</span> }
+  ]
+}]</div>
+            </div>
+            <div style="margin-top:10px;">
+              <p class="text" style="margin:0 0 6px;font-weight:600;color:#392d69;">⚙️ Granularidades disponíveis</p>
+              <div class="gran-row"><span class="gran-pill">1d</span><span class="gran-desc">por dia — relatórios mensais e tendência</span></div>
+              <div class="gran-row" style="margin-top:5px;"><span class="gran-pill">1h</span><span class="gran-desc">por hora — diagnóstico intraday e ponta de demanda</span></div>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Data Ingestion API — Consumo Total e Granular</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 6</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 7 — Fluxo Completo + Referências
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Fluxo &amp; Referências</div>
+          <div class="hs-title">Fluxo Completo de Integração e Documentações Oficiais</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Seção 2.10</span>
+          <span class="hs-pill">Links</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <div class="flow-panel">
+            <div class="flow-head">🔄 2.10 Fluxo Completo — ThingsBoard + Data Ingestion</div>
+            <div class="flow-body">
+              <div class="flow-step">
+                <div class="fs-num">1</div>
+                <div class="fs-body">Autenticar no <strong>ThingsBoard</strong> via <code>POST /api/auth/login</code> → obter JWT para as chamadas TB.</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">2</div>
+                <div class="fs-body">Buscar devices do <strong>Grupo Argo</strong> via <code>GET /api/customer/{customer_id}/deviceInfos</code> — iterar páginas até <code>hasNext === false</code>.</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">3</div>
+                <div class="fs-body">Montar <strong>mapa inicial</strong>: <em>label + deviceUuid + customerUuid + customerName</em> para cada device.</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">4</div>
+                <div class="fs-body">Para cada device, consultar <strong>SERVER_SCOPE</strong> → extrair <em>lucCode</em> (<code>deviceId</code> ou <code>identifier</code>) e <em>ingestionId</em>.</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">5</div>
+                <div class="fs-body">Autenticar na <strong>Data Ingestion API</strong> via <code>POST /api/v1/auth</code> → obter token de Ingestion separado.</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">6</div>
+                <div class="fs-body">Obter consumo <strong>consolidado por cliente</strong>: <code>/api/v1/telemetry/customers/{customer_id}/energy/total</code>.</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num green">7</div>
+                <div class="fs-body">Obter consumo <strong>granular por device</strong>: <code>/api/v1/telemetry/devices/{device_id}/energy</code> com <em>granularity</em> desejada (<code>1d</code> ou <code>1h</code>).</div>
+              </div>
+            </div>
+          </div>
+
+          <article class="card green">
+            <h3>📘 Data Ingestion API — Documentação Completa</h3>
+            <p class="text" style="margin-bottom:12px;">Documentação oficial com todos os endpoints, schemas de request/response, autenticação e exemplos interativos (Swagger UI).</p>
+            <div class="ref-link">
+              <div class="ref-label">Swagger UI / Docs</div>
+              <a class="ref-url" href="https://api.data.apps.myio-bas.com/api/docs/#description/introduction" target="_blank">
+                api.data.apps.myio-bas.com/api/docs/
+              </a>
+            </div>
+            <div style="margin-top:14px;">
+              <p class="text" style="margin-bottom:6px;font-weight:600;color:#392d69;">Endpoints documentados:</p>
+              <div class="ref-ep"><span class="ep-method get" style="font-size:9px;padding:2px 7px;">GET</span> <code>/api/v1/telemetry/devices/{device_id}/{reading_type}</code></div>
+              <div class="ref-ep"><span class="ep-method get" style="font-size:9px;padding:2px 7px;">GET</span> <code>/api/v1/telemetry/devices/{device_id}/{reading_type}/total</code></div>
+              <div class="ref-ep"><span class="ep-method get" style="font-size:9px;padding:2px 7px;">GET</span> <code>/api/v1/telemetry/customers/{customer_id}/{reading_type}/total</code></div>
+            </div>
+            <p class="text" style="margin-top:10px;font-size:11px;color:var(--muted);">
+              <strong>reading_type:</strong> <code>energy</code> ou <code>water</code> &nbsp;·&nbsp;
+              <strong>Rate limit:</strong> 1000 req/hora &nbsp;·&nbsp;
+              <strong>Max:</strong> 1000 registros por resposta
+            </p>
+          </article>
+
+          <article class="card blue">
+            <h3>📗 ThingsBoard API — Documentação Completa</h3>
+            <p class="text" style="margin-bottom:12px;">Swagger UI oficial do ThingsBoard MYIO com todos os endpoints REST: devices, customers, atributos, telemetria e mais.</p>
+            <div class="ref-link">
+              <div class="ref-label">Swagger UI</div>
+              <a class="ref-url" href="https://dashboard.myio-bas.com/swagger-ui/index.html" target="_blank">
+                dashboard.myio-bas.com/swagger-ui/index.html
+              </a>
+            </div>
+            <div style="margin-top:14px;">
+              <p class="text" style="margin-bottom:6px;font-weight:600;color:#392d69;">Endpoints usados nesta documentação:</p>
+              <div class="ref-ep"><span class="ep-method post" style="font-size:9px;padding:2px 7px;">POST</span> <code>/api/auth/login</code></div>
+              <div class="ref-ep"><span class="ep-method get" style="font-size:9px;padding:2px 7px;">GET</span> <code>/api/customer/{customerId}/deviceInfos</code></div>
+              <div class="ref-ep"><span class="ep-method get" style="font-size:9px;padding:2px 7px;">GET</span> <code>/api/plugins/telemetry/DEVICE/{deviceId}/values/attributes/SERVER_SCOPE</code></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>⚙️ Parâmetros Comuns — Data Ingestion</h3>
+            <div class="param-row"><span class="param-name">startTime</span><span class="param-desc">ISO-8601 com fuso. Ex.: <code>2026-04-01T00:00:00-03:00</code> (URL encoded) <span class="param-req">obrigatório</span></span></div>
+            <div class="param-row"><span class="param-name">endTime</span><span class="param-desc">ISO-8601 com fuso. Ex.: <code>2026-04-30T23:59:59-03:00</code> (URL encoded) <span class="param-req">obrigatório</span></span></div>
+            <div class="param-row"><span class="param-name">granularity</span><span class="param-desc"><code>1h</code> (padrão) ou <code>1d</code> — apenas nos endpoints de série temporal, não no <code>/total</code> <span class="param-opt">opcional</span></span></div>
+            <div class="param-row"><span class="param-name">deep</span><span class="param-desc"><code>0</code> (padrão) ou <code>1</code> — inclui entidades filhas hierarquicamente <span class="param-opt">opcional</span></span></div>
+            <div class="param-row"><span class="param-name">page / pageSize</span><span class="param-desc">Paginação: base 1, padrão 1 · 1–1000, padrão 100 <span class="param-opt">opcional</span></span></div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Referências — Data Ingestion API &amp; ThingsBoard API</span>
+        <span style="opacity:0.75;">v1.0.0 · Pág. 7</span>
+      </footer>
+    </section>
+
+  </div>
+</body>
+</html>
