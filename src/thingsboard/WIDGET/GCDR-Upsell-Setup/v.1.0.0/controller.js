@@ -885,6 +885,31 @@ self.onInit = function () {
     .gu-fu-btn-primary:hover:not(:disabled) { background: #92400e; }
     .gu-fu-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .gu-fu-btn-success { background: var(--gu-success); color: #fff; }
+    /* Sync mode selection */
+    .gu-sync-modes { display:flex; gap:14px; justify-content:center; padding:28px 0 20px; }
+    .gu-sync-mode-card {
+      flex:1; max-width:200px; padding:20px 14px; border-radius:12px; cursor:pointer;
+      border:2px solid #e5e7eb; background:#f9fafb; text-align:center;
+      transition:border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .gu-sync-mode-card:hover { border-color:#92400e; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+    .gu-sync-mode-card.selected { border-color:#92400e; background:#fffbf5; box-shadow:0 0 0 3px #f59e0b44; }
+    .gu-sync-mode-icon { font-size:28px; margin-bottom:8px; }
+    .gu-sync-mode-title { font-size:13px; font-weight:700; color:#1e293b; margin-bottom:4px; }
+    .gu-sync-mode-desc { font-size:11px; color:#64748b; line-height:1.4; }
+    /* Device picker */
+    .gu-picker-search { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:12px; margin-bottom:10px; }
+    .gu-picker-list { max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+    .gu-picker-item {
+      display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px;
+      border:1px solid #f1f5f9; background:#f8fafc; cursor:pointer; transition:background 0.1s;
+    }
+    .gu-picker-item:hover { background:#f0f9ff; border-color:#bae6fd; }
+    .gu-picker-item.selected { background:#fffbf5; border-color:#f59e0b; }
+    .gu-picker-item input { flex-shrink:0; cursor:pointer; }
+    .gu-picker-item-name { font-size:12px; font-weight:600; color:#1e293b; }
+    .gu-picker-item-meta { font-size:10px; color:#64748b; }
+    .gu-picker-empty { text-align:center; color:#94a3b8; font-size:12px; padding:20px 0; }
     /* Step 1 - textarea */
     .gu-fu-label { font-size: 13px; font-weight: 600; color: var(--gu-text); margin-bottom: 6px; }
     .gu-fu-hint { font-size: 11px; color: var(--gu-muted); margin-bottom: 10px; line-height: 1.5; }
@@ -1994,7 +2019,170 @@ self.onInit = function () {
       if (e.target === overlay) closeModal();
     });
     document.body.appendChild(overlay);
-    renderShell(renderProgress('Iniciando sincronização…', 0, 0), '');
+
+    // ── Pre-selection: modo de sincronização ──────────────────────
+    let _syncMode = null; // 'geral' | 'individual' | 'multiplos'
+
+    function renderModeSelectionHTML() {
+      return `
+        <div style="padding:0 4px">
+          <div style="font-size:13px;color:#64748b;margin-bottom:4px;text-align:center">
+            Selecione o escopo da sincronização:
+          </div>
+          <div class="gu-sync-modes">
+            <div class="gu-sync-mode-card" data-mode="geral">
+              <div class="gu-sync-mode-icon">🌐</div>
+              <div class="gu-sync-mode-title">Geral</div>
+              <div class="gu-sync-mode-desc">Todos os devices e assets do customer</div>
+            </div>
+            <div class="gu-sync-mode-card" data-mode="individual">
+              <div class="gu-sync-mode-icon">📄</div>
+              <div class="gu-sync-mode-title">Individual</div>
+              <div class="gu-sync-mode-desc">Selecionar um único device específico</div>
+            </div>
+            <div class="gu-sync-mode-card" data-mode="multiplos">
+              <div class="gu-sync-mode-icon">☑️</div>
+              <div class="gu-sync-mode-title">Múltiplos</div>
+              <div class="gu-sync-mode-desc">Selecionar dois ou mais devices</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderDevicePickerHTML(devices, mode) {
+      const isMulti = mode === 'multiplos';
+      const rows = devices.map(d => {
+        const scope = d._scope || {};
+        const meta = [scope.deviceType || d.type || '', scope.slaveId ? `slave:${scope.slaveId}` : ''].filter(Boolean).join(' · ');
+        return `
+          <label class="gu-picker-item" data-id="${d.id?.id || d.id}">
+            <input type="${isMulti ? 'checkbox' : 'radio'}" name="gu-picker-dev"
+              value="${d.id?.id || d.id}" style="accent-color:#92400e">
+            <div>
+              <div class="gu-picker-item-name">${d.name || '—'}</div>
+              ${meta ? `<div class="gu-picker-item-meta">${meta}</div>` : ''}
+            </div>
+          </label>`;
+      }).join('');
+      return `
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px">
+          ${isMulti ? 'Selecione os devices a sincronizar:' : 'Selecione um device:'}
+        </div>
+        <input class="gu-picker-search" placeholder="🔍 Buscar por nome…" id="gu-picker-q">
+        <div class="gu-picker-list" id="gu-picker-list">${rows || '<div class="gu-picker-empty">Nenhum device encontrado</div>'}</div>`;
+    }
+
+    renderShell(renderModeSelectionHTML(), `
+      <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-cancel-mode">Cancelar</button>
+      <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`);
+
+    overlay.querySelector('#gcs-cancel-mode').addEventListener('click', closeModal);
+
+    // Mode card selection
+    overlay.querySelectorAll('.gu-sync-mode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        overlay.querySelectorAll('.gu-sync-mode-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        _syncMode = card.dataset.mode;
+        overlay.querySelector('#gcs-confirm-mode').disabled = false;
+      });
+    });
+
+    overlay.querySelector('#gcs-confirm-mode').addEventListener('click', async () => {
+      if (!_syncMode) return;
+
+      if (_syncMode === 'geral') {
+        startSync(null);
+        return;
+      }
+
+      // Individual / Múltiplos — load device picker
+      setBody(`<div style="text-align:center;padding:30px;color:#64748b;font-size:13px">⏳ Carregando devices…</div>`);
+      overlay.querySelector('#gcs-footer').innerHTML = '';
+      let allDevices = [];
+      try {
+        allDevices = await guFetchCustomerDevices(selectedCustomer.id);
+        // Enrich with SERVER_SCOPE for display (lightweight: already fetched as part of sync tree later)
+      } catch (err) {
+        setBody(`<div style="color:#ef4444;font-size:13px">❌ Erro ao carregar devices: ${err.message}</div>`);
+        overlay.querySelector('#gcs-footer').innerHTML =
+          `<button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-back">← Voltar</button>`;
+        overlay.querySelector('#gcs-back').addEventListener('click', () => {
+          renderShell(renderModeSelectionHTML(), `
+            <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-cancel-mode">Cancelar</button>
+            <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`);
+        });
+        return;
+      }
+
+      // Sort by name
+      allDevices.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+      const isMulti = _syncMode === 'multiplos';
+      setBody(renderDevicePickerHTML(allDevices, _syncMode));
+      overlay.querySelector('#gcs-footer').innerHTML = `
+        <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-back-picker">← Voltar</button>
+        <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-start-filtered" disabled>
+          Sincronizar selecionados
+        </button>`;
+
+      overlay.querySelector('#gcs-back-picker').addEventListener('click', () => {
+        _syncMode = null;
+        renderShell(renderModeSelectionHTML(), `
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-cancel-mode">Cancelar</button>
+          <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`);
+        overlay.querySelector('#gcs-cancel-mode').addEventListener('click', closeModal);
+        overlay.querySelectorAll('.gu-sync-mode-card').forEach(c => {
+          c.addEventListener('click', () => {
+            overlay.querySelectorAll('.gu-sync-mode-card').forEach(x => x.classList.remove('selected'));
+            c.classList.add('selected');
+            _syncMode = c.dataset.mode;
+            overlay.querySelector('#gcs-confirm-mode').disabled = false;
+          });
+        });
+        overlay.querySelector('#gcs-confirm-mode').addEventListener('click', () => {
+          if (!_syncMode) return;
+          if (_syncMode === 'geral') { startSync(null); }
+        });
+      });
+
+      // Search filter
+      overlay.querySelector('#gu-picker-q').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        overlay.querySelectorAll('.gu-picker-item').forEach(item => {
+          const name = item.querySelector('.gu-picker-item-name')?.textContent?.toLowerCase() || '';
+          item.style.display = name.includes(q) ? '' : 'none';
+        });
+      });
+
+      // Track selection count
+      function updateStartBtn() {
+        const checked = overlay.querySelectorAll('input[name="gu-picker-dev"]:checked');
+        const btn = overlay.querySelector('#gcs-start-filtered');
+        if (btn) {
+          btn.disabled = checked.length === 0;
+          btn.textContent = checked.length > 0
+            ? `Sincronizar ${checked.length} device${checked.length > 1 ? 's' : ''}`
+            : 'Sincronizar selecionados';
+        }
+        overlay.querySelectorAll('.gu-picker-item').forEach(item => {
+          const inp = item.querySelector('input');
+          item.classList.toggle('selected', inp?.checked === true);
+        });
+      }
+
+      overlay.querySelector('#gu-picker-list').addEventListener('change', updateStartBtn);
+
+      overlay.querySelector('#gcs-start-filtered').addEventListener('click', () => {
+        const checked = [...overlay.querySelectorAll('input[name="gu-picker-dev"]:checked')];
+        if (checked.length === 0) return;
+        const deviceFilter = new Set(checked.map(inp => inp.value));
+        startSync(deviceFilter);
+      });
+    });
+
+    function startSync(deviceFilter) {
+      renderShell(renderProgress('Iniciando sincronização…', 0, 0), '');
 
     (async () => {
       const nowSynced = new Date().toISOString();
@@ -2222,12 +2410,15 @@ self.onInit = function () {
         }
 
         for (const tbDev of allTbDevices) {
+          // deviceFilter: Set<tbId> — null means process all
+          if (deviceFilter && !deviceFilter.has(tbDev.id)) continue;
+
           doneDevices++;
           setBody(
             renderProgress(
-              `Fase 3/3 — Sincronizando devices… (${doneDevices}/${totalDevices})`,
+              `Fase 3/3 — Sincronizando devices… (${doneDevices}/${deviceFilter ? deviceFilter.size : totalDevices})`,
               doneDevices,
-              totalDevices,
+              deviceFilter ? deviceFilter.size : totalDevices,
               '#0db89e'
             )
           );
@@ -2439,6 +2630,7 @@ self.onInit = function () {
         overlay.querySelector('#gcs-close').addEventListener('click', closeModal);
       }
     })();
+    } // end startSync
   }
 
   function openSyncForceIdModal() {
