@@ -131,7 +131,7 @@ export class UserDetailTab {
     section.style.cssText = 'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
 
     const sectionHeader = document.createElement('div');
-    sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#3f1a7d;border-bottom:1px solid #2e1260;';
+    sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);';
     sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🔑 Atribuições de Funções</span>`;
 
     const addBtn = document.createElement('button');

@@ -170,8 +170,11 @@ export class RolesTab {
     if (!policyKeys.length) {
       return `<div class="gm-panel-section"><span class="gm-empty-inline">Nenhuma política associada.</span></div>`;
     }
-    // Build lookup by key (e.g. "policy:alarm-management") or by id — whichever matches
-    const policyByKey = new Map(this.policies.map((p) => [p.key || p.id, p]));
+    // Build lookup by both key and id so any ref format resolves correctly
+    const policyByKey = new Map(this.policies.flatMap((p) => [
+      [p.key || p.id, p] as [string, typeof p],
+      [p.id, p] as [string, typeof p],
+    ]));
     const items = policyKeys
       .map((ref) => {
         const p = policyByKey.get(ref);
@@ -179,9 +182,11 @@ export class RolesTab {
           return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
             <span style="font-size:11px;font-family:monospace;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;">${this.esc(ref)}</span>
           </div>`;
+        const allowStr = p.allow?.length ? p.allow.join(', ') : '—';
         return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
           <div style="font-size:12px;font-weight:600;color:var(--um-text-secondary);">${this.esc(p.displayName)}</div>
           ${p.description ? `<div style="font-size:11px;color:var(--um-text-faint);">${this.esc(p.description)}</div>` : ''}
+          <div style="font-size:11px;color:var(--um-badge-user-text);margin-top:2px;">allow: ${this.esc(allowStr)}</div>
         </div>`;
       })
       .join('');
