@@ -1,4 +1,4 @@
-import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, UserRoleAssignmentsSnapshot } from '../types';
+import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, GCDRPolicy, UserRoleAssignmentsSnapshot } from '../types';
 
 export interface UserDetailCallbacks {
   onDeleted(): void;
@@ -20,6 +20,7 @@ export class UserDetailTab {
   // RFC-0197: Assignments section state
   private assignments: GCDRAssignment[] = [];
   private availableRoles: GCDRRole[] = [];
+  private availablePolicies: GCDRPolicy[] = [];
   private assignmentsEl: HTMLElement | null = null;
   private assignmentsVersion = 0;
 
@@ -130,8 +131,8 @@ export class UserDetailTab {
     section.style.cssText = 'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
 
     const sectionHeader = document.createElement('div');
-    sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-bg-surface);border-bottom:1px solid var(--um-border);';
-    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:var(--um-text-secondary);">🔑 Atribuições de Funções</span>`;
+    sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#3f1a7d;border-bottom:1px solid #2e1260;';
+    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🔑 Atribuições de Funções</span>`;
 
     const addBtn = document.createElement('button');
     addBtn.className = 'um-btn um-btn--secondary um-btn--sm';
@@ -153,12 +154,14 @@ export class UserDetailTab {
   private async loadAssignments(): Promise<void> {
     const userId = this.user.id.id;
     try {
-      const [assignRes, rolesRes] = await Promise.all([
+      const [assignRes, rolesRes, policiesRes] = await Promise.all([
         fetch(`${this.gcdrBase()}/authorization/users/${userId}/assignments`, { headers: this.gcdrHeaders() }),
         fetch(`${this.gcdrBase()}/roles?limit=100`, { headers: this.gcdrHeaders() }),
+        fetch(`${this.gcdrBase()}/policies?limit=100`, { headers: this.gcdrHeaders() }),
       ]);
       this.assignments = assignRes.ok ? this.unwrapList<GCDRAssignment>(await assignRes.json()) : [];
       this.availableRoles = rolesRes.ok ? this.unwrapList<GCDRRole>(await rolesRes.json()) : [];
+      this.availablePolicies = policiesRes.ok ? this.unwrapList<GCDRPolicy>(await policiesRes.json()) : [];
       this.renderAssignments();
     } catch (err) {
       console.error('[UserDetailTab] loadAssignments error', err);
@@ -229,6 +232,10 @@ export class UserDetailTab {
           </select>
           <span class="um-field-error" data-for="roleId"></span>
         </div>
+        <div class="um-assign-policies-preview" style="display:none;border:1px solid var(--um-border);border-radius:8px;padding:12px;background:var(--um-bg-surface);">
+          <div style="font-size:11px;font-weight:600;color:var(--um-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Políticas incluídas</div>
+          <div class="um-assign-policies-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
         <div class="um-form-group">
           <label class="um-label">Escopo <span class="um-req">*</span></label>
           <select class="um-input" name="scope">
@@ -251,6 +258,36 @@ export class UserDetailTab {
     `;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+
+    // Policy preview on role change
+    const roleSelect = modal.querySelector<HTMLSelectElement>('[name=roleId]')!;
+    const policiesPreview = modal.querySelector<HTMLElement>('.um-assign-policies-preview')!;
+    const policiesList = modal.querySelector<HTMLElement>('.um-assign-policies-list')!;
+    roleSelect.addEventListener('change', () => {
+      const role = this.availableRoles.find(r => r.id === roleSelect.value);
+      const policyRefs = role?.policies ?? role?.policyIds ?? [];
+      if (!role || policyRefs.length === 0) {
+        policiesPreview.style.display = 'none';
+        return;
+      }
+      // Match by key (e.g. "policy:alarm-management") or id
+      const policyByKey = new Map(this.availablePolicies.flatMap(p => [
+        [p.key || p.id, p],
+        [p.id, p],
+      ]));
+      const matched = policyRefs
+        .map(ref => policyByKey.get(ref))
+        .filter(Boolean) as GCDRPolicy[];
+      policiesList.innerHTML = matched.length > 0
+        ? matched.map(p => `
+            <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;background:var(--um-bg-input);border-radius:6px;">
+              <span style="font-size:11px;font-weight:600;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;white-space:nowrap;">${this.esc(p.displayName)}</span>
+              ${p.description ? `<span style="font-size:11px;color:var(--um-text-muted);padding-top:2px;">${this.esc(p.description)}</span>` : ''}
+            </div>`).join('')
+        : policyRefs.map(ref => `
+            <span style="font-size:11px;font-family:monospace;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;">${this.esc(ref)}</span>`).join('');
+      policiesPreview.style.display = 'block';
+    });
 
     const close = () => overlay.remove();
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });

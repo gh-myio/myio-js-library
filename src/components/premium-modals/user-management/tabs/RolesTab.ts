@@ -116,7 +116,8 @@ export class RolesTab {
     item.className = `gm-accordion-item${this.expandedId === r.id ? ' gm-accordion-item--open' : ''}`;
 
     const sysBadge = r.isSystem ? `<span class="gm-badge gm-badge--count">SISTEMA</span>` : '';
-    const policyCount = r.policyIds?.length || 0;
+    const policyKeys = r.policies ?? r.policyIds ?? [];
+    const policyCount = policyKeys.length;
     const policyBadge = `<span class="gm-badge gm-badge--domain">${policyCount} políticas</span>`;
 
     item.innerHTML = `
@@ -165,21 +166,23 @@ export class RolesTab {
   }
 
   private buildRolePoliciesHtml(r: GCDRRole): string {
-    if (!r.policyIds?.length) {
+    const policyKeys = r.policies ?? r.policyIds ?? [];
+    if (!policyKeys.length) {
       return `<div class="gm-panel-section"><span class="gm-empty-inline">Nenhuma política associada.</span></div>`;
     }
-    const policyMap = new Map(this.policies.map((p) => [p.id, p]));
-    const items = r.policyIds
-      .map((pid) => {
-        const p = policyMap.get(pid);
+    // Build lookup by key (e.g. "policy:alarm-management") or by id — whichever matches
+    const policyByKey = new Map(this.policies.map((p) => [p.key || p.id, p]));
+    const items = policyKeys
+      .map((ref) => {
+        const p = policyByKey.get(ref);
         if (!p)
-          return `<div style="font-size:12px;color:var(--um-text-faint);padding:3px 0;">ID: ${this.esc(pid)}</div>`;
-        const allowStr = p.allow?.join(', ') || '—';
+          return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
+            <span style="font-size:11px;font-family:monospace;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;">${this.esc(ref)}</span>
+          </div>`;
         return `<div style="padding:6px 0;border-bottom:1px solid var(--um-border-sub);">
-        <div style="font-size:12px;font-weight:600;color:var(--um-text-secondary);">${this.esc(p.displayName)}</div>
-        ${p.description ? `<div style="font-size:11px;color:var(--um-text-faint);">${this.esc(p.description)}</div>` : ''}
-        <div style="font-size:11px;color:var(--um-badge-user-text);margin-top:2px;">allow: ${this.esc(allowStr)}</div>
-      </div>`;
+          <div style="font-size:12px;font-weight:600;color:var(--um-text-secondary);">${this.esc(p.displayName)}</div>
+          ${p.description ? `<div style="font-size:11px;color:var(--um-text-faint);">${this.esc(p.description)}</div>` : ''}
+        </div>`;
       })
       .join('');
     return `<div class="gm-panel-section">
@@ -205,10 +208,12 @@ export class RolesTab {
     // 5. Ajustes de layout exclusivos deste form (tamanho e scroll)
     modal.style.cssText = 'padding: 24px; width: min(520px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
 
+    const existingPolicies = existing?.policies ?? existing?.policyIds ?? [];
     const policiesCheckboxes = this.policies.map(p => {
-      const checked = existing?.policyIds?.includes(p.id) ? ' checked' : '';
+      const ref = p.key || p.id;
+      const checked = existingPolicies.includes(ref) ? ' checked' : '';
       return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--um-text-secondary);cursor:pointer;">
-        <input type="checkbox" class="um-role-policy-chk" value="${this.esc(p.id)}"${checked} />
+        <input type="checkbox" class="um-role-policy-chk" value="${this.esc(ref)}"${checked} />
         ${this.esc(p.displayName)}${p.description ? ` <span style="color:var(--um-text-faint);">— ${this.esc(p.description)}</span>` : ''}
       </label>`;
     }).join('');
@@ -257,7 +262,7 @@ export class RolesTab {
       errEl.textContent = '';
 
       const description = modal.querySelector<HTMLInputElement>('[name=description]')!.value.trim();
-      const policyIds = Array.from(
+      const policies = Array.from(
         modal.querySelectorAll<HTMLInputElement>('.um-role-policy-chk:checked')
       ).map((c) => c.value);
 
@@ -265,7 +270,7 @@ export class RolesTab {
       btn.disabled = true;
       btn.textContent = '...';
       try {
-        const body = { name, description: description || undefined, policyIds };
+        const body = { name, description: description || undefined, policies };
         const url = isEdit ? `${this.gcdrBase()}/roles/${existing!.id}` : `${this.gcdrBase()}/roles`;
         const res = await fetch(url, {
           method: isEdit ? 'PUT' : 'POST',
