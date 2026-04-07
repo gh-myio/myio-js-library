@@ -79,11 +79,12 @@ export function buildUserDisplayName(user: TBUser): string {
 
 export interface GCDRPolicy {
   id: string;
+  key?: string;
   displayName: string;
   description?: string;
   allow: string[];
   deny: string[];
-  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical' | 'LOW' | 'MEDIUM' | 'HIGH';
   /** System policies are immutable */
   isSystem?: boolean;
   createdAt?: string;
@@ -92,10 +93,14 @@ export interface GCDRPolicy {
 
 export interface GCDRRole {
   id: string;
+  key?: string;
   displayName: string;
   description?: string;
-  /** IDs of associated policies */
-  policyIds: string[];
+  /** Policy keys as returned by the GCDR API (e.g. "policy:alarm-management") */
+  policies?: string[];
+  /** Legacy field — use `policies` instead */
+  policyIds?: string[];
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
   isSystem?: boolean;
   createdAt?: string;
   updatedAt?: string;

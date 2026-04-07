@@ -1178,6 +1178,7 @@
       alarmBundleFetchedAt: null,
       alarmsApiBaseUrl: alarmsApiBaseUrl,
       alarmsApiKey: gcdrKey(),
+      gcdrApiKey: gcdrKey(),
       // RFC-0179: Device name enrichment maps (pre-populated with mock data)
       // gcdrDeviceNameMap: UUID / "gcdr:<first8>" → human-readable label
       // UUIDs must be unique in first 8 chars for short-code indexing to work
@@ -2524,6 +2525,12 @@
       if (!token) {
         logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
         return;
+      }
+      // Ensure GCDR credentials are fresh on the orchestrator (user may have changed them after init)
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.gcdrApiKey    = gcdrKey();
+        window.MyIOOrchestrator.gcdrTenantId  = gcdrTid();
+        window.MyIOOrchestrator.gcdrCustomerId = gcdrCid();
       }
       const tenantId = document.getElementById('umTenantId')?.value.trim() || '';
       const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
