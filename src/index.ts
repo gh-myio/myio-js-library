@@ -740,6 +740,10 @@ export type {
   UserRoleAssignmentsSnapshot,
 } from './components/premium-modals/user-management';
 
+// RFC-0199: GCDR Auth Context
+export { MyIOAuthContext, initMyIOAuthContext, PERM } from './components/gcdr-auth';
+export type { AuthConfig, AuthContextSnapshot, Permission } from './components/gcdr-auth';
+
 export type {
   UpsellModalParams,
   UpsellModalInstance,

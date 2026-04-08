@@ -1627,6 +1627,10 @@ Object.assign(window.MyIOUtils, {
         // can use them without a per-device fetch when the Settings modal is opened.
         _buildTicketServiceOrchestrator();
 
+        // RFC-0199: Init GCDR Auth Context (non-blocking) — resolves user assignments/roles/policies
+        // and exposes window.MyIOAuthContext for all widgets to check permissions via .can('action')
+        _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrApiBaseUrl);
+
         // Check if credentials are present
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
           LogHelper.warn(
@@ -2760,6 +2764,74 @@ async function _buildTicketServiceOrchestrator() {
       'devices with tickets');
   } catch (err) {
     LogHelper.warn('[TicketServiceOrchestrator] build error:', err);
+  }
+}
+
+// ── RFC-0199: GCDR Auth Context initialisation ────────────────────────────────
+
+/**
+ * Initialises window.MyIOAuthContext using the current user's GCDR assignments,
+ * roles, and policies. Non-blocking — resolves via `myio:auth-ready` event.
+ *
+ * Permission check in any widget:
+ *   window.MyIOAuthContext?.can('alarm:ack')   // boolean
+ *   window.addEventListener('myio:auth-ready', handler)
+ */
+async function _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrApiBaseUrl) {
+  if (!window.MyIOLibrary?.initMyIOAuthContext) {
+    LogHelper.warn('[RFC-0199] initMyIOAuthContext not available in MyIOLibrary');
+    return;
+  }
+
+  const orch      = window.MyIOOrchestrator;
+  const jwtToken  = localStorage.getItem('jwt_token') || '';
+  const tbBaseUrl = orch?.tbBaseUrl || self.ctx?.settings?.tbBaseUrl || '';
+
+  // Resolve current user info
+  const email      = window.MyIOUtils?.currentUserEmail || '';
+  const isSuperAdmin = window.MyIOUtils?.SuperAdmin === true;
+
+  // Resolve TB user ID (needed for gcdrUserConfigs attribute lookup)
+  let currentUserTbId = '';
+  try {
+    const res = await fetch(`${tbBaseUrl}/api/auth/user`, {
+      headers: { 'X-Authorization': `Bearer ${jwtToken}` },
+    });
+    if (res.ok) {
+      const u = await res.json();
+      currentUserTbId = u?.id?.id || u?.id || '';
+      // TENANT_ADMIN → allow all without GCDR lookup
+      if (u?.authority === 'TENANT_ADMIN' || isSuperAdmin) {
+        window.MyIOAuthContext = await window.MyIOLibrary.initMyIOAuthContext({
+          gcdrApiBaseUrl, gcdrApiKey, gcdrTenantId,
+          tbBaseUrl, jwtToken, currentUserEmail: email,
+          currentUserTbId, customerId: gcdrCustomerId,
+          allowAll: true,
+        });
+        LogHelper.log('[RFC-0199] Auth context ready (allowAll=true — admin bypass)');
+        return;
+      }
+    }
+  } catch (e) {
+    LogHelper.warn('[RFC-0199] Could not fetch current user info:', e);
+  }
+
+  try {
+    window.MyIOAuthContext = await window.MyIOLibrary.initMyIOAuthContext({
+      gcdrApiBaseUrl, gcdrApiKey, gcdrTenantId,
+      tbBaseUrl, jwtToken,
+      currentUserEmail:  email,
+      currentUserTbId,
+      customerId:        gcdrCustomerId,
+      allowAll:          false,
+    });
+    LogHelper.log(
+      '[RFC-0199] Auth context ready — scope:', window.MyIOAuthContext.scope,
+      '| assignments:', window.MyIOAuthContext.assignments.length,
+      '| error:', window.MyIOAuthContext.error || 'none',
+    );
+  } catch (err) {
+    LogHelper.warn('[RFC-0199] Auth context init failed:', err);
   }
 }
 

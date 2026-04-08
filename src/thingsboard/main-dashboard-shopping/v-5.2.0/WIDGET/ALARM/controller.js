@@ -227,21 +227,38 @@ self.onInit = async function () {
     },
 
     onAcknowledge: async (alarmIds) => {
+      // RFC-0199: gate — null check: if auth not loaded yet, allow (auth may still be initialising)
+      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:ack')) {
+        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:ack');
+        return;
+      }
       LogHelper.log('Batch acknowledge:', alarmIds.length, 'alarms');
       await _handleBatchAction('acknowledge', alarmIds, userEmail);
     },
 
     onEscalate: async (alarmIds) => {
+      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:escalate')) {
+        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:escalate');
+        return;
+      }
       LogHelper.log('Batch escalate:', alarmIds.length, 'alarms');
       await _handleBatchAction('escalate', alarmIds, userEmail);
     },
 
     onSnooze: async (alarmIds, until) => {
+      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:snooze')) {
+        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:snooze');
+        return;
+      }
       LogHelper.log('Batch snooze:', alarmIds.length, 'alarms until', until);
       await _handleBatchAction('snooze', alarmIds, userEmail, { until });
     },
 
     onClose: async (alarmIds, reason) => {
+      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:close')) {
+        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:close');
+        return;
+      }
       LogHelper.log('Batch close:', alarmIds.length, 'alarms');
       await _handleBatchAction('close', alarmIds, userEmail, { reason });
     },
