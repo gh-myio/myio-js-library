@@ -77,6 +77,10 @@ ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
 
 # Central Shopping da Ilha
 ssh -i id_rsa root@201:3447:911:5955:4018:3960:6838:ee12
+
+
+# Central Montserrat
+ssh -i id_rsa root@200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc
 ```
 
 ---
