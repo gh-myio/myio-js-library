@@ -342,6 +342,12 @@ export class UserManagementModalView {
   --um-badge-admin-text:    #3b5bdb;
   --um-badge-user-bg:       #f0fdf4;
   --um-badge-user-text:     #16a34a;
+  --um-badge-active-bg:     #dcfce7;
+  --um-badge-active-text:   #15803d;
+  --um-badge-blocked-bg:    #fee2e2;
+  --um-badge-blocked-text:  #b91c1c;
+  --um-badge-pending-bg:    #fef9c3;
+  --um-badge-pending-text:  #854d0e;
   --um-toast-ok-bg:         #f0fdf4;
   --um-toast-ok-border:     #22c55e;
   --um-toast-ok-text:       #16a34a;
@@ -402,6 +408,12 @@ export class UserManagementModalView {
   --um-badge-admin-text:    #60a5fa;
   --um-badge-user-bg:       #1a2d24;
   --um-badge-user-text:     #4ade80;
+  --um-badge-active-bg:     #14532d;
+  --um-badge-active-text:   #86efac;
+  --um-badge-blocked-bg:    #450a0a;
+  --um-badge-blocked-text:  #fca5a5;
+  --um-badge-pending-bg:    #422006;
+  --um-badge-pending-text:  #fde68a;
   --um-toast-ok-bg:         #1e3a2e;
   --um-toast-ok-border:     #22c55e;
   --um-toast-ok-text:       #4ade80;
@@ -431,14 +443,21 @@ export class UserManagementModalView {
 .um-modal {
   background: var(--um-modal-bg);
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  border-radius: 14px; width: 92vw; max-width: 960px;
+  border-radius: 14px; width: 96vw; max-width: 1200px;
   --modal-header-radius: 14px 14px 0 0;
-  aspect-ratio: 16/9; display: flex; flex-direction: column;
+  height: 84vh; display: flex; flex-direction: column;
   box-shadow: var(--um-shadow); overflow: hidden; position: relative;
 }
-@media (max-height: 600px) { .um-modal { aspect-ratio: unset; height: 90vh; } }
+@media (max-height: 600px) { .um-modal { height: 96vh; } }
 
 /* Header handled by ModalHeader (RFC-0121) */
+.um-modal .myio-modal-header__title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+.um-modal .myio-modal-header__icon {
+  font-size: 15px !important;
+}
 
 /* Force MyIO purple header regardless of light/dark theme — overrides myio-modal-header--light */
 .um-modal .myio-modal-header--light {
@@ -537,16 +556,83 @@ export class UserManagementModalView {
 .um-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .um-table th {
   text-align: left; padding: 8px 12px;
-  color: var(--um-text-muted); font-weight: 500; font-size: 11px;
+  color: var(--um-text-muted); font-weight: 600; font-size: 11px;
   text-transform: uppercase; letter-spacing: 0.04em;
   border-bottom: 1px solid var(--um-border);
 }
 .um-table td {
-  padding: 10px 12px; color: var(--um-text-secondary);
+  padding: 10px 12px; color: var(--um-text-primary); font-weight: 500;
   border-bottom: 1px solid var(--um-border-sub);
 }
 .um-table tr:hover td { background: var(--um-bg-surface); }
-.um-col-actions { width: 80px; text-align: center; }
+.um-col-actions { width: 100px; text-align: center; }
+.um-col-gcdr { width: 72px; text-align: center; }
+
+/* Sync status dot */
+.um-sync-icon { display: inline-flex; align-items: center; justify-content: center; }
+.um-sync-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.um-sync-dot--none   { background: var(--um-text-faint); opacity: 0.4; }
+.um-sync-dot--ok,
+.um-sync-dot--active { background: var(--um-badge-active-text); }
+.um-sync-dot--warn   { background: var(--um-badge-pending-text); }
+.um-sync-dot--err    { background: var(--um-badge-blocked-text); }
+
+/* Premium sync tooltip */
+.um-sync-tooltip {
+  position: fixed; z-index: 100020;
+  background: var(--um-modal-bg); border: 1px solid var(--um-border);
+  border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  width: 260px; pointer-events: none;
+  font-family: 'Nunito', -apple-system, sans-serif;
+}
+.um-sync-tooltip-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 12px; background: var(--um-accent);
+  border-radius: 10px 10px 0 0;
+  font-size: 11px; font-weight: 700; color: #fff;
+}
+.um-sync-tooltip-body {
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.um-sync-tooltip-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  font-size: 11px; gap: 8px;
+}
+.um-sync-tooltip-row--muted { color: var(--um-text-faint); justify-content: center; padding: 4px 0; }
+.um-sync-tooltip-row--error .um-sync-tooltip-value { color: var(--um-badge-blocked-text); word-break: break-all; }
+.um-sync-tooltip-label { color: var(--um-text-muted); flex-shrink: 0; }
+.um-sync-tooltip-value { color: var(--um-text-primary); font-weight: 600; text-align: right; }
+
+/* Assignments quick-view popup */
+.um-assign-popup {
+  position: fixed; z-index: 100010;
+  background: var(--um-modal-bg); border: 1px solid var(--um-border);
+  border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  width: 320px; max-height: 340px; overflow-y: auto;
+  font-family: 'Nunito', -apple-system, sans-serif;
+}
+.um-assign-popup-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--um-accent);
+  border-radius: 10px 10px 0 0;
+}
+.um-assign-popup-title { font-size: 12px; font-weight: 700; color: #fff; }
+.um-assign-popup-close {
+  background: none; border: none; color: rgba(255,255,255,0.8);
+  font-size: 14px; cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.um-assign-popup-body { padding: 10px 14px; }
+.um-assign-row {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 0; border-bottom: 1px solid var(--um-border-sub);
+  font-size: 12px;
+}
+.um-assign-row:last-child { border-bottom: none; }
+.um-assign-role { font-weight: 600; color: var(--um-text-primary); }
+.um-assign-meta { color: var(--um-text-muted); font-size: 11px; }
 .um-row--highlight td { background: var(--um-row-highlight) !important; }
 
 .um-list-empty, .um-list-loading, .um-profiles-loading,
@@ -582,8 +668,11 @@ export class UserManagementModalView {
 .um-btn--sm { padding: 6px 12px; font-size: 12px; }
 
 .um-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; }
-.um-badge--admin { background: var(--um-badge-admin-bg); color: var(--um-badge-admin-text); }
-.um-badge--user  { background: var(--um-badge-user-bg);  color: var(--um-badge-user-text); }
+.um-badge--admin   { background: var(--um-badge-admin-bg);   color: var(--um-badge-admin-text); }
+.um-badge--user    { background: var(--um-badge-user-bg);    color: var(--um-badge-user-text); }
+.um-badge--active  { background: var(--um-badge-active-bg);  color: var(--um-badge-active-text); }
+.um-badge--blocked { background: var(--um-badge-blocked-bg); color: var(--um-badge-blocked-text); }
+.um-badge--pending { background: var(--um-badge-pending-bg); color: var(--um-badge-pending-text); }
 
 .um-form { display: flex; flex-direction: column; gap: 14px;}
 .um-form-row { display: flex; gap: 12px; }

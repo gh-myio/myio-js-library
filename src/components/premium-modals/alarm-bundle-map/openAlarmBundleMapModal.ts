@@ -942,7 +942,7 @@ function bindFilterBar(card: HTMLElement, bundle: GCDRCustomerBundle, getViewMod
     const lower = text.toLowerCase();
     const types = new Set<string>();
     bundle.devices.forEach((d) => {
-      const name = (d.displayName || d.name).toLowerCase();
+      const name = (d.entityLabel || d.displayName || d.name).toLowerCase();
       if (!lower || name.includes(lower) || d.type.toLowerCase().includes(lower)) {
         types.add(d.type);
       }
@@ -1032,7 +1032,7 @@ function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundle
       <div class="abm-device-header">
         <span class="abm-chevron">▾</span>
         <span style="font-size:16px;">📡</span>
-        <span class="abm-device-name">${escHtml(device.displayName || device.name)}</span>
+        <span class="abm-device-name">${escHtml(device.entityLabel || device.displayName || device.name)}</span>
         ${_alarmBadgeHtml(alarmCount)}
         <span class="abm-device-type">${escHtml(device.type)}</span>
       </div>
@@ -1093,7 +1093,7 @@ function renderByRuleView(bundle: GCDRCustomerBundle): string {
             return `
             <li class="abm-rule-group-device" data-device-id="${escHtml(d.id)}">
               <span style="font-size:13px;">📡</span>
-              <span>${escHtml(d.displayName || d.name)}</span>
+              <span>${escHtml(d.entityLabel || d.displayName || d.name)}</span>
               <span style="font-size:11px;color:#888;">${escHtml(d.type)}</span>
               ${overridePart}
             </li>`;

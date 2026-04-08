@@ -195,6 +195,8 @@ export interface GCDRBundleDevice {
   id: string;
   name: string;
   displayName: string;
+  /** ThingsBoard entity label (human-readable, preferred over name/displayName) */
+  entityLabel?: string;
   type: string;
   externalId?: string;
   assetId: string;

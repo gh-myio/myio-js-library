@@ -709,7 +709,7 @@ self.onInit = function () {
     window.MyIOLibrary.openUserManagementModal({
       customerId:   orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
       tenantId:     user.tenantId?.id || '',
-      customerName: orch?.customerName || '',
+      customerName: orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
       jwtToken:     jwt,
       tbBaseUrl:    self.ctx.settings?.tbBaseUrl || '',
       currentUser:  {

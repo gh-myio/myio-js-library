@@ -40,7 +40,7 @@ export interface TBUser {
   lastName?: string;
   phone?: string;
   authority: 'CUSTOMER_USER' | 'TENANT_ADMIN';
-  additionalInfo?: { description?: string; [key: string]: unknown };
+  additionalInfo?: { description?: string; userCredentialsEnabled?: boolean; [key: string]: unknown };
   createdTime?: number;
 }
 
@@ -109,33 +109,63 @@ export interface GCDRRole {
 export interface GCDRAssignment {
   id: string;
   userId: string;
-  roleId: string;
+  /** Role identifier key (e.g. "customer_admin") */
   roleKey: string;
-  roleDisplayName: string;
+  /** Display name — enriched client-side, not returned by API */
+  roleDisplayName?: string;
   scope: string;
   status: 'active' | 'inactive' | 'expired';
   expiresAt: string | null;
   grantedAt: string;
-  grantedBy: string;
-  reason: string | null;
+  grantedBy?: string;
+  reason?: string | null;
+  tenantId?: string;
+  createdAt?: string;
 }
 
-export interface AssignmentEntry {
-  id: string;
-  roleKey: string;
-  roleDisplayName: string;
-  scope: string;
-  status: string;
-  expiresAt: string | null;
-  grantedAt: string;
-  grantedBy: string;
-  reason: string | null;
+/** Response shape of GET /authorization/users/:userId/assignments */
+export interface UserAssignmentsResponse {
+  userId: string;
+  assignments: GCDRAssignment[];
 }
 
 export interface UserRoleAssignmentsSnapshot {
   updatedAt: string;
   version: number;
   assignments: AssignmentEntry[];
+}
+
+export interface GCDRUser {
+  id: string;
+  email: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  status: 'UNVERIFIED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'LOCKED';
+  type: 'INTERNAL' | 'CUSTOMER' | 'PARTNER' | 'SERVICE_ACCOUNT';
+  customerId?: string;
+  tenantId?: string;
+  department?: string;
+  jobTitle?: string;
+  phone?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Stored as TB SERVER_SCOPE attribute `gcdrUserConfigs` on each user entity */
+export interface GCDRUserConfigs {
+  gcdrUserId?: string;
+  gcdrStatus?: 'UNVERIFIED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'LOCKED';
+  gcdrType?: 'INTERNAL' | 'CUSTOMER' | 'PARTNER' | 'SERVICE_ACCOUNT';
+  /** ISO timestamp of last successful sync */
+  syncedAt?: string;
+  /** Total number of sync attempts */
+  syncCount?: number;
+  lastSyncResult?: 'success' | 'error';
+  lastError?: string | null;
+  /** First sync timestamp */
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ── GCDR Groups / Channels / Notifications types (RFC-0190) ──────────────────

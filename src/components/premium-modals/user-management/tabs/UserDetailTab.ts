@@ -1,4 +1,4 @@
-import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, GCDRPolicy, UserRoleAssignmentsSnapshot } from '../types';
+import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, GCDRPolicy, UserAssignmentsResponse, UserRoleAssignmentsSnapshot } from '../types';
 
 export interface UserDetailCallbacks {
   onDeleted(): void;
@@ -159,7 +159,12 @@ export class UserDetailTab {
         fetch(`${this.gcdrBase()}/roles?limit=100`, { headers: this.gcdrHeaders() }),
         fetch(`${this.gcdrBase()}/policies?limit=100`, { headers: this.gcdrHeaders() }),
       ]);
-      this.assignments = assignRes.ok ? this.unwrapList<GCDRAssignment>(await assignRes.json()) : [];
+      if (assignRes.ok) {
+        const assignJson = await assignRes.json() as UserAssignmentsResponse | GCDRAssignment[];
+        this.assignments = Array.isArray(assignJson) ? assignJson : (assignJson.assignments ?? []);
+      } else {
+        this.assignments = [];
+      }
       this.availableRoles = rolesRes.ok ? this.unwrapList<GCDRRole>(await rolesRes.json()) : [];
       this.availablePolicies = policiesRes.ok ? this.unwrapList<GCDRPolicy>(await policiesRes.json()) : [];
       this.renderAssignments();
@@ -188,11 +193,18 @@ export class UserDetailTab {
     const tbody = document.createElement('tbody');
     this.assignments.forEach(a => {
       const tr = document.createElement('tr');
-      const statusColor = a.status === 'active' ? 'var(--um-badge-user-text)' : a.status === 'expired' ? 'var(--um-btn-danger-text)' : 'var(--um-text-faint)';
+      const statusColor = a.status === 'active' ? 'var(--um-badge-active-text)' : a.status === 'expired' ? 'var(--um-badge-blocked-text)' : 'var(--um-text-faint)';
       const expiresAt = a.expiresAt ? new Date(a.expiresAt).toLocaleDateString('pt-BR') : '—';
+      const scopeLabel = a.scope === '*'
+        ? '* (global)'
+        : a.scope.startsWith('customer:')
+          ? `Cliente (${a.scope.replace('customer:', '').slice(0, 8)}...)`
+          : a.scope.startsWith('asset:')
+            ? `Asset (${a.scope.replace('asset:', '').slice(0, 8)}...)`
+            : a.scope;
       tr.innerHTML = `
         <td style="font-weight:500;">${this.esc(a.roleDisplayName || a.roleKey)}</td>
-        <td><code style="font-size:10px;">${this.esc(a.scope)}</code></td>
+        <td style="font-size:12px;">${this.esc(scopeLabel)}</td>
         <td><span style="color:${statusColor};font-weight:600;">${a.status}</span></td>
         <td>${expiresAt}</td>
         <td style="text-align:center;"><button class="um-btn um-btn--danger um-btn--sm revoke-btn">Revogar</button></td>
@@ -310,13 +322,14 @@ export class UserDetailTab {
       const expiresAt = expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null;
       const reason = (modal.querySelector<HTMLInputElement>('[name=reason]')!.value).trim() || null;
       const role = this.availableRoles.find(r => r.id === roleId);
+      const roleKey = role?.key || role?.id || roleId;
 
       const btn = modal.querySelector<HTMLButtonElement>('.assign-save')!;
       btn.disabled = true; btn.textContent = '...';
       try {
         const body = {
           userId: this.user.id.id,
-          roleId,
+          roleKey,
           scope,
           expiresAt,
           reason,
