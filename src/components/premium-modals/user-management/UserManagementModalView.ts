@@ -300,6 +300,13 @@ export class UserManagementModalView {
   // ── Styles ───────────────────────────────────────────────────────────────────
 
   private injectStyles(): void {
+    if (!document.getElementById('um-font-nunito')) {
+      const link = document.createElement('link');
+      link.id = 'um-font-nunito';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap';
+      document.head.appendChild(link);
+    }
     if (document.getElementById('um-styles')) return;
     const style = document.createElement('style');
     style.id = 'um-styles';
@@ -423,6 +430,7 @@ export class UserManagementModalView {
 /* ── Component styles (theme-agnostic via variables) ── */
 .um-modal {
   background: var(--um-modal-bg);
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   border-radius: 14px; width: 92vw; max-width: 960px;
   --modal-header-radius: 14px 14px 0 0;
   aspect-ratio: 16/9; display: flex; flex-direction: column;
@@ -596,7 +604,7 @@ export class UserManagementModalView {
 .um-check-label { font-size: 13px; color: var(--um-text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .um-form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
-.um-detail-card { max-width: 560px; }
+.um-detail-card { width: 100%; }
 .um-detail-section { border: 1px solid var(--um-border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
 .um-detail-row {
   display: flex; align-items: flex-start; gap: 16px;

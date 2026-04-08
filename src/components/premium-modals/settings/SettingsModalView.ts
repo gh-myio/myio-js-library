@@ -12,9 +12,9 @@ import type { UserInfo, PermissionSet } from './annotations/types';
 const ALLOWED_EMAIL_DOMAIN = '@myio.com.br';
 
 export class SettingsModalView {
-  private container: HTMLElement;
-  private modal: HTMLElement;
-  private form: HTMLFormElement;
+  private container!: HTMLElement;
+  private modal!: HTMLElement;
+  private form!: HTMLFormElement;
   private config: ModalConfig;
   private focusTrapElements: HTMLElement[] = [];
   private originalActiveElement: Element | null = null;
@@ -501,7 +501,7 @@ export class SettingsModalView {
   }
 
   private formatDomainLabel(domain: string): string {
-    const MAP: Record<Domain, string> = {
+    const MAP: Record<string, string> = {
       energy: 'de energia',
       water: 'de água',
       temperature: 'de temperatura',
@@ -699,7 +699,7 @@ export class SettingsModalView {
         <div class="customer-name-container">
           <div class="customer-info-row">
             <div class="device-type-icon-wrapper">
-              ${this.getDeviceTypeIcon(deviceType)}
+              ${this.getDeviceTypeIcon(deviceType ?? '')}
             </div>
             <div class="customer-info-content">
               <div class="customer-name-label">Shopping</div>
@@ -1210,7 +1210,7 @@ export class SettingsModalView {
     `;
   }
 
-  private calculateTimeBetweenDates(data1, data2) {
+  private calculateTimeBetweenDates(data1: any, data2: any) {
     // 1. Validação das entradas
     if (!(data1 instanceof Date) || !(data2 instanceof Date)) {
       console.error('Entradas inválidas. As duas entradas devem ser objetos Date.');
@@ -1405,7 +1405,7 @@ export class SettingsModalView {
       unknown: { text: 'Sem informação', color: '#94a3b8' },
     };
 
-    const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus) || ''] || {
+    const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus ?? '') || ''] || {
       text: 'Desconhecido',
       color: '#6b7280',
     };
@@ -1502,6 +1502,13 @@ export class SettingsModalView {
         }
         
         /* Header handled by ModalHeader (RFC-0121) */
+        .myio-device-settings-modal .myio-modal-header__title {
+          font-size: 14px;
+          font-weight: 600;
+        }
+        .myio-device-settings-modal .myio-modal-header__icon {
+          font-size: 15px;
+        }
 
         .myio-device-settings-modal.is-maximized {
           width: 100vw !important;

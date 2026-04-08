@@ -132,11 +132,11 @@ export class UserDetailTab {
 
     const sectionHeader = document.createElement('div');
     sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);';
-    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🔑 Atribuições de Funções</span>`;
+    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🔑 Funções / Papéis</span>`;
 
     const addBtn = document.createElement('button');
     addBtn.className = 'um-btn um-btn--secondary um-btn--sm';
-    addBtn.textContent = '+ Atribuir Função';
+    addBtn.textContent = '+ Adicionar';
     addBtn.addEventListener('click', () => this.showAssignForm());
     sectionHeader.appendChild(addBtn);
     section.appendChild(sectionHeader);
@@ -213,16 +213,21 @@ export class UserDetailTab {
     
     const modal = document.createElement('div');
     modal.className = 'um-modal';
-    modal.style.cssText = 'padding: 24px; width: min(480px, 92vw); max-height: 80vh; height: auto; aspect-ratio: unset; overflow-y: auto; display: block;';
-    
+    modal.style.cssText = 'width: min(820px, 92vw); max-height: 85vh; height: auto; aspect-ratio: unset; overflow: hidden; display: flex; flex-direction: column;';
+
     const gcdrCid = (window as any).MyIOOrchestrator?.gcdrCustomerId || '';
     const scopeOptions = [
-      { value: '*', label: '* (global)' },
-      ...(gcdrCid ? [{ value: `customer:${gcdrCid}`, label: `customer:${gcdrCid}` }] : []),
+      { value: '*', label: '* (global — todos os clientes)' },
+      ...(gcdrCid ? [{ value: `customer:${gcdrCid}`, label: `Cliente atual (${gcdrCid.slice(0, 8)}...)` }] : []),
     ];
 
     modal.innerHTML = `
-      <h4 style="margin:0 0 16px;font-size:15px;font-weight:600;color:var(--um-text-primary,#e2e8f0);">Atribuir Função</h4>
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);flex-shrink:0;">
+        <span style="font-size:15px;">🔑</span>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#fff;">Atribuir Função / Papel</span>
+        <button type="button" class="assign-close" style="background:none;border:none;color:rgba(255,255,255,0.8);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1;">✕</button>
+      </div>
+      <div style="padding:20px 24px;overflow-y:auto;flex:1;">
       <div class="um-form" style="max-width:100%;">
         <div class="um-form-group">
           <label class="um-label">Função <span class="um-req">*</span></label>
@@ -254,6 +259,7 @@ export class UserDetailTab {
           <button class="um-btn um-btn--ghost assign-cancel">Cancelar</button>
           <button class="um-btn um-btn--primary assign-save">Atribuir</button>
         </div>
+      </div>
       </div>
     `;
     overlay.appendChild(modal);
@@ -291,6 +297,7 @@ export class UserDetailTab {
 
     const close = () => overlay.remove();
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    modal.querySelector('.assign-close')!.addEventListener('click', close);
     modal.querySelector('.assign-cancel')!.addEventListener('click', close);
     modal.querySelector('.assign-save')!.addEventListener('click', async () => {
       const roleId = (modal.querySelector<HTMLSelectElement>('[name=roleId]')!.value).trim();
