@@ -737,7 +737,6 @@ export type {
   GCDRPolicy,
   GCDRRole,
   GCDRAssignment,
-  AssignmentEntry,
   UserRoleAssignmentsSnapshot,
 } from './components/premium-modals/user-management';
 

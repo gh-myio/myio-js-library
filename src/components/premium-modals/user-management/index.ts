@@ -10,7 +10,6 @@ export type {
   GCDRPolicy,
   GCDRRole,
   GCDRAssignment,
-  AssignmentEntry,
   UserRoleAssignmentsSnapshot,
 } from './types';
 export { buildUserTabLabel, buildUserDisplayName } from './types';

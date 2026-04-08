@@ -132,7 +132,7 @@ export interface UserAssignmentsResponse {
 export interface UserRoleAssignmentsSnapshot {
   updatedAt: string;
   version: number;
-  assignments: AssignmentEntry[];
+  assignments: GCDRAssignment[];
 }
 
 export interface GCDRUser {
