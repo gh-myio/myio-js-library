@@ -184,23 +184,32 @@ export class AlarmsTab {
    * Falls back to prefetchedAlarms prop when ASO is not available (e.g. standalone showcase).
    */
   private readAlarmsFromASO(): GCDRAlarm[] {
-    const aso = (
-      window as unknown as {
-        AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
-      }
-    ).AlarmServiceOrchestrator;
+    const win = window as unknown as {
+      AlarmServiceOrchestrator?: { getAlarmsForDevice: (id: string) => GCDRAlarm[] };
+      MyIOOrchestrator?: { showOfflineAlarms?: boolean };
+    };
+    const aso = win.AlarmServiceOrchestrator;
+    const showOffline = win.MyIOOrchestrator?.showOfflineAlarms === true;
+
+    const _OFFLINE_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
+    const _isOffline = (a: GCDRAlarm) => {
+      const t = ((a.title ?? a.alarmType) || '').toUpperCase();
+      return _OFFLINE_TYPES.some((ex) => t.startsWith(ex)) || a.alarmType === 'connectivity';
+    };
+
+    let alarms: GCDRAlarm[] = [];
 
     if (aso && this.config.gcdrDeviceId) {
-      return aso.getAlarmsForDevice(this.config.gcdrDeviceId) as GCDRAlarm[];
+      alarms = aso.getAlarmsForDevice(this.config.gcdrDeviceId) as GCDRAlarm[];
+    } else {
+      // Fallback: prefetchedAlarms filtered by deviceId
+      const prefetched = this.config.prefetchedAlarms;
+      if (prefetched != null) {
+        alarms = (prefetched as GCDRAlarm[]).filter((a) => a.deviceId === this.config.gcdrDeviceId);
+      }
     }
 
-    // Fallback: prefetchedAlarms filtered by deviceId
-    const prefetched = this.config.prefetchedAlarms;
-    if (prefetched != null) {
-      return (prefetched as GCDRAlarm[]).filter((a) => a.deviceId === this.config.gcdrDeviceId);
-    }
-
-    return [];
+    return showOffline ? alarms : alarms.filter((a) => !_isOffline(a));
   }
 
   // ============================================================================

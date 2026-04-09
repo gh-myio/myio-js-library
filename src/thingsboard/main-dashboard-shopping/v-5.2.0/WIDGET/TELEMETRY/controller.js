@@ -556,6 +556,21 @@ function injectFilterModalStyles() {
   doc.head.appendChild(style);
 }
 
+// RFC-0183: Returns visible alarm count for a device, respecting showOfflineAlarms flag.
+const _TELEMETRY_OFFLINE_ALARM_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
+function _isOfflineAlarmEntry(alarm) {
+  const t = ((alarm.title ?? alarm.alarmType) || '').toUpperCase();
+  return _TELEMETRY_OFFLINE_ALARM_TYPES.some((ex) => t.startsWith(ex)) || alarm.alarmType === 'connectivity';
+}
+function _getVisibleAlarmCount(gcdrDeviceId) {
+  const aso = window.AlarmServiceOrchestrator;
+  if (!aso) return 0;
+  const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
+  if (showOffline) return aso.getAlarmCountForDevice(gcdrDeviceId);
+  const alarms = aso.getAlarmsForDevice ? aso.getAlarmsForDevice(gcdrDeviceId) : [];
+  return alarms.filter((a) => !_isOfflineAlarmEntry(a)).length;
+}
+
 // RFC-0183: Append alarm badge to a card element if the device has active alarms.
 // gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
 function addAlarmBadge(cardElement, gcdrDeviceId) {
@@ -563,7 +578,7 @@ function addAlarmBadge(cardElement, gcdrDeviceId) {
   if (STATE.alarmFilter === 'apenas_sem_alarmes') return; // badge hidden when showing only no-alarm cards
   const aso = window.AlarmServiceOrchestrator;
   if (!aso) return;
-  const count = aso.getAlarmCountForDevice(gcdrDeviceId);
+  const count = _getVisibleAlarmCount(gcdrDeviceId);
   if (!count) return;
 
   injectAlarmBadgeStyles();
@@ -594,7 +609,7 @@ function refreshAlarmBadges() {
   document.querySelectorAll('.myio-alarm-badge[data-alarm-device-id]').forEach((badge) => {
     const gcdrDeviceId = badge.getAttribute('data-alarm-device-id');
     if (!gcdrDeviceId) return;
-    const count = aso.getAlarmCountForDevice(gcdrDeviceId);
+    const count = _getVisibleAlarmCount(gcdrDeviceId);
     const span = badge.querySelector('span');
     if (count > 0) {
       badge.style.display = '';
@@ -1880,12 +1895,12 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) 
     v = v.filter((x) => selectedIds.has(x.id));
   }
 
-  // Alarm filter
+  // Alarm filter — respects showOfflineAlarms flag via _getVisibleAlarmCount
   if (alarmFilter === 'apenas_ativados' || alarmFilter === 'apenas_sem_alarmes') {
     const aso = window.AlarmServiceOrchestrator;
     if (aso) {
       v = v.filter((x) => {
-        const hasAlarm = x.gcdrDeviceId && aso.getAlarmCountForDevice(x.gcdrDeviceId) > 0;
+        const hasAlarm = x.gcdrDeviceId && _getVisibleAlarmCount(x.gcdrDeviceId) > 0;
         return alarmFilter === 'apenas_ativados' ? hasAlarm : !hasAlarm;
       });
     }
@@ -5516,6 +5531,16 @@ self.onInit = async function () {
   // myio:alarms-updated — fired by MAIN_VIEW after each ASO rebuild.
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
+
+  // myio:offline-alarms-toggle — fired by HEADER when showOfflineAlarms changes.
+  // Re-applies filters (alarm filter may include/exclude offline-only cards) and refreshes badges.
+  window.addEventListener('myio:offline-alarms-toggle', () => {
+    if (STATE.alarmFilter !== 'ativado') {
+      reflowFromState(); // re-filter cards (some may appear/disappear based on offline alarm visibility)
+    } else {
+      refreshAlarmBadges(); // just update badge counts even when no alarm filter is active
+    }
+  });
 
   // RFC-0198: myio:tickets-ready — fired by TicketServiceOrchestrator after each build/refresh.
   // Refreshes ticket badge counts on all currently-rendered TELEMETRY cards without re-rendering.
