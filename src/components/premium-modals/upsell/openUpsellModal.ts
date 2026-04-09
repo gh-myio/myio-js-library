@@ -786,6 +786,9 @@ interface ModalState {
   checkFixLoading: boolean;
   checkFixReport: CheckFixReport | null;
   checkFixFilter: CheckFixFilter;
+  checkFixSort: { field: 'name' | 'status' | 'connStatus' | 'deviceType' | 'deviceProfile' | 'ingestionId' | 'domain'; order: 'asc' | 'desc' };
+  checkFixAdvancedFilter: { statuses: CheckFixStatus[]; connStatuses: string[]; domains: string[]; missingIngestionId: boolean; missingCentralSlave: boolean };
+  checkFixFilterOpen: boolean;
 }
 
 // Helper: format timestamp to locale date string
@@ -942,6 +945,9 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     checkFixLoading: false,
     checkFixReport: null,
     checkFixFilter: 'all',
+    checkFixSort: { field: 'name', order: 'asc' },
+    checkFixAdvancedFilter: { statuses: [], connStatuses: [], domains: [], missingIngestionId: false, missingCentralSlave: false },
+    checkFixFilterOpen: false,
   };
 
   // Load saved theme
@@ -1953,6 +1959,34 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
 }
 
 // ============================================================================
+// RFC-0184: Check & Fix — status detail builder for tooltip
+// ============================================================================
+
+function _buildCfStatusDetail(r: DeviceDiagnosticRecord): string {
+  if (r.status === 'ok') return '';
+  const lines: string[] = [];
+  if (r.status === 'mismatch') {
+    if (r.actual.type !== r.inferred.deviceType)
+      lines.push(`TYPE: actual="${r.actual.type}" ≠ expected="${r.inferred.deviceType}"`);
+    if (r.actual.deviceType !== r.inferred.deviceType)
+      lines.push(`deviceType: actual="${r.actual.deviceType}" ≠ expected="${r.inferred.deviceType}"`);
+    if (r.actual.deviceProfile !== r.inferred.deviceProfile)
+      lines.push(`deviceProfile: actual="${r.actual.deviceProfile}" ≠ expected="${r.inferred.deviceProfile}"`);
+  } else if (r.status === 'missing') {
+    if (!r.actual.type) lines.push('TYPE: não definido');
+    if (!r.actual.deviceType) lines.push('deviceType: não definido');
+    if (!r.actual.deviceProfile) lines.push('deviceProfile: não definido');
+  } else if (r.status === 'undefined') {
+    lines.push(`Nome não permite inferir o tipo de dispositivo: "${r.deviceName}"`);
+    lines.push('Use Check & Fix manual ou ajuste o nome do dispositivo.');
+  }
+  if (!r.ingestionId) lines.push('ingestionId: ausente (não integrado ao backend de ingestão)');
+  if (!r.centralId) lines.push('centralId: ausente');
+  if (r.connStatus === 'offline') lines.push('Dispositivo offline no momento');
+  return lines.join('\n') || r.status;
+}
+
+// ============================================================================
 // RFC-0184: Check & Fix — single row for the integrated grid
 // ============================================================================
 
@@ -2027,7 +2061,10 @@ function renderCheckFixRow(
       <td style="${cell(dupIngestionIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.ingestionId || ''}">${r.ingestionId || dash}</td>
       <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.centralId || ''}">${r.centralId || dash}</td>
       <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:50px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.slaveId || dash}</td>
-      <td style="padding:4px 6px; font-size:10px; color:${STATUS_COLOR[r.status]}; font-weight:700; white-space:nowrap;">${STATUS_ICON[r.status]} ${r.status}</td>
+      <td style="padding:4px 6px; font-size:10px; color:${STATUS_COLOR[r.status]}; font-weight:700; white-space:nowrap; cursor:${r.status !== 'ok' ? 'help' : 'default'};"
+          ${r.status !== 'ok' ? `data-cf-status="${r.status}" data-cf-device="${encodeURIComponent(r.deviceName)}" data-cf-detail="${encodeURIComponent(_buildCfStatusDetail(r))}"` : ''}>
+        ${STATUS_ICON[r.status]} ${r.status}
+      </td>
     </tr>`;
 }
 
@@ -2574,10 +2611,36 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       if (state.checkFixReport) {
         // CHECK & FIX mode: replace standard grid with diagnostic table
         const idToRecord = new Map(state.checkFixReport.records.map(r => [r.deviceId, r]));
-        const cfRows = sortedDevices
+
+        // Apply status filter (existing)
+        let cfRows = sortedDevices
           .map(d => idToRecord.get(getEntityId(d)))
           .filter((r): r is DeviceDiagnosticRecord => r !== undefined)
           .filter(r => state.checkFixFilter === 'all' || r.status === state.checkFixFilter);
+
+        // Apply advanced filters
+        const af = state.checkFixAdvancedFilter;
+        if (af.statuses.length > 0) cfRows = cfRows.filter(r => af.statuses.includes(r.status));
+        if (af.connStatuses.length > 0) cfRows = cfRows.filter(r => af.connStatuses.includes(r.connStatus || 'null'));
+        if (af.domains.length > 0) cfRows = cfRows.filter(r => af.domains.includes(r.domain || 'null'));
+        if (af.missingIngestionId) cfRows = cfRows.filter(r => !r.ingestionId);
+        if (af.missingCentralSlave) cfRows = cfRows.filter(r => !r.centralId || r.slaveId == null);
+
+        // Sort CF rows by checkFixSort
+        const cfSortField = state.checkFixSort.field;
+        const cfSortOrder = state.checkFixSort.order;
+        cfRows = [...cfRows].sort((a, b) => {
+          let va: string = '', vb: string = '';
+          if (cfSortField === 'name') { va = a.deviceName || ''; vb = b.deviceName || ''; }
+          else if (cfSortField === 'status') { va = a.status || ''; vb = b.status || ''; }
+          else if (cfSortField === 'connStatus') { va = a.connStatus || ''; vb = b.connStatus || ''; }
+          else if (cfSortField === 'deviceType') { va = a.actual.deviceType || ''; vb = b.actual.deviceType || ''; }
+          else if (cfSortField === 'deviceProfile') { va = a.actual.deviceProfile || ''; vb = b.actual.deviceProfile || ''; }
+          else if (cfSortField === 'ingestionId') { va = a.ingestionId || ''; vb = b.ingestionId || ''; }
+          else if (cfSortField === 'domain') { va = a.domain || ''; vb = b.domain || ''; }
+          const cmp = va.toLowerCase().localeCompare(vb.toLowerCase());
+          return cfSortOrder === 'asc' ? cmp : -cmp;
+        });
 
         // Detect duplicate centralId+slaveId pairs
         const pairCount = new Map<string, string[]>();
@@ -2603,27 +2666,121 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         ingCount.forEach(ids => { if (ids.length > 1) ids.forEach(id => dupIngestionIds.add(id)); });
 
         const colSpan = multiCol ? 18 : 17;
+
+        // Sortable CF header helper
+        const cfSortHeader = (field: typeof cfSortField, label: string, rowspan = 1, extraStyle = '') => {
+          const isActive = state.checkFixSort.field === field;
+          const arrow = isActive ? (state.checkFixSort.order === 'asc' ? '▲' : '▼') : '▽';
+          return `<th ${rowspan > 1 ? `rowspan="${rowspan}"` : ''} id="${modalId}-cf-sort-${field}" data-cf-sort="${field}" style="${thStyle(extraStyle)} cursor:pointer; user-select:none; ${isActive ? `background:rgba(62,26,125,0.18);` : ''}">
+            <span style="display:flex;align-items:center;gap:3px;white-space:nowrap;">${label}<span style="font-size:7px;color:${isActive ? MYIO_PURPLE : colors.textMuted};">${arrow}</span></span>
+          </th>`;
+        };
+
+        // Advanced filter panel (dropdown)
+        const allDomains = [...new Set(state.checkFixReport.records.map(r => r.domain || 'null'))].sort();
+        const allConns = [...new Set(state.checkFixReport.records.map(r => r.connStatus || 'null'))].sort();
+        const hasAdvFilter = af.statuses.length > 0 || af.connStatuses.length > 0 || af.domains.length > 0 || af.missingIngestionId || af.missingCentralSlave;
+
+        const filterPanel = state.checkFixFilterOpen ? `
+          <div id="${modalId}-cf-filter-panel" style="
+            position:absolute; top:calc(100% + 4px); right:0; z-index:200;
+            background:${colors.cardBg}; border:1px solid ${colors.border}; border-radius:10px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.22); padding:16px; min-width:300px;
+            font-size:11px; color:${colors.text};
+          ">
+            <div style="font-weight:700; font-size:12px; margin-bottom:12px; color:${colors.text};">🔧 Filtros Avançados — Check &amp; Fix</div>
+            <div style="margin-bottom:10px;">
+              <div style="font-weight:600; margin-bottom:4px; color:${colors.textMuted}; text-transform:uppercase; font-size:9px;">Status</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${(['ok','mismatch','missing','undefined'] as CheckFixStatus[]).map(s => {
+                  const icons: Record<string,string> = { ok:'✅', mismatch:'⚠️', missing:'❌', undefined:'❓' };
+                  const active = af.statuses.includes(s);
+                  return `<button data-cf-flt-status="${s}" style="padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;border:1px solid ${active ? MYIO_PURPLE : colors.border};background:${active ? MYIO_PURPLE : colors.inputBg};color:${active ? 'white' : colors.text};">${icons[s]} ${s}</button>`;
+                }).join('')}
+              </div>
+            </div>
+            <div style="margin-bottom:10px;">
+              <div style="font-weight:600; margin-bottom:4px; color:${colors.textMuted}; text-transform:uppercase; font-size:9px;">Conn. Status</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${allConns.map(c => {
+                  const active = af.connStatuses.includes(c);
+                  return `<button data-cf-flt-conn="${c}" style="padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;border:1px solid ${active ? MYIO_PURPLE : colors.border};background:${active ? MYIO_PURPLE : colors.inputBg};color:${active ? 'white' : colors.text};">${c}</button>`;
+                }).join('')}
+              </div>
+            </div>
+            <div style="margin-bottom:10px;">
+              <div style="font-weight:600; margin-bottom:4px; color:${colors.textMuted}; text-transform:uppercase; font-size:9px;">Domain</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${allDomains.map(d => {
+                  const active = af.domains.includes(d);
+                  return `<button data-cf-flt-domain="${d}" style="padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;border:1px solid ${active ? MYIO_PURPLE : colors.border};background:${active ? MYIO_PURPLE : colors.inputBg};color:${active ? 'white' : colors.text};">${d}</button>`;
+                }).join('')}
+              </div>
+            </div>
+            <div style="margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="${modalId}-cf-flt-noing" ${af.missingIngestionId ? 'checked' : ''} style="accent-color:${MYIO_PURPLE};"/>
+                <span>Sem ingestionId</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="${modalId}-cf-flt-nocentral" ${af.missingCentralSlave ? 'checked' : ''} style="accent-color:${MYIO_PURPLE};"/>
+                <span>Sem centralId/slaveId</span>
+              </label>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button id="${modalId}-cf-flt-clear" style="padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;background:transparent;border:1px solid ${colors.border};color:${colors.textMuted};">Limpar</button>
+              <button id="${modalId}-cf-flt-close" style="padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;background:${MYIO_PURPLE};border:none;color:white;font-weight:600;">Fechar</button>
+            </div>
+          </div>
+        ` : '';
+
         return `
+        <div style="position:relative;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+            <span style="font-size:10px;color:${colors.textMuted};">${cfRows.length} / ${state.checkFixReport.records.length} registros</span>
+            <div style="position:relative;margin-left:auto;">
+              <button id="${modalId}-cf-filter-btn" style="padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid ${hasAdvFilter ? MYIO_PURPLE : colors.border};background:${hasAdvFilter ? MYIO_PURPLE : colors.inputBg};color:${hasAdvFilter ? 'white' : colors.text};font-weight:${hasAdvFilter ? '700' : '400'};">
+                🔧 Filtros${hasAdvFilter ? ` (${af.statuses.length + af.connStatuses.length + af.domains.length + (af.missingIngestionId ? 1 : 0) + (af.missingCentralSlave ? 1 : 0)})` : ''}
+              </button>
+              ${filterPanel}
+            </div>
+          </div>
         <div id="${modalId}-device-list" style="
           overflow-x:auto; max-height:${gridHeight};
           border:1px solid ${colors.border}; border-radius:8px; background:${colors.surface};
         ">
-          <table style="border-collapse:collapse; min-width:100%;">
+          <table style="border-collapse:collapse; table-layout:fixed; width:100%; min-width:1100px;">
+            <colgroup>
+              ${multiCol ? `<col style="width:28px"/>` : ''}
+              <col style="width:150px"/>
+              <col style="width:95px"/>
+              <col style="width:70px"/><col style="width:70px"/>
+              <col style="width:90px"/><col style="width:90px"/>
+              <col style="width:90px"/><col style="width:90px"/>
+              <col style="width:85px"/>
+              <col style="width:110px"/>
+              <col style="width:70px"/>
+              <col style="width:110px"/>
+              <col style="width:110px"/>
+              <col style="width:80px"/>
+              <col style="width:50px"/>
+              <col style="width:90px"/>
+            </colgroup>
             <thead>
               <tr>
                 ${multiCol ? `<th rowspan="2" style="${thStyle('width:28px')}">☑</th>` : ''}
-                <th rowspan="2" style="${thStyle('min-width:140px')}">Name</th>
+                ${cfSortHeader('name', 'Name', 2, 'min-width:140px')}
                 <th rowspan="2" style="${thStyle('min-width:90px')}">Label</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">TYPE</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">DevType</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">DevProfile</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">Last Telemetry</th>
-                <th rowspan="2" style="${thStyle('min-width:65px')}">Conn.</th>
+                ${cfSortHeader('connStatus', 'Conn.', 2, 'min-width:65px')}
                 <th rowspan="2" style="${thStyle('min-width:110px')}">gcdrId</th>
-                <th rowspan="2" style="${thStyle('min-width:110px')}">ingestionId</th>
+                ${cfSortHeader('ingestionId', 'ingestionId', 2, 'min-width:110px')}
                 <th rowspan="2" style="${thStyle('min-width:80px')}">centralId</th>
                 <th rowspan="2" style="${thStyle('min-width:50px')}">slave</th>
-                <th rowspan="2" style="${thStyle()}">Result</th>
+                ${cfSortHeader('status', 'Result', 2)}
               </tr>
               <tr>
                 <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
@@ -2639,6 +2796,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
                 : cfRows.map(r => renderCheckFixRow(r, state, modalId, colors, dupPairIds, dupIngestionIds)).join('')}
             </tbody>
           </table>
+        </div>
         </div>`;
       }
 
@@ -3834,6 +3992,89 @@ function openRelationsDetailPanel(
 }
 
 // ============================================================================
+// CF Status Tooltip — premium hover for mismatch/missing/undefined
+// ============================================================================
+
+function _setupCfStatusTooltip(container: HTMLElement, modalId: string, colors: ThemeColors): void {
+  const TOOLTIP_ID = `${modalId}-cf-status-tip`;
+  let destroyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function ensureTip(): HTMLElement {
+    let tip = document.getElementById(TOOLTIP_ID);
+    if (tip) return tip;
+    tip = document.createElement('div');
+    tip.id = TOOLTIP_ID;
+    tip.style.cssText = `
+      position:fixed; z-index:99990; display:none;
+      background:${colors.cardBg}; border:1px solid ${colors.border};
+      border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,0.26);
+      padding:12px 14px; max-width:340px; font-size:11px; color:${colors.text};
+      line-height:1.6; pointer-events:auto;
+    `;
+    document.body.appendChild(tip);
+    return tip;
+  }
+
+  function showTip(el: HTMLElement, status: string, deviceName: string, detail: string): void {
+    if (destroyTimer) { clearTimeout(destroyTimer); destroyTimer = null; }
+    const tip = ensureTip();
+    const STATUS_LABEL: Record<string, string> = { mismatch: '⚠️ Mismatch', missing: '❌ Missing', undefined: '❓ Undefined' };
+    const STATUS_COLOR_TIP: Record<string, string> = { mismatch: colors.warning, missing: colors.danger, undefined: colors.textMuted };
+    const lines = detail.split('\n').filter(Boolean);
+    tip.innerHTML = `
+      <div style="font-weight:700; font-size:12px; color:${STATUS_COLOR_TIP[status] || colors.text}; margin-bottom:6px;">${STATUS_LABEL[status] || status}</div>
+      <div style="font-size:10px; color:${colors.textMuted}; margin-bottom:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${deviceName}">${deviceName}</div>
+      <div style="border-top:1px solid ${colors.border}; padding-top:8px;">
+        ${lines.map(l => `<div style="margin-bottom:3px; font-family:monospace; font-size:10px;">${l}</div>`).join('')}
+      </div>
+    `;
+    // Position near element
+    const rect = el.getBoundingClientRect();
+    const tipW = 340, tipH = 80;
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    if (left + tipW > window.innerWidth - 10) left = window.innerWidth - tipW - 10;
+    if (top + tipH > window.innerHeight - 10) top = rect.top - tipH - 6;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+    tip.style.display = 'block';
+  }
+
+  function hideTip(force = false): void {
+    if (force) {
+      const tip = document.getElementById(TOOLTIP_ID);
+      if (tip) tip.style.display = 'none';
+      if (destroyTimer) { clearTimeout(destroyTimer); destroyTimer = null; }
+      return;
+    }
+    // 2s destroy timeout — cancelled if focus/hover resumes
+    destroyTimer = setTimeout(() => {
+      const tip = document.getElementById(TOOLTIP_ID);
+      if (tip) tip.style.display = 'none';
+      destroyTimer = null;
+    }, 2000);
+  }
+
+  // Bind hover + focus on cells with data-cf-status
+  container.querySelectorAll('[data-cf-status]').forEach((cell) => {
+    const el = cell as HTMLElement;
+    const status = el.dataset.cfStatus!;
+    const device = decodeURIComponent(el.dataset.cfDevice || '');
+    const detail = decodeURIComponent(el.dataset.cfDetail || '');
+
+    el.addEventListener('mouseenter', () => showTip(el, status, device, detail));
+    el.addEventListener('mouseleave', () => hideTip());
+    el.addEventListener('focus', () => { if (destroyTimer) { clearTimeout(destroyTimer); destroyTimer = null; } showTip(el, status, device, detail); });
+    el.addEventListener('blur', () => hideTip());
+  });
+
+  // Tooltip itself: hovering over it cancels the destroy timer
+  const tip = ensureTip();
+  tip.addEventListener('mouseenter', () => { if (destroyTimer) { clearTimeout(destroyTimer); destroyTimer = null; } });
+  tip.addEventListener('mouseleave', () => hideTip());
+}
+
+// ============================================================================
 // Event Listeners
 // ============================================================================
 
@@ -4102,6 +4343,19 @@ function setupEventListeners(
   };
   document.addEventListener('keydown', escHandler);
 
+  // Close CF filter panel when clicking outside
+  const cfFilterPanelCloseHandler = (e: MouseEvent) => {
+    if (!state.checkFixFilterOpen) return;
+    const btn = document.getElementById(`${modalId}-cf-filter-btn`);
+    const panel = document.getElementById(`${modalId}-cf-filter-panel`);
+    if (btn && !btn.contains(e.target as Node) && panel && !panel.contains(e.target as Node)) {
+      state.checkFixFilterOpen = false;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    }
+  };
+  document.addEventListener('click', cfFilterPanelCloseHandler);
+
   // ========================
   // Load Relations Button
   // ========================
@@ -4328,6 +4582,94 @@ function setupEventListeners(
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
+  // CF sort column headers
+  container.querySelectorAll('[data-cf-sort]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const field = (el as HTMLElement).dataset.cfSort as typeof state.checkFixSort.field;
+      if (state.checkFixSort.field === field) {
+        state.checkFixSort.order = state.checkFixSort.order === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.checkFixSort = { field, order: 'asc' };
+      }
+      const listEl = document.getElementById(`${modalId}-device-list`);
+      const savedScroll = listEl ? listEl.scrollTop : 0;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+      const elAfter = document.getElementById(`${modalId}-device-list`);
+      if (elAfter) elAfter.scrollTop = savedScroll;
+    });
+  });
+
+  // CF filter panel open/close
+  document.getElementById(`${modalId}-cf-filter-btn`)?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.checkFixFilterOpen = !state.checkFixFilterOpen;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  document.getElementById(`${modalId}-cf-flt-close`)?.addEventListener('click', () => {
+    state.checkFixFilterOpen = false;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  document.getElementById(`${modalId}-cf-flt-clear`)?.addEventListener('click', () => {
+    state.checkFixAdvancedFilter = { statuses: [], connStatuses: [], domains: [], missingIngestionId: false, missingCentralSlave: false };
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  document.getElementById(`${modalId}-cf-flt-noing`)?.addEventListener('change', (e) => {
+    state.checkFixAdvancedFilter.missingIngestionId = (e.target as HTMLInputElement).checked;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  document.getElementById(`${modalId}-cf-flt-nocentral`)?.addEventListener('change', (e) => {
+    state.checkFixAdvancedFilter.missingCentralSlave = (e.target as HTMLInputElement).checked;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // CF filter panel buttons (status/conn/domain toggles)
+  const cfFilterPanel = document.getElementById(`${modalId}-cf-filter-panel`);
+  if (cfFilterPanel) {
+    cfFilterPanel.querySelectorAll('[data-cf-flt-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s = (btn as HTMLElement).dataset.cfFltStatus as CheckFixStatus;
+        const idx = state.checkFixAdvancedFilter.statuses.indexOf(s);
+        if (idx >= 0) state.checkFixAdvancedFilter.statuses.splice(idx, 1);
+        else state.checkFixAdvancedFilter.statuses.push(s);
+        renderModal(container, state, modalId, t);
+        setupEventListeners(container, state, modalId, t, onClose);
+      });
+    });
+    cfFilterPanel.querySelectorAll('[data-cf-flt-conn]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const c = (btn as HTMLElement).dataset.cfFltConn!;
+        const idx = state.checkFixAdvancedFilter.connStatuses.indexOf(c);
+        if (idx >= 0) state.checkFixAdvancedFilter.connStatuses.splice(idx, 1);
+        else state.checkFixAdvancedFilter.connStatuses.push(c);
+        renderModal(container, state, modalId, t);
+        setupEventListeners(container, state, modalId, t, onClose);
+      });
+    });
+    cfFilterPanel.querySelectorAll('[data-cf-flt-domain]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const d = (btn as HTMLElement).dataset.cfFltDomain!;
+        const idx = state.checkFixAdvancedFilter.domains.indexOf(d);
+        if (idx >= 0) state.checkFixAdvancedFilter.domains.splice(idx, 1);
+        else state.checkFixAdvancedFilter.domains.push(d);
+        renderModal(container, state, modalId, t);
+        setupEventListeners(container, state, modalId, t, onClose);
+      });
+    });
+  }
+
+  // CF Status Tooltip — premium hover tooltip for mismatch/missing/undefined
+  _setupCfStatusTooltip(container, modalId, colors);
+
   // ========================
   // Multiselect Mode Handlers
   // ========================
@@ -4417,7 +4759,6 @@ function setupEventListeners(
   // Checkbox handlers for multi-select
   const checkboxes = container.querySelectorAll('.myio-device-checkbox');
   checkboxes.forEach((checkbox) => {
-    // Use onclick instead of onchange for more reliable behavior
     (checkbox as HTMLInputElement).onclick = (e) => {
       e.stopPropagation();
       const input = e.target as HTMLInputElement;
@@ -4427,36 +4768,27 @@ function setupEventListeners(
       const device = state.devices.find((d) => d.id?.id === deviceId);
       if (!device) return;
 
-      // Use setTimeout to ensure checkbox state is updated
-      setTimeout(() => {
-        const isChecked = input.checked;
-
-        if (isChecked) {
-          // Add to selection if not already present
-          if (!state.selectedDevices.some((d) => d.id?.id === deviceId)) {
-            state.selectedDevices.push(device);
-          }
-        } else {
-          // Remove from selection
-          state.selectedDevices = state.selectedDevices.filter((d) => d.id?.id !== deviceId);
+      const isChecked = input.checked;
+      if (isChecked) {
+        if (!state.selectedDevices.some((d) => d.id?.id === deviceId)) {
+          state.selectedDevices.push(device);
         }
+      } else {
+        state.selectedDevices = state.selectedDevices.filter((d) => d.id?.id !== deviceId);
+      }
 
-        // Save scroll position before re-render
-        const listEl = document.getElementById(`${modalId}-device-list`);
-        const savedScroll = listEl ? listEl.scrollTop : 0;
+      // Save scroll position BEFORE re-render
+      const listEl = document.getElementById(`${modalId}-device-list`);
+      const savedScroll = listEl ? listEl.scrollTop : 0;
+      const containerScrollTop = container.scrollTop;
 
-        // Re-render and re-setup
-        renderModal(container, state, modalId, t);
-        setupEventListeners(container, state, modalId, t, onClose);
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
 
-        // Restore scroll position after re-render (double rAF ensures layout is settled)
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const el = document.getElementById(`${modalId}-device-list`);
-            if (el) el.scrollTop = savedScroll;
-          });
-        });
-      }, 0);
+      // Restore scroll SYNCHRONOUSLY — no rAF, no setTimeout
+      const elAfter = document.getElementById(`${modalId}-device-list`);
+      if (elAfter) elAfter.scrollTop = savedScroll;
+      container.scrollTop = containerScrollTop;
     };
   });
 
@@ -5404,7 +5736,9 @@ function filterDeviceListVisual(
       device.type?.toLowerCase().includes(search) ||
       device.serverAttrs?.deviceType?.toLowerCase().includes(search) ||
       device.serverAttrs?.deviceProfile?.toLowerCase().includes(search);
-    (item as HTMLElement).style.display = matchesSearch ? 'flex' : 'none';
+    const el = item as HTMLElement;
+    const isTableRow = el.tagName === 'TR';
+    el.style.display = matchesSearch ? (isTableRow ? '' : 'flex') : 'none';
   });
 }
 
