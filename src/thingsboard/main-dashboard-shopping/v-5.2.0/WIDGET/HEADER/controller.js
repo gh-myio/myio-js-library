@@ -1127,10 +1127,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const firstAlarm = sortedAll[0] || null;
         const lastAlarm  = sortedAll[sortedAll.length - 1] || null;
 
+        const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
+        const _resolveAlarmDeviceLabel = (alarm) => {
+          const label   = gcdrMap?.get(alarm.deviceId || alarm.source || '') || null;
+          const rawName = alarm.deviceName || '';
+          if (label && rawName && label !== rawName) return `${label} (${rawName})`;
+          return label || rawName || alarm.source || '';
+        };
+
         const mkFlCard = (label, alarm) => {
           if (!alarm) return `<div class="ant-fl-card"><div class="ant-fl-label">${label}</div><div class="ant-fl-title" style="color:#94a3b8">—</div></div>`;
           const title  = alarm.title || alarm.alarmType || 'Alarme';
-          const device = alarm.deviceName || alarm.source || '';
+          const device = _resolveAlarmDeviceLabel(alarm);
           const ts     = label === 'Primeiro' ? (alarm.firstOccurrence || alarm.raisedAt) : (alarm.lastOccurrence || alarm.lastUpdatedAt || alarm.raisedAt);
           return `
             <div class="ant-fl-card">
@@ -1146,7 +1154,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           const sev    = a.severity || 'LOW';
           const state  = a.state || '';
           const dotCls = state === 'CLOSED' ? 'CLOSED' : sev;
-          const device = a.deviceName || a.source || '';
+          const device = _resolveAlarmDeviceLabel(a);
           const title  = a.title || a.alarmType || 'Alarme';
           const time   = _antFmtTime(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt);
           return `
