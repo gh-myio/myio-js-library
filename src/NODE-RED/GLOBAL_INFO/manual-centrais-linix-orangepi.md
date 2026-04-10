@@ -26,61 +26,85 @@
 | Chave SSH | `id_rsa` (arquivo local) |
 | Porta SSH | `22`                     |
 
-### 2.2 Endereços das Centrais
+### 2.2 Endereços das Centrais por Holding
 
-Os IPs são **IPv6** (rede mesh — ex. Yggdrasil). Conectar sempre com `-i id_rsa`:
+Os IPs são **IPv6** (rede mesh — Yggdrasil). Conectar sempre com `-i id_rsa`:
 
 ```bash
 ssh -i id_rsa root@<ipv6-da-central>
 ```
+
+#### Holding: SÁ CAVALCANTE
+
+| Central              | IPv6                                     |
+| -------------------- | ---------------------------------------- |
+| Mestre Álvaro — L0L1 | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485` |
+| Mestre Álvaro — L2AC | `200:8b:483c:9008:1184:caec:41b1:fa28`   |
+| Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` |
+| Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` |
+| Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  |
+| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  |
+| Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  |
+| Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` |
+
+#### Holding: SOUZA AGUIAR
 
 | Central                         | IPv6                                     |
 | ------------------------------- | ---------------------------------------- |
 | Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` |
 | Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` |
 | Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` |
-| Shopping Ananindeua             | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` |
 
-**Exemplos completos:**
+#### Holding: SOUL MALLS
+
+| Central           | IPv6                                     |
+| ----------------- | ---------------------------------------- |
+| Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` |
+
+#### Holding: SUPERVIA ESTAÇÕES
+
+| Central | IPv6 |
+| ------- | ---- |
+| —       | —    |
+
+**Exemplos de conexão:**
 
 ```bash
-# Souza Aguiar CO2
-ssh -i id_rsa root@201:3941:4753:9232:901b:19fa:4978:51aa
-
-# Souza Aguiar Ar Comprimido
-ssh -i id_rsa root@200:4dbc:14be:a704:6904:81cd:b62a:ab22
-
-# Souza Aguiar Maternidade Nova
-ssh -i id_rsa root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
-
-# Central Shopping Ananindeua
-ssh -i id_rsa root@201:ca6e:c33b:3a06:f4dd:d148:5d85:6315
-
-# Central Mestre Álvaro L0L1
+# Mestre Álvaro L0L1 (Sá Cavalcante)
 ssh -i id_rsa root@200:ba5f:dacb:b278:8f85:acf4:f33c:f485
 
-# Central Mestre Álvaro L2AC
+# Mestre Álvaro L2AC (Sá Cavalcante)
 ssh -i id_rsa root@200:8b:483c:9008:1184:caec:41b1:fa28
 
-# Central Mestre Álvaro L3L4
+# Mestre Álvaro L3L4 (Sá Cavalcante)
 ssh -i id_rsa root@200:b0b1:81aa:49a4:c554:4fec:f110:9896
 
-# Central Praia da Costa L1
-ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
-
-
-# Central Moxuara
-ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
-
-# Central Rio Poty
+# Rio Poty (Sá Cavalcante)
 ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
 
-# Central Shopping da Ilha
+# Shopping da Ilha (Sá Cavalcante)
 ssh -i id_rsa root@201:3447:911:5955:4018:3960:6838:ee12
 
+# Moxuara (Sá Cavalcante)
+ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
 
-# Central Montserrat
+# Montserrat (Sá Cavalcante)
 ssh -i id_rsa root@200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc
+
+# Shopping Ananindeua (Sá Cavalcante)
+ssh -i id_rsa root@201:ca6e:c33b:3a06:f4dd:d148:5d85:6315
+
+# Souza Aguiar — CO2
+ssh -i id_rsa root@201:3941:4753:9232:901b:19fa:4978:51aa
+
+# Souza Aguiar — Ar Comprimido
+ssh -i id_rsa root@200:4dbc:14be:a704:6904:81cd:b62a:ab22
+
+# Souza Aguiar — Maternidade Nova
+ssh -i id_rsa root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
+
+# Praia da Costa L1 (Soul Malls)
+ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
 ```
 
 ---
@@ -156,6 +180,8 @@ psql -U hubot
 ```sql
 -- Listar tabelas
 \dt
+--  SELECT id, name FROM slaves WHERE name ~ 'X';
+--  SELECT id, name FROM channels WHERE name ~ 'X';
 
 -- Listar tabelas com detalhes (schema, tipo, owner)
 \dt+
