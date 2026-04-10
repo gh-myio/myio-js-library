@@ -36,30 +36,30 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SÁ CAVALCANTE
 
-| Central              | IPv6                                     |
-| -------------------- | ---------------------------------------- |
-| Mestre Álvaro — L0L1 | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485` |
-| Mestre Álvaro — L2AC | `200:8b:483c:9008:1184:caec:41b1:fa28`   |
-| Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` |
-| Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` |
-| Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  |
-| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  |
-| Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  |
-| Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` |
+| Central              | IPv6                                     | Gateway ID                             |
+| -------------------- | ---------------------------------------- | -------------------------------------- |
+| Mestre Álvaro — L0L1 | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485` | `45250d44-bad0-4071-aaa0-8091cfb12691` |
+| Mestre Álvaro — L2AC | `200:8b:483c:9008:1184:caec:41b1:fa28`   | `d3202744-05dd-46d1-af33-495e9a2ecd52` |
+| Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e` |
+| Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` | `c0af8288-7b13-4024-bc11-df5017fef656` |
+| Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  | `cb318f02-1020-4f99-857f-d44d001d939b` |
+| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  | `e982edf9-edb1-4aa6-8a14-4782465ae5a3` |
+| Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4` |
+| Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a` |
 
 #### Holding: SOUZA AGUIAR
 
-| Central                         | IPv6                                     |
-| ------------------------------- | ---------------------------------------- |
-| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` |
-| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` |
-| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` |
+| Central                         | IPv6                                     | Gateway ID |
+| ------------------------------- | ---------------------------------------- | ---------- |
+| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —          |
+| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —          |
+| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —          |
 
 #### Holding: SOUL MALLS
 
-| Central           | IPv6                                     |
-| ----------------- | ---------------------------------------- |
-| Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` |
+| Central           | IPv6                                     | Gateway ID |
+| ----------------- | ---------------------------------------- | ---------- |
+| Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —          |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
@@ -180,8 +180,8 @@ psql -U hubot
 ```sql
 -- Listar tabelas
 \dt
---  SELECT id, name FROM slaves WHERE name ~ 'X';
---  SELECT id, name FROM channels WHERE name ~ 'X';
+--  SELECT id, name FROM slaves WHERE name ~ ' X[0-9]';
+--  SELECT id, name FROM channels WHERE name ~ ' X[0-9]';
 
 -- Listar tabelas com detalhes (schema, tipo, owner)
 \dt+
