@@ -1138,6 +1138,12 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🔗 Forçar Relação (${state.selectedDevices.length})</button>
+              <button id="${modalId}-clear-gcdr-ids" style="
+                background: #dc2626; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🧹 Clear GCDR IDs</button>
               <button id="${modalId}-custom-shortcut" style="
                 background: #ef4444; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
@@ -4075,6 +4081,269 @@ function _setupCfStatusTooltip(container: HTMLElement, modalId: string, colors: 
 }
 
 // ============================================================================
+// Clear GCDR IDs Modal
+// ============================================================================
+
+const GCDR_CLEAR_DEVICE_KEYS = ['gcdrDeviceId', 'gcdrId', 'gcdrSyncAt', 'gcdrAssetId', 'gcdrCustomerId'];
+const GCDR_CLEAR_ASSET_KEYS  = ['gcdrAssetId',  'gcdrId', 'gcdrSyncAt', 'gcdrParentAssetId', 'gcdrCustomerId'];
+
+async function openClearGcdrIdsModal(state: ModalState): Promise<void> {
+  if (!state.selectedCustomer) return;
+  const customerId = getEntityId(state.selectedCustomer);
+  const customerName = state.selectedCustomer.name || state.selectedCustomer.title || customerId;
+
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed; inset:0; z-index:99999;
+    background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Roboto',Inter,system-ui,sans-serif;
+  `;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+
+  function close(): void {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
+
+  function renderShell(bodyHtml: string, footerHtml: string): void {
+    overlay.innerHTML = `
+      <div style="
+        background:#1e1e2e; color:#e5e7eb; border:1px solid rgba(255,255,255,0.1);
+        border-radius:14px; box-shadow:0 16px 48px rgba(0,0,0,0.4);
+        max-width:860px; width:92%; max-height:85vh; display:flex; flex-direction:column;
+      ">
+        <div style="padding:18px 22px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0;">
+          <div>
+            <div style="font-size:16px; font-weight:700; color:#f9fafb;">🧹 Clear GCDR IDs</div>
+            <div style="font-size:12px; color:#9ca3af; margin-top:2px;">Customer: ${customerName}</div>
+          </div>
+          <button id="gcdr-clear-x" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;padding:4px;line-height:1;">✕</button>
+        </div>
+        <div id="gcdr-clear-body" style="padding:18px 22px; overflow-y:auto; flex:1;">${bodyHtml}</div>
+        <div id="gcdr-clear-footer" style="padding:14px 22px; border-top:1px solid rgba(255,255,255,0.08); display:flex; justify-content:flex-end; gap:10px; flex-shrink:0;">${footerHtml}</div>
+      </div>`;
+    overlay.querySelector('#gcdr-clear-x')?.addEventListener('click', close);
+  }
+
+  function btn(id: string, label: string, primary = false, disabled = false): string {
+    return `<button id="${id}" style="
+      padding:8px 18px; border-radius:6px; font-size:13px; font-weight:600; cursor:${disabled ? 'not-allowed' : 'pointer'};
+      ${primary ? 'background:#dc2626; color:white; border:none;' : 'background:transparent; color:#9ca3af; border:1px solid rgba(255,255,255,0.15);'}
+      opacity:${disabled ? '0.5' : '1'};
+    " ${disabled ? 'disabled' : ''}>${label}</button>`;
+  }
+
+  function progressHtml(phase: string, done: number, total: number): string {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return `
+      <div style="padding:8px 0;">
+        <div style="font-size:13px; font-weight:600; color:#d1d5db; margin-bottom:14px;">⏳ ${phase}</div>
+        <div style="background:rgba(255,255,255,0.1); border-radius:8px; height:8px; overflow:hidden; margin-bottom:6px;">
+          <div style="background:#dc2626; height:100%; width:${pct}%; border-radius:8px; transition:width 0.2s;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#9ca3af;">
+          <span>${done} / ${total} entidades</span><span style="font-weight:700; color:#dc2626;">${pct}%</span>
+        </div>
+      </div>`;
+  }
+
+  interface ClearRow {
+    tbId: string; name: string; entityType: string;
+    present: Record<string, boolean>; hasAny: boolean;
+  }
+
+  function keyBadges(present: Record<string, boolean>, keys: string[]): string {
+    return keys.filter(k => present[k])
+      .map(k => `<span style="font-size:9px; background:rgba(220,38,38,0.25); color:#fca5a5; padding:1px 5px; border-radius:3px; margin:1px; display:inline-block;">${k}</span>`)
+      .join('');
+  }
+
+  function tableHtml(rows: ClearRow[], keys: string[]): string {
+    if (rows.length === 0) return '<div style="font-size:12px;color:#6b7280;padding:6px 0;">Nenhum item a limpar.</div>';
+    return `<div style="overflow-x:auto; margin-top:4px;">
+      <table style="border-collapse:collapse; width:100%; font-size:11px;">
+        <thead><tr>
+          <th style="text-align:left; padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.08); color:#9ca3af; font-weight:600;">Nome TB</th>
+          <th style="text-align:left; padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.08); color:#9ca3af; font-weight:600;">Chaves a remover</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td style="padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.05); color:#d1d5db;" title="${r.tbId}">
+            ${r.name}<br><span style="color:#6b7280; font-family:monospace; font-size:9px;">${r.tbId.substring(0, 8)}…</span>
+          </td>
+          <td style="padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.05);">${keyBadges(r.present, keys)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function previewHtml(deviceRows: ClearRow[], assetRows: ClearRow[]): string {
+    const devToClear = deviceRows.filter(r => r.hasAny);
+    const assetToClear = assetRows.filter(r => r.hasAny);
+    const badge = (txt: string, danger = false) =>
+      `<span style="font-size:11px; padding:3px 10px; border-radius:4px; background:${danger ? 'rgba(220,38,38,0.2)' : 'rgba(255,255,255,0.07)'}; color:${danger ? '#fca5a5' : '#9ca3af'};">${txt}</span>`;
+
+    return `
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+        ${badge(`🧹 ${devToClear.length} devices a limpar`, devToClear.length > 0)}
+        ${badge(`✓ ${deviceRows.length - devToClear.length} devices já limpos`)}
+        ${badge(`🧹 ${assetToClear.length} assets a limpar`, assetToClear.length > 0)}
+        ${badge(`✓ ${assetRows.length - assetToClear.length} assets já limpos`)}
+      </div>
+      <div style="font-size:10px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;">
+        📟 Devices (${deviceRows.length})
+        <span style="font-size:9px; font-weight:400; text-transform:none; margin-left:6px;">chaves: ${GCDR_CLEAR_DEVICE_KEYS.join(', ')}</span>
+      </div>
+      ${tableHtml(devToClear, GCDR_CLEAR_DEVICE_KEYS)}
+      <div style="font-size:10px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.5px; margin:14px 0 4px;">
+        📁 Assets (${assetRows.length})
+        <span style="font-size:9px; font-weight:400; text-transform:none; margin-left:6px;">chaves: ${GCDR_CLEAR_ASSET_KEYS.join(', ')}</span>
+      </div>
+      ${tableHtml(assetToClear, GCDR_CLEAR_ASSET_KEYS)}
+      ${devToClear.length + assetToClear.length === 0
+        ? '<div style="text-align:center; color:#6b7280; padding:16px 0; font-size:13px;">✅ Nenhum device ou asset possui essas chaves. Nada a limpar.</div>'
+        : ''}`;
+  }
+
+  // Phase 1: load
+  renderShell(progressHtml('Buscando devices e assets…', 0, 0), '');
+  try {
+    // Fetch all customer devices and assets
+    const [devicesResp, assetsResp]: [{ data: Device[] }, { data: Array<{id: {id: string}; name: string}> }] = await Promise.all([
+      tbFetch<{ data: Device[] }>(state, `/api/customer/${customerId}/devices?pageSize=1000&page=0`),
+      tbFetch<{ data: Array<{id: {id: string}; name: string}> }>(state, `/api/customer/${customerId}/assets?pageSize=1000&page=0`),
+    ]);
+    const tbDevices = devicesResp.data || [];
+    const tbAssets  = assetsResp.data || [];
+    const total = tbDevices.length + tbAssets.length;
+
+    const deviceRows: ClearRow[] = [];
+    const assetRows: ClearRow[]  = [];
+
+    async function processBatch<T extends {id: {id: string}; name?: string; label?: string}>(
+      items: T[], entityType: string, keysToCheck: string[], targetRows: ClearRow[],
+      fetchAttrs: (id: string) => Promise<Record<string, unknown>>
+    ): Promise<void> {
+      const chunks: T[][] = [];
+      for (let i = 0; i < items.length; i += 10) chunks.push(items.slice(i, i + 10));
+      for (let ci = 0; ci < chunks.length; ci++) {
+        if (ci > 0) await sleep(800);
+        await Promise.all(chunks[ci].map(async (entity) => {
+          const tbId = entity.id?.id || '';
+          const name = entity.name || entity.label || tbId;
+          let present: Record<string, boolean> = {};
+          try {
+            const attrs = await fetchAttrs(tbId);
+            for (const k of keysToCheck) present[k] = attrs[k] != null && attrs[k] !== '';
+          } catch { /* non-fatal */ }
+          targetRows.push({ tbId, name, entityType, present, hasAny: keysToCheck.some(k => present[k]) });
+        }));
+        const done = deviceRows.length + assetRows.length;
+        const bodyEl = overlay.querySelector('#gcdr-clear-body');
+        if (bodyEl) bodyEl.innerHTML = progressHtml(`Lendo SERVER_SCOPE (${entityType})…`, done, total);
+      }
+    }
+
+    const fetchDeviceAttrs = async (id: string) => {
+      const data = await tbFetch<Array<{key: string; value: unknown}>>(
+        state, `/api/plugins/telemetry/DEVICE/${id}/values/attributes/SERVER_SCOPE`
+      );
+      return Object.fromEntries((data as Array<{key: string; value: unknown}>).map(a => [a.key, a.value]));
+    };
+    const fetchAssetAttrs = async (id: string) => {
+      const data = await tbFetch<Array<{key: string; value: unknown}>>(
+        state, `/api/plugins/telemetry/ASSET/${id}/values/attributes/SERVER_SCOPE`
+      );
+      return Object.fromEntries((data as Array<{key: string; value: unknown}>).map(a => [a.key, a.value]));
+    };
+
+    await processBatch(tbDevices, 'DEVICE', GCDR_CLEAR_DEVICE_KEYS, deviceRows, fetchDeviceAttrs);
+    await processBatch(tbAssets,  'ASSET',  GCDR_CLEAR_ASSET_KEYS,  assetRows,  fetchAssetAttrs);
+
+    // Phase 2: preview
+    const devToClear   = deviceRows.filter(r => r.hasAny);
+    const assetToClear = assetRows.filter(r => r.hasAny);
+    const totalToClear = devToClear.length + assetToClear.length;
+
+    renderShell(previewHtml(deviceRows, assetRows),
+      btn('gcdr-clear-cancel', 'Cancelar') +
+      btn('gcdr-clear-apply', `🧹 Limpar ${totalToClear} entidade${totalToClear !== 1 ? 's' : ''}`, true, totalToClear === 0)
+    );
+    overlay.querySelector('#gcdr-clear-cancel')?.addEventListener('click', close);
+    overlay.querySelector('#gcdr-clear-apply')?.addEventListener('click', async () => {
+      // Phase 3: execute
+      let done3 = 0;
+      overlay.querySelector('#gcdr-clear-footer')!.innerHTML = '';
+      overlay.querySelector('#gcdr-clear-body')!.innerHTML = progressHtml('Removendo atributos GCDR…', 0, totalToClear);
+
+      interface ExecResult { name: string; ok: boolean; cleared?: string[]; error?: string; }
+      async function execClear(
+        rows: ClearRow[], keys: string[], entityType: 'DEVICE' | 'ASSET'
+      ): Promise<ExecResult[]> {
+        const results: ExecResult[] = [];
+        const chunks: ClearRow[][] = [];
+        for (let i = 0; i < rows.length; i += 10) chunks.push(rows.slice(i, i + 10));
+        for (let ci = 0; ci < chunks.length; ci++) {
+          if (ci > 0) await sleep(800);
+          await Promise.all(chunks[ci].map(async (row) => {
+            const keysToDelete = keys.filter(k => row.present[k]);
+            try {
+              await tbDelete(state, `/api/plugins/telemetry/${entityType}/${row.tbId}/values/attributes/SERVER_SCOPE?keys=${encodeURIComponent(keysToDelete.join(','))}`);
+              results.push({ name: row.name, ok: true, cleared: keysToDelete });
+            } catch (err) {
+              results.push({ name: row.name, ok: false, error: (err as Error).message });
+            }
+            done3++;
+            const progEl = overlay.querySelector('#gcdr-clear-body');
+            if (progEl) progEl.innerHTML = progressHtml('Removendo atributos GCDR…', done3, totalToClear);
+          }));
+        }
+        return results;
+      }
+
+      const devResults   = await execClear(devToClear,   GCDR_CLEAR_DEVICE_KEYS, 'DEVICE');
+      const assetResults = await execClear(assetToClear, GCDR_CLEAR_ASSET_KEYS,  'ASSET');
+      const allResults   = [...devResults, ...assetResults];
+      const ok  = allResults.filter(r => r.ok).length;
+      const err = allResults.filter(r => !r.ok).length;
+
+      const resultHtml = `
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(16,185,129,0.2); color:#6ee7b7;">✓ ${ok} limpos</span>
+          ${err > 0 ? `<span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(220,38,38,0.2); color:#fca5a5;">✗ ${err} erros</span>` : ''}
+        </div>
+        ${[{ title: '📟 Devices', results: devResults }, { title: '📁 Assets', results: assetResults }]
+          .filter(s => s.results.length > 0)
+          .map(s => `
+            <div style="font-size:10px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin:10px 0 4px;">${s.title}</div>
+            <ul style="list-style:none; margin:0; padding:0;">
+              ${s.results.map(r => `
+                <li style="display:flex; align-items:flex-start; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                  <span>${r.ok ? '✅' : '❌'}</span>
+                  <div>
+                    <div style="font-size:11px; color:#d1d5db;">${r.name}</div>
+                    <div style="font-size:10px; color:${r.ok ? '#6ee7b7' : '#fca5a5'};">
+                      ${r.ok ? `Removidas: ${r.cleared?.join(', ')}` : r.error}
+                    </div>
+                  </div>
+                </li>`).join('')}
+            </ul>`).join('')}`;
+
+      overlay.querySelector('#gcdr-clear-body')!.innerHTML = resultHtml;
+      overlay.querySelector('#gcdr-clear-footer')!.innerHTML = btn('gcdr-clear-done', 'Fechar');
+      overlay.querySelector('#gcdr-clear-done')?.addEventListener('click', close);
+    });
+  } catch (err) {
+    overlay.querySelector('#gcdr-clear-body')!.innerHTML =
+      `<div style="color:#fca5a5; font-size:13px; padding:8px 0;">❌ ${(err as Error).message}</div>`;
+    overlay.querySelector('#gcdr-clear-footer')!.innerHTML = btn('gcdr-clear-err-close', 'Fechar');
+    overlay.querySelector('#gcdr-clear-err-close')?.addEventListener('click', close);
+  }
+}
+
+// ============================================================================
 // Event Listeners
 // ============================================================================
 
@@ -4968,6 +5237,11 @@ function setupEventListeners(
   // ========================
   // Bulk Force Relation Modal
   // ========================
+
+  document.getElementById(`${modalId}-clear-gcdr-ids`)?.addEventListener('click', () => {
+    if (!state.selectedCustomer) { alert('Selecione um Customer primeiro no Step 1'); return; }
+    void openClearGcdrIdsModal(state);
+  });
 
   document.getElementById(`${modalId}-bulk-relation`)?.addEventListener('click', () => {
     if (!state.selectedCustomer) { alert('Selecione um Customer primeiro no Step 1'); return; }
