@@ -1,0 +1,405 @@
+/* ── Fix Temp Registry Widget — MYIO Dark Theme ────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+#fix-temp-registry-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #1A1A24;
+  color: #E0E0E0;
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── Widget Header ────────────────────────────────────────────────────────── */
+.ftr-header {
+  flex-shrink: 0;
+  padding: 12px 16px 10px;
+  background: #23232F;
+  border-bottom: 1px solid #3A3A4A;
+}
+
+.ftr-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #E0E0E0;
+  margin: 0 0 6px 0;
+}
+
+.ftr-counters {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.ftr-counters span {
+  margin-right: 4px;
+}
+
+.ftr-counter-val {
+  font-weight: 700;
+  color: #E0E0E0;
+}
+
+.ftr-counter-sep {
+  color: #3A3A4A;
+  margin: 0 6px;
+}
+
+/* ── Filter Tabs ──────────────────────────────────────────────────────────── */
+.ftr-filter-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.ftr-tab {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #3A3A4A;
+  color: #888;
+  background: transparent;
+  transition: all 0.15s;
+}
+
+.ftr-tab:hover {
+  border-color: #6B4ABF;
+  color: #E0E0E0;
+}
+
+.ftr-tab.active {
+  background: #6B4ABF;
+  border-color: #6B4ABF;
+  color: #FFFFFF;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+.ftr-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ftr-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #2A2A38;
+  border: 1px solid #3A3A4A;
+  color: #E0E0E0;
+  transition: all 0.15s;
+}
+
+.ftr-btn:hover {
+  background: #3A3A50;
+  border-color: #6B4ABF;
+}
+
+.ftr-btn.primary {
+  background: #6B4ABF;
+  border-color: #6B4ABF;
+  color: #fff;
+}
+
+.ftr-btn.primary:hover {
+  background: #7D5CD1;
+}
+
+.ftr-save-indicator {
+  font-size: 11px;
+  color: #888;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ftr-save-indicator.saving { color: #F5A623; }
+.ftr-save-indicator.saved  { color: #4CAF82; }
+.ftr-save-indicator.error  { color: #E05555; }
+
+/* ── Table Container ──────────────────────────────────────────────────────── */
+.ftr-table-wrap {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+.ftr-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+}
+
+.ftr-table th,
+.ftr-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #3A3A4A;
+  border-right: 1px solid #3A3A4A;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.ftr-table th {
+  position: sticky;
+  top: 0;
+  background: #23232F;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  z-index: 3;
+  user-select: none;
+}
+
+.ftr-table td {
+  background: #1A1A24;
+  color: #E0E0E0;
+  max-width: 420px;
+}
+
+.ftr-table tbody tr:hover td {
+  background: #22223A;
+}
+
+/* ── Sticky Columns ───────────────────────────────────────────────────────── */
+.col-os {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 220px;
+  max-width: 220px;
+  width: 220px;
+}
+
+th.col-os {
+  z-index: 4;
+}
+
+td.col-os {
+  background: #1E1E2E;
+  border-right: 2px solid #3A3A4A;
+  font-weight: 600;
+}
+
+.ftr-table tbody tr:hover td.col-os {
+  background: #25253A;
+}
+
+.col-status {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  min-width: 150px;
+  max-width: 150px;
+  width: 150px;
+  text-align: center;
+}
+
+th.col-status {
+  z-index: 4;
+}
+
+td.col-status {
+  background: #1E1E2E;
+  border-left: 2px solid #3A3A4A;
+  border-right: none;
+  text-align: center;
+}
+
+.ftr-table tbody tr:hover td.col-status {
+  background: #25253A;
+}
+
+/* ── Column widths ────────────────────────────────────────────────────────── */
+.col-thingsboard    { min-width: 180px; width: 180px; }
+.col-app-antigo     { min-width: 260px; width: 260px; }
+.col-new-name       { min-width: 320px; width: 320px; }
+.col-slave-antigo   { min-width: 110px; width: 110px; text-align: center; }
+.col-offset-antigo  { min-width: 110px; width: 110px; text-align: center; }
+.col-antes-fix      { min-width: 280px; width: 280px; }
+.col-apos-fix       { min-width: 260px; width: 260px; }
+.col-slave-novo     { min-width: 110px; width: 110px; text-align: center; }
+.col-sql-hist       { min-width: 420px; width: 420px; }
+.col-sql-old        { min-width: 420px; width: 420px; }
+.col-sql-new        { min-width: 420px; width: 420px; }
+
+/* ── SQL cell ─────────────────────────────────────────────────────────────── */
+.ftr-sql-cell {
+  position: relative;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #C3B1E1;
+  line-height: 1.5;
+}
+
+.ftr-copy-btn {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: #3A3A4A;
+  color: #888;
+  display: none;
+  transition: background 0.15s;
+}
+
+.ftr-sql-cell:hover .ftr-copy-btn {
+  display: inline-block;
+}
+
+.ftr-copy-btn:hover {
+  background: #6B4ABF;
+  color: #fff;
+}
+
+/* ── Status Badge ─────────────────────────────────────────────────────────── */
+.ftr-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.ftr-badge:hover {
+  opacity: 0.85;
+}
+
+.ftr-badge-nao_iniciado { background: #3A3A44; color: #CCCCCC; }
+.ftr-badge-planejado    { background: #6B4ABF; color: #FFFFFF; }
+.ftr-badge-em_execucao  { background: #F5A623; color: #1A1A1A; }
+.ftr-badge-resolvido    { background: #4CAF82; color: #FFFFFF; }
+
+/* ── Inline Edit ──────────────────────────────────────────────────────────── */
+.ftr-edit-input,
+.ftr-edit-textarea,
+.ftr-edit-select {
+  width: 100%;
+  background: #2A2A38;
+  border: 1px solid #6B4ABF;
+  border-radius: 4px;
+  color: #E0E0E0;
+  font-size: 12px;
+  font-family: inherit;
+  padding: 4px 6px;
+  outline: none;
+  resize: vertical;
+}
+
+.ftr-edit-textarea {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  min-height: 60px;
+  white-space: pre;
+}
+
+.ftr-edit-select {
+  cursor: pointer;
+}
+
+.ftr-edit-input:focus,
+.ftr-edit-textarea:focus,
+.ftr-edit-select:focus {
+  border-color: #8B6ADF;
+  box-shadow: 0 0 0 2px rgba(107, 74, 191, 0.25);
+}
+
+/* ── Row actions ──────────────────────────────────────────────────────────── */
+.ftr-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.ftr-row-btn {
+  all: unset;
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #2A2A38;
+  border: 1px solid #3A3A4A;
+  color: #888;
+  transition: all 0.15s;
+}
+
+.ftr-row-btn:hover {
+  background: #3A3A50;
+  color: #E0E0E0;
+  border-color: #6B4ABF;
+}
+
+.ftr-row-btn.danger:hover {
+  background: #4A2020;
+  color: #F08080;
+  border-color: #803030;
+}
+
+/* ── Empty / Loading State ────────────────────────────────────────────────── */
+.ftr-loading,
+.ftr-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #888;
+  font-size: 14px;
+  gap: 10px;
+}
+
+.ftr-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #3A3A4A;
+  border-top-color: #6B4ABF;
+  border-radius: 50%;
+  animation: ftr-spin 0.8s linear infinite;
+}
+
+@keyframes ftr-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Number cells center ──────────────────────────────────────────────────── */
+.ftr-num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Row index ────────────────────────────────────────────────────────────── */
+.col-idx {
+  min-width: 44px;
+  width: 44px;
+  text-align: center;
+  color: #888;
+  font-size: 11px;
+}
