@@ -10,3 +10,5 @@ coverage/
 .claude/settings.local.json
 logs/
 src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/*.json
+src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/sistema-os/fix_souza_aguiar.xlsx
+src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/sistema-os/visita_tecnica_souza-SistemaOS.pdf
