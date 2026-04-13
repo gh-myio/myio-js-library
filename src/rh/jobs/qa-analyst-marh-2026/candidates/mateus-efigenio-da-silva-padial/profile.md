@@ -17,8 +17,8 @@
 | **Telefone** | +55 11 97014-6335 |
 | **LinkedIn** | http://www.linkedin.com/in/mateus-padial |
 | **Localização** | Santana de Parnaíba – SP |
-| **Disponibilidade** | — |
-| **Regime pretendido** | — |
+| **Disponibilidade** | Remoto |
+| **Regime pretendido** | PJ |
 
 ---
 
@@ -26,9 +26,20 @@
 
 | Campo | Valor |
 |---|---|
-| **Remuneração atual** | — |
-| **Pretensão salarial** | — |
-| **Disponibilidade de início** | — |
+| **Remuneração atual** | R$ 9.500 PJ |
+| **Pretensão salarial** | R$ 10.000 PJ |
+| **Disponibilidade de início** | 5 dias |
+
+## Benefícios oferecidos
+
+| Benefício | Oferecido |
+|---|---|
+| Vale refeição | Não |
+| Vale alimentação | Não |
+| Assistência saúde | Não |
+| Assistência odontológica | Não |
+| PLR | Não |
+| Outros | Não |
 
 ---
 
