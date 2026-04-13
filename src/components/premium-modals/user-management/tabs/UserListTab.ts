@@ -513,7 +513,7 @@ export class UserListTab {
     try {
       // 1. Search GCDR by email
       const searchRes = await fetch(
-        `${base}/api/v1/users?search=${encodeURIComponent(user.email)}&customerId=${encodeURIComponent(this.config.customerId)}&limit=10`,
+        `${base}/users?search=${encodeURIComponent(user.email)}&customerId=${encodeURIComponent(this.config.customerId)}&limit=10`,
         { headers: this.gcdrHeaders() },
       );
 
@@ -528,7 +528,7 @@ export class UserListTab {
 
       // 2. Create if not found
       if (!gcdrUser) {
-        const createRes = await fetch(`${base}/api/v1/users`, {
+        const createRes = await fetch(`${base}/users`, {
           method: 'POST',
           headers: this.gcdrHeaders(),
           body: JSON.stringify({
