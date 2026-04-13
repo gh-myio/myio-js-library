@@ -5579,10 +5579,31 @@ const MyIOOrchestrator = (() => {
   let lastFetchDomain = null;
   let lastFetchPeriod = null;
 
+  // RFC-FIX-CTX: When myio:update-date fires while ThingsBoard is reloading ctx.data
+  // (ctx.data temporarily empty after date change), defer hydrateDomain until ctx.data is ready.
+  let _pendingDateHydrate = null; // { domain, period } | null
+
   /**
    * RFC-0106: Check if ctx.data has new data and trigger re-fetch if needed
    */
   function checkAndRefetchIfNeeded() {
+    // RFC-FIX-CTX: Handle deferred hydrate from myio:update-date when ctx.data was empty
+    if (_pendingDateHydrate) {
+      const rows = Array.isArray(self?.ctx?.data) ? self.ctx.data : [];
+      if (rows.length > 0) {
+        LogHelper.log(
+          `[Orchestrator] ✅ RFC-FIX-CTX: ctx.data now available (${rows.length} rows) - triggering deferred hydrateDomain for ${_pendingDateHydrate.domain}`
+        );
+        const { domain, period } = _pendingDateHydrate;
+        _pendingDateHydrate = null;
+        inFlight.clear();
+        hydrateDomain(domain, period, { force: true });
+        return;
+      }
+      // ctx.data still empty — keep waiting
+      return;
+    }
+
     if (!ctxDataWasEmpty || !lastFetchDomain || !lastFetchPeriod) return;
 
     // RFC-0140 FIX: Check if retry is locked for this domain to prevent infinite loop
@@ -6772,6 +6793,12 @@ const MyIOOrchestrator = (() => {
       // Clear inFlight to allow new request
       inFlight.clear();
       LogHelper.log('[Orchestrator] 🗑️ RFC-0130: Cleared inFlight cache');
+
+      // RFC-FIX-CTX: Reset any pending deferred hydrate — will be re-evaluated with the new period
+      if (_pendingDateHydrate) {
+        _pendingDateHydrate = null;
+        LogHelper.log('[Orchestrator] 🗑️ RFC-FIX-CTX: Cleared stale pending date hydrate');
+      }
     }
 
     currentPeriod = newPeriod;
@@ -6782,6 +6809,21 @@ const MyIOOrchestrator = (() => {
     if (visibleTab && currentPeriod) {
       // RFC-0138: Pass force=true when period changed to bypass cooldown and show spinner
       const shouldForce = periodChanged;
+
+      // RFC-FIX-CTX: If ctx.data is currently empty (ThingsBoard is reloading data for the new
+      // date range), calling hydrateDomain immediately will timeout after 20s with 0 items.
+      // Defer the hydrate until ctx.data is available (checkAndRefetchIfNeeded polls every 2s).
+      if (shouldForce) {
+        const ctxRows = Array.isArray(self?.ctx?.data) ? self.ctx.data : [];
+        if (ctxRows.length === 0) {
+          LogHelper.log(
+            `[Orchestrator] ⏸️ RFC-FIX-CTX: myio:update-date ctx.data empty — deferring hydrateDomain for ${visibleTab}`
+          );
+          _pendingDateHydrate = { domain: visibleTab, period: currentPeriod };
+          return;
+        }
+      }
+
       LogHelper.log(
         `[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab}, force=${shouldForce})`
       );
