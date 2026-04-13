@@ -1897,8 +1897,15 @@ function _fillWithMissingSlots(grouped) {
   if (!startDate || !endDate) return grouped;
   const HALF_HOUR_MS = 30 * 60 * 1000;
   const gridStartMs = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 3, 0, 0, 0);
-  const gridEndRaw = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 2, 59, 59, 999);
-  const gridEndMs = Math.floor(gridEndRaw / HALF_HOUR_MS) * HALF_HOUR_MS;
+  const _nowFill = new Date();
+  const _endIsTodayFill = (
+    endDate.getFullYear() === _nowFill.getFullYear() &&
+    endDate.getMonth()    === _nowFill.getMonth()    &&
+    endDate.getDate()     === _nowFill.getDate()
+  );
+  const gridEndMs = _endIsTodayFill
+    ? Math.floor(_nowFill.getTime() / HALF_HOUR_MS) * HALF_HOUR_MS - HALF_HOUR_MS
+    : Math.floor(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 2, 59, 59, 999) / HALF_HOUR_MS) * HALF_HOUR_MS;
   const expectedTs = [];
   for (let t = gridStartMs; t <= gridEndMs; t += HALF_HOUR_MS) expectedTs.push(t);
   if (!expectedTs.length) return grouped;
@@ -2791,16 +2798,15 @@ self.onInit = function () {
         0,
         0
       );
-      const gridEndRaw = Date.UTC(
-        endDate.getFullYear(),
-        endDate.getMonth(),
-        endDate.getDate() + 1,
-        2,
-        59,
-        59,
-        999
+      const _nowReport = new Date();
+      const _endIsTodayReport = (
+        endDate.getFullYear() === _nowReport.getFullYear() &&
+        endDate.getMonth()    === _nowReport.getMonth()    &&
+        endDate.getDate()     === _nowReport.getDate()
       );
-      const gridEndMs = Math.floor(gridEndRaw / HALF_HOUR_MS) * HALF_HOUR_MS;
+      const gridEndMs = _endIsTodayReport
+        ? Math.floor(_nowReport.getTime() / HALF_HOUR_MS) * HALF_HOUR_MS - HALF_HOUR_MS
+        : Math.floor(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 2, 59, 59, 999) / HALF_HOUR_MS) * HALF_HOUR_MS;
       for (let t = gridStartMs; t <= gridEndMs; t += HALF_HOUR_MS) expectedSet.add(t);
     }
     const expectedCount = expectedSet.size || 0;
