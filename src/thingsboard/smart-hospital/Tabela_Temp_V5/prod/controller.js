@@ -2110,6 +2110,9 @@ function applyDateRange() {
     openErrorModal('Nenhum ambiente', 'Selecione ao menos um ambiente para gerar o relatório.');
     return;
   }
+  // Ação explícita do usuário — sempre força re-carregamento,
+  // independente do período já ter sido consultado antes.
+  _lastQueryKey = null;
   getData();
 }
 
