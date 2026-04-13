@@ -16,6 +16,14 @@
       <button
         class="hide-in-settings icon-btn"
         *ngIf="isMyIOAdmin"
+        (click)="downloadZIP()"
+        title="Exportar ZIP (CSV + XLSX + JSON centrais + PDF MAN4)"
+      >
+        <i class="fa-solid fa-file-zipper"></i>
+      </button>
+      <button
+        class="hide-in-settings icon-btn"
+        *ngIf="isMyIOAdmin"
         (click)="openSettingsModal()"
         title="Configurações"
       >

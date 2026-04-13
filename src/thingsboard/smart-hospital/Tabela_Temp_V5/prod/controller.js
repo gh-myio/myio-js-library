@@ -107,6 +107,11 @@ const ENABLE_SERVER_SCOPE_SAVE = false; // mude para false para não salvar no S
 let _inFlight = false;
 let _lastQueryKey = null;
 
+// Raw RPC responses accumulated per central during the last getData() run.
+// Key: centralId, Value: raw readings[] (all chunks concatenated).
+// Used by _exportZIP to include per-central JSON files.
+let _lastRawByCentral = {};
+
 // ── Manual Temperature Override ─────────────────────────────────────────────
 let _isMyIOAdmin = false; // true for @myio.com.br users (except alarme/alarmes)
 let _manualOverrides = null; // cached value of manualTempOverrides SERVER_SCOPE attribute
@@ -1149,6 +1154,106 @@ function exportToXLS(rowsInput) {
   }, 1000);
 }
 
+// ---- ZIP export ----
+
+async function _loadJSZip() {
+  if (window.JSZip) return window.JSZip;
+  return new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = function () { resolve(window.JSZip); };
+    s.onerror = function () { reject(new Error('Falha ao carregar JSZip')); };
+    document.head.appendChild(s);
+  });
+}
+
+async function _exportZIP() {
+  const d = _buildExportData();
+  if (!d.length) {
+    openErrorModal('Sem dados', 'Não há dados para exportar no ZIP.');
+    return;
+  }
+  if (!_man4State.report) {
+    openErrorModal('MAN4 não disponível',
+      'Carregue os dados e acesse a aba MAN4 antes de exportar o ZIP (o relatório MAN4 precisa ser gerado primeiro).');
+    return;
+  }
+
+  openBlockModal('Gerando ZIP…', 'Compilando CSV, XLSX, JSONs das centrais e PDF MAN4…');
+
+  try {
+    const JSZip = await _loadJSZip();
+    const zip = new JSZip();
+
+    // ── 1. CSV ──────────────────────────────────────────────────────────────
+    const csvRows = [];
+    d.forEach(function (r) {
+      let temp = r.temperature;
+      if (temp !== '=' && temp !== '-' && temp != null) {
+        const num = parseFloat(temp);
+        if (!isNaN(num)) temp = num.toFixed(2).replace('.', ',');
+      }
+      csvRows.push([r.deviceName, temp, r.reading_date]);
+    });
+    const bom = '\uFEFF';
+    const csvContent = bom + [['Nome do Dispositivo', 'Temperatura (°C)', 'Data'], ...csvRows]
+      .map(function (r) { return r.join(';'); }).join('\r\n');
+    zip.file(_buildExportFilename('csv'), csvContent);
+
+    // ── 2. XLSX (SpreadsheetML) ─────────────────────────────────────────────
+    const xlsRows = [['Nome do Dispositivo', 'Temperatura (°C)', 'Data'], ...csvRows];
+    const esc = function (v) {
+      return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+    const xmlRows = xlsRows
+      .map(function (row) {
+        return '<Row>' + row.map(function (c) {
+          return '<Cell><Data ss:Type="String">' + esc(c) + '</Data></Cell>';
+        }).join('') + '</Row>';
+      }).join('');
+    const xlsXml = '<?xml version="1.0"?>' +
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"' +
+      ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+      '<Worksheet ss:Name="Temperaturas"><Table>' + xmlRows + '</Table></Worksheet></Workbook>';
+    zip.file(_buildExportFilename('xls'), xlsXml);
+
+    // ── 3. JSON por central ─────────────────────────────────────────────────
+    const centraisFolder = zip.folder('centrais');
+    const centralEntries = Object.entries(_lastRawByCentral);
+    if (centralEntries.length === 0) {
+      // Fallback: sem raw data (e.g. cache hit) — inclui os dados processados agrupados por device
+      const processedByDevice = _.groupBy(d, 'deviceName');
+      centraisFolder.file('dados_processados.json', JSON.stringify(processedByDevice, null, 2));
+    } else {
+      centralEntries.forEach(function ([cid, readings]) {
+        const safeName = (CENTRAL_NAMES[cid] || cid).replace(/[^\w-]/g, '_');
+        centraisFolder.file(cid + '__' + safeName + '.json', JSON.stringify(readings, null, 2));
+      });
+    }
+
+    // ── 4. MAN4 PDF ─────────────────────────────────────────────────────────
+    const pdfBytes = await _man4ExportPDF({ returnBytes: true });
+    zip.file(_man4BuildExportFilename('pdf'), pdfBytes);
+
+    // ── Generate & download ──────────────────────────────────────────────────
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    const zipName = _buildExportFilename('zip').replace(/\.zip$/, '') + '_completo.zip';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = zipName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+
+  } catch (err) {
+    console.error('[ZIP] Erro ao gerar ZIP:', err);
+    openErrorModal('Erro ao gerar ZIP', 'Não foi possível compilar o arquivo: ' + (err.message || err));
+  } finally {
+    closeBlockModal();
+  }
+}
+
 // ---- PDF helpers ----
 
 function _pdfSummaryFromData(data) {
@@ -1575,6 +1680,7 @@ async function getData() {
   }
   _inFlight = true;
   _lastQueryKey = queryKey;
+  _lastRawByCentral = {}; // reset para nova consulta
 
   // Limpa erros de conexão anteriores ao iniciar nova busca
   self.ctx.$scope.rpcConnectionErrors = [];
@@ -1659,6 +1765,10 @@ async function getData() {
       for (const [centralId, readings] of Object.entries(rpcResponses || {})) {
         const arrReadings = Array.isArray(readings) ? readings : [];
         LogHelper.log(`[CHUNK ${chunkNumber}/${totalChunks}]`, centralId, 'leituras:', arrReadings.length);
+
+        // Accumulate raw readings for ZIP export (all chunks concatenated per central)
+        if (!_lastRawByCentral[centralId]) _lastRawByCentral[centralId] = [];
+        _lastRawByCentral[centralId].push(...arrReadings);
 
         // v2.1: Normalização condicional por central
         // Centrais com backend ORIGINAL precisam de -3h de correção
@@ -2317,6 +2427,7 @@ self.onInit = function () {
     const d = _buildExportData();
     d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
+  self.ctx.$scope.downloadZIP = () => _exportZIP();
 
   window.tbtv5_exportPDF = function () {
     const d = _buildExportData();
@@ -3823,7 +3934,7 @@ function _man4ExportXLS() {
   setTimeout(function () { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
 }
 
-async function _man4ExportPDF() {
+async function _man4ExportPDF(opts) {
   var report = _man4State.report;
   if (!report) { openErrorModal('Sem dados', 'Não há dados MAN4 para exportar.'); return; }
 
@@ -4040,6 +4151,9 @@ async function _man4ExportPDF() {
     doc.setFont('helvetica', 'normal');
   }
   doc.setPage(totalPages);
+  if (opts && opts.returnBytes) {
+    return doc.output('arraybuffer');
+  }
   doc.save(_man4BuildExportFilename('pdf'));
 }
 
