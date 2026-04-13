@@ -4937,7 +4937,7 @@ function setupEventListeners(
   }
 
   // CF Status Tooltip — premium hover tooltip for mismatch/missing/undefined
-  _setupCfStatusTooltip(container, modalId, colors);
+  _setupCfStatusTooltip(container, modalId, getThemeColors(state.theme));
 
   // ========================
   // Multiselect Mode Handlers
