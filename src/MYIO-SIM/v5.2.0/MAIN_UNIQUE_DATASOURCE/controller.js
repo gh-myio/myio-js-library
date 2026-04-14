@@ -5927,7 +5927,10 @@ function classifyAllDevices(data) {
   if (!LogHelper) return null;
 
   const classified = {
-    energy: { equipments: [], stores: [], entrada: [] },
+    // RFC-FIX: incluir bomba/motor para capturar BOMBA_HIDRAULICA, BOMBA_INCENDIO, BOMBA_CAG,
+    // MOTOR etc. que detectContext retorna com contexto 'bomba'/'motor'. Após o loop esses
+    // arrays são fundidos em equipments, mantendo a interface downstream inalterada.
+    energy: { equipments: [], stores: [], entrada: [], bomba: [], motor: [] },
     water: { hidrometro_entrada: [], banheiros: [], hidrometro_area_comum: [], hidrometro: [] },
     temperature: { termostato: [], termostato_external: [] },
   };
@@ -5957,9 +5960,18 @@ function classifyAllDevices(data) {
     const domain = window.MyIOLibrary.getDomainFromDeviceType(device.deviceType);
     const context = window.MyIOLibrary.detectContext(device, domain);
 
-    if (classified[domain]?.[context]) {
+    if (classified[domain]?.[context] !== undefined) {
       classified[domain][context].push(device);
     }
+  }
+
+  // RFC-FIX: Fundir bomba e motor em equipments — são subcategorias de equipamentos de energia.
+  // detectContext retorna 'bomba'/'motor' para BAS, mas MAIN_UNIQUE trata tudo como 'equipments'.
+  if (classified.energy.bomba.length || classified.energy.motor.length) {
+    LogHelper.log(
+      `[classifyAllDevices] Merging BAS equipment contexts into equipments: bomba=${classified.energy.bomba.length}, motor=${classified.energy.motor.length}`
+    );
+    classified.energy.equipments.push(...classified.energy.bomba, ...classified.energy.motor);
   }
 
   // Log classification summary - always log this for debugging
