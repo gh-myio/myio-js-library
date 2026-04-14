@@ -42,7 +42,7 @@ function makeCols(unit: string): Col[] {
 function buildRow(d: TelemetryDevice, idx: number): RowData {
   const fmtVal = (): string => {
     if (d.val === null || d.val === undefined) return '—';
-    return Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+    return Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false });
   };
   return {
     idx:           String(idx + 1),
