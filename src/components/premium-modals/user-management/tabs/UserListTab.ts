@@ -504,13 +504,17 @@ export class UserListTab {
     }
 
     const gcdrCustomerId = (window as any).MyIOOrchestrator?.gcdrCustomerId || '';
+    if (!gcdrCustomerId) {
+      this.callbacks.showToast('GCDR customer ID não configurado. Tente novamente em instantes.', 'error');
+      return;
+    }
 
+    const now = new Date().toISOString();
     this.gcdrSyncing.add(uid);
     this.updateSyncCell(uid, 'syncing');
 
     const prev = this.gcdrConfigs.get(uid) ?? null;
     const syncCount = (prev?.syncCount ?? 0) + 1;
-    const now = new Date().toISOString();
 
     try {
       // 1. Search GCDR by email
@@ -537,7 +541,7 @@ export class UserListTab {
           syncedAt: now,
           createdAt: now,
           updatedAt: now,
-          version: 1,
+          version: syncCount,
         };
         const createRes = await fetch(`${base}/users`, {
           method: 'POST',
