@@ -1,4 +1,4 @@
-import { UserManagementConfig, TBUser, TBUserPage, buildUserTabLabel, GCDRAssignment, UserAssignmentsResponse, GCDRUser, GCDRUserConfigs } from '../types';
+import { UserManagementConfig, TBUser, TBUserPage, buildUserTabLabel, GCDRAssignment, UserAssignmentsResponse, GCDRUser, GCDRUserConfigs, GCDRExternalLink } from '../types';
 
 export interface UserListCallbacks {
   onOpenUserDetail(user: TBUser, editMode?: boolean): void;
@@ -503,17 +503,23 @@ export class UserListTab {
       return;
     }
 
+    const gcdrCustomerId = (window as any).MyIOOrchestrator?.gcdrCustomerId || '';
+    if (!gcdrCustomerId) {
+      this.callbacks.showToast('GCDR customer ID não configurado. Tente novamente em instantes.', 'error');
+      return;
+    }
+
+    const now = new Date().toISOString();
     this.gcdrSyncing.add(uid);
     this.updateSyncCell(uid, 'syncing');
 
     const prev = this.gcdrConfigs.get(uid) ?? null;
     const syncCount = (prev?.syncCount ?? 0) + 1;
-    const now = new Date().toISOString();
 
     try {
       // 1. Search GCDR by email
       const searchRes = await fetch(
-        `${base}/users?search=${encodeURIComponent(user.email)}&customerId=${encodeURIComponent(this.config.customerId)}&limit=10`,
+        `${base}/users?search=${encodeURIComponent(user.email)}&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=10`,
         { headers: this.gcdrHeaders() },
       );
 
@@ -528,15 +534,29 @@ export class UserListTab {
 
       // 2. Create if not found
       if (!gcdrUser) {
+        const externalLink: GCDRExternalLink = {
+          system: 'thingsboard',
+          externalId: user.id.id,
+          status: 'synced',
+          syncedAt: now,
+          createdAt: now,
+          updatedAt: now,
+          version: syncCount,
+        };
         const createRes = await fetch(`${base}/users`, {
           method: 'POST',
           headers: this.gcdrHeaders(),
           body: JSON.stringify({
             email: user.email,
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            customerId: this.config.customerId,
             type: 'CUSTOMER',
+            customerId: gcdrCustomerId,
+            profile: {
+              firstName: user.firstName || '',
+              lastName: user.lastName || '',
+              displayName: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+              ...(user.phone ? { phone: user.phone } : {}),
+            },
+            externalLinks: [externalLink],
           }),
         });
         if (!createRes.ok) throw new Error(`Criar usuário GCDR: HTTP ${createRes.status}`);

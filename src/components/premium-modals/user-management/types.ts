@@ -168,6 +168,17 @@ export interface GCDRUserConfigs {
   updatedAt?: string;
 }
 
+/** Represents a link between a GCDR user and an external system (e.g. ThingsBoard) */
+export interface GCDRExternalLink {
+  system: string;
+  externalId: string;
+  status: 'pending' | 'synced' | 'error';
+  syncedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  version?: number;
+}
+
 // ── GCDR Groups / Channels / Notifications types (RFC-0190) ──────────────────
 
 export type GCDRChannelType =
