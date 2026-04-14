@@ -54,6 +54,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —          |
 | Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —          |
 | Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —          |
+| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —          |
 
 #### Holding: SOUL MALLS
 
@@ -102,6 +103,9 @@ ssh -i id_rsa root@200:4dbc:14be:a704:6904:81cd:b62a:ab22
 
 # Souza Aguiar — Maternidade Nova
 ssh -i id_rsa root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
+
+# Souza Aguiar — T&D
+ssh -i id_rsa root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7
 
 # Praia da Costa L1 (Soul Malls)
 ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
@@ -296,4 +300,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-04-06_
+_Última atualização: 2026-04-13_
