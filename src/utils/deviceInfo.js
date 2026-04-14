@@ -144,12 +144,13 @@ export function detectContext(device, domain) {
       return ContextType.MOTOR;
     }
 
-    // RFC-0111: deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
-    if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
+    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile starts with 3F_MEDIDOR → STORE
+    // Includes archived/variant profiles like 3F_MEDIDOR_ARQUIVADO_INSTALADO_SEM_DADOS
+    if (deviceType === '3F_MEDIDOR' && deviceProfile.startsWith('3F_MEDIDOR')) {
       return ContextType.STORES;
     }
-    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
-    if (deviceType === '3F_MEDIDOR' && deviceProfile !== '3F_MEDIDOR') {
+    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile doesn't start with 3F_MEDIDOR → equipments
+    if (deviceType === '3F_MEDIDOR') {
       return ContextType.EQUIPMENTS;
     }
     // RFC-0111: deviceType != 3F_MEDIDOR → equipments

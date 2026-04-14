@@ -518,7 +518,8 @@ export class TelemetryGridView {
     const createFilterModal = paramsCreateFilterModal || windowCreateFilterModal;
 
     if (!createFilterModal) {
-      this.log('createFilterModal not available');
+      console.error('[TelemetryGridView] createFilterModal não disponível — passe MyIOLibrary.createFilterModalComponent via params ou exponha em window.MyIOUtils');
+      (window as unknown as Record<string, Record<string, { error?: (msg: string) => void }>>).MyIOLibrary?.MyIOToast?.error?.('Filtro não disponível. Recarregue a página.');
       return;
     }
 
