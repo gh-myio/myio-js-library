@@ -13,6 +13,7 @@
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── Widget Header ────────────────────────────────────────────────────────── */
@@ -141,6 +142,28 @@
   position: relative;
 }
 
+.ftr-table-wrap::-webkit-scrollbar {
+  width: 10px;   /* vertical */
+  height: 10px;  /* horizontal */
+}
+
+.ftr-table-wrap::-webkit-scrollbar-track {
+  background: #1A1A24;
+}
+
+.ftr-table-wrap::-webkit-scrollbar-thumb {
+  background: #3A3A4A;
+  border-radius: 5px;
+}
+
+.ftr-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #6B4ABF;
+}
+
+.ftr-table-wrap::-webkit-scrollbar-corner {
+  background: #1A1A24;
+}
+
 /* ── Table ────────────────────────────────────────────────────────────────── */
 .ftr-table {
   border-collapse: separate;
@@ -177,6 +200,10 @@
   max-width: 420px;
 }
 
+.ftr-table tbody tr:nth-child(even) td {
+  background: #1E1E2A;
+}
+
 .ftr-table tbody tr:hover td {
   background: #22223A;
 }
@@ -199,6 +226,10 @@ td.col-os {
   background: #1E1E2E;
   border-right: 2px solid #3A3A4A;
   font-weight: 600;
+}
+
+.ftr-table tbody tr:nth-child(even) td.col-os {
+  background: #222232;
 }
 
 .ftr-table tbody tr:hover td.col-os {
@@ -226,11 +257,16 @@ td.col-status {
   text-align: center;
 }
 
+.ftr-table tbody tr:nth-child(even) td.col-status {
+  background: #222232;
+}
+
 .ftr-table tbody tr:hover td.col-status {
   background: #25253A;
 }
 
 /* ── Column widths ────────────────────────────────────────────────────────── */
+.col-central-name   { min-width: 180px; width: 180px; }
 .col-thingsboard    { min-width: 180px; width: 180px; }
 .col-app-antigo     { min-width: 260px; width: 260px; }
 .col-new-name       { min-width: 320px; width: 320px; }
@@ -393,6 +429,63 @@ td.col-status {
 .ftr-num {
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Delete Confirm Overlay ───────────────────────────────────────────────── */
+.ftr-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.ftr-confirm-box {
+  background: #23232F;
+  border: 1px solid #3A3A4A;
+  border-radius: 10px;
+  padding: 24px 28px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ftr-confirm-msg {
+  font-size: 14px;
+  font-weight: 600;
+  color: #E0E0E0;
+  margin: 0 0 6px 0;
+}
+
+.ftr-confirm-sub {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 20px 0;
+}
+
+.ftr-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ftr-confirm-btn-yes {
+  background: #7A2020;
+  border-color: #A03030;
+  color: #FFB3B3;
+}
+
+.ftr-confirm-btn-yes:hover {
+  background: #962828;
+  border-color: #C03030;
+}
+
+.ftr-confirm-btn-no {
+  background: #2A2A38;
+  border-color: #3A3A4A;
+  color: #888;
 }
 
 /* ── Row index ────────────────────────────────────────────────────────────── */
