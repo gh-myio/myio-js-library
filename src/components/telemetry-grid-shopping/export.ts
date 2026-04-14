@@ -27,20 +27,22 @@ export interface ExportPeriod {
   endISO?: string | null;
 }
 
-const COLS: Col[] = [
-  { key: 'idx',          label: '#',            pdfW: 10  },
-  { key: 'nome',         label: 'Nome',         pdfW: 100 },
-  { key: 'identificador',label: 'Identificador', pdfW: 60 },
-  { key: 'consumo',      label: 'Consumo',      pdfW: 50  },
-  { key: 'perc',         label: '%',            pdfW: 20  },
-];
+function makeCols(unit: string): Col[] {
+  return [
+    { key: 'idx',          label: '#',                                    pdfW: 10  },
+    { key: 'nome',         label: 'Nome',                                 pdfW: 100 },
+    { key: 'identificador',label: 'Identificador',                        pdfW: 60  },
+    { key: 'consumo',      label: unit ? `Consumo (${unit})` : 'Consumo', pdfW: 50  },
+    { key: 'perc',         label: '%',                                    pdfW: 20  },
+  ];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildRow(d: TelemetryDevice, idx: number, unit: string): RowData {
+function buildRow(d: TelemetryDevice, idx: number): RowData {
   const fmtVal = (): string => {
     if (d.val === null || d.val === undefined) return '—';
-    return `${Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${unit}`;
+    return Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
   };
   return {
     idx:           String(idx + 1),
@@ -111,10 +113,11 @@ export function exportGridCsv(
     '',
   ].filter(v => v !== null);
 
-  const header = COLS.map(c => `"${c.label}"`).join(';');
+  const cols = makeCols(unit);
+  const header = cols.map(c => `"${c.label}"`).join(';');
   const rows = devices.map((d, i) => {
-    const r = buildRow(d, i, unit);
-    return COLS.map(c => `"${String(r[c.key]).replace(/"/g, '""')}"`).join(';');
+    const r = buildRow(d, i);
+    return cols.map(c => `"${String(r[c.key]).replace(/"/g, '""')}"`).join(';');
   });
 
   const csv = '\uFEFF' + [...metaRows, header, ...rows].join('\r\n'); // BOM for Excel
@@ -133,20 +136,21 @@ export function exportGridXls(
   period?: ExportPeriod | null,
 ): void {
   const periodLabel = fmtPeriod(period);
-  const span = COLS.length - 1; // MergeAcross = span cols - 1
+  const cols = makeCols(unit);
+  const span = cols.length - 1; // MergeAcross = span cols - 1
 
   const metaRow = (key: string, val: string) =>
     `<Row><Cell ss:StyleID="m"><Data ss:Type="String">${escXml(key)}</Data></Cell>` +
     `<Cell ss:MergeAcross="${span - 1}"><Data ss:Type="String">${escXml(val)}</Data></Cell></Row>`;
 
-  const headerCells = COLS.map(
+  const headerCells = cols.map(
     c => `<Cell ss:StyleID="h"><Data ss:Type="String">${escXml(c.label)}</Data></Cell>`,
   ).join('');
 
   const dataRows = devices
     .map((d, i) => {
-      const r = buildRow(d, i, unit);
-      const cells = COLS.map(c => {
+      const r = buildRow(d, i);
+      const cells = cols.map(c => {
         const v = escXml(String(r[c.key]));
         return `<Cell><Data ss:Type="String">${v}</Data></Cell>`;
       }).join('');
@@ -206,10 +210,12 @@ export function exportGridPdf(
   const MAX_Y    = PH - FTR_H - MARGIN;
   const TABLE_W  = PW - MARGIN * 2;
 
+  const cols = makeCols(unit);
+
   // Scale column widths to fill TABLE_W exactly
-  const rawTotal = COLS.reduce((s, c) => s + c.pdfW, 0);
+  const rawTotal = cols.reduce((s, c) => s + c.pdfW, 0);
   const scale    = TABLE_W / rawTotal;
-  const colWidths = COLS.map(c => c.pdfW * scale);
+  const colWidths = cols.map(c => c.pdfW * scale);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -242,7 +248,7 @@ export function exportGridPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
 
-    COLS.forEach((c, ci) => {
+    cols.forEach((c, ci) => {
       const x = colX(ci) + 1.5;
       doc.text(c.label, x, y + HEAD_H / 2 + 2.5);
     });
@@ -262,7 +268,7 @@ export function exportGridPdf(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
 
-    COLS.forEach((c, ci) => {
+    cols.forEach((c, ci) => {
       const x  = colX(ci) + 1.5;
       const maxChars = Math.floor(colWidths[ci] / 1.8);
       const text = truncate(String(r[c.key]), maxChars);
@@ -311,7 +317,7 @@ export function exportGridPdf(
       currentY += HEAD_H;
     }
 
-    drawDataRow(buildRow(d, i, unit), currentY, i % 2 === 0);
+    drawDataRow(buildRow(d, i), currentY, i % 2 === 0);
     currentY += ROW_H;
   });
 
