@@ -162,6 +162,25 @@
                 estimado. A mudança aplica-se ao próximo carregamento do relatório.
               </p>
 
+              <div class="row" style="margin-top: 10px; align-items: center; gap: 8px">
+                <label style="font-size: 13px; color: var(--text-muted, #aaa); white-space: nowrap">
+                  Lacuna máx. interpolável
+                </label>
+                <input
+                  type="number"
+                  class="clamp-input"
+                  min="1"
+                  max="48"
+                  step="1"
+                  style="width: 60px"
+                  [ngModel]="maxGapSlots"
+                  (change)="setMaxGapSlots($event)"
+                />
+                <span style="font-size: 12px; color: var(--text-muted, #aaa)">
+                  slots ({{ maxGapSlots * 30 }} min). Salvo junto com Limites de Temperatura.
+                </span>
+              </div>
+
               <div class="settings-group" style="margin-top: 14px">
                 <label class="group-label">Limites de Temperatura (clamp)</label>
                 <p class="muted" style="margin-bottom: 8px">

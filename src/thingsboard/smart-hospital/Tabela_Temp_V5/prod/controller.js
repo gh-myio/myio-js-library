@@ -36,6 +36,11 @@ let adminPasswordInput = '';
 // Interpolation flag — disabled by default; admin can enable via settings modal
 let interpolationEnabled = false;
 
+// Max gap slots for interpolation (admin-configurable)
+// Default: 8 slots = 4 horas; overridden by SERVER_SCOPE attribute tempMaxGapSlots
+const MAX_GAP_SLOTS_DEFAULT = 8;
+let _maxGapSlots = MAX_GAP_SLOTS_DEFAULT;
+
 // Clamp limits for real sensor readings (admin-configurable)
 // Defaults / fallback — overridden by SERVER_SCOPE attributes tempClampMin / tempClampMax
 const CLAMP_DEFAULT_MIN = 17;
@@ -265,14 +270,16 @@ async function _loadClampAttributes() {
       /* mantém fallback 'hospital' */
     }
     const resp = await getHttp()
-      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax')
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax,tempMaxGapSlots')
       .toPromise();
     const data = (resp && resp.data) ? resp.data : resp;
     const attrs = Array.isArray(data) ? data : [];
     const minAttr = attrs.find(function (a) { return a.key === 'tempClampMin'; });
     const maxAttr = attrs.find(function (a) { return a.key === 'tempClampMax'; });
+    const gapAttr = attrs.find(function (a) { return a.key === 'tempMaxGapSlots'; });
     const hasMin = minAttr != null && minAttr.value != null;
     const hasMax = maxAttr != null && maxAttr.value != null;
+    const hasGap = gapAttr != null && gapAttr.value != null;
     if (hasMin || hasMax) {
       if (hasMin) clampMin = parseFloat(minAttr.value);
       if (hasMax) clampMax = parseFloat(maxAttr.value);
@@ -284,9 +291,20 @@ async function _loadClampAttributes() {
       _clampFromCustomer = false;
       LogHelper.log('[CLAMP] Sem atributos no SERVER_SCOPE, usando defaults:', clampMin, clampMax);
     }
+    if (hasGap) {
+      const parsed = parseInt(gapAttr.value, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 48) {
+        _maxGapSlots = parsed;
+        LogHelper.log('[INTERP] maxGapSlots carregado de SERVER_SCOPE:', _maxGapSlots);
+      }
+    } else {
+      _maxGapSlots = MAX_GAP_SLOTS_DEFAULT;
+      LogHelper.log('[INTERP] maxGapSlots usando default:', _maxGapSlots);
+    }
     self.ctx.$scope.clampMin = clampMin;
     self.ctx.$scope.clampMax = clampMax;
     self.ctx.$scope.clampFromCustomer = _clampFromCustomer;
+    self.ctx.$scope.maxGapSlots = _maxGapSlots;
     self.ctx.detectChanges();
   } catch (e) {
     LogHelper.warn('[CLAMP] Falha ao carregar, usando defaults:', e);
@@ -308,6 +326,7 @@ async function _saveClampAttributes() {
       .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', {
         tempClampMin: clampMin,
         tempClampMax: clampMax,
+        tempMaxGapSlots: _maxGapSlots,
       })
       .toPromise();
     _clampFromCustomer = true;
@@ -400,6 +419,46 @@ async function _saveDebugAttribute() {
   }
 }
 
+// Carrega interpolationEnabled do SERVER_SCOPE do cliente
+async function _loadInterpolationAttribute() {
+  try {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) return;
+    const resp = await getHttp()
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempInterpolationEnabled')
+      .toPromise();
+    const data = (resp && resp.data) ? resp.data : resp;
+    const attrs = Array.isArray(data) ? data : [];
+    const attr = attrs.find(function (a) { return a.key === 'tempInterpolationEnabled'; });
+    if (attr && attr.value != null) {
+      interpolationEnabled = attr.value === true || attr.value === 'true';
+      if (self.ctx && self.ctx.$scope) {
+        self.ctx.$scope.interpolationEnabled = interpolationEnabled;
+        self.ctx.detectChanges();
+      }
+      LogHelper.log('[INTERP] interpolationEnabled carregado de SERVER_SCOPE:', interpolationEnabled);
+    }
+  } catch (e) {
+    /* silencioso */
+  }
+}
+
+// Salva interpolationEnabled no SERVER_SCOPE do cliente
+async function _saveInterpolationAttribute() {
+  try {
+    const entityId = await _getCustomerEntityIdAsync();
+    if (!entityId || !entityId.id) return;
+    await getHttp()
+      .post('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/SERVER_SCOPE', {
+        tempInterpolationEnabled: interpolationEnabled,
+      })
+      .toPromise();
+    LogHelper.log('[INTERP] interpolationEnabled salvo no SERVER_SCOPE:', interpolationEnabled);
+  } catch (e) {
+    console.error('[INTERP] Falha ao salvar interpolationEnabled no SERVER_SCOPE:', e);
+  }
+}
+
 // ── Manual Override helpers ──────────────────────────────────────────────────
 function buildOverrideMap(attr) {
   var map = new Map();
@@ -473,7 +532,7 @@ function setCache(centrals, s, e, data) {
  * Configurações de interpolação limitada
  */
 const INTERPOLATION_CONFIG = {
-  maxGapSlots: 8, // 8 slots × 30min = 4 horas máximo (per user request)
+  get maxGapSlots() { return _maxGapSlots; }, // configurável via settings modal (SERVER_SCOPE: tempMaxGapSlots)
   allowCrossMidnight: false, // Não interpolar gaps que cruzam meia-noite
   includeMissingInOutput: true, // Inclui slots sem dados no output (missing: true) para contagem de perda
 };
@@ -3134,6 +3193,16 @@ self.onInit = function () {
     interpolationEnabled = checked;
     self.ctx.$scope.interpolationEnabled = checked;
     self.ctx.detectChanges();
+    _saveInterpolationAttribute();
+  };
+
+  self.ctx.$scope.maxGapSlots = _maxGapSlots;
+  self.ctx.$scope.setMaxGapSlots = function (evt) {
+    const v = parseInt(evt?.target?.value, 10);
+    if (isNaN(v) || v < 1 || v > 48) return;
+    _maxGapSlots = v;
+    self.ctx.$scope.maxGapSlots = v;
+    self.ctx.detectChanges();
   };
 
   self.ctx.$scope.clampMin = clampMin;
@@ -3212,9 +3281,10 @@ self.onInit = function () {
   // Carrega limites de clamp e overrides ANTES de qualquer getData().
   // Ambos precisam de await para garantir que os dados estejam disponíveis
   // quando onDataUpdated (que chama getData) disparar logo após onInit.
-  _loadClampAttributes();    // fire-and-forget — carrega clamp limits do SERVER_SCOPE
-  _loadAdminModeAttribute(); // fire-and-forget — restaura adminMode do SERVER_SCOPE
-  _loadDebugAttribute();     // fire-and-forget — carrega debug mode do SERVER_SCOPE
+  _loadClampAttributes();         // fire-and-forget — carrega clamp limits do SERVER_SCOPE
+  _loadAdminModeAttribute();      // fire-and-forget — restaura adminMode do SERVER_SCOPE
+  _loadDebugAttribute();          // fire-and-forget — carrega debug mode do SERVER_SCOPE
+  _loadInterpolationAttribute();  // fire-and-forget — restaura interpolationEnabled do SERVER_SCOPE
   LogHelper.log('[OVERRIDE] Iniciando _loadManualOverrides() no onInit...');
   _loadManualOverrides().then(function () {
     LogHelper.log('[OVERRIDE] _loadManualOverrides() concluído. _manualOverrides =',
