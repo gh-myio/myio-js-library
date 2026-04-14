@@ -5315,7 +5315,11 @@ self.onInit = async function () {
 
             emitTelemetryUpdate();
             reflowFromState();
-            hideBusy();
+            // RFC-GAP-FIX: Do NOT hide busy here — this is state-fallback data (no real period yet).
+            // The spinner stays visible until the real period arrives (via myio:update-date → provide-data).
+            // Calling hideBusy() here clears all activeRequests including the energy domain, creating a
+            // ~120s blank screen gap until HEADER provides the real period.
+            // hideBusy(); ← intentionally skipped for state-fallback
           } else {
             LogHelper.warn(`[TELEMETRY] ⚠️ Auto-process failed: no state items found`);
           }

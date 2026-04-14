@@ -4350,7 +4350,8 @@ const MyIOOrchestrator = (() => {
           window._contractModalAutoCloseId = setTimeout(() => {
             if (!window._contractModalPaused && window.MyIOOrchestrator?.hideGlobalBusy) {
               LogHelper.log('[RFC-0107] Auto-closing contract modal');
-              window.MyIOOrchestrator.hideGlobalBusy();
+              // RFC-GAP-FIX: Pass 'contract' domain so energy/water/temp active requests are preserved.
+              window.MyIOOrchestrator.hideGlobalBusy('contract');
             }
           }, 15000);
         }
@@ -4498,8 +4499,8 @@ const MyIOOrchestrator = (() => {
         // Show spinner with Portuguese message
         spinner.show(message || 'Carregando dados...');
         LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner shown for ${domain}`);
-      } else {
-        // Update message if already showing
+      } else if (!options.silent) {
+        // Update message if already showing (skip if silent — used for pre-registration)
         spinner.updateMessage(message || 'Carregando dados...');
         LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner message updated (already showing)`);
       }
@@ -4581,7 +4582,18 @@ const MyIOOrchestrator = (() => {
       LogHelper.log(
         `[Orchestrator] ✅ hideGlobalBusy(${domain}) -> ${prev}→${next}, total=${getActiveTotal()}`
       );
-      if (getActiveTotal() > 0) return; // mantém overlay enquanto houver ativas
+      if (getActiveTotal() > 0) {
+        // RFC-GAP-FIX: Contract phase done but domain data (energy/water/temp) still loading.
+        // Update spinner message to reflect the transition from contract → panel loading phase.
+        if (domain === 'contract') {
+          const spinnerForMsg = getLoadingSpinner();
+          if (spinnerForMsg?.isShowing()) {
+            spinnerForMsg.updateMessage('Carregando painéis...');
+            LogHelper.log('[Orchestrator] 🔄 RFC-GAP-FIX: Contract done, panels still loading — message updated');
+          }
+        }
+        return; // mantém overlay enquanto houver ativas
+      }
     } else {
       activeRequests.clear();
     }
@@ -4825,6 +4837,15 @@ const MyIOOrchestrator = (() => {
 
     pendingRetries.set(domain, true);
 
+    // RFC-GAP-FIX: Pre-register this domain in activeRequests BEFORE the period-wait loop.
+    // Without this, the contract spinner (the only active domain) closes at T≈15s while
+    // waitForPeriodWithRetry is still polling — leaving activeRequests empty and hiding the
+    // spinner up to 12s before hydrateDomain even starts. Using silent:true prevents this
+    // registration from overwriting the contract modal's current message.
+    // The counter is balanced: hydrateDomain adds +1, its finally removes -1, AND this
+    // finally below removes the +1 we add here.
+    showGlobalBusy(domain, '', 180000, { silent: true });
+
     try {
       let period = providedPeriod || currentPeriod;
 
@@ -4839,6 +4860,10 @@ const MyIOOrchestrator = (() => {
       LogHelper.log(`[Orchestrator] 📡 requestDataWithRetry → hydrateDomain(${domain})`);
       await hydrateDomain(domain, period);
     } finally {
+      // RFC-GAP-FIX: Release the pre-registration counter added above.
+      // hydrateDomain internally calls showGlobalBusy (+1) balanced by emitProvide.hideGlobalBusy
+      // and its own finally.hideGlobalBusy. This finally covers ONLY the +1 from above.
+      hideGlobalBusy(domain);
       pendingRetries.delete(domain);
     }
   }
@@ -7686,7 +7711,10 @@ function finalizeContractValidation(expectedCounts) {
     }
     if (window.MyIOOrchestrator?.hideGlobalBusy) {
       LogHelper.log('[RFC-0107] Auto-closing contract loading modal after 15 seconds');
-      window.MyIOOrchestrator.hideGlobalBusy();
+      // RFC-GAP-FIX: Pass 'contract' domain so energy/water/temp active requests are preserved.
+      // Using hideGlobalBusy() with no domain clears ALL activeRequests, hiding the spinner even
+      // when the energy domain is still loading, creating a blank-screen gap.
+      window.MyIOOrchestrator.hideGlobalBusy('contract');
     }
   }, 15000);
 
