@@ -240,13 +240,97 @@ systemctl status myio-api.service
 
 ## 7. Modbus / Slaves
 
-### 7.1 Verificar dispositivos ativos
+### 7.1 Schema da tabela `slaves`
+
+```
+hubot=# \d slaves;
+                                             Table "public.slaves"
+         Column         |           Type           | Collation | Nullable |              Default
+------------------------+--------------------------+-----------+----------+------------------------------------
+ id                     | integer                  |           | not null | nextval('slaves_id_seq'::regclass)
+ type                   | character varying(255)   |           |          |
+ addr_low               | integer                  |           |          |
+ addr_high              | integer                  |           |          |
+ channels               | integer                  |           |          |
+ name                   | character varying(255)   |           |          |
+ color                  | character varying(255)   |           |          |
+ code                   | character varying(255)   |           |          |
+ clamp_type             | integer                  |           |          |
+ aggregate              | boolean                  |           |          | true
+ version                | character varying(255)   |           |          | '1.0.0'::character varying
+ temperature_correction | integer                  |           |          |
+ config                 | json                     |           |          |
+ created_at             | timestamp with time zone |           | not null | now()
+ updated_at             | timestamp with time zone |           | not null | now()
+```
+
+**Campo `config` — estrutura relevante:**
+
+```json
+{
+  "config_clamp": {
+    "value": 2
+  }
+}
+```
+
+`clamp_type` deve ser sempre `NOT NULL` e igual a `config->'config_clamp'->>'value'`.
+
+### 7.2 Query: não conformidades `clamp_type` vs `config.config_clamp.value`
+
+```sql
+SELECT
+  id,
+  name,
+  clamp_type,
+  (config -> 'config_clamp' ->> 'value')::integer AS config_clamp_value,
+  CASE
+    WHEN clamp_type IS NULL                                          THEN 'clamp_type NULL'
+    WHEN config IS NULL                                              THEN 'config NULL'
+    WHEN config -> 'config_clamp' IS NULL                           THEN 'config_clamp ausente'
+    WHEN (config -> 'config_clamp' ->> 'value') IS NULL             THEN 'config_clamp.value NULL'
+    WHEN clamp_type <> (config -> 'config_clamp' ->> 'value')::int  THEN 'divergência'
+  END AS problema
+FROM slaves
+WHERE
+  clamp_type IS NULL
+  OR config IS NULL
+  OR config -> 'config_clamp' IS NULL
+  OR (config -> 'config_clamp' ->> 'value') IS NULL
+  OR clamp_type <> (config -> 'config_clamp' ->> 'value')::int
+ORDER BY id;
+```
+
+### 7.3 Update pontual de `clamp_type`
+
+```sql
+-- Exemplo: forçar clamp_type = 2 para slave id = 66
+UPDATE slaves
+SET clamp_type = 2
+WHERE id = 66;
+```
+
+### 7.4 Update em massa — sincronizar `clamp_type` com `config.config_clamp.value`
+
+```sql
+-- Atualiza todos onde há divergência e config_clamp.value é válido
+UPDATE slaves
+SET clamp_type = (config -> 'config_clamp' ->> 'value')::int
+WHERE
+  (config -> 'config_clamp' ->> 'value') IS NOT NULL
+  AND (
+    clamp_type IS NULL
+    OR clamp_type <> (config -> 'config_clamp' ->> 'value')::int
+  );
+```
+
+### 7.5 Verificar dispositivos ativos
 
 <!-- Descrever como verificar slaves conectados:
      ex. via log Node-RED, arquivo de configuração, etc.
 -->
 
-### 7.2 Arquivo de mapeamento de devices
+### 7.6 Arquivo de mapeamento de devices
 
 <!-- Caminho e formato do arquivo que mapeia slaveId → deviceName -->
 

@@ -1,0 +1,24 @@
+{
+  "tolerance": 0,
+  "config_clamp": {
+    "value": 2,
+    "confirmed": true
+  },
+  "min_variance": 5,
+  "channelConfig": {
+    "channel0": {
+      "output": "HOLDING",
+      "pulses": 1,
+      "channel": 0,
+      "slaveId": 66,
+      "channel_type": "REMOTE_INPUT"
+    },
+    "channel1": {
+      "output": "HOLDING",
+      "pulses": 5,
+      "channel": 1,
+      "slaveId": 66,
+      "channel_type": "PULSE_ON_POWER"
+    }
+  }
+}
