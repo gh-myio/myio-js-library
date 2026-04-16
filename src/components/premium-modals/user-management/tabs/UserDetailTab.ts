@@ -1,4 +1,14 @@
-import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, GCDRPolicy, UserAssignmentsResponse, UserRoleAssignmentsSnapshot } from '../types';
+import {
+  UserManagementConfig,
+  TBUser,
+  buildUserTabLabel,
+  GCDRAssignment,
+  GCDRRole,
+  GCDRPolicy,
+  GCDRUserConfigs,
+  UserAssignmentsResponse,
+  UserRoleAssignmentsSnapshot,
+} from '../types';
 
 export interface UserDetailCallbacks {
   onDeleted(): void;
@@ -23,6 +33,7 @@ export class UserDetailTab {
   private availablePolicies: GCDRPolicy[] = [];
   private assignmentsEl: HTMLElement | null = null;
   private assignmentsVersion = 0;
+  private gcdrUserId: string | null = null;
 
   constructor(config: UserManagementConfig, user: TBUser, callbacks: UserDetailCallbacks) {
     this.config = config;
@@ -43,7 +54,9 @@ export class UserDetailTab {
 
   /** Called after tab is re-activated when user already has an open tab */
   focus(): void {
-    this.el?.querySelector<HTMLElement>('.um-detail-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.el
+      ?.querySelector<HTMLElement>('.um-detail-card')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   private renderContent(): void {
@@ -120,7 +133,7 @@ export class UserDetailTab {
     if (j?.data && typeof j.data === 'object') {
       const d = j.data as Record<string, unknown>;
       if (Array.isArray(d.items)) return d.items as T[];
-      if (Array.isArray(d)) return (d as unknown) as T[];
+      if (Array.isArray(d)) return d as unknown as T[];
     }
     if (Array.isArray(j?.items)) return j.items as T[];
     return [];
@@ -128,10 +141,12 @@ export class UserDetailTab {
 
   private buildAssignmentsSection(): HTMLElement {
     const section = document.createElement('div');
-    section.style.cssText = 'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
+    section.style.cssText =
+      'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
 
     const sectionHeader = document.createElement('div');
-    sectionHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);';
+    sectionHeader.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);';
     sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🔑 Funções / Papéis</span>`;
 
     const addBtn = document.createElement('button');
@@ -152,21 +167,48 @@ export class UserDetailTab {
   }
 
   private async loadAssignments(): Promise<void> {
-    const userId = this.user.id.id;
+    const tbUserId = this.user.id.id;
     try {
-      const [assignRes, rolesRes, policiesRes] = await Promise.all([
-        fetch(`${this.gcdrBase()}/authorization/users/${userId}/assignments`, { headers: this.gcdrHeaders() }),
+      // 1. Buscar gcdrUserId nos atributos TB (necessário para usar a API GCDR)
+      const { tbBaseUrl, jwtToken } = this.config;
+      const attrRes = await fetch(
+        `${tbBaseUrl}/api/plugins/telemetry/USER/${tbUserId}/values/attributes/SERVER_SCOPE?keys=gcdrUserConfigs`,
+        { headers: { 'X-Authorization': `Bearer ${jwtToken}` } },
+      );
+      if (attrRes.ok) {
+        const attrs: Array<{ key: string; value: unknown }> = await attrRes.json();
+        const entry = attrs.find((a) => a.key === 'gcdrUserConfigs');
+        if (entry?.value && typeof entry.value === 'object') {
+          this.gcdrUserId = (entry.value as GCDRUserConfigs).gcdrUserId ?? null;
+        }
+      }
+
+      // 2. Roles e políticas carregam sempre (necessário para o formulário)
+      const [rolesRes, policiesRes] = await Promise.all([
         fetch(`${this.gcdrBase()}/roles?limit=100`, { headers: this.gcdrHeaders() }),
         fetch(`${this.gcdrBase()}/policies?limit=100`, { headers: this.gcdrHeaders() }),
       ]);
+      this.availableRoles = rolesRes.ok ? this.unwrapList<GCDRRole>(await rolesRes.json()) : [];
+      this.availablePolicies = policiesRes.ok ? this.unwrapList<GCDRPolicy>(await policiesRes.json()) : [];
+
+      // 3. Assignments só carregam se o usuário já foi sincronizado com o GCDR
+      if (!this.gcdrUserId) {
+        if (this.assignmentsEl) {
+          this.assignmentsEl.innerHTML = `<div style="font-size:13px;color:var(--um-text-faint);padding:8px 0;">⚠️ Usuário não sincronizado com GCDR. Use o botão ↻ na lista de usuários primeiro.</div>`;
+        }
+        return;
+      }
+
+      const assignRes = await fetch(
+        `${this.gcdrBase()}/authorization/users/${this.gcdrUserId}/assignments`,
+        { headers: this.gcdrHeaders() },
+      );
       if (assignRes.ok) {
-        const assignJson = await assignRes.json() as UserAssignmentsResponse | GCDRAssignment[];
+        const assignJson = (await assignRes.json()) as UserAssignmentsResponse | GCDRAssignment[];
         this.assignments = Array.isArray(assignJson) ? assignJson : (assignJson.assignments ?? []);
       } else {
         this.assignments = [];
       }
-      this.availableRoles = rolesRes.ok ? this.unwrapList<GCDRRole>(await rolesRes.json()) : [];
-      this.availablePolicies = policiesRes.ok ? this.unwrapList<GCDRPolicy>(await policiesRes.json()) : [];
       this.renderAssignments();
     } catch (err) {
       console.error('[UserDetailTab] loadAssignments error', err);
@@ -191,17 +233,23 @@ export class UserDetailTab {
       <th>Função</th><th>Escopo</th><th>Status</th><th>Expira em</th><th style="text-align:center;">Ação</th>
     </tr></thead>`;
     const tbody = document.createElement('tbody');
-    this.assignments.forEach(a => {
+    this.assignments.forEach((a) => {
       const tr = document.createElement('tr');
-      const statusColor = a.status === 'active' ? 'var(--um-badge-active-text)' : a.status === 'expired' ? 'var(--um-badge-blocked-text)' : 'var(--um-text-faint)';
+      const statusColor =
+        a.status === 'active'
+          ? 'var(--um-badge-active-text)'
+          : a.status === 'expired'
+            ? 'var(--um-badge-blocked-text)'
+            : 'var(--um-text-faint)';
       const expiresAt = a.expiresAt ? new Date(a.expiresAt).toLocaleDateString('pt-BR') : '—';
-      const scopeLabel = a.scope === '*'
-        ? '* (global)'
-        : a.scope.startsWith('customer:')
-          ? `Cliente (${a.scope.replace('customer:', '').slice(0, 8)}...)`
-          : a.scope.startsWith('asset:')
-            ? `Asset (${a.scope.replace('asset:', '').slice(0, 8)}...)`
-            : a.scope;
+      const scopeLabel =
+        a.scope === '*'
+          ? '* (global)'
+          : a.scope.startsWith('customer:')
+            ? `Cliente (${a.scope.replace('customer:', '').slice(0, 8)}...)`
+            : a.scope.startsWith('asset:')
+              ? `Asset (${a.scope.replace('asset:', '').slice(0, 8)}...)`
+              : a.scope;
       tr.innerHTML = `
         <td style="font-weight:500;">${this.esc(a.roleDisplayName || a.roleKey)}</td>
         <td style="font-size:12px;">${this.esc(scopeLabel)}</td>
@@ -222,15 +270,18 @@ export class UserDetailTab {
     overlay.className = 'um-backdrop';
     overlay.setAttribute('data-theme', this.config.theme || 'light');
     overlay.style.zIndex = '100001';
-    
+
     const modal = document.createElement('div');
     modal.className = 'um-modal';
-    modal.style.cssText = 'width: min(820px, 92vw); max-height: 85vh; height: auto; aspect-ratio: unset; overflow: hidden; display: flex; flex-direction: column;';
+    modal.style.cssText =
+      'width: min(820px, 92vw); max-height: 85vh; height: auto; aspect-ratio: unset; overflow: hidden; display: flex; flex-direction: column;';
 
     const gcdrCid = (window as any).MyIOOrchestrator?.gcdrCustomerId || '';
     const scopeOptions = [
       { value: '*', label: '* (global — todos os clientes)' },
-      ...(gcdrCid ? [{ value: `customer:${gcdrCid}`, label: `Cliente atual (${gcdrCid.slice(0, 8)}...)` }] : []),
+      ...(gcdrCid
+        ? [{ value: `customer:${gcdrCid}`, label: `Cliente atual (${gcdrCid.slice(0, 8)}...)` }]
+        : []),
     ];
 
     modal.innerHTML = `
@@ -245,7 +296,7 @@ export class UserDetailTab {
           <label class="um-label">Função <span class="um-req">*</span></label>
           <select class="um-input" name="roleId">
             <option value="">Selecione...</option>
-            ${this.availableRoles.map(r => `<option value="${this.esc(r.id)}">${this.esc(r.displayName)}</option>`).join('')}
+            ${this.availableRoles.map((r) => `<option value="${this.esc(r.id)}">${this.esc(r.displayName)}</option>`).join('')}
           </select>
           <span class="um-field-error" data-for="roleId"></span>
         </div>
@@ -256,17 +307,20 @@ export class UserDetailTab {
         <div class="um-form-group">
           <label class="um-label">Escopo <span class="um-req">*</span></label>
           <select class="um-input" name="scope">
-            ${scopeOptions.map(o => `<option value="${this.esc(o.value)}">${this.esc(o.label)}</option>`).join('')}
+            ${scopeOptions.map((o) => `<option value="${this.esc(o.value)}">${this.esc(o.label)}</option>`).join('')}
           </select>
         </div>
         <div class="um-form-group">
-          <label class="um-label">Expiração (opcional)</label>
+          <label class="um-label">Expiração <span class="um-req">*</span></label>
           <input type="date" class="um-input" name="expiresAt" />
+          <span class="um-field-error" data-for="expiresAt"></span>
         </div>
         <div class="um-form-group">
-          <label class="um-label">Motivo (opcional)</label>
+          <label class="um-label">Motivo <span class="um-req">*</span></label>
           <input class="um-input" name="reason" placeholder="Ex: Acesso temporário para auditoria" autocomplete="off" />
+          <span class="um-field-error" data-for="reason"></span>
         </div>
+        <div class="um-form-error" style="display:none;color:var(--um-toast-err-text,#f87171);font-size:12px;padding:8px 10px;background:var(--um-toast-err-bg,rgba(220,38,38,0.1));border-radius:6px;border:1px solid var(--um-toast-err-border,rgba(220,38,38,0.2));margin-bottom:8px;"></div>
         <div class="um-form-actions">
           <button class="um-btn um-btn--ghost assign-cancel">Cancelar</button>
           <button class="um-btn um-btn--primary assign-save">Atribuir</button>
@@ -282,62 +336,108 @@ export class UserDetailTab {
     const policiesPreview = modal.querySelector<HTMLElement>('.um-assign-policies-preview')!;
     const policiesList = modal.querySelector<HTMLElement>('.um-assign-policies-list')!;
     roleSelect.addEventListener('change', () => {
-      const role = this.availableRoles.find(r => r.id === roleSelect.value);
+      const role = this.availableRoles.find((r) => r.id === roleSelect.value);
       const policyRefs = role?.policies ?? role?.policyIds ?? [];
       if (!role || policyRefs.length === 0) {
         policiesPreview.style.display = 'none';
         return;
       }
       // Match by key (e.g. "policy:alarm-management") or id
-      const policyByKey = new Map(this.availablePolicies.flatMap(p => [
-        [p.key || p.id, p],
-        [p.id, p],
-      ]));
-      const matched = policyRefs
-        .map(ref => policyByKey.get(ref))
-        .filter(Boolean) as GCDRPolicy[];
-      policiesList.innerHTML = matched.length > 0
-        ? matched.map(p => `
+      const policyByKey = new Map(
+        this.availablePolicies.flatMap((p) => [
+          [p.key || p.id, p],
+          [p.id, p],
+        ])
+      );
+      const matched = policyRefs.map((ref) => policyByKey.get(ref)).filter(Boolean) as GCDRPolicy[];
+      policiesList.innerHTML =
+        matched.length > 0
+          ? matched
+              .map(
+                (p) => `
             <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;background:var(--um-bg-input);border-radius:6px;">
               <span style="font-size:11px;font-weight:600;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;white-space:nowrap;">${this.esc(p.displayName)}</span>
               ${p.description ? `<span style="font-size:11px;color:var(--um-text-muted);padding-top:2px;">${this.esc(p.description)}</span>` : ''}
-            </div>`).join('')
-        : policyRefs.map(ref => `
-            <span style="font-size:11px;font-family:monospace;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;">${this.esc(ref)}</span>`).join('');
+            </div>`
+              )
+              .join('')
+          : policyRefs
+              .map(
+                (ref) => `
+            <span style="font-size:11px;font-family:monospace;background:var(--um-btn-2-bg);color:var(--um-btn-2-text);border:1px solid var(--um-btn-2-border);border-radius:9999px;padding:2px 8px;">${this.esc(ref)}</span>`
+              )
+              .join('');
       policiesPreview.style.display = 'block';
     });
 
     const close = () => overlay.remove();
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
     modal.querySelector('.assign-close')!.addEventListener('click', close);
     modal.querySelector('.assign-cancel')!.addEventListener('click', close);
     modal.querySelector('.assign-save')!.addEventListener('click', async () => {
-      const roleId = (modal.querySelector<HTMLSelectElement>('[name=roleId]')!.value).trim();
-      const errEl = modal.querySelector<HTMLElement>('[data-for=roleId]')!;
-      if (!roleId) { errEl.textContent = 'Selecione uma função.'; return; }
-      errEl.textContent = '';
+      const roleId = modal.querySelector<HTMLSelectElement>('[name=roleId]')!.value.trim();
+      const errRoleEl = modal.querySelector<HTMLElement>('[data-for=roleId]')!;
+      const errExpiresEl = modal.querySelector<HTMLElement>('[data-for=expiresAt]')!;
+      const errReasonEl = modal.querySelector<HTMLElement>('[data-for=reason]')!;
+      const formErrEl = modal.querySelector<HTMLElement>('.um-form-error')!;
 
-      const scope = (modal.querySelector<HTMLSelectElement>('[name=scope]')!.value) || '*';
-      const expiresAtRaw = (modal.querySelector<HTMLInputElement>('[name=expiresAt]')!.value);
-      const expiresAt = expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null;
-      const reason = (modal.querySelector<HTMLInputElement>('[name=reason]')!.value).trim() || null;
-      const role = this.availableRoles.find(r => r.id === roleId);
+      // Limpar erros anteriores
+      errRoleEl.textContent = '';
+      errExpiresEl.textContent = '';
+      errReasonEl.textContent = '';
+      formErrEl.style.display = 'none';
+      formErrEl.textContent = '';
+
+      // Validação dos campos obrigatórios
+      const expiresAtRaw = modal.querySelector<HTMLInputElement>('[name=expiresAt]')!.value;
+      const reason = modal.querySelector<HTMLInputElement>('[name=reason]')!.value.trim();
+      let hasError = false;
+      if (!roleId) { errRoleEl.textContent = 'Selecione uma função.'; hasError = true; }
+      if (!expiresAtRaw) { errExpiresEl.textContent = 'Informe a data de expiração.'; hasError = true; }
+      if (!reason) { errReasonEl.textContent = 'Informe o motivo da atribuição.'; hasError = true; }
+      if (hasError) return;
+
+      // Verificar se o usuário foi sincronizado com o GCDR
+      if (!this.gcdrUserId) {
+        formErrEl.textContent = 'Usuário não sincronizado com GCDR. Use o botão ↻ na lista de usuários primeiro.';
+        formErrEl.style.display = 'block';
+        return;
+      }
+
+      const scope = modal.querySelector<HTMLSelectElement>('[name=scope]')!.value || '*';
+      const expiresAt = new Date(expiresAtRaw).toISOString();
+      const role = this.availableRoles.find((r) => r.id === roleId);
       const roleKey = role?.key || role?.id || roleId;
 
       const btn = modal.querySelector<HTMLButtonElement>('.assign-save')!;
-      btn.disabled = true; btn.textContent = '...';
+      btn.disabled = true;
+      btn.textContent = '...';
       try {
         const body = {
-          userId: this.user.id.id,
+          userId: this.gcdrUserId,
           roleKey,
           scope,
           expiresAt,
           reason,
         };
+
         const res = await fetch(`${this.gcdrBase()}/authorization/assignments`, {
-          method: 'POST', headers: this.gcdrHeaders(), body: JSON.stringify(body),
+          method: 'POST',
+          headers: this.gcdrHeaders(),
+          body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (!res.ok) {
+          let backendMsg = `Erro no servidor (HTTP ${res.status})`;
+          try {
+            const errJson = await res.json();
+            if (errJson?.error?.message) backendMsg = errJson.error.message;
+          } catch (_) { /* mantém msg com status */ }
+          throw new Error(backendMsg);
+        }
+
         const created: GCDRAssignment = await res.json();
         this.callbacks.showToast(`Função "${role?.displayName || roleId}" atribuída!`, 'success');
         close();
@@ -346,22 +446,27 @@ export class UserDetailTab {
         await this.writeTBSnapshot();
       } catch (err) {
         console.error('[UserDetailTab] assign error', err);
-        this.callbacks.showToast('Erro ao atribuir função.', 'error');
-        btn.disabled = false; btn.textContent = 'Atribuir';
+        const msg = err instanceof Error ? err.message : 'Erro ao atribuir função.';
+        formErrEl.textContent = msg;
+        formErrEl.style.display = 'block';
+        this.callbacks.showToast(msg, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Atribuir';
       }
     });
   }
 
   private async revokeAssignment(a: GCDRAssignment): Promise<void> {
-    const role = this.availableRoles.find(r => r.id === a.roleId);
+    const role = this.availableRoles.find((r) => r.id === a.roleId);
     const label = role?.displayName || a.roleDisplayName || a.roleKey;
     if (!confirm(`Revogar a função "${label}"?`)) return;
     try {
       const res = await fetch(`${this.gcdrBase()}/authorization/assignments/${a.id}`, {
-        method: 'DELETE', headers: this.gcdrHeaders(),
+        method: 'DELETE',
+        headers: this.gcdrHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.assignments = this.assignments.filter(x => x.id !== a.id);
+      this.assignments = this.assignments.filter((x) => x.id !== a.id);
       this.renderAssignments();
       this.callbacks.showToast(`Função "${label}" revogada.`, 'success');
       await this.writeTBSnapshot();
@@ -379,8 +484,8 @@ export class UserDetailTab {
       updatedAt: new Date().toISOString(),
       version: this.assignmentsVersion,
       assignments: this.assignments
-        .filter(a => a.status !== 'expired')
-        .map(a => ({
+        .filter((a) => a.status !== 'expired')
+        .map((a) => ({
           id: a.id,
           roleKey: a.roleKey,
           roleDisplayName: a.roleDisplayName,
@@ -457,14 +562,14 @@ export class UserDetailTab {
 
     const form = card.querySelector<HTMLFormElement>('.um-form')!;
     const fd = new FormData(form);
-    const firstName = (fd.get('firstName') as string || '').trim();
-    const email = (fd.get('email') as string || '').trim();
+    const firstName = ((fd.get('firstName') as string) || '').trim();
+    const email = ((fd.get('email') as string) || '').trim();
 
     // Basic validation
     const errors: Record<string, string> = {};
     if (!firstName) errors.firstName = 'Nome é obrigatório.';
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'E-mail inválido.';
-    card.querySelectorAll<HTMLElement>('[data-for]').forEach(el => {
+    card.querySelectorAll<HTMLElement>('[data-for]').forEach((el) => {
       el.textContent = errors[el.dataset.for!] || '';
     });
     if (Object.keys(errors).length > 0) return;
@@ -476,13 +581,13 @@ export class UserDetailTab {
 
     try {
       const { tbBaseUrl, jwtToken } = this.config;
-      const description = (fd.get('description') as string || '').trim();
+      const description = ((fd.get('description') as string) || '').trim();
       const updatedUser: TBUser = {
         ...this.user,
         firstName,
-        lastName: (fd.get('lastName') as string || '').trim() || undefined,
+        lastName: ((fd.get('lastName') as string) || '').trim() || undefined,
         email,
-        phone: (fd.get('phone') as string || '').trim() || undefined,
+        phone: ((fd.get('phone') as string) || '').trim() || undefined,
         additionalInfo: {
           ...this.user.additionalInfo,
           description: description || undefined,
@@ -575,11 +680,13 @@ export class UserDetailTab {
   }): void {
     const overlay = document.createElement('div');
     overlay.className = 'um-confirm-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:100001;';
+    overlay.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:100001;';
 
     const modal = document.createElement('div');
     modal.className = 'um-confirm-modal';
-    modal.style.cssText = 'background:#1e2433;border:1px solid #3a4160;border-radius:12px;padding:24px;max-width:440px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.5);';
+    modal.style.cssText =
+      'background:#1e2433;border:1px solid #3a4160;border-radius:12px;padding:24px;max-width:440px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.5);';
     modal.innerHTML = `
       <h4 style="margin:0 0 12px;font-size:16px;font-weight:600;color:#e2e8f0;">${opts.title}</h4>
       <p style="margin:0 0 20px;font-size:14px;color:#94a3b8;line-height:1.5;">${opts.message}</p>
@@ -594,7 +701,9 @@ export class UserDetailTab {
 
     const close = () => overlay.remove();
 
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
     modal.querySelector('.um-confirm-cancel')!.addEventListener('click', close);
     modal.querySelector('.um-confirm-ok')!.addEventListener('click', async () => {
       const btn = modal.querySelector<HTMLButtonElement>('.um-confirm-ok')!;

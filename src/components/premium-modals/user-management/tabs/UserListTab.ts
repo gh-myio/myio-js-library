@@ -559,7 +559,15 @@ export class UserListTab {
             externalLinks: [externalLink],
           }),
         });
-        if (!createRes.ok) throw new Error(`Criar usuário GCDR: HTTP ${createRes.status}`);
+        if (!createRes.ok) {
+          const errorText = await createRes.text().catch(() => '');
+          let msg = `HTTP ${createRes.status}`;
+          try {
+            const j = JSON.parse(errorText);
+            msg = j?.error?.message || j?.message || msg;
+          } catch { /* mantém msg com status */ }
+          throw new Error(`Criar usuário GCDR: ${msg}`);
+        }
         gcdrUser = await createRes.json() as GCDRUser;
       }
 
